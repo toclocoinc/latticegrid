@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.4.0 — type declarations
+ * Lattice Grid 1.5.0 — type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -741,6 +741,12 @@ export interface GridConfig {
   dataTypes?: Record<string, DataType>;
   /** Values sampled per undeclared column when inferring its type. Default 100. */
   sampleSize?: number;
+  /**
+   * Raise every interactive target to a comfortable size for touch, without
+   * changing the type. `'large'` asks for it; `'default'` opts out of the
+   * coarse-pointer rule that would otherwise apply it.
+   */
+  targetSize?: 'default' | 'large';
   components?: Record<string, RendererCtor | EditorCtor | FilterCtor>;
   pipes?: Record<string, (value: unknown, ...args: string[]) => string>;
   totalFns?: Record<string, TotalFn>;
@@ -1203,6 +1209,8 @@ export interface RowsApi {
   matchCount(): number;
   data(): unknown[];
   forEach(fn: (row: Row, index: number) => void): void;
+  /** Every row in the data, before any filter. Leaf rows, in physical order. */
+  forEachAll(fn: (row: Row, index: number) => void): void;
   value(key: string, colId: string): unknown;
   text(key: string, colId: string): string;
   values(key: string): Record<string, unknown>;

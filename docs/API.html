@@ -360,7 +360,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.4.0</p>
+    <p class="rail__sub">API reference · v1.5.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -436,7 +436,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.4.0</span>
+      <span class="chip">Version 1.5.0</span>
       <span class="chip">272 KB gzipped</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
@@ -630,6 +630,7 @@
           <tr><td class="name">columnPresets</td><td class="type">Record&lt;string, Column&gt;</td><td class="desc">Named bundles applied with <code>preset: 'money'</code>.</td></tr>
           <tr><td class="name">dataTypes</td><td class="type">Record&lt;string, DataType&gt;</td><td class="desc">Custom types. Registered ahead of the built-ins, so a name here overrides one of ours.</td></tr>
           <tr><td class="name">sampleSize</td><td class="type">number</td><td class="desc">Values read per undeclared column when inferring its type. Default 100.</td></tr>
+          <tr><td class="name">targetSize</td><td class="type">'default' | 'large'</td><td class="desc">Raises every interactive target to a comfortable size for touch, leaving the type alone. Applied automatically on a coarse pointer; <code>'default'</code> opts out of that.</td></tr>
           <tr><td class="name">components</td><td class="type">Record&lt;string, Ctor&gt;</td><td class="desc">Renderers, editors and filters addressable by name.</td></tr>
           <tr><td class="name">pipes</td><td class="type">Record&lt;string, fn&gt;</td><td class="desc">Template pipes for <code>cell.template</code>.</td></tr>
           <tr><td class="name">totalFns</td><td class="type">Record&lt;string, TotalFn&gt;</td><td class="desc">Custom aggregations, addressable from <code>column.total</code>.</td></tr>
@@ -820,7 +821,7 @@
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.4.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.5.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -863,6 +864,7 @@ grid.overlay.hide();</code></pre>
           <tr><td class="sig">values(key)</td><td class="type">object</td><td class="desc">Every column's value for one row.</td></tr>
           <tr><td class="sig">data()</td><td class="type">unknown[]</td><td class="desc">The caller's original row objects, in source order.</td></tr>
           <tr><td class="sig">forEach(fn)</td><td class="type">void</td><td class="desc">Walks display rows without materialising them all.</td></tr>
+          <tr><td class="sig">forEachAll(fn)</td><td class="type">void</td><td class="desc">Walks every row in the data, before any filter &mdash; leaf rows only, in the order they arrived. What you want for a total, an export or a reconciliation, where <code>forEach</code> would give you the view instead. A remote or paged source holds only what it has fetched and says so.</td></tr>
           <tr><td class="sig">apply(change)</td><td class="type">object</td><td class="desc">Transactional add / update / remove. Needs <code>rowKey</code>.</td></tr>
           <tr><td class="sig">queue(change)</td><td class="type">void</td><td class="desc">Batches a change into the next frame — the high-frequency path.</td></tr>
           <tr><td class="sig">refresh(opts)</td><td class="type">void</td><td class="desc">Force re-evaluation of computed values and cells.</td></tr>
@@ -1808,6 +1810,7 @@ off();                                       <span class="cmt">// on() returns i
           <tr><td class="name">export:progress</td><td class="type">{ ... }</td><td class="desc">Progress on a streamed export.</td></tr>
           <tr><td class="name">toolpanel:focus</td><td class="type">{}</td><td class="desc">The documented keyboard shortcut reached the tool panel.</td></tr>
           <tr><td class="name">history:changed</td><td class="type">{ canUndo, canRedo, undo, redo }</td><td class="desc">Emitted <em>after</em> the entry is pushed, so a toolbar reading it names the right action. Repainting from <code>sort:changed</code> instead reads the timeline one action behind.</td></tr>
+          <tr><td class="name">history:applied</td><td class="type">{ direction, step }</td><td class="desc">An action was undone or redone. Distinct from <code>history:changed</code>, which also fires when a new action is pushed onto the stacks and so cannot tell you anything was reversed.</td></tr>
           <tr><td class="name">state:reset</td><td class="type">{ state }</td><td class="desc">The grid was returned to its baseline.</td></tr>
           <tr><td class="name">highlight:changed</td><td class="type">{ highlights }</td><td class="desc">A highlight was added or cleared.</td></tr>
           <tr><td class="name">redaction:changed</td><td class="type">{ columns }</td><td class="desc">A column was redacted or restored.</td></tr>
@@ -2033,6 +2036,11 @@ createGrid(el, {
 });</code></pre>
 
     <h2 id="styling">Styling and your page's CSS</h2>
+    <p><strong>Forced colours.</strong> In Windows High Contrast Mode the grid translates state that
+    is normally a background tint into borders and system colours: selection takes the system's own
+    selection colours, pinned regions swap their shadow for a rule, and diff states are told apart by
+    border style rather than by hue. A colour swatch and a collaborator's presence colour keep their
+    own colour, because there the colour is the information.</p>
     <p>Every selector is namespaced under <code>.lattice</code>, so the grid cannot restyle your
     page. Since 1.4.0 the reverse holds too: the elements the grid builds are given a floor for the
     properties a host page commonly sets on a bare tag — margin, padding, border, radius,
@@ -2043,6 +2051,21 @@ createGrid(el, {
     class. Deliberate overrides work exactly as before — only bare-tag rules are shut out. The reset
     covers box model and decoration only, never <code>display</code>, <code>position</code> or any
     dimension.</p>
+
+    <h2 id="accessibility">Accessibility</h2>
+    <p>Built to WCAG 2.2 level AA. Every operation is reachable without a pointer, including resizing
+    and reordering a column, which have key bindings and column-menu items rather than depending on a
+    drag. The grid reports itself as <code>grid</code> or <code>treegrid</code> following its
+    configuration; rows and cells carry their position in the dataset rather than in the rendered
+    window, so a reader on row 500,000 is told so; and rows in a hierarchy carry their position among
+    their siblings, which a reader cannot count for itself when most of a branch was never rendered.</p>
+    <p>Focus is real focus rather than <code>aria-activedescendant</code>, and survives row recycling.
+    Sorting, filtering, selection, grouping, expanding, paging, undo, paste and a refused edit are all
+    announced. In Windows High Contrast Mode state is translated into borders and system colours
+    instead of tints. No information is carried by hue alone.</p>
+    <p>The full keyboard map, the screen reader support statement and the known limits &mdash;
+    including the drag-only pivot zones &mdash; are in
+    <a href="api-detail.html#accessibility-guide">the guide</a>.</p>
 
     <h2 id="names">Built-in names</h2>
     <p class="section-note">Every registry accepts a custom entry under the same name, which then wins over ours.</p>
@@ -2136,7 +2159,7 @@ createGrid(el, {
     </div>
 
     <footer>
-      Lattice Grid 1.4.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.5.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins — please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

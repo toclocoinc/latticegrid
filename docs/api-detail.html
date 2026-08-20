@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.4.0</p>
+    <p class="rail__sub">Developer guide · v1.5.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -524,7 +524,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.4.0</span>
+        <span class="chip">Version 1.5.0</span>
         <span class="chip">272 KB gzipped</span>
         <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
@@ -855,7 +855,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.4.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.5.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -936,6 +936,10 @@ LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid
       <code>grid.columns.fit()</code> distributes the viewport width across visible columns, and
       <code>autoSize</code> measures content.
     </p>
+    <p>Both are also on the column menu &mdash; Move left, Move right, Move to start, Move to end, and
+      a Width submenu &mdash; and bound to the keyboard with a heading focused: <kbd>Alt</kbd> with a
+      left or right arrow resizes, <kbd>Shift</kbd> with one moves the column. Neither operation
+      depends on dragging.</p>
     <p>A pinned region holds the edge of the viewport only while there is something to scroll. Where
       the columns are narrower than the grid &mdash; fixed widths, or a <code>flex</code> column that
       has reached its <code>max</code> &mdash; nothing scrolls, so the pinned columns sit directly
@@ -1222,6 +1226,24 @@ grid.set('theme', <span class="kw">null</span>);   <span class="cmt">// back to 
         </tbody>
       </table>
     </div>
+    <h3>Forced colours</h3>
+    <p class="lead-in">
+      Windows High Contrast Mode replaces the palette outright &mdash; that is the point of it, and
+      no stylesheet should fight it. What the grid does instead is translate every piece of meaning
+      it normally carries in a background tint into something the mode preserves.
+    </p>
+    <p>A selected row takes the system's own selection colours. A pinned region loses its shadow,
+      which forced colours do not render, and gains a rule in its place. Status pills, fill
+      decorations, progress tracks and histogram bars each gain a border, because a fill with no
+      edge is invisible once its colour is discarded. Diff states stop depending on hue altogether:
+      added, removed and changed are told apart by border style &mdash; solid, dashed and doubled
+      &mdash; since the mode offers no way to keep four distinct colours.</p>
+    <p>Two things deliberately keep their colour, declared with
+      <code>forced-color-adjust</code>: a colour swatch, where the colour <em>is</em> the value being
+      shown, and a collaborator's presence colour, which is how one person is told from another.
+      Replacing those would destroy the meaning rather than translate it. Both gain a border so they
+      stay visible against either ground.</p>
+
     <p class="lead-in">
       Every theme is the same token set with different values, so an override you write against
       <code>.lattice</code> applies to all of them, and one written against
@@ -1346,6 +1368,27 @@ grid.edit.setCells([
     <div class="example">
       <p class="example__label">A price feed</p>
       <pre><code>socket.on('tick', (row) =&gt; grid.rows.queue({ update: [row] }));</code></pre>
+    </div>
+
+    <h3>Walking the data rather than the view</h3>
+    <p class="lead-in">
+      <code>rows.forEach</code> walks what is on screen: filtered, sorted, grouped, with collapsed
+      rows left out. That is the right default, and the wrong answer for a caller totalling a column,
+      exporting, or reconciling against another system.
+    </p>
+    <div class="example">
+      <pre><code>let total = 0;
+grid.rows.forEach(r =&gt; { total += r.data.amount });      <span class="cmt">// what the user can see</span>
+grid.rows.forEachAll(r =&gt; { total += r.data.amount });   <span class="cmt">// what the grid holds</span></code></pre>
+    </div>
+    <p><code>forEachAll</code> visits leaf rows only, in the order they arrived. Group rows are a
+      product of the current grouping and do not exist in the data, so they are not offered; the sort
+      belongs to the filtered view, so the order here is physical rather than sorted.</p>
+    <div class="why">
+      <p>A remote or paged source holds the page it has fetched, not the whole set, so there is
+      nothing there to walk past the filters. It warns and walks what it has rather than quietly
+      returning the filtered rows &mdash; a caller who asked for everything and silently received a
+      subset gets a number that looks entirely plausible and is wrong.</p>
     </div>
 
     <h2 id="sorting">Sorting</h2>
@@ -2710,6 +2753,126 @@ grid.annotate.use(null);                     <span class="cmt">// hand the grid 
       worse than one the host chooses. Bind your own to <code>use()</code>.</p>
     </div>
 
+    <h2 id="accessibility-guide">Accessibility</h2>
+    <p class="lead-in">
+      The grid is built to WCAG 2.2 level AA. What follows is what it does, what it does not do yet,
+      and the keyboard map in full &mdash; stated plainly, because a conformance claim that overstates
+      is worth less than one that admits its edges.
+    </p>
+
+    <h3>Keyboard</h3>
+    <p>Every operation is reachable without a pointer. Resizing and reordering a column were once
+      drag-only; both now have key bindings and menu items, so nothing depends on dragging.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Keys</th><th>Does</th></tr></thead>
+<!-- keyboard-map:start -->
+        <tbody>
+          <tr><th colspan="2">In the data</th></tr>
+          <tr><td class="name"><kbd>ArrowUp/Down/Left/Right</kbd></td><td class="desc">Move the focused cell</td></tr>
+          <tr><td class="name"><kbd>Home</kbd> <span class="sep">or</span> <kbd>End</kbd></td><td class="desc">First / last cell of the row</td></tr>
+          <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>Home</kbd> <span class="sep">or</span> <kbd>Ctrl</kbd>+<kbd>End</kbd></td><td class="desc">First cell of the first row / last cell of the last row</td></tr>
+          <tr><td class="name"><kbd>PageUp</kbd> <span class="sep">or</span> <kbd>PageDown</kbd></td><td class="desc">Move one viewport of rows</td></tr>
+          <tr><td class="name"><kbd>Tab</kbd> <span class="sep">or</span> <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td class="desc">Next / previous cell, wrapping across rows</td></tr>
+          <tr><td class="name"><kbd>Enter</kbd></td><td class="desc">Start editing the focused cell</td></tr>
+          <tr><td class="name"><kbd>Space</kbd></td><td class="desc">Toggle selection of the focused row</td></tr>
+          <tr><td class="name"><kbd>Escape</kbd></td><td class="desc">Cancel the current edit or drag</td></tr>
+          <tr><td class="name"><kbd>Alt</kbd>+<kbd>ArrowRight</kbd> <span class="sep">or</span> <kbd>Alt</kbd>+<kbd>ArrowLeft</kbd></td><td class="desc">Expand / collapse a group or tree row</td></tr>
+          <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd></td><td class="desc">Move focus to the column header</td></tr>
+          <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd></td><td class="desc">Move focus to the tool panel</td></tr>
+          <tr><td class="name"><kbd>Shift</kbd>+<kbd>F10</kbd> <span class="sep">or</span> <kbd>ContextMenu</kbd></td><td class="desc">Open the context menu for the focused cell</td></tr>
+          <tr><th colspan="2">On a column heading</th></tr>
+          <tr><td class="name"><kbd>ArrowLeft</kbd> <span class="sep">or</span> <kbd>ArrowRight</kbd></td><td class="desc">Move between headings</td></tr>
+          <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>ArrowLeft</kbd> <span class="sep">or</span> <kbd>Ctrl</kbd>+<kbd>ArrowRight</kbd></td><td class="desc">First / last heading</td></tr>
+          <tr><td class="name"><kbd>Enter or Space</kbd></td><td class="desc">Sort by the column, Shift to add to the sort</td></tr>
+          <tr><td class="name"><kbd>Alt</kbd>+<kbd>ArrowLeft</kbd> <span class="sep">or</span> <kbd>Alt</kbd>+<kbd>ArrowRight</kbd></td><td class="desc">Resize the column, Ctrl for a coarse step</td></tr>
+          <tr><td class="name"><kbd>Shift</kbd>+<kbd>ArrowLeft</kbd> <span class="sep">or</span> <kbd>Shift</kbd>+<kbd>ArrowRight</kbd></td><td class="desc">Move the column</td></tr>
+          <tr><td class="name"><kbd>Alt</kbd>+<kbd>ArrowDown</kbd></td><td class="desc">Open the column menu</td></tr>
+          <tr><td class="name"><kbd>ArrowDown or Escape</kbd></td><td class="desc">Return focus to the data</td></tr>
+          <tr><th colspan="2">In the tool panel's column list</th></tr>
+          <tr><td class="name"><kbd>G</kbd></td><td class="desc">Group by the column, or stop grouping by it</td></tr>
+          <tr><td class="name"><kbd>V</kbd></td><td class="desc">Add the column to values, or take it out</td></tr>
+          <tr><td class="name"><kbd>P</kbd></td><td class="desc">Pivot by the column, or stop pivoting by it</td></tr>
+          <tr><td class="name"><kbd>Shift</kbd>+<kbd>ArrowUp</kbd> <span class="sep">or</span> <kbd>Shift</kbd>+<kbd>ArrowDown</kbd></td><td class="desc">Move the column</td></tr>
+        </tbody>
+        <!-- keyboard-map:end -->
+      </table>
+    </div>
+    <p class="note">This table is generated from the bindings the build ships and checked on every
+      build, so it cannot drift from what the grid actually does.</p>
+
+    <h3>What a screen reader is told</h3>
+    <p>The grid reports itself as a <code>grid</code>, or a <code>treegrid</code> when it holds a
+      hierarchy, and the role follows the configuration rather than being fixed when the grid is
+      created. Rows and cells carry their position in the <em>dataset</em>, not in the rendered
+      window: a reader on row 500,000 of a virtualised grid is told exactly that, which is the point
+      most grids get wrong. Rows in a hierarchy also carry their position among their siblings, since
+      a reader cannot count siblings that were never rendered.</p>
+    <p>Focus is real focus, moved onto the cell, rather than <code>aria-activedescendant</code>. It
+      is restored after a row is recycled or scrolled out and back, and the grid holds a single tab
+      stop, so tabbing in and out crosses it once.</p>
+    <p>State changes are announced: sorting, filtering, selection, grouping, expanding and
+      collapsing, paging, undo and redo, pasting, and rows arriving or leaving on a live feed. A feed
+      is summarised on an interval rather than narrated, because a reader queues what it is given and
+      a fast feed would leave someone listening to counts that are no longer true. A rejected edit is
+      announced with the value that was put back, which is the change users most need to hear about
+      and the one a visual marker alone cannot convey.</p>
+
+    <h3>Colour and contrast</h3>
+    <p>No information is carried by hue alone. The <code>high-contrast</code> theme runs text at 21:1
+      and borders at 6.1:1. In Windows High Contrast Mode the grid translates its state into borders
+      and system colours rather than fighting the palette &mdash; see
+      <a href="#theming">theming</a> for what that means in detail.</p>
+
+    <h3>How this is checked</h3>
+    <p>The grid carries its own accessibility rules, and they run on every build against each
+      configuration that differs structurally &mdash; flat, grouped, tree, pinned, editing, paginated
+      and with a tool panel &mdash; rather than against one sample grid. The same rules are available
+      live from the devtools panel, where they can also read colour and measure targets.</p>
+    <p>Be clear about what that proves. These are our own rules covering what a data grid gets wrong,
+      not a general-purpose engine, and automated checking of any kind catches a minority of real
+      problems. They are a regression net &mdash; they stop a fix being undone silently &mdash; and
+      not evidence of conformance.</p>
+
+    <h3>Bigger targets for touch</h3>
+    <p class="lead-in">
+      The grid meets the minimum target size on its own. That minimum is a conformance floor, not a
+      comfortable size for a finger &mdash; both mobile platforms recommend nearer 44 pixels.
+    </p>
+    <div class="example">
+      <pre><code>targetSize: 'large'</code></pre>
+    </div>
+    <p>This raises the hit areas and leaves the type where it is, which is the distinction that
+      matters: a touch user wants a larger target, and a low-vision user wants larger text. Density
+      is the control for the second, and the two combine &mdash; a compact grid with large targets is
+      a reasonable thing to want on a tablet.</p>
+    <p>It applies by itself under a coarse pointer, since the person holding one is both who the
+      criterion is for and the least likely to go looking for a setting. Pass
+      <code>targetSize: 'default'</code> to opt out of that.</p>
+    <div class="why">
+      <p>Density alone does not do this. It scales the header, the rows and the type, and leaves the
+      affordances inside them exactly as they were &mdash; measured at every preset, the menu button
+      stays 24 pixels, the filter 16 and the resize grip 10. A spacious grid has the room going spare
+      and controls no larger than a compact one, which is the gap this fills.</p>
+    </div>
+
+    <h3>Known limits</h3>
+    <p>Stated because a report that claims everything invites the one question it cannot answer.</p>
+    <ul>
+      <li><strong>Two-dimensional scrolling.</strong> A grid scrolls horizontally at narrow widths.
+        WCAG 1.4.10 Reflow explicitly permits this for data tables, so it is conforming rather than a
+        gap &mdash; but it is worth knowing before you meet it.</li>
+      <li><strong>Pinned columns do not release at narrow widths.</strong> At around 320 pixels, two
+        pinned columns of ordinary width can leave under 60 pixels for the scrolling middle. The grid
+        stays operable and nothing is lost, but a layout that pins columns is worth reviewing if you
+        expect it to be used at that size.</li>
+      <li><strong>The filter icon is a small target, deliberately.</strong> It is 16&nbsp;&times;&nbsp;16,
+        below the 24-pixel minimum of WCAG 2.5.8, and conforms under that criterion's
+        <em>equivalent</em> allowance: filtering is also a column-menu item, and the menu button
+        meets the size on its own. Worth knowing if you are pointing at it on a touch screen &mdash;
+        the menu is the larger route to the same thing.</li>
+    </ul>
+
     <h2 id="density-guide">Density</h2>
     <p class="lead-in">
       One number drives the grid's geometry. A preset sets it; every token derives from it.
@@ -3588,6 +3751,7 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
           <tr><td class="name">range:changed</td><td class="type">{ ranges }</td><td class="desc">A status bar showing the sum of what is selected — see <code>selection.summary()</code>.</td></tr>
           <tr><td class="name">sort:changed / filter:changed</td><td class="type">{ sort } / { filters }</td><td class="desc">Reflecting the view in the URL.</td></tr>
           <tr><td class="name">history:changed</td><td class="type">{ canUndo, canRedo, undo, redo }</td><td class="desc">Driving your own undo button. Emitted <em>after</em> the entry is pushed, so the label is right.</td></tr>
+          <tr><td class="name">history:applied</td><td class="type">{ direction, step }</td><td class="desc">An action was undone or redone, with which and what. <code>history:changed</code> also fires when a new action is pushed, so it cannot distinguish the two.</td></tr>
           <tr><td class="name">view:saved / :removed</td><td class="type">{ view, views }</td><td class="desc">Persisting saved views to a server.</td></tr>
           <tr><td class="name">render:done</td><td class="type">{ first, last }</td><td class="desc">Decorating cells from outside. The cell layer rewrites class names on every paint, so anything added before this is erased.</td></tr>
         </tbody>
@@ -3695,7 +3859,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.4.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.5.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins —
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

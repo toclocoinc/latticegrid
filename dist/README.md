@@ -3,7 +3,7 @@
 **A high-performance data grid for the browser.** Vanilla JavaScript, no runtime
 dependencies, no framework wrapper, no build step required.
 
-Version 1.4.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.5.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -19,6 +19,7 @@ runtime, not a CDN, not a font, not an icon sprite.
 | `lattice-grid.esm.min.js` | The same, as an ES module. |
 | `lattice-grid.min.css` | The theme. Required. |
 | `lattice-grid.d.ts` | TypeScript declarations. |
+| `lattice-grid.umd.js`, `lattice-grid.esm.js` | Unminified, for debugging. |
 | `docs/API.html` | The complete API reference. |
 | `docs/api-detail.html` | The developer guide — what each part does, and why. |
 
@@ -157,3 +158,4 @@ is no IE11 build and no polyfill bundle.
 ---
 
 Copyright © 2026 TOCLOCO Inc. All rights reserved.
+Lattice Grid and the Lattice Grid logo are trademarks of TOCLOCO Inc.
