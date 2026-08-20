@@ -158,4 +158,3 @@ is no IE11 build and no polyfill bundle.
 ---
 
 Copyright © 2026 TOCLOCO Inc. All rights reserved.
-Lattice Grid and the Lattice Grid logo are trademarks of TOCLOCO Inc.
