@@ -3,7 +3,7 @@
 **A high-performance data grid for the browser.** Vanilla JavaScript, no runtime
 dependencies, no framework wrapper, no build step required.
 
-Version 1.4.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.5.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -158,3 +158,4 @@ is no IE11 build and no polyfill bundle.
 ---
 
 Copyright © 2026 TOCLOCO Inc. All rights reserved.
+Lattice Grid and the Lattice Grid logo are trademarks of TOCLOCO Inc.
