@@ -1,9 +1,10 @@
 # Lattice Grid
 
 **A high-performance data grid for the browser.** Vanilla JavaScript, no runtime
-dependencies, no framework wrapper, no build step required.
+dependencies, no build step required. Optional adapters for React, Vue, Svelte
+and Web Components ship alongside it.
 
-Version 1.5.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.5.4 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -15,11 +16,12 @@ runtime, not a CDN, not a font, not an icon sprite.
 
 | File | What it is |
 |---|---|
-| `lattice-grid.min.js` | The library, minified. UMD — works with a `<script>` tag. |
+| `lattice-grid.min.js` | The library. UMD — works with a `<script>` tag. |
 | `lattice-grid.esm.min.js` | The same, as an ES module. |
 | `lattice-grid.min.css` | The theme. Required. |
 | `lattice-grid.d.ts` | TypeScript declarations. |
-| `lattice-grid.umd.js`, `lattice-grid.esm.js` | Unminified, for debugging. |
+| `modules/react.esm.min.js` | React adapter. Vue, Svelte and Web Component builds sit beside it. |
+| `modules/devtools.esm.min.js` | The devtools panel, including the accessibility checks. |
 | `docs/API.html` | The complete API reference. |
 | `docs/api-detail.html` | The developer guide — what each part does, and why. |
 
@@ -52,12 +54,41 @@ The script-tag path is a first-class target, not an afterthought. Two files:
 
 ### With a bundler
 
+```sh
+npm install @toclocoinc/lattice-grid
+```
+
 ```js
-import { createGrid } from 'lattice-grid';
-import 'lattice-grid/css';
+import { createGrid } from '@toclocoinc/lattice-grid';
+import '@toclocoinc/lattice-grid/css';
 
 const grid = createGrid(element, { columns, rows, rowKey: 'id' });
 ```
+
+### React, Vue, Svelte and Web Components
+
+Optional adapters, thin by design: the grid is created once
+against a host element, prop changes are pushed through the same public API you
+would call by hand, and it is destroyed on unmount.
+
+You pass the framework in. Each adapter is a factory taking the framework and
+`createGrid` rather than importing either, so the package keeps its promise of
+no runtime dependencies, and an adapter can never disagree with the version of
+the grid you already loaded.
+
+```js
+import React from 'react';
+import { createGrid } from '@toclocoinc/lattice-grid';
+import { createLatticeGrid } from '@toclocoinc/lattice-grid/modules/react';
+
+const LatticeGrid = createLatticeGrid({ React, createGrid });
+```
+
+The web component is the exception: it carries the grid inside it, so use it *or*
+`createGrid` in a page, not both — two copies keep separate registries, and a
+renderer registered through one will not appear in the other.
+
+The full setup for each framework is in the developer guide.
 
 ### TypeScript
 
@@ -66,7 +97,7 @@ them without configuration — autocomplete, inline documentation and type
 checking against the real API.
 
 ```ts
-import type { Grid, GridConfig, ColumnDef } from 'lattice-grid';
+import type { Grid, GridConfig, ColumnDef } from '@toclocoinc/lattice-grid';
 ```
 
 The declarations are checked against the running product on every build, so what
