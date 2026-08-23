@@ -219,16 +219,6 @@ ai: {
 }
 ```
 
-## What to wire, and where
-
-| Piece | Where |
-| --- | --- |
-| `grid.ai` namespace (`schema()`, `plan()`, `apply()`) | `packages/core/src/grid.js` |
-| `PromptBar` mount when `config.ai.ask` is present | `packages/dom/src/createGrid.js` |
-| `prompt.css` in the stylesheet list | `tools/build.js` |
-| `ai/schema.js`, `ai/intent.js` exports | the core barrel |
-| `PromptBar` export | the DOM barrel |
-
 ## Events
 
 Applying goes through `filters.set`, `sort.set`, `columns.group`,

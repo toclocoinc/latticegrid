@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.5.4 — type declarations
+ * Lattice Grid 1.6.0 — type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -19,15 +19,39 @@
 export type TypeName =
   | 'text' | 'number' | 'boolean' | 'date' | 'dateString' | 'object' | 'lookup'
   | 'image'
+  // Extended catalogue. Never inferred — a column asks for these by name.
+  | 'time' | 'datetime' | 'duration'
+  | 'ipv4' | 'ipv6' | 'cidr'
+  | 'json' | 'secret'
+  | 'hex' | 'hex8' | 'hex16' | 'hex32' | 'binary' | 'binary8' | 'octal'
+  | 'decibel' | 'decibelAmplitude' | 'ratio' | 'percentRate'
+  // Units — computing
+  | 'bytes' | 'megabytes' | 'gigabytes' | 'bitrate' | 'gigabits'
+  // Units — physical
+  | 'metres' | 'millimetres' | 'kilometres'
+  | 'grams' | 'kilograms' | 'tonnes'
+  | 'seconds' | 'milliseconds' | 'hours'
+  // Units — engineering
+  | 'speed' | 'kph' | 'mph' | 'knots' | 'acceleration'
+  | 'area' | 'hectares' | 'volume' | 'cubicMetres'
+  | 'energy' | 'kilowattHours' | 'power' | 'kilowatts' | 'force'
+  | 'pressure' | 'bar' | 'psi' | 'torque' | 'density'
+  | 'flow' | 'litresPerMinute' | 'radians' | 'degrees'
+  // Units — electrical and scientific
+  | 'voltage' | 'current' | 'resistance' | 'capacitance' | 'inductance'
+  | 'charge' | 'conductance' | 'fluxDensity' | 'luminousFlux' | 'illuminance'
+  | 'substance' | 'absorbedDose' | 'equivalentDose' | 'radioactivity' | 'frequency'
+  // Temperature, which is affine rather than multiplicative
+  | 'celsius' | 'fahrenheit' | 'kelvin'
   | (string & {});
 
 /**
  * Cell and header alignment.
  *
- * `left` and `right` are accepted and normalised to `start` and `end`. The grid
- * has no RTL handling today, so the two pairs are exact synonyms; if direction
- * support lands, `start`/`end` will follow the text direction while
- * `left`/`right` stay physical. `centre` is accepted alongside `center`.
+ * `left` and `right` are accepted and normalised to `start` and `end`.
+ * `start`/`end` follow the writing direction, so they mirror in a right-to-left
+ * grid while `left`/`right` stay physical. `centre` is accepted alongside
+ * `center`.
  */
 export type Align = 'start' | 'center' | 'end' | 'left' | 'right' | 'centre';
 /**
@@ -77,6 +101,11 @@ export interface Row {
   /** Stable path of group keys from root to this row. */
   groupPath?: string[];
   hasChildren?: boolean;
+  /**
+   * Which sticky strip this row is pinned in, when it is one the host pinned
+   * through `setPinnedRows`. Absent on every row that is part of the data.
+   */
+  pinned?: 'top' | 'bottom';
 }
 
 export interface RowChange {
@@ -130,7 +159,7 @@ export interface CellParams extends ValueParams {
 }
 
 export interface FormatParams extends ValueParams { locale: string }
-export interface ParseParams { text: string; value: unknown; data: unknown; row: Row; column: Column; grid: Grid; context: unknown }
+export interface ParseParams { text: string; value: unknown; data: unknown; row: Row; column: Column; grid: Grid; context: unknown; locale?: string }
 export interface ApplyParams { value: unknown; oldValue: unknown; data: unknown; row: Row; column: Column; grid: Grid; context: unknown }
 export interface KeyParams extends ValueParams {}
 export interface ValidateParams extends ApplyParams {}
@@ -160,6 +189,20 @@ export interface NumberFormat {
   zeroDisplay?: string;
   nullDisplay?: string;
   locale?: string;
+  /**
+   * A partial message catalogue laid over the built-in British English one.
+   *
+   * Every valid key is listed in `MESSAGE_KEYS`; a key that is not is ignored
+   * with a warning. Import a bundled locale (`FR_FR`, `AR`, …) or supply your
+   * own object. Merged rather than replacing, so an incomplete translation
+   * leaves the remainder in English rather than showing raw keys.
+   */
+  messages?: Record<string, string | Record<string, string>>;
+  /**
+   * Writing direction. Omit to settle it from the element's own `dir` and then
+   * from `locale` — `ar`, `he`, `fa` and the rest resolve to `rtl`.
+   */
+  direction?: 'ltr' | 'rtl';
   scale?: number;
 }
 
@@ -214,6 +257,28 @@ export interface DataType {
     render?: RendererName;
   };
   storage?: 'float64' | 'int32' | 'bitset' | 'dictionary' | 'object';
+
+  /**
+   * Which aggregates are meaningful for this type, and how.
+   *
+   * Omit it and every aggregate is allowed, which is what every type that
+   * shipped before this does.
+   */
+  totals?: {
+    /**
+     * The aggregates that mean something. A column of this type configured
+     * with any other fails at construction rather than rendering a confident
+     * wrong number.
+     */
+    supported?: TotalName[];
+    /**
+     * The type's own reduction for an aggregate, replacing the built-in
+     * arithmetic. Receives the values index-aligned with their rows, and a
+     * context carrying `column` and `valueAt(colId, i)` for reading another
+     * column of the same row.
+     */
+    implement?: Record<string, TotalFn>;
+  };
   excel?: string;
   toClipboard?: (v: unknown) => string;
   fromClipboard?: (s: string) => unknown;
@@ -417,7 +482,16 @@ export interface ColumnFilterSpec {
 }
 
 export interface ColumnLayoutSpec {
-  width?: number;
+  /**
+   * A pixel width, or a percentage of the grid's inner width as a string —
+   * `'25%'`.
+   *
+   * A percentage is a share of the *whole* grid. `flex` divides only the space
+   * left over after fixed columns, so the two are not interchangeable: `flex:
+   * 25` on four columns is a quarter of the remainder, which is a quarter of
+   * the grid only when nothing else is fixed.
+   */
+  width?: number | string;
   min?: number;
   max?: number;
   flex?: number;
@@ -445,6 +519,14 @@ export interface ColumnExportSpec {
 }
 
 export interface Column {
+  /**
+   * Free-form labels for grouping columns together. A bare string is
+   * accepted for a single tag.
+   *
+   * Used by the column tag bar to show and hide sets of columns — tag sixty
+   * monthly columns with their year, and a user can switch to one year.
+   */
+  tags?: string | string[];
   id?: string;
   field?: string;
   title?: string;
@@ -669,7 +751,7 @@ export interface DetailConfig {
   /**
    * Render the detail into this element instead of into a row beneath its
    * master. A selector or an element. Exactly one detail is open at a time in
-   * this placement (§13).
+   * this placement.
    */
   target?: string | HTMLElement;
   /** Handed the nested grid as it is created, for whatever the forwarded events do not cover. */
@@ -678,7 +760,7 @@ export interface DetailConfig {
    * The property of the master's record the detail rows live on, so an edit in
    * the detail is reported as a path on the master — `ports.1.vlan`. Inferred
    * by identity when `rows(row)` returns an array already on the record, which
-   * is the usual shape; set this when it does not (§13).
+   * is the usual shape; set this when it does not.
    */
   path?: string;
 }
@@ -764,6 +846,156 @@ export interface GridConfig {
   timeZone?: string;
   theme?: Theme;
   density?: Density;
+
+  /**
+   * Which rules are drawn between cells.
+   *
+   * `'both'` by default. The two axes are separate decisions: horizontal rules
+   * help the eye track along a row, vertical ones stop adjacent values running
+   * together. `false` or `'none'` draws neither.
+   *
+   * Only the rules *between data* are affected — the header's underline, the
+   * pinned seams and the totals separator are structure, not grid lines.
+   */
+  gridLines?: boolean | 'both' | 'horizontal' | 'vertical' | 'none' | 'rows' | 'columns';
+
+  /**
+   * Round the grid's outer corners.
+   *
+   * Square by default. `true` adopts the theme's own radius; a number is
+   * pixels; a string is used as written, so a host can pass its own token or a
+   * relative unit.
+   */
+  cornerRadius?: boolean | number | string;
+
+  /**
+   * Show a bar above the column headings for filtering columns by tag.
+   *
+   * Off by default, and it draws nothing unless some column carries a `tags`
+   * entry. `multiple: true` lets more than one tag be chosen at once.
+   *
+   * Only tagged columns are ever hidden, so an untagged account or total column
+   * stays visible whatever is selected.
+   */
+  columnTagFilter?: boolean | { multiple?: boolean; label?: string };
+
+  /**
+   * Open a row on a form when it is double-clicked.
+   *
+   * `mode` is a right-hand `'drawer'` (the default) or a centred `'dialog'`.
+   *
+   * Without `load` the form shows the grid's own columns, edited with the same
+   * editors the cells use. With `load` it shows whatever that returns — the
+   * grid rarely displays everything a record has — and then `fields` is
+   * required, because nothing here knows the shape of a record it has not seen.
+   *
+   * The panel opens immediately and fills in when the record arrives; a failure
+   * offers a retry inside the panel. Save collects the changed fields, writes
+   * the ones that map to columns, and emits `form:saved` with the lot —
+   * persisting is yours.
+   *
+   * `trigger: false` leaves opening to `grid.form.open(key)`.
+   */
+  /**
+   * Draw each row with a template instead of dividing it into columns.
+   *
+   * A card list, a feed, a search-result list. The template is the same
+   * declarative string a cell template is, and compiles once at configuration
+   * time — there is deliberately no per-row callback, because one would be used
+   * to allocate DOM per row and the virtualisation would stop paying for
+   * itself. Bind with `{{data.field}}`.
+   *
+   * Everything underneath is unchanged: sorting, filtering, grouping,
+   * selection, permissions, redaction, saved views, undo and the remote source
+   * all apply, and a card emits the same `row:clicked` and `row:dblclicked`
+   * events a table row does.
+   */
+  /**
+   * Per-column options a data type reads.
+   *
+   * `ratio` and `percentRate` use `{ weight }` to name the column their average
+   * is weighted by. A unit type reads `{ significantFigures }` to render to a
+   * fixed precision rather than a fixed number of decimals.
+   */
+  typeOptions?: Record<string, {
+    weight?: string;
+    significantFigures?: number;
+    [option: string]: unknown;
+  }>;
+
+  rowTemplate?: string | {
+    template: string;
+    /** A class of your own on every card, alongside the grid's. */
+    className?: string;
+    /** The layer's role. `list` by default; `listbox` for a selectable set. */
+    role?: string;
+    /** Each card's role. `listitem` by default. */
+    itemRole?: string;
+    /** A fixed number of cards on a line. Does not reflow. */
+    cardsPerRow?: number;
+    /** A ceiling on card width; the number on a line follows the container. */
+    maxCardWidth?: number;
+    /** Space between tiles, in pixels. 8 by default. */
+    gap?: number;
+  };
+
+  /**
+   * Present rows as cards when the grid's container is too narrow to be a
+   * table honestly — a phone, or a narrow panel on a wide screen.
+   *
+   * Measured on the container, not the viewport, so a grid in a sidebar
+   * collapses and a grid filling a small tablet does not. Sorting, filtering
+   * and export continue to work; the tool panel is where they live when there
+   * are no column headings to click. Emits `presentation:changed`.
+   */
+  responsive?: {
+    /** Collapse at or below this container width. 640 by default. */
+    maxWidth?: number;
+    /** The card layout, as `rowTemplate` takes it. */
+    template: string | object;
+    /** How tall a collapsed card is. 64 by default — a table row is too short. */
+    rowHeight?: number;
+  };
+
+  rowForm?: boolean | {
+    mode?: 'drawer' | 'dialog';
+    load?: (p: { row: Row; data: unknown; key: string; grid: Grid }) => unknown | Promise<unknown>;
+    fields?: (string | {
+      field: string;
+      label?: string;
+      /** Which editor to build, by registry name or constructor. Defaults to the column's, then the type's. */
+      editor?: string | (new () => object);
+      type?: TypeName;
+      props?: object;
+      lookup?: LookupSpec;
+    })[];
+    title?: string | ((p: { row: Row; data: unknown }) => string);
+    width?: string;
+    trigger?: false;
+    /** How long to wait for `load`, in milliseconds. 2000 by default; `false` waits indefinitely. */
+    timeout?: number | false;
+    /**
+     * An element of your own to build the form in, instead of over the grid.
+     * An element, a CSS selector or a function returning either; a selector is
+     * resolved when the form opens, not when the grid is configured. A form in
+     * your own container fills it, is a region rather than a modal dialog, and
+     * does not trap Tab.
+     */
+    container?: HTMLElement | string | (() => HTMLElement | string | null);
+  };
+
+  /**
+   * Draw the sort, filter and menu controls in the column headings.
+   *
+   * `true` by default. `false` leaves each heading as its label alone, which is
+   * what a dense grid wants: three affordances take roughly fifty pixels, and
+   * on an eighty-pixel column that leaves the heading nothing and the label
+   * disappears entirely.
+   *
+   * Only the furniture goes. Sorting, filtering and the column menu are still
+   * reachable through the API, the keyboard and the tool panel.
+   */
+  showColumnFunctions?: boolean;
   rowHeight?: number | ((row: Row) => number);
   headerHeight?: number;
   overscan?: number;
@@ -813,23 +1045,23 @@ export interface GridConfig {
     budgetMs?: number;
   };
   /**
-   * Threaded comments on individual cells (§16). Requires a stable
+   * Threaded comments on individual cells. Requires a stable
    * `rowKey`: comments outlive the values they annotate, and index
    * identity would reattach every thread on the next sort.
    */
   comments?: CommentConfig;
   /**
-   * Collaborative presence (§18). A display feature over a transport the
+   * Collaborative presence. A display feature over a transport the
    * grid does not own; without a provider it is inert.
    */
   presence?: PresenceConfig;
   /**
    * Host environment for a support bundle. Supplied by the DOM layer;
-   * core cannot read `navigator` or `window` itself (§3.1).
+   * core cannot read `navigator` or `window` itself.
    */
   environment?: () => Record<string, unknown>;
   /**
-   * Column header histograms and the filters clicking them creates (§9.6).
+   * Column header histograms and the filters clicking them creates.
    *
    * Off by default: the band roughly doubles header height, which is a cost
    * no grid should pay without asking. Per-column settings layer over these.
@@ -841,7 +1073,7 @@ export interface GridConfig {
   workerThreshold?: number;
   /**
    * Compute column distributions off the main thread. Sorting, filtering and
-   * grouping run on the main thread; see §5.13 for why.
+   * grouping run on the main thread; see the reference for why.
    */
   useWorker?: boolean;
   workerUrl?: string;
@@ -856,6 +1088,38 @@ export interface GridConfig {
    * `false` means no grand total row.
    */
   grandTotalRow?: boolean | 'bottom';
+
+  /**
+   * Rows pinned above the scrolling body.
+   *
+   * The objects are rendered through the ordinary column pipeline but are not
+   * part of the data: not counted by `rows.count()`, not sorted, filtered,
+   * grouped, selectable or exported. Use it for a totals line or a units row
+   * that must stay against the header.
+   */
+  pinnedTopRows?: unknown[];
+
+  /** Rows pinned below the scrolling body. As `pinnedTopRows`, at the other edge. */
+  pinnedBottomRows?: unknown[];
+
+  /**
+   * Rows drawn as a single band across every column instead of being divided
+   * into them — a section banner, a note, a "load more" affordance.
+   *
+   * `when` picks the rows; `render` fills them. A full-width row is still one
+   * of your data rows: counted by `rows.count()`, sorted, filtered and
+   * exported like any other. Only its presentation changes. For a row that
+   * should *not* be part of the data, use `pinnedTopRows`.
+   */
+  fullWidth?: {
+    when(row: Row): boolean;
+    /**
+     * Return a string for text, or a node for content. Return nothing and
+     * write into `params.element` yourself. An HTML string is deliberately not
+     * accepted — see `allowUnsafeTemplates` for that decision elsewhere.
+     */
+    render(params: FullWidthParams): string | Node | void;
+  };
   totalFilteredOnly?: boolean;
   totalOnlyChangedColumns?: boolean;
   showTotalInHeader?: boolean;
@@ -867,8 +1131,80 @@ export interface GridConfig {
    * menu offers Paste, Clear and Fill down.
    */
   contextMenu?: boolean | ((p: CellMenuParams, defaults: MenuItem[]) => MenuItem[] | void);
-  /** The header's 3-dot menu. `false` suppresses it. Default true. */
-  columnMenu?: boolean;
+  /**
+   * The header's 3-dot menu, and the right-click menu on a column heading.
+   * `false` suppresses both. A function supplies custom items, receiving the
+   * grid's own so it can add to them rather than reproduce them. Default true.
+   */
+  columnMenu?: boolean | ((p: ColumnMenuParams, defaults: MenuItem[]) => MenuItem[] | void);
+
+  /**
+   * The `?` keyboard shortcut overlay. `false` suppresses it, for a host
+   * that wants `?` for itself. Default true.
+   */
+  shortcuts?: boolean;
+
+  /**
+   * Let a user reorder rows by dragging a handle, or with
+   * Alt+Shift+Up/Down.
+   *
+   * `true` puts the handle in the first visible column; `{ column }` names a
+   * different one. The move reorders your data and emits `row:moved`;
+   * persisting it is yours, and `rows.data()` afterwards is the new order.
+   *
+   * Refused, with a reason announced, while a sort, filter or grouping is
+   * active — the position a row is dropped at has no single meaning in the
+   * underlying order then.
+   */
+  rowReorder?: boolean | { column?: string };
+
+  /**
+   * Let rows be dragged out of this grid, into it, or both.
+   *
+   * Off by default: rows leaving a grid is a data change a host has to want,
+   * and a mis-drag that silently removed one has no gesture a user would think
+   * to undo.
+   *
+   * `send` and `receive` are both on when the option is present, so one-way is
+   * expressed by turning off the direction you do not want — a source grid is
+   * `{ receive: false }` and a target is `{ send: false }`.
+   *
+   * `mode: 'copy'` leaves the row where it was. `group` restricts exchange to
+   * grids sharing the same name, so two unrelated grids on a page do not accept
+   * each other's rows.
+   *
+   * The source needs `rowReorder` as well, since that is what draws the handle
+   * a drag starts from.
+   */
+  rowTransfer?: boolean | {
+    send?: boolean;
+    receive?: boolean;
+    mode?: 'move' | 'copy';
+    group?: string;
+  };
+
+  /**
+   * Other grids to stay column-aligned with.
+   *
+   * Column widths, order, visibility and pinning are shared, and horizontal
+   * scrolling moves them together. Sort, filters, selection, grouping and the
+   * rows themselves stay independent — sharing those would make one grid with
+   * extra steps rather than two aligned ones.
+   *
+   * Declared on the grid created last, since it is the only one that can name
+   * the others; the link is peer-based once made.
+   */
+  alignedGrids?: unknown[];
+
+  /**
+   * Keep the enclosing group headings pinned above the viewport while
+   * scrolling inside a group.
+   *
+   * On by default, stacking at most two. `false` turns it off; a number, or
+   * `{ depth }`, sets how many may stack — each costs a row of viewport, so a
+   * deep grouping would otherwise spend the screen describing itself.
+   */
+  stickyGroupHeaders?: boolean | number | { depth?: number };
   /**
    * Flash a cell when its value changes. `true` takes the defaults; an object
    * names a colour, a duration in milliseconds, or both.
@@ -916,12 +1252,12 @@ export interface GridConfig {
   };
   quickFilterText?: string;
   /**
-   * Per-column read/write/hidden policy (§8.1). A usability control, not a
+   * Per-column read/write/hidden policy. A usability control, not a
    * security boundary — hidden data is still resident in the store. Enforce the
    * same policy server-side with `permittedColumns` / `permittedExport`.
    */
   permissions?: PermissionPolicy;
-  /** Prior state for diff and audit mode (§12). */
+  /** Prior state for diff and audit mode. */
   diff?: {
     snapshot?: unknown[] | Map<string, unknown>;
     strictNull?: boolean;
@@ -943,7 +1279,7 @@ export interface GridConfig {
      */
     removedRows?: false | 'pinned' | 'data';
   };
-  /** Saved views (§15): a storage adapter and any pre-loaded views. */
+  /** Saved views: a storage adapter and any pre-loaded views. */
   views?: { storage?: { read(): unknown[]; write(views: unknown[]): void }; saved?: unknown[] };
   /** The undo toolbar. `element` mounts it into the host's own chrome. */
   historyBar?: boolean | { element?: HTMLElement; timeline?: boolean };
@@ -1215,6 +1551,16 @@ export interface RowsApi {
   text(key: string, colId: string): string;
   values(key: string): Record<string, unknown>;
   refresh(opts?: { rows?: string[]; columns?: string[]; force?: boolean }): void;
+  /**
+   * Move a row to another position in the data. Refuses, with a
+   * reason, while a sort, filter or grouping is active.
+   */
+  move(key: string, to: number): { moved: boolean; from: number; to: number; reason?: string };
+  /**
+   * The group headings enclosing a display row, outermost first. Empty when the
+   * grid is not grouped.
+   */
+  groupHeadings(index: number): Row[];
   expand(key: string, deep?: boolean): void;
   collapse(key: string): void;
   expandAll(): void;
@@ -1227,6 +1573,16 @@ export interface ColumnsApi {
   visible(): ResolvedColumn[];
   state(): ColumnState[];
   apply(state: ColumnState[]): void;
+  /** Every distinct column tag, in the order first declared. */
+  tags(): string[];
+  /**
+   * Show only the columns carrying one of these tags. **Columns with no tags
+   * are never hidden.** Pass nothing to show every tagged column again.
+   * Returns the ids that were hidden.
+   */
+  showTagged(tags?: string | string[] | null): string[];
+  /** The tags currently being shown, empty when all are. */
+  activeTags(): string[];
   show(ids: string | string[]): void;
   hide(ids: string | string[]): void;
   move(id: string, to: number): void;
@@ -1237,6 +1593,14 @@ export interface ColumnsApi {
   group(ids: string | string[]): void;
   pivot(ids: string | string[]): void;
   totals(ids: string | string[]): void;
+}
+
+export interface RowFormApi {
+  /** Open the form for a row. False when the form is not configured. */
+  open(key: string): boolean;
+  close(): void;
+  save(): boolean;
+  isOpen(): boolean;
 }
 
 export interface DetailApi {
@@ -1302,9 +1666,18 @@ export interface EditApi {
 }
 
 export interface ScrollApi {
-  toRow(index: number, align?: 'start' | 'center' | 'end' | 'auto'): void;
+  /**
+   * A row key, or a display index. A key survives a sort and is usually what a
+   * caller holds; resolving one scans the display order, so prefer an index
+   * when scrolling a very large grid repeatedly.
+   */
+  toRow(row: string | number, align?: 'start' | 'center' | 'end' | 'auto'): void;
   toColumn(id: string): void;
+  /** Scroll a cell into view, both axes in one call. */
+  toCell(row: string | number, colId: string, align?: 'start' | 'center' | 'end' | 'auto'): void;
   position(): { top: number; left: number };
+  /** `left` is the logical offset, zero at the content's start in either direction. */
+  to(at: { top?: number; left?: number }): void;
 }
 
 export interface ExportApi {
@@ -1916,6 +2289,27 @@ export interface AiApi {
   apply(plan: Record<string, unknown>): Record<string, unknown>;
 }
 
+/**
+ * The resolved message set for a grid: every user-visible string, in the
+ * grid's locale.
+ */
+export interface MessagesApi {
+  /**
+   * Format a message.
+   * @param key a key from `keys`
+   * @param params interpolation parameters; `count` selects the plural form
+   */
+  t(key: string, params?: Record<string, unknown>): string;
+  /** Join parts the way this locale joins lists. */
+  list(items: string[], type?: 'conjunction' | 'disjunction'): string;
+  /** Format a number for this locale. */
+  number(value: number, opts?: Intl.NumberFormatOptions): string;
+  /** The resolved BCP 47 tag. */
+  readonly locale: string;
+  /** Every key the catalogue defines. */
+  readonly keys: ReadonlyArray<string>;
+}
+
 export interface LicenceApi {
   set(key: string): LicenceInfo;
   info(): LicenceInfo;
@@ -1950,12 +2344,32 @@ export interface CellMenuParams {
   grid: Grid;
 }
 
-/** What a host rail action's `run` is handed. */
+/** What `fullWidth.render` is handed. */
+export interface FullWidthParams {
+  row: Row;
+  /** Your original row object. */
+  data: unknown;
+  /** Display index of the row. */
+  index: number;
+  grid: Grid;
+  /** The element to fill. Write into it directly, or return content instead. */
+  element: HTMLElement;
+}
+
+/** What a column menu's item builder and its actions are handed. */
+export interface ColumnMenuParams {
+  colId: string;
+  /** The resolved column, including any properties you defined on it. */
+  column: ResolvedColumn;
+  grid: Grid;
+}
+
 /** The rail's built-in action names, plus `'-'` for a divider. */
 export type RailActionName =
   | 'undo' | 'redo' | 'pause' | 'restore' | 'maximise'
   | 'export' | 'excel' | 'clipboard' | 'print';
 
+/** What a host rail action's `run` is handed. */
 export interface RailActionParams {
   grid: Grid;
   keys: string[];
@@ -2001,6 +2415,7 @@ export interface Grid {
   readonly diff: DiffApi;
   readonly permissions: PermissionsApi;
   readonly ai: AiApi;
+  readonly messages: MessagesApi;
   readonly licence: LicenceApi;
   readonly pagination: PaginationApi;
   readonly highlight: HighlightApi;
@@ -2041,6 +2456,23 @@ export interface Grid {
   off(event: EventName, handler: EventHandler): void;
   emit(event: string, payload?: Record<string, unknown>): void;
 
+  /**
+   * Pin rows above or below the scrolling body.
+   *
+   * The rows render through the ordinary column pipeline but are not part of
+   * the data: not counted, sorted, filtered, grouped, selectable or exported.
+   *
+   * Pass a new array rather than mutating the one you passed before — array
+   * identity is how the grid knows the pinned rows have changed.
+   */
+  setPinnedRows(rows: unknown[], opts?: { edge?: 'top' | 'bottom' }): void;
+
+  /** The objects currently pinned at one edge, as a copy. */
+  getPinnedRows(opts?: { edge?: 'top' | 'bottom' }): unknown[];
+
+  /** The row form. Declines when `rowForm` is not configured. */
+  readonly form: RowFormApi;
+
   getVersion(): string;
   destroy(): void;
 }
@@ -2064,3 +2496,60 @@ export const LatticeGrid: {
 };
 
 export default LatticeGrid;
+
+/** The default British English catalogue. */
+export const EN_GB: Record<string, string | Record<string, string>>;
+/** Every key the default catalogue defines. */
+export const MESSAGE_KEYS: ReadonlyArray<string>;
+/** The locale the default catalogue is written in: 'en-GB'. */
+export const DEFAULT_LOCALE: string;
+/** Bundled catalogues, keyed by lower-cased BCP 47 tag. */
+export const LOCALES: Record<string, Record<string, string | Record<string, string>>>;
+export const EN_US: Record<string, string | Record<string, string>>;
+export const FR_FR: Record<string, string | Record<string, string>>;
+export const FR_CA: Record<string, string | Record<string, string>>;
+export const IT_IT: Record<string, string | Record<string, string>>;
+export const ES_ES: Record<string, string | Record<string, string>>;
+export const PT_BR: Record<string, string | Record<string, string>>;
+export const DE_DE: Record<string, string | Record<string, string>>;
+export const NL_NL: Record<string, string | Record<string, string>>;
+export const SV_SE: Record<string, string | Record<string, string>>;
+export const DA_DK: Record<string, string | Record<string, string>>;
+export const NB_NO: Record<string, string | Record<string, string>>;
+export const FI_FI: Record<string, string | Record<string, string>>;
+export const PL_PL: Record<string, string | Record<string, string>>;
+export const CS_CZ: Record<string, string | Record<string, string>>;
+export const HU_HU: Record<string, string | Record<string, string>>;
+export const RO_RO: Record<string, string | Record<string, string>>;
+export const UK_UA: Record<string, string | Record<string, string>>;
+export const EL_GR: Record<string, string | Record<string, string>>;
+export const JA_JP: Record<string, string | Record<string, string>>;
+export const AR: Record<string, string | Record<string, string>>;
+/**
+ * Alias for {@link AR}. The Arabic catalogue is pan-Arabic rather than
+ * Saudi-specific; the alias exists because the region-qualified name is the
+ * common first guess, every other catalogue carrying one.
+ */
+export const AR_SA: Record<string, string | Record<string, string>>;
+
+/** A resolved message set. */
+export class Messages implements MessagesApi {
+  constructor(opts?: { locale?: string; messages?: Record<string, unknown>; declared?: string });
+  configure(opts?: { locale?: string; messages?: Record<string, unknown>; declared?: string }): void;
+  t(key: string, params?: Record<string, unknown>): string;
+  list(items: string[], type?: 'conjunction' | 'disjunction'): string;
+  number(value: number, opts?: Intl.NumberFormatOptions): string;
+  readonly locale: string;
+  readonly keys: ReadonlyArray<string>;
+}
+
+/** Build a message set, passing an existing instance straight through. */
+export function createMessages(opts?: object | Messages): Messages;
+/** Report which keys a catalogue is missing and which it invents. */
+export function auditCatalogue(catalogue: Record<string, unknown>): { missing: string[]; unknown: string[] };
+/** Join parts the way a locale joins lists. */
+export function formatList(items: string[], locale?: string, type?: 'conjunction' | 'disjunction'): string;
+/** Resolve the locale: what was configured, then the document's `lang`, then the default. */
+export function resolveLocale(configured: string | undefined, declared?: string, fallback?: string): string;
+/** Find the catalogue for a tag, falling back to the base language. */
+export function resolveCatalogue(tag?: string): Record<string, unknown> | null;

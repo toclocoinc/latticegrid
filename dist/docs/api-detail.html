@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.5.4</p>
+    <p class="rail__sub">Developer guide · v1.6.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -460,11 +460,22 @@
         <a href="#sorting">Sorting</a>
         <a href="#filtering">Filtering</a>
         <a href="#grouping">Grouping and totals</a>
+        <a href="#pinned-rows">Pinned rows</a>
+        <a href="#full-width-rows">Full-width rows</a>
+        <a href="#row-reorder">Row reorder</a>
+        <a href="#row-transfer">Rows between grids</a>
+        <a href="#column-tags">Column tags</a>
+        <a href="#aligned-grids">Aligned grids</a>
+        <a href="#aggregate-safety">Aggregate safety</a>
+        <a href="#sticky-group-headings">Sticky group headings</a>
         <a href="#sources">Large data</a>
       </div>
       <div class="rail__group">
         <span class="rail__label">Interaction</span>
         <a href="#editing">Editing</a>
+        <a href="#appearance">Grid lines and corners</a>
+        <a href="#cards">Cards, lists and feeds</a>
+        <a href="#row-form">Editing a row on a form</a>
         <a href="#optimistic">Optimistic writes</a>
         <a href="#tree-data">Tree data</a>
         <a href="#master-detail">Master-detail</a>
@@ -524,13 +535,56 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.5.4</span>
+        <span class="chip">Version 1.6.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
     </header>
 
-    <h2 id="what">What it is</h2>
+    
+    <h2 id="messages">Translating the grid</h2>
+    <p class="section-note">Every string the grid renders or announces comes from a message catalogue. British English is the default; supply <code>messages</code> to replace some or all of it.</p>
+
+    <pre><code>import { createGrid, FR_FR } from '@toclocoinc/lattice-grid';
+
+createGrid(element, { locale: 'fr-FR', messages: FR_FR });</code></pre>
+
+    <p>Where <code>locale</code> is not set, the grid takes the language the page declares in its <code>lang</code> attribute. Overrides merge over the default, so translating part of the interface leaves the remainder in English rather than showing raw keys, and a key that is not in the catalogue is ignored with a warning.</p>
+
+    <p>Catalogues ship for twenty-one locales: British and American English, French (France and Canada), Italian, Spanish, Brazilian Portuguese, German, Dutch, Swedish, Danish, Norwegian, Finnish, Polish, Czech, Hungarian, Romanian, Ukrainian, Greek, Japanese and Arabic. Each is an export of the package, so importing one does not reduce what is bundled. <code>EN_US</code> is a partial overlay carrying only what differs from British English and merging over it. <code>AR_SA</code> is an alias for <code>AR</code> rather than a separate catalogue — Arabic ships pan-Arabic, and a region appears in a name only where two variants exist. For anything else, <code>resolveCatalogue(tag)</code> resolves a tag to a catalogue and falls back to the base language, so <code>ar-EG</code> and <code>es-MX</code> both find one. <code>FR_CA</code> is a complete catalogue that follows Quebec usage where it differs — a column there is <em>figée</em> rather than <em>épinglée</em>.</p>
+
+    <p class="section-note">None of the translations has been reviewed by a native speaker. They are structurally complete and checked for placeholder integrity and plural coverage, but they are a starting point for review rather than finished copy.</p>
+
+    <h3>Writing your own</h3>
+    <p>A message is a string, or an object keyed by plural category when it counts something:</p>
+
+    <pre><code>{
+  'menu.sortAscending': 'Sortera stigande',
+  'count.rows': { one: '{count} rad', other: '{count} rader' },
+}</code></pre>
+
+    <p>Placeholders are named, so word order is yours to choose. The parameter called <code>count</code> selects the plural form, using the categories the language actually has — English needs two, French treats zero as singular, Arabic has six. Numbers are formatted for the locale automatically; do not format them yourself.</p>
+
+    <p><code>MESSAGE_KEYS</code> lists every key. <code>auditCatalogue(yours)</code> returns what is missing and what is not a real key, which is the quickest way to check a translation before shipping it.</p>
+
+    <div class="why">
+      <p><strong>The grid is checked in the other direction too.</strong> <code>auditCatalogue</code> tells you a catalogue is complete — that a translator covered every key. It cannot tell you the grid only ever renders text that came from a catalogue in the first place, and a string written into the source passes every test, because the tests assert on the English the grid happens to produce.</p>
+      <p>So the build refuses one. Any literal reaching an element's text, or an announced attribute such as <code>aria-label</code>, <code>title</code> or <code>placeholder</code>, has to come from the catalogue. That is what stops a localised grid drifting back into English one plausible change at a time.</p>
+    </div>
+
+    <h3>Right-to-left</h3>
+    <p>The grid lays out right to left. Set <code>direction: 'rtl'</code> outright, or leave it unset and it follows the element's computed <code>dir</code> first and the locale second — so <code>locale: 'ar'</code> renders right to left with no further configuration, and a grid inside a page that has already declared <code>dir="rtl"</code> agrees with it.</p>
+
+    <pre><code>createGrid(element, { locale: 'ar' });        <span class="cmt">// direction follows the locale</span>
+createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so outright</span></code></pre>
+
+    <p>The element comes before the locale because a page that has set <code>dir</code> has already made a decision about layout, and a grid inside it should not disagree on the strength of a language tag.</p>
+
+    <p>Pinned columns swap sides, the header and pinned rows follow the scroll the other way, and column resize and reorder, the fill handle, annotations, the facet band, the comment marker and menu placement all follow the writing direction rather than the physical one.</p>
+
+    <p><strong>Not yet exercised with bidirectional text.</strong> The layout is verified, but only with Latin text in a right-to-left grid. Cells, headings and editors holding actual Arabic or Hebrew — particularly mixed with Latin text or numbers — have not been tested.</p>
+
+<h2 id="what">What it is</h2>
     <p class="lead-in">
       Lattice Grid renders tabular data in a browser. That sentence covers a great many products,
       so here is what is actually different about this one.
@@ -870,7 +924,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.5.4'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.6.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -980,10 +1034,87 @@ LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid
           <tr><td class="name">Temporal</td><td class="desc"><code>datetime</code>, <code>time</code>, <code>duration</code></td></tr>
           <tr><td class="name">Network</td><td class="desc"><code>ipv4</code>, <code>ipv6</code>, <code>cidr</code>, <code>mac</code></td></tr>
           <tr><td class="name">Numeric bases</td><td class="desc"><code>hex</code>, <code>hex8</code>, <code>hex16</code>, <code>hex32</code>, <code>binary</code>, <code>binary8</code>, <code>octal</code></td></tr>
-          <tr><td class="name">Units</td><td class="desc"><code>bytes</code>, <code>megabytes</code>, <code>gigabytes</code>, <code>bitrate</code></td></tr>
+          <tr><td class="name">Units — computing</td><td class="desc"><code>bytes</code>, <code>megabytes</code>, <code>gigabytes</code>, <code>bitrate</code>, <code>gigabits</code></td></tr>
+          <tr><td class="name">Units — physical</td><td class="desc"><code>metres</code>, <code>millimetres</code>, <code>kilometres</code>, <code>grams</code>, <code>kilograms</code>, <code>tonnes</code>, <code>seconds</code>, <code>milliseconds</code>, <code>hours</code></td></tr>
+          <tr><td class="name">Units — engineering</td><td class="desc"><code>speed</code>, <code>kph</code>, <code>mph</code>, <code>knots</code>, <code>acceleration</code>, <code>area</code>, <code>hectares</code>, <code>volume</code>, <code>cubicMetres</code>, <code>energy</code>, <code>kilowattHours</code>, <code>power</code>, <code>kilowatts</code>, <code>force</code>, <code>pressure</code>, <code>bar</code>, <code>psi</code>, <code>torque</code>, <code>density</code>, <code>flow</code>, <code>litresPerMinute</code>, <code>radians</code>, <code>degrees</code></td></tr>
+          <tr><td class="name">Units — electrical and scientific</td><td class="desc"><code>voltage</code>, <code>current</code>, <code>resistance</code>, <code>capacitance</code>, <code>inductance</code>, <code>charge</code>, <code>conductance</code>, <code>fluxDensity</code>, <code>luminousFlux</code>, <code>illuminance</code>, <code>substance</code>, <code>absorbedDose</code>, <code>equivalentDose</code>, <code>radioactivity</code>, <code>frequency</code></td></tr>
+          <tr><td class="name">Temperature</td><td class="desc"><code>celsius</code>, <code>fahrenheit</code>, <code>kelvin</code></td></tr>
           <tr><td class="name">Structured</td><td class="desc"><code>json</code>, <code>colour</code>, <code>rating</code>, <code>percent</code></td></tr>
         </tbody>
       </table>
+    </div>
+
+    <h3 id="units">Units</h3>
+    <p class="lead-in">
+      A unit type stores a plain number in a named base unit and makes only display and input
+      unit-aware. That is the whole design: the column still backs onto a typed array, so sorting,
+      filtering, grouping and totalling stay ordinary arithmetic and never touch the rendered text.
+      A gigabyte column holding <code>0.5</code> shows <code>512 MB</code>, accepts
+      <code>512M</code> typed over it, and stores <code>0.5</code> throughout.
+    </p>
+
+    <div class="example">
+      <p class="example__label">Declared types, and one built to order</p>
+      <pre><code>columns: [
+  { field: 'span',     type: <span class="str">'metres'</span> },      <span class="cmt">// 1500 → "1.5 km"</span>
+  { field: 'load',     type: <span class="str">'kilograms'</span> },
+  { field: 'inlet',    type: <span class="str">'pressure'</span> },     <span class="cmt">// 200000 → "200 kPa"</span>
+  { field: 'bearing',  type: <span class="str">'degrees'</span> },
+  { field: 'cap',      type: <span class="str">'capacitance'</span> },  <span class="cmt">// 4.7e-11 → "47 pF"</span>
+  { field: 'inletTemp', type: <span class="str">'celsius'</span> },
+],
+
+<span class="cmt">// or configure your own base unit and precision</span>
+dataTypes: {
+  runtime: createUnitType({ system: <span class="str">'duration'</span>, unit: <span class="str">'ms'</span>, display: <span class="str">'auto'</span> }),
+}</code></pre>
+    </div>
+
+    <p class="lead-in">
+      Seventeen unit systems ship: <code>data</code>, <code>bitrate</code>, <code>length</code>,
+      <code>mass</code>, <code>duration</code>, <code>speed</code>, <code>acceleration</code>,
+      <code>area</code>, <code>volume</code>, <code>energy</code>, <code>power</code>,
+      <code>force</code>, <code>pressure</code>, <code>torque</code>, <code>density</code>,
+      <code>flow</code> and <code>angle</code>, plus fifteen SI-prefixed electrical and scientific
+      quantities. <code>registerUnitSystem</code> adds one of your own.
+    </p>
+
+    <div class="why">
+      <p><strong>Ambiguous units are refused, not guessed.</strong> A US gallon and an imperial
+      gallon differ by about a fifth, and "ton" means three different masses. Each has its own
+      symbol — <code>gal (US)</code>, <code>ton (UK)</code> — and the bare word is claimed by all of
+      them, so typing it is rejected rather than resolved. A <code>gal</code> silently taken as US
+      in a UK deployment is data corruption that reads as rounding.</p>
+      <p>The same rule catches case: <code>mV</code> and <code>MV</code> are a billion apart, so both
+      exact spellings work and the case-folded <code>mv</code> is refused.</p>
+      <p><strong>Customary units are accepted but never chosen.</strong> <code>display: 'auto'</code>
+      walks the coherent SI ladder only. With the calorie, the BTU and the kilojoule all on one
+      ladder, 4,000 J would render as <code>3.79 BTU</code> — auto picks the largest unit that fits,
+      and the BTU happens to be larger than the kilojoule. Ask for a BTU by name and you get one.</p>
+    </div>
+
+    <p class="lead-in">
+      <code>significantFigures</code> renders to a fixed precision rather than a fixed number of
+      decimals. Two decimals is four significant figures at <code>12.34 kB</code> and three at
+      <code>1.54 kB</code>, so a column claims different accuracy row by row depending on nothing but
+      which unit auto picked; significant figures are what an instrument has, and they hold across
+      the ladder. Rounding is applied before the unit is chosen, so 999,999 bytes to three figures
+      is <code>1.00 MB</code> rather than <code>1,000 kB</code>.
+    </p>
+
+    <div class="why">
+      <p><strong>Angles wrap, so their mean is replaced.</strong> The average of 359° and 1° is 0°,
+      and the arithmetic answer — 180° — is a confident, plausible number pointing in exactly the
+      wrong direction. A <code>degrees</code> or <code>radians</code> column averages by direction
+      instead, and reports nothing where the angles cancel and there is no mean direction to give.
+      The <em>sum</em> stays arithmetic, because a total rotation of 720° is two turns and that is a
+      real figure.</p>
+      <p><strong>Temperature is its own type, not a unit.</strong> Every other unit is a
+      multiplication; Celsius to Fahrenheit carries an offset, and zero Celsius is not zero
+      anything, so no factor converts it. <code>celsius</code>, <code>fahrenheit</code> and
+      <code>kelvin</code> convert on input — type <code>72 F</code> into a Celsius column and it
+      stores 22.2 — and <strong>refuse to be summed</strong>: twenty degrees plus twenty degrees is
+      not forty degrees, and a footer saying so would be believed.</p>
     </div>
 
     <h3>Types read from the data</h3>
@@ -1646,6 +1777,412 @@ pivot: { groupTotals: 'after', totalsLabel: 'All regions' }</code></pre>
 grid.columns.pivot(['statusId']);   <span class="cmt">// a column per distinct status</span></code></pre>
     </div>
 
+    <h2 id="pinned-rows">Pinned rows</h2>
+    <p class="lead-in">
+      A pinned row sits outside the scrolling body, against the header or above the status bar,
+      and stays there while the rows scroll past it. Use one for a column-units line, a target or
+      budget to compare against, a precomputed summary, or a note that must not scroll away.
+    </p>
+
+    <div class="example">
+      <p class="example__label">Pinning a units row</p>
+      <pre><code>createGrid(element, {
+  columns,
+  rows,
+  pinnedTopRows: [{ product: 'Units', capacity: 'MW', margin: '%' }],
+});
+
+<span class="cmt">// Or at runtime, at either edge:</span>
+grid.setPinnedRows([summaryLine], { edge: 'top' });
+grid.setPinnedRows([], { edge: 'top' });        <span class="cmt">// clear</span></code></pre>
+    </div>
+
+    <p class="lead-in">
+      The objects are yours and are rendered through the ordinary column pipeline — value getters,
+      formatters, cell renderers and conditional formatting all run, so a pinned row looks like the
+      data it sits against without you rebuilding any of that.
+    </p>
+
+    <p class="lead-in">
+      <strong>They are not part of the data</strong>, and that separation is the point. A pinned
+      row is not counted by <code>rows.count()</code>, not sorted, not filtered, not grouped, not
+      selectable, not included in a total and not exported. A units row that sorted itself into the
+      middle of the data, or a target line that was added to the sum it is there to be compared
+      against, would be worse than no feature at all. If you want a row that behaves like data,
+      make it data.
+    </p>
+
+    <p class="lead-in">
+      A filter that matches nothing still leaves the pinned rows visible, which is usually what you
+      want: an empty grid with its column-units line is readable, and an empty grid without one is
+      not.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Point</th><th>Behaviour</th></tr></thead>
+        <tbody>
+          <tr><td class="name">Order</td><td class="desc">Rows appear in the order of the array. At the bottom edge, the grand total comes first and your rows sit below it.</td></tr>
+          <tr><td class="name">Height</td><td class="desc">From <code>rowHeight</code>, including the function form — which is called with the pinned row, so you can measure your own content. The body reserves exactly the strip's height, so no data row hides underneath it.</td></tr>
+          <tr><td class="name">Updating</td><td class="desc">Pass a <em>new</em> array. Array identity is how the grid knows the rows changed; pushing into the array you passed before will not repaint.</td></tr>
+          <tr><td class="name">Editing</td><td class="desc">A pinned row has no place in the store to write to, so it is not editable.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="full-width-rows">Full-width rows</h2>
+    <p class="lead-in">
+      A row drawn as a single band across every column instead of being divided into them: a
+      section banner, an explanatory note, an empty-group message, a “load more” affordance —
+      anything that belongs between rows and is not itself divided by the columns.
+    </p>
+
+    <div class="example">
+      <p class="example__label">A banner before each section</p>
+      <pre><code>createGrid(element, {
+  columns,
+  rows,   <span class="cmt">// your data, with the banners in it</span>
+  fullWidth: {
+    when: (row) =&gt; row.data.kind === 'section',
+    render: ({ data }) =&gt; data.title,
+  },
+});</code></pre>
+    </div>
+
+    <p class="lead-in">
+      <code>render</code> returns a string for text or a node for content, or returns nothing and
+      writes into <code>params.element</code> itself. An HTML string is deliberately not accepted.
+      <code>params</code> carries <code>{ row, data, index, grid, element }</code>.
+    </p>
+
+    <p class="lead-in">
+      The band <strong>holds still while the columns scroll under it</strong>, which is what a
+      banner is for — text that scrolled sideways out of view with the columns would be a worse
+      version of a cell. It is drawn over the pinned regions as well as the centre, so it genuinely
+      spans every column.
+    </p>
+
+    <div class="why">
+      <p><strong>A full-width row is still one of your data rows.</strong> It is counted by
+      <code>rows.count()</code>, sorted, filtered and exported like any other; only its
+      presentation changes. That is the difference between this and
+      <a href="#pinned-rows">pinned rows</a>, and it is the thing to get straight before choosing
+      between them: <em>full-width</em> changes how a row looks, <em>pinned</em> changes whether a
+      row is data at all.</p>
+      <p>So if your banners must not appear in an export or a row count, they should not be in the
+      data. If they are section headings that belong with the records they head — and should sort,
+      filter and export alongside them — this is the right tool.</p>
+      <p>One consequence worth stating plainly: sorting reorders banners along with everything
+      else, because the predicate follows the row and not its position. Either do not offer sorting
+      on such a grid, or sort on a key that keeps each section together.</p>
+    </div>
+
+    <p class="lead-in">
+      A band is exposed as a row containing one cell with <code>aria-colspan</code> covering every
+      column, so a screen reader reads it as one wide cell rather than as a row with missing ones.
+      No second, empty row is rendered underneath it.
+    </p>
+
+    <h2 id="row-reorder">Row reorder</h2>
+    <p class="lead-in">
+      <code>rowReorder: true</code> puts a drag handle in the first visible column and lets a user
+      move rows with it, or with <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>&uarr;</kbd>/<kbd>&darr;</kbd>.
+      <code>{ column: 'name' }</code> puts the handle somewhere else.
+    </p>
+
+    <div class="example">
+      <p class="example__label">Reordering a list, and saving the result</p>
+      <pre><code>createGrid(element, {
+  columns,
+  rows,
+  rowReorder: <span class="kw">true</span>,
+});
+
+grid.on('row:moved', ({ key, from, to }) =&gt; {
+  <span class="cmt">// rows.data() is the new order in full.</span>
+  api.saveOrder(grid.rows.data().map((r, i) =&gt; ({ id: r.id, order: i })));
+});</code></pre>
+    </div>
+
+    <div class="why">
+      <p><strong>The order is your data, not a view of it.</strong> A move reorders the array you
+      gave the grid and tells you it happened; writing it somewhere permanent is yours, because
+      only you know where the order lives. A grid that rearranged rows on screen and stopped there
+      would look finished and lose the order on the next load — which is worse than not offering
+      the feature.</p>
+      <p>If the save fails, move it back: <code>grid.rows.move(key, from)</code>.</p>
+    </div>
+
+    <p class="lead-in">
+      <strong>It refuses while a sort, filter or grouping is active</strong>, and says why out loud
+      rather than springing the row back in silence. The reason is that dropping between two
+      visible rows says nothing about where the row belongs in the underlying array — under a
+      filter there may be hidden rows between them, and under a sort the displayed order is
+      something the grid computed rather than something the data says. Rather than pick an
+      interpretation and put the row somewhere you did not ask for, the move is declined.
+      <code>rows.move()</code> returns <code>{ moved: false, reason }</code> so you can handle it
+      yourself.
+    </p>
+
+    <h2 id="row-transfer">Moving rows between grids</h2>
+    <p class="lead-in">
+      A row can be dragged out of one grid and into another — a picker beside a basket, an inbox
+      beside a queue, an available list beside an assigned one.
+    </p>
+
+    <div class="example">
+      <p class="example__label">A one-way drag, from a catalogue into a basket</p>
+      <pre><code><span class="cmt">// Sends, never receives. rowReorder draws the handle a drag starts from.</span>
+createGrid(left, { columns, rows,
+  rowReorder: <span class="kw">true</span>,
+  rowTransfer: { receive: <span class="kw">false</span>, group: 'order' },
+});
+
+<span class="cmt">// Receives, never sends. Draws no handles at all.</span>
+createGrid(right, { columns, rows,
+  rowTransfer: { send: <span class="kw">false</span>, group: 'order' },
+});</code></pre>
+    </div>
+
+    <p class="lead-in">
+      <code>mode: 'copy'</code> on the sending grid leaves the row where it was. <code>group</code>
+      restricts exchange to grids sharing the same name, so two unrelated grids on a page do not
+      accept each other's rows.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Event</th><th>Fired on</th><th>Carries</th></tr></thead>
+        <tbody>
+          <tr><td class="name">row:received</td><td class="desc">the target</td><td class="desc"><code>{ data, at, rejected }</code></td></tr>
+          <tr><td class="name">row:sent</td><td class="desc">the source, on a move</td><td class="desc"><code>{ key, data, mode }</code></td></tr>
+          <tr><td class="name">row:copied</td><td class="desc">the source, on a copy</td><td class="desc"><code>{ key, data, mode }</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="why">
+      <p><strong>Off by default, and both ends have to agree.</strong> Rows leaving a grid is a data
+      change you have to want: a grid that quietly let its rows be dragged away would lose one to a
+      mis-drag, and there is no gesture a user would think to try to get it back. A one-way
+      relationship is a declaration on both grids rather than a convention — the sender refuses to
+      receive, and the receiver never starts a drag.</p>
+      <p><strong>The target adds before the source removes.</strong> If the add is refused — a
+      duplicate key, most likely — nothing is removed, so a rejected transfer loses no data. The
+      other order would delete a row and then discover it had nowhere to go.</p>
+      <p><strong>The row object is cloned, not shared.</strong> Two grids holding the same object
+      would edit each other's rows through it, which is the sort of coupling nobody goes looking for
+      when a cell changes in a grid they were not touching.</p>
+    </div>
+
+    <p class="lead-in">
+      A grid is highlighted while a dragged row is over it only when it would actually accept the
+      drop. Marking one that is going to refuse promises a placement that will not happen. A refusal
+      is announced rather than left silent.
+    </p>
+
+    <h2 id="column-tags">Column tags</h2>
+    <p class="lead-in">
+      Tag columns, then let a user show only the ones carrying a chosen tag. Sixty columns of
+      monthly figures across five years become twelve by picking a year.
+    </p>
+
+    <div class="example">
+      <p class="example__label">Five years of months, filtered to one</p>
+      <pre><code>createGrid(element, {
+  columns: [
+    { field: 'account', title: 'Account' },              <span class="cmt">// no tags</span>
+    { field: 'jan24', title: '01/24', tags: ['2024', 'Q1'] },
+    { field: 'feb24', title: '02/24', tags: ['2024', 'Q1'] },
+    <span class="cmt">// …</span>
+    { field: 'total', title: 'Total' },                  <span class="cmt">// no tags</span>
+  ],
+  rows,
+  columnTagFilter: <span class="kw">true</span>,
+});</code></pre>
+    </div>
+
+    <div class="why">
+      <p><strong>Only tagged columns are ever hidden.</strong> That is the rule the whole feature
+      turns on. A financial grid with sixty month columns also has an account name, a total and a
+      variance, and none of those belong to a year — if filtering hid them the view would be
+      useless, and tagging every column merely to keep it visible would be busywork. So "show 2024"
+      does not mean "hide everything else"; it means "hide tagged columns that are not 2024".</p>
+      <p>The same rule runs the other way: an untagged column you hid yourself stays hidden, because
+      forcing it visible would undo a decision that has nothing to do with tags.</p>
+    </div>
+
+    <p class="lead-in">
+      A column can carry more than one tag, which gives you a second axis for free — tag each month
+      with its year <em>and</em> its quarter, and a user can pick either. The dropdown lists tags in
+      the order they were declared rather than alphabetically, since they are usually already in a
+      meaningful sequence and sorting would put <code>Q10</code> before <code>Q2</code>.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Does</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">columns.tags()</td><td class="desc">Every distinct tag, in declaration order.</td></tr>
+          <tr><td class="sig">columns.showTagged(tags)</td><td class="desc">Show only the columns carrying one of these. Nothing, or an empty list, shows all. Returns the ids it hid.</td></tr>
+          <tr><td class="sig">columns.activeTags()</td><td class="desc">What is being shown, empty when all are.</td></tr>
+          <tr><td class="name">columns:tagged</td><td class="desc">Fired with <code>{ tags, hidden }</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Headings without the controls</h3>
+    <p class="lead-in">
+      A dense grid often wants the heading and nothing else. <code>showColumnFunctions: false</code>
+      leaves each heading as its label, with no sort, filter or menu control — they are not drawn
+      rather than hidden, so the label has the whole cell. Sorting, filtering and the column menu
+      stay reachable through the API, the keyboard and the tool panel; only the furniture goes. The
+      resize grip stays, since dragging a column wider is a view adjustment rather than a function
+      of the column.
+    </p>
+
+    <h2 id="aligned-grids">Aligned grids</h2>
+    <p class="lead-in">
+      Two or more grids that read as one table split into sections: a summary band above a detail
+      grid, two datasets side by side under identical columns, a frozen top section that is
+      genuinely different data rather than a pinned row.
+    </p>
+
+    <div class="example">
+      <p class="example__label">A summary band above a detail grid</p>
+      <pre><code><span class="kw">const</span> summary = createGrid(top, { columns, rows: totals });
+<span class="kw">const</span> detail  = createGrid(bottom, { columns, rows, alignedGrids: [summary] });</code></pre>
+    </div>
+
+    <p class="lead-in">
+      Declare it on the grid you create <em>last</em>, since that is the only one that can name the
+      others. The link is peer-based once made: whichever grid the user resizes is the one the
+      others follow.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Shared</th><th>Independent</th></tr></thead>
+        <tbody>
+          <tr><td class="desc">Column widths and flex</td><td class="desc">Sort</td></tr>
+          <tr><td class="desc">Column order</td><td class="desc">Filters</td></tr>
+          <tr><td class="desc">Column visibility</td><td class="desc">Selection</td></tr>
+          <tr><td class="desc">Pinning</td><td class="desc">Grouping and totals</td></tr>
+          <tr><td class="desc">Horizontal scroll</td><td class="desc">Vertical scroll, and the rows themselves</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="why">
+      <p><strong>What is not shared is the design.</strong> If sort, filters and selection travelled
+      too, this would not be a feature — it would be one grid with extra steps. The reason to have
+      two is that the sections hold different data, so each keeps its own view of it.</p>
+      <p>Vertical scroll stays independent for the same reason: the grids hold different numbers of
+      rows, and yoking them would make the shorter one run out.</p>
+    </div>
+
+    <p class="lead-in">
+      A column one grid has and another does not is skipped rather than invented, and nothing checks
+      that the column sets match — aligning grids with different columns is a caller error that
+      produces a visibly wrong result rather than a silent one. Destroying any grid releases its
+      link and leaves the rest working.
+    </p>
+
+    <h2 id="aggregate-safety">Totals that a type can refuse</h2>
+    <p class="lead-in">
+      Some values do not add up the way plain numbers do. A data type can say which aggregates are
+      meaningful for it, and supply its own arithmetic where the built-in one would be wrong.
+    </p>
+
+    <div class="why">
+      <p><strong>The failure this prevents is a confident wrong number.</strong> You cannot add
+      decibels — 90&nbsp;dB and 90&nbsp;dB make 93&nbsp;dB, not 180. The mean of a column of rates
+      is not the mean — a 100% conversion on two visits and a 1% conversion on ten thousand average
+      to 1.02%, not 50.5%. Both mistakes produce a plausible figure rather than an error, and a
+      footer nobody can check gets used. A missing total gets asked about; a wrong one does not.</p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">A type declaring what it supports</p>
+      <pre><code>{
+  base: 'number',
+  totals: {
+    <span class="cmt">// Anything else is refused when a column is configured, not at render.</span>
+    supported: ['sum', 'avg', 'min', 'max', 'count', 'countValues'],
+    <span class="cmt">// And where the built-in arithmetic is wrong, replace it.</span>
+    implement: { sum: (values) =&gt; logDomainSum(values) },
+  },
+}</code></pre>
+    </div>
+
+    <p class="lead-in">
+      A type that declares no <code>totals</code> supports everything, so nothing that shipped
+      before this behaves differently. An <code>implement</code> function receives the values
+      index-aligned with their rows and a context carrying <code>column</code> and
+      <code>valueAt(colId, i)</code>, which is how a weighted mean reaches the denominators in
+      another column.
+    </p>
+
+    <h3>The types that use it</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Type</th><th>What it does differently</th></tr></thead>
+        <tbody>
+          <tr><td class="name">decibel</td><td class="desc">Sums and averages in the linear domain and converts back. Power scale, factor 10.</td></tr>
+          <tr><td class="name">decibelAmplitude</td><td class="desc">The same, on the field scale — factor 20, for voltage and current.</td></tr>
+          <tr><td class="name">ratio</td><td class="desc">Averages by weight, using the column named in <code>typeOptions.weight</code>. Refuses <code>sum</code>, since two rates do not add to a rate.</td></tr>
+          <tr><td class="name">percentRate</td><td class="desc">As <code>ratio</code>, displayed with a percent sign.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="example">
+      <p class="example__label">A conversion rate averaged properly</p>
+      <pre><code>{ field: 'conversion', type: 'percentRate', total: 'avg',
+  typeOptions: { weight: 'visits' } }</code></pre>
+    </div>
+
+    <p class="lead-in">
+      Without a weight column the average returns nothing rather than falling back to the
+      unweighted mean — falling back would be the exact mistake the type exists to prevent, arrived
+      at silently. Rows with no rate, or no weight, are left out rather than counted as zero.
+    </p>
+
+    <h2 id="sticky-group-headings">Sticky group headings</h2>
+    <p class="lead-in">
+      Scrolling inside a group keeps that group's headings pinned above the rows, so the rows on
+      screen always say which group they belong to. Nested groups stack, up to a cap.
+    </p>
+
+    <div class="example">
+      <p class="example__label">On by default; turn it off or change the cap</p>
+      <pre><code>createGrid(element, { stickyGroupHeaders: <span class="kw">false</span> });   <span class="cmt">// off</span>
+createGrid(element, { stickyGroupHeaders: 3 });       <span class="cmt">// stack up to three</span></code></pre>
+    </div>
+
+    <div class="why">
+      <p><strong>This could not be <code>position: sticky</code>.</strong> The heading row is very
+      often not in the page at all: the grid renders a window of rows, and a heading five hundred
+      rows above the viewport was recycled long ago. So the pinned heading is synthesised from
+      whichever group the top visible row belongs to, which the grid answers by binary search over
+      an index it builds while flattening the rows — the ten-thousandth row of a group costs what
+      the second one does.</p>
+      <p>The cap exists because each heading costs a row of viewport. A five-level grouping without
+      one would spend a third of the screen describing what the other two thirds contain.</p>
+    </div>
+
+    <p class="lead-in">
+      The pinned headings are hidden from assistive technology. Each is a duplicate of a row that is
+      already in the tree, and announcing it again would report a group the reader has not moved to,
+      and add an entry to a row count that virtualisation already makes hard to reconcile.
+    </p>
+
+    <p class="lead-in">
+      The same answer is available directly as <code>grid.rows.groupHeadings(index)</code>, which
+      returns the enclosing group rows outermost first — for a breadcrumb, or a heading elsewhere on
+      your page.
+    </p>
+
     <h2 id="sources">Working with large data</h2>
     <p class="lead-in">
       A million rows in memory is fine — that is what the columnar store is for. Beyond that, or
@@ -1715,6 +2252,365 @@ columns: [
   validate: (p) =&gt; p.value &gt; 0 || 'Capacity must be positive',
 }}</code></pre>
     </div>
+
+    <h2 id="appearance">Grid lines and corners</h2>
+    <p class="lead-in">
+      Two settings that change how the grid is drawn rather than what it draws.
+    </p>
+
+    <div class="example">
+      <p class="example__label">Rules between cells, and rounded corners</p>
+      <pre><code>createGrid(element, {
+  columns, rows,
+  gridLines: <span class="str">'both'</span>,      <span class="cmt">// 'horizontal' (default), 'vertical', 'both', 'none'</span>
+  cornerRadius: <span class="kw">true</span>,      <span class="cmt">// or a number of pixels, or a CSS length</span>
+});</code></pre>
+    </div>
+
+    <p class="lead-in">
+      <code>gridLines</code> chooses which rules are drawn between cells. <code>'horizontal'</code>
+      is the default and is what the grid has always drawn; vertical rules between body cells are
+      additive, so the default is unchanged and nothing moves on upgrade. <code>'rows'</code> and
+      <code>'columns'</code> are accepted as aliases. Only the rules between data are affected — the
+      header underline and the seams beside pinned columns are structure rather than decoration, and
+      removing them would make the pinned regions look detached.
+    </p>
+
+    <p class="lead-in">
+      <code>cornerRadius</code> rounds the grid's outer corners: <code>true</code> adopts the theme's
+      own radius, a number is a count of pixels, and a string is used as written, so
+      <code>'0 0 8px 8px'</code> rounds only the bottom. The body is clipped to match, so a row
+      scrolling past a rounded corner is cut by it rather than squaring it off.
+    </p>
+
+    <h2 id="cards">Cards, lists and feeds</h2>
+    <p class="lead-in">
+      <code>rowTemplate</code> draws each row with a layout of your own instead of dividing it into
+      columns. A card list, a feed, a search-result list, a message list — any presentation where a
+      record is a small piece of layout rather than a line of cells.
+    </p>
+
+    <div class="example">
+      <p class="example__label">A card list</p>
+      <pre><code>createGrid(element, {
+  columns,                       <span class="cmt">// still declared: they are the data model</span>
+  rows,
+  rowKey: <span class="str">'id'</span>,
+  rowHeight: 64,
+  rowTemplate: <span class="str">'&lt;p class="title"&gt;{{data.name}}&lt;/p&gt;'</span>
+             + <span class="str">'&lt;p class="sub"&gt;{{data.owner}} · {{data.stage}}&lt;/p&gt;'</span>,
+});</code></pre>
+    </div>
+
+    <div class="why">
+      <p><strong>The template compiles; it does not call back.</strong> There is deliberately no
+      "here is a container, build what you like for this row" hook. That shape is easy to offer and
+      would be used to allocate DOM per row, and at that moment the virtualisation stops paying for
+      itself — quietly, and in a way nobody can attribute to a change. A row template is the same
+      declarative string a cell template is: parsed once, built into real DOM the first time an
+      element is used, and afterwards updated by writing text into the few nodes the bindings own.
+      Scrolling ten thousand records through a hundred pooled cards allocates nothing.</p>
+      <p><strong>Everything underneath is unchanged.</strong> Sorting, filtering, grouping,
+      selection, permissions, redaction, saved views, undo, export and the remote source all apply
+      exactly as they do to a table — only the drawing changes. That is the reason to build a card
+      view on a grid rather than beside one.</p>
+    </div>
+
+    <p class="lead-in">
+      <strong>A card is still a row.</strong> It carries the same row identity a table row does, so
+      <code>row:clicked</code> and <code>row:dblclicked</code> fire with the same payload, clicking
+      selects, the context menu opens, and <code>rowReorder</code> works — with the card itself as
+      the drag handle, since there is no cell to put a grip in. None of that is a second
+      implementation; it is the same code that serves a table.
+    </p>
+
+    <div class="why">
+      <p><strong>It is announced as a list, not a grid.</strong> A card has no columns, so the
+      <code>grid</code> role — which promises columns, <code>gridcell</code> children and a
+      two-dimensional keyboard model — would misdescribe it completely. The layer is a
+      <code>list</code>, each card a <code>listitem</code> carrying its position and the size of the
+      whole set, and the column header is not drawn. <code>role</code> and <code>itemRole</code>
+      override both, for a presentation that is really a <code>listbox</code>.</p>
+    </div>
+
+    <h3>Collapsing to cards on a narrow screen</h3>
+    <p class="lead-in">
+      A table on a phone is a compromise however it is styled. <code>responsive</code> presents rows
+      as cards when the grid is too narrow to be a table honestly, and returns to a table above the
+      threshold.
+    </p>
+
+    <div class="example">
+      <p class="example__label">One grid, two presentations, chosen by width</p>
+      <pre><code>createGrid(element, {
+  columns, rows, rowKey: <span class="str">'id'</span>,
+  toolPanel: <span class="kw">true</span>,
+  responsive: {
+    maxWidth: 640,                <span class="cmt">// the default</span>
+    rowHeight: 64,
+    template: <span class="str">'&lt;p class="title"&gt;{{cell.name}}&lt;/p&gt;&lt;p&gt;{{cell.owner}}&lt;/p&gt;'</span>,
+  },
+});</code></pre>
+    </div>
+
+    <div class="why">
+      <p><strong>Measured on the container, not the viewport.</strong> A media query is the obvious
+      way and the wrong one: a grid inside a 400px panel on a large monitor is narrow, and a grid
+      filling a small tablet is not. The grid already watches its own element for size changes, so
+      the same observer answers this.</p>
+      <p><strong>The state a user built survives the switch.</strong> Rotating a phone must not lose
+      the sort, the filters, the selection or the scroll position, and it does not — it is one grid
+      throughout, and only the drawing changes. An open cell editor is closed, since the cell it
+      belonged to stops existing.</p>
+    </div>
+
+    <p class="lead-in">
+      <strong>Sorting and filtering need a home</strong> when there are no column headings to click,
+      and the tool panel is it: set <code>toolPanel: true</code> and its rail stays available in card
+      presentation with the columns and filter panels behind it. <strong>Export is unaffected</strong>
+      — the columns are still the data model, so a CSV or an Excel file from a collapsed grid holds
+      every column, including ones the card does not show.
+    </p>
+
+    <p class="lead-in">
+      A collapsed card takes <code>rowHeight</code> from the <code>responsive</code> block rather
+      than the grid's, because a table row is too short to hold one; 64px by default. The change is
+      announced, and the role tree follows the presentation. <code>presentation:changed</code> fires
+      with <code>'cards'</code> or <code>'table'</code>.
+    </p>
+
+    <h3>Showing what the grid shows</h3>
+    <p class="lead-in">
+      <code>{{cell.<em>column</em>}}</code> is the text the table puts in that cell — the column's
+      own formatter, data type, number and date settings and lookup label, all of it.
+      <code>{{data.<em>field</em>}}</code> is the raw value underneath.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Binding</th><th>Reads</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">{{cell.value}}</td><td class="desc">£1,250.50 — the cell's rendered text</td></tr>
+          <tr><td class="sig">{{data.value}}</td><td class="desc">1250.5 — the stored number</td></tr>
+          <tr><td class="sig">{{cell.stage}}</td><td class="desc">Held — a lookup's label</td></tr>
+          <tr><td class="sig">{{data.stage}}</td><td class="desc">2 — the lookup's id</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="lead-in">
+      Both are wanted, which is why both exist: a card showing a value to a person wants
+      <code>cell</code>, and a template comparing or calculating wants <code>data</code>. A lookup is
+      the case that decides it — a card showing <code>2</code> where the table shows
+      <code>Held</code> is not a formatting preference but a plain bug.
+    </p>
+
+    <div class="why">
+      <p><strong>A protected column cannot be read raw.</strong> Binding
+      <code>{{data.password}}</code> on a secret or redacted column would print the value the column
+      exists to hide, while the table beside it shows dots. Such a binding reads the masked text
+      instead and says once that it did — a card must not become the hole a redaction closes.</p>
+    </div>
+
+    <h3>Several cards on a line</h3>
+    <p class="lead-in">
+      By default a card takes a line to itself, which is what a feed or a search-result list wants.
+      A gallery wants tiles, and there are two ways to ask for them because they answer different
+      questions.
+    </p>
+
+    <div class="example">
+      <p class="example__label">A fixed count, and a size that flows</p>
+      <pre><code>rowTemplate: { template: CARD, cardsPerRow: 3 }        <span class="cmt">// always three across</span>
+rowTemplate: { template: CARD, maxCardWidth: 260 }    <span class="cmt">// as many as fit</span></code></pre>
+    </div>
+
+    <p class="lead-in">
+      <code>cardsPerRow</code> is a count, for a layout that must not reflow. <code>maxCardWidth</code>
+      is a ceiling: the grid fits as many whole cards as it can without exceeding it, and they share
+      the remaining space rather than leaving a ragged margin — so 900px at a 200px ceiling is four
+      cards of 225px, and the count changes with the container. <code>gap</code> sets the space
+      between them. Where both are given, <code>cardsPerRow</code> wins, being an instruction rather
+      than a preference.
+    </p>
+
+    <div class="why">
+      <p><strong>The scroll height counts lines, not records.</strong> Four records on a line means
+      the content is a quarter as tall as the row model alone would make it, and a scrollbar sized
+      per record would be four times too long — the last several screens empty. The tiled layout
+      works out its own window from the scroll position for the same reason: the window it would
+      otherwise be handed counts one record per line and would leave the bottom of the screen bare.
+      Pooling is unaffected; scrolling a tiled gallery reuses its elements exactly as a list does.</p>
+    </div>
+
+    <p class="lead-in">
+      Tiles are a fixed height, taken from <code>rowHeight</code> —
+      <code>rowHeight: 'auto'</code> measures a rendered row and cannot describe a line holding
+      several of different heights. Variable-height tiles flowing into the shortest column is a
+      masonry layout, which is a different thing and is not offered.
+    </p>
+
+    <p class="lead-in">
+      Row heights work as they do everywhere else, including <code>rowHeight: 'auto'</code>, which
+      measures the rendered card — content-driven card heights need no extra configuration. The
+      columns are still declared and still hold the data: they are what sorting, filtering and
+      export operate on, and what the bindings read.
+    </p>
+
+    <h2 id="row-form">Editing a row on a form</h2>
+    <p class="lead-in">
+      Double-clicking a row opens it in a panel — a right-hand drawer or a centred dialog — with
+      one control per field, a Save and a Cancel. It is the shape almost every application built on
+      a grid ends up wanting, and until now the shape they had to build themselves.
+    </p>
+
+    <div class="example">
+      <p class="example__label">The grid's own columns, in a drawer</p>
+      <pre><code>createGrid(element, {
+  columns, rows, rowKey: <span class="str">'id'</span>,
+  editable: <span class="kw">true</span>,
+  rowForm: <span class="kw">true</span>,
+});</code></pre>
+    </div>
+
+    <p class="lead-in">
+      That is the whole of it for the common case: the form is the row, edited with the same
+      editors, types, formats and lookups the cells use. Where the record has more to it than the
+      grid shows, give a <code>load</code> function — and then say which fields and in what order,
+      because nothing in the grid knows the shape of something it has never seen.
+    </p>
+
+    <div class="example">
+      <p class="example__label">A fuller record, in a dialog</p>
+      <pre><code>rowForm: {
+  mode: <span class="str">'dialog'</span>,                       <span class="cmt">// 'drawer' is the default</span>
+  title: ({ data }) =&gt; <span class="str">'Edit '</span> + data.name,
+  load: ({ key }) =&gt; fetch(<span class="str">`/api/orders/${key}`</span>).then((r) =&gt; r.json()),
+  fields: [
+    { field: <span class="str">'name'</span>,  label: <span class="str">'Name'</span> },
+    { field: <span class="str">'ref'</span>,   label: <span class="str">'Reference'</span> },   <span class="cmt">// not a column</span>
+    { field: <span class="str">'notes'</span>, label: <span class="str">'Notes'</span>, editor: <span class="str">'textarea'</span> },
+    { field: <span class="str">'score'</span>, label: <span class="str">'Score'</span>, editor: <span class="str">'rating'</span>, props: { max: 5 } },
+  ],
+}</code></pre>
+    </div>
+
+    <h3>Which editor a field gets</h3>
+    <p class="lead-in">
+      Every editor is available on a form, including your own from the module registry — the form
+      builds its controls through the same call a cell does, so a field gets the same editor, type,
+      formatting and lookup its column would have given it. A field named after a column borrows
+      that column outright and needs nothing further.
+    </p>
+    <p class="lead-in">
+      A field the grid has never seen — or one you want entered differently from its cell — says so
+      on the field itself. <code>editor</code> names it, and <code>type</code>, <code>props</code>
+      and <code>lookup</code> configure it exactly as they would on a column. Overriding the control
+      does not change where the value goes: a field still writes back only if it maps to a column.
+    </p>
+
+    <div class="why">
+      <p><strong>A picker opens when it is asked to.</strong> A popup editor — a date, a dropdown, a
+      tree, a colour, a code panel — <em>is</em> its panel: in a cell it opens the moment the cell
+      does, which is right, because the user has just asked to edit that one cell. A form builds
+      every field at once, so on a form the field shows the current value on a control and the panel
+      opens over it when clicked. Choosing puts the panel away again and updates the control.</p>
+    </div>
+
+    <div class="why">
+      <p><strong>The panel opens before the record arrives.</strong> A click that does nothing for
+      half a second reads as a click that was missed, and the user clicks again. So the panel
+      appears immediately with a loading state and fills in when the record lands.</p>
+      <p><strong>A failure keeps the panel open</strong> and offers a retry inside it. Closing would
+      discard the intent and leave the user nothing to act on but the row they already
+      double-clicked.</p>
+      <p><strong>And a load that never answers is a failure too.</strong> A promise that neither
+      resolves nor rejects is what a dropped request looks like from the page; left alone it spins
+      until the user gives up, which reads as an application that has hung rather than a request
+      that failed. After <code>timeout</code> milliseconds — two seconds unless you say otherwise —
+      the form stops waiting and shows the same message and retry as any other failure. Set
+      <code>timeout: false</code> to wait indefinitely, which is right only where your own loader
+      already has a limit and would rather report that one. A record that turns up after the form
+      gave up on it is discarded rather than dropped into a panel the user may have moved on
+      from.</p>
+    </div>
+
+    <p class="lead-in">
+      The fields scroll and the heading and buttons do not, so Save stays reachable on a record with
+      forty fields. If a validator refuses one of them, the form stays open, the field is marked, and
+      it is scrolled into view and focused — on a long form the offending field is otherwise nowhere
+      near the button that was just pressed.
+    </p>
+
+    <p class="lead-in">
+      Save collects the changed fields, writes the ones that map to columns, and announces the lot.
+      Where the record actually lives is not something the grid can know, so persisting is yours: a
+      field that came from <code>load</code> and is not a column is reported in
+      <code>unmapped</code> and not written, since inventing a column for it would put data in the
+      grid that the grid was never asked to show. Save is disabled while there is nothing to save.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Does</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">form.open(key)</td><td class="desc">Open a row by key. Returns false if there is no such row.</td></tr>
+          <tr><td class="sig">form.close()</td><td class="desc">Close without saving.</td></tr>
+          <tr><td class="sig">form.save()</td><td class="desc">Commit the fields and close. Returns false if a validator refused, or if there is nothing to save.</td></tr>
+          <tr><td class="sig">form.isOpen()</td><td class="desc">Whether the panel is showing.</td></tr>
+          <tr><td class="name">form:opened</td><td class="desc">Fired with <code>{ key, row }</code>.</td></tr>
+          <tr><td class="name">form:saved</td><td class="desc">Fired with <code>{ key, values, changed, unmapped }</code>.</td></tr>
+          <tr><td class="name">form:closed</td><td class="desc">Fired with <code>{ key }</code>.</td></tr>
+          <tr><td class="name">form:error</td><td class="desc">Fired with <code>{ key, error, timedOut }</code> when a load fails or runs out of time.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="why">
+      <p><strong>The form takes the double click.</strong> On an editable grid that gesture also
+      opens a cell editor, and the two cannot both own it — a form that quietly did nothing where a
+      cell happened to be editable would be worse than no form. So where <code>rowForm</code> is
+      configured, double-clicking a row opens the form and the cell editor stays reachable by
+      Enter or by typing into the cell. Set <code>trigger: false</code> to leave opening entirely to
+      <code>form.open()</code> and keep double-click for cells.</p>
+    </div>
+
+    <h3>Putting the form in your own element</h3>
+    <p class="lead-in">
+      A drawer and a dialog both sit over the grid. Give <code>container</code> an element of your
+      own and the form is built there instead — a sidebar beside the grid, a panel below it, a
+      column in a layout you already have. It fills what it is given, so the size and position are
+      yours.
+    </p>
+
+    <div class="example">
+      <p class="example__label">A sidebar the application owns</p>
+      <pre><code>createGrid(element, {
+  columns, rows, rowKey: <span class="str">'id'</span>, editable: <span class="kw">true</span>,
+  rowForm: { container: <span class="str">'#record-panel'</span> },   <span class="cmt">// or the element itself, or a function</span>
+});</code></pre>
+    </div>
+
+    <p class="lead-in">
+      A selector is resolved when the form <em>opens</em>, not when the grid is configured, because
+      a grid is routinely built before the layout around it exists. A container that cannot be found
+      falls back to opening over the grid — better a form in the wrong place than a double-click
+      that appears to do nothing.
+    </p>
+
+    <div class="why">
+      <p><strong>A form in your own container is not modal.</strong> It sits beside the grid rather
+      than over it, so it takes nothing away: it is announced as a region rather than a dialog, and
+      Tab moves out of it into the rest of your page instead of being trapped. Claiming otherwise
+      would tell a screen reader user the page had gone away when it plainly has not. Escape still
+      closes it, and it still takes focus when it opens.</p>
+    </div>
+
+    <p class="lead-in">
+      Over the grid, the panel is a modal dialog: it takes focus when it opens, traps Tab while it
+      is showing, closes on Escape, and returns focus to whatever had it before. Its width can be
+      set with <code>width</code>.
+    </p>
 
     <h2 id="optimistic">Optimistic writes and rollback</h2>
     <p class="lead-in">
@@ -2796,6 +3692,7 @@ grid.annotate.use(null);                     <span class="cmt">// hand the grid 
           <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd></td><td class="desc">Move focus to the column header</td></tr>
           <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd></td><td class="desc">Move focus to the tool panel</td></tr>
           <tr><td class="name"><kbd>Shift</kbd>+<kbd>F10</kbd> <span class="sep">or</span> <kbd>ContextMenu</kbd></td><td class="desc">Open the context menu for the focused cell</td></tr>
+          <tr><td class="name"><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>ArrowUp</kbd> <span class="sep">or</span> <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>ArrowDown</kbd></td><td class="desc">Move the focused row, when row reorder is enabled</td></tr>
           <tr><th colspan="2">On a column heading</th></tr>
           <tr><td class="name"><kbd>ArrowLeft</kbd> <span class="sep">or</span> <kbd>ArrowRight</kbd></td><td class="desc">Move between headings</td></tr>
           <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>ArrowLeft</kbd> <span class="sep">or</span> <kbd>Ctrl</kbd>+<kbd>ArrowRight</kbd></td><td class="desc">First / last heading</td></tr>
@@ -3050,6 +3947,13 @@ grid.edit.pasteInto(text);                        <span class="cmt">// Excel's t
     </div>
 
     <h2 id="keyboard">Keyboard</h2>
+    <p class="lead-in">
+      Press <kbd>?</kbd> in the grid to see this list in the product. The overlay is generated from
+      the same bindings the grid implements, so it cannot drift from them, and it shows
+      <kbd>Cmd</kbd> rather than <kbd>Ctrl</kbd> on a Mac — the grid reads either, so that is what
+      you will actually press. <kbd>Escape</kbd> closes it and focus returns where it was. Set
+      <code>shortcuts: false</code> if you want <kbd>?</kbd> for something else.
+    </p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Keys</th><th>Does</th></tr></thead>
@@ -3323,6 +4227,33 @@ r.ok ? r.value : r.error;   <span class="cmt">// 42</span></code></pre>
       suppresses the menu deliberately. Returning <em>nothing</em> leaves the defaults alone, because
       a missing <code>return</code> is a typo and deleting the whole menu is a harsh reading of
       one.</p>
+    </div>
+    <p class="lead-in">
+      <code>columnMenu</code> takes the same function form, for both routes into a column's menu:
+      the header's 3-dot button and a right-click on the heading. Its <code>params</code> is
+      <code>{ colId, column, grid }</code>, and the same rules apply — spread the defaults, return
+      an empty array to suppress, return nothing to leave them alone.
+    </p>
+    <div class="example">
+      <p class="example__label">An item that appears on some columns and not others</p>
+      <pre><code>createGrid(el, {
+  columns: [{ field: 'jan', title: 'Jan', context: { month: 1 } }],
+  columnMenu: (params, defaults) =&gt; {
+    <span class="cmt">// Your own keys are on the definition you wrote.</span>
+    <span class="kw">const</span> month = params.column.def.context?.month;
+    <span class="kw">if</span> (!month) <span class="kw">return</span> defaults;
+    <span class="kw">return</span> [...defaults, { separator: <span class="kw">true</span> },
+      { name: 'Select quarter', action: () =&gt; selectQuarter(month) }];
+  },
+});</code></pre>
+    </div>
+    <div class="why">
+      <p><strong>Your properties are on <code>column.def</code>, not on the column itself.</strong>
+      <code>column</code> is the grid's resolved interpretation of your definition and carries only
+      keys the grid understands; <code>column.def</code> is the object you wrote, untouched. Keeping
+      them apart means an application property can never collide with one the grid adds in a later
+      version, and you do not have to maintain a lookup table keyed by column id alongside the
+      columns themselves.</p>
     </div>
     <div class="example">
       <p class="example__label">A button of your own on the rail</p>
@@ -3767,6 +4698,8 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
           <tr><td class="name">sort:changed / filter:changed</td><td class="type">{ sort } / { filters }</td><td class="desc">Reflecting the view in the URL.</td></tr>
           <tr><td class="name">history:changed</td><td class="type">{ canUndo, canRedo, undo, redo }</td><td class="desc">Driving your own undo button. Emitted <em>after</em> the entry is pushed, so the label is right.</td></tr>
           <tr><td class="name">history:applied</td><td class="type">{ direction, step }</td><td class="desc">An action was undone or redone, with which and what. <code>history:changed</code> also fires when a new action is pushed, so it cannot distinguish the two.</td></tr>
+          <tr><td class="name">form:saved</td><td class="type">{ key, values, changed, unmapped }</td><td class="desc">Persisting a row edited on a form. <code>unmapped</code> names the fields that are not columns, which the grid reports rather than writes.</td></tr>
+          <tr><td class="name">form:error</td><td class="type">{ key, error, timedOut }</td><td class="desc">A row form's <code>load</code> failed or ran out of time. The panel stays open with a retry.</td></tr>
           <tr><td class="name">view:saved / :removed</td><td class="type">{ view, views }</td><td class="desc">Persisting saved views to a server.</td></tr>
           <tr><td class="name">render:done</td><td class="type">{ first, last }</td><td class="desc">Decorating cells from outside. The cell layer rewrites class names on every paint, so anything added before this is erased.</td></tr>
         </tbody>
@@ -3874,7 +4807,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.5.4 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.6.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins —
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

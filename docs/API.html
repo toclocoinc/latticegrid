@@ -360,7 +360,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.5.4</p>
+    <p class="rail__sub">API reference · v1.6.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -382,6 +382,7 @@
         <a href="#filters">grid.filters</a>
         <a href="#sort">grid.sort</a>
         <a href="#edit">grid.edit</a>
+        <a href="#form">grid.form</a>
         <a href="#pagination">grid.pagination</a>
         <a href="#scroll">grid.scroll</a>
         <a href="#export">grid.export</a>
@@ -436,7 +437,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.5.4</span>
+      <span class="chip">Version 1.6.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -650,6 +651,9 @@
           <tr><td class="name">hostFilter</td><td class="type">{ active(), passes(row) }</td><td class="dflt">—</td><td class="desc">An application-level predicate composed with the grid's own filters.</td></tr>
           <tr><td class="name">pivot</td><td class="type">object</td><td class="dflt">—</td><td class="desc"><code>{ enabled, groupTotals, totalsLabel, maxColumns, separator }</code>. <code>groupTotals: 'before' | 'after'</code> adds a column group totalling every value column across all pivot values, at the near or far edge; omitted, it adds none. <code>totalsLabel</code> heads it, defaulting to <code>Total</code>. <code>maxColumns</code> defaults to 500, counts the totals group, and fails with a message rather than locking the browser.</td></tr>
           <tr><td class="name">grandTotalRow</td><td class="type">boolean | 'bottom'</td><td class="dflt">false</td><td class="desc"><code>true</code> puts it inline at the end of the rows; <code>'bottom'</code> pins it above the status bar. Maintained incrementally on a memory source — see <a href="api-detail.html#grouping">Grouping, totals and pivot</a>.</td></tr>
+          <tr><td class="name">pinnedTopRows</td><td class="type">object[]</td><td class="dflt">—</td><td class="desc">Rows held above the scrolling body. Rendered through the ordinary column pipeline, but not part of the data: not counted, sorted, filtered, grouped, selectable or exported. See <a href="api-detail.html#pinned-rows">Pinned rows</a>.</td></tr>
+          <tr><td class="name">pinnedBottomRows</td><td class="type">object[]</td><td class="dflt">—</td><td class="desc">As <code>pinnedTopRows</code>, held below the body instead. Sits under the grand total when both are shown.</td></tr>
+          <tr><td class="name">fullWidth</td><td class="type">{ when, render }</td><td class="dflt">—</td><td class="desc">Draw matching rows as one band across every column instead of dividing them into columns — a section banner, a note, a “load more” affordance. <code>when(row)</code> picks them, <code>render(params)</code> fills them. Still ordinary data rows in every other respect. See <a href="api-detail.html#full-width-rows">Full-width rows</a>.</td></tr>
           <tr><td class="name">groupFooter</td><td class="type">boolean</td><td class="dflt">false</td><td class="desc">A closing total row per group.</td></tr>
           <tr><td class="name">totalFilteredOnly</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc">Totals reduce the filtered set. <code>false</code> totals the whole dataset, group totals included. See <a href="api-detail.html#total-filtered-only">Grouping, totals and pivot</a>.</td></tr>
           <tr><td class="name">totalOnlyChangedColumns</td><td class="type">boolean</td><td class="dflt">false</td><td class="desc">Reduce only the totalled columns an edit actually changed. Off by default — it asserts that each total depends on nothing but its own column. See <a href="api-detail.html#grouping">Grouping, totals and pivot</a>.</td></tr>
@@ -665,7 +669,9 @@
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
         <tbody>
+          <tr><td class="name">messages</td><td class="type">object</td><td class="dflt">en-GB</td><td class="desc">Replaces the grid's own text — labels, menus and screen-reader announcements. A partial catalogue laid over the built-in British English one, so anything you leave out stays in English. Twenty catalogues are bundled: <code>EN_GB</code>, <code>EN_US</code>, <code>FR_FR</code>, <code>FR_CA</code>, <code>IT_IT</code>, <code>ES_ES</code>, <code>PT_BR</code>, <code>DE_DE</code>, <code>NL_NL</code>, <code>SV_SE</code>, <code>DA_DK</code>, <code>NB_NO</code>, <code>FI_FI</code>, <code>PL_PL</code>, <code>CS_CZ</code>, <code>HU_HU</code>, <code>RO_RO</code>, <code>UK_UA</code>, <code>EL_GR</code>, <code>JA_JP</code> and <code>AR</code>. They are exports of the package, not separate files, so importing one does not reduce what is bundled. <code>EN_US</code> is a partial overlay carrying only what differs from British English. <code>AR_SA</code> is an alias for <code>AR</code>: the Arabic catalogue is pan-Arabic, and a region appears in a name only where two variants ship. <code>resolveCatalogue(tag)</code> finds the catalogue for any tag, so <code>resolveCatalogue('es-MX')</code> returns the Spanish one. Every key is listed in <code>MESSAGE_KEYS</code>; <code>auditCatalogue()</code> reports what a catalogue of your own is missing.</td></tr>
           <tr><td class="name">locale</td><td class="type">string</td><td class="dflt">runtime</td><td class="desc">BCP-47. Drives every formatter and one shared <code>Intl.Collator</code>.</td></tr>
+          <tr><td class="name">direction</td><td class="type">'ltr' | 'rtl' | 'auto'</td><td class="dflt">auto</td><td class="desc">Writing direction. Left unset, it follows the element's computed <code>dir</code> and then the locale, so <code>locale: 'ar'</code> renders right to left without further configuration. Set it explicitly to override both.</td></tr>
           <tr><td class="name">theme</td><td class="type">'light' | 'dark' | 'high-contrast' | 'terminal'</td><td class="dflt">—</td><td class="desc">Stamped as <code>data-theme</code> on the grid's root. Unset follows the viewer's <code>prefers-color-scheme</code>. See <a href="api-detail.html#theming">Theming</a>.</td></tr>
           <tr><td class="name">density</td><td class="type">'compact' | 'standard' | 'comfortable' | 'spacious' | number</td><td class="dflt">'compact'</td><td class="desc">One scale that every geometry token derives from — row height, spacing, decoration sizes, and type at a damped rate. Row heights are 23.8 / 28 / 42 / 56px. A number scales 28px, so <code>1.4</code> gives 39.2px for anything between the presets. Virtualisation follows it; an explicit <code>rowHeight</code> overrides it.</td></tr>
           <tr><td class="name">rowHeight</td><td class="type">number | (row) =&gt; number</td><td class="dflt">28</td><td class="desc">A function enables variable-height rows.</td></tr>
@@ -700,7 +706,21 @@
           <tr><td class="name">maximise</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc"><code>false</code> removes the rail button and <code>grid.maximise</code>, for an application with its own full-screen mode.</td></tr>
           <tr><td class="name">toolPanel</td><td class="type">boolean | object</td><td class="desc">Side dock. <code>panels</code>: <code>columns</code>, <code>filters</code>, <code>views</code>, <code>quick</code>, <code>formatting</code>. <code>side: 'left'</code> makes it the icon rail, which also turns on <code>actions</code> (<code>undo</code>, <code>redo</code>, <code>pause</code>, <code>restore</code>, <code>maximise</code>, then the export group: <code>export</code>, <code>excel</code>, <code>clipboard</code>, <code>print</code> — nine in all, and an array takes these names rather than the button labels) and <code>icons</code>. An explicit array <em>replaces</em> that list rather than extending it; a bare <code>'-'</code> in it renders a divider between groups. <code>exportName</code> names the CSV.</td></tr>
           <tr><td class="name">contextMenu</td><td class="type">boolean | (p) =&gt; MenuItem[]</td><td class="desc">Right-click menu. The function form is <code>(params, defaults) =&gt; items</code> — see <a href="#custom-menu">custom items</a>. <code>false</code> suppresses it — what a read-only grid wants, since the default menu offers Paste, Clear and Fill down.</td></tr>
-          <tr><td class="name">columnMenu</td><td class="type">boolean</td><td class="desc">The header's 3-dot menu. <code>false</code> suppresses it.</td></tr>
+          <tr><td class="name">columnMenu</td><td class="type">boolean | (p) =&gt; MenuItem[]</td><td class="desc">The header's 3-dot menu, and a right-click on a column heading. The function form is <code>(params, defaults) =&gt; items</code>, with <code>params</code> carrying <code>colId</code>, <code>column</code> and <code>grid</code> — see <a href="#custom-menu">custom items</a>. <code>false</code> suppresses it.</td></tr>
+          <tr><td class="name">shortcuts</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc">The <kbd>?</kbd> keyboard shortcut overlay. <code>false</code> suppresses it, for a host that wants <kbd>?</kbd> for itself. See <a href="api-detail.html#keyboard">Keyboard</a>.</td></tr>
+          <tr><td class="name">rowReorder</td><td class="type">boolean | { column }</td><td class="dflt">—</td><td class="desc">Let a user reorder rows by dragging a handle or with <kbd>Alt</kbd>+<kbd>Shift</kbd>+arrows. The handle goes in the first visible column unless <code>column</code> names another. Refused, with a reason announced, while a sort, filter or grouping is active. See <a href="api-detail.html#row-reorder">Row reorder</a>.</td></tr>
+          <tr><td class="name">rowTransfer</td><td class="type">boolean | { send, receive, mode, group }</td><td class="dflt">—</td><td class="desc">Let rows be dragged between grids. Off by default. <code>send</code> and <code>receive</code> are both on when present, so one-way is <code>{ receive: false }</code> or <code>{ send: false }</code>. <code>mode: 'copy'</code> leaves the row behind; <code>group</code> restricts which grids may exchange. See <a href="api-detail.html#row-transfer">Moving rows between grids</a>.</td></tr>
+          <tr><td class="name">alignedGrids</td><td class="type">Grid[]</td><td class="dflt">—</td><td class="desc">Other grids to stay column-aligned with. Widths, order, visibility, pinning and horizontal scroll are shared; sort, filters, selection and rows stay independent. Declare it on the grid created last. See <a href="api-detail.html#aligned-grids">Aligned grids</a>.</td></tr>
+          <tr><td class="name">stickyGroupHeaders</td><td class="type">boolean | number | { depth }</td><td class="dflt">true</td><td class="desc">Keep the enclosing group headings pinned above the viewport while scrolling inside a group. Stacks at most two by default; each costs a row of viewport. See <a href="api-detail.html#sticky-group-headings">Sticky group headings</a>.</td></tr>
+          <tr><td class="name">gridLines</td><td class="type">boolean | 'both' | 'horizontal' | 'vertical' | 'none'</td><td class="dflt">'horizontal'</td><td class="desc">Which rules are drawn between cells. Horizontal is what the grid has always drawn; vertical rules are additive. <code>'rows'</code> and <code>'columns'</code> are accepted aliases. Only the rules between data are affected — the header underline and pinned seams are structure.</td></tr>
+          <tr><td class="name">cornerRadius</td><td class="type">boolean | number | string</td><td class="dflt">—</td><td class="desc">Round the grid's outer corners. <code>true</code> adopts the theme's radius, a number is pixels, a string is used as written.</td></tr>
+          <tr><td class="name">columnTagFilter</td><td class="type">boolean | { multiple, label }</td><td class="dflt">—</td><td class="desc">A bar above the headings for showing only the columns carrying a chosen tag. Draws nothing unless some column has <code>tags</code>. See <a href="api-detail.html#column-tags">Column tags</a>.</td></tr>
+          <tr><td class="name">rowTemplate</td><td class="type">string | { template, cardsPerRow, maxCardWidth, gap, className, role, itemRole }</td><td class="dflt">—</td><td class="desc">Draw each row with a template instead of dividing it into columns — a card list, a feed, a search-result list. Compiles once; binds with <code>{{data.field}}</code>. <code>cardsPerRow</code> or <code>maxCardWidth</code> puts several on a line. The pipeline underneath is unchanged. See <a href="api-detail.html#cards">Cards, lists and feeds</a>.</td></tr>
+          <tr><td class="name">responsive</td><td class="type">{ maxWidth, template, rowHeight }</td><td class="dflt">—</td><td class="desc">Collapse to cards when the <em>container</em> is at or below <code>maxWidth</code> (640 by default), and return to a table above it. Sorting, filtering and export keep working. Emits <code>presentation:changed</code>. See <a href="api-detail.html#cards">Cards, lists and feeds</a>.</td></tr>
+          <tr><td class="name">rowForm</td><td class="type">boolean | { mode, load, fields, title, width, trigger, timeout, container }</td><td class="dflt">—</td><td class="desc">Open a row for editing on a form. <code>mode: 'drawer'</code> (default) or <code>'dialog'</code>; without <code>load</code> the fields are the grid's own columns. A field entry is <code>{ field, label, editor, type, props, lookup }</code> — any editor, including your own. Takes double-click on the row unless <code>trigger: false</code>. A load that has not answered within <code>timeout</code> milliseconds (2000; <code>false</code> waits indefinitely) is reported as a failure with a retry. <code>container</code> builds the form in an element of your own instead of over the grid. See <a href="api-detail.html#row-form">Editing a row on a form</a>.</td></tr>
+          <tr><td class="name">showColumnFunctions</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc"><code>false</code> leaves each heading as its label, with no sort, filter or menu control. Those remain reachable through the API, the keyboard and the tool panel.</td></tr>
+          <tr><td class="name">significantFigures</td><td class="type">number</td><td class="dflt">—</td><td class="desc">On a unit column, render to this many significant figures rather than a fixed number of decimals, so precision is the same on every rung of the ladder. Rounding is applied before the unit is chosen. Set inside the unit configuration a data type is built from. See <a href="api-detail.html#units">Units</a>.</td></tr>
+          <tr><td class="name">typeOptions</td><td class="type">object</td><td class="dflt">—</td><td class="desc">Per-column options a data type reads. <code>ratio</code> and <code>percentRate</code> use <code>{ weight }</code> to name the column their average is weighted by. See <a href="api-detail.html#aggregate-safety">Aggregate safety</a>.</td></tr>
           <tr><td class="name">highlightOnChange</td><td class="type">boolean | string | object</td><td class="desc">Flash a cell when its value changes. <code>{ colour, duration }</code>; <code>duration: 0</code> stays until cleared.</td></tr>
           <tr><td class="name">rowClass</td><td class="type">string | string[] | (p) =&gt; …</td><td class="desc">A class, or classes, for every row. Re-evaluated on each repaint.</td></tr>
           <tr><td class="name">rowStyle</td><td class="type">CellStyle | (p) =&gt; CellStyle</td><td class="desc">Inline styles for every row. Camel-case or hyphenated property names.</td></tr>
@@ -728,6 +748,7 @@
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">Header text. Defaults to a humanised <code>field</code>.</td></tr>
           <tr><td class="name">type</td><td class="type">TypeName | false</td><td class="desc">A data type bundles format, parse, compare, storage, editor, filter, renderer and Excel behaviour. <code>false</code> disables inference. <code>'image'</code> treats the value as a URL and draws it — see <a href="#image-guide">image columns</a>.</td></tr>
           <tr><td class="name">preset</td><td class="type">string | string[]</td><td class="desc">Named bundles from <code>columnPresets</code>.</td></tr>
+          <tr><td class="name">tags</td><td class="type">string | string[]</td><td class="dflt">—</td><td class="desc">Labels grouping columns together, used by the column tag bar. A bare string is accepted for one tag.</td></tr>
           <tr><td class="name">format</td><td class="type">FormatSpec | string</td><td class="desc">Shorthand strings like <code>'percent:1'</code> or <code>'date:dd MMM yyyy'</code>.</td></tr>
           <tr><td class="name">lookup</td><td class="type">LookupSpec</td><td class="desc">Id-to-label mapping. Nested <code>children</code> are flattened, so a tree-shaped list resolves labels everywhere.</td></tr>
           <tr><td class="name">value</td><td class="type">ColumnValueSpec</td><td class="desc">Computed values and the value lifecycle.</td></tr>
@@ -820,11 +841,13 @@
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.5.4'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.6.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
           <tr><td class="sig">config()</td><td class="type">GridConfig</td><td class="desc">The whole live configuration as a shallow copy. Pairs with <code>setAll</code> for a read–modify–write round trip. Nested objects are shared by reference, so treat it as read-only.</td></tr>
+          <tr><td class="sig">setPinnedRows(rows, opts?)</td><td class="type">void</td><td class="desc">Pin rows outside the scrolling body. <code>opts.edge</code> is <code>'top'</code> (the default) or <code>'bottom'</code>. Pass a new array rather than mutating the previous one — array identity is the change signal. See <a href="api-detail.html#pinned-rows">Pinned rows</a>.</td></tr>
+          <tr><td class="sig">getPinnedRows(opts?)</td><td class="type">object[]</td><td class="desc">The objects pinned at one edge, as a copy.</td></tr>
           <tr><td class="sig">on(event, handler)</td><td class="type">() =&gt; void</td><td class="desc">Returns its own unsubscribe. <code>'*'</code> subscribes to everything.</td></tr>
           <tr><td class="sig">once(event, handler)</td><td class="type">() =&gt; void</td><td class="desc"></td></tr>
           <tr><td class="sig">off(event, handler)</td><td class="type">void</td><td class="desc"></td></tr>
@@ -867,6 +890,8 @@ grid.overlay.hide();</code></pre>
           <tr><td class="sig">apply(change)</td><td class="type">object</td><td class="desc">Transactional add / update / remove. Needs <code>rowKey</code>.</td></tr>
           <tr><td class="sig">queue(change)</td><td class="type">void</td><td class="desc">Batches a change into the next frame — the high-frequency path.</td></tr>
           <tr><td class="sig">refresh(opts)</td><td class="type">void</td><td class="desc">Force re-evaluation of computed values and cells.</td></tr>
+          <tr><td class="sig">move(key, to)</td><td class="type">{ moved, from, to, reason? }</td><td class="desc">Move a row to another position in the data. Refuses, naming the reason, while a sort, filter or grouping is active. Emits <code>row:moved</code>; persisting the new order is yours.</td></tr>
+          <tr><td class="sig">groupHeadings(index)</td><td class="type">Row[]</td><td class="desc">The group rows enclosing a display index, outermost first. Empty when the grid is not grouped. Useful for a breadcrumb of your own.</td></tr>
           <tr><td class="sig">expand(key, deep?)</td><td class="type">void</td><td class="desc"></td></tr>
           <tr><td class="sig">collapse(key)</td><td class="type">void</td><td class="desc"></td></tr>
           <tr><td class="sig">expandAll() / collapseAll()</td><td class="type">void</td><td class="desc"></td></tr>
@@ -964,6 +989,25 @@ grid.overlay.hide();</code></pre>
       </table>
     </div>
 
+    <h2 id="form">grid.form</h2>
+    <p class="section-note">
+      The row edit form — a drawer or dialog holding one control per field. Present whether or not
+      <code>rowForm</code> is configured; without it every method declines rather than throwing, so
+      a caller need not guard. See
+      <a href="api-detail.html#row-form">Editing a row on a form</a>.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">open(key)</td><td class="type">boolean</td><td class="desc">Open a row by key. False if there is no such row, or no form is configured.</td></tr>
+          <tr><td class="sig">close()</td><td class="type">void</td><td class="desc">Close without saving. Focus returns to where it was.</td></tr>
+          <tr><td class="sig">save()</td><td class="type">boolean</td><td class="desc">Commit the fields and close. False if a validator refused, or there is nothing to save.</td></tr>
+          <tr><td class="sig">isOpen()</td><td class="type">boolean</td><td class="desc">Whether the panel is showing.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
     <h2 id="pagination">grid.pagination</h2>
     <p class="section-note">
       A window over the rows the query already produced — not another query. A page change
@@ -986,8 +1030,10 @@ grid.overlay.hide();</code></pre>
         <thead><tr><th>Method</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="sig">position()</td><td class="type">{ top, left }</td><td class="desc"></td></tr>
-          <tr><td class="sig">toRow(index, align?)</td><td class="type">void</td><td class="desc"><code>align</code>: <code>'start'</code>, <code>'centre'</code>, <code>'end'</code>.</td></tr>
+          <tr><td class="sig">toRow(row, align?)</td><td class="type">void</td><td class="desc"><code>align</code>: <code>'start'</code>, <code>'centre'</code>, <code>'end'</code>.</td></tr>
           <tr><td class="sig">toColumn(id)</td><td class="type">void</td><td class="desc"></td></tr>
+          <tr><td class="sig">to(at)</td><td class="type">void</td><td class="desc">Scroll to <code>{ top, left }</code>. <code>left</code> is the logical offset — zero at the content's start whichever way the grid reads.</td></tr>
+          <tr><td class="sig">toCell(row, colId, align?)</td><td class="type">void</td><td class="desc">Scroll a cell into view, both axes in one call. <code>row</code> is a row key or a display index.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2019,6 +2065,21 @@ createGrid(el, {
     Returning an empty array suppresses the menu; returning nothing at all leaves the defaults
     alone, so a missing <code>return</code> cannot silently delete the menu.</p>
 
+    <p><code>columnMenu</code> takes the same form for the header's menu — both the 3-dot button
+    and a right-click on a heading. Its <code>params</code> is
+    <code>{ colId, column, grid }</code>. Anything of your own that you put on a column definition
+    is on <code>column.def</code>, so an item can appear on some columns and not others.</p>
+    <pre><code>createGrid(el, {
+  columns: [{ field: 'jan', title: 'Jan', context: { month: 1 } }],
+  columnMenu: (params, defaults) =&gt; {
+    <span class="cmt">// Your own keys live on the definition you wrote.</span>
+    <span class="kw">const</span> month = params.column.def.context?.month;
+    <span class="kw">if</span> (!month) <span class="kw">return</span> defaults;
+    <span class="kw">return</span> [...defaults, { separator: <span class="kw">true</span> },
+      { name: 'Select quarter', action: () =&gt; selectQuarter(month) }];
+  },
+});</code></pre>
+
     <p>The rail takes host buttons the same way. A string names a built-in and an object is yours,
     placed where it appears in the list rather than appended after the built-ins.</p>
     <pre><code>createGrid(el, {
@@ -2070,7 +2131,7 @@ createGrid(el, {
     <p class="section-note">Every registry accepts a custom entry under the same name, which then wins over ours.</p>
 
     <h3>Data types</h3>
-    <p>Seven built-in, and twenty in the extended catalogue. Inference only ever reaches the built-in
+    <p>Seven built-in, and seventy-four in the extended catalogue. Inference only ever reaches the built-in
     names: the candidates are tried in registration order, and every string settles on
     <code>text</code> and every number on <code>number</code> before an extended type is reached. So a
     column asks for an extended type by name.</p>
@@ -2085,13 +2146,32 @@ createGrid(el, {
       <span class="chip chip--new">binary</span><span class="chip chip--new">binary8</span><span class="chip chip--new">octal</span>
       <span class="chip chip--new">bytes</span><span class="chip chip--new">megabytes</span><span class="chip chip--new">gigabytes</span>
       <span class="chip chip--new">bitrate</span><span class="chip chip--new">gigabits</span>
+      <span class="chip chip--new">metres</span><span class="chip chip--new">millimetres</span><span class="chip chip--new">kilometres</span>
+      <span class="chip chip--new">grams</span><span class="chip chip--new">kilograms</span><span class="chip chip--new">tonnes</span>
+      <span class="chip chip--new">seconds</span><span class="chip chip--new">milliseconds</span><span class="chip chip--new">hours</span>
+      <span class="chip chip--new">speed</span><span class="chip chip--new">kph</span><span class="chip chip--new">mph</span><span class="chip chip--new">knots</span>
+      <span class="chip chip--new">acceleration</span><span class="chip chip--new">area</span><span class="chip chip--new">hectares</span>
+      <span class="chip chip--new">volume</span><span class="chip chip--new">cubicMetres</span>
+      <span class="chip chip--new">energy</span><span class="chip chip--new">kilowattHours</span>
+      <span class="chip chip--new">power</span><span class="chip chip--new">kilowatts</span><span class="chip chip--new">force</span>
+      <span class="chip chip--new">pressure</span><span class="chip chip--new">bar</span><span class="chip chip--new">psi</span>
+      <span class="chip chip--new">torque</span><span class="chip chip--new">density</span>
+      <span class="chip chip--new">flow</span><span class="chip chip--new">litresPerMinute</span>
+      <span class="chip chip--new">radians</span><span class="chip chip--new">degrees</span>
+      <span class="chip chip--new">voltage</span><span class="chip chip--new">current</span><span class="chip chip--new">resistance</span>
+      <span class="chip chip--new">capacitance</span><span class="chip chip--new">inductance</span><span class="chip chip--new">charge</span>
+      <span class="chip chip--new">conductance</span><span class="chip chip--new">fluxDensity</span>
+      <span class="chip chip--new">luminousFlux</span><span class="chip chip--new">illuminance</span><span class="chip chip--new">substance</span>
+      <span class="chip chip--new">absorbedDose</span><span class="chip chip--new">equivalentDose</span><span class="chip chip--new">radioactivity</span>
+      <span class="chip chip--new">frequency</span>
+      <span class="chip chip--new">celsius</span><span class="chip chip--new">fahrenheit</span><span class="chip chip--new">kelvin</span>
     </div>
 
     <h3>Editors</h3>
     <div class="chips">
       <span class="chip">text</span><span class="chip">textarea</span><span class="chip">number</span><span class="chip">date</span><span class="chip">checkbox</span><span class="chip">select</span><span class="chip">multiSelect</span>
       <span class="chip">time</span><span class="chip">datetime</span><span class="chip">duration</span><span class="chip">ipaddress</span><span class="chip">password</span><span class="chip">code</span>
-      <span class="chip">unit</span><span class="chip">radix</span><span class="chip">slider</span><span class="chip">rating</span><span class="chip">segmented</span>
+      <span class="chip">unit</span><span class="chip">temperature</span><span class="chip">radix</span><span class="chip">slider</span><span class="chip">rating</span><span class="chip">segmented</span>
       <span class="chip">treeSelect</span><span class="chip">objectPicker</span><span class="chip">iconPicker</span><span class="chip">colour</span>
     </div>
 
@@ -2158,7 +2238,7 @@ createGrid(el, {
     </div>
 
     <footer>
-      Lattice Grid 1.5.4 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.6.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins — please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>
