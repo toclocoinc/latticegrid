@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.6.0</p>
+    <p class="rail__sub">Developer guide · v1.6.1</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -535,7 +535,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.6.0</span>
+        <span class="chip">Version 1.6.1</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -924,7 +924,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.6.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.6.1'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -4409,6 +4409,49 @@ grid.highlight.clear();</code></pre>
       named view must not do.</p>
     </div>
 
+    <h3>When the columns change underneath a saved view</h3>
+    <p class="lead-in">
+      A saved view is user data written months ago against a column set that has since moved on. A
+      release adds columns, renames one, drops another; the views people saved must survive it.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>What changed</th><th>What a saved view does</th></tr></thead>
+        <tbody>
+          <tr><td class="name">A column was added</td><td class="desc"><strong>It appears</strong>, in the state its definition declares, placed after every column the view names. A view is not a whitelist — it says nothing about columns it has never seen, and silence is not an instruction to hide.</td></tr>
+          <tr><td class="name">A column was added, and should not appear yet</td><td class="desc">Declare it <code>layout: { hidden: true }</code>. The view does not mention it, so nothing overrides that, and it stays hidden until the user shows it.</td></tr>
+          <tr><td class="name">A column was removed</td><td class="desc">The entries naming it are skipped and reported; the rest of the view applies. A sort or grouping on the missing column is dropped rather than left pointing at nothing.</td></tr>
+          <tr><td class="name">A column was renamed</td><td class="desc">That is a removal and an addition. The old id is skipped, the new column appears at the end, and any width or pinning the user had set is lost with the old id.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="why">
+      <p><strong>Applying a view never throws and never refuses.</strong> It returns a report —
+      <code>{ applied, skipped }</code> — naming each thing it could not use and why. Refusing the
+      whole view because one column has gone would lose a layout the user built deliberately, and
+      throwing during a page load would lose the page. So a view degrades to as much of itself as
+      still makes sense, and the host decides whether the user needs telling.</p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Telling the user their view has aged</p>
+      <pre><code><span class="kw">const</span> report = grid.state.apply(saved.state);
+<span class="kw">if</span> (report.skipped.length) {
+  <span class="cmt">// e.g. [{ key: 'columns.legacyRef', reason: 'unknown column' }]</span>
+  notify(<span class="str">`This view was saved against an older layout; ${report.skipped.length} setting(s) no longer apply.`</span>);
+}</code></pre>
+    </div>
+
+    <p class="lead-in">
+      The consequence worth planning for is the first one: <strong>a column added in a new release
+      is visible to everyone, including users with a saved view.</strong> That is usually what you
+      want — a new field nobody can see is a field nobody uses — but if a release adds several at
+      once, every saved view gains them all at the right-hand end. Ship them hidden if that is not
+      the introduction you want.
+    </p>
+
     <h3>Persisting them</h3>
     <p class="lead-in">
       <strong>The grid makes no network calls.</strong> It tells you what happened and you decide
@@ -4807,7 +4850,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.6.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.6.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins —
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>
