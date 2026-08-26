@@ -360,7 +360,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.6.1</p>
+    <p class="rail__sub">API reference · v1.7.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -437,15 +437,15 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.6.1</span>
+      <span class="chip">Version 1.7.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
 
     <h2 id="construction">Construction</h2>
-    <p class="section-note">Two files are all you need: a stylesheet and a script. Nothing is fetched at runtime — no CDN, no font, no icon sprite.</p>
+    <p class="section-note">Two files are all you need: a stylesheet and a script. Nothing is fetched at runtime — no CDN, no font, no icon sprite — however the two files themselves got there.</p>
 
-    <pre><code><span class="cmt">&lt;!-- Script tag. Everything is on one global. --&gt;</span>
+    <pre><code><span class="cmt">&lt;!-- Script tag, from your own build. Everything is on one global. --&gt;</span>
 &lt;link rel="stylesheet" href="dist/lattice-grid.min.css"&gt;
 &lt;script src="dist/lattice-grid.min.js"&gt;&lt;/script&gt;
 
@@ -453,10 +453,21 @@
   <span class="kw">const</span> grid = LatticeGrid.createGrid(document.getElementById('grid'), config);
 &lt;/script&gt;</code></pre>
 
-    <p>Or as modules, importing the bundle by path:</p>
+    <p>Or straight from jsDelivr — no npm install, no bundler, no local copy at all:</p>
 
-    <pre><code><span class="cmt">// With a renderer, in a browser.</span>
+    <pre><code>&lt;link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@1.7.0/lattice-grid.min.css"&gt;
+&lt;script src="https://cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@1.7.0/lattice-grid.min.js"&gt;&lt;/script&gt;
+
+&lt;script&gt;
+  <span class="kw">const</span> grid = LatticeGrid.createGrid(document.getElementById('grid'), config);
+&lt;/script&gt;</code></pre>
+
+    <p>Or as modules, importing the bundle by path — your own build, npm, or jsDelivr:</p>
+
+    <pre><code><span class="cmt">// With a renderer, in a browser. Any of:</span>
 <span class="kw">import</span> { createGrid } <span class="kw">from</span> './dist/lattice-grid.esm.js';
+<span class="cmt">// import { createGrid } from '@toclocoinc/lattice-grid';</span>
+<span class="cmt">// import { createGrid } from 'https://cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@1.7.0/lattice-grid.esm.min.js';</span>
 <span class="kw">const</span> grid = createGrid(document.getElementById('grid'), config);
 
 <span class="cmt">// Headless: the same API without a renderer. Data, filters, sort,</span>
@@ -465,6 +476,12 @@
 <span class="cmt">// Runs in Node, for tests and server-side export.</span>
 <span class="kw">import</span> { createHeadlessGrid } <span class="kw">from</span> './dist/lattice-core.esm.js';
 <span class="kw">const</span> grid = createHeadlessGrid(config);</code></pre>
+
+    <div class="note"><p>jsDelivr mirrors every version published to npm at
+    <code>cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@&lt;version&gt;/&lt;file&gt;</code>. Pin an exact
+    version for anything shipped — <code>@1.7.0</code>, not <code>@latest</code> — so a release does
+    not change what a page already in production loads. The same convention reaches any module:
+    <code>.../modules/htmx.esm.min.js</code>, <code>.../modules/react.esm.min.js</code>, and so on.</p></div>
 
     <h2 id="adapters">Framework adapters</h2>
     <p class="section-note">The web component carries the grid inside it, so use it <em>or</em> <code>createGrid</code> in a page, not both &mdash; two copies keep separate registries, and a renderer registered through one is invisible to the other. One optional bundle per framework. The framework and <code>createGrid</code> are passed in rather than imported, so the adapters add no dependency and carry no second copy of the grid.</p>
@@ -517,11 +534,13 @@
     </div>
 
     <div class="note">
-      <p><strong>There is no npm package.</strong> Lattice Grid is <code>private: true</code> and is not
-      published to any registry, so <code>import … from '@latticegrid/dom'</code> will not resolve.
-      Import the built file by path, or use the script tag. The same is true of the type
-      declarations: point your <code>tsconfig</code> at <code>dist/lattice-grid.d.ts</code> rather
-      than expecting <code>@types</code> to find them.</p>
+      <p><strong>Published as <code>@toclocoinc/lattice-grid</code></strong> — <code>npm install
+      @toclocoinc/lattice-grid</code>, then <code>import { createLatticeGrid } from
+      '@toclocoinc/lattice-grid/modules/react'</code> (swap the module name for Vue or Svelte)
+      resolves like any other package. Type declarations resolve automatically through the
+      package's own <code>types</code> field — no <code>@types</code> package to install. Importing
+      the built file by path, or the script tag, both still work for a project with no npm install
+      step at all.</p>
     </div>
 
     <div class="table-wrap">
@@ -597,6 +616,76 @@
     </div>
 
     <p class="section-note">Events are re-dispatched as <code>CustomEvent</code>s named <code>lattice-</code> plus the grid name with colons hyphenated: <code>cell:changed</code> becomes <code>lattice-cell-changed</code>. The payload is on <code>event.detail</code>. The prefix avoids colliding with platform events — the grid emits one called <code>scroll</code>.</p>
+
+    <h2 id="dhtmlx-compat">dhtmlx Grid compatibility wrapper</h2>
+    <p class="section-note">A <code>Grid</code> class shaped like dhtmlx's own <code>dhx.Grid</code> (Suite 5+), backed by a real Lattice grid. Covers column definitions, <code>.data</code>, <code>.selection</code>, <code>.history</code>, <code>.export.csv</code>/<code>.xlsx</code>, and a name-mapped subset of <code>.events</code> — see <a href="api-detail.html#dhtmlx-guide">the guide</a> for exactly what is and is not covered. Not the classic pre-Suite-5 <code>dhtmlXGridObject</code>.</p>
+
+    <pre><code><span class="kw">import</span> { Grid } <span class="kw">from</span> './dist/modules/dhtmlx-compat.esm.min.js';
+
+<span class="kw">const</span> grid = <span class="kw">new</span> Grid(container, {
+  columns: [{ id: 'name', header: [{ text: 'Name' }], sortable: <span class="kw">true</span> }],
+  data: rows,
+});
+grid.data.serialize(); <span class="cmt">// every row's data, in source order</span></code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Namespace</th><th>Covers</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">.data</td><td class="desc"><code>add</code>, <code>update</code>, <code>remove</code>, <code>removeAll</code>, <code>parse</code>, <code>load</code>, <code>find</code>, <code>findAll</code>, <code>exists</code>, <code>getItem</code>, <code>getId</code>, <code>getIndex</code>, <code>getLength</code>, <code>forEach</code>, <code>serialize</code>, <code>sort</code>, <code>filter</code>, <code>resetFilter</code>. Index means current display order throughout.</td></tr>
+          <tr><td class="sig">.selection</td><td class="desc"><code>setCell(rowId, colId, ctrlUp?, shiftUp?)</code>, <code>getCell</code>, <code>getCells</code>, <code>isSelectedCell</code>, <code>removeCell</code>. <code>row</code>/<code>column</code> carry <code>.id</code>; a row's own fields sit alongside it, matching dhtmlx's own <code>IRow</code>.</td></tr>
+          <tr><td class="sig">.history</td><td class="desc"><code>undo</code>, <code>redo</code>, <code>canUndo</code>, <code>canRedo</code>, <code>clear</code>, <code>getHistory</code>.</td></tr>
+          <tr><td class="sig">.export</td><td class="desc"><code>csv</code>, <code>xlsx</code>. <code>pdf</code>/<code>png</code> throw — no raster export to translate to.</td></tr>
+          <tr><td class="sig">.events</td><td class="desc"><code>cellClick</code>/<code>cellDblClick</code>/<code>cellRightClick</code>/<code>afterEditStart</code>/<code>afterEditEnd</code>/<code>afterSort</code> call your handler with dhtmlx's own positional arguments. <code>afterRowDrop</code> fires <code>(data, event)</code> from a same-grid reorder settling or a row landing from another grid. Every other mapped name passes Lattice's own event object. Every <code>before*</code>/<code>can*</code>/<code>cancel*</code> event, and row/column drag <em>negotiation</em> (a handler refusing or steering a drop mid-gesture), is unmapped — logged once per name if subscribed to.</td></tr>
+          <tr><td class="sig">.rangeSelection</td><td class="desc">Best-effort only — its range shape is this wrapper's own design, not dhtmlx's genuine <code>RangeSelection</code> module.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Config key</th><th>Becomes</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">dragItem: 'row'</td><td class="desc"><code>rowReorder: true</code> — same-grid drag-to-reorder.</td></tr>
+          <tr><td class="sig">rowTransfer</td><td class="desc">Passed straight through, unlike every other key — dhtmlx allows any two <code>dragItem: 'row'</code> grids on a page to exchange rows by default; Lattice's <code>rowTransfer</code> is deliberately opt-in per pair, so there is nothing to derive it from.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="declarative-init">Declarative init, hydration &amp; state</h2>
+    <p class="section-note">Core-level primitives, usable with or without any framework adapter or the htmx module below. An element built by <code>createGrid</code> is discoverable from itself: <code>element.__lattice</code> holds the live instance, cleared on <code>destroy()</code>.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Export</th><th>Does</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">autoInit(root)</td><td class="desc">Builds a grid on every <code>[data-lattice-grid]</code> element under <code>root</code> not already built — idempotent, safe to call again after new content arrives. Config comes from a sibling <code>&lt;script type="application/json" data-lattice-config&gt;</code>; without one, a <code>&lt;table&gt;</code> element is hydrated instead.</td></tr>
+          <tr><td class="sig">hydrateTable(table, config?)</td><td class="desc">Reads a <code>&lt;table&gt;</code>'s header row for column definitions and body rows for data (type-inferred per cell), then replaces the table with the grid. <code>config</code> — columns, rows, anything else — always wins over what was inferred.</td></tr>
+          <tr><td class="sig">serialiseState(grid) / restoreState(grid, encoded)</td><td class="desc">A compact, URL-safe encoding of everything <code>grid.state</code> covers — sort, filters, column order and widths, scroll position, selection — diffed against the grid's own defaults first, so an untouched grid encodes to a handful of characters.</td></tr>
+          <tr><td class="sig">&lt;meta name="lattice-license" content="…"&gt;</td><td class="desc">Read automatically when no <code>licence</code> is passed to <code>createGrid</code> — no imperative call required.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="htmx-integration">htmx integration</h2>
+    <p class="section-note">One file. <code>modules/htmx</code> re-exports <code>createGrid</code>, <code>autoInit</code>, <code>hydrateTable</code>, <code>readTable</code>, <code>serialiseState</code> and <code>restoreState</code> alongside its own exports below, so a page using htmx integration never also loads the base bundle — that would mean two independent copies of the whole engine on one page. Registers on import: builds grids from <code>[data-lattice-grid]</code> elements or server-rendered <code>&lt;table&gt;</code>s, tears them down before htmx detaches a swapped-out subtree, and rebuilds them in newly-loaded content. <code>driveServerMode</code>/<code>driveInfiniteScroll</code> drive sort, filter and infinite scroll over plain htmx requests; <code>driveOobUpdates</code> applies out-of-band row updates in place. See <a href="api-detail.html#htmx-guide">the guide</a> for the full request-lifecycle wiring and why infinite scroll uses two triggers.</p>
+
+    <pre><code><span class="kw">import</span> { autoInit, driveServerMode, driveInfiniteScroll } <span class="kw">from</span> './dist/modules/htmx.esm.min.js';
+
+autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under it</span></code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Export</th><th>Does</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">createGrid, autoInit, hydrateTable, readTable, serialiseState, restoreState</td><td class="desc">The same functions documented above, re-exported — this is the one import a page using htmx integration needs for both grid construction and htmx wiring.</td></tr>
+          <tr><td class="sig">driveServerMode(grid, trigger, opts?)</td><td class="desc">A sort or filter change fires a request on <code>trigger</code> carrying <code>offset</code>/<code>limit</code>/<code>sort</code>/<code>filters</code>; the response replaces the grid's rows. <code>opts.columns</code> for the HTML-fragment ingest path.</td></tr>
+          <tr><td class="sig">driveInfiniteScroll(grid, sentinel, opts?)</td><td class="desc">Appends rows as the grid's own visible window nears the end of what's loaded. <code>sentinel</code>'s own <code>hx-trigger</code> names <code>revealed, lattice:scroll-near-end</code> — the first fires the initial chunk, the second every chunk after. <code>opts.threshold</code> (default 20) sets how many rows from the end counts as near.</td></tr>
+          <tr><td class="sig">driveOobUpdates(grid, opts?)</td><td class="desc">Applies an out-of-band swap landing on <code>[data-lattice-row="&lt;key&gt;"]</code> to that row, in place — scroll, selection and filter state untouched.</td></tr>
+          <tr><td class="sig">Browser history</td><td class="desc"><code>serialiseState</code>/<code>restoreState</code> above, wired automatically to <code>htmx:beforeHistorySave</code>/<code>htmx:historyRestore</code> once this module is imported — browser back restores the prior sort, filter and scroll position.</td></tr>
+        </tbody>
+      </table>
+    </div>
 
     <h2 id="config">Configuration properties</h2>
     <p class="section-note">
@@ -841,7 +930,7 @@
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.6.1'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.7.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -1505,8 +1594,9 @@ grid.highlight.clear();                                             // everythin
     saved: [{ id: 'escalations', name: 'Escalations', description: 'Worst SLA first',
               state: { filters: { col: 'statusId', op: 'eq', value: 4 },
                        sort: [{ col: 'utilisation', dir: 'desc' }] } }],
-    allowSave: true,          // false removes the save form entirely
-    storage: { read, write }, // synchronous mirror; see the note below
+    allowSave: true,   // false removes the save form entirely
+    local: true,       // saved views live in this browser's localStorage — no backend
+    // storage: { read, write }, // or bring your own backend; see the note below
   },
 });</code></pre>
     <div class="table-wrap">
@@ -1526,7 +1616,8 @@ grid.highlight.clear();                                             // everythin
         </tbody>
       </table>
     </div>
-    <div class="note"><p><strong>The grid makes no network calls.</strong> <code>storage.write</code> is for a synchronous mirror such as <code>localStorage</code>. To persist to a server, listen for <code>view:saved</code>, <code>view:renamed</code>, <code>view:removed</code> and <code>view:default</code> — each carries the one view that moved, so you can send a single record rather than diffing two lists. Because the grid does not track whether your write landed, a failed request leaves the view visible locally: catch it and call <code>views.reload()</code>.</p></div>
+    <div class="note"><p><strong>The grid makes no network calls.</strong> <code>storage.write</code> is a synchronous mirror. To persist to a server, listen for <code>view:saved</code>, <code>view:renamed</code>, <code>view:removed</code> and <code>view:default</code> — each carries the one view that moved, so you can send a single record rather than diffing two lists. Because the grid does not track whether your write landed, a failed request leaves the view visible locally: catch it and call <code>views.reload()</code>.</p></div>
+    <div class="note"><p><strong><code>views.local</code></strong> is the no-backend option: <code>true</code> stores views under a default <code>localStorage</code> key, shared by every grid on the origin; <code>{ key: '…' }</code> picks a key of your own, for more than one grid whose views should stay apart. Given alongside an explicit <code>storage</code>, <code>storage</code> wins and <code>local</code> is ignored, with a console warning — the two are never merged. Built on <code>createLocalViewStorage</code>, exported for direct use (a custom key, or a different <code>Storage</code>-shaped backing such as <code>sessionStorage</code>) without the <code>local</code> shorthand.</p></div>
 
     <h2 id="diff">grid.diff</h2>
     <p>Audit mode. Give it a prior snapshot and every row reports whether it was added, removed or changed, and which cells moved.</p>
@@ -1718,7 +1809,7 @@ grid.licence.state();      <span class="cmt">// 'licensed' | 'localhost' | 'tria
         <tbody>
           <tr><td class="sig">set(key)</td><td class="type">object</td><td class="desc">Install a key for the process. Returns the provisional verdict; the check is asynchronous and <code>licence:changed</code> fires when it settles.</td></tr>
           <tr><td class="sig">state()</td><td class="type">string</td><td class="desc"><code>'licensed'</code>, <code>'localhost'</code> or <code>'trial'</code>.</td></tr>
-          <tr><td class="sig">info()</td><td class="type">object</td><td class="desc"><code>{ valid, reason, issuedTo, expires, product }</code>.</td></tr>
+          <tr><td class="sig">info()</td><td class="type">object</td><td class="desc"><code>{ valid, reason, issuedTo, expires, product }</code>. <code>expires</code> is <code>undefined</code> for a perpetual key — the default — and an ISO date only for one deliberately issued with a term.</td></tr>
           <tr><td class="sig">watermark()</td><td class="type">boolean</td><td class="desc">Whether the trial mark is showing.</td></tr>
           <tr><td class="sig">ready</td><td class="type">Promise</td><td class="desc">Settles when the licence check finishes.</td></tr>
         </tbody>
@@ -1748,10 +1839,13 @@ grid.licence.state();      <span class="cmt">// 'licensed' | 'localhost' | 'tria
     <p>Keys are issued from <a href="https://www.latticegrid.dev">latticegrid.dev</a>. A key is
     issued per deployment rather than per developer or per seat: name the domains the grid will run
     on and one key covers every developer, every build and every user on them.</p>
+    <p><strong>Keys are perpetual by default.</strong> A key carries no expiry unless one was
+    deliberately issued — a trial, a time-boxed pilot — so the ordinary key is valid until the
+    domains it names change, not one that quietly lapses on a date nobody is tracking.</p>
     <p>Checking a key needs no network. There is no licence server, no call home, and nothing that
-    can fail at three in the morning — a key carries its own answer and the grid reads it locally.
-    An expired key, a key for the wrong domain, or a key that will not read all do the same thing:
-    log one console warning and show the watermark.</p>
+    can fail at three in the morning — a key carries its own answer and the grid reads it locally,
+    fresh on every load. A key for the wrong domain, or a key that will not read at all, does the
+    same thing a genuinely expired trial key does: log one console warning and show the watermark.</p>
     <div class="note"><p>Install the key before creating a grid. Setting one later still works —
     <code>licence:changed</code> fires and the watermark is removed — but the first frames of the
     grid will carry it.</p></div>
@@ -2238,7 +2332,7 @@ createGrid(el, {
     </div>
 
     <footer>
-      Lattice Grid 1.6.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.7.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins — please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

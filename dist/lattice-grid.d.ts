@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.6.1 — type declarations
+ * Lattice Grid 1.7.0 — type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
