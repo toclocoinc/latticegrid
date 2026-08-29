@@ -4,7 +4,7 @@
 dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it.
 
-Version 1.8.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.9.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -20,10 +20,21 @@ runtime, not a CDN, not a font, not an icon sprite.
 | `lattice-grid.esm.min.js` | The same, as an ES module. |
 | `lattice-grid.min.css` | The theme. Required. |
 | `lattice-grid.d.ts` | TypeScript declarations. |
-| `modules/react.esm.min.js` | React adapter. Vue, Svelte and Web Component builds sit beside it. |
-| `modules/devtools.esm.min.js` | The devtools panel, including the accessibility checks. |
 | `docs/API.html` | The complete API reference. |
 | `docs/api-detail.html` | The developer guide — what each part does, and why. |
+
+Every module is optional and none of them is loaded unless you import it.
+
+| Module | What it is |
+|---|---|
+| `modules/charts.esm.min.js` | Thirty chart types drawn from the grid's data. |
+| `modules/react.esm.min.js` | React adapter. |
+| `modules/vue.esm.min.js` | Vue adapter. |
+| `modules/svelte.esm.min.js` | Svelte adapter. |
+| `modules/webcomponent.esm.min.js` | `<lattice-grid>` as a custom element. |
+| `modules/htmx.esm.min.js` | htmx integration — survives htmx's DOM swaps, hydrates from a server-rendered `<table>`, and drives sort, filter and infinite scroll over plain htmx requests. UMD and CJS builds sit beside it. |
+| `modules/dhtmlx-compat.esm.min.js` | A compatibility wrapper for dhtmlx Grid, for moving an existing integration across without rewriting it. |
+| `modules/devtools.esm.min.js` | The devtools panel, including the accessibility checks. |
 
 ---
 
@@ -103,7 +114,7 @@ enough to know whether the grid covers what you need.
 - **Comments** threaded on cells, and an annotation layer for presenting.
 - **Full-screen mode**, print, and image capture.
 
-### Quality of the thing itself
+### Built in, not bolted on
 
 - **Accessible.** Keyboard operable throughout, ARIA grid semantics, a live
   region for announcements, honours reduced motion, forced colours and large
@@ -182,6 +193,21 @@ renderer registered through one will not appear in the other.
 
 The full setup for each framework is in the developer guide.
 
+### htmx and dhtmlx
+
+Two integrations that are not framework adapters.
+
+**htmx.** `modules/htmx` lets a grid survive htmx's own DOM swaps, hydrate from
+a server-rendered `<table>`, and drive sort, filter and infinite scroll over
+plain htmx requests. It is a complete package rather than an add-on —
+`createGrid`, `autoInit`, `hydrateTable`, `readTable`, `serialiseState` and
+`restoreState` are re-exported alongside its own functions — so a page using it
+imports this and never the base package as well.
+
+**dhtmlx.** `modules/dhtmlx-compat` exposes a dhtmlx Grid-shaped API over
+Lattice, for moving an existing integration across a piece at a time rather
+than rewriting it in one go.
+
 ### TypeScript
 
 Declarations ship in the box and are wired up in `package.json`, so editors find
@@ -225,21 +251,69 @@ Seven built-in types — `text`, `number`, `boolean`, `date`, `dateString`,
 `object` and `lookup` — cover ordinary business data and are inferred from your
 rows automatically.
 
-Beyond those, Lattice Grid ships **20 technical field types** for the data that
+Beyond those, Lattice Grid ships **88 technical field types** for the data that
 usually ends up in a text column because the grid had nowhere to put it. Each is
 a complete type, not a display format: it brings its own parser, comparator,
 editor, filter, alignment, clipboard behaviour and Excel mapping.
 
-| Group | Types | Notes |
-|---|---|---|
-| **Network** | `ipv4`, `ipv6`, `cidr` | Sort in address order, not lexically — `10.0.0.9` before `10.0.0.10`. |
-| **Time** | `time`, `datetime`, `duration` | Three things a single `date` type keeps being asked to be. |
-| **Radix** | `hex`, `hex8`, `hex16`, `hex32`, `binary`, `binary8`, `octal` | The stored value stays a plain number; the base is presentation and input only. |
-| **Units** | `bytes`, `megabytes`, `gigabytes`, `bitrate`, `gigabits` | Shows `10 GB`, accepts `10,000M` typed in, stores `10`. |
-| **Structured** | `json`, `secret` | `secret` is write-only: editable, never displayed, never exported. |
+| Group | Types |
+|---|---|
+| **Network** | `ipv4`, `ipv6`, `cidr` — sort in address order, not lexically, so `10.0.0.9` comes before `10.0.0.10`. |
+| **Time** | `time`, `datetime`, `duration` — three things a single `date` type keeps being asked to be. |
+| **Radix** | `hex`, `hex8`, `hex16`, `hex32`, `binary`, `binary8`, `octal` — the stored value stays a plain number; the base is presentation and input only. |
+| **Data** | `bytes`, `megabytes`, `gigabytes`, `bitrate`, `gigabits` — shows `10 GB`, accepts `10,000M` typed in, stores `10`. Decimal and binary ladders are both first class, because `MB` and `MiB` are different quantities. |
+| **Mechanical** | length, mass, duration, speed, acceleration, area, volume, force, pressure, torque, density, energy, power, angle, `rpm` and angular velocity. |
+| **Fluid and thermal** | volumetric flow, mass flow, dynamic and kinematic viscosity, thermal conductivity, specific heat, and temperature in `celsius`, `fahrenheit` and `kelvin`. |
+| **Electrical and SI** | voltage, current, resistance, capacitance, inductance, charge, conductance, frequency, flux density, luminous flux, luminous intensity, illuminance and substance — all auto-prefixed across the SI range. |
+| **Chemistry and radiation** | `molarity`, `ppm`, `ppb`, absorbed dose, equivalent dose, radioactivity and dose rate. |
+| **Finance and ratios** | `basisPoints`, `ratio`, `percentRate`, and decibels — which are reduced logarithmically, not averaged. |
+| **Structured** | `json`, `secret` — `secret` is write-only: editable, never displayed, never exported. |
 
-Custom types are first-class too — `createRadixType` and `createUnitType` build
-new ones, and any type can `extend` another.
+### Units of your own
+
+Three things define a unit family, and all three are yours to set: the symbols,
+where the symbol sits relative to the number, and how the rungs relate to each
+other.
+
+```js
+import { registerUnitSystem, defineUnit, createUnitType } from '@toclocoinc/lattice-grid';
+
+// The ladder. `factor` is how many base quantities one of this unit is, so the
+// relationship between the rungs is simply their arithmetic.
+registerUnitSystem('yarn', [
+  defineUnit('tex', 1, ['tx']),
+  defineUnit('ktex', 1e3, [], { prefix: 'k' }),
+  defineUnit('den', 1 / 9, ['denier']),
+]);
+
+createGrid(el, {
+  dataTypes: {
+    linearDensity: createUnitType({ system: 'yarn', unit: 'tex', display: 'auto' }),
+  },
+  columns: [{ field: 'count', type: 'linearDensity' }],
+});
+```
+
+`display: 'auto'` walks the ladder and picks the most readable rung, so 1,500
+tex renders as `1.5 ktex`. A unit given `{ auto: false }` stays off that ladder
+while remaining accepted on input and available as an explicit `display` — which
+is how imperial units sit beside metric ones without an auto readout jumping
+between the two.
+
+`placement: 'prefix'` puts the symbol in front of the number, for currency and
+the few notations that want it. It applies to input as well as display, and the
+trailing form is still accepted, because a column that renders `$1,200` will be
+pasted into from somewhere that writes it the other way round.
+
+```js
+createUnitType({ system: 'money', unit: '$', placement: 'prefix', decimals: 2 })
+// renders  $1,200.00
+// accepts  $1,200 · 1200 $ · k$1.2 · 1.2 k$
+```
+
+Whatever the display, **the stored value is always a plain number in the
+column's base unit** — so sorting, filtering, grouping, totals and the pivot all
+work on the number and never on the text.
 
 ---
 

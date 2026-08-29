@@ -417,6 +417,8 @@
         <a href="#names">Built-in names</a>
         <a href="#rules">Conditional formatting</a>
         <a href="#quickfilter">Quick filter</a>
+        <a href="#units">Units of your own</a>
+        <a href="#chartsmodule">The charts module</a>
         <a href="#charts">In-cell charts</a>
         <a href="#formulas">Formulas</a>
         <a href="#custom-menu">Custom items</a>
@@ -795,6 +797,14 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">statusBar</td><td class="type">boolean | { panels }</td><td class="desc">Composable panels along the bottom. Default set: <code>rowCount</code>, <code>selectedCount</code>, <code>aggregation</code>, <code>comments</code>, <code>updates</code>, <code>progress</code>. Each is silent when it has nothing to report.</td></tr>
           <tr><td class="name">maximise</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc"><code>false</code> removes the rail button and <code>grid.maximise</code>, for an application with its own full-screen mode.</td></tr>
           <tr><td class="name">toolPanel</td><td class="type">boolean | object</td><td class="desc">Side dock. <code>panels</code>: <code>columns</code>, <code>filters</code>, <code>views</code>, <code>quick</code>, <code>formatting</code>, <code>statistics</code>. <code>side: 'left'</code> makes it the icon rail, which also turns on <code>actions</code> (<code>undo</code>, <code>redo</code>, <code>pause</code>, <code>restore</code>, <code>maximise</code>, then the export group: <code>export</code>, <code>excel</code>, <code>clipboard</code>, <code>print</code> — nine in all, and an array takes these names rather than the button labels) and <code>icons</code>. An explicit array <em>replaces</em> that list rather than extending it; a bare <code>'-'</code> in it renders a divider between groups. <code>exportName</code> names the CSV.</td></tr>
+          <tr><td class="name">timeZone</td><td class="type">string</td><td class="desc">An IANA zone every date column formats and parses in, so a grid shows one zone whatever the viewer's machine says. Individual columns may override it.</td></tr>
+          <tr><td class="name">formulaFunctions</td><td class="type">object</td><td class="desc">Your own functions, added to the formula language by name. The built-in list is closed on purpose; this is the one way in, and a function you add is called exactly as a built-in is.</td></tr>
+          <tr><td class="name">formatting</td><td class="type">object</td><td class="desc">Conditional formatting rules to seed, keyed by column id or <code>'*'</code>. The same shape <code>grid.formatting.all()</code> returns, so a saved view can be handed straight back.</td></tr>
+          <tr><td class="name">facets</td><td class="type">boolean | object</td><td class="desc">Header histograms that double as a filter. <code>collapsed</code>, <code>height</code>, and per-column <code>strategy</code> and <code>buckets</code>.</td></tr>
+          <tr><td class="name">updates</td><td class="type">object</td><td class="desc">How a live feed behaves: batching, the queue that holds while paused, and the highlight a changed cell flashes.</td></tr>
+          <tr><td class="name">comments</td><td class="type">object</td><td class="desc">Threaded cell comments — storage, the current author, and whether the indicator shows on an unread thread.</td></tr>
+          <tr><td class="name">presence</td><td class="type">object</td><td class="desc">Live cursors, selections and edit locks. Carries intent and never values; see <code>grid.presence</code>.</td></tr>
+          <tr><td class="name">environment</td><td class="type">function</td><td class="desc">Extra fields for the diagnostics bundle — build number, tenant, region. Called when a bundle is taken, never on the render path.</td></tr>
           <tr><td class="name">contextMenu</td><td class="type">boolean | (p) =&gt; MenuItem[]</td><td class="desc">Right-click menu. The function form is <code>(params, defaults) =&gt; items</code> — see <a href="#custom-menu">custom items</a>. <code>false</code> suppresses it — what a read-only grid wants, since the default menu offers Paste, Clear and Fill down.</td></tr>
           <tr><td class="name">columnMenu</td><td class="type">boolean | (p) =&gt; MenuItem[]</td><td class="desc">The header's 3-dot menu, and a right-click on a column heading. The function form is <code>(params, defaults) =&gt; items</code>, with <code>params</code> carrying <code>colId</code>, <code>column</code> and <code>grid</code> — see <a href="#custom-menu">custom items</a>. <code>false</code> suppresses it.</td></tr>
           <tr><td class="name">shortcuts</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc">The <kbd>?</kbd> keyboard shortcut overlay. <code>false</code> suppresses it, for a host that wants <kbd>?</kbd> for itself. See <a href="api-detail.html#keyboard">Keyboard</a>.</td></tr>
@@ -1032,7 +1042,8 @@ grid.overlay.hide();</code></pre>
           <tr><td class="sig">corner()</td><td class="type">{ row, colId } | null</td><td class="desc">Bottom-right cell of the newest range, where the fill handle sits.</td></tr>
           <tr><td class="sig">inRange(rowIndex, colId)</td><td class="type">boolean</td><td class="desc">Is a cell inside any selected range?</td></tr>
           <tr><td class="sig">cells()</td><td class="type">{ key, colId }[]</td><td class="desc">Every cell in the selected ranges.</td></tr>
-          <tr><td class="sig">summary()</td><td class="type">object</td><td class="desc">count, sum, min, max, avg over the range.</td></tr>
+          <tr><td class="sig">statistics()</td><td class="type">object | null</td><td class="desc">Everything <code>summary()</code> reports plus median, quartiles, deviation, distinct and outliers — over the selected <em>cells</em>, so a rectangle spanning three columns is one set of numbers. Null with nothing selected.</td></tr>
+      <tr><td class="sig">summary()</td><td class="type">object</td><td class="desc">count, sum, min, max, avg over the range.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1600,10 +1611,74 @@ grid.statistics.reduce('margin', 'p95');          // any registered kernel
 grid.statistics.correlation('spend', 'revenue');  // Pearson's r, clamped to [-1, 1]
 grid.statistics.weightedAverage('price', 'qty');
 
+grid.statistics.covariance('spend', 'revenue');
+grid.statistics.regression('spend', 'revenue');   // { slope, intercept, r2, stdError, n }
+grid.statistics.spearman('spend', 'revenue');     // rank; one outlier cannot drag it
+grid.statistics.kendall('spend', 'revenue');      // tau-b, null past 5,000 rows
+grid.statistics.weightedQuantile('price', 'qty'); // the median by default
+
+grid.statistics.series('price', { by: 'date', periodsPerYear: 252 });
+// { volatility, annualisedVolatility, growth, maxDrawdown, maxDrawdownFrom,
+//   maxDrawdownTo, autocorrelation, upDays, downDays, … }
+
+grid.statistics.capability('mm', { baseline: 20 });
+// { cp, cpk, pp, ppk, sigmaWithin, sigmaOverall, outOfSpec, defectRate,
+//   limits: { centre, upper, lower, sigma }, violations: [{ index, rule }] }
+
 grid.statistics.shadow('price', 'delta', 'R42');  // one row's shadow value
 grid.statistics.rebase('price');                  // "mark all" — today's values become the baseline
 grid.statistics.tracking();                       // { columns, rows, forgotten }</code></pre>
     <p>The <code>statistics</code> tool panel is the end-user half of <code>profile()</code>: a column picker, the twelve figures and a histogram of the column's shape, all following the filters. Add it with <code>toolPanel: { panels: ['columns', 'statistics'] }</code>.</p>
+    <p>It shows the twelve one-pass figures, then <strong>Shape</strong> (skewness, kurtosis, Jarque–Bera), <strong>Robust</strong> (trimmed and winsorized means, MAD, robust outliers), <strong>Concentration</strong> (Gini, HHI, entropy, evenness, top-3 share) and <strong>Capability</strong> where the column declares a <code>spec</code>. A section whose reductions all return null is left out rather than shown as a column of dashes.</p>
+    <p>Or put it in your own page. <code>mountPanel</code> takes no dock and does not create one — <code>toolPanel</code> may be off entirely — so a statistics readout can sit beside a chart, in your own sidebar, or in a settings dialog, at whatever size you give it. It repaints on the same events the rail does, so it stays in step with filters, edits and saved views without you subscribing to anything.</p>
+    <pre><code>import { mountPanel } from '@toclocoinc/lattice-grid';
+
+const stats = mountPanel({ grid, panel: 'statistics', container: sidebar });
+stats.refresh();   // for a change the grid does not announce
+stats.destroy();   // yours to call: the element belongs to your page</code></pre>
+    <p>Any built-in panel works — <code>columns</code>, <code>filters</code>, <code>views</code>, <code>quick</code>, <code>formatting</code>, <code>statistics</code> — as does a constructor of your own.</p>
+
+
+    <h3>The reductions</h3>
+    <p>Forty-one, all available to a totals row, to <code>reduce()</code> and to the profiling panel. Names are the same everywhere and the labels come from the message catalogue, so a grid in Polish reads in Polish.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Group</th><th>Names</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">Basic</td><td><code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>count</code>, <code>countValues</code>, <code>first</code>, <code>last</code>, <code>distinct</code>, <code>mode</code>, <code>range</code></td></tr>
+          <tr><td class="sig">Spread</td><td><code>variance</code>, <code>varianceP</code>, <code>stddev</code>, <code>stddevP</code>, <code>iqr</code>, <code>mad</code>, <code>sumSquares</code></td></tr>
+          <tr><td class="sig">Quantiles</td><td><code>median</code>, <code>p25</code>, <code>p75</code>, <code>p90</code>, <code>p95</code>, <code>p99</code></td></tr>
+          <tr><td class="sig">Shape</td><td><code>skewness</code>, <code>kurtosis</code>, <code>jarqueBera</code> — above 5.99 the column is not plausibly normal</td></tr>
+          <tr><td class="sig">Means</td><td><code>geomean</code>, <code>harmean</code>, <code>weightedAvg</code>, <code>trimmedMean</code>, <code>winsorizedMean</code></td></tr>
+          <tr><td class="sig">Outliers</td><td><code>robustOutliers</code> — by the modified z-score, which an outlier cannot hide inside the way it inflates an ordinary one</td></tr>
+          <tr><td class="sig">Concentration</td><td><code>hhi</code>, <code>entropy</code>, <code>evenness</code>, <code>top3Share</code>, <code>top10Share</code>, <code>gini</code> — the only group that reads a <em>text</em> column, because "how concentrated is this" is a question about categories</td></tr>
+          <tr><td class="sig">Positional</td><td><code>argmin</code>, <code>argmax</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Process capability</h3>
+    <p>Declare the customer's tolerance on the column, and the capability figures, a control chart and any rule marking an out-of-tolerance cell all read the same limits.</p>
+    <pre><code>columns: [{ field: 'mm', type: 'number', spec: { lower: 9.5, upper: 10.8, target: 10 } }]</code></pre>
+    <p><strong>Cp</strong> and <strong>Cpk</strong> use short-term variation, estimated from the moving range; <strong>Pp</strong> and <strong>Ppk</strong> use the overall standard deviation. The gap between them is the point: Cpk well above Ppk means the process drifted. Cp above Cpk means it is precise and aimed wrong, which needs a different fix from being too variable.</p>
+    <div class="note"><p><code>baseline</code> fixes the control limits over the first N readings. Without it the limits are computed over everything — including whatever the process did wrong — so a step change pulls the centre line between the two levels and <em>both</em> halves land outside three sigma. Technically true, and useless for finding when it moved.</p></div>
+
+    <h3>Seeing it</h3>
+    <p>The statistics have chart types to match, in <code>modules/charts</code>. Each takes its numbers from this namespace rather than recomputing, so a coefficient in a matrix and the same one from the API cannot drift apart.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Type</th><th>What it shows</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">correlogram</td><td>Every numeric column against every other, on a ramp centred at zero so the sign reads first. <code>method: 'spearman'</code> ranks instead; where the two disagree, the pair is related but not linearly.</td></tr>
+          <tr><td class="sig">qq</td><td>Sample quantiles against normal ones. Jarque–Bera says a column is not normal; this shows <em>how</em> — a heavy tail bends the ends, a skew bows the whole line. The reference runs through the quartiles, as R's <code>qqline</code> does, because a fitted line is dragged by the very tails you are inspecting.</td></tr>
+          <tr><td class="sig">ecdf</td><td>The share at or below each value, as a step. No bins, so its shape is not partly a choice, and two overlay cleanly where two histograms fight.</td></tr>
+          <tr><td class="sig">lorenz</td><td>The curve a Gini is read off, against the diagonal a perfectly even column would trace.</td></tr>
+          <tr><td class="sig">control</td><td>An individuals chart: control limits from the moving range, the specification, and points breaking a Western Electric rule. The control limits are the process talking and the specification is the customer talking — conflating them is the classic error, so they are drawn differently.</td></tr>
+          <tr><td class="sig">histogram</td><td><code>curve: true</code> overlays a kernel density estimate, which has no bin edges and so separates what is in the data from what is in the binning.</td></tr>
+          <tr><td class="sig">scatter</td><td><code>fit: true</code> draws least squares per series with R² beside it.</td></tr>
+        </tbody>
+      </table>
+    </div>
 
     <h3>Shadow columns</h3>
     <p>A shadow column is declared against another column and maintained by the grid. It has no field in the data and it is not a pure computed column either, because its value depends on what happened <em>before</em>. It is a real column throughout: sortable, filterable, totalled, grouped, exported, saved into a view — which is what makes "show me every circuit repriced more than twice this session, most-changed first" one gesture rather than a report.</p>
@@ -1644,7 +1719,16 @@ grid.statistics.tracking();                       // { columns, rows, forgotten 
         </tbody>
       </table>
     </div>
-    <div class="note"><p>Positional kinds rank over every <em>tracked</em> row, not over the filtered set: a rank that changed as you filtered would make "the top ten movers" depend on what happened to be on screen, and the column would disagree with itself between two views of the same data. For the filtered answer, use <code>grid.statistics.profile()</code> or a distribution formatting rule.</p></div>
+    <h3>Running totals</h3>
+    <p>A running total is <strong>not</strong> a shadow kind, and the distinction is the design. Every shadow is a function of the column — of a row's own history, or of where its value sits among the others — so it reads the same however the rows are arranged. A running total does not: sort the grid differently and every value changes, because the question is "how much by the time we reach this row", and <em>by the time</em> is the sort order.</p>
+    <pre><code>columns: [
+  { field: 'amount', type: 'number' },
+  { id: 'cum',   title: 'Running',      running: { of: 'amount', kind: 'total' } },
+  { id: 'share', title: 'Cumulative %', running: { of: 'amount', kind: 'percent' } },
+]</code></pre>
+    <p>Computed in one pass over the display rows and cached against that ordering, so a hundred thousand rows are walked once per sort rather than once per cell. Group headings and totals rows are skipped — a running total that counted a subtotal would double everything below it — and a row with no value carries the figure forward unchanged rather than resetting it.</p>
+
+    <div class="note"><p>Positional kinds rank over every <em>tracked</em> row, not over the filtered set: a rank that changed as you filtered would make "the top ten movers" depend on what happened to be on screen, and the column would disagree with itself between two views of the same data. Pass <code>scope: 'filtered'</code> on the shadow spec to rank within what the filters left instead — both answers are legitimate, which is why it is a choice rather than a default.</p></div>
     <div class="note"><p>Shadow state is keyed by row key, never by index — after any sort an index-keyed history would report one row's past against another row's present, and the wrong number would be <em>sortable</em>. Memory is capped at 200,000 tracked rows per column; past that the oldest are dropped and <code>tracking().forgotten</code> says how many, rather than a smaller number being reported as though it were the truth.</p></div>
 
     <h2 id="highlight">grid.highlight</h2>
@@ -2048,23 +2132,59 @@ off();                                       <span class="cmt">// on() returns i
           <tr><td class="name">permissions:changed</td><td class="type">{ levels }</td><td class="desc">The context moved and every column re-resolved.</td></tr>
           <tr><td class="name">diff:changed</td><td class="type">{ summary }</td><td class="desc">A snapshot was set or cleared.</td></tr>
           <tr><td class="name">licence:changed</td><td class="type">{ info, state }</td><td class="desc">A key was installed, and again when verification settles.</td></tr>
+                  <tr><td class="name">columns:changed</td><td class="desc">The column set was replaced or reordered wholesale.</td></tr>
+          <tr><td class="name">columns:tagged</td><td class="desc">A column's tags changed.</td></tr>
+          <tr><td class="name">detail:toggled</td><td class="desc">A master-detail row opened or closed.</td></tr>
+          <tr><td class="name">formatting:changed</td><td class="desc">A conditional formatting rule was added, edited, reordered or restated.</td></tr>
+          <tr><td class="name">redaction:changed</td><td class="desc">A redaction rule changed.</td></tr>
+          <tr><td class="name">diff:swapped</td><td class="desc">The baseline and the current rows were exchanged.</td></tr>
+          <tr><td class="name">facet:computed</td><td class="desc">A header histogram finished counting. Carries the column and the buckets.</td></tr>
+          <tr><td class="name">facet:filtered</td><td class="desc">A bucket or a dragged range was applied as a filter.</td></tr>
+          <tr><td class="name">facet:expanded</td><td class="desc">The facet band was opened or collapsed.</td></tr>
+          <tr><td class="name">facet:failed</td><td class="desc">A distribution could not be computed. Carries the reason.</td></tr>
+          <tr><td class="name">form:opened</td><td class="desc">The row form opened.</td></tr>
+          <tr><td class="name">form:closed</td><td class="desc">The row form closed without saving.</td></tr>
+          <tr><td class="name">form:saved</td><td class="desc">The row form committed.</td></tr>
+          <tr><td class="name">form:error</td><td class="desc">A commit from the form failed validation or was rejected.</td></tr>
+          <tr><td class="name">tree:loading</td><td class="desc">Children are being fetched for a node.</td></tr>
+          <tr><td class="name">tree:loaded</td><td class="desc">Children arrived. Carries the key and the count.</td></tr>
+          <tr><td class="name">tree:loadFailed</td><td class="desc">A child fetch failed.</td></tr>
+          <tr><td class="name">tree:loadAborted</td><td class="desc">A child fetch was cancelled, usually because the node collapsed.</td></tr>
+          <tr><td class="name">rows:paused</td><td class="desc">A live feed was paused; updates queue from here.</td></tr>
+          <tr><td class="name">rows:resumed</td><td class="desc">The feed resumed and the queue drained.</td></tr>
+          <tr><td class="name">rows:deferred</td><td class="desc">Updates were held rather than applied, because an edit is in flight.</td></tr>
+          <tr><td class="name">row:received</td><td class="desc">A row arrived from a source.</td></tr>
+          <tr><td class="name">row:sent</td><td class="desc">A row was written back to a source.</td></tr>
+          <tr><td class="name">row:copied</td><td class="desc">A row was duplicated.</td></tr>
+          <tr><td class="name">row:moved</td><td class="desc">A row was dragged to a new position.</td></tr>
+          <tr><td class="name">stream:evicted</td><td class="desc">A streaming source dropped rows to stay within its cap.</td></tr>
+          <tr><td class="name">header:contextmenu</td><td class="desc">A heading was right-clicked.</td></tr>
+          <tr><td class="name">timeline:attached</td><td class="desc">A time brush was connected to the grid.</td></tr>
+          <tr><td class="name">timeline:detached</td><td class="desc">The brush was removed.</td></tr>
+          <tr><td class="name">timeline:seek</td><td class="desc">The brush settled on a range.</td></tr>
+          <tr><td class="name">timeline:seeking</td><td class="desc">The brush is being dragged. Throttled.</td></tr>
+          <tr><td class="name">presentation:changed</td><td class="desc">Presentation mode started, or its options changed.</td></tr>
+          <tr><td class="name">presentation:ended</td><td class="desc">Presentation mode ended. Annotations are cleared here.</td></tr>
+          <tr><td class="name">presentation:view</td><td class="desc">The presentation advanced to another saved view.</td></tr>
+          <tr><td class="name">presentation:scale</td><td class="desc">The presentation zoom changed.</td></tr>
+          <tr><td class="name">presentation:spotlight</td><td class="desc">A region was spotlit or released.</td></tr>
+          <tr><td class="name">presentation:captured</td><td class="desc">A PNG was taken.</td></tr>
+          <tr><td class="name">comment:added</td><td class="desc">A comment was posted.</td></tr>
+          <tr><td class="name">comment:edited</td><td class="desc">A comment was changed.</td></tr>
+          <tr><td class="name">comment:deleted</td><td class="desc">A comment was removed.</td></tr>
+          <tr><td class="name">comment:failed</td><td class="desc">A comment could not be saved. Carries the reason.</td></tr>
+          <tr><td class="name">comment:threadOpened</td><td class="desc">A thread was opened in the panel.</td></tr>
+          <tr><td class="name">comment:threadClosed</td><td class="desc">A thread was closed or resolved.</td></tr>
+          <tr><td class="name">comment:indexLoaded</td><td class="desc">The comment index finished loading, so indicators can paint.</td></tr>
+          <tr><td class="name">presence:published</td><td class="desc">This client's cursor or selection was broadcast.</td></tr>
+          <tr><td class="name">presence:left</td><td class="desc">A peer disconnected.</td></tr>
+          <tr><td class="name">presence:failed</td><td class="desc">A presence transport error. Presence is lossy by design; this is informational.</td></tr>
+          <tr><td class="name">presence:lockRefused</td><td class="desc">An edit was refused because a peer holds the cell.</td></tr>
         </tbody>
       </table>
     </div>
 
-    <div class="note">
-      <p><strong>Every event listed above is emitted</strong>, and these beyond them:
-      <code>config:changed</code>, <code>clipboard:copy</code>, <code>column:menu:open</code>,
-      <code>column:filter:open</code>, <code>export:progress</code>, <code>toolpanel:focus</code>,
-      <code>history:changed</code>, <code>state:reset</code>, <code>highlight:changed</code>,
-      <code>render:done</code>, <code>views:changed</code>, the four <code>view:*</code> events,
-      <code>permissions:changed</code> and <code>diff:changed</code>.</p>
-      <p>Two carry a condition worth knowing. <code>row:edit:start</code> and
-      <code>row:edit:end</code> replace the <code>cell:edit:*</code> pair only when
-      <code>edit.mode</code> is <code>'row'</code> — you get one pair or the other, never both.
-      And <code>page:changed</code> needs <code>pagination</code> configured, or a
-      <code>grid.pagination.set()</code> call; without a page size there are no pages to change.</p>
-    </div>
+    <div class="note"><p>This list is complete, and stays complete: <code>tools/check.js</code> compares every <code>emit()</code> in the grid against the declared event names and fails the build on a mismatch. A chart raises its own events, which belong to the charts module rather than to this bus.</p></div>
 
     <h2 id="rules">Conditional formatting</h2>
     <p>Rules compile into the function <code>cell.style</code> already takes, so a compiled rule set
@@ -2118,6 +2238,128 @@ grid.filters.quickState();   <span class="cmt">// { text: 'acme london', mode: '
     way to <code>foo(bar)</code> — falls back to a literal search rather than matching nothing, so the
     grid does not blank on every open bracket. <code>fuzzy</code> does not reorder rows: ranking
     results would fight the sort the user chose.</p></div>
+
+    <h2 id="units">Units of your own</h2>
+    <p>Twenty-six unit systems ship &mdash; length, mass, pressure, data, bitrate, angle, temperature, flow and the rest. A family of your own takes three things, and all three are yours to set: the symbols, where the symbol sits relative to the number, and how the rungs relate to each other.</p>
+    <pre><code>import { registerUnitSystem, defineUnit, createUnitType } from '@toclocoinc/lattice-grid';
+
+<span class="cmt">// `factor` is how many base units one of these is. Exactly one must be 1.</span>
+registerUnitSystem('distance', [
+  defineUnit('mm', 0.001, ['millimetre', 'millimetres']),
+  defineUnit('cm', 0.01,  ['centimetre', 'centimetres']),
+  defineUnit('m',  1,     ['metre', 'metres']),
+  defineUnit('km', 1000,  ['kilometre', 'kilometres']),
+]);
+
+createGrid(el, {
+  dataTypes: {
+    distance: createUnitType({ system: 'distance', unit: 'm', display: 'auto' }),
+  },
+  columns: [{ field: 'span', type: 'distance' }],
+});</code></pre>
+    <p>The <code>factor</code> values <em>are</em> the relationship between the rungs &mdash; there is no separate ladder to declare, and no ordering to get right, because the ladder is sorted by factor at load. A hand-ordered list of thirty units is one transposition away from an auto display that walks backwards, and that mistake is invisible in review.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">system</td><td class="desc">A built-in system, or one registered with <code>registerUnitSystem</code>.</td></tr>
+          <tr><td class="name">unit</td><td class="desc">What the column <strong>stores</strong>. It need not be the system's base: the same ladder with <code>unit: 'km'</code> stores kilometres, and <code>50mm</code> typed in becomes 0.00005.</td></tr>
+          <tr><td class="name">display</td><td class="desc"><code>'auto'</code> walks the ladder for the most readable rung, or name a symbol to fix it.</td></tr>
+          <tr><td class="name">placement</td><td class="desc"><code>'prefix'</code> puts the symbol in front &mdash; <code>$1,200</code> &mdash; and applies to input as well as display. Defaults to a suffix.</td></tr>
+          <tr><td class="name">decimals</td><td class="desc">Fixed fraction digits; or <code>minDecimals</code> / <code>maxDecimals</code>, or <code>significantFigures</code>.</td></tr>
+          <tr><td class="name">locale</td><td class="desc">Separators and grouping. Follows the grid's locale when unset.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>A unit given <code>{ auto: false }</code> stays off the <code>display: 'auto'</code> ladder while remaining accepted on input and available as an explicit <code>display</code>. That is how imperial units sit beside metric ones without an auto readout jumping between the two.</p>
+    <div class="note"><p><strong>The stored value is always a plain number in the column's own unit.</strong> Sorting, filtering, grouping, totals and the pivot all read that number and never the text, which is why <code>250mm</code> sorts below <code>1.5 cm</code> correctly rather than <code>1</code> sorting before <code>9</code>. <code>registerUnitSystem</code> is global and throws on a duplicate name, so register each system once at startup rather than inside a component that may mount twice.</p></div>
+
+    <h2 id="chartsmodule">The charts module</h2>
+    <p><code>modules/charts</code> draws thirty chart types from the grid's own data. It is optional and imports nothing from the grid &mdash; the grid is handed in &mdash; so the bundle carries the drawing and none of the grid, and a page that never charts never loads it.</p>
+    <pre><code>import { createChart } from '@toclocoinc/lattice-grid/modules/charts';
+
+const chart = createChart({
+  grid,                       <span class="cmt">// the grid to read</span>
+  container: '#revenue',      <span class="cmt">// an element or a selector</span>
+  type: 'bar',
+  x: 'region',                <span class="cmt">// the category column</span>
+  y: 'revenue',               <span class="cmt">// the measure column</span>
+});</code></pre>
+    <p><strong>A chart reads the grid's filtered rows.</strong> Filter, sort or edit the grid and every chart bound to it redraws on the next frame &mdash; there is nothing to subscribe to and nothing to keep in step. A chart of rows the user cannot see would be describing a different data set.</p>
+
+    <h3>The types</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Family</th><th>Types</th><th>Takes</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">Cartesian</td><td><code>line</code>, <code>step</code>, <code>area</code>, <code>rangeArea</code>, <code>bar</code>, <code>horizontalBar</code>, <code>waterfall</code>, <code>scatter</code>, <code>bubble</code></td><td><code>x</code>, <code>y</code>, optional <code>series</code></td></tr>
+          <tr><td class="sig">Two axes</td><td><code>combo</code>, <code>pareto</code></td><td><code>x</code>, <code>measures</code></td></tr>
+          <tr><td class="sig">Distribution</td><td><code>histogram</code>, <code>boxplot</code></td><td><code>y</code> alone</td></tr>
+          <tr><td class="sig">Matrix</td><td><code>heatmap</code></td><td><code>x</code>, <code>y</code>, <code>series</code></td></tr>
+          <tr><td class="sig">Part to whole</td><td><code>pie</code>, <code>donut</code>, <code>sunburst</code>, <code>treemap</code></td><td><code>x</code>, <code>y</code></td></tr>
+          <tr><td class="sig">Specialist</td><td><code>radar</code>, <code>gauge</code>, <code>funnel</code>, <code>candlestick</code></td><td>varies; candlestick takes four <code>measures</code> in open, high, low, close order</td></tr>
+          <tr><td class="sig">Geographic</td><td><code>geomap</code></td><td><code>x</code> as an ISO code, <code>y</code> as the value</td></tr>
+          <tr><td class="sig">Flow</td><td><code>sankey</code>, <code>chord</code>, <code>network</code></td><td><code>source</code>, <code>target</code>, <code>y</code></td></tr>
+          <tr><td class="sig">Over time</td><td><code>stream</code>, <code>marimekko</code>, <code>violin</code>, <code>gantt</code></td><td>varies; gantt takes <code>label</code>, <code>start</code>, <code>end</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>A chart given data it cannot draw &mdash; a candlestick with three measures rather than four &mdash; says so on the chart rather than drawing nothing, because a chart that silently draws nothing is indistinguishable from one that is broken.</p>
+
+    <h3>The spec</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Key</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">grid</td><td class="type">Grid</td><td class="desc">Required. The grid to read.</td></tr>
+          <tr><td class="name">container</td><td class="type">Element | string</td><td class="desc">Required. Where to draw.</td></tr>
+          <tr><td class="name">type</td><td class="type">string</td><td class="desc">One of the thirty above.</td></tr>
+          <tr><td class="name">x / y</td><td class="type">string</td><td class="desc">Category and measure columns.</td></tr>
+          <tr><td class="name">series</td><td class="type">string</td><td class="desc">Splits the measure into one series per distinct value.</td></tr>
+          <tr><td class="name">measures</td><td class="type">object[]</td><td class="desc"><code>{col, fn, type, axis}</code> &mdash; several measures at once, each reduced by any totals kernel.</td></tr>
+          <tr><td class="name">title</td><td class="type">string</td><td class="desc">Drawn above the plot.</td></tr>
+          <tr><td class="name">scheme</td><td class="type">string | string[]</td><td class="desc">A named scheme or your own colours. <code>schemeNames()</code> lists the built-in ones, including a colour-blind-safe palette.</td></tr>
+          <tr><td class="name">legend</td><td class="type">boolean | object</td><td class="desc"><code>position</code>, and <code>isolate</code> so a click shows only that series &mdash; which is what a reader with eight series wants, and what plain toggling makes them do in seven clicks.</td></tr>
+          <tr><td class="name">labels</td><td class="type">boolean | object</td><td class="desc">Values beside each mark. <code>position</code>, <code>format</code>, <code>minGap</code>. A label that would overlap one already placed is dropped rather than drawn over it.</td></tr>
+          <tr><td class="name">axis</td><td class="type">object</td><td class="desc">Titles, tick density and formatting per axis.</td></tr>
+          <tr><td class="name">reference</td><td class="type">object[]</td><td class="desc">Horizontal lines: <code>{value, label}</code>.</td></tr>
+          <tr><td class="name">multiples</td><td class="type">string</td><td class="desc">One chart per distinct value of this column, on a shared scale.</td></tr>
+          <tr><td class="name">buckets</td><td class="type">number</td><td class="desc">Histogram bins. Twelve by default.</td></tr>
+          <tr><td class="name">canvas</td><td class="type">boolean | number</td><td class="desc">Draw to canvas past this many points, for a dense scatter.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>The chart</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">update(spec)</td><td class="type">void</td><td class="desc">Change any part of the spec and redraw. Keys you omit keep their values.</td></tr>
+          <tr><td class="sig">draw()</td><td class="type">void</td><td class="desc">Redraw now, for a change the grid does not announce.</td></tr>
+          <tr><td class="sig">data()</td><td class="type">object</td><td class="desc">What the chart last bound &mdash; series, categories and the rows behind them.</td></tr>
+          <tr><td class="sig">on(event, fn)</td><td class="type">function</td><td class="desc">Returns its own unsubscribe.</td></tr>
+          <tr><td class="sig">ascend(levels?)</td><td class="type">void</td><td class="desc">Up one level on a drillable hierarchy.</td></tr>
+          <tr><td class="sig">toSVG(opts?)</td><td class="type">string</td><td class="desc">The chart as markup.</td></tr>
+          <tr><td class="sig">toPNG(opts?)</td><td class="type">Promise&lt;Blob&gt;</td><td class="desc"><code>scale: 2</code> for a retina still.</td></tr>
+          <tr><td class="sig">toCSV()</td><td class="type">string</td><td class="desc">The bound data, for a reader who wants the numbers.</td></tr>
+          <tr><td class="sig">destroy()</td><td class="type">void</td><td class="desc">Yours to call: the element is in your page, not the grid's.</td></tr>
+          <tr><td class="sig">element</td><td class="type">SVGElement</td><td class="desc">The chart's own root.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Clicking a chart</h3>
+    <p>A chart emits <code>point:click</code>, <code>point:hover</code> and <code>series:toggle</code>. The common use is filtering the grid from a mark, which makes the pair two views of one selection rather than a chart beside a table.</p>
+    <pre><code>chart.on('point:click', ({ point }) =&gt; {
+  grid.filters.set({ col: 'region', op: 'eq', value: point.x });
+});</code></pre>
+
+    <h3>Maps</h3>
+    <p>A <code>geomap</code> takes an ISO code from one column and a value from another. Alpha-2, alpha-3 and numeric codes are all accepted, and continent codes draw a continent map without any outline data. Country outlines are yours to supply through <code>shapes</code>, because a world atlas is larger than the whole library and this package fetches nothing at runtime.</p>
+    <p>Codes that match nothing are counted and reported on the chart rather than dropped &mdash; a map missing half its data looks exactly like a map of a world where half the data is zero. The full code tables are in <a href="CHART-CODES.md">CHART-CODES.md</a>.</p>
+
+    <div class="note"><p>The module imports nothing from the grid: <code>createChart</code> is handed a grid rather than importing one. That is what keeps the charts bundle to the drawing &mdash; and it is why the grid must be created first, and why a chart cannot outlive it.</p></div>
 
     <h2 id="charts">In-cell charts</h2>
     <p>Seven chart renderers for a cell. Each is a single SVG whose path data is the only thing a

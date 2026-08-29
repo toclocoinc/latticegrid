@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.8.0 — type declarations
+ * Lattice Grid 1.9.0 — type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -542,6 +542,37 @@ export interface Column {
   group?: { enabled?: boolean; index?: number; explode?: boolean } | boolean;
   pivot?: { enabled?: boolean; index?: number } | boolean;
   total?: TotalName | TotalFn;
+  /**
+   * A value the grid maintains about this column's own history, rather than a
+   * field in the data. `{of: 'price', kind: 'delta'}`, or the bare kind to
+   * shadow the column it sits beside.
+   */
+  shadow?: ShadowKind | {
+    of?: string;
+    kind: ShadowKind;
+    depth?: number;
+    /**
+     * For a positional kind, what to rank against. `'all'` (the default) uses
+     * every tracked row, so a rank does not move when the grid is filtered;
+     * `'filtered'` ranks within what the filters left.
+     */
+    scope?: 'all' | 'filtered';
+  };
+  /**
+   * A running total down the grid **as it is currently ordered**.
+   *
+   * The one derived value that depends on the display order: sort differently
+   * and every value changes. That is why it is not a shadow kind — every shadow
+   * reads the same however the rows are arranged.
+   */
+  running?: 'total' | 'percent' | { of?: string; kind?: 'total' | 'percent' };
+  /**
+   * The customer's tolerance, for process capability and control charts.
+   * Declared here rather than passed to each call so the capability figures,
+   * a control chart and any rule marking an out-of-tolerance cell cannot
+   * disagree about what the tolerance is.
+   */
+  spec?: { lower?: number; upper?: number; target?: number };
   layout?: ColumnLayoutSpec | number;
   header?: ColumnHeaderSpec | string;
   export?: ColumnExportSpec;
@@ -1439,7 +1470,9 @@ export type FormattingScope = string;
 
 export interface StatisticsApi {
   /** One shadow value for one row, by the column it shadows and the kind. */
-  shadow(colId: string, kind: ShadowKind, rowKey: string): unknown;
+  shadow(colId: string, kind: ShadowKind, rowKey: string, scope?: 'all' | 'filtered'): unknown;
+  /** A running total at one row, down the grid as it is currently ordered. */
+  running(colId: string, kind: 'total' | 'percent', rowKey: string): number | null;
   /** Make the current values the new baseline — "mark all". */
   rebase(colId?: string): void;
   /** What the shadow histories are costing. */
@@ -1450,6 +1483,30 @@ export interface StatisticsApi {
   profile(colId: string): ColumnProfile | null;
   /** Pearson's correlation between two columns. */
   correlation(a: string, b: string): number | null;
+  /** Covariance — a correlation before the scales are divided out. */
+  covariance(a: string, b: string, opts?: { population?: boolean }): number | null;
+  /** Least-squares fit of `b` on `a`: in finance, beta and alpha. */
+  regression(a: string, b: string): RegressionFit | null;
+  /** Spearman's rank correlation, which one outlier cannot drag. */
+  spearman(a: string, b: string): number | null;
+  /** Kendall's tau-b. Null past 5,000 rows: it is quadratic. */
+  kendall(a: string, b: string): number | null;
+  /** A quantile of one column weighted by another; the median by default. */
+  weightedQuantile(colId: string, weightId: string, p?: number): number | null;
+  /**
+   * Process capability against the column's `spec`, with control limits and the
+   * Western Electric rule breaks. `baseline` fixes the limits over the first N
+   * readings, which is how a shift is found rather than hidden by the limits it
+   * widened.
+   */
+  capability(colId: string, opts?: {
+    lower?: number; upper?: number; target?: number; by?: string; baseline?: number;
+  }): ProcessCapability | null;
+  /**
+   * How a column varies along an ordering. `by` is required and never guessed —
+   * kernels see rows in the order they arrived, which is not the grid's sort.
+   */
+  series(colId: string, opts: { by: string; periodsPerYear?: number }): SeriesStats | null;
   /** A weighted average of one column by another. */
   weightedAverage(colId: string, weightId: string): number | null;
   /** The key a row's data resolves to. */
@@ -1464,6 +1521,66 @@ export type ShadowKind =
   /** Where the row sits among the others, over every tracked row. */
   | 'rank' | 'rankAsc' | 'rankChange' | 'percentile' | 'quartile'
   | 'zScore' | 'shareOfTotal';
+
+export interface RegressionFit {
+  slope: number;
+  intercept: number;
+  /** The square of Pearson's r: how much of the response the fit accounts for. */
+  r2: number;
+  /** Standard error of the slope, which is what says it differs from zero. */
+  stdError: number;
+  /** Pairs that survived pairwise deletion, not rows scanned. */
+  n: number;
+}
+
+export interface ProcessCapability {
+  n: number;
+  mean: number;
+  lower: number | null;
+  upper: number | null;
+  target: number | null;
+  /** Short-term variation, from the moving range: what Cp and Cpk use. */
+  sigmaWithin: number | null;
+  /** Overall variation: what Pp and Ppk use. */
+  sigmaOverall: number | null;
+  /** Potential capability. Null for a one-sided specification. */
+  cp: number | null;
+  /** Capability allowing for where the process is centred. */
+  cpk: number | null;
+  /** Cp over the overall spread — what the process actually delivered. */
+  pp: number | null;
+  /** Cpk over the overall spread. Well below Cpk means the process drifted. */
+  ppk: number | null;
+  outOfSpec: number;
+  defectRate: number | null;
+  /** Three sigma either side of the process mean, from the moving range. */
+  limits: { centre: number; upper: number; lower: number; sigma: number } | null;
+  /** How many leading readings set the limits. */
+  baseline?: number;
+  violations: { index: number; rule: number; description: string }[];
+}
+
+export interface SeriesStats {
+  n: number;
+  first: number;
+  last: number;
+  change: number;
+  changePercent: number | null;
+  /** Standard deviation of period-on-period returns. */
+  volatility: number | null;
+  /** The same, times the root of `periodsPerYear`; null unless one was given. */
+  annualisedVolatility: number | null;
+  /** Compound growth per period, annualised when `periodsPerYear` is given. */
+  growth: number | null;
+  /** The largest peak-to-trough fall, as a fraction. */
+  maxDrawdown: number | null;
+  maxDrawdownFrom: number;
+  maxDrawdownTo: number;
+  /** Lag-1: positive is momentum, negative is mean reversion. */
+  autocorrelation: number | null;
+  upDays: number;
+  downDays: number;
+}
 
 export interface ColumnProfile {
   column: string;
@@ -1530,18 +1647,62 @@ export interface ColumnDistribution {
 // Events (spec 18.4)
 // ---------------------------------------------------------------------------
 
+/**
+ * Every event the grid emits.
+ *
+ * Complete, and checked against the runtime by `tools/check.js` — an `emit()`
+ * call with no entry here fails the build. It was not complete before: fifty-one
+ * events were emitted and undeclared, so subscribing to any of them from
+ * TypeScript was a compile error on an event the grid genuinely raises.
+ *
+ * Grouped by the subsystem that raises them, which is also how the reference
+ * lists them.
+ */
 export type EventName =
-  | 'ready' | 'destroy' | 'render:first' | 'model:changed' | 'rows:changed' | 'rows:queued'
+  /* Lifecycle */
+  | 'ready' | 'destroy' | 'render:first' | 'render:done' | 'config:changed'
+  | 'licence:changed' | 'environment:changed'
+  /* Data */
+  | 'model:changed' | 'rows:changed' | 'rows:queued' | 'rows:deferred'
+  | 'rows:paused' | 'rows:resumed' | 'row:received' | 'row:sent' | 'row:copied'
+  | 'row:moved' | 'source:error' | 'stream:chunk' | 'stream:end' | 'stream:evicted'
+  /* Cells and editing */
   | 'cell:changed' | 'cell:pending' | 'cell:confirmed' | 'cell:reverted'
   | 'cell:clicked' | 'cell:dblclicked' | 'cell:contextmenu'
   | 'cell:edit:start' | 'cell:edit:end' | 'row:edit:start' | 'row:edit:end'
-  | 'row:clicked' | 'row:dblclicked' | 'group:toggled'
-  | 'sort:changed' | 'filter:changed'
+  | 'row:clicked' | 'row:dblclicked'
+  | 'form:opened' | 'form:closed' | 'form:saved' | 'form:error'
+  /* Query */
+  | 'sort:changed' | 'filter:changed' | 'group:toggled'
+  | 'facet:computed' | 'facet:filtered' | 'facet:expanded' | 'facet:failed'
+  /* Columns */
   | 'column:moved' | 'column:resized' | 'column:visible' | 'column:pinned'
-  | 'column:grouped' | 'column:pivoted'
-  | 'selection:changed' | 'range:changed'
+  | 'column:grouped' | 'column:pivoted' | 'column:filter:open' | 'column:menu:open'
+  | 'columns:changed' | 'columns:tagged' | 'header:contextmenu'
+  /* Selection and view */
+  | 'selection:changed' | 'range:changed' | 'clipboard:copy'
   | 'page:changed' | 'scroll' | 'scroll:end' | 'size:changed'
-  | 'state:changed' | 'stream:chunk' | 'stream:end' | 'source:error'
+  | 'detail:toggled' | 'toolpanel:focus' | 'highlight:changed'
+  /* Tree data */
+  | 'tree:loading' | 'tree:loaded' | 'tree:loadFailed' | 'tree:loadAborted'
+  /* State, history and views */
+  | 'state:changed' | 'state:reset' | 'history:changed' | 'history:applied'
+  | 'views:changed' | 'view:applied' | 'view:saved' | 'view:removed'
+  | 'view:renamed' | 'view:default'
+  /* Formatting and presentation */
+  | 'formatting:changed' | 'redaction:changed' | 'permissions:changed'
+  | 'presentation:changed' | 'presentation:ended' | 'presentation:view'
+  | 'presentation:scale' | 'presentation:spotlight' | 'presentation:captured'
+  /* Collaboration */
+  | 'comment:added' | 'comment:edited' | 'comment:deleted' | 'comment:failed'
+  | 'comment:threadOpened' | 'comment:threadClosed' | 'comment:indexLoaded'
+  | 'presence:published' | 'presence:left' | 'presence:failed' | 'presence:lockRefused'
+  /* Comparison and time */
+  | 'diff:changed' | 'diff:swapped'
+  | 'timeline:attached' | 'timeline:detached' | 'timeline:seek' | 'timeline:seeking'
+  /* Export */
+  | 'export:progress'
+  /* Every event at once, for logging and debugging. */
   | '*';
 
 export interface GridEvent {
@@ -1659,6 +1820,10 @@ export interface RowsApi {
 }
 
 export interface ColumnsApi {
+  /** Set or clear a column's totals-row reduction. */
+  setTotal(id: string, fn: TotalName | TotalFn | null): void;
+  /** Every distinct value in a column, from the dictionary where there is one. */
+  distinct(id: string): unknown[];
   get(id: string): ResolvedColumn | undefined;
   all(): ResolvedColumn[];
   visible(): ResolvedColumn[];
@@ -1709,6 +1874,15 @@ export interface DetailApi {
 }
 
 export interface SelectionApi {
+  /** Drop every range, leaving the row and cell selection alone. */
+  clearRange(): void;
+  /**
+   * Everything worth knowing about the selected cells — what `summary()`
+   * reports plus median, quartiles, deviation, distinct and outliers. Over the
+   * cells rather than a column, so a rectangle spanning three columns is one
+   * set of numbers. Null with nothing selected.
+   */
+  statistics(): object | null;
   rows(): Row[];
   keys(): string[];
   set(keys: string[]): void;
@@ -1732,6 +1906,8 @@ export interface CellRange {
 }
 
 export interface FiltersApi {
+  /** The quick filter's text and match mode, for restoring a control. */
+  quickState(): { text: string; mode: string };
   get(): FilterSet;
   set(filters: FilterSet): void;
   clear(): void;
@@ -1772,6 +1948,8 @@ export interface ScrollApi {
 }
 
 export interface ExportApi {
+  /** The selected range as tab-separated text, the shape a spreadsheet pastes. */
+  rangeText(opts?: object): string;
   csv(opts?: CsvExportOptions): string | Promise<Blob>;
   excel(opts?: ExcelExportOptions): Promise<Blob>;
   clipboard(opts?: ClipboardOptions): Promise<void>;
@@ -2327,6 +2505,8 @@ export interface ViewsApi {
 }
 
 export interface DiffApi {
+  /** Exchange the baseline and the current rows. Returns false with nothing to swap. */
+  swap(): boolean;
   readonly enabled: boolean;
   /** Set the baseline every row is compared against. */
   setSnapshot(rows: unknown[] | null): void;
@@ -2645,3 +2825,252 @@ export function formatList(items: string[], locale?: string, type?: 'conjunction
 export function resolveLocale(configured: string | undefined, declared?: string, fallback?: string): string;
 /** Find the catalogue for a tag, falling back to the base language. */
 export function resolveCatalogue(tag?: string): Record<string, unknown> | null;
+
+// ---------------------------------------------------------------------------
+// The optional modules (spec 20)
+// ---------------------------------------------------------------------------
+
+/**
+ * Declarations for everything under `lattice-grid/modules/`.
+ *
+ * The package exports these subpaths at runtime but declared none of them, so a
+ * TypeScript caller importing the React adapter — or any other module — got an
+ * implicit `any` and, under `strict`, an error. The grid advertises complete
+ * declarations; these are the rest of them.
+ *
+ * Each module is declared where its subpath resolves. The `./modules/*` export
+ * carries a `types` condition pointing back at this file, which is what lets
+ * these blocks be found at all.
+ */
+
+/** One of the thirty chart types `createChart` accepts. */
+export type ChartType =
+  | 'line' | 'step' | 'area' | 'rangeArea'
+  | 'bar' | 'horizontalBar' | 'waterfall'
+  | 'scatter' | 'bubble'
+  | 'combo' | 'pareto'
+  | 'histogram' | 'boxplot' | 'heatmap'
+  | 'pie' | 'donut' | 'sunburst' | 'treemap'
+  | 'radar' | 'gauge' | 'funnel' | 'candlestick' | 'geomap'
+  | 'sankey' | 'chord' | 'network' | 'stream' | 'marimekko' | 'violin' | 'gantt';
+
+/** A measure a chart reduces, when the chart is not given a bare `y`. */
+export interface ChartMeasure {
+  col: string;
+  /** A reduction name, as the totals row uses. */
+  fn?: TotalName;
+  /** The mark this measure draws with, on a combo chart. */
+  type?: 'bar' | 'line' | 'area';
+  /** Which axis it belongs to, on a combo chart. */
+  axis?: 'left' | 'right';
+  title?: string;
+}
+
+/** Data labels beside each mark. */
+export interface ChartLabels {
+  position?: 'outside' | 'inside' | 'auto';
+  /** A format mask, or a function of the value. */
+  format?: string | ((value: unknown, point?: unknown) => string);
+  /** Pixels two labels must leave between them before both are kept. */
+  minGap?: number;
+}
+
+/**
+ * What a chart draws and how.
+ *
+ * `grid` and `container` are required; everything else describes the chart.
+ * A chart reads the grid's *filtered* rows, so it follows the grid without
+ * being told to.
+ */
+export interface ChartSpec {
+  grid: Grid;
+  container: Element | string;
+  type: ChartType;
+  /** The category column. */
+  x?: string;
+  /** The measure column, for the types that take one. */
+  y?: string;
+  /** Splits the measure into one series per distinct value. */
+  series?: string;
+  /** Several measures at once, for combo and candlestick. */
+  measures?: ChartMeasure[];
+  /** Endpoints, for sankey, chord and network. */
+  source?: string;
+  target?: string;
+  /** Row label and dates, for gantt. */
+  label?: string;
+  start?: string;
+  end?: string;
+  title?: string;
+  /** A named scheme, or an array of colours. */
+  scheme?: string | string[];
+  legend?: boolean | { position?: 'top' | 'bottom' | 'left' | 'right'; isolate?: boolean };
+  labels?: boolean | ChartLabels;
+  axis?: object;
+  font?: object;
+  margin?: number | { top?: number; right?: number; bottom?: number; left?: number };
+  /** Horizontal reference lines. */
+  reference?: { value: number; label?: string }[];
+  /** Bins for a histogram; the default is twelve. */
+  buckets?: number;
+  /** A diverging colour ramp, for heatmap and geomap. */
+  diverging?: boolean;
+  /** Country outlines, for a geomap drawing countries rather than continents. */
+  shapes?: unknown;
+  codeProperty?: string;
+  /** One chart per distinct value of this column. */
+  multiples?: string;
+  /** Draw to canvas past this many points. */
+  canvas?: boolean | number;
+  downsample?: number;
+  emptyText?: string;
+}
+
+/**
+ * The events a chart raises.
+ *
+ * A chart's own, not the grid's: `grid.on` takes {@link EventName} and knows
+ * nothing about these. `point:click` is the one most callers want — it is how a
+ * click on a mark becomes a filter on the grid.
+ */
+export type ChartEventName =
+  | 'click' | 'hover' | 'leave' | 'focus'
+  | 'draw' | 'drill' | 'brush' | 'legend';
+
+/** A live chart. */
+export interface Chart {
+  readonly element: SVGElement;
+  /** Redraw now. */
+  draw(): void;
+  /** Change the spec and redraw; unnamed keys keep their values. */
+  update(spec: Partial<ChartSpec>): void;
+  /** The data the chart last bound. */
+  data(): object | null;
+  /** Go up one level, on a drillable hierarchy. */
+  ascend(levels?: number): void;
+  on(event: ChartEventName, handler: (payload: unknown) => void): () => void;
+  emit(event: ChartEventName, payload?: unknown): void;
+  toSVG(opts?: object): string;
+  toPNG(opts?: { scale?: number; background?: string }): Promise<Blob>;
+  toCSV(): string;
+  destroy(): void;
+}
+
+declare module 'lattice-grid/modules/charts' {
+  /** Every type name `createChart` accepts. */
+  export const TYPES: readonly ChartType[];
+  /** The built-in colour schemes, by name. */
+  export const SCHEMES: Readonly<Record<string, readonly string[]>>;
+  export const PALETTE: readonly string[];
+  export function createChart(spec: ChartSpec): Chart;
+  export function registerScheme(name: string, colours: readonly string[]): void;
+  export function resolveScheme(spec?: object): object;
+  export function schemeNames(): string[];
+  export function setDefaultScheme(name: string): void;
+  export { Chart };
+}
+
+declare module 'lattice-grid/modules/react' {
+  /**
+   * Build the React component.
+   *
+   * A factory rather than a component, because the adapter imports neither
+   * React nor the grid — you pass both in. That is what keeps the package's
+   * promise of no runtime dependencies, and what stops an adapter disagreeing
+   * with the grid version already loaded.
+   */
+  export function createLatticeGrid(deps: { React: unknown; createGrid: unknown }): unknown;
+  /** Every grid event, as the prop name a React caller writes. */
+  export const EVENT_NAMES: readonly string[];
+  export function handlerName(event: string): string;
+  export default createLatticeGrid;
+}
+
+declare module 'lattice-grid/modules/vue' {
+  export function createLatticeGrid(deps: { Vue?: unknown; createGrid: unknown }): unknown;
+  export const EVENT_NAMES: readonly string[];
+  export function dashedName(event: string): string;
+  export default createLatticeGrid;
+}
+
+declare module 'lattice-grid/modules/svelte' {
+  /** A Svelte action: `use:lattice={config}`. */
+  export function createLatticeAction(deps: { createGrid: unknown }): unknown;
+  export const EVENT_NAMES: readonly string[];
+  export function dashedName(event: string): string;
+  export default createLatticeAction;
+}
+
+declare module 'lattice-grid/modules/webcomponent' {
+  /**
+   * Register `<lattice-grid>`.
+   *
+   * This module carries the grid inside it. Use it *or* `createGrid` in one
+   * page, never both: two copies keep separate registries, and a renderer
+   * registered through one will not appear in the other.
+   */
+  export function defineLatticeGrid(tag?: string): void;
+  export function createLatticeGridElement(deps?: object): unknown;
+  export const TAG_NAME: string;
+  export const EVENT_PREFIX: string;
+  export const ATTRIBUTE_CONFIG: Readonly<Record<string, unknown>>;
+  export function observedAttributeNames(): string[];
+  export function domEventName(event: string): string;
+  export class GridElementController {}
+  export default defineLatticeGrid;
+}
+
+declare module 'lattice-grid/modules/htmx' {
+  /**
+   * The htmx integration, which re-exports the base API alongside its own —
+   * a page using it imports this and never the base package as well.
+   */
+  export function createGrid(element: Element, config: GridConfig): Grid;
+  export function autoInit(root?: ParentNode): Grid[];
+  export function attach(element: Element, config?: GridConfig): Grid;
+  export function initWithin(root: ParentNode): Grid[];
+  export function destroyWithin(root: ParentNode): void;
+  export function gridElementsWithin(root: ParentNode): Element[];
+  export function hydrateTable(table: Element, config?: GridConfig): Grid;
+  export function readTable(table: Element): { columns: Column[]; rows: unknown[] };
+  export function rowsFromFragment(fragment: ParentNode): unknown[];
+  export function rowsFromJson(text: string): unknown[];
+  export function ingestResponse(grid: Grid, response: unknown): void;
+  export function driveServerMode(grid: Grid, opts?: object): () => void;
+  export function driveInfiniteScroll(grid: Grid, opts?: object): () => void;
+  export function driveOobUpdates(grid: Grid, opts?: object): () => void;
+  export function serialiseState(grid: Grid): string;
+  export function restoreState(grid: Grid, state: string): void;
+  export function saveStateWithin(root: ParentNode): void;
+  export function restoreStateWithin(root: ParentNode): void;
+  export function queryParams(grid: Grid): Record<string, string>;
+  export function warnIfLargeHtmlPayload(rows: number): void;
+  export const QUERY_CHANGED_EVENT: string;
+  export const SCROLL_NEAR_END_EVENT: string;
+  export const HTML_ROW_WARNING_THRESHOLD: number;
+}
+
+declare module 'lattice-grid/modules/dhtmlx-compat' {
+  /** A dhtmlx Grid-shaped API over Lattice, for migrating a piece at a time. */
+  export class Grid {
+    constructor(container: Element | string, config?: object);
+  }
+  export default Grid;
+}
+
+declare module 'lattice-grid/modules/devtools' {
+  /**
+   * The devtools panel, including the accessibility checks.
+   *
+   * The grid is handed in rather than imported: a module may depend on nothing
+   * in core, or the bundler inlines the whole grid into it.
+   */
+  export function createDevtools(opts: { grid: Grid; container?: Element }): {
+    element: Element;
+    refresh(): void;
+    destroy(): void;
+  };
+  export function expose(grid: Grid, name?: string): void;
+  export const CONSOLE_ACTIVATION: string;
+  export default createDevtools;
+}
