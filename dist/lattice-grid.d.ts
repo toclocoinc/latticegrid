@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.7.1 — type declarations
+ * Lattice Grid 1.8.0 — type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1389,15 +1389,31 @@ export interface StateApplyReport {
 // ---------------------------------------------------------------------------
 
 export interface FormattingCondition {
-  op: Operator;
+  /**
+   * A filter operator compared against `value`, or a distribution operator
+   * whose threshold comes from the column itself — `{op: 'topPercent', value: 10}`,
+   * `{op: 'outlier'}`. Distribution thresholds are pinned when the rules
+   * compile; `grid.formatting.restat()` moves them.
+   */
+  op: Operator | DistributionOp;
   value?: unknown;
   value2?: unknown;
 }
 
 export interface FormattingScale {
-  min: number;
-  max: number;
+  /**
+   * Where the bounds come from when `min` and `max` are not given.
+   * `'minmax'` spans the data, `'quantile'` spans `low` to `high`
+   * (5th to 95th percentile by default), `'stddev'` spans `deviations`
+   * either side of the mean.
+   */
+  from?: 'minmax' | 'quantile' | 'stddev';
+  min?: number;
+  max?: number;
   mid?: number;
+  low?: number;
+  high?: number;
+  deviations?: number;
   colours?: string[];
 }
 
@@ -1421,6 +1437,58 @@ export interface FormattingRule {
 /** A column id, or `'*'` for every column. */
 export type FormattingScope = string;
 
+export interface StatisticsApi {
+  /** One shadow value for one row, by the column it shadows and the kind. */
+  shadow(colId: string, kind: ShadowKind, rowKey: string): unknown;
+  /** Make the current values the new baseline — "mark all". */
+  rebase(colId?: string): void;
+  /** What the shadow histories are costing. */
+  tracking(): { columns: string[]; rows: number; forgotten: number };
+  /** Reduce a column by a named kernel over the filtered rows. */
+  reduce(colId: string, fn: string): unknown;
+  /** Everything worth knowing about one column, in one pass each. */
+  profile(colId: string): ColumnProfile | null;
+  /** Pearson's correlation between two columns. */
+  correlation(a: string, b: string): number | null;
+  /** A weighted average of one column by another. */
+  weightedAverage(colId: string, weightId: string): number | null;
+  /** The key a row's data resolves to. */
+  keyOf(data: unknown): string | null;
+  /** Which reductions can be maintained against a change, and which rescan. */
+  readonly maintenance: Readonly<Record<string, 'maintained' | 'rescan'>>;
+}
+
+export type ShadowKind =
+  | 'updates' | 'updatedAt' | 'sinceUpdate' | 'delta' | 'deltaPercent'
+  | 'rate' | 'history' | 'firstValue' | 'streak'
+  /** Where the row sits among the others, over every tracked row. */
+  | 'rank' | 'rankAsc' | 'rankChange' | 'percentile' | 'quartile'
+  | 'zScore' | 'shareOfTotal';
+
+export interface ColumnProfile {
+  column: string;
+  rows: number;
+  present: number;
+  missing: number;
+  distinct: number;
+  min: number | null;
+  max: number | null;
+  mean: number | null;
+  median: number | null;
+  q1: number | null;
+  q3: number | null;
+  iqr: number | null;
+  stddev: number | null;
+  outliers: number;
+  histogram: HistogramBin[];
+}
+
+export interface HistogramBin {
+  from: number;
+  to: number;
+  count: number;
+}
+
 export interface FormattingApi {
   list(scope?: FormattingScope): FormattingRule[];
   all(): Record<FormattingScope, FormattingRule[]>;
@@ -1433,6 +1501,29 @@ export interface FormattingApi {
   replaceAll(rules: Record<FormattingScope, FormattingRule[]>): void;
   clear(scope?: FormattingScope): void;
   styleFor(colId: string, value: unknown): CellStyle | null;
+  /** Re-derive the thresholds of distribution rules from the data as it stands. */
+  restat(): void;
+  /** The five numbers a distribution rule resolves against for one column. */
+  distribution(colId: string): ColumnDistribution | null;
+}
+
+/** Operators that resolve against the column's own distribution (spec 8.12). */
+export type DistributionOp =
+  | 'topPercent' | 'bottomPercent' | 'topN' | 'bottomN'
+  | 'aboveMean' | 'belowMean' | 'aboveMedian' | 'belowMedian'
+  | 'zAbove' | 'zBelow' | 'outlier';
+
+export interface ColumnDistribution {
+  n: number;
+  min: number;
+  max: number;
+  mean: number;
+  stddev: number;
+  median: number;
+  q1: number;
+  q3: number;
+  iqr: number;
+  sorted: number[];
 }
 
 // ---------------------------------------------------------------------------
@@ -2430,6 +2521,7 @@ export interface Grid {
   readonly comments: CommentsApi;
   readonly presence: PresenceApi;
   readonly diagnostics: DiagnosticsApi;
+  readonly statistics: StatisticsApi;
   readonly formatting: FormattingApi;
   readonly maximise?: MaximiseApi;
   /**

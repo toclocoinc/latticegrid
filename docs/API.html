@@ -397,6 +397,7 @@
         <a href="#presentation">grid.presentation</a>
         <a href="#redaction">grid.redaction</a>
         <a href="#formatting">grid.formatting</a>
+        <a href="#statistics">grid.statistics</a>
         <a href="#highlight">grid.highlight</a>
         <a href="#views">grid.views</a>
         <a href="#diff">grid.diff</a>
@@ -793,7 +794,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
         <tbody>
           <tr><td class="name">statusBar</td><td class="type">boolean | { panels }</td><td class="desc">Composable panels along the bottom. Default set: <code>rowCount</code>, <code>selectedCount</code>, <code>aggregation</code>, <code>comments</code>, <code>updates</code>, <code>progress</code>. Each is silent when it has nothing to report.</td></tr>
           <tr><td class="name">maximise</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc"><code>false</code> removes the rail button and <code>grid.maximise</code>, for an application with its own full-screen mode.</td></tr>
-          <tr><td class="name">toolPanel</td><td class="type">boolean | object</td><td class="desc">Side dock. <code>panels</code>: <code>columns</code>, <code>filters</code>, <code>views</code>, <code>quick</code>, <code>formatting</code>. <code>side: 'left'</code> makes it the icon rail, which also turns on <code>actions</code> (<code>undo</code>, <code>redo</code>, <code>pause</code>, <code>restore</code>, <code>maximise</code>, then the export group: <code>export</code>, <code>excel</code>, <code>clipboard</code>, <code>print</code> — nine in all, and an array takes these names rather than the button labels) and <code>icons</code>. An explicit array <em>replaces</em> that list rather than extending it; a bare <code>'-'</code> in it renders a divider between groups. <code>exportName</code> names the CSV.</td></tr>
+          <tr><td class="name">toolPanel</td><td class="type">boolean | object</td><td class="desc">Side dock. <code>panels</code>: <code>columns</code>, <code>filters</code>, <code>views</code>, <code>quick</code>, <code>formatting</code>, <code>statistics</code>. <code>side: 'left'</code> makes it the icon rail, which also turns on <code>actions</code> (<code>undo</code>, <code>redo</code>, <code>pause</code>, <code>restore</code>, <code>maximise</code>, then the export group: <code>export</code>, <code>excel</code>, <code>clipboard</code>, <code>print</code> — nine in all, and an array takes these names rather than the button labels) and <code>icons</code>. An explicit array <em>replaces</em> that list rather than extending it; a bare <code>'-'</code> in it renders a divider between groups. <code>exportName</code> names the CSV.</td></tr>
           <tr><td class="name">contextMenu</td><td class="type">boolean | (p) =&gt; MenuItem[]</td><td class="desc">Right-click menu. The function form is <code>(params, defaults) =&gt; items</code> — see <a href="#custom-menu">custom items</a>. <code>false</code> suppresses it — what a read-only grid wants, since the default menu offers Paste, Clear and Fill down.</td></tr>
           <tr><td class="name">columnMenu</td><td class="type">boolean | (p) =&gt; MenuItem[]</td><td class="desc">The header's 3-dot menu, and a right-click on a column heading. The function form is <code>(params, defaults) =&gt; items</code>, with <code>params</code> carrying <code>colId</code>, <code>column</code> and <code>grid</code> — see <a href="#custom-menu">custom items</a>. <code>false</code> suppresses it.</td></tr>
           <tr><td class="name">shortcuts</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc">The <kbd>?</kbd> keyboard shortcut overlay. <code>false</code> suppresses it, for a host that wants <kbd>?</kbd> for itself. See <a href="api-detail.html#keyboard">Keyboard</a>.</td></tr>
@@ -1563,6 +1564,89 @@ grid.formatting.clear('margin');                  // or clear() for everything</
     </div>
     <div class="note"><p>A rule held here must be JSON: <code>style</code> may not be a function, because the rules are serialised into views and undo slices. Config-time <code>cell.style</code> still accepts one. Group rows are not formatted, matching the way decoration is dropped for them.</p></div>
 
+    <h3>Rules that describe the data, not a threshold</h3>
+    <p><code>gt: 100</code> needs somebody to know that 100 is the interesting number. Often nobody does — the interesting cells are <em>the top decile</em>, or <em>the outliers</em>, and where those fall is a property of the data rather than of the rule. These operators say that directly, and the grid works out the threshold from the column itself, over the filtered rows.</p>
+    <pre><code>grid.formatting.add('margin', { when: { op: 'outlier' }, style: { background: '#fbeceb' } });
+grid.formatting.add('qty',    { when: { op: 'topPercent', value: 10 }, style: { bold: true } });
+grid.formatting.add('score',  { scale: { from: 'quantile', colours: ['#f8f9fa', '#1a6bc7'] } });
+
+grid.formatting.distribution('margin');   // { n, min, max, mean, stddev, median, q1, q3, iqr }
+grid.formatting.restat();                 // re-derive every threshold from the data as it stands</code></pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Operator</th><th><code>value</code></th><th>Marks</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">topPercent</td><td class="type">10 or 0.1</td><td class="desc">The top tenth of the column. Written either way; both mean the same thing.</td></tr>
+          <tr><td class="sig">bottomPercent</td><td class="type">10 or 0.1</td><td class="desc">The bottom tenth.</td></tr>
+          <tr><td class="sig">topN</td><td class="type">5</td><td class="desc">The five largest, ties included — three rows sharing second place in a top three all take the colour.</td></tr>
+          <tr><td class="sig">bottomN</td><td class="type">5</td><td class="desc">The five smallest.</td></tr>
+          <tr><td class="sig">aboveMean / belowMean</td><td class="type">—</td><td class="desc">Either side of the mean.</td></tr>
+          <tr><td class="sig">aboveMedian / belowMedian</td><td class="type">—</td><td class="desc">Either side of the median, which is the one to reach for on a skewed column.</td></tr>
+          <tr><td class="sig">zAbove / zBelow</td><td class="type">2</td><td class="desc">That many standard deviations from the mean. A column with no spread marks nothing rather than everything.</td></tr>
+          <tr><td class="sig">outlier</td><td class="type">1.5</td><td class="desc">Outside Tukey's fences at that many IQRs — the same definition a box plot draws, so the marked cells are the ones its whiskers exclude.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>A colour scale can take its bounds the same way, with <code>from</code> in place of <code>min</code> and <code>max</code>: <code>'minmax'</code> spans the data, <code>'quantile'</code> spans <code>low</code> to <code>high</code> (5th to 95th percentile by default), <code>'stddev'</code> spans <code>deviations</code> either side of the mean. The quantile form is the better default on real data — one mistyped order of magnitude otherwise compresses every real value into the first swatch.</p>
+    <div class="note"><p>Thresholds are <strong>pinned</strong> when the rules compile and do not move on their own. That is deliberate: a boundary that re-derived itself as rows were filtered would repaint cells whose values had not changed, and nobody comparing two screenshots could tell which of the two things had moved. <code>grid.formatting.restat()</code> is how you move it, and a "recalculate" control is the natural place to put it.</p></div>
+
+    <h2 id="statistics">grid.statistics</h2>
+    <p>What the grid knows about its own numbers, and about how they have changed since the page loaded. Every figure is computed over the <em>filtered</em> rows, through the same column handles the totals row uses — so a median here and a median in the footer are the same number, by the same definition (R type 7).</p>
+    <pre><code>grid.statistics.profile('margin');
+// { column, rows, present, missing, distinct, min, max, mean, median,
+//   q1, q3, iqr, stddev, outliers, histogram: [{ from, to, count }, …] }
+
+grid.statistics.reduce('margin', 'p95');          // any registered kernel
+grid.statistics.correlation('spend', 'revenue');  // Pearson's r, clamped to [-1, 1]
+grid.statistics.weightedAverage('price', 'qty');
+
+grid.statistics.shadow('price', 'delta', 'R42');  // one row's shadow value
+grid.statistics.rebase('price');                  // "mark all" — today's values become the baseline
+grid.statistics.tracking();                       // { columns, rows, forgotten }</code></pre>
+    <p>The <code>statistics</code> tool panel is the end-user half of <code>profile()</code>: a column picker, the twelve figures and a histogram of the column's shape, all following the filters. Add it with <code>toolPanel: { panels: ['columns', 'statistics'] }</code>.</p>
+
+    <h3>Shadow columns</h3>
+    <p>A shadow column is declared against another column and maintained by the grid. It has no field in the data and it is not a pure computed column either, because its value depends on what happened <em>before</em>. It is a real column throughout: sortable, filterable, totalled, grouped, exported, saved into a view — which is what makes "show me every circuit repriced more than twice this session, most-changed first" one gesture rather than a report.</p>
+    <pre><code>columns: [
+  { field: 'price', type: 'number' },
+  { id: 'moved',  title: 'Change',  shadow: { of: 'price', kind: 'delta' } },
+  { id: 'churn',  title: 'Updates', shadow: { of: 'price', kind: 'updates' } },
+  { id: 'run',    title: 'Streak',  shadow: 'streak' },   // shorthand: shadows the column beside it
+]</code></pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Kind</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">updates</td><td class="desc">How many times the row's value has changed. Arrival is not a change, so a freshly loaded grid reads zero rather than one.</td></tr>
+          <tr><td class="sig">updatedAt</td><td class="desc">When it last changed, as a <code>Date</code>.</td></tr>
+          <tr><td class="sig">sinceUpdate</td><td class="desc">Milliseconds since it last changed.</td></tr>
+          <tr><td class="sig">delta</td><td class="desc">Current value minus the baseline.</td></tr>
+          <tr><td class="sig">deltaPercent</td><td class="desc">The same as a percentage. A change from nothing has no percentage and reads null rather than infinity.</td></tr>
+          <tr><td class="sig">rate</td><td class="desc">Change per second, from the last two readings.</td></tr>
+          <tr><td class="sig">history</td><td class="desc">The recent readings, oldest first. <code>depth</code> sets how many; the default is 20.</td></tr>
+          <tr><td class="sig">firstValue</td><td class="desc">The baseline itself.</td></tr>
+          <tr><td class="sig">streak</td><td class="desc">Consecutive moves in one direction, signed. It resets on a turn, because "seven rises" means something and "seven changes" does not.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>A second family answers where the row sits among the others rather than what it did before. They share the same declaration and the same state — the tracker already holds every row's current value <em>and</em> its baseline, which is exactly what a rank and a rank <em>change</em> need.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Kind</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">rank</td><td class="desc">Competition rank, largest first: ties share the better rank and the next value skips, so two firsts are followed by a third.</td></tr>
+          <tr><td class="sig">rankAsc</td><td class="desc">The same ranking read from the other end.</td></tr>
+          <tr><td class="sig">rankChange</td><td class="desc">Places climbed since the baseline. Positive means climbed, even though the rank number itself falls — this is the "top movers" column.</td></tr>
+          <tr><td class="sig">percentile</td><td class="desc">The share of rows at or below this one, 0 to 100.</td></tr>
+          <tr><td class="sig">quartile</td><td class="desc">1 to 4, agreeing with <code>percentile</code>: the 60th percentile is in the third quartile.</td></tr>
+          <tr><td class="sig">zScore</td><td class="desc">Deviations from the mean. A column with no spread reads null rather than zero.</td></tr>
+          <tr><td class="sig">shareOfTotal</td><td class="desc">The value over the column's total, as a percentage. A total of zero — a column of offsetting positions — reads null rather than a division by it.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note"><p>Positional kinds rank over every <em>tracked</em> row, not over the filtered set: a rank that changed as you filtered would make "the top ten movers" depend on what happened to be on screen, and the column would disagree with itself between two views of the same data. For the filtered answer, use <code>grid.statistics.profile()</code> or a distribution formatting rule.</p></div>
+    <div class="note"><p>Shadow state is keyed by row key, never by index — after any sort an index-keyed history would report one row's past against another row's present, and the wrong number would be <em>sortable</em>. Memory is capped at 200,000 tracked rows per column; past that the oldest are dropped and <code>tracking().forgotten</code> says how many, rather than a smaller number being reported as though it were the truth.</p></div>
+
     <h2 id="highlight">grid.highlight</h2>
     <p>One mechanism for two jobs: the flash a changed cell makes, and a marker you paint deliberately. A target is a cell (<code>{key, colId}</code>), a row (<code>{key}</code>, or a bare row key) or a column (<code>{colId}</code>). Cell beats row beats column, so a specific highlight is never hidden by a broad one laid over it.</p>
     <pre><code>createGrid(el, {
@@ -2110,9 +2194,12 @@ grid.filters.quickState();   <span class="cmt">// { text: 'acme london', mode: '
           <tr><td class="sig">Rounding</td><td><code>ROUND</code>, <code>ROUNDUP</code>, <code>ROUNDDOWN</code>, <code>FLOOR</code>, <code>CEILING</code></td></tr>
           <tr><td class="sig">Logic</td><td><code>IF</code>, <code>AND</code>, <code>OR</code>, <code>NOT</code>, <code>COALESCE</code></td></tr>
           <tr><td class="sig">Text</td><td><code>CONCAT</code>, <code>LEN</code>, <code>UPPER</code>, <code>LOWER</code>, <code>TRIM</code>, <code>LEFT</code>, <code>RIGHT</code></td></tr>
+          <tr><td class="sig">Statistics</td><td><code>MEDIAN</code>, <code>PERCENTILE</code>, <code>QUARTILE1</code>, <code>QUARTILE3</code>, <code>IQR</code>, <code>STDEV</code>, <code>STDEVP</code>, <code>VAR</code>, <code>VARP</code>, <code>COUNTDISTINCT</code></td></tr>
         </tbody>
       </table>
     </div>
+
+    <div class="note"><p>The statistical functions use R type 7 quantiles — the same definition as the totals row, <code>grid.statistics</code> and the distribution formatting rules, so the four never disagree about what a median is. <code>PERCENTILE</code> reads <code>90</code> and <code>0.9</code> as the same request. Over an empty set they return a number rather than null, because a formula is arithmetic and has to keep composing.</p></div>
 
     <p>Operators <code>+ - * / ^</code> with parentheses, comparison for <code>IF</code>, and postfix
     <code>%</code>. <code>^</code> is right-associative and unary minus binds tighter than it, so

@@ -4,7 +4,7 @@
 dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it.
 
-Version 1.7.1 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.8.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -24,6 +24,98 @@ runtime, not a CDN, not a font, not an icon sprite.
 | `modules/devtools.esm.min.js` | The devtools panel, including the accessibility checks. |
 | `docs/API.html` | The complete API reference. |
 | `docs/api-detail.html` | The developer guide — what each part does, and why. |
+
+---
+
+## What it does
+
+A short tour. The [API reference](docs/API.html) has the whole of it; this is
+enough to know whether the grid covers what you need.
+
+### Data and scale
+
+- **Virtualised rows and columns.** Hundreds of thousands of rows on a typed-array
+  column store, with dictionary encoding and presence bitsets. Row height can be
+  fixed, per-row, or measured from content.
+- **Sort, filter, group, pivot and aggregate**, each as an independent stage
+  over the same data. Multi-column sort, a filter grammar with typed operators,
+  row grouping to any depth, full pivoting, and a totals row that reduces by any
+  of the built-in kernels or one of your own.
+- **Live data.** `rows.apply({add, update, remove})` patches in place: the grid
+  re-queries the stages a change actually touched and repaints the cells that
+  moved. A feed can be paused and resumed with the queue held.
+- **Any source.** Rows in memory, or a source you write — server-side paging,
+  infinite scroll, streaming, or an async provider. Sorting and filtering can be
+  handed to the server or left to the grid.
+
+### Working with the data
+
+- **Editing.** Cell, row and form editing, with over twenty editors — text,
+  number, date, time, select, multi-select, colour, rating, slider, segmented,
+  code, password, icon picker and more. Validation, async commits, optimistic
+  updates with rollback, and a full undo history.
+- **Selection and ranges.** Cell, row, column and rectangular range selection,
+  with clipboard behaviour that round-trips through Excel.
+- **Fill, copy and paste** across a range, including formulas.
+- **Formulas.** A closed, safe expression language — no `eval`, no host access —
+  with maths, text, logic, date and statistical functions, evaluated against
+  other columns.
+- **Export.** CSV with fields sanitised against formula injection, real `.xlsx`
+  written without a ZIP dependency, the clipboard as TSV with a matching paste
+  parser, and print. All of them take the filters, sort and grouping the user is
+  looking at, or the whole set.
+
+### Seeing the data
+
+- **Charts.** `modules/charts` draws thirty chart types from the grid's own
+  data — line, bar, area, scatter, pie, donut, sunburst, treemap, radar, gauge,
+  funnel, heatmap, histogram, box plot, candlestick, combo, geomap, sankey,
+  chord, network, stream, violin, gantt and more. They follow the grid's
+  filters, and clicking a mark can filter it in turn.
+- **Statistics.** `grid.statistics` profiles a column in one pass — count,
+  missing, distinct, five-number summary, standard deviation, outliers and a
+  histogram — and answers correlations and weighted averages. Twenty-eight
+  reduction kernels are available to the totals row, and you can register your
+  own.
+- **Shadow columns.** Values the grid maintains about itself: how many times a
+  row has changed, what a value was when the page loaded, how fast it is moving,
+  its rank, percentile or share of the total. Real columns — sortable,
+  filterable, exportable, saved into a view.
+- **Conditional formatting** as runtime state a user can change, with rules that
+  either name a threshold or describe the data: the top decile, the outliers,
+  two deviations above the mean.
+- **In-cell charts**, sparklines, data bars, progress, ratings and pills.
+- **Header histograms** that double as a filter.
+
+### The interface
+
+- **Tool panels** for columns, filters, views, quick filter, formatting and
+  statistics, docked or as an icon rail.
+- **Saved views** — the whole grid state as a named, shareable object, stored
+  on your server or in the browser.
+- **Column menu, context menu and status bar**, each extensible with your own
+  items.
+- **Pinned columns and rows**, column groups, resize, reorder, autosize, and a
+  density control.
+- **Master–detail rows**, tree data, and full-width rows.
+- **Presence** — live cursors, selections and edit locks for collaborative use,
+  carrying intent and never values.
+- **Comments** threaded on cells, and an annotation layer for presenting.
+- **Full-screen mode**, print, and image capture.
+
+### Quality of the thing itself
+
+- **Accessible.** Keyboard operable throughout, ARIA grid semantics, a live
+  region for announcements, honours reduced motion, forced colours and large
+  target sizes. The devtools module runs the accessibility checks in place.
+- **Internationalised.** Eighteen complete locales, right-to-left layout, and
+  locale-aware number, date and currency formatting throughout.
+- **Themeable** through CSS custom properties, with light and dark built in and
+  a reset that keeps a host page's stylesheet out.
+- **Typed.** Complete TypeScript declarations, checked against the runtime on
+  every build.
+- **Zero runtime dependencies.** Nothing is fetched at runtime — not a CDN, not
+  a font, not an icon sprite.
 
 ---
 
