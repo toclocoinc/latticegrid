@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.9.1 — type declarations
+ * Lattice Grid 1.10.0 — type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -393,8 +393,8 @@ export type RendererName =
 export type EditorName =
   | 'checkbox' | 'code' | 'colour' | 'date' | 'datetime' | 'duration' | 'iconPicker'
   | 'ipaddress' | 'multiSelect' | 'number' | 'objectPicker' | 'password' | 'radix'
-  | 'rating' | 'segmented' | 'select' | 'slider' | 'text' | 'textarea' | 'time'
-  | 'treeSelect' | 'unit' | (string & {});
+  | 'rating' | 'segmented' | 'select' | 'slider' | 'temperature' | 'text' | 'textarea'
+  | 'time' | 'treeSelect' | 'unit' | (string & {});
 
 export interface EditorParams extends CellParams {
   stop(cancel?: boolean): void;
@@ -757,8 +757,62 @@ export interface StreamSourceConfig {
   coalesceMs?: number;
 }
 
+/** One reduced column of a derived grid. */
+export interface DerivedSelect {
+  /** The column to reduce, as a field name or a dotted path. Omit for `count`. */
+  of?: string;
+  /** A key of `TOTAL_FNS` — `sum`, `avg`, `median`, `p95`, `distinct` and the rest. */
+  fn?: TotalName;
+}
+
+/**
+ * A grid whose rows are derived from another grid: aggregated, unnested,
+ * filtered, ranked or profiled. Read-only — write to the source instead.
+ */
+export interface DerivedSourceConfig {
+  mode: 'derived';
+  /**
+   * A derived grid keys on `__key`, which the source writes onto every row it
+   * produces — the group value, the profiled column, or the source row's own
+   * key when nothing is grouped. `config.rowKey` defaults to it, so it need not
+   * be set; an explicit `rowKey` still wins.
+   */
+  /** The grid to read. */
+  from: Grid;
+  /** Which of its rows to read. `filtered` by default. */
+  follow?: 'filtered' | 'all' | 'selected' | 'grouped';
+
+  /** An array property to expand, one row per element, before anything else. */
+  unnest?: string;
+  /** A row predicate, applied before grouping. */
+  where?: (row: unknown) => boolean;
+  /** Round a date column down to a period, and group on that. */
+  bucket?: { of: string; by: 'day' | 'week' | 'month' | 'quarter' | 'year' };
+  /** The dimension, or dimensions, to group by. Omit to pass rows through. */
+  groupBy?: string | string[];
+  /** The reduced columns, by output id. */
+  select?: Record<string, DerivedSelect>;
+  /** How to order the derived rows before limiting them. */
+  sort?: { col: string; dir?: 'asc' | 'desc' }[];
+  /** Keep at most this many rows. */
+  limit?: number;
+  /** Apply `limit` within each distinct value of this column, not overall. */
+  limitPer?: string;
+  /** Keep rows until their running share of the total reaches `upTo`, 0 to 1. */
+  cumulative?: { of: string; upTo: number };
+
+  /** One row per column, with the statistics as columns. Replaces the pipeline. */
+  profile?: string | string[];
+  /** With `profile`, emit one row per statistic instead of one per column. */
+  orient?: 'columns' | 'metrics';
+
+  /** When to re-derive. `idle` by default — coalesced to a frame. */
+  refresh?: 'live' | 'idle' | 'manual' | number;
+}
+
 export type SourceConfig =
-  | MemorySourceConfig | PagedSourceConfig | RemoteSourceConfig | StreamSourceConfig;
+  | MemorySourceConfig | PagedSourceConfig | RemoteSourceConfig | StreamSourceConfig
+  | DerivedSourceConfig;
 
 // ---------------------------------------------------------------------------
 // Grid configuration (spec 18.1)
@@ -1033,6 +1087,26 @@ export interface GridConfig {
    */
   showColumnFunctions?: boolean;
   rowHeight?: number | ((row: Row) => number);
+  /**
+   * A caption for the grid, drawn above the column headings.
+   *
+   * Inside the grid rather than an element the host places above it: a title
+   * outside does not scroll with the grid, is not in the region a screen reader
+   * announces, and is left behind by image capture and print.
+   */
+  title?: string;
+  /**
+   * Draw the column headings at all.
+   *
+   * `true` by default. `false` removes the row, and removes it from the
+   * accessibility tree rather than only from view — a heading a screen reader
+   * still announces is invisible, not hidden. What a small dashboard tile
+   * wants when its `title` already says what the panel is.
+   *
+   * Distinct from `showColumnFunctions`, which keeps the headings and drops
+   * only the sort, filter and menu controls inside them.
+   */
+  showHeader?: boolean;
   headerHeight?: number;
   overscan?: number;
   /**
@@ -2796,10 +2870,138 @@ export function parseUnit(text: string | number, opts?: UnitConfig): number | nu
 export function formatUnit(value: number | null | undefined, opts?: UnitConfig): string;
 export const UNIT_SYSTEMS: Record<string, readonly UnitDescriptor[]>;
 
+/** How a statistic block finds the number it reports. */
+export interface StatValueSpec {
+  /** The column to reduce, as a field name or a dotted path. Omit for `count`. */
+  of?: string;
+  /** A key of `TOTAL_FNS` — `sum`, `avg`, `median`, `p95`, `gini` and the rest. */
+  fn?: TotalName;
+  /**
+   * Report this column from the row holding the extreme, rather than the
+   * extreme itself: `{ of: 'sales', fn: 'max', show: 'rep' }` is the *name* of
+   * the best rep. Needs `min` or `max` — no single row holds an average.
+   */
+  show?: string;
+}
+
+/**
+ * A statistic block: a label, a value, its change, and what it is compared with.
+ *
+ * Reads the grid, so it cannot disagree with the table beneath it, and formats
+ * through the column's own type, so the tile and the table cannot drift.
+ */
+export interface StatConfig extends StatValueSpec {
+  grid?: Grid;
+  /** An element, or a CSS selector resolved against the grid's document. */
+  container: HTMLElement | string;
+  title?: string;
+  /** A literal value, a spec to reduce, or a function of the grid. */
+  value?: unknown | StatValueSpec | ((grid: Grid) => unknown);
+  /** Text under the value, or a function of it. */
+  footer?: string | ((value: unknown, grid: Grid) => string);
+  /** What the value is compared against, for the change indicator. */
+  baseline?: number | ((grid: Grid) => number);
+  /** Whether a rise is good news. `up` by default. */
+  goodWhen?: 'up' | 'down' | 'neither';
+  /** Which rows feed the value. `filtered` by default. */
+  scope?: 'filtered' | 'all' | 'selected';
+  /** `false` stops the tile following the grid; `refresh()` still works. */
+  live?: boolean;
+  /** Override the formatting the column's type would apply. */
+  format?: (value: unknown, grid: Grid) => string;
+  /** Shown when there is no value. `—` by default. */
+  empty?: string;
+  /** Fraction digits for a value whose reduction changed the unit. 2 by default. */
+  decimals?: number;
+  /** Extra class names for the tile's root. */
+  class?: string;
+}
+
+/** The handle `createStat` returns. */
+export interface Stat {
+  element(): HTMLElement | null;
+  value(): unknown;
+  refresh(): void;
+  destroy(): void;
+}
+
+export function createStat(config: StatConfig): Stat;
+export function deltaOf(value: number | null, baseline: number | null):
+  { direction: 'up' | 'down' | 'flat'; change: number | null; percent: number | null };
+export function toneOf(direction: string, goodWhen: string): 'good' | 'bad' | 'flat';
+
 export function createGrid(element: HTMLElement, config?: GridConfig): Grid;
 export function createHeadlessGrid(config?: GridConfig): Grid;
 export function registerModules(modules: GridModule[], opts?: { licence?: string }): void;
 export function setLicence(licence: string): LicenceInfo;
+
+/**
+ * American spellings of the licence functions, exported alongside the British
+ * ones because a host that writes `license` everywhere else should not have to
+ * remember which spelling this one API uses.
+ */
+export const setLicense: typeof setLicence;
+export function licenceInfo(): LicenceInfo;
+export const licenseInfo: typeof licenceInfo;
+export function licenceState(): LicenceInfo;
+export const licenseState: typeof licenceState;
+
+/**
+ * Compile a formatting rule list into a style function.
+ *
+ * `stats` supplies the column summary the distribution operators need — the
+ * top decile, the outliers, two deviations from the mean. Without it those
+ * rules cannot be answered and are skipped.
+ */
+export function compileRules(
+  rules: FormattingRule[],
+  stats?: object | null,
+): (p: CellParams) => CellStyle | null;
+
+/**
+ * Browser-storage backing for saved views.
+ *
+ * Returns null where no usable storage exists — a private window, or a browser
+ * with site data blocked — so a caller can fall back rather than throw.
+ */
+export function createLocalViewStorage(opts?: {
+  key?: string;
+  storage?: { getItem: Function; setItem: Function };
+}): { read(): object[] | null; write(views: object[]): void } | null;
+
+/** Build a data type for hexadecimal, binary or octal values. */
+export function createRadixType(config?: object | string): DataType;
+
+/** Build a column store from row objects, off the main thread where available. */
+export function ingest(
+  rows: unknown[],
+  plan?: object,
+  opts?: object,
+): Promise<{ store: object; schema: object[]; decisions: object[] }>;
+/** The synchronous form of {@link ingest}. */
+export function ingestSync(
+  rows: unknown[],
+  plan?: object,
+  opts?: object,
+): { store: object; schema: object[]; decisions: object[] };
+
+/** Mount one tool panel into an element of your own, outside the grid's rail. */
+export function mountPanel(opts: {
+  grid: Grid;
+  panel: string | Function;
+  container: Element;
+}): { element: HTMLElement; refresh(): void; destroy(): void };
+
+/** The column names a compiled formula reads, deduplicated. */
+export function referencesOf(node: object): string[];
+
+/** The right-click menu, for a host that drives it directly. */
+export class ContextMenu {
+  constructor(opts?: object);
+  open(p: object): void;
+  close(): void;
+  destroy(): void;
+}
 export function version(): string;
 
 export const LatticeGrid: {

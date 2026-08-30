@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.9.1 — htmx module
+ * Lattice Grid 1.10.0 — htmx module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -15049,6 +15049,354 @@ if(isFunction(emit))emit(type,payload);
 }
 }
 });
+__def("packages/core/src/source/derive.js",function(__exports,__req){
+'use strict';
+Object.defineProperty(__exports,"FOLLOW_MODES",{enumerable:true,get:function(){return FOLLOW_MODES;}});
+Object.defineProperty(__exports,"BUCKETS",{enumerable:true,get:function(){return BUCKETS;}});
+Object.defineProperty(__exports,"DERIVED_ROW_KEY",{enumerable:true,get:function(){return DERIVED_ROW_KEY;}});
+Object.defineProperty(__exports,"readPath",{enumerable:true,get:function(){return readPath;}});
+Object.defineProperty(__exports,"unnest",{enumerable:true,get:function(){return unnest;}});
+Object.defineProperty(__exports,"bucketOf",{enumerable:true,get:function(){return bucketOf;}});
+Object.defineProperty(__exports,"reduceValues",{enumerable:true,get:function(){return reduceValues;}});
+Object.defineProperty(__exports,"applyLimit",{enumerable:true,get:function(){return applyLimit;}});
+Object.defineProperty(__exports,"applyCumulative",{enumerable:true,get:function(){return applyCumulative;}});
+Object.defineProperty(__exports,"derive",{enumerable:true,get:function(){return derive;}});
+const __m0=__req("packages/core/src/internal/util.js");
+const isFunction=__m0["isFunction"];
+const isObject=__m0["isObject"];
+const __m1=__req("packages/core/src/compute/total.js");
+const TOTAL_FNS=__m1["TOTAL_FNS"];
+const FOLLOW_MODES=Object.freeze(['filtered','all','selected','grouped']);
+const BUCKETS=Object.freeze(['day','week','month','quarter','year']);
+const DERIVED_ROW_KEY='__key';
+function readPath(obj,path){
+if(!isObject(obj)||typeof path!=='string')return undefined;
+if(!path.includes('.'))return(obj)[path];
+let cursor=(obj);
+for(const part of path.split('.')){
+if(!isObject(cursor))return undefined;
+cursor=(cursor)[part];
+}
+return cursor;
+}
+function unnest(rows,path){
+const out=[];
+for(const row of rows){
+const list=readPath(row,path);
+if(!Array.isArray(list)||!list.length)continue;
+for(const item of list)out.push({...((row)),[path]:item});
+}
+return out;
+}
+function bucketOf(value,by){
+const at=value instanceof Date?value:new Date((value));
+const time=at.getTime();
+if(!Number.isFinite(time))return null;
+const y=at.getUTCFullYear();
+const m=at.getUTCMonth();
+const d=at.getUTCDate();
+const iso=(date)=>date.toISOString().slice(0,10);
+switch(by){
+case'year':return iso(new Date(Date.UTC(y,0,1)));
+case'quarter':return iso(new Date(Date.UTC(y,Math.floor(m/3)*3,1)));
+case'month':return iso(new Date(Date.UTC(y,m,1)));
+case'week':{
+const day=(at.getUTCDay()+6)%7;
+return iso(new Date(Date.UTC(y,m,d-day)));
+}
+default:return iso(new Date(Date.UTC(y,m,d)));
+}
+}
+function groupKeyOf(row,by,bucket){
+const values=by.map((path)=>(
+bucket&&bucket.of===path?bucketOf(readPath(row,path),bucket.by):readPath(row,path)
+));
+return{key:values.map((v)=>(v===undefined||v===null?'\u0000':String(v))).join('\u001f'),values};
+}
+function reduceValues(values,fn){
+const kernel=TOTAL_FNS[fn];
+if(!kernel)return null;
+return kernel({get:(i)=>values[i]},ROW_INDICES(values.length));
+}
+function reduceGroup(rows,select){
+const out={};
+const indices=ROW_INDICES(rows.length);
+for(const[id,spec]of Object.entries(select)){
+const fn=spec.fn||'count';
+const kernel=TOTAL_FNS[fn];
+if(!kernel){out[id]=null;continue;}
+const values=spec.of?rows.map((row)=>readPath(row,spec.of)):[];
+out[id]=kernel({get:(i)=>values[i]},indices);
+}
+return out;
+}
+const ROW_INDICES=(()=>{
+const cache=new Map();
+return(n)=>{
+let hit=cache.get(n);
+if(!hit){
+hit=new Uint32Array(n);
+for(let i=0;i<n;i++)hit[i]=i;
+if(cache.size<512)cache.set(n,hit);
+}
+return hit;
+};
+})();
+function applyLimit(rows,limit,per){
+if(!Number.isFinite(limit)||limit<=0)return rows;
+if(!per)return rows.slice(0,limit);
+const seen=new Map();
+const out=[];
+for(const row of rows){
+const key=String(readPath(row,per));
+const taken=seen.get(key)||0;
+if(taken>=limit)continue;
+seen.set(key,taken+1);
+out.push(row);
+}
+return out;
+}
+function applyCumulative(rows,spec){
+const total=rows.reduce((sum,row)=>sum+(Number(readPath(row,spec.of))||0),0);
+if(!total)return rows;
+const cutoff=total*spec.upTo;
+let running=0;
+const out=[];
+for(const row of rows){
+out.push(row);
+running+=Number(readPath(row,spec.of))||0;
+if(running>=cutoff)break;
+}
+return out;
+}
+function sortRows(rows,spec){
+if(!Array.isArray(spec)||!spec.length)return rows;
+return[...rows].sort((a,b)=>{
+for(const entry of spec){
+const av=readPath(a,entry.col);
+const bv=readPath(b,entry.col);
+if(av===bv)continue;
+if(av===null||av===undefined)return 1;
+if(bv===null||bv===undefined)return-1;
+const less=typeof av==='number'&&typeof bv==='number'
+?av<bv
+:String(av)<String(bv);
+return(less?-1:1)*(entry.dir==='desc'?-1:1);
+}
+return 0;
+});
+}
+function derive(rows,spec){
+let working=Array.isArray(rows)?rows:[];
+if(spec.unnest)working=unnest(working,spec.unnest);
+if(isFunction(spec.where))working=working.filter((row)=>!!spec.where(row));
+const by=spec.groupBy
+?(Array.isArray(spec.groupBy)?spec.groupBy:[spec.groupBy])
+:null;
+const bucket=isObject(spec.bucket)?spec.bucket:null;
+let out;
+if(!by){
+out=working.map((row,i)=>({
+...((row)),
+[DERIVED_ROW_KEY]:String(readPath(row,spec.rowKey||'id')??i),
+}));
+}else{
+const groups=new Map();
+for(const row of working){
+const{key,values}=groupKeyOf(row,by,bucket);
+let bucketed=groups.get(key);
+if(!bucketed){bucketed={values,rows:[]};groups.set(key,bucketed);}
+bucketed.rows.push(row);
+}
+out=[...groups.entries()].map(([key,group])=>{
+const row={[DERIVED_ROW_KEY]:key};
+by.forEach((path,i)=>{row[path.includes('.')?path.split('.').pop():path]=group.values[i];});
+Object.assign(row,reduceGroup(group.rows,spec.select||{}));
+return row;
+});
+}
+out=sortRows(out,spec.sort);
+if(isObject(spec.cumulative))out=applyCumulative(out,spec.cumulative);
+return applyLimit(out,spec.limit,spec.limitPer||null);
+}
+});
+__def("packages/core/src/source/derived.js",function(__exports,__req){
+'use strict';
+Object.defineProperty(__exports,"IDLE_REFRESH_MS",{enumerable:true,get:function(){return IDLE_REFRESH_MS;}});
+Object.defineProperty(__exports,"PROFILE_FIELDS",{enumerable:true,get:function(){return PROFILE_FIELDS;}});
+Object.defineProperty(__exports,"DerivedSource",{enumerable:true,get:function(){return DerivedSource;}});
+Object.defineProperty(__exports,"createDerivedSource",{enumerable:true,get:function(){return createDerivedSource;}});
+const __m0=__req("packages/core/src/internal/util.js");
+const isFunction=__m0["isFunction"];
+const isObject=__m0["isObject"];
+const warnOnce=__m0["warnOnce"];
+const __m1=__req("packages/core/src/source/memory.js");
+const MemorySource=__m1["MemorySource"];
+const __m2=__req("packages/core/src/source/derive.js");
+const derive=__m2["derive"];
+const FOLLOW_MODES=__m2["FOLLOW_MODES"];
+const DERIVED_ROW_KEY=__m2["DERIVED_ROW_KEY"];
+const IDLE_REFRESH_MS=16;
+const PROFILE_FIELDS=Object.freeze([
+'column','rows','present','missing','distinct',
+'min','max','mean','median','q1','q3','iqr','stddev','outliers',
+]);
+class DerivedSource extends MemorySource{
+#from=null;
+#spec={};
+#off=[];
+#pending=null;
+#gone=false;
+#ctx={};
+#deriving=false;
+constructor(config,ctx){
+super({mode:'memory',rows:[]},ctx);
+this.#ctx=ctx||{};
+this.#spec=isObject(config)?config:{};
+this.#from=(this.#spec.from)||null;
+if(!this.#from){
+warnOnce('source.derived.from','source.mode "derived" needs `from`: the grid to derive from.');
+return;
+}
+if(this.#spec.follow&&!FOLLOW_MODES.includes(String(this.#spec.follow))){
+warnOnce(
+`source.derived.follow.${this.#spec.follow}`,
+`unknown follow "${this.#spec.follow}"; using "filtered". Known: ${FOLLOW_MODES.join(', ')}.`,
+);
+}
+this.#watch();
+this.refresh();
+}
+#watch(){
+const grid=this.#from;
+if(!grid||!isFunction(grid.on))return;
+const follow=String(this.#spec.follow||'filtered');
+const events=['rows:changed'];
+if(follow==='filtered'||follow==='grouped')events.push('filter:changed');
+if(follow==='selected')events.push('selection:changed');
+if(follow==='grouped')events.push('column:grouped');
+for(const name of events){
+const handler=()=>this.schedule();
+grid.on(name,handler);
+this.#off.push(()=>isFunction(grid.off)&&grid.off(name,handler));
+}
+}
+schedule(){
+const mode=this.#spec.refresh===undefined?'idle':this.#spec.refresh;
+if(mode==='manual')return;
+if(mode==='live'){this.refresh();return;}
+const wait=typeof mode==='number'&&Number.isFinite(mode)?mode:IDLE_REFRESH_MS;
+if(this.#pending)return;
+this.#pending=setTimeout(()=>{this.#pending=null;this.refresh();},wait);
+}
+refresh(){
+if(this.#gone||!this.#from)return;
+if(this.#deriving){
+warnOnce(
+'source.derived.cycle',
+'a derived grid is deriving from itself, directly or through a chain. '
++'The cycle was refused; check the `from` of each grid in the chain.',
+);
+return;
+}
+this.#deriving=true;
+try{
+const rows=this.#spec.profile
+?this.#deriveProfile()
+:derive(this.#sourceRows(),this.#resolvedSpec());
+this.setRows(rows);
+this.invalidate('filter');
+if(isFunction(this.#ctx.emit)){
+(this.#ctx.emit)('rows:changed',{},'derived');
+}
+}finally{
+this.#deriving=false;
+}
+}
+#resolvedSpec(){
+if(String(this.#spec.follow||'filtered')!=='grouped')return this.#spec;
+const grid=this.#from;
+const state=grid&&grid.state&&isFunction(grid.state.get)?grid.state.get():null;
+const grouped=state&&Array.isArray(state.group)?state.group:[];
+if(!grouped.length)return this.#spec;
+return{...this.#spec,groupBy:[...grouped]};
+}
+#sourceRows(){
+const grid=this.#from;
+const follow=String(this.#spec.follow||'filtered');
+if(!grid||!grid.rows)return[];
+if(follow==='all'){
+const every=[];
+if(isFunction(grid.rows.forEachAll)){
+grid.rows.forEachAll((row)=>{if(!row.group)every.push(unwrap(row));});
+}
+return every;
+}
+if(follow==='selected'){
+const rows=grid.selection&&isFunction(grid.selection.rows)?grid.selection.rows():[];
+return rows.filter(Boolean).map(unwrap);
+}
+const out=[];
+if(isFunction(grid.rows.forEach)){
+grid.rows.forEach((row)=>{if(!row.group)out.push(unwrap(row));});
+}
+return out;
+}
+#deriveProfile(){
+const grid=this.#from;
+if(!grid||!grid.statistics||!isFunction(grid.statistics.profile))return[];
+const wanted=Array.isArray(this.#spec.profile)?this.#spec.profile:[this.#spec.profile];
+const rows=wanted.filter(Boolean).map((colId)=>{
+const stats=grid.statistics.profile(String(colId))||{};
+const row={[DERIVED_ROW_KEY]:String(colId)};
+for(const field of PROFILE_FIELDS){
+row[field]=field==='column'?String(colId):(stats[field]??null);
+}
+row.outliers=Array.isArray(stats.outliers)?stats.outliers.length:(stats.outliers??null);
+return row;
+});
+if(this.#spec.orient!=='metrics')return rows;
+const first=rows[0];
+if(!first)return[];
+return PROFILE_FIELDS.filter((f)=>f!=='column').map((field)=>({
+[DERIVED_ROW_KEY]:field,metric:field,value:first[field],
+}));
+}
+apply(change){
+const ops=['add','update','remove'];
+const rejected=[];
+for(const op of ops){
+for(const row of(change&&change[op])||[]){
+rejected.push({operation:op,id:row&&row.id,reason:'derived-read-only'});
+}
+}
+if(rejected.length){
+warnOnce(
+'source.derived.readonly',
+'a derived grid is read-only: its rows are computed from another grid. '
++'Write to the source grid instead, and the derived one follows.',
+);
+}
+return{added:[],updated:[],removed:[],rejected};
+}
+destroy(){
+this.#gone=true;
+if(this.#pending){clearTimeout(this.#pending);this.#pending=null;}
+for(const off of this.#off){try{off();}catch{}}
+this.#off=[];
+this.#from=null;
+super.destroy();
+}
+}
+function unwrap(row){
+return isObject(row)&&'data'in(row)
+?(row).data
+:row;
+}
+function createDerivedSource(config,ctx){
+return new DerivedSource(config,ctx);
+}
+});
 __def("packages/core/src/source/index.js",function(__exports,__req){
 'use strict';
 Object.defineProperty(__exports,"createMemorySource",{enumerable:true,get:function(){return createMemorySource;}});
@@ -15062,6 +15410,10 @@ Object.defineProperty(__exports,"PROTOCOL",{enumerable:true,get:function(){retur
 Object.defineProperty(__exports,"createStreamSource",{enumerable:true,get:function(){return createStreamSource;}});
 Object.defineProperty(__exports,"StreamSource",{enumerable:true,get:function(){return StreamSource;}});
 Object.defineProperty(__exports,"DEFAULT_PROMOTE_BELOW",{enumerable:true,get:function(){return DEFAULT_PROMOTE_BELOW;}});
+Object.defineProperty(__exports,"createDerivedSource",{enumerable:true,get:function(){return createDerivedSource;}});
+Object.defineProperty(__exports,"DerivedSource",{enumerable:true,get:function(){return DerivedSource;}});
+Object.defineProperty(__exports,"IDLE_REFRESH_MS",{enumerable:true,get:function(){return IDLE_REFRESH_MS;}});
+Object.defineProperty(__exports,"PROFILE_FIELDS",{enumerable:true,get:function(){return PROFILE_FIELDS;}});
 Object.defineProperty(__exports,"MODES",{enumerable:true,get:function(){return MODES;}});
 Object.defineProperty(__exports,"createSource",{enumerable:true,get:function(){return createSource;}});
 const __m0=__req("packages/core/src/internal/util.js");
@@ -15083,41 +15435,57 @@ const __m4=__req("packages/core/src/source/stream.js");
 const createStreamSource=__m4["createStreamSource"];
 const StreamSource=__m4["StreamSource"];
 const DEFAULT_PROMOTE_BELOW=__m4["DEFAULT_PROMOTE_BELOW"];
-const __m5=__req("packages/core/src/source/abort.js");
-Object.defineProperty(__exports,"AbortScope",{enumerable:true,get:function(){return __m5["AbortScope"];}});
-Object.defineProperty(__exports,"RequestToken",{enumerable:true,get:function(){return __m5["RequestToken"];}});
-Object.defineProperty(__exports,"SupersededError",{enumerable:true,get:function(){return __m5["SupersededError"];}});
-Object.defineProperty(__exports,"createAbortScope",{enumerable:true,get:function(){return __m5["createAbortScope"];}});
-Object.defineProperty(__exports,"isAbortError",{enumerable:true,get:function(){return __m5["isAbortError"];}});
-const __m6=__req("packages/core/src/source/filterwire.js");
-Object.defineProperty(__exports,"RELATIVE_TOKENS",{enumerable:true,get:function(){return __m6["RELATIVE_TOKENS"];}});
-Object.defineProperty(__exports,"parseRelativeToken",{enumerable:true,get:function(){return __m6["parseRelativeToken"];}});
-Object.defineProperty(__exports,"resolveRelativeRange",{enumerable:true,get:function(){return __m6["resolveRelativeRange"];}});
-Object.defineProperty(__exports,"resolveRelativeCondition",{enumerable:true,get:function(){return __m6["resolveRelativeCondition"];}});
-Object.defineProperty(__exports,"relativeTokenOf",{enumerable:true,get:function(){return __m6["relativeTokenOf"];}});
-Object.defineProperty(__exports,"buildFilterSet",{enumerable:true,get:function(){return __m6["buildFilterSet"];}});
-Object.defineProperty(__exports,"normaliseFilterSet",{enumerable:true,get:function(){return __m6["normaliseFilterSet"];}});
-Object.defineProperty(__exports,"wireFilters",{enumerable:true,get:function(){return __m6["wireFilters"];}});
-Object.defineProperty(__exports,"querySignature",{enumerable:true,get:function(){return __m6["querySignature"];}});
-Object.defineProperty(__exports,"mapConditions",{enumerable:true,get:function(){return __m6["mapConditions"];}});
-Object.defineProperty(__exports,"forEachCondition",{enumerable:true,get:function(){return __m6["forEachCondition"];}});
-Object.defineProperty(__exports,"isGroup",{enumerable:true,get:function(){return __m6["isGroup"];}});
-const __m7=__req("packages/core/src/source/blockcache.js");
-Object.defineProperty(__exports,"BlockCache",{enumerable:true,get:function(){return __m7["BlockCache"];}});
-Object.defineProperty(__exports,"DEFAULT_PAGE_SIZE",{enumerable:true,get:function(){return __m7["DEFAULT_PAGE_SIZE"];}});
-Object.defineProperty(__exports,"DEFAULT_MAX_CACHED_PAGES",{enumerable:true,get:function(){return __m7["DEFAULT_MAX_CACHED_PAGES"];}});
-const __m8=__req("packages/core/src/source/gapbuffer.js");
-Object.defineProperty(__exports,"GapBuffer",{enumerable:true,get:function(){return __m8["GapBuffer"];}});
-const __m9=__req("packages/core/src/source/rows.js");
-Object.defineProperty(__exports,"RowFactory",{enumerable:true,get:function(){return __m9["RowFactory"];}});
-Object.defineProperty(__exports,"createRowFactory",{enumerable:true,get:function(){return __m9["createRowFactory"];}});
-Object.defineProperty(__exports,"groupKey",{enumerable:true,get:function(){return __m9["groupKey"];}});
-Object.defineProperty(__exports,"lazyRowView",{enumerable:true,get:function(){return __m9["lazyRowView"];}});
-Object.defineProperty(__exports,"DEFAULT_ROW_HEIGHT",{enumerable:true,get:function(){return __m9["DEFAULT_ROW_HEIGHT"];}});
-const __m10=__req("packages/core/src/source/handles.js");
-Object.defineProperty(__exports,"HandleProvider",{enumerable:true,get:function(){return __m10["HandleProvider"];}});
-Object.defineProperty(__exports,"createHandleProvider",{enumerable:true,get:function(){return __m10["createHandleProvider"];}});
-const MODES=Object.freeze(['memory','paged','remote','stream']);
+const __m5=__req("packages/core/src/source/derived.js");
+const createDerivedSource=__m5["createDerivedSource"];
+const DerivedSource=__m5["DerivedSource"];
+const IDLE_REFRESH_MS=__m5["IDLE_REFRESH_MS"];
+const PROFILE_FIELDS=__m5["PROFILE_FIELDS"];
+const __m6=__req("packages/core/src/source/derive.js");
+Object.defineProperty(__exports,"derive",{enumerable:true,get:function(){return __m6["derive"];}});
+Object.defineProperty(__exports,"unnest",{enumerable:true,get:function(){return __m6["unnest"];}});
+Object.defineProperty(__exports,"readPath",{enumerable:true,get:function(){return __m6["readPath"];}});
+Object.defineProperty(__exports,"bucketOf",{enumerable:true,get:function(){return __m6["bucketOf"];}});
+Object.defineProperty(__exports,"applyLimit",{enumerable:true,get:function(){return __m6["applyLimit"];}});
+Object.defineProperty(__exports,"applyCumulative",{enumerable:true,get:function(){return __m6["applyCumulative"];}});
+Object.defineProperty(__exports,"reduceValues",{enumerable:true,get:function(){return __m6["reduceValues"];}});
+Object.defineProperty(__exports,"FOLLOW_MODES",{enumerable:true,get:function(){return __m6["FOLLOW_MODES"];}});
+Object.defineProperty(__exports,"BUCKETS",{enumerable:true,get:function(){return __m6["BUCKETS"];}});
+Object.defineProperty(__exports,"DERIVED_ROW_KEY",{enumerable:true,get:function(){return __m6["DERIVED_ROW_KEY"];}});
+const __m7=__req("packages/core/src/source/abort.js");
+Object.defineProperty(__exports,"AbortScope",{enumerable:true,get:function(){return __m7["AbortScope"];}});
+Object.defineProperty(__exports,"RequestToken",{enumerable:true,get:function(){return __m7["RequestToken"];}});
+Object.defineProperty(__exports,"SupersededError",{enumerable:true,get:function(){return __m7["SupersededError"];}});
+Object.defineProperty(__exports,"createAbortScope",{enumerable:true,get:function(){return __m7["createAbortScope"];}});
+Object.defineProperty(__exports,"isAbortError",{enumerable:true,get:function(){return __m7["isAbortError"];}});
+const __m8=__req("packages/core/src/source/filterwire.js");
+Object.defineProperty(__exports,"RELATIVE_TOKENS",{enumerable:true,get:function(){return __m8["RELATIVE_TOKENS"];}});
+Object.defineProperty(__exports,"parseRelativeToken",{enumerable:true,get:function(){return __m8["parseRelativeToken"];}});
+Object.defineProperty(__exports,"resolveRelativeRange",{enumerable:true,get:function(){return __m8["resolveRelativeRange"];}});
+Object.defineProperty(__exports,"resolveRelativeCondition",{enumerable:true,get:function(){return __m8["resolveRelativeCondition"];}});
+Object.defineProperty(__exports,"relativeTokenOf",{enumerable:true,get:function(){return __m8["relativeTokenOf"];}});
+Object.defineProperty(__exports,"buildFilterSet",{enumerable:true,get:function(){return __m8["buildFilterSet"];}});
+Object.defineProperty(__exports,"normaliseFilterSet",{enumerable:true,get:function(){return __m8["normaliseFilterSet"];}});
+Object.defineProperty(__exports,"wireFilters",{enumerable:true,get:function(){return __m8["wireFilters"];}});
+Object.defineProperty(__exports,"querySignature",{enumerable:true,get:function(){return __m8["querySignature"];}});
+Object.defineProperty(__exports,"mapConditions",{enumerable:true,get:function(){return __m8["mapConditions"];}});
+Object.defineProperty(__exports,"forEachCondition",{enumerable:true,get:function(){return __m8["forEachCondition"];}});
+Object.defineProperty(__exports,"isGroup",{enumerable:true,get:function(){return __m8["isGroup"];}});
+const __m9=__req("packages/core/src/source/blockcache.js");
+Object.defineProperty(__exports,"BlockCache",{enumerable:true,get:function(){return __m9["BlockCache"];}});
+Object.defineProperty(__exports,"DEFAULT_PAGE_SIZE",{enumerable:true,get:function(){return __m9["DEFAULT_PAGE_SIZE"];}});
+Object.defineProperty(__exports,"DEFAULT_MAX_CACHED_PAGES",{enumerable:true,get:function(){return __m9["DEFAULT_MAX_CACHED_PAGES"];}});
+const __m10=__req("packages/core/src/source/gapbuffer.js");
+Object.defineProperty(__exports,"GapBuffer",{enumerable:true,get:function(){return __m10["GapBuffer"];}});
+const __m11=__req("packages/core/src/source/rows.js");
+Object.defineProperty(__exports,"RowFactory",{enumerable:true,get:function(){return __m11["RowFactory"];}});
+Object.defineProperty(__exports,"createRowFactory",{enumerable:true,get:function(){return __m11["createRowFactory"];}});
+Object.defineProperty(__exports,"groupKey",{enumerable:true,get:function(){return __m11["groupKey"];}});
+Object.defineProperty(__exports,"lazyRowView",{enumerable:true,get:function(){return __m11["lazyRowView"];}});
+Object.defineProperty(__exports,"DEFAULT_ROW_HEIGHT",{enumerable:true,get:function(){return __m11["DEFAULT_ROW_HEIGHT"];}});
+const __m12=__req("packages/core/src/source/handles.js");
+Object.defineProperty(__exports,"HandleProvider",{enumerable:true,get:function(){return __m12["HandleProvider"];}});
+Object.defineProperty(__exports,"createHandleProvider",{enumerable:true,get:function(){return __m12["createHandleProvider"];}});
+const MODES=Object.freeze(['memory','paged','remote','stream','derived']);
 function createSource(config,ctx){
 if(!ctx)fail('createSource requires a SourceContext');
 const resolved=isObject(config)?config:{mode:'memory'};
@@ -15127,6 +15495,7 @@ case'memory':return createMemorySource((resolved),ctx);
 case'paged':return createPagedSource((resolved),ctx);
 case'remote':return createRemoteSource((resolved),ctx);
 case'stream':return createStreamSource((resolved),ctx);
+case'derived':return createDerivedSource((resolved),ctx);
 default:
 warnOnce(
 `source.mode.${mode}`,
@@ -25217,6 +25586,7 @@ const __m19=__req("packages/core/src/compute/index.js");
 const compute=__m19;
 const __m20=__req("packages/core/src/source/index.js");
 const createSource=__m20["createSource"];
+const DERIVED_ROW_KEY=__m20["DERIVED_ROW_KEY"];
 const __m21=__req("packages/core/src/source/rows.js");
 const pinnedRow=__m21["pinnedRow"];
 const DEFAULT_ROW_HEIGHT=__m21["DEFAULT_ROW_HEIGHT"];
@@ -25473,6 +25843,10 @@ for(const[name,fn]of Object.entries(this.#config.totalFns||{})){
 if(isFunction(fn))this.#registry.register('totalFn',name,fn);
 }
 this.#pool=new MaskPool();
+if(this.#config.rowKey===undefined&&isObject(this.#config.source)
+&&(this.#config.source).mode==='derived'){
+this.#config.rowKey=DERIVED_ROW_KEY;
+}
 this.#rowKeyResolver=createRowKey(this.#config.rowKey);
 this.#rowKey=(data,index)=>this.#rowKeyResolver.key(data,index);
 if(Array.isArray(this.#config.pinnedTopRows))this.#pinnedTop=this.#config.pinnedTopRows.slice();
@@ -38450,6 +38824,7 @@ const PREFIX='lat';
 const NAMESPACE='lattice';
 const CLASS={
 root:`${PREFIX}-grid-root`,
+title:`${PREFIX}-title`,
 header:`${PREFIX}-header`,
 headerStart:`${PREFIX}-header-left-pinned`,
 headerCentreClip:`${PREFIX}-header-centre-clip`,
@@ -38505,6 +38880,8 @@ fail('DomRenderer needs a DOM. Use createHeadlessGrid() on the server.');
 this.#document=document;
 this.#host=element;
 this.root=el(document,`${NAMESPACE} ${CLASS.root}`);
+this.title=el(document,CLASS.title);
+this.title.hidden=true;
 this.header=el(document,CLASS.header);
 this.headerStart=el(document,CLASS.headerStart);
 this.headerCentreClip=el(document,CLASS.headerCentreClip);
@@ -38534,6 +38911,7 @@ this.stickyBottom=el(document,CLASS.stickyBottom);
 this.overlays=el(document,CLASS.overlays);
 this.statusBar=el(document,CLASS.statusBar);
 this.measureLayer=el(document,CLASS.measure);
+this.root.appendChild(this.title);
 this.root.appendChild(this.header);
 this.root.appendChild(this.bodyViewport);
 this.root.appendChild(this.stickyTop);
@@ -38543,6 +38921,14 @@ this.root.appendChild(this.statusBar);
 this.root.appendChild(this.measureLayer);
 }
 get document(){return this.#document;}
+setTitle(text){
+const value=text===null||text===undefined?'':String(text);
+this.title.textContent=value;
+this.title.hidden=value==='';
+}
+setHeaderVisible(visible){
+this.header.hidden=!visible;
+}
 mount(){
 this.#host.appendChild(this.root);
 }
@@ -42290,6 +42676,7 @@ this.#host=host;
 this.#cellLayer=host.cellLayer||textCellLayer;
 this.#overscan=Number.isFinite(host.config?.overscan)?host.config.overscan:DEFAULT_OVERSCAN;
 this.#viewport=new Viewport(element,{document:host.document});
+this.#applyChrome(host.config);
 this.#layout=new ColumnLayout({
 columns:()=>this.#visibleColumns(),
 threshold:host.config?.columnVirtualisationAbove,
@@ -42358,6 +42745,11 @@ root:this.#viewport.root,
 onFrame:(ctx)=>this.#frame(ctx),
 onScrollEnd:()=>this.#host.emit('scroll:end',this.scrollPosition()),
 });
+}
+#applyChrome(config){
+const title=config&&config.title;
+this.#viewport.setTitle(typeof title==='string'?title:null);
+this.#viewport.setHeaderVisible(!(config&&config.showHeader===false));
 }
 mount(){
 if(this.#mountedOnce)return;

@@ -768,6 +768,8 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">density</td><td class="type">'compact' | 'standard' | 'comfortable' | 'spacious' | number</td><td class="dflt">'compact'</td><td class="desc">One scale that every geometry token derives from — row height, spacing, decoration sizes, and type at a damped rate. Row heights are 23.8 / 28 / 42 / 56px. A number scales 28px, so <code>1.4</code> gives 39.2px for anything between the presets. Virtualisation follows it; an explicit <code>rowHeight</code> overrides it.</td></tr>
           <tr><td class="name">rowHeight</td><td class="type">number | (row) =&gt; number</td><td class="dflt">28</td><td class="desc">A function enables variable-height rows.</td></tr>
           <tr><td class="name">headerHeight</td><td class="type">number</td><td class="dflt">32</td><td class="desc">Per header row.</td></tr>
+          <tr><td class="name">title</td><td class="type">string</td><td class="dflt">&mdash;</td><td class="desc">A caption drawn above the column headings. Inside the grid rather than an element placed above it, so it scrolls with the grid, sits in the region a screen reader announces, and is kept by image capture and print.</td></tr>
+          <tr><td class="name">showHeader</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc">Draw the column headings at all. <code>false</code> removes the row, and removes it from the accessibility tree rather than only from view. Distinct from <code>showColumnFunctions</code>, which keeps the headings and drops only their sort, filter and menu controls.</td></tr>
           <tr><td class="name">overscan</td><td class="type">number</td><td class="dflt">4</td><td class="desc">Rows rendered beyond the viewport.</td></tr>
           <tr><td class="name">autoHeight</td><td class="type">boolean | 'visible'</td><td class="dflt">—</td><td class="desc">Size rows to their content: cells wrap instead of ellipsising, and each row takes the height its tallest cell needs. Only rendered rows are measured either way — the difference is that <code>true</code> gives up above 10,000 rows and returns to fixed heights, while <code>'visible'</code> keeps measuring at any size and accepts a scrollbar that shifts as rows are measured on the way past.</td></tr>
           <tr><td class="name">columnVirtualisationAbove</td><td class="type">number</td><td class="dflt">30</td><td class="desc">Column count above which columns virtualise too.</td></tr>
@@ -1680,6 +1682,62 @@ stats.destroy();   // yours to call: the element belongs to your page</code></pr
       </table>
     </div>
 
+    <h3 id="derived-values">Values the grid maintains for you</h3>
+    <p>
+      Three of the ideas in this section are not standard grid vocabulary, so it is worth saying what
+      they have in common before the detail. <strong>Each of them is a value the grid keeps up to date
+      from data you already have</strong>, declared once rather than maintained by hand.
+    </p>
+    <p>
+      The alternative, in every application that needs one of these, is a parallel structure in the
+      host: a copy of what each row looked like a moment ago, a rank recomputed on every tick, a
+      cumulative total that has to be redone whenever the sort changes, and a dashboard panel running
+      its own query beside the table. That code works for a while and then produces a number nobody
+      can account for, usually because one part of it noticed a filter and another did not.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Concept</th><th>What it is</th><th>Reach for it when</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="name">Shadow column</td>
+            <td class="desc">An extra column, declared against a real one, holding something the grid works out about it: how it has changed, or where it sits among the others.</td>
+            <td class="desc">You want &ldquo;what was this an hour ago&rdquo;, &ldquo;how many places has it moved&rdquo;, or &ldquo;which decile is it in&rdquo; as a column you can sort and filter on.</td>
+          </tr>
+          <tr>
+            <td class="name">Running column</td>
+            <td class="desc">A cumulative value: the total, or the share of the total, <em>by the time you reach this row</em>.</td>
+            <td class="desc">You want a running balance, a cumulative percentage, or a Pareto curve down the page.</td>
+          </tr>
+          <tr>
+            <td class="name">Derived grid</td>
+            <td class="desc">A whole second grid whose rows are built from the first: grouped, unnested, filtered, ranked or profiled.</td>
+            <td class="desc">You want a top-five panel, a breakdown by region, an exceptions list or a statistics summary <em>beside</em> the table, and it must never disagree with it.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>The line between a shadow and a running column is the sort order.</strong> A shadow is a
+      function of the column: a row&rsquo;s own history, or where its value sits among the others.
+      Sort the grid differently and a rank is still the same rank. A running total is the opposite
+      &mdash; it answers &ldquo;how much by the time we reach this row&rdquo;, and <em>by the time</em>
+      is the order the rows are in, so re-sorting changes every value in the column. That is why they
+      are declared separately rather than as two kinds of one thing.
+    </p>
+    <p>
+      <strong>A derived grid is a different scale of the same idea.</strong> A shadow adds a column to
+      the rows you have; a derivation produces different rows altogether &mdash; one per sales person
+      rather than one per sale. Because it is a <em>source</em> rather than a special kind of grid,
+      the result sorts, filters, totals, themes and exports like any other, and can itself be the
+      source of another.
+    </p>
+    <p class="section-note">
+      All three read the rows the grid is currently showing, so a filter applied to the table moves
+      the ranks, the running totals and every derived panel together. That is the property worth
+      having: not that any one of them is clever, but that they cannot disagree.
+    </p>
+
     <h3>Shadow columns</h3>
     <p>A shadow column is declared against another column and maintained by the grid. It has no field in the data and it is not a pure computed column either, because its value depends on what happened <em>before</em>. It is a real column throughout: sortable, filterable, totalled, grouped, exported, saved into a view — which is what makes "show me every circuit repriced more than twice this session, most-changed first" one gesture rather than a report.</p>
     <pre><code>columns: [
@@ -1720,7 +1778,12 @@ stats.destroy();   // yours to call: the element belongs to your page</code></pr
       </table>
     </div>
     <h3>Running totals</h3>
-    <p>A running total is <strong>not</strong> a shadow kind, and the distinction is the design. Every shadow is a function of the column — of a row's own history, or of where its value sits among the others — so it reads the same however the rows are arranged. A running total does not: sort the grid differently and every value changes, because the question is "how much by the time we reach this row", and <em>by the time</em> is the sort order.</p>
+    <p>
+      A running column answers &ldquo;how much by the time we reach this row&rdquo;: a balance
+      that accumulates down the page, or the share of the total accounted for so far. It is the
+      column a Pareto chart is made of, and the one a finance report opens with.
+    </p>
+    <p>It is declared separately from a shadow column, and the sort order is the reason. Every shadow is a function of the column — of a row's own history, or of where its value sits among the others — so it reads the same however the rows are arranged. A running total does not: sort the grid differently and every value changes, because the question is "how much by the time we reach this row", and <em>by the time</em> is the sort order.</p>
     <pre><code>columns: [
   { field: 'amount', type: 'number' },
   { id: 'cum',   title: 'Running',      running: { of: 'amount', kind: 'total' } },
@@ -2028,9 +2091,90 @@ grid.licence.state();      <span class="cmt">// 'licensed' | 'localhost' | 'tria
           <tr><td class="sig">paged</td><td class="type">fetch</td><td class="desc">A page at a time from a server that paginates.</td></tr>
           <tr><td class="sig">remote</td><td class="type">fetch</td><td class="desc">Blocks fetched as the viewport reaches them, with sort, filter and grouping pushed to the server.</td></tr>
           <tr><td class="sig">stream</td><td class="type">connect</td><td class="desc">Rows arriving over time. Promotes to memory once complete.</td></tr>
+          <tr><td class="sig">derived</td><td class="type">from</td><td class="desc">Rows built from another grid: grouped, unnested, filtered, ranked or profiled. Read-only, and follows the source.</td></tr>
         </tbody>
       </table>
     </div>
+
+    <h3 id="derived-source">Derived sources: a grid built from another grid</h3>
+    <p class="section-note">
+      Most dashboards put a summary panel beside a table &mdash; the top five sales people, the
+      breakdown by region, the exceptions list. Built by hand, that panel runs its own query, and
+      sooner or later somebody filters the table and the panel does not follow. Everyone who has
+      shipped a dashboard has been in the meeting where two numbers on one screen disagree.
+    </p>
+    <p>
+      A derived grid removes the possibility. It is a second grid whose rows are <em>built from the
+      first</em> &mdash; grouped, unnested, filtered, ranked or profiled &mdash; so the panel is the
+      table, one derivation later, and one filter moves both. It answers the questions a summary
+      panel exists for: the top five sales people, the most-sold SKUs, a statistical profile of
+      whatever the user has filtered to.
+    </p>
+    <p>
+      It is a <em>source</em> rather than a new kind of grid, so everything downstream &mdash; its own sorting and filters,
+      totals, shadow columns, formatting, export, themes &mdash; works on the result and knows
+      nothing about where the rows came from. Charts bind to one as readily as to any grid.
+    </p>
+    <pre><code>source: {
+  mode: 'derived',
+  from: salesGrid,
+  follow: 'filtered',
+
+  groupBy: 'rep',
+  select: { revenue: { of: 'amount', fn: 'sum' }, deals: { fn: 'count' } },
+  sort: [{ col: 'revenue', dir: 'desc' }],
+  limit: 5,
+}</code></pre>
+    <p class="section-note">
+      The pipeline runs in one order, and the order is the contract:
+      <code>unnest &rarr; where &rarr; bucket &rarr; group &rarr; reduce &rarr; sort &rarr; limit</code>.
+      <code>where</code> sits before grouping deliberately: filtering afterwards is a different
+      question &mdash; which <em>groups</em>, not which <em>rows</em> &mdash; and one key cannot mean both.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Key</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">from</td><td class="type">Grid</td><td class="desc">Required. The grid to read.</td></tr>
+          <tr><td class="name">follow</td><td class="type">'filtered' | 'all' | 'selected' | 'grouped'</td><td class="desc">Which of its rows to read. <code>filtered</code> by default. <code>grouped</code> re-aggregates by whatever dimension the user has grouped the source by, so a panel tracks the reader rather than a dimension fixed when the page was built; with the source ungrouped it falls back to <code>groupBy</code>.</td></tr>
+          <tr><td class="name">unnest</td><td class="type">string</td><td class="desc">Expand an array property, one row per element, keeping the parent's fields. Address the element with a dotted path afterwards &mdash; <code>lines.sku</code> is the element, <code>region</code> is still the parent. A row whose property is absent or empty contributes nothing.</td></tr>
+          <tr><td class="name">where</td><td class="type">(row) =&gt; boolean</td><td class="desc">A row predicate, applied before grouping. With no <code>groupBy</code> the rows pass through as themselves, which is how an exceptions list is built.</td></tr>
+          <tr><td class="name">bucket</td><td class="type">{ of, by }</td><td class="desc">Round a date column down to the start of its period and group on that. <code>by</code> is <code>day</code>, <code>week</code>, <code>month</code>, <code>quarter</code> or <code>year</code>; weeks start on the ISO Monday.</td></tr>
+          <tr><td class="name">groupBy</td><td class="type">string | string[]</td><td class="desc">The dimension, or dimensions, to group by. Omit to pass rows through.</td></tr>
+          <tr><td class="name">select</td><td class="type">Record&lt;string, {of, fn}&gt;</td><td class="desc">The reduced columns, by output id. <code>fn</code> is any key of the totals-row kernels, so <code>median</code>, <code>p95</code>, <code>stddev</code> and <code>gini</code> are available as readily as <code>sum</code>. <code>count</code> needs no <code>of</code>.</td></tr>
+          <tr><td class="name">sort</td><td class="type">{ col, dir }[]</td><td class="desc">Order the derived rows before limiting them. The grid's own user-facing sort is separate and unaffected.</td></tr>
+          <tr><td class="name">limit</td><td class="type">number</td><td class="desc">Keep at most this many rows.</td></tr>
+          <tr><td class="name">limitPer</td><td class="type">string</td><td class="desc">Apply <code>limit</code> within each distinct value of this column rather than overall &mdash; the best three SKUs in <em>each</em> region, which a global limit cannot express.</td></tr>
+          <tr><td class="name">cumulative</td><td class="type">{ of, upTo }</td><td class="desc">Keep rows until their running share of the total reaches <code>upTo</code>, 0 to 1. The Pareto question. The row that crosses the cutoff is kept, because the set has to reach the share.</td></tr>
+          <tr><td class="name">profile</td><td class="type">string | string[]</td><td class="desc">Replaces the pipeline with a transpose: one row per column, with count, present, missing, distinct, min, max, mean, median, quartiles, deviation and outlier count as its columns.</td></tr>
+          <tr><td class="name">orient</td><td class="type">'columns' | 'metrics'</td><td class="desc">With <code>profile</code>, emit one row per statistic instead of one per column &mdash; the shape a dashboard tile wants.</td></tr>
+          <tr><td class="name">refresh</td><td class="type">'live' | 'idle' | 'manual' | number</td><td class="desc">When to re-derive. <code>idle</code> by default, coalescing to a frame, because a hundred cell updates in one frame are one derivation. A number debounces by that many milliseconds.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note">
+      <strong>Read-only.</strong> A derived row is an answer, not a record: there is no write-back for
+      the sum of four hundred rows, so writes are refused with a reason rather than accepted and
+      discarded on the next refresh.
+    </p>
+    <p class="section-note">
+      <strong>They chain.</strong> A derived grid can be the source of another to any depth &mdash; a
+      profile <em>of</em> the top five &mdash; and a change at the root travels the whole chain. A
+      cycle is refused rather than recursed.
+    </p>
+    <p class="section-note">
+      <strong>The key.</strong> <code>rowKey</code> defaults to the derived key and need not be set.
+      It is the group value, which is what makes a live ranking readable: the row moves rather than
+      the values under it changing.
+    </p>
+    <p class="section-note">
+      <strong>Cost.</strong> Each refresh re-derives from the source in full, so the work is linear in
+      the number of rows read and largely independent of what is reduced &mdash; roughly 650&nbsp;ms
+      per 200,000 rows, whether the selection is one sum or four statistics. For a large source under
+      a live feed, prefer the default <code>idle</code> or a debounce, and narrow with
+      <code>follow: 'filtered'</code> so the derivation reads what the user is looking at rather than
+      the whole table.
+    </p>
 
     <h3>The remote request</h3>
     <p class="section-note">Your <code>fetch</code> receives one object and returns <code>{ rows, total }</code>.</p>
@@ -2274,8 +2418,61 @@ createGrid(el, {
     <p>A unit given <code>{ auto: false }</code> stays off the <code>display: 'auto'</code> ladder while remaining accepted on input and available as an explicit <code>display</code>. That is how imperial units sit beside metric ones without an auto readout jumping between the two.</p>
     <div class="note"><p><strong>The stored value is always a plain number in the column's own unit.</strong> Sorting, filtering, grouping, totals and the pivot all read that number and never the text, which is why <code>250mm</code> sorts below <code>1.5 cm</code> correctly rather than <code>1</code> sorting before <code>9</code>. <code>registerUnitSystem</code> is global and throws on a duplicate name, so register each system once at startup rather than inside a component that may mount twice.</p></div>
 
+    <h2 id="stat">The statistic block</h2>
+    <p>
+      <code>createStat</code> draws the tile a dashboard opens with: a label, a value, its change
+      against a baseline, and a line saying what the comparison was. Two things make it worth using
+      rather than writing. <strong>It reads the grid</strong>, so it cannot disagree with the table
+      beneath it &mdash; a tile saying &pound;4.2M above a table filtered to &pound;1.8M is worse
+      than no tile, and that is what a hand-built tile does the first time somebody adds a filter.
+      And <strong>it formats through the column's own type</strong>: a stat over a
+      <code>seconds</code> column reads <code>42.1 ms</code>, over a money column with an auto ladder
+      <code>&pound;1.2M</code>, with nothing declared.
+    </p>
+    <pre><code>import { createStat } from '@toclocoinc/lattice-grid';
+
+createStat({
+  grid, container: '#mrr',
+  title: 'Monthly recurring revenue',
+  of: 'mrr', fn: 'sum',
+  baseline: lastMonth,
+  footer: 'vs. last month',
+});</code></pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Key</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">grid</td><td class="type">Grid</td><td class="desc">The grid to read.</td></tr>
+          <tr><td class="name">container</td><td class="type">Element | string</td><td class="desc">Required. An element, or a selector resolved against the grid's document.</td></tr>
+          <tr><td class="name">title</td><td class="type">string</td><td class="desc">The label above the value. Hidden when absent rather than left blank.</td></tr>
+          <tr><td class="name">of</td><td class="type">string</td><td class="desc">The column to reduce. Omit for <code>count</code>.</td></tr>
+          <tr><td class="name">fn</td><td class="type">TotalName</td><td class="desc">Any of the totals-row kernels: <code>sum</code>, <code>avg</code>, <code>median</code>, <code>p95</code>, <code>distinct</code>, <code>gini</code> and the rest. <code>sum</code> by default.</td></tr>
+          <tr><td class="name">show</td><td class="type">string</td><td class="desc">Report this column from the row holding the extreme, rather than the extreme itself &mdash; <code>{ of: 'sales', fn: 'max', show: 'rep' }</code> is the <em>name</em> of the best rep. Needs <code>min</code> or <code>max</code>; no single row holds an average, so any other reduction is refused with a warning.</td></tr>
+          <tr><td class="name">value</td><td class="type">unknown | fn</td><td class="desc">A literal value &mdash; numeric or otherwise &mdash; or a function of the grid, instead of a reduction.</td></tr>
+          <tr><td class="name">footer</td><td class="type">string | fn</td><td class="desc">Text under the value, or a function of it.</td></tr>
+          <tr><td class="name">baseline</td><td class="type">number | fn</td><td class="desc">What the value is compared against. A zero baseline reports the absolute change and no percentage, because &ldquo;up infinity per cent&rdquo; is not a reading anyone can act on.</td></tr>
+          <tr><td class="name">goodWhen</td><td class="type">'up' | 'down' | 'neither'</td><td class="desc">Whether a rise is good news, which decides the colour. <code>up</code> by default. Revenue up is green and error rate up is red; a tile that paints every rise green is misleading on half a dashboard.</td></tr>
+          <tr><td class="name">scope</td><td class="type">'filtered' | 'all' | 'selected'</td><td class="desc">Which rows feed the value. <code>filtered</code> by default; <code>all</code> for a tile that is deliberately a constant, such as the denominator a filtered number is a share of.</td></tr>
+          <tr><td class="name">live</td><td class="type">boolean</td><td class="desc"><code>false</code> stops the tile following the grid. <code>refresh()</code> still works, so a caller can drive it.</td></tr>
+          <tr><td class="name">format</td><td class="type">(value, grid) =&gt; string</td><td class="desc">Override the formatting the column's type would apply.</td></tr>
+          <tr><td class="name">empty</td><td class="type">string</td><td class="desc">Shown when there is no value. An em dash by default.</td></tr>
+          <tr><td class="name">decimals</td><td class="type">number</td><td class="desc">Fraction digits for a value whose reduction changed the unit. 2 by default.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note">
+      The column's formatter is borrowed only where the reduction leaves the unit alone. A Gini
+      coefficient over a money column is a ratio between 0 and 1, and rendering it as
+      <code>$0.34</code> says it is thirty-four cents; counts, ratios and variances &mdash; which are
+      in units <em>squared</em> &mdash; fall back to a plain number.
+    </p>
+    <p class="section-note">
+      Returns <code>{ element, value, refresh, destroy }</code>. A misconfigured tile returns an inert
+      handle rather than throwing, so a dashboard with one bad tile still renders the other eleven.
+    </p>
+
     <h2 id="chartsmodule">The charts module</h2>
-    <p><code>modules/charts</code> draws thirty chart types from the grid's own data. It is optional and imports nothing from the grid &mdash; the grid is handed in &mdash; so the bundle carries the drawing and none of the grid, and a page that never charts never loads it.</p>
+    <p><code>modules/charts</code> draws thirty-five chart types from the grid's own data. It is optional and imports nothing from the grid &mdash; the grid is handed in &mdash; so the bundle carries the drawing and none of the grid, and a page that never charts never loads it.</p>
     <pre><code>import { createChart } from '@toclocoinc/lattice-grid/modules/charts';
 
 const chart = createChart({

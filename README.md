@@ -4,7 +4,7 @@
 dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it.
 
-Version 1.9.1 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.10.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -61,7 +61,7 @@ enough to know whether the grid covers what you need.
 
 ### Working with the data
 
-- **Editing.** Cell, row and form editing, with over twenty editors — text,
+- **Editing.** Cell, row and form editing, with twenty-three editors — text,
   number, date, time, select, multi-select, colour, rating, slider, segmented,
   code, password, icon picker and more. Validation, async commits, optimistic
   updates with rollback, and a full undo history.
@@ -78,14 +78,14 @@ enough to know whether the grid covers what you need.
 
 ### Seeing the data
 
-- **Charts.** `modules/charts` draws thirty chart types from the grid's own
+- **Charts.** `modules/charts` draws thirty-five chart types from the grid's own
   data — line, bar, area, scatter, pie, donut, sunburst, treemap, radar, gauge,
   funnel, heatmap, histogram, box plot, candlestick, combo, geomap, sankey,
   chord, network, stream, violin, gantt and more. They follow the grid's
   filters, and clicking a mark can filter it in turn.
 - **Statistics.** `grid.statistics` profiles a column in one pass — count,
   missing, distinct, five-number summary, standard deviation, outliers and a
-  histogram — and answers correlations and weighted averages. Twenty-eight
+  histogram — and answers correlations and weighted averages. Thirty-eight
   reduction kernels are available to the totals row, and you can register your
   own.
 - **Shadow columns.** Values the grid maintains about itself: how many times a
@@ -119,7 +119,8 @@ enough to know whether the grid covers what you need.
 - **Accessible.** Keyboard operable throughout, ARIA grid semantics, a live
   region for announcements, honours reduced motion, forced colours and large
   target sizes. The devtools module runs the accessibility checks in place.
-- **Internationalised.** Eighteen complete locales, right-to-left layout, and
+- **Internationalised.** Twenty-two complete locale catalogues across nineteen
+  languages, right-to-left layout, and
   locale-aware number, date and currency formatting throughout.
 - **Themeable** through CSS custom properties, with light and dark built in and
   a reset that keeps a host page's stylesheet out.
