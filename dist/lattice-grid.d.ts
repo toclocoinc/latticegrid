@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.10.0 — type declarations
+ * Lattice Grid 1.11.0 — type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -784,6 +784,12 @@ export interface DerivedSourceConfig {
 
   /** An array property to expand, one row per element, before anything else. */
   unnest?: string;
+  /**
+   * Match each row against a second grid on a shared key, and bring some of its
+   * fields across. Runs after `unnest` and before `where`, so a condition — and
+   * a grouping, and a total — can read a field the join produced.
+   */
+  join?: DerivedJoin;
   /** A row predicate, applied before grouping. */
   where?: (row: unknown) => boolean;
   /** Round a date column down to a period, and group on that. */
@@ -808,6 +814,42 @@ export interface DerivedSourceConfig {
 
   /** When to re-derive. `idle` by default — coalesced to a frame. */
   refresh?: 'live' | 'idle' | 'manual' | number;
+
+  /**
+   * Let this grid filter the grid it derives from. `true` cross-filters through
+   * whatever it groups by; a string names a different source column.
+   */
+  crossFilter?: boolean | string | { col?: string };
+}
+
+export interface DerivedJoin {
+  /** The grid holding the other side. */
+  with: Grid;
+  /** The shared key: one field name when both sides use it, or one each. */
+  on: string | { left?: string; right?: string };
+  /** `inner` keeps only rows that matched; `left` keeps them all. */
+  type?: 'inner' | 'left';
+  /** Which of the partner's fields to bring across. All of them by default. */
+  select?: string[];
+  /** Rename the brought-across fields, when both sides have one worth keeping. */
+  prefix?: string;
+  /** Which of the partner's rows to read. `all` by default. */
+  follow?: 'all' | 'filtered';
+}
+
+export interface CrossFilter {
+  /** Whether this grid can cross-filter a source. */
+  enabled(): boolean;
+  /** The source column the filter is pushed onto. */
+  column(): string | null;
+  /** The keys currently filtering the source. */
+  get(): string[];
+  /** Filter the source to these derived rows. */
+  set(keys: string | string[] | null): void;
+  /** Add or remove one key, for click-to-filter. */
+  toggle(key: string): void;
+  /** Take this grid's filter off its source. */
+  clear(): void;
 }
 
 export type SourceConfig =
@@ -1878,6 +1920,11 @@ export interface RowsApi {
   forEach(fn: (row: Row, index: number) => void): void;
   /** Every row in the data, before any filter. Leaf rows, in physical order. */
   forEachAll(fn: (row: Row, index: number) => void): void;
+  /**
+   * Visit the rows surviving every filter except one column's own — the
+   * faceting question, asked of the rows.
+   */
+  forEachExcept(colId: string, fn: (row: Row, index: number) => void): void;
   value(key: string, colId: string): unknown;
   text(key: string, colId: string): string;
   values(key: string): Record<string, unknown>;
@@ -2775,6 +2822,8 @@ export interface Grid {
   readonly presentation: PresentationApi;
   readonly updates: UpdatesApi;
   readonly timeline: TimelineApi;
+  /** Cross-filtering — a derived grid filtering the grid it derives from. */
+  readonly crossFilter: CrossFilter;
   readonly facets: FacetsApi;
   readonly detail: DetailApi;
   readonly comments: CommentsApi;

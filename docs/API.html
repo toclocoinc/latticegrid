@@ -2138,6 +2138,7 @@ grid.licence.state();      <span class="cmt">// 'licensed' | 'localhost' | 'tria
           <tr><td class="name">from</td><td class="type">Grid</td><td class="desc">Required. The grid to read.</td></tr>
           <tr><td class="name">follow</td><td class="type">'filtered' | 'all' | 'selected' | 'grouped'</td><td class="desc">Which of its rows to read. <code>filtered</code> by default. <code>grouped</code> re-aggregates by whatever dimension the user has grouped the source by, so a panel tracks the reader rather than a dimension fixed when the page was built; with the source ungrouped it falls back to <code>groupBy</code>.</td></tr>
           <tr><td class="name">unnest</td><td class="type">string</td><td class="desc">Expand an array property, one row per element, keeping the parent's fields. Address the element with a dotted path afterwards &mdash; <code>lines.sku</code> is the element, <code>region</code> is still the parent. A row whose property is absent or empty contributes nothing.</td></tr>
+          <tr><td class="name">join</td><td class="type">{ with, on, type, select, prefix, follow }</td><td class="desc">Match each row against a second grid on a shared key and bring some of its fields across. Runs after <code>unnest</code> and before <code>where</code>, so a condition &mdash; and a grouping, and a total &mdash; can read a field the join produced.</td></tr>
           <tr><td class="name">where</td><td class="type">(row) =&gt; boolean</td><td class="desc">A row predicate, applied before grouping. With no <code>groupBy</code> the rows pass through as themselves, which is how an exceptions list is built.</td></tr>
           <tr><td class="name">bucket</td><td class="type">{ of, by }</td><td class="desc">Round a date column down to the start of its period and group on that. <code>by</code> is <code>day</code>, <code>week</code>, <code>month</code>, <code>quarter</code> or <code>year</code>; weeks start on the ISO Monday.</td></tr>
           <tr><td class="name">groupBy</td><td class="type">string | string[]</td><td class="desc">The dimension, or dimensions, to group by. Omit to pass rows through.</td></tr>
@@ -2148,6 +2149,7 @@ grid.licence.state();      <span class="cmt">// 'licensed' | 'localhost' | 'tria
           <tr><td class="name">cumulative</td><td class="type">{ of, upTo }</td><td class="desc">Keep rows until their running share of the total reaches <code>upTo</code>, 0 to 1. The Pareto question. The row that crosses the cutoff is kept, because the set has to reach the share.</td></tr>
           <tr><td class="name">profile</td><td class="type">string | string[]</td><td class="desc">Replaces the pipeline with a transpose: one row per column, with count, present, missing, distinct, min, max, mean, median, quartiles, deviation and outlier count as its columns.</td></tr>
           <tr><td class="name">orient</td><td class="type">'columns' | 'metrics'</td><td class="desc">With <code>profile</code>, emit one row per statistic instead of one per column &mdash; the shape a dashboard tile wants.</td></tr>
+          <tr><td class="name">crossFilter</td><td class="type">boolean | string</td><td class="desc">Let this grid filter the grid it derives from. <code>true</code> cross-filters through whatever it groups by; a string names a different source column.</td></tr>
           <tr><td class="name">refresh</td><td class="type">'live' | 'idle' | 'manual' | number</td><td class="desc">When to re-derive. <code>idle</code> by default, coalescing to a frame, because a hundred cell updates in one frame are one derivation. A number debounces by that many milliseconds.</td></tr>
         </tbody>
       </table>
@@ -2168,12 +2170,140 @@ grid.licence.state();      <span class="cmt">// 'licensed' | 'localhost' | 'tria
       the values under it changing.
     </p>
     <p class="section-note">
-      <strong>Cost.</strong> Each refresh re-derives from the source in full, so the work is linear in
-      the number of rows read and largely independent of what is reduced &mdash; roughly 650&nbsp;ms
-      per 200,000 rows, whether the selection is one sum or four statistics. For a large source under
-      a live feed, prefer the default <code>idle</code> or a debounce, and narrow with
+      <strong>Cost.</strong> The first derivation is linear in the rows read and largely independent
+      of what is reduced &mdash; roughly 900&nbsp;ms per 200,000 rows grouped into forty, whether the selection is one sum
+      or four statistics. After that, a change that names the rows it touched is <em>patched</em>
+      rather than re-derived: only the groups those rows entered or left are reduced again, so a live
+      feed costs time proportional to what changed rather than to the table. Five hundred updates
+      against that same source take under 300&nbsp;ms in total, not 300&nbsp;ms each. A joined
+      derivation is maintained the same way from both sides: the lookup is held between derivations
+      rather than rebuilt, a change to the fact table rejoins only the rows that moved, and a change
+      to the lookup rejoins only the rows behind the keys whose match actually changed &mdash; about
+      2&nbsp;ms per fact update and 1.5&nbsp;ms per lookup edit against a 200,000-row source joined to
+      2,000 customers, where every one of them previously cost a full derivation of roughly a second.
+      A change that cannot be reasoned about that way &mdash; a new filter, a regrouping, a
+      derivation using <code>unnest</code> or <code>where</code>, or a lookup row arriving for
+      rows an inner join had dropped &mdash; falls back to a full derivation, which is correct but
+      costs the full linear pass. Narrow with
       <code>follow: 'filtered'</code> so the derivation reads what the user is looking at rather than
       the whole table.
+    </p>
+
+    <h3 id="change-contract">What a change firing promises</h3>
+    <p class="section-note">
+      Anything maintaining state from <code>rows:changed</code> &mdash; a derived grid, a chart, your
+      own cache &mdash; needs to know whether a firing names the rows that moved or merely says that
+      something did. One <code>rows.apply</code> announces itself more than once: the source reports
+      how many rows moved, the row model reports which ones, and the grid reports that a change
+      happened. Acting on all three does the work three times over.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="name">identified: true</td><td class="desc"><code>added</code>, <code>updated</code> and <code>removed</code> are arrays naming exactly the rows that moved. Safe to patch from.</td></tr>
+          <tr><td class="name">companion: true</td><td class="desc">A second announcement of a change already reported with identity, or one made before the grid's own view caught up. Ignore it.</td></tr>
+          <tr><td class="name">neither</td><td class="desc">A real change whose extent cannot be named &mdash; rows replaced wholesale, or a row moved, where what changed is the order. Re-read.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note">
+      <strong>The default is the safe one.</strong> A firing that says nothing is treated as a change
+      of unknown extent, so an emitter added later that forgets the flag costs a rescan rather than
+      silently leaving a total stale. This was previously inferred from the payload's <em>shape</em>
+      &mdash; arrays meant identity, numbers meant a duplicate &mdash; which was wrong for exactly one
+      case: a row <em>move</em>, which carries counts because nothing changed value. Moves were
+      dropped, and every order-dependent derivation below kept its old answer indefinitely.
+    </p>
+
+    <h3 id="derived-join">Joining two grids</h3>
+    <p class="section-note">
+      Two grids each holding their own data, and a third showing where they meet. Orders against
+      customers; shipments against carriers; enrolments against students. The third grid derives from
+      one side and names the other as its <code>join</code> partner.
+    </p>
+    <pre><code>const joined = createGrid(host, {
+  source: {
+    mode: 'derived',
+    from: orders,
+    join: {
+      with: customers,
+      on: { left: 'customerId', right: 'id' },
+      select: ['name', 'tier'],
+    },
+  },
+  columns: [{ field: 'ref' }, { field: 'name' }, { field: 'tier' }, { field: 'amount' }],
+});</code></pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Key</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">with</td><td class="type">Grid</td><td class="desc">Required. The grid holding the other side.</td></tr>
+          <tr><td class="name">on</td><td class="type">string | { left, right }</td><td class="desc">Required. The shared key: one field name when both sides use it, or one each.</td></tr>
+          <tr><td class="name">type</td><td class="type">'inner' | 'left'</td><td class="desc"><code>inner</code> by default, keeping only rows that matched &mdash; which is usually what &ldquo;common data&rdquo; means. <code>left</code> keeps every row and leaves the brought-across fields undefined, the shape you want when the unmatched rows <em>are</em> the finding.</td></tr>
+          <tr><td class="name">select</td><td class="type">string[]</td><td class="desc">Which of the partner's fields to bring across. All of them by default.</td></tr>
+          <tr><td class="name">prefix</td><td class="type">string</td><td class="desc">Rename the brought-across fields, for when both sides have a <code>name</code> worth keeping.</td></tr>
+          <tr><td class="name">follow</td><td class="type">'all' | 'filtered'</td><td class="desc">Which of the partner's rows to read. <code>all</code> by default: a lookup table is normally the whole table, and a customer list filtered to Europe would otherwise silently drop every other order from a grid the reader takes to be all orders.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note">
+      <strong>The row count does not change.</strong> A key appearing twice on the right keeps the
+      first match rather than emitting a row per pair. SQL would multiply them out; here that would
+      change the row count of a grid the reader thinks of as &ldquo;the orders&rdquo; and quietly
+      double every total taken from it.
+    </p>
+    <p class="section-note">
+      <strong>Both sides are live.</strong> The partner is read at derivation time, not captured when
+      the grid was built, and editing it re-derives &mdash; a corrected tier in the customer grid
+      moves the order into a different band in the joined one.
+    </p>
+
+    <h3 id="cross-filter">Cross-filtering: the path back up</h3>
+    <p class="section-note">
+      Derivation runs one way. A derived grid reads its source and never writes to it, which is what
+      makes a chain of them safe to reason about. Cross-filtering is the single deliberate path back
+      up: clicking a row in a summary panel filters the grid it summarises.
+    </p>
+    <pre><code>const byRep = createGrid(panel, {
+  source: {
+    mode: 'derived', from: main, groupBy: 'rep', refresh: 'live',
+    crossFilter: true,
+    select: { total: { of: 'amount', fn: 'sum' } },
+  },
+  columns: [{ field: 'rep' }, { field: 'total' }],
+});
+
+byRep.on('row:click', (e) =&gt; byRep.crossFilter.toggle(e.key));</code></pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">enabled()</td><td class="type">boolean</td><td class="desc">Whether this grid can cross-filter a source. False on a grid that is not derived, or whose source has no <code>crossFilter</code>.</td></tr>
+          <tr><td class="sig">column()</td><td class="type">string | null</td><td class="desc">The source column the filter is pushed onto.</td></tr>
+          <tr><td class="sig">get()</td><td class="type">string[]</td><td class="desc">The keys currently filtering the source.</td></tr>
+          <tr><td class="sig">set(keys)</td><td class="type">void</td><td class="desc">Filter the source to these derived rows. <code>null</code> clears.</td></tr>
+          <tr><td class="sig">toggle(key)</td><td class="type">void</td><td class="desc">Add or remove one key &mdash; what a click handler wants.</td></tr>
+          <tr><td class="sig">clear()</td><td class="type">void</td><td class="desc">Take this grid's filter off its source.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note">
+      <strong>A panel does not filter itself.</strong> The grid pushing the filter leaves its own
+      condition out when it reads the source back. Without that, clicking one rep would collapse the
+      panel to that single row and strand the reader with nothing else to click. It is the same rule
+      that keeps a header histogram showing every bar after you click one (<a href="#facets">facets</a>),
+      applied between grids instead of within one.
+    </p>
+    <p class="section-note">
+      <strong>Several panels compose.</strong> Each leaves out only its own condition, so two panels
+      over different columns narrow each other while both stay whole &mdash; pick a rep and the region
+      panel shows that rep's regions, pick a region and the rep panel shows that region's reps.
+    </p>
+    <p class="section-note">
+      <strong>It is an ordinary filter.</strong> The condition goes through the source's
+      <code>filters.set</code>, so it undoes, rides in a saved view, and appears in whatever filter UI
+      the grid already has. There is no second filter model beside the real one.
     </p>
 
     <h3>The remote request</h3>
@@ -2220,7 +2350,7 @@ off();                                       <span class="cmt">// on() returns i
           <tr><td class="name">render:first</td><td class="type">{}</td><td class="desc">First paint — the number to measure time-to-first-row against.</td></tr>
           <tr><td class="name">destroy</td><td class="type">{}</td><td class="desc"><code>grid.destroy()</code> has run.</td></tr>
           <tr><td class="name">model:changed</td><td class="type">{ reason }</td><td class="desc">Columns, grouping, pivot or another structural change.</td></tr>
-          <tr><td class="name">rows:changed</td><td class="type">{ added, updated, removed, plan }</td><td class="desc">The display row set changed. Counts, not row objects, on the streaming path.</td></tr>
+          <tr><td class="name">rows:changed</td><td class="type">{ identified?, companion?, added, updated, removed, plan }</td><td class="desc">The row set changed. See <a href="#change-contract">what a change firing promises</a>: <code>identified</code> means the three arrays name the rows that moved, <code>companion</code> marks a duplicate announcement of a change already made with identity, and a firing with neither is a real change of unknown extent.</td></tr>
           <tr><td class="name">rows:queued</td><td class="type">{ pending }</td><td class="desc">A batched change is waiting for the next frame.</td></tr>
           <tr><td class="name">cell:changed</td><td class="type">{ row, key, colId, value, oldValue, undo }</td><td class="desc">A committed edit reached the data. <code>undo</code> distinguishes a rollback.</td></tr>
           <tr><td class="name">cell:pending</td><td class="type">{ row, key, colId, value, before, id }</td><td class="desc">Applied optimistically, not yet durable. Only with <code>edit.commit</code>.</td></tr>

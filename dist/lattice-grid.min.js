@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.10.0 — core + DOM renderer
+ * Lattice Grid 1.11.0 — core + DOM renderer
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -12819,7 +12819,10 @@ this.invalidate('filter');
 }else{
 this.invalidate('total');
 }
-this.#emit('rows:changed',{added:result.added.length,updated:result.updated.length,removed:result.removed.length});
+this.#emit('rows:changed',{
+companion:true,
+added:result.added.length,updated:result.updated.length,removed:result.removed.length,
+});
 return result;
 }
 groupHeadingsAt(index){
@@ -12856,7 +12859,9 @@ this.#dropTotalState();
 this.#handles.invalidate();
 this.#view=null;
 this.invalidate('filter');
-this.#emit('rows:changed',{added:0,updated:0,removed:0,moved:1});
+this.#emit('rows:changed',{
+companion:true,added:0,updated:0,removed:0,moved:1,
+});
 return true;
 }
 reload(_opts){
@@ -13051,6 +13056,15 @@ return out;
 }
 facetIndices(colId){
 return this.#runFilter(colId||null);
+}
+facetRows(colId){
+const indices=this.facetIndices(colId);
+const out=[];
+for(let i=0;i<indices.length;i++){
+const row=this.#leafRow(indices[i]);
+if(row)out.push(row);
+}
+return out;
 }
 invalidateRows(){
 this.#rowCache.clear();
@@ -15060,7 +15074,14 @@ Object.defineProperty(__exports,"bucketOf",{enumerable:true,get:function(){retur
 Object.defineProperty(__exports,"reduceValues",{enumerable:true,get:function(){return reduceValues;}});
 Object.defineProperty(__exports,"applyLimit",{enumerable:true,get:function(){return applyLimit;}});
 Object.defineProperty(__exports,"applyCumulative",{enumerable:true,get:function(){return applyCumulative;}});
+Object.defineProperty(__exports,"groupRows",{enumerable:true,get:function(){return groupRows;}});
+Object.defineProperty(__exports,"finishGroups",{enumerable:true,get:function(){return finishGroups;}});
 Object.defineProperty(__exports,"derive",{enumerable:true,get:function(){return derive;}});
+Object.defineProperty(__exports,"joinRows",{enumerable:true,get:function(){return joinRows;}});
+Object.defineProperty(__exports,"preGroup",{enumerable:true,get:function(){return preGroup;}});
+Object.defineProperty(__exports,"buildJoinIndex",{enumerable:true,get:function(){return buildJoinIndex;}});
+Object.defineProperty(__exports,"joinOne",{enumerable:true,get:function(){return joinOne;}});
+Object.defineProperty(__exports,"joinKeyOf",{enumerable:true,get:function(){return joinKeyOf;}});
 const __m0=__req("packages/core/src/internal/util.js");
 const isFunction=__m0["isFunction"];
 const isObject=__m0["isObject"];
@@ -15186,10 +15207,45 @@ return(less?-1:1)*(entry.dir==='desc'?-1:1);
 return 0;
 });
 }
+function groupRows(rows,spec,keyOf){
+const by=spec.groupBy
+?(Array.isArray(spec.groupBy)?spec.groupBy:[spec.groupBy])
+:null;
+const bucket=isObject(spec.bucket)?spec.bucket:null;
+const groups=new Map();
+const rowGroup=new Map();
+if(!by)return{groups,rowGroup};
+for(const row of rows){
+const{key,values}=groupKeyOf(row,by,bucket);
+let group=groups.get(key);
+if(!group){group={values,rows:new Map()};groups.set(key,group);}
+const rowKey=keyOf(row);
+group.rows.set(rowKey,row);
+rowGroup.set(rowKey,key);
+}
+return{groups,rowGroup};
+}
+function finishGroups(groups,spec,cache=null,dirty=null){
+const by=Array.isArray(spec.groupBy)?spec.groupBy:[spec.groupBy];
+let out=[...groups.entries()].map(([key,group])=>{
+if(cache&&dirty&&!dirty.has(key)){
+const kept=cache.get(key);
+if(kept)return kept;
+}
+const row={[DERIVED_ROW_KEY]:key};
+by.forEach((path,i)=>{
+row[path.includes('.')?path.split('.').pop():path]=group.values[i];
+});
+Object.assign(row,reduceGroup([...group.rows.values()],spec.select||{}));
+if(cache)cache.set(key,row);
+return row;
+});
+out=sortRows(out,spec.sort);
+if(isObject(spec.cumulative))out=applyCumulative(out,spec.cumulative);
+return applyLimit(out,spec.limit,spec.limitPer||null);
+}
 function derive(rows,spec){
-let working=Array.isArray(rows)?rows:[];
-if(spec.unnest)working=unnest(working,spec.unnest);
-if(isFunction(spec.where))working=working.filter((row)=>!!spec.where(row));
+const working=preGroup(rows,spec);
 const by=spec.groupBy
 ?(Array.isArray(spec.groupBy)?spec.groupBy:[spec.groupBy])
 :null;
@@ -15219,6 +15275,73 @@ out=sortRows(out,spec.sort);
 if(isObject(spec.cumulative))out=applyCumulative(out,spec.cumulative);
 return applyLimit(out,spec.limit,spec.limitPer||null);
 }
+function joinRows(rows,spec){
+const on=spec.on;
+const leftKey=isObject(on)?String(on.left||on.right||''):String(on||'');
+const rightKey=isObject(on)?String(on.right||on.left||''):String(on||'');
+if(!leftKey||!rightKey)return(rows);
+const index=spec.index instanceof Map
+?spec.index
+:buildJoinIndex(Array.isArray(spec.rows)?spec.rows:[],rightKey);
+const fields=Array.isArray(spec.select)?spec.select.map(String):null;
+const prefix=spec.prefix?String(spec.prefix):'';
+const keep=String(spec.type||'inner')==='left';
+const out=[];
+for(const row of rows){
+const value=readPath(row,leftKey);
+const match=value==null?undefined:index.get(String(value));
+if(!match){if(keep)out.push((row));continue;}
+const merged={...((row))};
+const names=fields||Object.keys(match);
+for(const name of names){
+if(!prefix&&name===leftKey)continue;
+merged[prefix?prefix+name:name]=readPath(match,name);
+}
+out.push(merged);
+}
+return out;
+}
+function preGroup(rows,spec){
+let working=Array.isArray(rows)?rows:[];
+if(spec.unnest)working=unnest(working,spec.unnest);
+if(isObject(spec.join)&&(Array.isArray(spec.join.rows)||spec.join.index instanceof Map)){
+working=joinRows(working,spec.join);
+}
+if(isFunction(spec.where))working=working.filter((row)=>!!spec.where(row));
+return working;
+}
+function buildJoinIndex(rows,rightKey){
+const index=new Map();
+for(const row of rows){
+const value=readPath(row,rightKey);
+if(value==null)continue;
+const key=String(value);
+if(!index.has(key))index.set(key,(row));
+}
+return index;
+}
+function joinOne(row,spec){
+const on=spec.on;
+const leftKey=isObject(on)?String(on.left||on.right||''):String(on||'');
+const rightKey=isObject(on)?String(on.right||on.left||''):String(on||'');
+if(!leftKey||!rightKey)return(row);
+const index=spec.index instanceof Map?spec.index:new Map();
+const value=readPath(row,leftKey);
+const match=value==null?undefined:index.get(String(value));
+if(!match)return String(spec.type||'inner')==='left'?(row):null;
+const fields=Array.isArray(spec.select)?spec.select.map(String):null;
+const prefix=spec.prefix?String(spec.prefix):'';
+const merged={...((row))};
+for(const name of fields||Object.keys(match)){
+if(!prefix&&name===leftKey)continue;
+merged[prefix?prefix+name:name]=readPath(match,name);
+}
+return merged;
+}
+function joinKeyOf(row,path){
+const value=readPath(row,path);
+return value==null?null:String(value);
+}
 });
 __def("packages/core/src/source/derived.js",function(__exports,__req){
 'use strict';
@@ -15234,6 +15357,13 @@ const __m1=__req("packages/core/src/source/memory.js");
 const MemorySource=__m1["MemorySource"];
 const __m2=__req("packages/core/src/source/derive.js");
 const derive=__m2["derive"];
+const preGroup=__m2["preGroup"];
+const groupRows=__m2["groupRows"];
+const finishGroups=__m2["finishGroups"];
+const readPath=__m2["readPath"];
+const buildJoinIndex=__m2["buildJoinIndex"];
+const joinOne=__m2["joinOne"];
+const joinKeyOf=__m2["joinKeyOf"];
 const FOLLOW_MODES=__m2["FOLLOW_MODES"];
 const DERIVED_ROW_KEY=__m2["DERIVED_ROW_KEY"];
 const IDLE_REFRESH_MS=16;
@@ -15249,6 +15379,11 @@ class DerivedSource extends MemorySource{
 #gone=false;
 #ctx={};
 #deriving=false;
+#index=null;
+#filterCols=null;
+#coalesced=false;
+#cross=[];
+#rightIndex=null;
 constructor(config,ctx){
 super({mode:'memory',rows:[]},ctx);
 this.#ctx=ctx||{};
@@ -15276,20 +15411,108 @@ if(follow==='filtered'||follow==='grouped')events.push('filter:changed');
 if(follow==='selected')events.push('selection:changed');
 if(follow==='grouped')events.push('column:grouped');
 for(const name of events){
-const handler=()=>this.schedule();
+const handler=(payload)=>{
+if(name==='rows:changed'&&skipCompanion(payload))return;
+this.schedule(name==='rows:changed'?payload:null);
+};
 grid.on(name,handler);
 this.#off.push(()=>isFunction(grid.off)&&grid.off(name,handler));
 }
+this.#watchJoin();
 }
-schedule(){
+#watchJoin(){
+const join=this.#spec.join;
+const partner=join&&join.with;
+if(!partner||!isFunction(partner.on))return;
+const follow=String(join.follow||'all');
+const events=follow==='all'?['rows:changed']:['rows:changed','filter:changed'];
+for(const name of events){
+const handler=(payload)=>{
+if(name==='rows:changed'&&skipCompanion(payload))return;
+this.schedule({partner:true});
+};
+partner.on(name,handler);
+this.#off.push(()=>isFunction(partner.off)&&partner.off(name,handler));
+}
+}
+#joinPaths(){
+const join=this.#spec.join;
+if(!join||!join.with)return null;
+const on=join.on;
+const left=isObject(on)?String(on.left||on.right||''):String(on||'');
+const right=isObject(on)?String(on.right||on.left||''):String(on||'');
+return left&&right?{left,right}:null;
+}
+#refreshRight(){
+const paths=this.#joinPaths();
+if(!paths){this.#rightIndex=null;return null;}
+const previous=this.#rightIndex;
+this.#rightIndex=buildJoinIndex(this.#joinRows(),paths.right);
+if(!previous)return null;
+const join=this.#spec.join||{};
+const fields=Array.isArray(join.select)?join.select.map(String):null;
+const signature=(row)=>{
+if(!row)return null;
+const names=fields||Object.keys(row);
+return names.map((name)=>String(readPath(row,name))).join('\u0001');
+};
+const affected=new Set();
+const gained=new Set();
+for(const[key,row]of this.#rightIndex){
+if(signature(row)===signature(previous.get(key)))continue;
+affected.add(key);
+if(!previous.has(key))gained.add(key);
+}
+for(const key of previous.keys())if(!this.#rightIndex.has(key))affected.add(key);
+return{affected,gained};
+}
+#patchPartner(keys,spec){
+const index=this.#index;
+if(!index||!index.leftByJoinKey)return null;
+const touched=[];
+for(const key of keys){
+const rows=index.leftByJoinKey.get(key);
+if(!rows)continue;
+for(const rowKey of rows){
+const data=index.rowData.get(rowKey);
+if(data!==undefined)touched.push({key:rowKey,data});
+}
+}
+return this.#applyPatch({updated:touched,added:[],removed:[]},spec);
+}
+#partnerPatchable(spec,gained){
+if(!this.#index||!this.#index.leftByJoinKey)return false;
+if(spec.unnest||spec.where||String(spec.follow||'filtered')==='grouped')return false;
+const join=spec.join||{};
+if(String(join.type||'inner')==='left')return true;
+return gained.size===0;
+}
+#joinRows(){
+const join=this.#spec.join;
+const partner=join&&join.with;
+if(!partner||!partner.rows)return[];
+const out=[];
+const take=(row)=>{if(!row.group)out.push(unwrap(row));};
+if(String(join.follow||'all')==='filtered'&&isFunction(partner.rows.forEach)){
+partner.rows.forEach(take);
+}else if(isFunction(partner.rows.forEachAll)){
+partner.rows.forEachAll(take);
+}
+return out;
+}
+schedule(change){
 const mode=this.#spec.refresh===undefined?'idle':this.#spec.refresh;
 if(mode==='manual')return;
-if(mode==='live'){this.refresh();return;}
+if(mode==='live'){this.refresh(change);return;}
 const wait=typeof mode==='number'&&Number.isFinite(mode)?mode:IDLE_REFRESH_MS;
-if(this.#pending)return;
-this.#pending=setTimeout(()=>{this.#pending=null;this.refresh();},wait);
+if(this.#pending){this.#coalesced=true;return;}
+this.#coalesced=false;
+this.#pending=setTimeout(()=>{
+this.#pending=null;
+this.refresh(this.#coalesced?null:change);
+},wait);
 }
-refresh(){
+refresh(change){
 if(this.#gone||!this.#from)return;
 if(this.#deriving){
 warnOnce(
@@ -15303,7 +15526,7 @@ this.#deriving=true;
 try{
 const rows=this.#spec.profile
 ?this.#deriveProfile()
-:derive(this.#sourceRows(),this.#resolvedSpec());
+:this.#deriveRows(change);
 this.setRows(rows);
 this.invalidate('filter');
 if(isFunction(this.#ctx.emit)){
@@ -15313,13 +15536,157 @@ if(isFunction(this.#ctx.emit)){
 this.#deriving=false;
 }
 }
+#deriveRows(change){
+const partnerMoved=isObject(change)&&change.partner===true;
+const delta=partnerMoved?this.#refreshRight():null;
+const spec=this.#resolvedSpec();
+if(delta&&this.#index){
+if(!delta.affected.size){
+return finishGroups(this.#index.groups,spec,this.#index.reduced,new Set());
+}
+if(this.#partnerPatchable(spec,delta.gained)){
+const dirty=this.#patchPartner(delta.affected,spec);
+if(dirty)return finishGroups(this.#index.groups,spec,this.#index.reduced,dirty);
+}
+}
+const patch=this.#patchable(spec,change);
+if(patch&&this.#index){
+const dirty=this.#applyPatch(patch,spec);
+return finishGroups(this.#index.groups,spec,this.#index.reduced,dirty);
+}
+const rows=preGroup(this.#sourceRows(),spec);
+this.#filterCols=this.#sourceFilterColumns();
+if(!spec.groupBy){this.#index=null;return derive(rows,spec);}
+const keyOf=this.#keyOf();
+const{groups,rowGroup}=groupRows(rows,spec,keyOf);
+const rowData=new Map();
+for(const[key,groupKey]of rowGroup){
+const group=groups.get(groupKey);
+if(group)rowData.set(key,group.rows.get(key));
+}
+const reduced=new Map();
+const paths=this.#joinPaths();
+const leftJoinKey=new Map();
+const leftByJoinKey=new Map();
+if(paths){
+for(const[key,data]of rowData){
+const jk=joinKeyOf(data,paths.left);
+if(jk===null)continue;
+leftJoinKey.set(key,jk);
+let bucket=leftByJoinKey.get(jk);
+if(!bucket){bucket=new Set();leftByJoinKey.set(jk,bucket);}
+bucket.add(key);
+}
+}
+this.#index={groups,rowGroup,rowData,reduced,leftJoinKey,leftByJoinKey};
+return finishGroups(groups,spec,reduced,null);
+}
+#patchable(spec,change){
+if(!this.#index||!spec.groupBy)return null;
+if(spec.unnest||spec.where||String(spec.follow||'filtered')==='grouped')return null;
+if(isObject(spec.join)&&spec.join.with&&!(spec.join.index instanceof Map))return null;
+if(!isObject(change))return null;
+const updated=Array.isArray(change.updated)?change.updated:null;
+const added=Array.isArray(change.added)?change.added:null;
+const removed=Array.isArray(change.removed)?change.removed:null;
+if(!updated&&!added&&!removed)return null;
+const cols=this.#filterCols;
+if(cols&&cols.size&&String(spec.follow||'filtered')!=='all'){
+for(const row of updated||[]){
+const key=row&&row.key;
+const before=key===undefined?undefined:this.#index.rowData.get(String(key));
+const after=unwrap(row);
+for(const col of cols){
+if(readPath(before,col)!==readPath(after,col))return null;
+}
+}
+}
+return{updated:updated||[],added:added||[],removed:removed||[]};
+}
+#applyPatch(patch,spec){
+const index=
+(this.#index);
+const keyOf=this.#keyOf();
+const dirty=new Set();
+const join=isObject(spec.join)&&spec.join.index instanceof Map?spec.join:null;
+const paths=this.#joinPaths();
+const drop=(key)=>{
+const was=index.rowGroup.get(key);
+if(was===undefined)return;
+dirty.add(was);
+const group=index.groups.get(was);
+if(group){
+group.rows.delete(key);
+if(!group.rows.size)index.groups.delete(was);
+}
+index.rowGroup.delete(key);
+index.rowData.delete(key);
+if(index.leftJoinKey){
+const jk=index.leftJoinKey.get(key);
+if(jk!==undefined){
+const bucket=index.leftByJoinKey.get(jk);
+if(bucket){bucket.delete(key);if(!bucket.size)index.leftByJoinKey.delete(jk);}
+index.leftJoinKey.delete(key);
+}
+}
+};
+const place=(raw)=>{
+const row=join?joinOne(raw,join):raw;
+if(!row)return;
+const key=keyOf(row);
+const single=groupRows([row],spec,keyOf);
+for(const[groupKey,built]of single.groups){
+let group=index.groups.get(groupKey);
+if(!group){group={values:built.values,rows:new Map()};index.groups.set(groupKey,group);}
+group.rows.set(key,row);
+index.rowGroup.set(key,groupKey);
+dirty.add(groupKey);
+}
+index.rowData.set(key,row);
+if(paths&&index.leftByJoinKey){
+const jk=joinKeyOf(row,paths.left);
+if(jk!==null){
+index.leftJoinKey.set(key,jk);
+let bucket=index.leftByJoinKey.get(jk);
+if(!bucket){bucket=new Set();index.leftByJoinKey.set(jk,bucket);}
+bucket.add(key);
+}
+}
+};
+for(const key of patch.removed)drop(String(key));
+for(const row of patch.updated){drop(String(row.key));place(unwrap(row));}
+for(const row of patch.added)place(unwrap(row));
+return dirty;
+}
+#keyOf(){
+const grid=this.#from;
+const field=(grid&&grid.config&&grid.config.rowKey)||'id';
+return(row)=>String(readPath(row,typeof field==='string'?field:'id')??'');
+}
+#sourceFilterColumns(){
+const grid=this.#from;
+const state=grid&&grid.state&&isFunction(grid.state.get)?grid.state.get():null;
+const ids=new Set();
+const walk=(node)=>{
+if(!node)return;
+if(Array.isArray(node.conditions)){node.conditions.forEach(walk);return;}
+if(node.col)ids.add(String(node.col));
+};
+if(state)walk(state.filters);
+return ids;
+}
 #resolvedSpec(){
-if(String(this.#spec.follow||'filtered')!=='grouped')return this.#spec;
+let spec=this.#spec;
+if(spec.join&&spec.join.with){
+if(!this.#rightIndex)this.#refreshRight();
+spec={...spec,join:{...spec.join,index:this.#rightIndex}};
+}
+if(String(spec.follow||'filtered')!=='grouped')return spec;
 const grid=this.#from;
 const state=grid&&grid.state&&isFunction(grid.state.get)?grid.state.get():null;
 const grouped=state&&Array.isArray(state.group)?state.group:[];
-if(!grouped.length)return this.#spec;
-return{...this.#spec,groupBy:[...grouped]};
+if(!grouped.length)return spec;
+return{...spec,groupBy:[...grouped]};
 }
 #sourceRows(){
 const grid=this.#from;
@@ -15336,11 +15703,60 @@ if(follow==='selected'){
 const rows=grid.selection&&isFunction(grid.selection.rows)?grid.selection.rows():[];
 return rows.filter(Boolean).map(unwrap);
 }
+const cross=this.#crossColumn();
 const out=[];
+if(cross&&this.#cross.length&&isFunction(grid.rows.forEachExcept)){
+grid.rows.forEachExcept(cross,(row)=>{if(!row.group)out.push(unwrap(row));});
+return out;
+}
 if(isFunction(grid.rows.forEach)){
 grid.rows.forEach((row)=>{if(!row.group)out.push(unwrap(row));});
 }
 return out;
+}
+#crossColumn(){
+const cfg=this.#spec.crossFilter;
+if(!cfg)return null;
+if(typeof cfg==='string')return cfg;
+if(cfg.col)return String(cfg.col);
+const by=this.#spec.groupBy;
+const first=Array.isArray(by)?by[0]:by;
+return first?String(first):null;
+}
+#pushCross(){
+const col=this.#crossColumn();
+const grid=this.#from;
+if(!col||!grid||!grid.filters||!isFunction(grid.filters.set))return;
+const compute=this.#ctx.compute||{};
+const current=isFunction(grid.filters.get)?grid.filters.get():null;
+const others=isFunction(compute.pruneColumn)?compute.pruneColumn(current,col):null;
+const keys=this.#cross;
+if(!keys.length){grid.filters.set(others||null);return;}
+const mine=keys.length===1
+?{col,op:'eq',value:keys[0]}
+:{col,op:'in',value:keys.slice()};
+const rest=others?(others.conditions&&others.op?others.conditions:[others]):[];
+grid.filters.set(rest.length?{op:'and',conditions:[...rest,mine]}:mine);
+}
+crossFilter(){
+const self=this;
+return{
+enabled(){return!!self.#crossColumn();},
+column(){return self.#crossColumn();},
+get(){return self.#cross.slice();},
+set(keys){
+const next=keys==null?[]:(Array.isArray(keys)?keys:[keys]);
+self.#cross=next.map((k)=>String(k));
+self.#pushCross();
+},
+toggle(key){
+const k=String(key);
+const at=self.#cross.indexOf(k);
+if(at>=0)self.#cross.splice(at,1);else self.#cross.push(k);
+self.#pushCross();
+},
+clear(){self.#cross=[];self.#pushCross();},
+};
 }
 #deriveProfile(){
 const grid=this.#from;
@@ -15387,6 +15803,9 @@ this.#off=[];
 this.#from=null;
 super.destroy();
 }
+}
+function skipCompanion(payload){
+return isObject(payload)&&payload.companion===true;
 }
 function unwrap(row){
 return isObject(row)&&'data'in(row)
@@ -22934,6 +23353,7 @@ result.rejected=rejected;
 if(this.#run)this.#run(plan,change);
 if(!opts.silent){
 this.#emit('rows:changed',{
+identified:true,
 added:result.added,updated:result.updated,removed:result.removed,
 rejected:result.rejected,plan,
 },opts.origin||'api');
@@ -27413,7 +27833,7 @@ const before=flash?grid.#captureCells(change):null;
 const result=grid.#changes.apply(change);
 if(before)grid.#flashChanged(before,result.updated,flash);
 grid.#refresh('rows');
-grid.#bus.emit('rows:changed',{change},'api');
+grid.#bus.emit('rows:changed',{companion:true,change},'api');
 return result;
 },
 queue(change){return grid.#changes.queue(change);},
@@ -27472,6 +27892,16 @@ const row=source.at(i);
 if(row&&!row.group)fn(row,i);
 }
 },
+forEachExcept(colId,fn){
+if(!isFunction(fn))return;
+const source=grid.#source;
+if(colId&&isFunction(source.facetRows)){
+const rows=source.facetRows(colId);
+for(let i=0;i<rows.length;i++)fn(rows[i],i);
+return;
+}
+this.forEach(fn);
+},
 value(key,colId){
 const row=grid.#rowByKey(key);
 return grid.#cellValue(row,grid.#columnsView().get(colId)||colId);
@@ -27526,6 +27956,7 @@ if(target===from)return{moved:false,from,to:target,reason:'unchanged'};
 if(!grid.#source.moveRow(from,target))return refuse('unchanged');
 grid.#rebuildStore();
 grid.#refresh('rows');
+grid.#bus.emit('rows:changed',{moved:1,key,from,to:target},'api');
 grid.#bus.emit('row:moved',{key,from,to:target,data:row.data});
 return{moved:true,from,to:target};
 },
@@ -28464,6 +28895,18 @@ if(!grid.#detail)return null;
 return grid.#detail.inline?'inline':'target';
 },
 config(){return grid.#detail?grid.#detail.config:null;},
+};
+}
+get crossFilter(){
+const source=(this.#source);
+if(source&&isFunction(source.crossFilter))return source.crossFilter();
+return{
+enabled(){return false;},
+column(){return null;},
+get(){return[];},
+set(){},
+toggle(){},
+clear(){},
 };
 }
 get facets(){
