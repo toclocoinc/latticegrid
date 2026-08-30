@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.9.0 — type declarations
+ * Lattice Grid 1.9.1 — type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -41,6 +41,11 @@ export type TypeName =
   | 'voltage' | 'current' | 'resistance' | 'capacitance' | 'inductance'
   | 'charge' | 'conductance' | 'fluxDensity' | 'luminousFlux' | 'illuminance'
   | 'substance' | 'absorbedDose' | 'equivalentDose' | 'radioactivity' | 'frequency'
+  | 'luminousIntensity' | 'doseRate'
+  // Units — rate, ratio and process
+  | 'rpm' | 'angularVelocity' | 'ppm' | 'ppb' | 'basisPoints'
+  | 'molarity' | 'massFlow' | 'tonnesPerHour'
+  | 'viscosity' | 'kinematicViscosity' | 'thermalConductivity' | 'specificHeat'
   // Temperature, which is affine rather than multiplicative
   | 'celsius' | 'fahrenheit' | 'kelvin'
   | (string & {});
@@ -2753,6 +2758,44 @@ export interface Grid {
 // Entry points
 // ---------------------------------------------------------------------------
 
+/** One unit descriptor: a symbol and how many base quantities it is worth. */
+export interface UnitDescriptor {
+  symbol: string;
+  factor: number;
+  aliases: readonly string[];
+  binary: boolean;
+  prefix: string | null;
+  auto: boolean;
+}
+
+/** How a column stores, parses and renders a quantity. */
+export interface UnitConfig {
+  system?: string;
+  unit?: string;
+  binary?: boolean;
+  decimals?: number;
+  minDecimals?: number;
+  maxDecimals?: number;
+  display?: string;
+  locale?: string;
+  group?: boolean;
+  space?: string;
+  placement?: 'suffix' | 'prefix';
+}
+
+export function defineUnit(
+  symbol: string,
+  factor: number,
+  aliases?: readonly string[],
+  opts?: { binary?: boolean; prefix?: string; auto?: boolean },
+): UnitDescriptor;
+/** Registers a system of your own. Throws rather than shadowing an existing name. */
+export function registerUnitSystem(name: string, units: readonly UnitDescriptor[]): string;
+export function createUnitType(config?: UnitConfig): DataType;
+export function parseUnit(text: string | number, opts?: UnitConfig): number | null;
+export function formatUnit(value: number | null | undefined, opts?: UnitConfig): string;
+export const UNIT_SYSTEMS: Record<string, readonly UnitDescriptor[]>;
+
 export function createGrid(element: HTMLElement, config?: GridConfig): Grid;
 export function createHeadlessGrid(config?: GridConfig): Grid;
 export function registerModules(modules: GridModule[], opts?: { licence?: string }): void;
@@ -2765,6 +2808,12 @@ export const LatticeGrid: {
   registerModules: typeof registerModules;
   setLicence: typeof setLicence;
   version: typeof version;
+  createUnitType: typeof createUnitType;
+  registerUnitSystem: typeof registerUnitSystem;
+  defineUnit: typeof defineUnit;
+  parseUnit: typeof parseUnit;
+  formatUnit: typeof formatUnit;
+  UNIT_SYSTEMS: typeof UNIT_SYSTEMS;
 };
 
 export default LatticeGrid;

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.9.0 — core + DOM renderer
+ * Lattice Grid 1.9.1 — core + DOM renderer
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -911,7 +911,14 @@ STDEV:(a)=>spread(numbers(a),true),
 STDEVP:(a)=>spread(numbers(a),false),
 VAR:(a)=>{const sd=spread(numbers(a),true);return sd*sd;},
 VARP:(a)=>{const sd=spread(numbers(a),false);return sd*sd;},
-COUNTDISTINCT:(a)=>new Set(a.filter((v)=>v!==null&&v!==undefined&&v!=='')).size,
+COUNTDISTINCT:(a)=>{
+const seen=new Set();
+for(const arg of a){
+const values=Array.isArray(arg)?arg:[arg];
+for(const v of values)if(v!==null&&v!==undefined&&v!=='')seen.add(v);
+}
+return seen.size;
+},
 IQR:(a)=>{
 const values=numbers(a);
 return percentileOf(values,0.75)-percentileOf(values,0.25);
@@ -6725,6 +6732,7 @@ const key=(ctx.row&&ctx.row.key)||api.keyOf(ctx.data);
 return key?api.running(source,spec.kind||'total',key):null;
 },
 };
+if(def.sort===undefined)m.sort={...(m.sort||{}),enabled:false};
 }
 const field=def.field??(isFunction(m.value&&m.value.compute)?null:(def.id??null));
 const computed=isFunction(m.value&&m.value.compute);
@@ -12945,13 +12953,21 @@ return this.#keyIndex.get(key);
 #changedColumns(previous,next){
 const changed=[];
 for(const colId of this.#queryColumns()){
-const column=this.#column(colId);
-if(!column)continue;
-const before=isFunction(column.getValue)?column.getValue(previous):undefined;
-const after=isFunction(column.getValue)?column.getValue(next):undefined;
-if(!Object.is(before,after))changed.push(colId);
+if(this.#column(colId)&&this.#moved(colId,previous,next,new Set()))changed.push(colId);
 }
 return changed;
+}
+#moved(colId,previous,next,seen){
+if(seen.has(colId))return false;
+seen.add(colId);
+const column=this.#column(colId);
+if(!column)return false;
+const deps=column.value&&column.value.deps;
+if(Array.isArray(deps)&&deps.length){
+return deps.some((dep)=>this.#moved(String(dep),previous,next,seen));
+}
+if(!isFunction(column.getValue))return false;
+return!Object.is(column.getValue(previous),column.getValue(next));
 }
 #queryColumns(){
 const ids=new Set();
@@ -13101,7 +13117,16 @@ handleFor(colId){
 return this.#handles.handle(colId);
 }
 #runSort(filtered){
-const entries=this.#state('sort',[]);
+const entries=this.#state('sort',[]).filter((entry)=>{
+const column=this.#column(entry.col);
+if(!column||!column.running)return true;
+warnOnce(
+`source.sort.running.${entry.col}`,
+`sort ignores "${entry.col}": a running total is a function of the sort order, `
++'so it cannot also decide it. Sort by the column it runs over instead.',
+);
+return false;
+});
 if(!entries.length)return filtered;
 const locale=(this.#ctx.config||{}).locale;
 if(entries.length===1){
@@ -28627,6 +28652,8 @@ Object.defineProperty(__exports,"RADIX_PRESETS",{enumerable:true,get:function(){
 Object.defineProperty(__exports,"parseRadix",{enumerable:true,get:function(){return parseRadix;}});
 Object.defineProperty(__exports,"formatRadix",{enumerable:true,get:function(){return formatRadix;}});
 Object.defineProperty(__exports,"createUnitType",{enumerable:true,get:function(){return createUnitType;}});
+Object.defineProperty(__exports,"registerUnitSystem",{enumerable:true,get:function(){return registerUnitSystem;}});
+Object.defineProperty(__exports,"defineUnit",{enumerable:true,get:function(){return defineUnit;}});
 Object.defineProperty(__exports,"UNIT_SYSTEMS",{enumerable:true,get:function(){return UNIT_SYSTEMS;}});
 Object.defineProperty(__exports,"parseUnit",{enumerable:true,get:function(){return parseUnit;}});
 Object.defineProperty(__exports,"formatUnit",{enumerable:true,get:function(){return formatUnit;}});
@@ -28637,6 +28664,8 @@ const RADIX_PRESETS=__m0["RADIX_PRESETS"];
 const parseRadix=__m0["parseRadix"];
 const formatRadix=__m0["formatRadix"];
 const createUnitType=__m0["createUnitType"];
+const registerUnitSystem=__m0["registerUnitSystem"];
+const defineUnit=__m0["defineUnit"];
 const UNIT_SYSTEMS=__m0["UNIT_SYSTEMS"];
 const parseUnit=__m0["parseUnit"];
 const formatUnit=__m0["formatUnit"];
@@ -38088,6 +38117,8 @@ Object.defineProperty(__exports,"RADIX_PRESETS",{enumerable:true,get:function(){
 Object.defineProperty(__exports,"parseRadix",{enumerable:true,get:function(){return __m5["parseRadix"];}});
 Object.defineProperty(__exports,"formatRadix",{enumerable:true,get:function(){return __m5["formatRadix"];}});
 Object.defineProperty(__exports,"createUnitType",{enumerable:true,get:function(){return __m5["createUnitType"];}});
+Object.defineProperty(__exports,"registerUnitSystem",{enumerable:true,get:function(){return __m5["registerUnitSystem"];}});
+Object.defineProperty(__exports,"defineUnit",{enumerable:true,get:function(){return __m5["defineUnit"];}});
 Object.defineProperty(__exports,"UNIT_SYSTEMS",{enumerable:true,get:function(){return __m5["UNIT_SYSTEMS"];}});
 Object.defineProperty(__exports,"parseUnit",{enumerable:true,get:function(){return __m5["parseUnit"];}});
 Object.defineProperty(__exports,"formatUnit",{enumerable:true,get:function(){return __m5["formatUnit"];}});
@@ -59661,6 +59692,12 @@ const __m3=__req("packages/dom/src/renderer/textentry.js");
 const isTextEntry=__m3["isTextEntry"];
 const IN_RANGE='lat-cell--range';
 const RANGE_EDGE='lat-cell--range-edge';
+const EDGE_SIDES=Object.freeze({
+top:'lat-cell--range-top',
+right:'lat-cell--range-right',
+bottom:'lat-cell--range-bottom',
+left:'lat-cell--range-left',
+});
 const DRAG_THRESHOLD=3;
 class RangeController{
 #grid;
@@ -59922,7 +59959,13 @@ if(!Number.isFinite(index)||index<0)continue;
 const inRange=hasRange&&selection.inRange(index,colId);
 const inPreview=!!preview&&this.#inFillPreview(index,colId,preview);
 cell.classList.toggle(IN_RANGE,inRange||inPreview);
-cell.classList.toggle(RANGE_EDGE,(inRange||inPreview)&&this.#isEdge(index,colId,selection));
+const edges=(inRange||inPreview)
+?this.#edgesOf(index,colId,selection)
+:null;
+cell.classList.toggle(RANGE_EDGE,!!edges&&edges.any);
+for(const[side,className]of Object.entries(EDGE_SIDES)){
+cell.classList.toggle(className,!!edges&&edges[side]);
+}
 }
 this.#placeHandle();
 }
@@ -59934,15 +59977,19 @@ if(!columns.has(colId))return false;
 const last=this.#indexOfKey([...new Set(cells.map((c)=>c.key))].pop());
 return index>last&&index<=preview.rowIndex;
 }
-#isEdge(index,colId,selection){
+#edgesOf(index,colId,selection){
 const columns=this.#grid.columns.visible().map((c)=>c.id);
 const at=columns.indexOf(colId);
-const left=at>0?columns[at-1]:null;
-const right=at<columns.length-1?columns[at+1]:null;
-return!selection.inRange(index-1,colId)
-||!selection.inRange(index+1,colId)
-||!left||!selection.inRange(index,left)
-||!right||!selection.inRange(index,right);
+const before=at>0?columns[at-1]:null;
+const after=at>=0&&at<columns.length-1?columns[at+1]:null;
+const edges={
+top:!selection.inRange(index-1,colId),
+bottom:!selection.inRange(index+1,colId),
+left:!before||!selection.inRange(index,before),
+right:!after||!selection.inRange(index,after),
+};
+edges.any=edges.top||edges.bottom||edges.left||edges.right;
+return edges;
 }
 #placeHandle(){
 const corner=this.#grid.selection.corner();
@@ -63045,6 +63092,8 @@ Object.defineProperty(__exports,"RADIX_PRESETS",{enumerable:true,get:function(){
 Object.defineProperty(__exports,"parseRadix",{enumerable:true,get:function(){return __m4["parseRadix"];}});
 Object.defineProperty(__exports,"formatRadix",{enumerable:true,get:function(){return __m4["formatRadix"];}});
 Object.defineProperty(__exports,"createUnitType",{enumerable:true,get:function(){return __m4["createUnitType"];}});
+Object.defineProperty(__exports,"registerUnitSystem",{enumerable:true,get:function(){return __m4["registerUnitSystem"];}});
+Object.defineProperty(__exports,"defineUnit",{enumerable:true,get:function(){return __m4["defineUnit"];}});
 Object.defineProperty(__exports,"UNIT_SYSTEMS",{enumerable:true,get:function(){return __m4["UNIT_SYSTEMS"];}});
 Object.defineProperty(__exports,"parseUnit",{enumerable:true,get:function(){return __m4["parseUnit"];}});
 Object.defineProperty(__exports,"formatUnit",{enumerable:true,get:function(){return __m4["formatUnit"];}});
