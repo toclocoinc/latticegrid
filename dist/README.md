@@ -4,24 +4,24 @@
 dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it.
 
-Version 1.11.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.12.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
 ## What's here
 
 This repository is the distribution: the built library, its type declarations
-and the documentation. Everything is self-contained — nothing is fetched at
+and the documentation. Everything is self-contained: nothing is fetched at
 runtime, not a CDN, not a font, not an icon sprite.
 
 | File | What it is |
 |---|---|
-| `lattice-grid.min.js` | The library. UMD — works with a `<script>` tag. |
+| `lattice-grid.min.js` | The library. UMD: works with a `<script>` tag. |
 | `lattice-grid.esm.min.js` | The same, as an ES module. |
 | `lattice-grid.min.css` | The theme. Required. |
 | `lattice-grid.d.ts` | TypeScript declarations. |
 | `docs/API.html` | The complete API reference. |
-| `docs/api-detail.html` | The developer guide — what each part does, and why. |
+| `docs/api-detail.html` | The developer guide: what each part does, and why. |
 
 Every module is optional and none of them is loaded unless you import it.
 
@@ -32,7 +32,7 @@ Every module is optional and none of them is loaded unless you import it.
 | `modules/vue.esm.min.js` | Vue adapter. |
 | `modules/svelte.esm.min.js` | Svelte adapter. |
 | `modules/webcomponent.esm.min.js` | `<lattice-grid>` as a custom element. |
-| `modules/htmx.esm.min.js` | htmx integration — survives htmx's DOM swaps, hydrates from a server-rendered `<table>`, and drives sort, filter and infinite scroll over plain htmx requests. UMD and CJS builds sit beside it. |
+| `modules/htmx.esm.min.js` | htmx integration: survives htmx's DOM swaps, hydrates from a server-rendered `<table>`, and drives sort, filter and infinite scroll over plain htmx requests. UMD and CJS builds sit beside it. |
 | `modules/dhtmlx-compat.esm.min.js` | A compatibility wrapper for dhtmlx Grid, for moving an existing integration across without rewriting it. |
 | `modules/devtools.esm.min.js` | The devtools panel, including the accessibility checks. |
 
@@ -55,20 +55,20 @@ enough to know whether the grid covers what you need.
 - **Live data.** `rows.apply({add, update, remove})` patches in place: the grid
   re-queries the stages a change actually touched and repaints the cells that
   moved. A feed can be paused and resumed with the queue held.
-- **Any source.** Rows in memory, or a source you write — server-side paging,
+- **Any source.** Rows in memory, or a source you write: server-side paging,
   infinite scroll, streaming, or an async provider. Sorting and filtering can be
   handed to the server or left to the grid.
 
 ### Working with the data
 
-- **Editing.** Cell, row and form editing, with twenty-three editors — text,
+- **Editing.** Cell, row and form editing, with twenty-three editors: text,
   number, date, time, select, multi-select, colour, rating, slider, segmented,
   code, password, icon picker and more. Validation, async commits, optimistic
   updates with rollback, and a full undo history.
 - **Selection and ranges.** Cell, row, column and rectangular range selection,
   with clipboard behaviour that round-trips through Excel.
 - **Fill, copy and paste** across a range, including formulas.
-- **Formulas.** A closed, safe expression language — no `eval`, no host access —
+- **Formulas.** A closed, safe expression language, no `eval`, no host access , 
   with maths, text, logic, date and statistical functions, evaluated against
   other columns.
 - **Export.** CSV with fields sanitised against formula injection, real `.xlsx`
@@ -79,18 +79,18 @@ enough to know whether the grid covers what you need.
 ### Seeing the data
 
 - **Charts.** `modules/charts` draws thirty-five chart types from the grid's own
-  data — line, bar, area, scatter, pie, donut, sunburst, treemap, radar, gauge,
+  data: line, bar, area, scatter, pie, donut, sunburst, treemap, radar, gauge,
   funnel, heatmap, histogram, box plot, candlestick, combo, geomap, sankey,
   chord, network, stream, violin, gantt and more. They follow the grid's
   filters, and clicking a mark can filter it in turn.
-- **Statistics.** `grid.statistics` profiles a column in one pass — count,
+- **Statistics.** `grid.statistics` profiles a column in one pass: count,
   missing, distinct, five-number summary, standard deviation, outliers and a
-  histogram — and answers correlations and weighted averages. Thirty-eight
+  histogram, and answers correlations and weighted averages. Thirty-eight
   reduction kernels are available to the totals row, and you can register your
   own.
 - **Shadow columns.** Values the grid maintains about itself: how many times a
   row has changed, what a value was when the page loaded, how fast it is moving,
-  its rank, percentile or share of the total. Real columns — sortable,
+  its rank, percentile or share of the total. Real columns: sortable,
   filterable, exportable, saved into a view.
 - **Conditional formatting** as runtime state a user can change, with rules that
   either name a threshold or describe the data: the top decile, the outliers,
@@ -102,14 +102,14 @@ enough to know whether the grid covers what you need.
 
 - **Tool panels** for columns, filters, views, quick filter, formatting and
   statistics, docked or as an icon rail.
-- **Saved views** — the whole grid state as a named, shareable object, stored
+- **Saved views**, the whole grid state as a named, shareable object, stored
   on your server or in the browser.
 - **Column menu, context menu and status bar**, each extensible with your own
   items.
 - **Pinned columns and rows**, column groups, resize, reorder, autosize, and a
   density control.
 - **Master–detail rows**, tree data, and full-width rows.
-- **Presence** — live cursors, selections and edit locks for collaborative use,
+- **Presence**: live cursors, selections and edit locks for collaborative use,
   carrying intent and never values.
 - **Comments** threaded on cells, and an annotation layer for presenting.
 - **Full-screen mode**, print, and image capture.
@@ -126,7 +126,7 @@ enough to know whether the grid covers what you need.
   a reset that keeps a host page's stylesheet out.
 - **Typed.** Complete TypeScript declarations, checked against the runtime on
   every build.
-- **Zero runtime dependencies.** Nothing is fetched at runtime — not a CDN, not
+- **Zero runtime dependencies.** Nothing is fetched at runtime, not a CDN, not
   a font, not an icon sprite.
 
 ---
@@ -189,7 +189,7 @@ const LatticeGrid = createLatticeGrid({ React, createGrid });
 ```
 
 The web component is the exception: it carries the grid inside it, so use it *or*
-`createGrid` in a page, not both — two copies keep separate registries, and a
+`createGrid` in a page, not both, two copies keep separate registries, and a
 renderer registered through one will not appear in the other.
 
 The full setup for each framework is in the developer guide.
@@ -200,9 +200,9 @@ Two integrations that are not framework adapters.
 
 **htmx.** `modules/htmx` lets a grid survive htmx's own DOM swaps, hydrate from
 a server-rendered `<table>`, and drive sort, filter and infinite scroll over
-plain htmx requests. It is a complete package rather than an add-on —
+plain htmx requests. It is a complete package rather than an add-on , 
 `createGrid`, `autoInit`, `hydrateTable`, `readTable`, `serialiseState` and
-`restoreState` are re-exported alongside its own functions — so a page using it
+`restoreState` are re-exported alongside its own functions, so a page using it
 imports this and never the base package as well.
 
 **dhtmlx.** `modules/dhtmlx-compat` exposes a dhtmlx Grid-shaped API over
@@ -212,7 +212,7 @@ than rewriting it in one go.
 ### TypeScript
 
 Declarations ship in the box and are wired up in `package.json`, so editors find
-them without configuration — autocomplete, inline documentation and type
+them without configuration: autocomplete, inline documentation and type
 checking against the real API.
 
 ```ts
@@ -228,7 +228,7 @@ your editor tells you and what the grid does cannot drift apart.
 
 A grid usually lives in whatever box the page layout gave it, and that box is
 usually too small for the job. The left rail's last button fills the browser
-window with the grid; clicking it again — or pressing <kbd>Esc</kbd> — puts it
+window with the grid; clicking it again, or pressing <kbd>Esc</kbd>: puts it
 back exactly where it was.
 
 ```js
@@ -248,8 +248,8 @@ it was found.
 
 ## Data types
 
-Seven built-in types — `text`, `number`, `boolean`, `date`, `dateString`,
-`object` and `lookup` — cover ordinary business data and are inferred from your
+Seven built-in types: `text`, `number`, `boolean`, `date`, `dateString`,
+`object` and `lookup`: cover ordinary business data and are inferred from your
 rows automatically.
 
 Beyond those, Lattice Grid ships **88 technical field types** for the data that
@@ -259,16 +259,16 @@ editor, filter, alignment, clipboard behaviour and Excel mapping.
 
 | Group | Types |
 |---|---|
-| **Network** | `ipv4`, `ipv6`, `cidr` — sort in address order, not lexically, so `10.0.0.9` comes before `10.0.0.10`. |
-| **Time** | `time`, `datetime`, `duration` — three things a single `date` type keeps being asked to be. |
-| **Radix** | `hex`, `hex8`, `hex16`, `hex32`, `binary`, `binary8`, `octal` — the stored value stays a plain number; the base is presentation and input only. |
-| **Data** | `bytes`, `megabytes`, `gigabytes`, `bitrate`, `gigabits` — shows `10 GB`, accepts `10,000M` typed in, stores `10`. Decimal and binary ladders are both first class, because `MB` and `MiB` are different quantities. |
+| **Network** | `ipv4`, `ipv6`, `cidr`: sort in address order, not lexically, so `10.0.0.9` comes before `10.0.0.10`. |
+| **Time** | `time`, `datetime`, `duration`: three things a single `date` type keeps being asked to be. |
+| **Radix** | `hex`, `hex8`, `hex16`, `hex32`, `binary`, `binary8`, `octal`, the stored value stays a plain number; the base is presentation and input only. |
+| **Data** | `bytes`, `megabytes`, `gigabytes`, `bitrate`, `gigabits`: shows `10 GB`, accepts `10,000M` typed in, stores `10`. Decimal and binary ladders are both first class, because `MB` and `MiB` are different quantities. |
 | **Mechanical** | length, mass, duration, speed, acceleration, area, volume, force, pressure, torque, density, energy, power, angle, `rpm` and angular velocity. |
 | **Fluid and thermal** | volumetric flow, mass flow, dynamic and kinematic viscosity, thermal conductivity, specific heat, and temperature in `celsius`, `fahrenheit` and `kelvin`. |
-| **Electrical and SI** | voltage, current, resistance, capacitance, inductance, charge, conductance, frequency, flux density, luminous flux, luminous intensity, illuminance and substance — all auto-prefixed across the SI range. |
+| **Electrical and SI** | voltage, current, resistance, capacitance, inductance, charge, conductance, frequency, flux density, luminous flux, luminous intensity, illuminance and substance: all auto-prefixed across the SI range. |
 | **Chemistry and radiation** | `molarity`, `ppm`, `ppb`, absorbed dose, equivalent dose, radioactivity and dose rate. |
-| **Finance and ratios** | `basisPoints`, `ratio`, `percentRate`, and decibels — which are reduced logarithmically, not averaged. |
-| **Structured** | `json`, `secret` — `secret` is write-only: editable, never displayed, never exported. |
+| **Finance and ratios** | `basisPoints`, `ratio`, `percentRate`, and decibels, which are reduced logarithmically, not averaged. |
+| **Structured** | `json`, `secret`: `secret` is write-only: editable, never displayed, never exported. |
 
 ### Units of your own
 
@@ -297,7 +297,7 @@ createGrid(el, {
 
 `display: 'auto'` walks the ladder and picks the most readable rung, so 1,500
 tex renders as `1.5 ktex`. A unit given `{ auto: false }` stays off that ladder
-while remaining accepted on input and available as an explicit `display` — which
+while remaining accepted on input and available as an explicit `display`: which
 is how imperial units sit beside metric ones without an auto readout jumping
 between the two.
 
@@ -313,15 +313,15 @@ createUnitType({ system: 'money', unit: '$', placement: 'prefix', decimals: 2 })
 ```
 
 Whatever the display, **the stored value is always a plain number in the
-column's base unit** — so sorting, filtering, grouping, totals and the pivot all
+column's base unit**, so sorting, filtering, grouping, totals and the pivot all
 work on the number and never on the text.
 
 ---
 
 ## Documentation
 
-- **[API reference](docs/API.html)** — every namespace, method, config key and event.
-- **[Developer guide](docs/api-detail.html)** — what each part does and why, with worked examples.
+- **[API reference](docs/API.html)**: every namespace, method, config key and event.
+- **[Developer guide](docs/api-detail.html)**: what each part does and why, with worked examples.
 
 ---
 
@@ -335,7 +335,7 @@ edition, no pro tier, no feature held back behind a key.
 - **Licensed to deploy.** On any other host, an unlicensed grid renders
   everything and carries a small trial watermark.
 
-Nothing is ever disabled, degraded or withheld — the failure to avoid is a
+Nothing is ever disabled, degraded or withheld, the failure to avoid is a
 production screen breaking because a licence lapsed over a weekend. A key
 removes the watermark; that is the whole of what it does.
 

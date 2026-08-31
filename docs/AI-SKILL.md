@@ -1,7 +1,7 @@
 # The AI skill layer
 
 A prompt input above the grid that turns "EMEA deals over 50k, biggest first"
-into a filter and a sort — via whichever language model you choose.
+into a filter and a sort: via whichever language model you choose.
 
 This document has two halves. The first is for the developer wiring it up. The
 second is written to be handed to a model, and describes the grid as a skill it
@@ -14,18 +14,18 @@ can drive.
 **The grid never calls a language model. It makes no network request of any
 kind.** It calls one async callback you supply, and whatever that callback
 returns is validated and previewed. You own the model, the API key, the
-request, and — the part that matters — the privacy decision.
+request, and (the part that matters) the privacy decision.
 
 By default the callback receives:
 
-- `schema` — the generated description of your columns: ids, titles, types,
+- `schema`, the generated description of your columns: ids, titles, types,
   which are filterable/sortable/groupable, and the declared option lists of
   lookup columns.
-- `context` — **empty**, unless you put something in it.
+- `context`: **empty**, unless you put something in it.
 
 **No row values leave the grid.** Not a sample, not a summary, not the first
-page. If you want the model to see data — and for some questions it genuinely
-helps — you put it in `context` yourself, deliberately, having decided that
+page. If you want the model to see data, and for some questions it genuinely
+helps: you put it in `context` yourself, deliberately, having decided that
 sending it to a third party is acceptable for that data, that tenant and that
 jurisdiction. There is no flag that turns it on by accident.
 
@@ -43,7 +43,7 @@ Two things worth knowing before you do:
 
 ---
 
-# Part one — wiring it up
+# Part one: wiring it up
 
 ## Setup
 
@@ -68,7 +68,7 @@ gets a preview:
 > **Filter Region is EMEA, sort Margin descending**
 > [ Apply ] [ Discard ]
 
-Nothing changes until Apply. That is not a configurable nicety — it is the
+Nothing changes until Apply. That is not a configurable nicety, it is the
 reason the feature is shippable to a customer with an audit function.
 
 ## The callback contract
@@ -186,13 +186,13 @@ if (plan.ok && await userConfirms(plan.describe())) {
 
 `plan` is `{ ok, actions, rejected, explain, describe() }`:
 
-- `ok` — true when at least one action survived validation.
-- `actions` — the validated, normalised actions.
-- `rejected` — `{ at, what, reason }` for every part refused, whether or not
+- `ok`: true when at least one action survived validation.
+- `actions`, the validated, normalised actions.
+- `rejected`: `{ at, what, reason }` for every part refused, whether or not
   anything survived. Show these: a user approving three of five conditions
   needs to see the other two.
-- `explain` — the model's own one-liner. Informational only.
-- `describe()` — the plan in English, **built from the validated actions**, not
+- `explain`, the model's own one-liner. Informational only.
+- `describe()`, the plan in English, **built from the validated actions**, not
   from `explain`. A model is not a reliable narrator of its own output.
 
 ## Keeping the schema small
@@ -200,7 +200,7 @@ if (plan.ok && await userConfirms(plan.describe())) {
 A 200-column grid with a 5,000-option lookup on every column would produce a
 schema nobody can afford to send, and a schema truncated by the transport is a
 schema the model silently misreads. Everything is budgeted, and every cut is
-reported in `schema.truncated` and stated in the prompt text — a model told
+reported in `schema.truncated` and stated in the prompt text, a model told
 "20 of 812 options shown" asks for the rest or falls back to `contains`,
 whereas one shown a silently short list concludes those 20 are all there is.
 
@@ -222,7 +222,7 @@ ai: {
 ## Events
 
 Applying goes through `filters.set`, `sort.set`, `columns.group`,
-`columns.show` and `columns.hide` — the public API, nothing private. So a
+`columns.show` and `columns.hide`, the public API, nothing private. So a
 model-driven change emits the same `filter:changed`, `sort:changed` and
 `model:changed` events, lands in the same `state.get()` snapshot, and sits on
 the same undo path as the user having done it by hand. If you want to record
@@ -262,12 +262,12 @@ And the boundary this feature does *not* claim:
 > boundary against a hostile model. **Never give a model more authority than
 > the user already has.** Run the callback with the user's own credentials,
 > filter server-side by the user's own permissions, and treat what comes back
-> as a suggestion from an untrusted source — because that is exactly what it
+> as a suggestion from an untrusted source, because that is exactly what it
 > is.
 
 ---
 
-# Part two — the skill, for the model
+# Part two, the skill, for the model
 
 *Everything below is written to be given to a model, whether pasted into a
 system prompt or emitted by `promptText(schema)`.*
@@ -276,7 +276,7 @@ system prompt or emitted by `promptText(schema)`.*
 
 You can reshape a Lattice data grid: filter rows, sort them, group them, and
 show or hide columns. You cannot read, edit, delete or export data, and you
-cannot run code. Your output is a proposal — a human sees a plain-English
+cannot run code. Your output is a proposal, a human sees a plain-English
 summary of it and decides whether to apply it.
 
 You will be given a schema listing every column: its id, its title, its family,
@@ -307,7 +307,7 @@ Reply with one JSON object and no other text:
 | `setQuick` | `text` | Sets the quick filter, which matches across every column |
 | `clear` | `what` | One of `filters`, `sort`, `group`, `quick`, `all` |
 
-Nothing outside this table exists. To remove something, use `clear` — an empty
+Nothing outside this table exists. To remove something, use `clear`, an empty
 `setSort` or `groupBy` is rejected, not treated as a clear.
 
 ### Filters
@@ -356,7 +356,7 @@ Which operators apply depends on the column's **family**, given in the schema:
 | `object` | `eq` `ne` `blank` `notBlank` |
 
 `contains` on a number column is rejected. So is `eq` on a `lookupMulti`
-column, whose cells hold arrays — use `containsAny`.
+column, whose cells hold arrays: use `containsAny`.
 
 Dates are ISO 8601 strings: `"2026-01-01"` or `"2026-01-01T00:00:00Z"`.
 
@@ -396,7 +396,7 @@ notes     | Notes    | text        |
 ```json
 {
   "actions": [ { "type": "groupBy", "columns": ["region"] } ],
-  "explain": "Grouped by region. I cannot add total rows — that is a grid setting."
+  "explain": "Grouped by region. I cannot add total rows: that is a grid setting."
 }
 ```
 
@@ -436,7 +436,7 @@ column is the commonest way to answer this question wrongly.
 { "actions": [ { "type": "clear", "what": "all" } ], "explain": "Cleared the view." }
 ```
 
-**"sort by notes"** — `notes` has no capabilities listed, so it cannot be
+**"sort by notes"**: `notes` has no capabilities listed, so it cannot be
 sorted:
 
 ```json

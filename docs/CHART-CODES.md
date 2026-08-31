@@ -1,7 +1,7 @@
 # Chart codes reference
 
 The codes the `geomap` chart joins data to shapes with. Generated from
-`packages/modules/charts/geo.js`, which is the source of truth — if the two ever
+`packages/modules/charts/geo.js`, which is the source of truth: if the two ever
 disagree, the module is right and this file is stale.
 
 ## How the join works
@@ -28,8 +28,8 @@ a grid's data will hold whichever one its source used:
 | numeric | `826` | ISO 3166-1 numeric. A string or a number; leading zeros are ignored. |
 
 Codes are matched case-insensitively and trimmed, so `gb`, `GB ` and `Gb` are
-one country. Anything that is not a code — a country *name*, an internal
-identifier, an empty cell — is not guessed at. Those rows are counted and the
+one country. Anything that is not a code, a country *name*, an internal
+identifier, an empty cell: is not guessed at. Those rows are counted and the
 count is drawn on the map, because a map quietly missing half its data looks
 exactly like a map of a world where half the data is zero.
 
@@ -58,7 +58,7 @@ genuinely means Namibia should use `NAM` or `516`.
 
 ## What ships, and what does not
 
-**Continent outlines ship** with the module — seven coarse polygons, a few
+**Continent outlines ship** with the module: seven coarse polygons, a few
 hundred bytes. They are *schematic, not cartographic*: recognisable, the right
 shape for "which continent is biggest", and not a basemap. Nothing should be
 measured off them.
@@ -70,7 +70,7 @@ chart. A country map is drawn from shapes the host supplies, at whatever
 resolution that host actually needs:
 
 ```js
-// GeoJSON — a FeatureCollection or a single feature. Projected for you.
+// GeoJSON, a FeatureCollection or a single feature. Projected for you.
 createChart({
   grid, container: '#map', type: 'geomap',
   code: 'country', y: 'revenue',
@@ -93,20 +93,20 @@ reported as unplaced rather than rolled up.
 
 ## The projection
 
-Equirectangular — longitude and latitude map linearly onto x and y. The least
+Equirectangular: longitude and latitude map linearly onto x and y. The least
 arithmetic and the most distortion at the poles, which is the right trade for
 shading regions by value: nothing here measures area, and a reader comparing
 Greenland with Africa by eye is misled by every rectangular projection equally.
 Anything better belongs in the host's own GeoJSON, projected before it arrives.
 
-The map keeps its 2:1 proportions and is centred in the plot — pillarboxed in a
-wide panel, letterboxed in a tall one — rather than being stretched to fill.
+The map keeps its 2:1 proportions and is centred in the plot, pillarboxed in a
+wide panel, letterboxed in a tall one: rather than being stretched to fill.
 
 ## Colour
 
 Values are shaded with a sequential ramp: monotone lightness, so darker always
-means larger. Pass `diverging: true` for a measure with a meaningful midpoint —
-profit and loss, change against a baseline — which centres the ramp on **zero**
+means larger. Pass `diverging: true` for a measure with a meaningful midpoint , 
+profit and loss, change against a baseline, which centres the ramp on **zero**
 rather than on the middle of the data, because a neutral colour at the mean
 claims the mean is neutral.
 
@@ -120,12 +120,12 @@ share a shade.
 
 Grouped by the continent each lands on.
 
-### Africa — `AF`
+### Africa: `AF`
 
 | alpha-2 | alpha-3 | numeric |
 |---|---|---|
 | `AO` | `AGO` | `24` |
-| `BF` | `BFA` | — |
+| `BF` | `BFA` |: |
 | `BI` | `BDI` | `108` |
 | `BJ` | `BEN` | `204` |
 | `BW` | `BWA` | `72` |
@@ -161,7 +161,7 @@ Grouped by the continent each lands on.
 | `NA` | `NAM` | `516` |
 | `NE` | `NER` | `562` |
 | `NG` | `NGA` | `566` |
-| `RE` | — | — |
+| `RE` |: |: |
 | `RW` | `RWA` | `646` |
 | `SC` | `SYC` | `690` |
 | `SD` | `SDN` | `729` |
@@ -169,32 +169,32 @@ Grouped by the continent each lands on.
 | `SN` | `SEN` | `686` |
 | `SO` | `SOM` | `706` |
 | `SS` | `SSD` | `728` |
-| `ST` | `STP` | — |
+| `ST` | `STP` |: |
 | `SZ` | `SWZ` | `748` |
 | `TD` | `TCD` | `148` |
 | `TG` | `TGO` | `768` |
 | `TN` | `TUN` | `788` |
 | `TZ` | `TZA` | `834` |
 | `UG` | `UGA` | `800` |
-| `YT` | — | — |
+| `YT` |: |: |
 | `ZA` | `ZAF` | `710` |
 | `ZM` | `ZMB` | `894` |
 | `ZW` | `ZWE` | `716` |
 
-### Antarctica — `AN`
+### Antarctica: `AN`
 
 | alpha-2 | alpha-3 | numeric |
 |---|---|---|
-| `AQ` | — | — |
+| `AQ` |: |: |
 
-### Asia — `AS`
+### Asia: `AS`
 
 | alpha-2 | alpha-3 | numeric |
 |---|---|---|
 | `AE` | `ARE` | `784` |
 | `AF` | `AFG` | `4` |
 | `AM` | `ARM` | `51` |
-| `AZ` | `AZE` | — |
+| `AZ` | `AZE` |: |
 | `BD` | `BGD` | `50` |
 | `BH` | `BHR` | `48` |
 | `BN` | `BRN` | `96` |
@@ -221,14 +221,14 @@ Grouped by the continent each lands on.
 | `LK` | `LKA` | `144` |
 | `MM` | `MMR` | `104` |
 | `MN` | `MNG` | `496` |
-| `MO` | — | — |
+| `MO` |: |: |
 | `MV` | `MDV` | `462` |
 | `MY` | `MYS` | `458` |
 | `NP` | `NPL` | `524` |
 | `OM` | `OMN` | `512` |
 | `PH` | `PHL` | `608` |
 | `PK` | `PAK` | `586` |
-| `PS` | `PSE` | — |
+| `PS` | `PSE` |: |
 | `QA` | `QAT` | `634` |
 | `SA` | `SAU` | `682` |
 | `SG` | `SGP` | `702` |
@@ -238,19 +238,19 @@ Grouped by the continent each lands on.
 | `TL` | `TLS` | `626` |
 | `TM` | `TKM` | `795` |
 | `TR` | `TUR` | `792` |
-| `TW` | `TWN` | — |
+| `TW` | `TWN` |: |
 | `UZ` | `UZB` | `860` |
 | `VN` | `VNM` | `704` |
 | `YE` | `YEM` | `887` |
 
-### Europe — `EU`
+### Europe: `EU`
 
 | alpha-2 | alpha-3 | numeric |
 |---|---|---|
 | `AD` | `AND` | `20` |
 | `AL` | `ALB` | `8` |
 | `AT` | `AUT` | `40` |
-| `AX` | — | — |
+| `AX` |: |: |
 | `BA` | `BIH` | `70` |
 | `BE` | `BEL` | `56` |
 | `BG` | `BGR` | `100` |
@@ -262,24 +262,24 @@ Grouped by the continent each lands on.
 | `EE` | `EST` | `233` |
 | `ES` | `ESP` | `724` |
 | `FI` | `FIN` | `246` |
-| `FO` | — | — |
+| `FO` |: |: |
 | `FR` | `FRA` | `250` |
 | `GB` | `GBR` | `826` |
-| `GG` | — | — |
-| `GI` | — | — |
+| `GG` |: |: |
+| `GI` |: |: |
 | `GR` | `GRC` | `300` |
 | `HR` | `HRV` | `191` |
 | `HU` | `HUN` | `348` |
 | `IE` | `IRL` | `372` |
-| `IM` | — | — |
+| `IM` |: |: |
 | `IS` | `ISL` | `352` |
 | `IT` | `ITA` | `380` |
-| `JE` | — | — |
+| `JE` |: |: |
 | `LI` | `LIE` | `438` |
 | `LT` | `LTU` | `440` |
 | `LU` | `LUX` | `442` |
 | `LV` | `LVA` | `428` |
-| `MC` | `MCO` | — |
+| `MC` | `MCO` |: |
 | `MD` | `MDA` | `498` |
 | `ME` | `MNE` | `499` |
 | `MK` | `MKD` | `807` |
@@ -294,19 +294,19 @@ Grouped by the continent each lands on.
 | `SE` | `SWE` | `752` |
 | `SI` | `SVN` | `705` |
 | `SK` | `SVK` | `703` |
-| `SM` | `SMR` | — |
+| `SM` | `SMR` |: |
 | `UA` | `UKR` | `804` |
-| `VA` | — | — |
+| `VA` |: |: |
 
-### North America — `NA`
+### North America: `NA`
 
 | alpha-2 | alpha-3 | numeric |
 |---|---|---|
-| `AG` | — | — |
-| `AI` | — | — |
-| `AW` | — | — |
+| `AG` |: |: |
+| `AI` |: |: |
+| `AW` |: |: |
 | `BB` | `BRB` | `52` |
-| `BM` | — | — |
+| `BM` |: |: |
 | `BS` | `BHS` | `44` |
 | `BZ` | `BLZ` | `84` |
 | `CA` | `CAN` | `124` |
@@ -314,45 +314,45 @@ Grouped by the continent each lands on.
 | `CU` | `CUB` | `192` |
 | `DM` | `DMA` | `212` |
 | `DO` | `DOM` | `214` |
-| `GD` | — | — |
+| `GD` |: |: |
 | `GL` | `GRL` | `304` |
-| `GP` | — | — |
+| `GP` |: |: |
 | `GT` | `GTM` | `320` |
 | `HN` | `HND` | `340` |
 | `HT` | `HTI` | `332` |
 | `JM` | `JAM` | `388` |
-| `KN` | `KNA` | — |
-| `KY` | — | — |
-| `LC` | `LCA` | — |
-| `MQ` | — | — |
+| `KN` | `KNA` |: |
+| `KY` |: |: |
+| `LC` | `LCA` |: |
+| `MQ` |: |: |
 | `MX` | `MEX` | `484` |
 | `NI` | `NIC` | `558` |
 | `PA` | `PAN` | `591` |
-| `PM` | — | — |
+| `PM` |: |: |
 | `PR` | `PRI` | `630` |
 | `SV` | `SLV` | `222` |
-| `TC` | — | — |
+| `TC` |: |: |
 | `TT` | `TTO` | `780` |
 | `US` | `USA` | `840` |
-| `VC` | `VCT` | — |
-| `VG` | — | — |
-| `VI` | — | — |
+| `VC` | `VCT` |: |
+| `VG` |: |: |
+| `VI` |: |: |
 
-### Oceania — `OC`
+### Oceania: `OC`
 
 | alpha-2 | alpha-3 | numeric |
 |---|---|---|
-| `AS` | — | — |
+| `AS` |: |: |
 | `AU` | `AUS` | `36` |
-| `FJ` | `FJI` | — |
-| `FM` | `FSM` | — |
-| `GU` | — | — |
-| `KI` | `KIR` | — |
-| `MH` | `MHL` | — |
-| `NC` | — | — |
+| `FJ` | `FJI` |: |
+| `FM` | `FSM` |: |
+| `GU` |: |: |
+| `KI` | `KIR` |: |
+| `MH` | `MHL` |: |
+| `NC` |: |: |
 | `NR` | `NRU` | `520` |
 | `NZ` | `NZL` | `554` |
-| `PF` | — | — |
+| `PF` |: |: |
 | `PG` | `PNG` | `598` |
 | `PW` | `PLW` | `585` |
 | `SB` | `SLB` | `90` |
@@ -361,7 +361,7 @@ Grouped by the continent each lands on.
 | `VU` | `VUT` | `548` |
 | `WS` | `WSM` | `882` |
 
-### South America — `SA`
+### South America: `SA`
 
 | alpha-2 | alpha-3 | numeric |
 |---|---|---|
@@ -371,8 +371,8 @@ Grouped by the continent each lands on.
 | `CL` | `CHL` | `152` |
 | `CO` | `COL` | `170` |
 | `EC` | `ECU` | `218` |
-| `FK` | — | — |
-| `GF` | — | — |
+| `FK` |: |: |
+| `GF` |: |: |
 | `GY` | `GUY` | `328` |
 | `PE` | `PER` | `604` |
 | `PY` | `PRY` | `600` |
