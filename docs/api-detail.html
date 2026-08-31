@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.7.1</p>
+    <p class="rail__sub">Developer guide · v1.13.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -468,6 +468,13 @@
         <a href="#row-transfer">Rows between grids</a>
         <a href="#column-tags">Column tags</a>
         <a href="#aligned-grids">Aligned grids</a>
+      </div>
+      <div class="rail__group">
+        <span class="rail__label">Connected grids</span>
+        <a href="#pushdown">Querying an engine</a>
+        <a href="#derived">Derived grids</a>
+        <a href="#cross-filter">Cross-filtering</a>
+        <a href="#joins">Joining two grids</a>
         <a href="#aggregate-safety">Aggregate safety</a>
         <a href="#sticky-group-headings">Sticky group headings</a>
         <a href="#sources">Large data</a>
@@ -500,6 +507,13 @@
         <a href="#formatting-guide">Formatting a user can change</a>
         <a href="#quickfilter-guide">Quick filter</a>
         <a href="#charts-guide">In-cell charts</a>
+      </div>
+      <div class="rail__group">
+        <span class="rail__label">Statistics</span>
+        <a href="#statistics">Profiling</a>
+        <a href="#spc">Process control</a>
+        <a href="#intervals">Confidence intervals</a>
+        <a href="#stat-tiles">Statistic tiles</a>
         <a href="#formulas-guide">Formulas</a>
         <a href="#custom-menu">Custom items</a>
         <a href="#rail">The left rail</a>
@@ -884,7 +898,7 @@ createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so out
 });
 
 grid.events.on('cellClick', (row, column, event) =&gt; {
-  <span class="cmt">// row and column carry .id, row's own fields sit alongside it , </span>
+  <span class="cmt">// row and column carry .id, row's own fields sit alongside it,</span>
   <span class="cmt">// the same shape dhtmlx's own IRow/ICol declare.</span>
 });</code></pre>
     </div>
@@ -915,7 +929,7 @@ grid.events.on('cellClick', (row, column, event) =&gt; {
       handler with dhtmlx's own positional arguments: <code>(row, column, event)</code>,
       not Lattice's own event object, because that is dhtmlx's own documented signature for
       them. <code>afterRowDrop</code> calls your handler with <code>(data, event)</code>, firing
-      from either a same-grid reorder settling or a row landing here from another grid , 
+      from either a same-grid reorder settling or a row landing here from another grid,
       dhtmlx has one event name for what Lattice models as two. Every other mapped event calls your
       handler with Lattice's own event object, under Lattice's own field names, since a wrong guess
       at a fabricated positional shape is worse than an honest one.</p>
@@ -1076,7 +1090,7 @@ driveInfiniteScroll(grid, document.getElementById('sentinel'), { columns: COLUMN
       read at call time, so loading this module never requires htmx to already be on the
       page, only to be present by the time a driven request actually fires. It ships as
       ESM and as a plain <code>&lt;script src&gt;</code> build with no bundler required,
-      with zero runtime dependencies beyond the grid itself and, at call time, htmx , 
+      with zero runtime dependencies beyond the grid itself and, at call time, htmx,
       but because it references the grid's own internals directly rather than the copy
       already on the page, the bundle carries a full copy of the grid core alongside its
       own code, the same trade-off the web component and dhtmlx wrappers already make.</p>
@@ -1658,7 +1672,7 @@ grid.set('theme', <span class="kw">null</span>);   <span class="cmt">// back to 
       lands on every one of them.</p>
       <p>The reset uses no <code>!important</code>. It is specificity (0,1,1) and every rule that
       dresses a grid element is (0,2,0) or higher, so the grid's own styling always wins and the
-      reset only fills a gap. Yours wins too, on the same terms: a rule aimed at a Lattice class , 
+      reset only fills a gap. Yours wins too, on the same terms: a rule aimed at a Lattice class,
       <code>.lattice .lat-cell { … }</code>: outranks it, so overriding the grid deliberately works
       exactly as before. Only bare-tag rules are shut out.</p>
       <p>It touches box model and decoration only. Nothing in it sets <code>display</code>,
@@ -1727,7 +1741,7 @@ grid.overlay.hide();</code></pre>
       <p>This runs the minimum pipeline. An update touching no sorted, filtered or grouped column
       skips those stages entirely and only the totals and the affected cells refresh. Adds and
       removals are structural and re-run everything.</p>
-      <p>Removals tombstone in place rather than compacting, so every existing index stays valid , 
+      <p>Removals tombstone in place rather than compacting, so every existing index stays valid,
       which is what lets selection, expansion state and cached permutations survive a delete.</p>
     </div>
 
@@ -1890,7 +1904,7 @@ grid.rows.collapse('EMEA');</code></pre>
       </table>
     </div>
     <p class="lead-in">
-      Nothing has to be configured for this, and the reported number is the same either way , 
+      Nothing has to be configured for this, and the reported number is the same either way,
       where a running value cannot be trusted, the column falls back to a full pass rather than
       reporting a value it is unsure of.
     </p>
@@ -1936,7 +1950,7 @@ pivot: { groupTotals: 'after', totalsLabel: 'All regions' }</code></pre>
       the near edge, beside the row headings; <code>'after'</code> puts it at the far edge, which is
       where a spreadsheet puts a grand total.</p>
       <p><strong>It costs a column, not a pass.</strong> A pivoted group row still carries its
-      reduction over every one of its leaves, which is exactly the total across all pivot values , 
+      reduction over every one of its leaves, which is exactly the total across all pivot values,
       so these columns read a number that has already been computed. They also count towards
       <code>maxColumns</code>, since they are columns like any other.</p>
       <p><strong>Opt in.</strong> Omitted, a pivot has the columns it has always had, so the option
@@ -1981,7 +1995,7 @@ pivot: { groupTotals: 'after', totalsLabel: 'All regions' }</code></pre>
     <p class="lead-in">
       Group totals re-reduce every totalled column on every change, including columns the change
       did not touch. Switching this on reduces only the columns whose values actually moved, and
-      an update that rewrites a field with the value it already held reduces nothing at all , 
+      an update that rewrites a field with the value it already held reduces nothing at all,
       which is what a feed resending unchanged fields looks like.
     </p>
     <p class="lead-in">
@@ -2078,7 +2092,7 @@ grid.setPinnedRows([], { edge: 'top' });        <span class="cmt">// clear</span
     <h2 id="full-width-rows">Full-width rows</h2>
     <p class="lead-in">
       A row drawn as a single band across every column instead of being divided into them: a
-      section banner, an explanatory note, an empty-group message, a “load more” affordance , 
+      section banner, an explanatory note, an empty-group message, a “load more” affordance,
       anything that belongs between rows and is not itself divided by the columns.
     </p>
 
@@ -2481,6 +2495,275 @@ createGrid(element, { stickyGroupHeaders: 3 });       <span class="cmt">// stack
       and the same shape you would have written by hand.</p>
     </div>
 
+    <h2 id="pushdown">Querying an engine directly</h2>
+    <p class="lead-in">
+      A remote source hands you the whole request and leaves the translation to you. A pushdown
+      adapter inverts that: you declare what your engine can answer, and the grid works out what to
+      send and finishes the rest itself.
+    </p>
+    <div class="example">
+      <p class="example__label">An OData endpoint, with nothing to write</p>
+      <pre><code><span class="kw">import</span> { createPushdownSource, odataAdapter } <span class="kw">from</span> 'lattice-grid';
+
+createGrid(el, {
+  columns,
+  rowKey: 'id',
+  source: createPushdownSource({
+    adapter: odataAdapter({ url: 'https://services.odata.org/V4/Northwind/Northwind.svc/Orders' }),
+    pageSize: 100,
+  }),
+});</code></pre>
+    </div>
+    <p>
+      Four adapters ship. <code>odataAdapter</code> writes <code>$filter</code>,
+      <code>$orderby</code>, <code>$top</code> and <code>$skip</code>, and follows
+      <code>@odata.nextLink</code> when the server pages on its own terms.
+      <code>restAdapter</code> covers an ordinary JSON endpoint whose parameter names are yours to
+      give. <code>dfqlAdapter</code> speaks DemandFlow's query API. <code>duckdbAdapter</code>
+      takes a live DuckDB connection.
+    </p>
+
+    <h3>Declaring what an engine can do</h3>
+    <p class="lead-in">
+      No real engine answers the whole query. An adapter says what it can take, and everything
+      undeclared stays with the grid.
+    </p>
+    <div class="example">
+      <p class="example__label">An endpoint that pages and sorts, but does not filter</p>
+      <pre><code>restAdapter({
+  url: '/api/readings',
+  params: { offset: 'from', limit: 'size', sort: 'orderBy', order: 'dir' },
+  capabilities: { sort: 'single', range: <span class="kw">true</span>, total: <span class="kw">true</span> },
+})</code></pre>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Capability</th><th>Values</th><th>Means</th></tr></thead>
+        <tbody>
+          <tr><td class="name">filter</td><td class="type">false | 'term' | 'flat' | 'tree'</td><td class="desc">Nothing, one field and term, a flat conjunction, or a full condition tree.</td></tr>
+          <tr><td class="name">operators</td><td class="type">string[]</td><td class="desc">Which comparisons the engine genuinely applies. Declare only those it does.</td></tr>
+          <tr><td class="name">sort</td><td class="type">false | 'single' | 'multi'</td><td class="desc">No ordering, one column, or several.</td></tr>
+          <tr><td class="name">quick</td><td class="type">boolean</td><td class="desc">Whether a free-text search across columns can be pushed.</td></tr>
+          <tr><td class="name">range</td><td class="type">boolean</td><td class="desc">Whether the engine can return a window rather than the whole result.</td></tr>
+          <tr><td class="name">total</td><td class="type">boolean</td><td class="desc">Whether it can report how many rows matched.</td></tr>
+          <tr><td class="name">group</td><td class="type">boolean</td><td class="desc">Whether it can group and aggregate.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="why">
+      <p><strong>Everything is off unless declared.</strong> An adapter that declares nothing still
+      works: the grid fetches and does all the work itself. That is the safe direction to be wrong
+      in. Declaring an operator the engine does not really apply is the unsafe one, because the
+      grid will trust it and stop checking.</p>
+      <p><strong>Splitting a filter is not symmetric.</strong> An <code>and</code> group narrows
+      with each condition, so the supported conjuncts go to the engine and the rest stay behind:
+      the engine returns a superset and the grid narrows it. An <code>or</code> group widens with
+      each branch, so pushing only the supported branches would return fewer rows than the filter
+      allows, and the grid cannot recover rows that were never fetched. A disjunction that is not
+      fully supported therefore stays whole on the client. The same asymmetry governs column
+      pruning in the facet path.</p>
+      <p><strong>Residual work needs the whole result.</strong> When anything is left over, the
+      source stops asking for windows and asks for everything, applies the remainder, and pages
+      from what it holds. Filtering a window on the client is not a slower route to the right
+      answer, it is a fast route to a wrong one: the rows that belong on page one may sit on page
+      nine, and the total is whatever the engine happened to count.</p>
+    </div>
+
+    <h3>Seeing what was pushed</h3>
+    <p class="lead-in">
+      The split is reported rather than hidden, which is the difference between a slow query you
+      can diagnose and a slow query you cannot.
+    </p>
+    <div class="example">
+      <p class="example__label">Asking after the last request</p>
+      <pre><code><span class="kw">const</span> source = createPushdownSource({ adapter });
+createGrid(el, { columns, rowKey: 'id', source });
+
+<span class="kw">const</span> plan = source.lastPlan();
+plan.pushed;      <span class="cmt">// the query the adapter was given</span>
+plan.residual;    <span class="cmt">// { filters, sort, quick } the grid applied after</span>
+plan.unpushed;    <span class="cmt">// ['filter'], the parts that stayed behind</span>
+plan.needsAll;    <span class="cmt">// true when the whole result had to be fetched</span></code></pre>
+    </div>
+    <p>
+      The grid also warns once, naming the predicate that could not be pushed, because the fix is
+      usually a better adapter rather than a bigger machine. It warns again if an adapter reports a
+      <code>total</code> larger than the rows it returned while residual work is outstanding: that
+      combination silently produces wrong answers, and it is worth knowing about.
+    </p>
+
+    <h3>A full analytical engine, without carrying one</h3>
+    <p class="lead-in">
+      <code>duckdbAdapter</code> takes a connection you created and imports nothing, so the grid
+      can drive DuckDB while this package stays at zero dependencies.
+    </p>
+    <div class="example">
+      <p class="example__label">Parquet in the browser, no server</p>
+      <pre><code><span class="kw">const</span> db = <span class="kw">await</span> makeDuckDB();          <span class="cmt">// yours: @duckdb/duckdb-wasm</span>
+<span class="kw">const</span> conn = <span class="kw">await</span> db.connect();
+
+createGrid(el, {
+  columns,
+  source: createPushdownSource({
+    adapter: duckdbAdapter({
+      connection: conn,
+      from: <span class="str">"read_parquet('readings.parquet')"</span>,
+    }),
+  }),
+});</code></pre>
+    </div>
+    <div class="why">
+      <p><code>from</code> is any FROM expression, so
+      <code>read_parquet('s3://bucket/*.parquet')</code> is as valid as a table name. Values are
+      bound through prepared statements; a connection without <code>prepare</code> is used only for
+      unfiltered queries, because interpolating a user's filter into SQL is the one thing worse
+      than not filtering at all.</p>
+      <p>Column and table names are checked against an identifier pattern rather than escaped, and
+      a name that fails is refused. Integers past the safe range are kept as strings instead of
+      being rounded into a plausible lie.</p>
+      <p><code>demo/duckdb.html</code> runs this against a Parquet file of several million readings
+      with no server involved.</p>
+    </div>
+
+    <h2 id="derived">Grids built from other grids</h2>
+    <p class="lead-in">
+      A derived grid takes its rows from another grid rather than from a load: grouped and
+      aggregated, unnested, filtered, ranked or profiled. It has its own element and its own
+      columns, and it follows its source live.
+    </p>
+    <div class="example">
+      <p class="example__label">A summary panel beside the detail grid</p>
+      <pre><code><span class="kw">const</span> detail = createGrid(left, { columns, rowKey: 'id', rows });
+
+createGrid(right, {
+  columns: [
+    { id: 'region', header: 'Region' },
+    { id: 'total',  header: 'Capacity', type: 'number' },
+    { id: 'n',      header: 'Sites',    type: 'number' },
+  ],
+  source: {
+    mode: 'derived',
+    from: detail,
+    groupBy: 'region',
+    select: {
+      total: { of: 'capacity', fn: 'sum' },
+      n:     { fn: 'count' },
+    },
+    sort: [{ col: 'total', dir: 'desc' }],
+  },
+});</code></pre>
+    </div>
+    <p>
+      <code>follow</code> chooses which of the source's rows are read:
+      <code>filtered</code> by default, or <code>all</code>, <code>selected</code> or
+      <code>grouped</code>. The pipeline runs <code>unnest</code>, then <code>join</code>, then
+      <code>where</code>, then <code>bucket</code> and <code>groupBy</code>, then
+      <code>select</code>, then <code>sort</code> and <code>limit</code>, so a condition or a total
+      can read a field that an earlier stage produced.
+    </p>
+    <div class="why">
+      <p><strong>A change is patched, not re-derived.</strong> When a row changes in the source, the
+      derived grid updates the groups that row belongs to rather than rebuilding the lot. Five
+      hundred updates against a two hundred thousand row source cost under 300 ms in total. Set
+      <code>refresh</code> to <code>live</code>, <code>manual</code> or a number of milliseconds to
+      change the coalescing; <code>idle</code> is the default and settles to a frame.</p>
+      <p><strong>Derived grids are read-only.</strong> There is one copy of the data and it lives in
+      the source. Write there and the derived grid follows.</p>
+      <p><strong>The key comes for free.</strong> A derived grid keys on <code>__key</code>, which
+      the source writes onto every row it produces: the group value, the profiled column, or the
+      source row's own key when nothing is grouped. Set <code>rowKey</code> only to override it.</p>
+    </div>
+
+    <h3>Other shapes</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>Does</th></tr></thead>
+        <tbody>
+          <tr><td class="name">unnest</td><td class="desc">Expands an array property, one row per element, before anything else runs.</td></tr>
+          <tr><td class="name">bucket</td><td class="desc">Rounds a date column down to a day, week, month, quarter or year and groups on that.</td></tr>
+          <tr><td class="name">limitPer</td><td class="desc">Applies <code>limit</code> within each value of a column rather than overall: a top three per region.</td></tr>
+          <tr><td class="name">cumulative</td><td class="desc">Keeps rows until their running share of the total reaches a fraction: the Pareto head.</td></tr>
+          <tr><td class="name">profile</td><td class="desc">One row per column with the statistics as columns, or one row per statistic with <code>orient: 'metrics'</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="cross-filter">Cross-filtering</h2>
+    <p class="lead-in">
+      A derived panel can filter the grid it summarises. Click a region in the summary and the
+      detail grid narrows to it.
+    </p>
+    <div class="example">
+      <p class="example__label">Click to filter, click again to release</p>
+      <pre><code>source: {
+  mode: 'derived',
+  from: detail,
+  groupBy: 'region',
+  select: { total: { of: 'capacity', fn: 'sum' } },
+  crossFilter: <span class="kw">true</span>,       <span class="cmt">// or a source column name</span>
+}
+
+summary.events.on('rowClick', (e) =&gt; summary.crossFilter.toggle(e.key));</code></pre>
+    </div>
+    <p>
+      <code>crossFilter.set</code>, <code>toggle</code>, <code>clear</code>, <code>get</code> and
+      <code>column</code> make up the API. <code>true</code> filters through whatever the grid
+      groups by; a string names a different source column when the two do not share a name.
+    </p>
+    <div class="why">
+      <p><strong>A panel does not filter itself.</strong> The filter a summary pushes onto its
+      source is excluded when that same summary re-derives. Without that, clicking one region
+      collapses the panel to the single row you just clicked, and there is nothing left to click
+      next. With it, the panel keeps its full set of regions with the chosen one marked, which is
+      what makes a second click possible at all.</p>
+      <p><strong>Several panels compose.</strong> Each pushes its own filter onto the shared source
+      and each excludes only its own, so region and status narrow the detail together while both
+      panels stay navigable.</p>
+    </div>
+
+    <h2 id="joins">Joining two grids</h2>
+    <p class="lead-in">
+      Two grids holding their own data, and a third showing where they meet. Both sides stay live.
+    </p>
+    <div class="example">
+      <p class="example__label">Bringing an owner's fields across</p>
+      <pre><code>source: {
+  mode: 'derived',
+  from: sites,
+  join: {
+    with: owners,
+    on: { left: 'ownerId', right: 'id' },
+    type: 'left',
+    select: ['name', 'tier'],
+    prefix: 'owner',       <span class="cmt">// owner.name, owner.tier</span>
+  },
+}</code></pre>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>Does</th></tr></thead>
+        <tbody>
+          <tr><td class="name">on</td><td class="desc">One field name when both sides use it, or <code>{ left, right }</code> when they differ.</td></tr>
+          <tr><td class="name">type</td><td class="desc"><code>inner</code> keeps only rows that matched; <code>left</code> keeps them all.</td></tr>
+          <tr><td class="name">select</td><td class="desc">Which of the partner's fields to bring across. All of them by default.</td></tr>
+          <tr><td class="name">prefix</td><td class="desc">Renames the brought-across fields, for when both sides have a <code>name</code> worth keeping.</td></tr>
+          <tr><td class="name">follow</td><td class="desc">Which of the partner's rows to read: <code>all</code> by default, or <code>filtered</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="why">
+      <p><strong>A left join is usually the one you want.</strong> An inner join quietly drops the
+      rows that did not match, and those are often the finding: the site with no owner, the payment
+      with no invoice. <code>left</code> keeps them visible with the partner's fields empty, so the
+      gap is something you can see and sort by rather than something you have to notice is
+      missing.</p>
+      <p><strong>First match wins.</strong> The join is a lookup, not a cross product: a row on the
+      left produces exactly one row out, so a grid of ten thousand rows stays a grid of ten thousand
+      rows and cannot silently multiply.</p>
+      <p><strong>Both sides are live.</strong> A change on either grid updates the join, and it is
+      patched from whichever side changed rather than rebuilt.</p>
+    </div>
+
     <h2 id="editing">Editing</h2>
     <div class="example">
       <p class="example__label">Turning it on</p>
@@ -2620,8 +2903,8 @@ columns: [
     <p class="lead-in">
       <strong>Sorting and filtering need a home</strong> when there are no column headings to click,
       and the tool panel is it: set <code>toolPanel: true</code> and its rail stays available in card
-      presentation with the columns and filter panels behind it. <strong>Export is unaffected</strong>
-     , the columns are still the data model, so a CSV or an Excel file from a collapsed grid holds
+      presentation with the columns and filter panels behind it. <strong>Export is unaffected</strong>:
+     the columns are still the data model, so a CSV or an Excel file from a collapsed grid holds
       every column, including ones the card does not show.
     </p>
 
@@ -2697,7 +2980,7 @@ rowTemplate: { template: CARD, maxCardWidth: 260 }    <span class="cmt">// as ma
     </div>
 
     <p class="lead-in">
-      Tiles are a fixed height, taken from <code>rowHeight</code> , 
+      Tiles are a fixed height, taken from <code>rowHeight</code>,
       <code>rowHeight: 'auto'</code> measures a rendered row and cannot describe a line holding
       several of different heights. Variable-height tiles flowing into the shortest column is a
       masonry layout, which is a different thing and is not offered.
@@ -2780,7 +3063,7 @@ rowTemplate: { template: CARD, maxCardWidth: 260 }    <span class="cmt">// as ma
       <p><strong>And a load that never answers is a failure too.</strong> A promise that neither
       resolves nor rejects is what a dropped request looks like from the page; left alone it spins
       until the user gives up, which reads as an application that has hung rather than a request
-      that failed. After <code>timeout</code> milliseconds, two seconds unless you say otherwise , 
+      that failed. After <code>timeout</code> milliseconds, two seconds unless you say otherwise,
       the form stops waiting and shows the same message and retry as any other failure. Set
       <code>timeout: false</code> to wait indefinitely, which is right only where your own loader
       already has a limit and would rather report that one. A record that turns up after the form
@@ -2951,7 +3234,7 @@ socket.onmessage = (m) =&gt; {
     <div class="why">
       <p><strong>Two behaviours worth knowing.</strong> An unconfirmed edit goes through the normal
       pipeline, so if it changes a sorted or filtered column the row moves immediately and moves
-      back if the write fails. And undo of an in-flight edit issues a <em>compensating write</em> , 
+      back if the write fails. And undo of an in-flight edit issues a <em>compensating write</em>,
       a fresh write back to the previous value, itself tracked: rather than pretending to cancel a
       request that has already gone out.</p>
     </div>
@@ -3129,7 +3412,7 @@ grid.detail.placement();                  <span class="cmt">// 'inline' | 'targe
 }
 
 grid.on('detail:cell:changed', (e) =&gt; {
-  e.masterKey;   <span class="cmt">// 'C1' , the row the detail belongs to</span>
+  e.masterKey;   <span class="cmt">// 'C1', the row the detail belongs to</span>
   e.path;        <span class="cmt">// 'ports.1.vlan': where it lands on the master's record</span>
   e.value;       <span class="cmt">// 999</span>
   e.oldValue;    <span class="cmt">// 101</span>
@@ -3147,7 +3430,7 @@ grid.on('detail:cell:changed', (e) =&gt; {
       a host can persist a detail edit against the master and never think about the nested grid at
       all. It is worked out by identity: <code>rows(row)</code> usually returns an array that is
       already a property of the record, and that property is the prefix. A detail fetched from a
-      server is not part of the master's record, so its <code>path</code> is <code>null</code> , 
+      server is not part of the master's record, so its <code>path</code> is <code>null</code>,
       set <code>detail.path</code> to name it yourself when you want one anyway.
     </p>
     <p class="lead-in">
@@ -3173,7 +3456,7 @@ grid.on('detail:cell:changed', (e) =&gt; {
 
     <h2 id="selection-guide">Selection and ranges</h2>
     <p class="lead-in">
-      Row selection and cell ranges are separate answers to separate questions , 
+      Row selection and cell ranges are separate answers to separate questions,
       <em>which records</em> versus <em>which values</em>. Dragging across cells does not tick row
       checkboxes, and selecting rows does not build a range.
     </p>
@@ -3327,7 +3610,7 @@ grid.updates.log({ since: Date.now() - 60000 });   <span class="cmt">// what arr
       many it let go through <code>evicted</code> on the progress report.</p>
       <p><strong>The log keeps the raw sequence, not the merged one.</strong> Merging is right for
       applying a backlog quickly and wrong for looking at what happened, because the intermediate
-      states are exactly what a time scrubber would move between. It survives the flush , 
+      states are exactly what a time scrubber would move between. It survives the flush,
       <code>pending</code> is what is waiting, the log is what happened, and it is capped, so a
       grid paused over lunch holds the recent past and reports how much it dropped rather than
       taking the tab with it.</p>
@@ -3371,7 +3654,7 @@ expect(grid.diagnostics.renders().dom.cellWrites - before).toBeLessThan(200);</c
       single-level header has three because the header is built once per pinned region.</p>
       <p><strong>Instrumentation must not change what it measures.</strong> Counters are integers
       incremented where the work already happened. Render phases are four <code>performance.now()</code>
-      marks around existing sections. Timings are sampled, a bounded window of recent operations , 
+      marks around existing sections. Timings are sampled, a bounded window of recent operations,
       and every report names which of its figures are sampled, because a number whose provenance is
       unclear is worse than no number. Paint wait is the browser's and is deliberately not claimed.</p>
       <p><strong>Render causes are captured, not inferred.</strong> By the time a paint runs,
@@ -3427,8 +3710,8 @@ const providerFor = (id) =&gt; ({
       <p><strong>Positions are row keys, resolved against your view at render time.</strong> Peers
       sort and filter independently, so index 12 is a different record on every screen. Publishing
       an index would put a colleague's cursor on an unrelated row the moment either of you sorted.
-      The cost of this is real, the grid resolves a key to a position rather than reading one
-     , and it is the difference between the feature working and the feature lying.</p>
+      The cost of this is real: the grid resolves a key to a position rather than reading one,
+     and it is the difference between the feature working and the feature lying.</p>
       <p><strong>Idle is measured from when a message arrived, not from what it says.</strong>
       Clocks between clients disagree by seconds routinely and by minutes occasionally. Keying idle
       detection on the sender's timestamp means a peer with a fast clock never goes idle and one
@@ -3454,7 +3737,7 @@ const providerFor = (id) =&gt; ({
       in; only the roster does, because it is a control.</p>
       <p><strong>The roster is the part people use.</strong> More than the cursors, in practice. It
       carries the name as well as the colour, because colour alone is not a signal everyone can
-      read, and it reports peers whose rows are not in your view rather than omitting them , 
+      read, and it reports peers whose rows are not in your view rather than omitting them,
       an absent peer reads as a disconnection that has not happened.</p>
       <p><strong>A parked cursor does not fade.</strong> The label does, after a couple of seconds,
       because permanent labels over a dense grid are unreadable. The border stays, dims at idle, and
@@ -3503,8 +3786,8 @@ const providerFor = (id) =&gt; ({
       the whole comment dataset over a long session to render a few triangles.</p>
       <p><strong>Stable row identity is a hard requirement, enforced rather than documented.</strong>
       A comment is keyed on row identity plus field. Row index changes under sort, filter and
-      grouping, so a comment keyed on it reattaches to whichever row later occupies that position
-     , and a comment on the wrong row is worse than no comment at all. A grid with no
+      grouping, so a comment keyed on it reattaches to whichever row later occupies that position,
+     and a comment on the wrong row is worse than no comment at all. A grid with no
       <code>rowKey</code> disables comments and names them in the same single warning as the other
       identity-dependent features.</p>
       <p><strong>Identity has to survive more than the session.</strong> Comments outlive the page
@@ -3549,7 +3832,7 @@ const providerFor = (id) =&gt; ({
         <pre><code>statusBar: { panels: ['rowCount', 'comments'] }</code></pre>
       </div>
       <p>The count returns zero rather than a number it cannot stand behind: it is only meaningful
-      once the index covers every row, so it stays at zero, and the panel stays silent , 
+      once the index covers every row, so it stays at zero, and the panel stays silent,
       until <code>loadAll()</code> has resolved.</p>
       <p><strong>The comments-only filter is refused rather than approximated.</strong> Restricting
       the grid to rows carrying comments needs the index to cover the whole row set, not just what
@@ -3718,8 +4001,8 @@ grid.timeline.detach();</code></pre>
       it a scrub is nearly unreadable: the grid moves, and on a row twelve columns wide the one
       number you are hunting for goes past unseen.</p>
       <p><strong>The mark is held, not flashed.</strong> It stays until the next seek clears it.
-      Every other transient signal in the grid fades on a timer, and this one deliberately does not
-     , a scrub is someone hunting for what changed, and a highlight they can miss while reading the
+      Every other transient signal in the grid fades on a timer, and this one deliberately does not,
+     a scrub is someone hunting for what changed, and a highlight they can miss while reading the
       other end of the row helps nobody. <code>timeline:seeking</code> fires before any change is
       applied, so a five-step drag clears once and marks once rather than strobing per entry.</p>
       <p><strong>It compares column values, not raw fields.</strong> A computed column has no field
@@ -3773,7 +4056,7 @@ grid.presentation.stop();                   <span class="cmt">// or Escape</span
     </div>
     <div class="why">
       <p><strong>The scale multiplies your density, it does not replace it.</strong> A grid built at
-      <code>spacious</code> presented at 1.5x is still recognisably that grid, half as big again , 
+      <code>spacious</code> presented at 1.5x is still recognisably that grid, half as big again,
       which is what makes a presentation look like the product rather than like a different one.
       Virtualisation follows the enlargement, so rows are positioned at the size they are drawn.</p>
       <p><strong>Full-screen is the maximiser, not a second implementation.</strong> A grid the user
@@ -4034,7 +4317,7 @@ grid.annotate.use(null);                     <span class="cmt">// hand the grid 
       <li><strong>The filter icon is a small target, deliberately.</strong> It is 16&nbsp;&times;&nbsp;16,
         below the 24-pixel minimum of WCAG 2.5.8, and conforms under that criterion's
         <em>equivalent</em> allowance: filtering is also a column-menu item, and the menu button
-        meets the size on its own. Worth knowing if you are pointing at it on a touch screen , 
+        meets the size on its own. Worth knowing if you are pointing at it on a touch screen,
         the menu is the larger route to the same thing.</li>
     </ul>
 
@@ -4385,6 +4668,171 @@ grid.filters.quickState();        <span class="cmt">// { text, mode }</span></co
       value by value tells a listener less than the sentence does.</p>
     </div>
 
+    <h2 id="statistics">Profiling and statistics</h2>
+    <p class="lead-in">
+      <code>grid.statistics</code> answers questions about the rows the filters left, so every
+      figure describes what the user is looking at rather than the whole table.
+    </p>
+    <div class="example">
+      <p class="example__label">Everything worth knowing about a column, in one pass</p>
+      <pre><code><span class="kw">const</span> p = grid.statistics.profile('capacity');
+
+p.count; p.missing; p.distinct;
+p.min; p.q1; p.median; p.q3; p.max;
+p.mean; p.stdDev;
+p.outliers;      <span class="cmt">// by the interquartile rule</span>
+p.histogram;     <span class="cmt">// bins, ready to draw</span>
+p.alerts;        <span class="cmt">// what is worth looking at</span></code></pre>
+    </div>
+    <p>
+      <code>alerts</code> is the part that saves time: a column that never varies, a key that turns
+      out not to be unique, a fifth of the rows missing. A profile that reports only numbers leaves
+      the reader to notice those, and readers reliably do not.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Answers</th></tr></thead>
+        <tbody>
+          <tr><td class="name">reduce</td><td class="desc">A column through any of the thirty-eight named kernels, or one of your own.</td></tr>
+          <tr><td class="name">correlation</td><td class="desc">Pearson's r between two columns. <code>spearman</code> resists an outlier; <code>kendall</code> is tau-b.</td></tr>
+          <tr><td class="name">regression</td><td class="desc">A least-squares fit of one column on another, with slope, intercept and r².</td></tr>
+          <tr><td class="name">weightedAverage</td><td class="desc">One column averaged by another. <code>weightedQuantile</code> for the median and beyond.</td></tr>
+          <tr><td class="name">series</td><td class="desc">How a column varies along an ordering. <code>by</code> is required and never guessed.</td></tr>
+          <tr><td class="name">shadow</td><td class="desc">What the grid knows about a row over time: updates, delta, rate, rank, percentile, streak.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="why">
+      <p><strong>The filters are part of the question.</strong> Every one of these reads the
+      filtered rows. Narrow the grid and the statistics narrow with it, which is the behaviour you
+      want when the filter <em>is</em> the analysis.</p>
+      <p><strong>Kernels see arrival order, not display order.</strong> Anything order-dependent
+      takes an explicit <code>by</code> rather than inferring one from the current sort, so the
+      answer does not change when a user clicks a column header.</p>
+    </div>
+
+    <h2 id="spc">Process control and capability</h2>
+    <p class="lead-in">
+      Whether a process sits inside the tolerance it was given, and whether it is behaving or
+      drifting. The tolerance is declared once, on the column.
+    </p>
+    <div class="example">
+      <p class="example__label">The specification lives with the column</p>
+      <pre><code>{ id: 'diameter', type: 'number', spec: { lower: 9.95, upper: 10.05, target: 10 } }</code></pre>
+    </div>
+    <div class="example">
+      <p class="example__label">Asking for the capability</p>
+      <pre><code><span class="kw">const</span> c = grid.statistics.capability('diameter', { rules: 'nelson' });
+
+c.cp; c.cpk;         <span class="cmt">// short-term spread, from the moving range</span>
+c.pp; c.ppk;         <span class="cmt">// overall spread</span>
+c.outOfSpec;         <span class="cmt">// parts outside the customer's tolerance</span>
+c.limits;            <span class="cmt">// { centre, upper, lower, sigma }</span>
+c.violations;        <span class="cmt">// [{ index, rule, description }, …]</span>
+c.interval;          <span class="cmt">// a confidence interval for cpk</span></code></pre>
+    </div>
+    <div class="why">
+      <p><strong>One declared tolerance, so nothing can disagree.</strong> The indices, the charts
+      and any conditional format all read the same <code>spec</code>. A tolerance passed separately
+      to each is a tolerance that eventually differs between them, and a capability report that
+      contradicts the cell colouring is worse than neither.</p>
+      <p><strong>Cp and Cpk use short-term variation, Pp and Ppk overall.</strong> The first pair
+      comes from the moving range, which is what the process can do when it is behaving; the second
+      from the whole spread, which is what it actually delivered. Ppk well below Cpk is the signal
+      that the process drifted rather than that it is incapable.</p>
+      <p><strong>A baseline finds a shift instead of absorbing it.</strong> <code>baseline: 30</code>
+      fixes the limits over the first thirty readings. Limits recomputed over all the data widen to
+      accommodate the very shift you are looking for, and then report no violation.</p>
+      <p><strong>The point estimate alone overstates the case.</strong> A Cpk of 1.35 measured on
+      thirty parts has a lower bound below 1.0, so a process that has "passed" a 1.33 requirement on
+      thirty parts has demonstrated very little. <code>interval</code> is reported alongside it for
+      that reason.</p>
+    </div>
+
+    <h3>Drawing it</h3>
+    <p class="lead-in">
+      Three chart types complete the picture, and they read the same specification.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Type</th><th>Shows</th></tr></thead>
+        <tbody>
+          <tr><td class="name">control</td><td class="desc">Readings against the centre line and control limits, with every rule break numbered.</td></tr>
+          <tr><td class="name">movingRange</td><td class="desc">The companion chart: variation between consecutive readings.</td></tr>
+          <tr><td class="name">capability</td><td class="desc">The distribution against the tolerance, with a curve for each of the two spreads.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Rule breaks are numbered rather than merely marked, under Western Electric's four rules or
+      Nelson's eight. The two sets number differently, so the chart names which it applied: a
+      "rule 3" that could mean either is not a finding anyone can act on.
+    </p>
+
+    <h2 id="intervals">Confidence intervals</h2>
+    <p class="lead-in">
+      How firmly the data pins a figure down. An interval narrows as the grid does, because it
+      describes the filtered rows and not the whole table.
+    </p>
+    <div class="example">
+      <p class="example__label">A mean and a rate</p>
+      <pre><code>grid.statistics.interval('capacity');
+<span class="cmt">// { lower, upper, mean, n, confidence }, by Student's t</span>
+
+grid.statistics.interval('status', {
+  kind: 'proportion',
+  where: (v) =&gt; v === 'failed',
+});
+<span class="cmt">// Wilson score, which stays sensible at small n and near 0 or 1</span></code></pre>
+    </div>
+    <p>
+      Intervals are also available on a regression slope and on a capability index. Each uses the
+      method that suits it: Student's <em>t</em> for a mean, the Wilson score for a proportion, and
+      Bissell's approximation for Cpk.
+    </p>
+    <div class="why">
+      <p><strong>The line the product draws.</strong> Lattice quantifies uncertainty. It does not
+      adjudicate hypotheses: there are no p-values and no significance tests. An interval says how
+      precisely a figure is known and leaves the judgement where it belongs. A tool that returns a
+      verdict invites it to be read as one, and a grid is the wrong place for that.</p>
+      <p><strong>Wilson, not the textbook formula.</strong> The normal approximation gives bounds
+      below zero and above one at small counts, which is visibly wrong to anyone who reads it. The
+      Wilson score stays inside the interval it is describing.</p>
+    </div>
+
+    <h2 id="stat-tiles">Statistic tiles</h2>
+    <p class="lead-in">
+      A headline figure over a grid, with the change since a baseline, a tone from thresholds, and
+      the interval underneath.
+    </p>
+    <div class="example">
+      <p class="example__label">A tile that follows the grid</p>
+      <pre><code><span class="kw">import</span> { createStat } <span class="kw">from</span> 'lattice-grid';
+
+createStat({
+  grid,
+  container: tile,
+  title: 'Total capacity',
+  value: { of: 'capacity', fn: 'sum' },
+  baseline: (g) =&gt; lastMonth,
+  bands: { good: 5000, warn: 3000, direction: 'up' },
+  interval: (v, g) =&gt; g.statistics.interval('capacity'),
+});</code></pre>
+    </div>
+    <div class="why">
+      <p><strong><code>bands</code> and <code>goodWhen</code> judge different things.</strong>
+      <code>goodWhen</code> says whether a rise is good news, and colours the change indicator.
+      <code>bands</code> judge the value itself. They are separate because a Cpk of 0.9 is bad news
+      whether it rose or fell to get there.</p>
+      <p><strong>The tile follows the grid by default.</strong> Filter the grid and the figure
+      updates. <code>scope</code> chooses filtered, all or selected rows; <code>live: false</code>
+      detaches it and leaves <code>refresh()</code> to you.</p>
+      <p><code>value</code> also takes <code>show</code>, which reports a field from the row holding
+      an extreme rather than the extreme itself: <code>{ of: 'sales', fn: 'max', show: 'rep' }</code>
+      is the <em>name</em> of the best rep. It needs <code>min</code> or <code>max</code>, because no
+      single row holds an average.</p>
+    </div>
+
     <h2 id="formulas-guide">Formulas</h2>
     <p class="lead-in">
       A leading <code>=</code> in a numeric cell is a formula. Type
@@ -4658,7 +5106,7 @@ grid.highlight.clear();</code></pre>
     <div class="why">
       <p><strong>Applying a view is a destination, not a patch.</strong> A view's state names only
       the sections it cares about, so applying one resets to the grid's starting state first. Without
-      that, clicking "APAC capacity" after "Commercial" would inherit Commercial's hidden columns , 
+      that, clicking "APAC capacity" after "Commercial" would inherit Commercial's hidden columns,
       the same view giving a different grid depending on what preceded it, which is the one thing a
       named view must not do.</p>
     </div>
@@ -4682,7 +5130,7 @@ grid.highlight.clear();</code></pre>
     </div>
 
     <div class="why">
-      <p><strong>Applying a view never throws and never refuses.</strong> It returns a report , 
+      <p><strong>Applying a view never throws and never refuses.</strong> It returns a report,
       <code>{ applied, skipped }</code>: naming each thing it could not use and why. Refusing the
       whole view because one column has gone would lose a layout the user built deliberately, and
       throwing during a page load would lose the page. So a view degrades to as much of itself as
@@ -4737,7 +5185,7 @@ grid.on('view:default', e =&gt; api.patch(`/views/${e.view.id}`, { isDefault: tr
       grid has one to plug in, and a picker offering "Save" that quietly does nothing until a backend
       exists is worse than not offering it. <code>views.local: true</code> is the no-backend answer:
       saved views live in this browser's own <code>localStorage</code>, under a default key shared by
-      every grid on the origin unless you pass one of your own , 
+      every grid on the origin unless you pass one of your own,
       <code>views: { local: { key: 'orders-grid-views' } }</code>: to keep two grids' views apart.
       Given alongside an explicit <code>storage</code>, the explicit adapter always wins and
       <code>local</code> is silently (well, not silently: it warns once) ignored, so a page cannot
@@ -4779,7 +5227,7 @@ grid.history.list();         <span class="cmt">// the timeline, newest first</sp
 
     <h2 id="permissions-guide">Column permissions</h2>
     <p class="lead-in">
-      Four levels, resolved per column from configuration or a callback. They are not a ladder , 
+      Four levels, resolved per column from configuration or a callback. They are not a ladder,
       reading and writing are independent, so they are the four corners of a 2×2.
     </p>
     <div class="table-wrap">
@@ -4859,8 +5307,8 @@ grid.diff.before('CIR-100042', 'capacity');</code></pre>
       is shown and the grid is the one you already had.</p>
       <p><strong>Neither sorts or filters it among the live rows.</strong> A removed row's values
       are yesterday's; ordering them among today's presents two data sets as one, and lets a filter
-      written for current values decide the fate of historical ones. Neither permits an edit either
-     , a write aimed at a removed row is refused and returns <code>0</code>, rather than being
+      written for current values decide the fate of historical ones. Neither permits an edit either,
+     a write aimed at a removed row is refused and returns <code>0</code>, rather than being
       counted as applied against a record that is not there.</p>
     </div>
 
@@ -4884,12 +5332,12 @@ grid.diff.before('CIR-100042', 'capacity');</code></pre>
     <p class="lead-in">
       That mounts a prompt bar. The user types "EMEA circuits over 500 gigs, biggest first"; the
       grid composes a message including its schema; your callback returns the model's reply; the
-      grid validates it and shows what it would do in plain English , 
-      <em>"Filter Region is EMEA and Capacity is more than 500, sort Capacity descending"</em> , 
+      grid validates it and shows what it would do in plain English,
+      <em>"Filter Region is EMEA and Capacity is more than 500, sort Capacity descending"</em>,
       with Apply and Discard.
     </p>
     <div class="why">
-      <p><strong>Nothing is executed on trust.</strong> The vocabulary is seven actions , 
+      <p><strong>Nothing is executed on trust.</strong> The vocabulary is seven actions,
       <code>setFilters</code>, <code>setSort</code>, <code>groupBy</code>,
       <code>showColumns</code>, <code>hideColumns</code>, <code>setQuick</code>,
       <code>clear</code>, and a reply naming a column that does not exist is rejected with a
@@ -5127,7 +5575,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
     <footer>
       <p>
         Lattice Grid 1.7.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
-        Written against the shipped source. Where this guide and the code disagree, the code wins , 
+        Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>
     </footer>

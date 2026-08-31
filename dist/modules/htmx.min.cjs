@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.12.2, htmx module
+ * Lattice Grid 1.13.0, htmx module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -16151,6 +16151,577 @@ function createDerivedSource(config,ctx){
 return new DerivedSource(config,ctx);
 }
 });
+__def("packages/core/src/source/pushdown.js",function(__exports,__req){
+'use strict';
+Object.defineProperty(__exports,"NO_CAPABILITIES",{enumerable:true,get:function(){return NO_CAPABILITIES;}});
+Object.defineProperty(__exports,"capabilitiesOf",{enumerable:true,get:function(){return capabilitiesOf;}});
+Object.defineProperty(__exports,"splitFilters",{enumerable:true,get:function(){return splitFilters;}});
+Object.defineProperty(__exports,"planQuery",{enumerable:true,get:function(){return planQuery;}});
+Object.defineProperty(__exports,"applyResidual",{enumerable:true,get:function(){return applyResidual;}});
+Object.defineProperty(__exports,"createPushdownSource",{enumerable:true,get:function(){return createPushdownSource;}});
+const __m0=__req("packages/core/src/internal/util.js");
+const isFunction=__m0["isFunction"];
+const warnOnce=__m0["warnOnce"];
+const __m1=__req("packages/core/src/source/filterwire.js");
+const isGroup=__m1["isGroup"];
+const NO_CAPABILITIES=Object.freeze({
+filter:false,
+operators:Object.freeze([]),
+sort:false,
+quick:false,
+range:false,
+total:false,
+group:false,
+});
+function readPath(row,path){
+if(!row||typeof path!=='string')return undefined;
+if(!path.includes('.'))return(row)[path];
+let cursor=row;
+for(const part of path.split('.')){
+if(cursor===null||typeof cursor!=='object')return undefined;
+cursor=(cursor)[part];
+}
+return cursor;
+}
+function capabilitiesOf(declared){
+const caps={...NO_CAPABILITIES,...(declared||{})};
+caps.operators=new Set(caps.operators||[]);
+return caps;
+}
+function conditionPushable(condition,caps){
+if(!condition||!condition.op)return false;
+if(!caps.operators.size)return false;
+return caps.operators.has(condition.op);
+}
+function splitFilters(filters,caps){
+if(!filters)return{pushed:null,residual:null};
+if(!caps.filter)return{pushed:null,residual:filters};
+if(caps.filter==='term'){
+if(isGroup(filters)){
+const conditions=filters.conditions||[];
+if(String(filters.op)!=='and')return{pushed:null,residual:filters};
+const at=conditions.findIndex((c)=>!isGroup(c)&&conditionPushable(c,caps));
+if(at<0)return{pushed:null,residual:filters};
+const rest=conditions.filter((unused,i)=>i!==at);
+return{
+pushed:conditions[at],
+residual:rest.length?{op:'and',conditions:rest}:null,
+};
+}
+return conditionPushable(filters,caps)
+?{pushed:filters,residual:null}
+:{pushed:null,residual:filters};
+}
+if(!isGroup(filters)){
+return conditionPushable(filters,caps)
+?{pushed:filters,residual:null}
+:{pushed:null,residual:filters};
+}
+if(String(filters.op)!=='and'){
+const everyBranch=(filters.conditions||[])
+.every((c)=>(isGroup(c)?splitFilters(c,caps).residual===null:conditionPushable(c,caps)));
+return everyBranch?{pushed:filters,residual:null}:{pushed:null,residual:filters};
+}
+const pushed=[];
+const residual=[];
+for(const condition of filters.conditions||[]){
+if(isGroup(condition)){
+if(caps.filter==='flat'){residual.push(condition);continue;}
+const inner=splitFilters(condition,caps);
+if(inner.pushed)pushed.push(inner.pushed);
+if(inner.residual)residual.push(inner.residual);
+continue;
+}
+(conditionPushable(condition,caps)?pushed:residual).push(condition);
+}
+const group=(list)=>(list.length===0?null
+:(list.length===1?list[0]:{op:'and',conditions:list}));
+return{pushed:group(pushed),residual:group(residual)};
+}
+function planQuery(request,caps){
+const filters=splitFilters(request.filters||null,caps);
+const unpushed=[];
+if(filters.residual)unpushed.push('filter');
+const wanted=request.sort||[];
+const sortPushable=wanted.length===0
+||(caps.sort==='multi'&&wanted.length>=1)
+||(caps.sort==='single'&&wanted.length===1);
+if(!sortPushable&&wanted.length)unpushed.push('sort');
+const quick=request.quick?String(request.quick):'';
+const quickPushable=!quick||!!caps.quick;
+if(!quickPushable)unpushed.push('quick');
+const residual={
+filters:filters.residual,
+sort:sortPushable?null:wanted,
+quick:quickPushable?'':quick,
+};
+const needsAll=!!(residual.filters||residual.sort||residual.quick)||!caps.range;
+const pushed={
+...request,
+filters:filters.pushed,
+sort:sortPushable?wanted:[],
+quick:quickPushable?quick:'',
+range:needsAll?null:request.range,
+};
+return{pushed,residual,needsAll,unpushed};
+}
+function applyResidual(rows,residual,compute){
+if(!residual)return rows;
+let out=rows;
+if(residual.filters&&isFunction(compute.evaluateFilters)){
+const ctx={
+count:out.length,
+handle:(col)=>({id:col,get:(i)=>readPath(out[i],col)}),
+};
+const mask=compute.evaluateFilters(residual.filters,ctx);
+const kept=[];
+for(let i=0;i<out.length;i++)if(mask[i])kept.push(out[i]);
+out=kept;
+}
+if(residual.quick){
+const needle=residual.quick.toLowerCase();
+out=out.filter((row)=>{
+if(!row||typeof row!=='object')return false;
+for(const value of Object.values((row))){
+if(value!==null&&value!==undefined
+&&String(value).toLowerCase().includes(needle))return true;
+}
+return false;
+});
+}
+if(residual.sort&&residual.sort.length&&isFunction(compute.sortMulti)){
+const columns=[...new Set(residual.sort.map((entry)=>entry.col))];
+const view=out;
+const handles=columns.map((col)=>({id:col,get:(i)=>readPath(view[i],col)}));
+const order=compute.sortMulti(
+handles,
+residual.sort.map((entry)=>({col:entry.col,dir:entry.dir})),
+Uint32Array.from({length:out.length},(unused,i)=>i),
+{},
+);
+out=Array.from(order,(i)=>view[i]);
+}
+return out;
+}
+function planKey(pushed){
+return JSON.stringify({
+filters:pushed.filters||null,
+sort:pushed.sort||[],
+quick:pushed.quick||'',
+groupBy:pushed.groupBy||[],
+groupPath:pushed.groupPath||[],
+context:pushed.context??null,
+});
+}
+function createPushdownSource(config={}){
+const adapter=config.adapter;
+if(!adapter||!isFunction(adapter.execute)){
+warnOnce('source.pushdown.adapter',
+'createPushdownSource needs an `adapter` with an `execute(query)` function.');
+return{...config,mode:'remote',fetch:async()=>({rows:[],total:0})};
+}
+const caps=capabilitiesOf(adapter.capabilities);
+const name=adapter.name||'adapter';
+let held=null;
+let lastPlan=null;
+const fetch=async(request)=>{
+const plan=planQuery(request,caps);
+lastPlan=plan;
+if(!plan.needsAll){
+const result=await adapter.execute(plan.pushed,request);
+return{rows:result.rows||[],total:result.total??(result.rows||[]).length};
+}
+if(plan.unpushed.length){
+warnOnce(`source.pushdown.residual.${name}.${plan.unpushed.join('.')}`,
+`the ${name} adapter cannot push ${plan.unpushed.join(' or ')}, so every matching row is `
++'fetched and the rest is applied in the browser. Correct, and slower than it needs to be: '
++'widening the adapter is the fix.');
+}
+const key=planKey(plan.pushed);
+if(!held||held.key!==key){
+const result=await adapter.execute(plan.pushed,request);
+const rows=result.rows||[];
+if(typeof result.total==='number'&&rows.length<result.total){
+warnOnce(`source.pushdown.partial.${name}`,
+`the ${name} adapter returned ${rows.length} of ${result.total} matching rows when asked `
++'for the whole result, so filtering and sorting would be applied to a fraction of it. '
++'The adapter must follow the engine\'s own paging before returning.');
+}
+held={key,rows};
+}
+const rows=applyResidual(held.rows,plan.residual,config.compute||{});
+const start=request.range?request.range.start:0;
+const end=request.range?request.range.end:rows.length;
+return{rows:rows.slice(start,end),total:rows.length};
+};
+return{
+...config,
+mode:'remote',
+fetch,
+lastPlan:()=>lastPlan,
+};
+}
+});
+__def("packages/core/src/source/adapters/odata.js",function(__exports,__req){
+'use strict';
+Object.defineProperty(__exports,"conditionToOData",{enumerable:true,get:function(){return conditionToOData;}});
+Object.defineProperty(__exports,"filtersToOData",{enumerable:true,get:function(){return filtersToOData;}});
+Object.defineProperty(__exports,"odataAdapter",{enumerable:true,get:function(){return odataAdapter;}});
+const __m0=__req("packages/core/src/source/filterwire.js");
+const isGroup=__m0["isGroup"];
+const OPERATORS=Object.freeze([
+'eq','ne','gt','gte','lt','lte','contains','startsWith','endsWith',
+'blank','notBlank',
+]);
+const MAX_SERVER_PAGES=200;
+const PAGE_GUARD=1000;
+const COMPARISON=Object.freeze({eq:'eq',ne:'ne',gt:'gt',gte:'ge',lt:'lt',lte:'le'});
+function literal(value){
+if(value===null||value===undefined)return'null';
+if(typeof value==='number'||typeof value==='boolean')return String(value);
+if(value instanceof Date)return value.toISOString();
+return`'${String(value).replace(/'/g,"''")}'`;
+}
+function conditionToOData(condition){
+const col=String(condition.col);
+const op=String(condition.op);
+if(COMPARISON[op])return`${col} ${COMPARISON[op]} ${literal(condition.value)}`;
+if(op==='contains')return`contains(${col},${literal(condition.value)})`;
+if(op==='startsWith')return`startswith(${col},${literal(condition.value)})`;
+if(op==='endsWith')return`endswith(${col},${literal(condition.value)})`;
+if(op==='blank')return`(${col} eq null)`;
+if(op==='notBlank')return`(${col} ne null)`;
+return null;
+}
+function filtersToOData(filters){
+if(!filters)return'';
+if(!isGroup(filters))return conditionToOData(filters)||'';
+const joiner=String(filters.op)==='or'?' or ':' and ';
+const parts=(filters.conditions||[]).map(filtersToOData).filter(Boolean);
+if(!parts.length)return'';
+return parts.length===1?parts[0]:`(${parts.join(joiner)})`;
+}
+function odataAdapter(options={}){
+const base=String(options.url||'');
+const call=options.fetch||(typeof fetch==='function'?fetch:null);
+const wantsCount=options.count!==false;
+return{
+name:'odata',
+capabilities:{
+filter:'tree',
+operators:OPERATORS,
+sort:'multi',
+quick:options.search===true,
+range:true,
+total:wantsCount,
+},
+urlFor(query){
+const parts=[];
+const put=(key,value)=>parts.push(`${key}=${encodeURIComponent(value)}`);
+const filter=filtersToOData(query.filters);
+if(filter)put('$filter',filter);
+if(query.sort&&query.sort.length){
+put('$orderby',query.sort
+.map((entry)=>`${entry.col}${entry.dir==='desc'?' desc':' asc'}`).join(','));
+}
+if(query.range){
+put('$skip',String(query.range.start));
+put('$top',String(query.range.end-query.range.start));
+}
+if(query.quick)put('$search',`"${String(query.quick).replace(/"/g,'')}"`);
+if(wantsCount)put('$count','true');
+return parts.length?`${base}?${parts.join('&')}`:base;
+},
+async execute(query,request){
+if(!call)throw new Error('odataAdapter needs a fetch implementation');
+const headers={Accept:'application/json',...(options.headers||{})};
+const signal=request&&request.signal;
+const page=async(url)=>{
+const response=await call(url,{headers,signal});
+if(!response.ok)throw new Error(`OData request failed: ${response.status}`);
+return response.json();
+};
+let body=await page(this.urlFor(query));
+let rows=body.value||body.rows||[];
+const total=body['@odata.count']??body.count??rows.length;
+if(!query.range){
+let next=body['@odata.nextLink'];
+while(next&&rows.length<MAX_SERVER_PAGES*PAGE_GUARD){
+body=await page(next);
+rows=rows.concat(body.value||body.rows||[]);
+next=body['@odata.nextLink'];
+}
+}
+return{rows,total};
+},
+};
+}
+});
+__def("packages/core/src/source/adapters/rest.js",function(__exports,__req){
+'use strict';
+Object.defineProperty(__exports,"DEFAULT_PARAMS",{enumerable:true,get:function(){return DEFAULT_PARAMS;}});
+Object.defineProperty(__exports,"restAdapter",{enumerable:true,get:function(){return restAdapter;}});
+const DEFAULT_PARAMS=Object.freeze({
+offset:'offset',
+limit:'limit',
+sort:'sort',
+order:'order',
+filter:'filter',
+search:'q',
+});
+function restAdapter(options={}){
+const base=String(options.url||'');
+const call=options.fetch||(typeof fetch==='function'?fetch:null);
+const names={...DEFAULT_PARAMS,...(options.params||{})};
+const encodeFilter=options.encodeFilter||((filters)=>JSON.stringify(filters));
+const readRows=options.rows||((body)=>(Array.isArray(body)?body:(body.rows||body.data||[])));
+const readTotal=options.total
+||((body,rows)=>(Array.isArray(body)?rows.length:(body.total??body.count??rows.length)));
+return{
+name:'rest',
+capabilities:{
+range:true,
+total:true,
+sort:'multi',
+filter:false,
+quick:false,
+...(options.capabilities||{}),
+...(options.operators?{filter:'tree',operators:options.operators}:{}),
+},
+urlFor(query){
+const params=new URLSearchParams();
+if(query.range){
+params.set(names.offset,String(query.range.start));
+params.set(names.limit,String(query.range.end-query.range.start));
+}
+if(query.sort&&query.sort.length){
+params.set(names.sort,query.sort.map((entry)=>entry.col).join(','));
+params.set(names.order,query.sort.map((entry)=>entry.dir||'asc').join(','));
+}
+if(query.filters)params.set(names.filter,encodeFilter(query.filters));
+if(query.quick)params.set(names.search,String(query.quick));
+const qs=params.toString();
+return qs?`${base}?${qs}`:base;
+},
+async execute(query,request){
+if(!call)throw new Error('restAdapter needs a fetch implementation');
+const response=await call(this.urlFor(query),{
+headers:{Accept:'application/json',...(options.headers||{})},
+signal:request&&request.signal,
+});
+if(!response.ok)throw new Error(`request failed: ${response.status}`);
+const body=await response.json();
+const rows=readRows(body);
+return{rows,total:readTotal(body,rows)};
+},
+};
+}
+});
+__def("packages/core/src/source/adapters/dfql.js",function(__exports,__req){
+'use strict';
+Object.defineProperty(__exports,"DFQL_BASE",{enumerable:true,get:function(){return DFQL_BASE;}});
+Object.defineProperty(__exports,"dfqlAdapter",{enumerable:true,get:function(){return dfqlAdapter;}});
+const DFQL_BASE='https://rest.demandflow.com';
+async function readNdjson(response){
+const out=[];
+const take=(line)=>{
+const text=line.trim();
+if(!text)return;
+try{out.push(JSON.parse(text));}catch{}
+};
+if(!response.body||typeof response.body.getReader!=='function'){
+(await response.text()).split('\n').forEach(take);
+return out;
+}
+const reader=response.body.getReader();
+const decoder=new TextDecoder();
+let buffer='';
+for(;;){
+const{value,done}=await reader.read();
+if(done)break;
+buffer+=decoder.decode(value,{stream:true});
+const lines=buffer.split('\n');
+buffer=lines.pop()||'';
+lines.forEach(take);
+}
+take(buffer);
+return out;
+}
+function dfqlAdapter(options={}){
+const entity=String(options.entity||'');
+const base=String(options.url||DFQL_BASE).replace(/\/+$/,'');
+const call=options.fetch||(typeof fetch==='function'?fetch:null);
+const keyName=String(options.comboKey||'comboKey');
+const prefix=String(options.query||'SUB');
+const ceiling=Number.isFinite(Number(options.limit))?Number(options.limit):1000;
+return{
+name:'dfql',
+capabilities:{
+filter:'term',
+operators:['contains'],
+sort:false,
+quick:false,
+range:false,
+total:true,
+},
+linesFor(query){
+const line={entity,comboKey:keyName,query:prefix,limit:ceiling,tag:'rows'};
+if(options.load&&options.load.length)line.load=options.load.join(',');
+const condition=query&&query.filters;
+if(condition&&condition.col&&condition.value!==undefined&&condition.value!==null){
+line.filter={field:String(condition.col),term:String(condition.value)};
+}
+const counted={...line,countOnly:true,tag:'count'};
+delete counted.load;
+delete counted.limit;
+return[line,counted];
+},
+async execute(query,request){
+if(!call)throw new Error('dfqlAdapter needs a fetch implementation');
+if(!options.token)throw new Error('dfqlAdapter needs a personal access token');
+const response=await call(`${base}/v1/query`,{
+method:'POST',
+headers:{
+Authorization:`Bearer ${options.token}`,
+'Content-Type':'application/json',
+...(options.headers||{}),
+},
+body:JSON.stringify(this.linesFor(query)),
+signal:request&&request.signal,
+});
+if(!response.ok)throw new Error(`DemandFlow request failed: ${response.status}`);
+const lines=await readNdjson(response);
+const failed=lines.find((line)=>line&&line._type==='error');
+if(failed)throw new Error(`DemandFlow query failed: ${failed.message||'unknown error'}`);
+const rows=lines.filter((line)=>line&&!line._meta&&line._type===undefined);
+const counted=lines.find((line)=>line&&line._type==='count');
+return{rows,total:counted&&typeof counted.count==='number'?counted.count:rows.length};
+},
+};
+}
+});
+__def("packages/core/src/source/adapters/duckdb.js",function(__exports,__req){
+'use strict';
+Object.defineProperty(__exports,"filtersToSql",{enumerable:true,get:function(){return filtersToSql;}});
+Object.defineProperty(__exports,"duckdbAdapter",{enumerable:true,get:function(){return duckdbAdapter;}});
+const __m0=__req("packages/core/src/internal/util.js");
+const isFunction=__m0["isFunction"];
+const warnOnce=__m0["warnOnce"];
+const __m1=__req("packages/core/src/source/filterwire.js");
+const isGroup=__m1["isGroup"];
+const OPERATORS=Object.freeze([
+'eq','ne','gt','gte','lt','lte','contains','startsWith','endsWith',
+'blank','notBlank','in',
+]);
+const COMPARISON=Object.freeze({eq:'=',ne:'<>',gt:'>',gte:'>=',lt:'<',lte:'<='});
+const TOTAL='__lattice_total';
+function ident(name){
+const text=String(name);
+if(!/^[A-Za-z_][A-Za-z0-9_$]*$/.test(text)){
+throw new Error(`duckdbAdapter: "${text}" is not a usable column name`);
+}
+return`"${text}"`;
+}
+function conditionSql(condition,params){
+const col=ident(condition.col);
+const op=String(condition.op);
+if(COMPARISON[op]){params.push(condition.value);return`${col} ${COMPARISON[op]} ?`;}
+if(op==='contains'){params.push(`%${condition.value}%`);return`${col} ILIKE ?`;}
+if(op==='startsWith'){params.push(`${condition.value}%`);return`${col} ILIKE ?`;}
+if(op==='endsWith'){params.push(`%${condition.value}`);return`${col} ILIKE ?`;}
+if(op==='blank')return`(${col} IS NULL OR ${col} = '')`;
+if(op==='notBlank')return`(${col} IS NOT NULL AND ${col} <> '')`;
+if(op==='in'){
+const list=Array.isArray(condition.value)?condition.value:[condition.value];
+if(!list.length)return'FALSE';
+list.forEach((value)=>params.push(value));
+return`${col} IN (${list.map(()=>'?').join(', ')})`;
+}
+return null;
+}
+function filtersToSql(filters,params){
+if(!filters)return'';
+if(!isGroup(filters))return conditionSql(filters,params)||'';
+const joiner=String(filters.op)==='or'?' OR ':' AND ';
+const parts=(filters.conditions||[])
+.map((node)=>filtersToSql(node,params))
+.filter(Boolean);
+if(!parts.length)return'';
+return parts.length===1?parts[0]:`(${parts.join(joiner)})`;
+}
+function normalise(value){
+if(typeof value!=='bigint')return value;
+return value<=BigInt(Number.MAX_SAFE_INTEGER)&&value>=BigInt(Number.MIN_SAFE_INTEGER)
+?Number(value)
+:String(value);
+}
+function duckdbAdapter(options={}){
+const connection=options.connection;
+const from=String(options.from||'');
+const projection=Array.isArray(options.fields)&&options.fields.length
+?options.fields.map(ident).join(', ')
+:'*';
+return{
+name:'duckdb',
+capabilities:{
+filter:'tree',
+operators:OPERATORS,
+sort:'multi',
+quick:false,
+range:true,
+total:true,
+},
+sqlFor(query){
+const params=[];
+const where=filtersToSql(query.filters,params);
+const order=(query.sort||[])
+.map((entry)=>`${ident(entry.col)} ${entry.dir==='desc'?'DESC':'ASC'}`)
+.join(', ');
+let sql=`SELECT ${projection}, count(*) OVER () AS ${ident(TOTAL)} FROM ${from}`;
+if(where)sql+=` WHERE ${where}`;
+if(order)sql+=` ORDER BY ${order}`;
+if(query.range){
+sql+=` LIMIT ${Number(query.range.end)-Number(query.range.start)}`;
+sql+=` OFFSET ${Number(query.range.start)}`;
+}
+return{sql,params};
+},
+async execute(query){
+if(!connection||!isFunction(connection.query)){
+throw new Error('duckdbAdapter needs a connection with a query function');
+}
+const{sql,params}=this.sqlFor(query);
+let result;
+if(params.length&&isFunction(connection.prepare)){
+const statement=await connection.prepare(sql);
+try{
+result=await statement.query(...params);
+}finally{
+if(isFunction(statement.close))await statement.close();
+}
+}else{
+if(params.length){
+warnOnce('source.duckdb.unprepared',
+'this DuckDB connection has no prepare(), so filter values cannot be bound. Filters '
++'are not sent rather than being interpolated into SQL.');
+return{rows:[],total:0};
+}
+result=await connection.query(sql);
+}
+const raw=isFunction(result.toArray)?result.toArray():Array.from(result||[]);
+let total=null;
+const rows=raw.map((row)=>{
+const plain=isFunction(row.toJSON)?row.toJSON():{...row};
+if(total===null&&plain[TOTAL]!==undefined)total=Number(normalise(plain[TOTAL]));
+delete plain[TOTAL];
+for(const key of Object.keys(plain))plain[key]=normalise(plain[key]);
+return plain;
+});
+return{rows,total:total===null?rows.length:total};
+},
+};
+}
+});
 __def("packages/core/src/source/index.js",function(__exports,__req){
 'use strict';
 Object.defineProperty(__exports,"createMemorySource",{enumerable:true,get:function(){return createMemorySource;}});
@@ -16194,51 +16765,70 @@ const createDerivedSource=__m5["createDerivedSource"];
 const DerivedSource=__m5["DerivedSource"];
 const IDLE_REFRESH_MS=__m5["IDLE_REFRESH_MS"];
 const PROFILE_FIELDS=__m5["PROFILE_FIELDS"];
-const __m6=__req("packages/core/src/source/derive.js");
-Object.defineProperty(__exports,"derive",{enumerable:true,get:function(){return __m6["derive"];}});
-Object.defineProperty(__exports,"unnest",{enumerable:true,get:function(){return __m6["unnest"];}});
-Object.defineProperty(__exports,"readPath",{enumerable:true,get:function(){return __m6["readPath"];}});
-Object.defineProperty(__exports,"bucketOf",{enumerable:true,get:function(){return __m6["bucketOf"];}});
-Object.defineProperty(__exports,"applyLimit",{enumerable:true,get:function(){return __m6["applyLimit"];}});
-Object.defineProperty(__exports,"applyCumulative",{enumerable:true,get:function(){return __m6["applyCumulative"];}});
-Object.defineProperty(__exports,"reduceValues",{enumerable:true,get:function(){return __m6["reduceValues"];}});
-Object.defineProperty(__exports,"FOLLOW_MODES",{enumerable:true,get:function(){return __m6["FOLLOW_MODES"];}});
-Object.defineProperty(__exports,"BUCKETS",{enumerable:true,get:function(){return __m6["BUCKETS"];}});
-Object.defineProperty(__exports,"DERIVED_ROW_KEY",{enumerable:true,get:function(){return __m6["DERIVED_ROW_KEY"];}});
-const __m7=__req("packages/core/src/source/abort.js");
-Object.defineProperty(__exports,"AbortScope",{enumerable:true,get:function(){return __m7["AbortScope"];}});
-Object.defineProperty(__exports,"RequestToken",{enumerable:true,get:function(){return __m7["RequestToken"];}});
-Object.defineProperty(__exports,"SupersededError",{enumerable:true,get:function(){return __m7["SupersededError"];}});
-Object.defineProperty(__exports,"createAbortScope",{enumerable:true,get:function(){return __m7["createAbortScope"];}});
-Object.defineProperty(__exports,"isAbortError",{enumerable:true,get:function(){return __m7["isAbortError"];}});
-const __m8=__req("packages/core/src/source/filterwire.js");
-Object.defineProperty(__exports,"RELATIVE_TOKENS",{enumerable:true,get:function(){return __m8["RELATIVE_TOKENS"];}});
-Object.defineProperty(__exports,"parseRelativeToken",{enumerable:true,get:function(){return __m8["parseRelativeToken"];}});
-Object.defineProperty(__exports,"resolveRelativeRange",{enumerable:true,get:function(){return __m8["resolveRelativeRange"];}});
-Object.defineProperty(__exports,"resolveRelativeCondition",{enumerable:true,get:function(){return __m8["resolveRelativeCondition"];}});
-Object.defineProperty(__exports,"relativeTokenOf",{enumerable:true,get:function(){return __m8["relativeTokenOf"];}});
-Object.defineProperty(__exports,"buildFilterSet",{enumerable:true,get:function(){return __m8["buildFilterSet"];}});
-Object.defineProperty(__exports,"normaliseFilterSet",{enumerable:true,get:function(){return __m8["normaliseFilterSet"];}});
-Object.defineProperty(__exports,"wireFilters",{enumerable:true,get:function(){return __m8["wireFilters"];}});
-Object.defineProperty(__exports,"querySignature",{enumerable:true,get:function(){return __m8["querySignature"];}});
-Object.defineProperty(__exports,"mapConditions",{enumerable:true,get:function(){return __m8["mapConditions"];}});
-Object.defineProperty(__exports,"forEachCondition",{enumerable:true,get:function(){return __m8["forEachCondition"];}});
-Object.defineProperty(__exports,"isGroup",{enumerable:true,get:function(){return __m8["isGroup"];}});
-const __m9=__req("packages/core/src/source/blockcache.js");
-Object.defineProperty(__exports,"BlockCache",{enumerable:true,get:function(){return __m9["BlockCache"];}});
-Object.defineProperty(__exports,"DEFAULT_PAGE_SIZE",{enumerable:true,get:function(){return __m9["DEFAULT_PAGE_SIZE"];}});
-Object.defineProperty(__exports,"DEFAULT_MAX_CACHED_PAGES",{enumerable:true,get:function(){return __m9["DEFAULT_MAX_CACHED_PAGES"];}});
-const __m10=__req("packages/core/src/source/gapbuffer.js");
-Object.defineProperty(__exports,"GapBuffer",{enumerable:true,get:function(){return __m10["GapBuffer"];}});
-const __m11=__req("packages/core/src/source/rows.js");
-Object.defineProperty(__exports,"RowFactory",{enumerable:true,get:function(){return __m11["RowFactory"];}});
-Object.defineProperty(__exports,"createRowFactory",{enumerable:true,get:function(){return __m11["createRowFactory"];}});
-Object.defineProperty(__exports,"groupKey",{enumerable:true,get:function(){return __m11["groupKey"];}});
-Object.defineProperty(__exports,"lazyRowView",{enumerable:true,get:function(){return __m11["lazyRowView"];}});
-Object.defineProperty(__exports,"DEFAULT_ROW_HEIGHT",{enumerable:true,get:function(){return __m11["DEFAULT_ROW_HEIGHT"];}});
-const __m12=__req("packages/core/src/source/handles.js");
-Object.defineProperty(__exports,"HandleProvider",{enumerable:true,get:function(){return __m12["HandleProvider"];}});
-Object.defineProperty(__exports,"createHandleProvider",{enumerable:true,get:function(){return __m12["createHandleProvider"];}});
+const __m6=__req("packages/core/src/source/pushdown.js");
+Object.defineProperty(__exports,"createPushdownSource",{enumerable:true,get:function(){return __m6["createPushdownSource"];}});
+Object.defineProperty(__exports,"planQuery",{enumerable:true,get:function(){return __m6["planQuery"];}});
+Object.defineProperty(__exports,"splitFilters",{enumerable:true,get:function(){return __m6["splitFilters"];}});
+Object.defineProperty(__exports,"applyResidual",{enumerable:true,get:function(){return __m6["applyResidual"];}});
+Object.defineProperty(__exports,"capabilitiesOf",{enumerable:true,get:function(){return __m6["capabilitiesOf"];}});
+Object.defineProperty(__exports,"NO_CAPABILITIES",{enumerable:true,get:function(){return __m6["NO_CAPABILITIES"];}});
+const __m7=__req("packages/core/src/source/adapters/odata.js");
+Object.defineProperty(__exports,"odataAdapter",{enumerable:true,get:function(){return __m7["odataAdapter"];}});
+Object.defineProperty(__exports,"filtersToOData",{enumerable:true,get:function(){return __m7["filtersToOData"];}});
+Object.defineProperty(__exports,"conditionToOData",{enumerable:true,get:function(){return __m7["conditionToOData"];}});
+const __m8=__req("packages/core/src/source/adapters/rest.js");
+Object.defineProperty(__exports,"restAdapter",{enumerable:true,get:function(){return __m8["restAdapter"];}});
+Object.defineProperty(__exports,"DEFAULT_PARAMS",{enumerable:true,get:function(){return __m8["DEFAULT_PARAMS"];}});
+const __m9=__req("packages/core/src/source/adapters/dfql.js");
+Object.defineProperty(__exports,"dfqlAdapter",{enumerable:true,get:function(){return __m9["dfqlAdapter"];}});
+const __m10=__req("packages/core/src/source/adapters/duckdb.js");
+Object.defineProperty(__exports,"duckdbAdapter",{enumerable:true,get:function(){return __m10["duckdbAdapter"];}});
+Object.defineProperty(__exports,"filtersToSql",{enumerable:true,get:function(){return __m10["filtersToSql"];}});
+const __m11=__req("packages/core/src/source/derive.js");
+Object.defineProperty(__exports,"derive",{enumerable:true,get:function(){return __m11["derive"];}});
+Object.defineProperty(__exports,"unnest",{enumerable:true,get:function(){return __m11["unnest"];}});
+Object.defineProperty(__exports,"readPath",{enumerable:true,get:function(){return __m11["readPath"];}});
+Object.defineProperty(__exports,"bucketOf",{enumerable:true,get:function(){return __m11["bucketOf"];}});
+Object.defineProperty(__exports,"applyLimit",{enumerable:true,get:function(){return __m11["applyLimit"];}});
+Object.defineProperty(__exports,"applyCumulative",{enumerable:true,get:function(){return __m11["applyCumulative"];}});
+Object.defineProperty(__exports,"reduceValues",{enumerable:true,get:function(){return __m11["reduceValues"];}});
+Object.defineProperty(__exports,"FOLLOW_MODES",{enumerable:true,get:function(){return __m11["FOLLOW_MODES"];}});
+Object.defineProperty(__exports,"BUCKETS",{enumerable:true,get:function(){return __m11["BUCKETS"];}});
+Object.defineProperty(__exports,"DERIVED_ROW_KEY",{enumerable:true,get:function(){return __m11["DERIVED_ROW_KEY"];}});
+const __m12=__req("packages/core/src/source/abort.js");
+Object.defineProperty(__exports,"AbortScope",{enumerable:true,get:function(){return __m12["AbortScope"];}});
+Object.defineProperty(__exports,"RequestToken",{enumerable:true,get:function(){return __m12["RequestToken"];}});
+Object.defineProperty(__exports,"SupersededError",{enumerable:true,get:function(){return __m12["SupersededError"];}});
+Object.defineProperty(__exports,"createAbortScope",{enumerable:true,get:function(){return __m12["createAbortScope"];}});
+Object.defineProperty(__exports,"isAbortError",{enumerable:true,get:function(){return __m12["isAbortError"];}});
+const __m13=__req("packages/core/src/source/filterwire.js");
+Object.defineProperty(__exports,"RELATIVE_TOKENS",{enumerable:true,get:function(){return __m13["RELATIVE_TOKENS"];}});
+Object.defineProperty(__exports,"parseRelativeToken",{enumerable:true,get:function(){return __m13["parseRelativeToken"];}});
+Object.defineProperty(__exports,"resolveRelativeRange",{enumerable:true,get:function(){return __m13["resolveRelativeRange"];}});
+Object.defineProperty(__exports,"resolveRelativeCondition",{enumerable:true,get:function(){return __m13["resolveRelativeCondition"];}});
+Object.defineProperty(__exports,"relativeTokenOf",{enumerable:true,get:function(){return __m13["relativeTokenOf"];}});
+Object.defineProperty(__exports,"buildFilterSet",{enumerable:true,get:function(){return __m13["buildFilterSet"];}});
+Object.defineProperty(__exports,"normaliseFilterSet",{enumerable:true,get:function(){return __m13["normaliseFilterSet"];}});
+Object.defineProperty(__exports,"wireFilters",{enumerable:true,get:function(){return __m13["wireFilters"];}});
+Object.defineProperty(__exports,"querySignature",{enumerable:true,get:function(){return __m13["querySignature"];}});
+Object.defineProperty(__exports,"mapConditions",{enumerable:true,get:function(){return __m13["mapConditions"];}});
+Object.defineProperty(__exports,"forEachCondition",{enumerable:true,get:function(){return __m13["forEachCondition"];}});
+Object.defineProperty(__exports,"isGroup",{enumerable:true,get:function(){return __m13["isGroup"];}});
+const __m14=__req("packages/core/src/source/blockcache.js");
+Object.defineProperty(__exports,"BlockCache",{enumerable:true,get:function(){return __m14["BlockCache"];}});
+Object.defineProperty(__exports,"DEFAULT_PAGE_SIZE",{enumerable:true,get:function(){return __m14["DEFAULT_PAGE_SIZE"];}});
+Object.defineProperty(__exports,"DEFAULT_MAX_CACHED_PAGES",{enumerable:true,get:function(){return __m14["DEFAULT_MAX_CACHED_PAGES"];}});
+const __m15=__req("packages/core/src/source/gapbuffer.js");
+Object.defineProperty(__exports,"GapBuffer",{enumerable:true,get:function(){return __m15["GapBuffer"];}});
+const __m16=__req("packages/core/src/source/rows.js");
+Object.defineProperty(__exports,"RowFactory",{enumerable:true,get:function(){return __m16["RowFactory"];}});
+Object.defineProperty(__exports,"createRowFactory",{enumerable:true,get:function(){return __m16["createRowFactory"];}});
+Object.defineProperty(__exports,"groupKey",{enumerable:true,get:function(){return __m16["groupKey"];}});
+Object.defineProperty(__exports,"lazyRowView",{enumerable:true,get:function(){return __m16["lazyRowView"];}});
+Object.defineProperty(__exports,"DEFAULT_ROW_HEIGHT",{enumerable:true,get:function(){return __m16["DEFAULT_ROW_HEIGHT"];}});
+const __m17=__req("packages/core/src/source/handles.js");
+Object.defineProperty(__exports,"HandleProvider",{enumerable:true,get:function(){return __m17["HandleProvider"];}});
+Object.defineProperty(__exports,"createHandleProvider",{enumerable:true,get:function(){return __m17["createHandleProvider"];}});
 const MODES=Object.freeze(['memory','paged','remote','stream','derived']);
 function createSource(config,ctx){
 if(!ctx)fail('createSource requires a SourceContext');
@@ -39394,6 +39984,20 @@ Object.defineProperty(__exports,"createRemoteSource",{enumerable:true,get:functi
 Object.defineProperty(__exports,"createStreamSource",{enumerable:true,get:function(){return __m10["createStreamSource"];}});
 Object.defineProperty(__exports,"PROTOCOL",{enumerable:true,get:function(){return __m10["PROTOCOL"];}});
 Object.defineProperty(__exports,"MODES",{enumerable:true,get:function(){return __m10["MODES"];}});
+Object.defineProperty(__exports,"createPushdownSource",{enumerable:true,get:function(){return __m10["createPushdownSource"];}});
+Object.defineProperty(__exports,"planQuery",{enumerable:true,get:function(){return __m10["planQuery"];}});
+Object.defineProperty(__exports,"splitFilters",{enumerable:true,get:function(){return __m10["splitFilters"];}});
+Object.defineProperty(__exports,"applyResidual",{enumerable:true,get:function(){return __m10["applyResidual"];}});
+Object.defineProperty(__exports,"capabilitiesOf",{enumerable:true,get:function(){return __m10["capabilitiesOf"];}});
+Object.defineProperty(__exports,"NO_CAPABILITIES",{enumerable:true,get:function(){return __m10["NO_CAPABILITIES"];}});
+Object.defineProperty(__exports,"odataAdapter",{enumerable:true,get:function(){return __m10["odataAdapter"];}});
+Object.defineProperty(__exports,"filtersToOData",{enumerable:true,get:function(){return __m10["filtersToOData"];}});
+Object.defineProperty(__exports,"conditionToOData",{enumerable:true,get:function(){return __m10["conditionToOData"];}});
+Object.defineProperty(__exports,"restAdapter",{enumerable:true,get:function(){return __m10["restAdapter"];}});
+Object.defineProperty(__exports,"DEFAULT_PARAMS",{enumerable:true,get:function(){return __m10["DEFAULT_PARAMS"];}});
+Object.defineProperty(__exports,"dfqlAdapter",{enumerable:true,get:function(){return __m10["dfqlAdapter"];}});
+Object.defineProperty(__exports,"duckdbAdapter",{enumerable:true,get:function(){return __m10["duckdbAdapter"];}});
+Object.defineProperty(__exports,"filtersToSql",{enumerable:true,get:function(){return __m10["filtersToSql"];}});
 const __m11=__req("packages/core/src/model/index.js");
 Object.defineProperty(__exports,"RowModel",{enumerable:true,get:function(){return __m11["RowModel"];}});
 Object.defineProperty(__exports,"createRowKey",{enumerable:true,get:function(){return __m11["createRowKey"];}});

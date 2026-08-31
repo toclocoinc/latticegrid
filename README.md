@@ -4,7 +4,7 @@
 dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it.
 
-Version 1.12.2 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.13.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -27,7 +27,7 @@ Every module is optional and none of them is loaded unless you import it.
 
 | Module | What it is |
 |---|---|
-| `modules/charts.esm.min.js` | Thirty chart types drawn from the grid's data. |
+| `modules/charts.esm.min.js` | Thirty-seven chart types drawn from the grid's data, including control and capability charts. |
 | `modules/react.esm.min.js` | React adapter. |
 | `modules/vue.esm.min.js` | Vue adapter. |
 | `modules/svelte.esm.min.js` | Svelte adapter. |
@@ -55,9 +55,37 @@ enough to know whether the grid covers what you need.
 - **Live data.** `rows.apply({add, update, remove})` patches in place: the grid
   re-queries the stages a change actually touched and repaints the cells that
   moved. A feed can be paused and resumed with the queue held.
-- **Any source.** Rows in memory, or a source you write: server-side paging,
-  infinite scroll, streaming, or an async provider. Sorting and filtering can be
+- **Any source.** Rows in memory, server-side paging, infinite scroll,
+  streaming, or a grid derived from another grid. Sorting and filtering can be
   handed to the server or left to the grid.
+- **Pushdown adapters.** One portable query, translated to whatever an engine
+  speaks. An adapter declares what it can answer, the grid works out what to
+  send and finishes the rest itself, and reports the split so a slow query can
+  be diagnosed. Adapters ship for OData, an ordinary REST endpoint, DemandFlow
+  and DuckDB.
+- **A full analytical engine, without carrying one.** `duckdbAdapter` takes a
+  DuckDB connection you created and imports nothing, so a grid can query a
+  Parquet file of millions of rows in the browser while this package stays at
+  zero dependencies. `demo/duckdb.html` does exactly that with no server at
+  all.
+
+### Grids that read from other grids
+
+- **Derived grids.** A grid whose rows are produced from another grid rather
+  than loaded: grouped and aggregated, unnested, filtered, ranked or profiled,
+  in its own element with its own columns. It follows the source live, and a
+  change is patched into the last grouping rather than re-derived, so five
+  hundred updates against a 200,000-row source cost under 300 ms in total.
+- **Cross-filtering.** A derived panel can filter the grid it summarises.
+  Clicking one row narrows the source without collapsing the panel that was
+  clicked, so there is always something else to click, and several panels
+  compose.
+- **Joins.** Two grids holding their own data and a third showing where they
+  meet. `inner` keeps what matched; `left` keeps everything and leaves the
+  unmatched rows visible, which is the shape you want when the unmatched rows
+  are the finding. Both sides stay live.
+- **Statistic tiles.** `createStat` renders a headline figure over a grid, with
+  a change indicator, threshold bands and its confidence interval.
 
 ### Working with the data
 
@@ -68,7 +96,7 @@ enough to know whether the grid covers what you need.
 - **Selection and ranges.** Cell, row, column and rectangular range selection,
   with clipboard behaviour that round-trips through Excel.
 - **Fill, copy and paste** across a range, including formulas.
-- **Formulas.** A closed, safe expression language, no `eval`, no host access , 
+- **Formulas.** A closed, safe expression language, no `eval`, no host access,
   with maths, text, logic, date and statistical functions, evaluated against
   other columns.
 - **Export.** CSV with fields sanitised against formula injection, real `.xlsx`
@@ -78,16 +106,31 @@ enough to know whether the grid covers what you need.
 
 ### Seeing the data
 
-- **Charts.** `modules/charts` draws thirty-five chart types from the grid's own
-  data: line, bar, area, scatter, pie, donut, sunburst, treemap, radar, gauge,
+- **Charts.** `modules/charts` draws thirty-seven chart types from the grid's
+  own data: line, bar, area, scatter, pie, donut, sunburst, treemap, radar, gauge,
   funnel, heatmap, histogram, box plot, candlestick, combo, geomap, sankey,
-  chord, network, stream, violin, gantt and more. They follow the grid's
-  filters, and clicking a mark can filter it in turn.
+  chord, network, stream, violin, gantt, Q-Q, ECDF, Lorenz, correlogram,
+  control and capability. They follow the grid's filters, and clicking a mark
+  can filter it in turn. A scatter can carry its own least-squares fit, and any
+  mark can carry a whisker for the uncertainty behind it.
 - **Statistics.** `grid.statistics` profiles a column in one pass: count,
   missing, distinct, five-number summary, standard deviation, outliers and a
-  histogram, and answers correlations and weighted averages. Thirty-eight
-  reduction kernels are available to the totals row, and you can register your
-  own.
+  histogram, and answers correlations, regressions and weighted averages.
+  Thirty-eight reduction kernels are available to the totals row, and you can
+  register your own. A profile also says what is worth looking at: a constant
+  column, a key that is not unique, a fifth of the rows missing.
+- **Statistical process control.** Cp and Cpk against short-term variation from
+  the moving range, Pp and Ppk against overall, and the share of parts outside
+  the customer's tolerance, which is declared once on the column so the indices,
+  the charts and any cell rule cannot disagree about it. Control charts name
+  their lines and number every rule break, under Western Electric's four rules
+  or Nelson's eight. A capability report draws the readings against the
+  tolerance with a curve for each of the two spreads, and a moving range chart
+  completes the pair.
+- **Confidence intervals.** On a mean using the *t* distribution, on a rate
+  using the Wilson score, on a regression slope, and on a capability index. The
+  line the product draws is that it quantifies uncertainty and does not
+  adjudicate hypotheses: there are no p-values and no significance tests.
 - **Shadow columns.** Values the grid maintains about itself: how many times a
   row has changed, what a value was when the page loaded, how fast it is moving,
   its rank, percentile or share of the total. Real columns: sortable,
@@ -200,7 +243,7 @@ Two integrations that are not framework adapters.
 
 **htmx.** `modules/htmx` lets a grid survive htmx's own DOM swaps, hydrate from
 a server-rendered `<table>`, and drive sort, filter and infinite scroll over
-plain htmx requests. It is a complete package rather than an add-on , 
+plain htmx requests. It is a complete package rather than an add-on,
 `createGrid`, `autoInit`, `hydrateTable`, `readTable`, `serialiseState` and
 `restoreState` are re-exported alongside its own functions, so a page using it
 imports this and never the base package as well.

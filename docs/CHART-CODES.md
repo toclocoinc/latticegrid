@@ -105,7 +105,7 @@ wide panel, letterboxed in a tall one: rather than being stretched to fill.
 ## Colour
 
 Values are shaded with a sequential ramp: monotone lightness, so darker always
-means larger. Pass `diverging: true` for a measure with a meaningful midpoint , 
+means larger. Pass `diverging: true` for a measure with a meaningful midpoint,
 profit and loss, change against a baseline, which centres the ramp on **zero**
 rather than on the middle of the data, because a neutral colour at the mean
 claims the mean is neutral.

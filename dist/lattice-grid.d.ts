@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.12.2, type declarations
+ * Lattice Grid 1.13.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -507,7 +507,7 @@ export interface ColumnFilterSpec {
 
 export interface ColumnLayoutSpec {
   /**
-   * A pixel width, or a percentage of the grid's inner width as a string , 
+   * A pixel width, or a percentage of the grid's inner width as a string,
    * `'25%'`.
    *
    * A percentage is a share of the *whole* grid. `flex` divides only the space
@@ -1097,7 +1097,7 @@ export interface GridConfig {
    *
    * The panel opens immediately and fills in when the record arrives; a failure
    * offers a retry inside the panel. Save collects the changed fields, writes
-   * the ones that map to columns, and emits `form:saved` with the lot , 
+   * the ones that map to columns, and emits `form:saved` with the lot,
    * persisting is yours.
    *
    * `trigger: false` leaves opening to `grid.form.open(key)`.
@@ -1236,7 +1236,7 @@ export interface GridConfig {
   /**
    * Size rows to their content rather than to the density token.
    *
-   * Only rows that are actually rendered are ever measured, in both settings , 
+   * Only rows that are actually rendered are ever measured, in both settings:
    * the grid does not lay out rows you cannot see. The difference is what
    * happens on a large grid: `true` gives up above ten thousand rows and falls
    * back to fixed heights, because a cumulative offset array being patched as
@@ -1561,7 +1561,7 @@ export interface GridConfig {
   pivot?: {
     enabled?: boolean;
     /**
-     * Add a column group totalling every value column across all pivot values , 
+     * Add a column group totalling every value column across all pivot values,
      * the grand total beside the pivoted ones. `'before'` places it at the near
      * edge, `'after'` at the far edge. Omitted or `false` adds none.
      */
@@ -1721,6 +1721,53 @@ export interface CapabilityInterval {
   confidence: number;
 }
 
+/** What a pushdown adapter can answer. Everything is off unless declared. */
+export interface PushdownCapabilities {
+  /** `false`, a single field and term, a flat conjunction, or a full tree. */
+  filter?: false | 'term' | 'flat' | 'tree';
+  /** Which comparison operators the engine understands. */
+  operators?: string[];
+  /** `false`, one column only, or many. */
+  sort?: false | 'single' | 'multi';
+  /** Whether a free-text search across columns can be pushed. */
+  quick?: boolean;
+  /** Whether the engine can return a window rather than the whole result. */
+  range?: boolean;
+  /** Whether it can report the count of matching rows. */
+  total?: boolean;
+  /** Whether it can group and aggregate. */
+  group?: boolean;
+}
+
+/** An engine the grid can query, and what it is able to answer. */
+export interface PushdownAdapter {
+  /** Used in diagnostics and in the message when work cannot be pushed. */
+  name?: string;
+  capabilities?: PushdownCapabilities;
+  /** Run the part of the query the adapter declared it could handle. */
+  execute(query: RemoteRequest, request?: RemoteRequest):
+    Promise<{ rows: unknown[]; total?: number }>;
+}
+
+/** How one request was divided between the engine and the grid. */
+export interface PushdownPlan {
+  /** The query the adapter was given. */
+  pushed: RemoteRequest;
+  /** What the grid applied afterwards. */
+  residual: { filters: object | null; sort: SortEntry[] | null; quick: string };
+  /** Whether the whole result had to be fetched rather than a window. */
+  needsAll: boolean;
+  /** Which parts could not be pushed: `filter`, `sort`, `quick`. */
+  unpushed: string[];
+}
+
+export interface PushdownSourceConfig {
+  adapter: PushdownAdapter;
+  /** The compute barrel, for applying whatever the engine could not. */
+  compute?: object;
+  pageSize?: number;
+}
+
 export interface StatisticsApi {
   /** One shadow value for one row, by the column it shadows and the kind. */
   shadow(colId: string, kind: ShadowKind, rowKey: string, scope?: 'all' | 'filtered'): unknown;
@@ -1773,7 +1820,7 @@ export interface StatisticsApi {
     where?: (value: unknown, row: Row) => boolean;
   }): ConfidenceInterval | ProportionInterval | null;
   /**
-   * How a column varies along an ordering. `by` is required and never guessed , 
+   * How a column varies along an ordering. `by` is required and never guessed:
    * kernels see rows in the order they arrived, which is not the grid's sort.
    */
   series(colId: string, opts: { by: string; periodsPerYear?: number }): SeriesStats | null;
@@ -3191,6 +3238,137 @@ export function deltaOf(value: number | null, baseline: number | null):
   { direction: 'up' | 'down' | 'flat'; change: number | null; percent: number | null };
 export function toneOf(direction: string, goodWhen: string): 'good' | 'bad' | 'flat';
 
+/**
+ * Build a source configuration from a pushdown adapter. The result is an
+ * ordinary remote source, so block caching, abort on supersede and group-level
+ * fetching all apply unchanged.
+ */
+export function createPushdownSource(
+  config: PushdownSourceConfig,
+): SourceConfig & { lastPlan(): PushdownPlan | null };
+
+/**
+ * The capability set an adapter that declares nothing is treated as having:
+ * everything off. Such an adapter still works, and the grid does all the work.
+ */
+export const NO_CAPABILITIES: Readonly<Required<PushdownCapabilities>>;
+
+/**
+ * Resolve what an adapter says it can do against the defaults, giving a
+ * complete capability set with no absent keys to test for.
+ */
+export function capabilitiesOf(declared?: PushdownCapabilities): Required<PushdownCapabilities>;
+
+/**
+ * Split a filter tree into the half the engine takes and the half left over.
+ *
+ * The two halves are not symmetric. An `and` group narrows with each condition,
+ * so the supported conjuncts can be pushed and the rest kept back: the engine
+ * returns a superset and the grid narrows it. An `or` group widens with each
+ * branch, so pushing only the supported branches would return fewer rows than
+ * the filter allows and the grid could not recover what was never fetched. A
+ * disjunction that is not fully supported therefore stays whole on the client.
+ */
+export function splitFilters(
+  filters: object | null,
+  caps: Required<PushdownCapabilities>,
+): { pushed: object | null; residual: object | null };
+
+/**
+ * Plan one request against what the adapter can do, giving the query to send
+ * and the work to finish afterwards.
+ *
+ * When anything is left over, `needsAll` is set and the source asks for the
+ * whole result rather than a window. Filtering a window on the client is not a
+ * slower route to the right answer, it is a fast route to a wrong one: the rows
+ * that belong on page one may sit on page nine, and the total is whatever the
+ * engine happened to count.
+ */
+export function planQuery(
+  request: RemoteRequest,
+  caps: Required<PushdownCapabilities>,
+): PushdownPlan;
+
+/**
+ * Apply whatever the engine could not, over the rows it returned. This runs
+ * through the grid's own filter and sort kernels rather than a second
+ * implementation, so a residual predicate means exactly what the same predicate
+ * means anywhere else in the grid.
+ */
+export function applyResidual(
+  rows: unknown[],
+  residual: PushdownPlan['residual'],
+  compute: object,
+): unknown[];
+
+/** An adapter for any OData v4 endpoint. */
+export function odataAdapter(options: {
+  url: string; fetch?: typeof fetch; headers?: Record<string, string>;
+  count?: boolean; search?: boolean;
+}): PushdownAdapter & { urlFor(query: RemoteRequest): string };
+
+/**
+ * An adapter for an ordinary REST endpoint. Parameter names are yours; declare
+ * `operators` only for comparisons the endpoint genuinely applies.
+ */
+export function restAdapter(options: {
+  url: string; fetch?: typeof fetch; headers?: Record<string, string>;
+  params?: Partial<Record<'offset' | 'limit' | 'sort' | 'order' | 'filter' | 'search', string>>;
+  capabilities?: PushdownCapabilities; operators?: string[];
+  encodeFilter?: (filters: object) => string;
+  rows?: (body: unknown) => unknown[]; total?: (body: unknown, rows: unknown[]) => number;
+}): PushdownAdapter & { urlFor(query: RemoteRequest): string };
+
+/**
+ * An adapter over a DuckDB connection, in the browser through
+ * `@duckdb/duckdb-wasm` or on a server through any DuckDB client.
+ *
+ * The engine is the caller's: this takes a live connection and imports nothing,
+ * so a grid can drive a full analytical engine without the package carrying
+ * one. `from` is any FROM expression, so `read_parquet('s3://bucket/*.parquet')`
+ * is as valid as a table name.
+ *
+ * Values are bound through prepared statements. A connection without `prepare`
+ * is used only for unfiltered queries, because interpolating a user's filter
+ * into SQL is the one thing worse than not filtering.
+ */
+export function duckdbAdapter(options: {
+  /** A live connection exposing `query`, and ideally `prepare`. */
+  connection: object;
+  /** A table, a view, or any FROM expression. */
+  from: string;
+  /** Columns to select. Everything by default. */
+  fields?: string[];
+}): PushdownAdapter & { sqlFor(query: RemoteRequest): { sql: string; params: unknown[] } };
+
+/**
+ * An adapter for a DemandFlow entity, speaking `POST /v1/query`.
+ *
+ * `comboKey` is the *name* of the key attribute to match on, which is
+ * `'comboKey'` for a standard hierarchy; `query` is the prefix matched against
+ * it, where `'SUB'` alone means every record of the entity in the tenant.
+ *
+ * Every request also sends a `countOnly` line, because `limit` caps rows
+ * scanned rather than matched: a filtered query returns an arbitrary subset and
+ * the count is the only thing that reveals it.
+ */
+export function dfqlAdapter(options: {
+  entity: string;
+  /** A personal access token. Never commit one. */
+  token: string;
+  /** The API base. `https://rest.demandflow.com` by default. */
+  url?: string;
+  /** The key attribute to match on: `comboKey`, `comboKey2` or `comboKey3`. */
+  comboKey?: string;
+  /** The prefix to match against it. `SUB` by default. */
+  query?: string;
+  /** Fields to project, which saves bandwidth but not query cost. */
+  load?: string[];
+  limit?: number;
+  fetch?: typeof fetch;
+  headers?: Record<string, string>;
+}): PushdownAdapter & { linesFor(query: RemoteRequest): object[] };
+
 export function createGrid(element: HTMLElement, config?: GridConfig): Grid;
 export function createHeadlessGrid(config?: GridConfig): Grid;
 export function registerModules(modules: GridModule[], opts?: { licence?: string }): void;
@@ -3594,7 +3772,7 @@ declare module 'lattice-grid/modules/webcomponent' {
 
 declare module 'lattice-grid/modules/htmx' {
   /**
-   * The htmx integration, which re-exports the base API alongside its own , 
+   * The htmx integration, which re-exports the base API alongside its own,
    * a page using it imports this and never the base package as well.
    */
   export function createGrid(element: Element, config: GridConfig): Grid;

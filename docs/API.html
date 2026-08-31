@@ -848,7 +848,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">Defaults to <code>field</code>. Required when there is no field.</td></tr>
           <tr><td class="name">field</td><td class="type">string</td><td class="desc">Dotted paths supported: <code>'site.address.postcode'</code>.</td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">Header text. Defaults to a humanised <code>field</code>.</td></tr>
-          <tr><td class="name">type</td><td class="type">TypeName | false</td><td class="desc">A data type bundles format, parse, compare, storage, editor, filter, renderer and Excel behaviour. <code>false</code> disables inference. <code>'image'</code> treats the value as a URL and draws it: see <a href="#image-guide">image columns</a>.</td></tr>
+          <tr><td class="name">type</td><td class="type">TypeName | false</td><td class="desc">A data type bundles format, parse, compare, storage, editor, filter, renderer and Excel behaviour. <code>false</code> disables inference. <code>'image'</code> treats the value as a URL and draws it: see <a href="api-detail.html#image-guide">image columns</a>.</td></tr>
           <tr><td class="name">preset</td><td class="type">string | string[]</td><td class="desc">Named bundles from <code>columnPresets</code>.</td></tr>
           <tr><td class="name">tags</td><td class="type">string | string[]</td><td class="dflt">, </td><td class="desc">Labels grouping columns together, used by the column tag bar. A bare string is accepted for one tag.</td></tr>
           <tr><td class="name">format</td><td class="type">FormatSpec | string</td><td class="desc">Shorthand strings like <code>'percent:1'</code> or <code>'date:dd MMM yyyy'</code>.</td></tr>
@@ -2078,7 +2078,7 @@ grid.licence.state();      <span class="cmt">// 'licensed' | 'localhost' | 'tria
     can fail at three in the morning, a key carries its own answer and the grid reads it locally,
     fresh on every load. A key for the wrong domain, or a key that will not read at all, does the
     same thing a genuinely expired trial key does: log one console warning and show the watermark.</p>
-    <div class="note"><p>Install the key before creating a grid. Setting one later still works , 
+    <div class="note"><p>Install the key before creating a grid. Setting one later still works,
     <code>licence:changed</code> fires and the watermark is removed, but the first frames of the
     grid will carry it.</p></div>
 
@@ -2260,8 +2260,8 @@ grid.licence.state();      <span class="cmt">// 'licensed' | 'localhost' | 'tria
     </p>
     <p class="section-note">
       <strong>Report the capability interval.</strong> Its absence is the commonest way a capability
-      study overstates itself. A Cpk of 1.35 measured on thirty parts has a lower bound below 1.0
-     , so a process that has "passed" a 1.33 requirement on thirty parts has demonstrated very
+      study overstates itself. A Cpk of 1.35 measured on thirty parts has a lower bound below 1.0,
+     so a process that has "passed" a 1.33 requirement on thirty parts has demonstrated very
       little. The point estimate alone does not say that; the interval does.
     </p>
     <p class="section-note">
@@ -2355,7 +2355,7 @@ grid.licence.state();      <span class="cmt">// 'licensed' | 'localhost' | 'tria
     <p class="section-note">
       <strong>Fitted lines.</strong> <code>fit: true</code> draws a least-squares line through a
       scatter with its R² beside it; <code>fit: 'line'</code> draws the line alone. A cloud of points
-      invites a reader to draw the line themselves, and people are consistently poor at it , 
+      invites a reader to draw the line themselves, and people are consistently poor at it,
       the eye is pulled by the extremes, which is exactly what least squares is not.
     </p>
     <p class="section-note">
@@ -2363,6 +2363,165 @@ grid.licence.state();      <span class="cmt">// 'licensed' | 'localhost' | 'tria
       under Cpk and Ppk, and <code>createStat</code> takes an <code>interval</code> function that puts
       them under the value. A tile is where a figure is read fastest and questioned least, which
       makes it the place an interval earns its keep rather than the place it is least needed.
+    </p>
+
+    <h3 id="pushdown">Pushdown adapters: one query, many engines</h3>
+    <p class="section-note">
+      A remote source already receives a structured request: range, sort, filters, quick text,
+      grouping, pivoting and totals. A <strong>pushdown adapter</strong> turns that request into
+      whatever an engine speaks, so connecting a new back end is a translation layer rather than a
+      new source.
+    </p>
+    <pre><code>import { createPushdownSource, odataAdapter } from 'lattice-grid';
+
+const source = createPushdownSource({
+  adapter: odataAdapter({ url: 'https://api.example.com/Orders' }),
+  compute,
+});
+
+createGrid(host, { source, columns: [...] });</code></pre>
+
+    <p class="section-note">
+      <strong>An adapter never carries an engine.</strong> Each one takes what it needs as a
+      parameter: <code>restAdapter</code> takes a <code>fetch</code> and bundles no HTTP library,
+      <code>dfqlAdapter</code> takes a token, and <code>duckdbAdapter</code> takes a connection you
+      have already made. So a grid can drive a full analytical engine without this package carrying
+      one, and installing Lattice never installs anything else.
+    </p>
+    <p class="section-note">
+      <strong>An adapter declares what it can answer.</strong> No engine speaks the whole query.
+      OData takes a condition tree but only some operators; a single-term API takes one field and one
+      value; a hand-written endpoint may take nothing but a page number. The adapter states its
+      capabilities, the SDK divides the request accordingly, and the grid finishes whatever is left.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Capability</th><th>Values</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="name">filter</td><td class="type">false | 'term' | 'flat' | 'tree'</td><td class="desc">Nothing, a single field and term, a flat conjunction, or a full condition tree.</td></tr>
+          <tr><td class="name">operators</td><td class="type">string[]</td><td class="desc">Which comparisons the engine understands. A condition using anything else stays with the grid.</td></tr>
+          <tr><td class="name">sort</td><td class="type">false | 'single' | 'multi'</td><td class="desc">How many columns it can order by.</td></tr>
+          <tr><td class="name">quick</td><td class="type">boolean</td><td class="desc">Whether free-text search across columns can be pushed.</td></tr>
+          <tr><td class="name">range</td><td class="type">boolean</td><td class="desc">Whether it can return a window rather than the whole result.</td></tr>
+          <tr><td class="name">total</td><td class="type">boolean</td><td class="desc">Whether it can report how many rows match.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="section-note">
+      <strong>Anything left over means the whole result is fetched.</strong> Filtering a <em>window</em>
+      of rows in the browser is not a slower way to get the right answer, it is a fast way to get a
+      wrong one: the rows that belong on the first page may be on the ninth, and the count is whatever
+      the engine happened to return. So when the grid has work left to do it asks the engine for the
+      complete result, applies the remainder, and pages from what it holds. It says so once, naming
+      the part that could not be pushed, because the fix is usually a wider adapter rather than a
+      bigger machine. <code>source.lastPlan()</code> reports the division for any request.
+    </p>
+
+    <p class="section-note">
+      <strong>A conjunction splits; a disjunction does not.</strong> An <code>and</code> group narrows
+      with each condition, so the engine can apply the conditions it understands and the grid narrows
+      what comes back. An <code>or</code> group widens with each branch, so pushing only the supported
+      branches returns fewer rows than the filter allows, and the grid cannot recover rows that were
+      never fetched. A disjunction the engine cannot fully answer therefore stays with the grid whole.
+      The same asymmetry governs <a href="#facets">faceting</a>.
+    </p>
+
+    <p class="section-note">
+      <strong>A sort is pushed whole or not at all.</strong> Ordering by the first column and fixing
+      the rest in the browser needs every row anyway, so a partial sort buys nothing and returns rows
+      in an order that is wrong until the grid corrects it.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Adapter</th><th>For</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td class="name">odataAdapter</td><td class="desc">Any OData v4 endpoint</td><td class="desc">Writes <code>$filter</code>, <code>$orderby</code>, <code>$top</code>, <code>$skip</code> and <code>$count</code>. System options keep their <code>$</code> unencoded, which several servers require.</td></tr>
+          <tr><td class="name">restAdapter</td><td class="desc">The API you already have</td><td class="desc">Parameter names are yours to choose. Paging and sorting are assumed; filtering is assumed absent until you declare <code>operators</code>, because an adapter that claims to filter when the endpoint ignores it returns the wrong rows silently.</td></tr>
+          <tr><td class="name">duckdbAdapter</td><td class="desc">A DuckDB connection</td><td class="desc">Writes SQL and takes the whole query: filter tree, multi-column sort and paging. <code>from</code> is any FROM expression, so <code>read_parquet('s3://bucket/*.parquet')</code> is as valid as a table name. The engine is yours to create and install; this imports nothing, so the bundle is unchanged whether you use it or not.</td></tr>
+          <tr><td class="name">dfqlAdapter</td><td class="desc">DemandFlow entities</td><td class="desc">Speaks <code>POST /v1/query</code>. Sends the entity, the key attribute and the prefix to match, a field projection and one field-and-term filter, matched as a case-insensitive substring. It cannot sort or page, so the grid does both, and every request carries a <code>countOnly</code> line because <code>limit</code> caps rows <em>scanned</em> rather than matched: a filtered query returns an arbitrary subset, and the count is the only thing that reveals it.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4 id="pushdown-cookbook">Wiring it to the API you already have</h4>
+    <p class="section-note">
+      Most data sits behind a service someone on your team wrote. The adapter below sends four
+      parameters and expects <code>{ rows, total }</code> back. Start by declaring only what the
+      endpoint genuinely does, and widen it as you teach the endpoint more.
+    </p>
+    <pre><code>const source = createPushdownSource({
+  compute,
+  adapter: restAdapter({
+    url: '/api/orders',
+    // Only the comparisons the endpoint really applies. Claiming more here
+    // returns the wrong rows rather than merely running slowly.
+    operators: ['eq', 'gt', 'lt', 'contains'],
+    params: { offset: 'skip', limit: 'take' },
+  }),
+});</code></pre>
+    <p class="section-note">The request that reaches your service, and the answer it owes:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Parameter</th><th>Example</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="name">skip / take</td><td class="type">40, 20</td><td class="desc">The window. Return exactly that slice.</td></tr>
+          <tr><td class="name">sort / order</td><td class="type">amount,name / desc,asc</td><td class="desc">Columns in priority order, and a direction for each.</td></tr>
+          <tr><td class="name">filter</td><td class="type">JSON condition tree</td><td class="desc">Only the conditions your declared operators cover. Everything else the grid keeps.</td></tr>
+          <tr><td class="name">q</td><td class="type">free text</td><td class="desc">Present only when you declare <code>quick: true</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre><code>// Express. FastAPI and ASP.NET differ only in how the query string is read.
+app.get('/api/orders', async (req, res) =&gt; {
+  const { skip = 0, take = 100, sort, order, filter } = req.query;
+
+  let q = db('orders');
+  if (filter) q = applyConditions(q, JSON.parse(filter));   // your translation
+  if (sort) {
+    sort.split(',').forEach((col, i) =&gt; {
+      q = q.orderBy(col, (order || '').split(',')[i] === 'desc' ? 'desc' : 'asc');
+    });
+  }
+
+  // The count is of everything matching, not of the page. A grid scrollbar is
+  // sized from it, so a page-sized total makes the grid look empty below.
+  const [{ count }] = await q.clone().clearOrder().count({ count: '*' });
+  const rows = await q.offset(Number(skip)).limit(Number(take));
+
+  res.json({ rows, total: Number(count) });
+});</code></pre>
+    <p class="section-note">
+      <strong>The total is the commonest mistake.</strong> It is the number of rows matching the
+      filter, not the number returned in this page. The grid sizes its scrollbar from it and requests
+      windows against it, so returning the page length makes a large result look like one page.
+    </p>
+
+    <h4 id="pushdown-sdk">Building an adapter from the parts</h4>
+    <p class="section-note">
+      <code>createPushdownSource</code> is the whole story for most callers. When an engine needs a
+      source of its own, the four pieces it is assembled from are exported separately, so a custom
+      source can plan and finish work the same way rather than reimplementing the split.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Export</th><th>Signature</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">capabilitiesOf</td><td class="type">(declared?) =&gt; Required&lt;PushdownCapabilities&gt;</td><td class="desc">Resolves what an adapter declared against the defaults, giving a complete set with no absent keys to test for.</td></tr>
+          <tr><td class="name">splitFilters</td><td class="type">(filters, caps) =&gt; { pushed, residual }</td><td class="desc">Divides a condition tree into the half the engine takes and the half left over. A conjunction splits; a disjunction that is not fully supported stays whole on the client, because pushing part of an <code>or</code> returns fewer rows than the filter allows and the grid cannot recover what was never fetched.</td></tr>
+          <tr><td class="name">planQuery</td><td class="type">(request, caps) =&gt; PushdownPlan</td><td class="desc">Plans one request: the query to send, the work to finish afterwards, whether the whole result is needed, and which parts stayed behind.</td></tr>
+          <tr><td class="name">applyResidual</td><td class="type">(rows, residual, compute) =&gt; unknown[]</td><td class="desc">Applies whatever the engine could not, through the grid's own filter and sort kernels rather than a second implementation, so a residual predicate means exactly what the same predicate means anywhere else.</td></tr>
+          <tr><td class="name">NO_CAPABILITIES</td><td class="type">Readonly&lt;Required&lt;PushdownCapabilities&gt;&gt;</td><td class="desc">The set an adapter that declares nothing is treated as having: everything off. Such an adapter still works; the grid simply does all the work.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note">
+      <strong>Residual work needs the complete result.</strong> <code>applyResidual</code> expects
+      every matching row, not a window. Filtering a window is not a slower route to the right answer,
+      it is a fast route to a wrong one: the rows that belong on page one may sit on page nine.
+      <code>planQuery</code> sets <code>needsAll</code> whenever that applies, and
+      <code>createPushdownSource</code> switches to fetching everything and paging from what it holds.
     </p>
 
     <h3 id="derived-join">Joining two grids</h3>
@@ -3049,7 +3208,7 @@ createGrid(el, {
     Sorting, filtering, selection, grouping, expanding, paging, undo, paste and a refused edit are all
     announced. In Windows High Contrast Mode state is translated into borders and system colours
     instead of tints. No information is carried by hue alone.</p>
-    <p>The full keyboard map, the screen reader support statement and the known limits , 
+    <p>The full keyboard map, the screen reader support statement and the known limits,
     including the drag-only pivot zones, are in
     <a href="api-detail.html#accessibility-guide">the guide</a>.</p>
 
@@ -3582,7 +3741,7 @@ createGrid(el, {
       <table>
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">width</td><td class="type">number | string</td><td class="desc">A pixel width, or a percentage of the grid's inner width as a string , `'25%'`. A percentage is a share of the *whole* grid. `flex` divides only the space left over after fixed columns, so the two are not interchangeable: `flex: 25` on four columns is a quarter of the remainder, which is a quarter of the grid only when nothing else is fixed. <small>(optional)</small></td></tr>
+          <tr><td class="name">width</td><td class="type">number | string</td><td class="desc">A pixel width, or a percentage of the grid's inner width as a string, `'25%'`. A percentage is a share of the *whole* grid. `flex` divides only the space left over after fixed columns, so the two are not interchangeable: `flex: 25` on four columns is a quarter of the remainder, which is a quarter of the grid only when nothing else is fixed. <small>(optional)</small></td></tr>
           <tr><td class="name">min</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">max</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">flex</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
@@ -4470,7 +4629,7 @@ createGrid(el, {
           <tr><td class="name">showHeader</td><td class="type">boolean</td><td class="desc">Draw the column headings at all. `true` by default. `false` removes the row, and removes it from the accessibility tree rather than only from view, a heading a screen reader still announces is invisible, not hidden. What a small dashboard tile wants when its `title` already says what the panel is. Distinct from `showColumnFunctions`, which keeps the headings and drops only the sort, filter and menu controls inside them. <small>(optional)</small></td></tr>
           <tr><td class="name">headerHeight</td><td class="type">number</td><td class="desc">Header height in pixels. <small>(optional)</small></td></tr>
           <tr><td class="name">overscan</td><td class="type">number</td><td class="desc">How many rows to render beyond the viewport. More costs memory and smooths fast scrolling; fewer is lighter and can show a gap. <small>(optional)</small></td></tr>
-          <tr><td class="name">autoHeight</td><td class="type">boolean | 'visible'</td><td class="desc">Size rows to their content rather than to the density token. Only rows that are actually rendered are ever measured, in both settings , the grid does not lay out rows you cannot see. The difference is what happens on a large grid: `true` gives up above ten thousand rows and falls back to fixed heights, because a cumulative offset array being patched as you scroll a million rows is not worth the result. `'visible'` keeps measuring at any size, accepting that the scrollbar shifts as rows are measured on the way past. The name is historical and reads as though it were about which rows are measured; it is about whether the ceiling applies. <small>(optional)</small></td></tr>
+          <tr><td class="name">autoHeight</td><td class="type">boolean | 'visible'</td><td class="desc">Size rows to their content rather than to the density token. Only rows that are actually rendered are ever measured, in both settings: the grid does not lay out rows you cannot see. The difference is what happens on a large grid: `true` gives up above ten thousand rows and falls back to fixed heights, because a cumulative offset array being patched as you scroll a million rows is not worth the result. `'visible'` keeps measuring at any size, accepting that the scrollbar shifts as rows are measured on the way past. The name is historical and reads as though it were about which rows are measured; it is about whether the ceiling applies. <small>(optional)</small></td></tr>
           <tr><td class="name">state</td><td class="type">GridState</td><td class="desc">Sort, filters, grouping, widths and the rest, restored at construction. <small>(optional)</small></td></tr>
           <tr><td class="name">licence</td><td class="type">string</td><td class="desc">Your licence key. Without one the grid renders in full and watermarks off localhost. <small>(optional)</small></td></tr>
           <tr><td class="name">maximise</td><td class="type">boolean</td><td class="desc">Offer a full-screen control. <small>(optional)</small></td></tr>
@@ -4979,6 +5138,58 @@ createGrid(el, {
         </tbody>
       </table>
     </div>
+    <h3 id="type-PushdownAdapter">PushdownAdapter</h3>
+    <p class="section-note">An engine the grid can query, and what it is able to answer.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">Used in diagnostics and in the message when work cannot be pushed. <small>(optional)</small></td></tr>
+          <tr><td class="name">capabilities</td><td class="type">PushdownCapabilities</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">execute</td><td class="type">(query: RemoteRequest, request?: RemoteRequest):</td><td class="desc">Run the part of the query the adapter declared it could handle.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-PushdownCapabilities">PushdownCapabilities</h3>
+    <p class="section-note">What a pushdown adapter can answer. Everything is off unless declared.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">filter</td><td class="type">false | 'term' | 'flat' | 'tree'</td><td class="desc">`false`, a single field and term, a flat conjunction, or a full tree. <small>(optional)</small></td></tr>
+          <tr><td class="name">operators</td><td class="type">string[]</td><td class="desc">Which comparison operators the engine understands. <small>(optional)</small></td></tr>
+          <tr><td class="name">sort</td><td class="type">false | 'single' | 'multi'</td><td class="desc">`false`, one column only, or many. <small>(optional)</small></td></tr>
+          <tr><td class="name">quick</td><td class="type">boolean</td><td class="desc">Whether a free-text search across columns can be pushed. <small>(optional)</small></td></tr>
+          <tr><td class="name">range</td><td class="type">boolean</td><td class="desc">Whether the engine can return a window rather than the whole result. <small>(optional)</small></td></tr>
+          <tr><td class="name">total</td><td class="type">boolean</td><td class="desc">Whether it can report the count of matching rows. <small>(optional)</small></td></tr>
+          <tr><td class="name">group</td><td class="type">boolean</td><td class="desc">Whether it can group and aggregate. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-PushdownPlan">PushdownPlan</h3>
+    <p class="section-note">How one request was divided between the engine and the grid.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">pushed</td><td class="type">RemoteRequest</td><td class="desc">The query the adapter was given.</td></tr>
+          <tr><td class="name">residual</td><td class="type">{ filters: object | null; sort: SortEntry[] | null; quick: string }</td><td class="desc">What the grid applied afterwards.</td></tr>
+          <tr><td class="name">needsAll</td><td class="type">boolean</td><td class="desc">Whether the whole result had to be fetched rather than a window.</td></tr>
+          <tr><td class="name">unpushed</td><td class="type">string[]</td><td class="desc">Which parts could not be pushed: `filter`, `sort`, `quick`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-PushdownSourceConfig">PushdownSourceConfig</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">adapter</td><td class="type">PushdownAdapter</td><td class="desc"></td></tr>
+          <tr><td class="name">compute</td><td class="type">object</td><td class="desc">The compute barrel, for applying whatever the engine could not. <small>(optional)</small></td></tr>
+          <tr><td class="name">pageSize</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-RailAction">RailAction</h3>
     <div class="table-wrap">
       <table>
@@ -5461,7 +5672,7 @@ createGrid(el, {
           <tr><td class="name">weightedQuantile</td><td class="type">(colId: string, weightId: string, p?: number): number | null</td><td class="desc">A quantile of one column weighted by another; the median by default.</td></tr>
           <tr><td class="name">capability</td><td class="type">(colId: string, opts?: {</td><td class="desc">Process capability against the column's `spec`, with control limits and the Western Electric rule breaks. `baseline` fixes the limits over the first N readings, which is how a shift is found rather than hidden by the limits it widened.</td></tr>
           <tr><td class="name">interval</td><td class="type">(colId: string, opts?: {</td><td class="desc">A confidence interval for what a column measures, the range the estimate pins the figure down to, not a verdict about it. Reads the rows the filters left, so an interval narrows as the grid does: it describes the filtered population, not the whole table.</td></tr>
-          <tr><td class="name">series</td><td class="type">(colId: string, opts: { by: string; periodsPerYear?: number }): SeriesStats | null</td><td class="desc">How a column varies along an ordering. `by` is required and never guessed , kernels see rows in the order they arrived, which is not the grid's sort.</td></tr>
+          <tr><td class="name">series</td><td class="type">(colId: string, opts: { by: string; periodsPerYear?: number }): SeriesStats | null</td><td class="desc">How a column varies along an ordering. `by` is required and never guessed: kernels see rows in the order they arrived, which is not the grid's sort.</td></tr>
           <tr><td class="name">weightedAverage</td><td class="type">(colId: string, weightId: string): number | null</td><td class="desc">A weighted average of one column by another.</td></tr>
           <tr><td class="name">keyOf</td><td class="type">(data: unknown): string | null</td><td class="desc">The key a row's data resolves to.</td></tr>
           <tr><td class="name">maintenance</td><td class="type">Readonly&lt;Record&lt;string, 'maintained' | 'rescan'&gt;&gt;</td><td class="desc">Which reductions can be maintained against a change, and which rescan. <small>(read-only)</small></td></tr>
@@ -5660,7 +5871,7 @@ createGrid(el, {
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.12.2 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.12.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>
