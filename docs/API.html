@@ -2335,6 +2335,15 @@ grid.licence.state();      <span class="cmt">// 'licensed' | 'localhost' | 'tria
       that has gone wrong. Drawn one above the other, they are the standard I-MR pair.
     </p>
     <p class="section-note">
+      <strong>Bind it to the readings, not to a summary of them.</strong> A whisker is computed from
+      the values the chart can see behind each mark. Bound to a grid whose rows are already one per
+      mark, a summary or a derived panel, the chart sees a single value per category and there is no
+      spread to draw: the readings that produced each average are upstream and no longer reachable.
+      Bind the chart to the rows the summary was computed from, or carry a margin yourself and use
+      <code>error: { of: 'margin' }</code>. A chart asked for whiskers it cannot compute says so once
+      rather than drawing nothing in silence.
+    </p>
+    <p class="section-note">
       <strong>Uncertainty on a chart.</strong> <code>error: true</code> draws a whisker on each mark,
       computed from the readings behind it. Four bars side by side invite a comparison the numbers
       alone cannot support, a five per cent gap between two categories of eight readings is
@@ -2805,7 +2814,7 @@ const chart = createChart({
           <tr><td class="name">footnote</td><td class="type">string</td><td class="desc">A note under the plot, a source, a caveat, a unit.</td></tr>
           <tr><td class="name">emptyText</td><td class="type">string</td><td class="desc">What to show when the binding produces nothing. Said rather than left blank, because an empty plot and a broken one look identical.</td></tr>
           <tr><td class="name">fit</td><td class="type">boolean | 'line'</td><td class="desc">A least-squares line through a scatter or bubble chart, one per series. <code>true</code> draws it with its R&sup2;; <code>'line'</code> draws the line alone. Only where the x axis is numeric: on a band scale a slope would be a slope through the order the categories happened to be listed in.</td></tr>
-          <tr><td class="name">error</td><td class="type">boolean | object</td><td class="desc">Whiskers showing the uncertainty in each mark, computed from the readings behind it. <code>{ of }</code> takes a symmetric margin from a column instead; <code>{ confidence }</code> sets the level. A mark with one reading gets none.</td></tr>
+          <tr><td class="name">error</td><td class="type">boolean | object</td><td class="desc">Whiskers showing the uncertainty in each mark, computed from the readings the chart can see behind it. <code>{ of }</code> takes a symmetric margin from a column instead; <code>{ confidence }</code> sets the level. A mark the chart sees only one value for gets none, and the chart says so.</td></tr>
           <tr><td class="name">stack</td><td class="type">boolean</td><td class="desc">Stack the series rather than drawing them side by side.</td></tr>
           <tr><td class="name">curve</td><td class="type">boolean</td><td class="desc">Overlay a kernel density curve on a histogram, which shows which features are in the data and which are in the binning.</td></tr>
           <tr><td class="name">diverging</td><td class="type">boolean</td><td class="desc">Colour a heatmap outward from zero rather than along a single ramp.</td></tr>
@@ -5651,7 +5660,7 @@ createGrid(el, {
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.12.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.12.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.12.0, htmx module
+ * Lattice Grid 1.12.1, htmx module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
