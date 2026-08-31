@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.12.1, core + DOM renderer
+ * Lattice Grid 1.12.2, core + DOM renderer
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
