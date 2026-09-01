@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.13.1, type declarations
+ * Lattice Grid 1.14.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1987,7 +1987,7 @@ export interface ColumnDistribution {
 export type EventName =
   /* Lifecycle */
   | 'ready' | 'destroy' | 'render:first' | 'render:done' | 'config:changed'
-  | 'licence:changed' | 'environment:changed'
+  | 'licence:changed'
   /* Data */
   | 'model:changed' | 'rows:changed' | 'rows:queued' | 'rows:deferred'
   | 'rows:paused' | 'rows:resumed' | 'row:received' | 'row:sent' | 'row:copied'
@@ -2017,12 +2017,15 @@ export type EventName =
   | 'view:renamed' | 'view:default'
   /* Formatting and presentation */
   | 'formatting:changed' | 'redaction:changed' | 'permissions:changed'
-  | 'presentation:changed' | 'presentation:ended' | 'presentation:view'
+  | 'presentation:changed' | 'presentation:started' | 'presentation:ended'
+  | 'presentation:view'
   | 'presentation:scale' | 'presentation:spotlight' | 'presentation:captured'
   /* Collaboration */
   | 'comment:added' | 'comment:edited' | 'comment:deleted' | 'comment:failed'
+  | 'comment:resolved' | 'comment:unresolved'
   | 'comment:threadOpened' | 'comment:threadClosed' | 'comment:indexLoaded'
-  | 'presence:published' | 'presence:left' | 'presence:failed' | 'presence:lockRefused'
+  | 'presence:published' | 'presence:joined' | 'presence:updated' | 'presence:left'
+  | 'presence:failed' | 'presence:lockRefused'
   /* Comparison and time */
   | 'diff:changed' | 'diff:swapped'
   | 'timeline:attached' | 'timeline:detached' | 'timeline:seek' | 'timeline:seeking'
@@ -3257,7 +3260,18 @@ export const NO_CAPABILITIES: Readonly<Required<PushdownCapabilities>>;
  * Resolve what an adapter says it can do against the defaults, giving a
  * complete capability set with no absent keys to test for.
  */
-export function capabilitiesOf(declared?: PushdownCapabilities): Required<PushdownCapabilities>;
+/**
+ * A capability set with every key present, as `capabilitiesOf` returns it.
+ *
+ * `operators` becomes a `Set` rather than staying an array: it is tested once
+ * per condition per query, and membership on an array is a scan. The declared
+ * form and the resolved form differ, which is why this is its own type.
+ */
+export type ResolvedCapabilities = Omit<Required<PushdownCapabilities>, 'operators'> & {
+  operators: ReadonlySet<string>;
+};
+
+export function capabilitiesOf(declared?: PushdownCapabilities): ResolvedCapabilities;
 
 /**
  * Split a filter tree into the half the engine takes and the half left over.
@@ -3271,7 +3285,7 @@ export function capabilitiesOf(declared?: PushdownCapabilities): Required<Pushdo
  */
 export function splitFilters(
   filters: object | null,
-  caps: Required<PushdownCapabilities>,
+  caps: ResolvedCapabilities,
 ): { pushed: object | null; residual: object | null };
 
 /**
@@ -3286,7 +3300,7 @@ export function splitFilters(
  */
 export function planQuery(
   request: RemoteRequest,
-  caps: Required<PushdownCapabilities>,
+  caps: ResolvedCapabilities,
 ): PushdownPlan;
 
 /**
@@ -3371,6 +3385,15 @@ export function dfqlAdapter(options: {
 
 export function createGrid(element: HTMLElement, config?: GridConfig): Grid;
 export function createHeadlessGrid(config?: GridConfig): Grid;
+
+/**
+ * The library version, e.g. `'1.13.1'`.
+ *
+ * The same value `grid.getVersion()` returns, available without a grid. The
+ * method was declared and the module-level function was not, though the
+ * reference documents both.
+ */
+export function getVersion(): string;
 export function registerModules(modules: GridModule[], opts?: { licence?: string }): void;
 export function setLicence(licence: string): LicenceInfo;
 

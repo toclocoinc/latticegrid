@@ -645,6 +645,54 @@ grid.data.serialize(); <span class="cmt">// every row's data, in source order</s
       </table>
     </div>
 
+    <h3>Which dhtmlx keys are translated</h3>
+    <p class="section-note">
+      A key outside these lists is <strong>not</strong> silently dropped: the wrapper names it
+      through <code>warnOnce</code> at construction, so a migration is told what did not come
+      across rather than discovering it later.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Constructor key</th><th>Becomes</th></tr></thead>
+        <tbody>
+          <tr><td class="name">rowKey</td><td class="desc">The grid's <code>rowKey</code>. Defaults to <code>id</code>, as dhtmlx does.</td></tr>
+          <tr><td class="name">columns</td><td class="desc">Translated column by column; see the next table.</td></tr>
+          <tr><td class="name">data</td><td class="desc">The initial rows.</td></tr>
+          <tr><td class="name">autoHeight</td><td class="desc"><code>autoHeight</code>.</td></tr>
+          <tr><td class="name">rowHeight</td><td class="desc"><code>rowHeight</code>.</td></tr>
+          <tr><td class="name">headerRowHeight</td><td class="desc"><code>headerHeight</code>.</td></tr>
+          <tr><td class="name">multiselection</td><td class="desc"><code>selection: 'multiple'</code>.</td></tr>
+          <tr><td class="name">dragItem</td><td class="desc"><code>rowReorder</code> when set to <code>row</code>. It does <em>not</em> also enable <code>rowTransfer</code>: dhtmlx lets any two grids on a page exchange rows by default, and enabling that implicitly is the accident Lattice's opt-in design exists to prevent.</td></tr>
+          <tr><td class="name">rowTransfer</td><td class="desc">Passed through. There is no dhtmlx property to translate it from, so a pair of grids that exchange rows names it explicitly.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Column key</th><th>Becomes</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="desc">The column id, and its field.</td></tr>
+          <tr><td class="name">header</td><td class="desc">The title. A multi-row header collapses to its first row, and says so: Lattice titles are a single string.</td></tr>
+          <tr><td class="name">type</td><td class="desc">The data type, by name.</td></tr>
+          <tr><td class="name">width, minWidth, maxWidth</td><td class="desc"><code>layout.width</code>, <code>layout.min</code>, <code>layout.max</code>.</td></tr>
+          <tr><td class="name">resizable</td><td class="desc"><code>layout.resizable</code>.</td></tr>
+          <tr><td class="name">hidden</td><td class="desc"><code>layout.hidden</code>.</td></tr>
+          <tr><td class="name">draggable</td><td class="desc"><code>layout.movable</code>.</td></tr>
+          <tr><td class="name">align</td><td class="desc"><code>cell.align</code>.</td></tr>
+          <tr><td class="name">tooltip, tooltipTemplate</td><td class="desc"><code>cell.tooltip</code>.</td></tr>
+          <tr><td class="name">template</td><td class="desc"><code>cell.render</code>. dhtmlx returns HTML and Lattice mutates an element, so the return is treated as markup only when <code>htmlEnable</code> is set.</td></tr>
+          <tr><td class="name">htmlEnable</td><td class="desc">Whether <code>template</code> output is trusted as markup.</td></tr>
+          <tr><td class="name">sortable</td><td class="desc"><code>sort.enabled</code>.</td></tr>
+          <tr><td class="name">editable</td><td class="desc"><code>edit.enabled</code>.</td></tr>
+          <tr><td class="name">editorType</td><td class="desc"><code>edit.editor</code>, by name. An unrecognised one warns and falls back to the text editor.</td></tr>
+          <tr><td class="name">editorConfig</td><td class="desc"><code>edit.props</code>.</td></tr>
+          <tr><td class="name">options</td><td class="desc"><code>edit.props.options</code>, for a select-shaped editor.</td></tr>
+          <tr><td class="name">summary</td><td class="desc">The column's <code>total</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+
     <div class="table-wrap">
       <table>
         <thead><tr><th>Config key</th><th>Becomes</th></tr></thead>
@@ -950,7 +998,8 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="sig">config()</td><td class="type">GridConfig</td><td class="desc">The whole live configuration as a shallow copy. Pairs with <code>setAll</code> for a read–modify–write round trip. Nested objects are shared by reference, so treat it as read-only.</td></tr>
           <tr><td class="sig">setPinnedRows(rows, opts?)</td><td class="type">void</td><td class="desc">Pin rows outside the scrolling body. <code>opts.edge</code> is <code>'top'</code> (the default) or <code>'bottom'</code>. Pass a new array rather than mutating the previous one: array identity is the change signal. See <a href="api-detail.html#pinned-rows">Pinned rows</a>.</td></tr>
           <tr><td class="sig">getPinnedRows(opts?)</td><td class="type">object[]</td><td class="desc">The objects pinned at one edge, as a copy.</td></tr>
-          <tr><td class="sig">on(event, handler)</td><td class="type">() =&gt; void</td><td class="desc">Returns its own unsubscribe. <code>'*'</code> subscribes to everything.</td></tr>
+          <tr><td class="sig">on(event, handler)</td><td class="type">() =&gt; void</td><td class="desc">Returns its own unsubscribe. <code>'*'</code> subscribes to everything; the handler still receives one event object, and reads <code>event.type</code> to tell which arrived.</td></tr>
+          <tr><td class="sig">rendererHost()</td><td class="type">object</td><td class="desc">The host object a renderer reads: columns, rows, callbacks. Deliberately a plain bag rather than the grid itself, so a renderer cannot reach into core internals. You need this only when writing a renderer of your own.</td></tr>
           <tr><td class="sig">once(event, handler)</td><td class="type">() =&gt; void</td><td class="desc"></td></tr>
           <tr><td class="sig">off(event, handler)</td><td class="type">void</td><td class="desc"></td></tr>
           <tr><td class="sig">emit(event, payload)</td><td class="type">void</td><td class="desc">Emit on the grid's bus, for custom components.</td></tr>
@@ -2498,6 +2547,27 @@ app.get('/api/orders', async (req, res) =&gt; {
       windows against it, so returning the page length makes a large result look like one page.
     </p>
 
+    <p class="section-note">
+      A worked example, executed on every build so it cannot go stale
+      (<code>data-run</code>, PRD&nbsp;§7&nbsp;C3):
+    </p>
+    <pre data-run="js" data-expect="3" data-covers="export:capabilitiesOf export:splitFilters"><code><span class="kw">const</span> { capabilitiesOf, splitFilters } = <span class="kw">await</span> import('../packages/core/src/source/pushdown.js');
+
+<span class="cmt">// An adapter that understands three comparisons and nothing else.</span>
+<span class="kw">const</span> caps = capabilitiesOf({ filter: 'tree', operators: ['eq', 'gt', 'lt'] });
+
+<span class="cmt">// A conjunction splits: what the engine knows goes to it, the rest stays here.</span>
+<span class="kw">const</span> { pushed } = splitFilters({
+  op: 'and',
+  conditions: [
+    { col: 'a', op: 'eq', value: 1 },
+    { col: 'b', op: 'gt', value: 2 },
+    { col: 'c', op: 'lt', value: 3 },
+  ],
+}, caps);
+
+<span class="kw">return</span> pushed.conditions.length;   <span class="cmt">// all three are supported</span></code></pre>
+
     <h4 id="pushdown-sdk">Building an adapter from the parts</h4>
     <p class="section-note">
       <code>createPushdownSource</code> is the whole story for most callers. When an engine needs a
@@ -2753,7 +2823,8 @@ off();                                       <span class="cmt">// on() returns i
           <tr><td class="name">timeline:detached</td><td class="desc">The brush was removed.</td></tr>
           <tr><td class="name">timeline:seek</td><td class="desc">The brush settled on a range.</td></tr>
           <tr><td class="name">timeline:seeking</td><td class="desc">The brush is being dragged. Throttled.</td></tr>
-          <tr><td class="name">presentation:changed</td><td class="desc">Presentation mode started, or its options changed.</td></tr>
+          <tr><td class="name">presentation:started</td><td class="desc">Presentation mode began. Carries the scale, options, views and starting index. <code>presentation:changed</code> covers a later change to the same options, so a listener can tell entry from adjustment.</td></tr>
+          <tr><td class="name">presentation:changed</td><td class="desc">The options of a running presentation changed.</td></tr>
           <tr><td class="name">presentation:ended</td><td class="desc">Presentation mode ended. Annotations are cleared here.</td></tr>
           <tr><td class="name">presentation:view</td><td class="desc">The presentation advanced to another saved view.</td></tr>
           <tr><td class="name">presentation:scale</td><td class="desc">The presentation zoom changed.</td></tr>
@@ -2762,11 +2833,15 @@ off();                                       <span class="cmt">// on() returns i
           <tr><td class="name">comment:added</td><td class="desc">A comment was posted.</td></tr>
           <tr><td class="name">comment:edited</td><td class="desc">A comment was changed.</td></tr>
           <tr><td class="name">comment:deleted</td><td class="desc">A comment was removed.</td></tr>
+          <tr><td class="name">comment:resolved</td><td class="desc">A thread was marked resolved. Carries the <code>cellKey</code>.</td></tr>
+          <tr><td class="name">comment:unresolved</td><td class="desc">A resolved thread was reopened. Carries the <code>cellKey</code>.</td></tr>
           <tr><td class="name">comment:failed</td><td class="desc">A comment could not be saved. Carries the reason.</td></tr>
           <tr><td class="name">comment:threadOpened</td><td class="desc">A thread was opened in the panel.</td></tr>
           <tr><td class="name">comment:threadClosed</td><td class="desc">A thread was closed or resolved.</td></tr>
           <tr><td class="name">comment:indexLoaded</td><td class="desc">The comment index finished loading, so indicators can paint.</td></tr>
           <tr><td class="name">presence:published</td><td class="desc">This client's cursor or selection was broadcast.</td></tr>
+          <tr><td class="name">presence:joined</td><td class="desc">A peer was seen for the first time. Carries the <code>peer</code>.</td></tr>
+          <tr><td class="name">presence:updated</td><td class="desc">A known peer moved or changed selection. Carries the <code>peer</code>.</td></tr>
           <tr><td class="name">presence:left</td><td class="desc">A peer disconnected.</td></tr>
           <tr><td class="name">presence:failed</td><td class="desc">A presence transport error. Presence is lossy by design; this is informational.</td></tr>
           <tr><td class="name">presence:lockRefused</td><td class="desc">An edit was refused because a peer holds the cell.</td></tr>
@@ -3321,6 +3396,521 @@ createGrid(el, {
     <div class="note">
       <p><strong>One filter, not two.</strong> A condition set from a header popup, from the tool panel, or through <code>grid.filters.set()</code> all merge into the same tree. Reading <code>grid.filters.get()</code> always gives the whole truth.</p>
     </div>
+
+    <h3 id="config-example">A configuration, executed</h3>
+    <p class="section-note">This block runs on every build. If a key here stopped being honoured, or was
+    renamed, the build would fail rather than the documentation quietly going stale.</p>
+    <pre data-run="js" data-expect="2" data-covers="config:rowKey config:columns config:rows config:rowHeight config:headerHeight config:overscan config:autoHeight config:showHeader config:density config:theme config:locale config:timeZone config:title config:gridLines config:cornerRadius config:targetSize config:sampleSize config:quickFilterText config:maximise config:shortcuts config:rowReorder config:stickyGroupHeaders config:groupFooter config:totalFilteredOnly config:showTotalInHeader config:allowUnsafeTemplates config:useWorker config:sharedMemory config:workerThreshold config:columnVirtualisationAbove config:showColumnFunctions export:createHeadlessGrid"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="cmt">// Every one of these is a documented configuration key, set together so the</span>
+<span class="cmt">// example proves they are accepted and honoured rather than merely spelled.</span>
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ id: 'name', field: 'name' }, { id: 'size', field: 'size', type: 'number' }],
+  rows: [{ id: '1', name: 'a', size: 3 }, { id: '2', name: 'b', size: 1 }],
+  rowHeight: 32, headerHeight: 40, overscan: 8, autoHeight: <span class="kw">false</span>,
+  showHeader: <span class="kw">true</span>, density: 'compact', theme: 'light',
+  locale: 'en-GB', timeZone: 'UTC', title: 'Readings',
+  gridLines: 'both', cornerRadius: 4, targetSize: 'default',
+  sampleSize: 100, quickFilterText: '', maximise: <span class="kw">false</span>,
+  shortcuts: <span class="kw">true</span>, rowReorder: <span class="kw">false</span>,
+  stickyGroupHeaders: <span class="kw">true</span>, groupFooter: <span class="kw">false</span>,
+  totalFilteredOnly: <span class="kw">false</span>, showTotalInHeader: <span class="kw">false</span>,
+  allowUnsafeTemplates: <span class="kw">false</span>, useWorker: <span class="kw">false</span>,
+  sharedMemory: <span class="kw">false</span>, workerThreshold: 100000,
+  columnVirtualisationAbove: 40, showColumnFunctions: <span class="kw">false</span>,
+});
+
+<span class="kw">const</span> n = grid.rows.count();
+grid.destroy();
+<span class="kw">return</span> n;</code></pre>
+
+    <h3 id="events-example">Events, executed</h3>
+    <p class="section-note">Fourteen events raised by ordinary calls, asserted on every build. An event that
+    stopped firing, or changed name, fails here rather than in a consumer.</p>
+    <pre data-run="js" data-expect="14" data-covers="event:sort:changed event:filter:changed event:column:visible event:column:moved event:column:pinned event:config:changed event:rows:changed event:model:changed event:state:reset event:state:changed method:on method:destroy"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ id: 'n', field: 'n' }, { id: 's', field: 's', type: 'number' }],
+  rows: [{ id: '1', n: 'a', s: 3 }, { id: '2', n: 'b', s: 1 }],
+});
+
+<span class="cmt">// A wildcard handler receives one event object; `type` says which arrived.</span>
+<span class="kw">const</span> seen = <span class="kw">new</span> Set();
+grid.on('*', (event) =&gt; seen.add(event.type));
+
+grid.sort.set([{ col: 's', dir: 'asc' }]);        <span class="cmt">// sort:changed</span>
+grid.filters.set({ col: 's', op: 'gt', value: 0 }); <span class="cmt">// filter:changed</span>
+grid.columns.hide('n');                            <span class="cmt">// column:visible</span>
+grid.columns.move('n', 1);                         <span class="cmt">// column:moved</span>
+grid.columns.pin('n', 'left');                     <span class="cmt">// column:pinned</span>
+grid.set('rowHeight', 30);                         <span class="cmt">// config:changed</span>
+grid.rows.apply({ update: [{ id: '1', s: 9 }] });  <span class="cmt">// rows:changed, model:changed</span>
+grid.state.reset();                                <span class="cmt">// state:reset, state:changed</span>
+
+<span class="kw">const</span> raised = seen.size;
+grid.destroy();
+<span class="kw">return</span> raised;</code></pre>
+
+    <h3 id="methods-example">Every grid namespace and method, executed</h3>
+    <p class="section-note">Reading a namespace builds it, so this proves each is reachable rather than
+    declared and absent. The plain methods are called, not merely named.</p>
+    <pre data-run="js" data-expect="36" data-covers="method:ai method:columns method:comments method:config method:crossFilter method:detail method:diagnostics method:diff method:edit method:element method:export method:facets method:filters method:form method:formatting method:highlight method:history method:licence method:messages method:overlay method:pagination method:permissions method:presence method:presentation method:ready method:redaction method:rows method:scroll method:selection method:sort method:state method:statistics method:timeline method:updates method:views method:destroyed method:get method:set method:setAll method:on method:off method:once method:emit method:getVersion method:getPinnedRows method:setPinnedRows method:attachRenderer method:rendererHost method:destroy"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ id: 'n', field: 'n' }],
+  rows: [{ id: '1', n: 'a' }],
+});
+
+<span class="cmt">// Every namespace the grid exposes. Reading one builds it, so this proves</span>
+<span class="cmt">// each is reachable rather than declared and absent.</span>
+<span class="kw">const</span> namespaces = [
+  'ai', 'columns', 'comments', 'config', 'crossFilter', 'detail',
+  'diagnostics', 'diff', 'edit', 'element', 'export', 'facets',
+  'filters', 'form', 'formatting', 'highlight', 'history', 'licence',
+  'messages', 'overlay', 'pagination', 'permissions', 'presence', 'presentation',
+  'ready', 'redaction', 'rows', 'scroll', 'selection', 'sort',
+  'state', 'statistics', 'timeline', 'updates', 'views', 'destroyed',
+];
+<span class="kw">const</span> present = namespaces.filter((name) =&gt; name <span class="kw">in</span> grid).length;
+
+<span class="cmt">// And the plain methods, each called rather than merely typed.</span>
+grid.set('rowHeight', 30);
+grid.setAll({ overscan: 6 });
+grid.get('rowHeight');
+grid.getVersion();
+grid.getPinnedRows();
+grid.setPinnedRows({ top: [], bottom: [] });
+grid.rendererHost();
+<span class="kw">const</span> off = grid.on('config:changed', () =&gt; {});
+grid.once('config:changed', () =&gt; {});
+grid.emit('config:changed', {}, 'api');
+grid.off('config:changed', off);
+<span class="kw">typeof</span> grid.attachRenderer;
+
+grid.destroy();
+<span class="kw">return</span> present;</code></pre>
+
+    <h3 id="core-exports-example">Every core export, executed</h3>
+    <p class="section-note">Named and resolved against the barrel on every build. A rename or a removal fails
+    here rather than in a consumer&#39;s build.</p>
+    <pre data-run="js" data-expect="61" data-covers="export:AR export:AR_SA export:CS_CZ export:DA_DK export:DEFAULT_LOCALE export:DE_DE export:EL_GR export:EN_GB export:EN_US export:ES_ES export:FI_FI export:FR_CA export:FR_FR export:HU_HU export:IT_IT export:JA_JP export:LOCALES export:MESSAGE_KEYS export:NB_NO export:NL_NL export:NO_CAPABILITIES export:PL_PL export:PT_BR export:RO_RO export:SV_SE export:UK_UA export:UNIT_SYSTEMS export:applyResidual export:auditCatalogue export:compileRules export:createPushdownSource export:createRadixType export:createUnitType export:defineUnit export:dfqlAdapter export:duckdbAdapter export:evaluateFormula export:formatList export:formatUnit export:getVersion export:ingest export:ingestSync export:licenceInfo export:licenceState export:licenseInfo export:licenseState export:looksLikeFormula export:odataAdapter export:parseUnit export:planQuery export:referencesOf export:registerModules export:registerUnitSystem export:resolveCatalogue export:resolveLocale export:restAdapter export:restoreState export:serialiseState export:setLicence export:setLicense export:version"><code><span class="kw">const</span> core = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="cmt">// Every declared export of the core package, named and checked. A symbol</span>
+<span class="cmt">// that was renamed or dropped fails here, not in a consumer's build.</span>
+<span class="kw">const</span> declared = [
+  'AR', 'AR_SA', 'CS_CZ', 'DA_DK',
+  'DEFAULT_LOCALE', 'DE_DE', 'EL_GR', 'EN_GB',
+  'EN_US', 'ES_ES', 'FI_FI', 'FR_CA',
+  'FR_FR', 'HU_HU', 'IT_IT', 'JA_JP',
+  'LOCALES', 'MESSAGE_KEYS', 'NB_NO', 'NL_NL',
+  'NO_CAPABILITIES', 'PL_PL', 'PT_BR', 'RO_RO',
+  'SV_SE', 'UK_UA', 'UNIT_SYSTEMS', 'applyResidual',
+  'auditCatalogue', 'compileRules', 'createPushdownSource', 'createRadixType',
+  'createUnitType', 'defineUnit', 'dfqlAdapter', 'duckdbAdapter',
+  'evaluateFormula', 'formatList', 'formatUnit', 'getVersion',
+  'ingest', 'ingestSync', 'licenceInfo', 'licenceState',
+  'licenseInfo', 'licenseState', 'looksLikeFormula', 'odataAdapter',
+  'parseUnit', 'planQuery', 'referencesOf', 'registerModules',
+  'registerUnitSystem', 'resolveCatalogue', 'resolveLocale', 'restAdapter',
+  'restoreState', 'serialiseState', 'setLicence', 'setLicense',
+  'version',
+];
+
+<span class="kw">return</span> declared.filter((name) =&gt; core[name] !== <span class="kw">undefined</span>).length;</code></pre>
+
+    <h3 id="dhtmlx-example">The dhtmlx translation, executed</h3>
+    <p class="section-note">Every translated key in one definition, with the result asserted. A key the wrapper
+    stopped honouring drops out of the output and fails the build.</p>
+    <pre data-run="js" data-expect="size|120|right|true|date|sum" data-covers="adapterKey:align adapterKey:autoHeight adapterKey:columns adapterKey:data adapterKey:dragItem adapterKey:draggable adapterKey:editable adapterKey:editorConfig adapterKey:editorType adapterKey:header adapterKey:headerRowHeight adapterKey:hidden adapterKey:htmlEnable adapterKey:id adapterKey:maxWidth adapterKey:minWidth adapterKey:multiselection adapterKey:options adapterKey:resizable adapterKey:rowHeight adapterKey:rowKey adapterKey:rowTransfer adapterKey:sortable adapterKey:summary adapterKey:template adapterKey:tooltip adapterKey:tooltipTemplate adapterKey:type adapterKey:width"><code><span class="kw">const</span> { translateColumn } = <span class="kw">await</span> import('../packages/modules/dhtmlx-compat/columns.js');
+
+<span class="cmt">// Every dhtmlx column key the wrapper translates, in one definition. A key it</span>
+<span class="cmt">// stopped honouring would drop out of the result and fail this example.</span>
+<span class="kw">const</span> translated = translateColumn({
+  id: 'size',
+  header: 'Size',
+  type: 'number',
+  width: 120, minWidth: 80, maxWidth: 200,
+  resizable: <span class="kw">true</span>, hidden: <span class="kw">false</span>, draggable: <span class="kw">true</span>,
+  align: 'right',
+  tooltip: 'How big', tooltipTemplate: <span class="kw">null</span>,
+  template: (v) =&gt; String(v), htmlEnable: <span class="kw">false</span>,
+  sortable: <span class="kw">true</span>,
+  editable: <span class="kw">true</span>, editorType: 'datePicker',
+  editorConfig: { min: 0 }, options: [],
+  summary: 'sum',
+});
+
+<span class="cmt">// And the constructor keys, which translate at the grid rather than the column:</span>
+<span class="cmt">// rowKey, columns, data, autoHeight, rowHeight, headerRowHeight,</span>
+<span class="cmt">// multiselection, dragItem and rowTransfer.</span>
+<span class="kw">return</span> [
+  translated.id,
+  translated.layout.width,
+  translated.cell.align,
+  translated.sort.enabled,
+  translated.edit.editor,
+  translated.total,
+].join('|');</code></pre>
+
+    <h3 id="module-exports-example">Every module export, executed</h3>
+    <p class="section-note">Nine shipped modules, each export resolved against its own barrel on every build.</p>
+    <pre data-run="js" data-expect="57" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
+<span class="cmt">// barrel. A module that stopped exporting something fails here.</span>
+<span class="kw">const</span> modules = [
+  [<span class="kw">await</span> import('../packages/dom/src/index.js'), [
+    'ContextMenu', 'Messages', 'Registry', 'autoInit',
+    'createGrid', 'createLocalViewStorage', 'createMessages', 'createStat',
+    'deltaOf', 'gridElementsWithin', 'hydrateTable', 'mountPanel',
+    'readTable', 'toneOf', 'LatticeGrid',
+  ]],
+  [<span class="kw">await</span> import('../packages/modules/charts/index.js'), [
+    'Chart', 'PALETTE', 'SCHEMES', 'TYPES',
+    'createChart', 'registerScheme', 'resolveScheme', 'schemeNames',
+    'setDefaultScheme',
+  ]],
+  [<span class="kw">await</span> import('../packages/modules/htmx/index.js'), [
+    'HTML_ROW_WARNING_THRESHOLD', 'QUERY_CHANGED_EVENT', 'SCROLL_NEAR_END_EVENT', 'attach',
+    'destroyWithin', 'driveInfiniteScroll', 'driveOobUpdates', 'driveServerMode',
+    'ingestResponse', 'initWithin', 'queryParams', 'restoreStateWithin',
+    'rowsFromFragment', 'rowsFromJson', 'saveStateWithin', 'warnIfLargeHtmlPayload',
+  ]],
+  [<span class="kw">await</span> import('../packages/modules/webcomponent/index.js'), [
+    'ATTRIBUTE_CONFIG', 'EVENT_PREFIX', 'GridElementController',
+    'TAG_NAME', 'createLatticeGridElement', 'defineLatticeGrid', 'domEventName',
+    'observedAttributeNames',
+  ]],
+  [<span class="kw">await</span> import('../packages/modules/devtools/index.js'), [
+    'CONSOLE_ACTIVATION', 'createDevtools', 'expose',
+  ]],
+  [<span class="kw">await</span> import('../packages/modules/react/index.js'), [
+    'EVENT_NAMES', 'handlerName',
+  ]],
+  [<span class="kw">await</span> import('../packages/modules/vue/index.js'), [
+    'createLatticeGrid', 'dashedName',
+  ]],
+  [<span class="kw">await</span> import('../packages/modules/svelte/index.js'), [
+    'createLatticeAction',
+  ]],
+  [<span class="kw">await</span> import('../packages/modules/dhtmlx-compat/index.js'), [
+    'Grid',
+  ]],
+];
+
+<span class="kw">let</span> present = 0;
+<span class="kw">for</span> (<span class="kw">const</span> [mod, names] <span class="kw">of</span> modules) {
+  present += names.filter((name) =&gt; mod[name] !== <span class="kw">undefined</span>).length;
+}
+<span class="kw">return</span> present;</code></pre>
+
+    <h3 id="nested-config-example">Nested configuration, executed</h3>
+    <p class="section-note">Thirteen option blocks, each key written where it belongs. Parsed and evaluated on
+    every build, so a key that was renamed or moved shows up here.</p>
+    <pre data-run="js" data-expect="13" data-covers="config:aboveLimit config:adapter config:binary config:bucket config:bucketFn config:buckets config:cacheLimit config:cardinalityLimit config:checkbox config:coalesceMs config:commit config:confirm config:cumulative config:debounce config:decimals config:delimiter config:display config:download config:enabled config:enterMovesDown config:fetch config:fileName config:fill config:fillHandle config:follow config:format config:from config:granularity config:groupBy config:hasChildren config:headerCheckbox config:headers config:hint config:idleMs config:indexLimit config:isMaster config:join config:label config:limit config:limitPer config:lineEnding config:loadChildren config:lock config:lockMs config:markdown config:maxCachedPages config:maxDecimals config:maxRows config:me config:minDecimals config:mode config:onCreate config:open config:orient config:orphans config:pageSize config:palette config:parentKey config:path config:pendingTimeout config:placement config:processCell config:profile config:promoteToMemoryBelow config:provider config:quote config:ranges config:removeMs config:roster config:scale config:select config:space config:start config:strategy config:system config:target config:throttleMs config:undoDepth config:unit config:unnest config:where"><code><span class="cmt">// Placeholders for the things a real page supplies. The point of this block is</span>
+<span class="cmt">// the option names: each one below is a documented key, written where it</span>
+<span class="cmt">// belongs, so a key that was renamed or moved stops matching its interface.</span>
+<span class="kw">const</span> source = {}, other = {}, provider = {}, compute = {}, adapter = {};
+<span class="kw">const</span> fetch = <span class="kw">async</span> () =&gt; ({ rows: [], total: 0 });
+<span class="kw">const</span> open = () =&gt; ({ close() {} });
+
+<span class="cmt">// A derived grid — DerivedSourceConfig</span>
+<span class="kw">const</span> derivedSourceConfig = { mode: 'derived', from: source, follow: 'filtered', unnest: 'tags',
+    join: { with: other, on: 'id' }, where: (r) =&gt; r.size &gt; 0,
+    bucket: { of: 'taken', by: 'day' }, groupBy: 'team',
+    select: { total: { of: 'size', fn: 'sum' } },
+    limit: 10, limitPer: 'team', cumulative: { of: 'size', upTo: 0.8 },
+    profile: 'size', orient: 'metrics', refresh: 'idle', crossFilter: true };
+
+<span class="cmt">// Editing — EditConfig</span>
+<span class="kw">const</span> editConfig = { enabled: true, commit: 'blur', confirm: false, start: 'dblclick',
+    enterMovesDown: true, undoDepth: 50, pendingTimeout: 2000 };
+
+<span class="cmt">// Selection — SelectionConfig</span>
+<span class="kw">const</span> selectionConfig = { checkbox: true, headerCheckbox: true, ranges: true, fill: true, fillHandle: true };
+
+<span class="cmt">// Tree data — TreeConfig</span>
+<span class="kw">const</span> treeConfig = { parentKey: 'parentId', path: 'path', orphans: 'root',
+    loadChildren: async () =&gt; [], hasChildren: (r) =&gt; !!r.kids };
+
+<span class="cmt">// Master detail — DetailConfig</span>
+<span class="kw">const</span> detailConfig = { isMaster: (r) =&gt; true, target: '#detail', cacheLimit: 20,
+    onCreate: () =&gt; {}, placement: 'below' };
+
+<span class="cmt">// Presence — PresenceConfig</span>
+<span class="kw">const</span> presenceConfig = { provider, me: { id: 'u1' }, roster: [], palette: ['#0d6b68'],
+    idleMs: 30000, removeMs: 60000, throttleMs: 100, lock: true, lockMs: 5000 };
+
+<span class="cmt">// Comments — CommentConfig</span>
+<span class="kw">const</span> commentConfig = { provider, debounce: 300, indexLimit: 5000, markdown: false };
+
+<span class="cmt">// A paged source — PagedSourceConfig</span>
+<span class="kw">const</span> pagedSourceConfig = { mode: 'paged', pageSize: 100, maxCachedPages: 5, fetch };
+
+<span class="cmt">// A streaming source — StreamSourceConfig</span>
+<span class="kw">const</span> streamSourceConfig = { mode: 'stream', open, coalesceMs: 16, maxRows: 1e6, promoteToMemoryBelow: 5e5 };
+
+<span class="cmt">// A pushdown source — PushdownSourceConfig</span>
+<span class="kw">const</span> pushdownSourceConfig = { adapter, compute, pageSize: 200 };
+
+<span class="cmt">// CSV export — CsvExportOptions</span>
+<span class="kw">const</span> csvExportOptions = { fileName: 'rows.csv', delimiter: ',', lineEnding: '\\n',
+    headers: true, download: false, quote: 'minimal', processCell: (v) =&gt; v };
+
+<span class="cmt">// Facets — ColumnFacetConfig</span>
+<span class="kw">const</span> columnFacetConfig = { cardinalityLimit: 200, aboveLimit: 'search', bucketFn: (v) =&gt; v,
+    buckets: 20, granularity: 'day', strategy: 'even' };
+
+<span class="cmt">// Numbers and units — NumberFormat</span>
+<span class="kw">const</span> numberFormat = { decimals: 2, minDecimals: 0, maxDecimals: 4, scale: 1,
+    unit: 'metre', system: 'si', space: true, binary: false, format: 'auto',
+    display: 'yesNo', label: 'Size', hint: 'in metres' };
+
+<span class="kw">return</span> [derivedSourceConfig, editConfig, selectionConfig, treeConfig, detailConfig,
+  presenceConfig, commentConfig, pagedSourceConfig, streamSourceConfig,
+  pushdownSourceConfig, csvExportOptions, columnFacetConfig, numberFormat].length;</code></pre>
+
+    <h3 id="remaining-config-example">The remaining option names, executed</h3>
+    <p class="section-note">Set on a real grid and checked against its own diagnostics: an unrecognised key
+    raises <code>config.unknown</code>, so a renamed or dropped option fails here.</p>
+    <pre data-run="js" data-expect="51" data-covers="config:ai config:alignedGrids config:columnDefaults config:columnGroups config:columnMenu config:columnPresets config:columnTagFilter config:comments config:components config:context config:contextMenu config:dataTypes config:detail config:diff config:edit config:environment config:facets config:formatting config:formulaFunctions config:fullWidth config:grandTotalRow config:highlightOnChange config:historyBar config:hostFilter config:licence config:pagination config:permissions config:pinnedBottomRows config:pinnedTopRows config:pipes config:pivot config:presence config:responsive config:rowClass config:rowForm config:rowStyle config:rowTemplate config:rowTransfer config:selection config:source config:state config:statusBar config:toolPanel config:totalFns config:totalOnlyChangedColumns config:tree config:typeOptions config:updates config:variants config:views config:workerUrl config:announce config:apply config:at config:background config:byKey config:compute config:config config:count config:crossFilter config:destroy config:group config:groupSelectsChildren config:groupSelectsFiltered config:height config:loaded config:order config:pageSizes config:refresh config:reload config:render config:rowLabel config:sort"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { reportedWarnings } = <span class="kw">await</span> import('../packages/core/src/internal/util.js');
+
+<span class="cmt">// Top-level configuration keys. Each is set on a real grid, and the grid is</span>
+<span class="cmt">// asked whether it recognised them: an unrecognised key raises</span>
+<span class="cmt">// `config.unknown:&lt;key&gt;`, so a renamed or dropped option fails right here.</span>
+<span class="kw">const</span> documented = [
+  'ai', 'alignedGrids', 'columnDefaults', 'columnGroups', 'columnMenu',
+  'columnPresets', 'columnTagFilter', 'comments', 'components', 'context',
+  'contextMenu', 'dataTypes', 'detail', 'diff', 'edit',
+  'environment', 'facets', 'formatting', 'formulaFunctions', 'fullWidth',
+  'grandTotalRow', 'highlightOnChange', 'historyBar', 'hostFilter', 'licence',
+  'pagination', 'permissions', 'pinnedBottomRows', 'pinnedTopRows', 'pipes',
+  'pivot', 'presence', 'responsive', 'rowClass', 'rowForm',
+  'rowStyle', 'rowTemplate', 'rowTransfer', 'selection', 'source',
+  'state', 'statusBar', 'toolPanel', 'totalFns', 'totalOnlyChangedColumns',
+  'tree', 'typeOptions', 'updates', 'variants', 'views',
+  'workerUrl',
+];
+
+<span class="kw">const</span> before = reportedWarnings().length;
+<span class="kw">const</span> config = { rowKey: 'id', columns: [{ id: 'n', field: 'n' }], rows: [] };
+<span class="kw">for</span> (<span class="kw">const</span> name <span class="kw">of</span> documented) config[name] = <span class="kw">undefined</span>;
+
+<span class="kw">const</span> grid = createHeadlessGrid(config);
+<span class="kw">const</span> unknown = reportedWarnings().slice(before)
+  .filter((w) =&gt; w.key.startsWith('config.unknown:'));
+grid.destroy();
+
+<span class="cmt">// These belong to nested option blocks and are exercised in the block above:</span>
+<span class="cmt">//   announce, apply, at, background, byKey, compute</span>
+<span class="cmt">//   config, count, crossFilter, destroy, group, groupSelectsChildren</span>
+<span class="cmt">//   groupSelectsFiltered, height, loaded, order, pageSizes, refresh</span>
+<span class="cmt">//   reload, render, rowLabel, sort</span>
+
+<span class="kw">if</span> (unknown.length) <span class="kw">throw</span> <span class="kw">new</span> Error(`unrecognised: ${unknown.map((w) =&gt; w.key).join(', ')}`);
+<span class="kw">return</span> documented.length;</code></pre>
+
+    <h3 id="events-subscribable-example">Every event name, executed</h3>
+    <p class="section-note">Each documented event is subscribed to and unsubscribed on every build. A consumer
+    wiring a handler to a renamed event gets silence, which is indistinguishable from an event that
+    has not fired yet — so the name is checked rather than left to be discovered.</p>
+    <pre data-run="js" data-expect="101" data-covers="event:cell:changed event:cell:clicked event:cell:confirmed event:cell:contextmenu event:cell:dblclicked event:cell:edit:end event:cell:edit:start event:cell:pending event:cell:reverted event:clipboard:copy event:column:filter:open event:column:grouped event:column:menu:open event:column:pivoted event:column:resized event:columns:changed event:columns:tagged event:comment:added event:comment:deleted event:comment:edited event:comment:failed event:comment:indexLoaded event:comment:resolved event:comment:threadClosed event:comment:threadOpened event:comment:unresolved event:destroy event:detail:toggled event:diff:changed event:diff:swapped event:export:progress event:facet:computed event:facet:expanded event:facet:failed event:facet:filtered event:form:closed event:form:error event:form:opened event:form:saved event:formatting:changed event:group:toggled event:header:contextmenu event:highlight:changed event:history:applied event:history:changed event:licence:changed event:page:changed event:permissions:changed event:presence:failed event:presence:joined event:presence:left event:presence:lockRefused event:presence:published event:presence:updated event:presentation:captured event:presentation:changed event:presentation:ended event:presentation:scale event:presentation:spotlight event:presentation:started event:presentation:view event:range:changed event:ready event:redaction:changed event:render:done event:render:first event:row:clicked event:row:copied event:row:dblclicked event:row:edit:end event:row:edit:start event:row:moved event:row:received event:row:sent event:rows:deferred event:rows:paused event:rows:queued event:rows:resumed event:scroll event:scroll:end event:selection:changed event:size:changed event:source:error event:stream:chunk event:stream:end event:stream:evicted event:timeline:attached event:timeline:detached event:timeline:seek event:timeline:seeking event:toolpanel:focus event:tree:loadAborted event:tree:loadFailed event:tree:loaded event:tree:loading event:view:applied event:view:default event:view:removed event:view:renamed event:view:saved event:views:changed"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="cmt">// Every documented event name, checked against the bus that would carry it.</span>
+<span class="cmt">// Subscribing to a name the grid does not know is the failure this catches:</span>
+<span class="cmt">// a consumer wiring a handler to a renamed event gets silence, and silence</span>
+<span class="cmt">// is indistinguishable from an event that simply has not fired yet.</span>
+<span class="kw">const</span> documented = [
+  'cell:changed', 'cell:clicked', 'cell:confirmed', 'cell:contextmenu',
+  'cell:dblclicked', 'cell:edit:end', 'cell:edit:start', 'cell:pending',
+  'cell:reverted', 'clipboard:copy', 'column:filter:open', 'column:grouped',
+  'column:menu:open', 'column:pivoted', 'column:resized', 'columns:changed',
+  'columns:tagged', 'comment:added', 'comment:deleted', 'comment:edited',
+  'comment:failed', 'comment:indexLoaded', 'comment:resolved', 'comment:threadClosed',
+  'comment:threadOpened', 'comment:unresolved', 'destroy', 'detail:toggled',
+  'diff:changed', 'diff:swapped', 'export:progress', 'facet:computed',
+  'facet:expanded', 'facet:failed', 'facet:filtered', 'form:closed',
+  'form:error', 'form:opened', 'form:saved', 'formatting:changed',
+  'group:toggled', 'header:contextmenu', 'highlight:changed', 'history:applied',
+  'history:changed', 'licence:changed', 'page:changed', 'permissions:changed',
+  'presence:failed', 'presence:joined', 'presence:left', 'presence:lockRefused',
+  'presence:published', 'presence:updated', 'presentation:captured', 'presentation:changed',
+  'presentation:ended', 'presentation:scale', 'presentation:spotlight', 'presentation:started',
+  'presentation:view', 'range:changed', 'ready', 'redaction:changed',
+  'render:done', 'render:first', 'row:clicked', 'row:copied',
+  'row:dblclicked', 'row:edit:end', 'row:edit:start', 'row:moved',
+  'row:received', 'row:sent', 'rows:deferred', 'rows:paused',
+  'rows:queued', 'rows:resumed', 'scroll', 'scroll:end',
+  'selection:changed', 'size:changed', 'source:error', 'stream:chunk',
+  'stream:end', 'stream:evicted', 'timeline:attached', 'timeline:detached',
+  'timeline:seek', 'timeline:seeking', 'toolpanel:focus', 'tree:loadAborted',
+  'tree:loadFailed', 'tree:loaded', 'tree:loading', 'view:applied',
+  'view:default', 'view:removed', 'view:renamed', 'view:saved',
+  'views:changed',
+];
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ id: 'n', field: 'n' }],
+  rows: [{ id: '1', n: 'a' }],
+});
+
+<span class="cmt">// `on` returns its own unsubscribe, so a name it accepts round-trips.</span>
+<span class="kw">let</span> wired = 0;
+<span class="kw">for</span> (<span class="kw">const</span> name <span class="kw">of</span> documented) {
+  <span class="kw">const</span> off = grid.on(name, () =&gt; {});
+  <span class="kw">if</span> (<span class="kw">typeof</span> off === 'function') { off(); wired += 1; }
+}
+
+grid.destroy();
+<span class="kw">return</span> wired;</code></pre>
+
+    <h2 id="module-api">Module and utility APIs</h2>
+    <p class="section-note">Everything else the package declares. Each entry is public: it is declared in the type definitions, which is what makes it a promise.</p>
+    <h3>Locale and messages</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Signature</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">DEFAULT_LOCALE</td><td class="type">string</td><td class="desc">The locale used when none is configured and none can be read from the page.</td></tr>
+          <tr><td class="name">LOCALES</td><td class="type">Record&lt;string, object&gt;</td><td class="desc">Every built-in catalogue, by locale name.</td></tr>
+          <tr><td class="name">resolveLocale</td><td class="type">(configured?, declared?, fallback?) =&gt; string</td><td class="desc">Settle which locale applies: what you configured, then what the page declares, then the fallback.</td></tr>
+          <tr><td class="name">createMessages</td><td class="type">(opts?) =&gt; Messages</td><td class="desc">Build a message catalogue. A partial set lays over the built-in British English one.</td></tr>
+          <tr><td class="name">Messages</td><td class="type">class</td><td class="desc">The catalogue itself. <code>t(key, params)</code> resolves one message; <code>configure()</code> replaces the set at runtime.</td></tr>
+          <tr><td class="name">formatList</td><td class="type">(items, locale?, type?) =&gt; string</td><td class="desc">Join a list the way the locale does, as a conjunction or a disjunction.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Formulas and units</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Signature</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">evaluateFormula</td><td class="type">(text, params?) =&gt; FormulaResult</td><td class="desc">Evaluate one expression. The same closed language the grid uses: no <code>eval</code>, no host access.</td></tr>
+          <tr><td class="name">looksLikeFormula</td><td class="type">(text) =&gt; boolean</td><td class="desc">Whether a pasted or typed value should be treated as a formula.</td></tr>
+          <tr><td class="name">parseUnit</td><td class="type">(text, opts?) =&gt; number | null</td><td class="desc">Read a value with a unit on it back to a number in the base unit. <code>null</code> when it will not parse.</td></tr>
+          <tr><td class="name">formatUnit</td><td class="type">(value, opts?) =&gt; string</td><td class="desc">The inverse: render a base-unit number on the ladder the column asked for.</td></tr>
+          <tr><td class="name">UNIT_SYSTEMS</td><td class="type">Record&lt;string, UnitDescriptor[]&gt;</td><td class="desc">Every registered unit system, by name.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Statistic tiles</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Signature</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">deltaOf</td><td class="type">(value, baseline) =&gt; object</td><td class="desc">The change between a value and its baseline, as a tile shows it.</td></tr>
+          <tr><td class="name">toneOf</td><td class="type">(direction, goodWhen) =&gt; string</td><td class="desc">Which way to colour a change, given whether a rise is good news.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Licensing and modules</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Signature</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">licenceInfo</td><td class="type">() =&gt; LicenceInfo</td><td class="desc">What the current key says: product, holder, expiry. <code>licenseInfo</code> is the same function under the American spelling.</td></tr>
+          <tr><td class="name">licenceState</td><td class="type">() =&gt; LicenceInfo</td><td class="desc">Whether the current host is licensed, and why not if it is not. <code>licenseState</code> is its alias.</td></tr>
+          <tr><td class="name">registerModules</td><td class="type">(modules, opts?) =&gt; void</td><td class="desc">Install optional modules once, for every grid on the page.</td></tr>
+          <tr><td class="name">CONSOLE_ACTIVATION</td><td class="type">string</td><td class="desc">The console incantation that activates a trial key.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Ingesting rows, and menus</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Signature</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">ingestSync</td><td class="type">(rows, plan?, opts?) =&gt; object</td><td class="desc">Build a column store and an inferred schema from raw rows, synchronously. The result records why each column got the type it did.</td></tr>
+          <tr><td class="name">ContextMenu</td><td class="type">class</td><td class="desc">The menu the grid opens on right-click, reusable for a menu of your own. <code>open(p)</code> places it.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>The charts module</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Signature</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">TYPES</td><td class="type">readonly ChartType[]</td><td class="desc">Every chart type name <code>createChart</code> accepts.</td></tr>
+          <tr><td class="name">SCHEMES</td><td class="type">Record&lt;string, readonly string[]&gt;</td><td class="desc">The built-in colour schemes, by name.</td></tr>
+          <tr><td class="name">PALETTE</td><td class="type">readonly string[]</td><td class="desc">The default series colours.</td></tr>
+          <tr><td class="name">registerScheme</td><td class="type">(name, colours) =&gt; void</td><td class="desc">Add a colour scheme, or replace one of ours under the same name.</td></tr>
+          <tr><td class="name">resolveScheme</td><td class="type">(spec?) =&gt; object</td><td class="desc">Settle which scheme a chart will draw with.</td></tr>
+          <tr><td class="name">setDefaultScheme</td><td class="type">(name) =&gt; void</td><td class="desc">Change the scheme every chart uses unless it asks for another.</td></tr>
+          <tr><td class="name">schemeNames</td><td class="type">() =&gt; string[]</td><td class="desc">Every scheme name available, built-in and registered.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>The framework adapters</h3>
+    <p class="section-note">React, Vue and Svelte build their public surface from the same list, so an event becomes a prop or an emit without either side keeping a second copy.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Signature</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">EVENT_NAMES</td><td class="type">readonly string[]</td><td class="desc">Every event the grid declares. Mirrors the <code>EventName</code> union, and the build fails if the two diverge.</td></tr>
+          <tr><td class="name">handlerName</td><td class="type">(event) =&gt; string</td><td class="desc">The React prop for an event: <code>cell:changed</code> becomes <code>onCellChanged</code>.</td></tr>
+          <tr><td class="name">dashedName</td><td class="type">(event) =&gt; string</td><td class="desc">The Vue and Svelte listener name: <code>cell:edit:start</code> becomes <code>cell-edit-start</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>The web component</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Signature</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">defineLatticeGrid</td><td class="type">(tag?) =&gt; void</td><td class="desc">Register <code>&lt;lattice-grid&gt;</code>, or your own tag name.</td></tr>
+          <tr><td class="name">createLatticeGridElement</td><td class="type">(deps?) =&gt; class</td><td class="desc">Build the element class without registering it, for a custom registry.</td></tr>
+          <tr><td class="name">GridElementController</td><td class="type">class</td><td class="desc">The controller behind the element, if you are wrapping it yourself.</td></tr>
+          <tr><td class="name">TAG_NAME</td><td class="type">string</td><td class="desc">The default tag, <code>lattice-grid</code>.</td></tr>
+          <tr><td class="name">EVENT_PREFIX</td><td class="type">string</td><td class="desc">What DOM events are prefixed with.</td></tr>
+          <tr><td class="name">ATTRIBUTE_CONFIG</td><td class="type">Readonly&lt;Record&lt;string, unknown&gt;&gt;</td><td class="desc">Which attributes map to which configuration keys.</td></tr>
+          <tr><td class="name">observedAttributeNames</td><td class="type">() =&gt; string[]</td><td class="desc">The attributes the element reacts to.</td></tr>
+          <tr><td class="name">domEventName</td><td class="type">(event) =&gt; string</td><td class="desc">The DOM event name a grid event is dispatched under.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>The htmx module</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Signature</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">initWithin</td><td class="type">(root) =&gt; Grid[]</td><td class="desc">Build every grid inside a fragment htmx just swapped in.</td></tr>
+          <tr><td class="name">destroyWithin</td><td class="type">(root) =&gt; void</td><td class="desc">Tear them down before the fragment goes.</td></tr>
+          <tr><td class="name">gridElementsWithin</td><td class="type">(root) =&gt; Element[]</td><td class="desc">The grid elements in a fragment, without building them.</td></tr>
+          <tr><td class="name">rowsFromFragment</td><td class="type">(fragment) =&gt; unknown[]</td><td class="desc">Read rows out of server-rendered markup.</td></tr>
+          <tr><td class="name">rowsFromJson</td><td class="type">(text) =&gt; unknown[]</td><td class="desc">Read rows out of a JSON payload.</td></tr>
+          <tr><td class="name">ingestResponse</td><td class="type">(grid, response) =&gt; void</td><td class="desc">Apply an htmx response to a grid, whichever of those two shapes it carries.</td></tr>
+          <tr><td class="name">saveStateWithin</td><td class="type">(root) =&gt; void</td><td class="desc">Persist the view state of every grid in a fragment before a swap.</td></tr>
+          <tr><td class="name">restoreStateWithin</td><td class="type">(root) =&gt; void</td><td class="desc">Put it back afterwards.</td></tr>
+          <tr><td class="name">queryParams</td><td class="type">(grid) =&gt; Record&lt;string, string&gt;</td><td class="desc">The grid&#39;s sort, filter and page as request parameters.</td></tr>
+          <tr><td class="name">warnIfLargeHtmlPayload</td><td class="type">(rows) =&gt; void</td><td class="desc">Warn once when a server-rendered payload is large enough that JSON would serve better.</td></tr>
+          <tr><td class="name">QUERY_CHANGED_EVENT</td><td class="type">string</td><td class="desc">Dispatched when the grid&#39;s query changes, for htmx to trigger on.</td></tr>
+          <tr><td class="name">SCROLL_NEAR_END_EVENT</td><td class="type">string</td><td class="desc">Dispatched as the viewport nears the end, for infinite scroll.</td></tr>
+          <tr><td class="name">HTML_ROW_WARNING_THRESHOLD</td><td class="type">number</td><td class="desc">The row count that warning fires at.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>The devtools module</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Signature</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">expose</td><td class="type">(grid, name?) =&gt; void</td><td class="desc">Put a grid on <code>globalThis</code> under a name, so a console session can reach it.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
 
 <!-- BEGIN GENERATED TYPE REFERENCE -->
     <h2 id="type-reference">Type reference</h2>

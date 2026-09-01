@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.13.1, core + DOM renderer
+ * Lattice Grid 1.14.0, core + DOM renderer
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -27083,6 +27083,123 @@ return out;
 }
 return value;
 }
+function describeValue(value){
+if(value===null)return'null';
+if(Array.isArray(value))return`an array of ${value.length}`;
+const kind=typeof value;
+if(kind==='string')return`the string '${value.length>24?`${value.slice(0,24)}…`:value}'`;
+if(kind==='number'||kind==='boolean')return`the ${kind} ${String(value)}`;
+return`a ${kind}`;
+}
+const CONFIG_SHAPES=Object.freeze({
+allowUnsafeTemplates:'boolean',
+columnVirtualisationAbove:'number',
+groupFooter:'boolean',
+headerHeight:'number',
+licence:'string',
+locale:'string',
+maximise:'boolean',
+overscan:'number',
+quickFilterText:'string',
+sampleSize:'number',
+sharedMemory:'boolean',
+shortcuts:'boolean',
+showColumnFunctions:'boolean',
+showHeader:'boolean',
+showTotalInHeader:'boolean',
+targetSize:['default','large'],
+timeZone:'string',
+title:'string',
+totalFilteredOnly:'boolean',
+totalOnlyChangedColumns:'boolean',
+useWorker:'boolean',
+workerThreshold:'number',
+workerUrl:'string',
+});
+function isPlainObject(v){
+return v!==null&&typeof v==='object'&&!Array.isArray(v);
+}
+const CONFIG_WIDE_CHECKS=Object.freeze({
+columns:(v)=>!Array.isArray(v),
+columnGroups:(v)=>!Array.isArray(v),
+rows:(v)=>!Array.isArray(v),
+pinnedTopRows:(v)=>!Array.isArray(v),
+pinnedBottomRows:(v)=>!Array.isArray(v),
+alignedGrids:(v)=>!Array.isArray(v),
+rowKey:(v)=>typeof v!=='string'&&typeof v!=='function',
+rowHeight:(v)=>typeof v!=='number'&&typeof v!=='function',
+source:(v)=>!isPlainObject(v),
+columnDefaults:(v)=>!isPlainObject(v),
+columnPresets:(v)=>!isPlainObject(v),
+dataTypes:(v)=>!isPlainObject(v),
+components:(v)=>!isPlainObject(v),
+pipes:(v)=>!isPlainObject(v),
+totalFns:(v)=>!isPlainObject(v),
+variants:(v)=>!isPlainObject(v),
+formulaFunctions:(v)=>!isPlainObject(v),
+typeOptions:(v)=>!isPlainObject(v),
+formatting:(v)=>!isPlainObject(v),
+tree:(v)=>!isPlainObject(v),
+detail:(v)=>!isPlainObject(v),
+comments:(v)=>!isPlainObject(v),
+presence:(v)=>!isPlainObject(v),
+permissions:(v)=>!isPlainObject(v),
+state:(v)=>!isPlainObject(v),
+updates:(v)=>!isPlainObject(v),
+diff:(v)=>!isPlainObject(v),
+views:(v)=>!isPlainObject(v),
+responsive:(v)=>!isPlainObject(v),
+hostFilter:(v)=>!isPlainObject(v),
+pivot:(v)=>!isPlainObject(v),
+ai:(v)=>!isPlainObject(v),
+environment:(v)=>typeof v!=='function',
+edit:(v)=>!isPlainObject(v)&&typeof v!=='boolean',
+pagination:(v)=>!isPlainObject(v)&&typeof v!=='boolean',
+facets:(v)=>!isPlainObject(v)&&typeof v!=='boolean',
+rowForm:(v)=>!isPlainObject(v)&&typeof v!=='boolean',
+rowReorder:(v)=>!isPlainObject(v)&&typeof v!=='boolean',
+columnTagFilter:(v)=>!isPlainObject(v)&&typeof v!=='boolean',
+historyBar:(v)=>!isPlainObject(v)&&typeof v!=='boolean',
+rowTransfer:(v)=>!isPlainObject(v)&&typeof v!=='boolean',
+statusBar:(v)=>!isPlainObject(v)&&typeof v!=='boolean',
+toolPanel:(v)=>!isPlainObject(v)&&typeof v!=='boolean',
+stickyGroupHeaders:(v)=>!isPlainObject(v)&&typeof v!=='boolean'&&typeof v!=='number',
+contextMenu:(v)=>typeof v!=='boolean'&&typeof v!=='function',
+columnMenu:(v)=>typeof v!=='boolean'&&typeof v!=='function',
+fullWidth:(v)=>!isPlainObject(v)&&typeof v!=='boolean',
+highlightOnChange:(v)=>!isPlainObject(v)&&typeof v!=='boolean'&&typeof v!=='string',
+rowTemplate:(v)=>!isPlainObject(v)&&typeof v!=='string',
+cornerRadius:(v)=>typeof v!=='boolean'&&typeof v!=='number'&&typeof v!=='string',
+grandTotalRow:(v)=>v!=='bottom'&&typeof v!=='boolean',
+autoHeight:(v)=>v!=='visible'&&typeof v!=='boolean',
+gridLines:(v)=>!['both','horizontal','vertical','none','rows','columns'].includes(
+(v),
+)&&typeof v!=='boolean',
+selection:(v)=>!isPlainObject(v)
+&&v!=='single'&&v!=='multiple'&&v!=='none',
+density:(v)=>typeof v!=='number'
+&&!['compact','standard','comfortable','spacious'].includes((v)),
+theme:(v)=>typeof v!=='string',
+rowClass:(v)=>typeof v!=='string'&&typeof v!=='function'&&!Array.isArray(v),
+rowStyle:(v)=>!isPlainObject(v)&&typeof v!=='function',
+});
+const KNOWN_CONFIG_KEYS=new Set([
+'ai','alignedGrids','allowUnsafeTemplates','autoHeight','columnDefaults',
+'columnGroups','columnMenu','columnPresets','columnTagFilter',
+'columnVirtualisationAbove','columns','comments','components','context',
+'contextMenu','cornerRadius','dataTypes','density','detail','diff','edit',
+'environment','facets','formatting','formulaFunctions','fullWidth',
+'grandTotalRow','gridLines','groupFooter','headerHeight','highlightOnChange',
+'historyBar','hostFilter','licence','locale','maximise','overscan','pagination',
+'permissions','pinnedBottomRows','pinnedTopRows','pipes','pivot','presence',
+'quickFilterText','responsive','rowClass','rowForm','rowHeight','rowKey',
+'rowReorder','rowStyle','rowTemplate','rowTransfer','rows','sampleSize',
+'selection','sharedMemory','shortcuts','showColumnFunctions','showHeader',
+'showTotalInHeader','source','state','statusBar','stickyGroupHeaders',
+'targetSize','theme','timeZone','title','toolPanel','totalFilteredOnly',
+'totalFns','totalOnlyChangedColumns','tree','typeOptions','updates','useWorker',
+'variants','views','workerThreshold','workerUrl',
+]);
 const CONFIG_DEFAULTS=Object.freeze({
 locale:undefined,
 messages:undefined,
@@ -27180,6 +27297,45 @@ pageSize:0,
 #ready=false;
 #teardown=new Set();
 constructor(config={}){
+for(const key of Object.keys(config)){
+if(!KNOWN_CONFIG_KEYS.has(key)){
+warnOnce(
+`config.unknown:${key}`,
+`'${key}' is not a configuration key this grid recognises, so it had no `
++'effect. Check the spelling against the reference.',
+);
+continue;
+}
+const shape=CONFIG_SHAPES[key];
+const value=config[key];
+if(value===undefined)continue;
+if(shape===undefined){
+const unusable=CONFIG_WIDE_CHECKS[key];
+if(unusable&&unusable(value)){
+warnOnce(
+`config.value:${key}`,
+`'${key}' was given ${describeValue(value)}, which is not one of the `
++'shapes it accepts. Check the type against the reference.',
+);
+}
+continue;
+}
+if(Array.isArray(shape)){
+if(!shape.includes(value)){
+warnOnce(
+`config.value:${key}`,
+`'${key}' was given ${describeValue(value)}, which is not one of `
++`${shape.map((v)=>`'${v}'`).join(', ')}. It was ignored.`,
+);
+}
+}else if(typeof value!==shape){
+warnOnce(
+`config.value:${key}`,
+`'${key}' expects a ${shape} and was given ${describeValue(value)}. `
++'It was ignored.',
+);
+}
+}
 this.#config={...CONFIG_DEFAULTS,...config};
 this.#suppliedConfig={...config};
 this.#bus=new EventBus();
