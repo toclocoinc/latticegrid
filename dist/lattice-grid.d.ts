@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.14.0, type declarations
+ * Lattice Grid 1.15.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1592,6 +1592,14 @@ export type PermissionPolicy =
 
 export interface MenuItem {
   name?: string;
+  /**
+   * An icon shown in the slot before the label. Three forms, told apart without
+   * a second option so existing definitions keep working: a registered sprite
+   * name (`'download'`), a single character or emoji (`'↑'`), or author-trusted
+   * element markup (`'<i class="fa-light fa-download"></i>'`), which is rendered
+   * as an element rather than shown as text. Markup is inserted into the icon
+   * slot only — never the label — at the same trust as `action`.
+   */
   icon?: string;
   shortcut?: string;
   action?: () => void;
@@ -3193,6 +3201,15 @@ export interface StatConfig extends StatValueSpec {
   /** An element, or a CSS selector resolved against the grid's document. */
   container: HTMLElement | string;
   title?: string;
+  /**
+   * An optional leading icon beside the title and value, using the same value
+   * contract as a menu item: a registered sprite name, a single character or
+   * emoji, or author-trusted element markup (`'<i class="fa-light fa-bolt">
+   * </i>'`, an `<img>`). It lays out to the side without disturbing the change
+   * indicator, threshold bands or confidence interval; omit it for the plain
+   * tile layout.
+   */
+  icon?: string;
   /** A literal value, a spec to reduce, or a function of the grid. */
   value?: unknown | StatValueSpec | ((grid: Grid) => unknown);
   /** Text under the value, or a function of it. */
@@ -3824,7 +3841,16 @@ declare module 'lattice-grid/modules/htmx' {
 }
 
 declare module 'lattice-grid/modules/dhtmlx-compat' {
-  /** A dhtmlx Grid-shaped API over Lattice, for migrating a piece at a time. */
+  /**
+   * A dhtmlx Grid-shaped API over Lattice, for migrating a piece at a time.
+   *
+   * The module shares the page's one core rather than bundling its own: the
+   * grid it builds comes from the `lattice-grid` package the app already loads
+   * (or the `LatticeGrid` global a script tag publishes), so a licence set on
+   * that core applies to these grids too. Load the core alongside this module —
+   * a bundler wires the peer import for you; a `<script src>` page loads the
+   * global build first.
+   */
   export class Grid {
     constructor(container: Element | string, config?: object);
   }

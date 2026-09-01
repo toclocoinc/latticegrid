@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.14.0</p>
+    <p class="rail__sub">Developer guide · v1.15.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -883,6 +883,14 @@ createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so out
       <code>.data</code>, <code>.selection</code>, <code>.history</code>, <code>.export</code> and
       <code>.events</code> namespaces: sitting on top of a real Lattice grid underneath.
       Swap the import and, for the surface below, the calling code does not change.
+    </p>
+    <p class="lead-in">
+      The wrapper shares the core the page already loads rather than carrying its own,
+      so load <code>@toclocoinc/lattice-grid</code> alongside it: a bundler wires the shared
+      import automatically (it dedupes against the core your app already imports), and a
+      plain <code>&lt;script src&gt;</code> page loads the global build first. The pay-off is
+      that a licence set on that one core applies to these grids too, and the module is a
+      few kilobytes of translation rather than a second copy of the grid.
     </p>
 
     <div class="example">
@@ -4813,12 +4821,22 @@ createStat({
   grid,
   container: tile,
   title: 'Total capacity',
+  <span class="cmt">// A leading icon beside the title and value. Same three forms as a menu</span>
+  <span class="cmt">// item: a sprite name, a character/emoji, or your own markup.</span>
+  icon: '&lt;i class="fa-light fa-gauge-high"&gt;&lt;/i&gt;',
   value: { of: 'capacity', fn: 'sum' },
   baseline: (g) =&gt; lastMonth,
   bands: { good: 5000, warn: 3000, direction: 'up' },
   interval: (v, g) =&gt; g.statistics.interval('capacity'),
 });</code></pre>
     </div>
+    <p class="lead-in">
+      <code>icon</code> is optional and lays out to the side without disturbing the change indicator,
+      threshold bands or confidence interval; omit it for the plain tile. It uses the same
+      <a href="#custom-menu">icon contract</a> as a menu item — a sprite name, a single character or
+      emoji, or author-supplied markup such as a Font Awesome glyph or an
+      <code>&lt;img&gt;</code>.
+    </p>
     <div class="why">
       <p><strong><code>bands</code> and <code>goodWhen</code> judge different things.</strong>
       <code>goodWhen</code> says whether a rise is good news, and colours the change indicator.
@@ -4918,6 +4936,33 @@ r.ok ? r.value : r.error;   <span class="cmt">// 42</span></code></pre>
       <code>params</code> and the <code>action</code>'s argument are the same shape:
       <code>{ key, colId, value, row, data, column, index, grid }</code>. <code>data</code> is your
       original row object, so an item can reach fields the grid never displayed.
+    </p>
+    <div class="example">
+      <p class="example__label">An item with your own icon</p>
+      <pre><code>createGrid(el, {
+  contextMenu: (params, defaults) =&gt; [
+    ...defaults,
+    { separator: <span class="kw">true</span> },
+    <span class="cmt">// A registered sprite name — the built-in items use these.</span>
+    { name: 'Download', icon: 'download', action: () =&gt; save(params.data) },
+    <span class="cmt">// A single character or emoji, rendered as text.</span>
+    { name: 'Star', icon: '★', action: () =&gt; star(params.data) },
+    <span class="cmt">// Your own markup — a Font Awesome glyph, an inline SVG, an image.</span>
+    <span class="cmt">// It is inserted into the icon slot as an element, at the same trust</span>
+    <span class="cmt">// as the item's action, and never into the label.</span>
+    { name: 'Export', icon: '&lt;i class="fa-light fa-file-export"&gt;&lt;/i&gt;', action: exportRow },
+  ],
+});</code></pre>
+    </div>
+    <p class="lead-in">
+      A <code>MenuItem</code>'s <code>icon</code> accepts three forms, told apart automatically so
+      existing definitions keep working: a registered sprite <strong>name</strong>
+      (<code>'download'</code>), a single <strong>character</strong> or emoji (<code>'↑'</code>),
+      or author-supplied element <strong>markup</strong>
+      (<code>'&lt;i class="fa-light fa-download"&gt;&lt;/i&gt;'</code>). Markup is rendered as an
+      element rather than shown as text — the misbehaviour it replaces — and is written only into
+      the icon slot, so a definition can never inject markup into the label. It is trusted like the
+      item's <code>action</code>: a menu definition is code you wrote, not user data.
     </p>
     <div class="why">
       <p><strong>Handed the defaults, rather than replacing them.</strong> A builder that had to

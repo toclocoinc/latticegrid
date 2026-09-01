@@ -4,7 +4,7 @@
 dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it.
 
-Version 1.14.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.15.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -250,7 +250,10 @@ imports this and never the base package as well.
 
 **dhtmlx.** `modules/dhtmlx-compat` exposes a dhtmlx Grid-shaped API over
 Lattice, for moving an existing integration across a piece at a time rather
-than rewriting it in one go.
+than rewriting it in one go. It shares the core the page already loads rather
+than carrying its own, so load `lattice-grid` alongside it — a bundler wires
+the shared import for you, and a `<script src>` page loads the global build
+first — and a licence set on that core applies to these grids too.
 
 ### TypeScript
 

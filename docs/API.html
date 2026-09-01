@@ -2494,6 +2494,142 @@ createGrid(host, { source, columns: [...] });</code></pre>
       </table>
     </div>
 
+    <h4 id="adapter-options">What each adapter takes</h4>
+    <p class="section-note">
+      Every adapter is a function of one options object. The tables below list what each accepts, the
+      type, the default where it is not obvious, and what it means. The defaults are the load-bearing
+      part: an adapter is designed to work when handed almost nothing, so most of what you can set is
+      about telling it what your endpoint <em>cannot</em> do rather than switching features on.
+    </p>
+
+    <h5 id="odata-options"><code>odataAdapter</code></h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="name">url</td><td class="type">string</td><td class="type">—</td><td class="desc">The entity-set endpoint, e.g. <code>https://api.example.com/Orders</code>. Required.</td></tr>
+          <tr><td class="name">headers</td><td class="type">Record&lt;string, string&gt;</td><td class="type">{}</td><td class="desc">Sent on every request, merged over <code>Accept: application/json</code>. This is where a fixed bearer token or an API key goes. See <a href="#adapter-auth">authenticating</a>.</td></tr>
+          <tr><td class="name">fetch</td><td class="type">typeof fetch</td><td class="type">the global <code>fetch</code></td><td class="desc">Your own fetch, for a token that expires, a proxy, or a non-browser runtime. The adapter bundles no HTTP client. See <a href="#adapter-auth">authenticating</a>.</td></tr>
+          <tr><td class="name">count</td><td class="type">boolean</td><td class="type">true</td><td class="desc">Whether to ask for <code>$count=true</code> and read <code>@odata.count</code>. On by default because the grid sizes its scrollbar from the total; set <code>false</code> for a server that does not support it.</td></tr>
+          <tr><td class="name">search</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Whether the server implements <code>$search</code>. Off by default, so quick-filter text stays with the grid until you confirm the endpoint honours it; <code>true</code> pushes it as <code>$search</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h5 id="rest-options"><code>restAdapter</code></h5>
+    <p class="section-note">
+      <strong>The parameter names are yours, and the defaults are not zero.</strong> Paging and
+      sorting are assumed present; filtering is assumed <em>absent</em> until you declare
+      <code>operators</code>, because an adapter that claims to filter when the endpoint ignores it
+      returns the wrong rows silently. The query-string names default to
+      <code>offset</code>, <code>limit</code>, <code>sort</code>, <code>order</code>,
+      <code>filter</code> and <code>q</code> (search); <code>params</code> overrides any of them.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="name">url</td><td class="type">string</td><td class="type">—</td><td class="desc">The endpoint, e.g. <code>/api/orders</code>. Required.</td></tr>
+          <tr><td class="name">headers</td><td class="type">Record&lt;string, string&gt;</td><td class="type">{}</td><td class="desc">Sent on every request, merged over <code>Accept: application/json</code>. Where a fixed token or key goes. See <a href="#adapter-auth">authenticating</a>.</td></tr>
+          <tr><td class="name">fetch</td><td class="type">typeof fetch</td><td class="type">the global <code>fetch</code></td><td class="desc">Your own fetch, for an expiring token, a proxy or a non-browser runtime. See <a href="#adapter-auth">authenticating</a>.</td></tr>
+          <tr><td class="name">params</td><td class="type">Partial&lt;Record&lt;'offset'|'limit'|'sort'|'order'|'filter'|'search', string&gt;&gt;</td><td class="type">{ offset:'offset', limit:'limit', sort:'sort', order:'order', filter:'filter', search:'q' }</td><td class="desc">Renames the query-string keys to whatever your endpoint already reads. Only the keys you name change; the rest keep the defaults above.</td></tr>
+          <tr><td class="name">capabilities</td><td class="type">PushdownCapabilities</td><td class="type">{ range:true, total:true, sort:'multi', filter:false, quick:false }</td><td class="desc">What the endpoint can answer, merged over the defaults. Declaring <code>operators</code> is the usual way to turn filtering on; reach for this to switch off paging or sorting an endpoint cannot do.</td></tr>
+          <tr><td class="name">operators</td><td class="type">string[]</td><td class="type">— (filtering off)</td><td class="desc">The comparisons the endpoint genuinely applies, e.g. <code>['eq','gt','lt','contains']</code>. Setting it turns filtering on as a <code>tree</code>; a condition using any other operator stays with the grid.</td></tr>
+          <tr><td class="name">encodeFilter</td><td class="type">(filters: object) =&gt; string</td><td class="type"><code>JSON.stringify</code></td><td class="desc">How the pushed condition tree becomes the <code>filter</code> parameter's value. Override it to emit whatever query language your service parses instead of JSON.</td></tr>
+          <tr><td class="name">rows</td><td class="type">(body: unknown) =&gt; unknown[]</td><td class="type">body itself if an array, else <code>body.rows</code> then <code>body.data</code></td><td class="desc">Pulls the row array out of the response body, for an envelope that nests it somewhere else.</td></tr>
+          <tr><td class="name">total</td><td class="type">(body: unknown, rows: unknown[]) =&gt; number</td><td class="type"><code>body.total</code> then <code>body.count</code>, else the page length</td><td class="desc">Reads the count of <em>all</em> matching rows, not the page. The grid sizes its scrollbar from it, so a page-sized total makes a large result look like one page.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h5 id="duckdb-options"><code>duckdbAdapter</code></h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="name">connection</td><td class="type">object</td><td class="type">—</td><td class="desc">A live connection exposing <code>query</code>, and ideally <code>prepare</code>. Required. A connection without <code>prepare</code> is used only for unfiltered queries, because interpolating a user's filter into SQL is worse than not filtering.</td></tr>
+          <tr><td class="name">from</td><td class="type">string</td><td class="type">—</td><td class="desc">A table, a view, or any FROM expression. Required. <code>read_parquet('s3://bucket/*.parquet')</code> is as valid as a table name.</td></tr>
+          <tr><td class="name">fields</td><td class="type">string[]</td><td class="type">everything (<code>SELECT *</code>)</td><td class="desc">The columns to select. Name them to narrow the projection when the grid shows a subset of a wide table.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h5 id="dfql-options"><code>dfqlAdapter</code></h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="name">entity</td><td class="type">string</td><td class="type">—</td><td class="desc">The DemandFlow entity to query. Required.</td></tr>
+          <tr><td class="name">token</td><td class="type">string</td><td class="type">—</td><td class="desc">A personal access token, sent as the bearer credential. Required. Never commit one; read it from configuration at runtime.</td></tr>
+          <tr><td class="name">url</td><td class="type">string</td><td class="type"><code>https://rest.demandflow.com</code></td><td class="desc">The API base, for a non-default region or a self-hosted deployment.</td></tr>
+          <tr><td class="name">comboKey</td><td class="type">'comboKey' | 'comboKey2' | 'comboKey3'</td><td class="type"><code>comboKey</code></td><td class="desc">The name of the key attribute to match on. <code>comboKey</code> is the standard hierarchy.</td></tr>
+          <tr><td class="name">query</td><td class="type">string</td><td class="type"><code>SUB</code></td><td class="desc">The prefix matched against the key attribute. <code>SUB</code> alone means every record of the entity in the tenant.</td></tr>
+          <tr><td class="name">load</td><td class="type">string[]</td><td class="type">everything</td><td class="desc">Fields to project, which saves bandwidth but not query cost.</td></tr>
+          <tr><td class="name">limit</td><td class="type">number</td><td class="type">server default</td><td class="desc">Caps rows <em>scanned</em>, not matched — which is why every request also sends <code>countOnly</code> to reveal the true match count.</td></tr>
+          <tr><td class="name">headers</td><td class="type">Record&lt;string, string&gt;</td><td class="type">{}</td><td class="desc">Extra headers merged over the bearer token, for a gateway that needs its own.</td></tr>
+          <tr><td class="name">fetch</td><td class="type">typeof fetch</td><td class="type">the global <code>fetch</code></td><td class="desc">Your own fetch, for a proxy or a non-browser runtime.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4 id="adapter-auth">Authenticating a remote adapter</h4>
+    <p class="section-note">
+      Two shapes cover almost every endpoint. A <strong>fixed credential</strong> — an API key or a
+      long-lived token — goes in <code>headers</code>, which <code>odataAdapter</code> and
+      <code>restAdapter</code> send on every request. A credential that <strong>expires</strong> —
+      a short-lived bearer token you refresh — goes in a custom <code>fetch</code>, which is the one
+      place that can mint a fresh value per request. <code>dfqlAdapter</code> takes its
+      <code>token</code> directly, and <code>headers</code> for anything a gateway adds on top.
+    </p>
+    <p class="section-note">
+      <strong>A fixed token in <code>headers</code>.</strong> The map is sent on every request, so an
+      <code>Authorization</code> header authenticates the whole grid. Below, a custom
+      <code>fetch</code> stands in for the network only so the example can prove the header arrived:
+    </p>
+    <pre data-run="js" data-expect="Bearer static-token-123" data-covers="export:odataAdapter"><code><span class="kw">const</span> { odataAdapter } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">let</span> seen;
+<span class="kw">const</span> adapter = odataAdapter({
+  url: 'https://api.example.com/Orders',
+  <span class="cmt">// A fixed credential authenticates every request.</span>
+  headers: { Authorization: 'Bearer static-token-123' },
+  <span class="cmt">// Only here to capture what the adapter sent; in a browser, omit it.</span>
+  fetch: <span class="kw">async</span> (url, init) =&gt; {
+    seen = init.headers.Authorization;
+    <span class="kw">return</span> { ok: <span class="kw">true</span>, json: <span class="kw">async</span> () =&gt; ({ value: [], '@odata.count': 0 }) };
+  },
+});
+
+<span class="kw">await</span> adapter.execute({ range: { start: 0, end: 20 } }, {});
+<span class="kw">return</span> seen;   <span class="cmt">// the header reached the request</span></code></pre>
+
+    <p class="section-note">
+      <strong>An expiring token in a custom <code>fetch</code>.</strong> A token with a lifetime cannot
+      sit in a fixed map, because the map is read once and the token outlives no request that matters.
+      A custom <code>fetch</code> is called afresh for every request, so it is where you refresh the
+      credential and set the header on the outgoing call:
+    </p>
+    <pre data-run="js" data-expect="Bearer token-2" data-covers="export:restAdapter"><code><span class="kw">const</span> { restAdapter } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="cmt">// Stands in for a token service that hands out a new value each time.</span>
+<span class="kw">let</span> issued = 0;
+<span class="kw">const</span> freshToken = <span class="kw">async</span> () =&gt; `token-${++issued}`;
+
+<span class="kw">let</span> lastAuth;
+<span class="kw">const</span> adapter = restAdapter({
+  url: '/api/orders',
+  fetch: <span class="kw">async</span> (url, init) =&gt; {
+    <span class="cmt">// Refreshed per request, then merged over whatever headers the adapter set.</span>
+    <span class="kw">const</span> headers = { ...init.headers, Authorization: `Bearer ${<span class="kw">await</span> freshToken()}` };
+    lastAuth = headers.Authorization;
+    <span class="kw">return</span> { ok: <span class="kw">true</span>, json: <span class="kw">async</span> () =&gt; ({ rows: [], total: 0 }) };
+  },
+});
+
+<span class="kw">await</span> adapter.execute({ range: { start: 0, end: 20 } }, {});   <span class="cmt">// token-1</span>
+<span class="kw">await</span> adapter.execute({ range: { start: 20, end: 40 } }, {});  <span class="cmt">// token-2</span>
+<span class="kw">return</span> lastAuth;   <span class="cmt">// a fresh token on the second request</span></code></pre>
+
     <h4 id="pushdown-cookbook">Wiring it to the API you already have</h4>
     <p class="section-note">
       Most data sits behind a service someone on your team wrote. The adapter below sends four
@@ -5427,7 +5563,7 @@ grid.destroy();
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">name</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
-          <tr><td class="name">icon</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">icon</td><td class="type">string</td><td class="desc">An icon shown in the slot before the label. Three forms, told apart without a second option so existing definitions keep working: a registered sprite name (`'download'`), a single character or emoji (`'↑'`), or author-trusted element markup (`'&lt;i class="fa-light fa-download"&gt;&lt;/i&gt;'`), which is rendered as an element rather than shown as text. Markup is inserted into the icon slot only — never the label — at the same trust as `action`. <small>(optional)</small></td></tr>
           <tr><td class="name">shortcut</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">action</td><td class="type">() =&gt; void</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
@@ -6205,6 +6341,7 @@ grid.destroy();
           <tr><td class="name">grid</td><td class="type">Grid</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">container</td><td class="type">HTMLElement | string</td><td class="desc">An element, or a CSS selector resolved against the grid's document.</td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">icon</td><td class="type">string</td><td class="desc">An optional leading icon beside the title and value, using the same value contract as a menu item: a registered sprite name, a single character or emoji, or author-trusted element markup (`'&lt;i class="fa-light fa-bolt"&gt; &lt;/i&gt;'`, an `&lt;img&gt;`). It lays out to the side without disturbing the change indicator, threshold bands or confidence interval; omit it for the plain tile layout. <small>(optional)</small></td></tr>
           <tr><td class="name">value</td><td class="type">unknown | StatValueSpec | ((grid: Grid) =&gt; unknown)</td><td class="desc">A literal value, a spec to reduce, or a function of the grid. <small>(optional)</small></td></tr>
           <tr><td class="name">footer</td><td class="type">string | ((value: unknown, grid: Grid) =&gt; string)</td><td class="desc">Text under the value, or a function of it. <small>(optional)</small></td></tr>
           <tr><td class="name">baseline</td><td class="type">number | ((grid: Grid) =&gt; number)</td><td class="desc">What the value is compared against, for the change indicator. <small>(optional)</small></td></tr>
