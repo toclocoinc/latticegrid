@@ -754,7 +754,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">rows</td><td class="type">unknown[]</td><td class="dflt">, </td><td class="desc">Row objects. Held by reference; not copied.</td></tr>
           <tr><td class="name">rowKey</td><td class="type">string | (row) =&gt; string</td><td class="dflt">, </td><td class="desc">Stable row identity. Without it the grid assigns a key per row object and warns: enough for sorting, filtering, selection and copying within a session, but change tracking, streaming dedupe, selection persistence and remote reload all switch off, because new objects are new rows.</td></tr>
           <tr><td class="name">source</td><td class="type">SourceConfig</td><td class="dflt">memory</td><td class="desc">Where rows come from: <code>memory</code>, <code>paged</code>, <code>remote</code> or <code>stream</code>. See <a href="#sources">Sources</a>.</td></tr>
-          <tr><td class="name">ingest</td><td class="type">IngestConfig</td><td class="dflt">, </td><td class="desc"><code>{ retainSource }</code>. How rows enter the column store. <code>retainSource</code> defaults to <code>true</code>: the caller's row objects are held by reference so <code>rows.data()</code> returns them unchanged and <code>row === sourceObject</code> holds. Set it <code>false</code> to keep only the packed columns and reconstruct a row on demand — a smaller footprint, but <code>rows.data()</code> then returns freshly reconstructed objects, so identity checks and <code>row.sourceObject</code> no longer hold and equality becomes value-based. Cell values are unchanged.</td></tr>
+          <tr><td class="name">ingest</td><td class="type">IngestConfig</td><td class="dflt">, </td><td class="desc"><code>{ retainSource, dropSourceRows }</code>. How rows enter the column store. <code>retainSource</code> defaults to <code>true</code>: the caller's row objects are held by reference so <code>rows.data()</code> returns them unchanged and <code>row === sourceObject</code> holds. Set it <code>false</code> to stop the store retaining them and reconstruct a row on demand — but the source layer and grid config still hold the array, so the resident footprint does not actually fall. <code>dropSourceRows: true</code> closes that gap: it releases the objects from the source layer too, so the packed columns become the only copy and the footprint drops by roughly an order of magnitude at scale. Either way <code>rows.data()</code> then returns freshly reconstructed objects, so identity checks and <code>row.sourceObject</code> no longer hold and equality becomes value-based. Cell values are unchanged.</td></tr>
           <tr><td class="name">tree</td><td class="type">TreeConfig</td><td class="dflt">, </td><td class="desc"><code>{ path }</code> or <code>{ parentKey }</code>, plus <code>label</code>, <code>orphans</code>. Rows form a hierarchy. See <a href="api-detail.html#tree-data">Tree data</a>.</td></tr>
           <tr><td class="name">detail</td><td class="type">DetailConfig</td><td class="dflt">, </td><td class="desc"><code>{ rows, config, render, isMaster, height, cacheLimit, target }</code>. A master row expands into a nested grid, inline or into an element you supply. See <a href="api-detail.html#master-detail">Master-detail</a>.</td></tr>
           <tr><td class="name">context</td><td class="type">unknown</td><td class="dflt">, </td><td class="desc">Arbitrary value passed to every callback, so formatters and renderers need no closures over app state.</td></tr>
@@ -865,9 +865,10 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">rowReorder</td><td class="type">boolean | { column }</td><td class="dflt">, </td><td class="desc">Let a user reorder rows by dragging a handle or with <kbd>Alt</kbd>+<kbd>Shift</kbd>+arrows. The handle goes in the first visible column unless <code>column</code> names another. Refused, with a reason announced, while a sort, filter or grouping is active. See <a href="api-detail.html#row-reorder">Row reorder</a>.</td></tr>
           <tr><td class="name">rowTransfer</td><td class="type">boolean | { send, receive, mode, group }</td><td class="dflt">, </td><td class="desc">Let rows be dragged between grids. Off by default. <code>send</code> and <code>receive</code> are both on when present, so one-way is <code>{ receive: false }</code> or <code>{ send: false }</code>. <code>mode: 'copy'</code> leaves the row behind; <code>group</code> restricts which grids may exchange. See <a href="api-detail.html#row-transfer">Moving rows between grids</a>.</td></tr>
           <tr><td class="name">alignedGrids</td><td class="type">Grid[]</td><td class="dflt">, </td><td class="desc">Other grids to stay column-aligned with. Widths, order, visibility, pinning and horizontal scroll are shared; sort, filters, selection and rows stay independent. Declare it on the grid created last. See <a href="api-detail.html#aligned-grids">Aligned grids</a>.</td></tr>
-          <tr><td class="name">stickyGroupHeaders</td><td class="type">boolean | number | { depth }</td><td class="dflt">true</td><td class="desc">Keep the enclosing group headings pinned above the viewport while scrolling inside a group. Stacks at most two by default; each costs a row of viewport. See <a href="api-detail.html#sticky-group-headings">Sticky group headings</a>.</td></tr>
+          <tr><td class="name">stickyGroupHeaders</td><td class="type">boolean | number | { depth }</td><td class="dflt">false</td><td class="desc">Keep the enclosing group headings pinned above the viewport while scrolling inside a group. Off by default; <code>true</code> turns it on and stacks at most two, a number sets the cap, and each costs a row of viewport. See <a href="api-detail.html#sticky-group-headings">Sticky group headings</a>.</td></tr>
           <tr><td class="name">gridLines</td><td class="type">boolean | 'both' | 'horizontal' | 'vertical' | 'none'</td><td class="dflt">'horizontal'</td><td class="desc">Which rules are drawn between cells. Horizontal is what the grid has always drawn; vertical rules are additive. <code>'rows'</code> and <code>'columns'</code> are accepted aliases. Only the rules between data are affected, the header underline and pinned seams are structure.</td></tr>
           <tr><td class="name">cornerRadius</td><td class="type">boolean | number | string</td><td class="dflt">, </td><td class="desc">Round the grid's outer corners. <code>true</code> adopts the theme's radius, a number is pixels, a string is used as written.</td></tr>
+          <tr><td class="name">stripedRows</td><td class="type">boolean</td><td class="dflt">false</td><td class="desc">Shade alternate data rows (zebra striping). Strictly opt-in, so an existing grid is unchanged on upgrade. Parity follows each row's logical index, so a stripe survives a scroll; group headings, footers and the grand total are never striped; selection and hover still win. Uses the theme's <code>--lattice-surface-alt</code>, so dark, high-contrast and terminal come for free.</td></tr>
           <tr><td class="name">columnTagFilter</td><td class="type">boolean | { multiple, label }</td><td class="dflt">, </td><td class="desc">A bar above the headings for showing only the columns carrying a chosen tag. Draws nothing unless some column has <code>tags</code>. See <a href="api-detail.html#column-tags">Column tags</a>.</td></tr>
           <tr><td class="name">rowTemplate</td><td class="type">string | { template, cardsPerRow, maxCardWidth, gap, className, role, itemRole }</td><td class="dflt">, </td><td class="desc">Draw each row with a template instead of dividing it into columns, a card list, a feed, a search-result list. Compiles once; binds with <code>{{data.field}}</code>. <code>cardsPerRow</code> or <code>maxCardWidth</code> puts several on a line. The pipeline underneath is unchanged. See <a href="api-detail.html#cards">Cards, lists and feeds</a>.</td></tr>
           <tr><td class="name">responsive</td><td class="type">{ maxWidth, template, rowHeight }</td><td class="dflt">, </td><td class="desc">Collapse to cards when the <em>container</em> is at or below <code>maxWidth</code> (640 by default), and return to a table above it. Sorting, filtering and export keep working. Emits <code>presentation:changed</code>. See <a href="api-detail.html#cards">Cards, lists and feeds</a>.</td></tr>
@@ -2801,6 +2802,152 @@ app.get('/api/orders', async (req, res) =&gt; {
       <code>createPushdownSource</code> switches to fetching everything and paging from what it holds.
     </p>
 
+    <h4 id="pushdown-fulldataset">Whole-dataset statistics: <code>fullDataset</code></h4>
+    <p class="section-note">
+      A windowed source computes a total, statistic or group over the <em>loaded window</em> — the
+      rows on screen — not the whole matching set, unless residual work already forced a whole-result
+      fetch. &ldquo;Median revenue&rdquo; in the footer becomes the median of ~200 rows, wrong and
+      looking right. <code>fullDataset.enabled</code> makes the whole-result fetch <strong>sticky and
+      explicit</strong>: the entire matching set is held client-side once per query and every window,
+      total and statistic is served from it, so the figures are computed over everything. It reuses
+      the same whole-result path residual work already takes — <code>needsAll</code> — rather than a
+      parallel mechanism. It is off by default and strictly opt-in. For a <code>restAdapter</code>,
+      which cannot compute, it is the only way to get a correct whole-dataset statistic at all.
+    </p>
+    <p class="section-note">
+      <strong>Memory-guarded, refused loudly.</strong> A matching set past <code>maxRows</code> or
+      <code>maxBytesEstimate</code> is <strong>refused</strong> — thrown, surfaced as a
+      <code>source:error</code> with no rows shown — never silently truncated. Presenting a fraction
+      as the whole is the exact failure whole-dataset pull exists to prevent, so it is never the
+      failure mode of the fix itself. Narrow the filter or raise the limit.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">enabled</td><td class="type">boolean</td><td class="desc"><code>false</code></td><td class="desc">Hold the whole matching set client-side and serve every window, total and statistic from it.</td></tr>
+          <tr><td class="name">maxRows</td><td class="type">number</td><td class="desc"><code>1_000_000</code></td><td class="desc">Refuse (visible <code>source:error</code>) when the matching set is larger.</td></tr>
+          <tr><td class="name">maxBytesEstimate</td><td class="type">number</td><td class="desc"><code>512&nbsp;MB</code></td><td class="desc">Refuse past this estimated heap cost, sampled from a representative row.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre data-run="js" data-expect="49.5" data-covers="config:fullDataset config:enabled config:maxBytesEstimate"><code><span class="cmt">// An adapter that can page but reports the whole matching count. Without</span>
+<span class="cmt">// fullDataset a stat would see only the window; with it, the whole set.</span>
+<span class="kw">const</span> { createPushdownSource } = <span class="kw">await</span> import('../packages/core/src/source/pushdown.js');
+<span class="kw">const</span> all = Array.from({ length: 100 }, (_, i) =&gt; ({ id: i, amount: i }));
+<span class="kw">const</span> adapter = {
+  name: 'demo',
+  capabilities: { range: true, total: true },
+  execute: <span class="kw">async</span> (query) =&gt; {
+    <span class="kw">const</span> start = query.range ? query.range.start : 0;
+    <span class="kw">const</span> end = query.range ? query.range.end : all.length;
+    <span class="kw">return</span> { rows: all.slice(start, end), total: all.length };
+  },
+};
+<span class="kw">const</span> source = createPushdownSource({ adapter, fullDataset: { enabled: true, maxRows: 1000, maxBytesEstimate: 5_000_000 } });
+<span class="cmt">// Ask for a 10-row window; fullDataset holds all 100, so the mean is the true one.</span>
+<span class="kw">const</span> block = <span class="kw">await</span> source.fetch({ range: { start: 0, end: 10 }, filters: null, sort: [], quick: '' });
+<span class="kw">const</span> held = block.total; <span class="cmt">// 100: the whole set is held, not the 10-row window</span>
+<span class="kw">return</span> all.reduce((s, r) =&gt; s + r.amount, 0) / held; <span class="cmt">// 49.5, the true whole-dataset mean</span></code></pre>
+
+    <h4 id="pushdown-aggregates">Pushing statistics down: <code>aggregates</code></h4>
+    <p class="section-note">
+      A DuckDB-class engine can compute a median or a standard deviation over the whole matching set
+      far faster than pulling every row to do it here. The <code>aggregates</code> config decides, at
+      grid setup, which statistics are computed by the engine and which by the grid. It is a
+      <strong>design-time developer choice</strong> — fixed for the life of the grid, never a runtime
+      toggle, never shown to an end user. Absent, every aggregate is computed client-side, so no
+      existing grid changes behaviour.
+    </p>
+    <p class="section-note">
+      Each statistic is classified <strong>IDENTICAL</strong> (the engine's result equals the grid's
+      own kernel, verified against it) or <strong>MAY-DIFFER</strong> (the engine computes it by a
+      method that can differ from the grid's definition). The classification drives this
+      documentation and build-time provenance, <em>not</em> whether a stat is pushed — that is your
+      choice. Only <code>weightedQuantile</code> is a genuine <strong>fallback</strong>: the engine
+      cannot express the grid's midpoint convention, so it is always computed client-side.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">default</td><td class="type">'engine' | 'client' | 'engine-if-identical'</td><td class="desc"><code>'client'</code></td><td class="desc"><code>engine</code> pushes everything the engine can express (using its method for MAY-DIFFER stats); <code>engine-if-identical</code> pushes only the verified-identical ones and keeps MAY-DIFFER client-side — the recommended setting for a windowed DuckDB source; <code>client</code> computes everything here.</td></tr>
+          <tr><td class="name">overrides</td><td class="type">Record&lt;stat, 'engine' | 'client'&gt;</td><td class="desc">&mdash;</td><td class="desc">Per-stat overrides that win over <code>default</code>. A stat the engine cannot express is always client-side regardless.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note">
+      <strong>No mixed provenance.</strong> An engine number and a client number never appear in one
+      result set. Aggregates are pushed only when the filter is <em>fully</em> pushed; a residual
+      filter the engine could not apply forces <em>every</em> aggregate client-side, because an
+      engine figure computed over a superset beside a client figure over the real set would be
+      wrong-but-plausible. <code>lastPlan().aggregates</code> reports, per statistic, whether the
+      engine or the client computed it and the class it was assigned — build-time inspection, not a
+      per-figure runtime marker.
+    </p>
+    <p class="section-note">
+      The classification table below is generated from the single pushdown map
+      (<code>STAT_PUSHDOWN</code>), so it cannot drift from what the adapter actually emits:
+    </p>
+    <div class="table-wrap">
+      <table id="stat-pushdown-table">
+        <thead><tr><th>Statistic</th><th>Class</th><th>DuckDB expression</th><th>Note</th></tr></thead>
+        <tbody data-generated="stat-pushdown">
+          <!-- Generated from STAT_PUSHDOWN by tools/apiref.js; do not hand-edit. -->
+          <tr><td class="name">sum</td><td class="type">IDENTICAL</td><td class="desc"><code>sum(col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">avg</td><td class="type">IDENTICAL</td><td class="desc"><code>avg(col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">min</td><td class="type">IDENTICAL</td><td class="desc"><code>min(col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">max</td><td class="type">IDENTICAL</td><td class="desc"><code>max(col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">count</td><td class="type">IDENTICAL</td><td class="desc"><code>count(*)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">countValues</td><td class="type">IDENTICAL</td><td class="desc"><code>count(col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">range</td><td class="type">IDENTICAL</td><td class="desc"><code>(max(col) - min(col))</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">variance</td><td class="type">IDENTICAL</td><td class="desc"><code>var_samp(col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">varianceP</td><td class="type">IDENTICAL</td><td class="desc"><code>var_pop(col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">stddev</td><td class="type">IDENTICAL</td><td class="desc"><code>stddev_samp(col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">stddevP</td><td class="type">IDENTICAL</td><td class="desc"><code>stddev_pop(col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">sumSquares</td><td class="type">IDENTICAL</td><td class="desc"><code>sum(col * col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">median</td><td class="type">IDENTICAL</td><td class="desc"><code>median(col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">p25</td><td class="type">IDENTICAL</td><td class="desc"><code>quantile_cont(col, 0.25)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">p75</td><td class="type">IDENTICAL</td><td class="desc"><code>quantile_cont(col, 0.75)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">p90</td><td class="type">IDENTICAL</td><td class="desc"><code>quantile_cont(col, 0.9)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">p95</td><td class="type">IDENTICAL</td><td class="desc"><code>quantile_cont(col, 0.95)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">p99</td><td class="type">IDENTICAL</td><td class="desc"><code>quantile_cont(col, 0.99)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">iqr</td><td class="type">IDENTICAL</td><td class="desc"><code>(quantile_cont(col, 0.75) - quantile_cont(col, 0.25))</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">mad</td><td class="type">IDENTICAL</td><td class="desc"><code>mad(col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">distinct</td><td class="type">IDENTICAL</td><td class="desc"><code>count(DISTINCT col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">skewness</td><td class="type">IDENTICAL</td><td class="desc"><code>skewness(col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">kurtosis</td><td class="type">IDENTICAL</td><td class="desc"><code>kurtosis(col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">geomean</td><td class="type">IDENTICAL</td><td class="desc"><code>exp(avg(ln(col)))</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">harmean</td><td class="type">IDENTICAL</td><td class="desc"><code>(count(col) / sum(1.0 / col))</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">entropy</td><td class="type">IDENTICAL</td><td class="desc"><code>entropy(col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">correlation</td><td class="type">IDENTICAL</td><td class="desc"><code>corr(weight, col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">mode</td><td class="type">MAY-DIFFER</td><td class="desc"><code>mode(col)</code></td><td class="desc">DuckDB returns a modal value even for an all-distinct column; the grid returns null. Tie-breaking can also differ, and on a text column an empty string counts as a value. Under pushdown you will see a value.</td></tr>
+          <tr><td class="name">weightedQuantile</td><td class="type">FALLBACK</td><td class="desc">&mdash;</td><td class="desc">No SQL equivalent for the grid's weighted-quantile midpoint convention; always computed client-side (needs a full-dataset pull for a correct figure over a remote source).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre data-run="js" data-expect="engine=identical client=fallback" data-covers="config:aggregates config:default config:overrides export:STAT_PUSHDOWN"><code><span class="cmt">// Push the verified-identical stats to the engine; keep the fallback here.</span>
+<span class="cmt">// STAT_PUSHDOWN is the published map every stat's class and SQL comes from.</span>
+<span class="kw">const</span> { createPushdownSource, STAT_PUSHDOWN } = <span class="kw">await</span> import('../packages/core/src/source/index.js');
+<span class="kw">void</span> STAT_PUSHDOWN;   <span class="cmt">// the single source of truth for the classification table above</span>
+<span class="kw">const</span> adapter = {
+  name: 'demo',
+  capabilities: { filter: 'tree', operators: ['eq'] },
+  execute: <span class="kw">async</span> () =&gt; ({ rows: [], total: 0 }),
+  <span class="cmt">// A real duckdbAdapter runs SQL; here we just echo which stats arrived.</span>
+  executeAggregates: <span class="kw">async</span> (query, aggs) =&gt; Object.fromEntries(aggs.map((a) =&gt; [a.id, 1])),
+};
+<span class="kw">const</span> source = createPushdownSource({ adapter, aggregates: {
+  <span class="kw">default</span>: 'engine-if-identical',   <span class="cmt">// push only the verified-identical stats</span>
+  overrides: { mode: 'client' },     <span class="cmt">// but always keep mode's exact definition</span>
+} });
+<span class="kw">const</span> split = <span class="kw">await</span> source.aggregate(
+  { filters: null, sort: [], range: null },
+  [{ id: 'a', col: 'revenue', fn: 'median' }, { id: 'b', col: 'size', fn: 'weightedQuantile' }],
+);
+<span class="cmt">// median is IDENTICAL so it pushes; weightedQuantile is a fallback so it stays here.</span>
+<span class="kw">return</span> `engine=${split.engine[0].class} client=${split.client[0].class}`;</code></pre>
+
     <h3 id="derived-join">Joining two grids</h3>
     <p class="section-note">
       Two grids each holding their own data, and a third showing where they meet. Orders against
@@ -3689,7 +3836,7 @@ createGrid(el, {
     <h3 id="config-example">A configuration, executed</h3>
     <p class="section-note">This block runs on every build. If a key here stopped being honoured, or was
     renamed, the build would fail rather than the documentation quietly going stale.</p>
-    <pre data-run="js" data-expect="2" data-covers="config:rowKey config:columns config:rows config:rowHeight config:headerHeight config:overscan config:autoHeight config:showHeader config:density config:theme config:locale config:timeZone config:title config:gridLines config:cornerRadius config:targetSize config:sampleSize config:quickFilterText config:maximise config:shortcuts config:rowReorder config:stickyGroupHeaders config:groupFooter config:totalFilteredOnly config:showTotalInHeader config:aggregateChooser config:allowUnsafeTemplates config:useWorker config:sharedMemory config:workerThreshold config:columnVirtualisationAbove config:showColumnFunctions export:createHeadlessGrid"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="2" data-covers="config:rowKey config:columns config:rows config:rowHeight config:headerHeight config:overscan config:autoHeight config:showHeader config:density config:theme config:locale config:timeZone config:title config:gridLines config:cornerRadius config:stripedRows config:targetSize config:sampleSize config:quickFilterText config:maximise config:shortcuts config:rowReorder config:stickyGroupHeaders config:groupFooter config:totalFilteredOnly config:showTotalInHeader config:aggregateChooser config:allowUnsafeTemplates config:useWorker config:sharedMemory config:workerThreshold config:columnVirtualisationAbove config:showColumnFunctions export:createHeadlessGrid"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 
 <span class="cmt">// Every one of these is a documented configuration key, set together so the</span>
 <span class="cmt">// example proves they are accepted and honoured rather than merely spelled.</span>
@@ -3700,7 +3847,7 @@ createGrid(el, {
   rowHeight: 32, headerHeight: 40, overscan: 8, autoHeight: <span class="kw">false</span>,
   showHeader: <span class="kw">true</span>, density: 'compact', theme: 'light',
   locale: 'en-GB', timeZone: 'UTC', title: 'Readings',
-  gridLines: 'both', cornerRadius: 4, targetSize: 'default',
+  gridLines: 'both', cornerRadius: 4, stripedRows: <span class="kw">false</span>, targetSize: 'default',
   sampleSize: 100, quickFilterText: '', maximise: <span class="kw">false</span>,
   shortcuts: <span class="kw">true</span>, rowReorder: <span class="kw">false</span>,
   stickyGroupHeaders: <span class="kw">true</span>, groupFooter: <span class="kw">false</span>,
@@ -3745,6 +3892,33 @@ grid.destroy();
 <span class="kw">const</span> n = grid.rows.count();
 grid.destroy();
 <span class="kw">return</span> n;</code></pre>
+
+    <h3 id="dropsourcerows-example">Source-layer memory reduction, executed</h3>
+    <p class="section-note">A memory grid loaded with <code>ingest.dropSourceRows</code> on. Once the column store
+    is built, the caller's row objects are released from the source layer and the grid config, so the
+    packed columns are the only resident copy — an order-of-magnitude drop at scale. Reads are served
+    by reconstructing a row from the columns, so the <em>values</em> are unchanged; what is gone is
+    object identity, which is why <code>rows.data()</code> returns a fresh object each call rather than
+    the one you supplied.</p>
+    <pre data-run="js" data-expect="true" data-covers="config:dropSourceRows config:ingest"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> supplied = [{ id: '1', city: 'Oslo', pop: 700000 }, { id: '2', city: 'Bergen', pop: 280000 }];
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ id: 'city', field: 'city' }, { id: 'pop', field: 'pop', type: 'number' }],
+  source: { mode: 'memory' },
+  rows: supplied,
+  <span class="cmt">// Release the caller's objects; keep only the packed columns.</span>
+  ingest: { dropSourceRows: <span class="kw">true</span> },
+});
+
+<span class="kw">const</span> back = grid.rows.data();
+<span class="cmt">// Same values, reconstructed from the columns — but not the caller's own object.</span>
+<span class="kw">const</span> valuesMatch = back[0].city === 'Oslo' &amp;&amp; back[0].pop === 700000;
+<span class="kw">const</span> identityDropped = back[0] !== supplied[0];
+grid.destroy();
+<span class="kw">return</span> valuesMatch &amp;&amp; identityDropped;</code></pre>
 
     <h3 id="events-example">Events, executed</h3>
     <p class="section-note">Fourteen events raised by ordinary calls, asserted on every build. An event that
@@ -4241,6 +4415,35 @@ grid.destroy();
 <!-- BEGIN GENERATED TYPE REFERENCE -->
     <h2 id="type-reference">Type reference</h2>
     <p class="section-note">Every interface the library declares, with the type of each member. The sections above describe how the grid is used; this one is the complete surface, generated from the type declarations so that it always matches the release.</p>
+    <h3 id="type-AggregateProvenance">AggregateProvenance</h3>
+    <p class="section-note">How one aggregate was routed, for `lastPlan()` provenance.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">col</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">fn</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">class</td><td class="type">'identical' | 'may-differ' | 'fallback'</td><td class="desc">How the engine result relates to the grid kernel.</td></tr>
+          <tr><td class="name">reason</td><td class="type">string</td><td class="desc">Why it is client-side, when it is (config, fallback, or the guard). <small>(optional)</small></td></tr>
+          <tr><td class="name">weight</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-AggregateRequest">AggregateRequest</h3>
+    <p class="section-note">One aggregate the grid asks the source to compute over the matching set. `params` carries e.g. `{ share: 0.1 }` so an adapter emits the matching SQL; `weight` names the second column for a two-column stat like `correlation`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">Keys the result back to the request.</td></tr>
+          <tr><td class="name">col</td><td class="type">string</td><td class="desc">The column to reduce.</td></tr>
+          <tr><td class="name">fn</td><td class="type">string</td><td class="desc">The statistic name, as used in `total: '&lt;name&gt;'`.</td></tr>
+          <tr><td class="name">weight</td><td class="type">string</td><td class="desc">The second column, for a two-column statistic. <small>(optional)</small></td></tr>
+          <tr><td class="name">params</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Parameters the statistic takes, e.g. a trim share. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-AiApi">AiApi</h3>
     <div class="table-wrap">
       <table>
@@ -5543,6 +5746,7 @@ grid.destroy();
           <tr><td class="name">density</td><td class="type">Density</td><td class="desc">Row height and padding as a named step, rather than pixel by pixel. <small>(optional)</small></td></tr>
           <tr><td class="name">gridLines</td><td class="type">boolean | 'both' | 'horizontal' | 'vertical' | 'none' | 'rows' | 'columns'</td><td class="desc">Which rules are drawn between cells. `'both'` by default. The two axes are separate decisions: horizontal rules help the eye track along a row, vertical ones stop adjacent values running together. `false` or `'none'` draws neither. Only the rules *between data* are affected, the header's underline, the pinned seams and the totals separator are structure, not grid lines. <small>(optional)</small></td></tr>
           <tr><td class="name">cornerRadius</td><td class="type">boolean | number | string</td><td class="desc">Round the grid's outer corners. Square by default. `true` adopts the theme's own radius; a number is pixels; a string is used as written, so a host can pass its own token or a relative unit. <small>(optional)</small></td></tr>
+          <tr><td class="name">stripedRows</td><td class="type">boolean</td><td class="desc">Shade alternate data rows (zebra striping). Off by default, and strictly opt-in: an existing grid must look exactly the same on upgrade. When `true`, every other data row takes the theme's `--lattice-surface-alt` background, which every palette already defines, so dark, high-contrast and terminal stripe correctly without extra work. Parity follows the row's *logical* index, not its position in the DOM, so a row keeps its stripe across a scroll even though the rows are recycled. Structural rows — group headings, group footers and the grand total — are never striped, and both selection and hover still win over the stripe. <small>(optional)</small></td></tr>
           <tr><td class="name">columnTagFilter</td><td class="type">boolean | { multiple?: boolean; label?: string }</td><td class="desc">Show a bar above the column headings for filtering columns by tag. Off by default, and it draws nothing unless some column carries a `tags` entry. `multiple: true` lets more than one tag be chosen at once. Only tagged columns are ever hidden, so an untagged account or total column stays visible whatever is selected. <small>(optional)</small></td></tr>
           <tr><td class="name">typeOptions</td><td class="type">Record&lt;string, {</td><td class="desc">Per-column options a data type reads. `ratio` and `percentRate` use `{ weight }` to name the column their average is weighted by. A unit type reads `{ significantFigures }` to render to a fixed precision rather than a fixed number of decimals. <small>(optional)</small></td></tr>
           <tr><td class="name">rowTemplate</td><td class="type">string | {</td><td class="desc"><small>(optional)</small></td></tr>
@@ -5552,7 +5756,7 @@ grid.destroy();
           <tr><td class="name">rowHeight</td><td class="type">number | ((row: Row) =&gt; number)</td><td class="desc">Row height in pixels, or a function of the row. A function makes the grid measure rather than assume, which costs a pass over what is on screen: worth it for wrapped text, wasteful for a uniform grid. <small>(optional)</small></td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">A caption for the grid, drawn above the column headings. Inside the grid rather than an element the host places above it: a title outside does not scroll with the grid, is not in the region a screen reader announces, and is left behind by image capture and print. <small>(optional)</small></td></tr>
           <tr><td class="name">showHeader</td><td class="type">boolean</td><td class="desc">Draw the column headings at all. `true` by default. `false` removes the row, and removes it from the accessibility tree rather than only from view, a heading a screen reader still announces is invisible, not hidden. What a small dashboard tile wants when its `title` already says what the panel is. Distinct from `showColumnFunctions`, which keeps the headings and drops only the sort, filter and menu controls inside them. <small>(optional)</small></td></tr>
-          <tr><td class="name">headerHeight</td><td class="type">number</td><td class="desc">Header height in pixels. <small>(optional)</small></td></tr>
+          <tr><td class="name">headerHeight</td><td class="type">number</td><td class="desc">Header height in pixels. Omitted, the header takes its height from the density-scaled `--lattice-header-height` token, so `density` sizes the header as it sizes the rows. A number names one explicitly and outranks the token. <small>(optional)</small></td></tr>
           <tr><td class="name">overscan</td><td class="type">number</td><td class="desc">How many rows to render beyond the viewport. More costs memory and smooths fast scrolling; fewer is lighter and can show a gap. <small>(optional)</small></td></tr>
           <tr><td class="name">autoHeight</td><td class="type">boolean | 'visible'</td><td class="desc">Size rows to their content rather than to the density token. Only rows that are actually rendered are ever measured, in both settings: the grid does not lay out rows you cannot see. The difference is what happens on a large grid: `true` gives up above ten thousand rows and falls back to fixed heights, because a cumulative offset array being patched as you scroll a million rows is not worth the result. `'visible'` keeps measuring at any size, accepting that the scrollbar shifts as rows are measured on the way past. The name is historical and reads as though it were about which rows are measured; it is about whether the ceiling applies. <small>(optional)</small></td></tr>
           <tr><td class="name">state</td><td class="type">GridState</td><td class="desc">Sort, filters, grouping, widths and the rest, restored at construction. <small>(optional)</small></td></tr>
@@ -5589,7 +5793,7 @@ grid.destroy();
           <tr><td class="name">rowReorder</td><td class="type">boolean | { column?: string }</td><td class="desc">Let a user reorder rows by dragging a handle, or with Alt+Shift+Up/Down. `true` puts the handle in the first visible column; `{ column }` names a different one. The move reorders your data and emits `row:moved`; persisting it is yours, and `rows.data()` afterwards is the new order. Refused, with a reason announced, while a sort, filter or grouping is active, the position a row is dropped at has no single meaning in the underlying order then. <small>(optional)</small></td></tr>
           <tr><td class="name">rowTransfer</td><td class="type">boolean | {</td><td class="desc">Let rows be dragged out of this grid, into it, or both. Off by default: rows leaving a grid is a data change a host has to want, and a mis-drag that silently removed one has no gesture a user would think to undo. `send` and `receive` are both on when the option is present, so one-way is expressed by turning off the direction you do not want, a source grid is `{ receive: false }` and a target is `{ send: false }`. `mode: 'copy'` leaves the row where it was. `group` restricts exchange to grids sharing the same name, so two unrelated grids on a page do not accept each other's rows. The source needs `rowReorder` as well, since that is what draws the handle a drag starts from. <small>(optional)</small></td></tr>
           <tr><td class="name">alignedGrids</td><td class="type">unknown[]</td><td class="desc">Other grids to stay column-aligned with. Column widths, order, visibility and pinning are shared, and horizontal scrolling moves them together. Sort, filters, selection, grouping and the rows themselves stay independent: sharing those would make one grid with extra steps rather than two aligned ones. Declared on the grid created last, since it is the only one that can name the others; the link is peer-based once made. <small>(optional)</small></td></tr>
-          <tr><td class="name">stickyGroupHeaders</td><td class="type">boolean | number | { depth?: number }</td><td class="desc">Keep the enclosing group headings pinned above the viewport while scrolling inside a group. On by default, stacking at most two. `false` turns it off; a number, or `{ depth }`, sets how many may stack: each costs a row of viewport, so a deep grouping would otherwise spend the screen describing itself. <small>(optional)</small></td></tr>
+          <tr><td class="name">stickyGroupHeaders</td><td class="type">boolean | number | { depth?: number }</td><td class="desc">Keep the enclosing group headings pinned above the viewport while scrolling inside a group. Off by default — a deliberate product default; sticky group headers are opt-in. `true` turns it on, stacking at most two; a number, or `{ depth }`, sets how many may stack: each costs a row of viewport, so a deep grouping would otherwise spend the screen describing itself. `false` is off, the same as leaving it unset. <small>(optional)</small></td></tr>
           <tr><td class="name">highlightOnChange</td><td class="type">boolean | string | {</td><td class="desc">Flash a cell when its value changes. `true` takes the defaults; an object names a colour, a duration in milliseconds, or both. <small>(optional)</small></td></tr>
           <tr><td class="name">formatting</td><td class="type">Record&lt;string, FormattingRule[]&gt;</td><td class="desc">Conditional formatting rules the grid holds as runtime state, keyed by column id or `'*'` for every column (spec 8.12). Seeds `grid.formatting`, which an end user can then change; the rules travel in saved views and undo like any other change. Config-time `cell.style` is unaffected. <small>(optional)</small></td></tr>
           <tr><td class="name">rowClass</td><td class="type">string | string[] | ((p: RowStyleParams) =&gt; string | string[])</td><td class="desc">A class, or classes, for every row. Re-evaluated on each repaint. <small>(optional)</small></td></tr>
@@ -5723,6 +5927,7 @@ grid.destroy();
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">retainSource</td><td class="type">boolean</td><td class="desc">Retain the caller's row objects by reference so identity round-trips. Default `true`, the historical behaviour: `rows.data()` returns the exact objects you supplied, `row === sourceObject` holds, and a custom renderer reading `row.sourceObject` works. Set `false` to keep only the packed columns and reconstruct a plain row object from them on demand. This drops roughly half the resident footprint, but changes three behaviours: `rows.data()` returns freshly reconstructed objects (new object each call, so `row === sourceObject` no longer holds), a custom renderer that reaches for `row.sourceObject` gets a reconstruction rather than the original, and equality against a row becomes value-based. The stored values are unchanged, so `get()`, `byKey()`, `value()` and `values()` are unaffected. <small>(optional)</small></td></tr>
+          <tr><td class="name">dropSourceRows</td><td class="type">boolean</td><td class="desc">Release the caller's row objects from the *source layer* once the column store has been built, so the columns become the sole resident copy of the data. Default `false`, which keeps today's behaviour. `retainSource:false` stops the {@link https://en.wikipedia.org/wiki/Column-oriented_DBMS column store} from holding the caller's objects, but the memory source and the grid config still retain the supplied array by reference — so the objects stay alive and the resident footprint does not actually fall. This flag closes that gap: it clears `MemorySource`'s retained array and drops the array from the grid config, leaving nothing on the heap but the packed columns. That is where the large reduction comes from (roughly an order of magnitude at a million rows), not from `retainSource` on its own. Implies `retainSource:false`: dropping the caller's objects while the store still expects to read through them would leave the source with no data at all, so setting this on forces the store to reconstruct rows from columns. Every read is therefore served from the columns — `at()`, `byKey()`, `get()`, `value()`, `values()`, filtering, sorting, grouping, totals and export are all unaffected in their values. What changes is the same three identity behaviours `retainSource:false` documents: `rows.data()` returns freshly reconstructed objects (so `row === sourceObject` no longer holds), a custom renderer reaching for `row.sourceObject` gets a reconstruction, and equality against a row becomes value-based. One consumer cannot be served from the columns: an *impure computed column* (a shadow, or a rank/positional column) is deliberately never materialised into the store, so its handle is built by reading the source objects. Under `dropSourceRows` those objects are gone, so such a column reduces over nothing and warns once rather than returning a silently wrong figure. Do not enable `dropSourceRows` on a grid that sorts, filters, groups or totals on a shadow or a positional column. <small>(optional)</small></td></tr>
           <tr><td class="name">useWorker</td><td class="type">boolean</td><td class="desc">Columnize `stream`-source ingest on a Worker so a large load does not block the main thread. Default `false`. When on, an arriving chunk that clears {@link IngestConfig.workerThreshold} is packed into typed column buffers on the Worker; the main thread merges the finished buffers into the store and renders, without running the per-field extraction pass that otherwise dominates ingest. This makes **stream** ingest non-blocking (remote sources already are). Memory and paged sources cannot be made non-blocking this way — the main thread must read the caller's own row objects — and are unaffected. The effect composes with `retainSource: false`: with it off the source keeps no caller-object array on the main thread at all, so the load is both non-blocking and lighter on memory. A column that reads through a closure — a `date` column's storage conversion, or a computed column — cannot cross the Worker boundary, so a grid with any such column columnizes on the main thread and says so once. Falls back silently to the main thread wherever a Worker cannot be created. <small>(optional)</small></td></tr>
           <tr><td class="name">workerThreshold</td><td class="type">number</td><td class="desc">Row count in a single stream chunk at or above which columnization is offloaded to the Worker when {@link IngestConfig.useWorker} is on. Default `10000`. A smaller first chunk is packed on the main thread, where the cost is trivial and the postMessage round trip would only add latency to time-to-first-row. <small>(optional)</small></td></tr>
         </tbody>
@@ -6103,6 +6308,17 @@ grid.destroy();
         </tbody>
       </table>
     </div>
+    <h3 id="type-PushdownAggregatesConfig">PushdownAggregatesConfig</h3>
+    <p class="section-note">Design-time aggregate-pushdown policy for a pushdown source (BACKLOG-0000730 Part B, ungrouped). The developer chooses, at grid setup before render, whether each statistic is computed by the engine (fast, over the matching set) or client-side (the grid's exact definition, needs a full-dataset pull). It is fixed for the life of the grid, never a runtime toggle, and never surfaced to an end user. Absent, every aggregate is computed client-side — today's behaviour, so no existing caller regresses. `engine-if-identical` is the recommended setting for a windowed DuckDB source: it pushes only the statistics whose engine result is verified identical to the grid kernel, keeping the documented MAY-DIFFER stats (e.g. `mode`) client-side. The engine is used only when the filter is fully pushed; a residual filter forces every aggregate client-side, so an engine figure and a client figure never mix in one result set.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">default</td><td class="type">AggregateMode</td><td class="desc">The default policy for stats the engine can express. `'engine'` pushes everything expressible (using the engine's method for MAY-DIFFER stats); `'engine-if-identical'` pushes only the verified-identical ones; `'client'` computes everything client-side. Default `'client'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">overrides</td><td class="type">Record&lt;string, 'engine' | 'client'&gt;</td><td class="desc">Per-stat overrides, winning over `default`. A stat the engine cannot express (`weightedQuantile`) is always client-side regardless. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-PushdownCapabilities">PushdownCapabilities</h3>
     <p class="section-note">What a pushdown adapter can answer. Everything is off unless declared.</p>
     <div class="table-wrap">
@@ -6119,6 +6335,18 @@ grid.destroy();
         </tbody>
       </table>
     </div>
+    <h3 id="type-PushdownFullDatasetConfig">PushdownFullDatasetConfig</h3>
+    <p class="section-note">Opt-in, sticky full-dataset pull for a pushdown/remote source (BACKLOG-0000730). Off by default. When enabled, the source materialises the entire matching set client-side once per query signature and serves every window, total and statistic from it, so those figures are computed over the whole set rather than the loaded window. A set past either limit is refused with a visible `source:error` — never silently truncated.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">enabled</td><td class="type">boolean</td><td class="desc">Sticky: hold the whole matching set client-side. Default `false`. <small>(optional)</small></td></tr>
+          <tr><td class="name">maxRows</td><td class="type">number</td><td class="desc">Refuse (visible error) past this many rows. Default `1_000_000`. <small>(optional)</small></td></tr>
+          <tr><td class="name">maxBytesEstimate</td><td class="type">number</td><td class="desc">Refuse past this estimated heap cost, in bytes. Default `512 * 1024 * 1024`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-PushdownPlan">PushdownPlan</h3>
     <p class="section-note">How one request was divided between the engine and the grid.</p>
     <div class="table-wrap">
@@ -6129,6 +6357,8 @@ grid.destroy();
           <tr><td class="name">residual</td><td class="type">{ filters: object | null; sort: SortEntry[] | null; quick: string }</td><td class="desc">What the grid applied afterwards.</td></tr>
           <tr><td class="name">needsAll</td><td class="type">boolean</td><td class="desc">Whether the whole result had to be fetched rather than a window.</td></tr>
           <tr><td class="name">unpushed</td><td class="type">string[]</td><td class="desc">Which parts could not be pushed: `filter`, `sort`, `quick`.</td></tr>
+          <tr><td class="name">full</td><td class="type">boolean</td><td class="desc">Whether the whole result was fetched because `fullDataset` is on, rather than only because residual work forced it. When true, totals and statistics reduce over the whole matching set and the windowed-stat warning is silent.</td></tr>
+          <tr><td class="name">aggregates</td><td class="type">{</td><td class="desc">Per-aggregate provenance, present only when the last request computed aggregates (BACKLOG-0000730 Part B): which statistics the engine computed and which the client did, with the class the pushdown map assigned each. Under grouping it also carries the `groupBy` the subtotals were computed over. Build-time inspection, not a runtime per-figure marker. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -6140,6 +6370,8 @@ grid.destroy();
           <tr><td class="name">adapter</td><td class="type">PushdownAdapter</td><td class="desc"></td></tr>
           <tr><td class="name">compute</td><td class="type">object</td><td class="desc">The compute barrel, for applying whatever the engine could not. <small>(optional)</small></td></tr>
           <tr><td class="name">pageSize</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">fullDataset</td><td class="type">PushdownFullDatasetConfig</td><td class="desc">Opt-in full-dataset pull. Off unless `fullDataset.enabled` is set. See {@link PushdownFullDatasetConfig}. <small>(optional)</small></td></tr>
+          <tr><td class="name">aggregates</td><td class="type">PushdownAggregatesConfig</td><td class="desc">Design-time aggregate-pushdown policy. Absent = client-side (today's behaviour). See {@link PushdownAggregatesConfig}. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>

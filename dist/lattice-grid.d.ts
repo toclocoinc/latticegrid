@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.16.0, type declarations
+ * Lattice Grid 1.17.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -780,6 +780,41 @@ export interface IngestConfig {
   retainSource?: boolean;
 
   /**
+   * Release the caller's row objects from the *source layer* once the column
+   * store has been built, so the columns become the sole resident copy of the
+   * data. Default `false`, which keeps today's behaviour.
+   *
+   * `retainSource:false` stops the {@link https://en.wikipedia.org/wiki/Column-oriented_DBMS column store}
+   * from holding the caller's objects, but the memory source and the grid config
+   * still retain the supplied array by reference — so the objects stay alive and
+   * the resident footprint does not actually fall. This flag closes that gap: it
+   * clears `MemorySource`'s retained array and drops the array from the grid
+   * config, leaving nothing on the heap but the packed columns. That is where
+   * the large reduction comes from (roughly an order of magnitude at a million
+   * rows), not from `retainSource` on its own.
+   *
+   * Implies `retainSource:false`: dropping the caller's objects while the store
+   * still expects to read through them would leave the source with no data at
+   * all, so setting this on forces the store to reconstruct rows from columns.
+   * Every read is therefore served from the columns — `at()`, `byKey()`,
+   * `get()`, `value()`, `values()`, filtering, sorting, grouping, totals and
+   * export are all unaffected in their values. What changes is the same three
+   * identity behaviours `retainSource:false` documents: `rows.data()` returns
+   * freshly reconstructed objects (so `row === sourceObject` no longer holds), a
+   * custom renderer reaching for `row.sourceObject` gets a reconstruction, and
+   * equality against a row becomes value-based.
+   *
+   * One consumer cannot be served from the columns: an *impure computed column*
+   * (a shadow, or a rank/positional column) is deliberately never materialised
+   * into the store, so its handle is built by reading the source objects. Under
+   * `dropSourceRows` those objects are gone, so such a column reduces over
+   * nothing and warns once rather than returning a silently wrong figure. Do not
+   * enable `dropSourceRows` on a grid that sorts, filters, groups or totals on a
+   * shadow or a positional column.
+   */
+  dropSourceRows?: boolean;
+
+  /**
    * Columnize `stream`-source ingest on a Worker so a large load does not block
    * the main thread. Default `false`. When on, an arriving chunk that clears
    * {@link IngestConfig.workerThreshold} is packed into typed column buffers on
@@ -1159,6 +1194,21 @@ export interface GridConfig {
   cornerRadius?: boolean | number | string;
 
   /**
+   * Shade alternate data rows (zebra striping).
+   *
+   * Off by default, and strictly opt-in: an existing grid must look exactly the
+   * same on upgrade. When `true`, every other data row takes the theme's
+   * `--lattice-surface-alt` background, which every palette already defines, so
+   * dark, high-contrast and terminal stripe correctly without extra work.
+   *
+   * Parity follows the row's *logical* index, not its position in the DOM, so a
+   * row keeps its stripe across a scroll even though the rows are recycled.
+   * Structural rows — group headings, group footers and the grand total — are
+   * never striped, and both selection and hover still win over the stripe.
+   */
+  stripedRows?: boolean;
+
+  /**
    * Show a bar above the column headings for filtering columns by tag.
    *
    * Off by default, and it draws nothing unless some column carries a `tags`
@@ -1312,7 +1362,12 @@ export interface GridConfig {
    * only the sort, filter and menu controls inside them.
    */
   showHeader?: boolean;
-  /** Header height in pixels. */
+  /**
+   * Header height in pixels. Omitted, the header takes its height from the
+   * density-scaled `--lattice-header-height` token, so `density` sizes the
+   * header as it sizes the rows. A number names one explicitly and outranks the
+   * token.
+   */
   headerHeight?: number;
   /** How many rows to render beyond the viewport. More costs memory and
    * smooths fast scrolling; fewer is lighter and can show a gap. */
@@ -1562,9 +1617,11 @@ export interface GridConfig {
    * Keep the enclosing group headings pinned above the viewport while
    * scrolling inside a group.
    *
-   * On by default, stacking at most two. `false` turns it off; a number, or
-   * `{ depth }`, sets how many may stack: each costs a row of viewport, so a
-   * deep grouping would otherwise spend the screen describing itself.
+   * Off by default — a deliberate product default; sticky group headers are
+   * opt-in. `true` turns it on, stacking at most two; a number, or `{ depth }`,
+   * sets how many may stack: each costs a row of viewport, so a deep grouping
+   * would otherwise spend the screen describing itself. `false` is off, the
+   * same as leaving it unset.
    */
   stickyGroupHeaders?: boolean | number | { depth?: number };
   /**
@@ -1892,6 +1949,103 @@ export interface PushdownPlan {
   needsAll: boolean;
   /** Which parts could not be pushed: `filter`, `sort`, `quick`. */
   unpushed: string[];
+  /**
+   * Whether the whole result was fetched because `fullDataset` is on, rather
+   * than only because residual work forced it. When true, totals and statistics
+   * reduce over the whole matching set and the windowed-stat warning is silent.
+   */
+  full: boolean;
+  /**
+   * Per-aggregate provenance, present only when the last request computed
+   * aggregates (BACKLOG-0000730 Part B): which statistics the engine computed
+   * and which the client did, with the class the pushdown map assigned each.
+   * Under grouping it also carries the `groupBy` the subtotals were computed
+   * over. Build-time inspection, not a runtime per-figure marker.
+   */
+  aggregates?: {
+    engine: AggregateProvenance[];
+    client: AggregateProvenance[];
+    groupBy?: string[];
+  };
+}
+
+/**
+ * Opt-in, sticky full-dataset pull for a pushdown/remote source
+ * (BACKLOG-0000730). Off by default. When enabled, the source materialises the
+ * entire matching set client-side once per query signature and serves every
+ * window, total and statistic from it, so those figures are computed over the
+ * whole set rather than the loaded window. A set past either limit is refused
+ * with a visible `source:error` — never silently truncated.
+ */
+export interface PushdownFullDatasetConfig {
+  /** Sticky: hold the whole matching set client-side. Default `false`. */
+  enabled?: boolean;
+  /** Refuse (visible error) past this many rows. Default `1_000_000`. */
+  maxRows?: number;
+  /** Refuse past this estimated heap cost, in bytes. Default `512 * 1024 * 1024`. */
+  maxBytesEstimate?: number;
+}
+
+/** How one requested aggregate should be computed. */
+export type AggregateMode = 'engine' | 'client' | 'engine-if-identical';
+
+/**
+ * Design-time aggregate-pushdown policy for a pushdown source
+ * (BACKLOG-0000730 Part B, ungrouped). The developer chooses, at grid setup
+ * before render, whether each statistic is computed by the engine (fast, over
+ * the matching set) or client-side (the grid's exact definition, needs a
+ * full-dataset pull). It is fixed for the life of the grid, never a runtime
+ * toggle, and never surfaced to an end user.
+ *
+ * Absent, every aggregate is computed client-side — today's behaviour, so no
+ * existing caller regresses. `engine-if-identical` is the recommended setting
+ * for a windowed DuckDB source: it pushes only the statistics whose engine
+ * result is verified identical to the grid kernel, keeping the documented
+ * MAY-DIFFER stats (e.g. `mode`) client-side. The engine is used only when the
+ * filter is fully pushed; a residual filter forces every aggregate client-side,
+ * so an engine figure and a client figure never mix in one result set.
+ */
+export interface PushdownAggregatesConfig {
+  /**
+   * The default policy for stats the engine can express. `'engine'` pushes
+   * everything expressible (using the engine's method for MAY-DIFFER stats);
+   * `'engine-if-identical'` pushes only the verified-identical ones; `'client'`
+   * computes everything client-side. Default `'client'`.
+   */
+  default?: AggregateMode;
+  /** Per-stat overrides, winning over `default`. A stat the engine cannot
+   *  express (`weightedQuantile`) is always client-side regardless. */
+  overrides?: Record<string, 'engine' | 'client'>;
+}
+
+/**
+ * One aggregate the grid asks the source to compute over the matching set.
+ * `params` carries e.g. `{ share: 0.1 }` so an adapter emits the matching SQL;
+ * `weight` names the second column for a two-column stat like `correlation`.
+ */
+export interface AggregateRequest {
+  /** Keys the result back to the request. */
+  id: string;
+  /** The column to reduce. */
+  col: string;
+  /** The statistic name, as used in `total: '<name>'`. */
+  fn: string;
+  /** The second column, for a two-column statistic. */
+  weight?: string;
+  /** Parameters the statistic takes, e.g. a trim share. */
+  params?: Record<string, unknown>;
+}
+
+/** How one aggregate was routed, for `lastPlan()` provenance. */
+export interface AggregateProvenance {
+  id: string;
+  col: string;
+  fn: string;
+  /** How the engine result relates to the grid kernel. */
+  class: 'identical' | 'may-differ' | 'fallback';
+  /** Why it is client-side, when it is (config, fallback, or the guard). */
+  reason?: string;
+  weight?: string;
 }
 
 export interface PushdownSourceConfig {
@@ -1899,6 +2053,16 @@ export interface PushdownSourceConfig {
   /** The compute barrel, for applying whatever the engine could not. */
   compute?: object;
   pageSize?: number;
+  /**
+   * Opt-in full-dataset pull. Off unless `fullDataset.enabled` is set. See
+   * {@link PushdownFullDatasetConfig}.
+   */
+  fullDataset?: PushdownFullDatasetConfig;
+  /**
+   * Design-time aggregate-pushdown policy. Absent = client-side (today's
+   * behaviour). See {@link PushdownAggregatesConfig}.
+   */
+  aggregates?: PushdownAggregatesConfig;
 }
 
 export interface StatisticsApi {
@@ -3414,7 +3578,51 @@ export function toneOf(direction: string, goodWhen: string): 'good' | 'bad' | 'f
  */
 export function createPushdownSource(
   config: PushdownSourceConfig,
-): SourceConfig & { lastPlan(): PushdownPlan | null };
+): SourceConfig & {
+  lastPlan(): PushdownPlan | null;
+  /**
+   * Compute a set of aggregates over the matching set, splitting them between
+   * the engine and the client by the design-time `aggregates` config
+   * (BACKLOG-0000730 Part B). Ungrouped, returns the engine-computed `values`
+   * keyed by id. When the request carries a `groupBy`, returns `groups` instead:
+   * one entry per subtotal level and the grand total (`level: 0`, produced by a
+   * single `GROUP BY ROLLUP`), each with its key values and its aggregate values
+   * keyed by id. The client list is what the caller computes itself over the
+   * full set. Aggregates are pushed only when the filter is fully pushed and —
+   * under grouping — every grouping key is a plain column the engine can group
+   * by; a residual filter or an unpushable group key forces every aggregate
+   * client-side (no mixed provenance).
+   */
+  aggregate(
+    request: RemoteRequest,
+    requested: AggregateRequest[],
+  ): Promise<{
+    values: Record<string, unknown>;
+    groups?: Array<{
+      keys: unknown[];
+      grouping?: number[];
+      level: number;
+      values: Record<string, unknown>;
+    }>;
+    engine: AggregateProvenance[];
+    client: AggregateProvenance[];
+  }>;
+};
+
+/**
+ * The pushdown map (BACKLOG-0000730 Part B): one published record per statistic
+ * giving whether the engine can express it, the DuckDB aggregate SQL it emits,
+ * and whether that result is IDENTICAL to the grid's own kernel or MAY-DIFFER.
+ * The single source of truth the push router, the docs and `lastPlan()` all read.
+ */
+export const STAT_PUSHDOWN: Readonly<Record<string, {
+  pushable: boolean;
+  class: 'identical' | 'may-differ' | 'fallback';
+  sql?: string;
+  note?: string;
+  twoColumn?: boolean;
+  blankAware?: boolean;
+}>>;
 
 /**
  * The capability set an adapter that declares nothing is treated as having:

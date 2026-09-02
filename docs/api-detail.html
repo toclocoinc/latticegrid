@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.16.0</p>
+    <p class="rail__sub">Developer guide · v1.17.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -2554,9 +2554,9 @@ grid.destroy();
     </p>
 
     <div class="example">
-      <p class="example__label">On by default; turn it off or change the cap</p>
-      <pre><code>createGrid(element, { stickyGroupHeaders: <span class="kw">false</span> });   <span class="cmt">// off</span>
-createGrid(element, { stickyGroupHeaders: 3 });       <span class="cmt">// stack up to three</span></code></pre>
+      <p class="example__label">Off by default; opt in or set the cap</p>
+      <pre><code>createGrid(element, { stickyGroupHeaders: <span class="kw">true</span> });    <span class="cmt">// on, up to two</span>
+createGrid(element, { stickyGroupHeaders: 3 });       <span class="cmt">// on, up to three</span></code></pre>
     </div>
 
     <div class="why">
@@ -2608,7 +2608,8 @@ createGrid(element, { stickyGroupHeaders: 3 });       <span class="cmt">// stack
       <table>
         <thead><tr><th>Option</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">retainSource</td><td class="type">boolean</td><td class="desc">Default <code>true</code>. Set <code>false</code> to keep only the packed columns and reconstruct a plain row object from them on demand. <code>rows.data()</code> then returns freshly reconstructed objects — a new object each call — so <code>row === sourceObject</code> and a custom renderer reading <code>row.sourceObject</code> no longer hold, and equality becomes value-based. Cell values are identical either way, so <code>get()</code>, <code>byKey()</code>, <code>value()</code> and <code>values()</code> are unaffected.</td></tr>
+          <tr><td class="name">retainSource</td><td class="type">boolean</td><td class="desc">Default <code>true</code>. Set <code>false</code> to keep only the packed columns and reconstruct a plain row object from them on demand. <code>rows.data()</code> then returns freshly reconstructed objects — a new object each call — so <code>row === sourceObject</code> and a custom renderer reading <code>row.sourceObject</code> no longer hold, and equality becomes value-based. Cell values are identical either way, so <code>get()</code>, <code>byKey()</code>, <code>value()</code> and <code>values()</code> are unaffected. On its own this drops only the store's reference array, not the objects: the source layer still holds them.</td></tr>
+          <tr><td class="name">dropSourceRows</td><td class="type">boolean</td><td class="desc">Default <code>false</code>. Set <code>true</code> to release the caller's row objects from the <em>source layer</em> and the grid config once the store is built, so the packed columns are the only resident copy. This is where the large reduction lives — roughly an order of magnitude at a million rows — because the caller's objects are the dominant term. Implies <code>retainSource: false</code> (the store must reconstruct), so it carries the same identity tradeoff. An impure computed column — a shadow or a rank/positional column — is never stored, so it cannot be served from the columns: it warns once and drops out rather than answering wrongly, and <code>rows.move()</code> is refused. Do not enable it on a grid that sorts, filters, groups or totals on such a column, or that reorders rows in place.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2618,14 +2619,17 @@ createGrid(element, { stickyGroupHeaders: 3 });       <span class="cmt">// stack
   columns,
   rowKey: 'id',
   rows,
-  ingest: { retainSource: <span class="kw">false</span> },
+  <span class="cmt">// Release the caller's objects entirely; the packed columns are the sole copy.</span>
+  ingest: { dropSourceRows: <span class="kw">true</span> },
 });</code></pre>
     </div>
     <div class="why">
-      <p>The saving is the store's own copy of the object references, not the objects
-      themselves: whoever handed the grid its rows still owns them. The footprint drops
-      materially only when the grid becomes the sole holder of the data. Reach for this when
-      you can let go of the source array and do not depend on caller identity through
+      <p>With <code>retainSource: false</code> alone the saving is only the store's own copy of the
+      object references, not the objects themselves: the source layer and the grid config still
+      hold the array, so whoever handed the grid its rows keeps them alive. <code>dropSourceRows</code>
+      releases those references too, so once the caller lets go the objects can be collected and the
+      grid becomes the sole holder of the data. Reach for it on a large, read-mostly grid where you
+      can let go of the source array and do not depend on caller identity through
       <code>rows.data()</code>.</p>
     </div>
 
@@ -2746,7 +2750,8 @@ createGrid(el, { columns, rowKey: 'id', source });
 plan.pushed;      <span class="cmt">// the query the adapter was given</span>
 plan.residual;    <span class="cmt">// { filters, sort, quick } the grid applied after</span>
 plan.unpushed;    <span class="cmt">// ['filter'], the parts that stayed behind</span>
-plan.needsAll;    <span class="cmt">// true when the whole result had to be fetched</span></code></pre>
+plan.needsAll;    <span class="cmt">// true when the whole result had to be fetched</span>
+plan.full;        <span class="cmt">// true when fullDataset forced it, not just residual work</span></code></pre>
     </div>
     <p>
       The grid also warns once, naming the predicate that could not be pushed, because the fix is
@@ -2786,6 +2791,78 @@ createGrid(el, {
       being rounded into a plausible lie.</p>
       <p><code>demo/duckdb.html</code> runs this against a Parquet file of several million readings
       with no server involved.</p>
+    </div>
+
+    <h3 id="fulldataset">Whole-dataset statistics over a remote source</h3>
+    <p class="lead-in">
+      A windowed source reduces a total or statistic over the rows it has loaded, not the whole
+      matching set — a footer median of the 200 rows on screen, which is wrong and looks right.
+      <code>fullDataset</code> makes the source hold the entire matching set client-side so those
+      figures are computed over everything.
+    </p>
+    <div class="example">
+      <p class="example__label">Correct footer figures over a REST or DuckDB source</p>
+      <pre><code><span class="kw">const</span> source = createPushdownSource({
+  adapter: restAdapter({ url: '/api/trades' }),
+  fullDataset: {
+    enabled: <span class="kw">true</span>,            <span class="cmt">// hold the whole matching set, once per query</span>
+    maxRows: 1_000_000,        <span class="cmt">// refuse (visible error) past this</span>
+    maxBytesEstimate: 512 * 1024 * 1024,
+  },
+});</code></pre>
+    </div>
+    <div class="why">
+      <p>It is <strong>off by default</strong> and reuses the same whole-result path that residual
+      work already takes: the flag ORs into <code>needsAll</code>, so once the set is held it is
+      ordinary in-memory data and the grid's existing total and statistics kernels reduce over all of
+      it, with no per-stat change. When it is active and within the limits, the whole matching set is
+      covered, so the windowed-statistic warning (BACKLOG-0000731) stays silent — the figure is now
+      honestly whole-dataset.</p>
+      <p><strong>It is refused loudly, never truncated.</strong> A matching set past
+      <code>maxRows</code> or <code>maxBytesEstimate</code> is thrown and surfaced as a
+      <code>source:error</code> with no rows shown, rather than held as a fraction and presented as
+      the whole. A fraction shown as the whole is exactly the silent wrong answer this feature
+      exists to remove, so it is never how the feature fails. For a <code>restAdapter</code>, which
+      cannot compute, this is the only route to a correct whole-dataset statistic.</p>
+    </div>
+
+    <h3 id="aggregates">Pushing statistics down to the engine</h3>
+    <p class="lead-in">
+      A DuckDB-class engine computes a median or a standard deviation over the whole matching set far
+      faster than pulling every row here to do it. The <code>aggregates</code> config decides, at
+      grid setup, which statistics the engine computes and which the grid does — a design-time
+      developer choice, fixed for the life of the grid, never a runtime toggle and never shown to an
+      end user.
+    </p>
+    <div class="example">
+      <p class="example__label">Push the verified-identical stats, keep the rest exact</p>
+      <pre><code><span class="kw">const</span> source = createPushdownSource({
+  adapter: duckdbAdapter({ connection: conn, from: <span class="str">'trades'</span> }),
+  aggregates: {
+    <span class="cmt">// 'engine' pushes everything expressible; 'engine-if-identical' pushes only</span>
+    <span class="cmt">// the stats whose engine result is verified identical to the grid kernel;</span>
+    <span class="cmt">// 'client' (the default when absent) computes everything here.</span>
+    <span class="kw">default</span>: <span class="str">'engine-if-identical'</span>,
+    overrides: { mode: <span class="str">'client'</span> },   <span class="cmt">// I want the grid's null-when-distinct mode</span>
+  },
+});</code></pre>
+    </div>
+    <div class="why">
+      <p>Every statistic is classified <strong>IDENTICAL</strong> (the engine's result equals the
+      grid's own kernel, verified against it on the same data) or <strong>MAY-DIFFER</strong> (the
+      engine computes it by a method that can differ from the grid's definition — <code>mode</code>
+      returns a value where the grid returns null). The classification drives the docs and
+      build-time provenance, <em>not</em> whether a stat is pushed: that is your choice.
+      <code>weightedQuantile</code> is the one genuine fallback, always client-side, because the
+      engine cannot express the grid's midpoint convention. The published table of every stat, its
+      class and its SQL is generated from one map (<code>STAT_PUSHDOWN</code>) so it cannot drift.</p>
+      <p><strong>No mixed provenance.</strong> An engine figure and a client figure never appear in
+      one result set. Aggregates are pushed only when the filter is <em>fully</em> pushed; a residual
+      filter the engine could not apply forces every aggregate client-side, because an engine number
+      computed over a superset beside a client number over the real set would be wrong-but-plausible.
+      <code>source.lastPlan().aggregates</code> reports, per stat, whether the engine or the grid
+      computed it and the class it was assigned — inspection during the build, not a per-figure
+      runtime marker.</p>
     </div>
 
     <h2 id="derived">Grids built from other grids</h2>
@@ -2980,6 +3057,27 @@ columns: [
       own radius, a number is a count of pixels, and a string is used as written, so
       <code>'0 0 8px 8px'</code> rounds only the bottom. The body is clipped to match, so a row
       scrolling past a rounded corner is cut by it rather than squaring it off.
+    </p>
+
+    <div class="example">
+      <p class="example__label">Zebra striping (opt-in)</p>
+      <pre><code>createGrid(element, {
+  columns, rows,
+  stripedRows: <span class="kw">true</span>,       <span class="cmt">// shade alternate data rows; off by default</span>
+});</code></pre>
+    </div>
+
+    <p class="lead-in">
+      <code>stripedRows</code> shades every other data row. It is strictly opt-in and off by default,
+      so a grid that never mentions it looks exactly as it did on upgrade. Parity is decided by each
+      row's <em>logical</em> index rather than its position in the DOM: rows are virtualised and
+      recycled, so a <code>:nth-child</code> rule would repaint the stripe onto whichever row landed
+      in an odd slot after a scroll, and a logical-index stripe keeps a row shaded consistently across
+      a scroll and across the left-pinned, centre and right-pinned segments of the same row. Group
+      headings, group footers and the grand total are structure rather than data, so they are never
+      striped. The stripe uses the theme's <code>--lattice-surface-alt</code> token, which every
+      palette defines, so dark, high-contrast and terminal are correct without any extra rule, and
+      both selection and hover still win over it.
     </p>
 
     <h2 id="cards">Cards, lists and feeds</h2>
