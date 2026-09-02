@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.19.0</p>
+    <p class="rail__sub">Developer guide · v1.20.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -4307,9 +4307,11 @@ const providerFor = (id) =&gt; ({
       ordinary filters. Pausing the stream brings the charts back, a paused stream is a still
       one: unless you set <code>whilePaused: false</code>.</p>
       <p><strong>Counting runs off the main thread above <code>workerThreshold</code>.</strong>
-      Distributions are the only work the grid moves to a Worker. Sorting, filtering and grouping
-      run on the main thread; nothing waits on a histogram, which is what makes this one
-      offloadable. The column is copied, or shared where cross-origin isolation makes
+      A distribution was the first work the grid moved to a Worker: nothing waits on a histogram,
+      which is what made it offloadable without an async pipeline. A portable sort — a built-in
+      collation with no custom comparator — now also recomputes off-thread above the threshold,
+      serving the prior order until the new one lands. Filtering and grouping still run on the main
+      thread. The column is copied, or shared where cross-origin isolation makes
       <code>SharedArrayBuffer</code> available; it is never transferred, because transferring would
       detach the buffer the grid is still rendering from.</p>
       <p><strong>The Worker settings.</strong> <code>useWorker</code> and

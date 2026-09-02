@@ -4126,6 +4126,36 @@ grid.destroy();
   translated.total,
 ].join('|');</code></pre>
 
+    <h3 id="dhtmlx-spans-example">Cell spans, executed</h3>
+    <p class="section-note">dhtmlx's imperative <code>addSpan</code> maintains a span table, and that table drives
+    Lattice's own per-cell span functions — installed on each column's <code>cell</code> definition. A span
+    declared through the shim is read back through the very functions the renderer calls.</p>
+    <pre data-run="js" data-expect="3|2|1|1" data-covers="adapterKey:cell"><code><span class="cmt">// Aliased on import: the shim's span factory, bound to a local name.</span>
+<span class="kw">const</span> { createSpans: installSpans } = <span class="kw">await</span> import('../packages/modules/dhtmlx-compat/spans.js');
+
+<span class="cmt">// A minimal stand-in for a grid: it just holds its columns, which is all the</span>
+<span class="cmt">// span shim touches. `createSpans` installs `cell.spanRows`/`cell.spanColumns`</span>
+<span class="cmt">// on each column by re-setting them through its own wrapper.</span>
+<span class="kw">let</span> columns = [{ id: 'name', cell: {} }];
+<span class="kw">const</span> grid = {
+  get: () =&gt; columns,
+  set: (_, next) =&gt; { columns = next; },
+};
+
+<span class="kw">const</span> spans = installSpans(grid);
+spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</span>
+
+<span class="cmt">// The column's own cell functions now read the maintained table.</span>
+<span class="kw">const</span> { cell } = columns[0];
+<span class="kw">const</span> spanned = { row: { key: 'R0' }, colId: 'name' };
+<span class="kw">const</span> plain = { row: { key: 'R1' }, colId: 'name' };
+<span class="kw">return</span> [
+  cell.spanRows(spanned),
+  cell.spanColumns(spanned),
+  cell.spanRows(plain),
+  cell.spanColumns(plain),
+].join('|');</code></pre>
+
     <h3 id="module-exports-example">Every module export, executed</h3>
     <p class="section-note">Nine shipped modules, each export resolved against its own barrel on every build.</p>
     <pre data-run="js" data-expect="60" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
@@ -4550,6 +4580,17 @@ grid.destroy();
         </tbody>
       </table>
     </div>
+    <h3 id="type-ApproximateEntry">ApproximateEntry</h3>
+    <p class="section-note">One entry of the approximate maintenance tier.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">sketch</td><td class="type">string</td><td class="desc">The sketch that backs this kernel: `HyperLogLog`, `KLL`, `SpaceSaving`.</td></tr>
+          <tr><td class="name">bound</td><td class="type">ErrorBound</td><td class="desc">The error bound the sketch is verified to meet.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-BooleanFormat">BooleanFormat</h3>
     <div class="table-wrap">
       <table>
@@ -4830,6 +4871,24 @@ grid.destroy();
           <tr><td class="name">flash</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">spanColumns</td><td class="type">(p: SpanParams) =&gt; number</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">spanRows</td><td class="type">(p: SpanParams) =&gt; number</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-ColumnDifference">ColumnDifference</h3>
+    <p class="section-note">How one column differs between the filtered subset and its population.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">The column id.</td></tr>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The column's display name, or its id.</td></tr>
+          <tr><td class="name">measure</td><td class="type">'standardizedMeanDifference' | 'categoricalTotalVariation'</td><td class="desc">The effect size reported for this column's family: the standardized mean difference for a numeric column, the total variation of the category mix for a categorical one. Never a p-value.</td></tr>
+          <tr><td class="name">magnitude</td><td class="type">number | null</td><td class="desc">The effect size in its own terms, or null when it has no scale here.</td></tr>
+          <tr><td class="name">distance</td><td class="type">number</td><td class="desc">The total variation distance between subset and population, 0 to 1 — the common scale both families reduce to, and what the ranking sorts by.</td></tr>
+          <tr><td class="name">direction</td><td class="type">number</td><td class="desc">+1 when the subset sits above the population, −1 below, 0 for a mix.</td></tr>
+          <tr><td class="name">subsetN</td><td class="type">number</td><td class="desc">How many rows the subset comparison stood on.</td></tr>
+          <tr><td class="name">populationN</td><td class="type">number</td><td class="desc">How many rows the population comparison stood on.</td></tr>
+          <tr><td class="name">reliable</td><td class="type">boolean</td><td class="desc">False when the subset is too small to read the difference from.</td></tr>
         </tbody>
       </table>
     </div>
@@ -5505,6 +5564,19 @@ grid.destroy();
         </tbody>
       </table>
     </div>
+    <h3 id="type-ErrorBound">ErrorBound</h3>
+    <p class="section-note">How an approximate reduction's error bound holds, and what it measures.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">kind</td><td class="type">'deterministic' | 'probabilistic' | 'exact'</td><td class="desc">`deterministic` every run, `probabilistic` in expectation, `exact` to float rounding.</td></tr>
+          <tr><td class="name">metric</td><td class="type">'absolute' | 'relative' | 'rank' | 'none'</td><td class="desc">What the number measures. `rank` is a fraction of the rank, for quantiles.</td></tr>
+          <tr><td class="name">value</td><td class="type">number</td><td class="desc">The bound itself, in the unit `metric` names.</td></tr>
+          <tr><td class="name">statement</td><td class="type">string</td><td class="desc">A one-line human reading of the guarantee.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-ExcelBorderSpec">ExcelBorderSpec</h3>
     <p class="section-note">A cell border, per edge. `true` means a thin line; a string names the style.</p>
     <div class="table-wrap">
@@ -5887,8 +5959,8 @@ grid.destroy();
           <tr><td class="name">facets</td><td class="type">FacetConfig | boolean</td><td class="desc">Column header histograms and the filters clicking them creates. Off by default: the band roughly doubles header height, which is a cost no grid should pay without asking. Per-column settings layer over these. <small>(optional)</small></td></tr>
           <tr><td class="name">hostFilter</td><td class="type">{ active(): boolean; passes(row: Row): boolean }</td><td class="desc">A filter your application owns, applied alongside the grid's own and invisible to its filter UI. <small>(optional)</small></td></tr>
           <tr><td class="name">context</td><td class="type">unknown</td><td class="desc">Anything of yours, passed untouched to renderers, editors and sources. <small>(optional)</small></td></tr>
-          <tr><td class="name">workerThreshold</td><td class="type">number</td><td class="desc">Row count above which a column distribution is computed in a Worker. <small>(optional)</small></td></tr>
-          <tr><td class="name">useWorker</td><td class="type">boolean</td><td class="desc">Compute column distributions off the main thread. Sorting, filtering and grouping run on the main thread; see the reference for why. <small>(optional)</small></td></tr>
+          <tr><td class="name">workerThreshold</td><td class="type">number</td><td class="desc">Row count above which eligible work is computed in a Worker: column distributions, and a portable sort (a built-in collation with no custom comparator). Below it, everything runs on the main thread. <small>(optional)</small></td></tr>
+          <tr><td class="name">useWorker</td><td class="type">boolean</td><td class="desc">Compute eligible work off the main thread: column distributions, and a portable sort above {@link GridConfig.workerThreshold} (a re-sort recomputes off-thread while the grid keeps showing the prior order, then swaps to the new one when it lands). Filtering and grouping still run on the main thread. <small>(optional)</small></td></tr>
           <tr><td class="name">workerUrl</td><td class="type">string</td><td class="desc">Where to load the worker kernel from, when hosting it yourself. <small>(optional)</small></td></tr>
           <tr><td class="name">sharedMemory</td><td class="type">boolean</td><td class="desc">Use a shared buffer for the worker, where the page's headers allow it. <small>(optional)</small></td></tr>
           <tr><td class="name">groupFooter</td><td class="type">boolean</td><td class="desc">A totals line at the foot of each group as well as the grid. <small>(optional)</small></td></tr>
@@ -6090,6 +6162,18 @@ grid.destroy();
           <tr><td class="name">search</td><td class="type">(query: string, signal: AbortSignal) =&gt; Promise&lt;Option[]&gt;</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">sortBy</td><td class="type">'label' | 'value' | 'optionOrder' | 'count'</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">separator</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-MaintenanceTier">MaintenanceTier</h3>
+    <p class="section-note">The maintenance label for one kernel across both tiers.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">stat</td><td class="type">string</td><td class="desc">The kernel name.</td></tr>
+          <tr><td class="name">exact</td><td class="type">'maintained' | 'rescan' | null</td><td class="desc">Its exact tier, or null when it is not an exact kernel.</td></tr>
+          <tr><td class="name">approximate</td><td class="type">ApproximateEntry | null</td><td class="desc">The approximate alternative and bound, or null when none exists.</td></tr>
         </tbody>
       </table>
     </div>
@@ -6969,6 +7053,7 @@ grid.destroy();
           <tr><td class="name">tracking</td><td class="type">(): { columns: string[]; rows: number; forgotten: number }</td><td class="desc">What the shadow histories are costing.</td></tr>
           <tr><td class="name">reduce</td><td class="type">(colId: string, fn: string): unknown</td><td class="desc">Reduce a column by a named kernel over the filtered rows.</td></tr>
           <tr><td class="name">profile</td><td class="type">(colId: string): ColumnProfile | null</td><td class="desc">Everything worth knowing about one column, in one pass each.</td></tr>
+          <tr><td class="name">subsetVsPopulation</td><td class="type">(opts?: { columns?: string[] }): SubsetComparison</td><td class="desc">Which columns differ most between the filtered subset and the whole population it was drawn from, ranked by effect size — never by a p-value. The measure is stated per column; a numeric and a categorical column are put on one bounded scale so they rank against each other.</td></tr>
           <tr><td class="name">correlation</td><td class="type">(a: string, b: string): number | null</td><td class="desc">Pearson's correlation between two columns.</td></tr>
           <tr><td class="name">covariance</td><td class="type">(a: string, b: string, opts?: { population?: boolean }): number | null</td><td class="desc">Covariance, a correlation before the scales are divided out.</td></tr>
           <tr><td class="name">regression</td><td class="type">(a: string, b: string): RegressionFit | null</td><td class="desc">Least-squares fit of `b` on `a`: in finance, beta and alpha.</td></tr>
@@ -6981,6 +7066,8 @@ grid.destroy();
           <tr><td class="name">weightedAverage</td><td class="type">(colId: string, weightId: string): number | null</td><td class="desc">A weighted average of one column by another.</td></tr>
           <tr><td class="name">keyOf</td><td class="type">(data: unknown): string | null</td><td class="desc">The key a row's data resolves to.</td></tr>
           <tr><td class="name">maintenance</td><td class="type">Readonly&lt;Record&lt;string, 'maintained' | 'rescan'&gt;&gt;</td><td class="desc">Which reductions can be maintained against a change, and which rescan. <small>(read-only)</small></td></tr>
+          <tr><td class="name">approximate</td><td class="type">Readonly&lt;Record&lt;string, ApproximateEntry&gt;&gt;</td><td class="desc">The approximate tier: kernels a sketch maintains in constant time per tick, keyed by kernel name, each carrying the sketch that backs it and the error bound that sketch is verified to meet. <small>(read-only)</small></td></tr>
+          <tr><td class="name">maintenanceTier</td><td class="type">(fn: string): MaintenanceTier</td><td class="desc">The honest tier for one kernel across both the exact and approximate maps: its exact tier and, when one exists, the approximate alternative and bound.</td></tr>
         </tbody>
       </table>
     </div>
@@ -7006,6 +7093,20 @@ grid.destroy();
           <tr><td class="name">maxRows</td><td class="type">number</td><td class="desc">The most rows to keep. A stream has no end, so an unbounded grid dies overnight; this makes it a sliding window and the oldest rows are dropped. Omit for no limit. Set on the source, not passed to `open`, it bounds what the grid retains rather than what the producer sends. <small>(optional)</small></td></tr>
           <tr><td class="name">promoteToMemoryBelow</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">coalesceMs</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-SubsetComparison">SubsetComparison</h3>
+    <p class="section-note">The subset-vs-population ranking (BACKLOG-0000653).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">ranked</td><td class="type">ColumnDifference[]</td><td class="desc">Every compared column, largest difference first.</td></tr>
+          <tr><td class="name">subsetN</td><td class="type">number</td><td class="desc">How many rows the filtered subset holds.</td></tr>
+          <tr><td class="name">populationN</td><td class="type">number</td><td class="desc">How many rows the whole population holds.</td></tr>
+          <tr><td class="name">filtered</td><td class="type">boolean</td><td class="desc">Whether a filter is actually narrowing the set.</td></tr>
+          <tr><td class="name">measures</td><td class="type">{ numeric: string; categorical: string; common: string }</td><td class="desc">The measure each family reports, and the common scale, named for a legend.</td></tr>
         </tbody>
       </table>
     </div>
@@ -7171,6 +7272,18 @@ grid.destroy();
         <tbody>
           <tr><td class="name">read</td><td class="type">(): SavedView[]</td><td class="desc">Load the user's views. Called at construction and by `views.reload()`.</td></tr>
           <tr><td class="name">write</td><td class="type">(views: SavedView[], change: ViewChange): void</td><td class="desc">Mirror the views somewhere synchronous: `localStorage`, an in-memory cache. For a server, listen for `view:saved` / `view:removed` and do the write yourself: the grid does not make network calls and does not want to know whether yours succeeded.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-WindowSpec">WindowSpec</h3>
+    <p class="section-note">The window a windowed aggregate was computed over.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">kind</td><td class="type">'count' | 'time' | 'session'</td><td class="desc">Which window: last N ticks, last N ms, or the session.</td></tr>
+          <tr><td class="name">span</td><td class="type">number</td><td class="desc">The size: N ticks, N ms, or the session duration in ms.</td></tr>
+          <tr><td class="name">size</td><td class="type">number</td><td class="desc">How many values actually fell inside the window.</td></tr>
         </tbody>
       </table>
     </div>

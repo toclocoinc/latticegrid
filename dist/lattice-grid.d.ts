@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.19.0, type declarations
+ * Lattice Grid 1.20.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1563,11 +1563,17 @@ export interface GridConfig {
   hostFilter?: { active(): boolean; passes(row: Row): boolean };
   /** Anything of yours, passed untouched to renderers, editors and sources. */
   context?: unknown;
-  /** Row count above which a column distribution is computed in a Worker. */
+  /**
+   * Row count above which eligible work is computed in a Worker: column
+   * distributions, and a portable sort (a built-in collation with no custom
+   * comparator). Below it, everything runs on the main thread.
+   */
   workerThreshold?: number;
   /**
-   * Compute column distributions off the main thread. Sorting, filtering and
-   * grouping run on the main thread; see the reference for why.
+   * Compute eligible work off the main thread: column distributions, and a
+   * portable sort above {@link GridConfig.workerThreshold} (a re-sort recomputes
+   * off-thread while the grid keeps showing the prior order, then swaps to the
+   * new one when it lands). Filtering and grouping still run on the main thread.
    */
   useWorker?: boolean;
   /** Where to load the worker kernel from, when hosting it yourself. */
@@ -2216,6 +2222,13 @@ export interface StatisticsApi {
   reduce(colId: string, fn: string): unknown;
   /** Everything worth knowing about one column, in one pass each. */
   profile(colId: string): ColumnProfile | null;
+  /**
+   * Which columns differ most between the filtered subset and the whole
+   * population it was drawn from, ranked by effect size — never by a p-value.
+   * The measure is stated per column; a numeric and a categorical column are put
+   * on one bounded scale so they rank against each other.
+   */
+  subsetVsPopulation(opts?: { columns?: string[] }): SubsetComparison;
   /** Pearson's correlation between two columns. */
   correlation(a: string, b: string): number | null;
   /** Covariance, a correlation before the scales are divided out. */
@@ -2265,6 +2278,57 @@ export interface StatisticsApi {
   keyOf(data: unknown): string | null;
   /** Which reductions can be maintained against a change, and which rescan. */
   readonly maintenance: Readonly<Record<string, 'maintained' | 'rescan'>>;
+  /**
+   * The approximate tier: kernels a sketch maintains in constant time per tick,
+   * keyed by kernel name, each carrying the sketch that backs it and the error
+   * bound that sketch is verified to meet.
+   */
+  readonly approximate: Readonly<Record<string, ApproximateEntry>>;
+  /**
+   * The honest tier for one kernel across both the exact and approximate maps:
+   * its exact tier and, when one exists, the approximate alternative and bound.
+   */
+  maintenanceTier(fn: string): MaintenanceTier;
+}
+
+/** How an approximate reduction's error bound holds, and what it measures. */
+export interface ErrorBound {
+  /** `deterministic` every run, `probabilistic` in expectation, `exact` to float rounding. */
+  kind: 'deterministic' | 'probabilistic' | 'exact';
+  /** What the number measures. `rank` is a fraction of the rank, for quantiles. */
+  metric: 'absolute' | 'relative' | 'rank' | 'none';
+  /** The bound itself, in the unit `metric` names. */
+  value: number;
+  /** A one-line human reading of the guarantee. */
+  statement: string;
+}
+
+/** One entry of the approximate maintenance tier. */
+export interface ApproximateEntry {
+  /** The sketch that backs this kernel: `HyperLogLog`, `KLL`, `SpaceSaving`. */
+  sketch: string;
+  /** The error bound the sketch is verified to meet. */
+  bound: ErrorBound;
+}
+
+/** The maintenance label for one kernel across both tiers. */
+export interface MaintenanceTier {
+  /** The kernel name. */
+  stat: string;
+  /** Its exact tier, or null when it is not an exact kernel. */
+  exact: 'maintained' | 'rescan' | null;
+  /** The approximate alternative and bound, or null when none exists. */
+  approximate: ApproximateEntry | null;
+}
+
+/** The window a windowed aggregate was computed over. */
+export interface WindowSpec {
+  /** Which window: last N ticks, last N ms, or the session. */
+  kind: 'count' | 'time' | 'session';
+  /** The size: N ticks, N ms, or the session duration in ms. */
+  span: number;
+  /** How many values actually fell inside the window. */
+  size: number;
 }
 
 export type ShadowKind =
@@ -2365,6 +2429,49 @@ export interface HistogramBin {
   from: number;
   to: number;
   count: number;
+}
+
+/** How one column differs between the filtered subset and its population. */
+export interface ColumnDifference {
+  /** The column id. */
+  column: string;
+  /** The column's display name, or its id. */
+  name: string;
+  /**
+   * The effect size reported for this column's family: the standardized mean
+   * difference for a numeric column, the total variation of the category mix for
+   * a categorical one. Never a p-value.
+   */
+  measure: 'standardizedMeanDifference' | 'categoricalTotalVariation';
+  /** The effect size in its own terms, or null when it has no scale here. */
+  magnitude: number | null;
+  /**
+   * The total variation distance between subset and population, 0 to 1 — the
+   * common scale both families reduce to, and what the ranking sorts by.
+   */
+  distance: number;
+  /** +1 when the subset sits above the population, −1 below, 0 for a mix. */
+  direction: number;
+  /** How many rows the subset comparison stood on. */
+  subsetN: number;
+  /** How many rows the population comparison stood on. */
+  populationN: number;
+  /** False when the subset is too small to read the difference from. */
+  reliable: boolean;
+}
+
+/** The subset-vs-population ranking (BACKLOG-0000653). */
+export interface SubsetComparison {
+  /** Every compared column, largest difference first. */
+  ranked: ColumnDifference[];
+  /** How many rows the filtered subset holds. */
+  subsetN: number;
+  /** How many rows the whole population holds. */
+  populationN: number;
+  /** Whether a filter is actually narrowing the set. */
+  filtered: boolean;
+  /** The measure each family reports, and the common scale, named for a legend. */
+  measures: { numeric: string; categorical: string; common: string };
 }
 
 export interface FormattingApi {
