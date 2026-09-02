@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.15.0, type declarations
+ * Lattice Grid 1.16.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -341,6 +341,22 @@ export interface LookupSpec {
 export type DecorationName = 'plain' | 'fill' | 'pill' | 'dot' | 'bar' | 'heat' | 'icon';
 export type VariantName = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent' | 'none' | (string & {});
 
+/** A built-in threshold icon set, mapping value bands to built-in glyphs. */
+export type IconSetName = 'trafficLights' | 'arrows' | 'trafficArrows' | 'ratings' | (string & {});
+
+/**
+ * One band of a threshold icon set. A value clears a band when it is at least
+ * `min`; the highest band it clears wins. Omit `min` on the last band to make
+ * it the catch-all. `label` is what assistive technology announces for the
+ * glyph, so a screen-reader user hears the band's meaning, not only the value.
+ */
+export interface IconBand {
+  min?: number;
+  icon: string;
+  label?: string;
+  variant?: VariantName;
+}
+
 export interface DecorationSpec {
   type: DecorationName;
   size?: 'sm' | 'md' | 'lg';
@@ -349,6 +365,10 @@ export interface DecorationSpec {
   edge?: boolean;
   position?: 'start' | 'end';
   name?: string | Record<string, string>;
+  /** icon only: a built-in threshold icon set, expanded to `bands`. */
+  iconSet?: IconSetName;
+  /** icon only: value bands mapped to glyphs, first match by descending `min`. */
+  bands?: IconBand[];
   min?: number;
   max?: number;
   origin?: number;
@@ -738,6 +758,59 @@ export interface Source {
 
 export interface MemorySourceConfig { mode: 'memory'; columnarBelow?: number }
 
+/**
+ * How rows are ingested into the column store.
+ */
+export interface IngestConfig {
+  /**
+   * Retain the caller's row objects by reference so identity round-trips.
+   * Default `true`, the historical behaviour: `rows.data()` returns the exact
+   * objects you supplied, `row === sourceObject` holds, and a custom renderer
+   * reading `row.sourceObject` works.
+   *
+   * Set `false` to keep only the packed columns and reconstruct a plain row
+   * object from them on demand. This drops roughly half the resident footprint,
+   * but changes three behaviours: `rows.data()` returns freshly reconstructed
+   * objects (new object each call, so `row === sourceObject` no longer holds),
+   * a custom renderer that reaches for `row.sourceObject` gets a reconstruction
+   * rather than the original, and equality against a row becomes value-based.
+   * The stored values are unchanged, so `get()`, `byKey()`, `value()` and
+   * `values()` are unaffected.
+   */
+  retainSource?: boolean;
+
+  /**
+   * Columnize `stream`-source ingest on a Worker so a large load does not block
+   * the main thread. Default `false`. When on, an arriving chunk that clears
+   * {@link IngestConfig.workerThreshold} is packed into typed column buffers on
+   * the Worker; the main thread merges the finished buffers into the store and
+   * renders, without running the per-field extraction pass that otherwise
+   * dominates ingest.
+   *
+   * This makes **stream** ingest non-blocking (remote sources already are).
+   * Memory and paged sources cannot be made non-blocking this way — the main
+   * thread must read the caller's own row objects — and are unaffected. The
+   * effect composes with `retainSource: false`: with it off the source keeps no
+   * caller-object array on the main thread at all, so the load is both
+   * non-blocking and lighter on memory.
+   *
+   * A column that reads through a closure — a `date` column's storage
+   * conversion, or a computed column — cannot cross the Worker boundary, so a
+   * grid with any such column columnizes on the main thread and says so once.
+   * Falls back silently to the main thread wherever a Worker cannot be created.
+   */
+  useWorker?: boolean;
+
+  /**
+   * Row count in a single stream chunk at or above which columnization is
+   * offloaded to the Worker when {@link IngestConfig.useWorker} is on. Default
+   * `10000`. A smaller first chunk is packed on the main thread, where the
+   * cost is trivial and the postMessage round trip would only add latency to
+   * time-to-first-row.
+   */
+  workerThreshold?: number;
+}
+
 export interface PagedSourceConfig {
   mode: 'paged';
   pageSize?: number;
@@ -968,6 +1041,15 @@ export interface EditConfig {
   commit?: (write: PendingWrite) => unknown;
   confirm?: 'auto' | 'manual';
   pendingTimeout?: number;
+  /**
+   * Show a preview of what a bulk paste will change before it commits (§12),
+   * with confirm/cancel. Off by default: a paste commits straight away, exactly
+   * as it always has. When on, a paste into more than one cell first opens a
+   * dialog listing every cell that changes (old → new) and every cell that would
+   * be rejected (permission, data-type, read-only); confirm commits precisely
+   * that set through the ordinary edit path, cancel commits nothing.
+   */
+  pastePreview?: boolean;
 }
 
 export interface PendingWrite {
@@ -1010,6 +1092,8 @@ export interface GridConfig {
   rowKey?: string | ((row: unknown) => string);
   /** Where rows come from: memory, paged, remote, stream or derived. */
   source?: SourceConfig;
+  /** How rows are ingested into the column store. */
+  ingest?: IngestConfig;
   /** Applied to every column before its own settings. */
   columnDefaults?: Column;
   /** Named bundles of column settings, referenced by a column's `preset`. */
@@ -1374,6 +1458,14 @@ export interface GridConfig {
   totalOnlyChangedColumns?: boolean;
   /** Put the total in the header rather than a footer row. */
   showTotalInHeader?: boolean;
+  /**
+   * Let the user pick a column's reduction from the column menu. On, the
+   * totalling entry becomes an "Aggregate" submenu offering the aggregates the
+   * column's type says are meaningful (§9.4); off, the menu keeps its plain
+   * "Total this column" toggle. Off by default, so an existing grid is
+   * unchanged.
+   */
+  aggregateChooser?: boolean;
   /** Render only the visible columns once there are more than this many. */
   columnVirtualisationAbove?: number;
   /** The bar beneath the grid, and which panels it carries. */
@@ -1390,6 +1482,23 @@ export interface GridConfig {
    * grid's own so it can add to them rather than reproduce them. Default true.
    */
   columnMenu?: boolean | ((p: ColumnMenuParams, defaults: MenuItem[]) => MenuItem[] | void);
+
+  /**
+   * Chart a selected cell range — the spreadsheet "chart this selection"
+   * gesture. Off by default, so a grid opts in.
+   *
+   * The DOM layer draws no charts itself — the charts module is optional and
+   * loaded by the host — so this is where the host wires the two together: a
+   * function, or an object carrying `onChart`, is called with the grid and the
+   * selected range when the reader chooses "Chart selection" from the cell
+   * menu. The handler typically calls `chartRange` from
+   * `lattice-grid/modules/charts`. `true` offers the item and emits nothing
+   * extra; supply a handler to have it actually draw.
+   */
+  rangeChart?:
+    | boolean
+    | ((grid: Grid, range: CellRange) => void)
+    | { onChart?: (grid: Grid, range: CellRange) => void };
 
   /**
    * The `?` keyboard shortcut overlay. `false` suppresses it, for a host
@@ -1502,6 +1611,22 @@ export interface GridConfig {
     actions?: false | (RailActionName | '-' | RailAction)[];
     /** File name for the export action, without the extension. */
     exportName?: string;
+  };
+  /**
+   * A drag-and-drop group-by strip above the column header — the pattern AG
+   * Grid calls the row-group panel. Drag a column heading into it to group by
+   * that column; the active groups show as removable, reorderable chips, and
+   * reordering the chips changes the nesting order. It is keyboard-operable
+   * (arrows navigate, Shift+arrow reorders, Delete ungroups, and an add control
+   * groups any column), and every change is announced through the live region,
+   * which is why it also addresses the drag-only complaint of BACKLOG-0000429.
+   *
+   * Off by default and non-breaking, matching `toolPanel`. It drives the same
+   * grouping model as `grid.columns.group()`; it reimplements nothing.
+   */
+  groupPanel?: boolean | {
+    /** Placeholder shown while nothing is grouped. */
+    hint?: string;
   };
   /** The quick filter's initial text. */
   quickFilterText?: string;
@@ -2164,6 +2289,11 @@ export interface RowsApi {
 export interface ColumnsApi {
   /** Set or clear a column's totals-row reduction. */
   setTotal(id: string, fn: TotalName | TotalFn | null): void;
+  /**
+   * The aggregate names meaningful for a column, honouring its type's
+   * `totals.supported` declaration (§9.4). What the aggregate chooser offers.
+   */
+  aggregates(id: string): TotalName[];
   /** Every distinct value in a column, from the dictionary where there is one. */
   distinct(id: string): unknown[];
   get(id: string): ResolvedColumn | undefined;
@@ -2186,6 +2316,13 @@ export interface ColumnsApi {
   move(id: string, to: number): void;
   pin(id: string, side: 'start' | 'end' | null): void;
   resize(id: string, px: number): void;
+  /**
+   * Set, change or clear a column's decoration at runtime (§8.7). Pass `null` to
+   * clear it back to plain text. Presentation config: it is not on the undo
+   * timeline and is not carried in a saved view — use `grid.formatting` for
+   * durable, view-persisted conditional styling.
+   */
+  decorate(id: string, decoration: DecorationName | DecorationSpec | null, opts?: { variant?: VariantSpec }): void;
   autoSize(ids?: string | string[]): void;
   fit(): void;
   group(ids: string | string[]): void;
@@ -2269,6 +2406,18 @@ export interface EditApi {
   redo(): void;
   setCells(writes: { key: string; colId: string; value: unknown }[], type?: 'cell' | 'fill' | 'paste'): number;
   pasteInto(anchor: { key: string; colId: string }, text: string, extent?: { rows?: number; columns?: number }): number;
+  /** Whether a bulk paste is previewed before it commits (`edit.pastePreview`, §12). */
+  readonly pastePreview: boolean;
+  /**
+   * Compute what a paste would change, without committing (§12). The engine
+   * behind `edit.pastePreview`: `changes` are the accepted writes with their old
+   * and new values (and whether each actually differs), `rejected` are the cells
+   * a commit would refuse, each with a reason.
+   */
+  previewPaste(anchor: { key: string; colId: string }, text: string, extent?: { rows?: number; columns?: number }): {
+    changes: { key: string; colId: string; oldValue: unknown; newValue: unknown; changed: boolean }[];
+    rejected: { key: string; colId: string; value: unknown; reason: 'permission' | 'readOnly' | 'validation' | 'locked' | 'missing' }[];
+  };
   settle(id: string, ok: boolean, reason?: string): boolean;
   pending(): OpenWrite[];
   status(key: string, colId: string): 'pending' | null;
@@ -3623,6 +3772,12 @@ export interface ChartSpec {
   y?: string;
   /** Splits the measure into one series per distinct value. */
   series?: string;
+  /**
+   * The exact rows to chart, overriding the grid's own walk — an array, or a
+   * function returning one at draw time. `chartRange` uses it to bind a chart
+   * to the band of rows a selected range covers rather than the whole grid.
+   */
+  rows?: object[] | ((grid: Grid) => object[]);
   /** Several measures at once, for combo and candlestick. */
   measures?: ChartMeasure[];
   /** Endpoints, for sankey, chord and network. */
@@ -3753,6 +3908,39 @@ declare module 'lattice-grid/modules/charts' {
   export const SCHEMES: Readonly<Record<string, readonly string[]>>;
   export const PALETTE: readonly string[];
   export function createChart(spec: ChartSpec): Chart;
+  /**
+   * Chart a selected cell range. Derives the chart from the range's shape — a
+   * leading text column becomes the categories, the numeric columns become the
+   * measures — and returns the live chart, or null when the range has nothing
+   * to measure. Respects hidden and unreadable columns. The type is a sensible
+   * default the caller can change with `chart.update({ type })`.
+   */
+  export function chartRange(
+    grid: Grid,
+    opts: {
+      container: Element | string;
+      range?: CellRange;
+      type?: ChartType;
+    } & Partial<ChartSpec>,
+  ): Chart | null;
+  /** Would {@link chartRange} draw something for the grid's current selection? */
+  export function canChartRange(grid: Grid, opts?: { range?: CellRange }): boolean;
+  /**
+   * Decide what a chart of a range should be, without drawing it: the type, the
+   * category column, the measure columns, and a `spec` ready for `createChart`
+   * — or a `reason` naming why the range cannot be charted.
+   */
+  export function deriveRangeSpec(
+    grid: Grid,
+    opts?: { range?: CellRange; type?: ChartType },
+  ): {
+    spec: ChartSpec | null;
+    type: ChartType | null;
+    x: string | null;
+    measures: string[];
+    columns: string[];
+    reason: string | null;
+  };
   export function registerScheme(name: string, colours: readonly string[]): void;
   export function resolveScheme(spec?: object): object;
   export function schemeNames(): string[];

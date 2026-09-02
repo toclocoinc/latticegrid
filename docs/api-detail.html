@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.15.0</p>
+    <p class="rail__sub">Developer guide · v1.16.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -1534,6 +1534,43 @@ cell: { decoration: 'dot' }                      <span class="cmt">// a leading 
     </div>
 
     <div class="example">
+      <p class="example__label">Icon sets: a threshold glyph per value band</p>
+      <pre><code><span class="cmt">// A built-in set — traffic lights, arrows, rating marks — driven by value.</span>
+cell: { decoration: { type: 'icon', iconSet: 'arrows' } }
+
+<span class="cmt">// Or your own bands. The highest `min` a value clears wins; a band with no</span>
+<span class="cmt">// `min` is the catch-all. `label` is what a screen reader announces.</span>
+cell: { decoration: { type: 'icon', bands: [
+  { min: 0.9, icon: 'success', label: 'on target', variant: 'success' },
+  { min: 0.5, icon: 'warning', label: 'at risk',   variant: 'warning' },
+  {           icon: 'danger',  label: 'off track',  variant: 'danger'  },
+] } }</code></pre>
+    </div>
+    <div class="why">
+      <p>An icon set is a restatement of the value, not a replacement for it: the value still
+      renders beside the glyph, and the band's <code>label</code> is set as the glyph's
+      <code>aria-label</code>, so a screen-reader user hears "on target 92%" rather than a bare
+      number with the status lost. The glyphs are the grid's own inline sprites (§16), so an icon
+      set adds no dependency and makes no request. Built-in sets: <code>trafficLights</code>,
+      <code>arrows</code>, <code>trafficArrows</code>, <code>ratings</code>.</p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Turning a decoration on at runtime</p>
+      <pre><code><span class="cmt">// Set, change or clear a column's decoration after the grid is built.</span>
+grid.columns.decorate('score', { type: 'bar', min: 0, max: 100 });
+grid.columns.decorate('trend', { type: 'icon', iconSet: 'arrows' });
+grid.columns.decorate('score', <span class="kw">null</span>);   <span class="cmt">// back to plain text</span></code></pre>
+    </div>
+    <div class="why">
+      <p>A decoration is presentation, so <code>columns.decorate</code> is a live setter like
+      <code>grid.set('theme', …)</code>: it is <em>not</em> on the undo timeline and does
+      <em>not</em> travel in a saved view. For conditional styling that a user edits and a view
+      remembers, reach for <code>grid.formatting</code> below, which holds colour and weight rules
+      as durable state.</p>
+    </div>
+
+    <div class="example">
       <p class="example__label">Your own renderer</p>
       <pre><code>components: {
   sparkline: {
@@ -1873,6 +1910,41 @@ grid.filters.quick('');          <span class="cmt">// clear</span></code></pre>
       <pre><code>grid.columns.group(['region', 'country']);
 grid.rows.expandAll();
 grid.rows.collapse('EMEA');</code></pre>
+    </div>
+
+    <p class="lead-in">
+      <code>groupPanel: true</code> adds a drag-and-drop strip above the column header — the
+      row-group panel. A user drags a heading into it to group by that column; the active
+      groups show as removable, reorderable chips, and dragging one chip past another changes
+      the nesting order. It is keyboard-operable, so grouping is not drag-only: arrows move
+      between chips, <code>Shift</code> with an arrow reorders, <code>Delete</code> ungroups,
+      and an add control at the end groups any column. Every change is spoken through the live
+      region. The strip drives <code>grid.columns.group()</code> — it is the same grouping
+      model, surfaced as chrome — so a group made in the strip, from the column menu or through
+      the API is one state, not three.
+    </p>
+    <div class="example">
+      <p class="example__label">Turn the group-by strip on, and group through the model</p>
+      <pre data-run="js" data-expect="grouped by region, country" data-covers="config:groupPanel"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="cmt">// `groupPanel` is chrome, so the strip itself needs the DOM build; the config</span>
+<span class="cmt">// key is accepted everywhere, and it drives the ordinary grouping model — which</span>
+<span class="cmt">// is what a headless grid can show. The strip renders the state below as chips.</span>
+<span class="kw">const</span> grid = createHeadlessGrid({
+  columns: [{ field: 'region' }, { field: 'country' }, { field: 'sales', type: 'number' }],
+  rows: [
+    { region: 'EMEA', country: 'UK', sales: 10 },
+    { region: 'EMEA', country: 'DE', sales: 20 },
+    { region: 'AMER', country: 'US', sales: 30 },
+  ],
+  groupPanel: <span class="kw">true</span>,
+});
+
+<span class="cmt">// Order is nesting order, outermost first — exactly the order the chips show.</span>
+grid.columns.group(['region', 'country']);
+<span class="kw">const</span> groups = grid.state.get().group;
+grid.destroy();
+<span class="kw">return</span> `grouped by ${groups.join(', ')}`;</code></pre>
     </div>
 
     <div class="example">
@@ -2423,6 +2495,58 @@ createGrid(right, { columns, rows,
       at silently. Rows with no rate, or no weight, are left out rather than counted as zero.
     </p>
 
+    <h3 id="aggregate-chooser">Choosing an aggregate at runtime</h3>
+    <p class="lead-in">
+      With <code>aggregateChooser</code> on, the column menu's totalling entry becomes an
+      <em>Aggregate</em> submenu. It offers only the reductions the column's type says are meaningful
+      (see <a href="#aggregate-safety">above</a>) — <code>sum</code>, <code>avg</code>,
+      <code>min</code>, <code>max</code> and the counts on a plain number, but never <code>sum</code>
+      on a category or a rate — with the current one ticked and a <em>None</em> to stop totalling. It
+      is the same keyboard-operable menu as everywhere else: arrows move, <code>Enter</code> or
+      <code>Space</code> picks, <code>Escape</code> closes and returns focus, and the ticked item
+      reads as <code>aria-checked</code> to a screen reader.
+    </p>
+    <div class="example">
+      <p class="example__label">Off by default; turn it on</p>
+      <pre><code>createGrid(element, { aggregateChooser: <span class="kw">true</span> });</code></pre>
+    </div>
+    <div class="why">
+      <p><strong>It reuses the totals model, it does not fork it.</strong> Every choice drives
+      <code>grid.columns.setTotal(id, name)</code>, the same public call the old toggle used, so the
+      footer, the group rows, the pivot cells and the grand total all move together and no
+      aggregation is recomputed here. <code>grid.columns.aggregates(id)</code> returns the list the
+      submenu offers, so a host building its own chooser reads the same answer.</p>
+      <p><strong>Safety holds on both routes.</strong> The submenu only lists meaningful aggregates,
+      and <code>setTotal</code> refuses an unmeaningful named total whether it comes from the menu or
+      from an API caller — the wrong footer cannot be reached from either.</p>
+      <p><strong>Off by default and non-breaking.</strong> Left off, the menu keeps its plain
+      <em>Total this column</em> toggle, so an existing grid is unchanged.</p>
+    </div>
+    <div class="example">
+      <p class="example__label">Setting an aggregate at runtime, executed</p>
+      <pre data-run="js" data-expect="6" data-covers="config:aggregateChooser method:columns"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  aggregateChooser: <span class="kw">true</span>,
+  columns: [{ field: 'amount', type: 'number', total: 'sum' }, { field: 'region' }],
+  rows: [{ id: '1', amount: 2, region: 'N' }, { id: '2', amount: 4, region: 'S' }],
+  rowKey: 'id',
+  grandTotalRow: 'inline',
+});
+grid.rows.count();
+
+<span class="cmt">// A number column offers every built-in; a text column offers only what makes</span>
+<span class="cmt">// sense — count and the extremes, never sum. This is the list the chooser shows.</span>
+<span class="kw">const</span> offered = grid.columns.aggregates('amount');   <span class="cmt">// ['sum','avg','min',...]</span>
+
+<span class="cmt">// Switch the footer from Sum (6) to Average (3) at runtime.</span>
+grid.columns.setTotal('amount', 'avg');
+<span class="kw">const</span> total = grid.rows.get(grid.rows.count() - <span class="num">1</span>).totals.amount;
+
+grid.destroy();
+<span class="kw">return</span> offered.includes('sum') ? <span class="num">6</span> : <span class="num">0</span>;   <span class="cmt">// sum is offered on a number column</span></code></pre>
+    </div>
+
     <h2 id="sticky-group-headings">Sticky group headings</h2>
     <p class="lead-in">
       Scrolling inside a group keeps that group's headings pinned above the rows, so the rows on
@@ -2474,6 +2598,37 @@ createGrid(element, { stickyGroupHeaders: 3 });       <span class="cmt">// stack
         </tbody>
       </table>
     </div>
+    <h3 id="ingest">Trimming the memory footprint</h3>
+    <p>
+      By default the store retains the row objects you hand it by reference, so
+      <code>rows.data()</code> returns those exact objects and <code>row === sourceObject</code>
+      holds. The <code>ingest</code> option controls that:
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">retainSource</td><td class="type">boolean</td><td class="desc">Default <code>true</code>. Set <code>false</code> to keep only the packed columns and reconstruct a plain row object from them on demand. <code>rows.data()</code> then returns freshly reconstructed objects — a new object each call — so <code>row === sourceObject</code> and a custom renderer reading <code>row.sourceObject</code> no longer hold, and equality becomes value-based. Cell values are identical either way, so <code>get()</code>, <code>byKey()</code>, <code>value()</code> and <code>values()</code> are unaffected.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="example">
+      <p class="example__label">Dropping retained source objects</p>
+      <pre><code>createGrid(el, {
+  columns,
+  rowKey: 'id',
+  rows,
+  ingest: { retainSource: <span class="kw">false</span> },
+});</code></pre>
+    </div>
+    <div class="why">
+      <p>The saving is the store's own copy of the object references, not the objects
+      themselves: whoever handed the grid its rows still owns them. The footprint drops
+      materially only when the grid becomes the sole holder of the data. Reach for this when
+      you can let go of the source array and do not depend on caller identity through
+      <code>rows.data()</code>.</p>
+    </div>
+
     <div class="example">
       <p class="example__label">A remote source</p>
       <pre><code>source: {
@@ -4490,6 +4645,40 @@ grid.edit.pasteInto(text);                        <span class="cmt">// Excel's t
       people fight.</p>
     </div>
 
+    <h3 id="paste-preview">Previewing a bulk paste</h3>
+    <p class="lead-in">
+      A paste is the one clipboard gesture that can rewrite dozens of cells with nothing to inspect
+      first: a payload that lands a column to the left of where it was aimed, or over a range the
+      user forgot was selected, looks exactly like one that worked. Turn on
+      <code>edit.pastePreview</code> and a paste into more than one cell opens a confirm/cancel dialog
+      before anything commits.
+    </p>
+    <div class="example">
+      <p class="example__label">Opt in</p>
+      <pre><code>createGrid(host, {
+  <span class="cmt">// Off by default: an unconfigured grid pastes straight away, as before.</span>
+  edit: { enabled: <span class="kw">true</span>, pastePreview: <span class="kw">true</span> },
+});</code></pre>
+    </div>
+    <p>
+      The dialog lists every cell that will change, old&nbsp;&rarr;&nbsp;new, and every cell a commit
+      would reject &mdash; a read-only cell, a value the column's type or <code>edit.validate</code>
+      refuses, a cell a permission policy forbids. <strong>Confirm</strong> commits precisely that set
+      through the ordinary paste path; <strong>Cancel</strong> commits nothing. A single-cell paste
+      skips the dialog &mdash; a preview for one cell is friction, not a safety net. The dialog is a
+      modal <code>role="dialog"</code>: <kbd>Escape</kbd> cancels, <kbd>Tab</kbd> stays inside it,
+      focus moves in on open and back on close, and its opening is announced through the grid's live
+      region. The same diff is available without any UI from
+      <code>grid.edit.previewPaste(anchor, text, extent?)</code>, which returns
+      <code>{ changes, rejected }</code> and changes nothing.
+    </p>
+    <div class="why">
+      <p><strong>Why a per-<code>edit</code> flag, off by default.</strong> Paste preview lives under
+      <code>edit</code> because a paste is a bulk edit and its accept/reject decisions are the edit
+      model's &mdash; the preview cannot disagree with the commit because it runs the same checks.
+      Off by default keeps every existing grid's paste behaviour exactly as it was.</p>
+    </div>
+
     <h2 id="keyboard">Keyboard</h2>
     <p class="lead-in">
       Press <kbd>?</kbd> in the grid to see this list in the product. The overlay is generated from
@@ -5002,6 +5191,45 @@ r.ok ? r.value : r.error;   <span class="cmt">// 42</span></code></pre>
       version, and you do not have to maintain a lookup table keyed by column id alongside the
       columns themselves.</p>
     </div>
+
+    <h3 id="range-chart">Chart a selected range</h3>
+    <p class="lead-in">
+      <code>rangeChart</code> turns a selected cell range into a chart — the spreadsheet gesture. It
+      is off by default; set it and the cell menu offers <strong>Chart selection</strong>, with
+      <kbd>Alt</kbd>+<kbd>F1</kbd> as the keyboard route, whenever the selected range has a numeric
+      column to plot. The leading text column becomes the categories and the numeric columns beside
+      it become the measures; a hidden or unreadable column is never charted, and the chart is bound
+      to the band of rows the rectangle covers.
+    </p>
+    <p>
+      The DOM layer draws no charts — the charts module is optional and the page loads it — so
+      <code>rangeChart</code> carries the handler that draws. A function, or an object with
+      <code>onChart</code>, is called <code>(grid, range)</code>; it typically calls
+      <code>chartRange</code> from <code>modules/charts</code>, which derives the chart from the
+      range and returns the live <code>Chart</code>.
+    </p>
+    <div class="example">
+      <p class="example__label">Wiring the gesture to the charts module</p>
+      <pre><code>import { chartRange } from '@toclocoinc/lattice-grid/modules/charts';
+
+createGrid(el, {
+  columns, rows,
+  rangeChart(grid, range) {
+    <span class="cmt">// One numeric column → a bar; several → a grouped bar. Null when the</span>
+    <span class="cmt">// range has nothing to measure, so guard before using it.</span>
+    <span class="kw">const</span> chart = chartRange(grid, { container: '#chart', range });
+    <span class="kw">if</span> (chart) chart.update({ scheme: 'colourblind' });
+  },
+});</code></pre>
+    </div>
+    <div class="why">
+      <p><strong>Why a handler rather than a flag that just draws.</strong> The charts module is
+      optional by design — a page that never charts never loads it — so the DOM layer cannot draw a
+      chart itself without pulling the whole drawing surface into every bundle. Handing the drawing
+      back to the page keeps that promise, and it is the same seam <code>createChart</code> already
+      uses: the grid is handed to the charts module, never imported by it.</p>
+    </div>
+
     <div class="example">
       <p class="example__label">A button of your own on the rail</p>
       <pre><code>createGrid(el, {
@@ -5486,6 +5714,9 @@ grid.state.apply(savedView.state);
         <thead><tr><th>Name</th><th>What it does</th></tr></thead>
         <tbody>
           <tr><td class="name">createChart</td><td class="desc">Draw one of the thirty-seven chart types from a grid’s own data. It follows the grid’s filters, and a mark can filter the grid back.</td></tr>
+          <tr><td class="name">chartRange</td><td class="desc">Chart a selected cell range — the spreadsheet gesture. Derives the chart from the range’s shape (a leading text column is the categories, the numeric columns the measures), respects hidden and unreadable columns, and returns the live chart or null when there is nothing to measure.</td></tr>
+          <tr><td class="name">canChartRange</td><td class="desc">Whether <code>chartRange</code> would draw something for the grid’s current selection — the question a menu asks before offering the item.</td></tr>
+          <tr><td class="name">deriveRangeSpec</td><td class="desc">Decide what a chart of a range should be without drawing it: the type, the category column, the measures, and a spec ready for <code>createChart</code>.</td></tr>
           <tr><td class="name">createDevtools</td><td class="desc">Mount the devtools panel against a grid, including its accessibility checks.</td></tr>
           <tr><td class="name">createLatticeGridElement</td><td class="desc">Build the element class without registering it, for a custom registry.</td></tr>
           <tr><td class="name">createMessages</td><td class="desc">Build a message catalogue. A partial set lays over the built-in British English one.</td></tr>

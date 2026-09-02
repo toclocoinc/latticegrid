@@ -754,6 +754,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">rows</td><td class="type">unknown[]</td><td class="dflt">, </td><td class="desc">Row objects. Held by reference; not copied.</td></tr>
           <tr><td class="name">rowKey</td><td class="type">string | (row) =&gt; string</td><td class="dflt">, </td><td class="desc">Stable row identity. Without it the grid assigns a key per row object and warns: enough for sorting, filtering, selection and copying within a session, but change tracking, streaming dedupe, selection persistence and remote reload all switch off, because new objects are new rows.</td></tr>
           <tr><td class="name">source</td><td class="type">SourceConfig</td><td class="dflt">memory</td><td class="desc">Where rows come from: <code>memory</code>, <code>paged</code>, <code>remote</code> or <code>stream</code>. See <a href="#sources">Sources</a>.</td></tr>
+          <tr><td class="name">ingest</td><td class="type">IngestConfig</td><td class="dflt">, </td><td class="desc"><code>{ retainSource }</code>. How rows enter the column store. <code>retainSource</code> defaults to <code>true</code>: the caller's row objects are held by reference so <code>rows.data()</code> returns them unchanged and <code>row === sourceObject</code> holds. Set it <code>false</code> to keep only the packed columns and reconstruct a row on demand — a smaller footprint, but <code>rows.data()</code> then returns freshly reconstructed objects, so identity checks and <code>row.sourceObject</code> no longer hold and equality becomes value-based. Cell values are unchanged.</td></tr>
           <tr><td class="name">tree</td><td class="type">TreeConfig</td><td class="dflt">, </td><td class="desc"><code>{ path }</code> or <code>{ parentKey }</code>, plus <code>label</code>, <code>orphans</code>. Rows form a hierarchy. See <a href="api-detail.html#tree-data">Tree data</a>.</td></tr>
           <tr><td class="name">detail</td><td class="type">DetailConfig</td><td class="dflt">, </td><td class="desc"><code>{ rows, config, render, isMaster, height, cacheLimit, target }</code>. A master row expands into a nested grid, inline or into an element you supply. See <a href="api-detail.html#master-detail">Master-detail</a>.</td></tr>
           <tr><td class="name">context</td><td class="type">unknown</td><td class="dflt">, </td><td class="desc">Arbitrary value passed to every callback, so formatters and renderers need no closures over app state.</td></tr>
@@ -785,7 +786,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
         <thead><tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">selection</td><td class="type">SelectionConfig | 'single' | 'multiple' | 'none'</td><td class="dflt">, </td><td class="desc">Object form adds <code>checkbox</code> (a pinned column of row checkboxes), <code>headerCheckbox</code> (tri-state select-all in its heading), <code>groupSelectsChildren</code>, <code>ranges</code>, <code>fillHandle</code>, <code>fill</code>. See <a href="api-detail.html#selection-checkbox">Selection and ranges</a>.</td></tr>
-          <tr><td class="name">edit</td><td class="type">EditConfig | boolean</td><td class="dflt">, </td><td class="desc"><code>{ enabled, mode: 'cell' | 'row', start: 'single' | 'double' | 'key', enterMovesDown, undoDepth, commit, confirm, pendingTimeout }</code>. The last three turn on optimistic writes.</td></tr>
+          <tr><td class="name">edit</td><td class="type">EditConfig | boolean</td><td class="dflt">, </td><td class="desc"><code>{ enabled, mode: 'cell' | 'row', start: 'single' | 'double' | 'key', enterMovesDown, undoDepth, commit, confirm, pendingTimeout, pastePreview }</code>. <code>commit</code>/<code>confirm</code>/<code>pendingTimeout</code> turn on optimistic writes; <code>pastePreview</code> (default off) shows a confirm/cancel diff before a bulk paste commits.</td></tr>
           <tr><td class="name">pagination</td><td class="type">PaginationConfig | boolean</td><td class="dflt">, </td><td class="desc">Local or remote paging.</td></tr>
           <tr><td class="name">quickFilterText</td><td class="type">string</td><td class="dflt">, </td><td class="desc">Initial quick-filter term. Equivalent to <code>grid.filters.quick(text)</code>.</td></tr>
           <tr><td class="name">hostFilter</td><td class="type">{ active(), passes(row) }</td><td class="dflt">, </td><td class="desc">An application-level predicate composed with the grid's own filters.</td></tr>
@@ -798,6 +799,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">totalFilteredOnly</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc">Totals reduce the filtered set. <code>false</code> totals the whole dataset, group totals included. See <a href="api-detail.html#total-filtered-only">Grouping, totals and pivot</a>.</td></tr>
           <tr><td class="name">totalOnlyChangedColumns</td><td class="type">boolean</td><td class="dflt">false</td><td class="desc">Reduce only the totalled columns an edit actually changed. Off by default, it asserts that each total depends on nothing but its own column. See <a href="api-detail.html#grouping">Grouping, totals and pivot</a>.</td></tr>
           <tr><td class="name">showTotalInHeader</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc">Under grouping or pivot, a totalled column's heading names its reduction on a line above the column name. See <a href="api-detail.html#show-total-in-header">Grouping, totals and pivot</a>.</td></tr>
+          <tr><td class="name">aggregateChooser</td><td class="type">boolean</td><td class="dflt">false</td><td class="desc">Let the user pick a column's reduction from the column menu. On, the totalling entry becomes an <em>Aggregate</em> submenu offering only the aggregates the column's type says are meaningful (sum, average, min, max, count and so on — never <code>sum</code> on a category column), with the current one ticked and a <em>None</em> to stop totalling; it is keyboard-operable through the standard menu and drives <code>grid.columns.setTotal()</code>, reusing the existing reduction model. Off by default and non-breaking: the menu keeps its plain <em>Total this column</em> toggle. See <a href="api-detail.html#aggregate-chooser">Grouping, totals and pivot</a>.</td></tr>
           <tr><td class="name">allowUnsafeTemplates</td><td class="type">boolean</td><td class="dflt">false</td><td class="desc">Off by default. Templates are escaped unless this is explicitly set. When set, an interpolated value may contain presentational markup, but script is still removed from it: <code>&lt;script&gt;</code>, <code>&lt;iframe&gt;</code> and the other executable tags, <code>on*</code> handler attributes, and <code>javascript:</code> URLs. The flag permits markup, not code.</td></tr>
           <tr><td class="name">licence</td><td class="type">string</td><td class="dflt">, </td><td class="desc">Signed licence key. Removes the trial watermark; unlocks nothing, because nothing is locked.</td></tr>
         </tbody>
@@ -847,6 +849,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">statusBar</td><td class="type">boolean | { panels }</td><td class="desc">Composable panels along the bottom. Default set: <code>rowCount</code>, <code>selectedCount</code>, <code>aggregation</code>, <code>comments</code>, <code>updates</code>, <code>progress</code>. Each is silent when it has nothing to report.</td></tr>
           <tr><td class="name">maximise</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc"><code>false</code> removes the rail button and <code>grid.maximise</code>, for an application with its own full-screen mode.</td></tr>
           <tr><td class="name">toolPanel</td><td class="type">boolean | object</td><td class="desc">Side dock. <code>panels</code>: <code>columns</code>, <code>filters</code>, <code>views</code>, <code>quick</code>, <code>formatting</code>, <code>statistics</code>. <code>side: 'left'</code> makes it the icon rail, which also turns on <code>actions</code> (<code>undo</code>, <code>redo</code>, <code>pause</code>, <code>restore</code>, <code>maximise</code>, then the export group: <code>export</code>, <code>excel</code>, <code>clipboard</code>, <code>print</code>: nine in all, and an array takes these names rather than the button labels) and <code>icons</code>. An explicit array <em>replaces</em> that list rather than extending it; a bare <code>'-'</code> in it renders a divider between groups. <code>exportName</code> names the CSV.</td></tr>
+          <tr><td class="name">groupPanel</td><td class="type">boolean | object</td><td class="desc">A drag-and-drop group-by strip above the column header — the row-group panel. Drag a heading into it to group by that column; the active groups show as removable, reorderable chips, and reordering the chips changes the nesting order. It is keyboard-operable — arrows move between chips, <code>Shift</code> with an arrow reorders, <code>Delete</code> ungroups, and an add control groups any column — and every change is announced through the live region. Off by default and non-breaking; it drives the same model as <code>grid.columns.group()</code> and reimplements nothing. The object form takes <code>hint</code>, the placeholder shown while nothing is grouped.</td></tr>
           <tr><td class="name">timeZone</td><td class="type">string</td><td class="desc">An IANA zone every date column formats and parses in, so a grid shows one zone whatever the viewer's machine says. Individual columns may override it.</td></tr>
           <tr><td class="name">formulaFunctions</td><td class="type">object</td><td class="desc">Your own functions, added to the formula language by name. The built-in list is closed on purpose; this is the one way in, and a function you add is called exactly as a built-in is.</td></tr>
           <tr><td class="name">formatting</td><td class="type">object</td><td class="desc">Conditional formatting rules to seed, keyed by column id or <code>'*'</code>. The same shape <code>grid.formatting.all()</code> returns, so a saved view can be handed straight back.</td></tr>
@@ -857,6 +860,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">environment</td><td class="type">function</td><td class="desc">Extra fields for the diagnostics bundle: build number, tenant, region. Called when a bundle is taken, never on the render path.</td></tr>
           <tr><td class="name">contextMenu</td><td class="type">boolean | (p) =&gt; MenuItem[]</td><td class="desc">Right-click menu. The function form is <code>(params, defaults) =&gt; items</code>: see <a href="#custom-menu">custom items</a>. <code>false</code> suppresses it: what a read-only grid wants, since the default menu offers Paste, Clear and Fill down.</td></tr>
           <tr><td class="name">columnMenu</td><td class="type">boolean | (p) =&gt; MenuItem[]</td><td class="desc">The header's 3-dot menu, and a right-click on a column heading. The function form is <code>(params, defaults) =&gt; items</code>, with <code>params</code> carrying <code>colId</code>, <code>column</code> and <code>grid</code>: see <a href="#custom-menu">custom items</a>. <code>false</code> suppresses it.</td></tr>
+          <tr><td class="name">rangeChart</td><td class="type">fn | { onChart } | boolean</td><td class="desc">Off by default. Offers <strong>Chart selection</strong> in the cell menu and binds <kbd>Alt</kbd>+<kbd>F1</kbd> when a selected range has a number to plot. The DOM layer draws no charts, so the handler you give — a function, or <code>{ onChart }</code>, called <code>(grid, range)</code> — is where the page wires in <code>chartRange</code> from <a href="#chart-a-range">the charts module</a>.</td></tr>
           <tr><td class="name">shortcuts</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc">The <kbd>?</kbd> keyboard shortcut overlay. <code>false</code> suppresses it, for a host that wants <kbd>?</kbd> for itself. See <a href="api-detail.html#keyboard">Keyboard</a>.</td></tr>
           <tr><td class="name">rowReorder</td><td class="type">boolean | { column }</td><td class="dflt">, </td><td class="desc">Let a user reorder rows by dragging a handle or with <kbd>Alt</kbd>+<kbd>Shift</kbd>+arrows. The handle goes in the first visible column unless <code>column</code> names another. Refused, with a reason announced, while a sort, filter or grouping is active. See <a href="api-detail.html#row-reorder">Row reorder</a>.</td></tr>
           <tr><td class="name">rowTransfer</td><td class="type">boolean | { send, receive, mode, group }</td><td class="dflt">, </td><td class="desc">Let rows be dragged between grids. Off by default. <code>send</code> and <code>receive</code> are both on when present, so one-way is <code>{ receive: false }</code> or <code>{ send: false }</code>. <code>mode: 'copy'</code> leaves the row behind; <code>group</code> restricts which grids may exchange. See <a href="api-detail.html#row-transfer">Moving rows between grids</a>.</td></tr>
@@ -1068,7 +1072,8 @@ grid.overlay.hide();</code></pre>
           <tr><td class="sig">group(ids)</td><td class="type">void</td><td class="desc">Set the row-group columns, in order.</td></tr>
           <tr><td class="sig">pivot(ids)</td><td class="type">void</td><td class="desc"></td></tr>
           <tr><td class="sig">totals(ids)</td><td class="type">void</td><td class="desc">Which columns carry an aggregation.</td></tr>
-          <tr><td class="sig">setTotal(id, fn)</td><td class="type">void</td><td class="desc">Change one column's aggregation. <code>null</code> stops totalling it.</td></tr>
+          <tr><td class="sig">setTotal(id, fn)</td><td class="type">void</td><td class="desc">Change one column's aggregation. <code>null</code> stops totalling it. A named total the column's type says is meaningless is refused (§9.4), the same way it is at configuration.</td></tr>
+          <tr><td class="sig">aggregates(id)</td><td class="type">TotalName[]</td><td class="desc">The aggregate names meaningful for a column, honouring its type's declaration — what the aggregate chooser offers.</td></tr>
           <tr><td class="sig">distinct(id)</td><td class="type">unknown[]</td><td class="desc">Distinct values, read from the dictionary rather than by scanning rows.</td></tr>
           <tr><td class="sig">state()</td><td class="type">ColumnState[]</td><td class="desc">Serialisable column state.</td></tr>
           <tr><td class="sig">apply(state)</td><td class="type">StateApplyReport</td><td class="desc">Restore it. Never throws and never refuses: a saved view written against an older column set applies as much of itself as still makes sense, and the returned <code>{ applied, skipped }</code> names what it could not use and why. Columns added since the view was saved appear in their declared state, after the ones it names. See <a href="api-detail.html#views-guide">Saved views</a>.</td></tr>
@@ -1135,12 +1140,46 @@ grid.overlay.hide();</code></pre>
           <tr><td class="sig">undo() / redo()</td><td class="type">void</td><td class="desc">Depth from <code>edit.undoDepth</code>.</td></tr>
           <tr><td class="sig">setCells(writes, type?)</td><td class="type">number</td><td class="desc">Write many cells as one undoable step. Returns how many landed.</td></tr>
           <tr><td class="sig">pasteInto(anchor, text, extent?)</td><td class="type">number</td><td class="desc">Paste tab-separated text, using Excel's tiling rules.</td></tr>
+          <tr><td class="sig">previewPaste(anchor, text, extent?)</td><td class="type">object</td><td class="desc">Compute what a paste <em>would</em> change without committing: <code>{ changes, rejected }</code>. The engine behind <code>edit.pastePreview</code>.</td></tr>
+          <tr><td class="sig">pastePreview</td><td class="type">boolean</td><td class="desc">Whether a bulk paste is previewed before it commits (<code>edit.pastePreview</code>).</td></tr>
           <tr><td class="sig">settle(id, ok, reason?)</td><td class="type">boolean</td><td class="desc">Report the outcome of an optimistic write. Only needed with <code>edit.confirm: 'manual'</code>; the id arrives on <code>cell:pending</code>.</td></tr>
           <tr><td class="sig">pending()</td><td class="type">OpenWrite[]</td><td class="desc">Writes still awaiting an outcome. Empty unless <code>edit.commit</code> is set.</td></tr>
           <tr><td class="sig">status(key, colId)</td><td class="type">'pending' | null</td><td class="desc">Whether a cell has a write in flight.</td></tr>
         </tbody>
       </table>
     </div>
+
+    <p class="section-note">
+      <strong>Previewing a bulk paste.</strong> A paste can rewrite dozens of cells at once, and one
+      that lands somewhere unexpected looks exactly like one that worked. Set
+      <code>edit.pastePreview: true</code> and a paste into more than one cell opens a confirm/cancel
+      dialog first, listing every cell that changes (old&nbsp;&rarr;&nbsp;new) and every cell a commit
+      would reject. It is off by default, so existing paste behaviour is unchanged.
+      <code>previewPaste</code> computes that same diff without any UI:
+    </p>
+    <pre data-run="js" data-expect="2 change, 1 rejected" data-covers="config:pastePreview"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  <span class="cmt">// A per-row rule: the middle row is locked, so a paste over it is refused.</span>
+  columns: [{ field: 'a', edit: { enabled: (p) =&gt; p.row.data.locked !== <span class="kw">true</span> } }],
+  rows: [
+    { id: '0', a: 'A0', locked: <span class="kw">false</span> },
+    { id: '1', a: 'A1', locked: <span class="kw">true</span> },
+    { id: '2', a: 'A2', locked: <span class="kw">false</span> },
+  ],
+  rowKey: 'id',
+  <span class="cmt">// Opt in: off by default, so a plain paste is unaffected.</span>
+  edit: { enabled: <span class="kw">true</span>, pastePreview: <span class="kw">true</span> },
+});
+
+<span class="cmt">// What *would* happen — nothing is committed yet.</span>
+<span class="kw">const</span> preview = grid.edit.previewPaste({ key: '0', colId: 'a' }, 'X\nY\nZ');
+
+<span class="cmt">// Confirming is setCells of the changes — the ordinary paste path.</span>
+grid.edit.setCells(preview.changes.map((c) =&gt; ({ key: c.key, colId: c.colId, value: c.newValue })), 'paste');
+
+<span class="kw">const</span> changed = preview.changes.filter((c) =&gt; c.changed).length;
+<span class="kw">return</span> `${changed} change, ${preview.rejected.length} rejected`;   <span class="cmt">// rows 0 and 2 change; row 1 refused</span></code></pre>
 
     <h2 id="form">grid.form</h2>
     <p class="section-note">
@@ -1652,6 +1691,38 @@ grid.formatting.restat();                 // re-derive every threshold from the 
     </div>
     <p>A colour scale can take its bounds the same way, with <code>from</code> in place of <code>min</code> and <code>max</code>: <code>'minmax'</code> spans the data, <code>'quantile'</code> spans <code>low</code> to <code>high</code> (5th to 95th percentile by default), <code>'stddev'</code> spans <code>deviations</code> either side of the mean. The quantile form is the better default on real data, one mistyped order of magnitude otherwise compresses every real value into the first swatch.</p>
     <div class="note"><p>Thresholds are <strong>pinned</strong> when the rules compile and do not move on their own. That is deliberate: a boundary that re-derived itself as rows were filtered would repaint cells whose values had not changed, and nobody comparing two screenshots could tell which of the two things had moved. <code>grid.formatting.restat()</code> is how you move it, and a "recalculate" control is the natural place to put it.</p></div>
+
+    <h3>Runtime decorations: data bars and icon sets on demand</h3>
+    <p>Where a colour rule paints the cell's background, a <em>decoration</em> changes the shape the cell renders as, a data bar sized by value, or a threshold icon set. <code>grid.columns.decorate(id, spec)</code> turns one on, changes it, or clears it with <code>null</code>, after the grid is built. It is presentation config rather than query state: unlike a formatting rule it is not on the undo timeline and does not travel in a saved view. Icon sets carry an <code>aria-label</code> per band and keep the value beside the glyph, so the meaning is announced, never only shown.</p>
+    <pre data-run="js" data-expect="bar|arrows|increasing|cleared|painted" data-covers="method:columns method:formatting"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  columns: [{ field: 'score' }, { field: 'trend' }],
+  rows: [{ id: '1', score: 72, trend: 8 }],
+  rowKey: 'id',
+});
+
+<span class="cmt">// A data bar, sized 0..100, set at runtime.</span>
+grid.columns.decorate('score', { type: 'bar', min: 0, max: 100 });
+<span class="kw">const</span> bar = grid.columns.get('score').cell.decoration.type;
+
+<span class="cmt">// A built-in three-arrow icon set on the trend column, with its own bands.</span>
+grid.columns.decorate('trend', { type: 'icon', bands: [
+  { min: 0, icon: 'chevronUp', label: 'increasing', variant: 'success' },
+  {         icon: 'chevronDown', label: 'decreasing', variant: 'danger' },
+] });
+<span class="kw">const</span> set = grid.columns.get('trend').cell.decoration.type === 'icon' ? 'arrows' : 'none';
+<span class="kw">const</span> band = grid.columns.get('trend').cell.decoration.bands[0].label;
+
+<span class="cmt">// Clearing a decoration returns the column to plain text.</span>
+grid.columns.decorate('score', <span class="kw">null</span>);
+<span class="kw">const</span> cleared = grid.columns.get('score').cell.decoration === <span class="kw">undefined</span> ? 'cleared' : 'still-set';
+
+<span class="cmt">// A runtime colour rule is the durable, view-persisted sibling.</span>
+grid.formatting.add('score', { when: { op: 'lt', value: 50 }, style: { background: '#fdecea' } });
+<span class="kw">const</span> painted = grid.formatting.styleFor('score', 20) ? 'painted' : 'plain';
+
+<span class="kw">return</span> [bar, set, band, cleared, painted].join('|');</code></pre>
 
     <h2 id="statistics">grid.statistics</h2>
     <p>What the grid knows about its own numbers, and about how they have changed since the page loaded. Every figure is computed over the <em>filtered</em> rows, through the same column handles the totals row uses, so a median here and a median in the footer are the same number, by the same definition (R type 7).</p>
@@ -2788,7 +2859,32 @@ app.get('/api/orders', async (req, res) =&gt; {
   columns: [{ field: 'rep' }, { field: 'total' }],
 });
 
-byRep.on('row:click', (e) =&gt; byRep.crossFilter.toggle(e.key));</code></pre>
+byRep.on('row:clicked', (e) =&gt; byRep.crossFilter.toggle(e.key));</code></pre>
+    <p class="section-note">
+      The event is <code>row:clicked</code>, not <code>row:click</code>. A handler bound to the wrong
+      name subscribes without error and never fires, so this example is executed on every build to
+      keep the name honest: it wires the same handler to a stand-in grid, emits the event, and checks
+      the click reached the cross-filter.
+    </p>
+    <pre data-run="js" data-covers="event:row:clicked" data-expect="EMEA"><code>// A stand-in for the grid's event bus and cross-filter, so the wiring above can
+// be executed here without a DOM. The names are the product's own.
+const listeners = {};
+const filtered = [];
+const grid = {
+  on: (name, fn) =&gt; { (listeners[name] = listeners[name] || []).push(fn); },
+  emit: (name, e) =&gt; { for (const fn of listeners[name] || []) fn(e); },
+  crossFilter: { toggle: (key) =&gt; { filtered.push(key); } },
+};
+
+// The line from the example, verbatim in its event name.
+grid.on('row:clicked', (e) =&gt; { if (e.key) grid.crossFilter.toggle(e.key); });
+
+// A click on a rep row. The wrong name — 'row:click' — would reach no handler,
+// and this block would produce '' instead of the key.
+grid.emit('row:clicked', { key: 'EMEA' });
+grid.emit('row:click', { key: 'US' });
+
+return filtered.join(',');</code></pre>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
@@ -3228,6 +3324,63 @@ const chart = createChart({
   grid.filters.set({ col: 'region', op: 'eq', value: point.x });
 });</code></pre>
 
+    <h3 id="chart-a-range">Chart a selected range</h3>
+    <p>A user who drags out a block of cells — a text column and the numbers beside it — is asking a question a spreadsheet answers with one gesture: chart this. <code>chartRange</code> is that gesture. It reads the selected range, derives the chart from its shape, and returns the same live <code>Chart</code> <code>createChart</code> does, so nothing about it is a second kind of chart.</p>
+    <ul>
+      <li><strong>The leading text column becomes the categories</strong>, and the numeric columns beside it become the measures. One number is a bar chart; several are a grouped bar. A block of pure numbers charts against the row position.</li>
+      <li><strong>Hidden and unreadable columns are never charted.</strong> The range is resolved against the columns the reader can actually see, so a chart never carries a value the grid itself would not show.</li>
+      <li><strong>It is bound to the range's own rows</strong>, filtered as the grid is filtered — the band the rectangle covers, not the whole sheet.</li>
+      <li><strong>The type is a sensible default you can change:</strong> <code>chart.update({ type: 'line' })</code>, or pass <code>type</code> up front.</li>
+    </ul>
+    <p>The derivation is pure, so a menu can ask what a range <em>would</em> chart as — the type, the dimension, the measures — before anyone draws it. <code>deriveRangeSpec</code> answers that, and <code>chartRange</code> then draws exactly it. This block proves the shape rule on a real grid; drawing needs a container, shown below it.</p>
+    <pre data-run="js" data-expect="Region|revenue,cost|combo|drawn" data-covers="export:deriveRangeSpec export:canChartRange config:rangeChart"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { deriveRangeSpec, canChartRange } = <span class="kw">await</span> import('../packages/modules/charts/index.js');
+
+<span class="kw">let</span> charted = null;
+<span class="kw">const</span> grid = createHeadlessGrid({
+  columns: [
+    { field: 'region', type: 'text' },
+    { field: 'revenue', type: 'number', total: 'sum' },
+    { field: 'cost', type: 'number', total: 'sum' },
+  ],
+  rows: [
+    { id: 1, region: 'EMEA', revenue: 300, cost: 120 },
+    { id: 2, region: 'AMER', revenue: 500, cost: 240 },
+    { id: 3, region: 'APAC', revenue: 200, cost: 90 },
+  ],
+  rowKey: 'id',
+  <span class="cmt">// Opt in, with the handler that draws — the page's link to modules/charts.</span>
+  <span class="cmt">// The menu and Alt+F1 call it with the grid and the selected range.</span>
+  rangeChart(grid, range) { charted = range; },
+});
+
+<span class="cmt">// The rectangle the user dragged: three rows, the text column and both numbers.</span>
+<span class="kw">const</span> range = { startRow: 0, endRow: 2, columns: ['region', 'revenue', 'cost'] };
+
+<span class="cmt">// The leading text column is the dimension; the two numeric columns are the</span>
+<span class="cmt">// measures, so the default is a grouped bar (a combo of bar marks).</span>
+<span class="kw">const</span> plan = deriveRangeSpec(grid, { range });
+
+<span class="cmt">// What the menu action does when the reader picks "Chart selection".</span>
+<span class="kw">const</span> handler = grid.get('rangeChart');
+<span class="kw">if</span> (canChartRange(grid, { range })) handler(grid, range);
+
+<span class="kw">return</span> [plan.x === 'region' ? 'Region' : plan.x,
+        plan.measures.join(','),
+        plan.type,
+        charted === range ? 'drawn' : 'no'].join('|');</code></pre>
+    <p>Drawing is one more call. <code>chartRange</code> takes the container, derives the spec and returns the live chart — or null when the range has no number to plot. The cell menu offers <strong>Chart selection</strong>, and <strong>Alt+F1</strong> triggers it from the keyboard, when the grid is configured with <code>rangeChart</code>. Because the charts module is optional and the grid draws no charts itself, the config carries the handler — a function, or <code>{ onChart }</code>, called <code>(grid, range)</code> — which is where a page wires the two together:</p>
+    <pre><code>import { chartRange } from '@toclocoinc/lattice-grid/modules/charts';
+
+createGrid(el, {
+  columns, rows,
+  rangeChart(grid, range) {
+    <span class="cmt">// A grouped bar by default; pass `type` to draw it as something else.</span>
+    const chart = chartRange(grid, { container: '#chart', range });
+    if (chart) chart.update({ scheme: 'colourblind' });
+  },
+});</code></pre>
+
     <h3>Maps</h3>
     <p>A <code>geomap</code> takes an ISO code from one column and a value from another. Alpha-2, alpha-3 and numeric codes are all accepted, and continent codes draw a continent map without any outline data. Country outlines are yours to supply through <code>shapes</code>, because a world atlas is larger than the whole library and this package fetches nothing at runtime.</p>
     <p>Codes that match nothing are counted and reported on the chart rather than dropped, a map missing half its data looks exactly like a map of a world where half the data is zero. The full code tables are in <a href="CHART-CODES.md">CHART-CODES.md</a>.</p>
@@ -3536,7 +3689,7 @@ createGrid(el, {
     <h3 id="config-example">A configuration, executed</h3>
     <p class="section-note">This block runs on every build. If a key here stopped being honoured, or was
     renamed, the build would fail rather than the documentation quietly going stale.</p>
-    <pre data-run="js" data-expect="2" data-covers="config:rowKey config:columns config:rows config:rowHeight config:headerHeight config:overscan config:autoHeight config:showHeader config:density config:theme config:locale config:timeZone config:title config:gridLines config:cornerRadius config:targetSize config:sampleSize config:quickFilterText config:maximise config:shortcuts config:rowReorder config:stickyGroupHeaders config:groupFooter config:totalFilteredOnly config:showTotalInHeader config:allowUnsafeTemplates config:useWorker config:sharedMemory config:workerThreshold config:columnVirtualisationAbove config:showColumnFunctions export:createHeadlessGrid"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="2" data-covers="config:rowKey config:columns config:rows config:rowHeight config:headerHeight config:overscan config:autoHeight config:showHeader config:density config:theme config:locale config:timeZone config:title config:gridLines config:cornerRadius config:targetSize config:sampleSize config:quickFilterText config:maximise config:shortcuts config:rowReorder config:stickyGroupHeaders config:groupFooter config:totalFilteredOnly config:showTotalInHeader config:aggregateChooser config:allowUnsafeTemplates config:useWorker config:sharedMemory config:workerThreshold config:columnVirtualisationAbove config:showColumnFunctions export:createHeadlessGrid"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 
 <span class="cmt">// Every one of these is a documented configuration key, set together so the</span>
 <span class="cmt">// example proves they are accepted and honoured rather than merely spelled.</span>
@@ -3552,11 +3705,43 @@ createGrid(el, {
   shortcuts: <span class="kw">true</span>, rowReorder: <span class="kw">false</span>,
   stickyGroupHeaders: <span class="kw">true</span>, groupFooter: <span class="kw">false</span>,
   totalFilteredOnly: <span class="kw">false</span>, showTotalInHeader: <span class="kw">false</span>,
+  aggregateChooser: <span class="kw">false</span>,
   allowUnsafeTemplates: <span class="kw">false</span>, useWorker: <span class="kw">false</span>,
   sharedMemory: <span class="kw">false</span>, workerThreshold: 100000,
   columnVirtualisationAbove: 40, showColumnFunctions: <span class="kw">false</span>,
 });
 
+<span class="kw">const</span> n = grid.rows.count();
+grid.destroy();
+<span class="kw">return</span> n;</code></pre>
+
+    <h3 id="ingest-worker-example">Non-blocking stream ingest, executed</h3>
+    <p class="section-note">A <code>stream</code> source loaded with <code>ingest.useWorker</code> on. In a browser a
+    chunk that clears <code>ingest.workerThreshold</code> is columnized on a Worker so the main thread
+    is not blocked; here in Node there is no Worker, so it columnizes in-process — the same code,
+    the same result, which is exactly what this asserts. With <code>retainSource:false</code> the
+    grid keeps only the packed columns, so <code>rows.data()</code> returns reconstructed objects
+    rather than the caller's own. This makes <strong>stream</strong> (and remote) ingest
+    non-blocking; memory and paged sources still read the caller's objects on the main thread.</p>
+    <pre data-run="js" data-expect="3" data-covers="config:ingest config:useWorker config:workerThreshold config:retainSource config:rowKey config:columns"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="cmt">// A stream source: the producer pushes chunks of rows as it finds them.</span>
+<span class="kw">async</span> <span class="kw">function</span>* open() {
+  yield { rows: [{ id: '1', city: 'Oslo', pop: 700000 }, { id: '2', city: 'Bergen', pop: 280000 }] };
+  yield { rows: [{ id: '3', city: 'Tromsø', pop: 77000 }] };
+}
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ id: 'city', field: 'city' }, { id: 'pop', field: 'pop', type: 'number' }],
+  source: { mode: 'stream', open },
+  <span class="cmt">// Columnize stream chunks off the main thread when a chunk is large enough,</span>
+  <span class="cmt">// and keep only the packed columns rather than the caller's row objects.</span>
+  ingest: { useWorker: <span class="kw">true</span>, workerThreshold: 1, retainSource: <span class="kw">false</span> },
+});
+
+<span class="cmt">// The stream loads over async frames; wait for it to finish before counting.</span>
+<span class="kw">await</span> <span class="kw">new</span> Promise((resolve) => grid.on('stream:end', resolve));
 <span class="kw">const</span> n = grid.rows.count();
 grid.destroy();
 <span class="kw">return</span> n;</code></pre>
@@ -3693,7 +3878,7 @@ grid.destroy();
 
     <h3 id="module-exports-example">Every module export, executed</h3>
     <p class="section-note">Nine shipped modules, each export resolved against its own barrel on every build.</p>
-    <pre data-run="js" data-expect="57" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
+    <pre data-run="js" data-expect="60" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
 <span class="cmt">// barrel. A module that stopped exporting something fails here.</span>
 <span class="kw">const</span> modules = [
   [<span class="kw">await</span> import('../packages/dom/src/index.js'), [
@@ -3704,7 +3889,8 @@ grid.destroy();
   ]],
   [<span class="kw">await</span> import('../packages/modules/charts/index.js'), [
     'Chart', 'PALETTE', 'SCHEMES', 'TYPES',
-    'createChart', 'registerScheme', 'resolveScheme', 'schemeNames',
+    'createChart', 'chartRange', 'canChartRange', 'deriveRangeSpec',
+    'registerScheme', 'resolveScheme', 'schemeNames',
     'setDefaultScheme',
   ]],
   [<span class="kw">await</span> import('../packages/modules/htmx/index.js'), [
@@ -3744,7 +3930,7 @@ grid.destroy();
     <h3 id="nested-config-example">Nested configuration, executed</h3>
     <p class="section-note">Thirteen option blocks, each key written where it belongs. Parsed and evaluated on
     every build, so a key that was renamed or moved shows up here.</p>
-    <pre data-run="js" data-expect="13" data-covers="config:aboveLimit config:adapter config:binary config:bucket config:bucketFn config:buckets config:cacheLimit config:cardinalityLimit config:checkbox config:coalesceMs config:commit config:confirm config:cumulative config:debounce config:decimals config:delimiter config:display config:download config:enabled config:enterMovesDown config:fetch config:fileName config:fill config:fillHandle config:follow config:format config:from config:granularity config:groupBy config:hasChildren config:headerCheckbox config:headers config:hint config:idleMs config:indexLimit config:isMaster config:join config:label config:limit config:limitPer config:lineEnding config:loadChildren config:lock config:lockMs config:markdown config:maxCachedPages config:maxDecimals config:maxRows config:me config:minDecimals config:mode config:onCreate config:open config:orient config:orphans config:pageSize config:palette config:parentKey config:path config:pendingTimeout config:placement config:processCell config:profile config:promoteToMemoryBelow config:provider config:quote config:ranges config:removeMs config:roster config:scale config:select config:space config:start config:strategy config:system config:target config:throttleMs config:undoDepth config:unit config:unnest config:where"><code><span class="cmt">// Placeholders for the things a real page supplies. The point of this block is</span>
+    <pre data-run="js" data-expect="14" data-covers="config:aboveLimit config:adapter config:binary config:bucket config:bucketFn config:buckets config:cacheLimit config:cardinalityLimit config:checkbox config:coalesceMs config:commit config:confirm config:cumulative config:debounce config:decimals config:delimiter config:display config:download config:enabled config:enterMovesDown config:fetch config:fileName config:fill config:fillHandle config:follow config:format config:from config:granularity config:groupBy config:hasChildren config:headerCheckbox config:headers config:hint config:idleMs config:indexLimit config:isMaster config:join config:label config:limit config:limitPer config:lineEnding config:loadChildren config:lock config:lockMs config:markdown config:maxCachedPages config:maxDecimals config:maxRows config:me config:minDecimals config:mode config:onCreate config:open config:orient config:orphans config:pageSize config:palette config:parentKey config:path config:pendingTimeout config:placement config:processCell config:profile config:promoteToMemoryBelow config:provider config:quote config:ranges config:removeMs config:retainSource config:roster config:scale config:select config:space config:start config:strategy config:system config:target config:throttleMs config:undoDepth config:unit config:unnest config:where"><code><span class="cmt">// Placeholders for the things a real page supplies. The point of this block is</span>
 <span class="cmt">// the option names: each one below is a documented key, written where it</span>
 <span class="cmt">// belongs, so a key that was renamed or moved stops matching its interface.</span>
 <span class="kw">const</span> source = {}, other = {}, provider = {}, compute = {}, adapter = {};
@@ -3803,14 +3989,17 @@ grid.destroy();
     unit: 'metre', system: 'si', space: true, binary: false, format: 'auto',
     display: 'yesNo', label: 'Size', hint: 'in metres' };
 
+<span class="cmt">// How rows enter the store — IngestConfig</span>
+<span class="kw">const</span> ingestConfig = { retainSource: <span class="kw">false</span> };
+
 <span class="kw">return</span> [derivedSourceConfig, editConfig, selectionConfig, treeConfig, detailConfig,
   presenceConfig, commentConfig, pagedSourceConfig, streamSourceConfig,
-  pushdownSourceConfig, csvExportOptions, columnFacetConfig, numberFormat].length;</code></pre>
+  pushdownSourceConfig, csvExportOptions, columnFacetConfig, numberFormat, ingestConfig].length;</code></pre>
 
     <h3 id="remaining-config-example">The remaining option names, executed</h3>
     <p class="section-note">Set on a real grid and checked against its own diagnostics: an unrecognised key
     raises <code>config.unknown</code>, so a renamed or dropped option fails here.</p>
-    <pre data-run="js" data-expect="51" data-covers="config:ai config:alignedGrids config:columnDefaults config:columnGroups config:columnMenu config:columnPresets config:columnTagFilter config:comments config:components config:context config:contextMenu config:dataTypes config:detail config:diff config:edit config:environment config:facets config:formatting config:formulaFunctions config:fullWidth config:grandTotalRow config:highlightOnChange config:historyBar config:hostFilter config:licence config:pagination config:permissions config:pinnedBottomRows config:pinnedTopRows config:pipes config:pivot config:presence config:responsive config:rowClass config:rowForm config:rowStyle config:rowTemplate config:rowTransfer config:selection config:source config:state config:statusBar config:toolPanel config:totalFns config:totalOnlyChangedColumns config:tree config:typeOptions config:updates config:variants config:views config:workerUrl config:announce config:apply config:at config:background config:byKey config:compute config:config config:count config:crossFilter config:destroy config:group config:groupSelectsChildren config:groupSelectsFiltered config:height config:loaded config:order config:pageSizes config:refresh config:reload config:render config:rowLabel config:sort"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="53" data-covers="config:ai config:alignedGrids config:columnDefaults config:columnGroups config:columnMenu config:columnPresets config:columnTagFilter config:comments config:components config:context config:contextMenu config:dataTypes config:detail config:diff config:edit config:environment config:facets config:formatting config:formulaFunctions config:fullWidth config:grandTotalRow config:groupPanel config:highlightOnChange config:historyBar config:hostFilter config:ingest config:licence config:pagination config:permissions config:pinnedBottomRows config:pinnedTopRows config:pipes config:pivot config:presence config:responsive config:rowClass config:rowForm config:rowStyle config:rowTemplate config:rowTransfer config:selection config:source config:state config:statusBar config:toolPanel config:totalFns config:totalOnlyChangedColumns config:tree config:typeOptions config:updates config:variants config:views config:workerUrl config:announce config:apply config:at config:background config:byKey config:compute config:config config:count config:crossFilter config:destroy config:group config:groupSelectsChildren config:groupSelectsFiltered config:height config:loaded config:order config:pageSizes config:refresh config:reload config:render config:rowLabel config:sort"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { reportedWarnings } = <span class="kw">await</span> import('../packages/core/src/internal/util.js');
 
 <span class="cmt">// Top-level configuration keys. Each is set on a real grid, and the grid is</span>
@@ -3821,7 +4010,8 @@ grid.destroy();
   'columnPresets', 'columnTagFilter', 'comments', 'components', 'context',
   'contextMenu', 'dataTypes', 'detail', 'diff', 'edit',
   'environment', 'facets', 'formatting', 'formulaFunctions', 'fullWidth',
-  'grandTotalRow', 'highlightOnChange', 'historyBar', 'hostFilter', 'licence',
+  'grandTotalRow', 'groupPanel', 'highlightOnChange', 'historyBar', 'hostFilter', 'ingest',
+  'licence',
   'pagination', 'permissions', 'pinnedBottomRows', 'pinnedTopRows', 'pipes',
   'pivot', 'presence', 'responsive', 'rowClass', 'rowForm',
   'rowStyle', 'rowTemplate', 'rowTransfer', 'selection', 'source',
@@ -4232,6 +4422,7 @@ grid.destroy();
           <tr><td class="name">x</td><td class="type">string</td><td class="desc">The category column. <small>(optional)</small></td></tr>
           <tr><td class="name">y</td><td class="type">string</td><td class="desc">The measure column, for the types that take one. <small>(optional)</small></td></tr>
           <tr><td class="name">series</td><td class="type">string</td><td class="desc">Splits the measure into one series per distinct value. <small>(optional)</small></td></tr>
+          <tr><td class="name">rows</td><td class="type">object[] | ((grid: Grid) =&gt; object[])</td><td class="desc">The exact rows to chart, overriding the grid's own walk — an array, or a function returning one at draw time. `chartRange` uses it to bind a chart to the band of rows a selected range covers rather than the whole grid. <small>(optional)</small></td></tr>
           <tr><td class="name">measures</td><td class="type">ChartMeasure[]</td><td class="desc">Several measures at once, for combo and candlestick. <small>(optional)</small></td></tr>
           <tr><td class="name">source</td><td class="type">string</td><td class="desc">Endpoints, for sankey, chord and network. <small>(optional)</small></td></tr>
           <tr><td class="name">target</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
@@ -4521,6 +4712,7 @@ grid.destroy();
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">setTotal</td><td class="type">(id: string, fn: TotalName | TotalFn | null): void</td><td class="desc">Set or clear a column's totals-row reduction.</td></tr>
+          <tr><td class="name">aggregates</td><td class="type">(id: string): TotalName[]</td><td class="desc">The aggregate names meaningful for a column, honouring its type's `totals.supported` declaration (§9.4). What the aggregate chooser offers.</td></tr>
           <tr><td class="name">distinct</td><td class="type">(id: string): unknown[]</td><td class="desc">Every distinct value in a column, from the dictionary where there is one.</td></tr>
           <tr><td class="name">get</td><td class="type">(id: string): ResolvedColumn | undefined</td><td class="desc"></td></tr>
           <tr><td class="name">all</td><td class="type">(): ResolvedColumn[]</td><td class="desc"></td></tr>
@@ -4535,6 +4727,7 @@ grid.destroy();
           <tr><td class="name">move</td><td class="type">(id: string, to: number): void</td><td class="desc"></td></tr>
           <tr><td class="name">pin</td><td class="type">(id: string, side: 'start' | 'end' | null): void</td><td class="desc"></td></tr>
           <tr><td class="name">resize</td><td class="type">(id: string, px: number): void</td><td class="desc"></td></tr>
+          <tr><td class="name">decorate</td><td class="type">(id: string, decoration: DecorationName | DecorationSpec | null, opts?: { variant?: VariantSpec }): void</td><td class="desc">Set, change or clear a column's decoration at runtime (§8.7). Pass `null` to clear it back to plain text. Presentation config: it is not on the undo timeline and is not carried in a saved view — use `grid.formatting` for durable, view-persisted conditional styling.</td></tr>
           <tr><td class="name">autoSize</td><td class="type">(ids?: string | string[]): void</td><td class="desc"></td></tr>
           <tr><td class="name">fit</td><td class="type">(): void</td><td class="desc"></td></tr>
           <tr><td class="name">group</td><td class="type">(ids: string | string[]): void</td><td class="desc"></td></tr>
@@ -4798,6 +4991,8 @@ grid.destroy();
           <tr><td class="name">edge</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">position</td><td class="type">'start' | 'end'</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">name</td><td class="type">string | Record&lt;string, string&gt;</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">iconSet</td><td class="type">IconSetName</td><td class="desc">icon only: a built-in threshold icon set, expanded to `bands`. <small>(optional)</small></td></tr>
+          <tr><td class="name">bands</td><td class="type">IconBand[]</td><td class="desc">icon only: value bands mapped to glyphs, first match by descending `min`. <small>(optional)</small></td></tr>
           <tr><td class="name">min</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">max</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">origin</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
@@ -4972,6 +5167,8 @@ grid.destroy();
           <tr><td class="name">redo</td><td class="type">(): void</td><td class="desc"></td></tr>
           <tr><td class="name">setCells</td><td class="type">(writes: { key: string; colId: string; value: unknown }[], type?: 'cell' | 'fill' | 'paste'): number</td><td class="desc"></td></tr>
           <tr><td class="name">pasteInto</td><td class="type">(anchor: { key: string; colId: string }, text: string, extent?: { rows?: number; columns?: number }): number</td><td class="desc"></td></tr>
+          <tr><td class="name">pastePreview</td><td class="type">boolean</td><td class="desc">Whether a bulk paste is previewed before it commits (`edit.pastePreview`, §12). <small>(read-only)</small></td></tr>
+          <tr><td class="name">previewPaste</td><td class="type">(anchor: { key: string; colId: string }, text: string, extent?: { rows?: number; columns?: number }): {</td><td class="desc">Compute what a paste would change, without committing (§12). The engine behind `edit.pastePreview`: `changes` are the accepted writes with their old and new values (and whether each actually differs), `rejected` are the cells a commit would refuse, each with a reason.</td></tr>
           <tr><td class="name">settle</td><td class="type">(id: string, ok: boolean, reason?: string): boolean</td><td class="desc"></td></tr>
           <tr><td class="name">pending</td><td class="type">(): OpenWrite[]</td><td class="desc"></td></tr>
           <tr><td class="name">status</td><td class="type">(key: string, colId: string): 'pending' | null</td><td class="desc"></td></tr>
@@ -4991,6 +5188,7 @@ grid.destroy();
           <tr><td class="name">commit</td><td class="type">(write: PendingWrite) =&gt; unknown</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">confirm</td><td class="type">'auto' | 'manual'</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">pendingTimeout</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">pastePreview</td><td class="type">boolean</td><td class="desc">Show a preview of what a bulk paste will change before it commits (§12), with confirm/cancel. Off by default: a paste commits straight away, exactly as it always has. When on, a paste into more than one cell first opens a dialog listing every cell that changes (old → new) and every cell that would be rejected (permission, data-type, read-only); confirm commits precisely that set through the ordinary edit path, cancel commits nothing. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -5324,6 +5522,7 @@ grid.destroy();
           <tr><td class="name">rows</td><td class="type">unknown[]</td><td class="desc">The data, for a memory grid. Use `source` for anything fetched. <small>(optional)</small></td></tr>
           <tr><td class="name">rowKey</td><td class="type">string | ((row: unknown) =&gt; string)</td><td class="desc">What identifies a row. Everything that survives a refresh (selection, expansion, and edits in flight) is keyed on it, so it must be stable and unique. A derived grid defaults to its own derived key. <small>(optional)</small></td></tr>
           <tr><td class="name">source</td><td class="type">SourceConfig</td><td class="desc">Where rows come from: memory, paged, remote, stream or derived. <small>(optional)</small></td></tr>
+          <tr><td class="name">ingest</td><td class="type">IngestConfig</td><td class="desc">How rows are ingested into the column store. <small>(optional)</small></td></tr>
           <tr><td class="name">columnDefaults</td><td class="type">Column</td><td class="desc">Applied to every column before its own settings. <small>(optional)</small></td></tr>
           <tr><td class="name">columnPresets</td><td class="type">Record&lt;string, Column&gt;</td><td class="desc">Named bundles of column settings, referenced by a column's `preset`. <small>(optional)</small></td></tr>
           <tr><td class="name">dataTypes</td><td class="type">Record&lt;string, DataType&gt;</td><td class="desc">Your own data types, alongside the built-in catalogue. <small>(optional)</small></td></tr>
@@ -5380,10 +5579,12 @@ grid.destroy();
           <tr><td class="name">totalFilteredOnly</td><td class="type">boolean</td><td class="desc">Total what the filters left rather than the whole set. <small>(optional)</small></td></tr>
           <tr><td class="name">totalOnlyChangedColumns</td><td class="type">boolean</td><td class="desc">On a change, recompute only the totals whose column moved. <small>(optional)</small></td></tr>
           <tr><td class="name">showTotalInHeader</td><td class="type">boolean</td><td class="desc">Put the total in the header rather than a footer row. <small>(optional)</small></td></tr>
+          <tr><td class="name">aggregateChooser</td><td class="type">boolean</td><td class="desc">Let the user pick a column's reduction from the column menu. On, the totalling entry becomes an "Aggregate" submenu offering the aggregates the column's type says are meaningful (§9.4); off, the menu keeps its plain "Total this column" toggle. Off by default, so an existing grid is unchanged. <small>(optional)</small></td></tr>
           <tr><td class="name">columnVirtualisationAbove</td><td class="type">number</td><td class="desc">Render only the visible columns once there are more than this many. <small>(optional)</small></td></tr>
           <tr><td class="name">statusBar</td><td class="type">boolean | { panels?: string[] }</td><td class="desc">The bar beneath the grid, and which panels it carries. <small>(optional)</small></td></tr>
           <tr><td class="name">contextMenu</td><td class="type">boolean | ((p: CellMenuParams, defaults: MenuItem[]) =&gt; MenuItem[] | void)</td><td class="desc">The cell right-click menu. A function supplies custom items; `false` suppresses it entirely, which is what a read-only grid wants, the default menu offers Paste, Clear and Fill down. <small>(optional)</small></td></tr>
           <tr><td class="name">columnMenu</td><td class="type">boolean | ((p: ColumnMenuParams, defaults: MenuItem[]) =&gt; MenuItem[] | void)</td><td class="desc">The header's 3-dot menu, and the right-click menu on a column heading. `false` suppresses both. A function supplies custom items, receiving the grid's own so it can add to them rather than reproduce them. Default true. <small>(optional)</small></td></tr>
+          <tr><td class="name">rangeChart</td><td class="type"></td><td class="desc">Chart a selected cell range — the spreadsheet "chart this selection" gesture. Off by default, so a grid opts in. The DOM layer draws no charts itself — the charts module is optional and loaded by the host — so this is where the host wires the two together: a function, or an object carrying `onChart`, is called with the grid and the selected range when the reader chooses "Chart selection" from the cell menu. The handler typically calls `chartRange` from `lattice-grid/modules/charts`. `true` offers the item and emits nothing extra; supply a handler to have it actually draw. <small>(optional)</small></td></tr>
           <tr><td class="name">shortcuts</td><td class="type">boolean</td><td class="desc">The `?` keyboard shortcut overlay. `false` suppresses it, for a host that wants `?` for itself. Default true. <small>(optional)</small></td></tr>
           <tr><td class="name">rowReorder</td><td class="type">boolean | { column?: string }</td><td class="desc">Let a user reorder rows by dragging a handle, or with Alt+Shift+Up/Down. `true` puts the handle in the first visible column; `{ column }` names a different one. The move reorders your data and emits `row:moved`; persisting it is yours, and `rows.data()` afterwards is the new order. Refused, with a reason announced, while a sort, filter or grouping is active, the position a row is dropped at has no single meaning in the underlying order then. <small>(optional)</small></td></tr>
           <tr><td class="name">rowTransfer</td><td class="type">boolean | {</td><td class="desc">Let rows be dragged out of this grid, into it, or both. Off by default: rows leaving a grid is a data change a host has to want, and a mis-drag that silently removed one has no gesture a user would think to undo. `send` and `receive` are both on when the option is present, so one-way is expressed by turning off the direction you do not want, a source grid is `{ receive: false }` and a target is `{ send: false }`. `mode: 'copy'` leaves the row where it was. `group` restricts exchange to grids sharing the same name, so two unrelated grids on a page do not accept each other's rows. The source needs `rowReorder` as well, since that is what draws the handle a drag starts from. <small>(optional)</small></td></tr>
@@ -5394,6 +5595,7 @@ grid.destroy();
           <tr><td class="name">rowClass</td><td class="type">string | string[] | ((p: RowStyleParams) =&gt; string | string[])</td><td class="desc">A class, or classes, for every row. Re-evaluated on each repaint. <small>(optional)</small></td></tr>
           <tr><td class="name">rowStyle</td><td class="type">CellStyle | ((p: RowStyleParams) =&gt; CellStyle)</td><td class="desc">Inline styles for every row. Camel-case or hyphenated property names. <small>(optional)</small></td></tr>
           <tr><td class="name">toolPanel</td><td class="type">boolean | {</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">groupPanel</td><td class="type">boolean | {</td><td class="desc">A drag-and-drop group-by strip above the column header — the pattern AG Grid calls the row-group panel. Drag a column heading into it to group by that column; the active groups show as removable, reorderable chips, and reordering the chips changes the nesting order. It is keyboard-operable (arrows navigate, Shift+arrow reorders, Delete ungroups, and an add control groups any column), and every change is announced through the live region, which is why it also addresses the drag-only complaint of BACKLOG-0000429. Off by default and non-breaking, matching `toolPanel`. It drives the same grouping model as `grid.columns.group()`; it reimplements nothing. <small>(optional)</small></td></tr>
           <tr><td class="name">quickFilterText</td><td class="type">string</td><td class="desc">The quick filter's initial text. <small>(optional)</small></td></tr>
           <tr><td class="name">permissions</td><td class="type">PermissionPolicy</td><td class="desc">Per-column read/write/hidden policy. A usability control, not a security boundary: hidden data is still resident in the store. Enforce the same policy server-side with `permittedColumns` / `permittedExport`. <small>(optional)</small></td></tr>
           <tr><td class="name">diff</td><td class="type">{</td><td class="desc">Prior state for diff and audit mode. <small>(optional)</small></td></tr>
@@ -5498,6 +5700,31 @@ grid.destroy();
           <tr><td class="name">at</td><td class="type">number</td><td class="desc">When it was recorded, on the high-resolution clock.</td></tr>
           <tr><td class="name">delegated</td><td class="type">boolean</td><td class="desc">True when the edit model owns the undo rather than the history stack.</td></tr>
           <tr><td class="name">undone</td><td class="type">boolean</td><td class="desc">Set once the entry has been undone. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-IconBand">IconBand</h3>
+    <p class="section-note">One band of a threshold icon set. A value clears a band when it is at least `min`; the highest band it clears wins. Omit `min` on the last band to make it the catch-all. `label` is what assistive technology announces for the glyph, so a screen-reader user hears the band's meaning, not only the value.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">icon</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">variant</td><td class="type">VariantName</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-IngestConfig">IngestConfig</h3>
+    <p class="section-note">How rows are ingested into the column store.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">retainSource</td><td class="type">boolean</td><td class="desc">Retain the caller's row objects by reference so identity round-trips. Default `true`, the historical behaviour: `rows.data()` returns the exact objects you supplied, `row === sourceObject` holds, and a custom renderer reading `row.sourceObject` works. Set `false` to keep only the packed columns and reconstruct a plain row object from them on demand. This drops roughly half the resident footprint, but changes three behaviours: `rows.data()` returns freshly reconstructed objects (new object each call, so `row === sourceObject` no longer holds), a custom renderer that reaches for `row.sourceObject` gets a reconstruction rather than the original, and equality against a row becomes value-based. The stored values are unchanged, so `get()`, `byKey()`, `value()` and `values()` are unaffected. <small>(optional)</small></td></tr>
+          <tr><td class="name">useWorker</td><td class="type">boolean</td><td class="desc">Columnize `stream`-source ingest on a Worker so a large load does not block the main thread. Default `false`. When on, an arriving chunk that clears {@link IngestConfig.workerThreshold} is packed into typed column buffers on the Worker; the main thread merges the finished buffers into the store and renders, without running the per-field extraction pass that otherwise dominates ingest. This makes **stream** ingest non-blocking (remote sources already are). Memory and paged sources cannot be made non-blocking this way — the main thread must read the caller's own row objects — and are unaffected. The effect composes with `retainSource: false`: with it off the source keeps no caller-object array on the main thread at all, so the load is both non-blocking and lighter on memory. A column that reads through a closure — a `date` column's storage conversion, or a computed column — cannot cross the Worker boundary, so a grid with any such column columnizes on the main thread and says so once. Falls back silently to the main thread wherever a Worker cannot be created. <small>(optional)</small></td></tr>
+          <tr><td class="name">workerThreshold</td><td class="type">number</td><td class="desc">Row count in a single stream chunk at or above which columnization is offloaded to the Worker when {@link IngestConfig.useWorker} is on. Default `10000`. A smaller first chunk is packed on the main thread, where the cost is trivial and the postMessage round trip would only add latency to time-to-first-row. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
