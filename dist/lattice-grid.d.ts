@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.18.1, type declarations
+ * Lattice Grid 1.19.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1304,6 +1304,92 @@ export interface GridConfig {
   };
 
   /**
+   * Present rows as a gallery of tiles (§7.12).
+   *
+   * The tiled card layout with a size-driven column count: tiles as wide as
+   * `tileWidth` allows, as many across as the container holds, laid out by the
+   * same 2-D virtualisation the grid already runs. `true` draws a tile per row
+   * generated from the columns; an object sizes them or supplies a template.
+   * Presentation only — sort, filter, group and the data pipeline are unchanged.
+   */
+  gallery?: boolean | {
+    /** The tile layout. Generated from the columns when omitted. */
+    template?: string;
+    /** How wide a tile aims to be; the count across follows the container. 240 by default. */
+    tileWidth?: number;
+    /** How tall a tile is. 180 by default. */
+    tileHeight?: number;
+    /** A fixed number of tiles on a line, instead of `tileWidth`. Does not reflow. */
+    cardsPerRow?: number;
+    /** Space between tiles, in pixels. 8 by default. */
+    gap?: number;
+    /** A class of your own on every tile, alongside the grid's. */
+    className?: string;
+    /** The layer's role. `list` by default; `listbox` for a selectable set. */
+    role?: string;
+    /** Each tile's role. `listitem` by default. */
+    itemRole?: string;
+  };
+
+  /**
+   * Present each row as a record card — a form of label/value pairs (§7.11).
+   *
+   * For a screen where reading one record matters more than comparing many.
+   * `true` draws a card per row generated from the columns, each column a
+   * labelled line in display order, showing the same text the table shows. An
+   * object supplies a template or sizes the card. A card list underneath, so it
+   * inherits the virtualisation and every interaction a card carries.
+   * Presentation only — sort, filter, group and the data pipeline are unchanged.
+   */
+  recordCard?: boolean | {
+    /** The card layout. Generated from the columns as label/value pairs when omitted. */
+    template?: string;
+    /** How tall a card is. 200 by default; a form needs room per field. */
+    cardHeight?: number;
+    /** A class of your own on every card, alongside the grid's. */
+    className?: string;
+    /** The layer's role. `list` by default. */
+    role?: string;
+    /** Each card's role. `listitem` by default. */
+    itemRole?: string;
+  };
+
+  /**
+   * Present rows as a board — a kanban of grouped lanes of cards (§7.14).
+   *
+   * The top-level group becomes a lane and every leaf under it becomes a card
+   * stacked in that lane: a pipeline by stage, a task list by status, a backlog
+   * by owner. `true` draws a card per row generated from the columns; an object
+   * sizes the lanes and cards or supplies a template. Group the grid to give the
+   * board its lanes; an ungrouped board is a single lane of every card.
+   *
+   * A card is drawn through the same code the other card presentations use, so a
+   * board card is still a row: it clicks, selects and drags through the grid's
+   * own handlers, masks protected columns, and shows the same text the table
+   * shows. Both axes are virtualised — the lanes across and the cards down each —
+   * so a board of many long lanes renders only what is on screen. Presentation
+   * only: sort, filter, group and the data pipeline are unchanged.
+   */
+  board?: boolean | {
+    /** The card layout. Generated from the columns as a tile when omitted. */
+    template?: string;
+    /** How wide a lane is, in pixels. 280 by default. */
+    laneWidth?: number;
+    /** How tall a card is, in pixels. 120 by default. */
+    cardHeight?: number;
+    /** Space between lanes, in pixels. 16 by default. */
+    laneGap?: number;
+    /** Space around a card within its lane, in pixels. 8 by default. */
+    gap?: number;
+    /** A class of your own on every card, alongside the grid's. */
+    className?: string;
+    /** The board's role. `list` by default; `listbox` for a selectable set. */
+    role?: string;
+    /** Each card's role. `listitem` by default. */
+    itemRole?: string;
+  };
+
+  /**
    * Present rows as cards when the grid's container is too narrow to be a
    * table honestly, a phone, or a narrow panel on a wide screen.
    *
@@ -1833,6 +1919,15 @@ export interface ColumnState {
   groupTotal?: TotalName | null;
   /** The grand-total override, when one differs from `total`. */
   grandTotal?: TotalName | null;
+  /**
+   * The column's runtime decoration (BACKLOG-0000723), present only when the
+   * column carries one, so a `columns.decorate()` survives a saved view and
+   * participates in undo/redo. Absent means "not recorded"; an explicit `null`
+   * on an undo patch clears a decoration back to plain text.
+   */
+  decoration?: DecorationName | DecorationSpec | null;
+  /** The variant set alongside the decoration, when one is present. */
+  variant?: VariantSpec | null;
 }
 
 export interface GridState {
@@ -2436,10 +2531,41 @@ export interface CsvExportOptions {
   download?: boolean;
 }
 
+/** A conditional-formatting rule's rendering, returned by `cellStyle`. */
+export interface ExcelCellStyle {
+  bold?: boolean;
+  italic?: boolean;
+  /** Font colour as 6- or 8-digit hex/ARGB, e.g. 'FFFF0000'. `color` is an alias. */
+  colour?: string;
+  color?: string;
+  /** Solid fill colour as 6- or 8-digit hex/ARGB. */
+  fill?: string;
+}
+
+/** A cell border, per edge. `true` means a thin line; a string names the style. */
+export interface ExcelBorderSpec {
+  left?: boolean | string;
+  right?: boolean | string;
+  top?: boolean | string;
+  bottom?: boolean | string;
+}
+
 export interface ExcelExportOptions extends Omit<CsvExportOptions, 'delimiter' | 'quote' | 'lineEnding'> {
   sheetName?: string;
   freezePanes?: boolean;
   variantFills?: boolean;
+  /**
+   * Draw cell borders on the data grid. `false` (default) is borderless; `true`
+   * draws a thin box; a string names the line style; an object picks edges.
+   */
+  borders?: boolean | string | ExcelBorderSpec;
+  /**
+   * What to do with grid-hidden columns. `'omit'` (default) drops them;
+   * `'hidden'` keeps them as Excel-hidden columns for round-trip fidelity.
+   */
+  hiddenColumns?: 'omit' | 'hidden';
+  /** Explicit merged body ranges in A1 form, e.g. ['A3:A4']. */
+  merges?: string[];
   onProgress?: (p: { written: number; total: number }) => void;
 }
 

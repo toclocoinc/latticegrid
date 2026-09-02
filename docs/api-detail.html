@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.18.1</p>
+    <p class="rail__sub">Developer guide · v1.19.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -3171,6 +3171,48 @@ columns: [
       columns. A card list, a feed, a search-result list, a message list: any presentation where a
       record is a small piece of layout rather than a line of cells.
     </p>
+
+    <p class="lead-in">
+      Two shorthands sit on top of it for the shapes that recur. <code>recordCard</code> presents each
+      row as a record card &mdash; a form of label/value pairs, one line per column in display order,
+      showing the same text the table shows &mdash; for a screen where reading one record matters more
+      than comparing many. <code>gallery</code> presents the rows as a grid of tiles laid out by the
+      same 2-D virtualisation the grid already runs. Both take <code>true</code> to generate the layout
+      from the columns, or an object to size it or supply a template, and both are presentation only:
+      sort, filter, group and the data pipeline are unchanged.
+    </p>
+
+    <p class="lead-in">
+      <code>board</code> is the third shape: a kanban of grouped lanes of cards. Group the grid and the
+      top-level group becomes a lane, with every leaf under it a card stacked in that lane &mdash; a
+      pipeline by stage, a task list by status, a backlog by owner. Both axes are virtualised, the lanes
+      across and the cards down each, so a board of many long lanes draws only what is on screen. A board
+      card is still a row: it clicks, selects and drags through the grid's own handlers, and masks
+      protected columns exactly as every other card does. Like the others it is presentation only.
+    </p>
+
+    <div class="example">
+      <p class="example__label">The shorthands, and the config a grid reports back</p>
+      <pre data-run="js" data-expect="recordCard true, gallery 240px, board 300px" data-covers="config:recordCard config:gallery config:board"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  columns: [{ field: 'name' }, { field: 'owner' }],
+  rows: [
+    { id: '1', name: 'Alpha', owner: 'Ada' },
+    { id: '2', name: 'Beta', owner: 'Ben' },
+  ],
+  rowKey: 'id',
+  <span class="cmt">// Each row as a labelled record card…</span>
+  recordCard: <span class="kw">true</span>,
+  <span class="cmt">// …or a gallery of size-driven tiles…</span>
+  gallery: { tileWidth: 240 },
+  <span class="cmt">// …or a kanban of grouped lanes. Presentation only.</span>
+  board: { laneWidth: 300 },
+});
+
+<span class="kw">const</span> c = grid.config();
+<span class="kw">return</span> `recordCard ${c.recordCard === <span class="kw">true</span>}, gallery ${c.gallery.tileWidth}px, board ${c.board.laneWidth}px`;</code></pre>
+    </div>
 
     <div class="example">
       <p class="example__label">A card list</p>

@@ -871,6 +871,9 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">stripedRows</td><td class="type">boolean</td><td class="dflt">false</td><td class="desc">Shade alternate data rows (zebra striping). Strictly opt-in, so an existing grid is unchanged on upgrade. Parity follows each row's logical index, so a stripe survives a scroll; group headings, footers and the grand total are never striped; selection and hover still win. Uses the theme's <code>--lattice-surface-alt</code>, so dark, high-contrast and terminal come for free.</td></tr>
           <tr><td class="name">columnTagFilter</td><td class="type">boolean | { multiple, label }</td><td class="dflt">, </td><td class="desc">A bar above the headings for showing only the columns carrying a chosen tag. Draws nothing unless some column has <code>tags</code>. See <a href="api-detail.html#column-tags">Column tags</a>.</td></tr>
           <tr><td class="name">rowTemplate</td><td class="type">string | { template, cardsPerRow, maxCardWidth, gap, className, role, itemRole }</td><td class="dflt">, </td><td class="desc">Draw each row with a template instead of dividing it into columns, a card list, a feed, a search-result list. Compiles once; binds with <code>{{data.field}}</code>. <code>cardsPerRow</code> or <code>maxCardWidth</code> puts several on a line. The pipeline underneath is unchanged. See <a href="api-detail.html#cards">Cards, lists and feeds</a>.</td></tr>
+          <tr><td class="name">gallery</td><td class="type">boolean | { template, tileWidth, tileHeight, cardsPerRow, gap, className, role, itemRole }</td><td class="dflt">, </td><td class="desc">Present rows as a gallery of tiles, laid out by the same 2-D virtualisation the grid runs. <code>true</code> generates a tile per row from the columns; <code>tileWidth</code> sizes them and the count across follows the container, or <code>cardsPerRow</code> fixes it. Presentation only &mdash; sort, filter, group and export are unchanged. See <a href="api-detail.html#cards">Cards, lists and feeds</a>.</td></tr>
+          <tr><td class="name">recordCard</td><td class="type">boolean | { template, cardHeight, className, role, itemRole }</td><td class="dflt">, </td><td class="desc">Present each row as a record card &mdash; a form of label/value pairs, one line per column in display order, showing the same text the table shows. <code>true</code> generates the form from the columns. A card list underneath, so it inherits the virtualisation and every card interaction. Presentation only. See <a href="api-detail.html#cards">Cards, lists and feeds</a>.</td></tr>
+          <tr><td class="name">board</td><td class="type">boolean | { template, laneWidth, cardHeight, laneGap, gap, className, role, itemRole }</td><td class="dflt">, </td><td class="desc">Present rows as a board &mdash; a kanban of grouped lanes of cards. The top-level group becomes a lane and every leaf under it becomes a card stacked in it; group the grid to give the board its lanes. <code>true</code> generates a card per row from the columns. Both axes are virtualised, the lanes across and the cards down each, so a board of many long lanes draws only what is on screen. A board card is still a row: it clicks, selects and drags through the grid's own handlers. Presentation only &mdash; sort, filter, group and export are unchanged. See <a href="api-detail.html#cards">Cards, lists and feeds</a>.</td></tr>
           <tr><td class="name">responsive</td><td class="type">{ maxWidth, template, rowHeight }</td><td class="dflt">, </td><td class="desc">Collapse to cards when the <em>container</em> is at or below <code>maxWidth</code> (640 by default), and return to a table above it. Sorting, filtering and export keep working. Emits <code>presentation:changed</code>. See <a href="api-detail.html#cards">Cards, lists and feeds</a>.</td></tr>
           <tr><td class="name">rowForm</td><td class="type">boolean | { mode, load, fields, title, width, trigger, timeout, container }</td><td class="dflt">, </td><td class="desc">Open a row for editing on a form. <code>mode: 'drawer'</code> (default) or <code>'dialog'</code>; without <code>load</code> the fields are the grid's own columns. A field entry is <code>{ field, label, editor, type, props, lookup }</code>: any editor, including your own. Takes double-click on the row unless <code>trigger: false</code>. A load that has not answered within <code>timeout</code> milliseconds (2000; <code>false</code> waits indefinitely) is reported as a failure with a retry. <code>container</code> builds the form in an element of your own instead of over the grid. See <a href="api-detail.html#row-form">Editing a row on a form</a>.</td></tr>
           <tr><td class="name">showColumnFunctions</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc"><code>false</code> leaves each heading as its label, with no sort, filter or menu control. Those remain reachable through the API, the keyboard and the tool panel.</td></tr>
@@ -5044,6 +5047,8 @@ grid.destroy();
           <tr><td class="name">total</td><td class="type">TotalName | null</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">groupTotal</td><td class="type">TotalName | null</td><td class="desc">The group-subtotal override, when one differs from `total`. <small>(optional)</small></td></tr>
           <tr><td class="name">grandTotal</td><td class="type">TotalName | null</td><td class="desc">The grand-total override, when one differs from `total`. <small>(optional)</small></td></tr>
+          <tr><td class="name">decoration</td><td class="type">DecorationName | DecorationSpec | null</td><td class="desc">The column's runtime decoration (BACKLOG-0000723), present only when the column carries one, so a `columns.decorate()` survives a saved view and participates in undo/redo. Absent means "not recorded"; an explicit `null` on an undo patch clears a decoration back to plain text. <small>(optional)</small></td></tr>
+          <tr><td class="name">variant</td><td class="type">VariantSpec | null</td><td class="desc">The variant set alongside the decoration, when one is present. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -5500,6 +5505,33 @@ grid.destroy();
         </tbody>
       </table>
     </div>
+    <h3 id="type-ExcelBorderSpec">ExcelBorderSpec</h3>
+    <p class="section-note">A cell border, per edge. `true` means a thin line; a string names the style.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">left</td><td class="type">boolean | string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">right</td><td class="type">boolean | string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">top</td><td class="type">boolean | string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">bottom</td><td class="type">boolean | string</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-ExcelCellStyle">ExcelCellStyle</h3>
+    <p class="section-note">A conditional-formatting rule's rendering, returned by `cellStyle`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">bold</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">italic</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">colour</td><td class="type">string</td><td class="desc">Font colour as 6- or 8-digit hex/ARGB, e.g. 'FFFF0000'. `color` is an alias. <small>(optional)</small></td></tr>
+          <tr><td class="name">color</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">fill</td><td class="type">string</td><td class="desc">Solid fill colour as 6- or 8-digit hex/ARGB. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-ExcelExportOptions">ExcelExportOptions</h3>
     <div class="table-wrap">
       <table>
@@ -5508,6 +5540,9 @@ grid.destroy();
           <tr><td class="name">sheetName</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">freezePanes</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">variantFills</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">borders</td><td class="type">boolean | string | ExcelBorderSpec</td><td class="desc">Draw cell borders on the data grid. `false` (default) is borderless; `true` draws a thin box; a string names the line style; an object picks edges. <small>(optional)</small></td></tr>
+          <tr><td class="name">hiddenColumns</td><td class="type">'omit' | 'hidden'</td><td class="desc">What to do with grid-hidden columns. `'omit'` (default) drops them; `'hidden'` keeps them as Excel-hidden columns for round-trip fidelity. <small>(optional)</small></td></tr>
+          <tr><td class="name">merges</td><td class="type">string[]</td><td class="desc">Explicit merged body ranges in A1 form, e.g. ['A3:A4']. <small>(optional)</small></td></tr>
           <tr><td class="name">onProgress</td><td class="type">(p: { written: number; total: number }) =&gt; void</td><td class="desc"><small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -5828,6 +5863,9 @@ grid.destroy();
           <tr><td class="name">columnTagFilter</td><td class="type">boolean | { multiple?: boolean; label?: string }</td><td class="desc">Show a bar above the column headings for filtering columns by tag. Off by default, and it draws nothing unless some column carries a `tags` entry. `multiple: true` lets more than one tag be chosen at once. Only tagged columns are ever hidden, so an untagged account or total column stays visible whatever is selected. <small>(optional)</small></td></tr>
           <tr><td class="name">typeOptions</td><td class="type">Record&lt;string, {</td><td class="desc">Per-column options a data type reads. `ratio` and `percentRate` use `{ weight }` to name the column their average is weighted by. A unit type reads `{ significantFigures }` to render to a fixed precision rather than a fixed number of decimals. <small>(optional)</small></td></tr>
           <tr><td class="name">rowTemplate</td><td class="type">string | {</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">gallery</td><td class="type">boolean | {</td><td class="desc">Present rows as a gallery of tiles (§7.12). The tiled card layout with a size-driven column count: tiles as wide as `tileWidth` allows, as many across as the container holds, laid out by the same 2-D virtualisation the grid already runs. `true` draws a tile per row generated from the columns; an object sizes them or supplies a template. Presentation only — sort, filter, group and the data pipeline are unchanged. <small>(optional)</small></td></tr>
+          <tr><td class="name">recordCard</td><td class="type">boolean | {</td><td class="desc">Present each row as a record card — a form of label/value pairs (§7.11). For a screen where reading one record matters more than comparing many. `true` draws a card per row generated from the columns, each column a labelled line in display order, showing the same text the table shows. An object supplies a template or sizes the card. A card list underneath, so it inherits the virtualisation and every interaction a card carries. Presentation only — sort, filter, group and the data pipeline are unchanged. <small>(optional)</small></td></tr>
+          <tr><td class="name">board</td><td class="type">boolean | {</td><td class="desc">Present rows as a board — a kanban of grouped lanes of cards (§7.14). The top-level group becomes a lane and every leaf under it becomes a card stacked in that lane: a pipeline by stage, a task list by status, a backlog by owner. `true` draws a card per row generated from the columns; an object sizes the lanes and cards or supplies a template. Group the grid to give the board its lanes; an ungrouped board is a single lane of every card. A card is drawn through the same code the other card presentations use, so a board card is still a row: it clicks, selects and drags through the grid's own handlers, masks protected columns, and shows the same text the table shows. Both axes are virtualised — the lanes across and the cards down each — so a board of many long lanes renders only what is on screen. Presentation only: sort, filter, group and the data pipeline are unchanged. <small>(optional)</small></td></tr>
           <tr><td class="name">responsive</td><td class="type">{</td><td class="desc">Present rows as cards when the grid's container is too narrow to be a table honestly, a phone, or a narrow panel on a wide screen. Measured on the container, not the viewport, so a grid in a sidebar collapses and a grid filling a small tablet does not. Sorting, filtering and export continue to work; the tool panel is where they live when there are no column headings to click. Emits `presentation:changed`. <small>(optional)</small></td></tr>
           <tr><td class="name">rowForm</td><td class="type">boolean | {</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">showColumnFunctions</td><td class="type">boolean</td><td class="desc">Draw the sort, filter and menu controls in the column headings. `true` by default. `false` leaves each heading as its label alone, which is what a dense grid wants: three affordances take roughly fifty pixels, and on an eighty-pixel column that leaves the heading nothing and the label disappears entirely. Only the furniture goes. Sorting, filtering and the column menu are still reachable through the API, the keyboard and the tool panel. <small>(optional)</small></td></tr>
