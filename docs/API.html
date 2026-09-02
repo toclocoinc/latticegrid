@@ -913,7 +913,9 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">filter</td><td class="type">ColumnFilterSpec | boolean | FilterName</td><td class="desc"></td></tr>
           <tr><td class="name">group</td><td class="type">object | boolean</td><td class="desc"><code>{ enabled, index, explode }</code>.</td></tr>
           <tr><td class="name">pivot</td><td class="type">object | boolean</td><td class="desc"><code>{ enabled, index }</code>.</td></tr>
-          <tr><td class="name">total</td><td class="type">TotalName | TotalFn</td><td class="desc">One property drives the group row, the tree node, the pivot cell and the grand total.</td></tr>
+          <tr><td class="name">total</td><td class="type">TotalName | TotalFn</td><td class="desc">One property drives the group row, the tree node, the pivot cell and the grand total. Split it per scope with <code>groupTotal</code> / <code>grandTotal</code> when the subtotals and the grand total should reduce differently.</td></tr>
+          <tr><td class="name">groupTotal</td><td class="type">TotalName | TotalFn</td><td class="desc">The reduction for group subtotals — group footers, tree-node rollups and pivot cells — where it should differ from the grand total. Overrides <code>total</code> for those scopes only; omitted, <code>total</code> applies.</td></tr>
+          <tr><td class="name">grandTotal</td><td class="type">TotalName | TotalFn</td><td class="desc">The reduction for the pinned grand-total row, where it should differ from the subtotals. Overrides <code>total</code> for the grand total only; omitted, <code>total</code> applies.</td></tr>
           <tr><td class="name">layout</td><td class="type">ColumnLayoutSpec | number</td><td class="desc">A bare number is the width.</td></tr>
           <tr><td class="name">header</td><td class="type">ColumnHeaderSpec | string</td><td class="desc"></td></tr>
           <tr><td class="name">export</td><td class="type">ColumnExportSpec</td><td class="desc"><code>{ lookup: 'label' | 'value' | 'columns', csv, excel }</code>.</td></tr>
@@ -1073,7 +1075,7 @@ grid.overlay.hide();</code></pre>
           <tr><td class="sig">group(ids)</td><td class="type">void</td><td class="desc">Set the row-group columns, in order.</td></tr>
           <tr><td class="sig">pivot(ids)</td><td class="type">void</td><td class="desc"></td></tr>
           <tr><td class="sig">totals(ids)</td><td class="type">void</td><td class="desc">Which columns carry an aggregation.</td></tr>
-          <tr><td class="sig">setTotal(id, fn)</td><td class="type">void</td><td class="desc">Change one column's aggregation. <code>null</code> stops totalling it. A named total the column's type says is meaningless is refused (§9.4), the same way it is at configuration.</td></tr>
+          <tr><td class="sig">setTotal(id, fn, opts?)</td><td class="type">void</td><td class="desc">Change one column's aggregation. <code>null</code> stops totalling it. A named total the column's type says is meaningless is refused (§9.4), the same way it is at configuration. With no <code>opts</code>, <code>fn</code> becomes the shared <code>total</code> and clears any group/grand overrides; pass <code>{ scope: 'group' }</code> or <code>{ scope: 'grand' }</code> to set the group subtotals and the grand total independently (a scope with no override follows <code>total</code>).</td></tr>
           <tr><td class="sig">aggregates(id)</td><td class="type">TotalName[]</td><td class="desc">The aggregate names meaningful for a column, honouring its type's declaration — what the aggregate chooser offers.</td></tr>
           <tr><td class="sig">distinct(id)</td><td class="type">unknown[]</td><td class="desc">Distinct values, read from the dictionary rather than by scanning rows.</td></tr>
           <tr><td class="sig">state()</td><td class="type">ColumnState[]</td><td class="desc">Serialisable column state.</td></tr>
@@ -2850,6 +2852,53 @@ app.get('/api/orders', async (req, res) =&gt; {
 <span class="kw">const</span> held = block.total; <span class="cmt">// 100: the whole set is held, not the 10-row window</span>
 <span class="kw">return</span> all.reduce((s, r) =&gt; s + r.amount, 0) / held; <span class="cmt">// 49.5, the true whole-dataset mean</span></code></pre>
 
+    <h4 id="pushdown-allowpartialresults">Refusing a partial result: <code>allowPartialResults</code></h4>
+    <p class="section-note">
+      When a query has residual work — a filter, sort or quick search the engine could not push — the
+      source asks the adapter for the <em>whole</em> matching set, applies the residual here, and pages
+      from what it holds. If the adapter instead returns a <strong>page</strong> of that result (it
+      paged when told not to), the client-side filter or sort runs over the wrong rows: the rows that
+      belong on page one may be in the fraction that was never fetched, so a page is presented as the
+      full filtered set. That is a wrong answer, not a slow one.
+    </p>
+    <p class="section-note">
+      By default the source <strong>refuses</strong> such a shortfall — it throws, and the remote
+      source surfaces a <code>source:error</code> with no rows shown, rather than filter a fraction
+      and lie. The fix is to make the adapter follow the engine's own paging before returning, or hold
+      the data in memory. <code>allowPartialResults: true</code> is the knowing escape hatch: a caller
+      who accepts the permissive behaviour — an adapter that genuinely cannot page and a result small
+      enough not to matter, or a diagnostic run — keeps the old warn-once-and-proceed path. It is
+      off by default, because a silent wrong answer is the one thing the design refuses. It does not
+      affect the <code>fullDataset</code> memory guard, nor the no-residual short-return warning.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">allowPartialResults</td><td class="type">boolean</td><td class="desc"><code>false</code></td><td class="desc">Accept a partial/paged result to a whole-set request that residual work will filter over, keeping the warn-once-and-proceed behaviour instead of refusing. Off by default: the shortfall is thrown.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre data-run="js" data-expect="refused; opted in: 1 rows" data-covers="config:allowPartialResults"><code><span class="cmt">// An eq-only engine: the `gt` filter is residual and runs in the browser. The</span>
+<span class="cmt">// adapter reports 40 matching but returns only 1 row — a page shown as the whole.</span>
+<span class="kw">const</span> { createPushdownSource } = <span class="kw">await</span> import('../packages/core/src/source/pushdown.js');
+<span class="kw">const</span> adapter = {
+  name: 'shortfall',
+  capabilities: { filter: 'tree', operators: ['eq'] },
+  execute: <span class="kw">async</span> () =&gt; ({ rows: [{ id: 1, a: 5 }], total: 40 }),
+};
+<span class="kw">const</span> req = { range: { start: 0, end: 10 }, filters: { col: 'a', op: 'gt', value: 1 }, sort: [], quick: '' };
+
+<span class="cmt">// Default: refused. Filtering 1 of 40 rows would return the wrong rows.</span>
+<span class="kw">const</span> strict = createPushdownSource({ adapter });
+<span class="kw">let</span> refused = false;
+<span class="kw">try</span> { <span class="kw">await</span> strict.fetch(req); } <span class="kw">catch</span> (e) { refused = /returned 1 of 40|refused/.test(e.message); }
+
+<span class="cmt">// Knowing opt-in: warns once and proceeds with the fraction.</span>
+<span class="kw">const</span> lax = createPushdownSource({ adapter, allowPartialResults: true });
+<span class="kw">const</span> block = <span class="kw">await</span> lax.fetch(req);
+<span class="kw">return</span> refused ? `refused; opted in: ${block.rows.length} rows` : 'not refused';</code></pre>
+
     <h4 id="pushdown-aggregates">Pushing statistics down: <code>aggregates</code></h4>
     <p class="section-note">
       A DuckDB-class engine can compute a median or a standard deviation over the whole matching set
@@ -2921,6 +2970,16 @@ app.get('/api/orders', async (req, res) =&gt; {
           <tr><td class="name">harmean</td><td class="type">IDENTICAL</td><td class="desc"><code>(count(col) / sum(1.0 / col))</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
           <tr><td class="name">entropy</td><td class="type">IDENTICAL</td><td class="desc"><code>entropy(col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
           <tr><td class="name">correlation</td><td class="type">IDENTICAL</td><td class="desc"><code>corr(weight, col)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">hhi</td><td class="type">IDENTICAL</td><td class="desc"><code>CASE WHEN count(col)=0 THEN NULL ELSE list_sum(list_transform(map_values(histogram(col)), lambda v: (v::DOUBLE/count(col))*(v::DOUBLE/count(col)))) END</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">evenness</td><td class="type">IDENTICAL</td><td class="desc"><code>CASE WHEN count(col)=0 THEN NULL WHEN count(DISTINCT col)&lt;2 THEN 1.0 ELSE entropy(col)/log2(count(DISTINCT col)) END</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">top3Share</td><td class="type">IDENTICAL</td><td class="desc"><code>CASE WHEN count(col)=0 THEN NULL ELSE list_sum(list_slice(list_sort(map_values(histogram(col)),'DESC'),1,3))::DOUBLE/count(col) END</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">top10Share</td><td class="type">IDENTICAL</td><td class="desc"><code>CASE WHEN count(col)=0 THEN NULL ELSE list_sum(list_slice(list_sort(map_values(histogram(col)),'DESC'),1,10))::DOUBLE/count(col) END</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">gini</td><td class="type">IDENTICAL</td><td class="desc"><code>CASE WHEN list_min(list(col) FILTER (WHERE isfinite(col)))&lt;0 THEN NULL WHEN len(list(col) FILTER (WHERE isfinite(col)))=0 THEN NULL WHEN list_sum(list(col) FILTER (WHERE isfinite(col)))=0 THEN 0 ELSE 2.0*list_sum(list_transform(list_sort(list(col) FILTER (WHERE isfinite(col))), lambda v, i: i*v))/(len(list(col) FILTER (WHERE isfinite(col)))*list_sum(list(col) FILTER (WHERE isfinite(col))))-(len(list(col) FILTER (WHERE isfinite(col)))+1.0)/len(list(col) FILTER (WHERE isfinite(col))) END</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">trimmedMean</td><td class="type">IDENTICAL</td><td class="desc"><code>CASE WHEN len(list(col) FILTER (WHERE isfinite(col)))=0 THEN NULL ELSE list_avg(list_slice(list_sort(list(col) FILTER (WHERE isfinite(col))), floor(len(list(col) FILTER (WHERE isfinite(col)))*0.1)::BIGINT+1, len(list(col) FILTER (WHERE isfinite(col)))-floor(len(list(col) FILTER (WHERE isfinite(col)))*0.1)::BIGINT)) END</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">winsorizedMean</td><td class="type">IDENTICAL</td><td class="desc"><code>CASE WHEN len(list(col) FILTER (WHERE isfinite(col)))=0 THEN NULL ELSE list_avg(list_transform(list_sort(list(col) FILTER (WHERE isfinite(col))), lambda v: least(list_sort(list(col) FILTER (WHERE isfinite(col)))[len(list(col) FILTER (WHERE isfinite(col)))-floor(len(list(col) FILTER (WHERE isfinite(col)))*0.1)::BIGINT], greatest(list_sort(list(col) FILTER (WHERE isfinite(col)))[floor(len(list(col) FILTER (WHERE isfinite(col)))*0.1)::BIGINT+1], v)))) END</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">robustOutliers</td><td class="type">IDENTICAL</td><td class="desc"><code>(SELECT CASE WHEN len(d.a)=0 THEN NULL WHEN d.mad=0 THEN NULL ELSE len(list_filter(d.a, lambda v: abs(0.6745*(v-d.med)/d.mad)&gt;3.5)) END FROM (SELECT xs AS a, list_median(xs) AS med, list_median(list_transform(xs, lambda w: abs(w-list_median(xs)))) AS mad FROM (SELECT list(col) FILTER (WHERE isfinite(col)) AS xs)) d)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">jarqueBera</td><td class="type">IDENTICAL</td><td class="desc"><code>CASE WHEN len(list(col) FILTER (WHERE isfinite(col)))&lt;8 THEN NULL WHEN list_avg(list_transform(list(col) FILTER (WHERE isfinite(col)), lambda v: power(v-list_avg(list(col) FILTER (WHERE isfinite(col))),2)))=0 THEN NULL ELSE (len(list(col) FILTER (WHERE isfinite(col)))/6.0)*(power(list_avg(list_transform(list(col) FILTER (WHERE isfinite(col)), lambda v: power(v-list_avg(list(col) FILTER (WHERE isfinite(col))),3)))/power(list_avg(list_transform(list(col) FILTER (WHERE isfinite(col)), lambda v: power(v-list_avg(list(col) FILTER (WHERE isfinite(col))),2))),1.5),2)+power(list_avg(list_transform(list(col) FILTER (WHERE isfinite(col)), lambda v: power(v-list_avg(list(col) FILTER (WHERE isfinite(col))),4)))/power(list_avg(list_transform(list(col) FILTER (WHERE isfinite(col)), lambda v: power(v-list_avg(list(col) FILTER (WHERE isfinite(col))),2))),2)-3,2)/4.0) END</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
+          <tr><td class="name">weightedAvg</td><td class="type">IDENTICAL</td><td class="desc"><code>sum(col*weight) FILTER (WHERE isfinite(col) AND isfinite(weight))/nullif(sum(weight) FILTER (WHERE isfinite(col) AND isfinite(weight)),0)</code></td><td class="desc">Pushes to DuckDB with the same result.</td></tr>
           <tr><td class="name">mode</td><td class="type">MAY-DIFFER</td><td class="desc"><code>mode(col)</code></td><td class="desc">DuckDB returns a modal value even for an all-distinct column; the grid returns null. Tie-breaking can also differ, and on a text column an empty string counts as a value. Under pushdown you will see a value.</td></tr>
           <tr><td class="name">weightedQuantile</td><td class="type">FALLBACK</td><td class="desc">&mdash;</td><td class="desc">No SQL equivalent for the grid's weighted-quantile midpoint convention; always computed client-side (needs a full-dataset pull for a correct figure over a remote source).</td></tr>
         </tbody>
@@ -3317,6 +3376,20 @@ createGrid(el, {
     </div>
     <p>A unit given <code>{ auto: false }</code> stays off the <code>display: 'auto'</code> ladder while remaining accepted on input and available as an explicit <code>display</code>. That is how imperial units sit beside metric ones without an auto readout jumping between the two.</p>
     <div class="note"><p><strong>The stored value is always a plain number in the column's own unit.</strong> Sorting, filtering, grouping, totals and the pivot all read that number and never the text, which is why <code>250mm</code> sorts below <code>1.5 cm</code> correctly rather than <code>1</code> sorting before <code>9</code>. <code>registerUnitSystem</code> is global and throws on a duplicate name, so register each system once at startup rather than inside a component that may mount twice.</p></div>
+
+    <h3 id="compound-units">Compound display: <code>5 ft 11 in</code>, <code>1 h 23 m</code></h3>
+    <p><code>compound</code> renders one stored number across an ordered subset of the system's units. It is <strong>display and parse only</strong>: the value stays a single base-unit number, so sort, filter, group and total are the same arithmetic they always were. The order is free &mdash; the units are sorted largest to smallest &mdash; and the smallest one carries any remainder. Parsing sums the parts, so a paste of <code>5 ft 11 in</code> round-trips, and a single <code>71 in</code> or a bare <code>6</code> still work.</p>
+    <pre data-run="js" data-expect="5 ft 11 in | 1.8034 | true" data-covers="config:compound"><code><span class="kw">const</span> { formatUnit, parseUnit } = <span class="kw">await</span> import('../packages/core/src/columns/types/unit.js');
+
+<span class="cmt">// A height column stored in metres, displayed as feet and inches.</span>
+<span class="kw">const</span> cfg = { system: 'length', unit: 'm', compound: ['ft', 'in'], locale: 'en-GB' };
+
+<span class="kw">const</span> shown = formatUnit(1.8034, cfg);       <span class="cmt">// across the two units</span>
+<span class="kw">const</span> stored = parseUnit('5 ft 11 in', cfg); <span class="cmt">// summed back to metres</span>
+<span class="kw">const</span> stable = formatUnit(parseUnit(shown, cfg), cfg) === shown; <span class="cmt">// round-trips</span>
+
+<span class="kw">return</span> `${shown} | ${stored} | ${stable}`;</code></pre>
+    <div class="note"><p>The compound units need not include the stored <code>unit</code>, and any unit of the system is accepted on input: <code>71 in</code> pasted into a feet-and-inches column is still 71 inches. Excel export and <code>display: 'auto'</code> share a rule here &mdash; a column of mixed-scale text is not summable in a spreadsheet, so the export uses the raw base number on the configured unit. The <strong>compound cell editor</strong> (mid-value keystrokes, roll-over between feet and inches, caret behaviour at a boundary) is a separate, later piece; this is the read-and-paste half.</p></div>
 
     <h2 id="stat">The statistic block</h2>
     <p>
@@ -4427,6 +4500,7 @@ grid.destroy();
           <tr><td class="name">class</td><td class="type">'identical' | 'may-differ' | 'fallback'</td><td class="desc">How the engine result relates to the grid kernel.</td></tr>
           <tr><td class="name">reason</td><td class="type">string</td><td class="desc">Why it is client-side, when it is (config, fallback, or the guard). <small>(optional)</small></td></tr>
           <tr><td class="name">weight</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">params</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Parameters the statistic takes, carried through so an adapter emits the matching SQL (e.g. a trim share). <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -4717,6 +4791,8 @@ grid.destroy();
           <tr><td class="name">group</td><td class="type">{ enabled?: boolean; index?: number; explode?: boolean } | boolean</td><td class="desc">Row grouping by this column. `index` fixes its place among several; `explode` gives a multi-value cell one group per value rather than one group for the combination. <small>(optional)</small></td></tr>
           <tr><td class="name">pivot</td><td class="type">{ enabled?: boolean; index?: number } | boolean</td><td class="desc">Use this column as a pivot dimension, and where it sits among several. <small>(optional)</small></td></tr>
           <tr><td class="name">total</td><td class="type">TotalName | TotalFn</td><td class="desc">The reduction shown in the totals row and in group footers. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupTotal</td><td class="type">TotalName | TotalFn</td><td class="desc">The reduction for group subtotals — group footers, tree-node rollups and pivot cells — where it should differ from the grand total. Overrides `total` for those scopes only; when omitted the column's `total` applies to both. Lets a column average within each group while the grand total sums, for example (BACKLOG-0000726). <small>(optional)</small></td></tr>
+          <tr><td class="name">grandTotal</td><td class="type">TotalName | TotalFn</td><td class="desc">The reduction for the pinned grand-total row, where it should differ from the group subtotals. Overrides `total` for the grand total only; when omitted the column's `total` applies (BACKLOG-0000726). <small>(optional)</small></td></tr>
           <tr><td class="name">shadow</td><td class="type">ShadowKind | {</td><td class="desc">A value the grid maintains about this column's own history, rather than a field in the data. `{of: 'price', kind: 'delta'}`, or the bare kind to shadow the column it sits beside. <small>(optional)</small></td></tr>
           <tr><td class="name">running</td><td class="type">'total' | 'percent' | 'delta'</td><td class="desc">A running total down the grid **as it is currently ordered**. The one derived value that depends on the display order: sort differently and every value changes. That is why it is not a shadow kind: every shadow reads the same however the rows are arranged. <small>(optional)</small></td></tr>
           <tr><td class="name">spec</td><td class="type">{ lower?: number; upper?: number; target?: number }</td><td class="desc">The customer's tolerance, for process capability and control charts. Declared here rather than passed to each call so the capability figures, a control chart and any rule marking an out-of-tolerance cell cannot disagree about what the tolerance is. <small>(optional)</small></td></tr>
@@ -4914,7 +4990,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">setTotal</td><td class="type">(id: string, fn: TotalName | TotalFn | null): void</td><td class="desc">Set or clear a column's totals-row reduction.</td></tr>
+          <tr><td class="name">setTotal</td><td class="type">(</td><td class="desc">Set or clear a column's totals-row reduction. With no `scope`, `fn` becomes the column's single `total`, applied to both group subtotals and the grand total, and any independent group/grand overrides are cleared — the same one-property behaviour as before (BACKLOG-0000726). Pass `scope: 'group'` or `scope: 'grand'` to set just that scope's reduction independently, leaving the other and the base `total` untouched; the scope that has no override falls back to `total`.</td></tr>
           <tr><td class="name">aggregates</td><td class="type">(id: string): TotalName[]</td><td class="desc">The aggregate names meaningful for a column, honouring its type's `totals.supported` declaration (§9.4). What the aggregate chooser offers.</td></tr>
           <tr><td class="name">distinct</td><td class="type">(id: string): unknown[]</td><td class="desc">Every distinct value in a column, from the dictionary where there is one.</td></tr>
           <tr><td class="name">get</td><td class="type">(id: string): ResolvedColumn | undefined</td><td class="desc"></td></tr>
@@ -4966,6 +5042,8 @@ grid.destroy();
           <tr><td class="name">groupIndex</td><td class="type">number | null</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">pivotIndex</td><td class="type">number | null</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">total</td><td class="type">TotalName | null</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">groupTotal</td><td class="type">TotalName | null</td><td class="desc">The group-subtotal override, when one differs from `total`. <small>(optional)</small></td></tr>
+          <tr><td class="name">grandTotal</td><td class="type">TotalName | null</td><td class="desc">The grand-total override, when one differs from `total`. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -6309,7 +6387,7 @@ grid.destroy();
       </table>
     </div>
     <h3 id="type-PushdownAggregatesConfig">PushdownAggregatesConfig</h3>
-    <p class="section-note">Design-time aggregate-pushdown policy for a pushdown source (BACKLOG-0000730 Part B, ungrouped). The developer chooses, at grid setup before render, whether each statistic is computed by the engine (fast, over the matching set) or client-side (the grid's exact definition, needs a full-dataset pull). It is fixed for the life of the grid, never a runtime toggle, and never surfaced to an end user. Absent, every aggregate is computed client-side — today's behaviour, so no existing caller regresses. `engine-if-identical` is the recommended setting for a windowed DuckDB source: it pushes only the statistics whose engine result is verified identical to the grid kernel, keeping the documented MAY-DIFFER stats (e.g. `mode`) client-side. The engine is used only when the filter is fully pushed; a residual filter forces every aggregate client-side, so an engine figure and a client figure never mix in one result set.</p>
+    <p class="section-note">Design-time aggregate-pushdown policy for a pushdown source (BACKLOG-0000730 Part B). The developer chooses, at grid setup before render, whether each statistic is computed by the engine (fast, over the matching set) or client-side (the grid's exact definition, needs a full-dataset pull). It is fixed for the life of the grid, never a runtime toggle, and never surfaced to an end user. Absent, every aggregate is computed client-side — today's behaviour, so no existing caller regresses. `engine-if-identical` is the recommended setting for a windowed DuckDB source: it pushes only the statistics whose engine result is verified identical to the grid kernel, keeping the documented MAY-DIFFER stats (e.g. `mode`) client-side. The engine is used only when the filter is fully pushed; a residual filter forces every aggregate client-side, so an engine figure and a client figure never mix in one result set.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
@@ -6372,6 +6450,7 @@ grid.destroy();
           <tr><td class="name">pageSize</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">fullDataset</td><td class="type">PushdownFullDatasetConfig</td><td class="desc">Opt-in full-dataset pull. Off unless `fullDataset.enabled` is set. See {@link PushdownFullDatasetConfig}. <small>(optional)</small></td></tr>
           <tr><td class="name">aggregates</td><td class="type">PushdownAggregatesConfig</td><td class="desc">Design-time aggregate-pushdown policy. Absent = client-side (today's behaviour). See {@link PushdownAggregatesConfig}. <small>(optional)</small></td></tr>
+          <tr><td class="name">allowPartialResults</td><td class="type">boolean</td><td class="desc">Accept a partial/paged result to a whole-set request when residual work (a filter, sort or quick search) will run over it client-side. Off by default: such a shortfall is refused with a thrown error, because filtering or sorting a fraction of the result presents the wrong rows as the whole filtered set — a wrong answer, not a slow one. Set `true` only when you knowingly accept that risk (e.g. an adapter that cannot page and a result small enough not to matter); the old warn-once-and-proceed behaviour is then kept. It never changes the fullDataset memory-guard or the no-residual short-return warning. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -6536,6 +6615,8 @@ grid.destroy();
           <tr><td class="name">group</td><td class="type">{ enabled: boolean; index: number; explode: boolean }</td><td class="desc"></td></tr>
           <tr><td class="name">pivot</td><td class="type">{ enabled: boolean; index: number }</td><td class="desc"></td></tr>
           <tr><td class="name">total</td><td class="type">TotalName | TotalFn | null</td><td class="desc"></td></tr>
+          <tr><td class="name">groupTotal</td><td class="type">TotalName | TotalFn | null</td><td class="desc">The group-subtotal override, or null when group subtotals follow `total` (BACKLOG-0000726).</td></tr>
+          <tr><td class="name">grandTotal</td><td class="type">TotalName | TotalFn | null</td><td class="desc">The grand-total override, or null when the grand total follows `total` (BACKLOG-0000726).</td></tr>
           <tr><td class="name">layout</td><td class="type">ColumnLayoutSpec</td><td class="desc"></td></tr>
           <tr><td class="name">header</td><td class="type">ColumnHeaderSpec</td><td class="desc"></td></tr>
           <tr><td class="name">export</td><td class="type">ColumnExportSpec</td><td class="desc"></td></tr>
@@ -6955,6 +7036,7 @@ grid.destroy();
           <tr><td class="name">group</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">space</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">placement</td><td class="type">'suffix' | 'prefix'</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">compound</td><td class="type">string[]</td><td class="desc">Render one stored number across an ordered subset of the system's units, e.g. `['ft', 'in']` for `5 ft 11 in`. Display and parse only: the stored value stays a single base-unit number, so sort, filter and total are unchanged. Parsing sums the parts. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>

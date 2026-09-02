@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.17.0, type declarations
+ * Lattice Grid 1.18.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -611,6 +611,20 @@ export interface Column {
   /** The reduction shown in the totals row and in group footers. */
   total?: TotalName | TotalFn;
   /**
+   * The reduction for group subtotals — group footers, tree-node rollups and
+   * pivot cells — where it should differ from the grand total. Overrides
+   * `total` for those scopes only; when omitted the column's `total` applies to
+   * both. Lets a column average within each group while the grand total sums,
+   * for example (BACKLOG-0000726).
+   */
+  groupTotal?: TotalName | TotalFn;
+  /**
+   * The reduction for the pinned grand-total row, where it should differ from
+   * the group subtotals. Overrides `total` for the grand total only; when
+   * omitted the column's `total` applies (BACKLOG-0000726).
+   */
+  grandTotal?: TotalName | TotalFn;
+  /**
    * A value the grid maintains about this column's own history, rather than a
    * field in the data. `{of: 'price', kind: 'delta'}`, or the bare kind to
    * shadow the column it sits beside.
@@ -688,6 +702,16 @@ export interface ResolvedColumn {
   group: { enabled: boolean; index: number; explode: boolean };
   pivot: { enabled: boolean; index: number };
   total: TotalName | TotalFn | null;
+  /**
+   * The group-subtotal override, or null when group subtotals follow `total`
+   * (BACKLOG-0000726).
+   */
+  groupTotal: TotalName | TotalFn | null;
+  /**
+   * The grand-total override, or null when the grand total follows `total`
+   * (BACKLOG-0000726).
+   */
+  grandTotal: TotalName | TotalFn | null;
   layout: ColumnLayoutSpec;
   header: ColumnHeaderSpec;
   export: ColumnExportSpec;
@@ -1805,6 +1829,10 @@ export interface ColumnState {
   groupIndex?: number | null;
   pivotIndex?: number | null;
   total?: TotalName | null;
+  /** The group-subtotal override, when one differs from `total`. */
+  groupTotal?: TotalName | null;
+  /** The grand-total override, when one differs from `total`. */
+  grandTotal?: TotalName | null;
 }
 
 export interface GridState {
@@ -1991,7 +2019,7 @@ export type AggregateMode = 'engine' | 'client' | 'engine-if-identical';
 
 /**
  * Design-time aggregate-pushdown policy for a pushdown source
- * (BACKLOG-0000730 Part B, ungrouped). The developer chooses, at grid setup
+ * (BACKLOG-0000730 Part B). The developer chooses, at grid setup
  * before render, whether each statistic is computed by the engine (fast, over
  * the matching set) or client-side (the grid's exact definition, needs a
  * full-dataset pull). It is fixed for the life of the grid, never a runtime
@@ -2046,6 +2074,9 @@ export interface AggregateProvenance {
   /** Why it is client-side, when it is (config, fallback, or the guard). */
   reason?: string;
   weight?: string;
+  /** Parameters the statistic takes, carried through so an adapter emits the
+   *  matching SQL (e.g. a trim share). */
+  params?: Record<string, unknown>;
 }
 
 export interface PushdownSourceConfig {
@@ -2063,6 +2094,18 @@ export interface PushdownSourceConfig {
    * behaviour). See {@link PushdownAggregatesConfig}.
    */
   aggregates?: PushdownAggregatesConfig;
+  /**
+   * Accept a partial/paged result to a whole-set request when residual work
+   * (a filter, sort or quick search) will run over it client-side. Off by
+   * default: such a shortfall is refused with a thrown error, because filtering
+   * or sorting a fraction of the result presents the wrong rows as the whole
+   * filtered set — a wrong answer, not a slow one. Set `true` only when you
+   * knowingly accept that risk (e.g. an adapter that cannot page and a result
+   * small enough not to matter); the old warn-once-and-proceed behaviour is
+   * then kept. It never changes the fullDataset memory-guard or the
+   * no-residual short-return warning.
+   */
+  allowPartialResults?: boolean;
 }
 
 export interface StatisticsApi {
@@ -2451,8 +2494,21 @@ export interface RowsApi {
 }
 
 export interface ColumnsApi {
-  /** Set or clear a column's totals-row reduction. */
-  setTotal(id: string, fn: TotalName | TotalFn | null): void;
+  /**
+   * Set or clear a column's totals-row reduction.
+   *
+   * With no `scope`, `fn` becomes the column's single `total`, applied to both
+   * group subtotals and the grand total, and any independent group/grand
+   * overrides are cleared — the same one-property behaviour as before
+   * (BACKLOG-0000726). Pass `scope: 'group'` or `scope: 'grand'` to set just
+   * that scope's reduction independently, leaving the other and the base
+   * `total` untouched; the scope that has no override falls back to `total`.
+   */
+  setTotal(
+    id: string,
+    fn: TotalName | TotalFn | null,
+    opts?: { scope?: 'group' | 'grand' },
+  ): void;
   /**
    * The aggregate names meaningful for a column, honouring its type's
    * `totals.supported` declaration (§9.4). What the aggregate chooser offers.
@@ -3474,6 +3530,11 @@ export interface UnitConfig {
   group?: boolean;
   space?: string;
   placement?: 'suffix' | 'prefix';
+  /** Render one stored number across an ordered subset of the system's units,
+   *  e.g. `['ft', 'in']` for `5 ft 11 in`. Display and parse only: the stored
+   *  value stays a single base-unit number, so sort, filter and total are
+   *  unchanged. Parsing sums the parts. */
+  compound?: string[];
 }
 
 export function defineUnit(

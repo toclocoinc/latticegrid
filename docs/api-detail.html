@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.17.0</p>
+    <p class="rail__sub">Developer guide · v1.18.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -1368,6 +1368,17 @@ dataTypes: {
       is <code>1.00 MB</code> rather than <code>1,000 kB</code>.
     </p>
 
+    <p class="lead-in">
+      <code>compound: ['ft', 'in']</code> renders one stored number across an ordered subset of the
+      system's units &mdash; a length as <code>5 ft 11 in</code>, a duration as <code>1 h 23 m</code>.
+      It is display and parse only: the stored value stays a single base-unit number, so sorting,
+      filtering, grouping and totals are the same arithmetic as any other unit column. The units are
+      sorted largest to smallest, the smallest carries the remainder, and parsing sums the parts, so
+      the display round-trips through a paste. The mid-value <em>editor</em> &mdash; keystroke
+      roll-over between feet and inches, caret behaviour at a rung boundary &mdash; is a separate,
+      later piece of work; this is the read-and-paste half.
+    </p>
+
     <div class="why">
       <p><strong>Angles wrap, so their mean is replaced.</strong> The average of 359° and 1° is 0°,
       and the arithmetic answer (180°) is a confident, plausible number pointing in exactly the
@@ -1961,12 +1972,14 @@ grid.destroy();
     </p>
 
     <p class="lead-in">
-      On a memory source the grand total is <strong>maintained incrementally</strong>: a cell
-      update moves the running value by the difference rather than re-reducing the column, so a
-      totals row costs the same on a million rows as on a thousand. This applies to
-      <code>sum</code>, <code>avg</code>, <code>countValues</code>, <code>min</code> and
-      <code>max</code> on numeric columns. Everything else re-reduces, and so does the
-      incremental path itself whenever it cannot reach the right answer:
+      On a memory source totals are <strong>maintained incrementally</strong>: a cell update moves
+      the running value by the difference rather than re-reducing the column, so a totals row costs
+      the same on a million rows as on a thousand. This applies to both the grand total and each
+      group subtotal, for <code>sum</code>, <code>avg</code>, <code>countValues</code>,
+      <code>min</code> and <code>max</code> on numeric columns. A cell edit that moves a row between
+      groups is subtracted from its old group and added to its new one; only the affected groups are
+      touched. Everything else re-reduces, and so does the incremental path itself whenever it cannot
+      reach the right answer:
     </p>
     <div class="table-wrap">
       <table>
@@ -1979,7 +1992,7 @@ grid.destroy();
           <tr><td class="name">Adding or removing rows</td><td class="desc">Re-reduced once, then incremental again.</td></tr>
           <tr><td class="name">Filtering, sorting or grouping</td><td class="desc">Re-reduced once, because the rows contributing to the total have changed.</td></tr>
           <tr><td class="name">Totals above ~1e15</td><td class="desc">Re-reduced. Past that magnitude a small change no longer moves a 64-bit float, and a running total would silently stop tracking the data.</td></tr>
-          <tr><td class="name">Group totals</td><td class="desc">Re-reduced per group on every change. Only the grand total is incremental.</td></tr>
+          <tr><td class="name">Group subtotals</td><td class="desc">Maintained incrementally the same way the grand total is: an in-group edit applies the difference, and a cross-group move subtracts from the old group and adds to the new. A <code>min</code>/<code>max</code> move that leaves a group's current extreme reseeds only that group. A custom group total, or a statistical reduction, keeps the full per-group pass.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2073,10 +2086,12 @@ pivot: { groupTotals: 'after', totalsLabel: 'All regions' }</code></pre>
       <pre><code>totalOnlyChangedColumns: <span class="kw">true</span></code></pre>
     </div>
     <p class="lead-in">
-      Group totals re-reduce every totalled column on every change, including columns the change
-      did not touch. Switching this on reduces only the columns whose values actually moved, and
-      an update that rewrites a field with the value it already held reduces nothing at all,
-      which is what a feed resending unchanged fields looks like.
+      By default the total stage considers every totalled column on every change, even columns the
+      change did not touch. Switching this on considers only the columns whose values actually moved,
+      and an update that rewrites a field with the value it already held reduces nothing at all,
+      which is what a feed resending unchanged fields looks like. This narrows <em>which</em> columns
+      are looked at; the incremental grand total and group subtotals described above narrow
+      <em>how</em> each one is brought up to date, and the two compound.
     </p>
     <p class="lead-in">
       On a million rows in seven groups, a single-cell update with four totalled columns:
@@ -2547,6 +2562,49 @@ grid.destroy();
 <span class="kw">return</span> offered.includes('sum') ? <span class="num">6</span> : <span class="num">0</span>;   <span class="cmt">// sum is offered on a number column</span></code></pre>
     </div>
 
+    <div class="why">
+      <p><strong>The group subtotals and the grand total can reduce differently.</strong> By default
+      one <code>total</code> drives both, and that is unchanged. When a column needs, say, an
+      <em>average per group</em> under a <em>sum of everything</em>, set the two independently with
+      the <code>scope</code> option: <code>setTotal(id, 'avg', { scope: 'group' })</code> and
+      <code>setTotal(id, 'sum', { scope: 'grand' })</code>. A scope with no override falls back to
+      <code>total</code>, and passing no <code>scope</code> sets the shared <code>total</code> and
+      clears both overrides — so the one-property behaviour is exactly what it was. The same split is
+      declarable on a column as <code>groupTotal</code> / <code>grandTotal</code>, and it persists in
+      saved views alongside <code>total</code>.</p>
+    </div>
+    <div class="example">
+      <p class="example__label">Group average under a grand sum, executed</p>
+      <pre data-run="js" data-expect="avg groups under sum grand" data-covers="method:columns config:columns"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  columns: [{ field: 'amount', type: 'number', total: 'sum' }, { field: 'region' }],
+  rows: [
+    { id: '1', amount: 2, region: 'N' }, { id: '2', amount: 6, region: 'N' },
+    { id: '3', amount: 4, region: 'S' }, { id: '4', amount: 8, region: 'S' },
+  ],
+  rowKey: 'id',
+  grandTotalRow: <span class="kw">true</span>,
+});
+grid.columns.group(['region']);
+
+<span class="cmt">// Group subtotals average within each region; the grand total sums everything.</span>
+grid.columns.setTotal('amount', 'avg', { scope: 'group' });
+grid.columns.setTotal('amount', 'sum', { scope: 'grand' });
+
+<span class="cmt">// The first group subtotal (region N: (2+6)/2 = 4) and the grand row (sum = 20).</span>
+<span class="kw">let</span> groupSubtotal = <span class="kw">null</span>;
+<span class="kw">for</span> (<span class="kw">let</span> i = <span class="num">0</span>; i &lt; grid.rows.count(); i++) {
+  <span class="kw">const</span> r = grid.rows.get(i);
+  <span class="kw">if</span> (r &amp;&amp; r.group &amp;&amp; !r.grandTotal &amp;&amp; groupSubtotal === <span class="kw">null</span>) groupSubtotal = r.totals.amount;
+}
+<span class="kw">const</span> grand = grid.rows.get(grid.rows.count() - <span class="num">1</span>).totals.amount;
+
+grid.destroy();
+<span class="kw">return</span> (groupSubtotal === <span class="num">4</span> &amp;&amp; grand === <span class="num">20</span>)
+  ? 'avg groups under sum grand' : `group ${groupSubtotal}, grand ${grand}`;</code></pre>
+    </div>
+
     <h2 id="sticky-group-headings">Sticky group headings</h2>
     <p class="lead-in">
       Scrolling inside a group keeps that group's headings pinned above the rows, so the rows on
@@ -2824,6 +2882,33 @@ createGrid(el, {
       the whole. A fraction shown as the whole is exactly the silent wrong answer this feature
       exists to remove, so it is never how the feature fails. For a <code>restAdapter</code>, which
       cannot compute, this is the only route to a correct whole-dataset statistic.</p>
+    </div>
+
+    <h3 id="allowpartialresults">Refusing a partial result over residual work</h3>
+    <p class="lead-in">
+      When residual work has to run in the browser, the source asks the adapter for the whole matching
+      set and pages from what it holds. An adapter that answers with a <em>page</em> of that result —
+      it paged when told not to — leaves the client-side filter or sort running over the wrong rows:
+      the ones that belong on page one may be in the fraction never fetched. A page presented as the
+      full filtered set is a wrong answer, not a slow one.
+    </p>
+    <div class="example">
+      <p class="example__label">Refused by default; opt in only when you knowingly accept it</p>
+      <pre><code><span class="cmt">// Default: a shortfall under residual work throws, surfaced as source:error.</span>
+<span class="kw">const</span> strict = createPushdownSource({ adapter });
+
+<span class="cmt">// Knowing escape hatch: keep the old warn-once-and-proceed behaviour.</span>
+<span class="kw">const</span> lax = createPushdownSource({ adapter, allowPartialResults: <span class="kw">true</span> });</code></pre>
+    </div>
+    <div class="why">
+      <p><strong>Off by default, refused loudly.</strong> Filtering or sorting a fraction of the result
+      does not lose rows quietly, it returns the <em>wrong</em> rows, so the default throws rather than
+      warns — <code>nothing fails silently</code> (§8) means a wrong answer is never preferred to a
+      visible failure. The fix is an adapter that follows the engine's own paging, or holding the data
+      in memory. <code>allowPartialResults: true</code> is the deliberate opt-out — a caller who
+      accepts the permissive behaviour keeps the warn-once path — and it is never the default. It does
+      not touch the <code>fullDataset</code> memory guard or the no-residual short-return warning, both
+      of which stand regardless.</p>
     </div>
 
     <h3 id="aggregates">Pushing statistics down to the engine</h3>
