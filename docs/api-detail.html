@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.20.0</p>
+    <p class="rail__sub">Developer guide · v1.21.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -4864,6 +4864,29 @@ grid.export.clipboard({ rows: 'range' });         <span class="cmt">// copy the 
 grid.export.clipboard({ headers: true, rows: 'selected' });
 
 grid.edit.pasteInto(text);                        <span class="cmt">// Excel's tiling rules</span></code></pre>
+    </div>
+    <h3 id="clipboard-formula-guard">Guarding against formula injection on paste</h3>
+    <p class="lead-in">
+      By default a copied range round-trips verbatim, so a value beginning <code>=</code>,
+      <code>+</code>, <code>-</code> or <code>@</code> is carried unchanged &mdash; the right thing
+      when the paste target is another grid or cell range. When the paste target is a spreadsheet,
+      pass <code>sanitise: true</code> and a leading formula character is neutralised with an
+      apostrophe, so the value cannot be executed as a formula in Excel or Sheets.
+    </p>
+    <div class="example">
+      <p class="example__label">Opt in per copy</p>
+      <pre data-run="js" data-expect="default:=1+1 guarded:'=1+1" data-covers="config:sanitise"><code><span class="kw">const</span> { buildClipboardText } = <span class="kw">await</span> import('../packages/core/src/export/index.js');
+
+<span class="cmt">// An explicit cell matrix; the formula guard applies to data fields.</span>
+<span class="kw">const</span> cells = [['=1+1']];
+
+<span class="cmt">// Off by default: the value round-trips exactly as copied.</span>
+<span class="kw">const</span> plain = buildClipboardText({}, { rows: 'range', cells });
+
+<span class="cmt">// sanitise:true prefixes an apostrophe so a spreadsheet stores it as text.</span>
+<span class="kw">const</span> guarded = buildClipboardText({}, { rows: 'range', cells, sanitise: <span class="kw">true</span> });
+
+<span class="kw">return</span> `default:${plain} guarded:${guarded}`;</code></pre>
     </div>
     <div class="why">
       <p>Pasting follows the spreadsheet convention: one cell into a range fills the range, one row

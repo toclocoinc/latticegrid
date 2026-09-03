@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.20.0, type declarations
+ * Lattice Grid 1.21.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -2679,6 +2679,15 @@ export interface ExcelExportOptions extends Omit<CsvExportOptions, 'delimiter' |
 export interface ClipboardOptions {
   headers?: boolean;
   rows?: 'visible' | 'all' | 'selected' | 'range';
+  /**
+   * Apply the CSV/Excel formula-injection guard to copied cells: prefix a field
+   * beginning with `=`, `+`, `-`, `@`, a tab or a CR with an apostrophe so a
+   * spreadsheet treats it as text. **Off by default** (unlike CSV/Excel export,
+   * which default it on), because the clipboard most often round-trips back into
+   * a grid or cell range where the apostrophe would corrupt the value. Turn it
+   * on when your users paste the clipboard into Excel or Google Sheets.
+   */
+  sanitise?: boolean;
 }
 
 // ---------------------------------------------------------------------------
