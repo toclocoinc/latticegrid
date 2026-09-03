@@ -5289,6 +5289,36 @@ grid.destroy();
         </tbody>
       </table>
     </div>
+    <h3 id="type-DatasetColumnDifference">DatasetColumnDifference</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">The column id, present on both grids.</td></tr>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The column's display name, or its id.</td></tr>
+          <tr><td class="name">measure</td><td class="type">'pooledStandardMeanDifference' | 'categoricalTotalVariation'</td><td class="desc">The effect size reported for this column's family: the pooled standardised mean difference (Cohen's d) for a numeric column, the total variation of the category mix for a categorical one. Never a p-value.</td></tr>
+          <tr><td class="name">magnitude</td><td class="type">number | null</td><td class="desc">The effect size in its own terms, or null when it has no scale here.</td></tr>
+          <tr><td class="name">distance</td><td class="type">number</td><td class="desc">The total variation distance between the two datasets, 0 to 1 — the common scale both families reduce to, and what the ranking sorts by.</td></tr>
+          <tr><td class="name">direction</td><td class="type">number</td><td class="desc">+1 when dataset A sits above dataset B, −1 below, 0 for a mix.</td></tr>
+          <tr><td class="name">nA</td><td class="type">number</td><td class="desc">How many rows the first grid's side stood on.</td></tr>
+          <tr><td class="name">nB</td><td class="type">number</td><td class="desc">How many rows the second grid's side stood on.</td></tr>
+          <tr><td class="name">reliable</td><td class="type">boolean</td><td class="desc">False when either side is too small to read the difference from.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-DatasetComparison">DatasetComparison</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">ranked</td><td class="type">DatasetColumnDifference[]</td><td class="desc">Every shared column, largest difference first.</td></tr>
+          <tr><td class="name">nA</td><td class="type">number</td><td class="desc">How many rows the first grid contributed (its filtered set).</td></tr>
+          <tr><td class="name">nB</td><td class="type">number</td><td class="desc">How many rows the second grid contributed (its filtered set).</td></tr>
+          <tr><td class="name">unmatched</td><td class="type">{ onlyA: string[]; onlyB: string[] }</td><td class="desc">Columns present on only one side, which cannot be compared.</td></tr>
+          <tr><td class="name">measures</td><td class="type">{ numeric: string; categorical: string; common: string }</td><td class="desc">The measure each family reports, and the common scale, named for a legend.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-DataType">DataType</h3>
     <div class="table-wrap">
       <table>
@@ -7048,13 +7078,14 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">shadow</td><td class="type">(colId: string, kind: ShadowKind, rowKey: string, scope?: 'all' | 'filtered'): unknown</td><td class="desc">One shadow value for one row, by the column it shadows and the kind.</td></tr>
+          <tr><td class="name">shadow</td><td class="type">(colId: string, kind: ShadowKind, rowKey: string,</td><td class="desc">One shadow value for one row, by the column it shadows and the kind. For `kind: 'specStatus'`, `spec` carries the `{lower, upper, warnLower, warnUpper}` limits to judge the row's value against; other kinds ignore it.</td></tr>
           <tr><td class="name">running</td><td class="type">(colId: string, kind: 'total' | 'percent', rowKey: string): number | null</td><td class="desc">A running total at one row, down the grid as it is currently ordered.</td></tr>
           <tr><td class="name">rebase</td><td class="type">(colId?: string): void</td><td class="desc">Make the current values the new baseline: "mark all".</td></tr>
           <tr><td class="name">tracking</td><td class="type">(): { columns: string[]; rows: number; forgotten: number }</td><td class="desc">What the shadow histories are costing.</td></tr>
           <tr><td class="name">reduce</td><td class="type">(colId: string, fn: string): unknown</td><td class="desc">Reduce a column by a named kernel over the filtered rows.</td></tr>
           <tr><td class="name">profile</td><td class="type">(colId: string): ColumnProfile | null</td><td class="desc">Everything worth knowing about one column, in one pass each.</td></tr>
           <tr><td class="name">subsetVsPopulation</td><td class="type">(opts?: { columns?: string[] }): SubsetComparison</td><td class="desc">Which columns differ most between the filtered subset and the whole population it was drawn from, ranked by effect size — never by a p-value. The measure is stated per column; a numeric and a categorical column are put on one bounded scale so they rank against each other.</td></tr>
+          <tr><td class="name">datasetVsDataset</td><td class="type">(other: Grid, opts?: { columns?: string[] }): DatasetComparison</td><td class="desc">Which columns differ most between this grid and another, ranked by effect size — never by a p-value (BACKLOG-0000735). The generalisation of {@link subsetVsPopulation} from subset-vs-population to dataset-vs-dataset: two independent grids, yoked by passing one in, no shared store. A numeric column reports a pooled standardised mean difference (Cohen's d, symmetric in the two peers where Glass's delta is not); a categorical column the total variation of its category mix; both land on one bounded scale. Both sides are read over their filtered rows. Only shared columns are ranked; a column on one side alone is returned under `unmatched`.</td></tr>
           <tr><td class="name">correlation</td><td class="type">(a: string, b: string): number | null</td><td class="desc">Pearson's correlation between two columns.</td></tr>
           <tr><td class="name">covariance</td><td class="type">(a: string, b: string, opts?: { population?: boolean }): number | null</td><td class="desc">Covariance, a correlation before the scales are divided out.</td></tr>
           <tr><td class="name">regression</td><td class="type">(a: string, b: string): RegressionFit | null</td><td class="desc">Least-squares fit of `b` on `a`: in finance, beta and alpha.</td></tr>

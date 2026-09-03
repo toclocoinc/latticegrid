@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.21.0, type declarations
+ * Lattice Grid 1.22.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -639,6 +639,17 @@ export interface Column {
      * `'filtered'` ranks within what the filters left.
      */
     scope?: 'all' | 'filtered';
+    /**
+     * For `kind: 'specStatus'`, the hard specification the row is judged
+     * against. `lower`/`upper` are the pass limits (a value beyond either
+     * fails); the optional `warnLower`/`warnUpper` are inner thresholds that
+     * mark a still-in-spec reading `'WARN'`. Centred-target ± tolerance is a
+     * deliberate follow-up and is not read here.
+     */
+    lower?: number;
+    upper?: number;
+    warnLower?: number;
+    warnUpper?: number;
   };
   /**
    * A running total down the grid **as it is currently ordered**.
@@ -2210,8 +2221,13 @@ export interface PushdownSourceConfig {
 }
 
 export interface StatisticsApi {
-  /** One shadow value for one row, by the column it shadows and the kind. */
-  shadow(colId: string, kind: ShadowKind, rowKey: string, scope?: 'all' | 'filtered'): unknown;
+  /**
+   * One shadow value for one row, by the column it shadows and the kind. For
+   * `kind: 'specStatus'`, `spec` carries the `{lower, upper, warnLower,
+   * warnUpper}` limits to judge the row's value against; other kinds ignore it.
+   */
+  shadow(colId: string, kind: ShadowKind, rowKey: string,
+    scope?: 'all' | 'filtered', spec?: object): unknown;
   /** A running total at one row, down the grid as it is currently ordered. */
   running(colId: string, kind: 'total' | 'percent', rowKey: string): number | null;
   /** Make the current values the new baseline: "mark all". */
@@ -2229,6 +2245,18 @@ export interface StatisticsApi {
    * on one bounded scale so they rank against each other.
    */
   subsetVsPopulation(opts?: { columns?: string[] }): SubsetComparison;
+  /**
+   * Which columns differ most between this grid and another, ranked by effect
+   * size — never by a p-value (BACKLOG-0000735). The generalisation of
+   * {@link subsetVsPopulation} from subset-vs-population to dataset-vs-dataset:
+   * two independent grids, yoked by passing one in, no shared store. A numeric
+   * column reports a pooled standardised mean difference (Cohen's d, symmetric
+   * in the two peers where Glass's delta is not); a categorical column the total
+   * variation of its category mix; both land on one bounded scale. Both sides
+   * are read over their filtered rows. Only shared columns are ranked; a column
+   * on one side alone is returned under `unmatched`.
+   */
+  datasetVsDataset(other: Grid, opts?: { columns?: string[] }): DatasetComparison;
   /** Pearson's correlation between two columns. */
   correlation(a: string, b: string): number | null;
   /** Covariance, a correlation before the scales are divided out. */
@@ -2336,7 +2364,18 @@ export type ShadowKind =
   | 'rate' | 'history' | 'firstValue' | 'streak'
   /** Where the row sits among the others, over every tracked row. */
   | 'rank' | 'rankAsc' | 'rankChange' | 'percentile' | 'quartile'
-  | 'zScore' | 'shareOfTotal';
+  | 'zScore' | 'shareOfTotal'
+  /**
+   * The row's pass/fail verdict against a hard-limit spec, as a value:
+   * `'PASS'`, `'WARN'` or `'FAIL'`. Sortable, filterable, groupable and
+   * exportable, and rolled up by the `passRate`/`failureCount` totals. Reads
+   * `{lower, upper}` (and optional inner `{warnLower, warnUpper}`) off the
+   * shadow declaration; centred-target ± tolerance is a deliberate follow-up.
+   */
+  | 'specStatus';
+
+/** The three verdicts a `specStatus` shadow can report. */
+export type SpecStatus = 'PASS' | 'WARN' | 'FAIL';
 
 export interface RegressionFit {
   slope: number;
@@ -2470,6 +2509,47 @@ export interface SubsetComparison {
   populationN: number;
   /** Whether a filter is actually narrowing the set. */
   filtered: boolean;
+  /** The measure each family reports, and the common scale, named for a legend. */
+  measures: { numeric: string; categorical: string; common: string };
+}
+
+export interface DatasetColumnDifference {
+  /** The column id, present on both grids. */
+  column: string;
+  /** The column's display name, or its id. */
+  name: string;
+  /**
+   * The effect size reported for this column's family: the pooled standardised
+   * mean difference (Cohen's d) for a numeric column, the total variation of the
+   * category mix for a categorical one. Never a p-value.
+   */
+  measure: 'pooledStandardMeanDifference' | 'categoricalTotalVariation';
+  /** The effect size in its own terms, or null when it has no scale here. */
+  magnitude: number | null;
+  /**
+   * The total variation distance between the two datasets, 0 to 1 — the common
+   * scale both families reduce to, and what the ranking sorts by.
+   */
+  distance: number;
+  /** +1 when dataset A sits above dataset B, −1 below, 0 for a mix. */
+  direction: number;
+  /** How many rows the first grid's side stood on. */
+  nA: number;
+  /** How many rows the second grid's side stood on. */
+  nB: number;
+  /** False when either side is too small to read the difference from. */
+  reliable: boolean;
+}
+
+export interface DatasetComparison {
+  /** Every shared column, largest difference first. */
+  ranked: DatasetColumnDifference[];
+  /** How many rows the first grid contributed (its filtered set). */
+  nA: number;
+  /** How many rows the second grid contributed (its filtered set). */
+  nB: number;
+  /** Columns present on only one side, which cannot be compared. */
+  unmatched: { onlyA: string[]; onlyB: string[] };
   /** The measure each family reports, and the common scale, named for a legend. */
   measures: { numeric: string; categorical: string; common: string };
 }
