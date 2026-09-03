@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.23.0, type declarations
+ * Lattice Grid 1.24.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -48,6 +48,9 @@ export type TypeName =
   | 'viscosity' | 'kinematicViscosity' | 'thermalConductivity' | 'specificHeat'
   // Temperature, which is affine rather than multiplicative
   | 'celsius' | 'fahrenheit' | 'kelvin'
+  // Currency, whose "factor" is a moving exchange rate, so it carries an amount
+  // and a code rather than joining the fixed-factor unit factory.
+  | 'currency' | 'usd' | 'eur' | 'gbp' | 'jpy'
   | (string & {});
 
 /**
@@ -430,10 +433,10 @@ export type RendererName =
   | 'winloss' | (string & {});
 
 export type EditorName =
-  | 'checkbox' | 'code' | 'colour' | 'date' | 'datetime' | 'duration' | 'iconPicker'
-  | 'ipaddress' | 'multiSelect' | 'number' | 'objectPicker' | 'password' | 'radix'
-  | 'rating' | 'segmented' | 'select' | 'slider' | 'temperature' | 'text' | 'textarea'
-  | 'time' | 'treeSelect' | 'unit' | (string & {});
+  | 'checkbox' | 'code' | 'colour' | 'currency' | 'date' | 'datetime' | 'duration'
+  | 'iconPicker' | 'ipaddress' | 'multiSelect' | 'number' | 'objectPicker' | 'password'
+  | 'radix' | 'rating' | 'segmented' | 'select' | 'slider' | 'temperature' | 'text'
+  | 'textarea' | 'time' | 'treeSelect' | 'unit' | (string & {});
 
 export interface EditorParams extends CellParams {
   stop(cancel?: boolean): void;
@@ -1463,6 +1466,46 @@ export interface GridConfig {
   };
 
   /**
+   * Present the grid as a pivot — a cross-tab drawn as a matrix (§10,
+   * BACKLOG-0000738).
+   *
+   * The row dimensions (the grid's `group`) go down the left gutter, the column
+   * dimensions (the grid's `pivot`) go across the top, and each totalled column
+   * fills a cell with its reduction. `true` draws the matrix with the default
+   * geometry; an object sizes the cells and gutter or names the breakpoint below
+   * which it degrades to cards.
+   *
+   * **The numbers are the grid's own.** Every cell — body, subtotal, grand total
+   * — is the same aggregate kernel the totals row uses, run over the rows that
+   * feed the cell, so a pivot subtotal equals the grid's group total for that
+   * set by construction rather than being re-derived. Both axes expand and
+   * collapse, both are virtualised, and a cell click emits `pivot:drill` with the
+   * keys of the contributing rows.
+   *
+   * **Narrow-screen fallback.** A matrix cannot be read on a phone, so at or
+   * below `maxWidth` (the container width, not the viewport) the pivot degrades
+   * to a card list — the record card by default — exactly as the table does under
+   * `responsive`. Presentation only: sort, filter, group, pivot and the data
+   * pipeline are unchanged.
+   */
+  pivotView?: boolean | {
+    /** How wide one value column is, in pixels. 120 by default. */
+    cellWidth?: number;
+    /** How tall one body row is, in pixels. 32 by default. */
+    cellHeight?: number;
+    /** How wide the row-label gutter is, in pixels. 200 by default. */
+    headerWidth?: number;
+    /** Degrade to cards at or below this container width. 640 by default. */
+    maxWidth?: number;
+    /** The card layout the narrow fallback uses. The record card when omitted. */
+    fallbackTemplate?: string | object;
+    /** A class of your own on the pivot root, alongside the grid's. */
+    className?: string;
+    /** The pivot's role. `grid` by default — a pivot is a grid of cells. */
+    role?: string;
+  };
+
+  /**
    * Present rows as cards when the grid's container is too narrow to be a
    * table honestly, a phone, or a narrow panel on a wide screen.
    *
@@ -2018,6 +2061,12 @@ export interface GridState {
   sort?: SortEntry[];
   group?: string[];
   pivot?: { enabled: boolean; columns: string[] };
+  /**
+   * The pivot presentation's collapse state (§10, BACKLOG-0000738): which
+   * row-axis and column-axis nodes are collapsed. Absent when the matrix is
+   * fully expanded, and tolerated as "expand all" when applied.
+   */
+  pivotView?: { rowsCollapsed: string[]; columnsCollapsed: string[] };
   formatting?: Record<string, FormattingRule[]>;
   expanded?: string[];
   selection?: string[];
@@ -2392,6 +2441,38 @@ export interface StatisticsApi {
    * its exact tier and, when one exists, the approximate alternative and bound.
    */
   maintenanceTier(fn: string): MaintenanceTier;
+  /**
+   * A windowed aggregate — "the average lately" (BACKLOG-0000654) — over one
+   * column, stamped with the window it covers (`over`), so a windowed figure is
+   * never read without its window. Exact over the values inside the window.
+   *
+   * `kind: 'count'` takes the last `span` values in arrival order. `kind:
+   * 'time'` takes the values within the last `span` ms (or `minutes`) and `kind:
+   * 'session'` takes every value; both need a timestamp column, so `by` is
+   * required for them and never guessed. Returns null when the column, or the
+   * `by` column, is unknown.
+   */
+  windowed(colId: string, fn: WindowedFn, opts: {
+    kind: 'count' | 'time' | 'session';
+    /** N ticks for a count window, or N ms for a time window. */
+    span?: number;
+    /** N minutes for a time window, converted to ms. */
+    minutes?: number;
+    /** A timestamp column; required for a time or session window. */
+    by?: string;
+  }): WindowedResult | null;
+}
+
+/** A named aggregate a windowed reduction can return. */
+export type WindowedFn =
+  | 'sum' | 'avg' | 'mean' | 'min' | 'max' | 'count' | 'variance' | 'stddev';
+
+/** One windowed figure and the window it covers. */
+export interface WindowedResult {
+  /** The reduction, or null when the window held no usable values. */
+  value: number | null;
+  /** The window the figure was computed over — always stated. */
+  over: WindowSpec;
 }
 
 /** How an approximate reduction's error bound holds, and what it measures. */
@@ -2433,6 +2514,40 @@ export interface WindowSpec {
   /** How many values actually fell inside the window. */
   size: number;
 }
+
+/** The three window kinds a caller may ask for. */
+export const WINDOW_KINDS: readonly ('count' | 'time' | 'session')[];
+
+/**
+ * A sliding window over a stream of timestamped values (BACKLOG-0000654). Holds
+ * the values currently in the window and re-reduces them on demand; the reduction
+ * is exact over the values in the window. `grid.statistics.windowed(...)` drives
+ * one of these over a column; a host can also drive one live, tick by tick.
+ */
+export class Window {
+  constructor(kind: 'count' | 'time' | 'session', span?: number, now?: () => number);
+  /** How many values are in the window right now. */
+  readonly size: number;
+  /** Add one value at an explicit or current timestamp. */
+  push(v: number, t?: number): void;
+  /** The window descriptor as it stands now. */
+  spec(): WindowSpec;
+  /** The values currently in the window, oldest first. */
+  values(): number[];
+  /** Every windowed aggregate at once, each stamped with the window. */
+  aggregate(): {
+    over: WindowSpec; count: number; sum: number | null; mean: number | null;
+    min: number | null; max: number | null; variance: number | null; stddev: number | null;
+  };
+  /** One named aggregate over the window, stamped with the window it covers. */
+  reduce(fn: WindowedFn): WindowedResult;
+}
+
+/** Build a window from a caller's spec: last N ticks, last N minutes/ms, or the session. */
+export function openWindow(
+  opts: { kind: 'count' | 'time' | 'session'; span?: number; minutes?: number },
+  now?: () => number,
+): Window;
 
 export type ShadowKind =
   | 'updates' | 'updatedAt' | 'sinceUpdate' | 'delta' | 'deltaPercent'
@@ -2701,6 +2816,7 @@ export type EventName =
   /* Columns */
   | 'column:moved' | 'column:resized' | 'column:visible' | 'column:pinned'
   | 'column:grouped' | 'column:pivoted' | 'column:filter:open' | 'column:menu:open'
+  | 'pivot:drill'
   | 'columns:changed' | 'columns:tagged' | 'header:contextmenu'
   /* Selection and view */
   | 'selection:changed' | 'range:changed' | 'clipboard:copy'
@@ -3533,6 +3649,22 @@ export interface PresentationApi {
 }
 
 /**
+ * Controls for the pivot presentation (§10, BACKLOG-0000738): expand or collapse
+ * an axis node, and read the collapse state a saved view carries. Every method
+ * is a no-op on a headless grid, which has no matrix to collapse.
+ */
+export interface PivotViewApi {
+  /** Expand a collapsed node on the row or column axis. */
+  expand(axis: 'row' | 'column', path: string): void;
+  /** Collapse a node on the row or column axis, hiding its descendants. */
+  collapse(axis: 'row' | 'column', path: string): void;
+  /** Toggle a node's collapse on the row or column axis. */
+  toggle(axis: 'row' | 'column', path: string): void;
+  /** The collapsed row-axis and column-axis paths, as a saved view carries them. */
+  state(): { rowsCollapsed: string[]; columnsCollapsed: string[] };
+}
+
+/**
  * Redaction obscures a column's values on screen. It is presentational: the
  * values stay in the model, the DOM, the clipboard and every export. Use
  * `permissions` with `writeOnly` for a value that must not be readable.
@@ -3838,6 +3970,8 @@ export interface Grid {
   annotate?: AnnotationApi;
   /** Full screen, scaling and chrome suppression. */
   readonly presentation: PresentationApi;
+  /** Expand and collapse the pivot presentation's axes; the state a view carries. */
+  readonly pivotView: PivotViewApi;
   /** The live feed: pausing it, flushing it, and what it has done. */
   readonly updates: UpdatesApi;
   /** Replaying the changes the grid has seen. */
@@ -3959,6 +4093,66 @@ export function createUnitType(config?: UnitConfig): DataType;
 export function parseUnit(text: string | number, opts?: UnitConfig): number | null;
 export function formatUnit(value: number | null | undefined, opts?: UnitConfig): string;
 export const UNIT_SYSTEMS: Record<string, readonly UnitDescriptor[]>;
+
+/**
+ * A stored currency value: an amount in a named currency. `{amount:10,code:'USD'}`
+ * is a different value from `{amount:10,code:'EUR'}` — currency is a real type,
+ * not a display format, so the code rides on every cell.
+ */
+export interface Money {
+  amount: number;
+  code: string;
+}
+
+/**
+ * A caller-supplied exchange-rate source. The grid ships and fetches no rates.
+ * Either a function `(from, to) => rate|null`, or a table of rates per unit of a
+ * common base (the base being whichever code maps to 1, or `rateBase`). A source
+ * that cannot answer returns `null`, which is surfaced loudly, never as zero.
+ */
+export type RateSource =
+  | ((from: string, to: string) => number | null)
+  | Record<string, number>;
+
+export interface CurrencyConfig {
+  /** The default currency code for bare numeric input, e.g. `'USD'`. */
+  code?: string;
+  /** The currency to render and aggregate in. Omit to keep each cell's own. */
+  display?: string;
+  /** The caller's rate source: a `(from,to)=>rate|null` fn or a rate table. */
+  rates?: RateSource;
+  /** The code a rate *table* is denominated in, when not the one mapping to 1. */
+  rateBase?: string;
+  /** Fixed fraction digits; omit for the code's own convention. */
+  decimals?: number;
+  /** The locale for number formatting. */
+  locale?: string;
+  /** Text for a null cell. */
+  nullDisplay?: string;
+  /** The loud marker rendered when a needed rate is missing. */
+  missingRate?: string;
+  /** An Excel number-format override. */
+  excel?: string;
+  /** The code list a currency editor's picker offers. */
+  codes?: string[];
+}
+
+/** Build a currency `DataType` (amount + code), aggregate-safe across currencies. */
+export function createCurrencyType(config?: CurrencyConfig): DataType;
+/** Parse edited/pasted text into a `Money`, taking the config's `code` for bare numbers. */
+export function parseMoney(text: string | number, cfg?: CurrencyConfig): Money | null;
+/** Render a `Money`, in the display currency when set; loud marker when a rate is missing. */
+export function formatMoney(value: unknown, cfg?: CurrencyConfig): string;
+/** Convert a `Money` into a target code via the resolved rate fn; `null` when no rate. */
+export function convertMoney(
+  money: Money,
+  to: string,
+  rate: (from: string, to: string) => number | null,
+): number | null;
+/** Resolve a caller's rate source into a `(from,to)=>rate|null` function. */
+export function rateFunction(rates?: RateSource, base?: string): (from: string, to: string) => number | null;
+/** The loud marker text a missing rate renders as. */
+export const MISSING_RATE: string;
 
 /** How a statistic block finds the number it reports. */
 export interface StatValueSpec {
@@ -4331,6 +4525,12 @@ export const LatticeGrid: {
   parseUnit: typeof parseUnit;
   formatUnit: typeof formatUnit;
   UNIT_SYSTEMS: typeof UNIT_SYSTEMS;
+  createCurrencyType: typeof createCurrencyType;
+  parseMoney: typeof parseMoney;
+  formatMoney: typeof formatMoney;
+  convertMoney: typeof convertMoney;
+  rateFunction: typeof rateFunction;
+  MISSING_RATE: typeof MISSING_RATE;
 };
 
 export default LatticeGrid;
@@ -4433,6 +4633,65 @@ export interface ChartMeasure {
   title?: string;
 }
 
+/** One axis's configuration. A bare string is the title. */
+export interface ChartAxis {
+  title?: string;
+  /** Fix the axis rather than taking its extent from the data. */
+  min?: number;
+  max?: number;
+  /** A tick count, or the exact values to tick. */
+  ticks?: number | unknown[];
+  /** A format mask, or a function of the value. */
+  format?: string | ((value: unknown) => string);
+  /** Draw the gridlines this axis owns. Default true for the measure axis. */
+  grid?: boolean;
+  /** Draw the tick labels. */
+  labels?: boolean;
+  /** Show every nth category label, on a crowded category axis. */
+  every?: number;
+  /** Force the category labels' rotation rather than deciding it. */
+  rotate?: boolean | 'auto';
+}
+
+/**
+ * One declarative annotation (BACKLOG-0000744).
+ *
+ * A reference or target line, a shaded band, or a callout. Its value is a
+ * constant `value` (or `from`/`to` for a band), or a `compute` reduction of the
+ * data it annotates — `mean`, `median`, `min`, `max`, or `p95` for a
+ * percentile — so it follows the data as the grid is filtered. Every annotation
+ * names the axis it reads, which on a dual-axis chart is what stops it being
+ * placed against the wrong scale, and is written into the accessible table as a
+ * sentence.
+ */
+export interface ChartAnnotation {
+  /** The default is a reference line. */
+  kind?: 'line' | 'target' | 'band' | 'callout';
+  /** A constant value, for a line, target or callout's measure position. */
+  value?: number;
+  /** A reduction of the annotated data instead of a constant. */
+  compute?: 'mean' | 'avg' | 'median' | 'min' | 'max' | string;
+  /** A band's two edges, each a constant or (with `fromCompute`/`toCompute`) computed. */
+  from?: number;
+  to?: number;
+  fromCompute?: string;
+  toCompute?: string;
+  /** A vertical line's or callout's x position: a category or a number. */
+  x?: unknown;
+  at?: unknown;
+  /** Force a line vertical rather than horizontal. */
+  orient?: 'horizontal' | 'vertical';
+  /** Which measure axis the annotation reads. */
+  axis?: 'left' | 'right' | 'y2';
+  /** Restrict a `compute` to one series, by its key. */
+  series?: string;
+  label?: string;
+  colour?: string;
+  /** A band's fill opacity; the default is 0.12. */
+  opacity?: number;
+  className?: string;
+}
+
 /** Data labels beside each mark. */
 export interface ChartLabels {
   position?: 'outside' | 'inside' | 'auto';
@@ -4479,7 +4738,28 @@ export interface ChartSpec {
   scheme?: string | string[];
   legend?: boolean | { position?: 'top' | 'bottom' | 'left' | 'right'; isolate?: boolean };
   labels?: boolean | ChartLabels;
-  axis?: object;
+  /**
+   * Per-axis configuration. Each side is a title string or an object of
+   * `{ title, min, max, ticks, format, grid, labels }`. `y2` (or `right`)
+   * configures the second measure axis of a dual-axis or combo chart
+   * (BACKLOG-0000743); a dual-axis chart labels both axes by default so it
+   * cannot silently mislead.
+   */
+  axis?: {
+    x?: string | ChartAxis;
+    y?: string | ChartAxis;
+    y2?: string | ChartAxis;
+    right?: string | ChartAxis;
+  };
+  /**
+   * Dragging across the plot. `true` or `'filter'` writes a range condition into
+   * the grid; `'zoom'` changes only this chart's own domain; `'select'` selects
+   * the rows under the drag. The object form names which axis the drag acts on —
+   * `axis: 'y'` or `'y2'` brushes a value axis, which on a dual-axis chart must
+   * say which one it means (BACKLOG-0000743).
+   */
+  brush?: boolean | 'filter' | 'zoom' | 'select'
+    | { mode: 'filter' | 'zoom' | 'select'; axis?: 'x' | 'y' | 'y2' };
   font?: object;
   margin?: number | { top?: number; right?: number; bottom?: number; left?: number };
   /** Horizontal reference lines. */
@@ -4498,7 +4778,20 @@ export interface ChartSpec {
    * from another column instead.
    */
   error?: boolean | { of?: string; confidence?: number };
-  reference?: { value: number; label?: string }[];
+  /**
+   * Horizontal reference lines. On a dual-axis bar or line chart (see
+   * {@link ChartMeasure.axis}) a line naming `axis: 'right'` is placed on the
+   * right-hand scale, so it means what the right axis says rather than landing
+   * at the same number on the scale it does not belong to.
+   */
+  reference?: { value: number; label?: string; axis?: 'left' | 'right' }[];
+  /**
+   * The declarative annotation layer: reference and target lines, shaded bands
+   * and callouts, each naming the axis it reads and each described into the
+   * accessible table as a sentence. A value may be a constant or `compute`d from
+   * the data it annotates, so it follows the chart as the grid is filtered.
+   */
+  annotations?: ChartAnnotation[];
   /** Bins for a histogram; the default is twelve. */
   buckets?: number;
   /** A diverging colour ramp, for heatmap and geomap. */

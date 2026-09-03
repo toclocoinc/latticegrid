@@ -3401,6 +3401,50 @@ createGrid(el, {
 <span class="kw">return</span> `${shown} | ${stored} | ${stable}`;</code></pre>
     <div class="note"><p>The compound units need not include the stored <code>unit</code>, and any unit of the system is accepted on input: <code>71 in</code> pasted into a feet-and-inches column is still 71 inches. Excel export and <code>display: 'auto'</code> share a rule here &mdash; a column of mixed-scale text is not summable in a spreadsheet, so the export uses the raw base number on the configured unit. The <strong>compound cell editor</strong> (mid-value keystrokes, roll-over between feet and inches, caret behaviour at a boundary) is a separate, later piece; this is the read-and-paste half.</p></div>
 
+    <h2 id="currency">Currency: an amount and a code</h2>
+    <p>Currency is a real type, not a display format. Every other unit multiplies by a factor
+    fixed at load; a currency's &ldquo;factor&rdquo; is an exchange rate that moves, so it never
+    joins the unit factory. A value is an <strong>amount and a code</strong> &mdash;
+    <code>{ amount: 10, code: 'USD' }</code> is a different value from
+    <code>{ amount: 10, code: 'EUR' }</code>, and the code rides on every cell. The grid ships
+    and fetches no rates: the caller supplies a rate source, and a rate that is needed but absent
+    is surfaced <strong>loudly</strong>, never as zero. A footer refuses to add unlike currencies
+    unless a display currency and rates reconcile every value, the same stance temperature takes
+    for refusing a meaningless sum.</p>
+    <pre data-run="js" data-expect="9.20|true|true" data-covers="export:createCurrencyType export:parseMoney export:formatMoney export:convertMoney export:rateFunction export:MISSING_RATE config:code config:codes config:excel config:nullDisplay config:missingRate config:rateBase config:rates"><code><span class="kw">const</span> { createCurrencyType, parseMoney, formatMoney, convertMoney, rateFunction, MISSING_RATE } =
+  <span class="kw">await</span> import('../packages/core/src/columns/types/currency.js');
+
+<span class="cmt">// The caller owns the rates; the grid ships none. A missing one is loud, never zero.</span>
+<span class="kw">const</span> rates = { USD: 1, EUR: 0.92 };
+<span class="kw">const</span> money = createCurrencyType({
+  code: 'USD', display: 'EUR', rates, rateBase: 'USD', decimals: 2,
+  nullDisplay: '—', missingRate: 'no rate', excel: '€#,##0.00', codes: ['USD', 'EUR'],
+});
+
+<span class="kw">const</span> rate = rateFunction(rates, 'USD');
+<span class="kw">const</span> tenInEur = convertMoney(parseMoney('$10', { code: 'USD' }), 'EUR', rate);
+<span class="kw">const</span> loud = formatMoney({ amount: 5, code: 'XYZ' }, money.currencyConfig).startsWith('no rate');
+<span class="kw">const</span> marker = MISSING_RATE.length &gt; 0;
+
+<span class="kw">return</span> `${tenInEur.toFixed(2)}|${loud}|${marker}`;</code></pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">code</td><td class="desc">The default currency code for a bare numeric input. A number with its own symbol or code keeps <em>that</em> code.</td></tr>
+          <tr><td class="name">display</td><td class="desc">The currency to render and total in. Omit to keep each cell in its own currency.</td></tr>
+          <tr><td class="name">rates</td><td class="desc">The caller's rate source: a <code>(from, to) =&gt; rate | null</code> function, or a table of rates per unit of a common base.</td></tr>
+          <tr><td class="name">rateBase</td><td class="desc">The code a rate <em>table</em> is denominated in. The cross rate is base-independent, so this documents the table's denomination for the reader.</td></tr>
+          <tr><td class="name">missingRate</td><td class="desc">The loud marker rendered when a needed rate is absent. Defaults to <code>MISSING_RATE</code>.</td></tr>
+          <tr><td class="name">decimals</td><td class="desc">Fixed fraction digits; omit for the currency's own convention.</td></tr>
+          <tr><td class="name">nullDisplay</td><td class="desc">Text shown for an empty cell.</td></tr>
+          <tr><td class="name">excel</td><td class="desc">An Excel number-format override for export.</td></tr>
+          <tr><td class="name">codes</td><td class="desc">The code list the currency editor's picker offers.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note"><p>The stored value is always the amount and its own code. Sort, filter, group, copy and Excel export all read the underlying amount &mdash; converted to the display currency when rates allow, so <code>&pound;5</code> and <code>$6</code> order by real value. Five ready-made types ship (<code>currency</code>, <code>usd</code>, <code>eur</code>, <code>gbp</code>, <code>jpy</code>); a mixed-currency column adds <code>display</code> and <code>rates</code> through <code>createCurrencyType</code>.</p></div>
+
     <h2 id="stat">The statistic block</h2>
     <p>
       <code>createStat</code> draws the tile a dashboard opens with: a label, a value, its change
@@ -3843,14 +3887,14 @@ createGrid(el, {
       <span class="chip chip--new">luminousFlux</span><span class="chip chip--new">illuminance</span><span class="chip chip--new">substance</span>
       <span class="chip chip--new">absorbedDose</span><span class="chip chip--new">equivalentDose</span><span class="chip chip--new">radioactivity</span>
       <span class="chip chip--new">frequency</span>
-      <span class="chip chip--new">luminousIntensity</span><span class="chip chip--new">doseRate</span><span class="chip chip--new">rpm</span><span class="chip chip--new">angularVelocity</span><span class="chip chip--new">ppm</span><span class="chip chip--new">ppb</span><span class="chip chip--new">basisPoints</span><span class="chip chip--new">molarity</span><span class="chip chip--new">massFlow</span><span class="chip chip--new">tonnesPerHour</span><span class="chip chip--new">viscosity</span><span class="chip chip--new">kinematicViscosity</span><span class="chip chip--new">thermalConductivity</span><span class="chip chip--new">specificHeat</span><span class="chip chip--new">celsius</span><span class="chip chip--new">fahrenheit</span><span class="chip chip--new">kelvin</span>
+      <span class="chip chip--new">luminousIntensity</span><span class="chip chip--new">doseRate</span><span class="chip chip--new">rpm</span><span class="chip chip--new">angularVelocity</span><span class="chip chip--new">ppm</span><span class="chip chip--new">ppb</span><span class="chip chip--new">basisPoints</span><span class="chip chip--new">molarity</span><span class="chip chip--new">massFlow</span><span class="chip chip--new">tonnesPerHour</span><span class="chip chip--new">viscosity</span><span class="chip chip--new">kinematicViscosity</span><span class="chip chip--new">thermalConductivity</span><span class="chip chip--new">specificHeat</span><span class="chip chip--new">celsius</span><span class="chip chip--new">fahrenheit</span><span class="chip chip--new">kelvin</span><span class="chip chip--new">currency</span><span class="chip chip--new">usd</span><span class="chip chip--new">eur</span><span class="chip chip--new">gbp</span><span class="chip chip--new">jpy</span>
     </div>
 
     <h3>Editors</h3>
     <div class="chips">
       <span class="chip">text</span><span class="chip">textarea</span><span class="chip">number</span><span class="chip">date</span><span class="chip">checkbox</span><span class="chip">select</span><span class="chip">multiSelect</span>
       <span class="chip">time</span><span class="chip">datetime</span><span class="chip">duration</span><span class="chip">ipaddress</span><span class="chip">password</span><span class="chip">code</span>
-      <span class="chip">unit</span><span class="chip">temperature</span><span class="chip">radix</span><span class="chip">slider</span><span class="chip">rating</span><span class="chip">segmented</span>
+      <span class="chip">unit</span><span class="chip">temperature</span><span class="chip">currency</span><span class="chip">radix</span><span class="chip">slider</span><span class="chip">rating</span><span class="chip">segmented</span>
       <span class="chip">treeSelect</span><span class="chip">objectPicker</span><span class="chip">iconPicker</span><span class="chip">colour</span>
     </div>
 
@@ -4524,6 +4568,29 @@ grid.destroy();
       </table>
     </div>
 
+    <h3 id="windowed-aggregates">Windowed aggregates</h3>
+    <p class="section-note">The primitives behind <code>grid.statistics.windowed</code>, for a host that drives a live stream itself: a sliding window over timestamped values that re-reduces on demand and stamps every figure with the window it covered. Reduce over the last <em>N</em> ticks, the last <em>N</em> minutes, or the whole session.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Signature</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">openWindow</td><td class="type">(opts, now?) =&gt; Window</td><td class="desc">Build a window from a spec: <code>{ kind: 'count', span }</code> for the last <em>N</em> ticks, <code>{ kind: 'time', minutes }</code> for the last <em>N</em> minutes, or <code>{ kind: 'session' }</code> for everything since it opened.</td></tr>
+          <tr><td class="name">Window</td><td class="type">class</td><td class="desc">A sliding window. <code>push(v, t?)</code> adds a value, <code>reduce(fn)</code> returns one named aggregate stamped with the window in <code>over</code>, and <code>aggregate()</code> returns them all at once.</td></tr>
+          <tr><td class="name">WINDOW_KINDS</td><td class="type">readonly ('count' | 'time' | 'session')[]</td><td class="desc">The three window kinds a caller may ask for.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre data-run="js" data-expect="avg 30 over 3; kinds count/time/session; session 10" data-covers="export:openWindow export:Window export:WINDOW_KINDS"><code>const { openWindow, Window, WINDOW_KINDS } = await import('../packages/core/src/index.js');
+// openWindow builds one of the three kinds; here, the last 3 ticks.
+const live = openWindow({ kind: 'count', span: 3 });
+for (const v of [10, 20, 30, 40]) live.push(v); // 10 is evicted; 20, 30, 40 remain
+const avg = live.reduce('avg'); // (20 + 30 + 40) / 3 = 30, stamped with the window it covers
+// A Window can be built directly too; a session window never evicts.
+const session = new Window('session');
+session.push(5);
+session.push(15);
+return `avg ${avg.value} over ${avg.over.size}; kinds ${WINDOW_KINDS.join('/')}; session ${session.reduce('avg').value}`;</code></pre>
+
 
 <!-- BEGIN GENERATED TYPE REFERENCE -->
     <h2 id="type-reference">Type reference</h2>
@@ -4712,6 +4779,49 @@ grid.destroy();
         </tbody>
       </table>
     </div>
+    <h3 id="type-ChartAnnotation">ChartAnnotation</h3>
+    <p class="section-note">One declarative annotation (BACKLOG-0000744). A reference or target line, a shaded band, or a callout. Its value is a constant `value` (or `from`/`to` for a band), or a `compute` reduction of the data it annotates — `mean`, `median`, `min`, `max`, or `p95` for a percentile — so it follows the data as the grid is filtered. Every annotation names the axis it reads, which on a dual-axis chart is what stops it being placed against the wrong scale, and is written into the accessible table as a sentence.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">kind</td><td class="type">'line' | 'target' | 'band' | 'callout'</td><td class="desc">The default is a reference line. <small>(optional)</small></td></tr>
+          <tr><td class="name">value</td><td class="type">number</td><td class="desc">A constant value, for a line, target or callout's measure position. <small>(optional)</small></td></tr>
+          <tr><td class="name">compute</td><td class="type">'mean' | 'avg' | 'median' | 'min' | 'max' | string</td><td class="desc">A reduction of the annotated data instead of a constant. <small>(optional)</small></td></tr>
+          <tr><td class="name">from</td><td class="type">number</td><td class="desc">A band's two edges, each a constant or (with `fromCompute`/`toCompute`) computed. <small>(optional)</small></td></tr>
+          <tr><td class="name">to</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">fromCompute</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">toCompute</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">x</td><td class="type">unknown</td><td class="desc">A vertical line's or callout's x position: a category or a number. <small>(optional)</small></td></tr>
+          <tr><td class="name">at</td><td class="type">unknown</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">orient</td><td class="type">'horizontal' | 'vertical'</td><td class="desc">Force a line vertical rather than horizontal. <small>(optional)</small></td></tr>
+          <tr><td class="name">axis</td><td class="type">'left' | 'right' | 'y2'</td><td class="desc">Which measure axis the annotation reads. <small>(optional)</small></td></tr>
+          <tr><td class="name">series</td><td class="type">string</td><td class="desc">Restrict a `compute` to one series, by its key. <small>(optional)</small></td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">colour</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">opacity</td><td class="type">number</td><td class="desc">A band's fill opacity; the default is 0.12. <small>(optional)</small></td></tr>
+          <tr><td class="name">className</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-ChartAxis">ChartAxis</h3>
+    <p class="section-note">One axis's configuration. A bare string is the title.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">title</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc">Fix the axis rather than taking its extent from the data. <small>(optional)</small></td></tr>
+          <tr><td class="name">max</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">ticks</td><td class="type">number | unknown[]</td><td class="desc">A tick count, or the exact values to tick. <small>(optional)</small></td></tr>
+          <tr><td class="name">format</td><td class="type">string | ((value: unknown) =&gt; string)</td><td class="desc">A format mask, or a function of the value. <small>(optional)</small></td></tr>
+          <tr><td class="name">grid</td><td class="type">boolean</td><td class="desc">Draw the gridlines this axis owns. Default true for the measure axis. <small>(optional)</small></td></tr>
+          <tr><td class="name">labels</td><td class="type">boolean</td><td class="desc">Draw the tick labels. <small>(optional)</small></td></tr>
+          <tr><td class="name">every</td><td class="type">number</td><td class="desc">Show every nth category label, on a crowded category axis. <small>(optional)</small></td></tr>
+          <tr><td class="name">rotate</td><td class="type">boolean | 'auto'</td><td class="desc">Force the category labels' rotation rather than deciding it. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-ChartLabels">ChartLabels</h3>
     <p class="section-note">Data labels beside each mark.</p>
     <div class="table-wrap">
@@ -4761,12 +4871,14 @@ grid.destroy();
           <tr><td class="name">scheme</td><td class="type">string | string[]</td><td class="desc">A named scheme, or an array of colours. <small>(optional)</small></td></tr>
           <tr><td class="name">legend</td><td class="type">boolean | { position?: 'top' | 'bottom' | 'left' | 'right'; isolate?: boolean }</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">boolean | ChartLabels</td><td class="desc"><small>(optional)</small></td></tr>
-          <tr><td class="name">axis</td><td class="type">object</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">axis</td><td class="type">{</td><td class="desc">Per-axis configuration. Each side is a title string or an object of `{ title, min, max, ticks, format, grid, labels }`. `y2` (or `right`) configures the second measure axis of a dual-axis or combo chart (BACKLOG-0000743); a dual-axis chart labels both axes by default so it cannot silently mislead. <small>(optional)</small></td></tr>
+          <tr><td class="name">brush</td><td class="type">boolean | 'filter' | 'zoom' | 'select'</td><td class="desc">Dragging across the plot. `true` or `'filter'` writes a range condition into the grid; `'zoom'` changes only this chart's own domain; `'select'` selects the rows under the drag. The object form names which axis the drag acts on — `axis: 'y'` or `'y2'` brushes a value axis, which on a dual-axis chart must say which one it means (BACKLOG-0000743). <small>(optional)</small></td></tr>
           <tr><td class="name">font</td><td class="type">object</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">margin</td><td class="type">number | { top?: number; right?: number; bottom?: number; left?: number }</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">fit</td><td class="type">boolean | 'line'</td><td class="desc">A least-squares line through a scatter or bubble chart, one per series. `true` draws the line and its R²; `'line'` draws the line alone. Only where the x axis is numeric: on a band scale the positions are categories in an arbitrary order, and a slope through them would be a slope through the order they happened to be listed in. <small>(optional)</small></td></tr>
           <tr><td class="name">error</td><td class="type">boolean | { of?: string; confidence?: number }</td><td class="desc">Whiskers showing the uncertainty in each mark. `true` computes a confidence interval from the readings behind the mark; `of` takes a symmetric margin from another column instead. <small>(optional)</small></td></tr>
-          <tr><td class="name">reference</td><td class="type">{ value: number; label?: string }[]</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">reference</td><td class="type">{ value: number; label?: string; axis?: 'left' | 'right' }[]</td><td class="desc">Horizontal reference lines. On a dual-axis bar or line chart (see {@link ChartMeasure.axis}) a line naming `axis: 'right'` is placed on the right-hand scale, so it means what the right axis says rather than landing at the same number on the scale it does not belong to. <small>(optional)</small></td></tr>
+          <tr><td class="name">annotations</td><td class="type">ChartAnnotation[]</td><td class="desc">The declarative annotation layer: reference and target lines, shaded bands and callouts, each naming the axis it reads and each described into the accessible table as a sentence. A value may be a constant or `compute`d from the data it annotates, so it follows the chart as the grid is filtered. <small>(optional)</small></td></tr>
           <tr><td class="name">buckets</td><td class="type">number</td><td class="desc">Bins for a histogram; the default is twelve. <small>(optional)</small></td></tr>
           <tr><td class="name">diverging</td><td class="type">boolean</td><td class="desc">A diverging colour ramp, for heatmap and geomap. <small>(optional)</small></td></tr>
           <tr><td class="name">shapes</td><td class="type">unknown</td><td class="desc">Country outlines, for a geomap drawing countries rather than continents. <small>(optional)</small></td></tr>
@@ -5293,6 +5405,24 @@ grid.destroy();
           <tr><td class="name">fileName</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">processCell</td><td class="type">(p: CellParams) =&gt; string</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">download</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-CurrencyConfig">CurrencyConfig</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">code</td><td class="type">string</td><td class="desc">The default currency code for bare numeric input, e.g. `'USD'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">display</td><td class="type">string</td><td class="desc">The currency to render and aggregate in. Omit to keep each cell's own. <small>(optional)</small></td></tr>
+          <tr><td class="name">rates</td><td class="type">RateSource</td><td class="desc">The caller's rate source: a `(from,to)=&gt;rate|null` fn or a rate table. <small>(optional)</small></td></tr>
+          <tr><td class="name">rateBase</td><td class="type">string</td><td class="desc">The code a rate *table* is denominated in, when not the one mapping to 1. <small>(optional)</small></td></tr>
+          <tr><td class="name">decimals</td><td class="type">number</td><td class="desc">Fixed fraction digits; omit for the code's own convention. <small>(optional)</small></td></tr>
+          <tr><td class="name">locale</td><td class="type">string</td><td class="desc">The locale for number formatting. <small>(optional)</small></td></tr>
+          <tr><td class="name">nullDisplay</td><td class="type">string</td><td class="desc">Text for a null cell. <small>(optional)</small></td></tr>
+          <tr><td class="name">missingRate</td><td class="type">string</td><td class="desc">The loud marker rendered when a needed rate is missing. <small>(optional)</small></td></tr>
+          <tr><td class="name">excel</td><td class="type">string</td><td class="desc">An Excel number-format override. <small>(optional)</small></td></tr>
+          <tr><td class="name">codes</td><td class="type">string[]</td><td class="desc">The code list a currency editor's picker offers. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -5910,6 +6040,7 @@ grid.destroy();
           <tr><td class="name">capture</td><td class="type">(opts?: CaptureOptions): Promise&lt;Blob&gt;</td><td class="desc">An image of the grid as drawn, where the module is installed. <small>(optional)</small></td></tr>
           <tr><td class="name">annotate</td><td class="type">AnnotationApi</td><td class="desc">Drawing over the grid, where the module is installed. <small>(optional)</small></td></tr>
           <tr><td class="name">presentation</td><td class="type">PresentationApi</td><td class="desc">Full screen, scaling and chrome suppression. <small>(read-only)</small></td></tr>
+          <tr><td class="name">pivotView</td><td class="type">PivotViewApi</td><td class="desc">Expand and collapse the pivot presentation's axes; the state a view carries. <small>(read-only)</small></td></tr>
           <tr><td class="name">updates</td><td class="type">UpdatesApi</td><td class="desc">The live feed: pausing it, flushing it, and what it has done. <small>(read-only)</small></td></tr>
           <tr><td class="name">timeline</td><td class="type">TimelineApi</td><td class="desc">Replaying the changes the grid has seen. <small>(read-only)</small></td></tr>
           <tr><td class="name">crossFilter</td><td class="type">CrossFilter</td><td class="desc">Cross-filtering, a derived grid filtering the grid it derives from. <small>(read-only)</small></td></tr>
@@ -5976,6 +6107,7 @@ grid.destroy();
           <tr><td class="name">gallery</td><td class="type">boolean | {</td><td class="desc">Present rows as a gallery of tiles (§7.12). The tiled card layout with a size-driven column count: tiles as wide as `tileWidth` allows, as many across as the container holds, laid out by the same 2-D virtualisation the grid already runs. `true` draws a tile per row generated from the columns; an object sizes them or supplies a template. Presentation only — sort, filter, group and the data pipeline are unchanged. <small>(optional)</small></td></tr>
           <tr><td class="name">recordCard</td><td class="type">boolean | {</td><td class="desc">Present each row as a record card — a form of label/value pairs (§7.11). For a screen where reading one record matters more than comparing many. `true` draws a card per row generated from the columns, each column a labelled line in display order, showing the same text the table shows. An object supplies a template or sizes the card. A card list underneath, so it inherits the virtualisation and every interaction a card carries. Presentation only — sort, filter, group and the data pipeline are unchanged. <small>(optional)</small></td></tr>
           <tr><td class="name">board</td><td class="type">boolean | {</td><td class="desc">Present rows as a board — a kanban of grouped lanes of cards (§7.14). The top-level group becomes a lane and every leaf under it becomes a card stacked in that lane: a pipeline by stage, a task list by status, a backlog by owner. `true` draws a card per row generated from the columns; an object sizes the lanes and cards or supplies a template. Group the grid to give the board its lanes; an ungrouped board is a single lane of every card. A card is drawn through the same code the other card presentations use, so a board card is still a row: it clicks, selects and drags through the grid's own handlers, masks protected columns, and shows the same text the table shows. Both axes are virtualised — the lanes across and the cards down each — so a board of many long lanes renders only what is on screen. Presentation only: sort, filter, group and the data pipeline are unchanged. <small>(optional)</small></td></tr>
+          <tr><td class="name">pivotView</td><td class="type">boolean | {</td><td class="desc">Present the grid as a pivot — a cross-tab drawn as a matrix (§10, BACKLOG-0000738). The row dimensions (the grid's `group`) go down the left gutter, the column dimensions (the grid's `pivot`) go across the top, and each totalled column fills a cell with its reduction. `true` draws the matrix with the default geometry; an object sizes the cells and gutter or names the breakpoint below which it degrades to cards. **The numbers are the grid's own.** Every cell — body, subtotal, grand total — is the same aggregate kernel the totals row uses, run over the rows that feed the cell, so a pivot subtotal equals the grid's group total for that set by construction rather than being re-derived. Both axes expand and collapse, both are virtualised, and a cell click emits `pivot:drill` with the keys of the contributing rows. **Narrow-screen fallback.** A matrix cannot be read on a phone, so at or below `maxWidth` (the container width, not the viewport) the pivot degrades to a card list — the record card by default — exactly as the table does under `responsive`. Presentation only: sort, filter, group, pivot and the data pipeline are unchanged. <small>(optional)</small></td></tr>
           <tr><td class="name">responsive</td><td class="type">{</td><td class="desc">Present rows as cards when the grid's container is too narrow to be a table honestly, a phone, or a narrow panel on a wide screen. Measured on the container, not the viewport, so a grid in a sidebar collapses and a grid filling a small tablet does not. Sorting, filtering and export continue to work; the tool panel is where they live when there are no column headings to click. Emits `presentation:changed`. <small>(optional)</small></td></tr>
           <tr><td class="name">rowForm</td><td class="type">boolean | {</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">showColumnFunctions</td><td class="type">boolean</td><td class="desc">Draw the sort, filter and menu controls in the column headings. `true` by default. `false` leaves each heading as its label alone, which is what a dense grid wants: three affordances take roughly fifty pixels, and on an eighty-pixel column that leaves the heading nothing and the label disappears entirely. Only the furniture goes. Sorting, filtering and the column menu are still reachable through the API, the keyboard and the tool panel. <small>(optional)</small></td></tr>
@@ -6072,6 +6204,7 @@ grid.destroy();
           <tr><td class="name">sort</td><td class="type">SortEntry[]</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">group</td><td class="type">string[]</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">pivot</td><td class="type">{ enabled: boolean; columns: string[] }</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">pivotView</td><td class="type">{ rowsCollapsed: string[]; columnsCollapsed: string[] }</td><td class="desc">The pivot presentation's collapse state (§10, BACKLOG-0000738): which row-axis and column-axis nodes are collapsed. Absent when the matrix is fully expanded, and tolerated as "expand all" when applied. <small>(optional)</small></td></tr>
           <tr><td class="name">formatting</td><td class="type">Record&lt;string, FormattingRule[]&gt;</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">expanded</td><td class="type">string[]</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">selection</td><td class="type">string[]</td><td class="desc"><small>(optional)</small></td></tr>
@@ -6263,6 +6396,17 @@ grid.destroy();
         <tbody>
           <tr><td class="name">registry</td><td class="type">Registry</td><td class="desc"></td></tr>
           <tr><td class="name">grid</td><td class="type">Grid</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-Money">Money</h3>
+    <p class="section-note">A stored currency value: an amount in a named currency. `{amount:10,code:'USD'}` is a different value from `{amount:10,code:'EUR'}` — currency is a real type, not a display format, so the code rides on every cell.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">amount</td><td class="type">number</td><td class="desc"></td></tr>
+          <tr><td class="name">code</td><td class="type">string</td><td class="desc"></td></tr>
         </tbody>
       </table>
     </div>
@@ -6460,6 +6604,19 @@ grid.destroy();
           <tr><td class="name">levels</td><td class="type">(): Record&lt;string, PermissionLevel&gt;</td><td class="desc"></td></tr>
           <tr><td class="name">setContext</td><td class="type">(context: unknown): void</td><td class="desc">Change the context permissions are evaluated against, and re-evaluate.</td></tr>
           <tr><td class="name">invalidate</td><td class="type">(): void</td><td class="desc"></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-PivotViewApi">PivotViewApi</h3>
+    <p class="section-note">Controls for the pivot presentation (§10, BACKLOG-0000738): expand or collapse an axis node, and read the collapse state a saved view carries. Every method is a no-op on a headless grid, which has no matrix to collapse.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">expand</td><td class="type">(axis: 'row' | 'column', path: string): void</td><td class="desc">Expand a collapsed node on the row or column axis.</td></tr>
+          <tr><td class="name">collapse</td><td class="type">(axis: 'row' | 'column', path: string): void</td><td class="desc">Collapse a node on the row or column axis, hiding its descendants.</td></tr>
+          <tr><td class="name">toggle</td><td class="type">(axis: 'row' | 'column', path: string): void</td><td class="desc">Toggle a node's collapse on the row or column axis.</td></tr>
+          <tr><td class="name">state</td><td class="type">(): { rowsCollapsed: string[]; columnsCollapsed: string[] }</td><td class="desc">The collapsed row-axis and column-axis paths, as a saved view carries them.</td></tr>
         </tbody>
       </table>
     </div>
@@ -7152,6 +7309,7 @@ grid.destroy();
           <tr><td class="name">maintenance</td><td class="type">Readonly&lt;Record&lt;string, 'maintained' | 'rescan'&gt;&gt;</td><td class="desc">Which reductions can be maintained against a change, and which rescan. <small>(read-only)</small></td></tr>
           <tr><td class="name">approximate</td><td class="type">Readonly&lt;Record&lt;string, ApproximateEntry&gt;&gt;</td><td class="desc">The approximate tier: kernels a sketch maintains in constant time per tick, keyed by kernel name, each carrying the sketch that backs it and the error bound that sketch is verified to meet. <small>(read-only)</small></td></tr>
           <tr><td class="name">maintenanceTier</td><td class="type">(fn: string): MaintenanceTier</td><td class="desc">The honest tier for one kernel across both the exact and approximate maps: its exact tier and, when one exists, the approximate alternative and bound.</td></tr>
+          <tr><td class="name">windowed</td><td class="type">(colId: string, fn: WindowedFn, opts: {</td><td class="desc">A windowed aggregate — "the average lately" (BACKLOG-0000654) — over one column, stamped with the window it covers (`over`), so a windowed figure is never read without its window. Exact over the values inside the window. `kind: 'count'` takes the last `span` values in arrival order. `kind: 'time'` takes the values within the last `span` ms (or `minutes`) and `kind: 'session'` takes every value; both need a timestamp column, so `by` is required for them and never guessed. Returns null when the column, or the `by` column, is unknown.</td></tr>
         </tbody>
       </table>
     </div>
@@ -7356,6 +7514,17 @@ grid.destroy();
         <tbody>
           <tr><td class="name">read</td><td class="type">(): SavedView[]</td><td class="desc">Load the user's views. Called at construction and by `views.reload()`.</td></tr>
           <tr><td class="name">write</td><td class="type">(views: SavedView[], change: ViewChange): void</td><td class="desc">Mirror the views somewhere synchronous: `localStorage`, an in-memory cache. For a server, listen for `view:saved` / `view:removed` and do the write yourself: the grid does not make network calls and does not want to know whether yours succeeded.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-WindowedResult">WindowedResult</h3>
+    <p class="section-note">One windowed figure and the window it covers.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">value</td><td class="type">number | null</td><td class="desc">The reduction, or null when the window held no usable values.</td></tr>
+          <tr><td class="name">over</td><td class="type">WindowSpec</td><td class="desc">The window the figure was computed over — always stated.</td></tr>
         </tbody>
       </table>
     </div>

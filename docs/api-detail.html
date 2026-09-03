@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.23.0</p>
+    <p class="rail__sub">Developer guide · v1.24.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -1305,6 +1305,7 @@ LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid
           <tr><td class="name">Units: engineering</td><td class="desc"><code>speed</code>, <code>kph</code>, <code>mph</code>, <code>knots</code>, <code>acceleration</code>, <code>area</code>, <code>hectares</code>, <code>volume</code>, <code>cubicMetres</code>, <code>energy</code>, <code>kilowattHours</code>, <code>power</code>, <code>kilowatts</code>, <code>force</code>, <code>pressure</code>, <code>bar</code>, <code>psi</code>, <code>torque</code>, <code>density</code>, <code>flow</code>, <code>litresPerMinute</code>, <code>radians</code>, <code>degrees</code></td></tr>
           <tr><td class="name">Units: electrical and scientific</td><td class="desc"><code>voltage</code>, <code>current</code>, <code>resistance</code>, <code>capacitance</code>, <code>inductance</code>, <code>charge</code>, <code>conductance</code>, <code>fluxDensity</code>, <code>luminousFlux</code>, <code>illuminance</code>, <code>substance</code>, <code>absorbedDose</code>, <code>equivalentDose</code>, <code>radioactivity</code>, <code>luminousIntensity</code>, <code>doseRate</code>, <code>rpm</code>, <code>angularVelocity</code>, <code>ppm</code>, <code>ppb</code>, <code>basisPoints</code>, <code>molarity</code>, <code>massFlow</code>, <code>tonnesPerHour</code>, <code>viscosity</code>, <code>kinematicViscosity</code>, <code>thermalConductivity</code>, <code>specificHeat</code>, <code>frequency</code></td></tr>
           <tr><td class="name">Temperature</td><td class="desc"><code>celsius</code>, <code>fahrenheit</code>, <code>kelvin</code></td></tr>
+          <tr><td class="name">Currency</td><td class="desc"><code>currency</code>, <code>usd</code>, <code>eur</code>, <code>gbp</code>, <code>jpy</code></td></tr>
           <tr><td class="name">Structured</td><td class="desc"><code>json</code>, <code>colour</code>, <code>rating</code>, <code>percent</code></td></tr>
         </tbody>
       </table>
@@ -1392,6 +1393,15 @@ dataTypes: {
       <code>kelvin</code> convert on input: type <code>72 F</code> into a Celsius column and it
       stores 22.2, and <strong>refuse to be summed</strong>: twenty degrees plus twenty degrees is
       not forty degrees, and a footer saying so would be believed.</p>
+      <p><strong>Currency is its own type, not a unit either.</strong> A currency's
+      &ldquo;factor&rdquo; is an exchange rate that moves, so a value carries an amount
+      <em>and</em> a code and never a fixed factor. The grid ships and fetches no rates: pass a
+      rate source through <code>createCurrencyType({ display, rates })</code>, and a rate that is
+      needed but absent renders as a loud marker (<code>missingRate</code>), never as zero. A
+      column totalling in a display currency refuses to add unlike currencies until every value
+      can reach that currency. The shipped <code>currency</code>, <code>usd</code>,
+      <code>eur</code>, <code>gbp</code> and <code>jpy</code> types cover the single-currency case;
+      a rate table is denominated in a base you can state with <code>rateBase</code>.</p>
     </div>
 
     <h3>Types read from the data</h3>
@@ -3191,6 +3201,22 @@ columns: [
       protected columns exactly as every other card does. Like the others it is presentation only.
     </p>
 
+    <p class="lead-in">
+      <code>pivotView</code> is the fourth shape: the grid drawn as a pivot &mdash; a cross-tab
+      matrix. The grid's <code>group</code> dimensions run down the left gutter, its <code>pivot</code>
+      dimensions run across the top, and each totalled column fills a cell with its reduction, with a
+      subtotal down every row, across every column, and the grand total in the corner. Those numbers are
+      the grid's own: every cell is the same aggregate kernel the totals row uses, run over the rows that
+      feed the cell, so a pivot subtotal equals the grid's group total for that set by construction rather
+      than being re-derived &mdash; an average subtotal is the average of the rows, never an average of
+      cell averages. Both axes expand and collapse and both are virtualised through the shared row-template
+      layer, so a wide, deep matrix draws only the cells on screen. Clicking a body cell emits
+      <code>pivot:drill</code> with the keys of the contributing rows, the pivot's answer to &ldquo;what is
+      behind this number&rdquo;. The collapse state rides in a saved view, and because a matrix cannot be
+      read on a phone, at or below <code>maxWidth</code> the pivot degrades to a card list, exactly as the
+      table does under <code>responsive</code>. Like the others it is presentation only.
+    </p>
+
     <div class="example">
       <p class="example__label">The shorthands, and the config a grid reports back</p>
       <pre data-run="js" data-expect="recordCard true, gallery 240px, board 300px" data-covers="config:recordCard config:gallery config:board"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
@@ -3212,6 +3238,33 @@ columns: [
 
 <span class="kw">const</span> c = grid.config();
 <span class="kw">return</span> `recordCard ${c.recordCard === <span class="kw">true</span>}, gallery ${c.gallery.tileWidth}px, board ${c.board.laneWidth}px`;</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">A pivot: group down, pivot across, and the drill event a cell click fires</p>
+      <pre data-run="js" data-expect="pivotView true, collapsed 0, drills 0" data-covers="config:pivotView method:pivotView event:pivot:drill"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  columns: [{ field: 'region' }, { field: 'product' }, { field: 'amount', type: 'number', total: 'sum' }],
+  rows: [
+    { id: '1', region: 'EMEA', product: 'Widget', amount: 10 },
+    { id: '2', region: 'APAC', product: 'Gadget', amount: 5 },
+  ],
+  rowKey: 'id',
+  <span class="cmt">// Draw the grid as a pivot: the group down, the pivot across, a measure per cell.</span>
+  pivotView: <span class="kw">true</span>,
+});
+grid.columns.group(['region']);
+grid.columns.pivot(['product']);
+
+<span class="cmt">// A body-cell click drills to its rows through this event.</span>
+<span class="kw">let</span> drills = 0;
+grid.on('pivot:drill', () => { drills += 1; });
+
+<span class="cmt">// The collapse state a saved view carries.</span>
+<span class="kw">const</span> state = grid.pivotView.state();
+
+<span class="kw">return</span> `pivotView ${grid.config().pivotView === <span class="kw">true</span>}, collapsed ${state.rowsCollapsed.length}, drills ${drills}`;</code></pre>
     </div>
 
     <div class="example">
