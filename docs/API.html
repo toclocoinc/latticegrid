@@ -2764,10 +2764,15 @@ app.get('/api/orders', async (req, res) =&gt; {
       A worked example, executed on every build so it cannot go stale
       (<code>data-run</code>, PRD&nbsp;§7&nbsp;C3):
     </p>
-    <pre data-run="js" data-expect="3" data-covers="export:capabilitiesOf export:splitFilters"><code><span class="kw">const</span> { capabilitiesOf, splitFilters } = <span class="kw">await</span> import('../packages/core/src/source/pushdown.js');
+    <pre data-run="js" data-expect="3" data-covers="export:capabilitiesOf export:splitFilters export:resolveMutate"><code><span class="kw">const</span> { capabilitiesOf, splitFilters, resolveMutate } = <span class="kw">await</span> import('../packages/core/src/source/pushdown.js');
 
 <span class="cmt">// An adapter that understands three comparisons and nothing else.</span>
 <span class="kw">const</span> caps = capabilitiesOf({ filter: 'tree', operators: ['eq', 'gt', 'lt'] });
+
+<span class="cmt">// Read-only by declaration: an adapter that says nothing about writing</span>
+<span class="cmt">// cannot mutate, and one that opts in resolves to a complete capability.</span>
+<span class="kw">if</span> (resolveMutate() !== false) <span class="kw">throw</span> new Error('a silent adapter must stay read-only');
+<span class="kw">if</span> (!resolveMutate({ update: true }).update) <span class="kw">throw</span> new Error('an opt-in must resolve');
 
 <span class="cmt">// A conjunction splits: what the engine knows goes to it, the rest stays here.</span>
 <span class="kw">const</span> { pushed } = splitFilters({
@@ -2792,6 +2797,7 @@ app.get('/api/orders', async (req, res) =&gt; {
         <thead><tr><th>Export</th><th>Signature</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">capabilitiesOf</td><td class="type">(declared?) =&gt; Required&lt;PushdownCapabilities&gt;</td><td class="desc">Resolves what an adapter declared against the defaults, giving a complete set with no absent keys to test for.</td></tr>
+          <tr><td class="name">resolveMutate</td><td class="type">(declared?) =&gt; false | MutateCapability</td><td class="desc">Resolves an adapter's <code>mutate</code> declaration against the defaults. Returns <code>false</code> when the adapter cannot mutate, so a source over it stays read-only by declaration and refuses a write loudly rather than dropping it.</td></tr>
           <tr><td class="name">splitFilters</td><td class="type">(filters, caps) =&gt; { pushed, residual }</td><td class="desc">Divides a condition tree into the half the engine takes and the half left over. A conjunction splits; a disjunction that is not fully supported stays whole on the client, because pushing part of an <code>or</code> returns fewer rows than the filter allows and the grid cannot recover what was never fetched.</td></tr>
           <tr><td class="name">planQuery</td><td class="type">(request, caps) =&gt; PushdownPlan</td><td class="desc">Plans one request: the query to send, the work to finish afterwards, whether the whole result is needed, and which parts stayed behind.</td></tr>
           <tr><td class="name">applyResidual</td><td class="type">(rows, residual, compute) =&gt; unknown[]</td><td class="desc">Applies whatever the engine could not, through the grid's own filter and sort kernels rather than a second implementation, so a residual predicate means exactly what the same predicate means anywhere else.</td></tr>
@@ -3183,6 +3189,7 @@ off();                                       <span class="cmt">// on() returns i
           <tr><td class="name">cell:pending</td><td class="type">{ row, key, colId, value, before, id }</td><td class="desc">Applied optimistically, not yet durable. Only with <code>edit.commit</code>.</td></tr>
           <tr><td class="name">cell:confirmed</td><td class="type">{ row, key, colId, value, id, superseded }</td><td class="desc">The write reached the server.</td></tr>
           <tr><td class="name">cell:reverted</td><td class="type">{ row, key, colId, rejected, restored, reason, id, superseded, applied }</td><td class="desc">The write failed. <code>applied: false</code> means a newer edit owned the cell, so nothing was written back.</td></tr>
+          <tr><td class="name">cell:conflict</td><td class="type">{ row, key, colId, value, serverRow, id }</td><td class="desc">The write succeeded but the server row had moved underneath it. Last-write-wins: <code>value</code> stands and <code>serverRow</code> carries the server's truth so the divergence is surfaced, never swallowed.</td></tr>
           <tr><td class="name">cell:edit:start</td><td class="type">{ row, key, colId, column }</td><td class="desc">An edit session opened.</td></tr>
           <tr><td class="name">cell:edit:end</td><td class="type">{ row, key, colId, valid, errors }</td><td class="desc">It closed: committed or cancelled.</td></tr>
           <tr><td class="name">cell:clicked</td><td class="type">{ row, key, index, colId, column, value, text, event }</td><td class="desc">A cell was clicked. Announcement only: nothing is consumed, so editing and selection behave unchanged.</td></tr>
@@ -4322,16 +4329,16 @@ grid.destroy();
     <p class="section-note">Each documented event is subscribed to and unsubscribed on every build. A consumer
     wiring a handler to a renamed event gets silence, which is indistinguishable from an event that
     has not fired yet — so the name is checked rather than left to be discovered.</p>
-    <pre data-run="js" data-expect="101" data-covers="event:cell:changed event:cell:clicked event:cell:confirmed event:cell:contextmenu event:cell:dblclicked event:cell:edit:end event:cell:edit:start event:cell:pending event:cell:reverted event:clipboard:copy event:column:filter:open event:column:grouped event:column:menu:open event:column:pivoted event:column:resized event:columns:changed event:columns:tagged event:comment:added event:comment:deleted event:comment:edited event:comment:failed event:comment:indexLoaded event:comment:resolved event:comment:threadClosed event:comment:threadOpened event:comment:unresolved event:destroy event:detail:toggled event:diff:changed event:diff:swapped event:export:progress event:facet:computed event:facet:expanded event:facet:failed event:facet:filtered event:form:closed event:form:error event:form:opened event:form:saved event:formatting:changed event:group:toggled event:header:contextmenu event:highlight:changed event:history:applied event:history:changed event:licence:changed event:page:changed event:permissions:changed event:presence:failed event:presence:joined event:presence:left event:presence:lockRefused event:presence:published event:presence:updated event:presentation:captured event:presentation:changed event:presentation:ended event:presentation:scale event:presentation:spotlight event:presentation:started event:presentation:view event:range:changed event:ready event:redaction:changed event:render:done event:render:first event:row:clicked event:row:copied event:row:dblclicked event:row:edit:end event:row:edit:start event:row:moved event:row:received event:row:sent event:rows:deferred event:rows:paused event:rows:queued event:rows:resumed event:scroll event:scroll:end event:selection:changed event:size:changed event:source:error event:stream:chunk event:stream:end event:stream:evicted event:timeline:attached event:timeline:detached event:timeline:seek event:timeline:seeking event:toolpanel:focus event:tree:loadAborted event:tree:loadFailed event:tree:loaded event:tree:loading event:view:applied event:view:default event:view:removed event:view:renamed event:view:saved event:views:changed"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="102" data-covers="event:cell:changed event:cell:clicked event:cell:confirmed event:cell:conflict event:cell:contextmenu event:cell:dblclicked event:cell:edit:end event:cell:edit:start event:cell:pending event:cell:reverted event:clipboard:copy event:column:filter:open event:column:grouped event:column:menu:open event:column:pivoted event:column:resized event:columns:changed event:columns:tagged event:comment:added event:comment:deleted event:comment:edited event:comment:failed event:comment:indexLoaded event:comment:resolved event:comment:threadClosed event:comment:threadOpened event:comment:unresolved event:destroy event:detail:toggled event:diff:changed event:diff:swapped event:export:progress event:facet:computed event:facet:expanded event:facet:failed event:facet:filtered event:form:closed event:form:error event:form:opened event:form:saved event:formatting:changed event:group:toggled event:header:contextmenu event:highlight:changed event:history:applied event:history:changed event:licence:changed event:page:changed event:permissions:changed event:presence:failed event:presence:joined event:presence:left event:presence:lockRefused event:presence:published event:presence:updated event:presentation:captured event:presentation:changed event:presentation:ended event:presentation:scale event:presentation:spotlight event:presentation:started event:presentation:view event:range:changed event:ready event:redaction:changed event:render:done event:render:first event:row:clicked event:row:copied event:row:dblclicked event:row:edit:end event:row:edit:start event:row:moved event:row:received event:row:sent event:rows:deferred event:rows:paused event:rows:queued event:rows:resumed event:scroll event:scroll:end event:selection:changed event:size:changed event:source:error event:stream:chunk event:stream:end event:stream:evicted event:timeline:attached event:timeline:detached event:timeline:seek event:timeline:seeking event:toolpanel:focus event:tree:loadAborted event:tree:loadFailed event:tree:loaded event:tree:loading event:view:applied event:view:default event:view:removed event:view:renamed event:view:saved event:views:changed"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 
 <span class="cmt">// Every documented event name, checked against the bus that would carry it.</span>
 <span class="cmt">// Subscribing to a name the grid does not know is the failure this catches:</span>
 <span class="cmt">// a consumer wiring a handler to a renamed event gets silence, and silence</span>
 <span class="cmt">// is indistinguishable from an event that simply has not fired yet.</span>
 <span class="kw">const</span> documented = [
-  'cell:changed', 'cell:clicked', 'cell:confirmed', 'cell:contextmenu',
-  'cell:dblclicked', 'cell:edit:end', 'cell:edit:start', 'cell:pending',
-  'cell:reverted', 'clipboard:copy', 'column:filter:open', 'column:grouped',
+  'cell:changed', 'cell:clicked', 'cell:confirmed', 'cell:conflict',
+  'cell:contextmenu', 'cell:dblclicked', 'cell:edit:end', 'cell:edit:start',
+  'cell:pending', 'cell:reverted', 'clipboard:copy', 'column:filter:open', 'column:grouped',
   'column:menu:open', 'column:pivoted', 'column:resized', 'columns:changed',
   'columns:tagged', 'comment:added', 'comment:deleted', 'comment:edited',
   'comment:failed', 'comment:indexLoaded', 'comment:resolved', 'comment:threadClosed',
@@ -5545,7 +5552,7 @@ grid.destroy();
           <tr><td class="name">pasteInto</td><td class="type">(anchor: { key: string; colId: string }, text: string, extent?: { rows?: number; columns?: number }): number</td><td class="desc"></td></tr>
           <tr><td class="name">pastePreview</td><td class="type">boolean</td><td class="desc">Whether a bulk paste is previewed before it commits (`edit.pastePreview`, §12). <small>(read-only)</small></td></tr>
           <tr><td class="name">previewPaste</td><td class="type">(anchor: { key: string; colId: string }, text: string, extent?: { rows?: number; columns?: number }): {</td><td class="desc">Compute what a paste would change, without committing (§12). The engine behind `edit.pastePreview`: `changes` are the accepted writes with their old and new values (and whether each actually differs), `rejected` are the cells a commit would refuse, each with a reason.</td></tr>
-          <tr><td class="name">settle</td><td class="type">(id: string, ok: boolean, reason?: string): boolean</td><td class="desc"></td></tr>
+          <tr><td class="name">settle</td><td class="type">(</td><td class="desc">Report the outcome of an in-flight write (§18.3; §5.1-5.2 reconcile). `reconcile` carries server truth on a successful settle: `value` is a server-authoritative value written back before `cell:confirmed` (`returning: 'row'`); `conflict.serverRow` surfaces a last-write-wins conflict via `cell:conflict`. Omit both to keep the optimistic value.</td></tr>
           <tr><td class="name">pending</td><td class="type">(): OpenWrite[]</td><td class="desc"></td></tr>
           <tr><td class="name">status</td><td class="type">(key: string, colId: string): 'pending' | null</td><td class="desc"></td></tr>
         </tbody>
@@ -6259,6 +6266,49 @@ grid.destroy();
         </tbody>
       </table>
     </div>
+    <h3 id="type-MutateCapability">MutateCapability</h3>
+    <p class="section-note">What an adapter can persist back to its source — the write-back capability (§4.1), declared on `AdapterCapabilities.mutate`. `false` (the default) is read-only by declaration; a resolved block turns every kind off unless the adapter opts in.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">append</td><td class="type">boolean</td><td class="desc">The adapter can insert new rows. Wave 1: declared, not yet bridged. <small>(optional)</small></td></tr>
+          <tr><td class="name">update</td><td class="type">boolean</td><td class="desc">The adapter can patch existing rows. Wave 1: the wired kind (§4.3 Option A). <small>(optional)</small></td></tr>
+          <tr><td class="name">delete</td><td class="type">boolean</td><td class="desc">The adapter can remove rows. Wave 1: declared, not yet bridged. <small>(optional)</small></td></tr>
+          <tr><td class="name">returning</td><td class="type">'row' | 'key' | 'none'</td><td class="desc">The reconcile contract — what the server hands back after a successful mutation (§5.1). `'row'`: the authoritative row (id, computed columns, timestamps), reconciled before confirm. `'key'`: only the assigned key. `'none'` (the default): nothing — the optimistic value stands (last-write-wins). <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-MutationOp">MutationOp</h3>
+    <p class="section-note">One mutation handed to `adapter.mutate(op, request)` (§4.2). Cell-scoped `update` is the only kind wave 1 synthesises; `append`/`delete` are part of the shape so it survives into a later structural build (card 770).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">kind</td><td class="type">'append' | 'update' | 'delete'</td><td class="desc"></td></tr>
+          <tr><td class="name">rows</td><td class="type">unknown[]</td><td class="desc">append: the new rows (may lack a server-assigned key). <small>(optional)</small></td></tr>
+          <tr><td class="name">key</td><td class="type">string</td><td class="desc">update: the row key. <small>(optional)</small></td></tr>
+          <tr><td class="name">patch</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">update: the changed columns only, matching `PendingWrite` semantics. <small>(optional)</small></td></tr>
+          <tr><td class="name">keys</td><td class="type">string[]</td><td class="desc">delete: the row key(s). <small>(optional)</small></td></tr>
+          <tr><td class="name">origin</td><td class="type">string</td><td class="desc">Provenance, carried through for auth / audit. <small>(optional)</small></td></tr>
+          <tr><td class="name">requestId</td><td class="type">string</td><td class="desc">Stable id for idempotent retry / dedupe. Reserved; retry is a non-goal in wave 1. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-MutationResult">MutationResult</h3>
+    <p class="section-note">The result of a mutation (§4.2) — the reconcile payload. A cell-update commit flows this back through `PendingWrites`: `ok: false` reverts and surfaces `reason`; `rows` (`returning: 'row'`) reconciles server truth before confirm; `conflict` surfaces a last-write-wins divergence via `cell:conflict`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">ok</td><td class="type">boolean</td><td class="desc"></td></tr>
+          <tr><td class="name">rows</td><td class="type">unknown[]</td><td class="desc">`returning: 'row'` — the authoritative row(s) to reconcile to. <small>(optional)</small></td></tr>
+          <tr><td class="name">keys</td><td class="type">string[]</td><td class="desc">`returning: 'key'` — server-assigned key(s) for appended rows, in order. <small>(optional)</small></td></tr>
+          <tr><td class="name">reason</td><td class="type">string</td><td class="desc">On rejection — surfaced on `cell:reverted`, never swallowed. <small>(optional)</small></td></tr>
+          <tr><td class="name">conflict</td><td class="type">{ key: string; serverRow?: unknown }</td><td class="desc">The server's current value, for a surfaced last-write-wins conflict. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-NumberFormat">NumberFormat</h3>
     <div class="table-wrap">
       <table>
@@ -6536,6 +6586,7 @@ grid.destroy();
           <tr><td class="name">name</td><td class="type">string</td><td class="desc">Used in diagnostics and in the message when work cannot be pushed. <small>(optional)</small></td></tr>
           <tr><td class="name">capabilities</td><td class="type">PushdownCapabilities</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">execute</td><td class="type">(query: RemoteRequest, request?: RemoteRequest):</td><td class="desc">Run the part of the query the adapter declared it could handle.</td></tr>
+          <tr><td class="name">mutate</td><td class="type">(op: MutationOp, request?: RemoteRequest): Promise&lt;MutationResult&gt;</td><td class="desc">Persist one mutation (§4.2). Present only when `capabilities.mutate` opts in. `createPushdownSource` synthesises an `edit.commit` that calls this for cell updates (§4.3 Option A); `request` threads the abort signal through the way `execute` receives it, and auth already lives on the adapter. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -6563,6 +6614,7 @@ grid.destroy();
           <tr><td class="name">range</td><td class="type">boolean</td><td class="desc">Whether the engine can return a window rather than the whole result. <small>(optional)</small></td></tr>
           <tr><td class="name">total</td><td class="type">boolean</td><td class="desc">Whether it can report the count of matching rows. <small>(optional)</small></td></tr>
           <tr><td class="name">group</td><td class="type">boolean</td><td class="desc">Whether it can group and aggregate. <small>(optional)</small></td></tr>
+          <tr><td class="name">mutate</td><td class="type">false | MutateCapability</td><td class="desc">What the adapter can persist back — the write-back contract (§4.1). `false` (the default) is read-only by declaration. A declared block opts kinds in; `capabilitiesOf` resolves it to a full `MutateCapability` (or `false`). <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.22.0, type declarations
+ * Lattice Grid 1.23.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1141,6 +1141,68 @@ export interface OpenWrite {
   age: number;
 }
 
+/**
+ * What an adapter can persist back to its source — the write-back capability
+ * (§4.1), declared on `AdapterCapabilities.mutate`. `false` (the default) is
+ * read-only by declaration; a resolved block turns every kind off unless the
+ * adapter opts in.
+ */
+export interface MutateCapability {
+  /** The adapter can insert new rows. Wave 1: declared, not yet bridged. */
+  append?: boolean;
+  /** The adapter can patch existing rows. Wave 1: the wired kind (§4.3 Option A). */
+  update?: boolean;
+  /** The adapter can remove rows. Wave 1: declared, not yet bridged. */
+  delete?: boolean;
+  /**
+   * The reconcile contract — what the server hands back after a successful
+   * mutation (§5.1). `'row'`: the authoritative row (id, computed columns,
+   * timestamps), reconciled before confirm. `'key'`: only the assigned key.
+   * `'none'` (the default): nothing — the optimistic value stands
+   * (last-write-wins).
+   */
+  returning?: 'row' | 'key' | 'none';
+}
+
+/**
+ * One mutation handed to `adapter.mutate(op, request)` (§4.2). Cell-scoped
+ * `update` is the only kind wave 1 synthesises; `append`/`delete` are part of
+ * the shape so it survives into a later structural build (card 770).
+ */
+export interface MutationOp {
+  kind: 'append' | 'update' | 'delete';
+  /** append: the new rows (may lack a server-assigned key). */
+  rows?: unknown[];
+  /** update: the row key. */
+  key?: string;
+  /** update: the changed columns only, matching `PendingWrite` semantics. */
+  patch?: Record<string, unknown>;
+  /** delete: the row key(s). */
+  keys?: string[];
+  /** Provenance, carried through for auth / audit. */
+  origin?: string;
+  /** Stable id for idempotent retry / dedupe. Reserved; retry is a non-goal in wave 1. */
+  requestId?: string;
+}
+
+/**
+ * The result of a mutation (§4.2) — the reconcile payload. A cell-update commit
+ * flows this back through `PendingWrites`: `ok: false` reverts and surfaces
+ * `reason`; `rows` (`returning: 'row'`) reconciles server truth before confirm;
+ * `conflict` surfaces a last-write-wins divergence via `cell:conflict`.
+ */
+export interface MutationResult {
+  ok: boolean;
+  /** `returning: 'row'` — the authoritative row(s) to reconcile to. */
+  rows?: unknown[];
+  /** `returning: 'key'` — server-assigned key(s) for appended rows, in order. */
+  keys?: string[];
+  /** On rejection — surfaced on `cell:reverted`, never swallowed. */
+  reason?: string;
+  /** The server's current value, for a surfaced last-write-wins conflict. */
+  conflict?: { key: string; serverRow?: unknown };
+}
+
 export interface PaginationConfig {
   enabled?: boolean;
   pageSize?: number;
@@ -2067,6 +2129,12 @@ export interface PushdownCapabilities {
   total?: boolean;
   /** Whether it can group and aggregate. */
   group?: boolean;
+  /**
+   * What the adapter can persist back — the write-back contract (§4.1). `false`
+   * (the default) is read-only by declaration. A declared block opts kinds in;
+   * `capabilitiesOf` resolves it to a full `MutateCapability` (or `false`).
+   */
+  mutate?: false | MutateCapability;
 }
 
 /** An engine the grid can query, and what it is able to answer. */
@@ -2077,6 +2145,13 @@ export interface PushdownAdapter {
   /** Run the part of the query the adapter declared it could handle. */
   execute(query: RemoteRequest, request?: RemoteRequest):
     Promise<{ rows: unknown[]; total?: number }>;
+  /**
+   * Persist one mutation (§4.2). Present only when `capabilities.mutate` opts
+   * in. `createPushdownSource` synthesises an `edit.commit` that calls this for
+   * cell updates (§4.3 Option A); `request` threads the abort signal through the
+   * way `execute` receives it, and auth already lives on the adapter.
+   */
+  mutate?(op: MutationOp, request?: RemoteRequest): Promise<MutationResult>;
 }
 
 /** How one request was divided between the engine and the grid. */
@@ -2615,7 +2690,7 @@ export type EventName =
   | 'rows:paused' | 'rows:resumed' | 'row:received' | 'row:sent' | 'row:copied'
   | 'row:moved' | 'source:error' | 'stream:chunk' | 'stream:end' | 'stream:evicted'
   /* Cells and editing */
-  | 'cell:changed' | 'cell:pending' | 'cell:confirmed' | 'cell:reverted'
+  | 'cell:changed' | 'cell:pending' | 'cell:confirmed' | 'cell:reverted' | 'cell:conflict'
   | 'cell:clicked' | 'cell:dblclicked' | 'cell:contextmenu'
   | 'cell:edit:start' | 'cell:edit:end' | 'row:edit:start' | 'row:edit:end'
   | 'row:clicked' | 'row:dblclicked'
@@ -2960,7 +3035,20 @@ export interface EditApi {
     changes: { key: string; colId: string; oldValue: unknown; newValue: unknown; changed: boolean }[];
     rejected: { key: string; colId: string; value: unknown; reason: 'permission' | 'readOnly' | 'validation' | 'locked' | 'missing' }[];
   };
-  settle(id: string, ok: boolean, reason?: string): boolean;
+  /**
+   * Report the outcome of an in-flight write (§18.3; §5.1-5.2 reconcile).
+   *
+   * `reconcile` carries server truth on a successful settle: `value` is a
+   * server-authoritative value written back before `cell:confirmed`
+   * (`returning: 'row'`); `conflict.serverRow` surfaces a last-write-wins
+   * conflict via `cell:conflict`. Omit both to keep the optimistic value.
+   */
+  settle(
+    id: string,
+    ok: boolean,
+    reason?: string,
+    reconcile?: { value?: unknown; conflict?: { serverRow?: unknown } },
+  ): boolean;
   pending(): OpenWrite[];
   status(key: string, colId: string): 'pending' | null;
 }
@@ -4024,9 +4112,17 @@ export const NO_CAPABILITIES: Readonly<Required<PushdownCapabilities>>;
  * per condition per query, and membership on an array is a scan. The declared
  * form and the resolved form differ, which is why this is its own type.
  */
-export type ResolvedCapabilities = Omit<Required<PushdownCapabilities>, 'operators'> & {
+export type ResolvedCapabilities = Omit<Required<PushdownCapabilities>, 'operators' | 'mutate'> & {
   operators: ReadonlySet<string>;
+  /** Resolved by `resolveMutate`: `false`, or every kind and `returning` present. */
+  mutate: false | Required<MutateCapability>;
 };
+
+/**
+ * Resolve an adapter's declared `mutate` block against the defaults (§4.1).
+ * `false` (or anything falsy) stays `false` — read-only by declaration.
+ */
+export function resolveMutate(declared?: boolean | MutateCapability): false | Required<MutateCapability>;
 
 export function capabilitiesOf(declared?: PushdownCapabilities): ResolvedCapabilities;
 
