@@ -1151,9 +1151,69 @@ grid.overlay.hide();</code></pre>
           <tr><td class="sig">settle(id, ok, reason?)</td><td class="type">boolean</td><td class="desc">Report the outcome of an optimistic write. Only needed with <code>edit.confirm: 'manual'</code>; the id arrives on <code>cell:pending</code>.</td></tr>
           <tr><td class="sig">pending()</td><td class="type">OpenWrite[]</td><td class="desc">Writes still awaiting an outcome. Empty unless <code>edit.commit</code> is set.</td></tr>
           <tr><td class="sig">status(key, colId)</td><td class="type">'pending' | null</td><td class="desc">Whether a cell has a write in flight.</td></tr>
+          <tr><td class="sig">addRow(row)</td><td class="type">string | null</td><td class="desc">Append a row optimistically and persist it (over a source declaring <code>mutate.append</code>). Returns the client temp key; on the server key it fires <code>row:confirmed</code> after rekeying selection, expansion, focus and in-flight cell edits. <code>null</code> when append is unavailable.</td></tr>
+          <tr><td class="sig">deleteRow(key)</td><td class="type">string | null</td><td class="desc">Delete a row optimistically and persist it (over a source declaring <code>mutate.delete</code>). Tombstones then confirms, or restores on refusal. <code>null</code> when delete is unavailable.</td></tr>
+          <tr><td class="sig">settleRow(id, ok, reason?, reconcile?)</td><td class="type">boolean</td><td class="desc">Report the outcome of a structural op. Only needed with <code>edit.confirm: 'manual'</code>; the id arrives on <code>row:pending</code>.</td></tr>
+          <tr><td class="sig">rowStatus(key)</td><td class="type">'pending' | null</td><td class="desc">Whether a row has an append/delete in flight.</td></tr>
+          <tr><td class="sig">pendingRows()</td><td class="type">OpenRowOp[]</td><td class="desc">Structural ops still awaiting an outcome. Empty unless the source can append or delete.</td></tr>
         </tbody>
       </table>
     </div>
+
+    <p class="section-note">
+      <strong>Appending and deleting rows.</strong> Over a remote source whose adapter declares
+      <code>mutate.append</code>/<code>mutate.delete</code>, <code>grid.edit.addRow</code> and
+      <code>grid.edit.deleteRow</code> are the structural counterparts of the cell edit path. An
+      appended row shows at once under a client temp key; when the server hands back the real key the
+      row is rekeyed everywhere the grid tracks it &mdash; the source row, selection, expansion,
+      focus and any in-flight cell edits all follow &mdash; and <code>row:confirmed</code> fires. A
+      delete tombstones the row immediately and either purges it on confirmation or restores it on
+      refusal. The example drives both against a mock adapter, and shows the rekey moving a selection:
+    </p>
+    <pre data-run="js" data-expect="srv-1 selected; deleted" data-covers="event:row:pending event:row:confirmed event:row:reverted event:row:conflict"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createPushdownSource } = <span class="kw">await</span> import('../packages/core/src/source/pushdown.js');
+
+<span class="cmt">// A mock adapter that persists append and delete. append returns the server key.</span>
+<span class="kw">let</span> nextId = 1;
+<span class="kw">const</span> adapter = {
+  name: 'mock',
+  capabilities: { sort: <span class="kw">true</span>, mutate: { append: <span class="kw">true</span>, delete: <span class="kw">true</span>, returning: 'key' } },
+  <span class="kw">async</span> execute() { <span class="kw">return</span> { rows: [], total: 0 }; },
+  <span class="kw">async</span> mutate(op) {
+    <span class="kw">if</span> (op.kind === 'append') <span class="kw">return</span> { ok: <span class="kw">true</span>, keys: [`srv-${nextId++}`] };
+    <span class="kw">return</span> { ok: <span class="kw">true</span> };   <span class="cmt">// delete confirmed</span>
+  },
+};
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'name' }],
+  source: createPushdownSource({ adapter, edit: <span class="kw">true</span> }),
+  selection: 'multiple',
+  edit: <span class="kw">true</span>,
+});
+
+<span class="cmt">// The structural lifecycle events, bridged onto the grid's own bus.</span>
+<span class="kw">const</span> fired = [];
+grid.on('row:pending', (e) =&gt; fired.push(`pending:${e.kind}`));
+grid.on('row:confirmed', (e) =&gt; fired.push(`confirmed:${e.kind}`));
+grid.on('row:reverted', (e) =&gt; fired.push(`reverted:${e.kind}`));
+grid.on('row:conflict', () =&gt; fired.push('conflict'));
+
+<span class="cmt">// Append: shows immediately under a temp key, then rekeys to the server key.</span>
+<span class="kw">const</span> temp = grid.edit.addRow({ name: 'Ada' });
+grid.selection.set([temp]);                  <span class="cmt">// select the optimistic row</span>
+<span class="kw">await</span> <span class="kw">new</span> Promise((r) =&gt; setTimeout(r, 0));   <span class="cmt">// let mutate resolve; row:confirmed fires</span>
+<span class="kw">const</span> movedTo = grid.selection.keys()[0];    <span class="cmt">// selection followed the rekey</span>
+
+<span class="cmt">// Delete: tombstones then confirms.</span>
+grid.edit.deleteRow(movedTo);
+<span class="kw">await</span> <span class="kw">new</span> Promise((r) =&gt; setTimeout(r, 0));
+<span class="kw">const</span> gone = grid.rows.byKey(movedTo) === <span class="kw">undefined</span>;
+
+grid.destroy();
+<span class="cmt">// fired: pending:append, confirmed:append, pending:delete, confirmed:delete</span>
+<span class="kw">return</span> `${movedTo} selected; ${gone ? 'deleted' : 'still-there'}`;</code></pre>
 
     <p class="section-note">
       <strong>Previewing a bulk paste.</strong> A paste can rewrite dozens of cells at once, and one
@@ -2589,6 +2649,8 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">fetch</td><td class="type">typeof fetch</td><td class="type">the global <code>fetch</code></td><td class="desc">Your own fetch, for a token that expires, a proxy, or a non-browser runtime. The adapter bundles no HTTP client. See <a href="#adapter-auth">authenticating</a>.</td></tr>
           <tr><td class="name">count</td><td class="type">boolean</td><td class="type">true</td><td class="desc">Whether to ask for <code>$count=true</code> and read <code>@odata.count</code>. On by default because the grid sizes its scrollbar from the total; set <code>false</code> for a server that does not support it.</td></tr>
           <tr><td class="name">search</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Whether the server implements <code>$search</code>. Off by default, so quick-filter text stays with the grid until you confirm the endpoint honours it; <code>true</code> pushes it as <code>$search</code>.</td></tr>
+          <tr><td class="name">edit</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Opt into cell write-back. Off keeps the source read-only; <code>true</code> advertises <code>mutate: { update: true, returning: 'row' }</code>, so a committed cell edit is persisted with <code>PATCH</code>. Wave 1 wires <code>update</code> only.</td></tr>
+          <tr><td class="name">key</td><td class="type">string</td><td class="type">the row key</td><td class="desc">The key property a cell update names in its entity-key URL segment, e.g. <code>/Orders(&lt;key&gt;)</code>. Write-back only.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2615,9 +2677,50 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">encodeFilter</td><td class="type">(filters: object) =&gt; string</td><td class="type"><code>JSON.stringify</code></td><td class="desc">How the pushed condition tree becomes the <code>filter</code> parameter's value. Override it to emit whatever query language your service parses instead of JSON.</td></tr>
           <tr><td class="name">rows</td><td class="type">(body: unknown) =&gt; unknown[]</td><td class="type">body itself if an array, else <code>body.rows</code> then <code>body.data</code></td><td class="desc">Pulls the row array out of the response body, for an envelope that nests it somewhere else.</td></tr>
           <tr><td class="name">total</td><td class="type">(body: unknown, rows: unknown[]) =&gt; number</td><td class="type"><code>body.total</code> then <code>body.count</code>, else the page length</td><td class="desc">Reads the count of <em>all</em> matching rows, not the page. The grid sizes its scrollbar from it, so a page-sized total makes a large result look like one page.</td></tr>
+          <tr><td class="name">edit</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Opt into write-back. Off keeps the source read-only; <code>true</code> advertises <code>mutate: { update: true, delete: true, returning }</code>, so a committed cell edit is persisted with <code>PATCH</code> and a row delete with <code>DELETE</code>. Add-row needs the row-keyed pending engine and is refused loudly.</td></tr>
+          <tr><td class="name">returning</td><td class="type">'row' | 'none'</td><td class="type"><code>none</code></td><td class="desc">The reconcile contract for a successful write. <code>none</code> is last-write-wins — the optimistic value stands; <code>row</code> reads the server's authoritative row (via <code>writeRow</code>) back before confirm.</td></tr>
+          <tr><td class="name">encodeMutation</td><td class="type">(op: MutationOp) =&gt; { method: string, url: string, headers?: object, body?: unknown }</td><td class="type">the default verb map</td><td class="desc">Full control of a mutation's HTTP shape, overriding the default method, URL and body. Supersedes <code>writeUrlFor</code>.</td></tr>
+          <tr><td class="name">writeUrlFor</td><td class="type">(op: MutationOp) =&gt; string</td><td class="type"><code>${url}/${key}</code></td><td class="desc">The endpoint a single mutation targets, when the default per-row URL is not what the service uses. Ignored when <code>encodeMutation</code> is supplied.</td></tr>
+          <tr><td class="name">writeRow</td><td class="type">(body: unknown) =&gt; unknown</td><td class="type">the entity, or <code>body.row</code>/<code>body.data</code></td><td class="desc">Pulls the authoritative row out of a write response when <code>returning: 'row'</code>.</td></tr>
         </tbody>
       </table>
     </div>
+
+    <p class="section-note">
+      <strong>Persisting a cell edit.</strong> With <code>edit: true</code> the adapter advertises
+      <code>mutate</code>, so a committed cell edit is sent as an HTTP request. REST has no universal
+      write convention, so the request is yours to shape: <code>writeUrlFor</code> names the per-row
+      endpoint, <code>encodeMutation</code> takes full control of method and body, and
+      <code>writeRow</code> reads the authoritative row back when <code>returning: 'row'</code>.
+    </p>
+    <pre data-run="js" data-expect="shipped" data-covers="export:restAdapter"><code><span class="kw">const</span> { restAdapter } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="cmt">// The per-row endpoint a mutation targets.</span>
+<span class="kw">const</span> writeUrlFor = (op) =&gt; `/api/orders/${op.key}`;
+
+<span class="kw">let</span> sentMethod;
+<span class="kw">const</span> adapter = restAdapter({
+  url: '/api/orders',
+  edit: <span class="kw">true</span>,          <span class="cmt">// opt into write-back (advertises mutate.update / delete)</span>
+  returning: 'row',    <span class="cmt">// reconcile to the server's authoritative row</span>
+  writeUrlFor,
+  <span class="cmt">// Full control of the request; supersedes the default envelope.</span>
+  encodeMutation: (op) =&gt; ({
+    method: 'PATCH',
+    url: writeUrlFor(op),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(op.patch),
+  }),
+  <span class="cmt">// Pull the authoritative row out of this service's envelope.</span>
+  writeRow: (body) =&gt; body.record,
+  fetch: <span class="kw">async</span> (url, init) =&gt; {
+    sentMethod = init.method;
+    <span class="kw">return</span> { ok: <span class="kw">true</span>, status: 200, json: <span class="kw">async</span> () =&gt; ({ record: { id: '42', status: 'shipped' } }) };
+  },
+});
+
+<span class="kw">const</span> result = <span class="kw">await</span> adapter.mutate({ kind: 'update', key: '42', patch: { status: 'shipped' } });
+<span class="kw">return</span> result.rows[0].status;   <span class="cmt">// 'shipped', read back from the server</span></code></pre>
 
     <h5 id="duckdb-options"><code>duckdbAdapter</code></h5>
     <div class="table-wrap">
@@ -2627,6 +2730,9 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">connection</td><td class="type">object</td><td class="type">—</td><td class="desc">A live connection exposing <code>query</code>, and ideally <code>prepare</code>. Required. A connection without <code>prepare</code> is used only for unfiltered queries, because interpolating a user's filter into SQL is worse than not filtering.</td></tr>
           <tr><td class="name">from</td><td class="type">string</td><td class="type">—</td><td class="desc">A table, a view, or any FROM expression. Required. <code>read_parquet('s3://bucket/*.parquet')</code> is as valid as a table name.</td></tr>
           <tr><td class="name">fields</td><td class="type">string[]</td><td class="type">everything (<code>SELECT *</code>)</td><td class="desc">The columns to select. Name them to narrow the projection when the grid shows a subset of a wide table.</td></tr>
+          <tr><td class="name">writable</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Allow cell updates against a plain writable table. Off keeps the source read-only, so a <code>from</code> that is a view or an expression can never be mutated by accident. Wave 1 wires <code>update</code> only.</td></tr>
+          <tr><td class="name">keyField</td><td class="type">string</td><td class="type">—</td><td class="desc">The key column a cell update targets in its <code>WHERE</code>. Write-back is refused unless this names a real column, because an <code>UPDATE</code> without a unique key could touch more than one row.</td></tr>
+          <tr><td class="name">returning</td><td class="type">'row' | 'none'</td><td class="type"><code>row</code></td><td class="desc">The reconcile contract for a successful update. <code>row</code> appends <code>RETURNING *</code> and reconciles server truth (computed columns, triggers); <code>none</code> keeps the optimistic value.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2645,6 +2751,8 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">limit</td><td class="type">number</td><td class="type">server default</td><td class="desc">Caps rows <em>scanned</em>, not matched — which is why every request also sends <code>countOnly</code> to reveal the true match count.</td></tr>
           <tr><td class="name">headers</td><td class="type">Record&lt;string, string&gt;</td><td class="type">{}</td><td class="desc">Extra headers merged over the bearer token, for a gateway that needs its own.</td></tr>
           <tr><td class="name">fetch</td><td class="type">typeof fetch</td><td class="type">the global <code>fetch</code></td><td class="desc">Your own fetch, for a proxy or a non-browser runtime.</td></tr>
+          <tr><td class="name">writeUrl</td><td class="type">string</td><td class="type">the default write endpoint</td><td class="desc">Where record mutations are POSTed, when the deployment's write endpoint differs from the default. Write-back persists update, delete and add-row.</td></tr>
+          <tr><td class="name">encodeCreate</td><td class="type">(row: unknown) =&gt; Record&lt;string, unknown&gt;</td><td class="type">the row's own fields</td><td class="desc">Maps a new grid row to the DemandFlow <code>fields</code> an append needs — its required <code>entity</code>/<code>level</code>/<code>comboKey</code> — since the structural append only knows the row's own fields.</td></tr>
         </tbody>
       </table>
     </div>
@@ -3198,6 +3306,10 @@ off();                                       <span class="cmt">// on() returns i
           <tr><td class="name">row:dblclicked</td><td class="type">{ row, key, index, event }</td><td class="desc"></td></tr>
           <tr><td class="name">row:edit:start</td><td class="type">{ row, key, colId, column }</td><td class="desc">Replaces the cell pair when <code>edit.mode</code> is <code>'row'</code>.</td></tr>
           <tr><td class="name">row:edit:end</td><td class="type">{ row, key, colId, valid, errors }</td><td class="desc">In row mode an invalid cell blocks the whole commit and the session stays open.</td></tr>
+          <tr><td class="name">row:pending</td><td class="type">{ id, kind, key, temp, row }</td><td class="desc">A row was appended or deleted optimistically, not yet durable. <code>kind</code> is <code>'append'</code> or <code>'delete'</code>; <code>temp: true</code> means an appended row under a client temp key. Only over a source that declares <code>mutate.append</code>/<code>delete</code>.</td></tr>
+          <tr><td class="name">row:confirmed</td><td class="type">{ id, kind, key, tempKey?, row, superseded }</td><td class="desc">The append or delete reached the server. For an append the row has already been rekeyed from <code>tempKey</code> to the server <code>key</code> — selection, expansion, focus and in-flight cell edits followed.</td></tr>
+          <tr><td class="name">row:reverted</td><td class="type">{ id, kind, key, tempKey?, reason, row, superseded, applied }</td><td class="desc">The append or delete failed: an appended row is removed, a deleted row restored. <code>applied: false</code> means a newer op owned the key, so nothing was undone.</td></tr>
+          <tr><td class="name">row:conflict</td><td class="type">{ id, kind, key, serverRow, row }</td><td class="desc">The op succeeded but the server row had moved underneath it. Last-write-wins: <code>serverRow</code> carries the server's truth so the divergence is surfaced, never swallowed.</td></tr>
           <tr><td class="name">cell:contextmenu</td><td class="type">{ ...cellParams, row }</td><td class="desc">Right-click on a cell.</td></tr>
           <tr><td class="name">sort:changed</td><td class="type">{ sort }</td><td class="desc">The full sort entry list.</td></tr>
           <tr><td class="name">filter:changed</td><td class="type">{ filters } | { quick }</td><td class="desc">The condition tree or the quick filter changed.</td></tr>
@@ -4373,7 +4485,7 @@ grid.destroy();
     <p class="section-note">Each documented event is subscribed to and unsubscribed on every build. A consumer
     wiring a handler to a renamed event gets silence, which is indistinguishable from an event that
     has not fired yet — so the name is checked rather than left to be discovered.</p>
-    <pre data-run="js" data-expect="102" data-covers="event:cell:changed event:cell:clicked event:cell:confirmed event:cell:conflict event:cell:contextmenu event:cell:dblclicked event:cell:edit:end event:cell:edit:start event:cell:pending event:cell:reverted event:clipboard:copy event:column:filter:open event:column:grouped event:column:menu:open event:column:pivoted event:column:resized event:columns:changed event:columns:tagged event:comment:added event:comment:deleted event:comment:edited event:comment:failed event:comment:indexLoaded event:comment:resolved event:comment:threadClosed event:comment:threadOpened event:comment:unresolved event:destroy event:detail:toggled event:diff:changed event:diff:swapped event:export:progress event:facet:computed event:facet:expanded event:facet:failed event:facet:filtered event:form:closed event:form:error event:form:opened event:form:saved event:formatting:changed event:group:toggled event:header:contextmenu event:highlight:changed event:history:applied event:history:changed event:licence:changed event:page:changed event:permissions:changed event:presence:failed event:presence:joined event:presence:left event:presence:lockRefused event:presence:published event:presence:updated event:presentation:captured event:presentation:changed event:presentation:ended event:presentation:scale event:presentation:spotlight event:presentation:started event:presentation:view event:range:changed event:ready event:redaction:changed event:render:done event:render:first event:row:clicked event:row:copied event:row:dblclicked event:row:edit:end event:row:edit:start event:row:moved event:row:received event:row:sent event:rows:deferred event:rows:paused event:rows:queued event:rows:resumed event:scroll event:scroll:end event:selection:changed event:size:changed event:source:error event:stream:chunk event:stream:end event:stream:evicted event:timeline:attached event:timeline:detached event:timeline:seek event:timeline:seeking event:toolpanel:focus event:tree:loadAborted event:tree:loadFailed event:tree:loaded event:tree:loading event:view:applied event:view:default event:view:removed event:view:renamed event:view:saved event:views:changed"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="106" data-covers="event:cell:changed event:cell:clicked event:cell:confirmed event:cell:conflict event:cell:contextmenu event:cell:dblclicked event:cell:edit:end event:cell:edit:start event:cell:pending event:cell:reverted event:clipboard:copy event:column:filter:open event:column:grouped event:column:menu:open event:column:pivoted event:column:resized event:columns:changed event:columns:tagged event:comment:added event:comment:deleted event:comment:edited event:comment:failed event:comment:indexLoaded event:comment:resolved event:comment:threadClosed event:comment:threadOpened event:comment:unresolved event:destroy event:detail:toggled event:diff:changed event:diff:swapped event:export:progress event:facet:computed event:facet:expanded event:facet:failed event:facet:filtered event:form:closed event:form:error event:form:opened event:form:saved event:formatting:changed event:group:toggled event:header:contextmenu event:highlight:changed event:history:applied event:history:changed event:licence:changed event:page:changed event:permissions:changed event:presence:failed event:presence:joined event:presence:left event:presence:lockRefused event:presence:published event:presence:updated event:presentation:captured event:presentation:changed event:presentation:ended event:presentation:scale event:presentation:spotlight event:presentation:started event:presentation:view event:range:changed event:ready event:redaction:changed event:render:done event:render:first event:row:clicked event:row:copied event:row:dblclicked event:row:edit:end event:row:edit:start event:row:moved event:row:received event:row:sent event:rows:deferred event:rows:paused event:rows:queued event:rows:resumed event:scroll event:scroll:end event:selection:changed event:size:changed event:source:error event:stream:chunk event:stream:end event:stream:evicted event:timeline:attached event:timeline:detached event:timeline:seek event:timeline:seeking event:toolpanel:focus event:tree:loadAborted event:tree:loadFailed event:tree:loaded event:tree:loading event:view:applied event:view:default event:view:removed event:view:renamed event:view:saved event:views:changed event:row:pending event:row:confirmed event:row:reverted event:row:conflict"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 
 <span class="cmt">// Every documented event name, checked against the bus that would carry it.</span>
 <span class="cmt">// Subscribing to a name the grid does not know is the failure this catches:</span>
@@ -4398,6 +4510,7 @@ grid.destroy();
   'presentation:view', 'range:changed', 'ready', 'redaction:changed',
   'render:done', 'render:first', 'row:clicked', 'row:copied',
   'row:dblclicked', 'row:edit:end', 'row:edit:start', 'row:moved',
+  'row:pending', 'row:confirmed', 'row:reverted', 'row:conflict',
   'row:received', 'row:sent', 'rows:deferred', 'rows:paused',
   'rows:queued', 'rows:resumed', 'scroll', 'scroll:end',
   'selection:changed', 'size:changed', 'source:error', 'stream:chunk',
@@ -5685,6 +5798,11 @@ return `avg ${avg.value} over ${avg.over.size}; kinds ${WINDOW_KINDS.join('/')};
           <tr><td class="name">settle</td><td class="type">(</td><td class="desc">Report the outcome of an in-flight write (§18.3; §5.1-5.2 reconcile). `reconcile` carries server truth on a successful settle: `value` is a server-authoritative value written back before `cell:confirmed` (`returning: 'row'`); `conflict.serverRow` surfaces a last-write-wins conflict via `cell:conflict`. Omit both to keep the optimistic value.</td></tr>
           <tr><td class="name">pending</td><td class="type">(): OpenWrite[]</td><td class="desc"></td></tr>
           <tr><td class="name">status</td><td class="type">(key: string, colId: string): 'pending' | null</td><td class="desc"></td></tr>
+          <tr><td class="name">addRow</td><td class="type">(row: object): string | null</td><td class="desc">Append a row to a remote source optimistically and persist it (§5.3), the structural analog of the cell edit path. The row shows immediately under a client temp key, and `adapter.mutate({ kind: 'append', rows: [row] })` is asked to persist it; when the server returns the real key the row is rekeyed everywhere the grid tracks it and `row:confirmed` fires, while a refused append is removed and fires `row:reverted`. Only wired when the source declares `mutate.append`; otherwise it warns once and returns null.</td></tr>
+          <tr><td class="name">deleteRow</td><td class="type">(key: string): string | null</td><td class="desc">Delete a row from a remote source optimistically and persist it (§5.3). The row is tombstoned immediately and `adapter.mutate({ kind: 'delete', keys: [key] })` is asked to remove it; on confirmation the row is purged and `row:confirmed` fires, on refusal it is restored and `row:reverted` fires. Only wired when the source declares `mutate.delete`; otherwise it warns once and returns null.</td></tr>
+          <tr><td class="name">settleRow</td><td class="type">(id: string, ok: boolean, reason?: string, reconcile?: { key?: string; row?: unknown; conflict?: { serverRow?: unknown } }): boolean</td><td class="desc">Report the outcome of an optimistic structural write (§5.3), the counterpart to {@link settle} for `edit.confirm: 'manual'` over a backend that acknowledges an append/delete on a separate channel. The id arrives on `row:pending`.</td></tr>
+          <tr><td class="name">rowStatus</td><td class="type">(key: string): 'pending' | null</td><td class="desc">Whether a row has a structural op in flight (§5.3).</td></tr>
+          <tr><td class="name">pendingRows</td><td class="type">(): OpenRowOp[]</td><td class="desc">Every structural op still awaiting an outcome (§5.3), oldest first; always empty when the source cannot append or delete.</td></tr>
         </tbody>
       </table>
     </div>
@@ -6416,9 +6534,9 @@ return `avg ${avg.value} over ${avg.over.size}; kinds ${WINDOW_KINDS.join('/')};
       <table>
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">append</td><td class="type">boolean</td><td class="desc">The adapter can insert new rows. Wave 1: declared, not yet bridged. <small>(optional)</small></td></tr>
-          <tr><td class="name">update</td><td class="type">boolean</td><td class="desc">The adapter can patch existing rows. Wave 1: the wired kind (§4.3 Option A). <small>(optional)</small></td></tr>
-          <tr><td class="name">delete</td><td class="type">boolean</td><td class="desc">The adapter can remove rows. Wave 1: declared, not yet bridged. <small>(optional)</small></td></tr>
+          <tr><td class="name">append</td><td class="type">boolean</td><td class="desc">The adapter can insert new rows, bridged by the structural engine (`edit.addRow`, §5.3). <small>(optional)</small></td></tr>
+          <tr><td class="name">update</td><td class="type">boolean</td><td class="desc">The adapter can patch existing rows, bridged by the cell edit path (§4.3 Option A). <small>(optional)</small></td></tr>
+          <tr><td class="name">delete</td><td class="type">boolean</td><td class="desc">The adapter can remove rows, bridged by the structural engine (`edit.deleteRow`, §5.3). <small>(optional)</small></td></tr>
           <tr><td class="name">returning</td><td class="type">'row' | 'key' | 'none'</td><td class="desc">The reconcile contract — what the server hands back after a successful mutation (§5.1). `'row'`: the authoritative row (id, computed columns, timestamps), reconciled before confirm. `'key'`: only the assigned key. `'none'` (the default): nothing — the optimistic value stands (last-write-wins). <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -6478,6 +6596,20 @@ return `avg ${avg.value} over ${avg.over.size}; kinds ${WINDOW_KINDS.join('/')};
           <tr><td class="name">messages</td><td class="type">Record&lt;string, string | Record&lt;string, string&gt;&gt;</td><td class="desc">A partial message catalogue laid over the built-in British English one. Every valid key is listed in `MESSAGE_KEYS`; a key that is not is ignored with a warning. Import a bundled locale (`FR_FR`, `AR`, …) or supply your own object. Merged rather than replacing, so an incomplete translation leaves the remainder in English rather than showing raw keys. <small>(optional)</small></td></tr>
           <tr><td class="name">direction</td><td class="type">'ltr' | 'rtl'</td><td class="desc">Writing direction. Omit to settle it from the element's own `dir` and then from `locale`: `ar`, `he`, `fa` and the rest resolve to `rtl`. <small>(optional)</small></td></tr>
           <tr><td class="name">scale</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-OpenRowOp">OpenRowOp</h3>
+    <p class="section-note">A structural op (append or delete) still awaiting an outcome (§5.3).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">kind</td><td class="type">'append' | 'delete'</td><td class="desc"></td></tr>
+          <tr><td class="name">key</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">state</td><td class="type">'pending' | 'superseded'</td><td class="desc"></td></tr>
+          <tr><td class="name">age</td><td class="type">number</td><td class="desc"></td></tr>
         </tbody>
       </table>
     </div>

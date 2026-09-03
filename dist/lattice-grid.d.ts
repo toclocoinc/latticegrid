@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.25.0, type declarations
+ * Lattice Grid 1.26.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1144,6 +1144,15 @@ export interface OpenWrite {
   age: number;
 }
 
+/** A structural op (append or delete) still awaiting an outcome (§5.3). */
+export interface OpenRowOp {
+  id: string;
+  kind: 'append' | 'delete';
+  key: string;
+  state: 'pending' | 'superseded';
+  age: number;
+}
+
 /**
  * What an adapter can persist back to its source — the write-back capability
  * (§4.1), declared on `AdapterCapabilities.mutate`. `false` (the default) is
@@ -1151,11 +1160,11 @@ export interface OpenWrite {
  * adapter opts in.
  */
 export interface MutateCapability {
-  /** The adapter can insert new rows. Wave 1: declared, not yet bridged. */
+  /** The adapter can insert new rows, bridged by the structural engine (`edit.addRow`, §5.3). */
   append?: boolean;
-  /** The adapter can patch existing rows. Wave 1: the wired kind (§4.3 Option A). */
+  /** The adapter can patch existing rows, bridged by the cell edit path (§4.3 Option A). */
   update?: boolean;
-  /** The adapter can remove rows. Wave 1: declared, not yet bridged. */
+  /** The adapter can remove rows, bridged by the structural engine (`edit.deleteRow`, §5.3). */
   delete?: boolean;
   /**
    * The reconcile contract — what the server hands back after a successful
@@ -2809,6 +2818,7 @@ export type EventName =
   | 'cell:clicked' | 'cell:dblclicked' | 'cell:contextmenu'
   | 'cell:edit:start' | 'cell:edit:end' | 'row:edit:start' | 'row:edit:end'
   | 'row:clicked' | 'row:dblclicked'
+  | 'row:pending' | 'row:confirmed' | 'row:reverted' | 'row:conflict'
   | 'form:opened' | 'form:closed' | 'form:saved' | 'form:error'
   /* Query */
   | 'sort:changed' | 'filter:changed' | 'group:toggled'
@@ -3167,6 +3177,52 @@ export interface EditApi {
   ): boolean;
   pending(): OpenWrite[];
   status(key: string, colId: string): 'pending' | null;
+  /**
+   * Append a row to a remote source optimistically and persist it (§5.3), the
+   * structural analog of the cell edit path. The row shows immediately under a
+   * client temp key, and `adapter.mutate({ kind: 'append', rows: [row] })` is
+   * asked to persist it; when the server returns the real key the row is rekeyed
+   * everywhere the grid tracks it and `row:confirmed` fires, while a refused
+   * append is removed and fires `row:reverted`. Only wired when the source
+   * declares `mutate.append`; otherwise it warns once and returns null.
+   * @param row the new row (it need not carry a key yet)
+   * @returns the client temp key the row is tracked under, or null when append
+   *   is not available on this source
+   */
+  addRow(row: object): string | null;
+  /**
+   * Delete a row from a remote source optimistically and persist it (§5.3). The
+   * row is tombstoned immediately and `adapter.mutate({ kind: 'delete', keys: [key] })`
+   * is asked to remove it; on confirmation the row is purged and `row:confirmed`
+   * fires, on refusal it is restored and `row:reverted` fires. Only wired when
+   * the source declares `mutate.delete`; otherwise it warns once and returns null.
+   * @param key the row key to remove
+   * @returns the id the op is tracked under, or null when delete is not available
+   */
+  deleteRow(key: string): string | null;
+  /**
+   * Report the outcome of an optimistic structural write (§5.3), the counterpart
+   * to {@link settle} for `edit.confirm: 'manual'` over a backend that
+   * acknowledges an append/delete on a separate channel. The id arrives on
+   * `row:pending`.
+   * @param id the op id from `row:pending`
+   * @param ok true when the op reached the server
+   * @param reason why it failed, carried on `row:reverted`
+   * @param reconcile server key / row / conflict for a successful append settle
+   * @returns true when the id named an op still awaiting an outcome
+   */
+  settleRow(id: string, ok: boolean, reason?: string, reconcile?: { key?: string; row?: unknown; conflict?: { serverRow?: unknown } }): boolean;
+  /**
+   * Whether a row has a structural op in flight (§5.3).
+   * @param key the row key
+   * @returns `'pending'`, or null when the row is settled
+   */
+  rowStatus(key: string): 'pending' | null;
+  /**
+   * Every structural op still awaiting an outcome (§5.3), oldest first; always
+   * empty when the source cannot append or delete.
+   */
+  pendingRows(): OpenRowOp[];
 }
 
 export interface ScrollApi {
@@ -4366,6 +4422,18 @@ export function applyResidual(
 export function odataAdapter(options: {
   url: string; fetch?: typeof fetch; headers?: Record<string, string>;
   count?: boolean; search?: boolean;
+  /**
+   * The key property a cell update targets in its entity-key URL segment
+   * (`/Orders(<key>)`). Write-back only (§7 OData, wave 1).
+   */
+  key?: string;
+  /**
+   * Opt the adapter into cell write-back. `false` (the default) declares the
+   * source read-only; `true` advertises `mutate: { update: true, returning: 'row' }`
+   * so a committed cell edit is persisted with `PATCH`. Wave 1 wires `update`
+   * only; append and delete are deferred.
+   */
+  edit?: boolean;
 }): PushdownAdapter & { urlFor(query: RemoteRequest): string };
 
 /**
@@ -4378,6 +4446,35 @@ export function restAdapter(options: {
   capabilities?: PushdownCapabilities; operators?: string[];
   encodeFilter?: (filters: object) => string;
   rows?: (body: unknown) => unknown[]; total?: (body: unknown, rows: unknown[]) => number;
+  /**
+   * Opt the adapter into cell write-back. `false` (the default) declares the
+   * source read-only; `true` advertises `mutate: { update: true, delete: true, returning }`
+   * so a committed cell edit is persisted with `PATCH` and a row delete with
+   * `DELETE`. Append needs the row-keyed pending engine and is refused loudly.
+   */
+  edit?: boolean;
+  /**
+   * The reconcile contract for a successful write (§5.1). `'none'` (the default)
+   * is last-write-wins — the optimistic value stands; `'row'` reads the server's
+   * authoritative row (via {@link writeRow}) back before confirm.
+   */
+  returning?: 'row' | 'none';
+  /**
+   * Full control of a mutation's HTTP shape, overriding the default verb map and
+   * URL. Given the {@link MutationOp}, return the method, url and optional
+   * headers/body actually sent. Overriding this supersedes {@link writeUrlFor}.
+   */
+  encodeMutation?: (op: MutationOp) => { method: string, url: string, headers?: Record<string, string>, body?: unknown };
+  /**
+   * The endpoint a single mutation targets, when the default `${url}/${key}` is
+   * not what the service uses. Ignored when {@link encodeMutation} is supplied.
+   */
+  writeUrlFor?: (op: MutationOp) => string;
+  /**
+   * Pull the authoritative row out of a write response when `returning: 'row'`.
+   * Tolerates the plain entity, a `{ row }` or a `{ data }` envelope by default.
+   */
+  writeRow?: (body: unknown) => unknown;
 }): PushdownAdapter & { urlFor(query: RemoteRequest): string };
 
 /**
@@ -4400,6 +4497,24 @@ export function duckdbAdapter(options: {
   from: string;
   /** Columns to select. Everything by default. */
   fields?: string[];
+  /**
+   * The key column a cell update targets in its `WHERE`. Write-back is refused
+   * unless this names a real column, because an `UPDATE` without a unique key
+   * could touch more than one row (§7 DuckDB, wave 1).
+   */
+  keyField?: string;
+  /**
+   * Allow cell updates against a plain writable table. `false` (the default)
+   * keeps the source read-only, so a `from` that is a view or an expression can
+   * never be mutated by accident. Wave 1 wires `update` only.
+   */
+  writable?: boolean;
+  /**
+   * The reconcile contract for a successful update (§5.1). `'row'` (the default)
+   * appends `RETURNING *` and reconciles server truth (computed columns,
+   * triggers); `'none'` keeps the optimistic value (last-write-wins).
+   */
+  returning?: 'row' | 'none';
 }): PushdownAdapter & { sqlFor(query: RemoteRequest): { sql: string; params: unknown[] } };
 
 /**
@@ -4428,6 +4543,18 @@ export function dfqlAdapter(options: {
   limit?: number;
   fetch?: typeof fetch;
   headers?: Record<string, string>;
+  /**
+   * Where record mutations are POSTed, when the default write endpoint is not
+   * what the deployment uses. Write-back persists update, delete and add-row
+   * (§7 DFQL, card 771).
+   */
+  writeUrl?: string;
+  /**
+   * Map a new grid row to the DemandFlow `fields` an append needs — its required
+   * `entity`/`level`/`comboKey` — since the grid's structural append only knows
+   * the row's own fields. Called once per appended row.
+   */
+  encodeCreate?: (row: unknown) => Record<string, unknown>;
 }): PushdownAdapter & { linesFor(query: RemoteRequest): object[] };
 
 export function createGrid(element: HTMLElement, config?: GridConfig): Grid;
