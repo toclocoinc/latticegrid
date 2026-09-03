@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.26.0, type declarations
+ * Lattice Grid 1.27.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -642,6 +642,12 @@ export interface Column {
      * `'filtered'` ranks within what the filters left.
      */
     scope?: 'all' | 'filtered';
+    /**
+     * For `kind: 'anomalyFlag'`, the modified-z score a row must clear to be
+     * flagged an anomaly. Default 3.5 (Iglewicz & Hoaglin). Ignored by
+     * `anomalyScore`, which reports the raw score, and by the other kinds.
+     */
+    threshold?: number;
     /**
      * For `kind: 'specStatus'`, the hard specification the row is judged
      * against. `lower`/`upper` are the pass limits (a value beyond either
@@ -1329,6 +1335,19 @@ export interface GridConfig {
   columnTagFilter?: boolean | { multiple?: boolean; label?: string };
 
   /**
+   * Show a small chip in the grid chrome that reads how many rows an anomaly
+   * shadow column has flagged, and filters the grid to exactly those when it is
+   * clicked (BACKLOG-0000799).
+   *
+   * Off by default, and it draws nothing unless a column declares a
+   * `shadow: { kind: 'anomalyFlag' }`. The count and the filter both read that
+   * one shadow column, so the number on the chip is the number of rows the
+   * click reveals. `column` names the base column to summarise when more than
+   * one anomaly-flag shadow is present; `label` overrides the chip's wording.
+   */
+  anomalySummary?: boolean | { column?: string; label?: string };
+
+  /**
    * Open a row on a form when it is double-clicked.
    *
    * `mode` is a right-hand `'drawer'` (the default) or a centred `'dialog'`.
@@ -1926,6 +1945,18 @@ export interface GridConfig {
     /** Placeholder shown while nothing is grouped. */
     hint?: string;
   };
+  /**
+   * A built-in KPI/stat strip: a labelled band of {@link createStat} tiles the
+   * grid places for you, above the column header. Each entry is a stat spec —
+   * the same fields {@link StatConfig} takes, minus `grid` and `container`,
+   * which the grid supplies — so a strip tile and a hand-placed one are the same
+   * object. The tiles follow the grid's filters, recomputing on every change
+   * exactly as a stand-alone stat does.
+   *
+   * Off by default and non-breaking, matching `groupPanel`: no `kpis` means no
+   * band and no cost. It reuses `createStat` and reimplements no compute.
+   */
+  kpis?: Array<Omit<StatConfig, 'grid' | 'container'>>;
   /** The quick filter's initial text. */
   quickFilterText?: string;
   /**
@@ -2372,6 +2403,17 @@ export interface StatisticsApi {
   /** Everything worth knowing about one column, in one pass each. */
   profile(colId: string): ColumnProfile | null;
   /**
+   * The rows that do not belong (BACKLOG-0000749): anomaly detection over the
+   * filtered rows by the robust modified z-score (`modifiedZScore`, the
+   * default), Tukey's IQR fences (`iqr`), or multivariate Mahalanobis distance
+   * over the chosen columns (`mahalanobis`). Every flagged row carries the score
+   * behind it and the reason for it, so a flag is explainable rather than a
+   * verdict from nowhere. Non-numeric columns are returned under `skipped`.
+   */
+  anomalies(opts?: { columns?: string[];
+    method?: 'modifiedZScore' | 'iqr' | 'mahalanobis';
+    threshold?: number; k?: number; p?: number }): AnomalyReport;
+  /**
    * Which columns differ most between the filtered subset and the whole
    * population it was drawn from, ranked by effect size — never by a p-value.
    * The measure is stated per column; a numeric and a categorical column are put
@@ -2390,6 +2432,20 @@ export interface StatisticsApi {
    * on one side alone is returned under `unmatched`.
    */
   datasetVsDataset(other: Grid, opts?: { columns?: string[] }): DatasetComparison;
+  /**
+   * Is the difference between two groups real? A two-sample test returned as
+   * data to interpret — never a verdict (BACKLOG-0000750). The significance
+   * boundary the comparison story (653, 735) stopped short of: those rank by how
+   * *much* columns differ and return no p-value; this answers *how sure* for one
+   * chosen pair of groups and hands the p-value back as data. There is no
+   * `significant` flag, no badge, and no multiple-comparison correction. The
+   * rows are split by `opts.by`, the test is chosen by the column's family and
+   * named in the result (overridable with `opts.test`): Welch's t or
+   * Mann-Whitney U for a numeric column, chi-square for a categorical one. Every
+   * result pairs a confidence interval on the difference with the effect size,
+   * so it is always "how big and how sure".
+   */
+  compareGroups(colId: string, opts: TwoSampleSpec): GroupComparison | null;
   /** Pearson's correlation between two columns. */
   correlation(a: string, b: string): number | null;
   /** Covariance, a correlation before the scales are divided out. */
@@ -2558,12 +2614,64 @@ export function openWindow(
   now?: () => number,
 ): Window;
 
+/**
+ * The anomaly-detection methods (BACKLOG-0000749): the robust univariate
+ * modified z-score, Tukey's IQR fences, and multivariate Mahalanobis distance.
+ * Interpretable statistics with written-down cuts, never a black box.
+ */
+export const ANOMALY_METHODS: readonly ('modifiedZScore' | 'iqr' | 'mahalanobis')[];
+
+/**
+ * Per-row modified z-scores and flags for one column of readings — the robust
+ * outlier score on the median and MAD (`0.6745·(x − median)/MAD`), flagged past
+ * `threshold` (default 3.5). Robust to the outliers themselves: one wild reading
+ * cannot inflate the spread and hide. A non-finite reading and a zero-MAD column
+ * yield a null score and no flag rather than an invented one.
+ */
+export function modifiedZScores(
+  values: ArrayLike<number>,
+  opts?: { threshold?: number },
+): { median: number | null; mad: number | null; threshold: number;
+  scores: (number | null)[]; flags: boolean[]; flagged: number };
+
+/**
+ * Tukey's fences for one column: `[Q1 − k·IQR, Q3 + k·IQR]` (default `k = 1.5`),
+ * the same fence the box plot draws, with R type 7 quartiles. Null when there
+ * are no readings.
+ */
+export function iqrFences(
+  values: ArrayLike<number>,
+  opts?: { k?: number },
+): { q1: number; q3: number; iqr: number; lower: number; upper: number; k: number } | null;
+
+/**
+ * Mahalanobis distance of every row from the joint centre, in the metric of the
+ * data's own sample covariance, cut at a χ² quantile (default the 0.975 point).
+ * Catches a row impossible only in combination, which a per-column scan misses.
+ * A row with any missing coordinate gets a null distance; a singular covariance
+ * is ridge-regularised and reported as `singular` rather than throwing.
+ */
+export function mahalanobis(
+  matrix: number[][],
+  opts?: { p?: number; ridge?: number },
+): { center: number[]; df: number; cutoff: number; singular: boolean; used: number;
+  distances: (number | null)[]; squared: (number | null)[]; flags: boolean[];
+  flagged: number } | null;
+
 export type ShadowKind =
   | 'updates' | 'updatedAt' | 'sinceUpdate' | 'delta' | 'deltaPercent'
   | 'rate' | 'history' | 'firstValue' | 'streak'
   /** Where the row sits among the others, over every tracked row. */
   | 'rank' | 'rankAsc' | 'rankChange' | 'percentile' | 'quartile'
   | 'zScore' | 'shareOfTotal'
+  /**
+   * A robust outlier score and flag per row (BACKLOG-0000749): the modified
+   * z-score on the median and MAD, and the boolean of whether it clears
+   * `threshold` (default 3.5, read off the shadow declaration). Sortable,
+   * filterable, groupable and exportable like any cell. Null where there is no
+   * robust spread to score against.
+   */
+  | 'anomalyScore' | 'anomalyFlag'
   /**
    * The row's pass/fail verdict against a hard-limit spec, as a value:
    * `'PASS'`, `'WARN'` or `'FAIL'`. Sortable, filterable, groupable and
@@ -2712,6 +2820,69 @@ export interface SubsetComparison {
   measures: { numeric: string; categorical: string; common: string };
 }
 
+export interface AnomalyReason {
+  /** The column that put this row over the line. */
+  column: string;
+  /** The column's display name, or its id. */
+  name: string;
+  /** The row's value in that column. */
+  value: number;
+  /** The modified z-score, for the `modifiedZScore` method. */
+  score?: number;
+  /** The lower fence, for the `iqr` method. */
+  lower?: number;
+  /** The upper fence, for the `iqr` method. */
+  upper?: number;
+  /** Which rule flagged it. */
+  method?: 'modifiedZScore' | 'iqr';
+}
+
+export interface AnomalyRow {
+  /** The row key — stable across a sort or a feed, where the index is not. */
+  rowKey: string | null;
+  /** The physical row index at the time of the call. */
+  index: number;
+  /**
+   * The row's headline score: its most extreme modified z-score across the
+   * flagging columns (univariate), the Mahalanobis distance (multivariate), or
+   * null for the IQR method, which has no single score.
+   */
+  score: number | null;
+  /** The squared Mahalanobis distance, for the `mahalanobis` method. */
+  squared?: number | null;
+  /** Why this row was flagged: the columns and how far, so it is explainable. */
+  why: AnomalyReason[];
+}
+
+export interface AnomalyReport {
+  /** Which rule produced the report. */
+  method: 'modifiedZScore' | 'iqr' | 'mahalanobis';
+  /** The IQR fence multiplier, for the `iqr` method. */
+  k?: number;
+  /** How many rows the scan ran over. */
+  n: number;
+  /** The flagged rows, worst first. */
+  rows: AnomalyRow[];
+  /** How many rows were flagged. */
+  flagged: number;
+  /** The column ids that were not numeric and so could not be scored. */
+  skipped: string[];
+  /** How many numeric columns were scored (univariate). */
+  scored?: number;
+  /** Per-column summaries (univariate): the centre, spread and fence per column. */
+  columns?: unknown;
+  /** The degrees of freedom of the χ² cut (multivariate). */
+  df?: number;
+  /** The χ² cut the squared distance is compared against (multivariate). */
+  cutoff?: number | null;
+  /** The joint centre the distances are measured from (multivariate). */
+  center?: number[];
+  /** How many complete rows defined the metric (multivariate). */
+  used?: number;
+  /** Whether the covariance was singular and had to be regularised (multivariate). */
+  singular?: boolean;
+}
+
 export interface DatasetColumnDifference {
   /** The column id, present on both grids. */
   column: string;
@@ -2751,6 +2922,92 @@ export interface DatasetComparison {
   unmatched: { onlyA: string[]; onlyB: string[] };
   /** The measure each family reports, and the common scale, named for a legend. */
   measures: { numeric: string; categorical: string; common: string };
+}
+
+/** How {@link StatisticsApi.compareGroups} splits the rows and picks a test. */
+export interface TwoSampleSpec {
+  /** The column whose values split the rows into groups. Required. */
+  by: string;
+  /** The two group values to compare. The two most frequent when omitted. */
+  groups?: [unknown, unknown];
+  /**
+   * Force a test rather than choosing by column family. `auto` (the default)
+   * picks Welch or Mann-Whitney for a numeric column and chi-square for a
+   * categorical one; the choice is always named in the result.
+   */
+  test?: 'auto' | 'welch' | 'mannWhitney' | 'chiSquare';
+  /** The confidence level for the interval, 0 to 1. 0.95 by default. */
+  confidence?: number;
+  /**
+   * The focal category for a chi-square difference interval, when the column has
+   * more than two categories. Without it, a multi-category comparison reports no
+   * scalar interval, only the effect size.
+   */
+  category?: unknown;
+}
+
+/** The effect size paired with a two-sample test — the "how big" half. */
+export interface GroupEffectSize {
+  /**
+   * The named measure: `pooledStandardMeanDifference` (Cohen's d) for the
+   * numeric tests, `categoricalTotalVariation` for chi-square.
+   */
+  name: string;
+  /** The effect size in its own terms, or null when it has no scale here. */
+  value: number | null;
+}
+
+/** A confidence interval on the difference a two-sample test measured. */
+export interface GroupDifferenceInterval {
+  /** The point estimate of the difference the interval is around. */
+  estimate: number;
+  lower: number;
+  upper: number;
+  /** The level the bounds were computed at, 0 to 1. */
+  confidence: number;
+  /** The method, named for honesty: `welch-t`, `hodges-lehmann`, `newcombe`. */
+  method: string;
+  /** For a chi-square interval, which category's share the difference is of. */
+  category?: unknown;
+}
+
+/**
+ * The result of {@link StatisticsApi.compareGroups}: how big *and* how sure, as
+ * data to interpret. Carries no significance verdict — the p-value is a number,
+ * never a flag or a badge.
+ */
+export interface GroupComparison {
+  /** The test used, named so it is never hidden. */
+  test: 'welch' | 'mannWhitney' | 'chiSquare';
+  /** Whether the test was chosen automatically or forced by the caller. */
+  chosenBy: 'auto' | 'override';
+  /** Why this test — the column family, a normality screen, or the override. */
+  reason: string;
+  /** The test statistic. */
+  statistic: number;
+  /** What the statistic is: `t`, `U`, or `chiSquare`. */
+  statisticName: string;
+  /** The degrees of freedom, where the test has them; null for Mann-Whitney. */
+  df: number | null;
+  /**
+   * The two-sided p-value, returned as data for the caller to interpret. Never
+   * thresholded into a verdict here.
+   */
+  pValue: number;
+  /** The confidence interval on the difference, or null when there is none. */
+  interval: GroupDifferenceInterval | null;
+  /** The paired effect size, so the p-value is never read on its own. */
+  effectSize: GroupEffectSize;
+  /** How many rows the first group stood on. */
+  nA: number;
+  /** How many rows the second group stood on. */
+  nB: number;
+  /** The two group values compared, as keys. */
+  groups: [unknown, unknown];
+  /** False when either group is under the reliability floor. */
+  reliable: boolean;
+  /** The test's method, named per the reference-suite honesty rule. */
+  method: string;
 }
 
 export interface FormattingApi {
@@ -3148,6 +3405,20 @@ export interface EditApi {
   undo(): void;
   redo(): void;
   setCells(writes: { key: string; colId: string; value: unknown }[], type?: 'cell' | 'fill' | 'paste'): number;
+  /**
+   * Set one value across a block of cells as a single undoable step (§12, card
+   * 740). Defaults to the selected range; read-only and non-editable cells are
+   * skipped and every write runs the normal parse/validate path.
+   */
+  bulkSet(value: unknown, opts?: { cells?: { key: string; colId: string }[] }): number;
+  /**
+   * Fill a selected range from its leading edge as one undoable step (§12, card
+   * 740). The default copies the anchor across the range (Excel's Ctrl+D and its
+   * natural siblings); `series: true` extrapolates a numeric or date series from
+   * the first one or two cells of each line, falling back to a copy for types
+   * with no series. `direction` defaults to `'down'`.
+   */
+  fill(opts?: { direction?: 'down' | 'up' | 'left' | 'right'; series?: boolean; range?: CellRange }): number;
   pasteInto(anchor: { key: string; colId: string }, text: string, extent?: { rows?: number; columns?: number }): number;
   /** Whether a bulk paste is previewed before it commits (`edit.pastePreview`, §12). */
   readonly pastePreview: boolean;
@@ -4423,15 +4694,18 @@ export function odataAdapter(options: {
   url: string; fetch?: typeof fetch; headers?: Record<string, string>;
   count?: boolean; search?: boolean;
   /**
-   * The key property a cell update targets in its entity-key URL segment
-   * (`/Orders(<key>)`). Write-back only (§7 OData, wave 1).
+   * The key property every write addresses a row by in its entity-key URL
+   * segment (`/Orders(<key>)`), and that an add-row is rekeyed to from the
+   * created entity. Write-back only (§7 OData).
    */
   key?: string;
   /**
-   * Opt the adapter into cell write-back. `false` (the default) declares the
-   * source read-only; `true` advertises `mutate: { update: true, returning: 'row' }`
-   * so a committed cell edit is persisted with `PATCH`. Wave 1 wires `update`
-   * only; append and delete are deferred.
+   * Opt the adapter into write-back. `false` (the default) declares the source
+   * read-only; `true` advertises `mutate: { update: true, delete: true, append:
+   * true, returning: 'row' }` so a committed cell edit is persisted with
+   * `PATCH`, a row delete with `DELETE /EntitySet(key)`, and an add-row with
+   * `POST /EntitySet` reading the created entity back (§7 OData,
+   * BACKLOG-0000766, BACKLOG-0000795).
    */
   edit?: boolean;
 }): PushdownAdapter & { urlFor(query: RemoteRequest): string };
@@ -4447,18 +4721,27 @@ export function restAdapter(options: {
   encodeFilter?: (filters: object) => string;
   rows?: (body: unknown) => unknown[]; total?: (body: unknown, rows: unknown[]) => number;
   /**
-   * Opt the adapter into cell write-back. `false` (the default) declares the
-   * source read-only; `true` advertises `mutate: { update: true, delete: true, returning }`
-   * so a committed cell edit is persisted with `PATCH` and a row delete with
-   * `DELETE`. Append needs the row-keyed pending engine and is refused loudly.
+   * Opt the adapter into write-back. `false` (the default) declares the source
+   * read-only; `true` advertises `mutate: { update: true, delete: true, append:
+   * true, returning }` so a committed cell edit is persisted with `PATCH`, a row
+   * delete with `DELETE`, and an add-row with `POST` to the collection URL
+   * (§7 REST, BACKLOG-0000769, BACKLOG-0000795).
    */
   edit?: boolean;
   /**
    * The reconcile contract for a successful write (§5.1). `'none'` (the default)
    * is last-write-wins — the optimistic value stands; `'row'` reads the server's
-   * authoritative row (via {@link writeRow}) back before confirm.
+   * authoritative row (via {@link writeRow}) back before confirm; `'key'` reads
+   * only the server-assigned key. An add-row needs `'row'` or `'key'` so the
+   * temp row can be rekeyed to its server key.
    */
-  returning?: 'row' | 'none';
+  returning?: 'row' | 'key' | 'none';
+  /**
+   * The property an add-row response carries the server-assigned key in, read
+   * back (through {@link writeRow}) to rekey the optimistic row. Defaults to
+   * `id`. Write-back only.
+   */
+  keyField?: string;
   /**
    * Full control of a mutation's HTTP shape, overriding the default verb map and
    * URL. Given the {@link MutationOp}, return the method, url and optional
@@ -4468,11 +4751,13 @@ export function restAdapter(options: {
   /**
    * The endpoint a single mutation targets, when the default `${url}/${key}` is
    * not what the service uses. Ignored when {@link encodeMutation} is supplied.
+   * Addresses an existing row; an add-row POSTs to the collection `url` instead.
    */
   writeUrlFor?: (op: MutationOp) => string;
   /**
-   * Pull the authoritative row out of a write response when `returning: 'row'`.
-   * Tolerates the plain entity, a `{ row }` or a `{ data }` envelope by default.
+   * Pull the authoritative row out of a write response when `returning: 'row'`,
+   * and the created row an add-row reads its key from. Tolerates the plain
+   * entity, a `{ row }` or a `{ data }` envelope by default.
    */
   writeRow?: (body: unknown) => unknown;
 }): PushdownAdapter & { urlFor(query: RemoteRequest): string };
@@ -4498,21 +4783,25 @@ export function duckdbAdapter(options: {
   /** Columns to select. Everything by default. */
   fields?: string[];
   /**
-   * The key column a cell update targets in its `WHERE`. Write-back is refused
-   * unless this names a real column, because an `UPDATE` without a unique key
-   * could touch more than one row (§7 DuckDB, wave 1).
+   * The key column an update and a delete target in their `WHERE`, and that an
+   * add-row is rekeyed by. Write-back is refused unless this names a real column,
+   * because an `UPDATE`/`DELETE` without a unique key could touch more than one
+   * row (§7 DuckDB). Defaults to `id`.
    */
   keyField?: string;
   /**
-   * Allow cell updates against a plain writable table. `false` (the default)
-   * keeps the source read-only, so a `from` that is a view or an expression can
-   * never be mutated by accident. Wave 1 wires `update` only.
+   * Allow write-back against a plain writable table. `false` (the default) keeps
+   * the source read-only, so a `from` that is a view or an expression can never
+   * be mutated by accident. Enables `update`, `delete` and `append`
+   * (BACKLOG-0000765, BACKLOG-0000795).
    */
   writable?: boolean;
   /**
-   * The reconcile contract for a successful update (§5.1). `'row'` (the default)
+   * The reconcile contract for a successful write (§5.1). `'row'` (the default)
    * appends `RETURNING *` and reconciles server truth (computed columns,
-   * triggers); `'none'` keeps the optimistic value (last-write-wins).
+   * triggers); `'none'` keeps the optimistic value (last-write-wins). An add-row
+   * always `RETURNING`s at least the key column regardless, since it needs that
+   * key to rekey the temp row.
    */
   returning?: 'row' | 'none';
 }): PushdownAdapter & { sqlFor(query: RemoteRequest): { sql: string; params: unknown[] } };
@@ -4556,6 +4845,58 @@ export function dfqlAdapter(options: {
    */
   encodeCreate?: (row: unknown) => Record<string, unknown>;
 }): PushdownAdapter & { linesFor(query: RemoteRequest): object[] };
+
+/**
+ * An adapter for a GraphQL endpoint (BACKLOG-0000741).
+ *
+ * GraphQL has no fixed query semantics — a filter, a sort and pagination are
+ * whatever the schema defines — so this adapter is configured, not zero-config.
+ * The caller supplies `buildQuery`, which turns the pushed plan into the
+ * `{ query, variables }` body a GraphQL endpoint is POSTed, and `parseResponse`,
+ * which reads the operation's `data` back into `{ rows, total }`. Sensible
+ * defaults cover an offset/limit list with a `totalCount` and a Relay cursor
+ * connection (`first`/`after` with `pageInfo`); either is replaced by passing
+ * the hook.
+ *
+ * The default `buildQuery` pushes only the window and asks for the total, so the
+ * default capabilities are `range` and `total` and nothing else: filter, sort
+ * and quick are left absent and the grid finishes them over the window. Declare
+ * `operators`/`capabilities` only alongside a `buildQuery` that genuinely emits
+ * them, or the grid returns the wrong rows silently.
+ *
+ * A Relay cursor connection is forward-only: a deep window is reached by paging
+ * forward to it, which costs round trips proportional to its offset. Offset
+ * pagination jumps straight to the window. `buildMutation` opts the write path
+ * in and is a declared follow-up (the write-back wave); `capabilities.mutate` is
+ * `false` by declaration until it is wired.
+ */
+export function graphqlAdapter(options: {
+  /** The GraphQL endpoint, POSTed a `{ query, variables }` body. Required. */
+  url: string;
+  fetch?: typeof fetch; headers?: Record<string, string>;
+  /** The root query field the default query selects from. `items` by default. */
+  field?: string;
+  /** Field names for the default query's selection set. */
+  fields?: string[];
+  /** A raw selection set (for nested fields), overriding `fields`. */
+  selection?: string;
+  /** `offset` (offset/limit list) or `cursor` (Relay connection). `offset` by default. */
+  pagination?: 'offset' | 'cursor';
+  /** The page size for the whole-result and forward-cursor walks. */
+  pageSize?: number;
+  /** Rename the pagination variables the adapter drives per page. */
+  vars?: Partial<Record<'offset' | 'limit' | 'first' | 'after', string>>;
+  capabilities?: PushdownCapabilities; operators?: string[];
+  /** Turn the pushed plan into a GraphQL operation `{ query, variables }`, replacing the default. */
+  buildQuery?: (request: RemoteRequest) => object;
+  /** Read the operation's `data` into `{ rows, total, pageInfo? }`, replacing the default. */
+  parseResponse?: (data: object) => object;
+  /** Turn a mutation into a GraphQL operation (write-back follow-up). */
+  buildMutation?: (op: object) => object;
+}): PushdownAdapter & {
+  buildQuery(query: RemoteRequest): { query: string; variables: object };
+  parseResponse(data: object): { rows: unknown[]; total: number };
+};
 
 export function createGrid(element: HTMLElement, config?: GridConfig): Grid;
 export function createHeadlessGrid(config?: GridConfig): Grid;
@@ -5063,6 +5404,9 @@ declare module 'lattice-grid/modules/react' {
    * React nor the grid: you pass both in. That is what keeps the package's
    * promise of no runtime dependencies, and what stops an adapter disagreeing
    * with the grid version already loaded.
+   *
+   * The live grid is reached through a forwarded ref: `ref.current.grid` is the
+   * same `Grid` the vanilla `createGrid` returns, or null before mount.
    */
   export function createLatticeGrid(deps: { React: unknown; createGrid: unknown }): unknown;
   /** Every grid event, as the prop name a React caller writes. */
@@ -5072,14 +5416,37 @@ declare module 'lattice-grid/modules/react' {
 }
 
 declare module 'lattice-grid/modules/vue' {
-  export function createLatticeGrid(deps: { Vue?: unknown; createGrid: unknown }): unknown;
+  /**
+   * Build the Vue 3 component.
+   *
+   * The Vue runtime and `createGrid` are passed in, for the same reason as the
+   * React adapter: the package ships no dependencies and cannot import either.
+   * The dependency key is lowercase `vue` — `createLatticeGrid({ vue, createGrid })`.
+   *
+   * The live grid is reached through the component's exposed `grid()` method:
+   * with `ref="grid"` on the element, `this.$refs.grid.grid()` returns the same
+   * `Grid` the vanilla `createGrid` returns, or null before mount.
+   */
+  export function createLatticeGrid(deps: { vue: unknown; createGrid: unknown }): unknown;
   export const EVENT_NAMES: readonly string[];
   export function dashedName(event: string): string;
   export default createLatticeGrid;
 }
 
 declare module 'lattice-grid/modules/svelte' {
-  /** A Svelte action: `use:lattice={config}`. */
+  /**
+   * A Svelte action: `use:lattice={config}`.
+   *
+   * The action owns nothing but the node the caller already has, so the grid is
+   * reached one of two ways. Pass an `onGrid` callback in the action params
+   * (BACKLOG-0000785): `use:lattice={{ ...config, onGrid: (g) => (grid = g) }}`
+   * calls it once with the live `Grid` the moment it is built — synchronously,
+   * before `ready` fires — and again if you hand the action a different
+   * `onGrid`. Or read it off an event: every grid event carries the grid on its
+   * `detail`, so `on:ready={(e) => e.detail.grid}` hands you the same `Grid` a
+   * turn after construction. Use `onGrid` when you need the instance during the
+   * first render.
+   */
   export function createLatticeAction(deps: { createGrid: unknown }): unknown;
   export const EVENT_NAMES: readonly string[];
   export function dashedName(event: string): string;
@@ -5093,6 +5460,10 @@ declare module 'lattice-grid/modules/webcomponent' {
    * This module carries the grid inside it. Use it *or* `createGrid` in one
    * page, never both: two copies keep separate registries, and a renderer
    * registered through one will not appear in the other.
+   *
+   * The live grid is reached through the element's `grid` getter: `el.grid` is
+   * the same `Grid` the vanilla `createGrid` returns, or null while the element
+   * is disconnected.
    */
   export function defineLatticeGrid(tag?: string): void;
   export function createLatticeGridElement(deps?: object): unknown;
@@ -5102,6 +5473,11 @@ declare module 'lattice-grid/modules/webcomponent' {
   export function observedAttributeNames(): string[];
   export function domEventName(event: string): string;
   export class GridElementController {}
+  // Core factories re-exported from this module so they bind to the one engine
+  // the element already carries: a type built with these here shares the
+  // element's registry rather than a second copy's (BACKLOG-0000787). Typed by
+  // reference to the base package.
+  export { createCurrencyType, createUnitType, registerUnitSystem, createStat } from 'lattice-grid';
   export default defineLatticeGrid;
 }
 
@@ -5133,6 +5509,27 @@ declare module 'lattice-grid/modules/htmx' {
   export const QUERY_CHANGED_EVENT: string;
   export const SCROLL_NEAR_END_EVENT: string;
   export const HTML_ROW_WARNING_THRESHOLD: number;
+  // The core factory surface this module re-exports, so an htmx page builds its
+  // configured columns (a currency type, a unit type, a stat) from the one
+  // engine it already carries rather than a second copy (BACKLOG-0000786).
+  // Typed by reference to the base package; names the base package leaves
+  // untyped stay untyped here too.
+  export {
+    createHeadlessGrid, version, getVersion, Grid, Registry, registerModules,
+    createRadixType, createUnitType, registerUnitSystem, defineUnit, UNIT_SYSTEMS, parseUnit, formatUnit,
+    createCurrencyType, parseMoney, formatMoney, convertMoney, rateFunction, MISSING_RATE,
+    Messages, createMessages, auditCatalogue,
+    EN_GB, MESSAGE_KEYS, DEFAULT_LOCALE, formatList, resolveLocale, LOCALES, resolveCatalogue,
+    EN_US, FR_FR, FR_CA, IT_IT, ES_ES, PT_BR, DE_DE, NL_NL, SV_SE, DA_DK, NB_NO, FI_FI,
+    PL_PL, CS_CZ, HU_HU, RO_RO, UK_UA, EL_GR, JA_JP, AR, AR_SA,
+    Window, openWindow, WINDOW_KINDS,
+    evaluateFormula, referencesOf, looksLikeFormula, compileRules, ingest, ingestSync,
+    createPushdownSource, planQuery, splitFilters, applyResidual, capabilitiesOf, resolveMutate, NO_CAPABILITIES,
+    odataAdapter, restAdapter, dfqlAdapter, duckdbAdapter,
+    createStat, deltaOf, toneOf,
+  } from 'lattice-grid';
+  // American licence aliases mirror the base package (dom/index.js).
+  export { setLicence as setLicense, licenceInfo as licenseInfo, licenceState as licenseState } from 'lattice-grid';
 }
 
 declare module 'lattice-grid/modules/dhtmlx-compat' {

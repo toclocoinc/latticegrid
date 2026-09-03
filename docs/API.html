@@ -850,6 +850,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">maximise</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc"><code>false</code> removes the rail button and <code>grid.maximise</code>, for an application with its own full-screen mode.</td></tr>
           <tr><td class="name">toolPanel</td><td class="type">boolean | object</td><td class="desc">Side dock. <code>panels</code>: <code>columns</code>, <code>filters</code>, <code>views</code>, <code>quick</code>, <code>formatting</code>, <code>statistics</code>. <code>side: 'left'</code> makes it the icon rail, which also turns on <code>actions</code> (<code>undo</code>, <code>redo</code>, <code>pause</code>, <code>restore</code>, <code>maximise</code>, then the export group: <code>export</code>, <code>excel</code>, <code>clipboard</code>, <code>print</code>: nine in all, and an array takes these names rather than the button labels) and <code>icons</code>. An explicit array <em>replaces</em> that list rather than extending it; a bare <code>'-'</code> in it renders a divider between groups. <code>exportName</code> names the CSV.</td></tr>
           <tr><td class="name">groupPanel</td><td class="type">boolean | object</td><td class="desc">A drag-and-drop group-by strip above the column header — the row-group panel. Drag a heading into it to group by that column; the active groups show as removable, reorderable chips, and reordering the chips changes the nesting order. It is keyboard-operable — arrows move between chips, <code>Shift</code> with an arrow reorders, <code>Delete</code> ungroups, and an add control groups any column — and every change is announced through the live region. Off by default and non-breaking; it drives the same model as <code>grid.columns.group()</code> and reimplements nothing. The object form takes <code>hint</code>, the placeholder shown while nothing is grouped.</td></tr>
+          <tr><td class="name">kpis</td><td class="type">StatConfig[]</td><td class="desc">A built-in KPI/stat strip: a labelled band of stat tiles the grid places for you above the column header. Each entry is a <code>createStat</code> spec — <code>of</code>, <code>fn</code>, <code>title</code>, <code>interval</code>, <code>footer</code>, <code>format</code> and the rest, minus <code>grid</code> and <code>container</code>, which the grid supplies — so a strip tile and a hand-placed one are the same object. The tiles follow the grid's filters, recomputing on every change like a stand-alone stat does. Off by default and non-breaking; it reuses <code>createStat</code> and reimplements no compute.</td></tr>
           <tr><td class="name">timeZone</td><td class="type">string</td><td class="desc">An IANA zone every date column formats and parses in, so a grid shows one zone whatever the viewer's machine says. Individual columns may override it.</td></tr>
           <tr><td class="name">formulaFunctions</td><td class="type">object</td><td class="desc">Your own functions, added to the formula language by name. The built-in list is closed on purpose; this is the one way in, and a function you add is called exactly as a built-in is.</td></tr>
           <tr><td class="name">formatting</td><td class="type">object</td><td class="desc">Conditional formatting rules to seed, keyed by column id or <code>'*'</code>. The same shape <code>grid.formatting.all()</code> returns, so a saved view can be handed straight back.</td></tr>
@@ -1825,7 +1826,19 @@ grid.statistics.tracking();                       // { columns, rows, forgotten 
 const stats = mountPanel({ grid, panel: 'statistics', container: sidebar });
 stats.refresh();   // for a change the grid does not announce
 stats.destroy();   // yours to call: the element belongs to your page</code></pre>
-    <p>Any built-in panel works: <code>columns</code>, <code>filters</code>, <code>views</code>, <code>quick</code>, <code>formatting</code>, <code>statistics</code>, as does a constructor of your own.</p>
+    <p>Any built-in panel works: <code>columns</code>, <code>filters</code>, <code>views</code>, <code>quick</code>, <code>formatting</code>, <code>statistics</code>, <code>compare</code>, <code>insights</code>, as does a constructor of your own.</p>
+
+    <h3>The insights panel</h3>
+    <p>The <code>insights</code> tool panel is the on-screen half of the comparison analytics (§9.9): the API-only <code>subsetVsPopulation()</code>, <code>datasetVsDataset()</code>, <code>capability()</code> and <code>compareGroups()</code> rendered without you building any UI. It is opt-in — off unless you name it. Add it with <code>toolPanel: { panels: ['columns', 'insights'] }</code>.</p>
+    <p>It shows four things, all over the filtered rows: the columns of the current filtered subset <strong>ranked by effect size</strong> against the whole; the same ranking against a second grid when you pass one as <code>toolPanel: { panels: ['insights'], /* config */ } </code> with <code>insights: { compareWith: otherGrid }</code>; process <strong>capability</strong> for the chosen column where it declares a <code>spec</code>; and a two-group comparison — pick a column and a column to group by, and the panel shows the <strong>named test, its confidence interval and its effect size together</strong>.</p>
+    <p><strong>The stance is enforced on screen.</strong> The effect size is never shown without its interval beside it; the test or method that produced a figure is always named, from the API's own <code>method</code> string; and nothing renders a <code>significant</code> flag, a verdict, a badge or a star — the p-value is shown as the plain datum it is, when it is shown at all. The panel adds no statistic of its own: every number it shows is the one <code>grid.statistics</code> returns.</p>
+    <pre><code>createGrid(el, { toolPanel: { panels: ['columns', 'insights'] } });
+
+<span class="cmt">// with a second dataset to rank this grid against:</span>
+createGrid(el, {
+  toolPanel: { panels: ['insights'] },
+  insights: { compareWith: otherGrid },
+});</code></pre>
 
 
     <h3>The reductions</h3>
@@ -2627,6 +2640,7 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">restAdapter</td><td class="desc">The API you already have</td><td class="desc">Parameter names are yours to choose. Paging and sorting are assumed; filtering is assumed absent until you declare <code>operators</code>, because an adapter that claims to filter when the endpoint ignores it returns the wrong rows silently.</td></tr>
           <tr><td class="name">duckdbAdapter</td><td class="desc">A DuckDB connection</td><td class="desc">Writes SQL and takes the whole query: filter tree, multi-column sort and paging. <code>from</code> is any FROM expression, so <code>read_parquet('s3://bucket/*.parquet')</code> is as valid as a table name. The engine is yours to create and install; this imports nothing, so the bundle is unchanged whether you use it or not.</td></tr>
           <tr><td class="name">dfqlAdapter</td><td class="desc">DemandFlow entities</td><td class="desc">Speaks <code>POST /v1/query</code>. Sends the entity, the key attribute and the prefix to match, a field projection and one field-and-term filter, matched as a case-insensitive substring. It cannot sort or page, so the grid does both, and every request carries a <code>countOnly</code> line because <code>limit</code> caps rows <em>scanned</em> rather than matched: a filtered query returns an arbitrary subset, and the count is the only thing that reveals it.</td></tr>
+          <tr><td class="name">graphqlAdapter</td><td class="desc">Any GraphQL endpoint</td><td class="desc">Configured, not zero-config: GraphQL has no fixed query semantics, so you pass <code>buildQuery</code> to turn the plan into a <code>{ query, variables }</code> operation and <code>parseResponse</code> to read <code>data</code> back into rows and total. Defaults cover an offset/limit list with <code>totalCount</code> and a Relay cursor connection (<code>first</code>/<code>after</code> with <code>pageInfo</code>). The default pushes only the window and the total; declare <code>operators</code> or <code>capabilities</code> for filter/sort only alongside a <code>buildQuery</code> that emits them. A cursor connection is forward-only, so a deep window costs round trips proportional to its offset.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2649,8 +2663,8 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">fetch</td><td class="type">typeof fetch</td><td class="type">the global <code>fetch</code></td><td class="desc">Your own fetch, for a token that expires, a proxy, or a non-browser runtime. The adapter bundles no HTTP client. See <a href="#adapter-auth">authenticating</a>.</td></tr>
           <tr><td class="name">count</td><td class="type">boolean</td><td class="type">true</td><td class="desc">Whether to ask for <code>$count=true</code> and read <code>@odata.count</code>. On by default because the grid sizes its scrollbar from the total; set <code>false</code> for a server that does not support it.</td></tr>
           <tr><td class="name">search</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Whether the server implements <code>$search</code>. Off by default, so quick-filter text stays with the grid until you confirm the endpoint honours it; <code>true</code> pushes it as <code>$search</code>.</td></tr>
-          <tr><td class="name">edit</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Opt into cell write-back. Off keeps the source read-only; <code>true</code> advertises <code>mutate: { update: true, returning: 'row' }</code>, so a committed cell edit is persisted with <code>PATCH</code>. Wave 1 wires <code>update</code> only.</td></tr>
-          <tr><td class="name">key</td><td class="type">string</td><td class="type">the row key</td><td class="desc">The key property a cell update names in its entity-key URL segment, e.g. <code>/Orders(&lt;key&gt;)</code>. Write-back only.</td></tr>
+          <tr><td class="name">edit</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Opt into write-back. Off keeps the source read-only; <code>true</code> advertises <code>mutate: { update: true, delete: true, append: true, returning: 'row' }</code>, so a committed cell edit is persisted with <code>PATCH</code>, a row delete with <code>DELETE /EntitySet(key)</code>, and an add-row with <code>POST /EntitySet</code> reading the created entity back for its server key.</td></tr>
+          <tr><td class="name">key</td><td class="type">string</td><td class="type">the row key</td><td class="desc">The key property every write addresses a row by in its entity-key URL segment, e.g. <code>/Orders(&lt;key&gt;)</code>, and that an add-row is rekeyed to from the created entity. Write-back only.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2677,11 +2691,12 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">encodeFilter</td><td class="type">(filters: object) =&gt; string</td><td class="type"><code>JSON.stringify</code></td><td class="desc">How the pushed condition tree becomes the <code>filter</code> parameter's value. Override it to emit whatever query language your service parses instead of JSON.</td></tr>
           <tr><td class="name">rows</td><td class="type">(body: unknown) =&gt; unknown[]</td><td class="type">body itself if an array, else <code>body.rows</code> then <code>body.data</code></td><td class="desc">Pulls the row array out of the response body, for an envelope that nests it somewhere else.</td></tr>
           <tr><td class="name">total</td><td class="type">(body: unknown, rows: unknown[]) =&gt; number</td><td class="type"><code>body.total</code> then <code>body.count</code>, else the page length</td><td class="desc">Reads the count of <em>all</em> matching rows, not the page. The grid sizes its scrollbar from it, so a page-sized total makes a large result look like one page.</td></tr>
-          <tr><td class="name">edit</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Opt into write-back. Off keeps the source read-only; <code>true</code> advertises <code>mutate: { update: true, delete: true, returning }</code>, so a committed cell edit is persisted with <code>PATCH</code> and a row delete with <code>DELETE</code>. Add-row needs the row-keyed pending engine and is refused loudly.</td></tr>
-          <tr><td class="name">returning</td><td class="type">'row' | 'none'</td><td class="type"><code>none</code></td><td class="desc">The reconcile contract for a successful write. <code>none</code> is last-write-wins — the optimistic value stands; <code>row</code> reads the server's authoritative row (via <code>writeRow</code>) back before confirm.</td></tr>
+          <tr><td class="name">edit</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Opt into write-back. Off keeps the source read-only; <code>true</code> advertises <code>mutate: { update: true, delete: true, append: true, returning }</code>, so a committed cell edit is persisted with <code>PATCH</code>, a row delete with <code>DELETE</code>, and an add-row with <code>POST</code> to the collection URL.</td></tr>
+          <tr><td class="name">returning</td><td class="type">'row' | 'key' | 'none'</td><td class="type"><code>none</code></td><td class="desc">The reconcile contract for a successful write. <code>none</code> is last-write-wins — the optimistic value stands; <code>row</code> reads the server's authoritative row (via <code>writeRow</code>) back before confirm; <code>key</code> reads only the server-assigned key. An add-row needs <code>row</code> or <code>key</code> so the temp row can be rekeyed.</td></tr>
+          <tr><td class="name">keyField</td><td class="type">string</td><td class="type"><code>id</code></td><td class="desc">The property an add-row response carries the server-assigned key in, read back (through <code>writeRow</code>) to rekey the optimistic row. Write-back only.</td></tr>
           <tr><td class="name">encodeMutation</td><td class="type">(op: MutationOp) =&gt; { method: string, url: string, headers?: object, body?: unknown }</td><td class="type">the default verb map</td><td class="desc">Full control of a mutation's HTTP shape, overriding the default method, URL and body. Supersedes <code>writeUrlFor</code>.</td></tr>
-          <tr><td class="name">writeUrlFor</td><td class="type">(op: MutationOp) =&gt; string</td><td class="type"><code>${url}/${key}</code></td><td class="desc">The endpoint a single mutation targets, when the default per-row URL is not what the service uses. Ignored when <code>encodeMutation</code> is supplied.</td></tr>
-          <tr><td class="name">writeRow</td><td class="type">(body: unknown) =&gt; unknown</td><td class="type">the entity, or <code>body.row</code>/<code>body.data</code></td><td class="desc">Pulls the authoritative row out of a write response when <code>returning: 'row'</code>.</td></tr>
+          <tr><td class="name">writeUrlFor</td><td class="type">(op: MutationOp) =&gt; string</td><td class="type"><code>${url}/${key}</code></td><td class="desc">The endpoint a single mutation targets, when the default per-row URL is not what the service uses. Addresses an existing row; an add-row POSTs to the collection <code>url</code> instead. Ignored when <code>encodeMutation</code> is supplied.</td></tr>
+          <tr><td class="name">writeRow</td><td class="type">(body: unknown) =&gt; unknown</td><td class="type">the entity, or <code>body.row</code>/<code>body.data</code></td><td class="desc">Pulls the authoritative row out of a write response when <code>returning: 'row'</code>, and the created row an add-row reads its key from.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2730,9 +2745,9 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">connection</td><td class="type">object</td><td class="type">—</td><td class="desc">A live connection exposing <code>query</code>, and ideally <code>prepare</code>. Required. A connection without <code>prepare</code> is used only for unfiltered queries, because interpolating a user's filter into SQL is worse than not filtering.</td></tr>
           <tr><td class="name">from</td><td class="type">string</td><td class="type">—</td><td class="desc">A table, a view, or any FROM expression. Required. <code>read_parquet('s3://bucket/*.parquet')</code> is as valid as a table name.</td></tr>
           <tr><td class="name">fields</td><td class="type">string[]</td><td class="type">everything (<code>SELECT *</code>)</td><td class="desc">The columns to select. Name them to narrow the projection when the grid shows a subset of a wide table.</td></tr>
-          <tr><td class="name">writable</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Allow cell updates against a plain writable table. Off keeps the source read-only, so a <code>from</code> that is a view or an expression can never be mutated by accident. Wave 1 wires <code>update</code> only.</td></tr>
-          <tr><td class="name">keyField</td><td class="type">string</td><td class="type">—</td><td class="desc">The key column a cell update targets in its <code>WHERE</code>. Write-back is refused unless this names a real column, because an <code>UPDATE</code> without a unique key could touch more than one row.</td></tr>
-          <tr><td class="name">returning</td><td class="type">'row' | 'none'</td><td class="type"><code>row</code></td><td class="desc">The reconcile contract for a successful update. <code>row</code> appends <code>RETURNING *</code> and reconciles server truth (computed columns, triggers); <code>none</code> keeps the optimistic value.</td></tr>
+          <tr><td class="name">writable</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Allow write-back against a plain writable table. Off keeps the source read-only, so a <code>from</code> that is a view or an expression can never be mutated by accident. Enables <code>update</code>, <code>delete</code> and <code>append</code>.</td></tr>
+          <tr><td class="name">keyField</td><td class="type">string</td><td class="type"><code>id</code></td><td class="desc">The key column an update and a delete target in their <code>WHERE</code>, and that an add-row is rekeyed by. Write-back is refused unless this names a real column, because an <code>UPDATE</code>/<code>DELETE</code> without a unique key could touch more than one row.</td></tr>
+          <tr><td class="name">returning</td><td class="type">'row' | 'none'</td><td class="type"><code>row</code></td><td class="desc">The reconcile contract for a successful write. <code>row</code> appends <code>RETURNING *</code> and reconciles server truth (computed columns, triggers); <code>none</code> keeps the optimistic value. An add-row always <code>RETURNING</code>s at least the key column regardless, since it needs that key to rekey the temp row.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2753,6 +2768,41 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">fetch</td><td class="type">typeof fetch</td><td class="type">the global <code>fetch</code></td><td class="desc">Your own fetch, for a proxy or a non-browser runtime.</td></tr>
           <tr><td class="name">writeUrl</td><td class="type">string</td><td class="type">the default write endpoint</td><td class="desc">Where record mutations are POSTed, when the deployment's write endpoint differs from the default. Write-back persists update, delete and add-row.</td></tr>
           <tr><td class="name">encodeCreate</td><td class="type">(row: unknown) =&gt; Record&lt;string, unknown&gt;</td><td class="type">the row's own fields</td><td class="desc">Maps a new grid row to the DemandFlow <code>fields</code> an append needs — its required <code>entity</code>/<code>level</code>/<code>comboKey</code> — since the structural append only knows the row's own fields.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h5 id="graphql-options"><code>graphqlAdapter</code></h5>
+    <p class="section-note">
+      <strong>GraphQL has no fixed query semantics, so this adapter is configured.</strong> A filter,
+      a sort and pagination are whatever the schema defines, so the two hooks are yours to write:
+      <code>buildQuery</code> turns the pushed plan into the <code>{ query, variables }</code> body the
+      endpoint is POSTed, and <code>parseResponse</code> reads its <code>data</code> back into
+      <code>{ rows, total }</code>. The defaults cover an offset/limit list with a
+      <code>totalCount</code> and a Relay cursor connection; either is replaced whole by passing the
+      hook. The default query pushes only the window and asks for the total, which is why the default
+      capabilities are <code>range</code> and <code>total</code> and nothing more — declare
+      <code>operators</code> or <code>capabilities</code> for filter or sort only alongside a
+      <code>buildQuery</code> that genuinely emits them, or the grid returns the wrong rows silently.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="name">url</td><td class="type">string</td><td class="type">—</td><td class="desc">The GraphQL endpoint, POSTed a <code>{ query, variables }</code> body. Required.</td></tr>
+          <tr><td class="name">headers</td><td class="type">Record&lt;string, string&gt;</td><td class="type">{}</td><td class="desc">Sent on every request, merged over <code>Accept</code> and <code>Content-Type: application/json</code>. Where a fixed bearer token or API key goes. See <a href="#adapter-auth">authenticating</a>.</td></tr>
+          <tr><td class="name">fetch</td><td class="type">typeof fetch</td><td class="type">the global <code>fetch</code></td><td class="desc">Your own fetch, for an expiring token, a proxy or a non-browser runtime. The adapter bundles no HTTP client. See <a href="#adapter-auth">authenticating</a>.</td></tr>
+          <tr><td class="name">field</td><td class="type">string</td><td class="type"><code>items</code></td><td class="desc">The root query field the <em>default</em> query selects from, e.g. <code>orders</code>. Ignored when you pass <code>buildQuery</code>.</td></tr>
+          <tr><td class="name">fields</td><td class="type">string[]</td><td class="type"><code>['id']</code> (with a warning)</td><td class="desc">The field names the default query's selection set requests. Name what your grid shows; a default query that selects nothing useful is surfaced rather than left an empty grid.</td></tr>
+          <tr><td class="name">selection</td><td class="type">string</td><td class="type">— (uses <code>fields</code>)</td><td class="desc">A raw selection set for nested fields, e.g. <code>'id name address { city }'</code>, overriding <code>fields</code>.</td></tr>
+          <tr><td class="name">pagination</td><td class="type">'offset' | 'cursor'</td><td class="type"><code>offset</code></td><td class="desc">The default convention: an <code>offset</code>/<code>limit</code> list, or a Relay <code>cursor</code> connection (<code>first</code>/<code>after</code> with <code>pageInfo</code>). A cursor connection is forward-only, so a deep window is paged forward to and costs round trips proportional to its offset.</td></tr>
+          <tr><td class="name">pageSize</td><td class="type">number</td><td class="type">1000</td><td class="desc">The page size for the two forward walks: pulling the whole result (when residual work forces it) and walking a cursor connection to a window.</td></tr>
+          <tr><td class="name">vars</td><td class="type">Partial&lt;Record&lt;'offset'|'limit'|'first'|'after', string&gt;&gt;</td><td class="type">{ offset:'offset', limit:'limit', first:'first', after:'after' }</td><td class="desc">Renames the pagination variables the adapter drives per page, to match the names your schema's arguments use.</td></tr>
+          <tr><td class="name">capabilities</td><td class="type">PushdownCapabilities</td><td class="type">{ range:true, total:true, filter:false, sort:false, quick:false }</td><td class="desc">What your <code>buildQuery</code> actually pushes, merged over the defaults. Declaring a capability the hook does not honour returns the wrong rows silently, so the default declares only the window and the total.</td></tr>
+          <tr><td class="name">operators</td><td class="type">string[]</td><td class="type">— (filtering off)</td><td class="desc">The comparisons your <code>buildQuery</code> emits, e.g. <code>['eq','gt','contains']</code>. Setting it turns filtering on as a <code>tree</code>; pair it with a <code>buildQuery</code> that translates the condition tree, or the filter is declared but not applied.</td></tr>
+          <tr><td class="name">buildQuery</td><td class="type">(request: RemoteRequest) =&gt; { query, variables }</td><td class="type">the offset or cursor default</td><td class="desc">Turns the pushed plan — the window, and whatever filter/sort/quick you declared pushable — into the GraphQL operation to POST. This is where your schema's argument names live.</td></tr>
+          <tr><td class="name">parseResponse</td><td class="type">(data: object) =&gt; { rows, total, pageInfo? }</td><td class="type">the offset or cursor default</td><td class="desc">Reads the operation's <code>data</code> into the row array and the count of <em>all</em> matching rows. For a cursor connection, return <code>pageInfo</code> (<code>hasNextPage</code>, <code>endCursor</code>) so the adapter can walk forward.</td></tr>
+          <tr><td class="name">buildMutation</td><td class="type">(op: object) =&gt; { query, variables }</td><td class="type">— (write-back off)</td><td class="desc">Turns a mutation into a GraphQL operation. A declared follow-up wired by the write-back wave; <code>capabilities.mutate</code> stays <code>false</code> by declaration until then.</td></tr>
         </tbody>
       </table>
     </div>
@@ -4230,7 +4280,7 @@ grid.destroy();
     <h3 id="core-exports-example">Every core export, executed</h3>
     <p class="section-note">Named and resolved against the barrel on every build. A rename or a removal fails
     here rather than in a consumer&#39;s build.</p>
-    <pre data-run="js" data-expect="61" data-covers="export:AR export:AR_SA export:CS_CZ export:DA_DK export:DEFAULT_LOCALE export:DE_DE export:EL_GR export:EN_GB export:EN_US export:ES_ES export:FI_FI export:FR_CA export:FR_FR export:HU_HU export:IT_IT export:JA_JP export:LOCALES export:MESSAGE_KEYS export:NB_NO export:NL_NL export:NO_CAPABILITIES export:PL_PL export:PT_BR export:RO_RO export:SV_SE export:UK_UA export:UNIT_SYSTEMS export:applyResidual export:auditCatalogue export:compileRules export:createPushdownSource export:createRadixType export:createUnitType export:defineUnit export:dfqlAdapter export:duckdbAdapter export:evaluateFormula export:formatList export:formatUnit export:getVersion export:ingest export:ingestSync export:licenceInfo export:licenceState export:licenseInfo export:licenseState export:looksLikeFormula export:odataAdapter export:parseUnit export:planQuery export:referencesOf export:registerModules export:registerUnitSystem export:resolveCatalogue export:resolveLocale export:restAdapter export:restoreState export:serialiseState export:setLicence export:setLicense export:version"><code><span class="kw">const</span> core = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="62" data-covers="export:AR export:AR_SA export:CS_CZ export:DA_DK export:DEFAULT_LOCALE export:DE_DE export:EL_GR export:EN_GB export:EN_US export:ES_ES export:FI_FI export:FR_CA export:FR_FR export:HU_HU export:IT_IT export:JA_JP export:LOCALES export:MESSAGE_KEYS export:NB_NO export:NL_NL export:NO_CAPABILITIES export:PL_PL export:PT_BR export:RO_RO export:SV_SE export:UK_UA export:UNIT_SYSTEMS export:applyResidual export:auditCatalogue export:compileRules export:createPushdownSource export:createRadixType export:createUnitType export:defineUnit export:dfqlAdapter export:duckdbAdapter export:evaluateFormula export:formatList export:formatUnit export:getVersion export:graphqlAdapter export:ingest export:ingestSync export:licenceInfo export:licenceState export:licenseInfo export:licenseState export:looksLikeFormula export:odataAdapter export:parseUnit export:planQuery export:referencesOf export:registerModules export:registerUnitSystem export:resolveCatalogue export:resolveLocale export:restAdapter export:restoreState export:serialiseState export:setLicence export:setLicense export:version"><code><span class="kw">const</span> core = <span class="kw">await</span> import('../packages/core/src/index.js');
 
 <span class="cmt">// Every declared export of the core package, named and checked. A symbol</span>
 <span class="cmt">// that was renamed or dropped fails here, not in a consumer's build.</span>
@@ -4245,8 +4295,8 @@ grid.destroy();
   'auditCatalogue', 'compileRules', 'createPushdownSource', 'createRadixType',
   'createUnitType', 'defineUnit', 'dfqlAdapter', 'duckdbAdapter',
   'evaluateFormula', 'formatList', 'formatUnit', 'getVersion',
-  'ingest', 'ingestSync', 'licenceInfo', 'licenceState',
-  'licenseInfo', 'licenseState', 'looksLikeFormula', 'odataAdapter',
+  'graphqlAdapter', 'ingest', 'ingestSync', 'licenceInfo',
+  'licenceState', 'licenseInfo', 'licenseState', 'looksLikeFormula', 'odataAdapter',
   'parseUnit', 'planQuery', 'referencesOf', 'registerModules',
   'registerUnitSystem', 'resolveCatalogue', 'resolveLocale', 'restAdapter',
   'restoreState', 'serialiseState', 'setLicence', 'setLicense',
@@ -4442,14 +4492,14 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
     <h3 id="remaining-config-example">The remaining option names, executed</h3>
     <p class="section-note">Set on a real grid and checked against its own diagnostics: an unrecognised key
     raises <code>config.unknown</code>, so a renamed or dropped option fails here.</p>
-    <pre data-run="js" data-expect="53" data-covers="config:ai config:alignedGrids config:columnDefaults config:columnGroups config:columnMenu config:columnPresets config:columnTagFilter config:comments config:components config:context config:contextMenu config:dataTypes config:detail config:diff config:edit config:environment config:facets config:formatting config:formulaFunctions config:fullWidth config:grandTotalRow config:groupPanel config:highlightOnChange config:historyBar config:hostFilter config:ingest config:licence config:pagination config:permissions config:pinnedBottomRows config:pinnedTopRows config:pipes config:pivot config:presence config:responsive config:rowClass config:rowForm config:rowStyle config:rowTemplate config:rowTransfer config:selection config:source config:state config:statusBar config:toolPanel config:totalFns config:totalOnlyChangedColumns config:tree config:typeOptions config:updates config:variants config:views config:workerUrl config:announce config:apply config:at config:background config:byKey config:compute config:config config:count config:crossFilter config:destroy config:group config:groupSelectsChildren config:groupSelectsFiltered config:height config:loaded config:order config:pageSizes config:refresh config:reload config:render config:rowLabel config:sort"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="54" data-covers="config:ai config:alignedGrids config:anomalySummary config:columnDefaults config:columnGroups config:columnMenu config:columnPresets config:columnTagFilter config:comments config:components config:context config:contextMenu config:dataTypes config:detail config:diff config:edit config:environment config:facets config:formatting config:formulaFunctions config:fullWidth config:grandTotalRow config:groupPanel config:highlightOnChange config:historyBar config:hostFilter config:ingest config:licence config:pagination config:permissions config:pinnedBottomRows config:pinnedTopRows config:pipes config:pivot config:presence config:responsive config:rowClass config:rowForm config:rowStyle config:rowTemplate config:rowTransfer config:selection config:source config:state config:statusBar config:toolPanel config:totalFns config:totalOnlyChangedColumns config:tree config:typeOptions config:updates config:variants config:views config:workerUrl config:announce config:apply config:at config:background config:byKey config:compute config:config config:count config:crossFilter config:destroy config:group config:groupSelectsChildren config:groupSelectsFiltered config:height config:loaded config:order config:pageSizes config:refresh config:reload config:render config:rowLabel config:sort"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { reportedWarnings } = <span class="kw">await</span> import('../packages/core/src/internal/util.js');
 
 <span class="cmt">// Top-level configuration keys. Each is set on a real grid, and the grid is</span>
 <span class="cmt">// asked whether it recognised them: an unrecognised key raises</span>
 <span class="cmt">// `config.unknown:&lt;key&gt;`, so a renamed or dropped option fails right here.</span>
 <span class="kw">const</span> documented = [
-  'ai', 'alignedGrids', 'columnDefaults', 'columnGroups', 'columnMenu',
+  'ai', 'alignedGrids', 'anomalySummary', 'columnDefaults', 'columnGroups', 'columnMenu',
   'columnPresets', 'columnTagFilter', 'comments', 'components', 'context',
   'contextMenu', 'dataTypes', 'detail', 'diff', 'edit',
   'environment', 'facets', 'formatting', 'formulaFunctions', 'fullWidth',
@@ -4704,6 +4754,34 @@ session.push(5);
 session.push(15);
 return `avg ${avg.value} over ${avg.over.size}; kinds ${WINDOW_KINDS.join('/')}; session ${session.reduce('avg').value}`;</code></pre>
 
+    <h3 id="anomaly-detection">Anomaly detection</h3>
+    <p class="section-note">Flag the rows that do not belong (BACKLOG-0000749). Interpretable statistics with a written-down cut, never a black box: a robust per-column outlier score, Tukey's fences, and multivariate distance from the joint centre. These are the pure kernels behind <code>grid.statistics.anomalies(...)</code> and the <code>anomalyScore</code>/<code>anomalyFlag</code> shadow columns; a host can score a plain array the same way the grid scores a column.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Signature</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">ANOMALY_METHODS</td><td class="type">readonly ('modifiedZScore' | 'iqr' | 'mahalanobis')[]</td><td class="desc">The three methods a caller may ask for, named so a result can say which produced a flag.</td></tr>
+          <tr><td class="name">modifiedZScores</td><td class="type">(values, opts?) =&gt; { median, mad, threshold, scores, flags, flagged }</td><td class="desc">Per-row robust outlier score, <code>0.6745·(x − median)/MAD</code>, flagged past <code>threshold</code> (default 3.5). Built on the median and MAD, so one wild reading cannot inflate the spread and hide — the masking effect that fools an ordinary z-score. A non-finite reading and a zero-MAD column yield a null score, not an invented one.</td></tr>
+          <tr><td class="name">iqrFences</td><td class="type">(values, opts?) =&gt; { q1, q3, iqr, lower, upper, k } | null</td><td class="desc">Tukey's fences, <code>[Q1 − k·IQR, Q3 + k·IQR]</code> (default <code>k = 1.5</code>), the same fence the box plot draws, on R type 7 quartiles.</td></tr>
+          <tr><td class="name">mahalanobis</td><td class="type">(matrix, opts?) =&gt; { center, df, cutoff, singular, used, distances, squared, flags, flagged } | null</td><td class="desc">Distance of every row from the joint centre in the metric of the data's own covariance, cut at a χ² quantile (default the 0.975 point). Catches a row impossible only in combination — heavy <em>and</em> short — that a per-column scan misses. A row with any missing coordinate is left unplaced; a singular covariance is ridge-regularised and reported as <code>singular</code> rather than throwing.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre data-run="js" data-expect="methods 3; flagged 1; upper 22.875; joint true" data-covers="export:ANOMALY_METHODS export:modifiedZScores export:iqrFences export:mahalanobis"><code>const { modifiedZScores, iqrFences, mahalanobis, ANOMALY_METHODS } = await import('../packages/core/src/index.js');
+// Univariate: the robust modified z-score flags the 500 among steady readings,
+// where the mean and standard deviation an ordinary z uses would be dragged up
+// by the outlier until it no longer looked like one.
+const z = modifiedZScores([20, 21, 19, 20, 21, 19, 20, 500]);
+// Tukey's fences say the same, drawn the way a box plot draws them.
+const fence = iqrFences([20, 21, 19, 20, 21, 19, 20, 500]);
+// Multivariate: height and weight move together; the last person is tall but
+// very light, so the pair is impossible even though neither number is extreme.
+const hw = [];
+for (let i = 0; i &lt; 12; i++) hw.push([160 + i, 60 + i]);
+hw.push([182, 45]);
+const m = mahalanobis(hw); // the χ² cut flags the off-line row
+return `methods ${ANOMALY_METHODS.length}; flagged ${z.flagged}; upper ${fence.upper}; joint ${m.flags[12]}`;</code></pre>
+
 
 <!-- BEGIN GENERATED TYPE REFERENCE -->
     <h2 id="type-reference">Type reference</h2>
@@ -4764,6 +4842,55 @@ return `avg ${avg.value} over ${avg.over.size}; kinds ${WINDOW_KINDS.join('/')};
           <tr><td class="name">undo</td><td class="type">(): number</td><td class="desc"></td></tr>
           <tr><td class="name">clear</td><td class="type">(): void</td><td class="desc"></td></tr>
           <tr><td class="name">redraw</td><td class="type">(): void</td><td class="desc"></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-AnomalyReason">AnomalyReason</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">The column that put this row over the line.</td></tr>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The column's display name, or its id.</td></tr>
+          <tr><td class="name">value</td><td class="type">number</td><td class="desc">The row's value in that column.</td></tr>
+          <tr><td class="name">score</td><td class="type">number</td><td class="desc">The modified z-score, for the `modifiedZScore` method. <small>(optional)</small></td></tr>
+          <tr><td class="name">lower</td><td class="type">number</td><td class="desc">The lower fence, for the `iqr` method. <small>(optional)</small></td></tr>
+          <tr><td class="name">upper</td><td class="type">number</td><td class="desc">The upper fence, for the `iqr` method. <small>(optional)</small></td></tr>
+          <tr><td class="name">method</td><td class="type">'modifiedZScore' | 'iqr'</td><td class="desc">Which rule flagged it. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-AnomalyReport">AnomalyReport</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">method</td><td class="type">'modifiedZScore' | 'iqr' | 'mahalanobis'</td><td class="desc">Which rule produced the report.</td></tr>
+          <tr><td class="name">k</td><td class="type">number</td><td class="desc">The IQR fence multiplier, for the `iqr` method. <small>(optional)</small></td></tr>
+          <tr><td class="name">n</td><td class="type">number</td><td class="desc">How many rows the scan ran over.</td></tr>
+          <tr><td class="name">rows</td><td class="type">AnomalyRow[]</td><td class="desc">The flagged rows, worst first.</td></tr>
+          <tr><td class="name">flagged</td><td class="type">number</td><td class="desc">How many rows were flagged.</td></tr>
+          <tr><td class="name">skipped</td><td class="type">string[]</td><td class="desc">The column ids that were not numeric and so could not be scored.</td></tr>
+          <tr><td class="name">scored</td><td class="type">number</td><td class="desc">How many numeric columns were scored (univariate). <small>(optional)</small></td></tr>
+          <tr><td class="name">columns</td><td class="type">unknown</td><td class="desc">Per-column summaries (univariate): the centre, spread and fence per column. <small>(optional)</small></td></tr>
+          <tr><td class="name">df</td><td class="type">number</td><td class="desc">The degrees of freedom of the χ² cut (multivariate). <small>(optional)</small></td></tr>
+          <tr><td class="name">cutoff</td><td class="type">number | null</td><td class="desc">The χ² cut the squared distance is compared against (multivariate). <small>(optional)</small></td></tr>
+          <tr><td class="name">center</td><td class="type">number[]</td><td class="desc">The joint centre the distances are measured from (multivariate). <small>(optional)</small></td></tr>
+          <tr><td class="name">used</td><td class="type">number</td><td class="desc">How many complete rows defined the metric (multivariate). <small>(optional)</small></td></tr>
+          <tr><td class="name">singular</td><td class="type">boolean</td><td class="desc">Whether the covariance was singular and had to be regularised (multivariate). <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-AnomalyRow">AnomalyRow</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">rowKey</td><td class="type">string | null</td><td class="desc">The row key — stable across a sort or a feed, where the index is not.</td></tr>
+          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The physical row index at the time of the call.</td></tr>
+          <tr><td class="name">score</td><td class="type">number | null</td><td class="desc">The row's headline score: its most extreme modified z-score across the flagging columns (univariate), the Mahalanobis distance (multivariate), or null for the IQR method, which has no single score.</td></tr>
+          <tr><td class="name">squared</td><td class="type">number | null</td><td class="desc">The squared Mahalanobis distance, for the `mahalanobis` method. <small>(optional)</small></td></tr>
+          <tr><td class="name">why</td><td class="type">AnomalyReason[]</td><td class="desc">Why this row was flagged: the columns and how far, so it is explainable.</td></tr>
         </tbody>
       </table>
     </div>
@@ -5792,6 +5919,8 @@ return `avg ${avg.value} over ${avg.over.size}; kinds ${WINDOW_KINDS.join('/')};
           <tr><td class="name">undo</td><td class="type">(): void</td><td class="desc"></td></tr>
           <tr><td class="name">redo</td><td class="type">(): void</td><td class="desc"></td></tr>
           <tr><td class="name">setCells</td><td class="type">(writes: { key: string; colId: string; value: unknown }[], type?: 'cell' | 'fill' | 'paste'): number</td><td class="desc"></td></tr>
+          <tr><td class="name">bulkSet</td><td class="type">(value: unknown, opts?: { cells?: { key: string; colId: string }[] }): number</td><td class="desc">Set one value across a block of cells as a single undoable step (§12, card 740). Defaults to the selected range; read-only and non-editable cells are skipped and every write runs the normal parse/validate path.</td></tr>
+          <tr><td class="name">fill</td><td class="type">(opts?: { direction?: 'down' | 'up' | 'left' | 'right'; series?: boolean; range?: CellRange }): number</td><td class="desc">Fill a selected range from its leading edge as one undoable step (§12, card 740). The default copies the anchor across the range (Excel's Ctrl+D and its natural siblings); `series: true` extrapolates a numeric or date series from the first one or two cells of each line, falling back to a copy for types with no series. `direction` defaults to `'down'`.</td></tr>
           <tr><td class="name">pasteInto</td><td class="type">(anchor: { key: string; colId: string }, text: string, extent?: { rows?: number; columns?: number }): number</td><td class="desc"></td></tr>
           <tr><td class="name">pastePreview</td><td class="type">boolean</td><td class="desc">Whether a bulk paste is previewed before it commits (`edit.pastePreview`, §12). <small>(read-only)</small></td></tr>
           <tr><td class="name">previewPaste</td><td class="type">(anchor: { key: string; colId: string }, text: string, extent?: { rows?: number; columns?: number }): {</td><td class="desc">Compute what a paste would change, without committing (§12). The engine behind `edit.pastePreview`: `changes` are the accepted writes with their old and new values (and whether each actually differs), `rejected` are the cells a commit would refuse, each with a reason.</td></tr>
@@ -6220,6 +6349,7 @@ return `avg ${avg.value} over ${avg.over.size}; kinds ${WINDOW_KINDS.join('/')};
           <tr><td class="name">cornerRadius</td><td class="type">boolean | number | string</td><td class="desc">Round the grid's outer corners. Square by default. `true` adopts the theme's own radius; a number is pixels; a string is used as written, so a host can pass its own token or a relative unit. <small>(optional)</small></td></tr>
           <tr><td class="name">stripedRows</td><td class="type">boolean</td><td class="desc">Shade alternate data rows (zebra striping). Off by default, and strictly opt-in: an existing grid must look exactly the same on upgrade. When `true`, every other data row takes the theme's `--lattice-surface-alt` background, which every palette already defines, so dark, high-contrast and terminal stripe correctly without extra work. Parity follows the row's *logical* index, not its position in the DOM, so a row keeps its stripe across a scroll even though the rows are recycled. Structural rows — group headings, group footers and the grand total — are never striped, and both selection and hover still win over the stripe. <small>(optional)</small></td></tr>
           <tr><td class="name">columnTagFilter</td><td class="type">boolean | { multiple?: boolean; label?: string }</td><td class="desc">Show a bar above the column headings for filtering columns by tag. Off by default, and it draws nothing unless some column carries a `tags` entry. `multiple: true` lets more than one tag be chosen at once. Only tagged columns are ever hidden, so an untagged account or total column stays visible whatever is selected. <small>(optional)</small></td></tr>
+          <tr><td class="name">anomalySummary</td><td class="type">boolean | { column?: string; label?: string }</td><td class="desc">Show a small chip in the grid chrome that reads how many rows an anomaly shadow column has flagged, and filters the grid to exactly those when it is clicked (BACKLOG-0000799). Off by default, and it draws nothing unless a column declares a `shadow: { kind: 'anomalyFlag' }`. The count and the filter both read that one shadow column, so the number on the chip is the number of rows the click reveals. `column` names the base column to summarise when more than one anomaly-flag shadow is present; `label` overrides the chip's wording. <small>(optional)</small></td></tr>
           <tr><td class="name">typeOptions</td><td class="type">Record&lt;string, {</td><td class="desc">Per-column options a data type reads. `ratio` and `percentRate` use `{ weight }` to name the column their average is weighted by. A unit type reads `{ significantFigures }` to render to a fixed precision rather than a fixed number of decimals. <small>(optional)</small></td></tr>
           <tr><td class="name">rowTemplate</td><td class="type">string | {</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">gallery</td><td class="type">boolean | {</td><td class="desc">Present rows as a gallery of tiles (§7.12). The tiled card layout with a size-driven column count: tiles as wide as `tileWidth` allows, as many across as the container holds, laid out by the same 2-D virtualisation the grid already runs. `true` draws a tile per row generated from the columns; an object sizes them or supplies a template. Presentation only — sort, filter, group and the data pipeline are unchanged. <small>(optional)</small></td></tr>
@@ -6276,6 +6406,7 @@ return `avg ${avg.value} over ${avg.over.size}; kinds ${WINDOW_KINDS.join('/')};
           <tr><td class="name">rowStyle</td><td class="type">CellStyle | ((p: RowStyleParams) =&gt; CellStyle)</td><td class="desc">Inline styles for every row. Camel-case or hyphenated property names. <small>(optional)</small></td></tr>
           <tr><td class="name">toolPanel</td><td class="type">boolean | {</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">groupPanel</td><td class="type">boolean | {</td><td class="desc">A drag-and-drop group-by strip above the column header — the pattern AG Grid calls the row-group panel. Drag a column heading into it to group by that column; the active groups show as removable, reorderable chips, and reordering the chips changes the nesting order. It is keyboard-operable (arrows navigate, Shift+arrow reorders, Delete ungroups, and an add control groups any column), and every change is announced through the live region, which is why it also addresses the drag-only complaint of BACKLOG-0000429. Off by default and non-breaking, matching `toolPanel`. It drives the same grouping model as `grid.columns.group()`; it reimplements nothing. <small>(optional)</small></td></tr>
+          <tr><td class="name">kpis</td><td class="type">Array&lt;Omit&lt;StatConfig, 'grid' | 'container'&gt;&gt;</td><td class="desc">A built-in KPI/stat strip: a labelled band of {@link createStat} tiles the grid places for you, above the column header. Each entry is a stat spec — the same fields {@link StatConfig} takes, minus `grid` and `container`, which the grid supplies — so a strip tile and a hand-placed one are the same object. The tiles follow the grid's filters, recomputing on every change exactly as a stand-alone stat does. Off by default and non-breaking, matching `groupPanel`: no `kpis` means no band and no cost. It reuses `createStat` and reimplements no compute. <small>(optional)</small></td></tr>
           <tr><td class="name">quickFilterText</td><td class="type">string</td><td class="desc">The quick filter's initial text. <small>(optional)</small></td></tr>
           <tr><td class="name">permissions</td><td class="type">PermissionPolicy</td><td class="desc">Per-column read/write/hidden policy. A usability control, not a security boundary: hidden data is still resident in the store. Enforce the same policy server-side with `permittedColumns` / `permittedExport`. <small>(optional)</small></td></tr>
           <tr><td class="name">diff</td><td class="type">{</td><td class="desc">Prior state for diff and audit mode. <small>(optional)</small></td></tr>
@@ -6328,6 +6459,55 @@ return `avg ${avg.value} over ${avg.over.size}; kinds ${WINDOW_KINDS.join('/')};
           <tr><td class="name">selection</td><td class="type">string[]</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">scroll</td><td class="type">{ top: number; left: number }</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">pagination</td><td class="type">{ page: number; pageSize: number }</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-GroupComparison">GroupComparison</h3>
+    <p class="section-note">The result of {@link StatisticsApi.compareGroups}: how big *and* how sure, as data to interpret. Carries no significance verdict — the p-value is a number, never a flag or a badge.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">test</td><td class="type">'welch' | 'mannWhitney' | 'chiSquare'</td><td class="desc">The test used, named so it is never hidden.</td></tr>
+          <tr><td class="name">chosenBy</td><td class="type">'auto' | 'override'</td><td class="desc">Whether the test was chosen automatically or forced by the caller.</td></tr>
+          <tr><td class="name">reason</td><td class="type">string</td><td class="desc">Why this test — the column family, a normality screen, or the override.</td></tr>
+          <tr><td class="name">statistic</td><td class="type">number</td><td class="desc">The test statistic.</td></tr>
+          <tr><td class="name">statisticName</td><td class="type">string</td><td class="desc">What the statistic is: `t`, `U`, or `chiSquare`.</td></tr>
+          <tr><td class="name">df</td><td class="type">number | null</td><td class="desc">The degrees of freedom, where the test has them; null for Mann-Whitney.</td></tr>
+          <tr><td class="name">pValue</td><td class="type">number</td><td class="desc">The two-sided p-value, returned as data for the caller to interpret. Never thresholded into a verdict here.</td></tr>
+          <tr><td class="name">interval</td><td class="type">GroupDifferenceInterval | null</td><td class="desc">The confidence interval on the difference, or null when there is none.</td></tr>
+          <tr><td class="name">effectSize</td><td class="type">GroupEffectSize</td><td class="desc">The paired effect size, so the p-value is never read on its own.</td></tr>
+          <tr><td class="name">nA</td><td class="type">number</td><td class="desc">How many rows the first group stood on.</td></tr>
+          <tr><td class="name">nB</td><td class="type">number</td><td class="desc">How many rows the second group stood on.</td></tr>
+          <tr><td class="name">groups</td><td class="type">[unknown, unknown]</td><td class="desc">The two group values compared, as keys.</td></tr>
+          <tr><td class="name">reliable</td><td class="type">boolean</td><td class="desc">False when either group is under the reliability floor.</td></tr>
+          <tr><td class="name">method</td><td class="type">string</td><td class="desc">The test's method, named per the reference-suite honesty rule.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-GroupDifferenceInterval">GroupDifferenceInterval</h3>
+    <p class="section-note">A confidence interval on the difference a two-sample test measured.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">estimate</td><td class="type">number</td><td class="desc">The point estimate of the difference the interval is around.</td></tr>
+          <tr><td class="name">lower</td><td class="type">number</td><td class="desc"></td></tr>
+          <tr><td class="name">upper</td><td class="type">number</td><td class="desc"></td></tr>
+          <tr><td class="name">confidence</td><td class="type">number</td><td class="desc">The level the bounds were computed at, 0 to 1.</td></tr>
+          <tr><td class="name">method</td><td class="type">string</td><td class="desc">The method, named for honesty: `welch-t`, `hodges-lehmann`, `newcombe`.</td></tr>
+          <tr><td class="name">category</td><td class="type">unknown</td><td class="desc">For a chi-square interval, which category's share the difference is of. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-GroupEffectSize">GroupEffectSize</h3>
+    <p class="section-note">The effect size paired with a two-sample test — the "how big" half.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The named measure: `pooledStandardMeanDifference` (Cohen's d) for the numeric tests, `categoricalTotalVariation` for chi-square.</td></tr>
+          <tr><td class="name">value</td><td class="type">number | null</td><td class="desc">The effect size in its own terms, or null when it has no scale here.</td></tr>
         </tbody>
       </table>
     </div>
@@ -7425,8 +7605,10 @@ return `avg ${avg.value} over ${avg.over.size}; kinds ${WINDOW_KINDS.join('/')};
           <tr><td class="name">tracking</td><td class="type">(): { columns: string[]; rows: number; forgotten: number }</td><td class="desc">What the shadow histories are costing.</td></tr>
           <tr><td class="name">reduce</td><td class="type">(colId: string, fn: string): unknown</td><td class="desc">Reduce a column by a named kernel over the filtered rows.</td></tr>
           <tr><td class="name">profile</td><td class="type">(colId: string): ColumnProfile | null</td><td class="desc">Everything worth knowing about one column, in one pass each.</td></tr>
+          <tr><td class="name">anomalies</td><td class="type">(opts?: { columns?: string[]</td><td class="desc">The rows that do not belong (BACKLOG-0000749): anomaly detection over the filtered rows by the robust modified z-score (`modifiedZScore`, the default), Tukey's IQR fences (`iqr`), or multivariate Mahalanobis distance over the chosen columns (`mahalanobis`). Every flagged row carries the score behind it and the reason for it, so a flag is explainable rather than a verdict from nowhere. Non-numeric columns are returned under `skipped`.</td></tr>
           <tr><td class="name">subsetVsPopulation</td><td class="type">(opts?: { columns?: string[] }): SubsetComparison</td><td class="desc">Which columns differ most between the filtered subset and the whole population it was drawn from, ranked by effect size — never by a p-value. The measure is stated per column; a numeric and a categorical column are put on one bounded scale so they rank against each other.</td></tr>
           <tr><td class="name">datasetVsDataset</td><td class="type">(other: Grid, opts?: { columns?: string[] }): DatasetComparison</td><td class="desc">Which columns differ most between this grid and another, ranked by effect size — never by a p-value (BACKLOG-0000735). The generalisation of {@link subsetVsPopulation} from subset-vs-population to dataset-vs-dataset: two independent grids, yoked by passing one in, no shared store. A numeric column reports a pooled standardised mean difference (Cohen's d, symmetric in the two peers where Glass's delta is not); a categorical column the total variation of its category mix; both land on one bounded scale. Both sides are read over their filtered rows. Only shared columns are ranked; a column on one side alone is returned under `unmatched`.</td></tr>
+          <tr><td class="name">compareGroups</td><td class="type">(colId: string, opts: TwoSampleSpec): GroupComparison | null</td><td class="desc">Is the difference between two groups real? A two-sample test returned as data to interpret — never a verdict (BACKLOG-0000750). The significance boundary the comparison story (653, 735) stopped short of: those rank by how *much* columns differ and return no p-value; this answers *how sure* for one chosen pair of groups and hands the p-value back as data. There is no `significant` flag, no badge, and no multiple-comparison correction. The rows are split by `opts.by`, the test is chosen by the column's family and named in the result (overridable with `opts.test`): Welch's t or Mann-Whitney U for a numeric column, chi-square for a categorical one. Every result pairs a confidence interval on the difference with the effect size, so it is always "how big and how sure".</td></tr>
           <tr><td class="name">correlation</td><td class="type">(a: string, b: string): number | null</td><td class="desc">Pearson's correlation between two columns.</td></tr>
           <tr><td class="name">covariance</td><td class="type">(a: string, b: string, opts?: { population?: boolean }): number | null</td><td class="desc">Covariance, a correlation before the scales are divided out.</td></tr>
           <tr><td class="name">regression</td><td class="type">(a: string, b: string): RegressionFit | null</td><td class="desc">Least-squares fit of `b` on `a`: in finance, beta and alpha.</td></tr>
@@ -7529,6 +7711,20 @@ return `avg ${avg.value} over ${avg.over.size}; kinds ${WINDOW_KINDS.join('/')};
           <tr><td class="name">loadChildren</td><td class="type">(row: Row, signal: AbortSignal) =&gt; Promise&lt;unknown[]&gt;</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">label</td><td class="type">string | ((data: unknown, row: Row) =&gt; unknown)</td><td class="desc">Where the generated tree column takes its text from: a field or a function. <small>(optional)</small></td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">The tree column's heading. Defaults to the label column's own title. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-TwoSampleSpec">TwoSampleSpec</h3>
+    <p class="section-note">How {@link StatisticsApi.compareGroups} splits the rows and picks a test.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">by</td><td class="type">string</td><td class="desc">The column whose values split the rows into groups. Required.</td></tr>
+          <tr><td class="name">groups</td><td class="type">[unknown, unknown]</td><td class="desc">The two group values to compare. The two most frequent when omitted. <small>(optional)</small></td></tr>
+          <tr><td class="name">test</td><td class="type">'auto' | 'welch' | 'mannWhitney' | 'chiSquare'</td><td class="desc">Force a test rather than choosing by column family. `auto` (the default) picks Welch or Mann-Whitney for a numeric column and chi-square for a categorical one; the choice is always named in the result. <small>(optional)</small></td></tr>
+          <tr><td class="name">confidence</td><td class="type">number</td><td class="desc">The confidence level for the interval, 0 to 1. 0.95 by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">category</td><td class="type">unknown</td><td class="desc">The focal category for a chi-square difference interval, when the column has more than two categories. Without it, a multi-category comparison reports no scalar interval, only the effect size. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>

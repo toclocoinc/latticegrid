@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.26.0</p>
+    <p class="rail__sub">Developer guide · v1.27.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -835,10 +835,12 @@ createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so out
 
   <span class="kw">const</span> lattice = createLatticeAction({ createGrid });
   <span class="kw">let</span> rows = [];
+  <span class="kw">let</span> grid;
 &lt;/script&gt;
 
 &lt;div
-  use:lattice={{ columns, rows, rowKey: 'id' }}
+  use:lattice={{ columns, rows, rowKey: 'id', onGrid: (g) =&gt; (grid = g) }}
+  on:ready={(e) =&gt; (grid = e.detail.grid)}
   on:cell-changed={(e) =&gt; save(e.detail)}
 &gt;&lt;/div&gt;</code></pre>
     </div>
@@ -851,13 +853,92 @@ createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so out
       framework runtime behind it. Grid events arrive as <code>CustomEvent</code>s on the node,
       with the grid event as <code>detail</code>. If you want a component, four lines around this
       gets you one.</p>
+      <p><strong>Reaching the grid.</strong> The action's return value is Svelte's
+      <code>{ update, destroy }</code> and cannot carry the instance, so — at parity with React's
+      <code>ref.current.grid</code> and Vue's <code>expose({ grid })</code> — there are two documented
+      routes to the same object the vanilla examples use, for charts, statistics and imperative
+      pivot. Pass an <code>onGrid</code> callback in the action params and it is called once with the
+      live grid the moment it is created (synchronously, before the first render); it is consumed by
+      the adapter and never reaches the grid config. Or read it off the <code>ready</code> event,
+      whose <code>detail</code> carries <code>{ grid }</code> alongside the event's own fields —
+      <code>ready</code> fires a turn later, so use <code>onGrid</code> when you need it up front.</p>
+    </div>
+
+    <h3 id="adapters-grid-instance">Accessing the grid instance from your framework</h3>
+    <p class="lead-in">
+      Anything the adapters do not surface as a prop — <code>grid.export</code>,
+      <code>grid.selection</code>, <code>grid.state</code> and the rest — is reached on the live
+      grid instance directly. It is the same <code>Grid</code> object <code>createGrid</code>
+      returns; the adapter only builds and drives it. There is one documented way to reach it per
+      adapter, and it is null until the grid is mounted.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Adapter</th><th>How you reach the grid</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="name">React</td>
+            <td>A forwarded ref: <code>ref.current.grid</code>.</td>
+          </tr>
+          <tr>
+            <td class="name">Vue 3</td>
+            <td>A template ref calling the exposed method:
+              <code>this.$refs.grid.grid()</code> (the component <code>expose</code>s a
+              <code>grid()</code> getter).</td>
+          </tr>
+          <tr>
+            <td class="name">Svelte</td>
+            <td>Either an <code>onGrid</code> callback in the action params, called with the live grid
+              the moment it is created:
+              <code>use:lattice={{ ...config, onGrid: (g) =&gt; grid = g }}</code>; or, a turn later,
+              the grid on any event's <code>detail</code> — the first <code>ready</code> event hands it
+              over: <code>on:ready={(e) =&gt; grid = e.detail.grid}</code>.</td>
+          </tr>
+          <tr>
+            <td class="name">Web Component</td>
+            <td>A property on the element: <code>el.grid</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="example">
+      <p class="example__label">React</p>
+      <pre><code><span class="kw">const</span> ref = React.useRef(null);
+<span class="cmt">// after mount:</span>
+ref.current.grid.export.toCsv();</code></pre>
+    </div>
+    <div class="example">
+      <p class="example__label">Vue 3</p>
+      <pre><code>&lt;LatticeGrid ref="grid" :columns="columns" :rows="rows" /&gt;
+
+<span class="cmt">// in a method, after mount:</span>
+<span class="kw">this</span>.$refs.grid.grid().export.toCsv();</code></pre>
+    </div>
+    <div class="example">
+      <p class="example__label">Svelte</p>
+      <pre><code>&lt;script&gt;
+  <span class="kw">let</span> grid;
+&lt;/script&gt;
+
+&lt;div
+  use:lattice={{ columns, rows, rowKey: 'id' }}
+  on:ready={(e) =&gt; grid = e.detail.grid}
+&gt;&lt;/div&gt;
+
+&lt;button on:click={() =&gt; grid?.export.toCsv()}&gt;Export&lt;/button&gt;</code></pre>
+    </div>
+    <div class="example">
+      <p class="example__label">Web Component</p>
+      <pre><code><span class="kw">const</span> el = document.querySelector('lattice-grid');
+el.grid.export.toCsv();</code></pre>
     </div>
 
     <div class="why">
       <p><strong>What the adapters do not do.</strong> They add no features and wrap no API: the
       grid instance is the same object the vanilla examples use, and anything without a prop is
-      reached through it directly (via the ref in React, <code>expose</code> in Vue, or a
-      reference you keep in Svelte). Nothing is proxied, so nothing can lag behind the grid.</p>
+      reached through it directly — via the ref in React, <code>expose</code> in Vue, or
+      <code>onGrid</code> / the <code>ready</code> event in Svelte, as the table above shows.
+      Nothing is proxied, so nothing can lag behind the grid.</p>
     </div>
 
     <h3>The web component is self-contained: use it or the API, not both</h3>
@@ -1968,6 +2049,47 @@ grid.destroy();
 <span class="kw">return</span> `grouped by ${groups.join(', ')}`;</code></pre>
     </div>
 
+    <p class="lead-in">
+      <code>kpis</code> is the same idea for the tile every dashboard opens with. A
+      <code>createStat</code> renders a KPI tile — a label, a value, its change against a
+      baseline — reading the grid so it agrees with the grid; what it needs is a container and
+      the wiring to place it. <code>kpis</code> is that placement done by the grid: an array of
+      stat specs becomes a labelled band of tiles above the column header, and the grid creates
+      the container for each and drives <code>createStat</code> itself. Each entry takes the
+      fields <code>createStat</code> takes — <code>of</code>, <code>fn</code>, <code>title</code>,
+      <code>interval</code>, <code>footer</code>, <code>format</code> and the rest — minus
+      <code>grid</code> and <code>container</code>, which the grid supplies. The tiles follow the
+      grid's filters, so the strip cannot disagree with the table beneath it. Off by default and
+      free when absent; no <code>kpis</code>, no band.
+    </p>
+    <div class="example">
+      <p class="example__label">A built-in KPI strip, following the grid</p>
+      <pre data-run="js" data-expect="revenue 4200000" data-covers="config:kpis"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="cmt">// `kpis` is chrome: with createGrid it renders a labelled band of stat tiles</span>
+<span class="cmt">// above the header, each following the grid's filters. The config is accepted</span>
+<span class="cmt">// everywhere, and each tile reads the same kernel the totals row uses — which</span>
+<span class="cmt">// is what a headless grid can show.</span>
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'region',
+  columns: [{ field: 'region' }, { field: 'mrr', type: 'number' }],
+  rows: [
+    { region: 'EMEA', mrr: 1200000 },
+    { region: 'AMER', mrr: 2400000 },
+    { region: 'APAC', mrr: 600000 },
+  ],
+  kpis: [
+    { title: 'Accounts', fn: 'count' },
+    { title: 'Revenue', of: 'mrr', fn: 'sum' },
+  ],
+});
+
+<span class="cmt">// The value the "Revenue" tile would read, from the kernel createStat uses.</span>
+<span class="kw">const</span> revenue = grid.statistics.reduce('mrr', 'sum');
+grid.destroy();
+<span class="kw">return</span> `revenue ${revenue}`;</code></pre>
+    </div>
+
     <div class="example">
       <p class="example__label">Totals</p>
       <pre><code>{ field: 'capacity', type: 'number', total: 'sum' }
@@ -2403,6 +2525,36 @@ createGrid(right, { columns, rows,
       </table>
     </div>
 
+    <h2 id="anomaly-summary">Anomaly summary chip</h2>
+    <p class="lead-in">
+      Give a column an <code>anomalyFlag</code> shadow (§9.4) and turn on
+      <code>anomalySummary</code>, and the grid shows a small chip reading how many rows that column
+      flags. Click it to filter the grid to exactly those rows; click again to clear.
+    </p>
+
+    <div class="example">
+      <p class="example__label">One shadow column, counted and filtered on a click</p>
+      <pre><code>createGrid(element, {
+  columns: [
+    { field: 'reading', title: 'Reading', type: 'number' },
+    { field: 'outlier', title: 'Anomaly', shadow: { kind: 'anomalyFlag', of: 'reading', threshold: 3.5 } },
+  ],
+  rows,
+  anomalySummary: <span class="kw">true</span>,     <span class="cmt">// or { column: 'reading', label: '…' }</span>
+});</code></pre>
+    </div>
+
+    <div class="why">
+      <p><strong>The count and the filter are the same question.</strong> The chip is not a second
+      detector: it reads the <code>anomalyFlag</code> shadow column, so the number it shows is the
+      number of rows that column marks, and the click sets a filter on that same column
+      (<code>{ col, op: 'eq', value: true }</code>). The count comes from
+      <code>grid.statistics.anomalies()</code> over the shadow's base column, so the chip adds no
+      detection of its own — the score is the API's, shown with its method, never an opaque verdict.</p>
+      <p>Off by default, and it draws nothing unless a column carries an <code>anomalyFlag</code>
+      shadow. When more than one does, <code>column</code> names the base to summarise.</p>
+    </div>
+
     <h3>Headings without the controls</h3>
     <p class="lead-in">
       A dense grid often wants the heading and nothing else. <code>showColumnFunctions: false</code>
@@ -2750,12 +2902,18 @@ createGrid(el, {
 });</code></pre>
     </div>
     <p>
-      Four adapters ship. <code>odataAdapter</code> writes <code>$filter</code>,
+      Five adapters ship. <code>odataAdapter</code> writes <code>$filter</code>,
       <code>$orderby</code>, <code>$top</code> and <code>$skip</code>, and follows
       <code>@odata.nextLink</code> when the server pages on its own terms.
       <code>restAdapter</code> covers an ordinary JSON endpoint whose parameter names are yours to
       give. <code>dfqlAdapter</code> speaks DemandFlow's query API. <code>duckdbAdapter</code>
       takes a live DuckDB connection.
+      <code>graphqlAdapter</code> POSTs a GraphQL operation: because GraphQL has no fixed query
+      semantics, you supply a <code>buildQuery</code> that turns the plan into
+      <code>{ query, variables }</code> and a <code>parseResponse</code> that reads
+      <code>data</code> back into rows and total, with defaults for an offset/limit list and a
+      Relay cursor connection. The default pushes only the window and the total, so anything the
+      schema cannot answer stays with the grid.
     </p>
 
     <h3>Declaring what an engine can do</h3>
