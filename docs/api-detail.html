@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.30.0</p>
+    <p class="rail__sub">Developer guide · v1.31.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -4835,6 +4835,8 @@ grid.on('presentation:captured', (e) =&gt; {
       <p class="example__label">Drawing over the grid</p>
       <pre><code>grid.annotate.use('pen');                    <span class="cmt">// pen · arrow · rect · highlight</span>
 grid.annotate.use('arrow', { colour: '#e0245e' });
+<span class="cmt">// A durable text label anchored to a cell, seeded or added (BACKLOG-875).</span>
+grid.annotate.add({ type: 'text', text: 'Q3 spike', points: [{ x: 232, y: 72 }], background: '#fffbe6' });
 grid.annotate.undo();
 grid.annotate.clear();
 grid.annotate.use(null);                     <span class="cmt">// hand the grid back</span></code></pre>
@@ -6236,6 +6238,7 @@ grid.state.apply(savedView.state);
           <tr><td class="name">canChartRange</td><td class="desc">Whether <code>chartRange</code> would draw something for the grid’s current selection — the question a menu asks before offering the item.</td></tr>
           <tr><td class="name">deriveRangeSpec</td><td class="desc">Decide what a chart of a range should be without drawing it: the type, the category column, the measures, and a spec ready for <code>createChart</code>.</td></tr>
           <tr><td class="name">regressionPlots</td><td class="desc">Turn a fitted regression model into diagnostic chart specs ready for <code>createChart</code>: the fit line with its confidence band, residuals-vs-fitted, a QQ plot of the residuals, and a multicollinearity correlogram with the model’s VIF. The plots that need a per-row or per-coefficient quantity the grid has no column for (scale-location, residuals-vs-leverage, the coefficient forest) are returned as a null spec carrying the reason rather than dropped.</td></tr>
+          <tr><td class="name">createDataRouter</td><td class="desc">Split one arriving stream or dataset across many grids by what each record is — a property or a predicate — driving each grid through the public keyed <code>rows.apply</code> path so a snapshot is a diff, a delta is applied in place, a moved partition moves the row rather than duplicating it, and an unmatched record is counted, sunk and never dropped. v2 adds cross-grid selection filtering: <code>link(source, target, relation)</code> makes a selection in one grid filter what another receives — by a key map or a predicate function, multi-select as an IN set, debounced — re-pushed through the same keyed-diff path so the target stays dumb. Detaches its grids on <code>destroy</code>; the host owns them.</td></tr>
           <tr><td class="name">createDevtools</td><td class="desc">Mount the devtools panel against a grid, including its accessibility checks.</td></tr>
           <tr><td class="name">createLatticeGridElement</td><td class="desc">Build the element class without registering it, for a custom registry.</td></tr>
           <tr><td class="name">createMessages</td><td class="desc">Build a message catalogue. A partial set lays over the built-in British English one.</td></tr>
@@ -6460,6 +6463,7 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
           <tr><td class="name">timeline:detached</td><td class="desc">The brush was removed.</td></tr>
           <tr><td class="name">timeline:seek</td><td class="desc">The brush settled on a range.</td></tr>
           <tr><td class="name">timeline:seeking</td><td class="desc">The brush is being dragged. Throttled.</td></tr>
+          <tr><td class="name">annotation:changed</td><td class="desc">A drawing annotation was added, edited or cleared. Carries the active tool and the mark count. Declared (BACKLOG-876) so grid.on('annotation:changed', ...) and the adapters' onAnnotationChanged reach it directly instead of via the '*' wildcard.</td></tr>
           <tr><td class="name">view:applied</td><td class="desc">Emits no storage write: applying a view changes nothing to persist.</td></tr>
           <tr><td class="name">view:default</td><td class="desc">view is null when the default was cleared.</td></tr>
           <tr><td class="name">view:removed</td><td class="desc">A saved view was deleted.</td></tr>

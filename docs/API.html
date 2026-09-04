@@ -1675,18 +1675,21 @@ grid.presentation.stop();                        <span class="cmt">// or Esc</sp
 
     <h2 id="annotate">grid.annotate</h2>
     <p>The drawing layer over the grid: pixels on a transparent canvas, never data. A presenter picks a tool (<code>pen</code>, <code>arrow</code>, <code>rect</code>, <code>highlight</code>) and draws; the layer is inert until one is chosen, so scrolling and selection pass straight through otherwise. Marks are stored in <strong>content coordinates</strong>, so a circle drawn round a cell stays on that cell as the grid scrolls and resizes rather than hanging over the viewport.</p>
-    <p>Marks can also be <strong>seeded and added without drawing</strong> (BACKLOG-0000813), which is what lets a host ship a pre-drawn callout or restore one from storage. A mark descriptor is <code>{ type, points, colour? }</code> — <code>type</code> is <code>freehand</code>, <code>arrow</code>, <code>rect</code> or <code>highlight</code> (<code>pen</code> is accepted as an alias for <code>freehand</code>); <code>points</code> are <code>{x, y}</code> in content coordinates (a trail for freehand, the two endpoints for an arrow or rectangle). Seeded and added marks are <em>durable</em>: they survive a presentation ending, unlike a live-drawn mark, and they round-trip through <code>getState</code> and a saved view.</p>
+    <p>Marks can also be <strong>seeded and added without drawing</strong> (BACKLOG-0000813), which is what lets a host ship a pre-drawn callout or restore one from storage. A mark descriptor is <code>{ type, points, colour? }</code> — <code>type</code> is <code>freehand</code>, <code>arrow</code>, <code>rect</code>, <code>highlight</code> or <code>text</code> (<code>pen</code> is accepted as an alias for <code>freehand</code>); <code>points</code> are <code>{x, y}</code> in content coordinates (a trail for freehand, the two endpoints for an arrow or rectangle, a single anchor for text). Seeded and added marks are <em>durable</em>: they survive a presentation ending, unlike a live-drawn mark, and they round-trip through <code>getState</code> and a saved view.</p>
+    <p>A <code>text</code> mark (BACKLOG-0000875) is a label anchored at one content point, carrying its <code>text</code> string and a basic style: <code>colour</code>, an optional <code>fontSize</code> in content pixels (default 14, scaled with a presentation), and an optional <code>background</code> colour drawn behind it. Like every mark it is held in content coordinates, so the label tracks the cell it annotates through scroll and resize.</p>
     <pre><code><span class="cmt">// Seed a mark at construction — rendered on first paint, the way redaction seeds.</span>
 createGrid(el, {
   columns, rows,
   annotate: true,
   state: { annotations: [
     { type: 'arrow', points: [{ x: 40, y: 120 }, { x: 220, y: 80 }], colour: '#e0245e' },
+    { type: 'text', text: 'Q3 spike', points: [{ x: 232, y: 72 }], colour: '#1a6bc7', background: '#fffbe6' },
   ] },
 });
 
 <span class="cmt">// Or add one durably at runtime — no synthesised pointer input.</span>
 grid.annotate.add({ type: 'rect', points: [{ x: 40, y: 100 }, { x: 260, y: 160 }] });
+grid.annotate.add({ type: 'text', text: 'review', points: [{ x: 48, y: 108 }], fontSize: 16 });
 
 <span class="cmt">// Persist and restore: seeded and added marks come back out of the state.</span>
 const marks = grid.getState().annotations;   <span class="cmt">// [{ type, points, colour }, …]</span>
@@ -3612,6 +3615,7 @@ off();                                       <span class="cmt">// on() returns i
           <tr><td class="name">timeline:detached</td><td class="desc">The brush was removed.</td></tr>
           <tr><td class="name">timeline:seek</td><td class="desc">The brush settled on a range.</td></tr>
           <tr><td class="name">timeline:seeking</td><td class="desc">The brush is being dragged. Throttled.</td></tr>
+          <tr><td class="name">annotation:changed</td><td class="type">{ tool, count }</td><td class="desc">A drawing annotation was added, edited or cleared. Carries the active <code>tool</code> and the <code>count</code> of marks. A first-class event, so <code>grid.on('annotation:changed', ...)</code> and the framework adapters' <code>onAnnotationChanged</code> reach it directly rather than through the <code>'*'</code> wildcard.</td></tr>
           <tr><td class="name">presentation:started</td><td class="desc">Presentation mode began. Carries the scale, options, views and starting index. <code>presentation:changed</code> covers a later change to the same options, so a listener can tell entry from adjustment.</td></tr>
           <tr><td class="name">presentation:changed</td><td class="desc">The options of a running presentation changed.</td></tr>
           <tr><td class="name">presentation:ended</td><td class="desc">Presentation mode ended. Annotations are cleared here.</td></tr>
@@ -3639,6 +3643,33 @@ off();                                       <span class="cmt">// on() returns i
     </div>
 
     <div class="note"><p>This list is complete, and stays complete: <code>tools/check.js</code> compares every <code>emit()</code> in the grid against the declared event names and fails the build on a mismatch. A chart raises its own events, which belong to the charts module rather than to this bus.</p></div>
+
+    <h3 id="event-known-example">A declared event is reachable directly, executed</h3>
+    <p class="section-note">Every name in the table above is a first-class event: <code>grid.on(name, ...)</code>
+    binds it without the unknown-name warning, and each maps to a framework handler prop. Shown for
+    <code>annotation:changed</code>, which BACKLOG-876 promoted from a wildcard-only emission to a
+    declared event. Run headless on every build.</p>
+    <pre data-run="js" data-expect="true | 0 | onAnnotationChanged" data-covers="event:annotation:changed"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { isKnownEvent } = <span class="kw">await</span> import('../packages/core/src/events/index.js');
+<span class="kw">const</span> { handlerName } = <span class="kw">await</span> import('../packages/modules/shared/adapter.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({ columns: [{ field: 'a' }], rows: [] });
+
+<span class="cmt">// Binding a declared event does not trip the unknown-name warning that an</span>
+<span class="cmt">// undeclared one would — that warning is exactly what BACKLOG-876 removed.</span>
+<span class="kw">const</span> warnings = [];
+<span class="kw">const</span> original = console.warn;
+console.warn = (...a) =&gt; warnings.push(a.join(' '));
+<span class="kw">const</span> off = grid.on('annotation:changed', () =&gt; {});
+console.warn = original;
+off();
+grid.destroy();
+
+<span class="kw">return</span> [
+  isKnownEvent('annotation:changed'),   <span class="cmt">// declared at on() time</span>
+  warnings.length,                      <span class="cmt">// 0: no unknown-event warning</span>
+  handlerName('annotation:changed'),    <span class="cmt">// the adapter prop the frameworks expose</span>
+].join(' | ');</code></pre>
 
     <h2 id="rules">Conditional formatting</h2>
     <p>Rules compile into the function <code>cell.style</code> already takes, so a compiled rule set
@@ -3881,7 +3912,7 @@ const chart = createChart({
           <tr><td class="name">type</td><td class="type">string</td><td class="desc">One of the thirty above.</td></tr>
           <tr><td class="name">x / y</td><td class="type">string</td><td class="desc">Category and measure columns.</td></tr>
           <tr><td class="name">series</td><td class="type">string</td><td class="desc">Splits the measure into one series per distinct value.</td></tr>
-          <tr><td class="name">measures</td><td class="type">object[]</td><td class="desc"><code>{col, fn, type, axis}</code>: several measures at once, each reduced by any totals kernel.</td></tr>
+          <tr><td class="name">measures</td><td class="type">object[]</td><td class="desc"><code>{col, fn, type, axis}</code>: several measures at once, each reduced by an aggregation. <code>fn</code> is one of <code>sum</code>, <code>avg</code> (alias <code>mean</code>), <code>min</code>, <code>max</code>, <code>count</code>, <code>countValues</code>, <code>first</code>, <code>last</code>; it defaults to <code>sum</code>. An <code>fn</code> that is none of these is a mistake, not a silent <code>sum</code>: it warns once, naming the value and the supported set, and falls back to <code>sum</code> so the chart still draws.</td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">Drawn above the plot.</td></tr>
           <tr><td class="name">scheme</td><td class="type">string | string[]</td><td class="desc">A named scheme or your own colours. <code>schemeNames()</code> lists the built-in ones, including a colour-blind-safe palette.</td></tr>
           <tr><td class="name">legend</td><td class="type">boolean | object</td><td class="desc"><code>position</code>, and <code>isolate</code> so a click shows only that series, which is what a reader with eight series wants, and what plain toggling makes them do in seven clicks.</td></tr>
@@ -4061,6 +4092,114 @@ createGrid(el, {
     <p>Codes that match nothing are counted and reported on the chart rather than dropped, a map missing half its data looks exactly like a map of a world where half the data is zero. The full code tables are in <a href="CHART-CODES.md">CHART-CODES.md</a>.</p>
 
     <div class="note"><p>The module imports nothing from the grid: <code>createChart</code> is handed a grid rather than importing one. That is what keeps the charts bundle to the drawing, and it is why the grid must be created first, and why a chart cannot outlive it.</p></div>
+
+    <h2 id="datarouter">The data router</h2>
+    <p><code>modules/data-router</code> is a host-layer demultiplexer: it takes <strong>one</strong> arriving stream or dataset, splits it by what each record <em>is</em>, and routes each partition to its own grid &mdash; or to a headless grid driving a chart. One round-trip, or one live feed, hydrates a whole screen of grids that each see only their slice. It is optional, imports nothing from the grid, and adds no core hook: every grid is driven through the <strong>public</strong> incremental path, <code>grid.rows.apply({ add, update, remove })</code>.</p>
+    <pre><code>import { createDataRouter } from '@toclocoinc/lattice-grid/modules/data-router';
+
+const router = createDataRouter({
+  key: 'entityType',          <span class="cmt">// partition: a property, or fn(row) =&gt; value</span>
+  rowKey: 'id',               <span class="cmt">// identity within a grid: a property, or fn(row)</span>
+  overlap: false,             <span class="cmt">// default: first matching route wins</span>
+  onUnrouted: (item) =&gt; {},   <span class="cmt">// optional sink for records that match no route</span>
+});
+
+router.attach(ordersGrid, 'order');            <span class="cmt">// a property value...</span>
+router.attach(bigGrid, (row) =&gt; row.amt &gt; 1e6); <span class="cmt">// ...or a composite predicate</span>
+router.attach(headlessGrid, 'metric', { rowKey: 'ts' }); <span class="cmt">// per-attach rowKey override; feeds a chart</span>
+router.attachDefault(restGrid);                <span class="cmt">// the "rest" sink: nothing is dropped</span>
+
+const counts = router.load(snapshot);          <span class="cmt">// keyed diff per grid: [{added,updated,removed}, ...]</span>
+router.apply([{ op: 'upsert', row }, { op: 'delete', row }]); <span class="cmt">// in-place deltas by rowKey</span></code></pre>
+    <p><strong>A snapshot is a keyed diff, not a replace.</strong> <code>load</code> re-partitions the whole dataset and, per grid, adds the new rows, updates only the changed ones and removes the gone ones &mdash; so an unchanged row never repaints and selection, scroll and edit state survive. <strong>Deltas are applied in place</strong> by <code>rowKey</code>, last-writer-wins within a batch; an <code>upsert</code> whose partition property has changed <em>moves</em> the row (it leaves the route it no longer matches and joins the one it now does, never duplicated). A record matching no route is counted in <code>router.unrouted</code>, handed to <code>onUnrouted</code>, and &mdash; if an <code>attachDefault</code> grid exists &mdash; routed there, so nothing is ever silently lost. By default a record goes to the first route it matches; <code>overlap: true</code> fans it to every matching route.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">createDataRouter({ key, rowKey?, overlap?, onUnrouted? })</td><td class="desc">Create a router. <code>key</code> is the partition (property or <code>fn(row)</code>); <code>rowKey</code> the default identity within a grid; <code>overlap</code> fans a record to all matching routes; <code>onUnrouted</code> is a sink for unmatched records.</td></tr>
+          <tr><td class="sig">attach(grid, predicate, { rowKey? })</td><td class="desc">Route to <code>grid</code> when <code>predicate</code> matches: a value compared to <code>key</code>, or a <code>fn(row) =&gt; boolean</code>. <code>rowKey</code> overrides the router default for this grid.</td></tr>
+          <tr><td class="sig">attachDefault(grid, { rowKey? })</td><td class="desc">The "rest" sink: the grid that receives every record no explicit route matched.</td></tr>
+          <tr><td class="sig">load(snapshot)</td><td class="desc">Apply a full snapshot as a keyed diff per grid. Returns per-route <code>{ added, updated, removed }</code> counts in attach order.</td></tr>
+          <tr><td class="sig">apply(deltas)</td><td class="desc">Apply <code>{ op: 'upsert' | 'delete', row }</code> deltas in place by <code>rowKey</code>.</td></tr>
+          <tr><td class="sig">unrouted</td><td class="desc">How many records matched no route (reset by <code>load</code>, running for deltas).</td></tr>
+          <tr><td class="sig">link(source, target, relation)</td><td class="desc"><strong>v2:</strong> make a selection in <code>source</code> filter what <code>target</code> receives. <code>relation</code> is a key map <code>{ from, to }</code> (target rows whose <code>to</code> value is among the selected source rows' <code>from</code> values &mdash; multi-select is an IN set, ANY match) or a function <code>fn(selectedSourceRows) =&gt; (row) =&gt; boolean</code>. No selection shows the full partition; changes are debounced.</td></tr>
+          <tr><td class="sig">flush()</td><td class="desc"><strong>v2:</strong> apply any debounced selection refilter now, for a deterministic point (and for tests).</td></tr>
+          <tr><td class="sig">detach(grid)</td><td class="desc">Stop routing to a grid and forget its slice; drop any link it is part of (restoring a filtered sibling). The host still owns and destroys the grid.</td></tr>
+          <tr><td class="sig">destroy()</td><td class="desc">Detach every grid, drop every link and subscription. <strong>Detaches only</strong> &mdash; the host owns and destroys its grids.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The router keeps a small <code>Map&lt;rowKey, row&gt;</code> per route to compute the snapshot diff. That is deliberate for v1; a future optimisation could diff against the grid's own key index rather than a shadow copy. Ordering and dedupe across a live feed are the host's to guarantee &mdash; a caller that must drop stale out-of-order deltas can carry its own version or sequence field and filter before <code>apply</code>; v1 imposes no version scheme.</p>
+    <p><strong>Cross-grid selection filtering (v2, BACKLOG-0000880).</strong> <code>link</code> keeps each target's <em>full partition</em> separate from what it currently shows: when the source's selection changes, the router recomputes the shown subset from the relation and re-pushes it through the same keyed-diff path, so the target grid stays dumb &mdash; it only ever receives rows, never a query or a reference to the source. Selection <em>in</em> the target survives an unrelated refilter, because the keyed path preserves it. No selection (or one the router cannot resolve to routed rows) shows the full partition, and deselecting restores it. The source grid must have selection enabled; still no grid-core change. Debounce is controlled by <code>selectionDebounce</code> (default 16&nbsp;ms; <code>0</code> is synchronous), and <code>flush()</code> forces it.</p>
+    <h3 id="datarouter-v2-example">Cross-grid selection filtering, executed</h3>
+    <p class="section-note">A customers grid and an orders grid off one feed; selecting customers filters the orders
+    grid to their regions through the keyed-diff path, and deselecting restores the full set. Run headless
+    on every build.</p>
+    <pre data-run="js" data-expect="3 | 2 | 3 | 3" data-covers="export:createDataRouter"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'region', field: 'region', type: 'text' }];
+<span class="kw">const</span> customers = createHeadlessGrid({ rowKey: 'id', columns: cols, selection: 'multiple' });
+<span class="kw">const</span> orders = createHeadlessGrid({ rowKey: 'id', columns: cols });
+
+<span class="cmt">// debounce 0 so a selection refilters synchronously in this example.</span>
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id', selectionDebounce: 0 });
+router.attach(customers, 'customer');
+router.attach(orders, 'order');
+router.load([
+  { id: 'c1', type: 'customer', region: 'emea' },
+  { id: 'c2', type: 'customer', region: 'amer' },
+  { id: 'o1', type: 'order', region: 'emea' },
+  { id: 'o2', type: 'order', region: 'amer' },
+  { id: 'o3', type: 'order', region: 'emea' },
+]);
+<span class="cmt">// A selection in customers filters the orders grid by region.</span>
+router.link(customers, orders, { from: 'region', to: 'region' });
+
+<span class="kw">const</span> full = orders.rows.count();          <span class="cmt">// 3: no selection, full partition</span>
+customers.selection.set(['c1']);            <span class="cmt">// emea</span>
+<span class="kw">const</span> oneRegion = orders.rows.count();     <span class="cmt">// 2: o1, o3</span>
+customers.selection.set(['c1', 'c2']);      <span class="cmt">// emea + amer (IN set)</span>
+<span class="kw">const</span> both = orders.rows.count();          <span class="cmt">// 3</span>
+customers.selection.set([]);                <span class="cmt">// deselect restores</span>
+<span class="kw">const</span> restored = orders.rows.count();      <span class="cmt">// 3</span>
+
+customers.destroy(); orders.destroy(); router.destroy();
+<span class="kw">return</span> [full, oneRegion, both, restored].join(' | ');</code></pre>
+    <h3 id="datarouter-example">One feed, three grids, executed</h3>
+    <p class="section-note">A single snapshot fanned to an orders grid, an invoices grid and a "rest" sink, then a
+    delta that changes a row's partition &mdash; proving the fan-out, the sink, and that a moved row
+    leaves its old grid and joins the new one rather than being duplicated. Run headless on every build.</p>
+    <pre data-run="js" data-expect="2,1,1 | 1/2 | 0" data-covers="export:createDataRouter"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'amt', field: 'amt', type: 'number' }];
+<span class="kw">const</span> orders = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> invoices = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> rest = createHeadlessGrid({ rowKey: 'id', columns: cols });
+
+<span class="cmt">// One router keyed on `type`; each grid sees only its slice, the "rest" sink</span>
+<span class="cmt">// catches anything that matches no explicit route.</span>
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id' });
+router.attach(orders, 'order');
+router.attach(invoices, 'invoice');
+router.attachDefault(rest);
+
+<span class="cmt">// One snapshot hydrates all three grids at once.</span>
+router.load([
+  { id: 'o1', type: 'order', amt: 10 },
+  { id: 'o2', type: 'order', amt: 20 },
+  { id: 'i1', type: 'invoice', amt: 99 },
+  { id: 'x1', type: 'ticket', amt: 1 },   <span class="cmt">// matches no route -&gt; the sink, not dropped</span>
+]);
+<span class="kw">const</span> fanned = [orders.rows.count(), invoices.rows.count(), rest.rows.count()].join(',');
+
+<span class="cmt">// o2's partition changes: it MOVES from orders to invoices, not duplicated.</span>
+router.apply([{ op: 'upsert', row: { id: 'o2', type: 'invoice', amt: 25 } }]);
+<span class="kw">const</span> moved = orders.rows.count() + '/' + invoices.rows.count();
+
+orders.destroy(); invoices.destroy(); rest.destroy(); router.destroy();
+<span class="kw">return</span> [fanned, moved, router.unrouted].join(' | ');</code></pre>
 
     <h2 id="charts">In-cell charts</h2>
     <p>Seven chart renderers for a cell. Each is a single SVG whose path data is the only thing a
@@ -4611,7 +4750,7 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
 
     <h3 id="module-exports-example">Every module export, executed</h3>
     <p class="section-note">Nine shipped modules, each export resolved against its own barrel on every build.</p>
-    <pre data-run="js" data-expect="61" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:regressionPlots export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
+    <pre data-run="js" data-expect="62" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:regressionPlots export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload export:createDataRouter"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
 <span class="cmt">// barrel. A module that stopped exporting something fails here.</span>
 <span class="kw">const</span> modules = [
   [<span class="kw">await</span> import('../packages/dom/src/index.js'), [
@@ -4651,6 +4790,9 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
   ]],
   [<span class="kw">await</span> import('../packages/modules/dhtmlx-compat/index.js'), [
     'Grid',
+  ]],
+  [<span class="kw">await</span> import('../packages/modules/data-router/index.js'), [
+    'createDataRouter',
   ]],
 ];
 
@@ -5120,14 +5262,17 @@ return `methods ${ANOMALY_METHODS.length}; flagged ${z.flagged}; upper ${fence.u
       </table>
     </div>
     <h3 id="type-AnnotationMark">AnnotationMark</h3>
-    <p class="section-note">A durable annotation mark descriptor (BACKLOG-0000813) — the shape a host seeds through `state.annotations`, adds through {@link AnnotationApi.add}, and reads back through {@link AnnotationApi.list} and `getState`. `points` are in **content coordinates** (the same space user-drawn marks are stored in), so a mark tracks scroll and resize rather than hanging over the viewport. A `freehand` mark is a trail of points; `arrow` and `rect` are their two endpoints. Text marks are a deliberate follow-up. `pen` is accepted as an alias for `freehand` on input; `list()` reports `freehand`.</p>
+    <p class="section-note">A durable annotation mark descriptor (BACKLOG-0000813) — the shape a host seeds through `state.annotations`, adds through {@link AnnotationApi.add}, and reads back through {@link AnnotationApi.list} and `getState`. `points` are in **content coordinates** (the same space user-drawn marks are stored in), so a mark tracks scroll and resize rather than hanging over the viewport. A `freehand` mark is a trail of points; `arrow` and `rect` are their two endpoints. A `text` mark is a label anchored at a single content point, carrying its `text` string and an optional basic style (BACKLOG-0000875). `pen` is accepted as an alias for `freehand` on input; `list()` reports `freehand`.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">type</td><td class="type">'freehand' | 'arrow' | 'rect' | 'highlight'</td><td class="desc"></td></tr>
-          <tr><td class="name">points</td><td class="type">{ x: number; y: number }[]</td><td class="desc"></td></tr>
+          <tr><td class="name">type</td><td class="type">'freehand' | 'arrow' | 'rect' | 'highlight' | 'text'</td><td class="desc"></td></tr>
+          <tr><td class="name">points</td><td class="type">{ x: number; y: number }[]</td><td class="desc">Content coordinates. A `text` mark carries a single anchor point; `arrow` and `rect` carry their two corners, and `freehand` a trail.</td></tr>
           <tr><td class="name">colour</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">text</td><td class="type">string</td><td class="desc">The label of a `text` mark. Required for `text`, ignored for other types. <small>(optional)</small></td></tr>
+          <tr><td class="name">fontSize</td><td class="type">number</td><td class="desc">A `text` mark's font size in content pixels (before presentation scale). Defaults to 14. <small>(optional)</small></td></tr>
+          <tr><td class="name">background</td><td class="type">string</td><td class="desc">An optional backing colour drawn behind a `text` mark's label. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.30.0, type declarations
+ * Lattice Grid 1.31.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -3439,6 +3439,8 @@ export type EventName =
   /* Comparison and time */
   | 'diff:changed' | 'diff:swapped'
   | 'timeline:attached' | 'timeline:detached' | 'timeline:seek' | 'timeline:seeking'
+  /* Annotations */
+  | 'annotation:changed'
   /* Export */
   | 'export:progress'
   /* Every event at once, for logging and debugging. */
@@ -3940,13 +3942,25 @@ export interface CaptureOptions {
  * `points` are in **content coordinates** (the same space user-drawn marks are
  * stored in), so a mark tracks scroll and resize rather than hanging over the
  * viewport. A `freehand` mark is a trail of points; `arrow` and `rect` are their
- * two endpoints. Text marks are a deliberate follow-up. `pen` is accepted as an
- * alias for `freehand` on input; `list()` reports `freehand`.
+ * two endpoints. A `text` mark is a label anchored at a single content point,
+ * carrying its `text` string and an optional basic style (BACKLOG-0000875).
+ * `pen` is accepted as an alias for `freehand` on input; `list()` reports
+ * `freehand`.
  */
 export interface AnnotationMark {
-  type: 'freehand' | 'arrow' | 'rect' | 'highlight';
+  type: 'freehand' | 'arrow' | 'rect' | 'highlight' | 'text';
+  /**
+   * Content coordinates. A `text` mark carries a single anchor point; `arrow`
+   * and `rect` carry their two corners, and `freehand` a trail.
+   */
   points: { x: number; y: number }[];
   colour?: string;
+  /** The label of a `text` mark. Required for `text`, ignored for other types. */
+  text?: string;
+  /** A `text` mark's font size in content pixels (before presentation scale). Defaults to 14. */
+  fontSize?: number;
+  /** An optional backing colour drawn behind a `text` mark's label. */
+  background?: string;
 }
 
 export interface AnnotationApi {
@@ -5932,6 +5946,82 @@ declare module 'lattice-grid/modules/angular' {
   export const EVENT_NAMES: readonly string[];
   export function dashedName(event: string): string;
   export default createLatticeGrid;
+}
+
+declare module 'lattice-grid/modules/data-router' {
+  /**
+   * A record routed through a data router: any object. Its partition comes from
+   * the router's `key` and its identity within a grid from `rowKey`.
+   */
+  type RouterRecord = Record<string, unknown>;
+
+  /** A per-route diff summary returned by `load`. */
+  interface RouteDiff { added: number; updated: number; removed: number }
+
+  /** A predicate: a property value (`row[key] === value`) or a `fn(row)`. */
+  type RoutePredicate = unknown | ((row: RouterRecord) => boolean);
+
+  /**
+   * A cross-grid selection relation (v2, BACKLOG-0000880): a key map (target
+   * rows whose `to` value is among the selected source rows' `from` values — an
+   * IN set), or a function handed the selected source rows that returns a
+   * target-row predicate.
+   */
+  type SelectionRelation =
+    | { from: string; to: string }
+    | ((selected: RouterRecord[]) => ((row: RouterRecord) => boolean));
+
+  /**
+   * A data router: one arriving stream, partitioned by a property (or composite
+   * predicate), fanned out to a grid per partition (BACKLOG-0000879). Each grid
+   * sees only its slice, updated by keyed diff through the public
+   * `grid.rows.apply` path — no grid-core change, no cross-references between
+   * grids. Snapshots apply keyed diffs (unchanged rows never repaint); deltas add,
+   * update or remove in place by `rowKey`, preserving selection and scroll.
+   */
+  interface DataRouter {
+    /** Attach a grid behind a predicate; `rowKey` overrides the router default. */
+    attach(grid: unknown, predicate: RoutePredicate, opts?: { rowKey?: (string | ((row: RouterRecord) => unknown)) }): DataRouter;
+    /** Attach the "rest" sink for records no explicit route matched. */
+    attachDefault(grid: unknown, opts?: { rowKey?: (string | ((row: RouterRecord) => unknown)) }): DataRouter;
+    /** Detach a grid; the host still owns and destroys it. */
+    detach(grid: unknown): DataRouter;
+    /** Apply a full snapshot as a keyed diff per grid; returns per-route counts. */
+    load(snapshot: RouterRecord[]): RouteDiff[];
+    /** Apply incremental deltas, routed and applied in place by `rowKey`. */
+    apply(deltas: { op: 'upsert' | 'delete'; row: RouterRecord }[]): void;
+    /**
+     * Link a source grid's selection to what a target grid receives (v2,
+     * BACKLOG-0000880): the target shows the subset of its partition the
+     * `relation` admits, re-pushed through the keyed-diff path. No selection
+     * shows the full partition; changes are debounced.
+     */
+    link(source: unknown, target: unknown, relation: SelectionRelation): DataRouter;
+    /** Apply any debounced selection refilter synchronously (for tests/determinism). */
+    flush(): DataRouter;
+    /** How many records matched no route. */
+    readonly unrouted: number;
+    /** Detach every grid and drop every link (the host destroys the grids themselves). */
+    destroy(): void;
+  }
+
+  /**
+   * Create a data router that partitions one stream to many grids.
+   *
+   * `key` is the partition property or `fn(row)`; `rowKey` is the identity within
+   * a grid; `overlap` fans a record to every matching route (default: first match
+   * wins); `onUnrouted` receives records that match none; `selectionDebounce` is
+   * the debounce in ms for cross-grid selection refilters (default 16; `0` is
+   * synchronous).
+   */
+  export function createDataRouter(opts: {
+    key: (string | ((row: RouterRecord) => unknown));
+    rowKey?: (string | ((row: RouterRecord) => unknown));
+    overlap?: boolean;
+    onUnrouted?: (item: unknown) => void;
+    selectionDebounce?: number;
+  }): DataRouter;
+  export default createDataRouter;
 }
 
 declare module 'lattice-grid/modules/webcomponent' {
