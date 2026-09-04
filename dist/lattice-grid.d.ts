@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.27.0, type declarations
+ * Lattice Grid 1.28.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1928,6 +1928,14 @@ export interface GridConfig {
     actions?: false | (RailActionName | '-' | RailAction)[];
     /** File name for the export action, without the extension. */
     exportName?: string;
+    /**
+     * Put the native annotation tools — pen, arrow, rectangle, highlighter — on
+     * the rail. Off by default; each is a real toggle button that shows pressed
+     * while it is the tool in use and turns off when pressed again. The tools
+     * also appear automatically for the duration of a presentation, so this is
+     * only needed to keep them available outside one.
+     */
+    annotate?: boolean;
   };
   /**
    * A drag-and-drop group-by strip above the column header — the pattern AG
@@ -4218,7 +4226,10 @@ export interface ColumnMenuParams {
 /** The rail's built-in action names, plus `'-'` for a divider. */
 export type RailActionName =
   | 'undo' | 'redo' | 'pause' | 'restore' | 'maximise'
-  | 'export' | 'excel' | 'clipboard' | 'print';
+  | 'export' | 'excel' | 'clipboard' | 'print'
+  // The native annotation tools, on the rail when `toolPanel.annotate` is set
+  // or while a presentation runs. Each is toggleable (see `RailAction.active`).
+  | 'pen' | 'arrow' | 'rect' | 'highlight';
 
 /** What a host rail action's `run` is handed. */
 export interface RailActionParams {
@@ -4233,6 +4244,14 @@ export interface RailAction {
   icon?: string | (() => string);
   run(params: RailActionParams): void;
   enabled?(): boolean;
+  /**
+   * Marks the action as a toggle and reports whether it is currently on. When
+   * present the rail renders `aria-pressed` and a pressed style, re-read on
+   * every repaint; a one-shot action omits it and is unchanged. This is the
+   * hook the native annotation tools use, and it is available to a host button
+   * that is itself a toggle.
+   */
+  active?(): boolean;
 }
 
 /** The result of evaluating a formula a user typed into a cell (spec 8.11). */
@@ -5323,8 +5342,22 @@ export interface ChartSpec {
  * The events a chart raises.
  *
  * A chart's own, not the grid's: `grid.on` takes {@link EventName} and knows
- * nothing about these. `point:click` is the one most callers want, it is how a
- * click on a mark becomes a filter on the grid.
+ * nothing about these. There is no `point:click`, `point:hover` or
+ * `series:toggle`; the events are the flat names below and `click` is the one
+ * most callers want, it is how a click on a mark becomes a filter on the grid.
+ *
+ * `click` and `hover` carry a **flat** payload — there is no `point` wrapper:
+ * `{ label, category, column, value, series, rowKeys, native, preventDefault }`.
+ * `column` is the grid column the mark filters on and `category` the value to
+ * filter it to; `value` is the measure when a single series sits under the mark,
+ * otherwise null with the per-series numbers in `series`; `rowKeys` are the
+ * source rows behind the mark; `native` is the DOM event.
+ *
+ * `click` fires whether or not the spec sets `filterOnClick`, and it fires
+ * *before* any filter is applied: call `preventDefault()` on the payload to stop
+ * the chart filtering the grid and take the click over yourself. With
+ * `filterOnClick: true` in the spec the chart filters the grid itself on the
+ * clicked mark's `column`/`category` unless a handler prevented it.
  */
 export type ChartEventName =
   | 'click' | 'hover' | 'leave' | 'focus'
