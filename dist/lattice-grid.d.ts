@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.29.0, type declarations
+ * Lattice Grid 1.30.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -712,6 +712,36 @@ export interface Column {
      * value comes from a sketch and is stamped by a `windowApproximate` column.
      */
     q?: number;
+    /**
+     * For a seasonal-decomposition kind (`tsTrend`/`tsSeasonal`/`tsResidual`/
+     * `tsCoverage`, BACKLOG-0000873), the season length — **required**, since
+     * there is no auto-detection in v1: 7 for a weekly cycle in daily data, 12
+     * for a monthly cycle in monthly data. An integer of at least 2.
+     */
+    period?: number;
+    /**
+     * For a decomposition kind, the classical model: additive by default, or
+     * `multiplicative` (which is undefined on a non-positive series, so those
+     * rows report null and the caller is warned).
+     */
+    decomposition?: 'additive' | 'multiplicative';
+    /**
+     * For an exponential-smoothing kind (`tsSmoothed`/`tsSmoothingAlpha`/
+     * `tsSmoothingBeta`, BACKLOG-0000873), the model: single exponential
+     * smoothing (`ses`, the default) or Holt's level+trend (`holt`).
+     */
+    smoothing?: 'ses' | 'holt';
+    /**
+     * For a smoothing kind, the level factor in `[0, 1]`. Omit to fit it by
+     * minimising in-sample SSE; the chosen value is reported by a
+     * `tsSmoothingAlpha` column.
+     */
+    alpha?: number;
+    /**
+     * For `smoothing: 'holt'`, the trend factor in `[0, 1]`. Omit to fit it;
+     * reported by a `tsSmoothingBeta` column.
+     */
+    beta?: number;
     /**
      * For a `fit*` kind (BACKLOG-0000812), the regression model the shadow reads
      * — predictors, response, method and confidence. Its predictors/response may
@@ -2193,6 +2223,12 @@ export interface GridState {
    */
   pivotView?: { rowsCollapsed: string[]; columnsCollapsed: string[] };
   formatting?: Record<string, FormattingRule[]>;
+  /**
+   * Durable annotation marks (BACKLOG-0000813): seeded from here on first paint,
+   * and written back by `getState` so a host can persist and restore them. In
+   * content coordinates, so they track scroll and resize.
+   */
+  annotations?: AnnotationMark[];
   expanded?: string[];
   selection?: string[];
   scroll?: { top: number; left: number };
@@ -2555,6 +2591,22 @@ export interface StatisticsApi {
    * families refuse. Null on degenerate input (BACKLOG-0000792).
    */
   regressionModel(spec: RegressionSpec): RegressionModel | null;
+  /**
+   * The Augmented Dickey-Fuller stationarity test over the `of` series in
+   * `orderBy` order (BACKLOG-0000873), constant+trend form with the lag order
+   * chosen by AIC up to an optional cap. Returns the statistic, the lag used,
+   * MacKinnon's critical values, an approximate (interpolated) p-value and a
+   * plain-language verdict at the 5% level — a scalar readout, not a column.
+   */
+  adf(spec: { of: string; orderBy: string; maxlag?: number }): AdfResult | null;
+  /**
+   * The autocorrelation (ACF) and partial autocorrelation (PACF) of the `of`
+   * series in `orderBy` order out to `maxlag` (BACKLOG-0000873), with the
+   * approximate ±1.96/√n band. A short-series readout; feed the arrays to a bar
+   * chart over explicit points with the band as reference lines. The lag-1
+   * autocorrelation matches `series(...).autocorrelation`.
+   */
+  acf(spec: { of: string; orderBy: string; maxlag?: number }): AcfResult | null;
   /** Spearman's rank correlation, which one outlier cannot drag. */
   spearman(a: string, b: string): number | null;
   /** Kendall's tau-b. Null past 5,000 rows: it is quadratic. */
@@ -2804,6 +2856,26 @@ export type ShadowKind =
    */
   | 'rollingQuantile' | 'windowApproximate'
   /**
+   * Classical seasonal decomposition over a declared `period` (BACKLOG-0000873),
+   * matching `statsmodels.seasonal_decompose`: `tsTrend` is the centred
+   * moving-average trend, `tsSeasonal` the repeating seasonal index, `tsResidual`
+   * what the two leave behind, and `tsCoverage` the stamp (1 for an interior row,
+   * 0 for a partial edge where the centred window runs off the end, so an edge is
+   * never emitted as full). Additive by default; `decomposition: 'multiplicative'`
+   * is a declared option, undefined on a non-positive series.
+   */
+  | 'tsTrend' | 'tsSeasonal' | 'tsResidual' | 'tsCoverage'
+  /**
+   * Exponential smoothing over the `orderBy` series (BACKLOG-0000873):
+   * `tsSmoothed` is the fitted level from single exponential smoothing (`ses`) or
+   * Holt's level+trend (`holt`) — the signal with the noise removed, not a
+   * forecast. The smoothing factor(s) are caller-set or fit by minimising
+   * in-sample SSE, and reported by the `tsSmoothingAlpha` / `tsSmoothingBeta`
+   * companion columns. Holt-Winters (seasonal) smoothing is deferred; seasonality
+   * is covered by decomposition.
+   */
+  | 'tsSmoothed' | 'tsSmoothingAlpha' | 'tsSmoothingBeta'
+  /**
    * Model-backed regression shadows (BACKLOG-0000812): the predicted value, the
    * residual, and a Cook's-distance influence flag for the row, read from the
    * fitted model named on the shadow declaration (`shadow: { kind:
@@ -2884,6 +2956,44 @@ export interface Heteroscedasticity {
   p: number;
   /** True when the test rejects homoscedasticity at the 0.05 level. */
   heteroscedastic: boolean;
+}
+
+/** The Augmented Dickey-Fuller stationarity test result (BACKLOG-0000873). */
+export interface AdfResult {
+  /** The ADF t-statistic on the lagged level. */
+  statistic: number;
+  /** The number of augmenting lags chosen by AIC. */
+  usedLag: number;
+  /** The observations the final regression used. */
+  nobs: number;
+  /** MacKinnon's constant+trend critical values at the 1%, 5% and 10% levels. */
+  criticalValues: { '1%': number; '5%': number; '10%': number };
+  /** An approximate p-value, interpolated across the critical-value ladder. */
+  pValue: number;
+  /** Always true: the p-value is an interpolation, not the MacKinnon surface. */
+  pApproximate: boolean;
+  /** Whether the series is stationary at the 5% level. */
+  stationary: boolean;
+  /** The plain-language verdict: `'stationary'` or `'non-stationary'`. */
+  verdict: string;
+  /** The regression form used — always `'ct'` (constant + trend) in v1. */
+  regression: 'ct';
+}
+
+/** Autocorrelation (ACF) and partial autocorrelation (PACF) arrays (BACKLOG-0000873). */
+export interface AcfResult {
+  /** The autocorrelation at each lag; index 0 is lag 0 and is always 1. */
+  acf: number[];
+  /** The partial autocorrelation at each lag; index 0 is 1, and `pacf[1] === acf[1]`. */
+  pacf: number[];
+  /** The approximate ±1.96/√n white-noise confidence band. */
+  bounds: { upper: number; lower: number };
+  /** The series length the ACF/PACF were computed over. */
+  n: number;
+  /** The maximum lag. */
+  nlags: number;
+  /** Always true: the ±1.96/√n band is an approximation. */
+  approximate: boolean;
 }
 
 /** A fitted multi-predictor linear model and its diagnostics (BACKLOG-0000792). */
@@ -3822,10 +3932,35 @@ export interface CaptureOptions {
  * they stay with the cells they annotate when the grid scrolls, and are
  * cleared when a presentation ends.
  */
+/**
+ * A durable annotation mark descriptor (BACKLOG-0000813) — the shape a host
+ * seeds through `state.annotations`, adds through {@link AnnotationApi.add}, and
+ * reads back through {@link AnnotationApi.list} and `getState`.
+ *
+ * `points` are in **content coordinates** (the same space user-drawn marks are
+ * stored in), so a mark tracks scroll and resize rather than hanging over the
+ * viewport. A `freehand` mark is a trail of points; `arrow` and `rect` are their
+ * two endpoints. Text marks are a deliberate follow-up. `pen` is accepted as an
+ * alias for `freehand` on input; `list()` reports `freehand`.
+ */
+export interface AnnotationMark {
+  type: 'freehand' | 'arrow' | 'rect' | 'highlight';
+  points: { x: number; y: number }[];
+  colour?: string;
+}
+
 export interface AnnotationApi {
   readonly tool: 'pen' | 'arrow' | 'rect' | 'highlight' | null;
   readonly count: number;
   use(tool: 'pen' | 'arrow' | 'rect' | 'highlight' | null, opts?: { colour?: string }): string | null;
+  /**
+   * Add a durable mark from a descriptor, without synthesising pointer input
+   * (BACKLOG-0000813). The mark is painted, survives a presentation ending, and
+   * round-trips through `getState`. Returns the mark count.
+   */
+  add(mark: AnnotationMark): number;
+  /** Every mark on the layer, as descriptors — the shape `getState` persists. */
+  list(): AnnotationMark[];
   undo(): number;
   clear(): void;
   redraw(): void;

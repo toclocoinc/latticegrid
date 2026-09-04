@@ -1673,6 +1673,26 @@ grid.presentation.stop();                        <span class="cmt">// or Esc</sp
     </div>
     <p>Enlargement is a CSS scale factor multiplied into the same tokens <a href="#config">density</a> uses, so text, rows, padding and controls grow together rather than the grid being zoomed as an image. Font size is damped against it: type that scaled linearly with a 2× row height reads as shouting.</p>
 
+    <h2 id="annotate">grid.annotate</h2>
+    <p>The drawing layer over the grid: pixels on a transparent canvas, never data. A presenter picks a tool (<code>pen</code>, <code>arrow</code>, <code>rect</code>, <code>highlight</code>) and draws; the layer is inert until one is chosen, so scrolling and selection pass straight through otherwise. Marks are stored in <strong>content coordinates</strong>, so a circle drawn round a cell stays on that cell as the grid scrolls and resizes rather than hanging over the viewport.</p>
+    <p>Marks can also be <strong>seeded and added without drawing</strong> (BACKLOG-0000813), which is what lets a host ship a pre-drawn callout or restore one from storage. A mark descriptor is <code>{ type, points, colour? }</code> — <code>type</code> is <code>freehand</code>, <code>arrow</code>, <code>rect</code> or <code>highlight</code> (<code>pen</code> is accepted as an alias for <code>freehand</code>); <code>points</code> are <code>{x, y}</code> in content coordinates (a trail for freehand, the two endpoints for an arrow or rectangle). Seeded and added marks are <em>durable</em>: they survive a presentation ending, unlike a live-drawn mark, and they round-trip through <code>getState</code> and a saved view.</p>
+    <pre><code><span class="cmt">// Seed a mark at construction — rendered on first paint, the way redaction seeds.</span>
+createGrid(el, {
+  columns, rows,
+  annotate: true,
+  state: { annotations: [
+    { type: 'arrow', points: [{ x: 40, y: 120 }, { x: 220, y: 80 }], colour: '#e0245e' },
+  ] },
+});
+
+<span class="cmt">// Or add one durably at runtime — no synthesised pointer input.</span>
+grid.annotate.add({ type: 'rect', points: [{ x: 40, y: 100 }, { x: 260, y: 160 }] });
+
+<span class="cmt">// Persist and restore: seeded and added marks come back out of the state.</span>
+const marks = grid.getState().annotations;   <span class="cmt">// [{ type, points, colour }, …]</span>
+grid.state.apply({ annotations: marks });     <span class="cmt">// re-seed a fresh grid</span></code></pre>
+    <div class="note"><p><code>annotate.add</code> adds to the model and paints — it never synthesises pointer events, so a mark is exactly what the descriptor says. <code>undo()</code> removes the most recent mark and <code>clear()</code> removes them all, as before; <code>annotation:changed</code> still fires on every change. A presentation ending clears the presenter's live-drawn marks but keeps the durable ones, which are view state a host means to persist.</p></div>
+
     <h2 id="redaction">grid.redaction</h2>
     <p>Obscures a column's values on screen while leaving the shape of the data (row count, sort, filters, layout) perfectly readable. Built for presenting and screen sharing. Right-click a column heading for <strong>Redact column</strong>.</p>
     <p><strong>This is not a security control.</strong> The values stay in the model, the DOM, the clipboard and every export; anyone with the page can read them from devtools or by turning off one CSS rule. It defeats a camera, which is the whole claim. For a value that must not reach the browser at all, use <a href="#permissions">permissions</a> with <code>writeOnly</code>.</p>
@@ -2041,6 +2061,115 @@ createGrid(el, {
   grid.rows.value('r5', 'cum'),          <span class="cmt">// running total to the end</span>
   grid.rows.value('r2', 'pop'),          <span class="cmt">// 4 - 2</span>
   grid.rows.value('r3', 'med'),          <span class="cmt">// median of 2,4,5 = 4</span>
+].join('|');</code></pre>
+
+    <h3 id="seasonal-decomposition">Seasonal decomposition</h3>
+    <p>Splitting a series into <strong>trend + seasonal + residual</strong> (BACKLOG-0000873) answers "what's the underlying trend with the weekly pattern removed?". It is classical decomposition — the same algorithm <code>statsmodels.seasonal_decompose</code> uses, verified against it in the reference suite — delivered as four shadow columns over the same ordered pass: <code>tsTrend</code> (a centred moving average), <code>tsSeasonal</code> (the repeating index), <code>tsResidual</code> (what the two leave behind), and <code>tsCoverage</code>.</p>
+    <p>The <code>period</code> is <strong>caller-declared and required</strong> — 7 for a weekly cycle in daily data, 12 for a monthly cycle in monthly data; there is no auto-detection in v1. The model is <code>additive</code> by default; <code>decomposition: 'multiplicative'</code> is a declared option that is undefined on a non-positive series (those rows report null, with a warning). The centred window runs off the ends, so the leading and trailing rows have no trend — they are <em>partial edges</em>, reported as null and stamped <code>tsCoverage: 0</code> rather than emitted as if full.</p>
+    <pre><code>columns: [
+  { field: 'day',  type: 'date' },
+  { field: 'sales', type: 'number' },
+  { id: 'trend',  title: 'Trend',    shadow: { kind: 'tsTrend',    of: 'sales', orderBy: 'day', period: 7 } },
+  { id: 'season', title: 'Weekly',   shadow: { kind: 'tsSeasonal', of: 'sales', orderBy: 'day', period: 7 } },
+  { id: 'resid',  title: 'Residual', shadow: { kind: 'tsResidual', of: 'sales', orderBy: 'day', period: 7 } },
+  { id: 'cover',  title: 'Coverage', shadow: { kind: 'tsCoverage', of: 'sales', orderBy: 'day', period: 7 } },
+]</code></pre>
+    <pre data-run="js" data-expect="14|2|0|1|null|0" data-covers="export:createHeadlessGrid"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="cmt">// A period-4 series: trend 10+i plus a season [2,-1,0,-1], so value = trend + season.</span>
+<span class="kw">const</span> season = [2, -1, 0, -1];
+<span class="kw">const</span> base = { of: 'v', orderBy: 't', within: 'all', period: 4 };
+<span class="kw">const</span> grid = createHeadlessGrid({
+  columns: [
+    { field: 't', type: 'number' },
+    { field: 'v', type: 'number' },
+    { id: 'trend',  shadow: { kind: 'tsTrend', ...base } },
+    { id: 'season', shadow: { kind: 'tsSeasonal', ...base } },
+    { id: 'resid',  shadow: { kind: 'tsResidual', ...base } },
+    { id: 'cover',  shadow: { kind: 'tsCoverage', ...base } },
+  ],
+  rows: Array.from({ length: 8 }, (unused, i) => ({ id: String(i), t: i, v: (10 + i) + season[i % 4] })),
+  rowKey: 'id',
+});
+<span class="kw">return</span> [
+  grid.rows.value('4', 'trend'),   <span class="cmt">// centred MA recovers the trend: 14</span>
+  grid.rows.value('4', 'season'),  <span class="cmt">// the phase-0 seasonal index: 2</span>
+  grid.rows.value('4', 'resid'),   <span class="cmt">// nothing left over: 0</span>
+  grid.rows.value('4', 'cover'),   <span class="cmt">// interior row: full, 1</span>
+  grid.rows.value('0', 'trend') === null ? 'null' : 'x',  <span class="cmt">// partial edge: null, not invented</span>
+  grid.rows.value('0', 'cover'),   <span class="cmt">// edge stamped partial: 0</span>
+].join('|');</code></pre>
+
+    <h3 id="exponential-smoothing">Exponential smoothing</h3>
+    <p>Smoothing pulls the signal out of a noisy series (BACKLOG-0000873). <code>tsSmoothed</code> is the fitted <strong>level</strong> — not a forecast of the future — from single exponential smoothing (<code>smoothing: 'ses'</code>, the default) or Holt's level+trend (<code>smoothing: 'holt'</code>). The recursion matches statsmodels and is verified against it in the reference suite. Holt-Winters (seasonal) smoothing is deferred; seasonality is covered by decomposition above.</p>
+    <p>The smoothing factor is either <strong>caller-set</strong> (<code>alpha</code>, and <code>beta</code> for Holt) or <strong>fit by minimising the in-sample SSE</strong> when omitted — and the chosen value is reported, not hidden, by the <code>tsSmoothingAlpha</code> / <code>tsSmoothingBeta</code> companion columns.</p>
+    <pre><code>columns: [
+  { field: 'day',   type: 'date' },
+  { field: 'sales', type: 'number' },
+  { id: 'level', title: 'Smoothed', shadow: { kind: 'tsSmoothed',       of: 'sales', orderBy: 'day', smoothing: 'holt' } },
+  { id: 'a',     title: 'α',        shadow: { kind: 'tsSmoothingAlpha', of: 'sales', orderBy: 'day', smoothing: 'holt' } },
+  { id: 'b',     title: 'β',        shadow: { kind: 'tsSmoothingBeta',  of: 'sales', orderBy: 'day', smoothing: 'holt' } },
+]</code></pre>
+    <pre data-run="js" data-expect="6|8|0.5" data-covers="export:createHeadlessGrid"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="cmt">// SES at alpha 0.5 over 4,8,6,10: level runs 4, 6, 6, 8.</span>
+<span class="kw">const</span> base = { of: 'v', orderBy: 't', within: 'all', smoothing: 'ses', alpha: 0.5 };
+<span class="kw">const</span> grid = createHeadlessGrid({
+  columns: [
+    { field: 't', type: 'number' },
+    { field: 'v', type: 'number' },
+    { id: 'sm', shadow: { kind: 'tsSmoothed', ...base } },
+    { id: 'a',  shadow: { kind: 'tsSmoothingAlpha', ...base } },
+  ],
+  rows: [4, 8, 6, 10].map((v, i) => ({ id: String(i), t: i, v })),
+  rowKey: 'id',
+});
+<span class="kw">return</span> [
+  grid.rows.value('1', 'sm'),   <span class="cmt">// 0.5*8 + 0.5*4 = 6</span>
+  grid.rows.value('3', 'sm'),   <span class="cmt">// 0.5*10 + 0.5*6 = 8</span>
+  grid.rows.value('0', 'a'),    <span class="cmt">// the factor used, reported: 0.5</span>
+].join('|');</code></pre>
+
+    <h3 id="stationarity">Stationarity (ADF)</h3>
+    <p>Before you compare two series or detrend one, it helps to know whether it is <strong>stationary</strong> — reverting to a level or trend — or wandering with a unit root. <code>grid.statistics.adf</code> runs the Augmented Dickey-Fuller test (BACKLOG-0000873) and returns a scalar readout, not a per-row column: the statistic, the augmenting lag chosen by AIC, MacKinnon's critical values, an interpolated p-value (stamped approximate), and a plain-language verdict at the 5% level. The constant+trend regression and the AIC lag choice match statsmodels' <code>adfuller</code>, against which the statistic and lag are verified.</p>
+    <pre data-run="js" data-expect="non-stationary|0" data-covers="method:statistics"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="cmt">// A random walk (a unit root): it wanders rather than reverting.</span>
+<span class="kw">const</span> walk = [0.138, -0.725, -1.26, -0.536, -0.267, 0.167, -0.765, -0.146, -0.311, -0.586,
+  0.376, -0.41, 0.282, 0.865, -0.024, 0.149, -0.2, -0.654, -1.338, -1.917, -1.832, -1.333,
+  -0.492, -1.259, -1.89, -2.145, -2.146, -1.297, -1.26, -0.716, -0.846, -1.206, -2.126,
+  -1.724, -0.945, -1.599, -1.316, -0.413, 0.304, 0.732, -0.257, 0.086, -0.572, -0.501,
+  -1.153, -1.186, -1.455, -1.607];
+<span class="kw">const</span> grid = createHeadlessGrid({
+  columns: [{ field: 't', type: 'number' }, { field: 'v', type: 'number' }],
+  rows: walk.map((v, i) => ({ id: String(i), t: i, v })),
+  rowKey: 'id',
+});
+<span class="kw">const</span> adf = grid.statistics.adf({ of: 'v', orderBy: 't' });
+<span class="kw">return</span> [adf.verdict, adf.usedLag].join('|');   <span class="cmt">// non-stationary, 0 lags</span></code></pre>
+
+    <h3 id="autocorrelation">Autocorrelation (ACF / PACF)</h3>
+    <p><code>grid.statistics.acf</code> shows how far back a series depends on itself (BACKLOG-0000873): the autocorrelation (ACF) and partial autocorrelation (PACF) arrays out to a maximum lag, each with the approximate <code>±1.96/√n</code> white-noise band (stamped approximate) — a lag whose bar clears the band is evidence of real dependence. The estimators are the biased ACF and the Yule-Walker (Levinson-Durbin) PACF, matching statsmodels, verified in the reference suite. <strong>Lag 1 is the single source of truth</strong>: <code>acf[1]</code> is the same number <code>statistics.series(...).autocorrelation</code> reports, and <code>pacf[1] === acf[1]</code>.</p>
+    <p>The correlogram is the arrays fed to a bar chart over <a href="#seasonal-decomposition">explicit points</a>, with the band as reference lines — reusing the existing chart primitives:</p>
+    <pre><code>const { acf, bounds } = grid.statistics.acf({ of: 'sales', orderBy: 'day', maxlag: 20 });
+createChart({
+  grid, container: '#acf', type: 'bar',
+  points: acf.map((v, lag) =&gt; ({ x: lag, y: v })),
+  reference: [{ value: bounds.upper }, { value: bounds.lower }, { value: 0 }],
+});</code></pre>
+    <pre data-run="js" data-expect="1|true|true" data-covers="method:statistics"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="cmt">// A deterministic AR(1): each reading leans 0.6 on the one before.</span>
+<span class="kw">let</span> s = 5; <span class="kw">const</span> rand = () =&gt; { s = (Math.imul(s, 1664525) + 1013904223) &gt;&gt;&gt; 0; return s / 4294967296 - 0.5; };
+<span class="kw">const</span> y = []; <span class="kw">let</span> prev = 0;
+<span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; 200; i++) { const v = 0.6 * prev + rand(); y.push(v); prev = v; }
+<span class="kw">const</span> grid = createHeadlessGrid({
+  columns: [{ field: 't', type: 'number' }, { field: 'v', type: 'number' }],
+  rows: y.map((v, i) =&gt; ({ id: String(i), t: i, v })),
+  rowKey: 'id',
+});
+<span class="kw">const</span> res = grid.statistics.acf({ of: 'v', orderBy: 't', maxlag: 6 });
+<span class="kw">const</span> series = grid.statistics.series('v', { by: 't' });
+<span class="kw">return</span> [
+  res.acf[0],                                    <span class="cmt">// lag 0 is always 1</span>
+  res.pacf[1] === res.acf[1],                    <span class="cmt">// the first partial equals the first acf</span>
+  Math.abs(res.acf[1] - series.autocorrelation) &lt; 1e-9,  <span class="cmt">// lag 1 is the single source of truth</span>
 ].join('|');</code></pre>
 
     <h2 id="highlight">grid.highlight</h2>
@@ -4897,6 +5026,39 @@ return `methods ${ANOMALY_METHODS.length}; flagged ${z.flagged}; upper ${fence.u
 <!-- BEGIN GENERATED TYPE REFERENCE -->
     <h2 id="type-reference">Type reference</h2>
     <p class="section-note">Every interface the library declares, with the type of each member. The sections above describe how the grid is used; this one is the complete surface, generated from the type declarations so that it always matches the release.</p>
+    <h3 id="type-AcfResult">AcfResult</h3>
+    <p class="section-note">Autocorrelation (ACF) and partial autocorrelation (PACF) arrays (BACKLOG-0000873).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">acf</td><td class="type">number[]</td><td class="desc">The autocorrelation at each lag; index 0 is lag 0 and is always 1.</td></tr>
+          <tr><td class="name">pacf</td><td class="type">number[]</td><td class="desc">The partial autocorrelation at each lag; index 0 is 1, and `pacf[1] === acf[1]`.</td></tr>
+          <tr><td class="name">bounds</td><td class="type">{ upper: number; lower: number }</td><td class="desc">The approximate ±1.96/√n white-noise confidence band.</td></tr>
+          <tr><td class="name">n</td><td class="type">number</td><td class="desc">The series length the ACF/PACF were computed over.</td></tr>
+          <tr><td class="name">nlags</td><td class="type">number</td><td class="desc">The maximum lag.</td></tr>
+          <tr><td class="name">approximate</td><td class="type">boolean</td><td class="desc">Always true: the ±1.96/√n band is an approximation.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-AdfResult">AdfResult</h3>
+    <p class="section-note">The Augmented Dickey-Fuller stationarity test result (BACKLOG-0000873).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">statistic</td><td class="type">number</td><td class="desc">The ADF t-statistic on the lagged level.</td></tr>
+          <tr><td class="name">usedLag</td><td class="type">number</td><td class="desc">The number of augmenting lags chosen by AIC.</td></tr>
+          <tr><td class="name">nobs</td><td class="type">number</td><td class="desc">The observations the final regression used.</td></tr>
+          <tr><td class="name">criticalValues</td><td class="type">{ '1%': number; '5%': number; '10%': number }</td><td class="desc">MacKinnon's constant+trend critical values at the 1%, 5% and 10% levels.</td></tr>
+          <tr><td class="name">pValue</td><td class="type">number</td><td class="desc">An approximate p-value, interpolated across the critical-value ladder.</td></tr>
+          <tr><td class="name">pApproximate</td><td class="type">boolean</td><td class="desc">Always true: the p-value is an interpolation, not the MacKinnon surface.</td></tr>
+          <tr><td class="name">stationary</td><td class="type">boolean</td><td class="desc">Whether the series is stationary at the 5% level.</td></tr>
+          <tr><td class="name">verdict</td><td class="type">string</td><td class="desc">The plain-language verdict: `'stationary'` or `'non-stationary'`.</td></tr>
+          <tr><td class="name">regression</td><td class="type">'ct'</td><td class="desc">The regression form used — always `'ct'` (constant + trend) in v1.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-AggregateProvenance">AggregateProvenance</h3>
     <p class="section-note">How one aggregate was routed, for `lastPlan()` provenance.</p>
     <div class="table-wrap">
@@ -4942,7 +5104,6 @@ return `methods ${ANOMALY_METHODS.length}; flagged ${z.flagged}; upper ${fence.u
       </table>
     </div>
     <h3 id="type-AnnotationApi">AnnotationApi</h3>
-    <p class="section-note">The presenter's drawing layer. Pixels over the grid, it never reads or writes data, and it is inert until a tool is chosen, so scrolling and selection pass straight through. Marks are held in content coordinates, so they stay with the cells they annotate when the grid scrolls, and are cleared when a presentation ends.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
@@ -4950,9 +5111,23 @@ return `methods ${ANOMALY_METHODS.length}; flagged ${z.flagged}; upper ${fence.u
           <tr><td class="name">tool</td><td class="type">'pen' | 'arrow' | 'rect' | 'highlight' | null</td><td class="desc"><small>(read-only)</small></td></tr>
           <tr><td class="name">count</td><td class="type">number</td><td class="desc"><small>(read-only)</small></td></tr>
           <tr><td class="name">use</td><td class="type">(tool: 'pen' | 'arrow' | 'rect' | 'highlight' | null, opts?: { colour?: string }): string | null</td><td class="desc"></td></tr>
+          <tr><td class="name">add</td><td class="type">(mark: AnnotationMark): number</td><td class="desc">Add a durable mark from a descriptor, without synthesising pointer input (BACKLOG-0000813). The mark is painted, survives a presentation ending, and round-trips through `getState`. Returns the mark count.</td></tr>
+          <tr><td class="name">list</td><td class="type">(): AnnotationMark[]</td><td class="desc">Every mark on the layer, as descriptors — the shape `getState` persists.</td></tr>
           <tr><td class="name">undo</td><td class="type">(): number</td><td class="desc"></td></tr>
           <tr><td class="name">clear</td><td class="type">(): void</td><td class="desc"></td></tr>
           <tr><td class="name">redraw</td><td class="type">(): void</td><td class="desc"></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-AnnotationMark">AnnotationMark</h3>
+    <p class="section-note">A durable annotation mark descriptor (BACKLOG-0000813) — the shape a host seeds through `state.annotations`, adds through {@link AnnotationApi.add}, and reads back through {@link AnnotationApi.list} and `getState`. `points` are in **content coordinates** (the same space user-drawn marks are stored in), so a mark tracks scroll and resize rather than hanging over the viewport. A `freehand` mark is a trail of points; `arrow` and `rect` are their two endpoints. Text marks are a deliberate follow-up. `pen` is accepted as an alias for `freehand` on input; `list()` reports `freehand`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">'freehand' | 'arrow' | 'rect' | 'highlight'</td><td class="desc"></td></tr>
+          <tr><td class="name">points</td><td class="type">{ x: number; y: number }[]</td><td class="desc"></td></tr>
+          <tr><td class="name">colour</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -6588,6 +6763,7 @@ return `methods ${ANOMALY_METHODS.length}; flagged ${z.flagged}; upper ${fence.u
           <tr><td class="name">pivot</td><td class="type">{ enabled: boolean; columns: string[] }</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">pivotView</td><td class="type">{ rowsCollapsed: string[]; columnsCollapsed: string[] }</td><td class="desc">The pivot presentation's collapse state (§10, BACKLOG-0000738): which row-axis and column-axis nodes are collapsed. Absent when the matrix is fully expanded, and tolerated as "expand all" when applied. <small>(optional)</small></td></tr>
           <tr><td class="name">formatting</td><td class="type">Record&lt;string, FormattingRule[]&gt;</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">annotations</td><td class="type">AnnotationMark[]</td><td class="desc">Durable annotation marks (BACKLOG-0000813): seeded from here on first paint, and written back by `getState` so a host can persist and restore them. In content coordinates, so they track scroll and resize. <small>(optional)</small></td></tr>
           <tr><td class="name">expanded</td><td class="type">string[]</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">selection</td><td class="type">string[]</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">scroll</td><td class="type">{ top: number; left: number }</td><td class="desc"><small>(optional)</small></td></tr>
@@ -7830,6 +8006,8 @@ return `methods ${ANOMALY_METHODS.length}; flagged ${z.flagged}; upper ${fence.u
           <tr><td class="name">covariance</td><td class="type">(a: string, b: string, opts?: { population?: boolean }): number | null</td><td class="desc">Covariance, a correlation before the scales are divided out.</td></tr>
           <tr><td class="name">regression</td><td class="type">(a: string, b: string): RegressionFit | null</td><td class="desc">Least-squares fit of `b` on `a`: in finance, beta and alpha.</td></tr>
           <tr><td class="name">regressionModel</td><td class="type">(spec: RegressionSpec): RegressionModel | null</td><td class="desc">Fit a multi-predictor linear model over the filtered rows and return the full diagnostic set — coefficients with standard errors, t and p; R² and adjusted R²; per-row fitted values, residuals, leverage and Cook's D; VIF per predictor; a Breusch–Pagan heteroscedasticity flag; and, for a single predictor, a pointwise confidence band. `method` is `ols`, `wls` (needs a `weights` column) or `robust`; `quantile` is reserved and the regularised families refuse. Null on degenerate input (BACKLOG-0000792).</td></tr>
+          <tr><td class="name">adf</td><td class="type">(spec: { of: string; orderBy: string; maxlag?: number }): AdfResult | null</td><td class="desc">The Augmented Dickey-Fuller stationarity test over the `of` series in `orderBy` order (BACKLOG-0000873), constant+trend form with the lag order chosen by AIC up to an optional cap. Returns the statistic, the lag used, MacKinnon's critical values, an approximate (interpolated) p-value and a plain-language verdict at the 5% level — a scalar readout, not a column.</td></tr>
+          <tr><td class="name">acf</td><td class="type">(spec: { of: string; orderBy: string; maxlag?: number }): AcfResult | null</td><td class="desc">The autocorrelation (ACF) and partial autocorrelation (PACF) of the `of` series in `orderBy` order out to `maxlag` (BACKLOG-0000873), with the approximate ±1.96/√n band. A short-series readout; feed the arrays to a bar chart over explicit points with the band as reference lines. The lag-1 autocorrelation matches `series(...).autocorrelation`.</td></tr>
           <tr><td class="name">spearman</td><td class="type">(a: string, b: string): number | null</td><td class="desc">Spearman's rank correlation, which one outlier cannot drag.</td></tr>
           <tr><td class="name">kendall</td><td class="type">(a: string, b: string): number | null</td><td class="desc">Kendall's tau-b. Null past 5,000 rows: it is quadratic.</td></tr>
           <tr><td class="name">weightedQuantile</td><td class="type">(colId: string, weightId: string, p?: number): number | null</td><td class="desc">A quantile of one column weighted by another; the median by default.</td></tr>
