@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.28.0, type declarations
+ * Lattice Grid 1.29.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -20,7 +20,7 @@ export type TypeName =
   | 'text' | 'number' | 'boolean' | 'date' | 'dateString' | 'object' | 'lookup'
   | 'image'
   // Extended catalogue. Never inferred, a column asks for these by name.
-  | 'time' | 'datetime' | 'duration'
+  | 'time' | 'datetime' | 'duration' | 'timestamp'
   | 'ipv4' | 'ipv6' | 'cidr'
   | 'json' | 'secret'
   | 'hex' | 'hex8' | 'hex16' | 'hex32' | 'binary' | 'binary8' | 'octal'
@@ -551,9 +551,19 @@ export interface ColumnLayoutSpec {
 }
 
 export interface ColumnHeaderSpec {
+  /** Not read by the header renderer; use `render` to draw a custom heading. */
   template?: string;
+  /**
+   * A custom heading renderer: a function, or a component (a class with a
+   * `render` method). A string names a registered renderer. Either form draws
+   * the same two ways and they are interchangeable — it may append to the passed
+   * label element itself and return nothing, or return an `Element` (attached
+   * for you) or a `string` (used as the heading text).
+   */
   render?: string | RendererCtor;
+  /** Props passed to `render` as `params.props`. */
   props?: Record<string, unknown>;
+  /** A class, or classes, added to the heading cell. */
   class?: string | string[];
   tooltip?: string;
   align?: Align;
@@ -607,8 +617,17 @@ export interface Column {
    * Row grouping by this column. `index` fixes its place among several;
    * `explode` gives a multi-value cell one group per value rather than one
    * group for the combination.
+   *
+   * `granularity` and `weekStart` apply to a `timestamp` column: it buckets by
+   * civil `day` (the default), `week` or `month` in the display zone, or
+   * `instant` for one group per exact moment. `weekStart` is the first weekday,
+   * 1=Monday (default) to 7=Sunday.
    */
-  group?: { enabled?: boolean; index?: number; explode?: boolean } | boolean;
+  group?: {
+    enabled?: boolean; index?: number; explode?: boolean;
+    granularity?: 'day' | 'week' | 'month' | 'instant';
+    weekStart?: number;
+  } | boolean;
   /** Use this column as a pivot dimension, and where it sits among several. */
   pivot?: { enabled?: boolean; index?: number } | boolean;
   /** The reduction shown in the totals row and in group footers. */
@@ -659,6 +678,49 @@ export interface Column {
     upper?: number;
     warnLower?: number;
     warnUpper?: number;
+    /**
+     * For a rolling time-series kind (`rollingSum`/`rollingAvg`/`rollingMin`/
+     * `rollingMax`/`windowCoverage`/`cumulativeToDate`/`periodOverPeriod`,
+     * BACKLOG-0000748), the column whose order defines the series — dates,
+     * sequence numbers, timestamps. **Required**: the screen sort is never used,
+     * because a rolling figure would then change on every header click, so a
+     * rolling column with no `orderBy` reports null and warns.
+     */
+    orderBy?: string;
+    /**
+     * For the rolling window kinds, the window to aggregate over: the last `span`
+     * rows (`count`), the last `span` ms — or `minutes` — of the `orderBy` axis
+     * (`time`), or everything so far (`session`). The first rows of a series
+     * carry a partial window, stamped by a `windowCoverage` companion rather than
+     * dressed as full.
+     */
+    window?: {
+      kind: 'count' | 'time' | 'session';
+      span?: number;
+      minutes?: number;
+    };
+    /**
+     * For a rolling kind, whether the series is computed per group (`'group'`,
+     * the default — partitioned by the grid's active grouping) or across the
+     * whole dataset (`'all'`).
+     */
+    within?: 'group' | 'all';
+    /**
+     * For `kind: 'rollingQuantile'` (and its `windowApproximate` companion), the
+     * quantile in `[0, 1]`, defaulting to the median (`0.5`). Exact while the
+     * window is small; past an internal span cap, and for a session window, the
+     * value comes from a sketch and is stamped by a `windowApproximate` column.
+     */
+    q?: number;
+    /**
+     * For a `fit*` kind (BACKLOG-0000812), the regression model the shadow reads
+     * — predictors, response, method and confidence. Its predictors/response may
+     * also be given directly on this object.
+     */
+    model?: RegressionSpec;
+    predictors?: string[];
+    response?: string;
+    method?: 'ols' | 'wls' | 'robust' | 'quantile';
   };
   /**
    * A running total down the grid **as it is currently ordered**.
@@ -719,7 +781,7 @@ export interface ResolvedColumn {
   edit: ColumnEditSpec;
   sort: ColumnSortSpec;
   filter: ColumnFilterSpec;
-  group: { enabled: boolean; index: number; explode: boolean };
+  group: { enabled: boolean; index: number; explode: boolean; granularity?: 'day' | 'week' | 'month' | 'instant'; weekStart?: number };
   pivot: { enabled: boolean; index: number };
   total: TotalName | TotalFn | null;
   /**
@@ -2100,10 +2162,25 @@ export interface ColumnState {
   variant?: VariantSpec | null;
 }
 
+/**
+ * A persisted banded-header node (§15, BACKLOG-0000739): a band with a `columns`
+ * list whose members are leaf ids or nested bands. This is what round-trips a
+ * drag-created group through a saved view.
+ */
+export interface ColumnGroupState {
+  id: string;
+  title: string;
+  collapsible: boolean;
+  openByDefault: boolean;
+  columns: Array<string | ColumnGroupState>;
+}
+
 export interface GridState {
   version: number;
   columns?: ColumnState[];
   columnOrder?: string[];
+  /** The banded-header tree, when the grid has one (BACKLOG-0000739). */
+  columnGroups?: ColumnGroupState[];
   filters?: FilterSet;
   quick?: string;
   sort?: SortEntry[];
@@ -2400,6 +2477,14 @@ export interface StatisticsApi {
    */
   shadow(colId: string, kind: ShadowKind, rowKey: string,
     scope?: 'all' | 'filtered', spec?: object): unknown;
+  /**
+   * One regression shadow value for a row, by key (BACKLOG-0000812): the
+   * predicted value, residual, or Cook's-distance influence flag from the fitted
+   * model, over the filtered rows. Null for a row outside the fit.
+   */
+  fitShadow(kind: 'fitPredicted' | 'fitResidual' | 'fitInfluence'
+    | 'fitStdResidual' | 'fitLeverage' | 'fitCooksD',
+  rowKey: string, spec: RegressionSpec): number | boolean | null;
   /** A running total at one row, down the grid as it is currently ordered. */
   running(colId: string, kind: 'total' | 'percent', rowKey: string): number | null;
   /** Make the current values the new baseline: "mark all". */
@@ -2460,6 +2545,16 @@ export interface StatisticsApi {
   covariance(a: string, b: string, opts?: { population?: boolean }): number | null;
   /** Least-squares fit of `b` on `a`: in finance, beta and alpha. */
   regression(a: string, b: string): RegressionFit | null;
+  /**
+   * Fit a multi-predictor linear model over the filtered rows and return the
+   * full diagnostic set — coefficients with standard errors, t and p; R² and
+   * adjusted R²; per-row fitted values, residuals, leverage and Cook's D; VIF
+   * per predictor; a Breusch–Pagan heteroscedasticity flag; and, for a single
+   * predictor, a pointwise confidence band. `method` is `ols`, `wls` (needs a
+   * `weights` column) or `robust`; `quantile` is reserved and the regularised
+   * families refuse. Null on degenerate input (BACKLOG-0000792).
+   */
+  regressionModel(spec: RegressionSpec): RegressionModel | null;
   /** Spearman's rank correlation, which one outlier cannot drag. */
   spearman(a: string, b: string): number | null;
   /** Kendall's tau-b. Null past 5,000 rows: it is quadratic. */
@@ -2687,7 +2782,47 @@ export type ShadowKind =
    * `{lower, upper}` (and optional inner `{warnLower, warnUpper}`) off the
    * shadow declaration; centred-target ± tolerance is a deliberate follow-up.
    */
-  | 'specStatus';
+  | 'specStatus'
+  /**
+   * Rolling time-series aggregates over a stated `orderBy` (BACKLOG-0000748,
+   * Phase 1), computed in one ordered pass the grid caches by row key and never
+   * over the screen sort. `rollingSum`/`rollingAvg`/`rollingMin`/`rollingMax`
+   * reduce the `window`; `windowCoverage` reports how much of the requested
+   * window a row actually covers (so a partial window is never dressed as full);
+   * `cumulativeToDate` is the running total to the row; `periodOverPeriod` is the
+   * change on the previous period (lag-1 in Phase 1). Sortable, filterable,
+   * groupable and exportable like any cell.
+   */
+  | 'rollingSum' | 'rollingAvg' | 'rollingMin' | 'rollingMax'
+  | 'windowCoverage' | 'cumulativeToDate' | 'periodOverPeriod'
+  /**
+   * A rolling quantile over the `orderBy` window (BACKLOG-0000748) — a trailing
+   * median or p95, the quantile set by `q`. Exact while the window is small;
+   * past an internal span cap, and for a session window, it comes from a KLL
+   * sketch and `windowApproximate` reports which rows are approximate, so a
+   * sketched quantile is never presented as exact.
+   */
+  | 'rollingQuantile' | 'windowApproximate'
+  /**
+   * Model-backed regression shadows (BACKLOG-0000812): the predicted value, the
+   * residual, and a Cook's-distance influence flag for the row, read from the
+   * fitted model named on the shadow declaration (`shadow: { kind:
+   * 'fitResidual', model: { predictors, response, method } }`). They follow the
+   * grid's filters — the model refits over the filtered rows — and are
+   * sortable, filterable, groupable and exportable like any cell. Null for a row
+   * outside the fit. `fitInfluence` flags Cook's D > 4/n by default (overridable
+   * via `threshold`); "not influential" (`false`) and "cannot tell" (`null`)
+   * stay distinct.
+   *
+   * `fitStdResidual`, `fitLeverage` and `fitCooksD` (BACKLOG-0000872) surface
+   * the diagnostics the engine already computes — the internally studentised
+   * residual `eᵢ/(s·√(1−hᵢ))`, the hat-matrix leverage `hᵢ`, and Cook's distance
+   * — as their own numeric columns, so the scale-location and
+   * residuals-vs-leverage plots bind to real columns. Null where there is no
+   * spread to standardise against.
+   */
+  | 'fitPredicted' | 'fitResidual' | 'fitInfluence'
+  | 'fitStdResidual' | 'fitLeverage' | 'fitCooksD';
 
 /** The three verdicts a `specStatus` shadow can report. */
 export type SpecStatus = 'PASS' | 'WARN' | 'FAIL';
@@ -2701,6 +2836,83 @@ export interface RegressionFit {
   stdError: number;
   /** Pairs that survived pairwise deletion, not rows scanned. */
   n: number;
+}
+
+/** The specification of a multi-predictor model (BACKLOG-0000792). */
+export interface RegressionSpec {
+  /** The predictor column ids. */
+  predictors: string[];
+  /** The response column id. */
+  response: string;
+  /** `ols` (default), `wls` or `robust`. `quantile` is reserved (coming next). */
+  method?: 'ols' | 'wls' | 'robust' | 'quantile';
+  /** A weights column id, required for `wls`. */
+  weights?: string;
+  /** The confidence level for the band; 0.95 by default. */
+  confidence?: number;
+}
+
+/** One fitted coefficient, with the uncertainty around it. */
+export interface RegressionCoefficient {
+  /** `(intercept)` or the predictor's column id. */
+  name: string;
+  estimate: number;
+  stdError: number;
+  /** estimate ÷ standard error. */
+  t: number;
+  /** Two-sided Student-t p-value; a number with a documented method, not a verdict. */
+  p: number;
+  /**
+   * The Wald confidence interval at the model's confidence level
+   * (BACKLOG-0000872) — the whiskers a coefficient forest plot draws. Null when
+   * there is no residual degree of freedom to form a critical value.
+   */
+  lower: number | null;
+  upper: number | null;
+}
+
+/** A pointwise confidence band for the mean response of a single-predictor fit. */
+export interface RegressionBand {
+  confidence: number;
+  points: { x: number; yhat: number; lower: number; upper: number }[];
+}
+
+/** The Breusch–Pagan heteroscedasticity test result. */
+export interface Heteroscedasticity {
+  statistic: number;
+  df: number;
+  p: number;
+  /** True when the test rejects homoscedasticity at the 0.05 level. */
+  heteroscedastic: boolean;
+}
+
+/** A fitted multi-predictor linear model and its diagnostics (BACKLOG-0000792). */
+export interface RegressionModel {
+  method: string;
+  coefficients: RegressionCoefficient[];
+  r2: number;
+  adjR2: number;
+  n: number;
+  /** Residual degrees of freedom, n − p. */
+  df: number;
+  /** Residual variance, RSS ÷ df. */
+  sigma2: number;
+  fitted: number[];
+  residuals: number[];
+  /** Hat-diagonal leverage per row. */
+  leverage: number[];
+  /** Cook's distance per row; null where it cannot be computed. */
+  cooksD: (number | null)[];
+  /** Variance-inflation factor per predictor; Infinity when exactly collinear. */
+  vif: number[];
+  heteroscedasticity: Heteroscedasticity | null;
+  band: RegressionBand | null;
+  /** Per-row weights actually used (robust/WLS), or null for OLS. */
+  weights: number[] | null;
+  predictors: string[];
+  response: string;
+  /** The physical rows the diagnostics are aligned to, in order. */
+  rows: number[];
 }
 
 export interface ProcessCapability {
@@ -3092,7 +3304,7 @@ export type EventName =
   | 'column:moved' | 'column:resized' | 'column:visible' | 'column:pinned'
   | 'column:grouped' | 'column:pivoted' | 'column:filter:open' | 'column:menu:open'
   | 'pivot:drill'
-  | 'columns:changed' | 'columns:tagged' | 'header:contextmenu'
+  | 'columns:changed' | 'columns:tagged' | 'columngroup:changed' | 'header:contextmenu'
   /* Selection and view */
   | 'selection:changed' | 'range:changed' | 'clipboard:copy'
   | 'page:changed' | 'scroll' | 'scroll:end' | 'size:changed'
@@ -3322,6 +3534,22 @@ export interface ColumnsApi {
   show(ids: string | string[]): void;
   hide(ids: string | string[]): void;
   move(id: string, to: number): void;
+  /**
+   * Wrap leaf columns in a banded header, or add them to an existing band
+   * (BACKLOG-0000739). Header banding, not row grouping (see {@link group}); the
+   * band is a {@link ColumnGroup} node so a drag-, keyboard- or config-built band
+   * is the same tree, and it round-trips through a saved view. Emits
+   * `columngroup:changed`.
+   */
+  groupColumns(ids: string | string[], opts?: { title?: string; at?: number; groupId?: string }): string | null;
+  /** Take a leaf out of its band; a band emptied by the move is dissolved. */
+  ungroupColumn(id: string): void;
+  /** Rename a banded header. */
+  renameGroup(groupId: string, title: string): void;
+  /** Dissolve a band, returning its columns to the enclosing level in place. */
+  dissolveGroup(groupId: string): void;
+  /** Move a whole band among its siblings, its columns travelling as a block. */
+  moveGroup(groupId: string, to: number): void;
   pin(id: string, side: 'start' | 'end' | null): void;
   resize(id: string, px: number): void;
   /**
@@ -5100,7 +5328,7 @@ export function resolveCatalogue(tag?: string): Record<string, unknown> | null;
 export type ChartType =
   | 'line' | 'step' | 'area' | 'rangeArea'
   | 'bar' | 'horizontalBar' | 'waterfall'
-  | 'scatter' | 'bubble'
+  | 'scatter' | 'bubble' | 'forest'
   | 'combo' | 'pareto'
   | 'histogram' | 'boxplot' | 'heatmap'
   | 'qq' | 'ecdf' | 'lorenz' | 'correlogram' | 'control' | 'capability' | 'movingRange'
@@ -5259,6 +5487,29 @@ export interface ChartSpec {
    * through the order they happened to be listed in.
    */
   fit?: boolean | 'line';
+  /**
+   * A pointwise confidence band, drawn as a varying-width ribbon beneath the fit
+   * line (BACKLOG-0000812). Fed by a fitted model's own interval — the `band`
+   * from {@link StatisticsApi.regressionModel}, or as produced by
+   * {@link regressionPlots} — so the ribbon and the diagnostics report the one
+   * computation rather than a slope redrawn here. `line: false` suppresses the
+   * band's own centre line, for a chart that already draws the fit with `fit`.
+   *
+   * Only where the x axis is numeric, for the same reason `fit` is.
+   */
+  band?: (RegressionBand & { line?: boolean }) | null;
+  /**
+   * An explicit point set, bypassing the by-column binder (BACKLOG-0000872): a
+   * cartesian chart whose values are not a grid column — a scale-location plot's
+   * √|standardised residual|, a coefficient forest's per-coefficient estimate —
+   * hands its points in directly. Each is `{x, y}` with an optional `label`,
+   * `size` (a bubble's third channel) and `lower`/`upper` (interval bounds the
+   * error-bar primitive reads). Numeric `x` throughout gives a continuous axis.
+   */
+  points?: {
+    x: number | string; y?: number; label?: string;
+    size?: number; lower?: number; upper?: number; key?: string;
+  }[];
   /**
    * Whiskers showing the uncertainty in each mark. `true` computes a confidence
    * interval from the readings behind the mark; `of` takes a symmetric margin
@@ -5422,6 +5673,43 @@ declare module 'lattice-grid/modules/charts' {
     columns: string[];
     reason: string | null;
   };
+  /**
+   * Turn a fitted regression model into diagnostic chart specs ready for
+   * `createChart` (BACKLOG-0000812). Pass a precomputed `model`, or a `spec` to
+   * fit one over the grid, and the `fitted` and `residual` fit-shadow column ids
+   * the residual and QQ plots draw over.
+   *
+   * The presets that map onto grid columns come back as drawable specs: `fit`
+   * (the fit line with its confidence band), `residualsFitted`, `qq`, and
+   * `multicollinearity` (a correlogram over the predictors, with the model's
+   * `vif` alongside). The three that need a per-row or per-coefficient quantity
+   * the grid has no column for — `scaleLocation`, `residualsLeverage`,
+   * `coefficientForest` — come back with a null `spec` and a stable `reason`,
+   * rather than silently dropped.
+   */
+  export function regressionPlots(
+    grid: Grid,
+    opts?: {
+      model?: RegressionModel;
+      spec?: RegressionSpec;
+      fitted?: string;
+      residual?: string;
+      rows?: object[] | ((grid: Grid) => object[]);
+      confidence?: number;
+    },
+  ): {
+    model: RegressionModel | null;
+    plots: Record<
+      'fit' | 'residualsFitted' | 'qq' | 'multicollinearity'
+        | 'scaleLocation' | 'residualsLeverage' | 'coefficientForest',
+      {
+        spec: ChartSpec | null;
+        reason: string | null;
+        vif?: number[] | null;
+        coefficients?: RegressionCoefficient[] | null;
+      }
+    >;
+  };
   export function registerScheme(name: string, colours: readonly string[]): void;
   export function resolveScheme(spec?: object): object;
   export function schemeNames(): string[];
@@ -5484,6 +5772,31 @@ declare module 'lattice-grid/modules/svelte' {
   export const EVENT_NAMES: readonly string[];
   export function dashedName(event: string): string;
   export default createLatticeAction;
+}
+
+declare module 'lattice-grid/modules/angular' {
+  /**
+   * Build the Angular standalone component and directive from one shared
+   * controller (BACKLOG-0000805).
+   *
+   * The Angular core namespace and `createGrid` are passed in, for the same
+   * reason as every other adapter: the package ships no dependencies and cannot
+   * import `@angular/core` or the grid. Pass `@angular/common`'s
+   * `isPlatformBrowser` too for an explicit SSR guard; without it the adapter
+   * guards on the presence of a `document`.
+   *
+   * The returned `LatticeGridComponent` (`<lattice-grid [config]="…">`) and
+   * `LatticeGridDirective` (`<div [latticeGrid]="…">`) each expose the live grid
+   * through a `grid` getter — the same `Grid` the vanilla `createGrid` returns,
+   * or null before build — at parity with React's `ref.current.grid`. Grid
+   * events are `@Output`s aliased to their dashed names (`(cell-changed)`).
+   */
+  export function createLatticeGrid(
+    deps: { ng: unknown; createGrid: unknown; isPlatformBrowser?: (id: unknown) => boolean },
+  ): { LatticeGridComponent: unknown; LatticeGridDirective: unknown };
+  export const EVENT_NAMES: readonly string[];
+  export function dashedName(event: string): string;
+  export default createLatticeGrid;
 }
 
 declare module 'lattice-grid/modules/webcomponent' {

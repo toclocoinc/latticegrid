@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.28.0</p>
+    <p class="rail__sub">Developer guide · v1.29.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -1378,7 +1378,7 @@ LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid
         <thead><tr><th>Family</th><th>Types</th></tr></thead>
         <tbody>
           <tr><td class="name">Core</td><td class="desc"><code>text</code>, <code>number</code>, <code>boolean</code>, <code>date</code>, <code>dateString</code>, <code>object</code>, <code>lookup</code></td></tr>
-          <tr><td class="name">Temporal</td><td class="desc"><code>datetime</code>, <code>time</code>, <code>duration</code></td></tr>
+          <tr><td class="name">Temporal</td><td class="desc"><code>datetime</code>, <code>timestamp</code>, <code>time</code>, <code>duration</code></td></tr>
           <tr><td class="name">Network</td><td class="desc"><code>ipv4</code>, <code>ipv6</code>, <code>cidr</code>, <code>mac</code></td></tr>
           <tr><td class="name">Numeric bases</td><td class="desc"><code>hex</code>, <code>hex8</code>, <code>hex16</code>, <code>hex32</code>, <code>binary</code>, <code>binary8</code>, <code>octal</code></td></tr>
           <tr><td class="name">Units: computing</td><td class="desc"><code>bytes</code>, <code>megabytes</code>, <code>gigabytes</code>, <code>bitrate</code>, <code>gigabits</code></td></tr>
@@ -1537,8 +1537,36 @@ dataTypes: {
       convert.</p>
       <p>It is also faster and smaller: ISO 8601 sorts lexicographically in the same order it sorts
       chronologically, so a date column sorts as text, and repeated dates dictionary-encode well.</p>
-      <p>When you genuinely mean an instant (a log timestamp) use <code>datetime</code> and set
-      <code>format.timeZone</code>.</p>
+      <p>When you genuinely mean an instant (a log timestamp, an audit time) use
+      <code>timestamp</code> — see below. <code>datetime</code> stays a wall clock, deliberately.</p>
+    </div>
+
+    <h3 id="timestamp-type">timestamp — an instant, stored UTC, shown in a chosen zone</h3>
+    <p class="lead-in">
+      <code>type: 'timestamp'</code> is the sibling to <code>datetime</code> for data that is one
+      genuine moment everywhere — an audit time, an event <code>created_at</code>, a cross-region log
+      line — rather than a wall clock.
+    </p>
+    <div class="why">
+      <p><strong>Stored as an instant.</strong> A value ingests from epoch-millis, a <code>Date</code>,
+      or a zone-bearing ISO string (<code>…Z</code> / <code>…+01:00</code>) and is stored as
+      epoch-millis UTC. Because storage is numeric, sort, filter and compare operate on the
+      <em>instant</em>, never on rendered text — two rows from different origin zones order by true
+      chronology, and changing the display zone never reorders them.</p>
+      <p><strong>Shown in a display zone you control.</strong> The cell renders in the zone resolved
+      by precedence: the column's <code>typeOptions.timeZone</code>, then the grid's
+      <code>config.timeZone</code>, then the viewer's local zone. The resolved zone is nameable
+      (e.g. <code>Europe/London (BST)</code>) so a reader always knows which clock they are reading;
+      set <code>typeOptions.showOrigin: true</code> to also show the origin zone when it differs, and
+      when no origin was recorded the cell says so rather than assuming local.</p>
+      <p><strong>Grouped by civil day in the display zone.</strong> Grouping a <code>timestamp</code>
+      column buckets by civil day by default — <code>group: { granularity: 'week' | 'month' | 'instant', weekStart: 1 }</code>
+      chooses week (Monday-start by default), month, or the exact instant. Buckets are computed by
+      projecting the instant to a civil date in the display zone, so a 23- or 25-hour daylight-saving
+      day still collapses to one bucket rather than splitting.</p>
+      <p><strong>Excel export.</strong> Excel has no zone, so the display-zone wall clock is written
+      as a plain numeric datetime serial (<code>yyyy-mm-dd hh:mm</code>) — what you saw on screen,
+      with the zone named in the docs and column header, never shifted silently to UTC.</p>
     </div>
 
     <h3>Formats</h3>
@@ -2368,6 +2396,34 @@ grid.setPinnedRows([], { edge: 'top' });        <span class="cmt">// clear</span
       column, so a screen reader reads it as one wide cell rather than as a row with missing ones.
       No second, empty row is rendered underneath it.
     </p>
+
+    <h3 id="banded-header-grouping">Forming banded headers at runtime (BACKLOG-0000739)</h3>
+    <p class="lead-in">
+      Banded headers can be declared in config (<code>columnGroups</code>) and now also formed,
+      renamed, moved and dissolved at runtime through <code>grid.columns</code>, with a keyboard
+      equivalent for every action. The model is the single source of truth: a band made by
+      interaction is the same <code>ColumnGroup</code> tree config drives, and it round-trips through
+      a saved view.
+    </p>
+    <div class="why">
+      <p><strong>The API.</strong> <code>groupColumns(ids, { title, groupId })</code> wraps columns
+      in a new band or adds them to an existing one; <code>ungroupColumn(id)</code> takes a column
+      out (dissolving a band it empties); <code>renameGroup(id, title)</code>,
+      <code>dissolveGroup(id)</code> and <code>moveGroup(id, to)</code> do the rest. Each emits
+      <code>columngroup:changed</code>. A band's columns are always contiguous, and a nested band
+      dissolves into its parent, not the root.</p>
+      <p><strong>The keyboard (WCAG 2.1.1).</strong> From a focused header cell:
+      <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>&larr;</kbd>/<kbd>&rarr;</kbd> groups the column with its
+      neighbour on that side (joining an adjacent band, or forming a new one);
+      <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>&uarr;</kbd> takes it out of its band; and
+      <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>&larr;</kbd>/<kbd>&rarr;</kbd> moves the whole band as a
+      unit. Every action is announced through the live region, and a refusal — "not in a band",
+      "cannot be moved there" — is announced too, never silent.</p>
+      <p><strong>Pinning and visibility.</strong> A band lives in one pin region and draws over its
+      visible columns there: hiding a column shrinks the band's span without changing the band
+      definition, and hiding the last visible column hides the band. A band is exposed to assistive
+      technology as one <code>role="columnheader"</code> cell with an <code>aria-colspan</code>.</p>
+    </div>
 
     <h2 id="row-reorder">Row reorder</h2>
     <p class="lead-in">
@@ -6179,6 +6235,7 @@ grid.state.apply(savedView.state);
           <tr><td class="name">chartRange</td><td class="desc">Chart a selected cell range — the spreadsheet gesture. Derives the chart from the range’s shape (a leading text column is the categories, the numeric columns the measures), respects hidden and unreadable columns, and returns the live chart or null when there is nothing to measure.</td></tr>
           <tr><td class="name">canChartRange</td><td class="desc">Whether <code>chartRange</code> would draw something for the grid’s current selection — the question a menu asks before offering the item.</td></tr>
           <tr><td class="name">deriveRangeSpec</td><td class="desc">Decide what a chart of a range should be without drawing it: the type, the category column, the measures, and a spec ready for <code>createChart</code>.</td></tr>
+          <tr><td class="name">regressionPlots</td><td class="desc">Turn a fitted regression model into diagnostic chart specs ready for <code>createChart</code>: the fit line with its confidence band, residuals-vs-fitted, a QQ plot of the residuals, and a multicollinearity correlogram with the model’s VIF. The plots that need a per-row or per-coefficient quantity the grid has no column for (scale-location, residuals-vs-leverage, the coefficient forest) are returned as a null spec carrying the reason rather than dropped.</td></tr>
           <tr><td class="name">createDevtools</td><td class="desc">Mount the devtools panel against a grid, including its accessibility checks.</td></tr>
           <tr><td class="name">createLatticeGridElement</td><td class="desc">Build the element class without registering it, for a custom registry.</td></tr>
           <tr><td class="name">createMessages</td><td class="desc">Build a message catalogue. A partial set lays over the built-in British English one.</td></tr>
