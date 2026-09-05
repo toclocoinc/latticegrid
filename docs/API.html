@@ -419,6 +419,7 @@
         <a href="#quickfilter">Quick filter</a>
         <a href="#units">Units of your own</a>
         <a href="#chartsmodule">The charts module</a>
+        <a href="#mocksocket">The mock socket</a>
         <a href="#charts">In-cell charts</a>
         <a href="#formulas">Formulas</a>
         <a href="#custom-menu">Custom items</a>
@@ -4124,8 +4125,14 @@ router.apply([{ op: 'upsert', row }, { op: 'delete', row }]); <span class="cmt">
           <tr><td class="sig">unrouted</td><td class="desc">How many records matched no route (reset by <code>load</code>, running for deltas).</td></tr>
           <tr><td class="sig">link(source, target, relation)</td><td class="desc"><strong>v2:</strong> make a selection in <code>source</code> filter what <code>target</code> receives. <code>relation</code> is a key map <code>{ from, to }</code> (target rows whose <code>to</code> value is among the selected source rows' <code>from</code> values &mdash; multi-select is an IN set, ANY match) or a function <code>fn(selectedSourceRows) =&gt; (row) =&gt; boolean</code>. No selection shows the full partition; changes are debounced.</td></tr>
           <tr><td class="sig">flush()</td><td class="desc"><strong>v2:</strong> apply any debounced selection refilter now, for a deterministic point (and for tests).</td></tr>
-          <tr><td class="sig">detach(grid)</td><td class="desc">Stop routing to a grid and forget its slice; drop any link it is part of (restoring a filtered sibling). The host still owns and destroys the grid.</td></tr>
-          <tr><td class="sig">destroy()</td><td class="desc">Detach every grid, drop every link and subscription. <strong>Detaches only</strong> &mdash; the host owns and destroys its grids.</td></tr>
+          <tr><td class="sig">attach(grid, predicate, { rollup })</td><td class="desc"><strong>v3:</strong> feed the grid a grouped/summarised view &mdash; <code>rollup: { groupBy, aggregate }</code> gives one summary row per group (<code>op</code> of <code>sum</code>/<code>avg</code>/<code>min</code>/<code>max</code>/<code>count</code> over a <code>field</code>, or a <code>fn(rows)</code>). Applied by keyed diff, so only a moved group repaints.</td></tr>
+          <tr><td class="sig">relate(edges)</td><td class="desc"><strong>v3:</strong> declare a relationship graph. Each edge <code>{ from, to, on, mutual? }</code>; the router resolves multi-hop chains, several sources into one target (AND), and mutual edges on any selection change. Composes with <code>link()</code>.</td></tr>
+          <tr><td class="sig">push(delta)</td><td class="desc"><strong>v3:</strong> feed a live delta. With a <code>batch</code> interval or <code>coalesce: true</code> it buffers and coalesces rapid updates to one key; otherwise it applies at once.</td></tr>
+          <tr><td class="sig">flushStream()</td><td class="desc"><strong>v3:</strong> apply the buffered deltas now, coalesced into a single apply (a deterministic point, and for tests).</td></tr>
+          <tr><td class="sig">dropped</td><td class="desc"><strong>v3:</strong> how many stale/duplicate deltas the <code>seq</code> dedupe gate has dropped.</td></tr>
+          <tr><td class="sig">lastSeq() / checkpoint() / seenThrough(mark)</td><td class="desc"><strong>v3:</strong> the resume point &mdash; the highest applied <code>seq</code>, a per-record checkpoint to persist, and a way to prime it after a reconnect so an early replay is dropped.</td></tr>
+          <tr><td class="sig">detach(grid)</td><td class="desc">Stop routing to a grid and forget its slice; drop any link/edge it is part of (restoring a filtered sibling). The host still owns and destroys the grid.</td></tr>
+          <tr><td class="sig">destroy()</td><td class="desc">Detach every grid, drop every link, edge and subscription. <strong>Detaches only</strong> &mdash; the host owns and destroys its grids.</td></tr>
         </tbody>
       </table>
     </div>
@@ -4166,6 +4173,111 @@ customers.selection.set([]);                <span class="cmt">// deselect restor
 
 customers.destroy(); orders.destroy(); router.destroy();
 <span class="kw">return</span> [full, oneRegion, both, restored].join(' | ');</code></pre>
+
+    <p><strong>Per-route transforms and route-level filter/sort (v3, BACKLOG-0000887).</strong> A route may reshape and narrow its slice before it reaches the grid, and the grid still stays dumb. <code>attach(grid, predicate, opts)</code> takes <code>transform(row) =&gt; row'</code> (map/rename/derive), <code>filter(row) =&gt; boolean</code> (the grid receives only the subset), and <code>sort</code> (a comparator or <code>{ key, dir }</code>, ordering what the grid receives). Filtering and the cross-grid link predicates run on the <em>original</em> row; the transform then produces the display row, and identity stays the row's <code>rowKey</code>, so the keyed diff is unaffected — an unchanged transformed row never repaints, and a delta that pushes a row across the filter threshold makes it enter or leave the view.</p>
+    <pre data-run="js" data-expect="2 | o2,o3 | #o2:30 | held | shown" data-covers="export:createDataRouter"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'amt', field: 'amt', type: 'number' }, { id: 'label', field: 'label' }];
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id' });
+
+<span class="cmt">// This route shows only amt &gt;= 20, sorted high-to-low, with a derived label.</span>
+router.attach(g, 'order', {
+  filter: (row) =&gt; row.amt &gt;= 20,
+  sort: { key: 'amt', dir: 'desc' },
+  transform: (row) =&gt; ({ ...row, label: `#${row.id}:${row.amt}` }),
+});
+router.load([
+  { id: 'o1', type: 'order', amt: 10 },   <span class="cmt">// filtered out</span>
+  { id: 'o2', type: 'order', amt: 30 },
+  { id: 'o3', type: 'order', amt: 20 },
+]);
+<span class="kw">const</span> keys = [];
+<span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; g.rows.count(); i++) keys.push(g.rows.get(i).key);
+
+<span class="cmt">// A delta below the threshold is held; raising it brings it into the view.</span>
+router.apply([{ op: 'upsert', row: { id: 'o4', type: 'order', amt: 5 } }]);
+<span class="kw">const</span> held = g.rows.count() === 2 ? 'held' : 'leaked';
+router.apply([{ op: 'upsert', row: { id: 'o4', type: 'order', amt: 40 } }]);
+<span class="kw">const</span> shown = g.rows.count() === 3 ? 'shown' : 'missing';
+
+<span class="kw">const</span> out = [g.rows.count() &gt;= 2 ? 2 : 0, keys.join(','), g.rows.value('o2', 'label'), held, shown];
+g.destroy(); router.destroy();
+<span class="kw">return</span> out.join(' | ');</code></pre>
+
+    <p><strong>Aggregate/rollup routes (v3, BACKLOG-0000887).</strong> A route can be fed a <em>grouped, summarised</em> view of its partition instead of the raw rows &mdash; a per-category total for a chart route, say. <code>attach(grid, predicate, { rollup: { groupBy, aggregate } })</code> gives the grid one summary row per group: <code>groupBy</code> is a property, a <code>fn(row)</code> or an array of either, and each <code>aggregate</code> entry is a <code>{ op, field }</code> (<code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>count</code>) or a <code>fn(rows) =&gt; value</code>. A route <code>filter</code> runs on the raw rows before grouping; <code>sort</code> and <code>transform</code> run on the summaries. The summary is applied by the same keyed diff, so only a group that actually moved repaints &mdash; the router owns the roll-up, the grid stays dumb.</p>
+    <pre data-run="js" data-expect="2 | amer | 115" data-covers="export:createDataRouter"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'region', field: 'region' }, { id: 'total', field: 'total', type: 'number' }];
+<span class="kw">const</span> chart = createHeadlessGrid({ rowKey: 'region', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id' });
+
+<span class="cmt">// One summary row per region, the per-region total, biggest first.</span>
+router.attach(chart, 'order', {
+  rollup: { groupBy: 'region', aggregate: { total: { op: 'sum', field: 'amt' } } },
+  sort: { key: 'total', dir: 'desc' },
+});
+router.load([
+  { id: 'o1', type: 'order', region: 'emea', amt: 10 },
+  { id: 'o2', type: 'order', region: 'amer', amt: 20 },
+  { id: 'o3', type: 'order', region: 'emea', amt: 5 },
+]);
+<span class="kw">const</span> groups = chart.rows.count();     <span class="cmt">// 2: emea (15), amer (20)</span>
+<span class="kw">const</span> top = chart.rows.get(0).key;     <span class="cmt">// amer — highest total</span>
+
+<span class="cmt">// A new emea order repaints only the emea summary (keyed diff).</span>
+router.apply([{ op: 'upsert', row: { id: 'o4', type: 'order', region: 'emea', amt: 100 } }]);
+<span class="kw">const</span> emeaTotal = chart.rows.value('emea', 'total'); <span class="cmt">// 115</span>
+
+chart.destroy(); router.destroy();
+<span class="kw">return</span> [groups, top, emeaTotal].join(' | ');</code></pre>
+
+    <p><strong>The relationship graph (v3, BACKLOG-0000887).</strong> <code>relate([...])</code> is the scalable form of v2's pairwise <code>link()</code>. Each edge is <code>{ from, to, on }</code>, where <code>on</code> is a key map <code>{ from, to }</code> or a function <code>fn(sourceRows) =&gt; (row) =&gt; boolean</code>. The router resolves the whole graph on any selection change, so it handles <strong>multi-hop</strong> chains (A&rarr;B&rarr;C: a selection in A narrows B and, through B's resulting rows, C &mdash; with no selection in B), <strong>several sources into one target</strong> (their filters AND together), and <strong>mutual</strong> edges (<code>mutual: true</code> &mdash; selecting in either linked view narrows the other; requires a key-map <code>on</code>). A node's effective set is its own selection when it has one, otherwise the rows its incoming edges leave &mdash; that is what carries a selection transitively down a chain. Additive to <code>link()</code>; the two compose.</p>
+    <pre data-run="js" data-expect="o1,o3 | l1,l3,l4" data-covers="export:createDataRouter"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'region', field: 'region', type: 'text' }, { id: 'orderId', field: 'orderId', type: 'text' }];
+<span class="kw">const</span> mk = () =&gt; createHeadlessGrid({ rowKey: 'id', columns: cols, selection: 'multiple' });
+<span class="kw">const</span> customers = mk(), orders = mk(), lines = mk();
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id', selectionDebounce: 0 });
+router.attach(customers, 'customer'); router.attach(orders, 'order'); router.attach(lines, 'line');
+router.load([
+  { id: 'c1', type: 'customer', region: 'emea' }, { id: 'c2', type: 'customer', region: 'amer' },
+  { id: 'o1', type: 'order', region: 'emea' }, { id: 'o2', type: 'order', region: 'amer' }, { id: 'o3', type: 'order', region: 'emea' },
+  { id: 'l1', type: 'line', orderId: 'o1' }, { id: 'l2', type: 'line', orderId: 'o2' }, { id: 'l3', type: 'line', orderId: 'o3' }, { id: 'l4', type: 'line', orderId: 'o1' },
+]);
+<span class="cmt">// customers -&gt; orders (by region) -&gt; lines (by order id): a two-hop chain.</span>
+router.relate([
+  { from: customers, to: orders, on: { from: 'region', to: 'region' } },
+  { from: orders, to: lines, on: { from: 'id', to: 'orderId' } },
+]);
+customers.selection.set(['c1']); <span class="cmt">// emea; no selection in orders</span>
+<span class="kw">const</span> keysOf = (g) =&gt; { <span class="kw">const</span> a = []; <span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; g.rows.count(); i++) a.push(g.rows.get(i).key); <span class="kw">return</span> a.sort().join(','); };
+<span class="kw">const</span> out = [keysOf(orders), keysOf(lines)]; <span class="cmt">// o1,o3 | l1,l3,l4</span>
+customers.destroy(); orders.destroy(); lines.destroy(); router.destroy();
+<span class="kw">return</span> out.join(' | ');</code></pre>
+
+    <p><strong>Stream hygiene (v3, BACKLOG-0000887).</strong> A production feed arrives out of order, gets replayed, and comes faster than a grid should repaint. Configure a <code>seq</code> (a version field or <code>fn(row)</code>) and the router orders each batch by it and <strong>drops</strong> any delta not newer than the one it already applied for that record (counted in <code>router.dropped</code>) &mdash; an out-of-order or replayed feed converges to the newest state. <code>push(delta)</code> with a <code>batch</code> interval or <code>coalesce: true</code> buffers a high-frequency feed and coalesces rapid updates to one key into a single apply (flush a deterministic point with <code>flushStream()</code>). After a dropped socket, resume precisely: <code>load</code> a fresh snapshot (a keyed diff that preserves grid state) and replay from <code>lastSeq()</code>/<code>checkpoint()</code> &mdash; the deltas the router already saw are dropped by the same gate. <code>seenThrough(mark)</code> primes the checkpoint from a persisted one.</p>
+    <pre data-run="js" data-expect="30 | 1 | 4" data-covers="export:createDataRouter"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }, { id: 'n', field: 'n', type: 'number' }] });
+<span class="kw">const</span> router = createDataRouter({ rowKey: 'id', seq: 'v' });
+router.attach(g, () =&gt; true);
+router.load([]);
+
+router.apply([{ op: 'upsert', row: { id: 'a', n: 30, v: 3 } }]);
+router.apply([{ op: 'upsert', row: { id: 'a', n: 20, v: 2 } }]); <span class="cmt">// stale — dropped</span>
+<span class="kw">const</span> n = g.rows.value('a', 'n'); <span class="cmt">// 30: the stale delta did not clobber it</span>
+<span class="kw">const</span> dropped = router.dropped;   <span class="cmt">// 1</span>
+router.apply([{ op: 'upsert', row: { id: 'a', n: 99, v: 4 } }]); <span class="cmt">// fresh</span>
+<span class="kw">const</span> last = router.lastSeq();    <span class="cmt">// 4</span>
+
+g.destroy(); router.destroy();
+<span class="kw">return</span> [n, dropped, last].join(' | ');</code></pre>
+
     <h3 id="datarouter-example">One feed, three grids, executed</h3>
     <p class="section-note">A single snapshot fanned to an orders grid, an invoices grid and a "rest" sink, then a
     delta that changes a row's partition &mdash; proving the fan-out, the sink, and that a moved row
@@ -4200,6 +4312,38 @@ router.apply([{ op: 'upsert', row: { id: 'o2', type: 'invoice', amt: 25 } }]);
 
 orders.destroy(); invoices.destroy(); rest.destroy(); router.destroy();
 <span class="kw">return</span> [fanned, moved, router.unrouted].join(' | ');</code></pre>
+
+    <h2 id="mocksocket">The mock socket</h2>
+    <p><code>modules/mock-socket</code> is a serverless stand-in for a live <code>WebSocket</code> feed, for building and demonstrating a real-time UI with <strong>no backend</strong>. <code>MockWebSocket</code> presents the same surface as the browser's <code>WebSocket</code> &mdash; the same <code>readyState</code> and state constants, the same <code>onopen</code>, <code>onmessage</code>, <code>onclose</code> and <code>onerror</code>, <code>addEventListener</code>, <code>send</code> and <code>close</code> &mdash; so the code that reads it does not change when it is swapped for a real one. It fires an initial snapshot the moment it opens, then a stream of deltas on a timer, all from a generator you hand it. It is a dev and test utility: optional, imports nothing from the grid, and is never pulled into the core bundle. It pairs naturally with the data router (one mock stream, partitioned to many grids), but depends on it no more than a real socket does.</p>
+    <pre><code>import { MockWebSocket, opsFeed } from '@toclocoinc/lattice-grid/modules/mock-socket';
+
+const socket = new MockWebSocket({ feed: opsFeed({ seed: 7 }) });
+socket.onmessage = (event) =&gt; {
+  const message = JSON.parse(event.data);
+  if (message.kind === 'snapshot') router.load(message.rows);
+  else router.apply(message.changes);
+};
+
+<span class="cmt">// Going live is the one line that changes; everything above stays as written:</span>
+const socket = new WebSocket('wss://example.com/ops');</code></pre>
+    <p><strong>The swap is literally one line.</strong> Both sockets frame their messages the same way, so the reader parses <code>event.data</code> and switches on <code>kind</code> either way. <strong>The feed is seedable and deterministic:</strong> the shipped generators carry their own seed and the timing jitter is seeded too, so the same inputs replay the same stream &mdash; which is what lets a tutorial and its runnable example show the same thing every time, and what lets a test assert on an exact stream rather than a plausible one. <strong>Bring your own generator:</strong> a feed is any iterator that yields <code>{ kind: 'snapshot', rows }</code> first and then <code>{ kind: 'delta', changes }</code> forever &mdash; a plain generator function is the easiest form &mdash; and <code>rng(seed)</code> is exported so a custom feed can be seeded the same way the shipped ones are.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">new MockWebSocket({ feed, rate?, jitter?, seed?, snapshotDelay?, pauseWhenHidden?, url? })</td><td class="desc">Open a mock socket driven by <code>feed</code> (a generator: snapshot first, then deltas). <code>rate</code> is the ms between deltas (default 1000); <code>jitter</code> a random plus-or-minus ms per gap (default 0); <code>seed</code> seeds that jitter (default 1); <code>snapshotDelay</code> the ms before it opens (default 60); <code>pauseWhenHidden</code> stops the feed while the tab is in the background (default true); <code>url</code> a cosmetic address so <code>socket.url</code> reads like the real thing.</td></tr>
+          <tr><td class="sig">onopen / onmessage / onclose / onerror</td><td class="desc">The <code>WebSocket</code> handlers. <code>onmessage</code> receives an event whose <code>data</code> is the JSON-framed <code>FeedMessage</code>; a feed that ends closes the socket cleanly; a feed that throws surfaces as an <code>error</code> event, not an uncaught throw.</td></tr>
+          <tr><td class="sig">addEventListener / removeEventListener</td><td class="desc">The <code>EventTarget</code> surface, alongside the <code>on*</code> handlers &mdash; both receive every event.</td></tr>
+          <tr><td class="sig">send(data?)</td><td class="desc">Accepted and ignored: there is nothing upstream, so a page that calls <code>send</code> runs unchanged.</td></tr>
+          <tr><td class="sig">close()</td><td class="desc">Close the socket and stop the feed, emitting a clean <code>close</code>.</td></tr>
+          <tr><td class="sig">pause() / resume()</td><td class="desc">Hold the feed and continue it while the socket stays open &mdash; a demo and test affordance beyond the <code>WebSocket</code> surface.</td></tr>
+          <tr><td class="sig">opsFeed({ seed?, orders?, shipments?, incidents?, batch? })</td><td class="desc">A mixed operations feed &mdash; orders, shipments and incidents across three regions plus a throughput rollup &mdash; the kind the data router partitions across several grids and a chart from one source. Yields a snapshot, then deltas forever.</td></tr>
+          <tr><td class="sig">priceFeed({ seed?, symbols?, move?, batch?, spread? })</td><td class="desc">A market-data feed: instruments whose prices random-walk each tick, each record carrying <code>type: 'price'</code>, <code>symbol</code>, <code>last</code>, <code>chg</code> and a bid/ask straddling the last. Yields a snapshot, then deltas forever.</td></tr>
+          <tr><td class="sig">rng(seed)</td><td class="desc">A small seeded pseudo-random generator (mulberry32), so a custom feed can be seeded the same way the shipped ones are: the same seed yields the same sequence.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note"><p>Every record on the shipped feeds carries a <code>type</code>, the property the data router partitions on, and an <code>id</code> (or <code>symbol</code>), its row key &mdash; so a mock feed drops straight into a routed screen. The module is plain JavaScript and timers: no dependencies, no <code>eval</code>, safe to paste into a page or a sandbox.</p></div>
 
     <h2 id="charts">In-cell charts</h2>
     <p>Seven chart renderers for a cell. Each is a single SVG whose path data is the only thing a
@@ -4750,7 +4894,7 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
 
     <h3 id="module-exports-example">Every module export, executed</h3>
     <p class="section-note">Nine shipped modules, each export resolved against its own barrel on every build.</p>
-    <pre data-run="js" data-expect="62" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:regressionPlots export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload export:createDataRouter"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
+    <pre data-run="js" data-expect="66" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:regressionPlots export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload export:createDataRouter export:MockWebSocket export:rng export:opsFeed export:priceFeed"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
 <span class="cmt">// barrel. A module that stopped exporting something fails here.</span>
 <span class="kw">const</span> modules = [
   [<span class="kw">await</span> import('../packages/dom/src/index.js'), [
@@ -4793,6 +4937,9 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
   ]],
   [<span class="kw">await</span> import('../packages/modules/data-router/index.js'), [
     'createDataRouter',
+  ]],
+  [<span class="kw">await</span> import('../packages/modules/mock-socket/index.js'), [
+    'MockWebSocket', 'rng', 'opsFeed', 'priceFeed',
   ]],
 ];
 
