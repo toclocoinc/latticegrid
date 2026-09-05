@@ -4403,6 +4403,331 @@ router.apply([{ op: 'upsert', row: { id: 'o2', type: 'invoice', amt: 25 } }]);
 orders.destroy(); invoices.destroy(); rest.destroy(); router.destroy();
 <span class="kw">return</span> [fanned, moved, router.unrouted].join(' | ');</code></pre>
 
+    <h2 id="ganttmodule">The Gantt module</h2>
+    <p><code>modules/gantt</code> is a separate, opt-in project-planning module &mdash; its own bundle, imported only when you want it, changing nothing in the grid core. It turns a task list into a real schedule: a <strong>CPM (Critical Path Method) engine</strong> computes each task's early/late start and finish, its slack (total float), and the zero-float <strong>critical path</strong>, recomputing on every edit. <code>computeSchedule(tasks, deps)</code> is the pure engine; <code>createGantt(opts)</code> is a controller that holds the model, recomputes on <code>setTasks</code>/<code>setDependencies</code>/<code>applyEdit</code>, and emits <code>schedule</code> (or <code>error</code>). Dependencies are the four standard link types &mdash; <code>LINK_TYPES</code> is <code>['FS','SS','FF','SF']</code> &mdash; each with optional lag/lead. A <strong>milestone</strong> is a zero-duration task scheduled as a point; a <strong>summary</strong> task (any task named as another's <code>parent</code>) is derived from its children (start = earliest child, end = latest child, duration-weighted progress) and is not scheduled itself. Bad input never throws or loops: a dependency cycle is refused and reported with a code from <code>SCHEDULE_ERROR</code>, and <code>findViolations</code> flags any task placed earlier than its predecessors allow. <code>toISODate</code> converts an engine day-number back to a calendar date for display.</p>
+    <pre><code>import { createGantt, computeSchedule } from '@toclocoinc/lattice-grid/modules/gantt';
+
+const plan = createGantt({
+  tasks: [
+    { id: 'design', duration: 5 },
+    { id: 'build', duration: 6 },
+    { id: 'launch', milestone: true },
+  ],
+  dependencies: [
+    { from: 'design', to: 'build', type: 'FS' },
+    { from: 'build', to: 'launch', type: 'FS' },
+  ],
+});
+plan.on('schedule', (s) =&gt; console.log(s.critical, s.projectDuration));
+plan.applyEdit({ id: 'design', duration: 7 }); // recomputes; the critical path shifts</code></pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Function</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">createGantt({ tasks?, dependencies?, projectStart?, autoSchedule?, grid? })</td><td class="desc">Create a controller over a task list and a dependency list. Computes the CPM schedule immediately and on every edit; <code>on('schedule'|'error', fn)</code> subscribes; <code>applyEdit</code>/<code>setTasks</code>/<code>setDependencies</code> mutate and recompute; <code>grid</code> is kept for the write-back binding.</td></tr>
+          <tr><td class="sig">computeSchedule(tasks, deps?, { projectStart? })</td><td class="desc">The pure CPM engine: forward/backward passes over the leaf tasks honouring FS/SS/FF/SF + lag, slack/float and the zero-float critical path, with summaries derived and cycles refused. Returns <code>{ ok, tasks, critical, criticalPaths, projectDuration, ... }</code> or <code>{ ok:false, error }</code>.</td></tr>
+          <tr><td class="sig">findViolations(tasks, schedule)</td><td class="desc">The tasks whose user-placed start begins earlier than CPM allows (the manual-with-validation flag). Summaries, whose dates are derived, are skipped.</td></tr>
+          <tr><td class="sig">toISODate(day)</td><td class="desc">Format an engine day-number as an ISO calendar date (<code>YYYY-MM-DD</code>, UTC).</td></tr>
+          <tr><td class="sig">LINK_TYPES</td><td class="desc">The four dependency link types, in order: <code>['FS','SS','FF','SF']</code>.</td></tr>
+          <tr><td class="sig">SCHEDULE_ERROR</td><td class="desc">The error codes the engine reports rather than throwing (<code>cycle</code>, <code>duplicate-id</code>, <code>unknown-task</code>, <code>bad-duration</code>, <code>bad-link-type</code>, <code>unknown-parent</code>, <code>parent-cycle</code>, &hellip;).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre data-run="js" data-expect="15 | design-build-test-launch | 1970-01-01 | FS,SS,FF,SF | true | 0" data-covers="export:computeSchedule export:createGantt export:findViolations export:LINK_TYPES export:SCHEDULE_ERROR export:toISODate"><code>const { computeSchedule, findViolations, createGantt, LINK_TYPES, SCHEDULE_ERROR, toISODate } = await import('../packages/modules/gantt/index.js');
+const tasks = [
+  { id: 'design', duration: 5, percentComplete: 100 },
+  { id: 'build', duration: 6, percentComplete: 50 },
+  { id: 'test', duration: 4 },
+  { id: 'launch', milestone: true },
+];
+const deps = [
+  { from: 'design', to: 'build' },
+  { from: 'build', to: 'test' },
+  { from: 'test', to: 'launch' },
+];
+const s = computeSchedule(tasks, deps);
+const plan = createGantt({ tasks, dependencies: deps });
+const cyc = computeSchedule([{ id: 'a', duration: 1 }, { id: 'b', duration: 1 }], [{ from: 'a', to: 'b' }, { from: 'b', to: 'a' }]);
+return [plan.schedule.projectDuration, s.critical.join('-'), toISODate(0), LINK_TYPES.join(','), cyc.error.code === SCHEDULE_ERROR.CYCLE, findViolations(tasks, s).length].join(' | ');</code></pre>
+    <p>Milestones and summary (WBS) tasks: a summary is derived from its children and a dependency may target it.</p>
+    <pre data-run="js" data-expect="0 | 5 | 60 | true | 5" data-covers="export:computeSchedule"><code>const { computeSchedule } = await import('../packages/modules/gantt/index.js');
+const tasks = [
+  { id: 'phase', name: 'Phase 1' },
+  { id: 'a', duration: 3, parent: 'phase', percentComplete: 100 },
+  { id: 'b', duration: 2, parent: 'phase', percentComplete: 0 },
+  { id: 'ship', milestone: true },
+];
+const s = computeSchedule(tasks, [{ from: 'a', to: 'b' }, { from: 'phase', to: 'ship' }]);
+const phase = s.tasks.get('phase');
+return [phase.es, phase.ef, phase.percentComplete, phase.isSummary, s.tasks.get('ship').es].join(' | ');</code></pre>
+    <p>Render the plan as an SVG timeline with <code>mount(container, options)</code> &mdash; bars on a time scale, dependency arrows with a per-link-type anchor and a lag/lead label, the critical path highlighted, a today line, optional non-working-day shading, milestones as diamonds, a progress bar-fill and configurable labels. The view redraws itself whenever the schedule recomputes; <code>unmount()</code> detaches it. All geometry is computed from the schedule, so it draws identically headless or in a browser.</p>
+    <pre><code>import { createGantt } from '@toclocoinc/lattice-grid/modules/gantt';
+
+const gantt = createGantt({ tasks, dependencies });
+gantt.mount(document.querySelector('#plan'), {
+  today: 20340,             // a day-number; draws the today line
+  nonWorking: 'weekends',   // shade Saturdays and Sundays
+  label: 'percent',         // bar label: 'name' | 'percent' | 'dates' | (task) =&gt; string
+  dateAxis: true,           // axis ticks as calendar dates
+  zoom: 'week',             // 'day' | 'week' | 'month' | 'quarter' | pixels-per-day; omit to fit width
+  scrollToToday: true,      // scroll so the today line is in view
+  groupBy: 'assignee',      // swimlanes by a task property or (task) =&gt; key
+  rowHeight: 26,
+  width: 720,
+});
+gantt.view.scrollToToday();  // also callable on demand
+gantt.applyEdit({ id: 'design', duration: 7 }); // the view redraws automatically
+gantt.unmount();</code></pre>
+    <p>Bars are draggable: drag the body to move a task, drag the right edge to resize it. When a <code>grid</code> and a <code>columns</code> map are given, each drag writes the new dates back through the grid's public edit surface (<code>grid.edit.setCells</code>) and reconciles a reverted or conflicted write; <code>autoSchedule: true</code> cascades dependents. A task placed earlier than its predecessors allow is flagged (<code>findViolations</code>), not silently moved.</p>
+    <pre><code>import { createGantt } from '@toclocoinc/lattice-grid/modules/gantt';
+
+const gantt = createGantt({
+  tasks, dependencies, grid,          // a Lattice grid over the same tasks
+  columns: { start: 'start', duration: 'duration' }, // task field -> grid column
+  autoSchedule: true,
+});
+gantt.mount(document.querySelector('#plan'), { editable: true });
+// drag a bar -> gantt.applyEdit(..., { writeBack: true }) -> grid.edit.setCells(...)</code></pre>
+    <p>Hovering a bar shows a tooltip with its dates, duration, % complete and slack. Tasks are flagged when they slip: <strong>overdue</strong> (incomplete and finishing before <code>today</code>) and <strong>at-risk</strong> (negative total float). Negative float needs a target: pass a <code>deadline</code> (a day-number) to <code>createGantt</code> and any task that cannot meet it gets negative slack and is drawn at-risk.</p>
+    <p>Export: <code>gantt.toCSV()</code> writes the scheduled tasks as CSV (<code>{ dates: true }</code> for ISO dates); when a grid is bound, the grid's own Excel/CSV export works too. <code>gantt.view.toSVG()</code> serialises the drawn chart to a standalone SVG string — the handoff for turning it into an image or PDF.</p>
+    <p>Accessibility: bars are focusable and carry an <code>aria-label</code> describing the task (name, dates, progress, slack, critical). With the keyboard, arrows move a focused task, Shift+arrows resize it, and <kbd>L</kbd> links two tasks (press it on the source, then on the successor) with a finish-to-start dependency; every edit is announced in a polite live region and focus follows the edited task. Set <code>keyboard: false</code> to opt out.</p>
+    <p><strong>Split view.</strong> The Gantt does not build a grid or the two-pane layout — you create and place a normal Lattice grid over the same task rows, and the Gantt <em>consumes</em> it. Binding is two-way: a drag on the timeline writes back through the grid (cycle 3), and an edit in the grid pane (any editor) reflects on the timeline. v1 assumes both panes share the same row height; <code>view.linkVerticalScroll(el)</code> mirrors vertical scroll so the rows stay aligned.</p>
+    <pre><code>&lt;div class="split" style="display:grid;grid-template-columns:360px 1fr"&gt;
+  &lt;div id="tasks"&gt;&lt;/div&gt;   &lt;!-- the grid pane --&gt;
+  &lt;div id="plan"&gt;&lt;/div&gt;    &lt;!-- the timeline pane --&gt;
+&lt;/div&gt;
+&lt;script type="module"&gt;
+import { createGrid } from '@toclocoinc/lattice-grid';
+import { createGantt } from '@toclocoinc/lattice-grid/modules/gantt';
+
+const grid = createGrid({
+  element: document.querySelector('#tasks'),
+  columns: [{ field: 'name' }, { field: 'start', type: 'number', edit: { enabled: true } },
+            { field: 'duration', type: 'number', edit: { enabled: true } }],
+  rows: tasks, rowKey: 'id', edit: { enabled: true },
+});
+const gantt = createGantt({ tasks, dependencies, grid, columns: { start: 'start', duration: 'duration' } });
+gantt.mount(document.querySelector('#plan'));
+gantt.view.linkVerticalScroll(grid.element);   // keep the two panes aligned
+&lt;/script&gt;</code></pre>
+    <p><strong>Live data.</strong> The Gantt exposes the same consumer surface as the grid — <code>gantt.rows.apply({ add, update, remove })</code>, keyed by its <code>rowKey</code> (default <code>id</code>) — so a <a href="#datarouter">Data Router</a> attaches to it exactly as it does a grid, a board or a chart. One arriving stream can hydrate and update a whole screen, the Gantt included; each change recomputes the schedule and redraws.</p>
+    <pre><code>import { createDataRouter } from '@toclocoinc/lattice-grid/modules/data-router';
+
+const router = createDataRouter({ key: 'kind', rowKey: 'id' });
+router.attach(grid, 'order').attach(gantt, 'task');  // one feed drives both
+router.load(snapshot);                                // task rows land in the Gantt
+router.apply(deltas);                                 // updates recompute the schedule</code></pre>
+
+    <h2 id="kanban">The board (kanban) view</h2>
+    <p><code>modules/kanban</code> is an opt-in view of grid rows as <strong>cards</strong>, grouped into <strong>columns</strong> by a configurable property &mdash; a status, a stage, a state GUID, whatever the host's schema calls it. It is a separate bundle in the same shape as charts and the data router: it adds no weight to a page that does not load it, changes nothing in grid core, and pulls in no dependency. A board is <em>just another dataset viewer</em>: it consumes data through the same keyed-diff contract a grid exposes, <code>board.rows.apply({ add, update, remove })</code>, so a Data Router can <code>attach(value, board)</code> and drive a kanban beside a grid and a chart off one feed. (Distinct from the grid-core board <em>presentation mode</em>, <code>config.board</code> in §7.14, which lays a single grid's rows out as lanes; this is a standalone view module.)</p>
+    <pre><code>import { createKanban } from '@toclocoinc/lattice-grid/modules/kanban';
+
+const board = createKanban(document.querySelector('#board'), {
+  rows,                        <span class="cmt">// or { grid } to bind to a live grid; reuses its column formatters</span>
+  rowKey: 'id',
+  columnProperty: 'status',    <span class="cmt">// the group-by property (configurable)</span>
+  columns: [                   <span class="cmt">// shown even when empty; this order is honoured</span>
+    { id: 'todo', title: 'To do' },
+    { id: 'doing', title: 'In progress', wipLimit: 3 },
+    { id: 'done', title: 'Done', color: '#2e7d32' },
+  ],
+  pointsProperty: 'points',    <span class="cmt">// configurable; drives the header points sum</span>
+  showPoints: true,
+  card: { title: 'title', subtitle: 'assignee', labels: 'tags' },
+  readonly: { columns: { done: true } },     <span class="cmt">// granular: whole board / per column / per card</span>
+  onCardClick: ({ card }) =&gt; open(card.row),
+});</code></pre>
+    <p>Every structural property is named in config &mdash; <code>columnProperty</code>, <code>pointsProperty</code>, <code>orderProperty</code>, <code>swimlaneProperty</code>, <code>sprintProperty</code>, <code>epicProperty</code> &mdash; so the same board maps DemandFlow (a status field, <code>points</code>, <code>sprint</code>, <code>epic</code>, a swimlane) and any customer schema without code change. Configured columns show even when empty; a data value outside them gets its own column rather than being dropped. Each column header carries its card <strong>count</strong> and, with <code>showPoints</code>, its <strong>points sum</strong>, and is flagged when the count exceeds a column's <code>wipLimit</code>. Accessibility is built in: the board is a labelled group, each column a labelled list, each card a list item in a roving-tabindex focus ring with arrow-key navigation, and a polite live region is present for the move announcements a later cycle adds.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">createKanban(el, config)</td><td class="desc">Create a board. Pass a DOM element to render into, or <code>null</code> for a headless board that computes the same column/card model without a DOM.</td></tr>
+          <tr><td class="sig">columns() / column(id)</td><td class="desc">The columns with their cards and aggregates, or one column by id (<code>id</code>, <code>title</code>, <code>count</code>, <code>points</code>, <code>wipLimit</code>, <code>over</code>, <code>cards</code>).</td></tr>
+          <tr><td class="sig">count(id) / points(id)</td><td class="desc">A column's card count, and its points sum from <code>pointsProperty</code>.</td></tr>
+          <tr><td class="sig">cards() / card(key)</td><td class="desc">Every card model, or one by its key.</td></tr>
+          <tr><td class="sig">rows.apply({ add, update, remove })</td><td class="desc">The keyed-diff consumer contract a grid shares, so the board is a drop-in Data Router target. Also <code>rows.forEach</code> and <code>rows.count</code>.</td></tr>
+          <tr><td class="sig">move(keys, toColumn, toIndex?)</td><td class="desc">Move one or more cards to a column (and, with <code>orderProperty</code>, to a position within it) — the entry point behind drag-and-drop and keyboard move. Runs <code>onBeforeMove</code> first, then writes through the grid's shipped write-back path.</td></tr>
+          <tr><td class="sig">select / selection / isSelected / clearSelection</td><td class="desc">Card selection: <code>select(keys, 'set'|'add'|'toggle'|'remove')</code>, the selected keys, a membership test, and a clear. Click selects; Ctrl/Cmd toggles; Shift extends within a column.</td></tr>
+          <tr><td class="sig">collapseColumn(id) / collapseLane(id)</td><td class="desc">Collapse, expand or toggle a column or swimlane; emits <code>column:collapse</code> / <code>swimlane:collapse</code>. State survives a keyed-diff update.</td></tr>
+          <tr><td class="sig">reorderColumns(order) / moveColumn(id, before)</td><td class="desc">Reorder the columns (also done by dragging a column header); emits <code>column:reorder</code>.</td></tr>
+          <tr><td class="sig">setQuickFilter(text) / setFilter(fn) / facets(property)</td><td class="desc">Quick text search across card fields, a predicate filter, and distinct-value counts for a facet control.</td></tr>
+          <tr><td class="sig">setSprint(id) / showBacklog() / sprints()</td><td class="desc">Sprint view and switcher: show one sprint, the backlog (<code>board.BACKLOG</code> — cards with no sprint), or all; and the distinct sprint values. Emits <code>sprint:changed</code>.</td></tr>
+          <tr><td class="sig">setEpic(id) / epics() / epicRollup() / rollup(property)</td><td class="desc">Epic view and rollup: filter to an epic, list epics, and roll rows up by epic (or any property) into count, points, and progress toward the <code>done</code> columns.</td></tr>
+          <tr><td class="sig">expand(key) / closeDetail() / canExpand(card)</td><td class="desc">Pop a card's children out as a nested child grid (or board) in a drawer/modal/inline container; emits <code>card:expand</code> and <code>card:drill</code>.</td></tr>
+          <tr><td class="sig">editCard(key, field) / applyEdit(key, field, value)</td><td class="desc">Inline-edit a card field opted in with <code>card: { title: { field, edit: true } }</code>: grid-bound it commits through the grid's own field editor path (<code>grid.edit.setCells</code>); standalone it uses a host editor factory or a default input, reverting when <code>onCardEdit</code> rejects. Double-click a card to edit; emits <code>card:edit</code>.</td></tr>
+          <tr><td class="sig">addCard(columnId, seed?)</td><td class="desc">Add a card to a column (with <code>config.addCard</code>'s per-column affordance) and open it in inline edit; a host <code>onAddCard(columnId)</code> supplies the row, or one is generated (grid-bound via <code>grid.edit.addRow</code>). Emits <code>card:add</code>.</td></tr>
+          <tr><td class="sig">getState() / setState(snapshot)</td><td class="desc">Serialise and restore the board state — collapsed columns/lanes, column order, quick filter, sprint/epic selection and selection. Also accepted as <code>config.state</code> at construction.</td></tr>
+          <tr><td class="sig">setLoading(bool) / setError(message)</td><td class="desc">A loading state and a host-supplied error banner; empty columns already render their placeholder.</td></tr>
+          <tr><td class="sig">setRows(rows) / refresh()</td><td class="desc">Replace the source rows, or recompute and re-render.</td></tr>
+          <tr><td class="sig">on(name, fn) / off(name, fn)</td><td class="desc">Events: <code>card:click</code>, <code>card:dblclick</code>, <code>card:contextmenu</code>, <code>card:move</code>, <code>card:reverted</code>, <code>selection:changed</code>, <code>drag:start</code>, <code>drag:end</code> (plus the vocabulary the later cycles emit).</td></tr>
+          <tr><td class="sig">readonly(scope)</td><td class="desc">Whether a scope is readonly &mdash; the whole board, a <code>{ column }</code> or a <code>{ card }</code>. A readonly card is not draggable; a move into a readonly column is refused.</td></tr>
+          <tr><td class="sig">destroy()</td><td class="desc">Empty the element and drop the model. The host still owns any bound grid.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Drag-and-drop and keyboard move (write-back).</strong> Cards drag between columns (writing <code>columnProperty</code>) and within a column into a position (writing <code>orderProperty</code> with fractional ranking, so only the moved cards' order is written). The same move is available from the keyboard: focus a card, press <kbd>Space</kbd> to grab it, use the arrows to choose a target column and position (announced on a live region), <kbd>Space</kbd>/<kbd>Enter</kbd> to drop, <kbd>Escape</kbd> to cancel. Multi-select drags every selected card. A move calls <code>onBeforeMove(card, from, to, index)</code> first — return <code>false</code> (or a promise of it) to veto — then persists: <strong>grid-bound</strong>, through <code>grid.edit.setCells</code> (the same public edit-commit path inline editing and the write-back adapter use, so the grid's own pipeline owns the optimistic apply, the confirm and the revert); <strong>standalone</strong>, optimistically with a revert when <code>onCardMove</code> returns <code>false</code>/rejects. A configurable per-card <code>contextMenu</code> (an array or <code>fn(card, selected)</code>) replaces the <code>card:contextmenu</code> event when present.</p>
+    <p><strong>Swimlanes, collapse, reorder and search.</strong> Set <code>swimlanes: true</code> to render a 2D lane&times;column grid grouped by <code>swimlaneProperty</code>: one band per lane with its own count/points, columns aligned across every lane, the board scrolling vertically through lanes and horizontally through columns inside its own box. A drag across lanes writes the swimlane property too. Columns and lanes collapse (their state survives a keyed-diff update); columns reorder by dragging their header (<code>reorderColumns</code>/<code>moveColumn</code>). <code>setQuickFilter(text)</code> searches across card fields, <code>setFilter(fn)</code> applies a predicate, and <code>facets(property)</code> returns distinct-value counts to build a facet control. Naming the <code>swimlaneProperty</code> is separate from turning on the lane view, so a board can carry it for a cross-lane move without switching layout.</p>
+    <p><strong>Sprint, epic and card pop-out.</strong> <code>setSprint(id)</code> shows one sprint, <code>showBacklog()</code> the cards with no sprint, and <code>sprints()</code> feeds a switcher; <code>setEpic(id)</code> narrows to an epic and <code>epicRollup()</code> (or <code>rollup(property)</code>) returns per-epic count, points and progress toward the <code>done</code> columns. A card can <strong>pop out a nested grid of its children</strong> — an epic's stories, a story's tasks, recursively. The child relationship is a <code>childrenProperty</code> (parent-id within the dataset) and/or a <code>loadChildren(card)</code> (per-card dataset or async fetch), and the child is a full composed <code>createGrid</code> (sort/filter/edit/write-back) — supplied as <code>children.factory</code> — opened in a <code>drawer</code> (default), <code>modal</code> or <code>inline</code>. With <code>children.asBoard</code> the child is itself a board, so it can pop its own children. This reuses the grid by composition and adds no grid-core coupling. <code>expand(key)</code> and the per-card drill affordance emit <code>card:expand</code>; a deeper open emits <code>card:drill</code>.</p>
+    <p><strong>Live updates.</strong> Because the board consumes data through the same keyed-diff contract a grid does, a <a href="#datarouter">Data Router</a> drives it directly — <code>router.attach(board, predicate)</code> — and one feed fans out to a grid, a kanban, a chart and a KPI tile at once. A live <code>rows.apply({ add, update, remove })</code> is applied as a keyed diff (an unchanged card keeps its model) and re-rendered <strong>preserving</strong> scroll, focus, selection, collapsed columns/lanes and any open pop-out, so a card can appear, move or update under the user without losing their place.</p>
+    <p><strong>Scale, state and accessibility.</strong> <code>virtualize</code> renders only a scroll window of a tall column (with true-height spacers so the scrollbar stays honest), for boards of thousands of cards. <code>getState()</code>/<code>setState()</code> (and <code>config.state</code>) save and restore the collapsed columns and lanes, the column order, the quick filter and the sprint/epic selection, so a reopened board comes back as it was; <code>setLoading</code>/<code>setError</code> add loading and error states. Accessibility runs throughout: the board is a labelled group of labelled column lists, cards are a roving-tabindex focus ring (arrows to move focus, Enter to activate), the move is fully keyboard-driven (<kbd>Space</kbd> grab, arrows for column/position, <kbd>Alt</kbd>+<kbd>↑/↓</kbd> across swimlanes, <kbd>Space</kbd>/<kbd>Enter</kbd> drop, <kbd>Escape</kbd> cancel) with live-region announcements, and every affordance carries a name.</p>
+    <p><strong>Inline edit and add-card.</strong> A field is opted into inline edit with the object mapping form — <code>card: { title: { field: 'title', edit: true } }</code>. Double-clicking a card (or <code>editCard(key, field)</code>) edits it in place: <strong>grid-bound</strong>, through the grid's own field editor for that column via its public edit path, so the column's parse, validate and optimistic/confirm/revert all run; <strong>standalone</strong>, through a host <code>editor</code> factory (or a default input), reverting when <code>onCardEdit</code> rejects. A per-column add-card affordance (<code>config.addCard</code>) creates a card carrying the column's group value — from a host <code>onAddCard(columnId)</code>, or generated, or appended through <code>grid.edit.addRow</code> when bound — and opens it straight in inline edit on its title, so the user just types. The module imports nothing from the grid's DOM package: grid-bound edits ride the grid's public edit API, standalone edits use the host's editor, so a board-only page never pulls the grid in.</p>
+    <h3 id="kanban-example">A board, grouped and aggregated, executed</h3>
+    <p class="section-note">A DemandFlow-shaped set &mdash; statuses as columns, points, an empty configured column,
+    a WIP limit, and one status outside the configured set &mdash; grouped headless, then a keyed diff applied
+    through the same <code>rows.apply</code> contract the Data Router drives. Run on every build.</p>
+    <pre data-run="js" data-expect="1/3 | 2/7 | over | archived | 2/13" data-covers="export:createKanban"><code><span class="kw">const</span> { createKanban } = <span class="kw">await</span> import('../packages/modules/kanban/index.js');
+
+<span class="kw">const</span> board = createKanban(null, {
+  rows: [
+    { id: 'a', status: 'todo', points: 3, title: 'Login form' },
+    { id: 'b', status: 'doing', points: 5, title: 'OAuth' },
+    { id: 'c', status: 'doing', points: 2, title: 'Reset flow' },
+    { id: 'd', status: 'done', points: 8, title: 'Audit log' },
+    { id: 'z', status: 'archived', points: 1, title: 'Old ticket' }, <span class="cmt">// outside the configured columns</span>
+  ],
+  rowKey: 'id',
+  columnProperty: 'status',
+  columns: [
+    { id: 'todo', title: 'To do' },
+    { id: 'doing', title: 'In progress', wipLimit: 1 },
+    { id: 'done', title: 'Done' },
+    { id: 'blocked', title: 'Blocked' },   <span class="cmt">// configured but empty; still shown</span>
+  ],
+  pointsProperty: 'points',
+  card: { title: 'title' },
+});
+
+<span class="kw">const</span> todo = board.count('todo') + '/' + board.points('todo');       <span class="cmt">// 1/3</span>
+<span class="kw">const</span> doing = board.count('doing') + '/' + board.points('doing');    <span class="cmt">// 2/7</span>
+<span class="kw">const</span> over = board.column('doing').over ? 'over' : 'ok';             <span class="cmt">// over the WIP limit of 1</span>
+<span class="kw">const</span> extra = board.column('archived') ? 'archived' : 'dropped';     <span class="cmt">// an out-of-set value is kept</span>
+
+<span class="cmt">// The keyed-diff consumer contract a Data Router drives: move b to done, drop c.</span>
+board.rows.apply({ update: [{ id: 'b', status: 'done', points: 5, title: 'OAuth' }], remove: ['c'] });
+<span class="kw">const</span> done = board.count('done') + '/' + board.points('done');       <span class="cmt">// 2/13</span>
+
+board.destroy();
+<span class="kw">return</span> [todo, doing, over, extra, done].join(' | ');</code></pre>
+
+    <h3 id="kanban-move-example">Move, reorder and veto, executed</h3>
+    <p class="section-note">The move path drag-and-drop and keyboard move share: a reorder writes the order
+    property with fractional ranking, a cross-column move writes the column property, and
+    <code>onBeforeMove</code> can veto. Run headless on every build.</p>
+    <pre data-run="js" data-expect="c,a,b | done | todo" data-covers="export:createKanban"><code><span class="kw">const</span> { createKanban } = <span class="kw">await</span> import('../packages/modules/kanban/index.js');
+
+<span class="kw">const</span> board = createKanban(null, {
+  rows: [
+    { id: 'a', status: 'todo', ord: 1, title: 'A' },
+    { id: 'b', status: 'todo', ord: 2, title: 'B' },
+    { id: 'c', status: 'todo', ord: 3, title: 'C' },
+  ],
+  rowKey: 'id',
+  columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'doing' }, { id: 'done' }],
+  orderProperty: 'ord',
+  <span class="cmt">// Veto any move into 'doing'; allow the rest.</span>
+  onBeforeMove: (card, from, to) =&gt; to !== 'doing',
+});
+
+<span class="kw">await</span> board.move('c', 'todo', 0);          <span class="cmt">// reorder C to the top of todo</span>
+<span class="kw">const</span> order = board.column('todo').cards.map((x) =&gt; x.key).join(',');  <span class="cmt">// c,a,b</span>
+
+<span class="kw">await</span> board.move('a', 'done');             <span class="cmt">// cross-column move writes the column</span>
+<span class="kw">const</span> moved = board.card('a').columnId;    <span class="cmt">// done</span>
+
+<span class="kw">await</span> board.move('b', 'doing');            <span class="cmt">// vetoed by onBeforeMove</span>
+<span class="kw">const</span> vetoed = board.card('b').columnId;   <span class="cmt">// still todo</span>
+
+<span class="kw">return</span> [order, moved, vetoed].join(' | ');</code></pre>
+
+    <h3 id="kanban-swimlane-example">Swimlanes, collapse and search, executed</h3>
+    <p class="section-note">Lanes with per-lane aggregates, a collapsed column, a reorder, and a quick-filter —
+    all headless, run on every build.</p>
+    <pre data-run="js" data-expect="Ann 2/8 | done,todo,doing | 1" data-covers="export:createKanban"><code><span class="kw">const</span> { createKanban } = <span class="kw">await</span> import('../packages/modules/kanban/index.js');
+
+<span class="kw">const</span> board = createKanban(null, {
+  rows: [
+    { id: 1, status: 'todo', assignee: 'Ann', points: 3, title: 'Login' },
+    { id: 2, status: 'doing', assignee: 'Ann', points: 5, title: 'OAuth' },
+    { id: 3, status: 'doing', assignee: 'Bob', points: 2, title: 'Reset' },
+    { id: 4, status: 'done', assignee: 'Bob', points: 8, title: 'Audit' },
+  ],
+  rowKey: 'id',
+  columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'doing' }, { id: 'done' }],
+  swimlaneProperty: 'assignee',
+  swimlanes: true,
+  pointsProperty: 'points',
+  card: { title: 'title' },
+});
+
+<span class="kw">const</span> ann = board.model.lanes.find((l) =&gt; l.id === 'Ann');
+<span class="kw">const</span> lane = 'Ann ' + ann.count + '/' + ann.points;   <span class="cmt">// Ann 2/8</span>
+
+board.reorderColumns(['done', 'todo', 'doing']);
+<span class="kw">const</span> order = board.columns().map((c) =&gt; c.id).join(',');  <span class="cmt">// done,todo,doing</span>
+
+board.setQuickFilter('reset');
+<span class="kw">const</span> shown = board.model.cardsByKey.size;             <span class="cmt">// 1 (only "Reset" matches)</span>
+
+<span class="kw">return</span> [lane, order, shown].join(' | ');</code></pre>
+
+    <h3 id="kanban-sprint-example">Sprint, backlog and epic rollup, executed</h3>
+    <p class="section-note">A sprint view, the backlog, and an epic rollup with progress toward the done column —
+    headless, run on every build.</p>
+    <pre data-run="js" data-expect="2 | 1 | 10 0.5" data-covers="export:createKanban"><code><span class="kw">const</span> { createKanban } = <span class="kw">await</span> import('../packages/modules/kanban/index.js');
+
+<span class="kw">const</span> board = createKanban(null, {
+  rows: [
+    { id: 's1', status: 'todo', epic: 'E', sprint: 'S1', points: 3, title: 'Story 1' },
+    { id: 's2', status: 'done', epic: 'E', sprint: 'S1', points: 5, title: 'Story 2' },
+    { id: 's3', status: 'todo', epic: 'E', sprint: null, points: 2, title: 'Story 3' },
+  ],
+  rowKey: 'id',
+  columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'done', done: true }],
+  pointsProperty: 'points',
+  sprintProperty: 'sprint',
+  epicProperty: 'epic',
+});
+
+board.setSprint('S1');
+<span class="kw">const</span> inSprint = board.model.cardsByKey.size;   <span class="cmt">// 2 (s1, s2 are in S1; s3 has no sprint)</span>
+board.showBacklog();
+<span class="kw">const</span> backlog = board.model.cardsByKey.size;    <span class="cmt">// 1 (s3)</span>
+board.setSprint(undefined);
+
+<span class="kw">const</span> e = board.epicRollup()[0];
+<span class="kw">const</span> rollup = e.points + ' ' + e.progress;      <span class="cmt">// 10 0.5</span>
+
+<span class="kw">return</span> [inSprint, backlog, rollup].join(' | ');</code></pre>
+
+    <h3 id="kanban-live-example">Live, driven by a Data Router, executed</h3>
+    <p class="section-note">One feed, routed to a board through the same keyed-diff contract a grid uses:
+    a snapshot hydrates it and a delta moves a card. Run headless on every build.</p>
+    <pre data-run="js" data-expect="1,1 | 0,2" data-covers="export:createKanban"><code><span class="kw">const</span> { createKanban } = <span class="kw">await</span> import('../packages/modules/kanban/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> board = createKanban(null, {
+  rows: [], rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'done' }], card: { title: 'title' },
+});
+
+<span class="kw">const</span> router = createDataRouter({ key: 'kind', rowKey: 'id' });
+router.attach(board, 'task');                <span class="cmt">// the board is a drop-in router target</span>
+router.load([
+  { id: 't1', kind: 'task', status: 'todo', title: 'T1' },
+  { id: 't2', kind: 'task', status: 'done', title: 'T2' },
+]);
+<span class="kw">const</span> hydrated = board.count('todo') + ',' + board.count('done');   <span class="cmt">// 1,1</span>
+
+router.apply([{ op: 'upsert', row: { id: 't1', kind: 'task', status: 'done', title: 'T1' } }]);
+<span class="kw">const</span> afterDelta = board.count('todo') + ',' + board.count('done'); <span class="cmt">// 0,2</span>
+
+router.destroy();
+<span class="kw">return</span> [hydrated, afterDelta].join(' | ');</code></pre>
+
     <h2 id="mocksocket">The mock socket</h2>
     <p><code>modules/mock-socket</code> is a serverless stand-in for a live <code>WebSocket</code> feed, for building and demonstrating a real-time UI with <strong>no backend</strong>. <code>MockWebSocket</code> presents the same surface as the browser's <code>WebSocket</code> &mdash; the same <code>readyState</code> and state constants, the same <code>onopen</code>, <code>onmessage</code>, <code>onclose</code> and <code>onerror</code>, <code>addEventListener</code>, <code>send</code> and <code>close</code> &mdash; so the code that reads it does not change when it is swapped for a real one. It fires an initial snapshot the moment it opens, then a stream of deltas on a timer, all from a generator you hand it. It is a dev and test utility: optional, imports nothing from the grid, and is never pulled into the core bundle. It pairs naturally with the data router (one mock stream, partitioned to many grids), but depends on it no more than a real socket does.</p>
     <pre><code>import { MockWebSocket, opsFeed } from '@toclocoinc/lattice-grid/modules/mock-socket';
@@ -4983,8 +5308,8 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
 ].join('|');</code></pre>
 
     <h3 id="module-exports-example">Every module export, executed</h3>
-    <p class="section-note">Nine shipped modules, each export resolved against its own barrel on every build.</p>
-    <pre data-run="js" data-expect="66" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:regressionPlots export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload export:createDataRouter export:MockWebSocket export:rng export:opsFeed export:priceFeed"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
+    <p class="section-note">Every shipped module’s exports, resolved against its own barrel on every build.</p>
+    <pre data-run="js" data-expect="67" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:regressionPlots export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload export:createDataRouter export:MockWebSocket export:rng export:opsFeed export:priceFeed export:createKanban"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
 <span class="cmt">// barrel. A module that stopped exporting something fails here.</span>
 <span class="kw">const</span> modules = [
   [<span class="kw">await</span> import('../packages/dom/src/index.js'), [
@@ -5030,6 +5355,9 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
   ]],
   [<span class="kw">await</span> import('../packages/modules/mock-socket/index.js'), [
     'MockWebSocket', 'rng', 'opsFeed', 'priceFeed',
+  ]],
+  [<span class="kw">await</span> import('../packages/modules/kanban/index.js'), [
+    'createKanban',
   ]],
 ];
 

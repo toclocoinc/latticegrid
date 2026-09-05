@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.33.0, type declarations
+ * Lattice Grid 1.34.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -6272,6 +6272,189 @@ declare module 'lattice-grid/modules/data-router' {
   export default createDataRouter;
 }
 
+declare module 'lattice-grid/modules/gantt' {
+  /** One of the four dependency link types (finish-to-start, start-to-start, finish-to-finish, start-to-finish). */
+  export type GanttLinkType = 'FS' | 'SS' | 'FF' | 'SF';
+
+  /**
+   * A task in a Gantt plan. Give a `duration` or a numeric `start`+`end` (one is
+   * derived from the other). `milestone: true` (or `duration: 0`) is a
+   * zero-duration point. `parent` nests a task under a summary task, whose window
+   * and progress are DERIVED from its children rather than scheduled.
+   */
+  export interface GanttTask {
+    id: string | number;
+    name?: string;
+    start?: number;
+    end?: number;
+    duration?: number;
+    percentComplete?: number;
+    milestone?: boolean;
+    parent?: string | number;
+  }
+
+  /**
+   * A typed dependency between two tasks (by id), with optional lag/lead. `type`
+   * defaults to `'FS'`; either endpoint may be a leaf or a summary.
+   */
+  export interface GanttDependency {
+    from: string | number;
+    to: string | number;
+    type?: GanttLinkType;
+    lag?: number;
+  }
+
+  /** The computed CPM values for one task (a leaf is scheduled, a summary derived). */
+  interface GanttScheduledTask {
+    id: string;
+    name: string;
+    duration: number;
+    es: number;
+    ef: number;
+    ls: number;
+    lf: number;
+    totalFloat: number;
+    critical: boolean;
+    percentComplete: number | null;
+    parent: string | null;
+    isSummary: boolean;
+    isMilestone: boolean;
+    children: string[];
+  }
+
+  /** A CPM schedule result: per-task dates/float and the critical path, or an error. */
+  interface GanttSchedule {
+    ok: boolean;
+    error?: { code: string; message: string; cycle?: string[] };
+    tasks?: Map<string, GanttScheduledTask>;
+    order?: string[];
+    critical?: string[];
+    criticalPaths?: string[][];
+    projectStart?: number;
+    projectFinish?: number;
+    projectDuration?: number;
+  }
+
+  /** A placement violation flagged by `findViolations`. */
+  interface GanttViolation {
+    id: string;
+    placedStart: number;
+    earliestStart: number;
+    by: number;
+  }
+
+  /** The four link types, in documented order. */
+  export const LINK_TYPES: readonly GanttLinkType[];
+
+  /** Error codes the scheduler reports (rather than throwing) on bad input. */
+  export const SCHEDULE_ERROR: Record<string, string>;
+
+  /**
+   * Compute the CPM schedule for a set of tasks and dependencies: forward and
+   * backward passes over the leaf tasks honouring FS/SS/FF/SF + lag, slack/float
+   * and the zero-float critical path, with summaries derived from their children,
+   * milestones scheduled as points, and dependency cycles refused (never looped).
+   */
+  export function computeSchedule(tasks: GanttTask[], deps?: GanttDependency[], options?: { projectStart?: number; deadline?: number }): GanttSchedule;
+
+  /** The tasks placed earlier than their earliest feasible start (manual validation). */
+  export function findViolations(tasks: GanttTask[], schedule: GanttSchedule): GanttViolation[];
+
+  /** Format an engine day-number as an ISO calendar date (`YYYY-MM-DD`, UTC). */
+  export function toISODate(day: number): string | null;
+
+  /** A headless Gantt controller: holds the model, recomputes on edits, emits changes. */
+  interface Gantt {
+    readonly tasks: GanttTask[];
+    readonly dependencies: GanttDependency[];
+    readonly schedule: GanttSchedule | null;
+    readonly critical: string[];
+    readonly autoSchedule: boolean;
+    readonly grid: unknown;
+    setTasks(tasks: GanttTask[]): GanttSchedule;
+    setDependencies(deps: GanttDependency[]): GanttSchedule;
+    applyEdit(patch: { id: string | number; start?: number; end?: number; duration?: number }, editOpts?: { writeBack?: boolean }): GanttSchedule;
+    compute(): GanttSchedule;
+    findViolations(): GanttViolation[];
+    /** Export the scheduled tasks as CSV; `{ dates: true }` writes ISO dates. */
+    toCSV(csvOpts?: { dates?: boolean }): string;
+    /**
+     * The live consumer surface, mirroring `grid.rows.apply`, so a Data Router
+     * can drive the Gantt like any other view. Keyed by the controller's rowKey.
+     */
+    readonly rows: {
+      apply(change: { add?: GanttTask[]; update?: GanttTask[]; remove?: Array<string | GanttTask> }): {
+        added: GanttTask[]; updated: GanttTask[]; removed: string[];
+      };
+    };
+    on(event: 'schedule' | 'error', fn: (payload: unknown) => void): () => void;
+    off(event: 'schedule' | 'error', fn: (payload: unknown) => void): void;
+    /**
+     * Render the plan into a container as an SVG timeline (bars, dependency
+     * arrows, critical-path highlight, today line, non-working shading,
+     * milestones, progress). The view redraws when the schedule recomputes.
+     */
+    mount(container: unknown, options?: {
+      width?: number;
+      rowHeight?: number;
+      labelWidth?: number;
+      rowLabels?: boolean;
+      showArrows?: boolean;
+      showCritical?: boolean;
+      showProgress?: boolean;
+      dateAxis?: boolean;
+      today?: number;
+      nonWorking?: 'weekends' | ((day: number) => boolean);
+      label?: 'name' | 'percent' | 'dates' | 'none' | ((task: GanttScheduledTask) => string);
+      /** Whether bars can be dragged to move/resize (default true). */
+      editable?: boolean;
+      /** Pixels from a bar's right edge that begin a resize rather than a move. */
+      resizeZone?: number;
+      /** Time-scale zoom: a level, or raw pixels-per-day. Omit to fit the width. */
+      zoom?: 'day' | 'week' | 'month' | 'quarter' | number;
+      /** Scroll so the today line is in view after drawing. */
+      scrollToToday?: boolean;
+      /** Show a hover tooltip (dates/duration/%/slack); default true. */
+      tooltip?: boolean;
+      /** Group tasks into swimlanes by a task property name or `fn(task)`. */
+      groupBy?: string | ((task: GanttTask) => unknown);
+      /** Keyboard editing + focusable bars + ARIA announcements (default true). */
+      keyboard?: boolean;
+      /** Days a keyboard arrow moves/resizes a task (default 1). */
+      moveStep?: number;
+    }): unknown;
+    /** Detach the mounted view, if any. The host still owns the container. */
+    unmount(): void;
+    /** The mounted view, or null. */
+    readonly view: unknown;
+    destroy(): void;
+  }
+
+  /**
+   * Create a Gantt controller over a task list and a dependency list. Computes
+   * the CPM schedule immediately and again on every `setTasks`/`setDependencies`/
+   * `applyEdit`, emitting `schedule` on success and `error` on a cycle or bad
+   * input. `grid` is stored for the write-back binding; `autoSchedule` requests
+   * dependent cascading.
+   */
+  export function createGantt(opts?: {
+    tasks?: GanttTask[];
+    dependencies?: GanttDependency[];
+    projectStart?: number;
+    /** A project deadline (day-number); tasks that cannot meet it get negative float. */
+    deadline?: number;
+    autoSchedule?: boolean;
+    grid?: unknown;
+    /** Map task fields to grid column ids to enable drag write-back. */
+    columns?: { start?: string; end?: string; duration?: string };
+    /** Task identity for the live `rows.apply` surface (a field or fn); default 'id'. */
+    rowKey?: string | ((row: GanttTask) => unknown);
+    /** Auto-mount into this element at construction. */
+    element?: unknown;
+  }): Gantt;
+  export default createGantt;
+}
+
 declare module 'lattice-grid/modules/webcomponent' {
   /**
    * Register `<lattice-grid>`.
@@ -6495,4 +6678,315 @@ declare module 'lattice-grid/modules/mock-socket' {
   }): Generator<FeedMessage>;
 
   export default MockWebSocket;
+}
+
+declare module 'lattice-grid/modules/kanban' {
+  /** A row backing a card: any object. Its column comes from `columnProperty` and its identity from `rowKey`. */
+  type KanbanRow = Record<string, unknown>;
+
+  /**
+   * A card model — one row as it appears on the board. `fields` holds the
+   * resolved display text for each mapped card field; `columnId` is the column
+   * the card sits in; `points` is the numeric points value (0 when absent).
+   * `swimlane`/`sprint`/`epic`/`order` are read from their configured properties
+   * and carried for the later cycles that render them.
+   */
+  interface KanbanCard {
+    key: unknown;
+    row: KanbanRow;
+    columnId: string | null;
+    points: number;
+    hasPoints: boolean;
+    order?: unknown;
+    swimlane?: unknown;
+    sprint?: unknown;
+    epic?: unknown;
+    fields: Record<string, string>;
+  }
+
+  /** A column with its cards and aggregates. `over` is true when `count` exceeds `wipLimit`. */
+  interface KanbanColumn {
+    id: string;
+    title: string;
+    color: string | null;
+    wipLimit: number | null;
+    collapsed: boolean;
+    cards: KanbanCard[];
+    count: number;
+    points: number;
+    over: boolean;
+  }
+
+  /** A column definition: an id string, or an object configuring one column. */
+  type KanbanColumnDef = string | {
+    id: string;
+    title?: string;
+    color?: string;
+    wipLimit?: number;
+    collapsed?: boolean;
+  };
+
+  /** A card field editor handle returned by a host editor factory. */
+  interface KanbanEditor {
+    el: HTMLElement;
+    focus?: () => void;
+    destroy?: () => void;
+  }
+
+  /** A card field mapping: a property path, a function, or an object opting into inline edit. */
+  type KanbanFieldMap = string | ((row: KanbanRow) => unknown) | {
+    field: string;
+    edit?: boolean;
+    editor?: (ctx: { card: KanbanCard; field: string; value: string; commit: (value: unknown) => void; cancel: () => void }) => KanbanEditor;
+  };
+
+  /** The field-to-property mapping that drives the card template. */
+  interface KanbanCardMap {
+    title?: KanbanFieldMap;
+    subtitle?: KanbanFieldMap;
+    labels?: KanbanFieldMap;
+    assignee?: KanbanFieldMap;
+    due?: KanbanFieldMap;
+    cover?: KanbanFieldMap;
+    progress?: KanbanFieldMap;
+    badges?: KanbanFieldMap;
+    accent?: KanbanFieldMap;
+    [field: string]: KanbanFieldMap | undefined;
+  }
+
+  /** Granular readonly: the whole board, or selectively by column id and card key. */
+  type KanbanReadonly = boolean | {
+    board?: boolean;
+    columns?: Record<string, boolean>;
+    cards?: Record<string, boolean>;
+  };
+
+  /** The payload every board event carries. */
+  interface KanbanEvent {
+    card: KanbanCard;
+    column: string | null;
+    el?: unknown;
+    originalEvent?: unknown;
+  }
+
+  /**
+   * Kanban configuration. Every structural property is named here so the same
+   * board maps DemandFlow (a status field, `points`, `sprint`, `epic`, a
+   * swimlane property) and any customer schema without code change.
+   */
+  interface KanbanConfig {
+    rows?: KanbanRow[];
+    grid?: unknown;
+    rowKey?: string | ((row: KanbanRow) => unknown);
+    columnProperty?: string;
+    columns?: KanbanColumnDef[];
+    columnOrder?: string[];
+    pointsProperty?: string;
+    showPoints?: boolean;
+    orderProperty?: string;
+    swimlaneProperty?: string;
+    /** Render the 2D swimlane layout using `swimlaneProperty` (default false). */
+    swimlanes?: boolean;
+    /** Explicit lane definitions; otherwise lanes come from the distinct swimlane values. */
+    lanes?: (string | { id: string; title?: string })[];
+    sprintProperty?: string;
+    epicProperty?: string;
+    /** The initially selected sprint id, `Kanban.BACKLOG`, or undefined for all. */
+    sprint?: unknown;
+    /** The initially selected epic id, or undefined for all. */
+    epic?: unknown;
+    /** Column ids that count as "done" for a rollup's progress (also a column def's `done: true`). */
+    doneColumns?: string[];
+    /** Card pop-out: a nested child grid or board (master-detail by composition). */
+    children?: KanbanChildren;
+    /** Card virtualization for tall columns: true, or `{ rowHeight, overscan, threshold, viewport }`. */
+    virtualize?: boolean | { rowHeight?: number; overscan?: number; threshold?: number; viewport?: number };
+    /** A saved board state (from `getState`) to restore on construction. */
+    state?: object;
+    /** Show a per-column add-card affordance. */
+    addCard?: boolean;
+    /** Persist a standalone inline edit; return false or a rejected promise to revert. */
+    onCardEdit?: (event: { card: KanbanCard; key: unknown; field: string; fieldPath: string; value: unknown }) => boolean | void | Promise<boolean | void>;
+    /** Create a card for a column on add-card; return the row to create (with its key), or nothing to auto-generate. */
+    onAddCard?: (columnId: string) => KanbanRow | void;
+    /** A predicate filter over cards; only matching cards are shown. */
+    filter?: (row: KanbanRow, card: KanbanCard) => boolean;
+    /** Quick-filter text matched case-insensitively across card fields. */
+    quickFilter?: string;
+    card?: KanbanCardMap;
+    readonly?: KanbanReadonly;
+    ariaLabel?: string;
+    emptyText?: string;
+    /** Whether card selection is enabled (default true). */
+    selectable?: boolean;
+    /** Host-localised words for the move announcements (grabbed/moved/dropped/reverted/cancelled). */
+    labels?: Record<string, string>;
+    /**
+     * Veto/confirm a move before any write. Return `false` (or a promise of it)
+     * to refuse; `from`/`to` are column ids, `index` the target position.
+     */
+    onBeforeMove?: (card: KanbanCard, from: string | null, to: string, index: number | null) => boolean | Promise<boolean>;
+    /**
+     * Persist a move on a standalone (non-grid) board. Return `false` or a
+     * rejected promise to revert the optimistic move. On a grid-bound board the
+     * grid's write-back pipeline persists instead and this is not called.
+     */
+    onCardMove?: (event: KanbanMoveEvent) => boolean | void | Promise<boolean | void>;
+    /** A per-card context menu: items, or `fn(card, selectedCards)` returning items. Suppresses `card:contextmenu`. */
+    contextMenu?: KanbanMenuItem[] | ((card: KanbanCard, selected: KanbanCard[]) => KanbanMenuItem[]);
+    onCardClick?: (event: KanbanEvent) => void;
+    onCardDblClick?: (event: KanbanEvent) => void;
+    onCardContextMenu?: (event: KanbanEvent) => void;
+  }
+
+  /**
+   * Card pop-out configuration. The child view is a full composed grid (via
+   * `factory`, a `createGrid`), a nested board (`asBoard`), or a custom `render`.
+   * The child set is the rows whose `property` equals the card key, or the
+   * `load(card)` result. Recursion falls out: a nested board can pop its own
+   * children.
+   */
+  interface KanbanChildren {
+    /** Parent-id property linking child rows to a card within the same dataset. */
+    property?: string;
+    /** Per-card child rows, sync or async — an alternative (or addition) to `property`. */
+    load?: (card: KanbanCard) => KanbanRow[] | Promise<KanbanRow[]>;
+    /** Whether a card can be expanded, overriding the property/load inference. */
+    hasChildren?: (card: KanbanCard) => boolean;
+    /** Where the pop-out appears (default `drawer`). */
+    present?: 'drawer' | 'modal' | 'inline';
+    /** The grid factory (a `createGrid`) that builds the child grid. */
+    factory?: (container: HTMLElement, options: object) => { destroy?: () => void };
+    /** Make the child a nested board (recursive) instead of a grid. */
+    asBoard?: boolean;
+    /** Options for the child grid/board — an object or `fn(card)`. */
+    gridOptions?: object | ((card: KanbanCard) => object);
+    /** Fully custom child render; returns a cleanup function. */
+    render?: (container: HTMLElement, ctx: { card: KanbanCard; rows: KanbanRow[]; board: Kanban; depth: number }) => (void | (() => void));
+    /** The pop-out title (default the card title). */
+    title?: (card: KanbanCard) => string;
+  }
+
+  /** One context-menu item. `action` receives the card, the selected cards, and the board. */
+  interface KanbanMenuItem {
+    label: string;
+    action?: (ctx: { card: KanbanCard; cards: KanbanCard[]; board: Kanban }) => void;
+    disabled?: boolean;
+  }
+
+  /** The payload of a `card:move` (and `card:reverted`) event. */
+  interface KanbanMoveEvent {
+    keys: unknown[];
+    cards: KanbanCard[];
+    from: (string | null)[];
+    to: string;
+    index: number | null;
+    orders: number[] | null;
+  }
+
+  /** The keyed-diff consumer surface a board shares with a grid, so a Data Router routes to it directly. */
+  interface KanbanRows {
+    apply(change: { add?: KanbanRow[]; update?: KanbanRow[]; remove?: unknown[] }): void;
+    forEach(fn: (row: KanbanRow, key: unknown) => void): void;
+    readonly count: number;
+  }
+
+  /**
+   * A board instance: a kanban view of grid rows as cards grouped into columns.
+   * It consumes data through the same keyed-diff `rows.apply` contract a grid
+   * exposes, so `dataRouter.attach(value, board)` drives it like any other
+   * viewer.
+   */
+  interface Kanban {
+    readonly el: unknown | null;
+    readonly rowKey: string | ((row: KanbanRow) => unknown);
+    rows: KanbanRows;
+    columns(): KanbanColumn[];
+    column(id: string): KanbanColumn | undefined;
+    count(id: string): number;
+    points(id: string): number;
+    cards(): KanbanCard[];
+    card(key: unknown): KanbanCard | undefined;
+    on(name: string, fn: (event: KanbanEvent) => void): () => void;
+    off(name: string, fn: (event: KanbanEvent) => void): void;
+    readonly(scope?: { column?: string; card?: unknown }): boolean;
+    /**
+     * Move one or more cards to a column (and, with an order property, to a
+     * position within it), through the `onBeforeMove` veto and the grid's
+     * shipped write-back path. The single entry point behind drag-and-drop and
+     * keyboard move.
+     */
+    move(keys: unknown | unknown[], toColumn: string, toIndex?: number | null, toLane?: string): Promise<{ moved: unknown[]; reverted: boolean }>;
+    /** The selected card keys. */
+    selection(): unknown[];
+    /** Whether a card is selected. */
+    isSelected(key: unknown): boolean;
+    /** Change the selection: `set` (replace), `add`, `toggle` or `remove`. */
+    select(keys: unknown | unknown[], mode?: 'set' | 'add' | 'toggle' | 'remove'): Kanban;
+    /** Clear the selection. */
+    clearSelection(): Kanban;
+    /** Collapse, expand or toggle a column (emits `column:collapse`). */
+    collapseColumn(id: string, collapsed?: boolean): Kanban;
+    /** Collapse, expand or toggle a swimlane (emits `swimlane:collapse`). */
+    collapseLane(id: string, collapsed?: boolean): Kanban;
+    /** Reorder the columns to the given id order (emits `column:reorder`). */
+    reorderColumns(order: string[]): Kanban;
+    /** Move one column before another (or to the end); emits `column:reorder`. */
+    moveColumn(id: string, beforeId: string | null): Kanban;
+    /** Set a predicate filter over cards, or clear it with null. */
+    setFilter(fn: ((row: KanbanRow, card: KanbanCard) => boolean) | null): Kanban;
+    /** Set the quick-filter text matched across card fields. */
+    setQuickFilter(text: string): Kanban;
+    /** Distinct values of a property with card counts — the raw material for a facet control. */
+    facets(property: string): { value: unknown; count: number }[];
+    /** The sentinel `setSprint` value that selects the backlog (cards with no sprint). */
+    readonly BACKLOG: unknown;
+    /** Select the shown sprint (`BACKLOG` for the backlog, undefined for all); emits `sprint:changed`. */
+    setSprint(sprint: unknown): Kanban;
+    /** Show only the backlog (cards with no sprint). */
+    showBacklog(): Kanban;
+    /** Select the shown epic (undefined for all); emits `epic:changed`. */
+    setEpic(epic: unknown): Kanban;
+    /** The distinct sprint values (the switcher's options). */
+    sprints(): unknown[];
+    /** The distinct epic values. */
+    epics(): unknown[];
+    /** Roll rows up by a property: per-bucket count, points, done and progress. */
+    rollup(property: string): { value: unknown; count: number; points: number; doneCount: number; donePoints: number; progress: number }[];
+    /** The epic rollup (empty when no epic property is configured). */
+    epicRollup(): { value: unknown; count: number; points: number; doneCount: number; donePoints: number; progress: number }[];
+    /** Whether a card can be expanded to a child pop-out. */
+    canExpand(card: KanbanCard): boolean;
+    /** Open a card's children in a pop-out (drawer/modal/inline); emits `card:expand`/`card:drill`. */
+    expand(key: unknown): Promise<object | null>;
+    /** Close any open card pop-out. */
+    closeDetail(): Kanban;
+    /** Whether a mapped card field is opted into inline edit and writable. */
+    isFieldEditable(name: string): boolean;
+    /** Start inline editing a card's field (the grid's own field editor when bound); no-op headless. */
+    editCard(key: unknown, name?: string): object | null;
+    /** Commit an inline edit through the write-back path (grid.edit.setCells when bound); emits `card:edit`. */
+    applyEdit(key: unknown, name: string, value: unknown): Promise<boolean>;
+    /** Add a card to a column and open it in inline edit; emits `card:add`. */
+    addCard(columnId: string, seed?: KanbanRow): unknown;
+    /** Serialise the restorable state: collapsed columns/lanes, order, filter, sprint/epic, selection. */
+    getState(): object;
+    /** Restore a state snapshot from {@link Kanban#getState}. */
+    setState(snapshot: object): Kanban;
+    /** Mark the board loading (renders a host-localised loading state). */
+    setLoading(loading: boolean): Kanban;
+    /** Set (or clear with null) an error state, rendered as a host-supplied message. */
+    setError(message: string | null): Kanban;
+    setRows(rows: KanbanRow[]): Kanban;
+    refresh(): Kanban;
+    destroy(): void;
+  }
+
+  /**
+   * Create a board (kanban) view of rows, grouped into columns by a configurable
+   * property. Pass a DOM element to render into, or `null` for a headless board
+   * that computes the same column/card model without a DOM.
+   */
+  export function createKanban(el: HTMLElement | null, config?: KanbanConfig): Kanban;
+  export default createKanban;
 }
