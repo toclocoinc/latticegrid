@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.32.0, type declarations
+ * Lattice Grid 1.33.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -5863,7 +5863,242 @@ declare module 'lattice-grid/modules/charts' {
   export function resolveScheme(spec?: object): object;
   export function schemeNames(): string[];
   export function setDefaultScheme(name: string): void;
+  /**
+   * The definition an extension chart type registers (BACKLOG-0000886). `draw`
+   * receives the base drawing context — `plot`, `bound`, `groups`, `scheme`,
+   * `typography`, `fontSize`, `labels`, `grid`, `spec`, `doc` — plus
+   * `ctx.helpers`, the base's own toolkit of primitives (element factory, scales,
+   * axes, mark pool, distribution kernels), and appends its marks to the layer
+   * groups. `bind` optionally supplies the bound data (default: the by-series
+   * binder); `freeform` lays the chart out without axis gutters; `labelled`
+   * declares that `labels` applies.
+   */
+  interface ChartTypeDefinition {
+    draw: (ctx: object) => object;
+    bind?: (grid: Grid, spec: ChartSpec) => object;
+    freeform?: boolean;
+    labelled?: boolean;
+  }
+  /**
+   * Register an extension chart type so `createChart({ type })` can draw it
+   * (BACKLOG-0000886). Extension types ship as their own opt-in modules, so the
+   * base charts bundle does not grow for a type a caller never imports — you pay
+   * only for the charts you use.
+   */
+  export function registerChartType(name: string, def: ChartTypeDefinition): void;
+  /** Every registered extension chart-type name, in registration order. */
+  export function registeredChartTypes(): string[];
   export { Chart };
+}
+
+declare module 'lattice-grid/modules/chart-ridgeline' {
+  /**
+   * The ridgeline (joy plot) extension chart type (BACKLOG-0000886). Importing
+   * this module registers `ridgeline` with the base charts module; the base
+   * bundle does not include it unless a caller imports it. Draws one
+   * kernel-density ridge per category (`x`), stacked and overlapping, over the
+   * distribution of a measure (`y`); `spec.overlap` sets the vertical overlap.
+   */
+  export function drawRidgeline(ctx: object): object;
+  export default drawRidgeline;
+}
+
+declare module 'lattice-grid/modules/chart-calendar' {
+  /**
+   * The calendar-heatmap extension chart type (BACKLOG-0000886). Importing this
+   * module registers `calendar`. Draws value-by-day as a GitHub-style grid: `x`
+   * is a date column, `y` the measure summed per day.
+   */
+  export function drawCalendar(ctx: object): object;
+  export default drawCalendar;
+}
+
+declare module 'lattice-grid/modules/chart-splom' {
+  /**
+   * The scatter-plot-matrix (SPLOM) extension chart type (BACKLOG-0000886).
+   * Importing this module registers `splom`. Crosses every pair of the numeric
+   * `columns` (2–6) as a matrix of scatters, naming each variable on the
+   * diagonal.
+   */
+  export function drawSplom(ctx: object): object;
+  /** The SPLOM binding: reads the numeric `columns` off the grid's visible rows. */
+  export function bindSplom(grid: Grid, spec: object): object;
+  export default drawSplom;
+}
+
+declare module 'lattice-grid/modules/chart-hexbin' {
+  /**
+   * The hexbin / 2D-density extension chart type (BACKLOG-0000886). Importing
+   * this module registers `hexbin`. Bins `x`/`y` points into hexagons shaded by
+   * count, so a large scatter reads as a density field rather than overplotting.
+   */
+  export function drawHexbin(ctx: object): object;
+  /** The hexbin binding: reads the numeric `x` and `y` columns off the grid's rows. */
+  export function bindHexbin(grid: Grid, spec: object): object;
+  export default drawHexbin;
+}
+
+declare module 'lattice-grid/modules/chart-roc' {
+  /**
+   * The ROC / PR / calibration extension chart type (BACKLOG-0000886). Importing
+   * this module registers `roc`. `spec.curve` chooses `'roc'` (default, with the
+   * chance diagonal and AUC), `'pr'`, or `'calibration'`; `label` is the outcome
+   * column (positive when truthy or equal to `spec.positive`), `score` the model
+   * score.
+   */
+  export function drawRoc(ctx: object): object;
+  /** The ROC binding: reads the outcome and score off the grid's rows. */
+  export function bindRoc(grid: Grid, spec: object): object;
+  export default drawRoc;
+}
+
+declare module 'lattice-grid/modules/chart-fan' {
+  /**
+   * The fan / forecast extension chart type (BACKLOG-0000886). Importing this
+   * module registers `fan`. Draws `y` (history) as a solid line, `forecast` as a
+   * dashed continuation, and the `lower`/`upper` interval as a widening band.
+   */
+  export function drawFan(ctx: object): object;
+  /** The fan binding: reads the history, forecast and interval columns in row order. */
+  export function bindFan(grid: Grid, spec: object): object;
+  export default drawFan;
+}
+
+declare module 'lattice-grid/modules/chart-decomposition' {
+  /**
+   * The seasonal-decomposition panel extension chart type (BACKLOG-0000886),
+   * companion to the `tsTrend`/`tsSeasonal`/`tsResidual` shadow columns.
+   * Importing this module registers `decomposition`. Draws a stacked panel per
+   * named component column (`observed`/`trend`/`seasonal`/`residual`) sharing one
+   * x axis.
+   */
+  export function drawDecomposition(ctx: object): object;
+  /** The decomposition binding: reads the named component columns in row order. */
+  export function bindDecomposition(grid: Grid, spec: object): object;
+  export default drawDecomposition;
+}
+
+declare module 'lattice-grid/modules/chart-slope' {
+  /**
+   * The slope-chart extension type (BACKLOG-0000886). Importing this module
+   * registers `slope`. One line per `series` connecting its `y` across the `x`
+   * periods — before/after comparison read from the slopes.
+   */
+  export function drawSlope(ctx: object): object;
+  export default drawSlope;
+}
+
+declare module 'lattice-grid/modules/chart-dumbbell' {
+  /**
+   * The dumbbell / connected-dot extension type (BACKLOG-0000886). Importing
+   * this module registers `dumbbell`. Two dots (`start`, `end`) joined by a bar
+   * per `x` category — the gap is the bar's length.
+   */
+  export function drawDumbbell(ctx: object): object;
+  /** The dumbbell binding: reads the category and its two numeric columns. */
+  export function bindDumbbell(grid: Grid, spec: object): object;
+  export default drawDumbbell;
+}
+
+declare module 'lattice-grid/modules/chart-bump' {
+  /**
+   * The bump-chart extension type (BACKLOG-0000886). Importing this module
+   * registers `bump`. One line per `series` plotted by its rank of `y` within
+   * each `x` period — rank-over-time, where crossings are the story.
+   */
+  export function drawBump(ctx: object): object;
+  export default drawBump;
+}
+
+declare module 'lattice-grid/modules/chart-diverging' {
+  /**
+   * The diverging-bar extension type (BACKLOG-0000886). Importing this module
+   * registers `diverging`. Horizontal bars growing left/right from a central
+   * zero over a signed `y`, on a symmetric scale.
+   */
+  export function drawDiverging(ctx: object): object;
+  export default drawDiverging;
+}
+
+declare module 'lattice-grid/modules/chart-parallel' {
+  /**
+   * The parallel-coordinates extension type (BACKLOG-0000886). Importing this
+   * module registers `parallel`. One polyline per row across the numeric
+   * `columns`, each a vertical axis with its own scale; `spec.colourBy` colours
+   * by a category.
+   */
+  export function drawParallel(ctx: object): object;
+  /** The parallel-coordinates binding: reads the dimension columns off the rows. */
+  export function bindParallel(grid: Grid, spec: object): object;
+  export default drawParallel;
+}
+
+declare module 'lattice-grid/modules/chart-icicle' {
+  /**
+   * The icicle extension type (BACKLOG-0000886). Importing this module registers
+   * `icicle`. A hierarchy (the grid's group tree) as nested rectangles in rows,
+   * sized by `y`; drills like the built-in hierarchical types.
+   */
+  export function drawIcicle(ctx: object): object;
+  export default drawIcicle;
+}
+
+declare module 'lattice-grid/modules/chart-waffle' {
+  /**
+   * The waffle / dot-matrix extension type (BACKLOG-0000886). Importing this
+   * module registers `waffle`. Proportion as counted squares (default 100), one
+   * colour per `x` category sized by `y`.
+   */
+  export function drawWaffle(ctx: object): object;
+  export default drawWaffle;
+}
+
+declare module 'lattice-grid/modules/chart-alluvial' {
+  /**
+   * The alluvial extension type (BACKLOG-0000886). Importing this module
+   * registers `alluvial`. Ribbons from `source` categories to `target`
+   * categories sized by `value` — categorical flow between two dimensions.
+   */
+  export function drawAlluvial(ctx: object): object;
+  /** The alluvial binding: aggregates source→target flows off the grid's rows. */
+  export function bindAlluvial(grid: Grid, spec: object): object;
+  export default drawAlluvial;
+}
+
+declare module 'lattice-grid/modules/chart-arc' {
+  /**
+   * The arc-diagram extension type (BACKLOG-0000886). Importing this module
+   * registers `arc`. Nodes on a baseline with `source`→`target` relationships as
+   * semicircular arcs, thickness by `value`.
+   */
+  export function drawArc(ctx: object): object;
+  /** The arc-diagram binding: collects nodes and edges off the grid's rows. */
+  export function bindArc(grid: Grid, spec: object): object;
+  export default drawArc;
+}
+
+declare module 'lattice-grid/modules/chart-bubblemap' {
+  /**
+   * The symbol / bubble-map extension type (BACKLOG-0000886). Importing this
+   * module registers `bubblemap`. Points placed by `lon`/`lat`, each a bubble
+   * with a square-root radius from `size`; needs no outlines and fetches nothing.
+   */
+  export function drawBubbleMap(ctx: object): object;
+  /** The bubble-map binding: reads the coordinate and size columns off the rows. */
+  export function bindBubbleMap(grid: Grid, spec: object): object;
+  export default drawBubbleMap;
+}
+
+declare module 'lattice-grid/modules/chart-hexmap' {
+  /**
+   * The hexbin-map extension type (BACKLOG-0000886). Importing this module
+   * registers `hexmap`. `lon`/`lat` points binned into hexagons shaded by count,
+   * so a geographic density reads without overplotting or outlines.
+   */
+  export function drawHexMap(ctx: object): object;
+  /** The hexbin-map binding: reads the coordinate columns off the grid's rows. */
+  export function bindHexMap(grid: Grid, spec: object): object;
+  export default drawHexMap;
 }
 
 declare module 'lattice-grid/modules/react' {

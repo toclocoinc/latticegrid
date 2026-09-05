@@ -4094,6 +4094,93 @@ createGrid(el, {
 
     <div class="note"><p>The module imports nothing from the grid: <code>createChart</code> is handed a grid rather than importing one. That is what keeps the charts bundle to the drawing, and it is why the grid must be created first, and why a chart cannot outlive it.</p></div>
 
+    <h3 id="chart-extension-types">Extension chart types — pay only for what you draw</h3>
+    <p>The base charts bundle draws the built-in <code>TYPES</code> and nothing else. A new chart type is a <strong>separate, opt-in module</strong> a caller imports only if they use it (BACKLOG-0000886, on the slim-core seam BACKLOG-0000884). Importing it self-registers the type with the base module through <code>registerChartType</code>; the base <code>Chart</code> consults that registry for any type it does not draw natively. Because the base never imports the extension, the base bundle <strong>does not grow</strong> for a type a caller never uses.</p>
+    <pre><code><span class="kw">import</span> '@toclocoinc/lattice-grid/modules/charts';           <span class="cmt">// the base</span>
+<span class="kw">import</span> '@toclocoinc/lattice-grid/modules/chart-ridgeline';  <span class="cmt">// opt in to one type</span>
+
+createChart({ grid, container: '#dist', type: 'ridgeline', x: 'segment', y: 'value' });</code></pre>
+    <p>An extension declares <code>{ draw, bind?, freeform?, labelled? }</code>. Its <code>draw(ctx)</code> receives the same context a built-in drawer gets — <code>plot</code>, <code>bound</code>, <code>groups</code>, <code>scheme</code>, <code>typography</code>, <code>labels</code>, <code>grid</code>, <code>spec</code> — plus <code>ctx.helpers</code>, the base's own toolkit (element factory, scales, axis drawers, mark pool, distribution kernels). So an extension imports nothing heavy from the base: it receives the toolkit and ships only its own geometry. <code>registeredChartTypes()</code> lists what is registered. <strong>Ridgeline</strong> (<code>drawRidgeline</code>) is the first: one kernel-density ridge per category, stacked and overlapping, over the distribution of a measure — the reading for "how did this distribution change across segments".</p>
+    <pre data-run="js" data-expect="true | true | function" data-covers="export:registerChartType export:registeredChartTypes export:drawRidgeline"><code><span class="kw">const</span> charts = <span class="kw">await</span> import('../packages/modules/charts/index.js');
+<span class="kw">const</span> ridge = <span class="kw">await</span> import('../packages/modules/chart-ridgeline/index.js');
+
+<span class="cmt">// Importing the module self-registered the type against the base registry.</span>
+<span class="kw">const</span> registered = charts.registeredChartTypes().includes('ridgeline');
+<span class="cmt">// registerChartType is idempotent by name, so re-registering is safe.</span>
+charts.registerChartType('ridgeline', { draw: ridge.drawRidgeline });
+
+<span class="kw">return</span> [
+  registered,
+  charts.registeredChartTypes().includes('ridgeline'),
+  typeof ridge.drawRidgeline,
+].join(' | ');</code></pre>
+
+    <p>More lead-pick types ship the same way, each in its own opt-in module — the base bundle stays flat as they are added. <strong>Calendar heatmap</strong> (<code>drawCalendar</code>, <code>type: 'calendar'</code>) lays a measure out value-by-day, GitHub-style, from a date column. <strong>Scatter-plot matrix</strong> (<code>drawSplom</code>/<code>bindSplom</code>, <code>type: 'splom'</code>) crosses every pair of numeric <code>columns</code>. <strong>Hexbin</strong> (<code>drawHexbin</code>/<code>bindHexbin</code>, <code>type: 'hexbin'</code>) bins a scatter into count-shaded hexagons so a million rows read as a density field. Each reads the grid through the public row API, so it follows the grid's filters and sort.</p>
+    <pre data-run="js" data-expect="true | function | function | function | function | function" data-covers="export:drawCalendar export:drawSplom export:bindSplom export:drawHexbin export:bindHexbin"><code><span class="kw">const</span> charts = <span class="kw">await</span> import('../packages/modules/charts/index.js');
+<span class="kw">const</span> cal = <span class="kw">await</span> import('../packages/modules/chart-calendar/index.js');
+<span class="kw">const</span> splom = <span class="kw">await</span> import('../packages/modules/chart-splom/index.js');
+<span class="kw">const</span> hex = <span class="kw">await</span> import('../packages/modules/chart-hexbin/index.js');
+
+<span class="cmt">// Each import self-registered its type; the base bundle carries none of them.</span>
+<span class="kw">const</span> types = charts.registeredChartTypes();
+<span class="kw">return</span> [
+  ['calendar', 'splom', 'hexbin'].every((t) =&gt; types.includes(t)),
+  typeof cal.drawCalendar,
+  typeof splom.drawSplom, typeof splom.bindSplom,
+  typeof hex.drawHexbin, typeof hex.bindHexbin,
+].join(' | ');</code></pre>
+
+    <p>The model-evaluation and time-series lead picks ship the same way. <strong>ROC / PR / calibration</strong> (<code>drawRoc</code>/<code>bindRoc</code>, <code>type: 'roc'</code>, <code>curve: 'roc' | 'pr' | 'calibration'</code>) evaluates a classifier from a <code>label</code> and a <code>score</code> column, with the AUC. <strong>Fan / forecast</strong> (<code>drawFan</code>/<code>bindFan</code>, <code>type: 'fan'</code>) draws history, a point forecast, and a widening prediction interval from <code>y</code>/<code>forecast</code>/<code>lower</code>/<code>upper</code>. <strong>Decomposition panel</strong> (<code>drawDecomposition</code>/<code>bindDecomposition</code>, <code>type: 'decomposition'</code>) stacks the <code>observed</code>/<code>trend</code>/<code>seasonal</code>/<code>residual</code> components on one x axis — the companion to the grid's own time-series shadow columns.</p>
+    <pre data-run="js" data-expect="true | function | function | function | function | function | function" data-covers="export:drawRoc export:bindRoc export:drawFan export:bindFan export:drawDecomposition export:bindDecomposition"><code><span class="kw">const</span> charts = <span class="kw">await</span> import('../packages/modules/charts/index.js');
+<span class="kw">const</span> roc = <span class="kw">await</span> import('../packages/modules/chart-roc/index.js');
+<span class="kw">const</span> fan = <span class="kw">await</span> import('../packages/modules/chart-fan/index.js');
+<span class="kw">const</span> decomp = <span class="kw">await</span> import('../packages/modules/chart-decomposition/index.js');
+
+<span class="kw">const</span> types = charts.registeredChartTypes();
+<span class="kw">return</span> [
+  ['roc', 'fan', 'decomposition'].every((t) =&gt; types.includes(t)),
+  typeof roc.drawRoc, typeof roc.bindRoc,
+  typeof fan.drawFan, typeof fan.bindFan,
+  typeof decomp.drawDecomposition, typeof decomp.bindDecomposition,
+].join(' | ');</code></pre>
+
+    <p>The comparison and ranking family ships the same way. <strong>Slope</strong> (<code>drawSlope</code>, <code>type: 'slope'</code>) connects each series across two periods; <strong>dumbbell</strong> (<code>drawDumbbell</code>/<code>bindDumbbell</code>, <code>type: 'dumbbell'</code>) shows a <code>start</code>/<code>end</code> gap per category; <strong>bump</strong> (<code>drawBump</code>, <code>type: 'bump'</code>) plots rank-over-time; <strong>diverging</strong> (<code>drawDiverging</code>, <code>type: 'diverging'</code>) grows bars from a central zero; <strong>parallel coordinates</strong> (<code>drawParallel</code>/<code>bindParallel</code>, <code>type: 'parallel'</code>) draws one polyline per row across several numeric axes.</p>
+    <pre data-run="js" data-expect="true | function | function | function | function | function | function | function" data-covers="export:drawSlope export:drawDumbbell export:bindDumbbell export:drawBump export:drawDiverging export:drawParallel export:bindParallel"><code><span class="kw">const</span> charts = <span class="kw">await</span> import('../packages/modules/charts/index.js');
+<span class="kw">const</span> slope = <span class="kw">await</span> import('../packages/modules/chart-slope/index.js');
+<span class="kw">const</span> dumbbell = <span class="kw">await</span> import('../packages/modules/chart-dumbbell/index.js');
+<span class="kw">const</span> bump = <span class="kw">await</span> import('../packages/modules/chart-bump/index.js');
+<span class="kw">const</span> diverging = <span class="kw">await</span> import('../packages/modules/chart-diverging/index.js');
+<span class="kw">const</span> parallel = <span class="kw">await</span> import('../packages/modules/chart-parallel/index.js');
+
+<span class="kw">const</span> types = charts.registeredChartTypes();
+<span class="kw">return</span> [
+  ['slope', 'dumbbell', 'bump', 'diverging', 'parallel'].every((t) =&gt; types.includes(t)),
+  typeof slope.drawSlope,
+  typeof dumbbell.drawDumbbell, typeof dumbbell.bindDumbbell,
+  typeof bump.drawBump,
+  typeof diverging.drawDiverging,
+  typeof parallel.drawParallel, typeof parallel.bindParallel,
+].join(' | ');</code></pre>
+
+    <p>The hierarchy, flow and geographic remainder ships the same way — treemap, sunburst, funnel, radar, sankey, chord and network are already built in, so the new opt-in modules are: <strong>icicle</strong> (<code>drawIcicle</code>, <code>type: 'icicle'</code>, drawn from the grid's group tree), <strong>waffle</strong> (<code>drawWaffle</code>, <code>type: 'waffle'</code>), <strong>alluvial</strong> (<code>drawAlluvial</code>/<code>bindAlluvial</code>, <code>type: 'alluvial'</code>), <strong>arc diagram</strong> (<code>drawArc</code>/<code>bindArc</code>, <code>type: 'arc'</code>), <strong>bubble map</strong> (<code>drawBubbleMap</code>/<code>bindBubbleMap</code>, <code>type: 'bubblemap'</code>) and <strong>hexbin map</strong> (<code>drawHexMap</code>/<code>bindHexMap</code>, <code>type: 'hexmap'</code>). The two maps place <code>lon</code>/<code>lat</code> directly, so they need no outline data and fetch nothing.</p>
+    <pre data-run="js" data-expect="true | function | function | function | function | function | function | function | function | function | function" data-covers="export:drawIcicle export:drawWaffle export:drawAlluvial export:bindAlluvial export:drawArc export:bindArc export:drawBubbleMap export:bindBubbleMap export:drawHexMap export:bindHexMap"><code><span class="kw">const</span> charts = <span class="kw">await</span> import('../packages/modules/charts/index.js');
+<span class="kw">const</span> icicle = <span class="kw">await</span> import('../packages/modules/chart-icicle/index.js');
+<span class="kw">const</span> waffle = <span class="kw">await</span> import('../packages/modules/chart-waffle/index.js');
+<span class="kw">const</span> alluvial = <span class="kw">await</span> import('../packages/modules/chart-alluvial/index.js');
+<span class="kw">const</span> arc = <span class="kw">await</span> import('../packages/modules/chart-arc/index.js');
+<span class="kw">const</span> bubblemap = <span class="kw">await</span> import('../packages/modules/chart-bubblemap/index.js');
+<span class="kw">const</span> hexmap = <span class="kw">await</span> import('../packages/modules/chart-hexmap/index.js');
+
+<span class="kw">const</span> types = charts.registeredChartTypes();
+<span class="kw">return</span> [
+  ['icicle', 'waffle', 'alluvial', 'arc', 'bubblemap', 'hexmap'].every((t) =&gt; types.includes(t)),
+  typeof icicle.drawIcicle, typeof waffle.drawWaffle,
+  typeof alluvial.drawAlluvial, typeof alluvial.bindAlluvial,
+  typeof arc.drawArc, typeof arc.bindArc,
+  typeof bubblemap.drawBubbleMap, typeof bubblemap.bindBubbleMap,
+  typeof hexmap.drawHexMap, typeof hexmap.bindHexMap,
+].join(' | ');</code></pre>
+
     <h2 id="datarouter">The data router</h2>
     <p><code>modules/data-router</code> is a host-layer demultiplexer: it takes <strong>one</strong> arriving stream or dataset, splits it by what each record <em>is</em>, and routes each partition to its own grid &mdash; or to a headless grid driving a chart. One round-trip, or one live feed, hydrates a whole screen of grids that each see only their slice. It is optional, imports nothing from the grid, and adds no core hook: every grid is driven through the <strong>public</strong> incremental path, <code>grid.rows.apply({ add, update, remove })</code>.</p>
     <pre><code>import { createDataRouter } from '@toclocoinc/lattice-grid/modules/data-router';
@@ -4131,6 +4218,9 @@ router.apply([{ op: 'upsert', row }, { op: 'delete', row }]); <span class="cmt">
           <tr><td class="sig">flushStream()</td><td class="desc"><strong>v3:</strong> apply the buffered deltas now, coalesced into a single apply (a deterministic point, and for tests).</td></tr>
           <tr><td class="sig">dropped</td><td class="desc"><strong>v3:</strong> how many stale/duplicate deltas the <code>seq</code> dedupe gate has dropped.</td></tr>
           <tr><td class="sig">lastSeq() / checkpoint() / seenThrough(mark)</td><td class="desc"><strong>v3:</strong> the resume point &mdash; the highest applied <code>seq</code>, a per-record checkpoint to persist, and a way to prime it after a reconnect so an early replay is dropped.</td></tr>
+          <tr><td class="sig">subscribe(predicate, handler, opts?)</td><td class="desc"><strong>v5:</strong> route a slice to any non-grid view. <code>handler(change)</code> receives the same keyed diff <code>{ add, update, remove }</code> a grid does &mdash; drive a KPI tile, detail pane, map or form. A peer to <code>attach</code>: same partitioning and the same <code>transform</code>/<code>filter</code>/<code>sort</code>/<code>rollup</code> options; grids and charts are unchanged.</td></tr>
+          <tr><td class="sig">alert(predicate, condition, handler, { filter?, debounce?, rowKey? })</td><td class="desc"><strong>v5:</strong> watch a slice and emit rather than render. <code>condition(rows)</code> is evaluated over the slice on every load and delta; when it first becomes truthy, <code>handler(signal, rows)</code> fires. Edge-triggered (once per crossing, re-arms on release), <code>debounce</code> coalesces a burst, and it never competes for a partition or touches a grid.</td></tr>
+          <tr><td class="sig">configure(spec)</td><td class="desc"><strong>v5:</strong> the whole routing graph as one data spec &mdash; <code>routes</code> (grid/<code>default</code>/<code>subscribe</code>/<code>alert</code> entries), <code>links</code>, <code>relate</code>, <code>buffer</code> &mdash; desugared to the imperative API. Composes with imperative calls and round-trips to identical behaviour. Also accepted as <code>createDataRouter({ config })</code>.</td></tr>
           <tr><td class="sig">detach(grid)</td><td class="desc">Stop routing to a grid and forget its slice; drop any link/edge it is part of (restoring a filtered sibling). The host still owns and destroys the grid.</td></tr>
           <tr><td class="sig">destroy()</td><td class="desc">Detach every grid, drop every link, edge and subscription. <strong>Detaches only</strong> &mdash; the host owns and destroys its grids.</td></tr>
         </tbody>
