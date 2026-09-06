@@ -1845,6 +1845,41 @@ grid.formatting.restat();                 // re-derive every threshold from the 
     <p>A colour scale can take its bounds the same way, with <code>from</code> in place of <code>min</code> and <code>max</code>: <code>'minmax'</code> spans the data, <code>'quantile'</code> spans <code>low</code> to <code>high</code> (5th to 95th percentile by default), <code>'stddev'</code> spans <code>deviations</code> either side of the mean. The quantile form is the better default on real data, one mistyped order of magnitude otherwise compresses every real value into the first swatch.</p>
     <div class="note"><p>Thresholds are <strong>pinned</strong> when the rules compile and do not move on their own. That is deliberate: a boundary that re-derived itself as rows were filtered would repaint cells whose values had not changed, and nobody comparing two screenshots could tell which of the two things had moved. <code>grid.formatting.restat()</code> is how you move it, and a "recalculate" control is the natural place to put it.</p></div>
 
+    <h3>Data bars and icon sets as rules (BACKLOG-0000955)</h3>
+    <p>A rule can carry a <strong>data bar</strong> or an <strong>icon set</strong> instead of a <code>style</code> or a <code>scale</code>, so the same declarative, view-persisted, headless rule list that already paints colour scales also paints proportional bars and per-band glyphs. Both compile to a plain style object — a data bar is a CSS gradient on the background, an icon set a <code>background-image</code> — so they need no extra element, compose with the cell's text, and resolve the same way for a server-side export as for a browser paint. This is the rule-engine sibling of the cell <em>decoration</em> below; reach for a rule when you want the visual to travel in a saved view and to derive its bounds from the column's distribution.</p>
+    <pre><code><span class="cmt">// A data bar spanning the data, and a three-arrow icon set split at the tertiles.</span>
+grid.formatting.add('revenue', { dataBar: { from: 'minmax', colour: '#5b9bd5' } });
+grid.formatting.add('score',   { iconSet: { set: 'trafficLights' } });
+
+<span class="cmt">// Bounds and bands can be pinned instead of derived; bars that straddle zero</span>
+<span class="cmt">// grow both ways from a shared axis, in their own colours.</span>
+grid.formatting.add('delta', { dataBar: { min: -100, max: 100, colour: '#2e7d32', negativeColour: '#c0392b' } });
+grid.formatting.add('rank',  { iconSet: { set: 'arrows', thresholds: [10, 20], reverse: true } });</code></pre>
+    <p>A data bar takes <code>min</code>/<code>max</code> to pin its scale, or <code>from: 'minmax' | 'quantile' | 'stddev'</code> to derive it from the column; <code>colour</code> and <code>negativeColour</code> fill the two sides of a zero axis, and <code>direction: 'rtl'</code> reverses it. An icon set names a built-in — the keys of <code>ICON_SETS</code> (<code>arrows</code>, <code>trafficLights</code>, <code>ratings</code>) — or supplies its own <code>icons</code>; <code>thresholds</code> place the band edges, or, given none, the column is cut into equal-count bands; <code>reverse</code> flips the order so a high value can read as red.</p>
+    <pre data-run="js" data-expect="bar|icon|3" data-covers="export:ICON_SETS method:formatting"><code><span class="kw">const</span> { createHeadlessGrid, ICON_SETS } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  columns: [{ field: 'id' }, { field: 'revenue', type: 'number' }, { field: 'score', type: 'number' }],
+  rowKey: 'id',
+  rows: [1, 2, 3, 4, 5].map((n) => ({ id: 'r' + n, revenue: n * 20, score: n })),
+  formatting: {
+    revenue: [{ dataBar: { from: 'minmax', colour: '#5b9bd5' } }],
+    score: [{ iconSet: { set: 'trafficLights' } }],
+  },
+});
+
+<span class="cmt">// A data bar compiles to a gradient the cell layer paints as a background.</span>
+<span class="kw">const</span> bar = grid.formatting.styleFor('revenue', 100).backgroundImage.includes('linear-gradient') ? 'bar' : 'none';
+
+<span class="cmt">// An icon set resolves different bands to different glyphs.</span>
+<span class="kw">const</span> low = grid.formatting.styleFor('score', 1).backgroundImage;
+<span class="kw">const</span> high = grid.formatting.styleFor('score', 5).backgroundImage;
+<span class="kw">const</span> icon = low !== high ? 'icon' : 'flat';
+
+<span class="kw">const</span> sets = Object.keys(ICON_SETS).length;   <span class="cmt">// the three built-in sets</span>
+grid.destroy();
+<span class="kw">return</span> [bar, icon, sets].join('|');</code></pre>
+
     <h3>Runtime decorations: data bars and icon sets on demand</h3>
     <p>Where a colour rule paints the cell's background, a <em>decoration</em> changes the shape the cell renders as, a data bar sized by value, or a threshold icon set. <code>grid.columns.decorate(id, spec)</code> turns one on, changes it, or clears it with <code>null</code>, after the grid is built. It is presentation config rather than query state: unlike a formatting rule it is not on the undo timeline and does not travel in a saved view. Icon sets carry an <code>aria-label</code> per band and keep the value beside the glyph, so the meaning is announced, never only shown.</p>
     <pre data-run="js" data-expect="bar|arrows|increasing|cleared|painted" data-covers="method:columns method:formatting"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
@@ -1877,11 +1912,56 @@ grid.formatting.add('score', { when: { op: 'lt', value: 50 }, style: { backgroun
 
 <span class="kw">return</span> [bar, set, band, cleared, painted].join('|');</code></pre>
 
+    <h2 id="validation">grid.validation</h2>
+    <p>Declarative column validation (BACKLOG-0000956). Where <code>edit.validate</code> is an imperative function you write, this is the same job said as <em>data</em>: <code>required</code>, <code>min</code>/<code>max</code>, <code>minLength</code>/<code>maxLength</code>, <code>pattern</code>, <code>oneOf</code>, and a <code>crossField</code> predicate, declared per column in <code>validation</code>. Each rule is checked against a new value <strong>before it is written</strong>, riding the cancellable <code>beforeEdit</code> before-event: a failing value cancels the commit so no cell is written, marks the cell with the grid's ordinary invalid state (an accessible error, not only a red border), and fires <code>validation:failed</code>. A corrected value clears the mark and, where you are watching, fires <code>validation:cleared</code>. The cancellation carries <code>reason: 'validation:&lt;code&gt;'</code>, so a host logging cancellations can tell a validation veto from any other.</p>
+    <div class="note"><p>Only a <em>user</em>-initiated edit is gated, the same contract <code>beforeEdit</code> itself keeps: a host API write (<code>grid.edit.setCells</code>) and a remote/router-applied delta are the authority and do not self-veto. A grid whose columns declare no rules wires no gate and keeps the byte-for-byte synchronous edit path.</p></div>
+    <pre><code><span class="cmt">// Declared per column, config-time.</span>
+createGrid(el, {
+  columns: [
+    { field: 'name', edit: true, validation: { required: true, minLength: 2 } },
+    { field: 'age',  type: 'number', edit: true, validation: { min: 0, max: 120 } },
+    { field: 'code', edit: true, validation: { pattern: '^[A-Z]{3}$', messages: { pattern: 'Three capitals.' } } },
+  ],
+});
+
+grid.validation.check('age', 200);          <span class="cmt">// { code: 'max', message: 'Must be at most 120.' } — records nothing</span>
+grid.validation.errorFor('r1', 'age');       <span class="cmt">// the recorded error for a cell, or null</span>
+grid.validation.errors();                    <span class="cmt">// every cell that currently holds an error</span>
+grid.validation.define('age', { min: 18 }); <span class="cmt">// set or replace a column's rules at runtime</span>
+grid.validation.clear('r1', 'age');          <span class="cmt">// drop a mark by hand</span></code></pre>
+    <pre data-run="js" data-expect="30|max|40|1" data-covers="method:validation event:validation:failed event:validation:cleared"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  columns: [{ field: 'id' }, { field: 'age', type: 'number', edit: true, validation: { min: 0, max: 120 } }],
+  rowKey: 'id',
+  rows: [{ id: 'r1', age: 30 }],
+});
+
+<span class="kw">let</span> failed = 0;
+grid.on('validation:failed', () =&gt; { failed++; });
+grid.on('validation:cleared', () =&gt; {});
+
+<span class="cmt">// A user edit that breaks the rule is refused: the cell is not written.</span>
+grid.edit.start('r1', 'age'); grid.edit.stop(<span class="kw">false</span>, { value: 999 });
+<span class="kw">const</span> blocked = grid.rows.byKey('r1').data.age;              <span class="cmt">// still 30</span>
+<span class="kw">const</span> why = grid.validation.errorFor('r1', 'age').code;      <span class="cmt">// 'max'</span>
+
+<span class="cmt">// A valid value writes through and clears the mark.</span>
+grid.edit.start('r1', 'age'); grid.edit.stop(<span class="kw">false</span>, { value: 40 });
+<span class="kw">const</span> now = grid.rows.byKey('r1').data.age;                  <span class="cmt">// 40</span>
+
+grid.destroy();
+<span class="kw">return</span> [blocked, why, now, failed].join('|');</code></pre>
+
     <h2 id="statistics">grid.statistics</h2>
     <p>What the grid knows about its own numbers, and about how they have changed since the page loaded. Every figure is computed over the <em>filtered</em> rows, through the same column handles the totals row uses, so a median here and a median in the footer are the same number, by the same definition (R type 7).</p>
     <pre><code>grid.statistics.profile('margin');
 // { column, rows, present, missing, distinct, min, max, mean, median,
 //   q1, q3, iqr, stddev, outliers, histogram: [{ from, to, count }, …] }
+
+grid.statistics.profile('region');   // a categorical column (BACKLOG-0000959)
+// { column, rows, present, missing, distinct, …numeric figures null…,
+//   histogram: [], topValues: [{ value, count, share }, …] }
 
 grid.statistics.reduce('margin', 'p95');          // any registered kernel
 grid.statistics.correlation('spend', 'revenue');  // Pearson's r, clamped to [-1, 1]
@@ -1904,7 +1984,8 @@ grid.statistics.capability('mm', { baseline: 20 });
 grid.statistics.shadow('price', 'delta', 'R42');  // one row's shadow value
 grid.statistics.rebase('price');                  // "mark all": today's values become the baseline
 grid.statistics.tracking();                       // { columns, rows, forgotten }</code></pre>
-    <p>The <code>statistics</code> tool panel is the end-user half of <code>profile()</code>: a column picker, the twelve figures and a histogram of the column's shape, all following the filters. Add it with <code>toolPanel: { panels: ['columns', 'statistics'] }</code>.</p>
+    <p>The <code>statistics</code> tool panel is the end-user half of <code>profile()</code>: a column picker, the twelve figures and a histogram of the column's shape, all following the filters. Add it with <code>toolPanel: { panels: ['columns', 'statistics'] }</code>. It profiles categorical columns too (BACKLOG-0000959): a text column shows its count, distinct count and <strong>Top values</strong> (each value with its count and share) instead of the numeric figures and the histogram it has none of.</p>
+    <p>The column header menu carries a <strong>Column statistics</strong> item that opens this panel seeded on the column it belongs to. It emits <code>column:profile:open</code> with <code>{ colId }</code> rather than reaching into the dock, exactly as the header filter affordance emits <code>column:filter:open</code>; a mounted tool panel turns that into the open, seeded <code>statistics</code> panel.</p>
     <p>The <code>regression</code> tool panel is its multi-column sibling (BACKLOG-0000812): it fits the model you name and shows the coefficient table — each term's estimate ± standard error with its t and p — alongside R² and adjusted R², the variance-inflation factor per predictor, and the Breusch–Pagan heteroscedasticity flag, all over the filtered rows and computed by the one core engine (<code>grid.statistics.regressionModel</code>). Name the model on the panel: <code>toolPanel: { panels: ['columns', { name: 'regression', props: { predictors: ['x1', 'x2'], response: 'y' } }] }</code>. p-values are reported as numbers with a documented method, never a significance verdict.</p>
     <p>The same fitted model can live in the data as shadow columns (BACKLOG-0000812): <code>shadow: { kind: 'fitPredicted', model: { predictors: ['x'], response: 'y' } }</code>, and likewise <code>fitResidual</code> and <code>fitInfluence</code> — plus <code>fitStdResidual</code>, <code>fitLeverage</code> and <code>fitCooksD</code> (BACKLOG-0000872), which surface the internally studentised residual, the hat-matrix leverage and Cook's distance the engine already computes. They are ordinary numeric/boolean cells — sortable, filterable, groupable, exportable — that read the fit by row key and follow the grid's filters (the model refits over the filtered rows); a row outside the fit reads <code>null</code>. <code>fitInfluence</code> flags Cook's D &gt; 4/n by default (overridable with <code>threshold</code>), keeping "not influential" (<code>false</code>) and "cannot tell" (<code>null</code>) distinct.</p>
     <p>It shows the twelve one-pass figures, then <strong>Shape</strong> (skewness, kurtosis, Jarque–Bera), <strong>Robust</strong> (trimmed and winsorized means, MAD, robust outliers), <strong>Concentration</strong> (Gini, HHI, entropy, evenness, top-3 share) and <strong>Capability</strong> where the column declares a <code>spec</code>. A section whose reductions all return null is left out rather than shown as a column of dashes.</p>
@@ -3659,6 +3740,7 @@ off();                                       <span class="cmt">// on() returns i
           <tr><td class="name">column:pivoted</td><td class="type">{ columns } | { pivotFields, remote }</td><td class="desc"></td></tr>
           <tr><td class="name">column:menu:open</td><td class="type">{ colId }</td><td class="desc">Header menu opened.</td></tr>
           <tr><td class="name">column:filter:open</td><td class="type">{ colId }</td><td class="desc">Header filter popup opened.</td></tr>
+          <tr><td class="name">column:profile:open</td><td class="type">{ colId }</td><td class="desc">The column statistics ("describe") panel was asked to open on a column, from the column menu's "Column statistics" item. A mounted tool panel opens its <code>statistics</code> panel seeded on <code>colId</code>.</td></tr>
           <tr><td class="name">selection:changed</td><td class="type">{ keys, rows }</td><td class="desc"></td></tr>
           <tr><td class="name">range:changed</td><td class="type">{ ranges }</td><td class="desc">Cell range selection changed.</td></tr>
           <tr><td class="name">page:changed</td><td class="type">{ page, pageSize, total, pageCount }</td><td class="desc">Fired after the rows have moved, whether the page changed by API or by the pager control.</td></tr>
@@ -4436,7 +4518,7 @@ router.load(snapshot);                        <span class="cmt">// every viewer 
           <tr><td class="sig">traveling / buffered</td><td class="desc"><strong>v4:</strong> whether the grids currently show a reconstructed past, and how many deltas are held in the bounded buffer.</td></tr>
           <tr><td class="sig">broadcast({ channel })</td><td class="desc"><strong>v6 (BACKLOG-0000913):</strong> mirror the router's ordered, de-duplicated deltas to other browser tabs/windows over a <strong>BroadcastChannel</strong>, so a grid popped into its own tab joins the same feed with no second socket. Each tab runs its own router on the same <code>channel</code> name; an inbound mirror is applied without re-broadcasting (no echo loop), and <code>broadcast</code> announces the tab so a peer holding the feed resyncs it mid-stream (snapshot + replay). Off by default; needs a <code>seq</code>/<code>dedupe</code> router to drop replayed deltas cleanly.</td></tr>
           <tr><td class="sig">broadcasting</td><td class="desc"><strong>v6:</strong> whether the router is currently mirroring to a BroadcastChannel.</td></tr>
-          <tr><td class="sig">addSource(feed, { map?, key? })</td><td class="desc"><strong>v9 (BACKLOG-0000931):</strong> register a source feed &mdash; fan-in. Returns a handle (<code>load</code>/<code>apply</code>/<code>push</code>/<code>remove</code>, plus <code>id</code>/<code>size</code>) whose rows are normalized by <code>map</code> and namespaced by <code>key</code> (a prefix string, <code>true</code> to prefix with the source id, or a <code>keyFn(row)</code>) so ids from different feeds cannot collide, then merged through the router's ordinary path &mdash; partitioned, routed, linked, deduped, buffered and written back exactly as the single-source path. <code>feed</code> is an optional source id or an options object.</td></tr>
+          <tr><td class="sig">addSource(feed, { map?, key? })</td><td class="desc"><strong>v9 (BACKLOG-0000931):</strong> register a source feed &mdash; fan-in. Returns a handle (<code>load</code>/<code>apply</code>/<code>push</code>/<code>remove</code>, plus <code>id</code>/<code>size</code>) whose rows are normalized by <code>map</code> and namespaced by <code>key</code> (a prefix string, <code>true</code> to prefix with the source id, or a <code>keyFn(row)</code>) so ids from different feeds cannot collide, then merged through the router's ordinary path &mdash; partitioned, routed, linked, deduped, buffered and written back exactly as the single-source path. <code>feed</code> is an optional source id or an options object. A source may also carry a <code>join</code> spec (v11) to <strong>enrich</strong> its rows with fields looked up from another source.</td></tr>
           <tr><td class="sig">removeSource(ref) / sources()</td><td class="desc"><strong>v9:</strong> drop exactly the rows a feed contributed (by source id or handle) from every route and unregister it; and list the registered source ids.</td></tr>
           <tr><td class="sig">metrics()</td><td class="desc"><strong>v10 (BACKLOG-0000932):</strong> a cheap point-in-time observability snapshot &mdash; per-route row counts and throughput (rows/sec since the previous read), per-source rates and totals (fan-in), and the global <code>unrouted</code> / <code>dropped</code> / <code>buffered</code> / <code>lag</code> figures. Throughput is sampled over the interval since the last <code>metrics()</code> call or emit.</td></tr>
           <tr><td class="sig">on('metrics', handler)</td><td class="desc"><strong>v10:</strong> subscribe to the periodic <code>metrics</code> emit (the <code>metricsInterval</code> ms, default 1000; <code>0</code> disables it). The timer runs only while at least one listener is registered and stops when the last is removed. Returns an unsubscribe function.</td></tr>
@@ -4710,6 +4792,33 @@ router.removeSource('erp');                    <span class="cmt">// drops exactl
 g.destroy(); router.destroy();
 <span class="kw">return</span> [merged, ids, afterRemove].join(' | ');</code></pre>
 
+    <p><strong>Fan-in JOIN / enrichment (v11, BACKLOG-0000957).</strong> Fan-in above <em>merges</em> feeds side by side; a <code>join</code> spec goes further and <em>enriches</em> one feed's rows with fields looked up from <em>another</em> registered source &mdash; e.g. an <code>orders</code> feed enriched with <code>name</code>/<code>tier</code> from a <code>customers</code> source keyed by <code>customerId</code>. Declared per source: <code>addSource('orders', { join: { from: 'customers', localKey: 'customerId', fields: ['name', 'tier'], missing: 'hold' } })</code>. <code>localKey</code> is the field on the enriched (left) row holding the foreign key (a field name or <code>fn(row)</code>); <code>foreignKey</code> is the field matched on the lookup row (defaults to <code>localKey</code>'s name); <code>fields</code> is what to pull &mdash; an array, a <code>{ src: dest }</code> rename map, or <code>select(lookupRow, leftRow) =&gt; object</code>. No second store is built: the lookup source <em>is</em> an ordinary fan-in source, and the join probes its existing keyed store by an index of join-key&nbsp;&rarr;&nbsp;store-id. <code>missing</code> chooses what happens when the lookup is absent or late: <code>hold</code> withholds the row from viewers until its lookup arrives, <code>passthrough</code> (the default) lets it flow unenriched, and <code>null</code> flows it with the pulled fields set to <code>null</code>. Enriched rows reach viewers through the ordinary keyed-diff path. <strong>Late lookups re-enrich:</strong> when a lookup row arrives, changes, or is deleted, every already-seated left row that references it is re-enriched and re-emitted &mdash; a held row is released, a <code>null</code>/<code>passthrough</code> row gains its fields, and a row whose lookup vanished is nulled/stripped (or, under <code>hold</code>, withheld again). Enrichment always recomputes from the untouched base row, so it is idempotent.</p>
+    <h3 id="datarouter-v11-example">A JOIN with a late lookup, executed</h3>
+    <p class="section-note">An order arrives before its customer, so under <code>hold</code> it is withheld; when the customer
+    feed loads, the order is released and enriched with the looked-up name. Run headless on every build.</p>
+    <pre data-run="js" data-expect="0 | 1 | Acme" data-covers="export:createDataRouter"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'kind', field: 'kind' }, { id: 'customerId', field: 'customerId' }, { id: 'name', field: 'name' }];
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ key: 'kind', rowKey: 'id' });
+router.attach(g, 'order');
+
+<span class="cmt">// Enrich orders with a customer name looked up by customerId; hold until known.</span>
+<span class="kw">const</span> orders = router.addSource('orders', { join: { from: 'customers', localKey: 'customerId', fields: ['name'], missing: 'hold' } });
+<span class="kw">const</span> customers = router.addSource('customers');
+
+orders.load([{ id: 'O1', kind: 'order', customerId: 'C1', amount: 100 }]);
+<span class="kw">const</span> held = g.rows.count();                 <span class="cmt">// 0 — withheld until the lookup arrives</span>
+
+customers.load([{ id: 'C1', kind: 'customer', customerId: 'C1', name: 'Acme' }]);
+<span class="kw">const</span> released = g.rows.count();             <span class="cmt">// 1 — released and enriched</span>
+<span class="kw">let</span> name;
+<span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; g.rows.count(); i++) { <span class="kw">const</span> r = g.rows.get(i); <span class="kw">if</span> (r.key === 'O1') name = r.data.name; }
+
+g.destroy(); router.destroy();
+<span class="kw">return</span> [held, released, name].join(' | ');</code></pre>
+
     <p><strong>Observability (v10, BACKLOG-0000932).</strong> <code>metrics()</code> is a cheap point-in-time snapshot of the router's runtime &mdash; per-route row counts and throughput (rows/sec since the previous read), per-source rates and totals (fan-in), and the global <code>unrouted</code> / <code>dropped</code> (duplicate) / <code>buffered</code> (buffer depth) / <code>lag</code> figures. Throughput is sampled, so it is measured over the interval since the last read or emit. <code>on('metrics', handler)</code> drives it on a periodic timer (the <code>metricsInterval</code> ms, default 1000; <code>0</code> disables it) and returns an unsubscribe &mdash; the timer runs only while a listener is registered, so collection is off-by-default. <code>mountDevtools(el, { interval? })</code> mounts an opt-in DOM panel (in the module's own <code>devtools.js</code>, so the core stays DOM-free) that renders <code>metrics()</code> and refreshes on each emit.</p>
     <h3 id="datarouter-v10-example">A metrics snapshot, executed</h3>
     <p class="section-note">A snapshot fanned to a route and a sink; the metrics read reports the route's row count and the
@@ -4765,6 +4874,7 @@ plan.applyEdit({ id: 'design', duration: 7 }); // recomputes; the critical path 
           <tr><td class="sig">SCHEDULE_ERROR</td><td class="desc">The error codes the engine reports rather than throwing (<code>cycle</code>, <code>duplicate-id</code>, <code>unknown-task</code>, <code>bad-duration</code>, <code>bad-link-type</code>, <code>unknown-parent</code>, <code>parent-cycle</code>, &hellip;).</td></tr>
           <tr><td class="sig">importMSPDI(xml, { hoursPerDay? })</td><td class="desc">Import a Microsoft Project (MSPDI) <code>.xml</code> document into a <code>{ tasks, dependencies, resources, projectStart, calendar }</code> model ready for <code>createGantt</code>: the task tree, typed dependencies with lag, constraints, baseline, %complete, resources with capacity and the resource assignments.</td></tr>
           <tr><td class="sig">exportMSPDI(model, { hoursPerDay?, projectName? })</td><td class="desc">Serialise a Gantt model (optionally a scheduled one) back to Microsoft Project (MSPDI) XML &mdash; the same fields, round-tripping with <code>importMSPDI</code>. The controller offers <code>gantt.toMSPDI()</code> as a shortcut over the current plan.</td></tr>
+          <tr><td class="sig">computeEarnedValue(tasks, schedule, { statusDate?, costField?, actualCostField? })</td><td class="desc">Earned-value management (EVM) from the baseline and %complete at a status date: Planned Value (PV/BCWS), Earned Value (EV/BCWP), Actual Cost (AC/ACWP, from a per-task <code>actualCost</code>), plus Schedule Variance (EV&minus;PV), Cost Variance (EV&minus;AC), SPI (EV/PV) and CPI (EV/AC) &mdash; per task, rolled up to summaries and the project. Budget (BAC) is the task's <code>cost</code>, or its duration when no cost is given. The controller exposes <code>gantt.earnedValue({ statusDate })</code> as the shortcut; the split view surfaces the metrics through <code>kind: 'evm'</code> columns.</td></tr>
         </tbody>
       </table>
     </div>
@@ -4810,6 +4920,20 @@ const overAfter = plan.overAllocations.length;     // now clear
 const xml = exportMSPDI({ tasks: plan.tasks, dependencies: plan.dependencies, schedule: plan.schedule });
 const back = importMSPDI(xml);
 return [overBefore, overAfter, back.ok, back.tasks.length, xml.startsWith('&lt;?xml')].join(' | ');</code></pre>
+    <p><strong>Earned-value analytics.</strong> With a captured baseline (<code>captureBaseline</code>) and per-task <code>percentComplete</code>, <code>gantt.earnedValue({ statusDate })</code> (or the standalone <code>computeEarnedValue(tasks, schedule, { statusDate })</code>) reports EVM at a status date &mdash; Planned Value (PV/BCWS) from the baseline, Earned Value (EV/BCWP) from %complete, Actual Cost (AC/ACWP) from a per-task <code>actualCost</code> &mdash; and the derived Schedule Variance (EV&minus;PV), Cost Variance (EV&minus;AC), SPI (EV/PV) and CPI (EV/AC), per task and rolled up to summaries and the project. Give each task a <code>cost</code> for money-based EVM, or omit it for schedule-only EVM off the durations. The split view surfaces any metric through <code>kind: 'evm'</code> columns. This worked example reproduces the classic four-side fence: at the end of day 3, three sides are planned (PV 3000) but two are done (EV 2000) at a cost of 2500 (AC).</p>
+    <pre data-run="js" data-expect="3000 | 2000 | 2500 | -1000 | -500 | 0.67 | 0.80 | 2000" data-covers="export:computeEarnedValue"><code>const { createGantt, computeEarnedValue } = await import('../packages/modules/gantt/index.js');
+const tasks = [
+  { id: 's1', name: 'Side 1', duration: 1, cost: 1000, percentComplete: 100, actualCost: 1250, baselineStart: 0, baselineEnd: 1 },
+  { id: 's2', name: 'Side 2', duration: 1, cost: 1000, percentComplete: 100, actualCost: 1250, baselineStart: 1, baselineEnd: 2 },
+  { id: 's3', name: 'Side 3', duration: 1, cost: 1000, percentComplete: 0, baselineStart: 2, baselineEnd: 3 },
+  { id: 's4', name: 'Side 4', duration: 1, cost: 1000, percentComplete: 0, baselineStart: 3, baselineEnd: 4 },
+];
+const deps = [{ from: 's1', to: 's2' }, { from: 's2', to: 's3' }, { from: 's3', to: 's4' }];
+const plan = createGantt({ tasks, dependencies: deps, projectStart: 0 });
+const evm = plan.earnedValue({ statusDate: 3 });                          // via the controller
+const direct = computeEarnedValue(tasks, plan.schedule, { statusDate: 3 }); // or standalone
+const p = evm.project;
+return [p.pv, p.ev, p.ac, p.sv, p.cv, p.spi.toFixed(2), p.cpi.toFixed(2), direct.project.ev].join(' | ');</code></pre>
     <p>Render the plan as an SVG timeline with <code>mount(container, options)</code> &mdash; bars on a time scale, dependency arrows with a per-link-type anchor and a lag/lead label, the critical path highlighted, a today line, optional non-working-day shading, milestones as diamonds, a progress bar-fill and configurable labels. The view redraws itself whenever the schedule recomputes; <code>unmount()</code> detaches it. All geometry is computed from the schedule, so it draws identically headless or in a browser.</p>
     <pre><code>import { createGantt } from '@toclocoinc/lattice-grid/modules/gantt';
 
@@ -5898,7 +6022,7 @@ grid.destroy();
     <p class="section-note">Each documented event is subscribed to and unsubscribed on every build. A consumer
     wiring a handler to a renamed event gets silence, which is indistinguishable from an event that
     has not fired yet — so the name is checked rather than left to be discovered.</p>
-    <pre data-run="js" data-expect="106" data-covers="event:cell:changed event:cell:clicked event:cell:confirmed event:cell:conflict event:cell:contextmenu event:cell:dblclicked event:cell:edit:end event:cell:edit:start event:cell:pending event:cell:reverted event:clipboard:copy event:column:filter:open event:column:grouped event:column:menu:open event:column:pivoted event:column:resized event:columns:changed event:columns:tagged event:comment:added event:comment:deleted event:comment:edited event:comment:failed event:comment:indexLoaded event:comment:resolved event:comment:threadClosed event:comment:threadOpened event:comment:unresolved event:destroy event:detail:toggled event:diff:changed event:diff:swapped event:export:progress event:facet:computed event:facet:expanded event:facet:failed event:facet:filtered event:form:closed event:form:error event:form:opened event:form:saved event:formatting:changed event:group:toggled event:header:contextmenu event:highlight:changed event:history:applied event:history:changed event:licence:changed event:page:changed event:permissions:changed event:presence:failed event:presence:joined event:presence:left event:presence:lockRefused event:presence:published event:presence:updated event:presentation:captured event:presentation:changed event:presentation:ended event:presentation:scale event:presentation:spotlight event:presentation:started event:presentation:view event:range:changed event:ready event:redaction:changed event:render:done event:render:first event:row:clicked event:row:copied event:row:dblclicked event:row:edit:end event:row:edit:start event:row:moved event:row:received event:row:sent event:rows:deferred event:rows:paused event:rows:queued event:rows:resumed event:scroll event:scroll:end event:selection:changed event:size:changed event:source:error event:stream:chunk event:stream:end event:stream:evicted event:timeline:attached event:timeline:detached event:timeline:seek event:timeline:seeking event:toolpanel:focus event:tree:loadAborted event:tree:loadFailed event:tree:loaded event:tree:loading event:view:applied event:view:default event:view:removed event:view:renamed event:view:saved event:views:changed event:row:pending event:row:confirmed event:row:reverted event:row:conflict"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="107" data-covers="event:cell:changed event:cell:clicked event:cell:confirmed event:cell:conflict event:cell:contextmenu event:cell:dblclicked event:cell:edit:end event:cell:edit:start event:cell:pending event:cell:reverted event:clipboard:copy event:column:filter:open event:column:profile:open event:column:grouped event:column:menu:open event:column:pivoted event:column:resized event:columns:changed event:columns:tagged event:comment:added event:comment:deleted event:comment:edited event:comment:failed event:comment:indexLoaded event:comment:resolved event:comment:threadClosed event:comment:threadOpened event:comment:unresolved event:destroy event:detail:toggled event:diff:changed event:diff:swapped event:export:progress event:facet:computed event:facet:expanded event:facet:failed event:facet:filtered event:form:closed event:form:error event:form:opened event:form:saved event:formatting:changed event:group:toggled event:header:contextmenu event:highlight:changed event:history:applied event:history:changed event:licence:changed event:page:changed event:permissions:changed event:presence:failed event:presence:joined event:presence:left event:presence:lockRefused event:presence:published event:presence:updated event:presentation:captured event:presentation:changed event:presentation:ended event:presentation:scale event:presentation:spotlight event:presentation:started event:presentation:view event:range:changed event:ready event:redaction:changed event:render:done event:render:first event:row:clicked event:row:copied event:row:dblclicked event:row:edit:end event:row:edit:start event:row:moved event:row:received event:row:sent event:rows:deferred event:rows:paused event:rows:queued event:rows:resumed event:scroll event:scroll:end event:selection:changed event:size:changed event:source:error event:stream:chunk event:stream:end event:stream:evicted event:timeline:attached event:timeline:detached event:timeline:seek event:timeline:seeking event:toolpanel:focus event:tree:loadAborted event:tree:loadFailed event:tree:loaded event:tree:loading event:view:applied event:view:default event:view:removed event:view:renamed event:view:saved event:views:changed event:row:pending event:row:confirmed event:row:reverted event:row:conflict"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 
 <span class="cmt">// Every documented event name, checked against the bus that would carry it.</span>
 <span class="cmt">// Subscribing to a name the grid does not know is the failure this catches:</span>
@@ -5907,7 +6031,7 @@ grid.destroy();
 <span class="kw">const</span> documented = [
   'cell:changed', 'cell:clicked', 'cell:confirmed', 'cell:conflict',
   'cell:contextmenu', 'cell:dblclicked', 'cell:edit:end', 'cell:edit:start',
-  'cell:pending', 'cell:reverted', 'clipboard:copy', 'column:filter:open', 'column:grouped',
+  'cell:pending', 'cell:reverted', 'clipboard:copy', 'column:filter:open', 'column:profile:open', 'column:grouped',
   'column:menu:open', 'column:pivoted', 'column:resized', 'columns:changed',
   'columns:tagged', 'comment:added', 'comment:deleted', 'comment:edited',
   'comment:failed', 'comment:indexLoaded', 'comment:resolved', 'comment:threadClosed',
@@ -6653,6 +6777,7 @@ return `methods ${ROLLING_ANOMALY_METHODS.length}; spike ${roll.flags[10]}; aler
           <tr><td class="name">value</td><td class="type">ColumnValueSpec</td><td class="desc">A computed value, with the columns it depends on, in place of a stored one. <small>(optional)</small></td></tr>
           <tr><td class="name">cell</td><td class="type">ColumnCellSpec | string</td><td class="desc">The renderer, and what it is given. A string names a registered renderer. <small>(optional)</small></td></tr>
           <tr><td class="name">edit</td><td class="type">ColumnEditSpec | boolean | string</td><td class="desc">Whether and how the cell can be edited. A string names an editor. <small>(optional)</small></td></tr>
+          <tr><td class="name">validation</td><td class="type">ColumnValidation</td><td class="desc">Declarative edit-validation rules (BACKLOG-0000956). Each is checked against a value before it is written, through the `beforeEdit` before-event: a failing value cancels the commit and marks the cell. Distinct from and complementary to `edit.validate`, which is an imperative function. <small>(optional)</small></td></tr>
           <tr><td class="name">sort</td><td class="type">ColumnSortSpec | boolean</td><td class="desc">Whether the column sorts, and by what comparison. `false` refuses it. <small>(optional)</small></td></tr>
           <tr><td class="name">filter</td><td class="type">ColumnFilterSpec | boolean | FilterName</td><td class="desc">Whether the column filters, and with which filter. A string names one. <small>(optional)</small></td></tr>
           <tr><td class="name">group</td><td class="type">{</td><td class="desc">Row grouping by this column. `index` fixes its place among several; `explode` gives a multi-value cell one group per value rather than one group for the combination. `granularity` and `weekStart` apply to a `timestamp` column: it buckets by civil `day` (the default), `week` or `month` in the display zone, or `instant` for one group per exact moment. `weekStart` is the first weekday, 1=Monday (default) to 7=Sunday. <small>(optional)</small></td></tr>
@@ -6881,6 +7006,7 @@ return `methods ${ROLLING_ANOMALY_METHODS.length}; spike ${roll.flags[10]}; aler
           <tr><td class="name">stddev</td><td class="type">number | null</td><td class="desc"></td></tr>
           <tr><td class="name">outliers</td><td class="type">number</td><td class="desc"></td></tr>
           <tr><td class="name">histogram</td><td class="type">HistogramBin[]</td><td class="desc"></td></tr>
+          <tr><td class="name">topValues</td><td class="type">TopValue[]</td><td class="desc">For a categorical (non-numeric) column, the commonest values, largest first (BACKLOG-0000959). Absent for a numeric column, whose shape the numeric figures and the histogram already carry. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -6950,6 +7076,26 @@ return `methods ${ROLLING_ANOMALY_METHODS.length}; spike ${roll.flags[10]}; aler
           <tr><td class="name">grandTotal</td><td class="type">TotalName | null</td><td class="desc">The grand-total override, when one differs from `total`. <small>(optional)</small></td></tr>
           <tr><td class="name">decoration</td><td class="type">DecorationName | DecorationSpec | null</td><td class="desc">The column's runtime decoration (BACKLOG-0000723), present only when the column carries one, so a `columns.decorate()` survives a saved view and participates in undo/redo. Absent means "not recorded"; an explicit `null` on an undo patch clears a decoration back to plain text. <small>(optional)</small></td></tr>
           <tr><td class="name">variant</td><td class="type">VariantSpec | null</td><td class="desc">The variant set alongside the decoration, when one is present. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-ColumnValidation">ColumnValidation</h3>
+    <p class="section-note">Declarative edit-validation rules for a column (BACKLOG-0000956). Rules are checked in a fixed order — `required` first, then the value-shape rules, then the functions — and the first failure wins. A blank but optional value passes everything after `required`: an empty cell is empty, not "below the minimum". A failure vetoes the commit through `beforeEdit` and marks the cell; the cancellation carries `reason: 'validation:&lt;code&gt;'`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">required</td><td class="type">boolean | string</td><td class="desc">The value may not be blank. A string is used as the message. <small>(optional)</small></td></tr>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc">Minimum, for a number or a date. <small>(optional)</small></td></tr>
+          <tr><td class="name">max</td><td class="type">number</td><td class="desc">Maximum, for a number or a date. <small>(optional)</small></td></tr>
+          <tr><td class="name">minLength</td><td class="type">number</td><td class="desc">Minimum text length. <small>(optional)</small></td></tr>
+          <tr><td class="name">maxLength</td><td class="type">number</td><td class="desc">Maximum text length. <small>(optional)</small></td></tr>
+          <tr><td class="name">pattern</td><td class="type">string | RegExp</td><td class="desc">A pattern the whole value must match. A string is a RegExp source. <small>(optional)</small></td></tr>
+          <tr><td class="name">oneOf</td><td class="type">unknown[]</td><td class="desc">The value must be one of these. <small>(optional)</small></td></tr>
+          <tr><td class="name">crossField</td><td class="type">(value: unknown, row: unknown, ctx: { key: string; colId: string; changes: unknown[] }) =&gt; true | string | void</td><td class="desc">A cross-field rule: return `true` to pass, or a message string to fail. The row is passed so a rule can compare against its siblings. <small>(optional)</small></td></tr>
+          <tr><td class="name">validate</td><td class="type">(value: unknown, row: unknown, ctx: { key: string; colId: string; changes: unknown[] }) =&gt; true | string | void</td><td class="desc">A free-form check, the same contract as `crossField`. <small>(optional)</small></td></tr>
+          <tr><td class="name">message</td><td class="type">string</td><td class="desc">A default message for any rule without its own. <small>(optional)</small></td></tr>
+          <tr><td class="name">messages</td><td class="type">Record&lt;string, string&gt;</td><td class="desc">Per-rule messages, keyed by rule name (`required`, `min`, `pattern`, …). <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -7145,6 +7291,26 @@ return `methods ${ROLLING_ANOMALY_METHODS.length}; spike ${roll.flags[10]}; aler
           <tr><td class="name">missingRate</td><td class="type">string</td><td class="desc">The loud marker rendered when a needed rate is missing. <small>(optional)</small></td></tr>
           <tr><td class="name">excel</td><td class="type">string</td><td class="desc">An Excel number-format override. <small>(optional)</small></td></tr>
           <tr><td class="name">codes</td><td class="type">string[]</td><td class="desc">The code list a currency editor's picker offers. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-DataBarSpec">DataBarSpec</h3>
+    <p class="section-note">An in-cell proportional bar (BACKLOG-0000955). Drawn as a CSS gradient on the cell background — no extra element, and it composes with the cell's text. The bar's length is the value's position between `min` and `max`. Give both to pin the scale (0 to 100 for a percentage); otherwise `from` derives them from the column — `'minmax'` (the default) spans the data, `'quantile'` the 5th–95th percentile, `'stddev'` a number of deviations either side of the mean. When the range straddles zero, bars grow from a shared axis: positive right, negative left, each in its own colour.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">max</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">from</td><td class="type">'minmax' | 'quantile' | 'stddev'</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">low</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">high</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">deviations</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">colour</td><td class="type">string</td><td class="desc">The fill for non-negative values. <small>(optional)</small></td></tr>
+          <tr><td class="name">color</td><td class="type">string</td><td class="desc">American spelling of `colour`. <small>(optional)</small></td></tr>
+          <tr><td class="name">negativeColour</td><td class="type">string</td><td class="desc">The fill for negative values. <small>(optional)</small></td></tr>
+          <tr><td class="name">negativeColor</td><td class="type">string</td><td class="desc">American spelling of `negativeColour`. <small>(optional)</small></td></tr>
+          <tr><td class="name">direction</td><td class="type">'ltr' | 'rtl'</td><td class="desc">Which way the bar grows. `'ltr'` (the default) or `'rtl'`. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -7695,7 +7861,7 @@ return `methods ${ROLLING_ANOMALY_METHODS.length}; spike ${roll.flags[10]}; aler
       </table>
     </div>
     <h3 id="type-FormattingRule">FormattingRule</h3>
-    <p class="section-note">One rule. Either a condition and the styling it produces, or a colour scale. A rule held as runtime state must be JSON, so `style` may not be a function there: config-time `cell.style` still accepts one.</p>
+    <p class="section-note">One rule. A condition and the styling it produces, a colour scale, a data bar or an icon set. A rule held as runtime state must be JSON, so `style` may not be a function there (config-time `cell.style` still accepts one) and a data bar / icon set / scale is the JSON way to say the same visual intent.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
@@ -7704,10 +7870,10 @@ return `methods ${ROLLING_ANOMALY_METHODS.length}; spike ${roll.flags[10]}; aler
           <tr><td class="name">when</td><td class="type">FormattingCondition</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">style</td><td class="type">CellStyle | ((p: CellParams) =&gt; CellStyle | null)</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">scale</td><td class="type">FormattingScale</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">dataBar</td><td class="type">DataBarSpec</td><td class="desc">An in-cell proportional bar (BACKLOG-0000955). <small>(optional)</small></td></tr>
+          <tr><td class="name">iconSet</td><td class="type">IconSetSpec</td><td class="desc">A per-band glyph beside the value (BACKLOG-0000955). <small>(optional)</small></td></tr>
           <tr><td class="name">stopIfTrue</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">enabled</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
-          <tr><td class="name">icon</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
-          <tr><td class="name">bar</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -7782,6 +7948,7 @@ return `methods ${ROLLING_ANOMALY_METHODS.length}; spike ${roll.flags[10]}; aler
           <tr><td class="name">diagnostics</td><td class="type">DiagnosticsApi</td><td class="desc">What the grid is doing, for when it is doing it slowly. <small>(read-only)</small></td></tr>
           <tr><td class="name">statistics</td><td class="type">StatisticsApi</td><td class="desc">Reductions, profiles, correlations, capability and intervals. <small>(read-only)</small></td></tr>
           <tr><td class="name">formatting</td><td class="type">FormattingApi</td><td class="desc">Formatting a value as the grid would, outside a cell. <small>(read-only)</small></td></tr>
+          <tr><td class="name">validation</td><td class="type">ValidationApi</td><td class="desc">Declarative column validation: why a write was refused, and clearing marks. <small>(read-only)</small></td></tr>
           <tr><td class="name">maximise</td><td class="type">MaximiseApi</td><td class="desc">Full-screen control, where it is enabled. <small>(read-only, optional)</small></td></tr>
           <tr><td class="name">element</td><td class="type">HTMLElement | null</td><td class="desc">The element you passed to `createGrid`, not the grid's own root. The grid builds its `.lattice` root *inside* that element, so `el.closest('.lattice')` never matches this, and a theme attribute set on it has no effect, the theme is read from the root within. Use `element.querySelector('.lattice')` for the grid's own root. <small>(read-only)</small></td></tr>
           <tr><td class="name">destroyed</td><td class="type">boolean</td><td class="desc">Whether `destroy` has run. Every other member is inert afterwards. <small>(read-only)</small></td></tr>
@@ -8075,6 +8242,21 @@ return `methods ${ROLLING_ANOMALY_METHODS.length}; spike ${roll.flags[10]}; aler
           <tr><td class="name">icon</td><td class="type">string</td><td class="desc"></td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">variant</td><td class="type">VariantName</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-IconSetSpec">IconSetSpec</h3>
+    <p class="section-note">An icon set (BACKLOG-0000955): a glyph placed beside the value by the band it falls in. Drawn as a `background-image` with padding, so it too needs no extra element and stays a plain style value. `set` names a built-in — `'arrows'`, `'trafficLights'` or `'ratings'` (see {@link ICON_SETS}) — or supply your own ordered `icons` (SVG documents, data URIs or `url(...)` values). Bands are split at `thresholds` (ascending, one fewer than the icons); without them the column's distribution is cut into equal-count bands. `reverse` flips the order so a high value can read as red.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">set</td><td class="type">'arrows' | 'trafficLights' | 'ratings' | string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">icons</td><td class="type">string[]</td><td class="desc">Your own glyphs, low value first: SVG documents, data URIs or `url(...)`. <small>(optional)</small></td></tr>
+          <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many bands, where the set's size is not fixed (e.g. `'ratings'`). <small>(optional)</small></td></tr>
+          <tr><td class="name">thresholds</td><td class="type">number[]</td><td class="desc">Band edges, ascending; one fewer than the number of icons. <small>(optional)</small></td></tr>
+          <tr><td class="name">reverse</td><td class="type">boolean</td><td class="desc">Reverse the glyph order, so the highest band takes the first icon. <small>(optional)</small></td></tr>
+          <tr><td class="name">size</td><td class="type">number</td><td class="desc">Glyph height in pixels. Default 16. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -9330,6 +9512,18 @@ return `methods ${ROLLING_ANOMALY_METHODS.length}; spike ${roll.flags[10]}; aler
         </tbody>
       </table>
     </div>
+    <h3 id="type-TopValue">TopValue</h3>
+    <p class="section-note">One row of a categorical column's top-values table (BACKLOG-0000959).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The value itself, as it is stored.</td></tr>
+          <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many present rows carry it.</td></tr>
+          <tr><td class="name">share</td><td class="type">number</td><td class="desc">Its share of the present values, 0 to 1.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-TreeConfig">TreeConfig</h3>
     <div class="table-wrap">
       <table>
@@ -9406,6 +9600,34 @@ return `methods ${ROLLING_ANOMALY_METHODS.length}; spike ${roll.flags[10]}; aler
           <tr><td class="name">flush</td><td class="type">(): ChangeResult</td><td class="desc"></td></tr>
           <tr><td class="name">stats</td><td class="type">(): {</td><td class="desc"></td></tr>
           <tr><td class="name">log</td><td class="type">(opts?: { since?: number }): { at: number; change: RowChange; rows: number }[]</td><td class="desc"></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-ValidationApi">ValidationApi</h3>
+    <p class="section-note">The runtime face of declarative column validation (BACKLOG-0000956).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">check</td><td class="type">(colId: string, value: unknown, row?: unknown): { code: string; message: string } | null</td><td class="desc">Run a column's rules against a value, returning the first failure or null.</td></tr>
+          <tr><td class="name">errorFor</td><td class="type">(key: string, colId: string): ValidationError | null</td><td class="desc">The recorded error for one cell, or null when it is valid.</td></tr>
+          <tr><td class="name">errors</td><td class="type">(): ValidationError[]</td><td class="desc">Every cell that currently holds a validation error.</td></tr>
+          <tr><td class="name">clear</td><td class="type">(key?: string, colId?: string): boolean</td><td class="desc">Clear errors: one cell, a whole row, or all of them.</td></tr>
+          <tr><td class="name">define</td><td class="type">(colId: string, spec: ColumnValidation | null): void</td><td class="desc">Set or replace a column's rules at runtime; null removes them.</td></tr>
+          <tr><td class="name">active</td><td class="type">boolean</td><td class="desc">Whether at least one column declares a rule. <small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-ValidationError">ValidationError</h3>
+    <p class="section-note">One recorded validation error (BACKLOG-0000956).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">key</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">colId</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">code</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">message</td><td class="type">string</td><td class="desc"></td></tr>
         </tbody>
       </table>
     </div>

@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.38.0</p>
+    <p class="rail__sub">Developer guide · v1.39.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -3368,6 +3368,33 @@ columns: [
       <pre><code>{ field: 'capacity', edit: {
   validate: (p) =&gt; p.value &gt; 0 || 'Capacity must be positive',
 }}</code></pre>
+    </div>
+
+    <h3 id="declarative-validation">Declarative validation</h3>
+    <p class="lead-in">
+      The <code>edit.validate</code> function above is the imperative form. Where the rules are simple
+      and the same across columns, declare them as data on <code>validation</code> instead
+      (BACKLOG-0000956): <code>required</code>, <code>min</code>/<code>max</code>,
+      <code>minLength</code>/<code>maxLength</code>, <code>pattern</code>, <code>oneOf</code>, and a
+      <code>crossField</code> predicate. Each is checked <strong>before the write</strong>, riding the
+      cancellable <code>beforeEdit</code> event: a failing value cancels the commit, marks the cell
+      with the same accessible invalid state an editor rejection uses, and fires
+      <code>validation:failed</code>. Correcting the value clears the mark and fires
+      <code>validation:cleared</code>. Only a user edit is gated — a host API write is the authority
+      and is never self-vetoed.
+    </p>
+    <div class="example">
+      <p class="example__label">Rules as data</p>
+      <pre><code>columns: [
+  { field: 'name', edit: true, validation: { required: true, minLength: 2 } },
+  { field: 'age',  type: 'number', edit: true, validation: { min: 0, max: 120 } },
+  { field: 'code', edit: true, validation: { pattern: '^[A-Z]{3}$', messages: { pattern: 'Three capitals.' } } },
+]
+
+<span class="cmt">// Why a write was refused, and clearing a mark by hand.</span>
+grid.validation.errorFor('r1', 'age');       <span class="cmt">// { code, message, key, colId } or null</span>
+grid.on('validation:failed', (e) =&gt; report(e.failures));
+grid.on('validation:cleared', () =&gt; refreshBanner());</code></pre>
     </div>
 
     <h3 id="deleting-rows">Deleting rows</h3>
@@ -6512,6 +6539,7 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
         <thead><tr><th>Event</th><th>Fires when</th></tr></thead>
         <tbody>
           <tr><td class="name">column:filter:open</td><td class="desc">Header filter popup opened.</td></tr>
+          <tr><td class="name">column:profile:open</td><td class="desc">The column statistics ("describe") panel was asked to open on a column, from the column menu's "Column statistics" item (<code>{ colId }</code>). A mounted tool panel opens its <code>statistics</code> panel seeded on that column.</td></tr>
           <tr><td class="name">column:grouped</td><td class="desc">The row-group column list changed.</td></tr>
           <tr><td class="name">column:menu:open</td><td class="desc">Header menu opened.</td></tr>
           <tr><td class="name">column:moved</td><td class="desc">Reordered by drag or by API.</td></tr>

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.38.0, type declarations
+ * Lattice Grid 1.39.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -522,6 +522,43 @@ export interface ColumnEditSpec {
   validate?: (p: ValidateParams) => true | string;
 }
 
+/**
+ * Declarative edit-validation rules for a column (BACKLOG-0000956).
+ *
+ * Rules are checked in a fixed order — `required` first, then the value-shape
+ * rules, then the functions — and the first failure wins. A blank but optional
+ * value passes everything after `required`: an empty cell is empty, not "below
+ * the minimum". A failure vetoes the commit through `beforeEdit` and marks the
+ * cell; the cancellation carries `reason: 'validation:<code>'`.
+ */
+export interface ColumnValidation {
+  /** The value may not be blank. A string is used as the message. */
+  required?: boolean | string;
+  /** Minimum, for a number or a date. */
+  min?: number;
+  /** Maximum, for a number or a date. */
+  max?: number;
+  /** Minimum text length. */
+  minLength?: number;
+  /** Maximum text length. */
+  maxLength?: number;
+  /** A pattern the whole value must match. A string is a RegExp source. */
+  pattern?: string | RegExp;
+  /** The value must be one of these. */
+  oneOf?: unknown[];
+  /**
+   * A cross-field rule: return `true` to pass, or a message string to fail. The
+   * row is passed so a rule can compare against its siblings.
+   */
+  crossField?: (value: unknown, row: unknown, ctx: { key: string; colId: string; changes: unknown[] }) => true | string | void;
+  /** A free-form check, the same contract as `crossField`. */
+  validate?: (value: unknown, row: unknown, ctx: { key: string; colId: string; changes: unknown[] }) => true | string | void;
+  /** A default message for any rule without its own. */
+  message?: string;
+  /** Per-rule messages, keyed by rule name (`required`, `min`, `pattern`, …). */
+  messages?: Record<string, string>;
+}
+
 export interface ColumnSortSpec {
   enabled?: boolean;
   direction?: 'asc' | 'desc' | null;
@@ -616,6 +653,13 @@ export interface Column {
   cell?: ColumnCellSpec | string;
   /** Whether and how the cell can be edited. A string names an editor. */
   edit?: ColumnEditSpec | boolean | string;
+  /**
+   * Declarative edit-validation rules (BACKLOG-0000956). Each is checked against
+   * a value before it is written, through the `beforeEdit` before-event: a
+   * failing value cancels the commit and marks the cell. Distinct from and
+   * complementary to `edit.validate`, which is an imperative function.
+   */
+  validation?: ColumnValidation;
   /** Whether the column sorts, and by what comparison. `false` refuses it. */
   sort?: ColumnSortSpec | boolean;
   /** Whether the column filters, and with which filter. A string names one. */
@@ -2299,21 +2343,82 @@ export interface FormattingScale {
 }
 
 /**
- * One rule. Either a condition and the styling it produces, or a colour scale.
- * A rule held as runtime state must be JSON, so `style` may not be a function
- * there: config-time `cell.style` still accepts one.
+ * An in-cell proportional bar (BACKLOG-0000955). Drawn as a CSS gradient on the
+ * cell background — no extra element, and it composes with the cell's text.
+ *
+ * The bar's length is the value's position between `min` and `max`. Give both to
+ * pin the scale (0 to 100 for a percentage); otherwise `from` derives them from
+ * the column — `'minmax'` (the default) spans the data, `'quantile'` the 5th–95th
+ * percentile, `'stddev'` a number of deviations either side of the mean. When the
+ * range straddles zero, bars grow from a shared axis: positive right, negative
+ * left, each in its own colour.
+ */
+export interface DataBarSpec {
+  min?: number;
+  max?: number;
+  from?: 'minmax' | 'quantile' | 'stddev';
+  low?: number;
+  high?: number;
+  deviations?: number;
+  /** The fill for non-negative values. */
+  colour?: string;
+  /** American spelling of `colour`. */
+  color?: string;
+  /** The fill for negative values. */
+  negativeColour?: string;
+  /** American spelling of `negativeColour`. */
+  negativeColor?: string;
+  /** Which way the bar grows. `'ltr'` (the default) or `'rtl'`. */
+  direction?: 'ltr' | 'rtl';
+}
+
+/**
+ * An icon set (BACKLOG-0000955): a glyph placed beside the value by the band it
+ * falls in. Drawn as a `background-image` with padding, so it too needs no extra
+ * element and stays a plain style value.
+ *
+ * `set` names a built-in — `'arrows'`, `'trafficLights'` or `'ratings'` (see
+ * {@link ICON_SETS}) — or supply your own ordered `icons` (SVG documents, data
+ * URIs or `url(...)` values). Bands are split at `thresholds` (ascending, one
+ * fewer than the icons); without them the column's distribution is cut into
+ * equal-count bands. `reverse` flips the order so a high value can read as red.
+ */
+export interface IconSetSpec {
+  set?: 'arrows' | 'trafficLights' | 'ratings' | string;
+  /** Your own glyphs, low value first: SVG documents, data URIs or `url(...)`. */
+  icons?: string[];
+  /** How many bands, where the set's size is not fixed (e.g. `'ratings'`). */
+  count?: number;
+  /** Band edges, ascending; one fewer than the number of icons. */
+  thresholds?: number[];
+  /** Reverse the glyph order, so the highest band takes the first icon. */
+  reverse?: boolean;
+  /** Glyph height in pixels. Default 16. */
+  size?: number;
+}
+
+/**
+ * One rule. A condition and the styling it produces, a colour scale, a data bar
+ * or an icon set. A rule held as runtime state must be JSON, so `style` may not
+ * be a function there (config-time `cell.style` still accepts one) and a data
+ * bar / icon set / scale is the JSON way to say the same visual intent.
  */
 export interface FormattingRule {
   id?: string;
   when?: FormattingCondition;
   style?: CellStyle | ((p: CellParams) => CellStyle | null);
   scale?: FormattingScale;
+  /** An in-cell proportional bar (BACKLOG-0000955). */
+  dataBar?: DataBarSpec;
+  /** A per-band glyph beside the value (BACKLOG-0000955). */
+  iconSet?: IconSetSpec;
   stopIfTrue?: boolean;
   enabled?: boolean;
-  icon?: string;
-  bar?: boolean;
   label?: string;
 }
+
+/** The built-in icon set names, id to label, for a panel to offer. */
+export const ICON_SETS: Readonly<Record<string, string>>;
 
 /** A column id, or `'*'` for every column. */
 export type FormattingScope = string;
@@ -3170,12 +3275,28 @@ export interface ColumnProfile {
   stddev: number | null;
   outliers: number;
   histogram: HistogramBin[];
+  /**
+   * For a categorical (non-numeric) column, the commonest values, largest
+   * first (BACKLOG-0000959). Absent for a numeric column, whose shape the
+   * numeric figures and the histogram already carry.
+   */
+  topValues?: TopValue[];
 }
 
 export interface HistogramBin {
   from: number;
   to: number;
   count: number;
+}
+
+/** One row of a categorical column's top-values table (BACKLOG-0000959). */
+export interface TopValue {
+  /** The value itself, as it is stored. */
+  value: unknown;
+  /** How many present rows carry it. */
+  count: number;
+  /** Its share of the present values, 0 to 1. */
+  share: number;
 }
 
 /** How one column differs between the filtered subset and its population. */
@@ -3429,6 +3550,30 @@ export interface FormattingApi {
   distribution(colId: string): ColumnDistribution | null;
 }
 
+/** One recorded validation error (BACKLOG-0000956). */
+export interface ValidationError {
+  key: string;
+  colId: string;
+  code: string;
+  message: string;
+}
+
+/** The runtime face of declarative column validation (BACKLOG-0000956). */
+export interface ValidationApi {
+  /** Run a column's rules against a value, returning the first failure or null. */
+  check(colId: string, value: unknown, row?: unknown): { code: string; message: string } | null;
+  /** The recorded error for one cell, or null when it is valid. */
+  errorFor(key: string, colId: string): ValidationError | null;
+  /** Every cell that currently holds a validation error. */
+  errors(): ValidationError[];
+  /** Clear errors: one cell, a whole row, or all of them. */
+  clear(key?: string, colId?: string): boolean;
+  /** Set or replace a column's rules at runtime; null removes them. */
+  define(colId: string, spec: ColumnValidation | null): void;
+  /** Whether at least one column declares a rule. */
+  readonly active: boolean;
+}
+
 /** Operators that resolve against the column's own distribution (spec 8.12). */
 export type DistributionOp =
   | 'topPercent' | 'bottomPercent' | 'topN' | 'bottomN'
@@ -3483,7 +3628,8 @@ export type EventName =
   | 'facet:computed' | 'facet:filtered' | 'facet:expanded' | 'facet:failed'
   /* Columns */
   | 'column:moved' | 'column:resized' | 'column:visible' | 'column:pinned'
-  | 'column:grouped' | 'column:pivoted' | 'column:filter:open' | 'column:menu:open'
+  | 'column:grouped' | 'column:pivoted' | 'column:filter:open' | 'column:profile:open'
+  | 'column:menu:open'
   | 'pivot:drill'
   | 'columns:changed' | 'columns:tagged' | 'columngroup:changed' | 'header:contextmenu'
   /* Selection and view */
@@ -3496,6 +3642,9 @@ export type EventName =
   | 'state:changed' | 'state:reset' | 'history:changed' | 'history:applied'
   | 'views:changed' | 'view:applied' | 'view:saved' | 'view:removed'
   | 'view:renamed' | 'view:default'
+  /* Validation (BACKLOG-0000956): a declared column rule vetoed an edit, or a
+   * recorded error was cleared. The veto itself rides the cancellable `beforeEdit`. */
+  | 'validation:failed' | 'validation:cleared'
   /* Formatting and presentation */
   | 'formatting:changed' | 'redaction:changed' | 'permissions:changed'
   | 'presentation:changed' | 'presentation:started' | 'presentation:ended'
@@ -4899,6 +5048,8 @@ export interface Grid {
   readonly statistics: StatisticsApi;
   /** Formatting a value as the grid would, outside a cell. */
   readonly formatting: FormattingApi;
+  /** Declarative column validation: why a write was refused, and clearing marks. */
+  readonly validation: ValidationApi;
   /** Full-screen control, where it is enabled. */
   readonly maximise?: MaximiseApi;
   /**
@@ -6630,6 +6781,16 @@ declare module 'lattice-grid/modules/gantt' {
     priority?: number;
     /** An explicit row height (px) for the split view; applied to both panels. */
     height?: number;
+    /**
+     * The budgeted cost (BAC) for earned-value analysis (BACKLOG-0000958). When
+     * omitted the task's duration is used as the budget, giving schedule-only EVM.
+     */
+    cost?: number;
+    /**
+     * The actual cost incurred (ACWP) for earned-value analysis
+     * (BACKLOG-0000958). Left out, the task's cost variance/CPI are `null`.
+     */
+    actualCost?: number;
   }
 
   /**
@@ -6771,6 +6932,62 @@ declare module 'lattice-grid/modules/gantt' {
   /** Format an engine day-number as an ISO calendar date (`YYYY-MM-DD`, UTC). */
   export function toISODate(day: number): string | null;
 
+  /** Earned-value metrics for one task or the whole project (BACKLOG-0000958). */
+  interface GanttEarnedValueRow {
+    id: string;
+    name: string;
+    isSummary: boolean;
+    isMilestone: boolean;
+    percentComplete: number | null;
+    /** Whether a baseline (not the fallback scheduled window) drove PV. */
+    hasBaseline: boolean;
+    /** Whether any actual cost fed AC (else AC/CV/CPI are null). */
+    hasActualCost: boolean;
+    /** Budget at completion (the task's cost, or its duration when no cost). */
+    bac: number;
+    /** Planned Value (BCWS): budgeted cost of the work scheduled by the status date. */
+    pv: number;
+    /** Earned Value (BCWP): budgeted cost of the work performed (BAC × %complete). */
+    ev: number;
+    /** Actual Cost (ACWP): what the work performed actually cost, or null. */
+    ac: number | null;
+    /** Schedule Variance (EV − PV); positive is ahead of schedule. */
+    sv: number;
+    /** Cost Variance (EV − AC); positive is under budget; null without AC. */
+    cv: number | null;
+    /** Schedule Performance Index (EV / PV); null when PV is zero. */
+    spi: number | null;
+    /** Cost Performance Index (EV / AC); null without AC or when AC is zero. */
+    cpi: number | null;
+  }
+
+  /** The earned-value result at a status date (BACKLOG-0000958). */
+  interface GanttEarnedValue {
+    ok: boolean;
+    error?: { code: string; message: string };
+    /** The status date the metrics were evaluated at (day-number). */
+    statusDate?: number;
+    /** Every task keyed by id (leaf, summary and derived). */
+    byTask?: Map<string, GanttEarnedValueRow>;
+    /** The same rows in schedule order. */
+    rows?: GanttEarnedValueRow[];
+    /** The project total, rolled up as money sums of the leaves. */
+    project?: GanttEarnedValueRow;
+  }
+
+  /**
+   * Compute earned-value management (EVM) metrics for a scheduled plan at a
+   * status date (BACKLOG-0000958): PV/BCWS from the baseline, EV/BCWP from
+   * %complete, AC/ACWP from the per-task `actualCost`, and the derived SV/CV and
+   * SPI/CPI — per leaf, rolled up to summaries and the project. The math is
+   * implemented locally in the module (no core-compute dependency).
+   */
+  export function computeEarnedValue(
+    tasks: GanttTask[],
+    schedule: GanttSchedule,
+    options?: { statusDate?: number | string | Date; costField?: string; actualCostField?: string },
+  ): GanttEarnedValue;
+
   /** A headless Gantt controller: holds the model, recomputes on edits, emits changes. */
   interface Gantt {
     readonly tasks: GanttTask[];
@@ -6885,7 +7102,13 @@ declare module 'lattice-grid/modules/gantt' {
       showProgress?: boolean;
       showBaseline?: boolean;
       barLabel?: 'name' | 'percent' | 'dates' | 'none' | ((task: GanttScheduledTask) => string);
-      columns?: Array<{ key: string; title?: string; width?: number; kind?: 'name' | 'assignee' | 'progress'; render?: (task: GanttScheduledTask, ctx: { rawTask: GanttTask; depth: number }) => unknown }>;
+      /**
+       * Surface earned-value metrics in `kind: 'evm'` columns (BACKLOG-0000958).
+       * `true` computes EVM at the today line (or the project finish); an object
+       * overrides the status date and the cost field names.
+       */
+      evm?: boolean | { statusDate?: number | string | Date; costField?: string; actualCostField?: string };
+      columns?: Array<{ key: string; title?: string; width?: number; kind?: 'name' | 'assignee' | 'progress' | 'evm'; metric?: 'bac' | 'pv' | 'ev' | 'ac' | 'sv' | 'cv' | 'spi' | 'cpi'; digits?: number; render?: (task: GanttScheduledTask, ctx: { rawTask: GanttTask; depth: number }) => unknown }>;
     }): unknown;
     /**
      * Capture a baseline (planned) snapshot of the current schedule as HOST data
@@ -6893,6 +7116,13 @@ declare module 'lattice-grid/modules/gantt' {
      * `baselineStart`/`baselineEnd` task fields to get variance and ghost bars.
      */
     captureBaseline(): Array<{ id: string; baselineStart: number; baselineEnd: number; baselineDuration: number }>;
+    /**
+     * Compute earned-value (EVM) metrics for the current plan at a status date
+     * (BACKLOG-0000958): PV/EV/AC and the derived SV/CV/SPI/CPI per task, rolled
+     * up to summaries and the project. Budget (BAC) is the task's `cost`, or its
+     * duration when no cost is given; AC comes from `actualCost`.
+     */
+    earnedValue(evmOpts?: { statusDate?: number | string | Date; costField?: string; actualCostField?: string }): GanttEarnedValue;
     /** Detach the mounted view, if any. The host still owns the container. */
     unmount(): void;
     /** The mounted view, or null. */
