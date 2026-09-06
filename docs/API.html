@@ -4204,7 +4204,7 @@ router.apply([{ op: 'upsert', row }, { op: 'delete', row }]); <span class="cmt">
       <table>
         <thead><tr><th>Member</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">createDataRouter({ key, rowKey?, overlap?, onUnrouted? })</td><td class="desc">Create a router. <code>key</code> is the partition (property or <code>fn(row)</code>); <code>rowKey</code> the default identity within a grid; <code>overlap</code> fans a record to all matching routes; <code>onUnrouted</code> is a sink for unmatched records.</td></tr>
+          <tr><td class="sig">createDataRouter({ key, rowKey?, overlap?, onUnrouted?, seq?, dedupe?, batch?, coalesce?, time?, now?, onWrite?, onConflict?, config? })</td><td class="desc">Create a router. <code>key</code> is the partition (property or <code>fn(row)</code>); <code>rowKey</code> the default identity within a grid; <code>overlap</code> fans a record to all matching routes; <code>onUnrouted</code> is a sink for unmatched records. <strong>v3:</strong> <code>seq</code> (a version field or <code>fn(row)</code>) turns on ordered de-duplication, <code>dedupe: false</code> opts out; <code>batch</code> (interval ms or <code>{ intervalMs }</code>) / <code>coalesce: true</code> buffer a high-frequency <code>push</code>. <strong>v4:</strong> <code>time</code> (a timestamp field or <code>fn(row)</code>) and an injectable <code>now</code> clock drive time-domain scrubbing. <strong>v8:</strong> <code>onWrite</code>/<code>onConflict</code> are the router-global write-back callbacks. <strong>v5:</strong> <code>config</code> is a declarative routing spec, desugared through <code>configure</code>.</td></tr>
           <tr><td class="sig">attach(grid, predicate, { rowKey? })</td><td class="desc">Route to <code>grid</code> when <code>predicate</code> matches: a value compared to <code>key</code>, or a <code>fn(row) =&gt; boolean</code>. <code>rowKey</code> overrides the router default for this grid.</td></tr>
           <tr><td class="sig">attachDefault(grid, { rowKey? })</td><td class="desc">The "rest" sink: the grid that receives every record no explicit route matched.</td></tr>
           <tr><td class="sig">load(snapshot)</td><td class="desc">Apply a full snapshot as a keyed diff per grid. Returns per-route <code>{ added, updated, removed }</code> counts in attach order.</td></tr>
@@ -4221,6 +4221,23 @@ router.apply([{ op: 'upsert', row }, { op: 'delete', row }]); <span class="cmt">
           <tr><td class="sig">subscribe(predicate, handler, opts?)</td><td class="desc"><strong>v5:</strong> route a slice to any non-grid view. <code>handler(change)</code> receives the same keyed diff <code>{ add, update, remove }</code> a grid does &mdash; drive a KPI tile, detail pane, map or form. A peer to <code>attach</code>: same partitioning and the same <code>transform</code>/<code>filter</code>/<code>sort</code>/<code>rollup</code> options; grids and charts are unchanged.</td></tr>
           <tr><td class="sig">alert(predicate, condition, handler, { filter?, debounce?, rowKey? })</td><td class="desc"><strong>v5:</strong> watch a slice and emit rather than render. <code>condition(rows)</code> is evaluated over the slice on every load and delta; when it first becomes truthy, <code>handler(signal, rows)</code> fires. Edge-triggered (once per crossing, re-arms on release), <code>debounce</code> coalesces a burst, and it never competes for a partition or touches a grid.</td></tr>
           <tr><td class="sig">configure(spec)</td><td class="desc"><strong>v5:</strong> the whole routing graph as one data spec &mdash; <code>routes</code> (grid/<code>default</code>/<code>subscribe</code>/<code>alert</code> entries), <code>links</code>, <code>relate</code>, <code>buffer</code> &mdash; desugared to the imperative API. Composes with imperative calls and round-trips to identical behaviour. Also accepted as <code>createDataRouter({ config })</code>.</td></tr>
+          <tr><td class="sig">attach(grid, predicate, { writable, onWrite?, onConflict? })</td><td class="desc"><strong>v8 (BACKLOG-0000912):</strong> make a route <strong>writable</strong> &mdash; the router captures the grid's committed edits off its public edit surface (<code>grid.on('cell:changed')</code> &rarr; <code>grid.edit.setCells</code>) and routes them to <code>onWrite(change, { route, source })</code> (per-route here, or the router-global <code>onWrite</code>), reverting the cell on reject and re-entering an accepted write as a normal delta. <code>onConflict(change, { serverRow })</code> surfaces a last-write-wins conflict. A derived (<code>rollup</code>/<code>transform</code>) route cannot be writable &mdash; its edits are reverted and warned.</td></tr>
+          <tr><td class="sig">attach(grid, predicate, { where })</td><td class="desc"><strong>v7 (BACKLOG-0000914):</strong> a route-level <code>where</code> &mdash; a filter-wire condition <code>{ col, op, value }</code> or an <code>and</code>/<code>or</code>/<code>not</code> group &mdash; used only by query-slice routing (<code>query()</code>): the router pushes it <em>down</em> to the engine where the adapter allows and finishes the residual client-side. Distinct from <code>filter</code> (a <code>fn(row)</code> that only ever runs in the browser).</td></tr>
+          <tr><td class="sig">query(adapter, request?)</td><td class="desc"><strong>v7 (BACKLOG-0000914):</strong> source the router from a DFQL/DuckDB (or any pushdown) adapter. Runs <code>adapter.execute</code>, partitions the result across the routes and drives the grids by the same keyed diff <code>load()</code> uses; a route's <code>where</code> is planned against the adapter's capabilities (pushed down where allowed, residual finished client-side). Composes with per-route <code>transform</code>/<code>filter</code>/<code>sort</code>/<code>rollup</code> and links/graph. Async &mdash; resolves once every slice is fetched and applied.</td></tr>
+          <tr><td class="sig">lastQueryPlan()</td><td class="desc"><strong>v7:</strong> the pushed/residual split of the last <code>query()</code>, per fetch &mdash; whether a filter reached the engine and what work was left client-side. <code>null</code> before any query. Provenance, so a slow slice is diagnosed rather than guessed.</td></tr>
+          <tr><td class="sig">buffer({ window?, max? })</td><td class="desc"><strong>v4 (BACKLOG-0000911):</strong> turn on time-travel buffering &mdash; record the ordered, de-duplicated stream into a <strong>bounded</strong> ring (a time <code>window</code> in ms and/or a <code>max</code> delta count; eviction folds the oldest into a moving base, so memory never grows unbounded; a default cap applies if you name neither). Seeded from the current world, so it can be turned on at any time. Opt-in and off by default.</td></tr>
+          <tr><td class="sig">scrubTo(target, { by? })</td><td class="desc"><strong>v4:</strong> scrub the grids to a past point &mdash; the base snapshot plus the buffered deltas up to <code>target</code> (a seq when the router has one, else a timestamp; <code>{ by: 'seq' | 'time' }</code> chooses). Pushed by keyed diff, so each view keeps scroll and selection and only changed rows repaint. Live deltas keep arriving into the buffer but do not disturb the view.</td></tr>
+          <tr><td class="sig">replay(from, to, { speed?, by? })</td><td class="desc"><strong>v4:</strong> walk an incident &mdash; scrub to <code>from</code>, then apply each buffered delta in <code>(from, to]</code> in order, one per <code>speed</code> ms (default <code>0</code>). Returns a promise resolving when the range finishes (or is superseded); the router stays parked at <code>to</code> until <code>live()</code>.</td></tr>
+          <tr><td class="sig">pause() / resume()</td><td class="desc"><strong>v4:</strong> pause an in-flight <code>replay</code> at the current step and resume it from where it stopped. No-ops when nothing is replaying / not paused.</td></tr>
+          <tr><td class="sig">live()</td><td class="desc"><strong>v4:</strong> return to the head &mdash; rebuild the base plus every buffered delta (including those that arrived while scrubbed) and push it by keyed diff, then resume normal live application. A single diff animates the view from the past straight to the present, keeping scroll and selection.</td></tr>
+          <tr><td class="sig">traveling / buffered</td><td class="desc"><strong>v4:</strong> whether the grids currently show a reconstructed past, and how many deltas are held in the bounded buffer.</td></tr>
+          <tr><td class="sig">broadcast({ channel })</td><td class="desc"><strong>v6 (BACKLOG-0000913):</strong> mirror the router's ordered, de-duplicated deltas to other browser tabs/windows over a <strong>BroadcastChannel</strong>, so a grid popped into its own tab joins the same feed with no second socket. Each tab runs its own router on the same <code>channel</code> name; an inbound mirror is applied without re-broadcasting (no echo loop), and <code>broadcast</code> announces the tab so a peer holding the feed resyncs it mid-stream (snapshot + replay). Off by default; needs a <code>seq</code>/<code>dedupe</code> router to drop replayed deltas cleanly.</td></tr>
+          <tr><td class="sig">broadcasting</td><td class="desc"><strong>v6:</strong> whether the router is currently mirroring to a BroadcastChannel.</td></tr>
+          <tr><td class="sig">addSource(feed, { map?, key? })</td><td class="desc"><strong>v9 (BACKLOG-0000931):</strong> register a source feed &mdash; fan-in. Returns a handle (<code>load</code>/<code>apply</code>/<code>push</code>/<code>remove</code>, plus <code>id</code>/<code>size</code>) whose rows are normalized by <code>map</code> and namespaced by <code>key</code> (a prefix string, <code>true</code> to prefix with the source id, or a <code>keyFn(row)</code>) so ids from different feeds cannot collide, then merged through the router's ordinary path &mdash; partitioned, routed, linked, deduped, buffered and written back exactly as the single-source path. <code>feed</code> is an optional source id or an options object.</td></tr>
+          <tr><td class="sig">removeSource(ref) / sources()</td><td class="desc"><strong>v9:</strong> drop exactly the rows a feed contributed (by source id or handle) from every route and unregister it; and list the registered source ids.</td></tr>
+          <tr><td class="sig">metrics()</td><td class="desc"><strong>v10 (BACKLOG-0000932):</strong> a cheap point-in-time observability snapshot &mdash; per-route row counts and throughput (rows/sec since the previous read), per-source rates and totals (fan-in), and the global <code>unrouted</code> / <code>dropped</code> / <code>buffered</code> / <code>lag</code> figures. Throughput is sampled over the interval since the last <code>metrics()</code> call or emit.</td></tr>
+          <tr><td class="sig">on('metrics', handler)</td><td class="desc"><strong>v10:</strong> subscribe to the periodic <code>metrics</code> emit (the <code>metricsInterval</code> ms, default 1000; <code>0</code> disables it). The timer runs only while at least one listener is registered and stops when the last is removed. Returns an unsubscribe function.</td></tr>
+          <tr><td class="sig">mountDevtools(el, { interval? })</td><td class="desc"><strong>v10:</strong> mount an opt-in, DOM-touching live panel (in the module's own <code>devtools.js</code>, so the core stays DOM-free) that renders <code>metrics()</code> into <code>el</code> and refreshes on each emit. Returns a controller with <code>destroy()</code>. Off unless called.</td></tr>
           <tr><td class="sig">detach(grid)</td><td class="desc">Stop routing to a grid and forget its slice; drop any link/edge it is part of (restoring a filtered sibling). The host still owns and destroys the grid.</td></tr>
           <tr><td class="sig">destroy()</td><td class="desc">Detach every grid, drop every link, edge and subscription. <strong>Detaches only</strong> &mdash; the host owns and destroys its grids.</td></tr>
         </tbody>
@@ -4402,6 +4419,119 @@ router.apply([{ op: 'upsert', row: { id: 'o2', type: 'invoice', amt: 25 } }]);
 
 orders.destroy(); invoices.destroy(); rest.destroy(); router.destroy();
 <span class="kw">return</span> [fanned, moved, router.unrouted].join(' | ');</code></pre>
+
+    <p><strong>Time-travel buffering (v4, BACKLOG-0000911).</strong> <code>buffer({ window?, max? })</code> records the ordered, de-duplicated stream into a <em>bounded</em> ring on top of a base snapshot, so a consumer can <code>scrubTo</code> a past point, <code>replay</code> a range (<code>pause</code>/<code>resume</code> it), and jump back to <code>live()</code> &mdash; every reconstructed state pushed to the grids by the ordinary keyed diff, so views keep scroll and selection and only changed rows repaint. The bound is a time <code>window</code> and/or a <code>max</code> delta count; eviction folds the oldest delta into a moving base, so memory stays bounded. Live deltas keep arriving into the buffer while scrubbed but do not disturb the (time-travelled) view; <code>traveling</code> and <code>buffered</code> report the state. Opt-in and off by default &mdash; a router that never calls <code>buffer()</code> behaves exactly as v1/v2/v3.</p>
+    <h3 id="datarouter-v4-example">Scrub and return to live, executed</h3>
+    <p class="section-note">A versioned feed buffered into a bounded ring; the view scrubs to a past seq, reads the
+    reconstructed value, then returns to the live head. Run headless on every build.</p>
+    <pre data-run="js" data-expect="30 | 10 | true | 30" data-covers="export:createDataRouter"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }, { id: 'n', field: 'n', type: 'number' }] });
+<span class="kw">const</span> router = createDataRouter({ rowKey: 'id', seq: 'v' });
+router.attach(g, () =&gt; true);
+router.buffer({ max: 100 });               <span class="cmt">// record into a bounded ring</span>
+router.apply([{ op: 'upsert', row: { id: 'a', n: 10, v: 1 } }]);
+router.apply([{ op: 'upsert', row: { id: 'a', n: 20, v: 2 } }]);
+router.apply([{ op: 'upsert', row: { id: 'a', n: 30, v: 3 } }]);
+<span class="kw">const</span> head = g.rows.value('a', 'n');       <span class="cmt">// 30: the live head</span>
+router.scrubTo(1, { by: 'seq' });          <span class="cmt">// reconstruct the state at seq 1</span>
+<span class="kw">const</span> past = g.rows.value('a', 'n');       <span class="cmt">// 10</span>
+<span class="kw">const</span> traveling = router.traveling;        <span class="cmt">// true</span>
+router.live();                             <span class="cmt">// back to the head, by keyed diff</span>
+<span class="kw">const</span> back = g.rows.value('a', 'n');       <span class="cmt">// 30</span>
+
+g.destroy(); router.destroy();
+<span class="kw">return</span> [head, past, traveling, back].join(' | ');</code></pre>
+
+    <p><strong>Cross-tab / pop-out window sync (v6, BACKLOG-0000913).</strong> <code>broadcast({ channel })</code> mirrors the router's ordered, de-duplicated deltas to other browser tabs/windows over a <strong>BroadcastChannel</strong>, so a routed grid popped into its own tab joins the <em>same</em> feed with no second socket. Each tab runs its own router on the same channel name and applies the mirrored deltas through the ordinary keyed-diff path, so its grids stay dumb and keep scroll/selection. What is mirrored is exactly what the router applied (post-order, post-dedupe); an inbound mirror is applied <em>without</em> re-broadcasting, so there is no echo loop. Calling <code>broadcast</code> announces the tab, and any peer already holding the feed answers with a snapshot (current world + resume checkpoint) so the new tab resyncs mid-stream via the v3 reconnect path. Off by default; <code>broadcasting</code> reports whether it is on, <code>destroy()</code> closes the channel. Needs a <code>seq</code>/<code>dedupe</code> router to drop replayed deltas cleanly. (Not demonstrated headless: it depends on the browser's BroadcastChannel delivering across tabs asynchronously.)</p>
+
+    <p><strong>DFQL/DuckDB query-slice routing (v7, BACKLOG-0000914).</strong> <code>query(adapter, request?)</code> sources the router from a query rather than a pushed feed: it runs <code>adapter.execute</code> (any pushdown adapter &mdash; a DFQL/DuckDB one, or a <code>createPushdownSource</code>-style object with <code>capabilities</code> and <code>execute(query)</code>), partitions the result across the routes, and drives the grids by the same keyed diff <code>load()</code> uses. Where a route declares a <code>where</code> (a filter-wire condition <code>{ col, op, value }</code> or an <code>and</code>/<code>or</code>/<code>not</code> group), that filter is pushed <em>down</em> into the engine where the adapter's capability model allows and the residual is finished client-side; routes without a <code>where</code> share one base query and are partitioned client-side. It composes with the per-route <code>transform</code>/<code>filter</code>/<code>sort</code>/<code>rollup</code> (v3) and cross-grid links/graph, and <code>lastQueryPlan()</code> reports the pushed/residual split per fetch. Async.</p>
+    <h3 id="datarouter-v7-example">Query-slice routing, executed</h3>
+    <p class="section-note">Two routes over one query, each with its own <code>where</code>; a capability-free adapter pushes
+    nothing, so each residual is finished client-side, and the plan records the split. Run headless on every build.</p>
+    <pre data-run="js" data-expect="2 | 1 | 2" data-covers="export:createDataRouter"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'amt', field: 'amt', type: 'number' }];
+<span class="kw">const</span> big = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> small = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id' });
+
+<span class="cmt">// Each route carries a `where`, pushed down where the adapter allows.</span>
+router.attach(big, 'order', { where: { col: 'amt', op: 'gte', value: 20 } });
+router.attach(small, 'order', { where: { col: 'amt', op: 'lt', value: 20 } });
+
+<span class="cmt">// A capability-free adapter: nothing pushes, so every `where` is residual.</span>
+<span class="kw">const</span> adapter = {
+  capabilities: {},
+  execute: <span class="kw">async</span> (query) =&gt; ({ rows: [
+    { id: 'o1', type: 'order', amt: 10 },
+    { id: 'o2', type: 'order', amt: 30 },
+    { id: 'o3', type: 'order', amt: 20 },
+  ] }),
+};
+<span class="kw">await</span> router.query(adapter);
+<span class="kw">const</span> bigN = big.rows.count();            <span class="cmt">// 2: o2, o3 (amt &gt;= 20)</span>
+<span class="kw">const</span> smallN = small.rows.count();        <span class="cmt">// 1: o1 (amt &lt; 20)</span>
+<span class="kw">const</span> plan = router.lastQueryPlan();       <span class="cmt">// per-fetch pushed/residual split</span>
+
+big.destroy(); small.destroy(); router.destroy();
+<span class="kw">return</span> [bigN, smallN, plan.length].join(' | ');</code></pre>
+
+    <p><strong>Write-back routing (v8, BACKLOG-0000912).</strong> A route made <strong>writable</strong> &mdash; <code>attach(grid, predicate, { writable: true })</code> &mdash; has its grid's committed edits routed <em>back</em> to a write target the host persists. The router captures edits off the grid's public edit surface (it subscribes to <code>grid.on('cell:changed')</code> and re-enters accepted writes through <code>grid.edit.setCells</code>, so grid-core is untouched) and hands each change to <code>onWrite(change, { route, source })</code> &mdash; the per-route callback here, or the router-global <code>onWrite</code> passed to <code>createDataRouter</code>. A rejected write reverts the cell; an accepted one re-enters as a normal delta. <code>onConflict(change, { serverRow })</code> surfaces a last-write-wins conflict. A derived route (one carrying <code>rollup</code> or <code>transform</code>) cannot be writable &mdash; its edits are reverted and warned. (Documented here from the shipped surface; the grid-driven write-back commit path is demonstrated by the grid's own write-back example above rather than repeated on the router.)</p>
+
+    <p><strong>Fan-in: many feeds, one router (v9, BACKLOG-0000931).</strong> One router can ingest <em>many</em> feeds. <code>addSource(feed, { map?, key? })</code> returns a per-feed handle (<code>load</code>/<code>apply</code>/<code>push</code>/<code>remove</code>, plus <code>id</code> and <code>size</code>) whose rows are normalized to the common shape by <code>map</code> and namespaced by <code>key</code> (a prefix string, <code>true</code> to prefix with the source id, or a <code>keyFn(row)</code>) so ids from different feeds cannot collide in the shared keyed store, then merged through the router's ordinary apply/load path &mdash; partitioned, routed, linked, deduped, buffered and (v8) written back exactly as the single-source path. <code>removeSource(ref)</code> (or the handle's <code>remove</code>) drops exactly the rows a feed contributed; <code>sources()</code> lists the registered ids.</p>
+    <h3 id="datarouter-v9-example">Fan-in from two feeds, executed</h3>
+    <p class="section-note">Two feeds with a colliding raw id, namespaced per source so they merge without clobbering;
+    removing one feed drops exactly its rows. Run headless on every build.</p>
+    <pre data-run="js" data-expect="3 | crm,erp | 2" data-covers="export:createDataRouter"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'n', field: 'n', type: 'number' }];
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id' });
+router.attach(g, 'order');
+
+<span class="cmt">// Two feeds, each namespaced by its source id so raw ids cannot collide.</span>
+<span class="kw">const</span> crm = router.addSource('crm', { key: true });
+<span class="kw">const</span> erp = router.addSource('erp', { key: true });
+crm.load([{ id: '1', type: 'order', n: 10 }, { id: '2', type: 'order', n: 20 }]);
+erp.load([{ id: '1', type: 'order', n: 99 }]);  <span class="cmt">// same raw id '1' — merged, not clobbered</span>
+<span class="kw">const</span> merged = g.rows.count();               <span class="cmt">// 3</span>
+<span class="kw">const</span> ids = router.sources().join(',');       <span class="cmt">// crm,erp</span>
+
+router.removeSource('erp');                    <span class="cmt">// drops exactly erp's row</span>
+<span class="kw">const</span> afterRemove = g.rows.count();          <span class="cmt">// 2</span>
+
+g.destroy(); router.destroy();
+<span class="kw">return</span> [merged, ids, afterRemove].join(' | ');</code></pre>
+
+    <p><strong>Observability (v10, BACKLOG-0000932).</strong> <code>metrics()</code> is a cheap point-in-time snapshot of the router's runtime &mdash; per-route row counts and throughput (rows/sec since the previous read), per-source rates and totals (fan-in), and the global <code>unrouted</code> / <code>dropped</code> (duplicate) / <code>buffered</code> (buffer depth) / <code>lag</code> figures. Throughput is sampled, so it is measured over the interval since the last read or emit. <code>on('metrics', handler)</code> drives it on a periodic timer (the <code>metricsInterval</code> ms, default 1000; <code>0</code> disables it) and returns an unsubscribe &mdash; the timer runs only while a listener is registered, so collection is off-by-default. <code>mountDevtools(el, { interval? })</code> mounts an opt-in DOM panel (in the module's own <code>devtools.js</code>, so the core stays DOM-free) that renders <code>metrics()</code> and refreshes on each emit.</p>
+    <h3 id="datarouter-v10-example">A metrics snapshot, executed</h3>
+    <p class="section-note">A snapshot fanned to a route and a sink; the metrics read reports the route's row count and the
+    unrouted total, and <code>on('metrics')</code> returns an unsubscribe. Run headless on every build.</p>
+    <pre data-run="js" data-expect="2 | 1 | function" data-covers="export:createDataRouter"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }];
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id' });
+router.attach(g, 'order');
+
+<span class="kw">const</span> off = router.on('metrics', () =&gt; {});   <span class="cmt">// register; starts the timer, returns unsubscribe</span>
+router.load([
+  { id: 'o1', type: 'order' },
+  { id: 'o2', type: 'order' },
+  { id: 'x1', type: 'ticket' },               <span class="cmt">// matches no route</span>
+]);
+<span class="kw">const</span> m = router.metrics();
+<span class="kw">const</span> rows = m.routes[0].rows;               <span class="cmt">// 2</span>
+<span class="kw">const</span> unrouted = m.unrouted;                 <span class="cmt">// 1</span>
+off();                                        <span class="cmt">// stops the timer (last listener gone)</span>
+
+g.destroy(); router.destroy();
+<span class="kw">return</span> [rows, unrouted, typeof off].join(' | ');</code></pre>
 
     <h2 id="ganttmodule">The Gantt module</h2>
     <p><code>modules/gantt</code> is a separate, opt-in project-planning module &mdash; its own bundle, imported only when you want it, changing nothing in the grid core. It turns a task list into a real schedule: a <strong>CPM (Critical Path Method) engine</strong> computes each task's early/late start and finish, its slack (total float), and the zero-float <strong>critical path</strong>, recomputing on every edit. <code>computeSchedule(tasks, deps)</code> is the pure engine; <code>createGantt(opts)</code> is a controller that holds the model, recomputes on <code>setTasks</code>/<code>setDependencies</code>/<code>applyEdit</code>, and emits <code>schedule</code> (or <code>error</code>). Dependencies are the four standard link types &mdash; <code>LINK_TYPES</code> is <code>['FS','SS','FF','SF']</code> &mdash; each with optional lag/lead. A <strong>milestone</strong> is a zero-duration task scheduled as a point; a <strong>summary</strong> task (any task named as another's <code>parent</code>) is derived from its children (start = earliest child, end = latest child, duration-weighted progress) and is not scheduled itself. Bad input never throws or loops: a dependency cycle is refused and reported with a code from <code>SCHEDULE_ERROR</code>, and <code>findViolations</code> flags any task placed earlier than its predecessors allow. <code>toISODate</code> converts an engine day-number back to a calendar date for display.</p>
@@ -4727,6 +4857,72 @@ router.apply([{ op: 'upsert', row: { id: 't1', kind: 'task', status: 'done', tit
 
 router.destroy();
 <span class="kw">return</span> [hydrated, afterDelta].join(' | ');</code></pre>
+
+    <h2 id="kpi">The KPI (stat-tile) view</h2>
+    <p><code>modules/kpi</code> is an opt-in view of a dataset as a panel of <strong>stat tiles</strong> &mdash; each tile an aggregate over the routed rows: a sum, an average, a min/max, a count, a distinct count, or a host reducer. It is the fourth first-class viewer beside the grid, the kanban and the gantt, in the same shape: a separate bundle that adds no weight to a page that does not load it, changes nothing in grid core, and pulls in no dependency. A KPI panel is <em>just another dataset viewer</em>: it consumes data through the same keyed-diff contract a grid exposes, <code>kpi.rows.apply({ add, update, remove })</code>, so a Data Router can <code>attach(value, kpi)</code> and drive a KPI panel beside a grid, a kanban and a chart off one feed.</p>
+    <pre><code>import { createKPI } from '@toclocoinc/lattice-grid/modules/kpi';
+
+const kpi = createKPI(document.querySelector('#kpis'), {
+  rows,                        <span class="cmt">// or { grid } to read a live grid's rows</span>
+  rowKey: 'id',
+  columns: 4,                  <span class="cmt">// responsive tile columns</span>
+  tiles: [
+    { id: 'total', label: 'Revenue', aggregation: 'sum', field: 'amount', format: 'currency' },
+    { id: 'avg', label: 'Avg deal', aggregation: 'avg', field: 'amount',
+      format: { type: 'currency', decimals: 0 }, baseline: 5000 },   <span class="cmt">// delta vs a baseline</span>
+    { id: 'open', label: 'Open deals', aggregation: 'count',
+      filter: (r) =&gt; r.stage !== 'won',
+      thresholds: { warn: 10, critical: 25, direction: 'lowerIsBetter' } },  <span class="cmt">// good/warn/critical bands</span>
+  ],
+  onTileClick: ({ tile }) =&gt; drillInto(tile.id),
+});</code></pre>
+    <p>Each tile names an <strong>aggregation</strong> (<code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>count</code>, <code>countDistinct</code>, or a <code>custom</code> reducer <code>(rows, tile) =&gt; value</code>), the <strong>field</strong> it reads, and an optional <strong>filter</strong> predicate. Formatting (<code>number</code>/<code>currency</code>/<code>percent</code>/<code>compact</code>, with decimals, currency and locale), a <strong>baseline</strong> for a delta, and semantic <strong>threshold bands</strong> (two cut points with a direction, or an explicit <code>bands</code> list) are all per tile; the band is a semantic name (<code>good</code>/<code>warn</code>/<code>critical</code>), separate from any accent colour. An optional <strong>sparkline</strong> plots a <code>{ x, y }</code> series in sequence order. Each tile is a labelled <code>&lt;figure&gt;</code>, focusable and keyboard-activatable, its value announced; the sparkline transition respects <code>prefers-reduced-motion</code>.</p>
+    <p><strong>Incremental, not recomputed.</strong> Each tile keeps a running accumulator, so a routed <code>rows.apply</code> delta adjusts only the rows it carries &mdash; an add contributes, a remove reverses, an update reverses the old row and contributes the new one &mdash; rather than re-reading the whole dataset per delta. The two bounded exceptions are honest: an extreme (<code>min</code>/<code>max</code>) removed at its current value triggers a rescan of that tile's own value multiset, and a <code>custom</code> reducer is recomputed over the (filtered) store because an arbitrary function has no inverse.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">createKPI(el, config)</td><td class="desc">Create a KPI panel. Pass a DOM element to render into, or <code>null</code> for a headless panel that computes the same tile model without a DOM.</td></tr>
+          <tr><td class="sig">rows.apply({ add, update, remove })</td><td class="desc">The keyed-diff consumer contract a grid shares, so the panel is a drop-in Data Router target and updates each tile incrementally. Also <code>rows.forEach</code> and <code>rows.count</code>.</td></tr>
+          <tr><td class="sig">tiles() / tile(id) / value(id)</td><td class="desc">Every computed tile model, one tile by id (<code>value</code>, <code>formatted</code>, <code>status</code>, <code>delta</code>, <code>deltaPercent</code>, <code>count</code>, <code>sparkline</code>), or a tile's raw value.</td></tr>
+          <tr><td class="sig">setRows(rows) / refresh()</td><td class="desc">Replace the source rows, or re-seed and recompute.</td></tr>
+          <tr><td class="sig">getState() / setState(snapshot)</td><td class="desc">Serialise and restore the panel's row set, so a headless panel round-trips.</td></tr>
+          <tr><td class="sig">on(name, fn) / off(name, fn)</td><td class="desc">Events: <code>tile:click</code>, <code>tile:dblclick</code>, <code>tile:contextmenu</code>, and <code>change</code> (after every update).</td></tr>
+          <tr><td class="sig">destroy()</td><td class="desc">Empty the element and drop the listeners. The host still owns any bound grid.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Interaction is light and host-driven.</strong> A tile emits <code>tile:click</code> (also from the keyboard) carrying the tile model, so a host can drill down or, in a demo, filter a routed grid &mdash; the wiring lives in the host, not the module. This is deliberately not a dashboard layout engine (that is the parked dashboard generator) and charting beyond a minimal sparkline belongs to the charts module.</p>
+    <h3 id="kpi-live-example">Live, driven by a Data Router alongside a grid, executed</h3>
+    <p class="section-note">One feed fans out (<code>overlap</code>) to a KPI panel through the same keyed-diff contract a grid uses:
+    a snapshot seeds the tiles, then a delta removes the current max and the min/max rescans. Run headless on every build.</p>
+    <pre data-run="js" data-expect="350,250 | 100,100 | good" data-covers="export:createKPI"><code><span class="kw">const</span> { createKPI } = <span class="kw">await</span> import('../packages/modules/kpi/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> kpi = createKPI(null, {
+  rowKey: 'id',
+  tiles: [
+    { id: 'total', label: 'Revenue', aggregation: 'sum', field: 'amount', format: 'currency' },
+    { id: 'max', label: 'Biggest', aggregation: 'max', field: 'amount' },
+    { id: 'open', label: 'Open', aggregation: 'count', filter: (r) =&gt; r.stage === 'open',
+      thresholds: { warn: 1, critical: 3, direction: 'lowerIsBetter' } },
+  ],
+});
+
+<span class="kw">const</span> router = createDataRouter({ key: 'kind', rowKey: 'id', overlap: true });
+router.attach(kpi, 'deal');                  <span class="cmt">// a KPI panel is a drop-in router target</span>
+router.load([
+  { id: 'd1', kind: 'deal', amount: 100, stage: 'open' },
+  { id: 'd2', kind: 'deal', amount: 250, stage: 'won' },
+]);
+<span class="kw">const</span> seeded = kpi.value('total') + ',' + kpi.value('max');       <span class="cmt">// 350,250</span>
+
+router.apply([{ op: 'delete', row: { id: 'd2' } }]);              <span class="cmt">// removes the current max</span>
+<span class="kw">const</span> afterRemove = kpi.value('total') + ',' + kpi.value('max'); <span class="cmt">// 100,100 (max rescanned)</span>
+<span class="kw">const</span> band = kpi.tile('open').status;                          <span class="cmt">// 'good' — 1 open, lowerIsBetter</span>
+
+router.destroy();
+<span class="kw">return</span> [seeded, afterRemove, band].join(' | ');</code></pre>
 
     <h2 id="mocksocket">The mock socket</h2>
     <p><code>modules/mock-socket</code> is a serverless stand-in for a live <code>WebSocket</code> feed, for building and demonstrating a real-time UI with <strong>no backend</strong>. <code>MockWebSocket</code> presents the same surface as the browser's <code>WebSocket</code> &mdash; the same <code>readyState</code> and state constants, the same <code>onopen</code>, <code>onmessage</code>, <code>onclose</code> and <code>onerror</code>, <code>addEventListener</code>, <code>send</code> and <code>close</code> &mdash; so the code that reads it does not change when it is swapped for a real one. It fires an initial snapshot the moment it opens, then a stream of deltas on a timer, all from a generator you hand it. It is a dev and test utility: optional, imports nothing from the grid, and is never pulled into the core bundle. It pairs naturally with the data router (one mock stream, partitioned to many grids), but depends on it no more than a real socket does.</p>

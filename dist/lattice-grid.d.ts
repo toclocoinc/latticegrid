@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.34.1, type declarations
+ * Lattice Grid 1.35.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -6276,21 +6276,43 @@ declare module 'lattice-grid/modules/gantt' {
   /** One of the four dependency link types (finish-to-start, start-to-start, finish-to-finish, start-to-finish). */
   export type GanttLinkType = 'FS' | 'SS' | 'FF' | 'SF';
 
+  /** A scheduling constraint: pin the start, pin the finish, or schedule as late as possible. */
+  export type GanttConstraintType =
+    | 'must-start-on' | 'must-finish-on' | 'as-late-as-possible' | 'MSO' | 'MFO' | 'ALAP';
+
+  /** A working-time calendar: a Monday–Friday preset, or explicit working weekdays and holidays. */
+  export type GanttCalendar =
+    | 'weekends'
+    | { workdays?: number[]; holidays?: Array<string | number | Date> };
+
   /**
-   * A task in a Gantt plan. Give a `duration` or a numeric `start`+`end` (one is
-   * derived from the other). `milestone: true` (or `duration: 0`) is a
-   * zero-duration point. `parent` nests a task under a summary task, whose window
-   * and progress are DERIVED from its children rather than scheduled.
+   * A task in a Gantt plan. Give a `duration` or a `start`+`end` (a day-number,
+   * ISO date string or `Date`; one is derived from the other). `milestone: true`
+   * (or `duration: 0`) is a zero-duration point. `parent` nests a task under a
+   * summary, whose window and progress are DERIVED from its children.
+   * `baselineStart`/`baselineEnd` (host-stored) drive planned-vs-actual variance;
+   * `constraint` pins or pulls the task; `assignee` and `height` feed the split
+   * view's grid panel.
    */
   export interface GanttTask {
     id: string | number;
     name?: string;
-    start?: number;
-    end?: number;
+    start?: number | string | Date;
+    end?: number | string | Date;
     duration?: number;
     percentComplete?: number;
     milestone?: boolean;
     parent?: string | number;
+    baselineStart?: number | string | Date;
+    baselineEnd?: number | string | Date;
+    baseline?: { start?: number | string | Date; end?: number | string | Date };
+    constraint?: GanttConstraintType;
+    constraintDate?: number | string | Date;
+    assignee?: string | string[];
+    assignees?: string[];
+    owner?: string;
+    /** An explicit row height (px) for the split view; applied to both panels. */
+    height?: number;
   }
 
   /**
@@ -6320,6 +6342,21 @@ declare module 'lattice-grid/modules/gantt' {
     isSummary: boolean;
     isMilestone: boolean;
     children: string[];
+    /** The planned (baseline) window, present only when the task carries a baseline. */
+    baselineStart?: number | null;
+    baselineEnd?: number | null;
+    /** Variance vs the baseline (actual − planned, day-numbers); a positive value is a slip. */
+    startVariance?: number | null;
+    finishVariance?: number | null;
+    durationVariance?: number | null;
+  }
+
+  /** An unhonourable scheduling constraint, reported rather than obeyed. */
+  interface GanttConflict {
+    id: string;
+    type: string;
+    at: number | null;
+    earliestFeasible: number;
   }
 
   /** A CPM schedule result: per-task dates/float and the critical path, or an error. */
@@ -6333,6 +6370,10 @@ declare module 'lattice-grid/modules/gantt' {
     projectStart?: number;
     projectFinish?: number;
     projectDuration?: number;
+    /** Constraints a predecessor made infeasible (empty when all are satisfied). */
+    conflicts?: GanttConflict[];
+    /** Whether a working-time calendar was applied. */
+    calendar?: boolean;
   }
 
   /** A placement violation flagged by `findViolations`. */
@@ -6355,7 +6396,7 @@ declare module 'lattice-grid/modules/gantt' {
    * and the zero-float critical path, with summaries derived from their children,
    * milestones scheduled as points, and dependency cycles refused (never looped).
    */
-  export function computeSchedule(tasks: GanttTask[], deps?: GanttDependency[], options?: { projectStart?: number; deadline?: number }): GanttSchedule;
+  export function computeSchedule(tasks: GanttTask[], deps?: GanttDependency[], options?: { projectStart?: number | string | Date; deadline?: number | string | Date; calendar?: GanttCalendar | null }): GanttSchedule;
 
   /** The tasks placed earlier than their earliest feasible start (manual validation). */
   export function findViolations(tasks: GanttTask[], schedule: GanttSchedule): GanttViolation[];
@@ -6369,6 +6410,8 @@ declare module 'lattice-grid/modules/gantt' {
     readonly dependencies: GanttDependency[];
     readonly schedule: GanttSchedule | null;
     readonly critical: string[];
+    /** Constraints the latest schedule could not honour (empty when all are satisfied). */
+    readonly conflicts: GanttConflict[];
     readonly autoSchedule: boolean;
     readonly grid: unknown;
     setTasks(tasks: GanttTask[]): GanttSchedule;
@@ -6423,6 +6466,36 @@ declare module 'lattice-grid/modules/gantt' {
       /** Days a keyboard arrow moves/resizes a task (default 1). */
       moveStep?: number;
     }): unknown;
+    /**
+     * Mount the JOINED split view (BACKLOG-0000938): one continuous, row-aligned
+     * surface with a left task-grid panel (Task Name tree with expand/collapse,
+     * assignee avatars, a circular % ring, plus any host columns) and the right
+     * timeline, sharing a single vertical scroll so every grid row lines up
+     * exactly with its bar row. The timeline scrolls horizontally on its own.
+     * Composes the controller's schedule; makes no change to grid core.
+     */
+    mountSplit(container: unknown, options?: {
+      height?: number;
+      rowHeight?: number;
+      headerHeight?: number;
+      gridWidth?: number;
+      indent?: number;
+      zoom?: 'day' | 'week' | 'month' | 'quarter' | number;
+      today?: number;
+      nonWorking?: 'weekends' | ((day: number) => boolean);
+      calendar?: GanttCalendar | null;
+      showArrows?: boolean;
+      showProgress?: boolean;
+      showBaseline?: boolean;
+      barLabel?: 'name' | 'percent' | 'dates' | 'none' | ((task: GanttScheduledTask) => string);
+      columns?: Array<{ key: string; title?: string; width?: number; kind?: 'name' | 'assignee' | 'progress'; render?: (task: GanttScheduledTask, ctx: { rawTask: GanttTask; depth: number }) => unknown }>;
+    }): unknown;
+    /**
+     * Capture a baseline (planned) snapshot of the current schedule as HOST data
+     * (this does not mutate the tasks). Store it and feed it back as
+     * `baselineStart`/`baselineEnd` task fields to get variance and ghost bars.
+     */
+    captureBaseline(): Array<{ id: string; baselineStart: number; baselineEnd: number; baselineDuration: number }>;
     /** Detach the mounted view, if any. The host still owns the container. */
     unmount(): void;
     /** The mounted view, or null. */
@@ -6440,9 +6513,12 @@ declare module 'lattice-grid/modules/gantt' {
   export function createGantt(opts?: {
     tasks?: GanttTask[];
     dependencies?: GanttDependency[];
-    projectStart?: number;
-    /** A project deadline (day-number); tasks that cannot meet it get negative float. */
-    deadline?: number;
+    /** The schedule anchor: a day-number, ISO date string or Date. It only sets the floor a task with no predecessor starts on; it does not change how the schedule is computed. */
+    projectStart?: number | string | Date;
+    /** A project deadline (a day-number, ISO string or Date); tasks that cannot meet it get negative float. */
+    deadline?: number | string | Date;
+    /** A working-time calendar: skip weekends/holidays, durations in working days. */
+    calendar?: GanttCalendar | null;
     autoSchedule?: boolean;
     grid?: unknown;
     /** Map task fields to grid column ids to enable drag write-back. */
@@ -6789,8 +6865,16 @@ declare module 'lattice-grid/modules/kanban' {
     swimlanes?: boolean;
     /** Explicit lane definitions; otherwise lanes come from the distinct swimlane values. */
     lanes?: (string | { id: string; title?: string })[];
+    /** An explicit lane order by id (also set by a lane-header-drag reorder). */
+    laneOrder?: string[];
+    /** Enforce `wipLimit` as a hard gate: a move that would exceed it is refused (default false). */
+    enforceWip?: boolean;
+    /** A custom card template: return an HTML string or a DOM node to own the whole card body. */
+    cardRenderer?: (card: KanbanCard, ctx: { column: KanbanColumn; readonly: boolean; el: HTMLElement; doc: Document }) => string | Node | void;
     sprintProperty?: string;
     epicProperty?: string;
+    /** A configurable sprint dataset: the canonical sprint list (order + titles), shown even when empty. */
+    sprints?: (string | { id: unknown; title?: string })[];
     /** The initially selected sprint id, `Kanban.BACKLOG`, or undefined for all. */
     sprint?: unknown;
     /** The initially selected epic id, or undefined for all. */
@@ -6933,6 +7017,10 @@ declare module 'lattice-grid/modules/kanban' {
     reorderColumns(order: string[]): Kanban;
     /** Move one column before another (or to the end); emits `column:reorder`. */
     moveColumn(id: string, beforeId: string | null): Kanban;
+    /** Reorder the swimlanes to the given id order (emits `swimlane:reorder`). */
+    reorderLanes(order: string[]): Kanban;
+    /** Move one swimlane before another (or to the end); emits `swimlane:reorder`. */
+    moveLane(id: string, beforeId: string | null): Kanban;
     /** Set a predicate filter over cards, or clear it with null. */
     setFilter(fn: ((row: KanbanRow, card: KanbanCard) => boolean) | null): Kanban;
     /** Set the quick-filter text matched across card fields. */
@@ -6947,8 +7035,10 @@ declare module 'lattice-grid/modules/kanban' {
     showBacklog(): Kanban;
     /** Select the shown epic (undefined for all); emits `epic:changed`. */
     setEpic(epic: unknown): Kanban;
-    /** The distinct sprint values (the switcher's options). */
+    /** The distinct sprint values (the switcher's options); a configured `sprints` dataset pins the order. */
     sprints(): unknown[];
+    /** The sprint dataset as `{ id, title }` descriptors — the configured list plus any data-only sprint. */
+    sprintDefs(): { id: unknown; title: string }[];
     /** The distinct epic values. */
     epics(): unknown[];
     /** Roll rows up by a property: per-bucket count, points, done and progress. */
@@ -6989,4 +7079,146 @@ declare module 'lattice-grid/modules/kanban' {
    */
   export function createKanban(el: HTMLElement | null, config?: KanbanConfig): Kanban;
   export default createKanban;
+}
+
+declare module 'lattice-grid/modules/kpi' {
+  /** A row backing a KPI aggregate: any object. Its identity comes from `rowKey`. */
+  type KPIRow = Record<string, unknown>;
+
+  /** The aggregation kinds a tile can compute. `custom` is a host reducer over the rows. */
+  type KPIAggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'countDistinct' | 'custom';
+
+  /** Number formatting for a tile value. `percent` treats the value as a ratio (0.42 → 42%). */
+  type KPIFormat =
+    | 'number' | 'currency' | 'percent' | 'compact'
+    | { type?: 'number' | 'currency' | 'percent' | 'compact'; decimals?: number; currency?: string; locale?: string };
+
+  /**
+   * A semantic threshold: two cut points and a direction. `higherIsBetter` (the
+   * default) makes a value at/above `warn` good, at/above `critical` a warning,
+   * below it critical; `lowerIsBetter` mirrors it. Colour is a host concern.
+   */
+  interface KPIThresholds {
+    warn: number;
+    critical: number;
+    direction?: 'higherIsBetter' | 'lowerIsBetter';
+  }
+
+  /** An explicit band: the `status` of the first band whose half-open `[min, max)` contains the value. */
+  interface KPIBand {
+    min?: number;
+    max?: number;
+    status: 'good' | 'warn' | 'critical';
+  }
+
+  /** An optional sparkline series: the `y` field plotted in order of the `x` field (or insertion). */
+  interface KPISparkline {
+    x?: string;
+    y: string | ((row: KPIRow) => unknown);
+  }
+
+  /** One tile: an aggregate over the routed rows, with optional filter, format, threshold and trend. */
+  interface KPITile {
+    /** A stable identity for the tile (defaults to the label, then the index). */
+    id?: string;
+    /** The tile's accessible label. */
+    label?: string;
+    /** The aggregation kind, or a reducer `(rows, tile) => value` for a custom tile. */
+    aggregation?: KPIAggregation | ((rows: KPIRow[], tile: object) => unknown);
+    /** The reducer for a `custom` aggregation, when `aggregation` is the string `'custom'`. */
+    compute?: (rows: KPIRow[], tile: object) => unknown;
+    /** The field the aggregation reads (a path or accessor). Ignored by `count`. */
+    field?: string | ((row: KPIRow) => unknown);
+    /** A predicate limiting the rows this tile aggregates. */
+    filter?: (row: KPIRow) => boolean;
+    /** Value formatting. */
+    format?: KPIFormat;
+    /** A comparison target rendered alongside the value. */
+    target?: number;
+    /** A baseline the tile's delta is measured against. */
+    baseline?: number;
+    /** Threshold bands, either two cut points or an explicit band list. */
+    thresholds?: KPIThresholds;
+    /** Explicit status bands (an alternative to `thresholds`). */
+    bands?: KPIBand[];
+    /** A trend sparkline series. */
+    sparkline?: KPISparkline | string;
+  }
+
+  /** A computed tile, as it appears in the model. */
+  interface KPITileModel {
+    id: string;
+    label: string;
+    aggregation: string;
+    field?: string;
+    value: unknown;
+    formatted: string;
+    status: 'good' | 'warn' | 'critical' | null;
+    target?: number;
+    baseline?: number;
+    delta: number | null;
+    deltaPercent: number | null;
+    deltaFormatted?: string;
+    count: number;
+    sparkline: number[] | null;
+  }
+
+  /** The payload every tile event carries. */
+  interface KPIEvent {
+    tile: KPITileModel;
+    id: string;
+    originalEvent?: unknown;
+  }
+
+  /** KPI panel configuration. */
+  interface KPIConfig {
+    rows?: KPIRow[];
+    grid?: unknown;
+    rowKey?: string | ((row: KPIRow) => unknown);
+    tiles?: KPITile[];
+    columns?: number;
+    ariaLabel?: string;
+    nullText?: string;
+    onTileClick?: (event: KPIEvent) => void;
+    onTileDblClick?: (event: KPIEvent) => void;
+    onTileContextMenu?: (event: KPIEvent) => void;
+    onChange?: (event: { model: { tiles: KPITileModel[] } }) => void;
+  }
+
+  /** The keyed-diff consumer surface a KPI panel shares with a grid, so a Data Router routes to it directly. */
+  interface KPIRows {
+    apply(change: { add?: KPIRow[]; update?: KPIRow[]; remove?: unknown[] }): void;
+    forEach(fn: (row: KPIRow, key: unknown) => void): void;
+    readonly count: number;
+  }
+
+  /**
+   * A KPI / stat-tile panel: a grid of aggregate tiles over a dataset. It
+   * consumes data through the same keyed-diff `rows.apply` contract a grid
+   * exposes, so `dataRouter.attach(value, kpi)` drives it like any other viewer,
+   * updating each tile incrementally from the routed delta.
+   */
+  interface KPI {
+    readonly el: unknown | null;
+    readonly rowKey: string | ((row: KPIRow) => unknown);
+    rows: KPIRows;
+    tiles(): KPITileModel[];
+    tile(id: string): KPITileModel | undefined;
+    value(id: string): unknown;
+    setRows(rows: KPIRow[]): KPI;
+    refresh(): KPI;
+    getState(): object;
+    setState(snapshot: object): KPI;
+    on(name: string, fn: (event: KPIEvent) => void): () => void;
+    off(name: string, fn: (event: KPIEvent) => void): void;
+    destroy(): void;
+  }
+
+  /**
+   * Create a KPI / stat-tile panel over rows or a bound grid. Pass a DOM element
+   * to render into, or `null` for a headless panel that computes the same tile
+   * model without a DOM.
+   */
+  export function createKPI(el: HTMLElement | null, config?: KPIConfig): KPI;
+  export default createKPI;
 }
