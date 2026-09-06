@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.40.0, type declarations
+ * Lattice Grid 1.42.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -7999,4 +7999,143 @@ declare module 'lattice-grid/modules/kpi' {
    */
   export function createKPI(el: HTMLElement | null, config?: KPIConfig): KPI;
   export default createKPI;
+}
+
+declare module 'lattice-grid/modules/ai' {
+  /**
+   * The provider-agnostic model callback the host supplies (BACKLOG-0000965).
+   * The module never imports a provider SDK, reads a key, or makes a network
+   * call — it builds this payload and awaits the host's reply. A host may wrap a
+   * chat provider (`{ text }`), a completion (a bare string), a tool-calling turn
+   * (`{ toolCalls }`), or a structured provider (`{ structured }`).
+   */
+  type AIAsk = (payload: {
+    /** The narrate-only system instruction. */
+    system: string;
+    /** The single user message: the facts block and the ask. */
+    message: string;
+    /** System and message joined, for a completion-shaped provider. */
+    prompt: string;
+    /** The running chat, including any tool results, for a chat-shaped provider. */
+    messages: Array<{ role: string; content: string; [k: string]: unknown }>;
+    /** The read-only tool definitions, present only on the tool-use path. */
+    tools?: object[];
+    /** The grid's generated schema (no row values). */
+    schema?: unknown;
+    /** An abort signal the host should honour. */
+    signal?: AbortSignal;
+  }) => Promise<
+    | string
+    | { text?: string; content?: string; toolCalls?: object[]; structured?: unknown }
+  >;
+
+  /** A single computed figure a narrative is grounded on. */
+  interface AIFact {
+    id: string;
+    label: string;
+    /** The raw numeric value, or null for a context-only fact. */
+    value: number | null;
+    /** The pre-formatted display string the model is told to use verbatim. */
+    display: string;
+    kind: string;
+    colId?: string;
+  }
+
+  /**
+   * A narrative target. `view` narrates the current filtered view; `column`
+   * narrates one column's profile; `forecast` adds its projection; `kpi`/`chart`
+   * narrate figures the caller passes through in `facts`.
+   */
+  interface AITarget {
+    kind?: 'view' | 'column' | 'forecast' | 'kpi' | 'chart';
+    colId?: string;
+    /** Forecast options, for `kind: 'forecast'`. */
+    options?: object;
+    /** Caller-supplied figures for a KPI/chart Explain, grounded like the rest. */
+    facts?: Array<{ id?: string; label: string; value: unknown; display?: string; kind?: string; colId?: string }>;
+  }
+
+  /** The facts packet a narrative grounds on. */
+  interface AIFactsPacket {
+    target: AITarget;
+    facts: AIFact[];
+    /** The numeric values seeding the reconciliation registry. */
+    groundedValues: number[];
+    meta: { kind: string; filtered: boolean; factCount: number; redacted?: boolean; colId?: string };
+  }
+
+  /** The result of a narrative: reconciled prose plus what grounded and what did not. */
+  interface AINarrative {
+    /** The narrative, with every ungrounded figure stripped (or flagged). */
+    text: string;
+    facts: AIFact[];
+    /** The figures that reconciled against a computed value. */
+    grounded: string[];
+    /** The figures removed as ungrounded. */
+    flagged: string[];
+    packet: AIFactsPacket;
+    /** How many ask() rounds ran (>1 only on the tool-use path). */
+    rounds: number;
+    mode: 'tools' | 'packet';
+  }
+
+  /** AI module configuration. */
+  interface AIConfig {
+    /** The host's model callback. Falls back to the grid's `ai.ask` when omitted. */
+    ask?: AIAsk;
+    /** Opt into specific features: `'narrative'`, `'insights'`. All on when omitted. */
+    enable?: string[];
+    /** Cap on rows any tool result carries to `ask()`. */
+    maxRows?: number;
+    /** Columns whose values must never leave the browser. */
+    redact?: string | string[] | ((colId: string) => boolean);
+    /** Force tool-use on or off; auto-detected from how `ask` was supplied otherwise. */
+    tools?: boolean;
+    /** Locale for figure formatting. */
+    locale?: string;
+    /** Column cap for a view summary. */
+    maxColumns?: number;
+    /** What to do with an ungrounded figure: `'strip'` (default) or `'flag'`. */
+    reconcile?: 'strip' | 'flag';
+    /** An element to mount the insights panel into. */
+    element?: HTMLElement;
+    /** Called when a narrative is produced. */
+    onNarrative?: (result: AINarrative) => void;
+    /** Called when `ask()` errors; the grid stays usable. */
+    onError?: (error: { error: unknown; target: AITarget }) => void;
+  }
+
+  /**
+   * An AI narrative / insights controller over a live grid. Read-only: it
+   * explains the grid's computed figures and never mutates data. `grid.ai` (in
+   * core) is the complementary intent/plan skill layer; this is the
+   * narrative/insights consumer.
+   */
+  interface AI {
+    /** The mounted insights panel element, or null. */
+    readonly el: HTMLElement | null;
+    /** Whether a usable `ask()` is configured. */
+    readonly ready: boolean;
+    /** Produce a grounded, reconciled narrative for a target. */
+    explain(target?: AITarget, opts?: object): Promise<AINarrative>;
+    /** An alias for {@link AI.explain}. */
+    narrate(target?: AITarget, opts?: object): Promise<AINarrative>;
+    /** Mount (or re-target) the insights panel into an element. */
+    insights(el?: HTMLElement, opts?: object): AI;
+    /** Build an "Explain" button bound to a target. */
+    attachExplain(target: AITarget, opts?: object): HTMLElement | null;
+    /** Build the facts packet for a target without calling `ask()`. */
+    facts(target?: AITarget, opts?: object): AIFactsPacket;
+    on(name: 'narrative' | 'error' | string, fn: (payload: object) => void): () => void;
+    off(name: string, fn: (payload: object) => void): void;
+    destroy(): void;
+  }
+
+  /**
+   * Create an AI narrative / insights controller over a live grid. The grid may
+   * be headless or rendered; the module grounds every figure on the grid's
+   * engine and calls only the host's `ask()`.
+   */
+  export function createAI(grid: unknown, config?: AIConfig): AI;
+  export default createAI;
 }

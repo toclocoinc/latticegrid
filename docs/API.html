@@ -5268,6 +5268,66 @@ router.apply([{ op: 'delete', row: { id: 'd2' } }]);              <span class="c
 router.destroy();
 <span class="kw">return</span> [seeded, afterRemove, band].join(' | ');</code></pre>
 
+    <h2 id="ai">The AI narrative / insights layer</h2>
+    <p><code>modules/ai</code> is an opt-in layer that produces a short, plain-language <strong>narrative</strong> of the grid's <em>computed</em> figures &mdash; a per-KPI / per-chart / per-column &ldquo;Explain&rdquo;, or an insights panel over the current (filtered) view. It is a separate bundle that adds no weight to a page that does not load it, changes nothing in grid core, and pulls in no dependency. <strong>The grid makes no AI call of its own:</strong> <code>createAI</code> never imports a provider SDK, never reads a key, and never makes a network request. It calls one async callback you supply, <code>ask()</code> &mdash; your model, your key, your privacy decision &mdash; exactly the philosophy of the data adapters, where auth and transport are always the caller's.</p>
+    <pre><code>import { createAI } from '@toclocoinc/lattice-grid/modules/ai';
+
+const ai = createAI(grid, {
+  ask: async ({ system, messages, tools, schema, signal }) =&gt; {
+    const r = await myProvider.chat({ system, messages, tools, signal });
+    return { text: r.text, toolCalls: r.toolCalls };   <span class="cmt">// or a bare string</span>
+  },
+  maxRows: 50,                 <span class="cmt">// cap what any tool result carries to ask()</span>
+  redact: ['ssn', 'salary'],   <span class="cmt">// columns whose values never leave the browser</span>
+});
+
+ai.insights(document.querySelector('#insights'));                 <span class="cmt">// the panel</span>
+const { text, flagged } = await ai.explain({ kind: 'column', colId: 'amount' });</code></pre>
+    <p><strong>Grounded, and reconciled.</strong> Where your provider offers tool-use, the model is given a curated <strong>read-only</strong> tool set (<code>getSchema</code>, <code>getProfile</code>, <code>getStatistics</code>, <code>getForecast</code>, <code>runQuery</code>) and <em>our</em> engine computes what it asks for; where it does not, the module builds a <strong>facts packet</strong> from the grid's computed results (<code>grid.statistics</code>, the profile, forecasts, view counts) and passes it in the prompt. Either way, <strong>every figure in the narrative is reconciled against the values the engine produced this render</strong> &mdash; an ungrounded number is stripped before the user sees it. The prompt is constrained to narrate-only; the layer is read-only and never mutates data. <code>redact</code> and <code>maxRows</code> bound what the module hands <code>ask()</code>, and the module sends nothing itself. An <code>ask()</code> error surfaces a friendly message and the grid stays fully usable &mdash; AI is additive, never load-bearing.</p>
+    <p><code>createAI</code> is complementary to <code>grid.ai</code>: <code>grid.ai</code> is the intent/plan skill layer (a question becomes a validated filter/sort plan you preview and apply); <code>createAI</code> is the narrative/insights consumer that explains figures. They can share one host <code>ask()</code> &mdash; pass none to <code>createAI</code> and it adopts the grid's configured <code>ai.ask</code>, running the facts-packet path over it.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">createAI(grid, config)</td><td class="desc">Create an AI narrative / insights controller over a live grid (headless or rendered). Config: <code>ask</code> (the host callback; falls back to the grid's <code>ai.ask</code>), <code>enable</code>, <code>maxRows</code>, <code>redact</code>, <code>tools</code>, <code>locale</code>, <code>reconcile</code> (<code>'strip'</code>/<code>'flag'</code>), <code>element</code>, <code>onNarrative</code>, <code>onError</code>.</td></tr>
+          <tr><td class="sig">explain(target?, opts?) / narrate(...)</td><td class="desc">Produce a grounded, reconciled narrative. <code>target</code> is <code>{ kind: 'view' }</code>, <code>{ kind: 'column', colId }</code>, <code>{ kind: 'forecast', colId, options }</code>, or <code>{ kind: 'kpi'|'chart', facts }</code>. Resolves to <code>{ text, facts, grounded, flagged, rounds, mode }</code>.</td></tr>
+          <tr><td class="sig">insights(el?, opts?)</td><td class="desc">Mount (or re-target) the insights panel into an element, its generate control wired to a view narrative. Keeps the grid usable on an <code>ask()</code> error.</td></tr>
+          <tr><td class="sig">attachExplain(target, opts?)</td><td class="desc">Build an &ldquo;Explain&rdquo; button bound to a target (a KPI tile, a chart datum, a column). Clicking it narrates the target.</td></tr>
+          <tr><td class="sig">facts(target?, opts?)</td><td class="desc">Build the facts packet for a target <em>without</em> calling <code>ask()</code> &mdash; the exact grounded set a narrative would use, and what would leave the browser.</td></tr>
+          <tr><td class="sig">on(name, fn) / off(name, fn) / destroy()</td><td class="desc">Events: <code>narrative</code> and <code>error</code>. <code>destroy()</code> tears the controller down and leaves the grid untouched.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="ai-reconcile-example">Grounded, with the reconciliation guard, executed</h3>
+    <p class="section-note">A mock <code>ask()</code> returns one grounded figure (the row count) and one invented one.
+    The number-reconciliation guard strips the ungrounded figure and keeps the grounded one. Run headless on every build.</p>
+    <pre data-run="js" data-expect="1 flagged | true kept | true stripped" data-covers="export:createAI"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createAI } = <span class="kw">await</span> import('../packages/modules/ai/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'region' }, { field: 'amount', type: 'number' }],
+  rows: [
+    { id: 1, region: 'EMEA', amount: 100 },
+    { id: 2, region: 'AMER', amount: 300 },
+    { id: 3, region: 'APAC', amount: 200 },
+  ],
+});
+
+<span class="cmt">// Your model, your key. The grid makes no network call — it awaits this.</span>
+<span class="cmt">// This mock returns one grounded figure (3 rows) and one invented one (900%).</span>
+<span class="kw">const</span> ask = <span class="kw">async</span> () =&gt; ({ text: 'There are 3 rows in view. Confidence 900%.' });
+
+<span class="kw">const</span> ai = createAI(grid, { ask, tools: <span class="kw">false</span> });
+<span class="kw">const</span> result = <span class="kw">await</span> ai.explain({ kind: 'view' });
+
+<span class="kw">const</span> kept = result.text.includes('3 rows');      <span class="cmt">// grounded — survives</span>
+<span class="kw">const</span> stripped = !result.text.includes('900%');   <span class="cmt">// hallucinated — removed</span>
+
+ai.destroy();
+grid.destroy();
+<span class="kw">return</span> `${result.flagged.length} flagged | ${kept} kept | ${stripped} stripped`;</code></pre>
+
     <h2 id="mocksocket">The mock socket</h2>
     <p><code>modules/mock-socket</code> is a serverless stand-in for a live <code>WebSocket</code> feed, for building and demonstrating a real-time UI with <strong>no backend</strong>. <code>MockWebSocket</code> presents the same surface as the browser's <code>WebSocket</code> &mdash; the same <code>readyState</code> and state constants, the same <code>onopen</code>, <code>onmessage</code>, <code>onclose</code> and <code>onerror</code>, <code>addEventListener</code>, <code>send</code> and <code>close</code> &mdash; so the code that reads it does not change when it is swapped for a real one. It fires an initial snapshot the moment it opens, then a stream of deltas on a timer, all from a generator you hand it. It is a dev and test utility: optional, imports nothing from the grid, and is never pulled into the core bundle. It pairs naturally with the data router (one mock stream, partitioned to many grids), but depends on it no more than a real socket does.</p>
     <pre><code>import { MockWebSocket, opsFeed } from '@toclocoinc/lattice-grid/modules/mock-socket';
