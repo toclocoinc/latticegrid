@@ -386,6 +386,7 @@
         <a href="#pagination">grid.pagination</a>
         <a href="#scroll">grid.scroll</a>
         <a href="#export">grid.export</a>
+        <a href="#import">grid.import</a>
         <a href="#state">grid.state</a>
         <a href="#history">grid.history</a>
         <a href="#diagnostics">grid.diagnostics</a>
@@ -1155,6 +1156,7 @@ grid.overlay.hide();</code></pre>
           <tr><td class="sig">status(key, colId)</td><td class="type">'pending' | null</td><td class="desc">Whether a cell has a write in flight.</td></tr>
           <tr><td class="sig">addRow(row)</td><td class="type">string | null</td><td class="desc">Append a row optimistically and persist it (over a source declaring <code>mutate.append</code>). Returns the client temp key; on the server key it fires <code>row:confirmed</code> after rekeying selection, expansion, focus and in-flight cell edits. <code>null</code> when append is unavailable.</td></tr>
           <tr><td class="sig">deleteRow(key)</td><td class="type">string | null</td><td class="desc">Delete a row optimistically and persist it (over a source declaring <code>mutate.delete</code>). Tombstones then confirms, or restores on refusal. <code>null</code> when delete is unavailable.</td></tr>
+          <tr><td class="sig">deleteRows(keys?, opts?)</td><td class="type">string[] | Promise</td><td class="desc">The user-gesture delete (what the Delete key and the "Delete row" menu item call), through the cancellable <code>beforeDelete</code> event — on a <strong>memory</strong> grid as well as a remote one. Off until <code>config.rowDelete</code>. Keys default to the selection; returns the keys removed (empty on a veto or when disabled), or a Promise when a handler deferred.</td></tr>
           <tr><td class="sig">settleRow(id, ok, reason?, reconcile?)</td><td class="type">boolean</td><td class="desc">Report the outcome of a structural op. Only needed with <code>edit.confirm: 'manual'</code>; the id arrives on <code>row:pending</code>.</td></tr>
           <tr><td class="sig">rowStatus(key)</td><td class="type">'pending' | null</td><td class="desc">Whether a row has an append/delete in flight.</td></tr>
           <tr><td class="sig">pendingRows()</td><td class="type">OpenRowOp[]</td><td class="desc">Structural ops still awaiting an outcome. Empty unless the source can append or delete.</td></tr>
@@ -1216,6 +1218,35 @@ grid.edit.deleteRow(movedTo);
 grid.destroy();
 <span class="cmt">// fired: pending:append, confirmed:append, pending:delete, confirmed:delete</span>
 <span class="kw">return</span> `${movedTo} selected; ${gone ? 'deleted' : 'still-there'}`;</code></pre>
+
+    <p class="section-note">
+      <strong>The built-in delete gesture.</strong> <code>deleteRow</code> above only fires
+      <code>beforeDelete</code> on a remote source. For the common case &mdash; letting a user delete
+      rows of a <em>memory</em> grid with the Delete key or a "Delete row" menu item, confirmed
+      through the same <code>beforeDelete</code> hook &mdash; set <code>config.rowDelete: true</code>.
+      It is off by default because deleting data on a keystroke is destructive; every deletion still
+      flows through <code>beforeDelete</code>, so a handler can confirm or veto it with
+      <code>preventDefault(reason)</code>. <code>grid.edit.deleteRows</code> is the programmatic entry.
+    </p>
+    <pre data-run="js" data-expect="2 rows" data-covers="config:rowDelete"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  columns: [{ field: 'id' }],
+  rows: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+  rowKey: 'id',
+  selection: 'multiple',
+  rowDelete: <span class="kw">true</span>,   <span class="cmt">// opt in to the Delete-key / menu gesture and the API</span>
+});
+
+<span class="cmt">// A confirm hook that vetoes deleting row 'b' but allows the rest.</span>
+grid.on('beforeDelete', (e) =&gt; { <span class="kw">if</span> (e.rows.includes('b')) e.preventDefault('kept'); });
+
+grid.edit.deleteRows(['a']);   <span class="cmt">// allowed — 'a' is removed</span>
+grid.edit.deleteRows(['b']);   <span class="cmt">// vetoed — 'b' stays, delete:cancelled fires</span>
+
+<span class="kw">const</span> count = grid.rows.count();
+grid.destroy();
+<span class="kw">return</span> `${count} rows`;   <span class="cmt">// 2 rows: 'b' and 'c'</span></code></pre>
 
     <p class="section-note">
       <strong>Previewing a bulk paste.</strong> A paste can rewrite dozens of cells at once, and one
@@ -1316,6 +1347,37 @@ grid.edit.setCells(preview.changes.map((c) =&gt; ({ key: c.key, colId: c.colId, 
       <p><strong>Excel value conversion.</strong> A data type may declare <code>toExcelValue</code> and <code>excelKind</code>, because a spreadsheet's number formats are not free-form. A time of day is written as a fraction of a day under <code>hh:mm:ss</code>; a duration as days under <code>[h]:mm:ss</code>, where the brackets are what stop Excel wrapping at 24 hours. Both stay numeric, so they still sort and subtract in the sheet.</p>
       <p>IP columns are stored as packed integers so they sort as addresses, and declare <code>excelKind: 'string'</code> so the dotted form is what reaches the file. Radix columns export decimal: OOXML cannot express base 16, and staying numeric was judged worth more than display fidelity.</p>
     </div>
+
+    <h2 id="import">grid.import</h2>
+    <p>The mirror of <a href="#export">grid.export</a>: rows coming <em>in</em> from delimited text — a CSV or TSV file, or the tab-separated block a spreadsheet puts on the clipboard. The pipeline is parse, infer each column's type, map the columns onto the grid's own fields, then preview and confirm. The API is always present; set <code>config.import</code> to add the DOM affordances (a "Import rows from CSV…" cell-menu item, a file drop target, and paste).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">preview(text, opts?)</td><td class="type">ImportPreview</td><td class="desc">Parse, infer and map without changing the grid — the columns, the coerced records, a sample and any warnings a confirm dialog needs.</td></tr>
+          <tr><td class="sig">csv(text, opts?)</td><td class="type">object[]</td><td class="desc">Parse delimited text into coerced record objects, the inverse of <code>export.csv</code>.</td></tr>
+          <tr><td class="sig">apply(input, opts?)</td><td class="type">ChangeResult | null</td><td class="desc">Add (<code>mode: 'append'</code>, the default) or replace (<code>mode: 'replace'</code>) the grid's rows from text, a preview or a record array. A client-side operation, so it applies to a memory-source grid; on any other source it declines rather than show rows that cannot persist.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note"><p><strong>Excel.</strong> <code>.xlsx</code> is not read: it needs an inflate and XML reader the zero-dependency envelope does not carry. Save the sheet as CSV — every spreadsheet does — and import that.</p></div>
+    <pre data-run="js" data-expect="2 previewed, 3 rows" data-covers="method:import config:import"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  columns: [{ field: 'id' }, { field: 'age', type: 'integer' }],
+  rows: [{ id: 'seed', age: 1 }],
+  rowKey: 'id',
+  <span class="cmt">// Opt in to the DOM affordances; the grid.import API is present either way.</span>
+  import: <span class="kw">true</span>,
+});
+
+<span class="cmt">// Preview changes nothing — it is what a confirm dialog shows.</span>
+<span class="kw">const</span> preview = grid.import.preview('id,age\nx,20\ny,30');
+
+<span class="cmt">// Confirming appends the previewed rows; `age` arrives coerced to a number.</span>
+grid.import.apply(preview);
+
+<span class="kw">return</span> `${preview.rowCount} previewed, ${grid.rows.count()} rows`;   <span class="cmt">// 2 previewed, 3 rows</span></code></pre>
 
     <h2 id="state">grid.state</h2>
     <div class="table-wrap">
@@ -4060,6 +4122,7 @@ const chart = createChart({
           <tr><td class="name">footnote</td><td class="type">string</td><td class="desc">A note under the plot, a source, a caveat, a unit.</td></tr>
           <tr><td class="name">emptyText</td><td class="type">string</td><td class="desc">What to show when the binding produces nothing. Said rather than left blank, because an empty plot and a broken one look identical.</td></tr>
           <tr><td class="name">fit</td><td class="type">boolean | 'line'</td><td class="desc">A least-squares line through a scatter or bubble chart, one per series. <code>true</code> draws it with its R&sup2;; <code>'line'</code> draws the line alone. Only where the x axis is numeric: on a band scale a slope would be a slope through the order the categories happened to be listed in.</td></tr>
+          <tr><td class="name">trend</td><td class="type">boolean | string | ChartTrend | array</td><td class="desc">Trend and forecast overlays (BACKLOG-0000952): a <code>linear</code> least-squares line, a <code>movingAverage</code>, or <code>exponential</code> smoothing, one per series. <code>true</code> draws a single linear trend; a method name or a <code>{ method, forecast, window, kind, alpha, beta }</code> object configures one; an array draws several. The maths matches the core stats engine to the last digit (a parity test asserts it) but is computed locally to keep the charts bundle lean. For the linear method, <code>forecast: n</code> projects the line <code>n</code> steps past the data as a dashed forecast; a moving average and a smoothed level have no slope to project, so <code>forecast</code> is ignored for them and the fact is said in the accessible description.</td></tr>
           <tr><td class="name">error</td><td class="type">boolean | object</td><td class="desc">Whiskers showing the uncertainty in each mark, computed from the readings the chart can see behind it. <code>{ of }</code> takes a symmetric margin from a column instead; <code>{ confidence }</code> sets the level. A mark the chart sees only one value for gets none, and the chart says so.</td></tr>
           <tr><td class="name">stack</td><td class="type">boolean</td><td class="desc">Stack the series rather than drawing them side by side.</td></tr>
           <tr><td class="name">curve</td><td class="type">boolean</td><td class="desc">Overlay a kernel density curve on a histogram, which shows which features are in the data and which are in the binning.</td></tr>
@@ -4700,6 +4763,8 @@ plan.applyEdit({ id: 'design', duration: 7 }); // recomputes; the critical path 
           <tr><td class="sig">toISODate(day)</td><td class="desc">Format an engine day-number as an ISO calendar date (<code>YYYY-MM-DD</code>, UTC).</td></tr>
           <tr><td class="sig">LINK_TYPES</td><td class="desc">The four dependency link types, in order: <code>['FS','SS','FF','SF']</code>.</td></tr>
           <tr><td class="sig">SCHEDULE_ERROR</td><td class="desc">The error codes the engine reports rather than throwing (<code>cycle</code>, <code>duplicate-id</code>, <code>unknown-task</code>, <code>bad-duration</code>, <code>bad-link-type</code>, <code>unknown-parent</code>, <code>parent-cycle</code>, &hellip;).</td></tr>
+          <tr><td class="sig">importMSPDI(xml, { hoursPerDay? })</td><td class="desc">Import a Microsoft Project (MSPDI) <code>.xml</code> document into a <code>{ tasks, dependencies, resources, projectStart, calendar }</code> model ready for <code>createGantt</code>: the task tree, typed dependencies with lag, constraints, baseline, %complete, resources with capacity and the resource assignments.</td></tr>
+          <tr><td class="sig">exportMSPDI(model, { hoursPerDay?, projectName? })</td><td class="desc">Serialise a Gantt model (optionally a scheduled one) back to Microsoft Project (MSPDI) XML &mdash; the same fields, round-tripping with <code>importMSPDI</code>. The controller offers <code>gantt.toMSPDI()</code> as a shortcut over the current plan.</td></tr>
         </tbody>
       </table>
     </div>
@@ -4730,6 +4795,21 @@ const tasks = [
 const s = computeSchedule(tasks, [{ from: 'a', to: 'b' }, { from: 'phase', to: 'ship' }]);
 const phase = s.tasks.get('phase');
 return [phase.es, phase.ef, phase.percentComplete, phase.isSummary, s.tasks.get('ship').es].join(' | ');</code></pre>
+    <p><strong>Resource management.</strong> Assign people (or machines) to tasks with <code>assignee</code>/<code>assignees</code> or explicit <code>assignments: [{ resource, units }]</code>, and give each resource a capacity through the <code>resources</code> option. The controller then reports <code>overAllocations</code> &mdash; where one resource is booked beyond its capacity across concurrent tasks &mdash; and the full <code>resourceLoad</code>; the split view rings the over-booked avatars and outlines the clashing bars. <code>gantt.level()</code> auto-shifts the lower-priority tasks later to clear the over-allocation, honouring the critical path and the working-time calendar (pass <code>{ dryRun: true }</code> to preview the moves).</p>
+    <p><strong>Microsoft Project.</strong> <code>importMSPDI</code> reads a Project <code>.xml</code> (MSPDI) document into a model for <code>createGantt</code>, and <code>exportMSPDI</code> (or <code>gantt.toMSPDI()</code>) writes one back &mdash; tasks, typed dependencies with lag, constraints, baseline, %complete, resources and assignments all round-trip.</p>
+    <pre data-run="js" data-expect="1 | 0 | true | 2 | true" data-covers="export:importMSPDI export:exportMSPDI"><code>const { createGantt, exportMSPDI, importMSPDI } = await import('../packages/modules/gantt/index.js');
+const plan = createGantt({
+  tasks: [
+    { id: '1', name: 'Design', duration: 5, assignee: 'Ada' },
+    { id: '2', name: 'Build', duration: 3, assignee: 'Ada' },
+  ],
+});
+const overBefore = plan.overAllocations.length;   // Ada is double-booked
+plan.level();                                      // shift one task later
+const overAfter = plan.overAllocations.length;     // now clear
+const xml = exportMSPDI({ tasks: plan.tasks, dependencies: plan.dependencies, schedule: plan.schedule });
+const back = importMSPDI(xml);
+return [overBefore, overAfter, back.ok, back.tasks.length, xml.startsWith('&lt;?xml')].join(' | ');</code></pre>
     <p>Render the plan as an SVG timeline with <code>mount(container, options)</code> &mdash; bars on a time scale, dependency arrows with a per-link-type anchor and a lag/lead label, the critical path highlighted, a today line, optional non-working-day shading, milestones as diamonds, a progress bar-fill and configurable labels. The view redraws itself whenever the schedule recomputes; <code>unmount()</code> detaches it. All geometry is computed from the schedule, so it draws identically headless or in a browser.</p>
     <pre><code>import { createGantt } from '@toclocoinc/lattice-grid/modules/gantt';
 
@@ -6047,6 +6127,9 @@ return `avg ${avg.value} over ${avg.over.size}; kinds ${WINDOW_KINDS.join('/')};
           <tr><td class="name">modifiedZScores</td><td class="type">(values, opts?) =&gt; { median, mad, threshold, scores, flags, flagged }</td><td class="desc">Per-row robust outlier score, <code>0.6745·(x − median)/MAD</code>, flagged past <code>threshold</code> (default 3.5). Built on the median and MAD, so one wild reading cannot inflate the spread and hide — the masking effect that fools an ordinary z-score. A non-finite reading and a zero-MAD column yield a null score, not an invented one.</td></tr>
           <tr><td class="name">iqrFences</td><td class="type">(values, opts?) =&gt; { q1, q3, iqr, lower, upper, k } | null</td><td class="desc">Tukey's fences, <code>[Q1 − k·IQR, Q3 + k·IQR]</code> (default <code>k = 1.5</code>), the same fence the box plot draws, on R type 7 quartiles.</td></tr>
           <tr><td class="name">mahalanobis</td><td class="type">(matrix, opts?) =&gt; { center, df, cutoff, singular, used, distances, squared, flags, flagged } | null</td><td class="desc">Distance of every row from the joint centre in the metric of the data's own covariance, cut at a χ² quantile (default the 0.975 point). Catches a row impossible only in combination — heavy <em>and</em> short — that a per-column scan misses. A row with any missing coordinate is left unplaced; a singular covariance is ridge-regularised and reported as <code>singular</code> rather than throwing.</td></tr>
+          <tr><td class="name">ROLLING_ANOMALY_METHODS</td><td class="type">readonly ('rollingModifiedZScore' | 'rollingIqr')[]</td><td class="desc">The rolling (windowed) methods, named alongside <code>ANOMALY_METHODS</code> so a caller can enumerate every detector. Also accepted by <code>grid.statistics.anomalies({ method, windowLen })</code>.</td></tr>
+          <tr><td class="name">rollingAnomalies</td><td class="type">(values, opts?) =&gt; { method, windowLen, minPeriods, threshold, k, scores, flags, flagged }</td><td class="desc">Rolling (windowed) detection (BACKLOG-0000954): judge every reading against a causal trailing window of <code>windowLen</code> ending at it, so a spike is caught against its recent neighbours and a drift never poisons a global baseline. <code>rollingModifiedZScore</code> (median + MAD) or <code>rollingIqr</code> (Tukey fences). With a window as long as the series the last point's score equals the static <code>modifiedZScores</code> one.</td></tr>
+          <tr><td class="name">anomalyCondition</td><td class="type">(opts) =&gt; (rows) =&gt; false | { method, field, flagged }</td><td class="desc">Build a Data Router alert condition from a detector: a <code>(rows) =&gt; signal</code> the router's existing <code>router.alert(value, condition, handler)</code> drives, so live anomaly monitoring reuses the router's partitioning, debounce and rising-edge re-arm rather than duplicating an alert engine. Reads one numeric <code>field</code> per row; <code>latest: true</code> signals only when the newest reading is the anomaly.</td></tr>
         </tbody>
       </table>
     </div>
@@ -6064,6 +6147,21 @@ for (let i = 0; i &lt; 12; i++) hw.push([160 + i, 60 + i]);
 hw.push([182, 45]);
 const m = mahalanobis(hw); // the χ² cut flags the off-line row
 return `methods ${ANOMALY_METHODS.length}; flagged ${z.flagged}; upper ${fence.upper}; joint ${m.flags[12]}`;</code></pre>
+
+    <p class="section-note">Rolling (windowed) detection and the Data Router bridge (BACKLOG-0000954): judge each reading against its trailing window for live monitoring, and turn any detector into a <code>router.alert(...)</code> condition without a second alert engine.</p>
+    <pre data-run="js" data-expect="methods 2; spike true; alert 1" data-covers="export:ROLLING_ANOMALY_METHODS export:rollingAnomalies export:anomalyCondition"><code>const { rollingAnomalies, anomalyCondition, ROLLING_ANOMALY_METHODS } = await import('../packages/core/src/index.js');
+// A steady stream that suddenly spikes. The trailing window catches the spike
+// against its recent neighbours, where scoring against the whole run could let a
+// long earlier drift hide it.
+const stream = [10, 11, 9, 10, 11, 9, 10, 11, 9, 10, 40];
+const roll = rollingAnomalies(stream, { windowLen: 6, minPeriods: 4 });
+// The SAME detector, wired as a Data Router alert condition: (rows) =&gt; signal,
+// exactly the predicate router.alert(value, condition, handler) already drives —
+// no second alert engine. `latest` fires only when the newest tick is the one out.
+const condition = anomalyCondition({ field: 'temp', method: 'rollingModifiedZScore', orderBy: 't', windowLen: 6, minPeriods: 4, latest: true });
+const rows = stream.map((temp, t) =&gt; ({ t, temp }));
+const signal = condition(rows);
+return `methods ${ROLLING_ANOMALY_METHODS.length}; spike ${roll.flags[10]}; alert ${signal ? signal.flagged.length : 0}`;</code></pre>
 
 
 <!-- BEGIN GENERATED TYPE REFERENCE -->
@@ -6365,21 +6463,21 @@ return `methods ${ANOMALY_METHODS.length}; flagged ${z.flagged}; upper ${fence.u
       </table>
     </div>
     <h3 id="type-ChartAnnotation">ChartAnnotation</h3>
-    <p class="section-note">One declarative annotation (BACKLOG-0000744). A reference or target line, a shaded band, or a callout. Its value is a constant `value` (or `from`/`to` for a band), or a `compute` reduction of the data it annotates — `mean`, `median`, `min`, `max`, or `p95` for a percentile — so it follows the data as the grid is filtered. Every annotation names the axis it reads, which on a dual-axis chart is what stops it being placed against the wrong scale, and is written into the accessible table as a sentence.</p>
+    <p class="section-note">One declarative annotation (BACKLOG-0000744, extended by BACKLOG-0000953). A reference or target line, a shaded band, a callout, or an `event` marker. Its value is a constant `value` (or `from`/`to` for a band), or a `compute` reduction of the data it annotates — `mean`, `median`, `min`, `max`, or `p95` for a percentile — so it follows the data as the grid is filtered. A band with `orient: 'vertical'` shades an x-range instead — an event window, a maintenance period — and an `event` marker is a labelled vertical rule with a flag at a position on the x axis. Every annotation names the axis it reads, which on a dual-axis chart is what stops it being placed against the wrong scale, and is written into the accessible table as a sentence — a vertical marker and an event stating the position they sit at, because a screen-reader user needs where and when, not only that a marker exists.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">kind</td><td class="type">'line' | 'target' | 'band' | 'callout'</td><td class="desc">The default is a reference line. <small>(optional)</small></td></tr>
+          <tr><td class="name">kind</td><td class="type">'line' | 'target' | 'band' | 'callout' | 'event'</td><td class="desc">The default is a reference line. `event` is a labelled vertical marker with a flag at a position on the x axis, described into the accessible table with that position stated (BACKLOG-0000953). <small>(optional)</small></td></tr>
           <tr><td class="name">value</td><td class="type">number</td><td class="desc">A constant value, for a line, target or callout's measure position. <small>(optional)</small></td></tr>
           <tr><td class="name">compute</td><td class="type">'mean' | 'avg' | 'median' | 'min' | 'max' | string</td><td class="desc">A reduction of the annotated data instead of a constant. <small>(optional)</small></td></tr>
-          <tr><td class="name">from</td><td class="type">number</td><td class="desc">A band's two edges, each a constant or (with `fromCompute`/`toCompute`) computed. <small>(optional)</small></td></tr>
-          <tr><td class="name">to</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">from</td><td class="type">number | string</td><td class="desc">A band's two edges. On a horizontal band each is a measure value, a constant or (with `fromCompute`/`toCompute`) computed. On a vertical band (`orient: 'vertical'`, BACKLOG-0000953) each is an x position — a category or a number — and the band shades the x-range between them: an event window, a maintenance period, a recession. <small>(optional)</small></td></tr>
+          <tr><td class="name">to</td><td class="type">number | string</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">fromCompute</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">toCompute</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
-          <tr><td class="name">x</td><td class="type">unknown</td><td class="desc">A vertical line's or callout's x position: a category or a number. <small>(optional)</small></td></tr>
+          <tr><td class="name">x</td><td class="type">unknown</td><td class="desc">A vertical line's, event marker's or callout's x position: a category or a number. <small>(optional)</small></td></tr>
           <tr><td class="name">at</td><td class="type">unknown</td><td class="desc"><small>(optional)</small></td></tr>
-          <tr><td class="name">orient</td><td class="type">'horizontal' | 'vertical'</td><td class="desc">Force a line vertical rather than horizontal. <small>(optional)</small></td></tr>
+          <tr><td class="name">orient</td><td class="type">'horizontal' | 'vertical'</td><td class="desc">Force a line vertical rather than horizontal, or shade a `band` across an x-range rather than a measure range (BACKLOG-0000953). <small>(optional)</small></td></tr>
           <tr><td class="name">axis</td><td class="type">'left' | 'right' | 'y2'</td><td class="desc">Which measure axis the annotation reads. <small>(optional)</small></td></tr>
           <tr><td class="name">series</td><td class="type">string</td><td class="desc">Restrict a `compute` to one series, by its key. <small>(optional)</small></td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
@@ -6461,6 +6559,7 @@ return `methods ${ANOMALY_METHODS.length}; flagged ${z.flagged}; upper ${fence.u
           <tr><td class="name">font</td><td class="type">object</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">margin</td><td class="type">number | { top?: number; right?: number; bottom?: number; left?: number }</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">fit</td><td class="type">boolean | 'line'</td><td class="desc">A least-squares line through a scatter or bubble chart, one per series. `true` draws the line and its R²; `'line'` draws the line alone. Only where the x axis is numeric: on a band scale the positions are categories in an arbitrary order, and a slope through them would be a slope through the order they happened to be listed in. <small>(optional)</small></td></tr>
+          <tr><td class="name">trend</td><td class="type">boolean | ChartTrendMethod | ChartTrend | Array&lt;ChartTrendMethod | ChartTrend&gt;</td><td class="desc">Trend and forecast overlays (BACKLOG-0000952): a least-squares line, a trailing moving average, or exponential smoothing, drawn over a line, area or scatter chart. `true` draws a single linear trend; a method name or a {@link ChartTrend} object configures one; an array draws several. The maths matches the core stats engine to the last digit — the same least-squares fit, rolling window and exponential recursions — but is computed locally in the charts module rather than imported, because the in-tree bundler does not tree-shake and the import would inline the whole statistics closure; a test asserts the parity. A `forecast` count projects the linear line that many steps past the data, drawn dashed so it never reads as a reading; a moving average and a smoothed level have no slope to project, so `forecast` is ignored for them and the fact is stated in the accessible description rather than faked. <small>(optional)</small></td></tr>
           <tr><td class="name">band</td><td class="type">(RegressionBand &amp; { line?: boolean }) | null</td><td class="desc">A pointwise confidence band, drawn as a varying-width ribbon beneath the fit line (BACKLOG-0000812). Fed by a fitted model's own interval — the `band` from {@link StatisticsApi.regressionModel}, or as produced by {@link regressionPlots} — so the ribbon and the diagnostics report the one computation rather than a slope redrawn here. `line: false` suppresses the band's own centre line, for a chart that already draws the fit with `fit`. Only where the x axis is numeric, for the same reason `fit` is. <small>(optional)</small></td></tr>
           <tr><td class="name">points</td><td class="type">{</td><td class="desc">An explicit point set, bypassing the by-column binder (BACKLOG-0000872): a cartesian chart whose values are not a grid column — a scale-location plot's √|standardised residual|, a coefficient forest's per-coefficient estimate — hands its points in directly. Each is `{x, y}` with an optional `label`, `size` (a bubble's third channel) and `lower`/`upper` (interval bounds the error-bar primitive reads). Numeric `x` throughout gives a continuous axis. <small>(optional)</small></td></tr>
           <tr><td class="name">error</td><td class="type">boolean | { of?: string; confidence?: number }</td><td class="desc">Whiskers showing the uncertainty in each mark. `true` computes a confidence interval from the readings behind the mark; `of` takes a symmetric margin from another column instead. <small>(optional)</small></td></tr>
@@ -6496,6 +6595,23 @@ return `methods ${ANOMALY_METHODS.length}; flagged ${z.flagged}; upper ${fence.u
           <tr><td class="name">baseline</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">rules</td><td class="type">'westernElectric' | 'nelson'</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">confidence</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-ChartTrend">ChartTrend</h3>
+    <p class="section-note">One trend or forecast overlay (BACKLOG-0000952).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">method</td><td class="type">ChartTrendMethod</td><td class="desc">The overlay method; `linear` by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">forecast</td><td class="type">number</td><td class="desc">For the linear method, how many steps to project the line past the data as a dashed forecast. Ignored by the moving-average and exponential methods, which have no slope to extrapolate. <small>(optional)</small></td></tr>
+          <tr><td class="name">window</td><td class="type">number</td><td class="desc">For the moving-average method, the trailing window in points; 3 by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">period</td><td class="type">number</td><td class="desc">An alias for `window`. <small>(optional)</small></td></tr>
+          <tr><td class="name">kind</td><td class="type">'ses' | 'holt'</td><td class="desc">For the exponential method, single smoothing (`ses`) or Holt's level+trend (`holt`). <small>(optional)</small></td></tr>
+          <tr><td class="name">alpha</td><td class="type">number</td><td class="desc">For the exponential method, the level factor in `[0, 1]`; omit to fit it. <small>(optional)</small></td></tr>
+          <tr><td class="name">beta</td><td class="type">number</td><td class="desc">For Holt's exponential smoothing, the trend factor in `[0, 1]`; omit to fit it. <small>(optional)</small></td></tr>
+          <tr><td class="name">label</td><td class="type">boolean</td><td class="desc">`false` suppresses the R² label on a linear trend. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -7295,6 +7411,7 @@ return `methods ${ANOMALY_METHODS.length}; flagged ${z.flagged}; upper ${fence.u
           <tr><td class="name">status</td><td class="type">(key: string, colId: string): 'pending' | null</td><td class="desc"></td></tr>
           <tr><td class="name">addRow</td><td class="type">(row: object): string | null</td><td class="desc">Append a row to a remote source optimistically and persist it (§5.3), the structural analog of the cell edit path. The row shows immediately under a client temp key, and `adapter.mutate({ kind: 'append', rows: [row] })` is asked to persist it; when the server returns the real key the row is rekeyed everywhere the grid tracks it and `row:confirmed` fires, while a refused append is removed and fires `row:reverted`. Only wired when the source declares `mutate.append`; otherwise it warns once and returns null.</td></tr>
           <tr><td class="name">deleteRow</td><td class="type">(key: string): string | null</td><td class="desc">Delete a row from a remote source optimistically and persist it (§5.3). The row is tombstoned immediately and `adapter.mutate({ kind: 'delete', keys: [key] })` is asked to remove it; on confirmation the row is purged and `row:confirmed` fires, on refusal it is restored and `row:reverted` fires. Only wired when the source declares `mutate.delete`; otherwise it warns once and returns null.</td></tr>
+          <tr><td class="name">deleteRows</td><td class="type">(keys?: string | string[], opts?: { origin?: string }): string[] | Promise&lt;string[]&gt;</td><td class="desc">Delete rows on a user gesture, through the cancellable `beforeDelete` event (§18.4, BACKLOG-0000968) — what the built-in Delete-key and "Delete row" gestures call. Unlike {@link deleteRow}, `beforeDelete` fires on a memory-source grid too, so the row can be confirmed or vetoed there. Off until `config.rowDelete` opts in; the keys default to the row selection. Returns the keys removed (empty on a veto or when disabled), or a Promise of them when a `beforeDelete` handler deferred.</td></tr>
           <tr><td class="name">settleRow</td><td class="type">(id: string, ok: boolean, reason?: string, reconcile?: { key?: string; row?: unknown; conflict?: { serverRow?: unknown } }): boolean</td><td class="desc">Report the outcome of an optimistic structural write (§5.3), the counterpart to {@link settle} for `edit.confirm: 'manual'` over a backend that acknowledges an append/delete on a separate channel. The id arrives on `row:pending`.</td></tr>
           <tr><td class="name">rowStatus</td><td class="type">(key: string): 'pending' | null</td><td class="desc">Whether a row has a structural op in flight (§5.3).</td></tr>
           <tr><td class="name">pendingRows</td><td class="type">(): OpenRowOp[]</td><td class="desc">Every structural op still awaiting an outcome (§5.3), oldest first; always empty when the source cannot append or delete.</td></tr>
@@ -7638,6 +7755,7 @@ return `methods ${ANOMALY_METHODS.length}; flagged ${z.flagged}; upper ${fence.u
           <tr><td class="name">edit</td><td class="type">EditApi</td><td class="desc">Editing sessions: starting, committing and cancelling them. <small>(read-only)</small></td></tr>
           <tr><td class="name">scroll</td><td class="type">ScrollApi</td><td class="desc">Where the viewport is, and moving it. <small>(read-only)</small></td></tr>
           <tr><td class="name">export</td><td class="type">ExportApi</td><td class="desc">CSV, Excel and clipboard. <small>(read-only)</small></td></tr>
+          <tr><td class="name">import</td><td class="type">ImportApi</td><td class="desc">Bringing rows in from CSV/TSV text, a file, the clipboard or a drop. <small>(read-only)</small></td></tr>
           <tr><td class="name">state</td><td class="type">StateApi</td><td class="desc">Everything the user arranged, as a serialisable object. <small>(read-only)</small></td></tr>
           <tr><td class="name">overlay</td><td class="type">OverlayApi</td><td class="desc">The loading, empty and error surfaces drawn over the grid. <small>(read-only)</small></td></tr>
           <tr><td class="name">history</td><td class="type">HistoryApi</td><td class="desc">Undo and redo over edits and structural changes. <small>(read-only)</small></td></tr>
@@ -7759,6 +7877,8 @@ return `methods ${ANOMALY_METHODS.length}; flagged ${z.flagged}; upper ${fence.u
           <tr><td class="name">columnVirtualisationAbove</td><td class="type">number</td><td class="desc">Render only the visible columns once there are more than this many. <small>(optional)</small></td></tr>
           <tr><td class="name">statusBar</td><td class="type">boolean | { panels?: string[] }</td><td class="desc">The bar beneath the grid, and which panels it carries. <small>(optional)</small></td></tr>
           <tr><td class="name">contextMenu</td><td class="type">boolean | ((p: CellMenuParams, defaults: MenuItem[]) =&gt; MenuItem[] | void)</td><td class="desc">The cell right-click menu. A function supplies custom items; `false` suppresses it entirely, which is what a read-only grid wants, the default menu offers Paste, Clear and Fill down. <small>(optional)</small></td></tr>
+          <tr><td class="name">import</td><td class="type">boolean | ImportSettings</td><td class="desc">Bringing rows in from a file, the clipboard or a drop (§14, the mirror of export). `true` adds a "Import rows from CSV…" item to the cell menu, makes the grid a drop target for `.csv`/`.tsv` files, and reads a pasted spreadsheet block, each opening a preview the user confirms. An object tunes the affordances. Off by default; the `grid.import` API is always present. Import is a client-side data operation, so it applies to a memory grid. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowDelete</td><td class="type">boolean</td><td class="desc">Enable the built-in row-delete gesture (§18.4, BACKLOG-0000968) — the Delete/Backspace key on selected rows and a "Delete row" cell-menu item — and the `grid.edit.deleteRows` API. Off by default, because deleting data on a keystroke is destructive and opt-in. Every deletion flows through the cancellable `beforeDelete` event, so a handler can confirm or veto it, on a memory-source grid as well as a remote one. <small>(optional)</small></td></tr>
           <tr><td class="name">columnMenu</td><td class="type">boolean | ((p: ColumnMenuParams, defaults: MenuItem[]) =&gt; MenuItem[] | void)</td><td class="desc">The header's 3-dot menu, and the right-click menu on a column heading. `false` suppresses both. A function supplies custom items, receiving the grid's own so it can add to them rather than reproduce them. Default true. <small>(optional)</small></td></tr>
           <tr><td class="name">rangeChart</td><td class="type"></td><td class="desc">Chart a selected cell range — the spreadsheet "chart this selection" gesture. Off by default, so a grid opts in. The DOM layer draws no charts itself — the charts module is optional and loaded by the host — so this is where the host wires the two together: a function, or an object carrying `onChart`, is called with the grid and the selected range when the reader chooses "Chart selection" from the cell menu. The handler typically calls `chartRange` from `lattice-grid/modules/charts`. `true` offers the item and emits nothing extra; supply a handler to have it actually draw. <small>(optional)</small></td></tr>
           <tr><td class="name">shortcuts</td><td class="type">boolean</td><td class="desc">The `?` keyboard shortcut overlay. `false` suppresses it, for a host that wants `?` for itself. Default true. <small>(optional)</small></td></tr>
@@ -7955,6 +8075,62 @@ return `methods ${ANOMALY_METHODS.length}; flagged ${z.flagged}; upper ${fence.u
           <tr><td class="name">icon</td><td class="type">string</td><td class="desc"></td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">variant</td><td class="type">VariantName</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-ImportApi">ImportApi</h3>
+    <p class="section-note">Bringing rows in — the mirror of {@link ExportApi} (§14, BACKLOG-0000949).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">preview</td><td class="type">(text: string, opts?: object): ImportPreview</td><td class="desc">Parse delimited text into a preview, changing nothing.</td></tr>
+          <tr><td class="name">csv</td><td class="type">(text: string, opts?: object): Record&lt;string, unknown&gt;[]</td><td class="desc">Parse delimited text into coerced records — the inverse of `export.csv`.</td></tr>
+          <tr><td class="name">apply</td><td class="type">(</td><td class="desc">Add or replace the grid's rows from text, a preview or records.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-ImportColumn">ImportColumn</h3>
+    <p class="section-note">One source column as understood by the importer, after type inference (§14).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">source</td><td class="type">string</td><td class="desc">The heading as written in the file.</td></tr>
+          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The column's position in each row.</td></tr>
+          <tr><td class="name">field</td><td class="type">string</td><td class="desc">The grid field this column maps onto; empty to exclude it from the import.</td></tr>
+          <tr><td class="name">type</td><td class="type">string</td><td class="desc">The inferred (or grid-dictated) type used to coerce the column's values.</td></tr>
+          <tr><td class="name">samples</td><td class="type">string[]</td><td class="desc">A few non-blank sample values, for the preview.</td></tr>
+          <tr><td class="name">matched</td><td class="type">boolean</td><td class="desc">Whether the heading matched one of the grid's own columns.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-ImportPreview">ImportPreview</h3>
+    <p class="section-note">What a preview carries — everything a confirm dialog needs (§14).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">delimiter</td><td class="type">string</td><td class="desc">The delimiter that was used, detected or supplied.</td></tr>
+          <tr><td class="name">header</td><td class="type">string[]</td><td class="desc">The source column headings.</td></tr>
+          <tr><td class="name">columns</td><td class="type">ImportColumn[]</td><td class="desc">The per-column mapping and inference the user may edit before confirming.</td></tr>
+          <tr><td class="name">records</td><td class="type">Record&lt;string, unknown&gt;[]</td><td class="desc">Every mapped, coerced record the import would add.</td></tr>
+          <tr><td class="name">sample</td><td class="type">Record&lt;string, unknown&gt;[]</td><td class="desc">The leading records, for a preview table.</td></tr>
+          <tr><td class="name">rowCount</td><td class="type">number</td><td class="desc">How many data rows the file holds.</td></tr>
+          <tr><td class="name">warnings</td><td class="type">string[]</td><td class="desc">Anything worth flagging before confirming — a ragged file, a bad quote.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-ImportSettings">ImportSettings</h3>
+    <p class="section-note">How `config.import` tunes the DOM import affordances (§14).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">file</td><td class="type">boolean</td><td class="desc">Add the cell-menu item and open a file picker for CSV/TSV. Default true. <small>(optional)</small></td></tr>
+          <tr><td class="name">drop</td><td class="type">boolean</td><td class="desc">Make the grid a drop target for `.csv`/`.tsv` files. Default true. <small>(optional)</small></td></tr>
+          <tr><td class="name">paste</td><td class="type">boolean</td><td class="desc">Read a pasted spreadsheet block into a preview. Default true. <small>(optional)</small></td></tr>
+          <tr><td class="name">mode</td><td class="type">'append' | 'replace'</td><td class="desc">How a confirmed import lands: append (default) or replace the dataset. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>

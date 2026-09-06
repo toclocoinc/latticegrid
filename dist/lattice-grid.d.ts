@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.37.0, type declarations
+ * Lattice Grid 1.38.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1891,6 +1891,24 @@ export interface GridConfig {
    */
   contextMenu?: boolean | ((p: CellMenuParams, defaults: MenuItem[]) => MenuItem[] | void);
   /**
+   * Bringing rows in from a file, the clipboard or a drop (§14, the mirror of
+   * export). `true` adds a "Import rows from CSV…" item to the cell menu, makes
+   * the grid a drop target for `.csv`/`.tsv` files, and reads a pasted
+   * spreadsheet block, each opening a preview the user confirms. An object tunes
+   * the affordances. Off by default; the `grid.import` API is always present.
+   * Import is a client-side data operation, so it applies to a memory grid.
+   */
+  import?: boolean | ImportSettings;
+  /**
+   * Enable the built-in row-delete gesture (§18.4, BACKLOG-0000968) — the
+   * Delete/Backspace key on selected rows and a "Delete row" cell-menu item —
+   * and the `grid.edit.deleteRows` API. Off by default, because deleting data
+   * on a keystroke is destructive and opt-in. Every deletion flows through the
+   * cancellable `beforeDelete` event, so a handler can confirm or veto it, on a
+   * memory-source grid as well as a remote one.
+   */
+  rowDelete?: boolean;
+  /**
    * The header's 3-dot menu, and the right-click menu on a column heading.
    * `false` suppresses both. A function supplies custom items, receiving the
    * grid's own so it can add to them rather than reproduce them. Default true.
@@ -2547,8 +2565,8 @@ export interface StatisticsApi {
    * verdict from nowhere. Non-numeric columns are returned under `skipped`.
    */
   anomalies(opts?: { columns?: string[];
-    method?: 'modifiedZScore' | 'iqr' | 'mahalanobis';
-    threshold?: number; k?: number; p?: number }): AnomalyReport;
+    method?: 'modifiedZScore' | 'iqr' | 'mahalanobis' | 'rollingModifiedZScore' | 'rollingIqr';
+    threshold?: number; k?: number; p?: number; windowLen?: number; minPeriods?: number }): AnomalyReport;
   /**
    * Which columns differ most between the filtered subset and the whole
    * population it was drawn from, ranked by effect size — never by a p-value.
@@ -2819,6 +2837,52 @@ export function mahalanobis(
 ): { center: number[]; df: number; cutoff: number; singular: boolean; used: number;
   distances: (number | null)[]; squared: (number | null)[]; flags: boolean[];
   flagged: number } | null;
+
+/**
+ * The rolling (windowed) anomaly methods (BACKLOG-0000954): the robust modified
+ * z-score and Tukey's IQR fences, each computed over a trailing window rather
+ * than the whole series, for live monitoring where a drift or a shifted regime
+ * must not poison a global baseline.
+ */
+export const ROLLING_ANOMALY_METHODS: readonly ('rollingModifiedZScore' | 'rollingIqr')[];
+
+/**
+ * Rolling (windowed) anomaly detection (BACKLOG-0000954): judge every reading
+ * against a causal trailing window ending at it — the current point and the
+ * `window − 1` before it — so a spike is caught against its recent neighbours and
+ * a slow drift does not permanently poison the baseline. With a window at least
+ * as long as the series (and `minPeriods` of 1) the last point's score equals the
+ * static {@link modifiedZScores} score. A non-finite reading, a too-short window
+ * (`minPeriods`) or a zero-MAD window yields a null score and no flag.
+ */
+export function rollingAnomalies(
+  values: ArrayLike<number>,
+  opts?: {
+    method?: 'rollingModifiedZScore' | 'rollingIqr';
+    windowLen?: number; threshold?: number; k?: number; minPeriods?: number;
+  },
+): { method: string; windowLen: number; minPeriods: number; threshold: number; k: number;
+  scores: (number | null)[]; flags: boolean[]; flagged: number };
+
+/**
+ * Build a Data Router alert condition from an anomaly detector (BACKLOG-0000954):
+ * a `(rows) => signal` for the router's existing `router.alert(value, condition,
+ * handler)` (BACKLOG-0000909), so live monitoring reuses the router's
+ * partitioning, debounce and rising-edge re-arm rather than duplicating any of
+ * it. Reads one numeric `field` off each row, runs the chosen detector, and
+ * returns the flagged rows and scores when anything is anomalous or `false` when
+ * nothing is. `orderBy` names the axis rolling methods window on; `latest` signals
+ * only when the newest reading is the anomaly.
+ */
+export function anomalyCondition(
+  opts: {
+    field: string;
+    method?: 'modifiedZScore' | 'iqr' | 'rollingModifiedZScore' | 'rollingIqr';
+    orderBy?: string; latest?: boolean;
+    windowLen?: number; threshold?: number; k?: number; minPeriods?: number;
+  },
+): (rows: Iterable<Record<string, unknown>>) =>
+  false | { method: string; field: string; flagged: { row: Record<string, unknown>; score: number | null }[] };
 
 export type ShadowKind =
   | 'updates' | 'updatedAt' | 'sinceUpdate' | 'delta' | 'deltaPercent'
@@ -3866,6 +3930,19 @@ export interface EditApi {
    */
   deleteRow(key: string): string | null;
   /**
+   * Delete rows on a user gesture, through the cancellable `beforeDelete` event
+   * (§18.4, BACKLOG-0000968) — what the built-in Delete-key and "Delete row"
+   * gestures call. Unlike {@link deleteRow}, `beforeDelete` fires on a
+   * memory-source grid too, so the row can be confirmed or vetoed there. Off
+   * until `config.rowDelete` opts in; the keys default to the row selection.
+   * Returns the keys removed (empty on a veto or when disabled), or a Promise of
+   * them when a `beforeDelete` handler deferred.
+   * @param keys the row keys; defaults to the current selection
+   * @param opts `origin` names the provenance carried onto the events
+   * @returns the removed keys, or a Promise of them on the async path
+   */
+  deleteRows(keys?: string | string[], opts?: { origin?: string }): string[] | Promise<string[]>;
+  /**
    * Report the outcome of an optimistic structural write (§5.3), the counterpart
    * to {@link settle} for `edit.confirm: 'manual'` over a backend that
    * acknowledges an append/delete on a separate channel. The id arrives on
@@ -3912,6 +3989,65 @@ export interface ExportApi {
   excel(opts?: ExcelExportOptions): Promise<Blob>;
   clipboard(opts?: ClipboardOptions): Promise<void>;
   print(): void;
+}
+
+/** How `config.import` tunes the DOM import affordances (§14). */
+export interface ImportSettings {
+  /** Add the cell-menu item and open a file picker for CSV/TSV. Default true. */
+  file?: boolean;
+  /** Make the grid a drop target for `.csv`/`.tsv` files. Default true. */
+  drop?: boolean;
+  /** Read a pasted spreadsheet block into a preview. Default true. */
+  paste?: boolean;
+  /** How a confirmed import lands: append (default) or replace the dataset. */
+  mode?: 'append' | 'replace';
+}
+
+/** One source column as understood by the importer, after type inference (§14). */
+export interface ImportColumn {
+  /** The heading as written in the file. */
+  source: string;
+  /** The column's position in each row. */
+  index: number;
+  /** The grid field this column maps onto; empty to exclude it from the import. */
+  field: string;
+  /** The inferred (or grid-dictated) type used to coerce the column's values. */
+  type: string;
+  /** A few non-blank sample values, for the preview. */
+  samples: string[];
+  /** Whether the heading matched one of the grid's own columns. */
+  matched: boolean;
+}
+
+/** What a preview carries — everything a confirm dialog needs (§14). */
+export interface ImportPreview {
+  /** The delimiter that was used, detected or supplied. */
+  delimiter: string;
+  /** The source column headings. */
+  header: string[];
+  /** The per-column mapping and inference the user may edit before confirming. */
+  columns: ImportColumn[];
+  /** Every mapped, coerced record the import would add. */
+  records: Record<string, unknown>[];
+  /** The leading records, for a preview table. */
+  sample: Record<string, unknown>[];
+  /** How many data rows the file holds. */
+  rowCount: number;
+  /** Anything worth flagging before confirming — a ragged file, a bad quote. */
+  warnings: string[];
+}
+
+/** Bringing rows in — the mirror of {@link ExportApi} (§14, BACKLOG-0000949). */
+export interface ImportApi {
+  /** Parse delimited text into a preview, changing nothing. */
+  preview(text: string, opts?: object): ImportPreview;
+  /** Parse delimited text into coerced records — the inverse of `export.csv`. */
+  csv(text: string, opts?: object): Record<string, unknown>[];
+  /** Add or replace the grid's rows from text, a preview or records. */
+  apply(
+    input: string | ImportPreview | Record<string, unknown>[],
+    opts?: { mode?: 'append' | 'replace' },
+  ): ChangeResult | null;
 }
 
 export interface SavedView {
@@ -4709,6 +4845,8 @@ export interface Grid {
   readonly scroll: ScrollApi;
   /** CSV, Excel and clipboard. */
   readonly export: ExportApi;
+  /** Bringing rows in from CSV/TSV text, a file, the clipboard or a drop. */
+  readonly import: ImportApi;
   /** Everything the user arranged, as a serialisable object. */
   readonly state: StateApi;
   /** The loading, empty and error surfaces drawn over the grid. */
@@ -5621,22 +5759,82 @@ export interface ChartAxis {
  * placed against the wrong scale, and is written into the accessible table as a
  * sentence.
  */
+/**
+ * A trend or forecast overlay method (BACKLOG-0000952). Each name has aliases:
+ * `linear` (also `lr`, `ols`, `regression`); `movingAverage` (also `ma`, `sma`,
+ * `rolling`); `exponential` (also `ewma`, `ses`, `holt`, `smoothing`).
+ */
+export type ChartTrendMethod = 'linear' | 'movingAverage' | 'exponential'
+  | 'lr' | 'ols' | 'regression' | 'ma' | 'sma' | 'rolling'
+  | 'ewma' | 'ses' | 'holt' | 'smoothing';
+
+/** One trend or forecast overlay (BACKLOG-0000952). */
+export interface ChartTrend {
+  /** The overlay method; `linear` by default. */
+  method?: ChartTrendMethod;
+  /**
+   * For the linear method, how many steps to project the line past the data as a
+   * dashed forecast. Ignored by the moving-average and exponential methods,
+   * which have no slope to extrapolate.
+   */
+  forecast?: number;
+  /** For the moving-average method, the trailing window in points; 3 by default. */
+  window?: number;
+  /** An alias for `window`. */
+  period?: number;
+  /** For the exponential method, single smoothing (`ses`) or Holt's level+trend (`holt`). */
+  kind?: 'ses' | 'holt';
+  /** For the exponential method, the level factor in `[0, 1]`; omit to fit it. */
+  alpha?: number;
+  /** For Holt's exponential smoothing, the trend factor in `[0, 1]`; omit to fit it. */
+  beta?: number;
+  /** `false` suppresses the R² label on a linear trend. */
+  label?: boolean;
+}
+
+/**
+ * One declarative annotation (BACKLOG-0000744, extended by BACKLOG-0000953). A
+ * reference or target line, a shaded band, a callout, or an `event` marker. Its
+ * value is a constant `value` (or `from`/`to` for a band), or a `compute`
+ * reduction of the data it annotates — `mean`, `median`, `min`, `max`, or `p95`
+ * for a percentile — so it follows the data as the grid is filtered. A band with
+ * `orient: 'vertical'` shades an x-range instead — an event window, a
+ * maintenance period — and an `event` marker is a labelled vertical rule with a
+ * flag at a position on the x axis. Every annotation names the axis it reads,
+ * which on a dual-axis chart is what stops it being placed against the wrong
+ * scale, and is written into the accessible table as a sentence — a vertical
+ * marker and an event stating the position they sit at, because a screen-reader
+ * user needs where and when, not only that a marker exists.
+ */
 export interface ChartAnnotation {
-  /** The default is a reference line. */
-  kind?: 'line' | 'target' | 'band' | 'callout';
+  /**
+   * The default is a reference line. `event` is a labelled vertical marker with
+   * a flag at a position on the x axis, described into the accessible table with
+   * that position stated (BACKLOG-0000953).
+   */
+  kind?: 'line' | 'target' | 'band' | 'callout' | 'event';
   /** A constant value, for a line, target or callout's measure position. */
   value?: number;
   /** A reduction of the annotated data instead of a constant. */
   compute?: 'mean' | 'avg' | 'median' | 'min' | 'max' | string;
-  /** A band's two edges, each a constant or (with `fromCompute`/`toCompute`) computed. */
-  from?: number;
-  to?: number;
+  /**
+   * A band's two edges. On a horizontal band each is a measure value, a constant
+   * or (with `fromCompute`/`toCompute`) computed. On a vertical band (`orient:
+   * 'vertical'`, BACKLOG-0000953) each is an x position — a category or a number
+   * — and the band shades the x-range between them: an event window, a
+   * maintenance period, a recession.
+   */
+  from?: number | string;
+  to?: number | string;
   fromCompute?: string;
   toCompute?: string;
-  /** A vertical line's or callout's x position: a category or a number. */
+  /** A vertical line's, event marker's or callout's x position: a category or a number. */
   x?: unknown;
   at?: unknown;
-  /** Force a line vertical rather than horizontal. */
+  /**
+   * Force a line vertical rather than horizontal, or shade a `band` across an
+   * x-range rather than a measure range (BACKLOG-0000953).
+   */
   orient?: 'horizontal' | 'vertical';
   /** Which measure axis the annotation reads. */
   axis?: 'left' | 'right' | 'y2';
@@ -5729,6 +5927,23 @@ export interface ChartSpec {
    * through the order they happened to be listed in.
    */
   fit?: boolean | 'line';
+  /**
+   * Trend and forecast overlays (BACKLOG-0000952): a least-squares line, a
+   * trailing moving average, or exponential smoothing, drawn over a line, area
+   * or scatter chart. `true` draws a single linear trend; a method name or a
+   * {@link ChartTrend} object configures one; an array draws several.
+   *
+   * The maths matches the core stats engine to the last digit — the same
+   * least-squares fit, rolling window and exponential recursions — but is
+   * computed locally in the charts module rather than imported, because the
+   * in-tree bundler does not tree-shake and the import would inline the whole
+   * statistics closure; a test asserts the parity. A `forecast` count projects
+   * the linear line that many steps past the data, drawn dashed so it never
+   * reads as a reading; a moving average and a smoothed level have no slope to
+   * project, so `forecast` is ignored for them and the fact is stated in the
+   * accessible description rather than faked.
+   */
+  trend?: boolean | ChartTrendMethod | ChartTrend | Array<ChartTrendMethod | ChartTrend>;
   /**
    * A pointwise confidence band, drawn as a varying-width ribbon beneath the fit
    * line (BACKLOG-0000812). Fed by a fitted model's own interval — the `band`
@@ -6404,9 +6619,27 @@ declare module 'lattice-grid/modules/gantt' {
     assignee?: string | string[];
     assignees?: string[];
     owner?: string;
+    /**
+     * Explicit resource assignments with fractional units (BACKLOG-0000948):
+     * `units` is a multiplier where 1 is a full-time booking. Use this when a
+     * task books a resource at less (or more) than 100%; a bare `assignee` is
+     * `units: 1`.
+     */
+    assignments?: Array<{ resource?: string; name?: string; id?: string; units?: number }>;
+    /** Leveling priority: a higher value is delayed last (default 0). */
+    priority?: number;
     /** An explicit row height (px) for the split view; applied to both panels. */
     height?: number;
   }
+
+  /**
+   * Resource capacities for over-allocation detection and leveling
+   * (BACKLOG-0000948): either a list of resources with a capacity (max
+   * concurrent units, default 1) or a name→capacity map.
+   */
+  export type GanttResourceSpec =
+    | Array<{ id?: string; name?: string; resource?: string; capacity?: number; maxUnits?: number; max?: number; units?: number }>
+    | Record<string, number>;
 
   /**
    * A typed dependency between two tasks (by id), with optional lag/lead. `type`
@@ -6467,6 +6700,47 @@ declare module 'lattice-grid/modules/gantt' {
     conflicts?: GanttConflict[];
     /** Whether a working-time calendar was applied. */
     calendar?: boolean;
+    /** The resource over-allocations for this schedule (BACKLOG-0000948). */
+    overAllocations?: GanttOverAllocation[];
+    /** The full resource-load report for this schedule (BACKLOG-0000948). */
+    resourceLoad?: GanttResourceLoad;
+  }
+
+  /** One contiguous load segment for a resource: how many units are booked over a span. */
+  interface GanttResourceSegment {
+    start: number;
+    end: number;
+    load: number;
+    taskIds: string[];
+  }
+
+  /** A resource booked beyond its capacity across concurrent tasks (BACKLOG-0000948). */
+  interface GanttOverAllocation {
+    resource: string;
+    capacity: number;
+    start: number;
+    end: number;
+    load: number;
+    taskIds: string[];
+  }
+
+  /** The per-resource load and the over-allocations across a schedule (BACKLOG-0000948). */
+  interface GanttResourceLoad {
+    ok: boolean;
+    resources: Array<{ resource: string; capacity: number; peak: number; segments: GanttResourceSegment[] }>;
+    overAllocations: GanttOverAllocation[];
+    byResource: Map<string, { capacity: number; peak: number; segments: GanttResourceSegment[] }>;
+  }
+
+  /** The result of resource leveling: the shifted tasks and what moved (BACKLOG-0000948). */
+  interface GanttLevelResult {
+    ok: boolean;
+    resolved?: boolean;
+    tasks?: GanttTask[];
+    schedule?: GanttSchedule;
+    moves?: Array<{ id: string; from: number; to: number; delay: number }>;
+    remaining?: GanttOverAllocation[];
+    error?: { code: string; message: string };
   }
 
   /** A placement violation flagged by `findViolations`. */
@@ -6507,13 +6781,43 @@ declare module 'lattice-grid/modules/gantt' {
     readonly conflicts: GanttConflict[];
     readonly autoSchedule: boolean;
     readonly grid: unknown;
+    /** The over-allocations from the latest schedule (BACKLOG-0000948). */
+    readonly overAllocations: GanttOverAllocation[];
+    /** The latest resource-load report, or null before a successful schedule (BACKLOG-0000948). */
+    readonly resourceLoad: GanttResourceLoad | null;
     setTasks(tasks: GanttTask[]): GanttSchedule;
     setDependencies(deps: GanttDependency[]): GanttSchedule;
     applyEdit(patch: { id: string | number; start?: number; end?: number; duration?: number }, editOpts?: { writeBack?: boolean }): GanttSchedule;
     compute(): GanttSchedule;
     findViolations(): GanttViolation[];
+    /**
+     * Compute the resource load and over-allocations on demand (BACKLOG-0000948),
+     * optionally overriding the capacities for this call.
+     */
+    resources(loadOpts?: { resources?: GanttResourceSpec; defaultCapacity?: number }): GanttResourceLoad;
+    /**
+     * Resolve resource over-allocation by shifting tasks later — resource
+     * leveling (BACKLOG-0000948). Honours the CPM dependencies and the
+     * working-time calendar. Mutates the model unless `{ dryRun: true }`; with
+     * `{ writeBack: true }` and a bound grid the moved tasks are pushed through
+     * the grid's edit surface.
+     */
+    level(levelOpts?: {
+      dryRun?: boolean;
+      writeBack?: boolean;
+      priorityField?: string;
+      maxIterations?: number;
+      resources?: GanttResourceSpec;
+      defaultCapacity?: number;
+    }): GanttLevelResult;
     /** Export the scheduled tasks as CSV; `{ dates: true }` writes ISO dates. */
     toCSV(csvOpts?: { dates?: boolean }): string;
+    /**
+     * Export the current plan as Microsoft Project (MSPDI) XML (BACKLOG-0000950):
+     * tasks, dependencies, constraints, baseline, resources and assignments, plus
+     * the working-time calendar, serialised with the computed schedule.
+     */
+    toMSPDI(xmlOpts?: { hoursPerDay?: number; projectName?: string }): string;
     /**
      * The live consumer surface, mirroring `grid.rows.apply`, so a Data Router
      * can drive the Gantt like any other view. Keyed by the controller's rowKey.
@@ -6612,6 +6916,10 @@ declare module 'lattice-grid/modules/gantt' {
     deadline?: number | string | Date;
     /** A working-time calendar: skip weekends/holidays, durations in working days. */
     calendar?: GanttCalendar | null;
+    /** Resource capacities for over-allocation detection and leveling (BACKLOG-0000948). */
+    resources?: GanttResourceSpec;
+    /** The capacity for a resource with none stated (default 1 = one full-time booking). */
+    defaultCapacity?: number;
     autoSchedule?: boolean;
     grid?: unknown;
     /** Map task fields to grid column ids to enable drag write-back. */
@@ -6622,6 +6930,38 @@ declare module 'lattice-grid/modules/gantt' {
     element?: unknown;
   }): Gantt;
   export default createGantt;
+
+  /** The model {@link importMSPDI} returns and {@link exportMSPDI} takes. */
+  interface GanttMSPDIModel {
+    tasks: GanttTask[];
+    dependencies?: GanttDependency[];
+    resources?: GanttResourceSpec;
+    projectStart?: number | string | Date;
+    calendar?: GanttCalendar | null;
+    schedule?: GanttSchedule;
+  }
+
+  /**
+   * Import a Microsoft Project (MSPDI) XML document (BACKLOG-0000950) into the
+   * module's model: the task tree, typed dependencies with lag, constraints,
+   * baseline, %complete, resources with capacity, the resource assignments, and
+   * the working-time calendar. The result is ready to pass to {@link createGantt}.
+   */
+  export function importMSPDI(xml: string, opts?: { hoursPerDay?: number }): {
+    ok: boolean;
+    error?: string;
+    tasks: GanttTask[];
+    dependencies: GanttDependency[];
+    resources: Array<{ id: string; name: string; capacity: number }>;
+    projectStart?: number;
+    calendar?: null | { workdays: number[]; holidays: number[] };
+  };
+
+  /**
+   * Export a Gantt model to Microsoft Project (MSPDI) XML (BACKLOG-0000950). A
+   * scheduled model may be passed so start/finish dates are the computed ones.
+   */
+  export function exportMSPDI(model: GanttMSPDIModel, opts?: { hoursPerDay?: number; projectName?: string }): string;
 }
 
 declare module 'lattice-grid/modules/webcomponent' {

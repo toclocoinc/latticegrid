@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.37.0</p>
+    <p class="rail__sub">Developer guide · v1.38.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -3370,6 +3370,27 @@ columns: [
 }}</code></pre>
     </div>
 
+    <h3 id="deleting-rows">Deleting rows</h3>
+    <p class="lead-in">
+      Set <code>rowDelete: true</code> for the built-in delete gesture: Delete or Backspace on the
+      selected rows, and a "Delete row" item in the cell menu. It works on a memory grid, not only a
+      remote one, and every deletion flows through the cancellable <code>beforeDelete</code> event —
+      so a confirm dialog is a handler that calls <code>e.preventDefault(reason)</code>. It is off by
+      default because deleting data on a keystroke is destructive.
+    </p>
+    <div class="example">
+      <p class="example__label">Confirm before delete</p>
+      <pre><code>const grid = createGrid(el, { columns, rows, rowKey: 'id', selection: 'multiple', rowDelete: true });
+
+grid.on('beforeDelete', async (e) =&gt; {
+  const ok = await confirmDialog(`Delete ${e.rows.length} row(s)?`);
+  if (!ok) e.preventDefault('cancelled');   <span class="cmt">// the rows stay; delete:cancelled fires</span>
+});
+
+<span class="cmt">// The gesture calls this; you can call it too. Defaults to the selection.</span>
+grid.edit.deleteRows();</code></pre>
+    </div>
+
     <h2 id="appearance">Grid lines and corners</h2>
     <p class="lead-in">
       Two settings that change how the grid is drawn rather than what it draws.
@@ -6207,6 +6228,28 @@ grid.state.apply(savedView.state);
       the screen because it came out of the same formatter. 50,000 rows filtered, sorted and written
       to CSV takes about 100ms.</p>
     </div>
+
+    <h2 id="import-guide">Import</h2>
+    <p class="lead-in">
+      The mirror of export: rows coming in from a CSV or TSV file, a drop, or a pasted spreadsheet
+      block. The pipeline is parse, infer each column's type, map the columns onto your fields, then
+      preview and confirm — nothing lands until the user says so.
+    </p>
+    <div class="example">
+      <p class="example__label">Preview, then confirm</p>
+      <pre><code><span class="cmt">// Parse and map without touching the grid — this is what the dialog shows.</span>
+<span class="kw">const</span> preview = grid.import.preview(csvText);
+<span class="cmt">// preview.columns is the mapping the user can edit; preview.warnings flags a</span>
+<span class="cmt">// ragged file. Confirming appends (or, with { mode: 'replace' }, swaps).</span>
+grid.import.apply(preview);</code></pre>
+    </div>
+    <p class="lead-in">
+      Set <code>config.import</code> to <code>true</code> to add the DOM affordances — a
+      "Import rows from CSV…" cell-menu item, a file drop target, and paste — each opening the same
+      preview dialog. The <code>grid.import</code> API is present whether or not you do, so a server-side
+      or headless import runs the identical pipeline. <code>.xlsx</code> is not read (it needs an inflate
+      and XML reader the zero-dependency envelope does not carry); save the sheet as CSV.
+    </p>
 
     <h2 id="less-common">Options and calls you may not have met</h2>
     <p class="lead-in">
