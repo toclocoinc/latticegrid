@@ -2478,6 +2478,49 @@ grid.licence.state();      <span class="cmt">// 'licensed' | 'localhost' | 'tria
       </table>
     </div>
 
+    <h3 id="url-source">Load from a URL: a JSON or NDJSON file</h3>
+    <p class="section-note">
+      <code>createUrlSource(url, opts)</code> points the grid straight at a file. A <strong>JSON</strong>
+      file (a top-level array, or a nested array picked out with <code>rowsPath</code> or <code>map</code>)
+      is read whole and handed over as rows. An <strong>NDJSON / JSONL</strong> file &mdash; one JSON value
+      per line &mdash; is <strong>streamed in incrementally</strong>: the first rows render while the rest is
+      still arriving, and a large file never sits in memory as one string. It is built on the
+      <code>stream</code> source, so it inherits the frame-coalesced render, the <code>stream:chunk</code> /
+      <code>stream:end</code> progress events and promotion to memory once a small file has fully landed.
+    </p>
+    <p>Format is resolved in order: an explicit <code>format: 'json' | 'ndjson'</code> wins; else the URL
+      extension (<code>.ndjson</code>/<code>.jsonl</code> vs <code>.json</code>); else the
+      <code>Content-Type</code> (<code>application/x-ndjson</code> vs <code>application/json</code>); else a
+      sniff of the first bytes, or a clear error asking for an explicit <code>format</code>. Pass
+      <code>fetch</code> to supply auth or a proxy (default is the global <code>fetch</code>),
+      <code>headers</code> to merge request headers, <code>batchSize</code> to tune NDJSON chunking
+      (default&nbsp;500), <code>lenient: true</code> to skip a malformed NDJSON line with a warning rather
+      than failing, and <code>poll</code> (ms) to re-fetch on an interval, replacing the rows each pass.
+      Every failure &mdash; a non-2xx status, a network error, a bad body, a malformed line &mdash; surfaces
+      as <code>source:error</code> and leaves the grid usable, never an uncaught throw. The fetch is aborted
+      when the grid is destroyed. Zero new dependencies: <code>fetch</code>,
+      <code>response.body.getReader()</code> and <code>TextDecoder</code>.</p>
+    <p class="section-note">A JSON file loaded through a mock transport so the example runs headless with no
+      network; in an app, omit <code>fetch</code> and the global one is used. Run on every build.</p>
+    <pre data-run="js" data-expect="3" data-covers="export:createUrlSource"><code><span class="kw">const</span> { createHeadlessGrid, createUrlSource } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="cmt">// A mock transport, so this runs with no network. In your app, drop `fetch`.</span>
+<span class="kw">const</span> file = JSON.stringify([{ id: 1, city: 'Oslo' }, { id: 2, city: 'Lima' }, { id: 3, city: 'Cairo' }]);
+<span class="kw">const</span> fetchImpl = <span class="kw">async</span> () =&gt; <span class="kw">new</span> Response(file, { headers: { 'content-type': 'application/json' } });
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'city' }],
+  source: createUrlSource('https://example.test/cities.json', { fetch: fetchImpl }),
+});
+
+<span class="kw">await</span> <span class="kw">new</span> Promise((r) =&gt; setTimeout(r, 50)); <span class="cmt">// let the file load</span>
+<span class="kw">const</span> count = grid.rows.count();
+grid.destroy();
+<span class="kw">return</span> count; <span class="cmt">// 3</span></code></pre>
+    <p>For NDJSON, point it at a <code>.ndjson</code> or <code>.jsonl</code> URL &mdash;
+      <code>createUrlSource('/events.ndjson')</code> &mdash; and the rows stream in as they parse.</p>
+
     <h3 id="derived-source">Derived sources: a grid built from another grid</h3>
     <p class="section-note">
       Most dashboards put a summary panel beside a table, the top five sales people, the
@@ -3639,6 +3682,35 @@ off();                                       <span class="cmt">// on() returns i
           <tr><td class="name">presence:left</td><td class="desc">A peer disconnected.</td></tr>
           <tr><td class="name">presence:failed</td><td class="desc">A presence transport error. Presence is lossy by design; this is informational.</td></tr>
           <tr><td class="name">presence:lockRefused</td><td class="desc">An edit was refused because a peer holds the cell.</td></tr>
+          <tr><td class="name">export:request</td><td class="type">{ request }</td><td class="desc">A remote export was requested. Past-tense notification.</td></tr>
+          <tr><td class="name">export:done</td><td class="type">{ request, remote }</td><td class="desc">A remote export completed. Past-tense notification.</td></tr>
+          <tr><td class="name">shortcuts:opened</td><td class="type">{}</td><td class="desc">The keyboard-shortcuts help overlay opened. Past-tense notification.</td></tr>
+          <tr><td class="name">shortcuts:closed</td><td class="type">{}</td><td class="desc">The keyboard-shortcuts help overlay closed. Past-tense notification.</td></tr>
+          <tr><td class="name">print:before</td><td class="type">{ rows }</td><td class="desc">Print mode is about to snapshot. Past-tense notification, not cancellable.</td></tr>
+          <tr><td class="name">print:after</td><td class="type">{ rows }</td><td class="desc">Print mode restored the grid. Fires even if the print was cancelled by the browser.</td></tr>
+          <tr><td colspan="3" class="desc"><strong>Cancellable before-events (BACKLOG-0000943).</strong> Each gates a user-initiated mutation. The handler receives a <code>BeforeEvent</code> carrying the action context plus <code>preventDefault(reason?)</code>, <code>defaultPrevented</code> and <code>reason</code>. Calling <code>preventDefault()</code> (or returning <code>false</code>) cancels the action; the handler may be <code>async</code>, and the mutation is held until every before-handler settles. On a veto the paired <code>&lt;action&gt;:cancelled</code> fires with the reason. Host/API writes and remote/router-applied deltas (origin&nbsp;!==&nbsp;<code>'user'</code>) do not fire these. The <code>origin</code> field distinguishes a genuine user gesture from a module-driven re-entry, which is how a host deduplicates.</td></tr>
+          <tr><td class="name">beforeEdit</td><td class="type">{ row, key, mode, changes, origin }</td><td class="desc">A validated cell/row commit is about to apply. <code>changes</code> is <code>[{ colId, oldValue, newValue }]</code>. Validation (<code>edit.validate</code>) is separate and runs first.</td></tr>
+          <tr><td class="name">beforeSort</td><td class="type">{ sort, origin }</td><td class="desc">A sort is about to be set.</td></tr>
+          <tr><td class="name">beforeFilter</td><td class="type">{ filters?, quick?, kind, origin }</td><td class="desc">A structured (<code>kind: 'structured'</code>) or quick (<code>kind: 'quick'</code>) filter is about to be set.</td></tr>
+          <tr><td class="name">beforeColumnMove</td><td class="type">{ column, to, origin }</td><td class="desc">A column reorder is about to apply.</td></tr>
+          <tr><td class="name">beforeColumnResize</td><td class="type">{ column, width, origin }</td><td class="desc">A column width change is about to apply.</td></tr>
+          <tr><td class="name">beforeColumnHide</td><td class="type">{ columns, origin }</td><td class="desc">One or more columns are about to be hidden.</td></tr>
+          <tr><td class="name">beforeSelect</td><td class="type">{ keys, previous, origin }</td><td class="desc">A user selection change is about to apply. A veto snaps back to the last announced selection.</td></tr>
+          <tr><td class="name">beforeRowAdd</td><td class="type">{ row, origin }</td><td class="desc">An optimistic row append is about to apply.</td></tr>
+          <tr><td class="name">beforeDelete</td><td class="type">{ key, rows, origin }</td><td class="desc">An optimistic row delete is about to apply — the canonical confirm-before-delete hook.</td></tr>
+          <tr><td class="name">beforeRowMove</td><td class="type">{ key, from, to, origin }</td><td class="desc">A row reorder is about to apply.</td></tr>
+          <tr><td class="name">beforeGroup</td><td class="type">{ key, expanded, origin }</td><td class="desc">A group/tree expand or collapse is about to apply.</td></tr>
+          <tr><td class="name">edit:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeEdit</code> was vetoed. <code>reason</code> is <code>'stale'</code> when a live delta moved the cell during an async gate.</td></tr>
+          <tr><td class="name">sort:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeSort</code> was vetoed.</td></tr>
+          <tr><td class="name">filter:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeFilter</code> was vetoed.</td></tr>
+          <tr><td class="name">columnMove:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeColumnMove</code> was vetoed.</td></tr>
+          <tr><td class="name">columnResize:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeColumnResize</code> was vetoed.</td></tr>
+          <tr><td class="name">columnHide:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeColumnHide</code> was vetoed.</td></tr>
+          <tr><td class="name">selection:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeSelect</code> was vetoed; the selection snapped back.</td></tr>
+          <tr><td class="name">rowAdd:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeRowAdd</code> was vetoed.</td></tr>
+          <tr><td class="name">delete:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeDelete</code> was vetoed. <code>reason</code> is <code>'stale'</code> when the row was already gone.</td></tr>
+          <tr><td class="name">rowMove:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeRowMove</code> was vetoed. <code>reason</code> is <code>'stale'</code> when the row had moved.</td></tr>
+          <tr><td class="name">group:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeGroup</code> was vetoed.</td></tr>
         </tbody>
       </table>
     </div>
@@ -3671,6 +3743,67 @@ grid.destroy();
   warnings.length,                      <span class="cmt">// 0: no unknown-event warning</span>
   handlerName('annotation:changed'),    <span class="cmt">// the adapter prop the frameworks expose</span>
 ].join(' | ');</code></pre>
+
+    <h3 id="before-events-example">Cancellable before-events: guarded editing and confirm-before-delete, executed</h3>
+    <p class="section-note">Every user-initiated mutation has a cancellable <code>before</code> event
+    (BACKLOG-0000943). A handler cancels the pending action with
+    <code>preventDefault(reason?)</code> and may be <code>async</code> — the mutation is held until it
+    settles, which is what makes a confirm dialog or a server check a genuine gate. On a veto the paired
+    <code>&lt;action&gt;:cancelled</code> fires with the reason. Host/API writes and remote deltas do not
+    fire them. Run headless on every build.</p>
+    <pre data-run="js" data-expect="0|Ann|sort,edit locked" data-covers="event:beforeEdit event:beforeSort event:beforeFilter event:beforeColumnMove event:beforeColumnResize event:beforeColumnHide event:beforeSelect event:beforeRowAdd event:beforeDelete event:beforeRowMove event:beforeGroup event:edit:cancelled event:sort:cancelled event:filter:cancelled event:columnMove:cancelled event:columnResize:cancelled event:columnHide:cancelled event:selection:cancelled event:rowAdd:cancelled event:delete:cancelled event:rowMove:cancelled event:group:cancelled event:print:before event:print:after event:export:request event:export:done event:shortcuts:opened event:shortcuts:closed"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'name', edit: { enabled: <span class="kw">true</span> } }, { field: 'v', type: 'number', edit: { enabled: <span class="kw">true</span> } }],
+  rows: [{ id: 'a', name: 'Ann', v: 1 }, { id: 'b', name: 'Bo', v: 2 }],
+  selection: 'multiple',
+});
+
+<span class="kw">const</span> log = [];
+
+<span class="cmt">// Guarded editing: veto a commit on a locked row, and hear the cancellation.</span>
+grid.on('beforeEdit', (e) =&gt; { <span class="kw">if</span> (e.key === 'a') e.preventDefault('locked'); });
+grid.on('edit:cancelled', (e) =&gt; log.push('edit ' + e.reason));
+
+<span class="cmt">// Guard the query and layout surfaces.</span>
+grid.on('beforeSort', (e) =&gt; e.preventDefault('view-locked'));
+grid.on('sort:cancelled', () =&gt; log.push('sort'));
+grid.on('beforeFilter', (e) =&gt; e.preventDefault('no-filter'));
+grid.on('filter:cancelled', () =&gt; log.push('filter'));
+grid.on('beforeColumnMove', (e) =&gt; e.preventDefault('fixed'));
+grid.on('columnMove:cancelled', () =&gt; log.push('colmove'));
+grid.on('beforeColumnResize', (e) =&gt; e.preventDefault('fixed'));
+grid.on('columnResize:cancelled', () =&gt; log.push('colresize'));
+grid.on('beforeColumnHide', (e) =&gt; e.preventDefault('mandatory'));
+grid.on('columnHide:cancelled', () =&gt; log.push('colhide'));
+grid.on('beforeGroup', (e) =&gt; e.preventDefault('frozen'));
+grid.on('group:cancelled', () =&gt; log.push('group'));
+grid.on('beforeRowMove', (e) =&gt; e.preventDefault('ordered'));
+grid.on('rowMove:cancelled', () =&gt; log.push('rowmove'));
+grid.on('beforeRowAdd', (e) =&gt; e.preventDefault('quota'));
+grid.on('rowAdd:cancelled', () =&gt; log.push('rowadd'));
+grid.on('beforeSelect', () =&gt; {});
+grid.on('selection:cancelled', () =&gt; log.push('sel'));
+
+<span class="cmt">// Confirm before delete: an async handler holds the delete until it settles.</span>
+grid.on('beforeDelete', <span class="kw">async</span> (e) =&gt; { <span class="kw">await</span> Promise.resolve(); e.preventDefault('user cancelled'); });
+grid.on('delete:cancelled', (e) =&gt; log.push('delete ' + e.reason));
+
+<span class="cmt">// Past-tense notifications a host can also observe (not gates): print, remote</span>
+<span class="cmt">// export, and the keyboard-shortcuts overlay.</span>
+grid.on('print:before', () =&gt; log.push('print-before'));
+grid.on('print:after', () =&gt; log.push('print-after'));
+grid.on('export:request', () =&gt; {});
+grid.on('export:done', () =&gt; {});
+grid.on('shortcuts:opened', () =&gt; {});
+grid.on('shortcuts:closed', () =&gt; {});
+
+<span class="cmt">// A vetoed sort (sync) and an edit blocked on the locked row.</span>
+grid.sort.set([{ col: 'v', dir: 'desc' }]);
+grid.edit.start('a', 'name');
+grid.edit.stop(<span class="kw">false</span>, { value: 'Nope' });
+
+<span class="kw">return</span> grid.sort.get().length + '|' + grid.rows.byKey('a').data.name + '|' + log.join(',');</code></pre>
 
     <h2 id="rules">Conditional formatting</h2>
     <p>Rules compile into the function <code>cell.style</code> already takes, so a compiled rule set
@@ -4200,6 +4333,13 @@ router.attachDefault(restGrid);                <span class="cmt">// the "rest" s
 const counts = router.load(snapshot);          <span class="cmt">// keyed diff per grid: [{added,updated,removed}, ...]</span>
 router.apply([{ op: 'upsert', row }, { op: 'delete', row }]); <span class="cmt">// in-place deltas by rowKey</span></code></pre>
     <p><strong>A snapshot is a keyed diff, not a replace.</strong> <code>load</code> re-partitions the whole dataset and, per grid, adds the new rows, updates only the changed ones and removes the gone ones &mdash; so an unchanged row never repaints and selection, scroll and edit state survive. <strong>Deltas are applied in place</strong> by <code>rowKey</code>, last-writer-wins within a batch; an <code>upsert</code> whose partition property has changed <em>moves</em> the row (it leaves the route it no longer matches and joins the one it now does, never duplicated). A record matching no route is counted in <code>router.unrouted</code>, handed to <code>onUnrouted</code>, and &mdash; if an <code>attachDefault</code> grid exists &mdash; routed there, so nothing is ever silently lost. By default a record goes to the first route it matches; <code>overlap: true</code> fans it to every matching route.</p>
+    <div class="note"><p><strong>Fanning one partition value to several viewers? Set <code>overlap: true</code>.</strong> The headline "route one feed to many viewers" &mdash; a grid <em>and</em> a KPI panel <em>and</em> a chart, all off one feed &mdash; needs <code>overlap: true</code>. With the default <code>overlap: false</code> a record stops at the <strong>first</strong> route it matches, so a second viewer attached to the <em>same</em> value silently receives nothing. Distinct values (one viewer per value) do not need it. When two routes claim the same value while <code>overlap</code> is false, the router emits a one-time dev warning naming the value.</p>
+    <pre><code><span class="cmt">// One value, several viewers: a grid, a KPI panel and a chart all see 'deal'.</span>
+<span class="kw">const</span> router = createDataRouter({ key: 'kind', rowKey: 'id', overlap: <span class="kw">true</span> });
+router.attach(dealsGrid, 'deal');            <span class="cmt">// the grid</span>
+router.subscribe('deal', kpiPanel);          <span class="cmt">// a KPI tile off the same value</span>
+router.attach(dealsChart, 'deal');           <span class="cmt">// a chart off the same value</span>
+router.load(snapshot);                        <span class="cmt">// every viewer fills; without overlap:true only the grid would</span></code></pre></div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Member</th><th>Description</th></tr></thead>
@@ -4218,7 +4358,7 @@ router.apply([{ op: 'upsert', row }, { op: 'delete', row }]); <span class="cmt">
           <tr><td class="sig">flushStream()</td><td class="desc"><strong>v3:</strong> apply the buffered deltas now, coalesced into a single apply (a deterministic point, and for tests).</td></tr>
           <tr><td class="sig">dropped</td><td class="desc"><strong>v3:</strong> how many stale/duplicate deltas the <code>seq</code> dedupe gate has dropped.</td></tr>
           <tr><td class="sig">lastSeq() / checkpoint() / seenThrough(mark)</td><td class="desc"><strong>v3:</strong> the resume point &mdash; the highest applied <code>seq</code>, a per-record checkpoint to persist, and a way to prime it after a reconnect so an early replay is dropped.</td></tr>
-          <tr><td class="sig">subscribe(predicate, handler, opts?)</td><td class="desc"><strong>v5:</strong> route a slice to any non-grid view. <code>handler(change)</code> receives the same keyed diff <code>{ add, update, remove }</code> a grid does &mdash; drive a KPI tile, detail pane, map or form. A peer to <code>attach</code>: same partitioning and the same <code>transform</code>/<code>filter</code>/<code>sort</code>/<code>rollup</code> options; grids and charts are unchanged.</td></tr>
+          <tr><td class="sig">subscribe(predicate, handler, opts?)</td><td class="desc"><strong>v5:</strong> route a slice to any non-grid view. <code>handler(change)</code> receives the same keyed diff <code>{ add, update, remove }</code> a grid does &mdash; drive a KPI tile, detail pane, map or form. A peer to <code>attach</code>: same partitioning and the same <code>transform</code>/<code>filter</code>/<code>sort</code>/<code>rollup</code> options; grids and charts are unchanged. To drive a KPI/pane <em>and</em> a grid off the <strong>same</strong> partition value, create the router with <code>overlap: true</code> &mdash; with the default <code>overlap: false</code> only the first route on that value receives rows (the router warns once when it detects the clash).</td></tr>
           <tr><td class="sig">alert(predicate, condition, handler, { filter?, debounce?, rowKey? })</td><td class="desc"><strong>v5:</strong> watch a slice and emit rather than render. <code>condition(rows)</code> is evaluated over the slice on every load and delta; when it first becomes truthy, <code>handler(signal, rows)</code> fires. Edge-triggered (once per crossing, re-arms on release), <code>debounce</code> coalesces a burst, and it never competes for a partition or touches a grid.</td></tr>
           <tr><td class="sig">configure(spec)</td><td class="desc"><strong>v5:</strong> the whole routing graph as one data spec &mdash; <code>routes</code> (grid/<code>default</code>/<code>subscribe</code>/<code>alert</code> entries), <code>links</code>, <code>relate</code>, <code>buffer</code> &mdash; desugared to the imperative API. Composes with imperative calls and round-trips to identical behaviour. Also accepted as <code>createDataRouter({ config })</code>.</td></tr>
           <tr><td class="sig">attach(grid, predicate, { writable, onWrite?, onConflict? })</td><td class="desc"><strong>v8 (BACKLOG-0000912):</strong> make a route <strong>writable</strong> &mdash; the router captures the grid's committed edits off its public edit surface (<code>grid.on('cell:changed')</code> &rarr; <code>grid.edit.setCells</code>) and routes them to <code>onWrite(change, { route, source })</code> (per-route here, or the router-global <code>onWrite</code>), reverting the cell on reject and re-entering an accepted write as a normal delta. <code>onConflict(change, { serverRow })</code> surfaces a last-write-wins conflict. A derived (<code>rollup</code>/<code>transform</code>) route cannot be writable &mdash; its edits are reverted and warned.</td></tr>
@@ -6094,6 +6234,18 @@ return `methods ${ANOMALY_METHODS.length}; flagged ${z.flagged}; upper ${fence.u
         <tbody>
           <tr><td class="name">sketch</td><td class="type">string</td><td class="desc">The sketch that backs this kernel: `HyperLogLog`, `KLL`, `SpaceSaving`.</td></tr>
           <tr><td class="name">bound</td><td class="type">ErrorBound</td><td class="desc">The error bound the sketch is verified to meet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-BeforeEvent">BeforeEvent</h3>
+    <p class="section-note">A cancellable *before*-event (BACKLOG-0000943), delivered to `on('beforeX')` handlers before a user-initiated mutation is applied. A handler cancels the pending action by calling `preventDefault(reason?)`; the mutation is then abandoned and a past-tense `&lt;action&gt;:cancelled` event carries the reason. A handler may be `async` (or return a Promise): the grid awaits every before-handler before deciding, so a confirm dialog or a server check can gate the write. Any one handler preventing cancels the action. The action-specific fields (the edited cells, the target index, the affected rows) are spread alongside these, so a handler decides without reaching into grid internals. `origin` distinguishes a genuine user gesture from a host/module-driven or remote write, which is how a module whose move re-enters core is deduplicated by the host.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">preventDefault</td><td class="type">(reason?: string): void</td><td class="desc">Cancel the pending action; the optional reason is surfaced on the cancellation event.</td></tr>
+          <tr><td class="name">defaultPrevented</td><td class="type">boolean</td><td class="desc">True once any handler has called `preventDefault` or returned false.</td></tr>
+          <tr><td class="name">reason</td><td class="type">string | null</td><td class="desc">The reason given to `preventDefault`, or null; `'stale'` when re-validation failed.</td></tr>
         </tbody>
       </table>
     </div>

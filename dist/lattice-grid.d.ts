@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.35.0, type declarations
+ * Lattice Grid 1.36.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -3442,7 +3442,21 @@ export type EventName =
   /* Annotations */
   | 'annotation:changed'
   /* Export */
-  | 'export:progress'
+  | 'export:progress' | 'export:request' | 'export:done'
+  /* Keyboard help overlay (past-tense notifications) */
+  | 'shortcuts:opened' | 'shortcuts:closed'
+  /* Print (past-tense notifications, BACKLOG-0000941) */
+  | 'print:before' | 'print:after'
+  /* Cancellable before-events (BACKLOG-0000943). Delivered through the async
+   * before-dispatch path with a {@link BeforeEvent} carrying preventDefault. */
+  | 'beforeEdit' | 'beforeSort' | 'beforeFilter'
+  | 'beforeColumnMove' | 'beforeColumnResize' | 'beforeColumnHide'
+  | 'beforeSelect' | 'beforeRowAdd' | 'beforeDelete' | 'beforeRowMove' | 'beforeGroup'
+  /* Their cancellation notifications (past-tense, non-cancellable). */
+  | 'edit:cancelled' | 'sort:cancelled' | 'filter:cancelled'
+  | 'columnMove:cancelled' | 'columnResize:cancelled' | 'columnHide:cancelled'
+  | 'selection:cancelled' | 'rowAdd:cancelled' | 'delete:cancelled'
+  | 'rowMove:cancelled' | 'group:cancelled'
   /* Every event at once, for logging and debugging. */
   | '*';
 
@@ -3451,6 +3465,31 @@ export interface GridEvent {
   origin: 'api' | 'user' | 'init';
   grid: Grid;
   [key: string]: unknown;
+}
+
+/**
+ * A cancellable *before*-event (BACKLOG-0000943), delivered to `on('beforeX')`
+ * handlers before a user-initiated mutation is applied.
+ *
+ * A handler cancels the pending action by calling `preventDefault(reason?)`; the
+ * mutation is then abandoned and a past-tense `<action>:cancelled` event carries
+ * the reason. A handler may be `async` (or return a Promise): the grid awaits
+ * every before-handler before deciding, so a confirm dialog or a server check
+ * can gate the write. Any one handler preventing cancels the action.
+ *
+ * The action-specific fields (the edited cells, the target index, the affected
+ * rows) are spread alongside these, so a handler decides without reaching into
+ * grid internals. `origin` distinguishes a genuine user gesture from a
+ * host/module-driven or remote write, which is how a module whose move re-enters
+ * core is deduplicated by the host.
+ */
+export interface BeforeEvent extends GridEvent {
+  /** Cancel the pending action; the optional reason is surfaced on the cancellation event. */
+  preventDefault(reason?: string): void;
+  /** True once any handler has called `preventDefault` or returned false. */
+  defaultPrevented: boolean;
+  /** The reason given to `preventDefault`, or null; `'stale'` when re-validation failed. */
+  reason: string | null;
 }
 
 export type EventHandler = (e: GridEvent) => void;
@@ -4996,6 +5035,53 @@ export function createPushdownSource(
     client: AggregateProvenance[];
   }>;
 };
+
+/**
+ * Load a JSON or NDJSON file from a URL (BACKLOG-0000944).
+ *
+ * Returns a `StreamSourceConfig` for `createGrid(el, { source: createUrlSource(url, opts) })`.
+ * A JSON file (a top-level array, or a nested array selected by `rowsPath`/`map`)
+ * is read whole and handed over as rows; an NDJSON/JSONL file (one JSON value per
+ * line) is streamed in incrementally in batches. Format is resolved from an
+ * explicit `format`, else the URL extension, else the `Content-Type`, else a
+ * sniff of the first bytes or a clear error. Errors — a non-2xx status, a network
+ * failure, a bad body, a malformed line — surface as `source:error`, never as an
+ * uncaught throw. Zero new dependencies: `fetch`, `response.body.getReader()` and
+ * `TextDecoder`.
+ *
+ * @param url the file URL
+ * @param opts loading options
+ * @returns a stream source config
+ */
+export function createUrlSource(
+  url: string,
+  opts?: {
+    /** Explicit format; wins over inference. */
+    format?: 'json' | 'ndjson';
+    /** Dot path to the array inside a wrapped JSON body (JSON only). */
+    rowsPath?: string;
+    /** Extract the array from the parsed JSON (JSON only); runs after `rowsPath`. */
+    map?: (parsed: unknown) => unknown[];
+    /** Transport override for auth, headers or a proxy; default `globalThis.fetch`. */
+    fetch?: typeof fetch;
+    /** Headers merged into the request. */
+    headers?: Record<string, string>;
+    /** Re-fetch on this interval in milliseconds; each pass replaces the rows. */
+    poll?: number;
+    /** NDJSON rows per emitted chunk, to avoid render thrash; default 500. */
+    batchSize?: number;
+    /** NDJSON: skip a malformed line with a warning rather than failing the stream. */
+    lenient?: boolean;
+    /** Start fetching on construction; default true. */
+    autoStart?: boolean;
+    /** Sliding-window bound passed through to the stream. */
+    maxRows?: number;
+    /** Render-coalescing window in ms, passed through to the stream. */
+    coalesceMs?: number;
+    /** Promote to a memory source below this row count, passed through to the stream. */
+    promoteToMemoryBelow?: number;
+  },
+): StreamSourceConfig;
 
 /**
  * The pushdown map (BACKLOG-0000730 Part B): one published record per statistic
