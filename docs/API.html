@@ -2533,6 +2533,66 @@ const writes = createAI(grid, { ask: async () =&gt; ({ actions: [{ type: 'setCel
 const write = await writes.query('change the data');
 return `${rows} rows; write ${write.ok ? 'allowed' : 'refused'}`;</code></pre>
 
+    <h3 id="ai-actor">AI as a governed actor (<code>modules/ai</code>, writes)</h3>
+    <p>The governed actor lets the model <strong>propose</strong> edits &mdash; a single NL-targeted
+    change (&ldquo;set the Network Upgrade project to In&nbsp;Progress&rdquo;) or a bulk cleanup &mdash;
+    that a human previews as a <strong>before/after diff</strong> and approves. The model NEVER writes.
+    On approval the edit applies through the grid's <em>own</em> gate, exactly like a person's edit:
+    a grid cell edit via <code>grid.edit.setCells(writes, 'cell', { origin: 'ai' })</code> (the
+    <code>beforeEdit</code> veto), a Kanban card move via <code>board.move(&hellip;, { origin: 'ai' })</code>
+    (the <code>beforeMove</code> veto). <strong>The AI can never bypass the gate:</strong> a host
+    <code>beforeEdit</code>/<code>beforeMove</code> handler that calls <code>preventDefault()</code>
+    (or vetoes async) stops the write, and nothing persists. Writes carry <code>origin: 'ai'</code>
+    on the before-event payload, so a host can allow a person's edit while vetoing the AI's &mdash;
+    policing AI writes distinctly. Approved edits are optimistic and revert on a source reject
+    through the shipped write-back (there is no separate <code>beforeCommit</code> event; the edit gate
+    is <code>beforeEdit</code>, and the optimistic/revert half is <code>grid.edit.settle</code>).</p>
+    <p>NL targeting and any bulk edit bind to the <strong>current filtered view</strong>
+    (<code>grid.rows.data()</code>), never the whole table implicitly; a target not in the view is
+    surfaced for an explicit opt-in <code>widen</code>, not edited silently. A human label is resolved
+    to the column's stored option value; an unknown label is rejected, not coerced. An ambiguous match
+    (more than one row) surfaces its candidates for the user to pick.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">propose(instruction, opts?)</td><td class="type">Promise&lt;proposal&gt;</td><td class="desc">Ask the model for structured edits, validate + resolve them against the current view, and return a reviewable proposal with a before/after <code>diff</code>. Nothing is written. <code>opts.widen</code> opts into the full dataset; <code>opts.board</code> routes a Kanban move.</td></tr>
+          <tr><td class="sig">applyProposal(proposal, opts?)</td><td class="type">Promise&lt;report&gt;</td><td class="desc">Apply an approved proposal through the gate (<code>origin: 'ai'</code>). A vetoing before-handler stops it; the report gives <code>applied</code>/<code>vetoed</code>.</td></tr>
+          <tr><td class="sig">actorBar(el, opts?)</td><td class="type">controller</td><td class="desc">Mount the propose &rarr; review-diff &rarr; approve bar, stating the scope.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre data-run="js" data-expect="diff To do then In Progress; vetoed kept todo; approved wrote doing" data-covers="export:createAI"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createAI } = await import('../packages/modules/ai/index.js');
+const status = { options: [{ id: 'todo', label: 'To do' }, { id: 'doing', label: 'In Progress' }] };
+const seed = () =&gt; createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'name' }, { field: 'status', lookup: status, edit: { enabled: true } }],
+  rows: [{ id: 'r1', name: 'Network Upgrade', status: 'todo' }, { id: 'r2', name: 'Payroll', status: 'todo' }],
+});
+// A MOCK ask() returns a structured PROPOSAL — never a write, never rows.
+const ask = async () =&gt; ({ structured: { edits: [{ match: 'Network Upgrade', column: 'status', value: 'In Progress' }] } });
+
+// Propose: a before/after diff, nothing written yet.
+let grid = seed();
+let ai = createAI(grid, { ask });
+const proposal = await ai.propose('set the Network Upgrade project to In Progress');
+const d = proposal.diff[0];
+const before = `${d.oldDisplay} then ${d.newDisplay}`;
+
+// A vetoing beforeEdit handler on the AI write => NOTHING persists.
+grid.on('beforeEdit', (e) =&gt; { if (e.origin === 'ai') e.preventDefault('reviewed elsewhere'); });
+await ai.applyProposal(proposal);
+const vetoed = grid.rows.byKey('r1').data.status;
+
+// Approve on a grid with no veto => the edit lands through the gate.
+grid = seed();
+ai = createAI(grid, { ask });
+await ai.applyProposal(await ai.propose('set the Network Upgrade project to In Progress'));
+const approved = grid.rows.byKey('r1').data.status;
+
+return `diff ${before}; vetoed kept ${vetoed}; approved wrote ${approved}`;</code></pre>
+
     <h2 id="overlay">grid.overlay</h2>
     <div class="table-wrap">
       <table>
@@ -7693,7 +7753,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">stop</td><td class="type">(cancel?: boolean): void</td><td class="desc"></td></tr>
           <tr><td class="name">undo</td><td class="type">(): void</td><td class="desc"></td></tr>
           <tr><td class="name">redo</td><td class="type">(): void</td><td class="desc"></td></tr>
-          <tr><td class="name">setCells</td><td class="type">(writes: { key: string; colId: string; value: unknown }[], type?: 'cell' | 'fill' | 'paste'): number</td><td class="desc"></td></tr>
+          <tr><td class="name">setCells</td><td class="type">(</td><td class="desc">Write several cells as one undoable step (§12). `opts.origin` defaults to `'api'` — the ungated seam every existing caller uses (a fill, a paste, a kanban move), unchanged. Pass `{ origin: 'ai' }` (or `'user'`) to route the write through the cancellable `beforeEdit` gate, exactly as an interactive edit is (BACKLOG-0000967): the AI writes through this so a host `beforeEdit` handler can veto it and nothing persists when it does. With a gated origin and an async (deferring) before-handler, the return is a `Promise&lt;number&gt;`.</td></tr>
           <tr><td class="name">bulkSet</td><td class="type">(value: unknown, opts?: { cells?: { key: string; colId: string }[] }): number</td><td class="desc">Set one value across a block of cells as a single undoable step (§12, card 740). Defaults to the selected range; read-only and non-editable cells are skipped and every write runs the normal parse/validate path.</td></tr>
           <tr><td class="name">fill</td><td class="type">(opts?: { direction?: 'down' | 'up' | 'left' | 'right'; series?: boolean; range?: CellRange }): number</td><td class="desc">Fill a selected range from its leading edge as one undoable step (§12, card 740). The default copies the anchor across the range (Excel's Ctrl+D and its natural siblings); `series: true` extrapolates a numeric or date series from the first one or two cells of each line, falling back to a copy for types with no series. `direction` defaults to `'down'`.</td></tr>
           <tr><td class="name">pasteInto</td><td class="type">(anchor: { key: string; colId: string }, text: string, extent?: { rows?: number; columns?: number }): number</td><td class="desc"></td></tr>
@@ -8237,7 +8297,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">type</td><td class="type">string</td><td class="desc"></td></tr>
-          <tr><td class="name">origin</td><td class="type">'api' | 'user' | 'init'</td><td class="desc"></td></tr>
+          <tr><td class="name">origin</td><td class="type">'api' | 'user' | 'init' | 'ai'</td><td class="desc">Who caused the action. `'ai'` (BACKLOG-0000967) tags a write an AI proposed and a human approved, applied through `grid.edit.setCells(writes, type, { origin: 'ai' })`; it fires the same cancellable `beforeEdit` gate a `'user'` edit does, so a host can policy-gate AI writes distinctly.</td></tr>
           <tr><td class="name">grid</td><td class="type">Grid</td><td class="desc"></td></tr>
         </tbody>
       </table>

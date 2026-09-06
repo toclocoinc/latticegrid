@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.43.0, type declarations
+ * Lattice Grid 1.44.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -3772,7 +3772,13 @@ export type EventName =
 
 export interface GridEvent {
   type: string;
-  origin: 'api' | 'user' | 'init';
+  /**
+   * Who caused the action. `'ai'` (BACKLOG-0000967) tags a write an AI proposed
+   * and a human approved, applied through `grid.edit.setCells(writes, type,
+   * { origin: 'ai' })`; it fires the same cancellable `beforeEdit` gate a
+   * `'user'` edit does, so a host can policy-gate AI writes distinctly.
+   */
+  origin: 'api' | 'user' | 'init' | 'ai';
   grid: Grid;
   [key: string]: unknown;
 }
@@ -4101,7 +4107,20 @@ export interface EditApi {
   stop(cancel?: boolean): void;
   undo(): void;
   redo(): void;
-  setCells(writes: { key: string; colId: string; value: unknown }[], type?: 'cell' | 'fill' | 'paste'): number;
+  /**
+   * Write several cells as one undoable step (§12). `opts.origin` defaults to
+   * `'api'` — the ungated seam every existing caller uses (a fill, a paste, a
+   * kanban move), unchanged. Pass `{ origin: 'ai' }` (or `'user'`) to route the
+   * write through the cancellable `beforeEdit` gate, exactly as an interactive
+   * edit is (BACKLOG-0000967): the AI writes through this so a host `beforeEdit`
+   * handler can veto it and nothing persists when it does. With a gated origin
+   * and an async (deferring) before-handler, the return is a `Promise<number>`.
+   */
+  setCells(
+    writes: { key: string; colId: string; value: unknown }[],
+    type?: 'cell' | 'fill' | 'paste',
+    opts?: { origin?: 'api' | 'ai' | 'user' },
+  ): number | Promise<number>;
   /**
    * Set one value across a block of cells as a single undoable step (§12, card
    * 740). Defaults to the selected range; read-only and non-editable cells are
@@ -8101,6 +8120,14 @@ declare module 'lattice-grid/modules/ai' {
     context?: unknown;
     /** Called with each ask-your-data result. */
     onQuery?: (result: AIQueryResult) => void;
+    /** Called with each governed-actor proposal (Play C), before any approval. */
+    onProposal?: (result: AIProposal) => void;
+    /**
+     * A Kanban board (from `createKanban`) the governed actor writes moves
+     * through: an NL card move applies via the board's own `beforeMove` gate
+     * (BACKLOG-0000967), never a kanban-specific write bypass.
+     */
+    board?: unknown;
     /** Cap on rows any tool result carries to `ask()`. */
     maxRows?: number;
     /** Columns whose values must never leave the browser. */
@@ -8163,11 +8190,82 @@ declare module 'lattice-grid/modules/ai' {
     apply(opts?: { router?: unknown; onResult?: (rows: object[]) => void }): AIApplyReport;
   }
 
+  /** One before/after change in a governed-actor proposal (BACKLOG-0000967). */
+  interface AIDiffEntry {
+    /** The target row key. */
+    key: string;
+    /** A human label identifying the row (a name-like column, else the key). */
+    rowLabel: string;
+    /** The target column id. */
+    colId: string;
+    /** The column's title, for the diff header. */
+    colTitle: string;
+    /** The current stored value. */
+    oldValue: unknown;
+    /** The current value as shown (a lookup id mapped to its label). */
+    oldDisplay: string;
+    /** The proposed stored value (a label resolved to its option id). */
+    newValue: unknown;
+    /** The proposed value as shown. */
+    newDisplay: string;
+  }
+
   /**
-   * An AI narrative / insights controller over a live grid. Read-only: it
-   * explains the grid's computed figures and answers questions with validated
-   * query specs, and never mutates data. `grid.ai` (in core) is the
-   * complementary intent/plan skill layer this consumes.
+   * A governed-actor proposal (Play C, BACKLOG-0000967): the model's structured
+   * edits, VALIDATED and resolved against the current view — never written until
+   * a human approves. `apply()` writes ONLY through the grid's own gate.
+   */
+  interface AIProposal {
+    /** True when there is at least one applicable change and nothing needs a pick first. */
+    ok: boolean;
+    /** The user's instruction. */
+    instruction: string;
+    /** `'view'` (the filtered set, the default) or `'all'` (an opted-in widen). */
+    scope: 'view' | 'all';
+    /** How many rows the scope covers. */
+    scopeCount: number;
+    /** The scope in words, always stated in the confirm/diff. */
+    scopeText: string;
+    /** Whether any proposal was a bulk (`scope:'view'`) edit. */
+    bulk: boolean;
+    /** The before/after diff — exactly what would change. Nothing is written yet. */
+    diff: AIDiffEntry[];
+    /** Proposals refused before apply (unknown column, unknown label, bad type/range, no match). */
+    rejected: Array<{ reason: string; [k: string]: unknown }>;
+    /** Matches needing a human pick (>1 row for one phrase), with candidates. */
+    ambiguous: Array<{ reason: string; candidates: Array<{ key: string; label: string }>; [k: string]: unknown }>;
+    /** Named targets found only outside the view, offered for an opt-in widen. */
+    outOfView: Array<{ reason: string; candidates: Array<{ key: string; label: string }>; [k: string]: unknown }>;
+    /** Matches whose value already equals the ask (nothing to change). */
+    noops: Array<{ reason: string; [k: string]: unknown }>;
+    /** The apply report once applied, or null. */
+    applied: AIProposalReport | null;
+    /** The proposal in one human sentence, always stating the scope. */
+    describe(): string;
+    /** Apply the approved diff through the gate (`beforeEdit`, or `beforeMove` for a board). */
+    apply(opts?: { board?: unknown }): Promise<AIProposalReport>;
+  }
+
+  /** The report from applying a governed-actor proposal. */
+  interface AIProposalReport {
+    /** True when at least one edit landed. */
+    ok: boolean;
+    /** How many edits landed through the gate. */
+    applied: number;
+    /** How many edits were attempted. */
+    requested: number;
+    /** How many were stopped by a before-handler veto. */
+    vetoed: number;
+    /** Which gated path applied them: `'setCells'`, `'board.move'`, or `'none'`. */
+    via: string;
+  }
+
+  /**
+   * An AI controller over a live grid. It explains the grid's computed figures
+   * (Play A), answers questions with validated read-only query specs (Play B),
+   * and PROPOSES governed edits a human approves and the grid's own gate applies
+   * (Play C). `grid.ai` (in core) is the complementary intent/plan skill layer
+   * this consumes.
    */
   interface AI {
     /** The mounted insights panel element, or null. */
@@ -8198,7 +8296,32 @@ declare module 'lattice-grid/modules/ai' {
     applyQuery(result: AIQueryResult, opts?: { router?: unknown; onResult?: (rows: object[]) => void }): AIApplyReport;
     /** Mount the ask-your-data bar (input, Ask, auto-apply toggle, preview, Apply/Discard). */
     askBar(el?: HTMLElement, opts?: object): AI;
-    on(name: 'narrative' | 'query' | 'error' | string, fn: (payload: object) => void): () => void;
+    /**
+     * Governed actor (Play C): ask the model for structured edit PROPOSALS over
+     * the current view, validate and resolve them (label -> stored value, locate
+     * a named row, reject unknown columns/labels/out-of-range), and return a
+     * reviewable {@link AIProposal} with a before/after diff. NOTHING is written
+     * — the model proposes; a human approves.
+     */
+    propose(instruction: string, opts?: {
+      widen?: boolean; board?: unknown; schemaOptions?: object; maxRows?: number;
+      context?: unknown; redact?: string | string[] | ((colId: string) => boolean);
+      signal?: AbortSignal;
+    }): Promise<AIProposal>;
+    /**
+     * Apply an approved proposal — the human-approval step. Writes ONLY through
+     * the gate: a grid cell edit via `grid.edit.setCells({ origin: 'ai' })` (the
+     * `beforeEdit` veto), a kanban move via `board.move({ origin: 'ai' })` (the
+     * `beforeMove` veto). A vetoing host handler stops the write.
+     */
+    applyProposal(result: AIProposal, opts?: { board?: unknown }): Promise<AIProposalReport>;
+    /**
+     * Mount the governed-actor bar: an instruction input, Propose, a before/after
+     * diff preview stating the scope, and Approve/Discard. Approve applies
+     * through the gate.
+     */
+    actorBar(el?: HTMLElement, opts?: object): AI;
+    on(name: 'narrative' | 'query' | 'proposal' | 'error' | string, fn: (payload: object) => void): () => void;
     off(name: string, fn: (payload: object) => void): void;
     destroy(): void;
   }
