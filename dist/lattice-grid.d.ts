@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.42.0, type declarations
+ * Lattice Grid 1.43.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -8083,8 +8083,24 @@ declare module 'lattice-grid/modules/ai' {
   interface AIConfig {
     /** The host's model callback. Falls back to the grid's `ai.ask` when omitted. */
     ask?: AIAsk;
-    /** Opt into specific features: `'narrative'`, `'insights'`. All on when omitted. */
+    /** Opt into specific features: `'narrative'`, `'insights'`, `'query'`/`'ask'`. All on when omitted. */
     enable?: string[];
+    /**
+     * Ask-your-data: apply a safe (read-only) query result without a confirm
+     * step. Off by default — the resolved query is shown and waits for Apply.
+     */
+    autoApply?: boolean;
+    /**
+     * A Data Router instance; on applying a query the answer rows are fanned to
+     * its attached viewers (grid + chart + KPI together) via `load()`.
+     */
+    router?: unknown;
+    /** Budgets passed to the schema builder for ask-your-data. */
+    schemaOptions?: object;
+    /** Extra context passed through to `ask()`. */
+    context?: unknown;
+    /** Called with each ask-your-data result. */
+    onQuery?: (result: AIQueryResult) => void;
     /** Cap on rows any tool result carries to `ask()`. */
     maxRows?: number;
     /** Columns whose values must never leave the browser. */
@@ -8105,11 +8121,53 @@ declare module 'lattice-grid/modules/ai' {
     onError?: (error: { error: unknown; target: AITarget }) => void;
   }
 
+  /** The report from applying an ask-your-data query. */
+  interface AIApplyReport {
+    ok: boolean;
+    /** The action types that were applied. */
+    applied: string[];
+    /** Actions that threw while applying. */
+    failed: Array<{ type: string; reason: string }>;
+    /** Actions refused by the read-only gate — a mutation is never applied. */
+    refused: Array<{ type: string; reason: string }>;
+    /** How many answer rows were fanned to a router's viewers. */
+    fannedOut: number;
+  }
+
+  /**
+   * The result of an ask-your-data question (BACKLOG-0000966): a validated,
+   * READ-ONLY query spec — never rows — that the host reviews before applying.
+   */
+  interface AIQueryResult {
+    /** True when the spec is safe to apply: at least one read, nothing unsafe. */
+    ok: boolean;
+    /** The user's question. */
+    question: string;
+    /** The core plan (from `grid.ai.plan`). */
+    plan: Record<string, unknown>;
+    /** The read-only actions that will run — the validated query spec. */
+    actions: object[];
+    /** Actions refused as not read-only (a mutation the model asked for). */
+    unsafe: Array<{ type: string; reason: string }>;
+    /** Parts the core validator dropped (unknown column, bad operator, …). */
+    rejected: Array<{ at: string; what: string; reason: string }>;
+    /** The model's own one-line summary, if any. */
+    explain: string;
+    /** The validated query spec as data. */
+    spec: { actions: object[] };
+    /** The apply report once applied, or null. */
+    applied: AIApplyReport | null;
+    /** The resolved query in one human sentence, from the validated spec. */
+    describe(): string;
+    /** Apply the query (re-gated), fanning the answer to a router if configured. */
+    apply(opts?: { router?: unknown; onResult?: (rows: object[]) => void }): AIApplyReport;
+  }
+
   /**
    * An AI narrative / insights controller over a live grid. Read-only: it
-   * explains the grid's computed figures and never mutates data. `grid.ai` (in
-   * core) is the complementary intent/plan skill layer; this is the
-   * narrative/insights consumer.
+   * explains the grid's computed figures and answers questions with validated
+   * query specs, and never mutates data. `grid.ai` (in core) is the
+   * complementary intent/plan skill layer this consumes.
    */
   interface AI {
     /** The mounted insights panel element, or null. */
@@ -8126,7 +8184,21 @@ declare module 'lattice-grid/modules/ai' {
     attachExplain(target: AITarget, opts?: object): HTMLElement | null;
     /** Build the facts packet for a target without calling `ask()`. */
     facts(target?: AITarget, opts?: object): AIFactsPacket;
-    on(name: 'narrative' | 'error' | string, fn: (payload: object) => void): () => void;
+    /**
+     * Ask-your-data: turn a question into a validated, read-only query spec, run
+     * it in the engine, and (on apply) fan the answer to router-attached viewers.
+     * Returns a result the host reviews; `autoApply` applies a safe read for you.
+     */
+    query(question: string, opts?: {
+      autoApply?: boolean; router?: unknown; schemaOptions?: object;
+      context?: unknown; tools?: boolean; signal?: AbortSignal;
+      onResult?: (rows: object[]) => void;
+    }): Promise<AIQueryResult>;
+    /** Apply a reviewed query result (the confirm path); re-gated at the seam. */
+    applyQuery(result: AIQueryResult, opts?: { router?: unknown; onResult?: (rows: object[]) => void }): AIApplyReport;
+    /** Mount the ask-your-data bar (input, Ask, auto-apply toggle, preview, Apply/Discard). */
+    askBar(el?: HTMLElement, opts?: object): AI;
+    on(name: 'narrative' | 'query' | 'error' | string, fn: (payload: object) => void): () => void;
     off(name: string, fn: (payload: object) => void): void;
     destroy(): void;
   }

@@ -2498,6 +2498,41 @@ grid.permissions.setContext({ role: 'clerk' });      // re-resolves everything</
     </div>
     <div class="note"><p>Actions: <code>setFilters</code>, <code>setSort</code>, <code>groupBy</code>, <code>showColumns</code>, <code>hideColumns</code>, <code>setQuick</code>, <code>clear</code>. Nothing else is executable, so a model cannot be talked into an operation the vocabulary does not contain. <code>docs/AI-SKILL.md</code> is the reference to hand your model.</p></div>
 
+    <h3 id="ai-askdata">Ask-your-data (<code>modules/ai</code>)</h3>
+    <p>The opt-in AI module (<code>createAI</code>, UMD <code>LatticeGridAI</code>) turns a question into
+    a validated <strong>read-only</strong> query spec, runs it in the grid's own engine over the
+    <code>grid.ai</code> skill layer, and — on apply — fans the answer to any router-attached viewers
+    (a chart, a KPI tile) through the Data Router's <code>load()</code>. It uses the same BYO
+    <code>ask()</code> seam as the rest of the module: the grid makes no model call and holds no key.
+    Ask-your-data is read-only; a write/mutation the model asks for is <strong>refused and never
+    executed</strong> (writes are a separate, human-gated feature).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">query(question, opts?)</td><td class="type">Promise&lt;result&gt;</td><td class="desc">Ask the model, validate the reply into a read-only spec. <code>result.describe()</code> shows the resolved query; nothing applies until <code>result.apply()</code> (or <code>autoApply</code>).</td></tr>
+          <tr><td class="sig">applyQuery(result, opts?)</td><td class="type">object</td><td class="desc">Apply a reviewed result. Re-gated at the seam: an unsafe plan is refused. <code>opts.router</code> fans the answer to other viewers.</td></tr>
+          <tr><td class="sig">askBar(el, opts?)</td><td class="type">controller</td><td class="desc">Mount the ask/review/apply bar with an "auto-apply safe reads" toggle (off by default).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre data-run="js" data-expect="2 rows; write refused" data-covers="export:createAI"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createAI } = await import('../packages/modules/ai/index.js');
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'region' }, { field: 'amount', type: 'number' }],
+  rows: [{ id: 1, region: 'EMEA', amount: 100 }, { id: 2, region: 'AMER', amount: 300 }, { id: 3, region: 'EMEA', amount: 200 }],
+});
+// Your model returns a schema-constrained SPEC, never rows. WE run it, read-only.
+const reads = createAI(grid, { ask: async () =&gt; ({ actions: [{ type: 'setFilters', filters: { col: 'region', op: 'eq', value: 'EMEA' } }] }) });
+const result = await reads.query('EMEA only');
+result.apply();
+const rows = grid.rows.data().length;
+// A write verb is refused by the read-only gate and never executed.
+const writes = createAI(grid, { ask: async () =&gt; ({ actions: [{ type: 'setCells', edits: [] }] }) });
+const write = await writes.query('change the data');
+return `${rows} rows; write ${write.ok ? 'allowed' : 'refused'}`;</code></pre>
+
     <h2 id="overlay">grid.overlay</h2>
     <div class="table-wrap">
       <table>
