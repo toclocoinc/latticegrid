@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.36.0, type declarations
+ * Lattice Grid 1.37.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -182,6 +182,13 @@ export interface CellParams extends ValueParams {
   text: string;
   index: number;
   props?: Record<string, unknown>;
+  /**
+   * Format a message from the grid's catalogue, for a renderer that wants its
+   * own accessible names and labels localised rather than hard-coded (§17,
+   * WCAG 4.1.2). The built-in renderers use this; a custom renderer may too.
+   * Optional: absent when a renderer is exercised without a grid to ask.
+   */
+  t?: (key: string, vars?: Record<string, unknown>) => string;
 }
 
 export interface FormatParams extends ValueParams { locale: string }
