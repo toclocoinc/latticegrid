@@ -6287,6 +6287,38 @@ const rows = stream.map((temp, t) =&gt; ({ t, temp }));
 const signal = condition(rows);
 return `methods ${ROLLING_ANOMALY_METHODS.length}; spike ${roll.flags[10]}; alert ${signal ? signal.flagged.length : 0}`;</code></pre>
 
+    <h3 id="forecasting">Forecasting</h3>
+    <p class="section-note">Project an ordered series forward, and carry a prediction band where a defensible closed form exists (BACKLOG-0000963). Five methods behind one entry point: <code>movingAverage</code> and <code>ses</code> are flat forecasts (the trailing-window mean, the final smoothed level); <code>holt</code> adds a projected trend, <code>holtWinters</code> a projected trend and an additive seasonal; <code>linear</code> extrapolates an ordinary least-squares fit of the time axis. The exponential-smoothing bands are the innovations state-space forecast variances (Hyndman &amp; Athanasopoulos) at the normal quantile; the linear and moving-average bands are the exact Student-t intervals, and <code>linear</code> also reports the narrower mean-response (confidence) band a trendline draws. These are the pure kernels the chart trendline overlay and the time-series grid forecast from; a host can forecast a plain array the same way.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Signature</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">FORECAST_METHODS</td><td class="type">readonly ('movingAverage' | 'ses' | 'holt' | 'holtWinters' | 'linear')[]</td><td class="desc">The five methods a caller may ask for, named so a result can say which produced it.</td></tr>
+          <tr><td class="name">forecast</td><td class="type">(seq, opts?) =&gt; ForecastResult | null</td><td class="desc">Forecast an ordered series <code>opts.horizon</code> steps ahead by <code>opts.method</code> (default <code>linear</code>), at <code>opts.confidence</code> (default 0.95). Accepts a plain array of numbers (index is the time axis) or <code>{at, value}</code> rows. A smoothing factor absent from <code>opts</code> (<code>alpha</code>/<code>beta</code>/<code>gamma</code>) is fit by minimising the in-sample one-step SSE; <code>holtWinters</code> needs <code>opts.period</code> (≥ 2) and two whole periods of data. Each point carries <code>mean</code> and, where a band applies, <code>lower</code>/<code>upper</code>; <code>linear</code> adds <code>lowerMean</code>/<code>upperMean</code>. Null when the series is too short for the method.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre data-run="js" data-expect="methods 5; next 5.8; r2 0.6; band 1.68..9.92; season 63.125" data-covers="export:FORECAST_METHODS export:forecast"><code>const { forecast, FORECAST_METHODS } = await import('../packages/core/src/index.js');
+// Linear: fit the time axis, project one step, and carry the prediction band.
+const lin = forecast([{ at: 1, value: 2 }, { at: 2, value: 4 }, { at: 3, value: 5 }, { at: 4, value: 4 }, { at: 5, value: 5 }], { method: 'linear', horizon: 1 });
+const p = lin.points[0];
+// Holt-Winters additive: a level, a trend and a two-step season, projected two
+// steps ahead — the seasonal swing is carried into the forecast, not smoothed away.
+const hw = forecast([10, 20, 30, 40], { method: 'holtWinters', period: 2, alpha: 0.5, beta: 0.5, gamma: 0.5, horizon: 2 });
+return `methods ${FORECAST_METHODS.length}; next ${p.mean.toFixed(1)}; r2 ${lin.r2.toFixed(1)}; band ${p.lower.toFixed(2)}..${p.upper.toFixed(2)}; season ${hw.points[1].mean}`;</code></pre>
+
+    <p class="section-note">The same forecast off the standard stats surface: <code>grid.statistics.forecast(colId, opts)</code> reads the column over the filtered rows — ordered by <code>opts.by</code> when the time axis matters, exactly as <code>grid.statistics.series(...)</code> orders — and returns the same <code>ForecastResult</code>, so a host reaches a forecast the way it reaches <code>grid.statistics.anomalies(...)</code> rather than assembling the series itself.</p>
+    <pre data-run="js" data-expect="next 5.8; r2 0.6; band true" data-covers="method:statistics"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const grid = createHeadlessGrid({
+  columns: [{ field: 't', type: 'number' }, { field: 'v', type: 'number' }],
+  rows: [[1, 2], [2, 4], [3, 5], [4, 4], [5, 5]].map(([t, v], i) =&gt; ({ id: String(i), t, v })),
+  rowKey: 'id',
+});
+// Forecast the 'v' column one step ahead, ordered by 't', with the prediction band.
+const f = grid.statistics.forecast('v', { by: 't', method: 'linear', horizon: 1 });
+const p = f.points[0];
+return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.lower &gt; 0}`;</code></pre>
+
 
 <!-- BEGIN GENERATED TYPE REFERENCE -->
     <h2 id="type-reference">Type reference</h2>
@@ -7828,6 +7860,40 @@ return `methods ${ROLLING_ANOMALY_METHODS.length}; spike ${roll.flags[10]}; aler
         </tbody>
       </table>
     </div>
+    <h3 id="type-ForecastPoint">ForecastPoint</h3>
+    <p class="section-note">One forecast step: the point estimate and, where a band applies, its interval.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">step</td><td class="type">number</td><td class="desc">The step ahead, `1 … horizon`.</td></tr>
+          <tr><td class="name">at</td><td class="type">number</td><td class="desc">The time-axis position the step is stamped at, extrapolated at the mean spacing.</td></tr>
+          <tr><td class="name">mean</td><td class="type">number</td><td class="desc">The point forecast.</td></tr>
+          <tr><td class="name">lower</td><td class="type">number | null</td><td class="desc">The prediction-interval lower bound (a future observation), or null when none applies.</td></tr>
+          <tr><td class="name">upper</td><td class="type">number | null</td><td class="desc">The prediction-interval upper bound, or null when none applies.</td></tr>
+          <tr><td class="name">lowerMean</td><td class="type">number | null</td><td class="desc">The mean-response (confidence) lower bound — `linear` only, the band a trendline draws. <small>(optional)</small></td></tr>
+          <tr><td class="name">upperMean</td><td class="type">number | null</td><td class="desc">The mean-response (confidence) upper bound — `linear` only. <small>(optional)</small></td></tr>
+          <tr><td class="name">se</td><td class="type">number | null</td><td class="desc">The prediction standard error the band was built from, or null when none applies.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-ForecastResult">ForecastResult</h3>
+    <p class="section-note">A forecast: the chosen model, its parameters, and the projected points.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">method</td><td class="type">'movingAverage' | 'ses' | 'holt' | 'holtWinters' | 'linear'</td><td class="desc">Which method produced it.</td></tr>
+          <tr><td class="name">horizon</td><td class="type">number</td><td class="desc">How many steps ahead were projected.</td></tr>
+          <tr><td class="name">confidence</td><td class="type">number</td><td class="desc">The band level, e.g. 0.95.</td></tr>
+          <tr><td class="name">n</td><td class="type">number</td><td class="desc">How many finite readings the fit used.</td></tr>
+          <tr><td class="name">sigma</td><td class="type">number | null</td><td class="desc">The residual standard deviation the bands were built from, or null when there was none.</td></tr>
+          <tr><td class="name">r2</td><td class="type">number</td><td class="desc">The fit's coefficient of determination — `linear` only. <small>(optional)</small></td></tr>
+          <tr><td class="name">params</td><td class="type">{</td><td class="desc">The model parameters: `slope`/`intercept` (linear), `alpha`/`beta`/`gamma`/`period`, or `windowLen`.</td></tr>
+          <tr><td class="name">points</td><td class="type">ForecastPoint[]</td><td class="desc">The forecast, one entry per step.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-FormattingApi">FormattingApi</h3>
     <div class="table-wrap">
       <table>
@@ -8268,6 +8334,8 @@ return `methods ${ROLLING_ANOMALY_METHODS.length}; spike ${roll.flags[10]}; aler
         <tbody>
           <tr><td class="name">preview</td><td class="type">(text: string, opts?: object): ImportPreview</td><td class="desc">Parse delimited text into a preview, changing nothing.</td></tr>
           <tr><td class="name">csv</td><td class="type">(text: string, opts?: object): Record&lt;string, unknown&gt;[]</td><td class="desc">Parse delimited text into coerced records — the inverse of `export.csv`.</td></tr>
+          <tr><td class="name">previewXlsx</td><td class="type">(bytes: Uint8Array | ArrayBuffer, opts?: object): Promise&lt;ImportXlsxPreview&gt;</td><td class="desc">Parse an `.xlsx` file's bytes into a preview, changing nothing (§14, BACKLOG-0000970). Async: the archive is inflated with `DecompressionStream`.</td></tr>
+          <tr><td class="name">xlsx</td><td class="type">(bytes: Uint8Array | ArrayBuffer, opts?: object): Promise&lt;Record&lt;string, unknown&gt;[]&gt;</td><td class="desc">Parse an `.xlsx` file's bytes into coerced records — the inverse of `export.excel`.</td></tr>
           <tr><td class="name">apply</td><td class="type">(</td><td class="desc">Add or replace the grid's rows from text, a preview or records.</td></tr>
         </tbody>
       </table>
@@ -8313,6 +8381,22 @@ return `methods ${ROLLING_ANOMALY_METHODS.length}; spike ${roll.flags[10]}; aler
           <tr><td class="name">drop</td><td class="type">boolean</td><td class="desc">Make the grid a drop target for `.csv`/`.tsv` files. Default true. <small>(optional)</small></td></tr>
           <tr><td class="name">paste</td><td class="type">boolean</td><td class="desc">Read a pasted spreadsheet block into a preview. Default true. <small>(optional)</small></td></tr>
           <tr><td class="name">mode</td><td class="type">'append' | 'replace'</td><td class="desc">How a confirmed import lands: append (default) or replace the dataset. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-ImportXlsxPreview">ImportXlsxPreview</h3>
+    <p class="section-note">What an `.xlsx` preview carries — an {@link ImportPreview} plus the sheet read (§14).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">sheet</td><td class="type">string | null</td><td class="desc">The archive path of the worksheet that was read, e.g. `xl/worksheets/sheet1.xml`.</td></tr>
+          <tr><td class="name">header</td><td class="type">string[]</td><td class="desc">The source column headings.</td></tr>
+          <tr><td class="name">columns</td><td class="type">ImportColumn[]</td><td class="desc">The per-column mapping and inference the user may edit before confirming.</td></tr>
+          <tr><td class="name">records</td><td class="type">Record&lt;string, unknown&gt;[]</td><td class="desc">Every mapped, coerced record the import would add.</td></tr>
+          <tr><td class="name">sample</td><td class="type">Record&lt;string, unknown&gt;[]</td><td class="desc">The leading records, for a preview table.</td></tr>
+          <tr><td class="name">rowCount</td><td class="type">number</td><td class="desc">How many data rows the sheet holds.</td></tr>
+          <tr><td class="name">warnings</td><td class="type">string[]</td><td class="desc">Anything worth flagging before confirming.</td></tr>
         </tbody>
       </table>
     </div>
@@ -9431,6 +9515,7 @@ return `methods ${ROLLING_ANOMALY_METHODS.length}; spike ${roll.flags[10]}; aler
           <tr><td class="name">capability</td><td class="type">(colId: string, opts?: {</td><td class="desc">Process capability against the column's `spec`, with control limits and the Western Electric rule breaks. `baseline` fixes the limits over the first N readings, which is how a shift is found rather than hidden by the limits it widened.</td></tr>
           <tr><td class="name">interval</td><td class="type">(colId: string, opts?: {</td><td class="desc">A confidence interval for what a column measures, the range the estimate pins the figure down to, not a verdict about it. Reads the rows the filters left, so an interval narrows as the grid does: it describes the filtered population, not the whole table.</td></tr>
           <tr><td class="name">series</td><td class="type">(colId: string, opts: { by: string; periodsPerYear?: number }): SeriesStats | null</td><td class="desc">How a column varies along an ordering. `by` is required and never guessed: kernels see rows in the order they arrived, which is not the grid's sort.</td></tr>
+          <tr><td class="name">forecast</td><td class="type">(colId: string, opts?: {</td><td class="desc">Forecast one column forward (BACKLOG-0000963): the stats-surface face of the {@link forecast} kernel. The column is read over the filtered rows in arrival order, or ordered by `opts.by` (a date or numeric column, as {@link series} orders) when the time axis matters, then projected `opts.horizon` steps ahead by `opts.method` (default `linear`) with a prediction band where one applies. Every kernel option passes through; returns the same {@link ForecastResult}, or null when the column is unknown or too short.</td></tr>
           <tr><td class="name">weightedAverage</td><td class="type">(colId: string, weightId: string): number | null</td><td class="desc">A weighted average of one column by another.</td></tr>
           <tr><td class="name">keyOf</td><td class="type">(data: unknown): string | null</td><td class="desc">The key a row's data resolves to.</td></tr>
           <tr><td class="name">maintenance</td><td class="type">Readonly&lt;Record&lt;string, 'maintained' | 'rescan'&gt;&gt;</td><td class="desc">Which reductions can be maintained against a change, and which rescan. <small>(read-only)</small></td></tr>

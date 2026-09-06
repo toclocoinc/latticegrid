@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.39.0, type declarations
+ * Lattice Grid 1.40.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -2774,6 +2774,22 @@ export interface StatisticsApi {
    * kernels see rows in the order they arrived, which is not the grid's sort.
    */
   series(colId: string, opts: { by: string; periodsPerYear?: number }): SeriesStats | null;
+  /**
+   * Forecast one column forward (BACKLOG-0000963): the stats-surface face of the
+   * {@link forecast} kernel. The column is read over the filtered rows in arrival
+   * order, or ordered by `opts.by` (a date or numeric column, as {@link series}
+   * orders) when the time axis matters, then projected `opts.horizon` steps ahead
+   * by `opts.method` (default `linear`) with a prediction band where one applies.
+   * Every kernel option passes through; returns the same {@link ForecastResult},
+   * or null when the column is unknown or too short.
+   */
+  forecast(colId: string, opts?: {
+    method?: 'movingAverage' | 'ses' | 'holt' | 'holtWinters' | 'linear';
+    horizon?: number; confidence?: number; windowLen?: number;
+    alpha?: number; beta?: number; gamma?: number; period?: number;
+    /** The column to order by before forecasting — a date or numeric axis. */
+    by?: string;
+  }): ForecastResult | null;
   /** A weighted average of one column by another. */
   weightedAverage(colId: string, weightId: string): number | null;
   /** The key a row's data resolves to. */
@@ -2988,6 +3004,80 @@ export function anomalyCondition(
   },
 ): (rows: Iterable<Record<string, unknown>>) =>
   false | { method: string; field: string; flagged: { row: Record<string, unknown>; score: number | null }[] };
+
+/**
+ * The forecasting methods a caller may ask for (BACKLOG-0000963), named so a
+ * result says which produced it: a trailing moving average, single / double
+ * (Holt) / triple (Holt-Winters) exponential smoothing, and a linear least-squares
+ * fit of the time axis.
+ */
+export const FORECAST_METHODS: readonly ('movingAverage' | 'ses' | 'holt' | 'holtWinters' | 'linear')[];
+
+/** One forecast step: the point estimate and, where a band applies, its interval. */
+export interface ForecastPoint {
+  /** The step ahead, `1 … horizon`. */
+  step: number;
+  /** The time-axis position the step is stamped at, extrapolated at the mean spacing. */
+  at: number;
+  /** The point forecast. */
+  mean: number;
+  /** The prediction-interval lower bound (a future observation), or null when none applies. */
+  lower: number | null;
+  /** The prediction-interval upper bound, or null when none applies. */
+  upper: number | null;
+  /** The mean-response (confidence) lower bound — `linear` only, the band a trendline draws. */
+  lowerMean?: number | null;
+  /** The mean-response (confidence) upper bound — `linear` only. */
+  upperMean?: number | null;
+  /** The prediction standard error the band was built from, or null when none applies. */
+  se: number | null;
+}
+
+/** A forecast: the chosen model, its parameters, and the projected points. */
+export interface ForecastResult {
+  /** Which method produced it. */
+  method: 'movingAverage' | 'ses' | 'holt' | 'holtWinters' | 'linear';
+  /** How many steps ahead were projected. */
+  horizon: number;
+  /** The band level, e.g. 0.95. */
+  confidence: number;
+  /** How many finite readings the fit used. */
+  n: number;
+  /** The residual standard deviation the bands were built from, or null when there was none. */
+  sigma: number | null;
+  /** The fit's coefficient of determination — `linear` only. */
+  r2?: number;
+  /** The model parameters: `slope`/`intercept` (linear), `alpha`/`beta`/`gamma`/`period`, or `windowLen`. */
+  params: {
+    slope?: number; intercept?: number;
+    alpha?: number; beta?: number; gamma?: number; period?: number; windowLen?: number;
+  };
+  /** The forecast, one entry per step. */
+  points: ForecastPoint[];
+}
+
+/**
+ * Forecast an ordered series `horizon` steps into the future (BACKLOG-0000963).
+ *
+ * `movingAverage` and `ses` are flat forecasts (the trailing-window mean, the
+ * final smoothed level); `holt` adds a projected trend, `holtWinters` a projected
+ * trend and an additive seasonal of period `opts.period`; `linear` extrapolates
+ * an ordinary least-squares fit of the time axis. A prediction band is carried
+ * where a defensible closed form exists — the exponential-smoothing bands are the
+ * innovations state-space forecast variances at the normal quantile; the linear
+ * and moving-average bands are the exact Student-t intervals, and `linear` also
+ * reports the narrower mean-response (confidence) band. A smoothing factor absent
+ * from `opts` is fit by minimising the in-sample one-step SSE. Returns null when
+ * the series is too short for the chosen method.
+ */
+export function forecast(
+  seq: ArrayLike<number | null> | { at?: number; value: number | null }[],
+  opts?: {
+    method?: 'movingAverage' | 'ses' | 'holt' | 'holtWinters' | 'linear';
+    horizon?: number; confidence?: number; windowLen?: number;
+    alpha?: number; beta?: number; gamma?: number; period?: number;
+  },
+): ForecastResult | null;
 
 export type ShadowKind =
   | 'updates' | 'updatedAt' | 'sinceUpdate' | 'delta' | 'deltaPercent'
@@ -4186,12 +4276,37 @@ export interface ImportPreview {
   warnings: string[];
 }
 
+/** What an `.xlsx` preview carries — an {@link ImportPreview} plus the sheet read (§14). */
+export interface ImportXlsxPreview {
+  /** The archive path of the worksheet that was read, e.g. `xl/worksheets/sheet1.xml`. */
+  sheet: string | null;
+  /** The source column headings. */
+  header: string[];
+  /** The per-column mapping and inference the user may edit before confirming. */
+  columns: ImportColumn[];
+  /** Every mapped, coerced record the import would add. */
+  records: Record<string, unknown>[];
+  /** The leading records, for a preview table. */
+  sample: Record<string, unknown>[];
+  /** How many data rows the sheet holds. */
+  rowCount: number;
+  /** Anything worth flagging before confirming. */
+  warnings: string[];
+}
+
 /** Bringing rows in — the mirror of {@link ExportApi} (§14, BACKLOG-0000949). */
 export interface ImportApi {
   /** Parse delimited text into a preview, changing nothing. */
   preview(text: string, opts?: object): ImportPreview;
   /** Parse delimited text into coerced records — the inverse of `export.csv`. */
   csv(text: string, opts?: object): Record<string, unknown>[];
+  /**
+   * Parse an `.xlsx` file's bytes into a preview, changing nothing (§14,
+   * BACKLOG-0000970). Async: the archive is inflated with `DecompressionStream`.
+   */
+  previewXlsx(bytes: Uint8Array | ArrayBuffer, opts?: object): Promise<ImportXlsxPreview>;
+  /** Parse an `.xlsx` file's bytes into coerced records — the inverse of `export.excel`. */
+  xlsx(bytes: Uint8Array | ArrayBuffer, opts?: object): Promise<Record<string, unknown>[]>;
   /** Add or replace the grid's rows from text, a preview or records. */
   apply(
     input: string | ImportPreview | Record<string, unknown>[],
