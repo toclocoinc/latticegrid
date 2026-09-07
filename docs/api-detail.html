@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.45.0</p>
+    <p class="rail__sub">Developer guide · v1.46.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -3511,6 +3511,76 @@ grid.edit.deleteRows();</code></pre>
       palette defines, so dark, high-contrast and terminal are correct without any extra rule, and
       both selection and hover still win over it.
     </p>
+
+    <h2 id="vertical-align">Vertical alignment</h2>
+    <p class="lead-in">
+      <code>verticalAlign</code> is the vertical counterpart to the per-column <code>align</code>:
+      where <code>align</code> places cell content across the column (<code>start</code>,
+      <code>center</code>, <code>end</code>), <code>verticalAlign</code> places it down the row &mdash;
+      <code>'top'</code>, <code>'middle'</code> or <code>'bottom'</code>. It is a grid-level default
+      with a per-column override: set it on the grid to align every column, and a column's own
+      <code>verticalAlign</code> (or <code>cell.verticalAlign</code>) wins for that column alone.
+      <code>center</code> and <code>centre</code> are accepted as synonyms for <code>middle</code>,
+      the same leniency <code>align</code> gives the horizontal names.
+    </p>
+    <p class="lead-in">
+      Omitted, the grid keeps the placement it has always had &mdash; content centred in a
+      fixed-height row and top-aligned in an <code>autoHeight</code> row &mdash; so a grid that never
+      mentions it is unchanged on upgrade. Where it earns its keep is a tall or <code>autoHeight</code>
+      grid: a wrapped-text column can sit at the top while its single-line neighbours are
+      <code>middle</code>, rather than every value floating in the middle of a tall row. The value
+      beats the auto-height rule, so a column asked to sit <code>middle</code> does so even when the
+      row is stretched to fit a wrapped sibling (BACKLOG-0000989).
+    </p>
+
+    <div class="example">
+      <p class="example__label">A grid default, with one column overriding it</p>
+      <pre data-run="js" data-expect="middle, bottom" data-covers="config:verticalAlign"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  verticalAlign: <span class="str">'middle'</span>,                 <span class="cmt">// the default for every column</span>
+  columns: [
+    { field: <span class="str">'name'</span> },                       <span class="cmt">// follows the default: middle</span>
+    { field: <span class="str">'note'</span>, verticalAlign: <span class="str">'bottom'</span> }, <span class="cmt">// this column overrides it</span>
+  ],
+  rows: [{ name: <span class="str">'a'</span>, note: <span class="str">'b'</span> }],
+  rowKey: <span class="str">'name'</span>,
+});
+
+<span class="cmt">// The resolved value the renderer reads for each column.</span>
+<span class="kw">const</span> a = grid.columns.get(<span class="str">'name'</span>).verticalAlign;
+<span class="kw">const</span> b = grid.columns.get(<span class="str">'note'</span>).verticalAlign;
+grid.destroy();
+<span class="kw">return</span> `${a}, ${b}`;</code></pre>
+    </div>
+
+    <h2 id="scrollbars">Always-visible scrollbars</h2>
+    <p class="lead-in">
+      Native scrollbars are overlay bars on most platforms now: they fade away when the pointer is
+      idle, which reads as a cleaner surface but hides the affordance &mdash; a touchpad user has no
+      standing sign that a grid scrolls at all. <code>scrollbars: 'always'</code> keeps them shown
+      whether or not the pointer is over the grid; <code>'auto'</code> (the default) leaves the
+      platform's own behaviour alone, so an existing grid is unchanged on upgrade.
+    </p>
+    <p class="lead-in">
+      The two axes are separate decisions, so the object form controls each on its own:
+      <code>{ y: 'always' }</code> pins the vertical bar while the horizontal one stays native, and
+      <code>{ x: 'always', y: 'always' }</code> is the same as the bare <code>'always'</code>. Under
+      the hood the pinned axis switches to <code>overflow: scroll</code> so its track is present even
+      when the content fits, and the scrollbar is styled as a classic, always-drawn bar rather than a
+      fading overlay (BACKLOG-0000990). The same viewport also suppresses the overscroll rubber-band
+      bounce, so a synchronised grid does not spring at its scroll boundary (BACKLOG-0000991).
+    </p>
+
+    <div class="example">
+      <p class="example__label">Pinning both axes, and one axis at a time</p>
+      <pre data-run="js" data-expect="always: always/always; y-only: auto/always" data-covers="config:scrollbars"><code><span class="cmt">// The renderer resolves `scrollbars` to a per-axis mode it stamps on the root.</span>
+<span class="kw">const</span> { resolveScrollbars } = <span class="kw">await</span> import('../packages/dom/src/renderer/renderer.js');
+
+<span class="kw">const</span> both = resolveScrollbars(<span class="str">'always'</span>);        <span class="cmt">// pins both axes</span>
+<span class="kw">const</span> onlyY = resolveScrollbars({ y: <span class="str">'always'</span> }); <span class="cmt">// pins the vertical bar only</span>
+<span class="kw">return</span> `always: ${both.x}/${both.y}; y-only: ${onlyY.x}/${onlyY.y}`;</code></pre>
+    </div>
 
     <h2 id="cards">Cards, lists and feeds</h2>
     <p class="lead-in">

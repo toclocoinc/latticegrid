@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.45.0, type declarations
+ * Lattice Grid 1.46.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -62,6 +62,24 @@ export type TypeName =
  * `center`.
  */
 export type Align = 'start' | 'center' | 'end' | 'left' | 'right' | 'centre';
+/**
+ * Vertical alignment of a cell's content within its row (BACKLOG-0000989).
+ *
+ * The vertical counterpart to {@link Align}. `top` sits the content at the top
+ * of the row, `middle` centres it and `bottom` drops it to the bottom. It is
+ * most visible on tall or `autoHeight` rows, where a wrapped-text column can be
+ * `top` while its single-line neighbours are `middle`.
+ */
+export type VAlign = 'top' | 'middle' | 'bottom';
+/**
+ * When the grid's scroll viewport keeps its scrollbars visible
+ * (BACKLOG-0000990).
+ *
+ * `auto` is the platform's native behaviour — overlay scrollbars fade away when
+ * idle. `always` keeps the bar shown whether or not the pointer is over the
+ * grid, so the affordance never disappears on a touchpad or an overlay OS.
+ */
+export type ScrollbarMode = 'auto' | 'always';
 /**
  * A named preset, or a raw scale where 1 is `standard`. Row heights are
  * 23.8 / 28 / 42 / 56px for the four presets; a number scales 28px.
@@ -507,6 +525,12 @@ export interface ColumnCellSpec {
   style?: CellStyle | ((p: CellParams) => CellStyle);
   tooltip?: string | ((p: CellParams) => string);
   align?: Align;
+  /**
+   * Vertical alignment of this column's cell content, overriding the grid-level
+   * `verticalAlign` for this column alone (BACKLOG-0000989). Accepted at the
+   * top level of the column too, as `align` is.
+   */
+  verticalAlign?: VAlign;
   wrap?: boolean;
   autoHeight?: boolean;
   flash?: boolean;
@@ -832,6 +856,13 @@ export interface Column {
    * default, which is itself `'hover'`.
    */
   headerControls?: 'hover' | 'always' | 'hidden';
+  /**
+   * Vertical alignment of this column's cell content within the row
+   * (BACKLOG-0000989). Overrides the grid-level `verticalAlign` for this column
+   * alone; `top`, `middle` or `bottom`. Also accepted as `cell.verticalAlign`,
+   * the way `align` is. Omitted, the column follows the grid default.
+   */
+  verticalAlign?: VAlign;
   /** How the column leaves the grid, where that differs from how it is shown. */
   export?: ColumnExportSpec;
   /** Whether the user may group by this column from the interface. */
@@ -866,6 +897,12 @@ export interface ResolvedColumn {
   dataType: DataType;
   nullable: boolean;
   align: Align;
+  /**
+   * The resolved vertical alignment (BACKLOG-0000989), or `undefined` when
+   * neither the column nor the grid set one — in which case the cell keeps the
+   * grid's historical vertical placement (centred, or top for `autoHeight`).
+   */
+  verticalAlign?: VAlign;
   value: Required<Pick<ColumnValueSpec, 'pure'>> & ColumnValueSpec;
   cell: ColumnCellSpec;
   edit: ColumnEditSpec;
@@ -1474,6 +1511,30 @@ export interface GridConfig {
    * never striped, and both selection and hover still win over the stripe.
    */
   stripedRows?: boolean;
+
+  /**
+   * Vertical alignment of cell content within a row, as a default for every
+   * column (BACKLOG-0000989). `top`, `middle` or `bottom`; a column's own
+   * `verticalAlign` overrides it for that column.
+   *
+   * The horizontal counterpart is the per-column `align`. Omitted, the grid
+   * keeps its historical placement — content centred in a fixed-height row and
+   * top-aligned in an `autoHeight` row — so an existing grid is unchanged on
+   * upgrade. Setting a value aligns every column uniformly, including
+   * `autoHeight` rows, unless a column opts out.
+   */
+  verticalAlign?: VAlign;
+
+  /**
+   * Keep the scroll viewport's scrollbars visible (BACKLOG-0000990).
+   *
+   * `'auto'` (the default) is the platform's native behaviour, where overlay
+   * scrollbars fade when idle. `'always'` keeps both axes shown whether or not
+   * the pointer is over the grid. The object form controls each axis on its
+   * own — `{ y: 'always' }` pins the vertical bar while the horizontal one
+   * stays native. Omitted, the grid is unchanged on upgrade.
+   */
+  scrollbars?: ScrollbarMode | { x?: ScrollbarMode; y?: ScrollbarMode };
 
   /**
    * Show a bar above the column headings for filtering columns by tag.
