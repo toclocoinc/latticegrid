@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.44.2, type declarations
+ * Lattice Grid 1.45.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -823,6 +823,15 @@ export interface Column {
   layout?: ColumnLayoutSpec | number;
   /** The header cell: its text, tooltip, menu and any header chart. */
   header?: ColumnHeaderSpec | string;
+  /**
+   * When this column's header controls — its sort arrow, filter funnel and menu
+   * button — are shown, overriding the grid-level `headerControls` default for
+   * this column alone (BACKLOG-0000982). `'hover'` reveals them on hover or
+   * focus, `'always'` keeps them visible, `'hidden'` draws none of them and
+   * leaves them out of the tab order. Omitted, the column follows the grid
+   * default, which is itself `'hover'`.
+   */
+  headerControls?: 'hover' | 'always' | 'hidden';
   /** How the column leaves the grid, where that differs from how it is shown. */
   export?: ColumnExportSpec;
   /** Whether the user may group by this column from the interface. */
@@ -1733,6 +1742,26 @@ export interface GridConfig {
    * reachable through the API, the keyboard and the tool panel.
    */
   showColumnFunctions?: boolean;
+  /**
+   * When the per-column header controls — the sort arrow, the filter funnel and
+   * the menu button — are shown, as a default for every column (BACKLOG-0000982).
+   *
+   * - `'hover'` (the default) reveals them when the heading is hovered or a
+   *   keyboard user focuses into it, which is the historical behaviour: a wide
+   *   header does not read as a row of identical icons.
+   * - `'always'` keeps them visible unconditionally, for a grid where the
+   *   controls are the point and the discoverability of hover is not wanted.
+   * - `'hidden'` draws none of them, for a clean read-only heading; they leave
+   *   the tab order with the elements that carried them. An active filter and a
+   *   live sort are still reflected by the heading's state attributes, but no
+   *   control furniture is built.
+   *
+   * A column's own `headerControls` overrides this default for that column.
+   * Distinct from `showColumnFunctions: false`, which also drops the furniture
+   * but keeps sorting, filtering and the menu reachable from the keyboard;
+   * `'hidden'` is the read-only choice that removes them outright.
+   */
+  headerControls?: 'hover' | 'always' | 'hidden';
   /**
    * Row height in pixels, or a function of the row. A function makes the
    * grid measure rather than assume, which costs a pass over what is on
