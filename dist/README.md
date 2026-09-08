@@ -4,7 +4,7 @@
 dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it.
 
-Version 1.46.1 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.47.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -35,6 +35,10 @@ Every module is optional and none of them is loaded unless you import it.
 | `modules/htmx.esm.min.js` | htmx integration: survives htmx's DOM swaps, hydrates from a server-rendered `<table>`, and drives sort, filter and infinite scroll over plain htmx requests. UMD and CJS builds sit beside it. |
 | `modules/dhtmlx-compat.esm.min.js` | A compatibility wrapper for dhtmlx Grid, for moving an existing integration across without rewriting it. |
 | `modules/devtools.esm.min.js` | The devtools panel, including the accessibility checks. |
+
+This is the short list. [Modules & entry points](#modules--entry-points) is the
+complete map — every framework adapter, feature module and chart-type extension,
+with its npm import, CDN path and browser global.
 
 ---
 
@@ -267,6 +271,132 @@ import type { Grid, GridConfig, ColumnDef } from '@toclocoinc/lattice-grid';
 
 The declarations are checked against the running product on every build, so what
 your editor tells you and what the grid does cannot drift apart.
+
+---
+
+## Modules & entry points
+
+The package ships the core plus a set of optional modules, each as its own file.
+Nothing is loaded unless you import it, and a page that imports none of the
+modules pays for none of them. This section is the complete map: every public
+entry point, how to import it from npm, how to reach it on a CDN, and — for the
+`<script>`-tag builds — the browser global it leaves behind.
+
+**Three variants ship for most entry points.** Pick the one your page loads by:
+
+- **ESM** — `*.esm.min.js`. The default for a bundler or a native `<script
+  type="module">`. This is what the bare `@toclocoinc/lattice-grid` and
+  `@toclocoinc/lattice-grid/modules/<name>` specifiers resolve to.
+- **UMD** — `*.min.js`. For a plain `<script src>` load; it defines a browser
+  global (below). Reach it from npm with the explicit `.js` specifier
+  (`@toclocoinc/lattice-grid/modules/<name>.js`).
+- **CJS** — `*.min.cjs`. For `require()`. Reach it with the explicit `.cjs`
+  specifier, or let `require('@toclocoinc/lattice-grid')` resolve it.
+
+Alongside those: the stylesheet `lattice-grid.min.css` (required, imported as
+`@toclocoinc/lattice-grid/css`) and the TypeScript declarations
+`lattice-grid.d.ts` (wired through `package.json`, so no configuration).
+
+**On a CDN**, every file below sits under the same base — jsDelivr serves the
+published package directly:
+
+```
+https://cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@<version>/<file>
+```
+
+Pin an exact `<version>` in production. The `<file>` column in each table below
+is exactly what you append.
+
+### Core
+
+| npm import | CDN `<file>` | Browser global |
+|---|---|---|
+| `@toclocoinc/lattice-grid` (ESM) | `lattice-grid.esm.min.js` | — |
+| `@toclocoinc/lattice-grid` (CJS `require`) | `lattice-grid.min.cjs` | — |
+| `@toclocoinc/lattice-grid/lattice-grid.min.js` (UMD) | `lattice-grid.min.js` | `LatticeGrid` |
+| `@toclocoinc/lattice-grid/css` | `lattice-grid.min.css` | — (stylesheet) |
+| types | `lattice-grid.d.ts` | — (declarations) |
+
+### Framework adapters
+
+Each adapter ships all three variants (`modules/<name>.esm.min.js`,
+`modules/<name>.min.js`, `modules/<name>.min.cjs`). The npm ESM specifier is
+shown; append `.js` for the UMD build or `.cjs` for CommonJS.
+
+| Module | npm import (ESM) | CDN `<file>` (UMD) | Browser global | What it is |
+|---|---|---|---|---|
+| react | `@toclocoinc/lattice-grid/modules/react` | `modules/react.min.js` | `LatticeGridReact` | React adapter. |
+| vue | `@toclocoinc/lattice-grid/modules/vue` | `modules/vue.min.js` | `LatticeGridVue` | Vue adapter. |
+| svelte | `@toclocoinc/lattice-grid/modules/svelte` | `modules/svelte.min.js` | `LatticeGridSvelte` | Svelte adapter. |
+| angular | `@toclocoinc/lattice-grid/modules/angular` | `modules/angular.min.js` | `LatticeGridAngular` | Angular adapter. |
+| webcomponent | `@toclocoinc/lattice-grid/modules/webcomponent` | `modules/webcomponent.min.js` | `LatticeGrid` (extends it) | `<lattice-grid>` as a self-contained custom element. |
+| htmx | `@toclocoinc/lattice-grid/modules/htmx` | `modules/htmx.min.js` | `LatticeGridHtmx` | htmx integration that survives DOM swaps and hydrates from a server-rendered `<table>`. |
+
+The framework adapters take the framework and `createGrid` handed in rather than
+importing either (see [Quick start](#react-vue-svelte-and-web-components)). The
+web component and htmx are self-contained: they carry the grid, so load them on
+their own, not beside the base package.
+
+### Feature modules
+
+Each ships all three variants. The npm ESM specifier is shown; append `.js` for
+the UMD build or `.cjs` for CommonJS.
+
+| Module | npm import (ESM) | CDN `<file>` (UMD) | Browser global | What it is |
+|---|---|---|---|---|
+| charts | `@toclocoinc/lattice-grid/modules/charts` | `modules/charts.min.js` | `LatticeGrid` (extends it) | Charts bound to the grid's own result (`createChart`). |
+| data-router | `@toclocoinc/lattice-grid/modules/data-router` | `modules/data-router.min.js` | `LatticeGridDataRouter` | One stream split by property and routed to many grids or charts. |
+| kanban | `@toclocoinc/lattice-grid/modules/kanban` | `modules/kanban.min.js` | `LatticeGridKanban` | Board view: grid rows as cards grouped into columns (`createKanban`). |
+| gantt | `@toclocoinc/lattice-grid/modules/gantt` | `modules/gantt.min.js` | `LatticeGridGantt` | Editable, dependency-aware project plan with a computed critical path (`createGantt`). |
+| kpi | `@toclocoinc/lattice-grid/modules/kpi` | `modules/kpi.min.js` | `LatticeGridKPI` | A grid of stat tiles, each an aggregate over a dataset (`createKPI`). |
+| ai | `@toclocoinc/lattice-grid/modules/ai` | `modules/ai.min.js` | `LatticeGridAI` | Bring-your-own-model narrative and insights grounded on computed figures (`createAI`). |
+| mock-socket | `@toclocoinc/lattice-grid/modules/mock-socket` | `modules/mock-socket.min.js` | `LatticeGridMockSocket` | A serverless stand-in for a live WebSocket feed (`MockWebSocket`, `opsFeed`). |
+| devtools | `@toclocoinc/lattice-grid/modules/devtools` | `modules/devtools.min.js` | `LatticeGrid` (extends it) | The in-page diagnostic panel, including the accessibility checks (`createDevtools`). |
+| dhtmlx-compat | `@toclocoinc/lattice-grid/modules/dhtmlx-compat` | `modules/dhtmlx-compat.min.js` | `LatticeGrid` (extends it) | A dhtmlx `Grid`-shaped API for moving an existing integration across. |
+
+The four modules that extend `LatticeGrid` (charts, devtools, dhtmlx-compat,
+webcomponent) fold their exports into the core global, so load the core
+`<script>` first and then the module — for example `LatticeGrid.createChart(...)`
+becomes available once both are loaded. With a bundler they share the one core
+the page already imported rather than carrying a second copy.
+
+### Chart-type extensions
+
+Eighteen additional chart types ship as separate, tree-shakeable ESM modules.
+Each one **self-registers** its type onto the charts module's shared registry the
+moment it is imported — so load the base charts module first, import the
+extension for its side effect, then name the type in `createChart`. They ship as
+ESM only (import for side effect; there is no global to reach).
+
+```js
+import '@toclocoinc/lattice-grid/modules/charts';       // the base registry
+import '@toclocoinc/lattice-grid/modules/chart-alluvial'; // registers 'alluvial'
+createChart({ grid, container, type: 'alluvial', source: 'from', target: 'to', value: 'count' });
+```
+
+Each is imported from `@toclocoinc/lattice-grid/modules/chart-<type>` (CDN
+`<file>`: `modules/chart-<type>.esm.min.js`), and registers the `type` shown.
+
+| Import / `type` | What it draws |
+|---|---|
+| `chart-alluvial` → `alluvial` | Alluvial diagram: categorical flow from one dimension to another. |
+| `chart-arc` → `arc` | Arc diagram: nodes on a line, links as arcs. |
+| `chart-bubblemap` → `bubblemap` | Symbol / bubble map. |
+| `chart-bump` → `bump` | Bump chart: rank over time. |
+| `chart-calendar` → `calendar` | Calendar heatmap. |
+| `chart-decomposition` → `decomposition` | Seasonal decomposition panel. |
+| `chart-diverging` → `diverging` | Diverging bar chart. |
+| `chart-dumbbell` → `dumbbell` | Dumbbell / connected-dot plot. |
+| `chart-fan` → `fan` | Fan / forecast chart. |
+| `chart-hexbin` → `hexbin` | Hexbin / 2D-density plot. |
+| `chart-hexmap` → `hexmap` | Hexbin map. |
+| `chart-icicle` → `icicle` | Icicle chart. |
+| `chart-parallel` → `parallel` | Parallel coordinates. |
+| `chart-ridgeline` → `ridgeline` | Ridgeline (joy) plot. |
+| `chart-roc` → `roc` | ROC / PR / calibration curves. |
+| `chart-slope` → `slope` | Slope chart. |
+| `chart-splom` → `splom` | Scatter-plot matrix. |
+| `chart-waffle` → `waffle` | Waffle / dot-matrix chart. |
 
 ---
 

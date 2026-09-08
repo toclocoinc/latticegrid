@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.46.1, type declarations
+ * Lattice Grid 1.47.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -4096,9 +4096,12 @@ export interface ColumnsApi {
    * (BACKLOG-0000739). Header banding, not row grouping (see {@link group}); the
    * band is a {@link ColumnGroup} node so a drag-, keyboard- or config-built band
    * is the same tree, and it round-trips through a saved view. Emits
-   * `columngroup:changed`.
+   * `columngroup:changed`. Pass `groupId` to add to the band already carrying
+   * that id, or `id` (BACKLOG-0000985) to create a new band with a caller-chosen
+   * stable id you can reference later; `groupId` wins if both are given and an
+   * `id` already in use warns and no-ops.
    */
-  groupColumns(ids: string | string[], opts?: { title?: string; at?: number; groupId?: string }): string | null;
+  groupColumns(ids: string | string[], opts?: { title?: string; at?: number; groupId?: string; id?: string }): string | null;
   /** Take a leaf out of its band; a band emptied by the move is dissolved. */
   ungroupColumn(id: string): void;
   /** Rename a banded header. */
@@ -6163,6 +6166,16 @@ export interface ChartTrend {
   alpha?: number;
   /** For Holt's exponential smoothing, the trend factor in `[0, 1]`; omit to fit it. */
   beta?: number;
+  /**
+   * The uncertainty band shaded around a linear `forecast` (BACKLOG-0000975).
+   * The Student-t `prediction` band (a future observation) by default;
+   * `confidence` shades the narrower mean-response band; `false` opts out and
+   * leaves the bare dashed line. Ignored where there is no linear forecast to
+   * put a band on.
+   */
+  band?: boolean | 'prediction' | 'confidence';
+  /** The forecast band's confidence level in `(0, 1)`; 0.95 by default. */
+  confidence?: number;
   /** `false` suppresses the R² label on a linear trend. */
   label?: boolean;
 }
@@ -7687,6 +7700,16 @@ declare module 'lattice-grid/modules/kanban' {
     color?: string;
     wipLimit?: number;
     collapsed?: boolean;
+    /**
+     * A per-column SLA override (BACKLOG-0000960): a lone threshold read as the
+     * breach level, or a `{ warn, breach }` pair. Overrides the global `sla`
+     * thresholds for cards in this column (precedence: lane → column → global).
+     */
+    sla?: KanbanSlaThreshold | { warn?: KanbanSlaThreshold; breach?: KanbanSlaThreshold };
+    /** A per-column warn threshold — the shorthand for `sla: { warn }`. */
+    slaWarn?: KanbanSlaThreshold;
+    /** A per-column breach threshold — the shorthand for `sla: { breach }`. */
+    slaBreach?: KanbanSlaThreshold;
   };
 
   /** A card field editor handle returned by a host editor factory. */
@@ -7733,6 +7756,112 @@ declare module 'lattice-grid/modules/kanban' {
   }
 
   /**
+   * A card-aging / SLA threshold (BACKLOG-0000960): a raw millisecond count, or
+   * a `{ weeks, days, hours, minutes, seconds, ms }` spec whose fields are summed
+   * (`{ days: 3, hours: 12 }` → 3.5 days). A negative or non-finite value means
+   * "no threshold at this level".
+   */
+  type KanbanSlaThreshold = number | {
+    weeks?: number; week?: number; w?: number;
+    days?: number; day?: number; d?: number;
+    hours?: number; hour?: number; h?: number;
+    minutes?: number; minute?: number; m?: number; min?: number;
+    seconds?: number; second?: number; s?: number; sec?: number;
+    ms?: number; milliseconds?: number;
+  };
+
+  /**
+   * Card-aging / SLA configuration (BACKLOG-0000960). A card is measured against a
+   * `warn` and a `breach` threshold; the view puts an age chip on aged cards and a
+   * highlight on breached ones, and a rising crossing fires the `card:sla` event
+   * and the matching `onWarn`/`onBreach` callback (signature `(level, rows)`, the
+   * Data Router alert handler's). Thresholds resolve most-specific-first:
+   * lane → column → global. Reached at runtime as {@link Kanban#sla}.
+   */
+  interface KanbanSlaConfig {
+    /** The global warn threshold. */
+    warn?: KanbanSlaThreshold;
+    /** The global breach threshold. */
+    breach?: KanbanSlaThreshold;
+    /** Per-column overrides by column id (each a threshold or a `{ warn, breach }` pair). */
+    columns?: Record<string, KanbanSlaThreshold | { warn?: KanbanSlaThreshold; breach?: KanbanSlaThreshold }>;
+    /** Per-swimlane overrides by lane id (each a threshold or a `{ warn, breach }` pair). */
+    lanes?: Record<string, KanbanSlaThreshold | { warn?: KanbanSlaThreshold; breach?: KanbanSlaThreshold }>;
+    /**
+     * Where the ageing clock starts: `'column'` (default) measures time in the
+     * card's current column; `'board'` measures age since the card arrived/was
+     * created.
+     */
+    basis?: 'column' | 'board';
+    /** A row property holding the wall-clock time the card entered its column. */
+    enteredProperty?: string;
+    /** A row property holding the wall-clock time the card was created. */
+    createdProperty?: string;
+    /** Whether cards in a done column are exempt from ageing (default true). */
+    ignoreDone?: boolean;
+    /** Whether the flow transition log drives the ageing basis when present (default true). */
+    useTransitionLog?: boolean;
+    /** Show the age chip on every aged card (`'always'`), or only on warn/breach (`'threshold'`, default). */
+    showAge?: 'always' | 'threshold';
+    /** A wall-clock epoch clock, injectable for deterministic tests (default `Date.now`). */
+    now?: () => number;
+    /** A re-check interval in ms so a card breaching by sitting still still lights up (0 = off). */
+    tick?: number;
+    /** Called on a rising crossing to warn level, `(level, rows)` — the router alert handler's shape. */
+    onWarn?: (level: 'warn' | 'breach', rows: KanbanRow[]) => void;
+    /** Called on a rising crossing to breach level, `(level, rows)` — the router alert handler's shape. */
+    onBreach?: (level: 'warn' | 'breach', rows: KanbanRow[]) => void;
+  }
+
+  /** The computed SLA state of one card (BACKLOG-0000960). */
+  interface KanbanSlaState {
+    key: unknown;
+    columnId: string | null;
+    lane?: unknown;
+    /** The ageing-clock start epoch (ms), or null when no time source could be resolved. */
+    start: number | null;
+    /** The card's age in ms, or null when unknown. */
+    ageMs: number | null;
+    /** A short human age label (`2d`, `5h`, …), '' when unknown. */
+    ageText: string;
+    /** The resolved warn threshold in ms, or null. */
+    warnMs: number | null;
+    /** The resolved breach threshold in ms, or null. */
+    breachMs: number | null;
+    /** The classified level, or null when the card cannot be aged. */
+    level: 'ok' | 'warn' | 'breach' | null;
+    /** True when `level` is `'breach'`. */
+    breached: boolean;
+  }
+
+  /**
+   * The card-aging / SLA monitor (BACKLOG-0000960), reached as {@link Kanban#sla}
+   * when a `sla` config is supplied. Pure and DOM-free: it computes each card's
+   * ageing state from the board's card model and the flow transition log, and the
+   * view paints it.
+   */
+  interface KanbanSla {
+    /** The normalised SLA config (read-only). */
+    readonly config: object;
+    /** Recompute every card's SLA state without emitting anything. */
+    sync(): KanbanSla;
+    /** Recompute and fire `card:sla`/`onWarn`/`onBreach` on each rising crossing. */
+    evaluate(opts?: { emit?: boolean }): KanbanSlaState[];
+    /** Establish the baseline, notify on the current state, and start the optional tick. */
+    start(): KanbanSla;
+    /** The SLA state of one card (by card model or key), or null when unknown. */
+    stateFor(cardOrKey: KanbanCard | unknown): KanbanSlaState | null;
+    /** Every card's current SLA state. */
+    states(): KanbanSlaState[];
+    /** The cards currently at breach level. */
+    breaches(): KanbanSlaState[];
+    /** The cards currently at warn level (not yet breached). */
+    warnings(): KanbanSlaState[];
+    /** Stop the tick and drop the board subscriptions. */
+    destroy(): void;
+  }
+
+  /**
    * Kanban configuration. Every structural property is named here so the same
    * board maps DemandFlow (a status field, `points`, `sprint`, `epic`, a
    * swimlane property) and any customer schema without code change.
@@ -7772,6 +7901,13 @@ declare module 'lattice-grid/modules/kanban' {
     children?: KanbanChildren;
     /** Card virtualization for tall columns: true, or `{ rowHeight, overscan, threshold, viewport }`. */
     virtualize?: boolean | { rowHeight?: number; overscan?: number; threshold?: number; viewport?: number };
+    /**
+     * Card aging / SLA highlighting (BACKLOG-0000960): warn/breach thresholds
+     * (globally, per column and/or per lane) that age each card and fire
+     * `card:sla` on a rising crossing. Opt-in; reached at runtime as
+     * {@link Kanban#sla}. See {@link KanbanSlaConfig}.
+     */
+    sla?: KanbanSlaConfig;
     /** A saved board state (from `getState`) to restore on construction. */
     state?: object;
     /** Show a per-column add-card affordance. */
@@ -7872,6 +8008,8 @@ declare module 'lattice-grid/modules/kanban' {
     readonly el: unknown | null;
     readonly rowKey: string | ((row: KanbanRow) => unknown);
     rows: KanbanRows;
+    /** The card-aging / SLA monitor, present only when a `sla` config was supplied (BACKLOG-0000960). */
+    sla?: KanbanSla;
     columns(): KanbanColumn[];
     column(id: string): KanbanColumn | undefined;
     count(id: string): number;
@@ -8153,15 +8291,52 @@ declare module 'lattice-grid/modules/ai' {
   /**
    * A narrative target. `view` narrates the current filtered view; `column`
    * narrates one column's profile; `forecast` adds its projection; `kpi`/`chart`
-   * narrate figures the caller passes through in `facts`.
+   * narrate figures the caller passes through in `facts`; `risk` assembles a
+   * project RISK SUMMARY from the separate Gantt / Kanban modules' public outputs
+   * (BACKLOG-0000979).
    */
   interface AITarget {
-    kind?: 'view' | 'column' | 'forecast' | 'kpi' | 'chart';
+    kind?: 'view' | 'column' | 'forecast' | 'kpi' | 'chart' | 'risk';
     colId?: string;
     /** Forecast options, for `kind: 'forecast'`. */
     options?: object;
     /** Caller-supplied figures for a KPI/chart Explain, grounded like the rest. */
     facts?: Array<{ id?: string; label: string; value: unknown; display?: string; kind?: string; colId?: string }>;
+    /**
+     * For `kind: 'risk'`: a Gantt instance (from `createGantt`). Read duck-typed
+     * for `earnedValue()` (SPI/CPI/variances) and `schedule` (critical path,
+     * float). The AI bundle never imports the Gantt module.
+     */
+    gantt?: unknown;
+    /**
+     * For `kind: 'risk'`: a Kanban board (from `createKanban`). Read for its
+     * `board.sla` monitor (breach / warning counts). The AI bundle never imports
+     * the Kanban module.
+     */
+    board?: unknown;
+    /** For `kind: 'risk'`: an SLA monitor, if not reached through `board`. */
+    sla?: unknown;
+    /** For `kind: 'risk'`: a precomputed `gantt.earnedValue()` result. */
+    earnedValue?: object;
+    /** For `kind: 'risk'`: a precomputed `gantt.schedule` result. */
+    schedule?: object;
+    /** For `kind: 'risk'`: precomputed SLA breach states. */
+    breaches?: object[];
+    /** For `kind: 'risk'`: precomputed SLA warning states. */
+    warnings?: object[];
+    /** For `kind: 'risk'`: options passed to `gantt.earnedValue()`. */
+    evmOptions?: object;
+    /**
+     * For `kind: 'risk'`: expose the at-risk task NAMES (off by default — a risk
+     * summary carries aggregates only unless the host opts in).
+     */
+    includeTaskNames?: boolean;
+    /**
+     * For `kind: 'risk'`: expose the money figures BAC/PV/EV/AC (off by default).
+     */
+    includeCost?: boolean;
+    /** For `kind: 'risk'`: cap on named at-risk tasks (default 10). */
+    maxTasks?: number;
   }
 
   /** The facts packet a narrative grounds on. */
@@ -8170,7 +8345,27 @@ declare module 'lattice-grid/modules/ai' {
     facts: AIFact[];
     /** The numeric values seeding the reconciliation registry. */
     groundedValues: number[];
-    meta: { kind: string; filtered: boolean; factCount: number; redacted?: boolean; colId?: string };
+    meta: {
+      kind: string; filtered: boolean; factCount: number; redacted?: boolean; colId?: string;
+      /** For `kind: 'risk'`: which module sources resolved. */
+      sources?: { schedule: boolean; earnedValue: boolean; sla: boolean };
+      /** For `kind: 'risk'`: which opt-in exposures were honoured. */
+      exposed?: { taskNames: boolean; cost: boolean };
+    };
+  }
+
+  /**
+   * The risk facts a board / Gantt risk summary grounds on (BACKLOG-0000979),
+   * from {@link buildRiskFacts}: the facts plus which module sources resolved and
+   * which opt-in exposures (task names, cost) were honoured.
+   */
+  interface AIRiskFacts {
+    facts: AIFact[];
+    meta: {
+      kind: 'risk';
+      sources: { schedule: boolean; earnedValue: boolean; sla: boolean };
+      exposed: { taskNames: boolean; cost: boolean };
+    };
   }
 
   /** The result of a narrative: reconciled prose plus what grounded and what did not. */
@@ -8366,6 +8561,19 @@ declare module 'lattice-grid/modules/ai' {
     explain(target?: AITarget, opts?: object): Promise<AINarrative>;
     /** An alias for {@link AI.explain}. */
     narrate(target?: AITarget, opts?: object): Promise<AINarrative>;
+    /**
+     * Produce a grounded, reconciled board / Gantt RISK SUMMARY
+     * (BACKLOG-0000979): a plain-language reading like "3 tasks at risk on the
+     * critical path, SPI 0.67, 2 SLA breaches". A convenience over
+     * `explain({ kind: 'risk', ... })`; the module sources go in `sources`
+     * (`gantt`, `board`/`sla`, or precomputed outputs). Every figure runs through
+     * the same reconciliation guard as {@link AI.explain}.
+     */
+    riskSummary(sources?: {
+      gantt?: unknown; board?: unknown; sla?: unknown;
+      earnedValue?: object; schedule?: object; breaches?: object[]; warnings?: object[];
+      includeTaskNames?: boolean; includeCost?: boolean; maxTasks?: number; evmOptions?: object;
+    }, opts?: object): Promise<AINarrative>;
     /** Mount (or re-target) the insights panel into an element. */
     insights(el?: HTMLElement, opts?: object): AI;
     /** Build an "Explain" button bound to a target. */
@@ -8422,5 +8630,19 @@ declare module 'lattice-grid/modules/ai' {
    * engine and calls only the host's `ask()`.
    */
   export function createAI(grid: unknown, config?: AIConfig): AI;
+
+  /**
+   * Build the RISK-SUMMARY facts packet (BACKLOG-0000979) from the separate
+   * Gantt / Kanban modules' public outputs — SPI/CPI and variances from
+   * `gantt.earnedValue()`, tasks at risk / on the critical path from
+   * `gantt.schedule`, and SLA breaches from `board.sla`. Reads the module
+   * instances (or their precomputed outputs) duck-typed off `target`; the AI
+   * bundle imports neither module. This is the exact grounded set
+   * `explain({ kind: 'risk' })` would use, exposed for preview and testing.
+   */
+  export function buildRiskFacts(target: AITarget, opts?: {
+    locale?: string; fmt?: (value: number) => string;
+  }): AIRiskFacts;
+
   export default createAI;
 }
