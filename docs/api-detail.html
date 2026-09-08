@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.47.0</p>
+    <p class="rail__sub">Developer guide · v1.48.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -506,6 +506,7 @@
         <a href="#rules-guide">Conditional formatting</a>
         <a href="#formatting-guide">Formatting a user can change</a>
         <a href="#quickfilter-guide">Quick filter</a>
+        <a href="#find">Find</a>
         <a href="#charts-guide">In-cell charts</a>
       </div>
       <div class="rail__group">
@@ -3149,8 +3150,17 @@ createGrid(el, {
       <p>Column and table names are checked against an identifier pattern rather than escaped, and
       a name that fails is refused. Integers past the safe range are kept as strings instead of
       being rounded into a plausible lie.</p>
+      <p>A timestamp or date filter is bound through a typed placeholder — <code>"ts" &gt;=
+      CAST(? AS TIMESTAMP)</code> — because a prepared statement binds an ISO string as
+      <code>VARCHAR</code> and DuckDB will not compare that with a <code>TIMESTAMP</code>,
+      <code>TIMESTAMP WITH TIME ZONE</code> or <code>DATE</code> column. The adapter reads the
+      column types once from the engine (<code>DESCRIBE</code>) and falls back to the grid column's
+      declared type, so both a typed and an untyped grid column over a timestamp filter correctly,
+      including a time window. Send instants ending in <code>Z</code>, as the grid's date filter
+      does: the cast is the engine's, and its zone rules apply (see the reference for the
+      <code>TIMESTAMPTZ</code> and naive-string cases).</p>
       <p><code>demo/duckdb.html</code> runs this against a Parquet file of several million readings
-      with no server involved.</p>
+      with no server involved, including a time-window filter on its <code>TIMESTAMP</code> column.</p>
     </div>
 
     <h3 id="fulldataset">Whole-dataset statistics over a remote source</h3>
@@ -5084,6 +5094,7 @@ grid.annotate.use(null);                     <span class="cmt">// hand the grid 
           <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd></td><td class="desc">Move focus to the column header</td></tr>
           <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd></td><td class="desc">Move focus to the tool panel</td></tr>
           <tr><td class="name"><kbd>Shift</kbd>+<kbd>F10</kbd> <span class="sep">or</span> <kbd>ContextMenu</kbd></td><td class="desc">Open the context menu for the focused cell</td></tr>
+          <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td class="desc">Find in the grid</td></tr>
           <tr><td class="name"><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>ArrowUp</kbd> <span class="sep">or</span> <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>ArrowDown</kbd></td><td class="desc">Move the focused row, when row reorder is enabled</td></tr>
           <tr><th colspan="2">On a column heading</th></tr>
           <tr><td class="name"><kbd>ArrowLeft</kbd> <span class="sep">or</span> <kbd>ArrowRight</kbd></td><td class="desc">Move between headings</td></tr>
@@ -5415,6 +5426,7 @@ grid.edit.pasteInto(text);                        <span class="cmt">// Excel's t
           <tr><td class="sig">Enter</td><td class="desc">Start editing; commit and step down.</td></tr>
           <tr><td class="sig">Tab</td><td class="desc">Commit and step across.</td></tr>
           <tr><td class="sig">Escape</td><td class="desc">Cancel the edit; restore a maximised grid once nothing else wants it.</td></tr>
+          <tr><td class="sig">Ctrl/Cmd + F</td><td class="desc">Open the <a href="#find">find bar</a>; in it, Enter / Shift+Enter step through the matches and Escape closes.</td></tr>
           <tr><td class="sig">Space</td><td class="desc">Toggle the row's selection.</td></tr>
           <tr><td class="sig">Home / End, Page Up / Down</td><td class="desc">Jump; with Ctrl, to the ends of the grid.</td></tr>
         </tbody>
@@ -6065,6 +6077,86 @@ grid.highlight.clear();</code></pre>
       it. A highlight belongs to the row rather than the element, so it survives scrolling, sorting
       and paging.
     </p>
+
+    <h2 id="find">Find</h2>
+    <p class="lead-in">
+      The quick filter answers "show me only the rows that contain X". Find answers a different
+      question — "where is X?" — and leaves every other row exactly where it was, so you keep your
+      place and the neighbours that give a value its meaning. Press <kbd>Ctrl</kbd>+<kbd>F</kbd>
+      (<kbd>Cmd</kbd>+<kbd>F</kbd> on a Mac) with focus in the grid: a bar opens above the header
+      with focus in its input, every cell whose <em>displayed</em> text matches lights up in place,
+      the bar reads "N of M", <kbd>Enter</kbd> and <kbd>Shift</kbd>+<kbd>Enter</kbd> step through
+      the matches with wrap, and <kbd>Escape</kbd> closes it and clears the marks.
+    </p>
+    <div class="example">
+      <p class="example__label">The same thing from code</p>
+      <pre data-run="js" data-expect="2 matches, 3 rows shown, current a, events true" data-covers="method:find config:find config:shortcut config:debounce event:find:changed"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  find: { shortcut: true, debounce: 0 },   // the bar's settings; `find: false` removes the bar
+  columns: [
+    { field: 'name' },
+    { field: 'price', format: (p) =&gt; `$${p.value.toFixed(2)}` },
+  ],
+  rows: [
+    { id: 'a', name: 'Acme', price: 3.5 },
+    { id: 'b', name: 'Beta', price: 13.25 },
+    { id: 'c', name: 'Acme Two', price: 3.75 },
+  ],
+});
+let events = 0;
+grid.on('find:changed', () =&gt; { events += 1; });
+
+const count = grid.find('$3.');            // the formatted text: two prices begin "$3."
+const first = grid.find.current();          // { key: 'a', colId: 'price', index: 0, pinned: null }
+grid.find.next();                           // row c; next() again wraps back to a
+const rowsStillShown = grid.rows.count();   // 3 — find never removes a row
+
+grid.destroy();
+return `${count.total} matches, ${rowsStillShown} rows shown, current ${first.key}, events ${events &gt; 0}`;</code></pre>
+    </div>
+    <p class="lead-in">
+      <code>grid.find(text, opts)</code> searches now and returns a <code>FindCount</code>; it is
+      callable like <code>grid.highlight</code>. The options are a <code>FindQuery</code>:
+      <code>caseSensitive</code>, <code>wholeCell</code>, <code>columns</code> (an id or a list of
+      ids; omitted searches every visible column) and <code>from</code> (the display index the
+      first current match is chosen at or after). Then <code>find.next()</code>,
+      <code>find.prev()</code> and <code>find.goTo(i)</code> move the current match and scroll it
+      into view; <code>find.matches()</code>, <code>find.count()</code>,
+      <code>find.current()</code> and <code>find.state()</code> read the result;
+      <code>find.open(text?)</code>, <code>find.close()</code> and <code>find.clear()</code> drive
+      the bar; <code>find.stateFor(key, colId)</code> is what the painter asks. Every change fires
+      <code>find:changed</code> with the query, the open flag and the count.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Rule</th><th>What it means</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">Display text</td><td class="desc">Find matches what the cell <em>shows</em> — a column <code>format</code>, a unit type, a lookup label — never the raw value. Searching <code>$3.</code> finds prices formatted that way. There is no regular-expression mode; the quick filter has one.</td></tr>
+          <tr><td class="sig">An overlay, not a filter</td><td class="desc">No row is reordered, removed or edited. Matches are painted as <code>.lat-cell--find</code>, the current one also as <code>.lat-cell--find-current</code>, coloured by <code>--lattice-find-match</code> and <code>--lattice-find-current</code>. Find and the quick filter coexist: both may be active, and find re-runs over whatever the filter leaves.</td></tr>
+          <tr><td class="sig">Pinned rows and columns</td><td class="desc">Rows pinned to either edge (and a bottom grand total) are searched and painted like any other; a pinned match has <code>index: -1</code> and <code>pinned: 'top' | 'bottom'</code>. Pinned columns are cells like any other.</td></tr>
+          <tr><td class="sig">Virtualised rows</td><td class="desc">Matches are computed from the row model, not the DOM, so a match five thousand rows down is counted without rendering it; stepping to it scrolls it into view, and the paint follows the render.</td></tr>
+          <tr><td class="sig">The active cell</td><td class="desc">Stepping to a match makes it the active cell, so <kbd>Enter</kbd> in the grid edits it — except while an edit is already open, when the match is scrolled and painted and the editor is left alone.</td></tr>
+          <tr><td class="sig">Windowed sources</td><td class="desc">A paged pushdown source (OData, DuckDB, REST) holds only its loaded rows client-side, so only those are searched. The count says so — "N of M <em>in loaded rows</em>", and <code>FindCount.windowed</code> is true with <code>loaded</code> and <code>rows</code> beside it — rather than presenting a page-one count as the whole. Pushing find to the adapter is a follow-up, not a v1 promise.</td></tr>
+          <tr><td class="sig">Large grids</td><td class="desc">Typing is scanned in per-frame slices from the row at the top of the viewport, so the matches on screen appear after the first slice and the grid stays interactive; the count reads "N of M so far" and <code>count.complete</code> is false until the scan finishes. <code>grid.find(text)</code> scans to completion before returning, so its answer is final.</td></tr>
+          <tr><td class="sig">The browser's find</td><td class="desc"><kbd>Ctrl</kbd>+<kbd>F</kbd> is claimed only while focus is inside the grid and not in a text field, so the page's own find works everywhere else and an open cell editor keeps it. <code>find: { shortcut: false }</code> leaves the binding to the page and keeps the bar reachable through <code>find.open()</code>; <code>find: false</code> removes the bar altogether.</td></tr>
+          <tr><td class="sig">Accessibility</td><td class="desc">The bar is a <code>role="search"</code> landmark; every control is a native input, button or select with a catalogue name, so nothing needs a mouse. The count is announced through a polite <code>role="status"</code> line once per completed search ("3 of 12 matches", "No matches in loaded rows"); the current match becomes the focused cell when no edit is open, so a screen reader reads it. The strings are in every bundled locale.</td></tr>
+          <tr><td class="sig">Keys in the bar</td><td class="desc">Only <kbd>Escape</kbd> and <kbd>Enter</kbd> in the input are consumed by the bar. Everything else — <kbd>Tab</kbd> between its controls, <kbd>Enter</kbd> and <kbd>Space</kbd> on its buttons, a page's own <kbd>Ctrl</kbd>+<kbd>S</kbd> — propagates as it would from any form control, so a host's document-level shortcuts still see it; the grid's own keyboard and range layers stand aside for a key aimed at the bar, which is what keeps Tab from being read as "next cell" and Enter from opening an editor.</td></tr>
+          <tr><td class="sig">Pinned strips</td><td class="desc">Stepping to a match scrolls it fully into the part of the body the pinned strips do not cover — below pinned-top rows and sticky group headings, above pinned-bottom rows and a bottom grand total. That is <code>grid.scroll.toRow</code>'s behaviour for every caller, not only find.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="example">
+      <p class="example__label">Configuration</p>
+      <pre><code>find: false                              <span class="cmt">// no bar, no Ctrl+F; grid.find(text) still works</span>
+find: { shortcut: false }                <span class="cmt">// bar via grid.find.open() only</span>
+find: { debounce: 250 }                  <span class="cmt">// a slower typist, or a slower grid</span>
+
+grid.find('acme', { caseSensitive: true, wholeCell: false, columns: ['customer'] });
+grid.find.count();     <span class="cmt">// { current, total, complete, windowed, loaded, rows }</span>
+grid.on('find:changed', (e) =&gt; status.textContent = `${e.count.current} of ${e.count.total}`);</code></pre>
+    </div>
+
     <h2 id="views-guide">Saved views</h2>
     <p class="lead-in">
       A view is a named grid state: sort, filters, grouping, column order, widths, visibility.
@@ -6437,6 +6529,7 @@ grid.import.apply(preview);</code></pre>
           <tr><td class="name">processCell</td><td class="desc">(optional)</td></tr>
           <tr><td class="name">promoteToMemoryBelow</td><td class="desc">(optional)</td></tr>
           <tr><td class="name">quickFilterText</td><td class="desc">Initial quick-filter term. Equivalent to grid.filters.quick(text).</td></tr>
+          <tr><td class="name">find</td><td class="desc">The in-grid find bar (Ctrl+F): false removes it, { shortcut, debounce } tunes it. See <a href="#find">Find</a>.</td></tr>
           <tr><td class="name">quote</td><td class="desc">(optional)</td></tr>
           <tr><td class="name">removeMs</td><td class="desc">Silence after which a peer is dropped. (optional)</td></tr>
           <tr><td class="name">showHeader</td><td class="desc">Draw the column headings at all. false removes the row, and removes it from the accessibility tree rather than only from view. Distinct from showColumnFunctions, which keeps the headings and drops only their sort, filter and menu controls.</td></tr>
@@ -6773,6 +6866,7 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
         <tbody>
           <tr><td class="name">formatting:changed</td><td class="desc">A conditional formatting rule was added, edited, reordered or restated.</td></tr>
           <tr><td class="name">highlight:changed</td><td class="desc">A highlight was added or cleared.</td></tr>
+          <tr><td class="name">find:changed</td><td class="desc">The find query, its matches, the current match or the bar's open state changed; carries the FindCount, partial while the sliced scan runs.</td></tr>
           <tr><td class="name">permissions:changed</td><td class="desc">The context moved and every column re-resolved.</td></tr>
           <tr><td class="name">presentation:captured</td><td class="desc">A PNG was taken.</td></tr>
           <tr><td class="name">presentation:changed</td><td class="desc">The options of a running presentation changed.</td></tr>

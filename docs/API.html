@@ -865,6 +865,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">columnMenu</td><td class="type">boolean | (p) =&gt; MenuItem[]</td><td class="desc">The header's 3-dot menu, and a right-click on a column heading. The function form is <code>(params, defaults) =&gt; items</code>, with <code>params</code> carrying <code>colId</code>, <code>column</code> and <code>grid</code>: see <a href="#custom-menu">custom items</a>. <code>false</code> suppresses it.</td></tr>
           <tr><td class="name">rangeChart</td><td class="type">fn | { onChart } | boolean</td><td class="desc">Off by default. Offers <strong>Chart selection</strong> in the cell menu and binds <kbd>Alt</kbd>+<kbd>F1</kbd> when a selected range has a number to plot. The DOM layer draws no charts, so the handler you give — a function, or <code>{ onChart }</code>, called <code>(grid, range)</code> — is where the page wires in <code>chartRange</code> from <a href="#chart-a-range">the charts module</a>.</td></tr>
           <tr><td class="name">shortcuts</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc">The <kbd>?</kbd> keyboard shortcut overlay. <code>false</code> suppresses it, for a host that wants <kbd>?</kbd> for itself. See <a href="api-detail.html#keyboard">Keyboard</a>.</td></tr>
+          <tr><td class="name">find</td><td class="type">boolean | FindConfig</td><td class="dflt">true</td><td class="desc">The in-grid find bar: <kbd>Ctrl</kbd>+<kbd>F</kbd> (<kbd>Cmd</kbd>+<kbd>F</kbd>) with focus in the grid opens it; typing highlights every matching cell in place without filtering a row away; <kbd>Enter</kbd> / <kbd>Shift</kbd>+<kbd>Enter</kbd> step through the matches. <code>{ shortcut, debounce }</code>: <code>shortcut: false</code> keeps the bar reachable through <code>grid.find.open()</code> only; <code>debounce</code> is the typing quiet period in ms (120). <code>false</code> removes the bar and the binding; <code>grid.find(text)</code> still searches. See <a href="api-detail.html#find">Find</a>.</td></tr>
           <tr><td class="name">rowReorder</td><td class="type">boolean | { column }</td><td class="dflt">, </td><td class="desc">Let a user reorder rows by dragging a handle or with <kbd>Alt</kbd>+<kbd>Shift</kbd>+arrows. The handle goes in the first visible column unless <code>column</code> names another. Refused, with a reason announced, while a sort, filter or grouping is active. See <a href="api-detail.html#row-reorder">Row reorder</a>.</td></tr>
           <tr><td class="name">rowTransfer</td><td class="type">boolean | { send, receive, mode, group }</td><td class="dflt">, </td><td class="desc">Let rows be dragged between grids. Off by default. <code>send</code> and <code>receive</code> are both on when present, so one-way is <code>{ receive: false }</code> or <code>{ send: false }</code>. <code>mode: 'copy'</code> leaves the row behind; <code>group</code> restricts which grids may exchange. See <a href="api-detail.html#row-transfer">Moving rows between grids</a>.</td></tr>
           <tr><td class="name">alignedGrids</td><td class="type">Grid[]</td><td class="dflt">, </td><td class="desc">Other grids to stay column-aligned with. Widths, order, visibility, pinning and horizontal scroll are shared; sort, filters, selection and rows stay independent. Declare it on the grid created last. See <a href="api-detail.html#aligned-grids">Aligned grids</a>.</td></tr>
@@ -3218,6 +3219,42 @@ createGrid(host, { source, columns: [...] });</code></pre>
       </table>
     </div>
 
+    <p class="section-note">
+      <strong>Typed binding for timestamp and date columns.</strong> A prepared statement binds a
+      filter value with the value's own type, not the column's: the grid sends an instant as an
+      ISO-8601 string, the client binds it as <code>VARCHAR</code>, and DuckDB refuses
+      <code>"ts" &gt;= ?</code> against a <code>TIMESTAMP</code> column (<em>Binder Error: Cannot
+      compare values of type TIMESTAMP and type VARCHAR</em>). The adapter therefore types the
+      <em>placeholder</em>: a comparison or <code>IN</code> member against a <code>TIMESTAMP</code>,
+      <code>TIMESTAMP WITH TIME ZONE</code>, <code>DATE</code>, <code>TIME</code> or
+      <code>TIMESTAMP_S/_MS/_NS</code> column is written <code>CAST(? AS &lt;that type&gt;)</code>,
+      and the value is still bound, never interpolated. The column's type comes from the engine — one
+      <code>DESCRIBE SELECT * FROM &lt;from&gt;</code> on the first query, cached for the adapter's
+      life and exposed as <code>adapter.describe()</code> — so an untyped grid column over a
+      timestamp is covered. When the schema does not name the column (a <code>DESCRIBE</code> that
+      failed, said once), the grid column's declared type on the condition is the fallback:
+      <code>timestamp</code>/<code>datetime</code> cast to <code>TIMESTAMP</code>,
+      <code>date</code>/<code>dateString</code> to <code>DATE</code>, <code>time</code> to
+      <code>TIME</code>. The engine's type wins when both are known. A <code>Date</code> or an
+      epoch-milliseconds number is bound as its ISO instant, because DuckDB has no cast from a number
+      to a timestamp. The same schema fixes <code>blank</code>: <code>= ''</code> is a conversion
+      error on any non-text column, so a typed column's blank test is <code>IS NULL</code> alone.
+      Text and numeric comparisons (<code>VARCHAR</code>, <code>BIGINT</code>, <code>DOUBLE</code>,
+      <code>DECIMAL</code>, <code>HUGEINT</code>) are written exactly as before, with no cast.
+    </p>
+    <p class="section-note">
+      <strong>Time zones, honestly.</strong> The cast is the engine's, so its zone rules apply. Against
+      a naive <code>TIMESTAMP</code> column the wall-clock digits of the bound string are compared;
+      an instant ending in <code>Z</code> — which is what the grid's own date filter sends — therefore
+      matches a column that stores UTC wall time, the usual convention for log and event data. A
+      non-zero offset in the string is engine-version dependent (DuckDB 1.1 converts it to UTC, 1.5
+      keeps the digits as written), so send <code>Z</code> instants, not local offsets. Against a
+      <code>TIMESTAMP WITH TIME ZONE</code> column an offset or <code>Z</code> is honoured exactly,
+      and a string with <em>no</em> zone is interpreted in the engine's session
+      <code>TimeZone</code> (UTC in DuckDB-Wasm unless the ICU extension is loaded and the setting
+      changed). Against a <code>DATE</code> column an instant is truncated to its UTC day.
+    </p>
+
     <h5 id="dfql-options"><code>dfqlAdapter</code></h5>
     <div class="table-wrap">
       <table>
@@ -3857,6 +3894,7 @@ off();                                       <span class="cmt">// on() returns i
           <tr><td class="name">history:applied</td><td class="type">{ direction, step }</td><td class="desc">An action was undone or redone. Distinct from <code>history:changed</code>, which also fires when a new action is pushed onto the stacks and so cannot tell you anything was reversed.</td></tr>
           <tr><td class="name">state:reset</td><td class="type">{ state }</td><td class="desc">The grid was returned to its baseline.</td></tr>
           <tr><td class="name">highlight:changed</td><td class="type">{ highlights }</td><td class="desc">A highlight was added or cleared.</td></tr>
+          <tr><td class="name">find:changed</td><td class="type">{ text, caseSensitive, wholeCell, columns, open, count }</td><td class="desc">The find query, its matches, the current match or the bar's open state changed. <code>count</code> is a <code>FindCount</code>; while the bar's sliced scan is still running <code>count.complete</code> is false and the figure is partial.</td></tr>
           <tr><td class="name">redaction:changed</td><td class="type">{ columns }</td><td class="desc">A column was redacted or restored.</td></tr>
           <tr><td class="name">header:contextmenu</td><td class="type">{ colId, column, element, x, y }</td><td class="desc">A column heading was right-clicked.</td></tr>
           <tr><td class="name">render:done</td><td class="type">{ first, last }</td><td class="desc">The cells are written and stable. Anything decorating them from outside must run after this, the cell layer rewrites each cell's <code>className</code> wholesale and would otherwise erase it.</td></tr>
@@ -6242,7 +6280,7 @@ grid.destroy();
     <p class="section-note">Each documented event is subscribed to and unsubscribed on every build. A consumer
     wiring a handler to a renamed event gets silence, which is indistinguishable from an event that
     has not fired yet — so the name is checked rather than left to be discovered.</p>
-    <pre data-run="js" data-expect="107" data-covers="event:cell:changed event:cell:clicked event:cell:confirmed event:cell:conflict event:cell:contextmenu event:cell:dblclicked event:cell:edit:end event:cell:edit:start event:cell:pending event:cell:reverted event:clipboard:copy event:column:filter:open event:column:profile:open event:column:grouped event:column:menu:open event:column:pivoted event:column:resized event:columns:changed event:columns:tagged event:comment:added event:comment:deleted event:comment:edited event:comment:failed event:comment:indexLoaded event:comment:resolved event:comment:threadClosed event:comment:threadOpened event:comment:unresolved event:destroy event:detail:toggled event:diff:changed event:diff:swapped event:export:progress event:facet:computed event:facet:expanded event:facet:failed event:facet:filtered event:form:closed event:form:error event:form:opened event:form:saved event:formatting:changed event:group:toggled event:header:contextmenu event:highlight:changed event:history:applied event:history:changed event:licence:changed event:page:changed event:permissions:changed event:presence:failed event:presence:joined event:presence:left event:presence:lockRefused event:presence:published event:presence:updated event:presentation:captured event:presentation:changed event:presentation:ended event:presentation:scale event:presentation:spotlight event:presentation:started event:presentation:view event:range:changed event:ready event:redaction:changed event:render:done event:render:first event:row:clicked event:row:copied event:row:dblclicked event:row:edit:end event:row:edit:start event:row:moved event:row:received event:row:sent event:rows:deferred event:rows:paused event:rows:queued event:rows:resumed event:scroll event:scroll:end event:selection:changed event:size:changed event:source:error event:stream:chunk event:stream:end event:stream:evicted event:timeline:attached event:timeline:detached event:timeline:seek event:timeline:seeking event:toolpanel:focus event:tree:loadAborted event:tree:loadFailed event:tree:loaded event:tree:loading event:view:applied event:view:default event:view:removed event:view:renamed event:view:saved event:views:changed event:row:pending event:row:confirmed event:row:reverted event:row:conflict"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="108" data-covers="event:find:changed event:cell:changed event:cell:clicked event:cell:confirmed event:cell:conflict event:cell:contextmenu event:cell:dblclicked event:cell:edit:end event:cell:edit:start event:cell:pending event:cell:reverted event:clipboard:copy event:column:filter:open event:column:profile:open event:column:grouped event:column:menu:open event:column:pivoted event:column:resized event:columns:changed event:columns:tagged event:comment:added event:comment:deleted event:comment:edited event:comment:failed event:comment:indexLoaded event:comment:resolved event:comment:threadClosed event:comment:threadOpened event:comment:unresolved event:destroy event:detail:toggled event:diff:changed event:diff:swapped event:export:progress event:facet:computed event:facet:expanded event:facet:failed event:facet:filtered event:form:closed event:form:error event:form:opened event:form:saved event:formatting:changed event:group:toggled event:header:contextmenu event:highlight:changed event:history:applied event:history:changed event:licence:changed event:page:changed event:permissions:changed event:presence:failed event:presence:joined event:presence:left event:presence:lockRefused event:presence:published event:presence:updated event:presentation:captured event:presentation:changed event:presentation:ended event:presentation:scale event:presentation:spotlight event:presentation:started event:presentation:view event:range:changed event:ready event:redaction:changed event:render:done event:render:first event:row:clicked event:row:copied event:row:dblclicked event:row:edit:end event:row:edit:start event:row:moved event:row:received event:row:sent event:rows:deferred event:rows:paused event:rows:queued event:rows:resumed event:scroll event:scroll:end event:selection:changed event:size:changed event:source:error event:stream:chunk event:stream:end event:stream:evicted event:timeline:attached event:timeline:detached event:timeline:seek event:timeline:seeking event:toolpanel:focus event:tree:loadAborted event:tree:loadFailed event:tree:loaded event:tree:loading event:view:applied event:view:default event:view:removed event:view:renamed event:view:saved event:views:changed event:row:pending event:row:confirmed event:row:reverted event:row:conflict"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 
 <span class="cmt">// Every documented event name, checked against the bus that would carry it.</span>
 <span class="cmt">// Subscribing to a name the grid does not know is the failure this catches:</span>
@@ -6259,7 +6297,7 @@ grid.destroy();
   'diff:changed', 'diff:swapped', 'export:progress', 'facet:computed',
   'facet:expanded', 'facet:failed', 'facet:filtered', 'form:closed',
   'form:error', 'form:opened', 'form:saved', 'formatting:changed',
-  'group:toggled', 'header:contextmenu', 'highlight:changed', 'history:applied',
+  'group:toggled', 'header:contextmenu', 'highlight:changed', 'find:changed', 'history:applied',
   'history:changed', 'licence:changed', 'page:changed', 'permissions:changed',
   'presence:failed', 'presence:joined', 'presence:left', 'presence:lockRefused',
   'presence:published', 'presence:updated', 'presentation:captured', 'presentation:changed',
@@ -8085,6 +8123,92 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h3 id="type-FindApi">FindApi</h3>
+    <p class="section-note">In-grid find (BACKLOG-0001018): locate text and step through where it occurs without filtering anything away. Matches are a visual overlay — no row is reordered, removed or edited — and coexist with the quick filter.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">open</td><td class="type">(text?: string): void</td><td class="desc">Show the bar with focus in its input, optionally seeding the text.</td></tr>
+          <tr><td class="name">close</td><td class="type">(): void</td><td class="desc">Hide the bar and clear every match.</td></tr>
+          <tr><td class="name">clear</td><td class="type">(): void</td><td class="desc">Clear the query and the highlights, leaving the bar as it is.</td></tr>
+          <tr><td class="name">next</td><td class="type">(): FindMatch | null</td><td class="desc">The next match, wrapping from the last to the first, scrolled into view and made the active cell unless an edit is open.</td></tr>
+          <tr><td class="name">prev</td><td class="type">(): FindMatch | null</td><td class="desc">The previous match, wrapping from the first to the last.</td></tr>
+          <tr><td class="name">goTo</td><td class="type">(index: number): FindMatch | null</td><td class="desc">Make the match at a position in `matches()` current.</td></tr>
+          <tr><td class="name">matches</td><td class="type">(): FindMatch[]</td><td class="desc">Every match, in display order: pinned-top rows, then the body, then pinned-bottom rows.</td></tr>
+          <tr><td class="name">count</td><td class="type">(): FindCount</td><td class="desc"></td></tr>
+          <tr><td class="name">current</td><td class="type">(): FindMatch | null</td><td class="desc"></td></tr>
+          <tr><td class="name">state</td><td class="type">(): FindState</td><td class="desc"></td></tr>
+          <tr><td class="name">stateFor</td><td class="type">(key: string, colId: string): 'current' | 'match' | null</td><td class="desc">How a cell is painted: the current match, another match, or nothing.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-FindConfig">FindConfig</h3>
+    <p class="section-note">The in-grid find bar's settings (BACKLOG-0001018). `find: true` or an omitted key mounts the bar with these defaults; `find: false` removes the bar and its shortcut while `grid.find` keeps working programmatically.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">shortcut</td><td class="type">boolean</td><td class="desc">Bind Ctrl+F (Cmd+F on a Mac) while focus is in the grid. The browser's own find is untouched while focus is anywhere else on the page. Default true. <small>(optional)</small></td></tr>
+          <tr><td class="name">debounce</td><td class="type">number</td><td class="desc">Milliseconds of typing quiet before the bar searches. Default 120. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-FindCount">FindCount</h3>
+    <p class="section-note">How many matches there are and which is current. `windowed` is the honest scope flag: over a paged pushdown source only the loaded rows are searched, so `total` counts matches in `loaded` rows out of the `rows` the source reports for the whole matching set.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">current</td><td class="type">number</td><td class="desc">1-based position of the current match; 0 when there is none.</td></tr>
+          <tr><td class="name">total</td><td class="type">number</td><td class="desc"></td></tr>
+          <tr><td class="name">complete</td><td class="type">boolean</td><td class="desc">False while the bar's sliced scan is still running, so a partial count is never read as final.</td></tr>
+          <tr><td class="name">windowed</td><td class="type">boolean</td><td class="desc"></td></tr>
+          <tr><td class="name">loaded</td><td class="type">number</td><td class="desc">Rows the search actually read; a windowed source's not-yet-fetched placeholders are not counted.</td></tr>
+          <tr><td class="name">rows</td><td class="type">number</td><td class="desc">The rows the source reports for the whole matching set, when it can say.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-FindMatch">FindMatch</h3>
+    <p class="section-note">One matching cell.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">key</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">colId</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The display index, or -1 for a row pinned to an edge.</td></tr>
+          <tr><td class="name">pinned</td><td class="type">'top' | 'bottom' | null</td><td class="desc">Which sticky strip a pinned row is in; null for a body row.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-FindQuery">FindQuery</h3>
+    <p class="section-note">How `grid.find(text, opts)` matches. Defaults: case-insensitive, substring, every visible column, starting from the first row. Find matches the **formatted display text** — what the cell shows, a column `format` included — never a raw value; there is no regular-expression mode.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">caseSensitive</td><td class="type">boolean</td><td class="desc">Match letter case exactly. Default false. <small>(optional)</small></td></tr>
+          <tr><td class="name">wholeCell</td><td class="type">boolean</td><td class="desc">The whole cell text must equal the search text rather than contain it. Default false. <small>(optional)</small></td></tr>
+          <tr><td class="name">columns</td><td class="type">string[] | string | null</td><td class="desc">Search only these column ids. Omitted searches every visible column. <small>(optional)</small></td></tr>
+          <tr><td class="name">from</td><td class="type">number</td><td class="desc">The display index to start from: the first match at or after it becomes current. Default 0. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-FindState">FindState</h3>
+    <p class="section-note">The current query and whether the bar is showing.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">text</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">caseSensitive</td><td class="type">boolean</td><td class="desc"></td></tr>
+          <tr><td class="name">wholeCell</td><td class="type">boolean</td><td class="desc"></td></tr>
+          <tr><td class="name">columns</td><td class="type">string[] | null</td><td class="desc"></td></tr>
+          <tr><td class="name">open</td><td class="type">boolean</td><td class="desc"></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-ForecastPoint">ForecastPoint</h3>
     <p class="section-note">One forecast step: the point estimate and, where a band applies, its interval.</p>
     <div class="table-wrap">
@@ -8224,6 +8348,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">licence</td><td class="type">LicenceApi</td><td class="desc">Licence state, and setting a key after construction. <small>(read-only)</small></td></tr>
           <tr><td class="name">pagination</td><td class="type">PaginationApi</td><td class="desc">Pages, where the grid is paged rather than scrolled. <small>(read-only)</small></td></tr>
           <tr><td class="name">highlight</td><td class="type">HighlightApi</td><td class="desc">Transient emphasis on a row, column or cell. <small>(read-only)</small></td></tr>
+          <tr><td class="name">find</td><td class="type">FindApi</td><td class="desc">In-grid find: locate text without filtering, and step through the matches. <small>(read-only)</small></td></tr>
           <tr><td class="name">redaction</td><td class="type">RedactionApi</td><td class="desc">Values hidden from view and from export. <small>(read-only)</small></td></tr>
           <tr><td class="name">capture</td><td class="type">(opts?: CaptureOptions): Promise&lt;Blob&gt;</td><td class="desc">An image of the grid as drawn, where the module is installed. <small>(optional)</small></td></tr>
           <tr><td class="name">annotate</td><td class="type">AnnotationApi</td><td class="desc">Drawing over the grid, where the module is installed. <small>(optional)</small></td></tr>
@@ -8343,6 +8468,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">columnMenu</td><td class="type">boolean | ((p: ColumnMenuParams, defaults: MenuItem[]) =&gt; MenuItem[] | void)</td><td class="desc">The header's 3-dot menu, and the right-click menu on a column heading. `false` suppresses both. A function supplies custom items, receiving the grid's own so it can add to them rather than reproduce them. Default true. <small>(optional)</small></td></tr>
           <tr><td class="name">rangeChart</td><td class="type"></td><td class="desc">Chart a selected cell range — the spreadsheet "chart this selection" gesture. Off by default, so a grid opts in. The DOM layer draws no charts itself — the charts module is optional and loaded by the host — so this is where the host wires the two together: a function, or an object carrying `onChart`, is called with the grid and the selected range when the reader chooses "Chart selection" from the cell menu. The handler typically calls `chartRange` from `lattice-grid/modules/charts`. `true` offers the item and emits nothing extra; supply a handler to have it actually draw. <small>(optional)</small></td></tr>
           <tr><td class="name">shortcuts</td><td class="type">boolean</td><td class="desc">The `?` keyboard shortcut overlay. `false` suppresses it, for a host that wants `?` for itself. Default true. <small>(optional)</small></td></tr>
+          <tr><td class="name">find</td><td class="type">boolean | FindConfig</td><td class="desc">The in-grid find bar (BACKLOG-0001018): Ctrl+F / Cmd+F with focus in the grid opens it; typing highlights every matching cell in place without filtering a row away; Enter and Shift+Enter step through the matches. `false` removes the bar and its shortcut; the `grid.find` API still works. Default true. <small>(optional)</small></td></tr>
           <tr><td class="name">rowReorder</td><td class="type">boolean | { column?: string }</td><td class="desc">Let a user reorder rows by dragging a handle, or with Alt+Shift+Up/Down. `true` puts the handle in the first visible column; `{ column }` names a different one. The move reorders your data and emits `row:moved`; persisting it is yours, and `rows.data()` afterwards is the new order. Refused, with a reason announced, while a sort, filter or grouping is active, the position a row is dropped at has no single meaning in the underlying order then. <small>(optional)</small></td></tr>
           <tr><td class="name">rowTransfer</td><td class="type">boolean | {</td><td class="desc">Let rows be dragged out of this grid, into it, or both. Off by default: rows leaving a grid is a data change a host has to want, and a mis-drag that silently removed one has no gesture a user would think to undo. `send` and `receive` are both on when the option is present, so one-way is expressed by turning off the direction you do not want, a source grid is `{ receive: false }` and a target is `{ send: false }`. `mode: 'copy'` leaves the row where it was. `group` restricts exchange to grids sharing the same name, so two unrelated grids on a page do not accept each other's rows. The source needs `rowReorder` as well, since that is what draws the handle a drag starts from. <small>(optional)</small></td></tr>
           <tr><td class="name">alignedGrids</td><td class="type">unknown[]</td><td class="desc">Other grids to stay column-aligned with. Column widths, order, visibility and pinning are shared, and horizontal scrolling moves them together. Sort, filters, selection, grouping and the rows themselves stay independent: sharing those would make one grid with extra steps rather than two aligned ones. Declared on the grid created last, since it is the only one that can name the others; the link is peer-based once made. <small>(optional)</small></td></tr>
@@ -9545,7 +9671,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">toRow</td><td class="type">(row: string | number, align?: 'start' | 'center' | 'end' | 'auto'): void</td><td class="desc">A row key, or a display index. A key survives a sort and is usually what a caller holds; resolving one scans the display order, so prefer an index when scrolling a very large grid repeatedly.</td></tr>
+          <tr><td class="name">toRow</td><td class="type">(row: string | number, align?: 'start' | 'center' | 'end' | 'auto'): void</td><td class="desc">A row key, or a display index. A key survives a sort and is usually what a caller holds; resolving one scans the display order, so prefer an index when scrolling a very large grid repeatedly. The row lands fully visible in the part of the body the pinned strips (pinned rows, sticky group headings, a bottom grand total) do not cover: `end` puts it just above the bottom strip, `start` just below the top one.</td></tr>
           <tr><td class="name">toColumn</td><td class="type">(id: string): void</td><td class="desc"></td></tr>
           <tr><td class="name">toCell</td><td class="type">(row: string | number, colId: string, align?: 'start' | 'center' | 'end' | 'auto'): void</td><td class="desc">Scroll a cell into view, both axes in one call.</td></tr>
           <tr><td class="name">position</td><td class="type">(): { top: number; left: number }</td><td class="desc"></td></tr>

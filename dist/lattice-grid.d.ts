@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.47.0, type declarations
+ * Lattice Grid 1.48.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -2073,6 +2073,15 @@ export interface GridConfig {
   shortcuts?: boolean;
 
   /**
+   * The in-grid find bar (BACKLOG-0001018): Ctrl+F / Cmd+F with focus in the
+   * grid opens it; typing highlights every matching cell in place without
+   * filtering a row away; Enter and Shift+Enter step through the matches.
+   * `false` removes the bar and its shortcut; the `grid.find` API still works.
+   * Default true.
+   */
+  find?: boolean | FindConfig;
+
+  /**
    * Let a user reorder rows by dragging a handle, or with
    * Alt+Shift+Up/Down.
    *
@@ -3815,7 +3824,7 @@ export type EventName =
   /* Selection and view */
   | 'selection:changed' | 'range:changed' | 'clipboard:copy'
   | 'page:changed' | 'scroll' | 'scroll:end' | 'size:changed'
-  | 'detail:toggled' | 'toolpanel:focus' | 'highlight:changed'
+  | 'detail:toggled' | 'toolpanel:focus' | 'highlight:changed' | 'find:changed'
   /* Tree data */
   | 'tree:loading' | 'tree:loaded' | 'tree:loadFailed' | 'tree:loadAborted'
   /* State, history and views */
@@ -4322,7 +4331,10 @@ export interface ScrollApi {
   /**
    * A row key, or a display index. A key survives a sort and is usually what a
    * caller holds; resolving one scans the display order, so prefer an index
-   * when scrolling a very large grid repeatedly.
+   * when scrolling a very large grid repeatedly. The row lands fully visible in
+   * the part of the body the pinned strips (pinned rows, sticky group
+   * headings, a bottom grand total) do not cover: `end` puts it just above the
+   * bottom strip, `start` just below the top one.
    */
   toRow(row: string | number, align?: 'start' | 'center' | 'end' | 'auto'): void;
   toColumn(id: string): void;
@@ -4960,6 +4972,106 @@ export interface HighlightApi {
   colourFor(key: string, colId: string): string | null;
 }
 
+/**
+ * The in-grid find bar's settings (BACKLOG-0001018). `find: true` or an
+ * omitted key mounts the bar with these defaults; `find: false` removes the
+ * bar and its shortcut while `grid.find` keeps working programmatically.
+ */
+export interface FindConfig {
+  /**
+   * Bind Ctrl+F (Cmd+F on a Mac) while focus is in the grid. The browser's
+   * own find is untouched while focus is anywhere else on the page. Default
+   * true.
+   */
+  shortcut?: boolean;
+  /** Milliseconds of typing quiet before the bar searches. Default 120. */
+  debounce?: number;
+}
+
+/**
+ * How `grid.find(text, opts)` matches. Defaults: case-insensitive, substring,
+ * every visible column, starting from the first row. Find matches the
+ * **formatted display text** — what the cell shows, a column `format`
+ * included — never a raw value; there is no regular-expression mode.
+ */
+export interface FindQuery {
+  /** Match letter case exactly. Default false. */
+  caseSensitive?: boolean;
+  /** The whole cell text must equal the search text rather than contain it. Default false. */
+  wholeCell?: boolean;
+  /** Search only these column ids. Omitted searches every visible column. */
+  columns?: string[] | string | null;
+  /** The display index to start from: the first match at or after it becomes current. Default 0. */
+  from?: number;
+}
+
+/** One matching cell. */
+export interface FindMatch {
+  key: string;
+  colId: string;
+  /** The display index, or -1 for a row pinned to an edge. */
+  index: number;
+  /** Which sticky strip a pinned row is in; null for a body row. */
+  pinned: 'top' | 'bottom' | null;
+}
+
+/**
+ * How many matches there are and which is current. `windowed` is the honest
+ * scope flag: over a paged pushdown source only the loaded rows are searched,
+ * so `total` counts matches in `loaded` rows out of the `rows` the source
+ * reports for the whole matching set.
+ */
+export interface FindCount {
+  /** 1-based position of the current match; 0 when there is none. */
+  current: number;
+  total: number;
+  /** False while the bar's sliced scan is still running, so a partial count is never read as final. */
+  complete: boolean;
+  windowed: boolean;
+  /** Rows the search actually read; a windowed source's not-yet-fetched placeholders are not counted. */
+  loaded: number;
+  /** The rows the source reports for the whole matching set, when it can say. */
+  rows: number;
+}
+
+/** The current query and whether the bar is showing. */
+export interface FindState {
+  text: string;
+  caseSensitive: boolean;
+  wholeCell: boolean;
+  columns: string[] | null;
+  open: boolean;
+}
+
+/**
+ * In-grid find (BACKLOG-0001018): locate text and step through where it
+ * occurs without filtering anything away. Matches are a visual overlay — no
+ * row is reordered, removed or edited — and coexist with the quick filter.
+ */
+export interface FindApi {
+  /** Search now, scanning every loaded row before returning; an empty text clears. */
+  (text: string, opts?: FindQuery): FindCount;
+  /** Show the bar with focus in its input, optionally seeding the text. */
+  open(text?: string): void;
+  /** Hide the bar and clear every match. */
+  close(): void;
+  /** Clear the query and the highlights, leaving the bar as it is. */
+  clear(): void;
+  /** The next match, wrapping from the last to the first, scrolled into view and made the active cell unless an edit is open. */
+  next(): FindMatch | null;
+  /** The previous match, wrapping from the first to the last. */
+  prev(): FindMatch | null;
+  /** Make the match at a position in `matches()` current. */
+  goTo(index: number): FindMatch | null;
+  /** Every match, in display order: pinned-top rows, then the body, then pinned-bottom rows. */
+  matches(): FindMatch[];
+  count(): FindCount;
+  current(): FindMatch | null;
+  state(): FindState;
+  /** How a cell is painted: the current match, another match, or nothing. */
+  stateFor(key: string, colId: string): 'current' | 'match' | null;
+}
+
 export interface StateApi {
   get(): GridState;
   apply(state: GridState, opts?: { skip?: (keyof GridState)[] }): StateApplyReport;
@@ -5245,6 +5357,8 @@ export interface Grid {
   readonly pagination: PaginationApi;
   /** Transient emphasis on a row, column or cell. */
   readonly highlight: HighlightApi;
+  /** In-grid find: locate text without filtering, and step through the matches. */
+  readonly find: FindApi;
   /** Values hidden from view and from export. */
   readonly redaction: RedactionApi;
   /** An image of the grid as drawn, where the module is installed. */
