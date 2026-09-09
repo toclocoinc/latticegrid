@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.48.0, type declarations
+ * Lattice Grid 1.49.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1145,6 +1145,41 @@ export interface StreamSourceConfig {
    * rather than what the producer sends.
    */
   maxRows?: number;
+  /**
+   * The longest a row is kept, in milliseconds — a rolling *time* window, sitting
+   * beside `maxRows` as a second, independent bound (BACKLOG-0001036). Rows older
+   * than the span are evicted through the same path, the same `evicted` counters
+   * and the same `stream:evicted` event as the count bound, so an existing
+   * readout keeps working. Set both and whichever bites first applies. Eviction
+   * continues on a low-frequency timer while the feed is idle, so "the last five
+   * minutes" keeps shrinking through a silent period rather than freezing —
+   * which is the thing `maxRows` cannot do.
+   *
+   * Retention is a *bound, not a guillotine*: rows live a little past the span
+   * before a block is dropped. Two things add to it. First the eviction slack,
+   * ten per cent of the span, exactly as `maxRows` overshoots its count, so the
+   * row permutation is rebuilt once per block rather than once per row. Second,
+   * when the feed is idle, up to one tick of the eviction timer, which runs at a
+   * quarter of the span clamped to between 50 ms and one second. So the real
+   * ceiling is roughly `span * 1.1 + tick`, and because the tick has a floor it
+   * is proportionally larger the shorter the window: negligible at a five-minute
+   * window (about 10%), around 1.25x at ten seconds, and as much as ~1.35x at
+   * three. That is the deliberate trade for an idle grid that costs no CPU.
+   *
+   * Omit for no age limit.
+   */
+  maxAge?: number;
+  /**
+   * Which clock `maxAge` reads: a column id (or dotted path), or a function of
+   * the row returning a `Date`, epoch milliseconds, or an ISO string
+   * (BACKLOG-0001036). Given, the window follows the **data's own** clock, so it
+   * means what the producer means — and inherits the producer's clock skew.
+   * Omitted, `maxAge` falls back to **arrival time**: when the row reached this
+   * source. Arrival time needs no timestamp column and cannot be skewed, but it
+   * is not event time — a row delayed in transit counts as young. A row whose
+   * time value cannot be read is never aged out.
+   */
+  ageBy?: string | ((row: unknown) => unknown);
   promoteToMemoryBelow?: number;
   coalesceMs?: number;
 }
@@ -6238,6 +6273,19 @@ export interface ChartAxis {
   every?: number;
   /** Force the category labels' rotation rather than deciding it. */
   rotate?: boolean | 'auto';
+  /**
+   * A rolling window for the axis domain (BACKLOG-0001036), in the shipped
+   * `WindowSpec` vocabulary that rolling statistics already use. Only
+   * `{ kind: 'time', span }` applies to an axis: the domain becomes the last
+   * `span` milliseconds ending **now**, so the chart keeps scrolling left while
+   * the feed is silent — the thing a count window cannot do, because with no
+   * rows arriving nothing changes. Advanced on a low-frequency clock (a quarter
+   * of the window, between 50 ms and 1 s), never per frame, and stopped when the
+   * chart is destroyed or its document is hidden. Needs a continuous x axis
+   * carrying wall-clock times; `{ kind: 'count' }` is the source's `maxRows` and
+   * is refused here rather than given a second meaning.
+   */
+  window?: Pick<WindowSpec, 'kind' | 'span'>;
 }
 
 /**

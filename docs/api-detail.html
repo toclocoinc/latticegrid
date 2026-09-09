@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.48.0</p>
+    <p class="rail__sub">Developer guide · v1.49.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -4470,6 +4470,96 @@ grid.updates.log({ since: Date.now() - 60000 });   <span class="cmt">// what arr
       left up overnight holds every row it was ever sent. Set <code>source.maxRows</code> and the
       stream becomes a sliding window, dropping the oldest as new ones arrive and reporting how
       many it let go through <code>evicted</code> on the progress report.</p>
+    </div>
+
+    <h3 id="time-window-guide">A time window, not just a row count</h3>
+    <p class="lead-in">
+      <code>maxRows</code> is a <em>count</em> window. <code>maxAge</code> is a <em>time</em>
+      window. They are different promises, and a live feed usually wants the second one.
+    </p>
+    <div class="example">
+      <p class="example__label">Keep the last five minutes, and show the last five minutes</p>
+      <pre><code>const grid = createGrid(el, {
+  columns,
+  source: {
+    mode: 'stream',
+    open,
+    maxAge: 5 * 60 * 1000,   <span class="cmt">// keep five minutes of rows</span>
+    ageBy: 'ts',             <span class="cmt">// ...aged by this column; omit for arrival time</span>
+    maxRows: 20000,          <span class="cmt">// ...and never more than this many, whichever bites first</span>
+  },
+});
+
+createChart({
+  grid, container, type: 'line', x: 'ts', y: { col: 'value', fn: 'avg' },
+  <span class="cmt">// The x domain is the last five minutes ending *now*, so the chart</span>
+  <span class="cmt">// keeps scrolling left even while the feed is silent.</span>
+  axis: { x: { window: { kind: 'time', span: 5 * 60 * 1000 } } },
+});</code></pre>
+    </div>
+    <div class="why">
+      <p><strong>A count window drifts, and it freezes.</strong> <code>maxRows</code> equals
+      &ldquo;the last five minutes&rdquo; only while the feed rate is steady: a burst silently
+      shrinks the window to two minutes, a quiet spell stretches it to twenty, and the x axis
+      changes span under the reader. Worse, when the feed goes quiet nothing is evicted and the
+      chart stops moving, even though time is still passing &mdash; and the silence is usually the
+      thing worth seeing. <code>maxAge</code> is a span of wall clock, so it means the same thing
+      whatever the feed is doing.</p>
+      <p><strong>Two bounds, one eviction path.</strong> <code>maxAge</code> and
+      <code>maxRows</code> are independent and compose: both are applied on the same pass and
+      whichever bites first is simply the one that drops rows. Neither is silently ignored.
+      Age eviction reuses the count bound&rsquo;s machinery outright, so <code>evicted</code> on
+      the progress report and the <code>stream:evicted</code> event carry age evictions exactly as
+      they always carried count evictions &mdash; an existing &ldquo;dropped off the back of the
+      window&rdquo; readout keeps working with nothing changed.</p>
+      <p><strong>The span is a bound, not a guillotine.</strong> A row lives a little past the span
+      before it goes, and two things add to that. First the eviction slack, ten per cent of the
+      span &mdash; exactly the overshoot <code>maxRows</code> already allows on its count &mdash; so
+      the row permutation is rebuilt once per block rather than once per arriving row. Second, when
+      the feed is idle, up to one tick of the eviction timer, which runs at a quarter of the span
+      clamped to between 50&nbsp;ms and one second. The real ceiling is therefore about
+      <code>span &times; 1.1 + tick</code>, and because the tick has a floor it is
+      <em>proportionally larger the shorter the window</em>: about 10% over at a five-minute
+      window, around 1.25&times; at ten seconds, and as much as ~1.35&times; at three. That is the
+      deliberate price of an idle grid that costs no CPU, and it is why the number to reach for is
+      the window you want the reader to see rather than a hard retention limit. The chart&rsquo;s
+      domain is exact either way &mdash; it ends at <em>now</em> &mdash; so the extra rows sit off
+      the left edge rather than being drawn.</p>
+      <p><strong>Which clock: <code>ageBy</code>, or arrival.</strong> Given
+      <code>ageBy</code> &mdash; a column id, a dotted path, or a function of the row returning a
+      <code>Date</code>, epoch milliseconds or an ISO string &mdash; the window follows the
+      <em>data&rsquo;s own</em> clock, so it means what the producer means. That also inherits the
+      producer&rsquo;s clock skew: if their clock runs five minutes fast, their rows live five
+      minutes longer than yours. Omit <code>ageBy</code> and rows age from <strong>arrival
+      time</strong>, when the row reached the source. Arrival time needs no timestamp column and
+      cannot be skewed, but it is not event time &mdash; a row delayed in transit is treated as
+      young. A synthetic or metric feed usually wants arrival; a log or event feed usually wants
+      <code>ageBy</code>. A row whose time value cannot be read is never aged out: dropping data
+      because a timestamp was malformed is the worse failure.</p>
+      <p><strong>Out of order is handled, not reordered.</strong> With <code>ageBy</code> the
+      row&rsquo;s clock need not be monotonic in arrival order, so eviction scans the window rather
+      than walking the head; a late row that is already older than the span is dropped on the same
+      pass it arrived on and counted as evicted, rather than being painted and then withdrawn a
+      moment later. Nothing is re-sorted: a row&rsquo;s <em>position</em> is still arrival order,
+      only its <em>retention</em> is decided by its time.</p>
+      <p><strong>The chart axis rolls independently.</strong> The axis takes the same
+      <code>WindowSpec</code> vocabulary rolling statistics use &mdash;
+      <code>window: { kind: 'time', span }</code> &mdash; and its domain ends at <em>now</em>
+      rather than at the newest point, which is what makes the chart keep scrolling with zero new
+      rows. It works with or without <code>maxAge</code> on the source; set both to the same span
+      and the retained data and the drawn domain agree. Only <code>kind: 'time'</code> applies to
+      an axis: a count window over a chart is the source&rsquo;s <code>maxRows</code>, and
+      <code>kind: 'count'</code> is refused with a warning rather than quietly given a second
+      meaning. The x column has to be continuous and carry wall-clock times &mdash; a banded or
+      categorical axis has no domain to roll.</p>
+      <p><strong>Idle costs nothing.</strong> Both halves advance on a plain interval &mdash; a
+      quarter of the window, clamped to between 50&nbsp;ms and one second &mdash; and never on an
+      animation frame. The source&rsquo;s wake returns after a single number comparison unless a
+      row is actually due, and the chart&rsquo;s wake does nothing at all when the document is
+      hidden or the chart is detached. Both timers are cleared on destroy. Measured over a
+      five-minute window holding 50,000 rows with no feed at all, the window&rsquo;s CPU cost is
+      inside the run-to-run noise of the same source with no bound set: under 0.04% of one core
+      (<code>bench/idle-window.mjs</code>).</p>
       <p><strong>The log keeps the raw sequence, not the merged one.</strong> Merging is right for
       applying a backlog quickly and wrong for looking at what happened, because the intermediate
       states are exactly what a time scrubber would move between. It survives the flush,
