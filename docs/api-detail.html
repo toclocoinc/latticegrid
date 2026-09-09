@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.50.0</p>
+    <p class="rail__sub">Developer guide · v1.51.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -473,6 +473,7 @@
         <span class="rail__label">Connected grids</span>
         <a href="#pushdown">Querying an engine</a>
         <a href="#derived">Derived grids</a>
+        <a href="#derived-union">Combining several grids</a>
         <a href="#cross-filter">Cross-filtering</a>
         <a href="#joins">Joining two grids</a>
         <a href="#aggregate-safety">Aggregate safety</a>
@@ -3325,6 +3326,81 @@ createGrid(right, {
       </table>
     </div>
 
+    <h2 id="derived-union">Combining several grids into one</h2>
+    <p class="lead-in">
+      A <code>join</code> matches two grids on a shared key. Some questions have no key to share at
+      all &mdash; "the worst performers across two regional datasets" when the two regions use
+      unrelated ids &mdash; and for those, <code>from</code> takes an array of sources instead of one
+      grid: every source is read, concatenated in the order you declared them, and only then does the
+      rest of the pipeline run, once, over the combined set.
+    </p>
+    <div class="example">
+      <p class="example__label">Worst performers, two unrelated datasets</p>
+      <pre><code>createGrid(right, {
+  columns: [{ id: 'title' }, { id: 'severity', type: 'number' }, { id: '__source' }],
+  source: {
+    mode: 'derived',
+    from: [
+      { grid: eastIncidents, label: 'east' },
+      { grid: westIncidents, label: 'west', map: (row) =&gt; ({ title: row.name, severity: row.rating }) },
+    ],
+    sort: [{ col: 'severity', dir: 'desc' }],
+    limit: 10,
+  },
+});</code></pre>
+    </div>
+    <p>
+      <code>label</code> defaults to the source's position in the array (<code>'0'</code>,
+      <code>'1'</code>, &hellip;), and <code>follow</code> is independent per source &mdash; filtering
+      one narrows only its own contribution, exactly as a lone <code>from</code> follows its grid
+      today. A source with differently-named fields uses <code>map</code> to project them into a
+      common shape before it joins the rest.
+    </p>
+    <div class="why">
+      <p><strong><code>__source</code> is not optional.</strong> Every combined row carries it &mdash;
+      the entry's <code>label</code>, or its index when unlabelled &mdash; and it is an ordinary field
+      to <code>where</code>, <code>groupBy</code> and <code>select</code>. Leaving it out would mean a
+      combined list that cannot say where any row came from, which defeats most of the reason to
+      combine several sources in the first place.</p>
+      <p><strong>The union of fields, never a merge.</strong> A field only one source has is
+      <code>undefined</code> on the others' rows, not fabricated and not type-coerced &mdash; two
+      sources disagreeing about what a field means is yours to resolve with <code>map</code>, not
+      something the union guesses at. And there is no dedup: two sources reporting the same fact both
+      appear as separate rows. There is no UNION-vs-UNION-ALL distinction to draw; reach for
+      <code>join</code> when rows should be matched on a key rather than stacked.</p>
+      <p><strong>The key is namespaced, only where it needs to be.</strong> Two sources can easily
+      share row identifiers, so the derived <code>__key</code> is qualified by the source tag when
+      nothing is grouped. Grouped, <code>__key</code> is the group value exactly as it always has
+      been, and rows from different sources landing in the same group is what grouping a union is
+      <em>for</em>, not a collision.</p>
+      <p><strong>An empty source is fine; a broken one is loud.</strong> A source with no rows
+      contributes nothing. A source that throws while being read is named in a console warning and
+      skipped for that pass &mdash; a silently missing source would make "worst across both" quietly
+      wrong, so it is reported rather than swallowed.</p>
+      <p><strong>A cycle is refused when the source is built.</strong> If a union's sources include
+      the grid being derived, directly or through a chain of other derived grids, it is refused up
+      front, naming the offending source, rather than being recursed into.</p>
+      <p><strong>A union never patches &mdash; know the cost before you reach for one at scale.</strong>
+      A lone <code>from</code> maintains its grouping incrementally: an edit that names the rows it
+      touched re-reduces only the groups those rows belong to. A union does not do this for any of its
+      sources &mdash; every change on <em>any</em> parent re-reads and re-derives the <em>whole</em>
+      combined set from scratch. On a synthetic 200,000-row union across four sources, one row changed
+      on one parent cost on the order of <strong>800&nbsp;ms&ndash;3&nbsp;s</strong> (machine-dependent;
+      run <code>node bench/union-parents.mjs</code> against your own shape), against a few
+      milliseconds for the equivalent patched change on a lone <code>from</code> over the same row
+      count. And because a union is watched by as many independent change streams as it has sources,
+      that full-rescan cost is paid once <em>per source that moves</em>, not once per union &mdash;
+      four active parents each firing their own updates pay it four times over. Below a few tens of
+      thousands of combined rows this is unlikely to matter; above that, or with several sources each
+      updating on their own live feed, budget for it, keep <code>refresh</code> away from every tick
+      (<code>idle</code>, or a debounce), and prefer fewer, larger sources over many small ones where
+      the shape of your data allows it.</p>
+      <p><strong>Not supported alongside a union.</strong> <code>crossFilter</code> has no single
+      target once there is more than one parent; <code>profile</code> reduces one grid's own columns.
+      Both are refused with a warning rather than guessed at, and the top-level <code>follow</code> is
+      ignored in favour of each source's own.</p>
+    </div>
+
     <h2 id="cross-filter">Cross-filtering</h2>
     <p class="lead-in">
       A derived panel can filter the grid it summarises. Click a region in the summary and the
@@ -5982,6 +6058,162 @@ r.ok ? r.value : r.error;   <span class="cmt">// 42</span></code></pre>
       a missing <code>return</code> is a typo and deleting the whole menu is a harsh reading of
       one.</p>
     </div>
+    <h3 id="per-column-menu">Declaring a menu on the column itself</h3>
+    <p class="lead-in">
+      A cell menu can also be declared <strong>on the column</strong>, with
+      <code>contextMenu</code> on the column definition. It takes the same shapes the grid-level
+      option takes, plus a bare array for the common &ldquo;just these items here&rdquo; case:
+      <code>boolean | MenuItem[] | (params, defaults) =&gt; items</code>.
+    </p>
+    <div class="example">
+      <p class="example__label">Each column's menu logic beside the column it is about</p>
+      <pre><code>createGrid(el, {
+  columns: [
+    { field: 'account' },
+    <span class="cmt">// Just these items, here.</span>
+    { field: 'owner', contextMenu: [{ name: 'Reassign', action: reassign }] },
+    <span class="cmt">// Or the built-ins plus one, the same form the grid-level option takes.</span>
+    {
+      field: 'amount',
+      contextMenu: (params, defaults) =&gt; [
+        ...defaults,
+        { separator: <span class="kw">true</span> },
+        { name: `Reprice ${params.value}`, action: (ctx) =&gt; reprice(ctx.data) },
+      ],
+    },
+    <span class="cmt">// And nothing at all on a column nobody should act on from here.</span>
+    { field: 'nationalId', contextMenu: <span class="kw">false</span> },
+  ],
+});</code></pre>
+    </div>
+    <p class="lead-in">
+      This adds no power the grid-level option did not have &mdash; <code>params.colId</code> and
+      <code>params.column</code> always let one callback branch by column. What it adds is
+      <strong>locality</strong>: the menu for a column is declared where the column is, instead of
+      collecting into one growing <code>switch</code> a long way from the thing it is about.
+    </p>
+
+    <h4 id="per-column-menu-chain">The three levels compose as a chain</h4>
+    <p class="lead-in">
+      The built-in items go in first, then the grid-level <code>contextMenu</code>, then the
+      column's own &mdash; <strong>each handed the previous level's result as its
+      <code>defaults</code></strong>. A column that wants one extra item writes one extra item; it
+      never has to restate Paste, Clear and Fill&nbsp;down, nor whatever the grid-level builder just
+      added.
+    </p>
+    <div class="example">
+      <p class="example__label">Built-ins &rarr; grid &rarr; column, executed</p>
+      <pre data-run="js" data-expect="grid|column" data-covers="config:contextMenu"><code><span class="kw">const</span> { createTestDom, flushFrames } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createGrid } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+<span class="kw">const</span> { root } = createTestDom({ width: 600, height: 300 });
+
+<span class="kw">let</span> handedToTheColumn = [];
+<span class="kw">const</span> grid = createGrid(root, {
+  rowKey: 'id',
+  rows: [{ id: 1, account: 'Acme', amount: 120 }],
+  columns: [
+    { field: 'account' },
+    {
+      field: 'amount',
+      contextMenu: (params, defaults) =&gt; {
+        handedToTheColumn = defaults.map((d) =&gt; d.name);
+        <span class="kw">return</span> [...defaults, { name: 'from the column', action() {} }];
+      },
+    },
+  ],
+  contextMenu: (params, defaults) =&gt; [...defaults, { name: 'from the grid', action() {} }],
+});
+flushFrames();
+
+<span class="kw">const</span> row = grid.rows.get(0);
+grid.emit('cell:contextmenu', {
+  row, key: row.key, index: 0, colId: 'amount',
+  column: grid.columns.get('amount'), value: 120,
+  event: { clientX: 10, clientY: 10, preventDefault() {} },
+});
+flushFrames();
+
+<span class="cmt">// The column builder was handed the grid builder's output, not the raw</span>
+<span class="cmt">// built-ins: 'from the grid' is already in its `defaults`.</span>
+<span class="kw">const</span> chained = handedToTheColumn.includes('from the grid');
+<span class="kw">const</span> shown = [...root.querySelectorAll('.lat-menu__item')]
+  .map((i) =&gt; String(i.textContent).trim());
+grid.destroy();
+<span class="kw">return</span> chained &amp;&amp; shown.includes('from the column') ? 'grid|column' : 'broken';</code></pre>
+    </div>
+    <p class="lead-in">
+      <strong>Suppression follows the same order, and the more specific level wins.</strong>
+      <code>contextMenu: false</code> on a column is a statement about <em>that column</em> and no
+      other. Equally, a column may declare a menu on a grid whose <code>contextMenu</code> is
+      <code>false</code> &mdash; which is how you say &ldquo;no menu anywhere except here&rdquo;.
+      <code>contextMenu: true</code> on a column means &ldquo;whatever came before&rdquo;, so it
+      restores the built-in menu on a grid that turned it off.
+    </p>
+    <table class="ref">
+      <thead><tr><th>Grid level</th><th>Column level</th><th>What opens on that column</th></tr></thead>
+      <tbody>
+        <tr><td><em>not set</em></td><td><em>not set</em></td><td>the built-in menu</td></tr>
+        <tr><td>a builder</td><td><em>not set</em></td><td>the builder's result</td></tr>
+        <tr><td>a builder</td><td>a builder</td><td>the column's builder, handed the grid builder's result</td></tr>
+        <tr><td>a builder</td><td>an array</td><td>the array &mdash; the grid level still ran, and was replaced</td></tr>
+        <tr><td>a builder, or not set</td><td><code>false</code></td><td><strong>nothing</strong> &mdash; the column suppresses, and no other column is affected</td></tr>
+        <tr><td><code>false</code></td><td><em>not set</em></td><td><strong>nothing</strong> &mdash; the grid-level off stands, as it always has</td></tr>
+        <tr><td><code>false</code></td><td>an array</td><td><strong>the column's array.</strong> The column opts back in: grid-level <code>false</code> is a default, not a lock</td></tr>
+        <tr><td><code>false</code></td><td>a builder</td><td><strong>the builder's result</strong>, handed the built-in items as its <code>defaults</code>. The column opts back in</td></tr>
+        <tr><td><code>false</code></td><td><code>true</code></td><td><strong>the built-in menu.</strong> The column opts back in and asks for the defaults</td></tr>
+      </tbody>
+    </table>
+    <div class="note">
+      <p><strong><code>contextMenu: false</code> on the grid is a default, not a lock.</strong> If
+      you set it as a safety property &mdash; a read-only grid, a screen where nobody should be
+      able to copy or clear from a right-click &mdash; be aware that a column declaring its own
+      <code>contextMenu</code> will still open one, because the more specific level wins in
+      <em>both</em> directions. That is deliberate: a read-only grid with one actionable column is a
+      real shape, and it is the only way to say &ldquo;no menu anywhere except here&rdquo;. But it
+      does mean grid-level <code>false</code> does not guarantee that no cell menu can open
+      anywhere &mdash; only that none opens unless a column asks for one. If you need the absolute
+      guarantee, do not declare <code>contextMenu</code> on any column.</p>
+    </div>
+    <div class="why">
+      <p><strong>A chain, not a replacement.</strong> If the column level replaced the grid level,
+      every column that wanted one extra item would have to restate everything the grid-level
+      builder does &mdash; and would then stop tracking it the first time it changed. This is the
+      same rule <code>columnMenu</code> already follows for the header: you are handed what came
+      before so you can add to it rather than reproduce it.</p>
+    </div>
+
+    <h4 id="per-column-menu-edges">A range, and rows that belong to no column</h4>
+    <p class="lead-in">
+      <strong>On a multi-column selection, the column you right-clicked decides.</strong> Not the
+      intersection of the selected columns' menus, which silently drops items; not their union,
+      which offers actions that are wrong for most of the selection. The clicked column is the one
+      the user pointed at, and it is the one that answers &mdash; the built-in range actions
+      (Copy, Clear, Fill&nbsp;down) still act on the whole range as they always did.
+    </p>
+    <p class="lead-in">
+      <strong>A row with no owning column falls back to the grid-level menu.</strong> Group rows,
+      pivot group rows and full-width rows do not belong to one column, so there is no column-level
+      declaration to consult; the chain simply has one fewer link and the grid-level menu stands.
+      Nothing errors and nothing silently shows an empty menu.
+    </p>
+    <p class="lead-in">
+      Every route honours the column: a right-click, and the keyboard's
+      <kbd>Shift</kbd>+<kbd>F10</kbd> or <kbd>Context&nbsp;Menu</kbd> key on the focused cell.
+      The menu is a <code>role="menu"</code> of <code>role="menuitem"</code>s that takes focus and
+      closes on <kbd>Escape</kbd> wherever it was opened from.
+    </p>
+    <div class="why">
+      <p><strong>Trust is unchanged.</strong> A <code>MenuItem</code> is the same object it always
+      was, including <code>icon</code> markup being trusted at the same level as
+      <code>action</code>. Declaring one on a column changes <em>where</em> it is written, not who
+      is trusted to write it: a column definition is your code, exactly as a grid config is.</p>
+    </div>
+    <p class="lead-in">
+      A column preset or <code>columnDefaults</code> may supply <code>contextMenu</code> too, and
+      the column's own declaration outranks both &mdash; so a house rule like &ldquo;no cell menu on
+      anything tagged sensitive&rdquo; is written once.
+    </p>
+
     <p class="lead-in">
       <code>columnMenu</code> takes the same function form, for both routes into a column's menu:
       the header's 3-dot button and a right-click on the heading. Its <code>params</code> is

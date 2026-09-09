@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.50.0, type declarations
+ * Lattice Grid 1.51.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -864,6 +864,24 @@ export interface Column {
   /** The header cell: its text, tooltip, menu and any header chart. */
   header?: ColumnHeaderSpec | string;
   /**
+   * The cell right-click menu for this column alone (BACKLOG-0001068), in the
+   * same shapes the grid-level `contextMenu` takes plus a bare array for the
+   * common "just these items here" case.
+   *
+   * Declared where the column is declared rather than as another branch inside
+   * one grid-level callback: the menu logic for a column belongs beside the
+   * column it belongs to. It does not replace the grid-level menu — the three
+   * levels compose as a chain, built-in defaults then grid-level then this one,
+   * each handed the previous result as its `defaults`, so a column adding one
+   * item does not have to restate Paste, Clear and Fill down.
+   *
+   * `false` suppresses the menu on this column and leaves every other column
+   * alone: what a sensitive or read-only column wants. The more specific level
+   * wins, so a column may also declare a menu on a grid whose `contextMenu` is
+   * `false`.
+   */
+  contextMenu?: boolean | MenuItem[] | ((p: CellMenuParams, defaults: MenuItem[]) => MenuItem[] | void);
+  /**
    * When this column's header controls — its sort arrow, filter funnel and menu
    * button — are shown, overriding the grid-level `headerControls` default for
    * this column alone (BACKLOG-0000982). `'hover'` reveals them on hover or
@@ -939,6 +957,12 @@ export interface ResolvedColumn {
   grandTotal: TotalName | TotalFn | null;
   layout: ColumnLayoutSpec;
   header: ColumnHeaderSpec;
+  /**
+   * This column's own cell-menu declaration (BACKLOG-0001068), or null when it
+   * makes none and the grid-level menu stands alone. Carried onto the resolved
+   * column so a column preset or `columnDefaults` can supply one.
+   */
+  contextMenu: boolean | MenuItem[] | ((p: CellMenuParams, defaults: MenuItem[]) => MenuItem[] | void) | null;
   export: ColumnExportSpec;
   lookup: LookupSpec | null;
   allowGroup: boolean;
@@ -1220,9 +1244,57 @@ export interface DerivedSourceConfig {
    * key when nothing is grouped. `config.rowKey` defaults to it, so it need not
    * be set; an explicit `rowKey` still wins.
    */
-  /** The grid to read. */
-  from: Grid;
-  /** Which of its rows to read. `filtered` by default. */
+  /**
+   * The grid to read, or several to combine into one row set before the rest
+   * of the pipeline runs (BACKLOG-0001045). A bare `Grid` is shorthand for a
+   * `UnionSourceOptions` with no `label`/`follow`/`map` override, so an
+   * existing `from: <grid>` keeps meaning exactly what it always has.
+   *
+   * Given an array, every source is read (each narrowed by its own `follow`,
+   * defaulting to `'filtered'` as a lone `from` does today), concatenated in
+   * **declaration order** — deterministic, not interleaved — and only then
+   * does `unnest`/`join`/`where`/`bucket`/`groupBy`/`select`/`sort`/`limit`/
+   * `limitPer`/`cumulative` run, over the combined set, so "the worst
+   * performers across both" is one derivation rather than a hand-merge.
+   *
+   * The output carries the **union of the sources' fields**: a field present
+   * on only one source is `undefined` on rows from the others. Sources are
+   * **not** type-reconciled — if two disagree on what a field means or holds,
+   * that is not resolved for you; give each source a `map` to project it into
+   * a common shape first. Every row also carries `__source` (the entry's
+   * `label`, or its declaration index when unlabelled), which is required —
+   * not optional — because without it a combined list cannot be read, filtered
+   * or grouped by where it came from; it is an ordinary field to `where`,
+   * `groupBy` and `select`. And because the derived key (`__key`) would
+   * otherwise collide across sources sharing the same identifiers, it is
+   * namespaced by the same source tag when nothing is grouped (a grouped
+   * union's `__key` is the group value, exactly as today, and rows from
+   * different sources correctly land in the *same* group when their group
+   * values agree — that merging is the point of grouping a union, not a
+   * collision to guard against).
+   *
+   * This is **not** a join: there is no dedup or merge-on-key, and it draws no
+   * UNION/UNION ALL distinction — overlapping rows from two sources simply
+   * both appear. Reach for `join` when two sides share a key and you want them
+   * matched rather than stacked.
+   *
+   * An empty source contributes nothing and the rest still combine; a source
+   * that fails to read is named in a `warnOnce` and skipped for that pass
+   * rather than silently dropped, because a silently missing source would
+   * make "worst across both" quietly wrong. A source list that includes the
+   * grid being derived, directly or through a chain, is refused when the
+   * source is built (naming the offender) rather than recursed into.
+   *
+   * `crossFilter` has no single target once there is more than one parent, so
+   * it is not supported alongside a union `from` (ignored, with a `warnOnce`,
+   * rather than guessing which parent to push onto).
+   */
+  from: Grid | UnionSourceOptions[];
+  /**
+   * Which of its rows to read. `filtered` by default. Ignored — with a
+   * `warnOnce` — when `from` is a union array: each entry there carries its
+   * own `follow` instead (BACKLOG-0001045).
+   */
   follow?: 'filtered' | 'all' | 'selected' | 'grouped';
 
   /** An array property to expand, one row per element, before anything else. */
@@ -1263,6 +1335,38 @@ export interface DerivedSourceConfig {
    * whatever it groups by; a string names a different source column.
    */
   crossFilter?: boolean | string | { col?: string };
+}
+
+/**
+ * One member of a union `from` (BACKLOG-0001045): a grid to combine with the
+ * others, plus how to read it and reshape it before it joins the rest. A bare
+ * `Grid` in the `from` array is shorthand for `{ grid }` with every other
+ * field defaulted.
+ */
+export interface UnionSourceOptions {
+  /** The grid this source reads. */
+  grid: Grid;
+  /**
+   * Identifies this source: it is what `__source` carries on every row this
+   * source contributes, and what namespaces that row's `__key` so two sources
+   * sharing the same identifiers do not collide. Defaults to the source's
+   * position in the `from` array (`'0'`, `'1'`, …), as a string.
+   */
+  label?: string;
+  /**
+   * Which of this source's rows to read. `filtered` by default, exactly as a
+   * lone `from` follows its grid today — set independently per source, so
+   * filtering one narrows only its own contribution.
+   */
+  follow?: 'filtered' | 'all' | 'selected' | 'grouped';
+  /**
+   * Reshape this source's rows into the common shape before they join the
+   * rest — typically a rename or a projection, for a field this source calls
+   * something else. Not a type coercion: if a field means something different
+   * on two sources, `map` is where you make them agree, because the union
+   * itself does not guess.
+   */
+  map?: (row: unknown) => unknown;
 }
 
 export interface DerivedJoin {
@@ -5953,6 +6057,18 @@ export function duckdbAdapter(options: {
   /** Columns to select. Everything by default. */
   fields?: string[];
   /**
+   * Whether to count the matching set at all. `true` by default: the total is a
+   * separate `count(*)` statement carrying the same `WHERE`, dispatched in the
+   * same tick as the page query rather than serialised behind it
+   * (BACKLOG-0001065). `false` issues no count statement, declares
+   * `capabilities.total: false`, and leaves the result's `total` **absent** — so
+   * the grid scrolls open-ended instead of being told the page length is the
+   * whole set. Turn it off for a grid that never shows a count: an unfiltered
+   * count is answered from Parquet metadata and a filtered one still has to
+   * evaluate the predicate, so it is cheap rather than free.
+   */
+  count?: boolean;
+  /**
    * The key column an update and a delete target in their `WHERE`, and that an
    * add-row is rekeyed by. Write-back is refused unless this names a real column,
    * because an `UPDATE`/`DELETE` without a unique key could touch more than one
@@ -5974,7 +6090,15 @@ export function duckdbAdapter(options: {
    * key to rekey the temp row.
    */
   returning?: 'row' | 'none';
-}): PushdownAdapter & { sqlFor(query: RemoteRequest): { sql: string; params: unknown[] } };
+}): PushdownAdapter & {
+  sqlFor(query: RemoteRequest): { sql: string; params: unknown[] };
+  /**
+   * The separate `count(*)` statement that reports the matching set's size, with
+   * the same `WHERE` as {@link sqlFor} and no `ORDER BY` or `LIMIT`
+   * (BACKLOG-0001065). `null` when the adapter was built with `count: false`.
+   */
+  countSqlFor(query: RemoteRequest): { sql: string; params: unknown[] } | null;
+};
 
 /**
  * An adapter for a DemandFlow entity, speaking `POST /v1/query`.
@@ -6054,6 +6178,15 @@ export function graphqlAdapter(options: {
   pagination?: 'offset' | 'cursor';
   /** The page size for the whole-result and forward-cursor walks. */
   pageSize?: number;
+  /**
+   * Whether the default query asks for `totalCount`. `true` by default.
+   * `false` drops it from the selection set and declares
+   * `capabilities.total: false`, so a grid that never shows a count does not
+   * make the server compute one (BACKLOG-0001065). Unlike the DuckDB adapter the
+   * count is not split into a second operation — that would cost an extra HTTP
+   * round trip rather than saving one — so suppression is the only lever here.
+   */
+  count?: boolean;
   /** Rename the pagination variables the adapter drives per page. */
   vars?: Partial<Record<'offset' | 'limit' | 'first' | 'after', string>>;
   capabilities?: PushdownCapabilities; operators?: string[];
@@ -8356,7 +8489,17 @@ declare module 'lattice-grid/modules/kpi' {
     field?: string;
     value: unknown;
     formatted: string;
-    status: 'good' | 'warn' | 'critical' | null;
+    /**
+     * The tile's semantic band, or `unknown` when the panel holds no rows at
+     * all. `unknown` is decided from data presence before any threshold is
+     * consulted: an aggregation over nothing returns the identity of its
+     * operation (`sum` and `count` return 0), and 0 is a number a threshold
+     * grades, so without it an empty panel would report as a healthy one. A
+     * tile whose `filter` matches none of the rows the panel *does* hold has
+     * measured a real zero and is banded normally. `null` means the tile has no
+     * thresholds or bands configured.
+     */
+    status: 'good' | 'warn' | 'critical' | 'unknown' | null;
     target?: number;
     baseline?: number;
     delta: number | null;

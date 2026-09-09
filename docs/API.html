@@ -861,7 +861,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">comments</td><td class="type">object</td><td class="desc">Threaded cell comments: storage, the current author, and whether the indicator shows on an unread thread.</td></tr>
           <tr><td class="name">presence</td><td class="type">object</td><td class="desc">Live cursors, selections and edit locks. Carries intent and never values; see <code>grid.presence</code>.</td></tr>
           <tr><td class="name">environment</td><td class="type">function</td><td class="desc">Extra fields for the diagnostics bundle: build number, tenant, region. Called when a bundle is taken, never on the render path.</td></tr>
-          <tr><td class="name">contextMenu</td><td class="type">boolean | (p) =&gt; MenuItem[]</td><td class="desc">Right-click menu. The function form is <code>(params, defaults) =&gt; items</code>: see <a href="#custom-menu">custom items</a>. <code>false</code> suppresses it: what a read-only grid wants, since the default menu offers Paste, Clear and Fill down.</td></tr>
+          <tr><td class="name">contextMenu</td><td class="type">boolean | (p) =&gt; MenuItem[]</td><td class="desc">Right-click menu. The function form is <code>(params, defaults) =&gt; items</code>: see <a href="#custom-menu">custom items</a>. <code>false</code> suppresses it: what a read-only grid wants, since the default menu offers Paste, Clear and Fill down. A <strong>column</strong> takes its own <code>contextMenu</code> (also accepting a bare <code>MenuItem[]</code>), which composes onto this one as a chain and outranks it on suppression.</td></tr>
           <tr><td class="name">columnMenu</td><td class="type">boolean | (p) =&gt; MenuItem[]</td><td class="desc">The header's 3-dot menu, and a right-click on a column heading. The function form is <code>(params, defaults) =&gt; items</code>, with <code>params</code> carrying <code>colId</code>, <code>column</code> and <code>grid</code>: see <a href="#custom-menu">custom items</a>. <code>false</code> suppresses it.</td></tr>
           <tr><td class="name">rangeChart</td><td class="type">fn | { onChart } | boolean</td><td class="desc">Off by default. Offers <strong>Chart selection</strong> in the cell menu and binds <kbd>Alt</kbd>+<kbd>F1</kbd> when a selected range has a number to plot. The DOM layer draws no charts, so the handler you give — a function, or <code>{ onChart }</code>, called <code>(grid, range)</code> — is where the page wires in <code>chartRange</code> from <a href="#chart-a-range">the charts module</a>.</td></tr>
           <tr><td class="name">shortcuts</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc">The <kbd>?</kbd> keyboard shortcut overlay. <code>false</code> suppresses it, for a host that wants <kbd>?</kbd> for itself. See <a href="api-detail.html#keyboard">Keyboard</a>.</td></tr>
@@ -2806,8 +2806,8 @@ grid.destroy();
       <table>
         <thead><tr><th>Key</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">from</td><td class="type">Grid</td><td class="desc">Required. The grid to read.</td></tr>
-          <tr><td class="name">follow</td><td class="type">'filtered' | 'all' | 'selected' | 'grouped'</td><td class="desc">Which of its rows to read. <code>filtered</code> by default. <code>grouped</code> re-aggregates by whatever dimension the user has grouped the source by, so a panel tracks the reader rather than a dimension fixed when the page was built; with the source ungrouped it falls back to <code>groupBy</code>.</td></tr>
+          <tr><td class="name">from</td><td class="type">Grid | UnionSourceOptions[]</td><td class="desc">Required. The grid to read &mdash; or several to combine into one row set before the rest of the pipeline runs (a <em>union</em>; see below). A bare <code>Grid</code> in the array is shorthand for <code>{ grid }</code>.</td></tr>
+          <tr><td class="name">follow</td><td class="type">'filtered' | 'all' | 'selected' | 'grouped'</td><td class="desc">Which of its rows to read. <code>filtered</code> by default. <code>grouped</code> re-aggregates by whatever dimension the user has grouped the source by, so a panel tracks the reader rather than a dimension fixed when the page was built; with the source ungrouped it falls back to <code>groupBy</code>. Ignored (with a warning) when <code>from</code> is a union array &mdash; each entry has its own <code>follow</code> instead.</td></tr>
           <tr><td class="name">unnest</td><td class="type">string</td><td class="desc">Expand an array property, one row per element, keeping the parent's fields. Address the element with a dotted path afterwards: <code>lines.sku</code> is the element, <code>region</code> is still the parent. A row whose property is absent or empty contributes nothing.</td></tr>
           <tr><td class="name">join</td><td class="type">{ with, on, type, select, prefix, follow }</td><td class="desc">Match each row against a second grid on a shared key and bring some of its fields across. Runs after <code>unnest</code> and before <code>where</code>, so a condition (and a grouping, and a total) can read a field the join produced.</td></tr>
           <tr><td class="name">where</td><td class="type">(row) =&gt; boolean</td><td class="desc">A row predicate, applied before grouping. With no <code>groupBy</code> the rows pass through as themselves, which is how an exceptions list is built.</td></tr>
@@ -2825,6 +2825,127 @@ grid.destroy();
         </tbody>
       </table>
     </div>
+    <h3 id="derived-union">Union sources: combining several grids into one</h3>
+    <p class="section-note">
+      "Worst performers across two datasets" is easy when the two datasets share a key: a
+      <code>join</code> brings the second grid's fields onto the first. It is not expressible at all
+      when they do not: incidents from two regions with no shared identifier, orders from two
+      systems, this quarter and last as one ranked list. <code>from</code> takes an array of sources
+      for exactly this: stack several row sets into one, then rank, group or filter the combined set
+      with the same pipeline a single <code>from</code> already runs.
+    </p>
+    <pre><code>source: {
+  mode: 'derived',
+  from: [
+    { grid: eastIncidents, label: 'east' },
+    { grid: westIncidents, label: 'west' },
+  ],
+  sort: [{ col: 'severity', dir: 'desc' }],
+  limit: 10,
+}</code></pre>
+    <p class="section-note">
+      Every source is read (each narrowed by its own <code>follow</code>, <code>filtered</code> by
+      default) and concatenated <strong>in declaration order</strong>, deterministic rather than
+      interleaved, before <code>unnest</code>/<code>join</code>/<code>where</code>/<code>bucket</code>/
+      <code>groupBy</code>/<code>select</code>/<code>sort</code>/<code>limit</code>/<code>limitPer</code>/
+      <code>cumulative</code> run once over the result &mdash; so "the worst across both" is one
+      derivation, not a hand-merged array.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Key</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">grid</td><td class="type">Grid</td><td class="desc">Required. This source's grid.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">Identifies this source. Carried onto every row as <code>__source</code>, and used to namespace that row's <code>__key</code>. Defaults to the source's position in the array (<code>'0'</code>, <code>'1'</code>, &hellip;).</td></tr>
+          <tr><td class="name">follow</td><td class="type">'filtered' | 'all' | 'selected' | 'grouped'</td><td class="desc">Which of this source's rows to read, independent of every other source's. <code>filtered</code> by default.</td></tr>
+          <tr><td class="name">map</td><td class="type">(row) =&gt; unknown</td><td class="desc">Reshape this source's rows into a common shape before they join the rest &mdash; typically a rename or a projection for a field this source calls something else.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note">
+      <strong><code>__source</code> is required, not optional.</strong> Every row carries it &mdash;
+      the entry's <code>label</code>, or its declaration index when unlabelled &mdash; because without
+      it a combined list cannot be read, filtered or grouped by where it came from, which is most of
+      the point of stacking several sources. It is an ordinary field to <code>where</code>,
+      <code>groupBy</code> and <code>select</code>, exactly like a column the data itself carries.
+    </p>
+    <p class="section-note">
+      <strong>The union of fields, not the intersection.</strong> A field present on only one source
+      is <code>undefined</code> on rows from the others &mdash; not fabricated, not coerced. Sources
+      are <strong>not</strong> type-reconciled: if two disagree on what a field means, <code>map</code>
+      is where you make them agree, before they combine, not something the union guesses at for you.
+    </p>
+    <p class="section-note">
+      <strong>The key is namespaced.</strong> A derived grid's <code>__key</code> is the source row's
+      own key when nothing is grouped, and two sources sharing the same identifiers would otherwise
+      collide. So it is qualified by the source tag when there is no <code>groupBy</code>. Grouped, the
+      key is the group value exactly as it always has been &mdash; rows from different sources landing
+      in the <em>same</em> group when their group values agree is the point of grouping a union, not a
+      collision to guard against.
+    </p>
+    <p class="section-note">
+      <strong>Not a join.</strong> There is no dedup and no merge-on-key: two sources reporting the
+      same fact both appear as separate rows, and there is no UNION-vs-UNION-ALL distinction to draw.
+      Reach for <code>join</code> when two sides share a key and you want them matched rather than
+      stacked; use <code>groupBy</code> on the combined set when you want them summed together.
+    </p>
+    <p class="section-note">
+      <strong>Empty and failing sources.</strong> A source with no matching rows contributes nothing;
+      the rest of the union still derives. A source that throws while being read (or mapped) is named
+      in a <code>warnOnce</code> and skipped for that pass &mdash; reported, never silently dropped,
+      because a silently missing source would make "worst across both" quietly wrong.
+    </p>
+    <p class="section-note">
+      <strong>A cycle is refused, not recursed.</strong> A source list that includes the grid being
+      derived, directly or through a chain of other derived grids, is refused when the source is
+      built, naming the offending source.
+    </p>
+    <p class="section-note">
+      <strong>Not supported alongside a union.</strong> <code>crossFilter</code> has no single target
+      once there is more than one parent, and <code>profile</code> reduces one grid's own columns, so
+      both are refused with a warning rather than guessed at.
+    </p>
+    <pre data-run="js" data-expect="worst=oom-kill,disk-full; sources=east,east,west,west" data-covers="config:map config:grid"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+
+const east = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'title' }, { field: 'severity', type: 'number' }],
+  rows: [{ id: 'e1', title: 'disk-full', severity: 9 }, { id: 'e2', title: 'slow-query', severity: 3 }],
+});
+<span class="cmt">// A second, unrelated incident log — its own "rating" field, no shared id with `east` at all.</span>
+const west = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'name' }, { field: 'rating', type: 'number' }],
+  rows: [{ id: 'w1', name: 'oom-kill', rating: 10 }, { id: 'w2', name: 'stale-cache', rating: 2 }],
+});
+
+const worst = createHeadlessGrid({
+  columns: [{ field: 'title' }, { field: 'severity', type: 'number' }, { field: '__source' }],
+  source: {
+    mode: 'derived',
+    from: [
+      { grid: east, label: 'east' },
+      <span class="cmt">// `map` brings west's differently-named fields into the common shape.</span>
+      { grid: west, label: 'west', map: (row) =&gt; ({ title: row.name, severity: row.rating }) },
+    ],
+    sort: [{ col: 'severity', dir: 'desc' }],
+    limit: 2,
+  },
+});
+
+const titles = [];
+worst.rows.forEach((r) =&gt; titles.push(worst.rows.value(r.key, 'title')));
+
+<span class="cmt">// A per-source breakdown reads `__source` like any other field.</span>
+const bySource = createHeadlessGrid({
+  columns: [{ field: '__source' }],
+  source: { mode: 'derived', from: [{ grid: east, label: 'east' }, { grid: west, label: 'west' }] },
+});
+const sources = [];
+bySource.rows.forEach((r) =&gt; sources.push(bySource.rows.value(r.key, '__source')));
+
+worst.destroy(); bySource.destroy(); east.destroy(); west.destroy();
+return `worst=${titles.join(',')}; sources=${sources.join(',')}`;</code></pre>
     <p class="section-note">
       <strong>Read-only.</strong> A derived row is an answer, not a record: there is no write-back for
       the sum of four hundred rows, so writes are refused with a reason rather than accepted and
@@ -3132,7 +3253,7 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">url</td><td class="type">string</td><td class="type">—</td><td class="desc">The entity-set endpoint, e.g. <code>https://api.example.com/Orders</code>. Required.</td></tr>
           <tr><td class="name">headers</td><td class="type">Record&lt;string, string&gt;</td><td class="type">{}</td><td class="desc">Sent on every request, merged over <code>Accept: application/json</code>. This is where a fixed bearer token or an API key goes. See <a href="#adapter-auth">authenticating</a>.</td></tr>
           <tr><td class="name">fetch</td><td class="type">typeof fetch</td><td class="type">the global <code>fetch</code></td><td class="desc">Your own fetch, for a token that expires, a proxy, or a non-browser runtime. The adapter bundles no HTTP client. See <a href="#adapter-auth">authenticating</a>.</td></tr>
-          <tr><td class="name">count</td><td class="type">boolean</td><td class="type">true</td><td class="desc">Whether to ask for <code>$count=true</code> and read <code>@odata.count</code>. On by default because the grid sizes its scrollbar from the total; set <code>false</code> for a server that does not support it.</td></tr>
+          <tr><td class="name">count</td><td class="type">boolean</td><td class="type">true</td><td class="desc">Whether to ask for <code>$count=true</code> and read <code>@odata.count</code>. On by default because the grid sizes its scrollbar from the total; set <code>false</code> for a server that does not support it, or to spare a server the count for a grid that never shows one. With it off the adapter reports <em>no total</em> and the grid scrolls open-ended — it does not substitute the page length, which before 1.51 told the grid the entity set was exactly one page long. The count travels inline in the same request, so there is nothing to split out: suppression is the only lever OData offers.</td></tr>
           <tr><td class="name">search</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Whether the server implements <code>$search</code>. Off by default, so quick-filter text stays with the grid until you confirm the endpoint honours it; <code>true</code> pushes it as <code>$search</code>.</td></tr>
           <tr><td class="name">edit</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Opt into write-back. Off keeps the source read-only; <code>true</code> advertises <code>mutate: { update: true, delete: true, append: true, returning: 'row' }</code>, so a committed cell edit is persisted with <code>PATCH</code>, a row delete with <code>DELETE /EntitySet(key)</code>, and an add-row with <code>POST /EntitySet</code> reading the created entity back for its server key.</td></tr>
           <tr><td class="name">key</td><td class="type">string</td><td class="type">the row key</td><td class="desc">The key property every write addresses a row by in its entity-key URL segment, e.g. <code>/Orders(&lt;key&gt;)</code>, and that an add-row is rekeyed to from the created entity. Write-back only.</td></tr>
@@ -3216,6 +3337,7 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">connection</td><td class="type">object</td><td class="type">—</td><td class="desc">A live connection exposing <code>query</code>, and ideally <code>prepare</code>. Required. A connection without <code>prepare</code> is used only for unfiltered queries, because interpolating a user's filter into SQL is worse than not filtering.</td></tr>
           <tr><td class="name">from</td><td class="type">string</td><td class="type">—</td><td class="desc">A table, a view, or any FROM expression. Required. <code>read_parquet('s3://bucket/*.parquet')</code> is as valid as a table name.</td></tr>
           <tr><td class="name">fields</td><td class="type">string[]</td><td class="type">everything (<code>SELECT *</code>)</td><td class="desc">The columns to select. Name them to narrow the projection when the grid shows a subset of a wide table.</td></tr>
+          <tr><td class="name">count</td><td class="type">boolean</td><td class="type">true</td><td class="desc">Whether to count the matching set at all. On by default: the total comes from a separate <code>count(*)</code> carrying the same <code>WHERE</code>, dispatched alongside the page query — see <a href="#duckdb-total">how the total is counted</a>. Set <code>false</code> for a grid that never shows a count; then no count statement is issued, <code>capabilities.total</code> is <code>false</code>, and the result carries <em>no total</em>, so the grid scrolls open-ended rather than being told the page length is the whole set. That is a trade: with no total the scrollbar is open-ended and <code>grid.scroll.toRow(n)</code> cannot reach a row past the discovered end. See <a href="#duckdb-total">how the total is counted</a>.</td></tr>
           <tr><td class="name">writable</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Allow write-back against a plain writable table. Off keeps the source read-only, so a <code>from</code> that is a view or an expression can never be mutated by accident. Enables <code>update</code>, <code>delete</code> and <code>append</code>.</td></tr>
           <tr><td class="name">keyField</td><td class="type">string</td><td class="type"><code>id</code></td><td class="desc">The key column an update and a delete target in their <code>WHERE</code>, and that an add-row is rekeyed by. Write-back is refused unless this names a real column, because an <code>UPDATE</code>/<code>DELETE</code> without a unique key could touch more than one row.</td></tr>
           <tr><td class="name">returning</td><td class="type">'row' | 'none'</td><td class="type"><code>row</code></td><td class="desc">The reconcile contract for a successful write. <code>row</code> appends <code>RETURNING *</code> and reconciles server truth (computed columns, triggers); <code>none</code> keeps the optimistic value. An add-row always <code>RETURNING</code>s at least the key column regardless, since it needs that key to rekey the temp row.</td></tr>
@@ -3223,6 +3345,89 @@ createGrid(host, { source, columns: [...] });</code></pre>
       </table>
     </div>
 
+    <p class="section-note" id="duckdb-total">
+      <strong>How the total is counted, and what it costs.</strong> The grid needs the size of the
+      matching set to size its scrollbar. Until 1.51 every page query carried
+      <code>count(*) OVER () AS "__lattice_total"</code>, which looks free: the window is evaluated
+      before <code>LIMIT</code>, so one round trip returns both the window and the size of the set it
+      was cut from. Against a local table it is free. Against a remote Parquet it is the most
+      expensive thing the adapter does — a window function has to see every matching row of the
+      <em>projected</em> columns, so row-group pruning and range reads cannot help and the whole file
+      crosses the wire to produce one page. Measured in Chrome on <code>duckdb-eh.wasm</code> against
+      a 10,000,000-row Parquet of 162,386,227&nbsp;bytes — <strong>162.4&nbsp;MB</strong> decimal,
+      154.9&nbsp;MiB binary, and every transfer figure on this page is decimal MB so that it can be
+      compared with it directly — on an origin counting bytes actually served, first paint pulled
+      162.5&nbsp;MB. Slightly <em>more</em> than the file, because the reads overlap.
+    </p>
+    <p class="section-note">
+      The total is now its own statement — <code>SELECT count(*) FROM &lt;from&gt; WHERE …</code>,
+      the same predicate through the same builder with the same typed casts and the same bound
+      values, and no <code>ORDER BY</code> or <code>LIMIT</code>. Read it with
+      <code>adapter.countSqlFor(query)</code>, the counting counterpart of
+      <code>adapter.sqlFor(query)</code>; it returns <code>null</code> when <code>count</code> is
+      <code>false</code>. The two statements are <strong>dispatched in the same tick</strong> —
+      both started before either is awaited — so there is no browser round trip between them.
+    </p>
+    <p class="section-note">
+      <strong>That does not make the count free on the clock, and on DuckDB-Wasm it often is not.</strong>
+      One DuckDB-Wasm connection funnels its statements through a single worker, so the engine still
+      runs the two <em>in sequence</em>; what dispatching together buys there is that the second is
+      already queued the instant the first finishes. Measured on the file below: an unfiltered first
+      paint takes 566&nbsp;ms with the count and 558&nbsp;ms without, so the count costs about
+      <strong>8&nbsp;ms</strong> — genuinely hidden. A filtered query takes 2122&nbsp;ms with the
+      count and 573&nbsp;ms without, so there the count costs about <strong>1550&nbsp;ms</strong> and
+      is not hidden at all. (It is still faster than the 3064&nbsp;ms the old window function took for
+      the same query.) A server-side DuckDB with a thread pool runs the two at once and the
+      distinction goes away.
+    </p>
+    <p class="section-note">
+      <strong>Cheap, not free — and on a filtered query, not even cheap.</strong> An
+      <em>unfiltered</em> <code>count(*)</code> over Parquet is answered from the file's footer
+      metadata and reads no data at all: measured against the 162.4&nbsp;MB file above, first paint
+      costs the same 5.71&nbsp;MB with the count on as with <code>count: false</code> — the count's
+      own share is <strong>0.00&nbsp;MB</strong>. A <em>filtered</em> count still has to evaluate the
+      predicate. It reads the predicate columns rather than the whole projection, and row-group
+      statistics can prune entire groups (a predicate no row group can satisfy is answered from
+      metadata alone — <code>country = 'ZZ'</code> against this file costs 0.12&nbsp;MB, count and
+      all). But a predicate whose columns are spread across every row group has to read them all:
+      <code>country = 'GB' AND risk_score &gt; 70</code> costs 45.2&nbsp;MB with the count and
+      3.2&nbsp;MB without, so <strong>41.9&nbsp;MB of it is the count</strong>. Against the
+      191.2&nbsp;MB the old window function cost, that is still a 4× saving — and if your grid never
+      shows a count, <code>count: false</code> makes the same query a 59× one.
+    </p>
+    <p class="section-note">
+      <strong>One case where 1.51 transfers more, not less: a session that eventually reads the whole
+      table anyway.</strong> Every individual query above is cheaper than or equal to its 1.50.0
+      counterpart, but a whole <em>session</em> need not be. 1.50.0 dragged the entire file down on
+      first paint in a handful of large sequential reads, after which everything was cache-warm and
+      every later query cost nothing. 1.51 reads lazily, and lazy range reads over a big Parquet
+      <em>overlap</em> where one eager read did not — so bytes already paid for can be paid for again.
+      Measured over one browser session doing first paint, a selective filter, a full-table
+      <code>ORDER BY</code>, a deep page and two more filters, with the counter reset between each:
+      1.50.0 transferred <strong>162.5&nbsp;MB</strong> in total and 1.51 transferred
+      <strong>209.8&nbsp;MB</strong>. The user who never sorts the whole table pays 46.7&nbsp;MB
+      instead of 162.5&nbsp;MB and sees a first paint in 566&nbsp;ms instead of 5808&nbsp;ms; the user
+      who does sort the whole table has to read the whole file either way, and now pays some of it
+      twice. A full <code>ORDER BY</code> over an unindexed column with <code>SELECT *</code> is
+      unchanged at 162.5&nbsp;MB before and after — this card neither helps nor hurts it.
+    </p>
+    <p class="section-note">
+      <strong>Turning the count off changes what the grid knows, on purpose.</strong> With
+      <code>count: false</code> the adapter reports no total, and the grid does what it already does
+      for any source of unknown length: it scrolls open-ended and discovers the end when a short page
+      arrives. It does <em>not</em> substitute the page length for the total — a page presented as
+      the whole is a wrong number where a right one goes, and every &ldquo;showing X of Y&rdquo;,
+      scrollbar and row count would be wrong with nothing said.
+    </p>
+    <p class="section-note">
+      So <code>count: false</code> is a trade, not a free win, and here is the part you will notice
+      first: <strong>the grid can only scroll as far as it has discovered</strong>. The scrollbar is
+      open-ended rather than proportional, a &ldquo;showing X of Y&rdquo; readout has no Y, and
+      <code>grid.scroll.toRow(n)</code> cannot jump to a row beyond the discovered end — asking for
+      row 900 of a not-yet-discovered million lands at the furthest row known so far, and reaching the
+      real row 900 means paging to it. Turn the count off for a grid whose users scroll; leave it on
+      for one whose users jump.
+    </p>
     <p class="section-note">
       <strong>Typed binding for timestamp and date columns.</strong> A prepared statement binds a
       filter value with the value's own type, not the column's: the grid sends an instant as an
@@ -3292,6 +3497,19 @@ createGrid(host, { source, columns: [...] });</code></pre>
       <code>operators</code> or <code>capabilities</code> for filter or sort only alongside a
       <code>buildQuery</code> that genuinely emits them, or the grid returns the wrong rows silently.
     </p>
+    <p class="section-note">
+      <strong>If your schema does not expose <code>totalCount</code>.</strong> The adapter reports no
+      total, rather than the number of rows in the page, and the grid scrolls open-ended; the
+      endpoint is named once in a warning so the silence is not mistaken for a working count. Before
+      1.51 the page length was reported as the total, and that was not only a wrong number on screen
+      — it truncated results. When the grid has residual work to finish it asks for the
+      <em>whole</em> result and the adapter walks <code>offset</code>/<code>limit</code> to get it,
+      stopping when it has as many rows as the total says exist. With the total invented from page
+      one, the walk stopped at page one: a 337-row connection came back as 100 rows, reported as
+      complete, and any client-side filter or sort then ran over that fraction. The walk now stops on
+      a short page or an exhausted cursor, so it returns everything and its count is exact. A schema
+      that does report <code>totalCount</code> was never affected.
+    </p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Meaning</th></tr></thead>
@@ -3304,6 +3522,7 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">selection</td><td class="type">string</td><td class="type">— (uses <code>fields</code>)</td><td class="desc">A raw selection set for nested fields, e.g. <code>'id name address { city }'</code>, overriding <code>fields</code>.</td></tr>
           <tr><td class="name">pagination</td><td class="type">'offset' | 'cursor'</td><td class="type"><code>offset</code></td><td class="desc">The default convention: an <code>offset</code>/<code>limit</code> list, or a Relay <code>cursor</code> connection (<code>first</code>/<code>after</code> with <code>pageInfo</code>). A cursor connection is forward-only, so a deep window is paged forward to and costs round trips proportional to its offset.</td></tr>
           <tr><td class="name">pageSize</td><td class="type">number</td><td class="type">1000</td><td class="desc">The page size for the two forward walks: pulling the whole result (when residual work forces it) and walking a cursor connection to a window.</td></tr>
+          <tr><td class="name">count</td><td class="type">boolean</td><td class="type">true</td><td class="desc">Whether the default query asks for <code>totalCount</code>. A <code>totalCount</code> on a connection is rarely free on the server — it is usually a second <code>COUNT(*)</code> over the same predicate — so set <code>false</code> for a grid that never shows a count: the field is dropped from the selection set, <code>capabilities.total</code> becomes <code>false</code>, and the grid scrolls open-ended. Unlike <code>duckdbAdapter</code> the count is <em>not</em> split into a second operation, because over HTTP that would cost an extra round trip rather than saving one. Ignored when you pass your own <code>buildQuery</code>.</td></tr>
           <tr><td class="name">vars</td><td class="type">Partial&lt;Record&lt;'offset'|'limit'|'first'|'after', string&gt;&gt;</td><td class="type">{ offset:'offset', limit:'limit', first:'first', after:'after' }</td><td class="desc">Renames the pagination variables the adapter drives per page, to match the names your schema's arguments use.</td></tr>
           <tr><td class="name">capabilities</td><td class="type">PushdownCapabilities</td><td class="type">{ range:true, total:true, filter:false, sort:false, quick:false }</td><td class="desc">What your <code>buildQuery</code> actually pushes, merged over the defaults. Declaring a capability the hook does not honour returns the wrong rows silently, so the default declares only the window and the total.</td></tr>
           <tr><td class="name">operators</td><td class="type">string[]</td><td class="type">— (filtering off)</td><td class="desc">The comparisons your <code>buildQuery</code> emits, e.g. <code>['eq','gt','contains']</code>. Setting it turns filtering on as a <code>tree</code>; pair it with a <code>buildQuery</code> that translates the condition tree, or the filter is declared but not applied.</td></tr>
@@ -5397,6 +5616,9 @@ const kpi = createKPI(document.querySelector('#kpis'), {
   onTileClick: ({ tile }) =&gt; drillInto(tile.id),
 });</code></pre>
     <p>Each tile names an <strong>aggregation</strong> (<code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>count</code>, <code>countDistinct</code>, or a <code>custom</code> reducer <code>(rows, tile) =&gt; value</code>), the <strong>field</strong> it reads, and an optional <strong>filter</strong> predicate. Formatting (<code>number</code>/<code>currency</code>/<code>percent</code>/<code>compact</code>, with decimals, currency and locale), a <strong>baseline</strong> for a delta, and semantic <strong>threshold bands</strong> (two cut points with a direction, or an explicit <code>bands</code> list) are all per tile; the band is a semantic name (<code>good</code>/<code>warn</code>/<code>critical</code>), separate from any accent colour. An optional <strong>sparkline</strong> plots a <code>{ x, y }</code> series in sequence order. Each tile is a labelled <code>&lt;figure&gt;</code>, focusable and keyboard-activatable, its value announced; the sparkline transition respects <code>prefers-reduced-motion</code>.</p>
+    <p><strong>A panel with no data says so.</strong> A tile's status is <code>good</code>, <code>warn</code>, <code>critical</code>, <code>null</code> (no thresholds) &mdash; or <code>unknown</code>, which means the panel holds <em>no rows at all</em>. That fourth status is decided from data presence <em>before</em> any threshold is consulted, because an aggregation over nothing returns the identity of its operation (<code>sum</code> and <code>count</code> return 0) and 0 is a number a threshold grades: under <code>lowerIsBetter</code> cut points it grades <code>good</code>, so an empty panel would otherwise read as a healthy one. An <code>unknown</code> tile reports a <code>null</code> value, renders the <code>nullText</code> placeholder rather than a zero, and is marked with a dashed edge and a visible &ldquo;No data&rdquo; caption that also forms part of its accessible name &mdash; the state is never carried by colour alone. Because <code>unknown</code> is an explicit status rather than a severity, anything rolling tiles up can surface &ldquo;not measured&rdquo; instead of inheriting a false green.</p>
+    <p><strong>A measured zero is still a measurement.</strong> A tile whose <code>filter</code> matches none of the rows the panel <em>does</em> hold is a different thing: no open incidents is genuinely good, so it reads <code>0</code> and is graded on its thresholds exactly as before. Only an empty panel is <code>unknown</code>.</p>
+    <p><strong>Staleness is a different question, and a time-bounded source answers it.</strong> <code>unknown</code> is about the absence of rows, not their staleness: a panel over an unbounded store keeps showing the last values it was given when its feed goes quiet, because those rows are still there. Give the underlying source a <a href="#sources">rolling time window</a> (<code>maxAge</code> with <code>ageBy</code>) and its rows age out while the feed is silent, so the panel drains and reports <code>unknown</code> the next time it reads them &mdash; a grid-bound panel when the host calls <code>refresh()</code>, a routed one as the removals reach <code>rows.apply</code>.</p>
     <p><strong>Incremental, not recomputed.</strong> Each tile keeps a running accumulator, so a routed <code>rows.apply</code> delta adjusts only the rows it carries &mdash; an add contributes, a remove reverses, an update reverses the old row and contributes the new one &mdash; rather than re-reading the whole dataset per delta. The two bounded exceptions are honest: an extreme (<code>min</code>/<code>max</code>) removed at its current value triggers a rescan of that tile's own value multiset, and a <code>custom</code> reducer is recomputed over the (filtered) store because an arbitrary function has no inverse.</p>
     <div class="table-wrap">
       <table>
@@ -5404,7 +5626,7 @@ const kpi = createKPI(document.querySelector('#kpis'), {
         <tbody>
           <tr><td class="sig">createKPI(el, config)</td><td class="desc">Create a KPI panel. Pass a DOM element to render into, or <code>null</code> for a headless panel that computes the same tile model without a DOM.</td></tr>
           <tr><td class="sig">rows.apply({ add, update, remove })</td><td class="desc">The keyed-diff consumer contract a grid shares, so the panel is a drop-in Data Router target and updates each tile incrementally. Also <code>rows.forEach</code> and <code>rows.count</code>.</td></tr>
-          <tr><td class="sig">tiles() / tile(id) / value(id)</td><td class="desc">Every computed tile model, one tile by id (<code>value</code>, <code>formatted</code>, <code>status</code>, <code>delta</code>, <code>deltaPercent</code>, <code>count</code>, <code>sparkline</code>), or a tile's raw value.</td></tr>
+          <tr><td class="sig">tiles() / tile(id) / value(id)</td><td class="desc">Every computed tile model, one tile by id (<code>value</code>, <code>formatted</code>, <code>status</code>, <code>delta</code>, <code>deltaPercent</code>, <code>count</code>, <code>sparkline</code>), or a tile's raw value. <code>status</code> is <code>good</code>, <code>warn</code>, <code>critical</code>, <code>unknown</code> (the panel holds no rows) or <code>null</code> (no thresholds configured); <code>value</code> is <code>null</code> whenever the tile measured nothing.</td></tr>
           <tr><td class="sig">setRows(rows) / refresh()</td><td class="desc">Replace the source rows, or re-seed and recompute.</td></tr>
           <tr><td class="sig">getState() / setState(snapshot)</td><td class="desc">Serialise and restore the panel's row set, so a headless panel round-trips.</td></tr>
           <tr><td class="sig">on(name, fn) / off(name, fn)</td><td class="desc">Events: <code>tile:click</code>, <code>tile:dblclick</code>, <code>tile:contextmenu</code>, and <code>change</code> (after every update).</td></tr>
@@ -5443,6 +5665,31 @@ router.apply([{ op: 'delete', row: { id: 'd2' } }]);              <span class="c
 
 router.destroy();
 <span class="kw">return</span> [seeded, afterRemove, band].join(' | ');</code></pre>
+    <h3 id="kpi-no-data-example">An empty panel is <code>unknown</code>, a measured zero is not, executed</h3>
+    <p class="section-note">The same <code>lowerIsBetter</code> thresholds, three states: nothing delivered yet, rows delivered,
+    and a tile whose filter matches none of the rows the panel holds. Run headless on every build.</p>
+    <pre data-run="js" data-expect="unknown null | good 2 | good 0" data-covers="export:createKPI"><code><span class="kw">const</span> { createKPI } = <span class="kw">await</span> import('../packages/modules/kpi/index.js');
+
+<span class="kw">const</span> fewerIsBetter = { warn: 10, critical: 25, direction: 'lowerIsBetter' };
+<span class="kw">const</span> kpi = createKPI(null, {
+  rows: [], rowKey: 'id',
+  tiles: [
+    { id: 'errors', label: 'Errors', aggregation: 'count', thresholds: fewerIsBetter },
+    { id: 'sev1', label: 'Sev-1', aggregation: 'count',
+      filter: (r) =&gt; r.severity === 1, thresholds: fewerIsBetter },
+  ],
+});
+
+<span class="cmt">// Nothing has arrived: not a healthy zero, and no number to show.</span>
+<span class="kw">const</span> empty = kpi.tile('errors').status + ' ' + kpi.tile('errors').value;   <span class="cmt">// unknown null</span>
+
+kpi.rows.apply({ add: [{ id: 'e1', severity: 3 }, { id: 'e2', severity: 2 }] });
+<span class="kw">const</span> measured = kpi.tile('errors').status + ' ' + kpi.tile('errors').value; <span class="cmt">// good 2</span>
+
+<span class="cmt">// Its filter matched none of those rows &mdash; but the panel holds rows, so 0 is a reading.</span>
+<span class="kw">const</span> realZero = kpi.tile('sev1').status + ' ' + kpi.tile('sev1').value;     <span class="cmt">// good 0</span>
+
+<span class="kw">return</span> [empty, measured, realZero].join(' | ');</code></pre>
 
     <h2 id="ai">The AI narrative / insights layer</h2>
     <p><code>modules/ai</code> is an opt-in layer that produces a short, plain-language <strong>narrative</strong> of the grid's <em>computed</em> figures &mdash; a per-KPI / per-chart / per-column &ldquo;Explain&rdquo;, or an insights panel over the current (filtered) view. It is a separate bundle that adds no weight to a page that does not load it, changes nothing in grid core, and pulls in no dependency. <strong>The grid makes no AI call of its own:</strong> <code>createAI</code> never imports a provider SDK, never reads a key, and never makes a network request. It calls one async callback you supply, <code>ask()</code> &mdash; your model, your key, your privacy decision &mdash; exactly the philosophy of the data adapters, where auth and transport are always the caller's.</p>
@@ -5750,6 +5997,33 @@ createGrid(el, {
     your original row object. Return the array you want shown: add, remove, reorder or replace.
     Returning an empty array suppresses the menu; returning nothing at all leaves the defaults
     alone, so a missing <code>return</code> cannot silently delete the menu.</p>
+
+    <p>The same option is accepted <strong>on a column definition</strong>, so a column's menu is
+    declared where the column is rather than as one more branch inside a single grid-level callback.
+    It takes the same shapes plus a bare array for the common &ldquo;just these items here&rdquo;
+    case: <code>boolean | MenuItem[] | (params, defaults) =&gt; items</code>.</p>
+    <pre><code>createGrid(el, {
+  columns: [
+    { field: 'owner', contextMenu: [{ name: 'Reassign', action: reassign }] },
+    { field: 'amount', contextMenu: (p, defaults) =&gt; [...defaults, { name: 'Reprice', action: reprice }] },
+    { field: 'nationalId', contextMenu: <span class="kw">false</span> },   <span class="cmt">// no menu on this column, others unaffected</span>
+  ],
+});</code></pre>
+    <p>The three levels <strong>compose as a chain</strong>: built-in defaults, then the grid-level
+    <code>contextMenu</code>, then the column's &mdash; each handed the previous result as its
+    <code>defaults</code>, so a column adding one item never restates the built-ins. Suppression
+    follows the same order and the more specific level wins: <code>false</code> on a column is a
+    statement about that column alone. <strong>The reverse holds too, and is worth knowing before you
+    rely on grid-level <code>contextMenu: false</code> as a safety property: a column that declares
+    its own <code>contextMenu</code> opens one anyway.</strong> Grid-level <code>false</code> is a
+    default, not a lock &mdash; it is what makes &ldquo;no menu anywhere except here&rdquo;
+    expressible. On a right-click inside a multi-column selection
+    the <strong>clicked</strong> column's menu is the one that opens &mdash; not the intersection,
+    which loses items, and not the union, which offers actions wrong for most of the selection. A
+    group row, pivot group row or full-width row belongs to no column, so the chain has one link
+    fewer and the grid-level menu stands. The keyboard routes (<kbd>Shift</kbd>+<kbd>F10</kbd> and
+    the <kbd>Context&nbsp;Menu</kbd> key) honour the column exactly as the pointer does. See
+    <a href="api-detail.html#per-column-menu">the guide</a> for the full table of combinations.</p>
 
     <p><code>columnMenu</code> takes the same form for the header's menu: both the 3-dot button
     and a right-click on a heading. Its <code>params</code> is
@@ -7152,6 +7426,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">spec</td><td class="type">{ lower?: number; upper?: number; target?: number }</td><td class="desc">The customer's tolerance, for process capability and control charts. Declared here rather than passed to each call so the capability figures, a control chart and any rule marking an out-of-tolerance cell cannot disagree about what the tolerance is. <small>(optional)</small></td></tr>
           <tr><td class="name">layout</td><td class="type">ColumnLayoutSpec | number</td><td class="desc">Width, pinning and flex. A bare number is the width in pixels. <small>(optional)</small></td></tr>
           <tr><td class="name">header</td><td class="type">ColumnHeaderSpec | string</td><td class="desc">The header cell: its text, tooltip, menu and any header chart. <small>(optional)</small></td></tr>
+          <tr><td class="name">contextMenu</td><td class="type">boolean | MenuItem[] | ((p: CellMenuParams, defaults: MenuItem[]) =&gt; MenuItem[] | void)</td><td class="desc">The cell right-click menu for this column alone (BACKLOG-0001068), in the same shapes the grid-level `contextMenu` takes plus a bare array for the common "just these items here" case. Declared where the column is declared rather than as another branch inside one grid-level callback: the menu logic for a column belongs beside the column it belongs to. It does not replace the grid-level menu — the three levels compose as a chain, built-in defaults then grid-level then this one, each handed the previous result as its `defaults`, so a column adding one item does not have to restate Paste, Clear and Fill down. `false` suppresses the menu on this column and leaves every other column alone: what a sensitive or read-only column wants. The more specific level wins, so a column may also declare a menu on a grid whose `contextMenu` is `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">headerControls</td><td class="type">'hover' | 'always' | 'hidden'</td><td class="desc">When this column's header controls — its sort arrow, filter funnel and menu button — are shown, overriding the grid-level `headerControls` default for this column alone (BACKLOG-0000982). `'hover'` reveals them on hover or focus, `'always'` keeps them visible, `'hidden'` draws none of them and leaves them out of the tab order. Omitted, the column follows the grid default, which is itself `'hover'`. <small>(optional)</small></td></tr>
           <tr><td class="name">verticalAlign</td><td class="type">VAlign</td><td class="desc">Vertical alignment of this column's cell content within the row (BACKLOG-0000989). Overrides the grid-level `verticalAlign` for this column alone; `top`, `middle` or `bottom`. Also accepted as `cell.verticalAlign`, the way `align` is. Omitted, the column follows the grid default. <small>(optional)</small></td></tr>
           <tr><td class="name">export</td><td class="type">ColumnExportSpec</td><td class="desc">How the column leaves the grid, where that differs from how it is shown. <small>(optional)</small></td></tr>
@@ -7801,8 +8076,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">mode</td><td class="type">'derived'</td><td class="desc"></td></tr>
-          <tr><td class="name">from</td><td class="type">Grid</td><td class="desc">The grid to read.</td></tr>
-          <tr><td class="name">follow</td><td class="type">'filtered' | 'all' | 'selected' | 'grouped'</td><td class="desc">Which of its rows to read. `filtered` by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">from</td><td class="type">Grid | UnionSourceOptions[]</td><td class="desc">The grid to read, or several to combine into one row set before the rest of the pipeline runs (BACKLOG-0001045). A bare `Grid` is shorthand for a `UnionSourceOptions` with no `label`/`follow`/`map` override, so an existing `from: &lt;grid&gt;` keeps meaning exactly what it always has. Given an array, every source is read (each narrowed by its own `follow`, defaulting to `'filtered'` as a lone `from` does today), concatenated in **declaration order** — deterministic, not interleaved — and only then does `unnest`/`join`/`where`/`bucket`/`groupBy`/`select`/`sort`/`limit`/ `limitPer`/`cumulative` run, over the combined set, so "the worst performers across both" is one derivation rather than a hand-merge. The output carries the **union of the sources' fields**: a field present on only one source is `undefined` on rows from the others. Sources are **not** type-reconciled — if two disagree on what a field means or holds, that is not resolved for you; give each source a `map` to project it into a common shape first. Every row also carries `__source` (the entry's `label`, or its declaration index when unlabelled), which is required — not optional — because without it a combined list cannot be read, filtered or grouped by where it came from; it is an ordinary field to `where`, `groupBy` and `select`. And because the derived key (`__key`) would otherwise collide across sources sharing the same identifiers, it is namespaced by the same source tag when nothing is grouped (a grouped union's `__key` is the group value, exactly as today, and rows from different sources correctly land in the *same* group when their group values agree — that merging is the point of grouping a union, not a collision to guard against). This is **not** a join: there is no dedup or merge-on-key, and it draws no UNION/UNION ALL distinction — overlapping rows from two sources simply both appear. Reach for `join` when two sides share a key and you want them matched rather than stacked. An empty source contributes nothing and the rest still combine; a source that fails to read is named in a `warnOnce` and skipped for that pass rather than silently dropped, because a silently missing source would make "worst across both" quietly wrong. A source list that includes the grid being derived, directly or through a chain, is refused when the source is built (naming the offender) rather than recursed into. `crossFilter` has no single target once there is more than one parent, so it is not supported alongside a union `from` (ignored, with a `warnOnce`, rather than guessing which parent to push onto).</td></tr>
+          <tr><td class="name">follow</td><td class="type">'filtered' | 'all' | 'selected' | 'grouped'</td><td class="desc">Which of its rows to read. `filtered` by default. Ignored — with a `warnOnce` — when `from` is a union array: each entry there carries its own `follow` instead (BACKLOG-0001045). <small>(optional)</small></td></tr>
           <tr><td class="name">unnest</td><td class="type">string</td><td class="desc">An array property to expand, one row per element, before anything else. <small>(optional)</small></td></tr>
           <tr><td class="name">join</td><td class="type">DerivedJoin</td><td class="desc">Match each row against a second grid on a shared key, and bring some of its fields across. Runs after `unnest` and before `where`, so a condition: and a grouping, and a total: can read a field the join produced. <small>(optional)</small></td></tr>
           <tr><td class="name">where</td><td class="type">(row: unknown) =&gt; boolean</td><td class="desc">A row predicate, applied before grouping. <small>(optional)</small></td></tr>
@@ -9610,6 +9885,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">grandTotal</td><td class="type">TotalName | TotalFn | null</td><td class="desc">The grand-total override, or null when the grand total follows `total` (BACKLOG-0000726).</td></tr>
           <tr><td class="name">layout</td><td class="type">ColumnLayoutSpec</td><td class="desc"></td></tr>
           <tr><td class="name">header</td><td class="type">ColumnHeaderSpec</td><td class="desc"></td></tr>
+          <tr><td class="name">contextMenu</td><td class="type">boolean | MenuItem[] | ((p: CellMenuParams, defaults: MenuItem[]) =&gt; MenuItem[] | void) | null</td><td class="desc">This column's own cell-menu declaration (BACKLOG-0001068), or null when it makes none and the grid-level menu stands alone. Carried onto the resolved column so a column preset or `columnDefaults` can supply one.</td></tr>
           <tr><td class="name">export</td><td class="type">ColumnExportSpec</td><td class="desc"></td></tr>
           <tr><td class="name">lookup</td><td class="type">LookupSpec | null</td><td class="desc"></td></tr>
           <tr><td class="name">allowGroup</td><td class="type">boolean</td><td class="desc"></td></tr>
@@ -10062,6 +10338,19 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">test</td><td class="type">'auto' | 'welch' | 'mannWhitney' | 'chiSquare'</td><td class="desc">Force a test rather than choosing by column family. `auto` (the default) picks Welch or Mann-Whitney for a numeric column and chi-square for a categorical one; the choice is always named in the result. <small>(optional)</small></td></tr>
           <tr><td class="name">confidence</td><td class="type">number</td><td class="desc">The confidence level for the interval, 0 to 1. 0.95 by default. <small>(optional)</small></td></tr>
           <tr><td class="name">category</td><td class="type">unknown</td><td class="desc">The focal category for a chi-square difference interval, when the column has more than two categories. Without it, a multi-category comparison reports no scalar interval, only the effect size. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-UnionSourceOptions">UnionSourceOptions</h3>
+    <p class="section-note">One member of a union `from` (BACKLOG-0001045): a grid to combine with the others, plus how to read it and reshape it before it joins the rest. A bare `Grid` in the `from` array is shorthand for `{ grid }` with every other field defaulted.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">grid</td><td class="type">Grid</td><td class="desc">The grid this source reads.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">Identifies this source: it is what `__source` carries on every row this source contributes, and what namespaces that row's `__key` so two sources sharing the same identifiers do not collide. Defaults to the source's position in the `from` array (`'0'`, `'1'`, …), as a string. <small>(optional)</small></td></tr>
+          <tr><td class="name">follow</td><td class="type">'filtered' | 'all' | 'selected' | 'grouped'</td><td class="desc">Which of this source's rows to read. `filtered` by default, exactly as a lone `from` follows its grid today — set independently per source, so filtering one narrows only its own contribution. <small>(optional)</small></td></tr>
+          <tr><td class="name">map</td><td class="type">(row: unknown) =&gt; unknown</td><td class="desc">Reshape this source's rows into the common shape before they join the rest — typically a rename or a projection, for a field this source calls something else. Not a type coercion: if a field means something different on two sources, `map` is where you make them agree, because the union itself does not guess. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
