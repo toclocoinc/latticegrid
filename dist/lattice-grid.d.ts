@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.49.0, type declarations
+ * Lattice Grid 1.50.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -729,6 +729,12 @@ export interface Column {
   shadow?: ShadowKind | {
     of?: string;
     kind: ShadowKind;
+    /**
+     * For `kind: 'history'`, how many past readings to keep (20 by default). With
+     * a time `window` (BACKLOG-0001043) this is instead how many buckets the span
+     * divides into — `window: {kind: 'time', span: 60_000}, depth: 20` is sixty
+     * one-second buckets. Ignored by every other kind.
+     */
     depth?: number;
     /**
      * For a positional kind, what to rank against. `'all'` (the default) uses
@@ -768,6 +774,16 @@ export interface Column {
      * (`time`), or everything so far (`session`). The first rows of a series
      * carry a partial window, stamped by a `windowCoverage` companion rather than
      * dressed as full.
+     *
+     * For `kind: 'history'` (BACKLOG-0001043), only `{kind: 'time', span}` (or
+     * `minutes`) applies, and it changes what `history` means rather than what it
+     * aggregates: the `depth` buckets that span divides into are read once each,
+     * carrying the row's last known value forward into any bucket in which it did
+     * not change, so a static row still draws a flat, advancing line instead of
+     * freezing — the plain count-based history (no `window`) is a count of
+     * *changes* and stays exactly as it was. `count` and `session` are refused
+     * here: a plain count is already what `depth` means, and a session has no
+     * fixed span to divide into buckets.
      */
     window?: {
       kind: 'count' | 'time' | 'session';
@@ -8807,4 +8823,109 @@ declare module 'lattice-grid/modules/ai' {
   }): AIRiskFacts;
 
   export default createAI;
+}
+
+declare module 'lattice-grid/modules/tabs' {
+  /**
+   * One tab: an id, a display label, a grid config, and — for a derived tab —
+   * the parent tab id plus the narrowing forwarded onto the derived source
+   * built for it (`source: { mode: 'derived', from: <parent's grid>, ... }`).
+   * The derivation keys are the ones `packages/core/src/source/derive.js`
+   * already understands; this module invents none of its own.
+   */
+  interface TabDescriptor {
+    /** A stable, unique id. Required. */
+    id: string;
+    /** The tab button's text. Defaults to `id`. */
+    label?: string;
+    /** The grid config passed to `createGrid` for this tab (merged with the derived `source`, when `from` is set). */
+    config?: object;
+    /** The parent tab id to derive from. When set, `config.source` is built for you and any of your own is replaced (with a warning). */
+    from?: string;
+    /** Row predicate forwarded to the derived source. */
+    where?: (row: unknown) => boolean;
+    /** Group-by forwarded to the derived source. */
+    group?: unknown;
+    groupBy?: unknown;
+    /** Time-bucketing forwarded to the derived source. */
+    bucket?: unknown;
+    /** Join spec forwarded to the derived source. */
+    join?: unknown;
+    /** Array-field unnesting forwarded to the derived source. */
+    unnest?: unknown;
+    /** `'live' | 'idle' | 'manual' | number` forwarded to the derived source. */
+    refresh?: 'live' | 'idle' | 'manual' | number;
+    /** Cross-filter wiring forwarded to the derived source. */
+    crossFilter?: unknown;
+    /** Which slice of the parent's rows to derive from: `'filtered' | 'all' | 'selected' | 'grouped'`. */
+    follow?: 'filtered' | 'all' | 'selected' | 'grouped';
+    /** Row limit forwarded to the derived source. */
+    limit?: number;
+    /** Sort forwarded to the derived source. */
+    sort?: unknown;
+    /** Statistical-profile derivation, forwarded to the derived source. */
+    profile?: unknown;
+    /** This tab's panel's own `aria-label`, when the label alone is not enough context. */
+    ariaLabel?: string;
+  }
+
+  /** The payload every tab-change event carries. */
+  interface TabChangeEvent {
+    id: string;
+    previousId: string | null;
+    origin?: 'api' | 'user' | 'init';
+    reason?: string | null;
+    /** Cancel the switch (only meaningful on `beforeTabChange`). */
+    preventDefault?: (reason?: string) => void;
+    defaultPrevented?: boolean;
+  }
+
+  /** Tabbed-grid configuration. */
+  interface TabsConfig {
+    /** The grid factory to mount each tab with, e.g. `import { createGrid } from 'lattice-grid'`. Required. */
+    createGrid: (el: HTMLElement, config: object) => unknown;
+    /** The tabs, in display order. Required, at least one. */
+    tabs: TabDescriptor[];
+    /** The initially active tab id. Defaults to the first tab. */
+    active?: string;
+    /** The tablist landmark's accessible name. */
+    ariaLabel?: string;
+    /** An explicit message-catalogue override; otherwise a mounted tab's own `grid.messages` is used. */
+    messages?: { t(key: string, params?: Record<string, unknown>): string };
+    onTabChange?: (event: TabChangeEvent) => void;
+    onBeforeTabChange?: (event: TabChangeEvent) => boolean | void | Promise<boolean>;
+    onTabChangeCancelled?: (event: TabChangeEvent) => void;
+  }
+
+  /**
+   * A tabbed grid: a `role="tablist"` strip above a stack of `role="tabpanel"`
+   * regions, each hosting its own, independently-configured grid instance
+   * (BACKLOG-0001039). A tab's grid mounts on first activation and is kept
+   * alive, hidden, until `destroy()`.
+   */
+  interface Tabs {
+    readonly el: HTMLElement;
+    /** The currently active tab id. */
+    readonly activeId: string;
+    /** The configured tab ids, in order. */
+    tabs(): string[];
+    /** The live grid instance for a tab, or `null` before it has been materialised. */
+    tab(id: string): unknown | null;
+    /** Whether a tab's grid has been created yet. */
+    isMounted(id: string): boolean;
+    /** Switch the active tab, gated by `beforeTabChange`. */
+    activate(id: string, opts?: { origin?: 'api' | 'user' }): boolean | Promise<boolean>;
+    on(name: 'beforeTabChange' | 'tab:changed' | 'tabChange:cancelled' | string, fn: (event: TabChangeEvent) => void): () => void;
+    off(name: string, fn: (event: TabChangeEvent) => void): void;
+    /** Tear the whole strip down; destroys every mounted tab's grid. */
+    destroy(): void;
+  }
+
+  /**
+   * Create a tabbed grid over a host element. Each tab is a full,
+   * independently-configured grid instance; a tab may derive from another via
+   * `from`, reusing the shipped `source: { mode: 'derived' }` mechanism.
+   */
+  export function createTabs(el: HTMLElement, config: TabsConfig): Tabs;
+  export default createTabs;
 }

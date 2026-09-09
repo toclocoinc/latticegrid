@@ -2129,7 +2129,7 @@ createGrid(el, {
           <tr><td class="sig">delta</td><td class="desc">Current value minus the baseline.</td></tr>
           <tr><td class="sig">deltaPercent</td><td class="desc">The same as a percentage. A change from nothing has no percentage and reads null rather than infinity.</td></tr>
           <tr><td class="sig">rate</td><td class="desc">Change per second, from the last two readings.</td></tr>
-          <tr><td class="sig">history</td><td class="desc">The recent readings, oldest first. <code>depth</code> sets how many; the default is 20.</td></tr>
+          <tr><td class="sig">history</td><td class="desc">The recent readings, oldest first. <code>depth</code> sets how many; the default is 20. Counts <em>changes</em> by default — see the time-windowed form below for a real time series.</td></tr>
           <tr><td class="sig">firstValue</td><td class="desc">The baseline itself.</td></tr>
           <tr><td class="sig">streak</td><td class="desc">Consecutive moves in one direction, signed. It resets on a turn, because "seven rises" means something and "seven changes" does not.</td></tr>
         </tbody>
@@ -2164,6 +2164,10 @@ createGrid(el, {
 ]</code></pre>
     <p>Computed in one pass over the display rows and cached against that ordering, so a hundred thousand rows are walked once per sort rather than once per cell. A running column is not sortable. Sorting on one asks the sort to depend on its own output (the value is defined by the display order) so the column does not offer a sort unless its definition asks for one, and the query layer refuses such a sort with a warning rather than computing it. Sort by the column it runs over instead. Group headings and totals rows are skipped, a running total that counted a subtotal would double everything below it, and a row with no value carries the figure forward unchanged rather than resetting it.</p>
 
+    <h4 id="history-window">History has two clocks: a count of changes, or a span of time (BACKLOG-0001043)</h4>
+    <p>Plain <code>history</code> (above) is an <em>event</em> series: it records a reading only when the value changes, so a row that sits still never advances it. Bound to a <code>cell.render</code> sparkline (<code>'line'</code>, <code>'area'</code>, <code>'column'</code>, <code>'winloss'</code>) that means a static row's sparkline freezes, then jumps when a change finally lands — while a title like "last 60s" keeps claiming a span the column never measured. Add a <em>time</em> <code>window</code> to make it a real time series instead:</p>
+    <pre><code>{ id: 'spark', title: 'Last 60s', shadow: { of: 'price', kind: 'history', window: { kind: 'time', span: 60_000 }, depth: 20 } }</code></pre>
+    <p>This is the same <code>window: { kind, span }</code> shape the rolling kinds below already accept — not a second spelling of it — and it changes what <code>history</code> means rather than adding a new kind: <code>depth</code> (20 here) is now how many buckets the <code>span</code> divides into, so this is sixty seconds as twenty three-second buckets. Each bucket is sampled once, at its close, as the row's <em>last known value</em> at that moment — carried forward from the previous bucket when nothing changed in between. A static row therefore draws a flat line that keeps advancing, one sample per bucket, and a change lands in the bucket it actually happened in rather than being appended at the end. The bucket clock runs on its own low-frequency timer (never a render loop), so the series keeps moving even while no data event ever reaches the column. <code>window: { kind: 'count' }</code> and <code>{ kind: 'session' }</code> are refused for <code>history</code> — a plain count is already what <code>depth</code> means without a window, and a session has no fixed span to divide into buckets — and a caller who never sets <code>window</code> gets the original count-based behaviour, unchanged.</p>
     <div class="note"><p>Positional kinds rank over every <em>tracked</em> row, not over the filtered set: a rank that changed as you filtered would make "the top ten movers" depend on what happened to be on screen, and the column would disagree with itself between two views of the same data. Pass <code>scope: 'filtered'</code> on the shadow spec to rank within what the filters left instead: both answers are legitimate, which is why it is a choice rather than a default.</p></div>
     <div class="note"><p>Shadow state is keyed by row key, never by index: after any sort an index-keyed history would report one row's past against another row's present, and the wrong number would be <em>sortable</em>. Memory is capped at 200,000 tracked rows per column; past that the oldest are dropped and <code>tracking().forgotten</code> says how many, rather than a smaller number being reported as though it were the truth.</p></div>
 
@@ -5044,6 +5048,7 @@ plan.applyEdit({ id: 'design', duration: 7 }); // recomputes; the critical path 
           <tr><td class="sig">importMSPDI(xml, { hoursPerDay? })</td><td class="desc">Import a Microsoft Project (MSPDI) <code>.xml</code> document into a <code>{ tasks, dependencies, resources, projectStart, calendar }</code> model ready for <code>createGantt</code>: the task tree, typed dependencies with lag, constraints, baseline, %complete, resources with capacity and the resource assignments.</td></tr>
           <tr><td class="sig">exportMSPDI(model, { hoursPerDay?, projectName? })</td><td class="desc">Serialise a Gantt model (optionally a scheduled one) back to Microsoft Project (MSPDI) XML &mdash; the same fields, round-tripping with <code>importMSPDI</code>. The controller offers <code>gantt.toMSPDI()</code> as a shortcut over the current plan.</td></tr>
           <tr><td class="sig">computeEarnedValue(tasks, schedule, { statusDate?, costField?, actualCostField? })</td><td class="desc">Earned-value management (EVM) from the baseline and %complete at a status date: Planned Value (PV/BCWS), Earned Value (EV/BCWP), Actual Cost (AC/ACWP, from a per-task <code>actualCost</code>), plus Schedule Variance (EV&minus;PV), Cost Variance (EV&minus;AC), SPI (EV/PV) and CPI (EV/AC) &mdash; per task, rolled up to summaries and the project. Budget (BAC) is the task's <code>cost</code>, or its duration when no cost is given. The controller exposes <code>gantt.earnedValue({ statusDate })</code> as the shortcut; the split view surfaces the metrics through <code>kind: 'evm'</code> columns.</td></tr>
+          <tr><td class="sig">getState() / setState(snapshot)</td><td class="desc">Serialise and restore the Gantt's own VIEWER state (BACKLOG-0001042) &mdash; which view is mounted (<code>'plain'</code>/<code>'split'</code>/<code>null</code>), zoom, the arrow/progress/baseline toggles, calendar/non-working shading, the plain view's swimlane grouping, the split view's left-panel width and its collapsed summary rows. Not the task data (already covered by <code>setTasks</code>/<code>rows.apply</code>). Versioned, JSON-safe, and <code>setState</code> tolerates an unknown, wrong-typed or newer-version snapshot without throwing, applying only what it recognises.</td></tr>
         </tbody>
       </table>
     </div>
@@ -5525,6 +5530,67 @@ grid.destroy();
 
 <span class="cmt">// Two incomplete tasks (Build, Ship) are on the critical path — at risk.</span>
 <span class="kw">return</span> `${by['risk.atRisk'].display} at risk | SPI ${by['risk.spi'].display} | ${by['risk.sla.breaches'].display} breaches`;</code></pre>
+
+    <h2 id="tabs">The tabbed grid</h2>
+    <p><code>modules/tabs</code> is an opt-in top-of-grid tab strip where <strong>each tab is its own full, independently-configured grid instance</strong> &mdash; "configure each tab as per a normal grid" rather than one grid whose state is swapped. That is a deliberate rejection of the cheaper alternative: <code>grid.state.get()</code>/<code>.apply()</code> only repositions, hides, resizes and sorts <strong>existing</strong> columns by id (no field, type, editor or row data), so a state-swap only works when every tab shares one column schema and one source &mdash; strictly less than the ask. A tab may instead declare <code>from: '&lt;tabId&gt;'</code> plus a narrowing (<code>where</code>, <code>group</code>, <code>join</code>, &hellip;), and the module wires a <code>source: { mode: 'derived', from: &lt;the parent tab's live grid&gt;, &hellip; }</code> for it &mdash; the shipped derived-source mechanism, not a new config-inheritance one. <code>createGrid</code> is <strong>injected</strong> (the same pattern the React/Vue/Svelte adapters use), so the module imports no engine code regardless of how it is loaded — its own minified ESM build (<code>tabs.esm.min.js</code>) is ~65KB gzipped, the same size class as the KPI and framework-adapter modules (~61&ndash;66KB), rather than the ~700KB a module that inlines the whole engine (the web component, htmx) ships.</p>
+    <pre><code>import { createGrid } from '@toclocoinc/lattice-grid';
+import { createTabs } from '@toclocoinc/lattice-grid/modules/tabs';
+
+const tabs = createTabs(document.querySelector('#tabs'), {
+  createGrid,                     <span class="cmt">// injected -- see below</span>
+  tabs: [
+    { id: 'all', label: 'All', config: { rowKey: 'id', rows, columns } },
+    { id: 'open', label: 'Open', from: 'all', where: (r) =&gt; r.stage === 'Open',
+      follow: 'filtered', refresh: 'live', config: { columns } },
+    { id: 'breached', label: 'Breached', from: 'open',       <span class="cmt">// derives from Open, not All -- a chain</span>
+      where: (r) =&gt; r.daysOverdue &gt; 0, config: { columns } },
+  ],
+  onBeforeTabChange: ({ id }) =&gt; !hasUnsavedEdit(),  <span class="cmt">// veto a switch</span>
+});</code></pre>
+    <p><strong>Lifecycle.</strong> A tab's grid mounts on <em>first activation</em>, not up front, and then stays alive &mdash; hidden, never destroyed &mdash; until the whole strip is. Per-tab scroll, selection, filters, sort, grouping, expansion — and an open cell/row editor — therefore survive a switch away and back natively, by simply not touching that grid instance, rather than through a lossy serialise/restore round-trip: leave a tab mid-edit, switch away, switch back, and the editor is exactly as it was left, uncommitted and undiscarded. Activating a derived tab materialises its whole ancestor chain first (mounted, hidden), and a cyclic <code>from</code> graph is refused &mdash; naming the exact cycle &mdash; when <code>createTabs</code> is called, not at first click.</p>
+    <p><strong>A hidden tab costs nothing this module can spend.</strong> An inactive panel carries the <code>hidden</code> attribute (<code>display:none</code>); the module runs no timer, observer or repaint of its own against it. Measured with a real browser (<code>bench/tabs-idle.mjs</code>): several mounted-but-hidden, untouched tabs cost the same idle CPU as none at all. The one honestly-reported exception is not this module's: a <em>derived</em> tab's row model still re-derives on every change to its (possibly hidden) parent &mdash; by design, so reactivating it is instant rather than a stale flash &mdash; and the engine's own repaint listener for a derived source's <code>rows:changed</code> calls the renderer directly, bypassing <code>grid.updates.pause()</code> (which only holds the streaming-ingestion path). A hidden derived tab therefore still runs a read/compute/write pass on every parent change, even though the write phase paints a zero-size viewport; the bench measures and reports the size of that gap rather than leaving it inferred.</p>
+    <p><strong>Accessibility.</strong> A real <code>role="tablist"</code>/<code>"tab"</code>/<code>"tabpanel"</code> with <code>aria-selected</code> and a roving <code>tabindex</code>, imitating the grid's own column-header keyboard model rather than the tool panel's tablist (which has the roles but no arrow-key handling). This is <strong>manual activation</strong>: <kbd>&larr;</kbd>/<kbd>&rarr;</kbd> and <kbd>Home</kbd>/<kbd>End</kbd> move the roving tab stop without switching the panel or mounting a grid; <kbd>Enter</kbd>/<kbd>Space</kbd>, or a click, activates. The newly active tab's label is announced through a polite live region.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">createTabs(el, config)</td><td class="desc">Create a tabbed grid. <code>config.createGrid</code> is required (injected, not imported); <code>config.tabs</code> is a non-empty array of tab descriptors, each an <code>id</code>, a <code>label</code>, a grid <code>config</code>, and optionally <code>from</code> plus the derivation narrowing (<code>where</code>, <code>group</code>, <code>groupBy</code>, <code>bucket</code>, <code>join</code>, <code>unnest</code>, <code>refresh</code>, <code>crossFilter</code>, <code>follow</code>, <code>limit</code>, <code>sort</code>, <code>profile</code>) forwarded onto the derived source built for it.</td></tr>
+          <tr><td class="sig">tabs() / tab(id) / isMounted(id)</td><td class="desc">The configured tab ids, in order; a tab's live grid instance (or <code>null</code> before its first activation); whether a tab has been materialised yet.</td></tr>
+          <tr><td class="sig">activate(id, opts)</td><td class="desc">Switch the active tab, gated by <code>beforeTabChange</code>. Returns <code>true</code>/<code>false</code> synchronously with no handler registered, or a <code>Promise&lt;boolean&gt;</code> when a handler deferred.</td></tr>
+          <tr><td class="sig">on(name, fn) / off(name, fn)</td><td class="desc">Events: <code>tab:changed</code>, the cancellable <code>beforeTabChange</code> (call <code>preventDefault(reason?)</code> or return <code>false</code> to veto), and its paired <code>tabChange:cancelled</code>. Config sugar: <code>onTabChange</code>, <code>onBeforeTabChange</code>, <code>onTabChangeCancelled</code>.</td></tr>
+          <tr><td class="sig">destroy()</td><td class="desc">Tear the whole strip down; destroys every mounted tab's grid (each isolated, so one throwing does not strand the rest).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="tabs-live-example">All / Open / Breached, a two-deep derivation chain, executed</h3>
+    <p class="section-note"><code>createTabs</code> deliberately has no headless mode &mdash; it requires a real host element, the same way <code>createGrid</code> itself does &mdash; so this executed example reaches for the same in-tree DOM test double the suite itself runs the renderer against headlessly (<code>packages/dom/src/renderer/testdom.js</code>), rather than a real browser. <code>demo/tabs.html</code> is the browser version of the same chain, with buttons that edit All directly and let Open and Breached follow.</p>
+    <pre data-run="js" data-expect="4,3,2" data-covers="export:createTabs"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { root } = createTestDom();
+<span class="kw">const</span> { createGrid } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+<span class="kw">const</span> { createTabs } = <span class="kw">await</span> import('../packages/modules/tabs/index.js');
+
+<span class="kw">const</span> rows = [
+  { id: 1, stage: 'Open', daysOverdue: 0 },
+  { id: 2, stage: 'Open', daysOverdue: 5 },
+  { id: 3, stage: 'Won', daysOverdue: 0 },
+  { id: 4, stage: 'Open', daysOverdue: 2 },
+];
+<span class="kw">const</span> columns = [{ field: 'id' }, { field: 'stage' }, { field: 'daysOverdue' }];
+
+<span class="kw">const</span> tabs = createTabs(root, {
+  createGrid,
+  tabs: [
+    { id: 'all', label: 'All', config: { rowKey: 'id', rows, columns } },
+    { id: 'open', label: 'Open', from: 'all', where: (r) =&gt; r.stage === 'Open', config: { columns } },
+    <span class="cmt">// derives from Open, not All -- a two-deep chain</span>
+    { id: 'breached', label: 'Breached', from: 'open', where: (r) =&gt; r.daysOverdue &gt; 0, config: { columns } },
+  ],
+});
+
+tabs.activate('breached');                    <span class="cmt">// materialises 'open' too, automatically</span>
+<span class="kw">const</span> counts = ['all', 'open', 'breached'].map((id) =&gt; tabs.tab(id).rows.count());
+tabs.destroy();
+<span class="kw">return</span> counts.join(',');                       <span class="cmt">// 4,3,2</span></code></pre>
 
     <h2 id="mocksocket">The mock socket</h2>
     <p><code>modules/mock-socket</code> is a serverless stand-in for a live <code>WebSocket</code> feed, for building and demonstrating a real-time UI with <strong>no backend</strong>. <code>MockWebSocket</code> presents the same surface as the browser's <code>WebSocket</code> &mdash; the same <code>readyState</code> and state constants, the same <code>onopen</code>, <code>onmessage</code>, <code>onclose</code> and <code>onerror</code>, <code>addEventListener</code>, <code>send</code> and <code>close</code> &mdash; so the code that reads it does not change when it is swapped for a real one. It fires an initial snapshot the moment it opens, then a stream of deltas on a timer, all from a generator you hand it. It is a dev and test utility: optional, imports nothing from the grid, and is never pulled into the core bundle. It pairs naturally with the data router (one mock stream, partitioned to many grids), but depends on it no more than a real socket does.</p>

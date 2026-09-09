@@ -4,7 +4,7 @@
 dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it.
 
-Version 1.49.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.50.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -349,6 +349,7 @@ the UMD build or `.cjs` for CommonJS.
 | kanban | `@toclocoinc/lattice-grid/modules/kanban` | `modules/kanban.min.js` | `LatticeGridKanban` | Board view: grid rows as cards grouped into columns (`createKanban`). |
 | gantt | `@toclocoinc/lattice-grid/modules/gantt` | `modules/gantt.min.js` | `LatticeGridGantt` | Editable, dependency-aware project plan with a computed critical path (`createGantt`). |
 | kpi | `@toclocoinc/lattice-grid/modules/kpi` | `modules/kpi.min.js` | `LatticeGridKPI` | A grid of stat tiles, each an aggregate over a dataset (`createKPI`). |
+| tabs | `@toclocoinc/lattice-grid/modules/tabs` | `modules/tabs.min.js` | `LatticeGridTabs` | A tab strip where each tab is its own full grid, optionally derived from another (`createTabs`). |
 | ai | `@toclocoinc/lattice-grid/modules/ai` | `modules/ai.min.js` | `LatticeGridAI` | Bring-your-own-model narrative and insights grounded on computed figures (`createAI`). |
 | mock-socket | `@toclocoinc/lattice-grid/modules/mock-socket` | `modules/mock-socket.min.js` | `LatticeGridMockSocket` | A serverless stand-in for a live WebSocket feed (`MockWebSocket`, `opsFeed`). |
 | devtools | `@toclocoinc/lattice-grid/modules/devtools` | `modules/devtools.min.js` | `LatticeGrid` (extends it) | The in-page diagnostic panel, including the accessibility checks (`createDevtools`). |
