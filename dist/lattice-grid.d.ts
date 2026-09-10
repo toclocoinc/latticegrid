@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.51.0, type declarations
+ * Lattice Grid 1.52.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1327,6 +1327,52 @@ export interface DerivedSourceConfig {
   /** With `profile`, emit one row per statistic instead of one per column. */
   orient?: 'columns' | 'metrics';
 
+  /**
+   * Project a **relational** statistic into rows (BACKLOG-0001046): the figures
+   * that need two or more columns, or a second grid, and so cannot be reached
+   * through `select`.
+   *
+   * Every *single-column* statistic already has a route and this is not it —
+   * the derived `select` reduces a group by any kernel the totals row uses, and
+   * that table is a superset of the statistics one, so
+   * `select: { p95: { of: 'amount', fn: 'p95' } }` (or `gini`, `stddev`,
+   * `median`, `trimmedMean`, …) works today. Reach for `statistics` only when
+   * the answer is a correlation, a series summary or a comparison against
+   * another dataset.
+   *
+   * **A terminal producer, like `profile`, not a pipeline stage.** A
+   * correlation is one row per column *pair*, a series summary one row per
+   * *metric*, a comparison one row per compared *column* — none of which is one
+   * row per group, so there is no position in
+   * `unnest → where → bucket → groupBy → select → sort → limit` for it to
+   * occupy. It replaces the pipeline, and those keys are ignored with a warning
+   * naming them (BACKLOG-0001092) rather than silently discarded. Sort, filter
+   * or limit the derived grid itself instead, or chain a second derived grid
+   * whose `from` is this one.
+   *
+   * **`profile` and `statistics` are mutually exclusive** and declaring both is
+   * refused, by name, when the source is built. **Not supported alongside a
+   * union `from`** — a relational statistic reduces one grid's own columns and a
+   * union has no single set of them; also refused by name.
+   *
+   * **Cost.** Like every terminal producer this never patches incrementally: a
+   * change on the parent re-derives the whole thing. `correlation` additionally
+   * scans the rows once *per pair*, so N columns cost N·(N−1)/2 passes. Use
+   * `refresh` (`'idle'` is the default; `'manual'` or a debounce in ms for an
+   * expensive analysis over a live feed) — see `docs/api-detail.html` for the
+   * measured figures.
+   *
+   * Every row carries `n`, the rows the figure covered, because a derived
+   * statistic travels into an export or a chart without its grid and "r = 0.98
+   * over eleven rows" is a different claim from the same number over eleven
+   * thousand. It does NOT carry a windowed/approximate flag: whether a source
+   * held fewer rows than matched its filters is decided from the source's own
+   * counters, which a derived source cannot reach, so that signal stays where
+   * it already works - the `stat.windowed:*` console warning the parent grid
+   * emits.
+   */
+  statistics?: DerivedStatistics;
+
   /** When to re-derive. `idle` by default: coalesced to a frame. */
   refresh?: 'live' | 'idle' | 'manual' | number;
 
@@ -1335,6 +1381,86 @@ export interface DerivedSourceConfig {
    * whatever it groups by; a string names a different source column.
    */
   crossFilter?: boolean | string | { col?: string };
+}
+
+/**
+ * Which relational statistic a derived source projects into rows, and how
+ * (BACKLOG-0001046). See `DerivedSourceConfig.statistics`.
+ *
+ * A discriminated union on `fn`, so the relational statistics still deferred —
+ * `regression`, `regressionModel`, `forecast`, `anomalies`, `adf`, `acf`,
+ * `spearman`, `kendall`, `covariance`, `subsetVsPopulation`, `compareGroups`,
+ * `capability`, `interval`, `windowed`, `weightedQuantile`, `weightedAverage` —
+ * arrive as further arms of this one key rather than as a second mechanism.
+ */
+export type DerivedStatistics =
+  | DerivedCorrelation
+  | DerivedSeries
+  | DerivedDatasetComparison;
+
+/**
+ * Pearson's correlation across N columns, pairwise.
+ *
+ * Rows, `orient: 'pairs'` (the default): one per unordered pair,
+ * `{ a, b, coefficient, n }` — the long form, because that is what
+ * a grid sorts, filters and charts well, and "the three most correlated pairs"
+ * is then a sort and a `limit` on the derived grid. Only the upper triangle is
+ * emitted: r is symmetric, so `(a,b)` and `(b,a)` are one finding, and a column
+ * against itself is 1 by definition.
+ *
+ * Rows, `orient: 'matrix'`: one per column, carrying a field per other column
+ * plus `column` and `n` — the classic square, for a heat map.
+ * The diagonal is 1 and both triangles are filled.
+ */
+export interface DerivedCorrelation {
+  fn: 'correlation';
+  /** The columns to correlate pairwise. At least two, or the source is refused. */
+  columns: string[];
+  /** `pairs` (default) for one row per pair; `matrix` for the square. */
+  orient?: 'pairs' | 'matrix';
+}
+
+/**
+ * A `grid.statistics.series` summary, as one row per metric:
+ * `{ metric, value, n }`.
+ *
+ * One row per *metric*, not per point: `series` returns a `SeriesStats` summary
+ * object — `n`, `first`, `last`, `change`, `changePercent`, `volatility`,
+ * `annualisedVolatility`, `growth`, `maxDrawdown`, `maxDrawdownFrom`,
+ * `maxDrawdownTo`, `autocorrelation`, `upDays`, `downDays` — and not a value
+ * per row. The shape is deliberately the one `profile`'s `orient: 'metrics'`
+ * already emits rather than a third convention for the same idea.
+ */
+export interface DerivedSeries {
+  fn: 'series';
+  /** The column to summarise. */
+  of: string;
+  /** The column that orders it. Required and never guessed. */
+  by: string;
+  /** Annualise volatility and growth against this many periods per year. */
+  periodsPerYear?: number;
+}
+
+/**
+ * How this grid differs from another, ranked by effect size, as rows:
+ * `{ column, measure, magnitude, distance, direction, nA, nB, reliable,
+ * unmatched }`, largest difference first.
+ *
+ * The two-grid shape: one grid is the data, a second *is* the analysis of it.
+ * Both sides are read over their filtered rows, and the peer is watched — an
+ * edit or a filter on it re-derives the comparison, because a comparison whose
+ * other side has moved is wrong rather than merely late.
+ *
+ * A column present on only one side cannot be compared. It is still reported,
+ * as a row with a null `magnitude` and `unmatched` set to `'A'` or `'B'`, so a
+ * reader sees that it was skipped and why rather than finding it absent.
+ */
+export interface DerivedDatasetComparison {
+  fn: 'datasetVsDataset';
+  /** The second grid to compare this one against. */
+  with: Grid;
+  /** Restrict the comparison to these columns. All shared columns by default. */
+  columns?: string[];
 }
 
 /**
@@ -7353,11 +7479,17 @@ declare module 'lattice-grid/modules/gantt' {
   /**
    * A typed dependency between two tasks (by id), with optional lag/lead. `type`
    * defaults to `'FS'`; either endpoint may be a leaf or a summary.
+   *
+   * `type` also accepts the MS Project string shorthand — `'FS+2'`, `'SS-1'`
+   * (BACKLOG-0001072). It is normalised to the structured form on the way in, so
+   * `gantt.dependencies` always reads back `{ type, lag }` and there is no second
+   * internal representation. Giving both a shorthand lag and a conflicting `lag`
+   * field warns; the explicit field wins.
    */
   export interface GanttDependency {
     from: string | number;
     to: string | number;
-    type?: GanttLinkType;
+    type?: GanttLinkType | `${GanttLinkType}${'+' | '-'}${number}`;
     lag?: number;
   }
 
@@ -7600,7 +7732,15 @@ declare module 'lattice-grid/modules/gantt' {
      * milestones, progress). The view redraws when the schedule recomputes.
      */
     mount(container: unknown, options?: {
-      width?: number;
+      /**
+       * The plot width. `'container'` (the default) measures the element it was
+       * mounted into and keeps following it, so a plan in a tab, drawer,
+       * accordion or split pane fits without the host writing a
+       * `ResizeObserver` (BACKLOG-0001079); a container with no box yet holds a
+       * 720px fallback rather than drawing at zero. A number is honoured
+       * exactly and installs no observer. Ignored under `zoom`, which warns.
+       */
+      width?: number | 'container';
       rowHeight?: number;
       labelWidth?: number;
       rowLabels?: boolean;
@@ -7608,7 +7748,23 @@ declare module 'lattice-grid/modules/gantt' {
       showCritical?: boolean;
       showProgress?: boolean;
       dateAxis?: boolean;
-      today?: number;
+      /**
+       * The today line, as a plan day-number or a calendar date. A date is
+       * converted into plan space through `projectEpoch` (BACKLOG-0001079), so
+       * "put the line on the real today" is expressible for a relative plan.
+       */
+      today?: number | string | Date;
+      /**
+       * The calendar date plan day 0 stands for (BACKLOG-0001079).
+       *
+       * Display-only: axis ticks, bar labels, tooltips, screen-reader text and
+       * the built-in `'weekends'` shading move with it; the schedule, `getState`
+       * and the CSV/MSPDI exports do not. Without it, the engine's contract makes
+       * day 0 the Unix epoch, which is why a plan written as day offsets renders
+       * as January 1970. A host-supplied `nonWorking` function still receives raw
+       * plan days.
+       */
+      projectEpoch?: number | string | Date | null;
       nonWorking?: 'weekends' | ((day: number) => boolean);
       label?: 'name' | 'percent' | 'dates' | 'none' | ((task: GanttScheduledTask) => string);
       /** Whether bars can be dragged to move/resize (default true). */
@@ -8481,6 +8637,75 @@ declare module 'lattice-grid/modules/kpi' {
     sparkline?: KPISparkline | string;
   }
 
+  /**
+   * The hierarchy a KPI panel arranges its tiles into (BACKLOG-0001059): a rail
+   * of top-level items that expand to the indicators beneath them, each parent
+   * highlighted with the worst status below it.
+   *
+   * The shape is declared with `path` or `parentKey` — the same two shapes the
+   * grid's tree data and the tree-select editor take — over the **tile specs**,
+   * not the rows. With neither declared, one is derived by splitting the tile
+   * ids on `separator`, so `system.compute.cpu` files itself under Compute
+   * under System. A panel whose ids carry no separator stays flat, and `false`
+   * keeps it flat whatever they look like.
+   *
+   * A tile's `field` is never a source: a dot there already means a nested
+   * object property.
+   */
+  interface KPITreeConfig {
+    /** The tile's own place in the hierarchy, its own segment last. */
+    path?: (tile: KPITile) => (string | number)[];
+    /** The id of the tile this one sits under, or a reader for it. */
+    parentKey?: string | ((tile: KPITile) => unknown);
+    /** The heading tiles whose parent is not in the panel are gathered under. */
+    orphans?: 'root' | string;
+    /** The separator a derived hierarchy splits a tile id on. Defaults to `.`. */
+    separator?: string;
+    /** Which branches start open: every one (`true`), or these node keys. */
+    expanded?: true | string[];
+  }
+
+  /**
+   * One node of the rail.
+   *
+   * **No value rolls up.** `value` and `formatted` are the node's own tile's
+   * reading, and are `null` on a level the hierarchy synthesised, because the
+   * running accumulators cannot be composed without a rescan.
+   *
+   * **Severity does.** `rollup` is the worst status at or below the node, which
+   * is what a collapsed branch reports. `unknown` is excluded from it on
+   * purpose — ranking "nothing was measured" as the worst would hide a real
+   * warning underneath it — and is surfaced as `unknown`, a count of the
+   * descendants that measured nothing, so neither can pass unnoticed.
+   */
+  interface KPINodeModel {
+    /** The node's stable identity: the tile id, or the path of a synthesised level. */
+    key: string;
+    /** The tile id, or null on a synthesised level. */
+    id: string | null;
+    label: string;
+    /** Depth, 0 at the top level. */
+    level: number;
+    /** Its place among its siblings, from 1, and how many there are. */
+    posinset: number;
+    setsize: number;
+    hasChildren: boolean;
+    expanded: boolean;
+    children: KPINodeModel[];
+    /** The node's own tile, or null on a synthesised level. */
+    tile: KPITileModel | null;
+    value: unknown;
+    formatted: string | null;
+    /** The node's own status. */
+    status: 'good' | 'warn' | 'critical' | 'unknown' | null;
+    /** The worst status at or below the node. Never `unknown`. */
+    rollup: 'good' | 'warn' | 'critical' | null;
+    /** How many tiles at or below the node measured nothing. */
+    unknown: number;
+    /** How many tiles are at or below the node. */
+    items: number;
+  }
+
   /** A computed tile, as it appears in the model. */
   interface KPITileModel {
     id: string;
@@ -8525,10 +8750,20 @@ declare module 'lattice-grid/modules/kpi' {
     columns?: number;
     ariaLabel?: string;
     nullText?: string;
+    /** Arrange the tiles as a hierarchy; `false` keeps the panel flat. */
+    tree?: KPITreeConfig | false;
+    /**
+     * The catalogue the panel's own text is read from. A panel routinely has no
+     * grid to borrow one off — two of its three input modes have none — so this
+     * is the first-class way to translate it. A grid's own `messages` satisfies
+     * the shape; a key it does not carry falls back to English.
+     */
+    messages?: { t(key: string, params?: Record<string, unknown>): string };
     onTileClick?: (event: KPIEvent) => void;
     onTileDblClick?: (event: KPIEvent) => void;
     onTileContextMenu?: (event: KPIEvent) => void;
-    onChange?: (event: { model: { tiles: KPITileModel[] } }) => void;
+    onNodeToggle?: (event: { key: string; expanded: boolean; node?: KPINodeModel }) => void;
+    onChange?: (event: { model: { tiles: KPITileModel[]; nodes?: KPINodeModel[] } }) => void;
   }
 
   /** The keyed-diff consumer surface a KPI panel shares with a grid, so a Data Router routes to it directly. */
@@ -8547,10 +8782,21 @@ declare module 'lattice-grid/modules/kpi' {
   interface KPI {
     readonly el: unknown | null;
     readonly rowKey: string | ((row: KPIRow) => unknown);
+    /** Whether the panel renders as a hierarchy rather than a flat tile grid. */
+    readonly tree: boolean;
     rows: KPIRows;
     tiles(): KPITileModel[];
     tile(id: string): KPITileModel | undefined;
     value(id: string): unknown;
+    /** The top-level nodes of the hierarchy. Empty on a flat panel. */
+    nodes(): KPINodeModel[];
+    /** One node by its key, at any depth. */
+    node(key: string): KPINodeModel | undefined;
+    /** The nodes on screen: the roots, plus the children of every open branch. */
+    visibleNodes(): KPINodeModel[];
+    expand(key: string): KPI;
+    collapse(key: string): KPI;
+    toggle(key: string): KPI;
     setRows(rows: KPIRow[]): KPI;
     refresh(): KPI;
     getState(): object;

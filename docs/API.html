@@ -903,6 +903,25 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
 
     <h2 id="column">Column definition</h2>
     <p class="section-note">Everything is optional. A column with only <code>field</code> infers its type from sampled data and takes every default from there.</p>
+    <p><strong>Inferring a <code>Date</code>.</strong> Inference walks
+    <code>boolean</code>, <code>number</code>, <code>date</code>, <code>dateString</code>,
+    <code>datetime</code>, <code>text</code>, <code>object</code> and takes the first type that
+    matches every sampled value. A <code>Date</code> whose <em>local</em> wall clock reads exactly
+    <code>00:00:00.000</code> infers as <code>date</code> and stores <code>YYYY-MM-DD</code>;
+    a <code>Date</code> carrying any time of day infers as <code>datetime</code> and stores
+    <code>YYYY-MM-DDTHH:mm</code> (with seconds when they are non-zero), because a
+    <code>date</code> column would discard the clock on ingest and nothing downstream could
+    recover it. <strong>This is a heuristic with one stated blind spot:</strong> a genuine
+    timestamp that lands on exactly local midnight — a nightly batch stamped
+    <code>00:00:00.000</code> — is indistinguishable from a date-only value and is still inferred
+    as <code>date</code>, so its time of day is still discarded. Sub-second resolution is never
+    retained by <code>datetime</code>. <strong>If you group by such a column, declare it:</strong> an
+    undeclared <code>Date</code> column groups by the instant, which is one group per row, where a
+    <code>type: 'date'</code> column groups into day buckets. Date filters are unaffected either way
+    — they compare on the day and return the same rows. Declare <code>type</code> and none of this applies:
+    <code>'date'</code> truncates on purpose, <code>'datetime'</code> keeps a wall clock, and
+    <code>'timestamp'</code> keeps the instant to the millisecond. Strings are unaffected — an ISO
+    string with or without a time component still infers as <code>date</code>.</p>
 
     <div class="table-wrap">
       <table>
@@ -2825,6 +2844,62 @@ grid.destroy();
         </tbody>
       </table>
     </div>
+    <h3 id="derived-statistics">The relational statistics, as rows</h3>
+    <p class="section-note">
+      A single-column statistic already has a route: <code>select</code> reduces a group with any
+      kernel the totals row uses, and that table is a superset of the statistics one, so
+      <code>select: { p95: { of: 'amount', fn: 'p95' } }</code> works, along with
+      <code>median</code>, <code>stddev</code>, <code>gini</code> and the rest.
+      <code>statistics</code> is for what <code>select</code> structurally cannot reach: the
+      figures needing two or more columns, or a second grid. Like <code>profile</code> it is a
+      terminal producer &mdash; it replaces the pipeline rather than joining it, and the two cannot
+      be used together. Every row carries <code>n</code>, the rows the figure covered. Full detail,
+      including the measured re-derive cost of each producer, is in
+      <a href="api-detail.html#derived-statistics">the detail reference</a>.
+    </p>
+    <pre data-run="js" data-expect="t/w -1; pairs 3; metrics 14; compared 2 + 1 unmatched" data-covers="config:statistics"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> readings = Array.from({ length: 20 }, (_, i) =&gt; ({ id: i, t: i, v: 100 + i * 3, w: 50 - i }));
+<span class="kw">const</span> plant = createHeadlessGrid({ rowKey: 'id',
+  columns: [{ field: 't', type: 'number' }, { field: 'v', type: 'number' }, { field: 'w', type: 'number' }],
+  rows: readings });
+plant.rows.count();
+
+<span class="cmt">// One row per column PAIR: { a, b, coefficient, n }. `w` runs exactly against `t`.</span>
+<span class="kw">const</span> pairs = createHeadlessGrid({ rowKey: '__key',
+  columns: [{ field: 'a' }, { field: 'b' }, { field: 'coefficient', type: 'number' }, { field: 'n', type: 'number' }],
+  source: { mode: 'derived', from: plant, refresh: 'live',
+    statistics: { fn: 'correlation', columns: ['t', 'v', 'w'] } } });
+<span class="kw">let</span> tw = <span class="kw">null</span>;
+pairs.rows.forEach((row) =&gt; {
+  <span class="kw">if</span> (pairs.rows.value(row.key, 'a') === 't' &amp;&amp; pairs.rows.value(row.key, 'b') === 'w') {
+    tw = pairs.rows.value(row.key, 'coefficient');
+  }
+});
+
+<span class="cmt">// One row per METRIC of the series summary, not one per point.</span>
+<span class="kw">const</span> series = createHeadlessGrid({ rowKey: '__key',
+  columns: [{ field: 'metric' }, { field: 'value', type: 'number' }],
+  source: { mode: 'derived', from: plant, refresh: 'live',
+    statistics: { fn: 'series', of: 'v', by: 't' } } });
+
+<span class="cmt">// One row per compared column, against a second grid. The peer is watched.</span>
+<span class="cmt">// `t` is on this grid only, so it is reported as unmatched rather than dropped.</span>
+<span class="kw">const</span> peer = createHeadlessGrid({ rowKey: 'id',
+  columns: [{ field: 'v', type: 'number' }, { field: 'w', type: 'number' }],
+  rows: readings.map((r) =&gt; ({ id: r.id, v: r.v * 2, w: r.w })) });
+peer.rows.count();
+<span class="kw">const</span> compared = createHeadlessGrid({ rowKey: '__key',
+  columns: [{ field: 'column' }, { field: 'magnitude', type: 'number' }],
+  source: { mode: 'derived', from: plant, refresh: 'live',
+    statistics: { fn: 'datasetVsDataset', with: peer, columns: ['v', 'w'] } } });
+
+<span class="kw">let</span> shared = 0, unmatched = 0;
+compared.rows.forEach((row) =&gt; {
+  <span class="kw">if</span> (compared.rows.value(row.key, 'magnitude') === <span class="kw">null</span>) unmatched += 1; <span class="kw">else</span> shared += 1;
+});
+
+<span class="kw">return</span> `t/w ${tw}; pairs ${pairs.rows.count()}; metrics ${series.rows.count()}; compared ${shared} + ${unmatched} unmatched`;</code></pre>
     <h3 id="derived-union">Union sources: combining several grids into one</h3>
     <p class="section-note">
       "Worst performers across two datasets" is easy when the two datasets share a key: a
@@ -5332,7 +5407,7 @@ return [p.pv, p.ev, p.ac, p.sv, p.cv, p.spi.toFixed(2), p.cpi.toFixed(2), direct
 
 const gantt = createGantt({ tasks, dependencies });
 gantt.mount(document.querySelector('#plan'), {
-  today: 20340,             // a day-number; draws the today line
+  today: '2026-03-06',      // a day-number, ISO date or Date; draws the today line
   nonWorking: 'weekends',   // shade Saturdays and Sundays
   label: 'percent',         // bar label: 'name' | 'percent' | 'dates' | (task) =&gt; string
   dateAxis: true,           // axis ticks as calendar dates
@@ -5340,11 +5415,25 @@ gantt.mount(document.querySelector('#plan'), {
   scrollToToday: true,      // scroll so the today line is in view
   groupBy: 'assignee',      // swimlanes by a task property or (task) =&gt; key
   rowHeight: 26,
-  width: 720,
+  width: 'container',       // the default: fill the container, and keep following it
+});</code></pre>
+    <p><strong>Sizing (BACKLOG-0001079).</strong> <code>width</code> defaults to <code>'container'</code>: the view measures the box it was mounted into and redraws itself whenever that box changes, so a plan in a tab, a drawer, an accordion, a responsive panel or a split pane fits without the host writing a <code>ResizeObserver</code> of its own. A container with no box &mdash; a hidden tab, or an element that has not been laid out yet &mdash; is not treated as a container of zero width: the view holds a 720px fallback and adopts the real width the moment there is one. Pass a <strong>number</strong> to take the decision yourself; a numeric <code>width</code> is honoured exactly, installs no observer, and keeps the eight-tick axis it always had &mdash; only a container-sized plot thins its tick labels to the width it was given, because only a container-sized plot can be somewhere it had not been before. <code>zoom</code> and a numeric <code>width</code> are mutually exclusive: <strong>zoom wins</strong> &mdash; it fixes the pixels-per-day and lets the plot scroll past the container &mdash; and passing both now warns rather than discarding the <code>width</code> in silence.</p>
+    <p><strong>The project anchor (BACKLOG-0001079).</strong> A <code>mount</code> option, not a <code>mountSplit</code> one: the joined split view below takes neither <code>projectEpoch</code> nor a date-valued <code>today</code>, and its weekend shading is unanchored. The engine's time line is whole days since the Unix epoch, so a plan written as day offsets (<code>0, 4, 9&hellip;</code>) legitimately renders as January 1970 &mdash; day 0 <em>is</em> 1970-01-01, and the module cannot tell an offset from a real epoch day, so it cannot warn about it. <code>projectEpoch</code> says which calendar date plan day 0 stands for. It is <strong>display-only</strong>: axis ticks, bar labels, tooltips, screen-reader text and the built-in weekend shading move with it, and nothing the scheduler, <code>getState</code>, the CSV or the MSPDI export produces does &mdash; every <code>es</code>/<code>ef</code> you read back is still the number you supplied. A host-supplied <code>nonWorking</code> function keeps receiving raw plan days, since it was written against your day numbers. Use <code>projectStart</code> instead when you want the model itself to be on calendar dates.</p>
+    <pre><code>// A relative plan: offsets in the data, real dates on the screen.
+gantt.mount(el, {
+  projectEpoch: '2026-03-02',  // plan day 0 is this Monday
+  nonWorking: 'weekends',      // so days 5-6 are the first weekend
+  today: '2026-03-06',         // converted into plan space through the anchor
 });
 gantt.view.scrollToToday();  // also callable on demand
 gantt.applyEdit({ id: 'design', duration: 7 }); // the view redraws automatically
 gantt.unmount();</code></pre>
+    <p><strong>Dependency arrows (BACKLOG-0001072).</strong> A link is routed by geometry. When the successor's anchor is at or beyond the predecessor's, it goes <strong>straight down and then in</strong> &mdash; a plain zero-lag finish-to-start link, where the two anchors share an x, is a clean vertical. When the anchor is <em>behind</em> the predecessor's &mdash; a negative lag (a lead), or two overlapping tasks &mdash; "down then in" does not exist, so the link takes a deliberate detour: out on the predecessor's own side, along a lane between the two rows, down, and in. Either way the final segment runs in the direction the arrowhead points, which is what stops a link doubling back on itself. The anchors themselves differ per link type &mdash; FS finish&rarr;start, SS start&rarr;start, FF finish&rarr;finish, SF start&rarr;finish &mdash; and so does the side the arrow arrives on, so an FF or SF link comes in from the right of the successor's finish rather than running through the bar to get there.</p>
+    <p><strong>Link shorthand.</strong> A dependency's <code>type</code> accepts the MS Project string form as well as the structured one: <code>'FS+2'</code>, <code>'SS-1'</code>. It normalises to <code>{ type: 'FS', lag: 2 }</code> on the way in, so <code>gantt.dependencies</code>, the scheduler, the lag label and the MSPDI export all see the one canonical form. A shorthand lag alongside an explicit <code>lag</code> that disagrees warns; the explicit field wins.</p>
+    <pre><code>createGantt({ tasks, dependencies: [
+  { from: 'design', to: 'build', type: 'FS+2' },   // same as { type: 'FS', lag: 2 }
+  { from: 'build',  to: 'test',  type: 'SS-1' },   // a lead
+] });</code></pre>
     <p>Bars are draggable: drag the body to move a task, drag the right edge to resize it. When a <code>grid</code> and a <code>columns</code> map are given, each drag writes the new dates back through the grid's public edit surface (<code>grid.edit.setCells</code>) and reconciles a reverted or conflicted write; <code>autoSchedule: true</code> cascades dependents. A task placed earlier than its predecessors allow is flagged (<code>findViolations</code>), not silently moved.</p>
     <pre><code>import { createGantt } from '@toclocoinc/lattice-grid/modules/gantt';
 
@@ -5628,13 +5717,63 @@ const kpi = createKPI(document.querySelector('#kpis'), {
           <tr><td class="sig">rows.apply({ add, update, remove })</td><td class="desc">The keyed-diff consumer contract a grid shares, so the panel is a drop-in Data Router target and updates each tile incrementally. Also <code>rows.forEach</code> and <code>rows.count</code>.</td></tr>
           <tr><td class="sig">tiles() / tile(id) / value(id)</td><td class="desc">Every computed tile model, one tile by id (<code>value</code>, <code>formatted</code>, <code>status</code>, <code>delta</code>, <code>deltaPercent</code>, <code>count</code>, <code>sparkline</code>), or a tile's raw value. <code>status</code> is <code>good</code>, <code>warn</code>, <code>critical</code>, <code>unknown</code> (the panel holds no rows) or <code>null</code> (no thresholds configured); <code>value</code> is <code>null</code> whenever the tile measured nothing.</td></tr>
           <tr><td class="sig">setRows(rows) / refresh()</td><td class="desc">Replace the source rows, or re-seed and recompute.</td></tr>
-          <tr><td class="sig">getState() / setState(snapshot)</td><td class="desc">Serialise and restore the panel's row set, so a headless panel round-trips.</td></tr>
-          <tr><td class="sig">on(name, fn) / off(name, fn)</td><td class="desc">Events: <code>tile:click</code>, <code>tile:dblclick</code>, <code>tile:contextmenu</code>, and <code>change</code> (after every update).</td></tr>
+          <tr><td class="sig">nodes() / node(key) / visibleNodes()</td><td class="desc">The hierarchy, when <code>tree</code> resolves one: the top-level nodes with their children, one node by key at any depth, or just the nodes on screen. Each node carries <code>label</code>, <code>level</code>, <code>tile</code> (null on a synthesised level), <code>status</code>, <code>rollup</code> (the worst severity at or below it, never <code>unknown</code>), <code>unknown</code> (how many below it measured nothing) and <code>items</code>. Empty on a flat panel, where <code>kpi.tree</code> is <code>false</code>.</td></tr>
+          <tr><td class="sig">expand(key) / collapse(key) / toggle(key)</td><td class="desc">Open or close a branch. A key for a branch the panel does not (yet) hold is retained rather than dropped, so a delta that later introduces it finds it already open.</td></tr>
+          <tr><td class="sig">getState() / setState(snapshot)</td><td class="desc">Serialise and restore the panel's row set, so a headless panel round-trips, plus <code>expanded</code> (the open branch keys) on a hierarchical panel. A snapshot with no <code>expanded</code> key leaves expansion alone rather than resetting it.</td></tr>
+          <tr><td class="sig">on(name, fn) / off(name, fn)</td><td class="desc">Events: <code>tile:click</code>, <code>tile:dblclick</code>, <code>tile:contextmenu</code>, <code>node:toggle</code> (a branch opened or closed), and <code>change</code> (after every update).</td></tr>
           <tr><td class="sig">destroy()</td><td class="desc">Empty the element and drop the listeners. The host still owns any bound grid.</td></tr>
         </tbody>
       </table>
     </div>
     <p><strong>Interaction is light and host-driven.</strong> A tile emits <code>tile:click</code> (also from the keyboard) carrying the tile model, so a host can drill down or, in a demo, filter a routed grid &mdash; the wiring lives in the host, not the module. This is deliberately not a dashboard layout engine (that is the parked dashboard generator) and charting beyond a minimal sparkline belongs to the charts module.</p>
+    <h3 id="kpi-tree">The KPI tree: top-level items that expand to the indicators beneath them</h3>
+    <p>Set <code>tree</code> and the panel becomes a <strong>rail</strong> instead of a grid of tiles: a small number of top-level items, each expanding to the indicators underneath it, with the parent telling you at a glance whether anything below needs attention. <code>Compute</code> expands to <code>psi</code> and <code>cpu</code>; collapsed, it still shows you that one of them is in breach.</p>
+    <pre><code>const kpi = createKPI(document.querySelector('#rail'), {
+  rows, rowKey: 'id',
+  tiles: [
+    { id: 'compute.cpu',      label: 'cpu',     aggregation: 'max', field: 'cpu',
+      thresholds: { warn: 70, critical: 90, direction: 'lowerIsBetter' } },
+    { id: 'compute.memory',   label: 'memory',  aggregation: 'avg', field: 'mem',
+      thresholds: { warn: 70, critical: 90, direction: 'lowerIsBetter' } },
+    { id: 'network.latency',  label: 'latency', aggregation: 'max', field: 'latency',
+      thresholds: { warn: 100, critical: 300, direction: 'lowerIsBetter' } },
+  ],
+  tree: {},                          <span class="cmt">// the dotted ids are the hierarchy</span>
+});
+
+kpi.nodes()[0].rollup;               <span class="cmt">// 'critical' — even with the branch shut</span>
+kpi.expand(kpi.nodes()[0].key);      <span class="cmt">// open it</span></code></pre>
+    <p><strong>Where the shape comes from &mdash; two sources, in this order.</strong> <em>Declared:</em> <code>tree: { path }</code> or <code>tree: { parentKey }</code> over the <em>tile specs</em>, the same two shapes the grid's <a href="#tree-data">tree data</a> and the tree-select editor already take, so a hierarchy you have configured once needs no second vocabulary. A <code>path</code> is the tile's <em>own</em> place, its own segment last &mdash; <code>['System','Compute','cpu']</code>, exactly as <code>['EMEA','UK','Colchester']</code> is Colchester's path and not its parent's &mdash; and levels no tile represents are synthesised, so <code>System</code> and <code>Compute</code> appear without a tile of their own. <em>Derived:</em> with neither declared, the tile ids are split on <code>separator</code> (default <code>.</code>), so <code>system.compute.cpu</code> files itself. A panel whose ids carry no separator is flat and renders exactly as it always did; <code>tree: false</code> keeps it flat whatever the ids look like. A tile's <code>field</code> is never a source &mdash; a dot there already means a nested object property, and overloading it would make <code>field: 'cpu.util'</code> ambiguous.</p>
+    <p><strong>No value rolls up; severity does.</strong> A parent shows no aggregated number. That is not a simplification: the running accumulators expose <code>add</code>/<code>remove</code>/<code>value</code> and no merge, so <code>avg</code>, <code>countDistinct</code> and a <code>custom</code> reducer cannot be composed from their children without rescanning, and a per-aggregation exception list would be a number that is right for a sum and wrong for an average. A parent that has a tile of its own still shows <em>that tile's</em> reading. What does roll up is the status: <code>rollup</code> is the worst severity at or below the node, across as many levels as you have, and it is what a collapsed branch reports.</p>
+    <p><strong>Nothing measured is not good news, and it does not win the roll-up either.</strong> A leaf that measured nothing is <code>unknown</code> (see above), and <code>unknown</code> is deliberately excluded from <code>rollup</code>: ranking &ldquo;not measured&rdquo; as the worst thing beneath a parent would hide a real warning under it. It is surfaced separately instead &mdash; <code>node.unknown</code> counts the descendants that measured nothing, and the node renders it in words (&ldquo;2 unknown&rdquo;) and puts it in its accessible name. So neither way of being wrong is available: silence cannot read as green, and it cannot bury an amber.</p>
+    <p><strong>Accessible by construction.</strong> The rail is a real <code>role="tree"</code> with the APG keyboard model &mdash; <kbd>&rarr;</kbd> opens a closed branch and otherwise steps into it, <kbd>&larr;</kbd> closes an open one and otherwise steps out to its parent, <kbd>&uarr;</kbd>/<kbd>&darr;</kbd> walk what is visible, <kbd>Home</kbd>/<kbd>End</kbd> jump to its ends, <kbd>Enter</kbd>/<kbd>Space</kbd> activate &mdash; with a roving tabindex, and <code>aria-level</code>, <code>aria-posinset</code> and <code>aria-setsize</code> on every node, because a reader cannot count what a collapsed branch has left out of the DOM. Status carries a <strong>shape</strong> as well as a colour (a filled circle, a triangle, a square, a hollow circle), not one dot in three colours, and a parent's rolled-up status is <em>in its accessible name</em>: &ldquo;Compute, 6 items, worst status critical&rdquo;, announced as one string. Every phrase is a catalogue key: pass <code>messages</code> (any <code>{ t(key, params) }</code>, including a grid's own) to translate the panel, and a key your catalogue lacks falls back to English rather than printing the key.</p>
+    <p><strong>A collapsed branch costs data, not paint.</strong> Every node's status is computed whether or not you can see it &mdash; that is what makes the rail worth having &mdash; while a collapsed branch contributes no DOM at all. It is the same division the grid's grouping already makes between its totals walk and its display walk. Expansion is patched in place, keyed on the node, so a live routed feed does not throw a keyboard user off the node they are standing on.</p>
+    <h3 id="kpi-tree-example">A collapsed parent reports the red leaf underneath it, executed</h3>
+    <p class="section-note">Two subsystems from dotted tile ids, one of them in breach, with nothing expanded; then the same
+    rail with no data at all. Run headless on every build.</p>
+    <pre data-run="js" data-expect="compute false critical | cpu critical | null 2" data-covers="export:createKPI"><code><span class="kw">const</span> { createKPI } = <span class="kw">await</span> import('../packages/modules/kpi/index.js');
+
+<span class="kw">const</span> fewerIsBetter = { warn: 70, critical: 90, direction: 'lowerIsBetter' };
+<span class="kw">const</span> tiles = [
+  { id: 'compute.cpu', label: 'cpu', aggregation: 'max', field: 'cpu', thresholds: fewerIsBetter },
+  { id: 'compute.memory', label: 'memory', aggregation: 'avg', field: 'mem', thresholds: fewerIsBetter },
+  { id: 'network.latency', label: 'latency', aggregation: 'max', field: 'latency',
+    thresholds: { warn: 100, critical: 300, direction: 'lowerIsBetter' } },
+];
+
+<span class="cmt">// No `tree` block: the dots in the tile ids are the hierarchy.</span>
+<span class="kw">const</span> kpi = createKPI(null, { rows: [{ id: 'h1', cpu: 94, mem: 40, latency: 12 }], rowKey: 'id', tiles });
+
+<span class="kw">const</span> compute = kpi.nodes()[0];
+<span class="cmt">// Nobody has opened it, and it reports the breach anyway.</span>
+<span class="kw">const</span> shut = [compute.label, compute.expanded, compute.rollup].join(' ');   <span class="cmt">// compute false critical</span>
+<span class="kw">const</span> leaf = [compute.children[0].label, compute.children[0].status].join(' '); <span class="cmt">// cpu critical</span>
+
+<span class="cmt">// Nothing delivered: the parent reports the silence rather than a false green.</span>
+<span class="kw">const</span> quiet = createKPI(null, { rows: [], rowKey: 'id', tiles });
+<span class="kw">const</span> silent = String(quiet.nodes()[0].rollup) + ' ' + quiet.nodes()[0].unknown; <span class="cmt">// null 2</span>
+
+<span class="kw">return</span> [shut, leaf, silent].join(' | ');</code></pre>
     <h3 id="kpi-live-example">Live, driven by a Data Router alongside a grid, executed</h3>
     <p class="section-note">One feed fans out (<code>overlap</code>) to a KPI panel through the same keyed-diff contract a grid uses:
     a snapshot seeds the tiles, then a delta removes the current max and the min/max rescans. Run headless on every build.</p>
@@ -8044,6 +8183,30 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h3 id="type-DerivedCorrelation">DerivedCorrelation</h3>
+    <p class="section-note">Pearson's correlation across N columns, pairwise. Rows, `orient: 'pairs'` (the default): one per unordered pair, `{ a, b, coefficient, n }` — the long form, because that is what a grid sorts, filters and charts well, and "the three most correlated pairs" is then a sort and a `limit` on the derived grid. Only the upper triangle is emitted: r is symmetric, so `(a,b)` and `(b,a)` are one finding, and a column against itself is 1 by definition. Rows, `orient: 'matrix'`: one per column, carrying a field per other column plus `column` and `n` — the classic square, for a heat map. The diagonal is 1 and both triangles are filled.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">fn</td><td class="type">'correlation'</td><td class="desc"></td></tr>
+          <tr><td class="name">columns</td><td class="type">string[]</td><td class="desc">The columns to correlate pairwise. At least two, or the source is refused.</td></tr>
+          <tr><td class="name">orient</td><td class="type">'pairs' | 'matrix'</td><td class="desc">`pairs` (default) for one row per pair; `matrix` for the square. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-DerivedDatasetComparison">DerivedDatasetComparison</h3>
+    <p class="section-note">How this grid differs from another, ranked by effect size, as rows: `{ column, measure, magnitude, distance, direction, nA, nB, reliable, unmatched }`, largest difference first. The two-grid shape: one grid is the data, a second *is* the analysis of it. Both sides are read over their filtered rows, and the peer is watched — an edit or a filter on it re-derives the comparison, because a comparison whose other side has moved is wrong rather than merely late. A column present on only one side cannot be compared. It is still reported, as a row with a null `magnitude` and `unmatched` set to `'A'` or `'B'`, so a reader sees that it was skipped and why rather than finding it absent.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">fn</td><td class="type">'datasetVsDataset'</td><td class="desc"></td></tr>
+          <tr><td class="name">with</td><td class="type">Grid</td><td class="desc">The second grid to compare this one against.</td></tr>
+          <tr><td class="name">columns</td><td class="type">string[]</td><td class="desc">Restrict the comparison to these columns. All shared columns by default. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-DerivedJoin">DerivedJoin</h3>
     <div class="table-wrap">
       <table>
@@ -8069,6 +8232,19 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h3 id="type-DerivedSeries">DerivedSeries</h3>
+    <p class="section-note">A `grid.statistics.series` summary, as one row per metric: `{ metric, value, n }`. One row per *metric*, not per point: `series` returns a `SeriesStats` summary object — `n`, `first`, `last`, `change`, `changePercent`, `volatility`, `annualisedVolatility`, `growth`, `maxDrawdown`, `maxDrawdownFrom`, `maxDrawdownTo`, `autocorrelation`, `upDays`, `downDays` — and not a value per row. The shape is deliberately the one `profile`'s `orient: 'metrics'` already emits rather than a third convention for the same idea.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">fn</td><td class="type">'series'</td><td class="desc"></td></tr>
+          <tr><td class="name">of</td><td class="type">string</td><td class="desc">The column to summarise.</td></tr>
+          <tr><td class="name">by</td><td class="type">string</td><td class="desc">The column that orders it. Required and never guessed.</td></tr>
+          <tr><td class="name">periodsPerYear</td><td class="type">number</td><td class="desc">Annualise volatility and growth against this many periods per year. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-DerivedSourceConfig">DerivedSourceConfig</h3>
     <p class="section-note">A grid whose rows are derived from another grid: aggregated, unnested, filtered, ranked or profiled. Read-only: write to the source instead.</p>
     <div class="table-wrap">
@@ -8090,6 +8266,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">cumulative</td><td class="type">{ of: string; upTo: number }</td><td class="desc">Keep rows until their running share of the total reaches `upTo`, 0 to 1. <small>(optional)</small></td></tr>
           <tr><td class="name">profile</td><td class="type">string | string[]</td><td class="desc">One row per column, with the statistics as columns. Replaces the pipeline. <small>(optional)</small></td></tr>
           <tr><td class="name">orient</td><td class="type">'columns' | 'metrics'</td><td class="desc">With `profile`, emit one row per statistic instead of one per column. <small>(optional)</small></td></tr>
+          <tr><td class="name">statistics</td><td class="type">DerivedStatistics</td><td class="desc">Project a **relational** statistic into rows (BACKLOG-0001046): the figures that need two or more columns, or a second grid, and so cannot be reached through `select`. Every *single-column* statistic already has a route and this is not it — the derived `select` reduces a group by any kernel the totals row uses, and that table is a superset of the statistics one, so `select: { p95: { of: 'amount', fn: 'p95' } }` (or `gini`, `stddev`, `median`, `trimmedMean`, …) works today. Reach for `statistics` only when the answer is a correlation, a series summary or a comparison against another dataset. **A terminal producer, like `profile`, not a pipeline stage.** A correlation is one row per column *pair*, a series summary one row per *metric*, a comparison one row per compared *column* — none of which is one row per group, so there is no position in `unnest → where → bucket → groupBy → select → sort → limit` for it to occupy. It replaces the pipeline, and those keys are ignored with a warning naming them (BACKLOG-0001092) rather than silently discarded. Sort, filter or limit the derived grid itself instead, or chain a second derived grid whose `from` is this one. **`profile` and `statistics` are mutually exclusive** and declaring both is refused, by name, when the source is built. **Not supported alongside a union `from`** — a relational statistic reduces one grid's own columns and a union has no single set of them; also refused by name. **Cost.** Like every terminal producer this never patches incrementally: a change on the parent re-derives the whole thing. `correlation` additionally scans the rows once *per pair*, so N columns cost N·(N−1)/2 passes. Use `refresh` (`'idle'` is the default; `'manual'` or a debounce in ms for an expensive analysis over a live feed) — see `docs/api-detail.html` for the measured figures. Every row carries `n`, the rows the figure covered, because a derived statistic travels into an export or a chart without its grid and "r = 0.98 over eleven rows" is a different claim from the same number over eleven thousand. It does NOT carry a windowed/approximate flag: whether a source held fewer rows than matched its filters is decided from the source's own counters, which a derived source cannot reach, so that signal stays where it already works - the `stat.windowed:*` console warning the parent grid emits. <small>(optional)</small></td></tr>
           <tr><td class="name">refresh</td><td class="type">'live' | 'idle' | 'manual' | number</td><td class="desc">When to re-derive. `idle` by default: coalesced to a frame. <small>(optional)</small></td></tr>
           <tr><td class="name">crossFilter</td><td class="type">boolean | string | { col?: string }</td><td class="desc">Let this grid filter the grid it derives from. `true` cross-filters through whatever it groups by; a string names a different source column. <small>(optional)</small></td></tr>
         </tbody>

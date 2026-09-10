@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.51.0</p>
+    <p class="rail__sub">Developer guide · v1.52.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -3396,10 +3396,125 @@ createGrid(right, {
       (<code>idle</code>, or a debounce), and prefer fewer, larger sources over many small ones where
       the shape of your data allows it.</p>
       <p><strong>Not supported alongside a union.</strong> <code>crossFilter</code> has no single
-      target once there is more than one parent; <code>profile</code> reduces one grid's own columns.
-      Both are refused with a warning rather than guessed at, and the top-level <code>follow</code> is
-      ignored in favour of each source's own.</p>
+      target once there is more than one parent; <code>profile</code> and <code>statistics</code>
+      reduce one grid's own columns. All three are refused with a warning rather than guessed at, and
+      the top-level <code>follow</code> is ignored in favour of each source's own.</p>
     </div>
+
+    <h2 id="derived-statistics">The relational statistics, as rows</h2>
+    <p class="lead-in">
+      One grid is the data; a second <em>is</em> the analysis of it. <code>statistics</code> projects
+      the figures that need two or more columns &mdash; or a second grid &mdash; into rows you can
+      sort, filter, chart and export like any others.
+    </p>
+    <p><strong>You probably do not need it for a single-column statistic.</strong> Those already have
+      a route: a derived <code>select</code> reduces a group with any kernel the totals row uses, and
+      that table is a superset of the statistics one. <code>select: { p95: { of: 'amount', fn: 'p95'
+      } }</code> works today, and so do <code>median</code>, <code>stddev</code>, <code>gini</code>,
+      <code>iqr</code>, <code>entropy</code>, <code>trimmedMean</code> and the rest.
+      <code>statistics</code> is for what <code>select</code> structurally cannot reach.</p>
+    <div class="example">
+      <p class="example__label">Which columns move together</p>
+      <pre><code>source: {
+  mode: <span class="str">'derived'</span>,
+  from: trades,
+  statistics: { fn: <span class="str">'correlation'</span>, columns: [<span class="str">'price'</span>, <span class="str">'volume'</span>, <span class="str">'spread'</span>] },
+  <span class="cmt">// -&gt; one row per PAIR: { a, b, coefficient, n }</span>
+}</code></pre>
+    </div>
+    <p><strong>Three statistics in this release.</strong> Each has one row shape, and the shape is the
+      contract:</p>
+    <ul>
+      <li><code>{ fn: 'correlation', columns, orient? }</code> &mdash; Pearson's r across N columns.
+        <code>orient: 'pairs'</code> (the default) gives <strong>one row per unordered pair</strong>,
+        <code>{ a, b, coefficient, n }</code>. Long form by default because that is what
+        a grid sorts, filters and charts well &mdash; "the three most correlated pairs" is then a
+        sort and a <code>limit</code> on the derived grid. Only the upper triangle is emitted: r is
+        symmetric, so <code>(a,b)</code> and <code>(b,a)</code> are one finding, and a column against
+        itself is 1 by definition. <code>orient: 'matrix'</code> gives the classic square instead,
+        one row per column with a field per other column, for a heat map.</li>
+      <li><code>{ fn: 'series', of, by, periodsPerYear? }</code> &mdash; <strong>one row per
+        metric</strong>, <code>{ metric, value, n }</code>. Note <em>per metric</em>, not
+        per point: <code>grid.statistics.series</code> returns a summary &mdash; <code>n</code>,
+        <code>first</code>, <code>last</code>, <code>change</code>, <code>changePercent</code>,
+        <code>volatility</code>, <code>annualisedVolatility</code>, <code>growth</code>,
+        <code>maxDrawdown</code>, <code>maxDrawdownFrom</code>, <code>maxDrawdownTo</code>,
+        <code>autocorrelation</code>, <code>upDays</code>, <code>downDays</code> &mdash; and not a
+        value per row. The shape is the one <code>profile</code>'s <code>orient: 'metrics'</code>
+        already emits, deliberately, rather than a third convention for the same idea.
+        <code>by</code> is required and never guessed, because kernels see rows in arrival order and
+        that is not the grid's sort.</li>
+      <li><code>{ fn: 'datasetVsDataset', with, columns? }</code> &mdash; <strong>one row per compared
+        column</strong>, largest difference first: <code>{ column, measure, magnitude, distance,
+        direction, nA, nB, reliable, unmatched }</code>. Both sides are read over their
+        <em>filtered</em> rows, and <strong>the peer is watched</strong> &mdash; an edit or a filter
+        on it re-derives the comparison, because a comparison whose other side has moved is wrong
+        rather than merely late. A column present on only one side cannot be compared and is still
+        reported, with a null <code>magnitude</code> and <code>unmatched</code> set to
+        <code>'A'</code> or <code>'B'</code>, so you see that it was skipped and why.</li>
+    </ul>
+    <p><strong>Every row says how much it saw.</strong> <code>n</code> is the rows the figure
+      covered, and it is on the row because a derived statistic travels: a coefficient exported to
+      CSV or bound to a chart has left every bit of its context behind, and &ldquo;r = 0.98 over
+      eleven rows&rdquo; is a different claim from the same number over eleven thousand.</p>
+    <p><strong>What the row does <em>not</em> tell you: whether the source was windowed.</strong> A
+      statistic over a source holding fewer rows than match its filters is computed on the loaded
+      window rather than the whole set. The grid detects that from the <em>source's</em> own
+      counters and says so in a console warning
+      (<code>[lattice] correlation on &hellip; computed over N of M matching rows</code>) &mdash; and
+      that remains the signal to watch. A derived source cannot reach those counters: a grid's public
+      <code>rows.matchCount()</code> reports the <em>loaded</em> matches, so on a bounded stream
+      evicted to 200 of 2,000 rows it returns 200 and agrees exactly with <code>rows.count()</code>.
+      Rather than ship a flag that could never be true, no such flag is emitted; <code>n</code> says
+      what the figure actually saw and nothing more is claimed.</p>
+    <p><strong>A terminal producer, not a pipeline stage.</strong> A correlation is one row per pair,
+      a series summary one row per metric, a comparison one row per column &mdash; none of which is
+      one row per group, so there is no position in
+      <code>unnest &rarr; where &rarr; bucket &rarr; groupBy &rarr; select &rarr; sort &rarr;
+      limit</code> for <code>statistics</code> to occupy. It replaces the pipeline, exactly as
+      <code>profile</code> does. Those keys are now <strong>ignored with a warning that names
+      them</strong> rather than discarded in silence, for both producers. Sort, filter or limit the
+      derived grid itself, or chain a second derived grid whose <code>from</code> is this one.
+      <code>profile</code> and <code>statistics</code> are mutually exclusive and declaring both is
+      refused, by name, when the source is built.</p>
+
+    <h3 id="derived-producer-cost">What a terminal producer costs</h3>
+    <p><strong>No terminal producer patches incrementally &mdash; know this before you point one at a
+      live feed.</strong> The grouped pipeline maintains its grouping across changes: an edit that
+      names the rows it touched re-reduces only the groups those rows belong to. A producer has no
+      grouping to maintain, so <em>every</em> change on the parent re-derives its whole output. This
+      has always been true of <code>profile</code> and was not previously written down; it is written
+      down here now, and it applies to <code>statistics</code> in the same way.</p>
+    <p>Measured on a synthetic 200,000-row grid, five changes after a warm-up, one derived grid
+      attached (machine-dependent &mdash; run <code>node bench/derived-producers.mjs</code> against
+      your own shape):</p>
+    <table>
+      <thead><tr><th>Derived shape</th><th>Per change at 200k rows</th></tr></thead>
+      <tbody>
+        <tr><td>grouped, no <code>where</code> &mdash; <em>the patching pipeline</em></td><td>~1&nbsp;ms</td></tr>
+        <tr><td><code>profile</code>, one column</td><td>~20&nbsp;ms</td></tr>
+        <tr><td><code>statistics</code> <code>correlation</code>, 2 columns (1 pair)</td><td>~5&nbsp;ms</td></tr>
+        <tr><td><code>statistics</code> <code>correlation</code>, 6 columns (15 pairs)</td><td>~32&nbsp;ms</td></tr>
+        <tr><td><code>statistics</code> <code>series</code></td><td>~23&nbsp;ms</td></tr>
+        <tr><td><code>statistics</code> <code>datasetVsDataset</code>, two grids</td><td>~36&nbsp;ms</td></tr>
+        <tr><td><code>where</code>, no <code>groupBy</code> &mdash; <em>a pipeline shape that also never patches</em></td><td>~700&nbsp;ms</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Correlation is quadratic in its column count.</strong> It scans the rows once per pair,
+      so N columns cost N&middot;(N&minus;1)/2 passes: six columns is fifteen passes, twenty columns is
+      a hundred and ninety. Correlate the columns you mean rather than every numeric column you
+      have.</p>
+    <p><strong>The costs of several panels add up.</strong> Every derived grid attached to a parent
+      re-derives on the same change, so three analysis panels over one grid cost the sum of the
+      three, not the largest. This is BACKLOG-0001044's known gap &mdash; a hidden derived grid still
+      does full read and compute work &mdash; with a larger constant behind it; a hidden analysis tab
+      recomputing a correlation matrix on every tick is exactly that cost.</p>
+    <p><strong>The escape hatch is <code>refresh</code>, and it already exists.</strong>
+      <code>'idle'</code> is the default and coalesces a burst of changes into one derivation on the
+      next frame; a <strong>number</strong> is a debounce in milliseconds; <code>'live'</code>
+      derives on every change and is the one to avoid for an expensive analysis over a ticking feed;
+      <code>'manual'</code> stops automatic derivation entirely, leaving the host to drive the
+      source. Below a few tens of thousands of rows none of this matters.</p>
 
     <h2 id="cross-filter">Cross-filtering</h2>
     <p class="lead-in">
