@@ -1,8 +1,10 @@
 /*!
- * Lattice Grid 1.53.0, gantt module
+ * Lattice Grid 1.53.0, layout module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
+(function(root){
+'use strict';
 var __mods=Object.create(null);
 var __cache=Object.create(null);
 function __def(id,fn){__mods[id]=fn;}
@@ -425,1349 +427,134 @@ function uid(prefix='l'){
 return`${prefix}${(++idSeq).toString(36)}`;
 }
 });
-__def("packages/modules/gantt/time.js",function(__exports,__req){
+__def("packages/modules/shared/emitter.js",function(__exports,__req){
 'use strict';
-Object.defineProperty(__exports,"toDayNumber",{enumerable:true,get:function(){return toDayNumber;}});
-Object.defineProperty(__exports,"fromDayNumber",{enumerable:true,get:function(){return fromDayNumber;}});
-Object.defineProperty(__exports,"toISODate",{enumerable:true,get:function(){return toISODate;}});
-Object.defineProperty(__exports,"resolveProjectEpoch",{enumerable:true,get:function(){return resolveProjectEpoch;}});
+Object.defineProperty(__exports,"WILDCARD",{enumerable:true,get:function(){return WILDCARD;}});
+Object.defineProperty(__exports,"Emitter",{enumerable:true,get:function(){return Emitter;}});
+Object.defineProperty(__exports,"gate",{enumerable:true,get:function(){return gate;}});
 const __m0=__req("packages/core/src/internal/util.js");
+const isFunction=__m0["isFunction"];
 const warnOnce=__m0["warnOnce"];
-const DAY_MS=86400000;
-function toDayNumber(value){
-if(value==null||value==='')return null;
-if(typeof value==='number')return Number.isFinite(value)?value:null;
-const ms=value instanceof Date?value.getTime():Date.parse(value);
-if(!Number.isFinite(ms))return null;
-return Math.floor(ms/DAY_MS);
+const WILDCARD='*';
+const ORIGINS=new Set(['api','user','init','ai']);
+function handlerId(handler,index){
+return(handler&&handler.name)?handler.name:`#${index}`;
 }
-function fromDayNumber(day){
-if(!Number.isFinite(day))return null;
-return new Date(Math.round(day)*DAY_MS);
+class Emitter{
+#handlers=new Map();
+#scope;
+constructor(scope='module'){
+this.#scope=String(scope);
 }
-function toISODate(day){
-const d=fromDayNumber(day);
-return d?d.toISOString().slice(0,10):null;
+on(name,fn){
+if(!isFunction(fn))return()=>{};
+let set=this.#handlers.get(name);
+if(!set){set=new Set();this.#handlers.set(name,set);}
+set.add(fn);
+return()=>this.off(name,fn);
 }
-function resolveProjectEpoch(spec){
-if(spec==null||spec==='')return 0;
-const day=toDayNumber(spec);
-if(Number.isFinite(day))return(day);
+off(name,fn){
+const set=this.#handlers.get(name);
+if(set)set.delete(fn);
+}
+count(name){
+const set=this.#handlers.get(name);
+return set?set.size:0;
+}
+emit(name,payload){
+const direct=this.#handlers.get(name);
+const wild=this.#handlers.get(WILDCARD);
+if((!direct||direct.size===0)&&(!wild||wild.size===0))return;
+const event={...(payload||null),type:name};
+if(direct&&direct.size)this.#deliver([...direct],event,name);
+if(wild&&wild.size)this.#deliver([...wild],event,WILDCARD);
+}
+#deliver(handlers,event,listName){
+for(let i=0;i<handlers.length;i++){
+try{
+handlers[i](event);
+}catch(err){
 warnOnce(
-`gantt.projectEpoch:${String(spec)}`,
-`[lattice] gantt: projectEpoch ${JSON.stringify(spec)} is not a date or a day number; the plan is rendered against the Unix epoch (day 0 = 1970-01-01).`,
-);
-return 0;
-}
-});
-__def("packages/modules/gantt/calendar.js",function(__exports,__req){
-'use strict';
-Object.defineProperty(__exports,"createCalendar",{enumerable:true,get:function(){return createCalendar;}});
-const __m0=__req("packages/modules/gantt/time.js");
-const fromDayNumber=__m0["fromDayNumber"];
-const toDayNumber=__m0["toDayNumber"];
-const DEFAULT_WORKDAYS=Object.freeze([1,2,3,4,5]);
-function createCalendar(spec,anchorDay=0){
-if(spec==null)return null;
-let workdays;
-let holidays;
-if(spec==='weekends'){
-workdays=DEFAULT_WORKDAYS;
-holidays=new Set();
-}else{
-workdays=Array.isArray(spec.workdays)&&spec.workdays.length
-?spec.workdays.map(Number).filter((n)=>n>=0&&n<=6)
-:DEFAULT_WORKDAYS;
-holidays=new Set((Array.isArray(spec.holidays)?spec.holidays:[])
-.map((h)=>toDayNumber(h))
-.filter((d)=>d!=null));
-}
-const workSet=new Set(workdays);
-if(workSet.size===7&&holidays.size===0)return null;
-if(workSet.size===0)return null;
-const isWorking=(day)=>{
-const d=fromDayNumber(day);
-if(!d)return false;
-return workSet.has(d.getUTCDay())&&!holidays.has(day);
-};
-const nextWorking=(day)=>{let d=day;while(!isWorking(d))d+=1;return d;};
-const prevWorking=(day)=>{let d=day;while(!isWorking(d))d-=1;return d;};
-const anchor=nextWorking(Math.round(Number.isFinite(anchorDay)?anchorDay:0));
-const dayMemo=new Map([[0,anchor]]);
-const indexMemo=new Map([[anchor,0]]);
-const dayOf=(index)=>{
-const i=Math.round(index);
-if(dayMemo.has(i))return dayMemo.get(i);
-if(i>0){
-let k=i-1;
-while(!dayMemo.has(k))k-=1;
-let d=dayMemo.get(k);
-for(let j=k+1;j<=i;j+=1){d=nextWorking(d+1);dayMemo.set(j,d);indexMemo.set(d,j);}
-return dayMemo.get(i);
-}
-let k=i+1;
-while(!dayMemo.has(k))k+=1;
-let d=dayMemo.get(k);
-for(let j=k-1;j>=i;j-=1){d=prevWorking(d-1);dayMemo.set(j,d);indexMemo.set(d,j);}
-return dayMemo.get(i);
-};
-const indexOf=(day)=>{
-const w=nextWorking(Math.round(day));
-if(indexMemo.has(w))return indexMemo.get(w);
-if(w>anchor){
-let idx=0;
-let d=anchor;
-while(indexMemo.has(nextWorking(d+1))&&d<w){d=nextWorking(d+1);idx=indexMemo.get(d);}
-while(d<w){d=nextWorking(d+1);idx+=1;dayMemo.set(idx,d);indexMemo.set(d,idx);}
-return idx;
-}
-let idx=0;
-let d=anchor;
-while(d>w){d=prevWorking(d-1);idx-=1;dayMemo.set(idx,d);indexMemo.set(d,idx);}
-return idx;
-};
-return{isWorking,nextWorking,dayOf,indexOf,anchor};
-}
-});
-__def("packages/modules/gantt/schedule.js",function(__exports,__req){
-'use strict';
-Object.defineProperty(__exports,"LINK_TYPES",{enumerable:true,get:function(){return LINK_TYPES;}});
-Object.defineProperty(__exports,"CONSTRAINT_TYPES",{enumerable:true,get:function(){return CONSTRAINT_TYPES;}});
-Object.defineProperty(__exports,"EPS",{enumerable:true,get:function(){return EPS;}});
-Object.defineProperty(__exports,"SCHEDULE_ERROR",{enumerable:true,get:function(){return SCHEDULE_ERROR;}});
-Object.defineProperty(__exports,"normalizeTasks",{enumerable:true,get:function(){return normalizeTasks;}});
-Object.defineProperty(__exports,"buildTree",{enumerable:true,get:function(){return buildTree;}});
-Object.defineProperty(__exports,"normalizeLinkSpec",{enumerable:true,get:function(){return normalizeLinkSpec;}});
-Object.defineProperty(__exports,"normalizeDependencies",{enumerable:true,get:function(){return normalizeDependencies;}});
-Object.defineProperty(__exports,"expandDependencies",{enumerable:true,get:function(){return expandDependencies;}});
-Object.defineProperty(__exports,"topoOrder",{enumerable:true,get:function(){return topoOrder;}});
-Object.defineProperty(__exports,"computeSchedule",{enumerable:true,get:function(){return computeSchedule;}});
-Object.defineProperty(__exports,"findViolations",{enumerable:true,get:function(){return findViolations;}});
-const __m0=__req("packages/core/src/internal/util.js");
-const warnOnce=__m0["warnOnce"];
-const __m1=__req("packages/modules/gantt/calendar.js");
-const createCalendar=__m1["createCalendar"];
-const __m2=__req("packages/modules/gantt/time.js");
-const toDayNumber=__m2["toDayNumber"];
-const LINK_TYPES=(['FS','SS','FF','SF']);
-const CONSTRAINT_TYPES=(['MSO','MFO','ALAP']);
-const CONSTRAINT_ALIASES=Object.freeze({
-mso:'MSO','must-start-on':'MSO',muststarton:'MSO','start-on':'MSO',
-mfo:'MFO','must-finish-on':'MFO',mustfinishon:'MFO','finish-on':'MFO',
-alap:'ALAP','as-late-as-possible':'ALAP',aslateaspossible:'ALAP',late:'ALAP',
-});
-const EPS=1e-9;
-const SCHEDULE_ERROR={
-CYCLE:'cycle',
-DUPLICATE_ID:'duplicate-id',
-UNKNOWN_TASK:'unknown-task',
-BAD_DURATION:'bad-duration',
-BAD_LINK_TYPE:'bad-link-type',
-SELF_DEPENDENCY:'self-dependency',
-UNKNOWN_PARENT:'unknown-parent',
-PARENT_CYCLE:'parent-cycle',
-DEP_ACROSS_HIERARCHY:'dep-across-hierarchy',
-};
-function asNumber(value){
-if(value==null||value==='')return null;
-const n=typeof value==='number'?value:Number(value);
-return Number.isFinite(n)?n:null;
-}
-function toDay(value){
-if(value==null||value==='')return null;
-return toDayNumber(value);
-}
-function readConstraint(raw){
-const rawType=raw&&raw.constraint!=null?raw.constraint:(raw&&raw.constraintType);
-if(rawType==null||rawType==='')return null;
-const code=CONSTRAINT_ALIASES[String(rawType).toLowerCase().replace(/\s+/g,'-')]
-??(CONSTRAINT_TYPES.includes(String(rawType).toUpperCase())?String(rawType).toUpperCase():null);
-if(!code)return null;
-const at=toDay(raw.constraintDate??raw.constraintAt??raw.at);
-return{type:code,at};
-}
-function normalizeTasks(tasks){
-const byId=new Map();
-const order=[];
-if(!Array.isArray(tasks)){
-return{ok:false,error:{code:SCHEDULE_ERROR.BAD_DURATION,message:'tasks must be an array'},order,byId};
-}
-for(const raw of tasks){
-const id=raw&&raw.id!=null?String(raw.id):null;
-if(id==null){
-return{ok:false,error:{code:SCHEDULE_ERROR.UNKNOWN_TASK,message:'every task needs an id'},order,byId};
-}
-if(byId.has(id)){
-return{ok:false,error:{code:SCHEDULE_ERROR.DUPLICATE_ID,message:`duplicate task id "${id}"`,id},order,byId};
-}
-const start=toDay(raw.start);
-const end=toDay(raw.end);
-const isMilestone=raw.milestone===true;
-let duration=isMilestone?0:asNumber(raw.duration);
-if(duration==null&&start!=null&&end!=null)duration=end-start;
-if(duration!=null&&duration<0){
-return{ok:false,error:{code:SCHEDULE_ERROR.BAD_DURATION,message:`task "${id}" has negative duration ${duration}`,id},order,byId};
-}
-byId.set(id,{
-id,
-name:raw.name!=null?String(raw.name):id,
-duration,
-milestoneFlag:isMilestone,
-earliestStart:start,
-placedStart:start,
-placedEnd:end,
-percentComplete:asNumber(raw.percentComplete),
-parent:raw.parent!=null?String(raw.parent):null,
-constraint:readConstraint(raw),
-baselineStart:toDay(raw.baselineStart??(raw.baseline&&raw.baseline.start)),
-baselineEnd:toDay(raw.baselineEnd??(raw.baseline&&raw.baseline.end)),
-});
-order.push(id);
-}
-return{ok:true,order,byId};
-}
-function buildTree(order,byId){
-const children=new Map(order.map((id)=>[id,[]]));
-for(const id of order){
-const p=byId.get(id).parent;
-if(p==null)continue;
-if(!byId.has(p)){
-return{ok:false,error:{code:SCHEDULE_ERROR.UNKNOWN_PARENT,message:`task "${id}" names unknown parent "${p}"`,id}};
-}
-children.get(p).push(id);
-}
-for(const id of order){
-const seen=new Set();
-let cur=byId.get(id).parent;
-while(cur!=null){
-if(cur===id||seen.has(cur)){
-return{ok:false,error:{code:SCHEDULE_ERROR.PARENT_CYCLE,message:`parent cycle at "${id}"`,id}};
-}
-seen.add(cur);
-cur=byId.get(cur)?.parent??null;
-}
-}
-const isSummary=(id)=>children.get(id).length>0;
-const leafMemo=new Map();
-const descendantLeaves=(id)=>{
-if(leafMemo.has(id))return leafMemo.get(id);
-const kids=children.get(id);
-const leaves=kids.length===0?[id]:kids.flatMap((c)=>descendantLeaves(c));
-leafMemo.set(id,leaves);
-return leaves;
-};
-const ancestors=(id)=>{
-const out=new Set();
-let cur=byId.get(id).parent;
-while(cur!=null){out.add(cur);cur=byId.get(cur).parent;}
-return out;
-};
-return{ok:true,children,isSummary,descendantLeaves,ancestors};
-}
-const LINK_SHORTHAND=/^\s*(FS|SS|FF|SF)\s*(?:([+-])\s*(\d+(?:\.\d+)?))?\s*$/i;
-function normalizeLinkSpec(raw){
-const dep={...(raw||null)};
-if(typeof dep.type!=='string')return dep;
-const m=LINK_SHORTHAND.exec(dep.type);
-if(!m||!m[2])return dep;
-const lag=(m[2]==='-'?-1:1)*Number(m[3]);
-dep.type=m[1].toUpperCase();
-const explicit=asNumber(raw.lag);
-if(explicit!=null&&explicit!==lag){
-warnOnce(
-`gantt-link-shorthand-${String(raw.type)}-${explicit}`,
-`[lattice] gantt: dependency type ${JSON.stringify(raw.type)} carries a lag of ${lag} but lag: ${explicit} was also given; the explicit lag wins. Give one or the other.`,
-);
-return dep;
-}
-dep.lag=lag;
-return dep;
-}
-function normalizeDependencies(deps,byId,tree={}){
-const edges=[];
-if(deps==null)return{ok:true,edges};
-if(!Array.isArray(deps)){
-return{ok:false,error:{code:SCHEDULE_ERROR.UNKNOWN_TASK,message:'dependencies must be an array'},edges};
-}
-const ancestors=typeof tree.ancestors==='function'?tree.ancestors:null;
-for(const input of deps){
-const raw=normalizeLinkSpec(input);
-const from=raw&&raw.from!=null?String(raw.from):null;
-const to=raw&&raw.to!=null?String(raw.to):null;
-const type=raw&&raw.type!=null?String(raw.type).toUpperCase():'FS';
-const lag=asNumber(raw.lag)??0;
-if(from==null||to==null){
-return{ok:false,error:{code:SCHEDULE_ERROR.UNKNOWN_TASK,message:'a dependency needs both `from` and `to`'},edges};
-}
-if(!byId.has(from)){
-return{ok:false,error:{code:SCHEDULE_ERROR.UNKNOWN_TASK,message:`dependency references unknown task "${from}"`,id:from},edges};
-}
-if(!byId.has(to)){
-return{ok:false,error:{code:SCHEDULE_ERROR.UNKNOWN_TASK,message:`dependency references unknown task "${to}"`,id:to},edges};
-}
-if(from===to){
-return{ok:false,error:{code:SCHEDULE_ERROR.SELF_DEPENDENCY,message:`task "${from}" depends on itself`,id:from},edges};
-}
-if(!LINK_TYPES.includes((type))){
-return{ok:false,error:{code:SCHEDULE_ERROR.BAD_LINK_TYPE,message:`unknown link type "${type}" (expected one of ${LINK_TYPES.join('/')})`},edges};
-}
-if(ancestors&&(ancestors(from).has(to)||ancestors(to).has(from))){
-return{ok:false,error:{code:SCHEDULE_ERROR.DEP_ACROSS_HIERARCHY,message:`dependency between "${from}" and "${to}" crosses their own parent/child hierarchy`,from,to},edges};
-}
-edges.push({from,to,type,lag});
-}
-return{ok:true,edges};
-}
-function expandDependencies(edges,tree){
-const seen=new Set();
-const out=[];
-for(const e of edges){
-const summaryEnd=tree.isSummary(e.from)||tree.isSummary(e.to);
-if(summaryEnd&&e.type!=='FS'){
-warnOnce(
-`gantt-summary-link-${e.type}-${e.from}-${e.to}`,
-`[lattice] gantt: ${e.type} link with a summary endpoint (${e.from} -> ${e.to}) is expanded to descendant leaves — a conservative v1 reading; only FS is exact for summary endpoints.`,
+`${this.#scope}.emit.throw:${listName}:${handlerId(handlers[i],i)}`,
+`${this.#scope}: a '${listName}' handler threw; other handlers were unaffected.`,
+err,
 );
 }
-for(const from of tree.descendantLeaves(e.from)){
-for(const to of tree.descendantLeaves(e.to)){
-if(from===to)continue;
-const key=[from,to,e.type,e.lag].join('\u0001');
-if(seen.has(key))continue;
-seen.add(key);
-out.push({from,to,type:e.type,lag:e.lag});
 }
 }
-}
-return out;
-}
-function topoOrder(order,edges){
-const indeg=new Map(order.map((id)=>[id,0]));
-const succ=new Map(order.map((id)=>[id,[]]));
-for(const e of edges){
-indeg_inc(indeg,e.to);
-succ.get(e.from).push(e.to);
-}
-const queue=order.filter((id)=>indeg.get(id)===0);
-const sorted=[];
-while(queue.length){
-const id=queue.shift();
-sorted.push(id);
-for(const s of succ.get(id)){
-const d=indeg.get(s)-1;
-indeg.set(s,d);
-if(d===0)queue.push(s);
-}
-}
-if(sorted.length===order.length)return{ok:true,sorted};
-return{ok:false,cycle:recoverCycle(order,succ,new Set(sorted))};
-}
-function indeg_inc(indeg,id){
-indeg.set(id,indeg.get(id)+1);
-}
-function recoverCycle(order,succ,settled){
-const start=order.find((id)=>!settled.has(id));
-const path=[];
-const onPath=new Map();
-let node=start;
-while(node!=null&&!onPath.has(node)){
-onPath.set(node,path.length);
-path.push(node);
-node=succ.get(node).find((s)=>!settled.has(s));
-}
-if(node==null)return path;
-return path.slice(onPath.get(node)).concat(node);
-}
-function scheduleLeaves(order,byId,edges,projectStart,deadline,constraints=new Map()){
-const topo=topoOrder(order,edges);
-if(!topo.ok){
+emitBefore(name,payload,origin){
+const chosen=origin??(payload&&payload.origin);
+const resolved=ORIGINS.has((chosen))?chosen:'user';
+let prevented=false;
+let reason=null;
+const prevent=(r)=>{
+prevented=true;
+if(r!=null&&reason===null)reason=String(r);
+};
+const event={
+...(payload||null),
+type:name,
+origin:resolved,
+get defaultPrevented(){return prevented;},
+get reason(){return reason;},
+preventDefault(r){prevent(r);},
+};
+const direct=this.#handlers.get(name);
+if(!direct||direct.size===0)return true;
+const handlers=[...direct];
+const settle=()=>{
+if(prevented&&reason===null)reason='prevented';
+if(prevented&&payload&&typeof payload==='object')payload.reason=reason;
+return!prevented;
+};
+const pending=[];
+for(let i=0;i<handlers.length;i++){
+const handler=handlers[i];
+try{
+const ret=handler(event);
+if(ret&&isFunction((ret).then))pending.push(ret);
+else if(ret===false)prevent('prevented');
+}catch(err){
+prevent('error');
 warnOnce(
-`gantt-cycle-${topo.cycle.join('>')}`,
-`[lattice] gantt: dependency cycle detected (${topo.cycle.join(' -> ')}); schedule refused.`,
-);
-return{ok:false,error:{code:SCHEDULE_ERROR.CYCLE,message:`dependency cycle: ${topo.cycle.join(' -> ')}`,cycle:topo.cycle}};
-}
-const sorted=topo.sorted;
-const inEdges=new Map(order.map((id)=>[id,[]]));
-const outEdges=new Map(order.map((id)=>[id,[]]));
-for(const e of edges){
-inEdges.get(e.to).push(e);
-outEdges.get(e.from).push(e);
-}
-const S=new Map();
-for(const id of order){
-const t=byId.get(id);
-S.set(id,{
-id,name:t.name,duration:t.duration,es:0,ef:0,ls:0,lf:0,
-totalFloat:0,critical:false,percentComplete:t.percentComplete,
-parent:t.parent,isSummary:false,isMilestone:t.duration===0,children:[],
-});
-}
-const conflicts=[];
-for(const id of sorted){
-const t=byId.get(id);
-const s=S.get(id);
-let es=Math.max(projectStart,t.earliestStart??projectStart);
-for(const e of inEdges.get(id)){
-const p=S.get(e.from);
-let bound;
-switch(e.type){
-case'FS':bound=p.ef+e.lag;break;
-case'SS':bound=p.es+e.lag;break;
-case'FF':bound=p.ef+e.lag-s.duration;break;
-case'SF':bound=p.es+e.lag-s.duration;break;
-default:bound=-Infinity;
-}
-if(bound>es)es=bound;
-}
-const con=constraints.get(id);
-if(con&&con.type!=='ALAP'&&con.at!=null){
-const want=con.type==='MFO'?con.at-s.duration:con.at;
-if(want<es-EPS){
-conflicts.push({id,type:con.type,at:con.at,earliestFeasible:es});
-}else{
-es=want;
-}
-s.pinned=true;
-}
-s.es=es;
-s.ef=es+s.duration;
-}
-const projectFinish=order.length
-?Math.max(...order.map((id)=>S.get(id).ef))
-:projectStart;
-const lfInit=Number.isFinite(deadline)?deadline:projectFinish;
-for(let i=sorted.length-1;i>=0;i-=1){
-const id=sorted[i];
-const s=S.get(id);
-let lf=lfInit;
-for(const e of outEdges.get(id)){
-const succ=S.get(e.to);
-let boundLf;
-switch(e.type){
-case'FS':boundLf=succ.ls-e.lag;break;
-case'SS':boundLf=(succ.ls-e.lag)+s.duration;break;
-case'FF':boundLf=succ.lf-e.lag;break;
-case'SF':boundLf=(succ.lf-e.lag)+s.duration;break;
-default:boundLf=Infinity;
-}
-if(boundLf<lf)lf=boundLf;
-}
-if(s.pinned)lf=s.ef;
-s.lf=lf;
-s.ls=lf-s.duration;
-s.totalFloat=s.ls-s.es;
-s.critical=s.totalFloat<=EPS;
-}
-for(const id of order){
-const con=constraints.get(id);
-if(!con||con.type!=='ALAP')continue;
-const s=S.get(id);
-s.es=s.ls;
-s.ef=s.lf;
-s.totalFloat=0;
-s.critical=true;
-}
-const critical=order.filter((id)=>S.get(id).critical);
-const criticalPaths=enumerateCriticalPaths(order,edges,S);
-return{ok:true,tasks:S,critical,criticalPaths,projectFinish,conflicts};
-}
-function computeSchedule(tasks,deps=[],options={}){
-const projectStartDay=toDay(options.projectStart)??0;
-const deadlineDay=toDay(options.deadline);
-const calendar=createCalendar(options.calendar,projectStartDay);
-const toIndex=(d)=>(d==null?null:(calendar?calendar.indexOf(d):d));
-const toCalDay=(i)=>(calendar?calendar.dayOf(i):i);
-const nt=normalizeTasks(tasks);
-if(!nt.ok)return{ok:false,error:nt.error};
-const{order,byId}=nt;
-const tree=buildTree(order,byId);
-if(!tree.ok)return{ok:false,error:tree.error};
-const nd=normalizeDependencies(deps,byId,tree);
-if(!nd.ok)return{ok:false,error:nd.error};
-for(const id of order){
-if(tree.isSummary(id))continue;
-if(byId.get(id).duration==null){
-return{ok:false,error:{code:SCHEDULE_ERROR.BAD_DURATION,message:`task "${id}" has no duration and no start+end to derive one`,id}};
-}
-}
-const leafOrder=order.filter((id)=>!tree.isSummary(id));
-const leafById=new Map(leafOrder.map((id)=>{
-const t=byId.get(id);
-return[id,{...t,earliestStart:toIndex(t.earliestStart)}];
-}));
-const constraints=new Map();
-for(const id of leafOrder){
-const c=byId.get(id).constraint;
-if(c)constraints.set(id,{type:c.type,at:toIndex(c.at)});
-}
-const projectStartIndex=calendar?calendar.indexOf(projectStartDay):projectStartDay;
-const deadlineIndex=deadlineDay==null?undefined:toIndex(deadlineDay);
-const leafEdges=expandDependencies(nd.edges,tree);
-const leaf=scheduleLeaves(leafOrder,leafById,leafEdges,projectStartIndex,deadlineIndex,constraints);
-if(!leaf.ok)return{ok:false,error:leaf.error};
-const S=leaf.tasks;
-for(const id of leafOrder){
-const s=S.get(id);
-s.es=toCalDay(s.es);
-s.ef=toCalDay(s.ef);
-s.ls=toCalDay(s.ls);
-s.lf=toCalDay(s.lf);
-attachBaseline(s,byId.get(id).baselineStart,byId.get(id).baselineEnd);
-}
-for(let i=order.length-1;i>=0;i-=1){
-const id=order[i];
-if(!tree.isSummary(id))continue;
-S.set(id,deriveSummary(id,byId.get(id),tree,S));
-}
-for(const id of order){
-if(tree.isSummary(id))S.get(id).children=tree.children.get(id).slice();
-}
-const projectStart=calendar?calendar.anchor:projectStartDay;
-const projectFinish=toCalDay(leaf.projectFinish);
-return{
-ok:true,
-tasks:S,
-order,
-critical:leaf.critical,
-criticalPaths:leaf.criticalPaths,
-projectStart,
-projectFinish,
-projectDuration:projectFinish-projectStart,
-conflicts:leaf.conflicts||[],
-calendar:!!calendar,
-};
-}
-function attachBaseline(rec,baselineStart,baselineEnd){
-if(baselineStart==null&&baselineEnd==null)return;
-rec.baselineStart=baselineStart??null;
-rec.baselineEnd=baselineEnd??null;
-rec.startVariance=baselineStart==null?null:rec.es-baselineStart;
-rec.finishVariance=baselineEnd==null?null:rec.ef-baselineEnd;
-rec.durationVariance=(baselineStart==null||baselineEnd==null)
-?null:(rec.ef-rec.es)-(baselineEnd-baselineStart);
-}
-function deriveSummary(id,raw,tree,S){
-const kids=tree.children.get(id).map((c)=>S.get(c));
-const es=Math.min(...kids.map((k)=>k.es));
-const ef=Math.max(...kids.map((k)=>k.ef));
-const ls=Math.min(...kids.map((k)=>k.ls));
-const lf=Math.max(...kids.map((k)=>k.lf));
-const leaves=tree.descendantLeaves(id).map((l)=>S.get(l));
-const weight=leaves.reduce((a,l)=>a+l.duration,0);
-const percentComplete=weight>EPS
-?leaves.reduce((a,l)=>a+l.duration*(l.percentComplete??0),0)/weight
-:null;
-const rec={
-id,
-name:raw.name,
-duration:ef-es,
-es,ef,ls,lf,
-totalFloat:ls-es,
-critical:kids.some((k)=>k.critical),
-percentComplete,
-parent:raw.parent,
-isSummary:true,
-isMilestone:false,
-children:[],
-};
-const bStarts=leaves.map((l)=>l.baselineStart).filter((v)=>v!=null);
-const bEnds=leaves.map((l)=>l.baselineEnd).filter((v)=>v!=null);
-if(bStarts.length||bEnds.length){
-attachBaseline(rec,bStarts.length?Math.min(...bStarts):null,bEnds.length?Math.max(...bEnds):null);
-}
-return rec;
-}
-function enumerateCriticalPaths(order,edges,S){
-const crit=new Map(order.map((id)=>[id,[]]));
-const hasCritPred=new Set();
-for(const e of edges){
-const p=S.get(e.from);
-const s=S.get(e.to);
-if(!p.critical||!s.critical)continue;
-let bound;
-switch(e.type){
-case'FS':bound=p.ef+e.lag;break;
-case'SS':bound=p.es+e.lag;break;
-case'FF':bound=p.ef+e.lag-s.duration;break;
-case'SF':bound=p.es+e.lag-s.duration;break;
-default:bound=-Infinity;
-}
-if(Math.abs(bound-s.es)<=EPS){
-crit.get(e.from).push(e.to);
-hasCritPred.add(e.to);
-}
-}
-const sources=order.filter((id)=>S.get(id).critical&&!hasCritPred.has(id));
-const paths=[];
-const walk=(id,acc)=>{
-const next=crit.get(id);
-if(!next.length){paths.push(acc);return;}
-for(const n of next)walk(n,acc.concat(n));
-};
-for(const src of sources)walk(src,[src]);
-return paths;
-}
-function findViolations(tasks,schedule){
-if(!schedule||!schedule.ok)return[];
-const violations=[];
-for(const raw of tasks){
-const id=raw&&raw.id!=null?String(raw.id):null;
-if(id==null||!schedule.tasks.has(id))continue;
-const rec=schedule.tasks.get(id);
-if(rec.isSummary)continue;
-const placed=asNumber(raw.start);
-if(placed==null)continue;
-if(placed<rec.es-EPS)violations.push({id,placedStart:placed,earliestStart:rec.es,by:rec.es-placed});
-}
-return violations;
-}
-});
-__def("packages/modules/gantt/resources.js",function(__exports,__req){
-'use strict';
-Object.defineProperty(__exports,"parseAssignments",{enumerable:true,get:function(){return parseAssignments;}});
-Object.defineProperty(__exports,"normalizeCapacities",{enumerable:true,get:function(){return normalizeCapacities;}});
-Object.defineProperty(__exports,"sweepLoad",{enumerable:true,get:function(){return sweepLoad;}});
-Object.defineProperty(__exports,"computeResourceLoad",{enumerable:true,get:function(){return computeResourceLoad;}});
-Object.defineProperty(__exports,"levelResources",{enumerable:true,get:function(){return levelResources;}});
-const __m0=__req("packages/core/src/internal/util.js");
-const warnOnce=__m0["warnOnce"];
-const __m1=__req("packages/modules/gantt/schedule.js");
-const computeSchedule=__m1["computeSchedule"];
-const EPS=__m1["EPS"];
-const __m2=__req("packages/modules/gantt/calendar.js");
-const createCalendar=__m2["createCalendar"];
-function asNumber(value){
-if(value==null||value==='')return null;
-const n=typeof value==='number'?value:Number(value);
-return Number.isFinite(n)?n:null;
-}
-function parseAssignments(raw){
-if(raw&&Array.isArray(raw.assignments)){
-return raw.assignments
-.map((a)=>{
-const resource=a&&(a.resource??a.name??a.id);
-if(resource==null||resource==='')return null;
-const units=asNumber(a.units)??asNumber(a.allocation)??1;
-return{resource:String(resource),units};
-})
-.filter(Boolean);
-}
-const value=raw?(raw.assignee??raw.assignees??raw.owner):null;
-const names=Array.isArray(value)?value:(value==null||value===''?[]:[value]);
-return names
-.map((v)=>String(v))
-.filter((v)=>v!=='')
-.map((name)=>({resource:name,units:1}));
-}
-function normalizeCapacities(resources,defaultCapacity){
-const map=new Map();
-if(Array.isArray(resources)){
-for(const r of resources){
-const name=r&&(r.id??r.name??r.resource);
-if(name==null||name==='')continue;
-const cap=asNumber(r.capacity??r.maxUnits??r.max??r.units);
-map.set(String(name),cap==null?defaultCapacity:cap);
-}
-}else if(resources&&typeof resources==='object'){
-for(const[name,cap]of Object.entries(resources)){
-const c=asNumber(cap);
-map.set(String(name),c==null?defaultCapacity:c);
-}
-}
-return map;
-}
-function sweepLoad(intervals){
-if(!intervals.length)return[];
-const points=new Set();
-for(const it of intervals){points.add(it.s);points.add(it.e);}
-const cuts=[...points].sort((a,b)=>a-b);
-const segments=[];
-for(let i=0;i<cuts.length-1;i+=1){
-const s=cuts[i];
-const e=cuts[i+1];
-if(e<=s)continue;
-let load=0;
-const taskIds=[];
-for(const it of intervals){
-if(it.s<=s&&it.e>=e){load+=it.units;taskIds.push(it.taskId);}
-}
-if(taskIds.length)segments.push({s,e,load,taskIds});
-}
-return segments;
-}
-function computeResourceLoad(tasks,schedule,options={}){
-const empty={ok:false,resources:[],overAllocations:[],byResource:new Map()};
-if(!schedule||!schedule.ok)return empty;
-const defaultCapacity=asNumber(options.defaultCapacity)??1;
-const capacities=normalizeCapacities(options.resources,defaultCapacity);
-const cal=options.calendar!=null?createCalendar(options.calendar,schedule.projectStart):null;
-const capacityOf=(name)=>(capacities.has(name)?capacities.get(name):defaultCapacity);
-const toIndex=(day)=>(cal?cal.indexOf(day):day);
-const toCalDay=(index)=>(cal?cal.dayOf(index):index);
-const bookings=new Map();
-for(const id of schedule.order){
-const rec=schedule.tasks.get(id);
-if(!rec||rec.isSummary)continue;
-const raw=tasks.find((t)=>t&&t.id!=null&&String(t.id)===id);
-if(!raw)continue;
-const assigns=parseAssignments(raw);
-if(!assigns.length)continue;
-const s=toIndex(rec.es);
-const e=toIndex(rec.ef);
-if(e<=s)continue;
-for(const a of assigns){
-if(!bookings.has(a.resource))bookings.set(a.resource,[]);
-bookings.get(a.resource).push({s,e,units:a.units,taskId:id});
-}
-}
-const byResource=new Map();
-const resources=[];
-const overAllocations=[];
-for(const[name,intervals]of bookings){
-const capacity=capacityOf(name);
-const raw=sweepLoad(intervals);
-let peak=0;
-const segments=raw.map((seg)=>{
-if(seg.load>peak)peak=seg.load;
-const out={start:toCalDay(seg.s),end:toCalDay(seg.e),load:seg.load,taskIds:seg.taskIds};
-if(seg.load>capacity+EPS){
-overAllocations.push({resource:name,capacity,start:out.start,end:out.end,load:seg.load,taskIds:seg.taskIds.slice()});
-}
-return out;
-});
-const entry={resource:name,capacity,peak,segments};
-byResource.set(name,entry);
-resources.push(entry);
-}
-resources.sort((a,b)=>(a.resource<b.resource?-1:a.resource>b.resource?1:0));
-overAllocations.sort((a,b)=>a.start-b.start||(a.resource<b.resource?-1:1));
-return{ok:true,resources,overAllocations,byResource};
-}
-function isPinned(raw){
-if(!raw)return false;
-const c=raw.constraint??raw.constraintType;
-if(c==null||c==='')return false;
-const code=String(c).toLowerCase().replace(/\s+/g,'-');
-return code==='mso'||code==='must-start-on'||code==='muststarton'||code==='start-on'
-||code==='mfo'||code==='must-finish-on'||code==='mustfinishon'||code==='finish-on';
-}
-function priorityOf(raw,field){
-return raw?(asNumber(raw[field])??0):0;
-}
-function levelResources(tasks,deps,options={}){
-const schedOpts={projectStart:options.projectStart,deadline:options.deadline,calendar:options.calendar};
-const priorityField=options.priorityField||'priority';
-const maxIterations=options.maxIterations!=null
-?options.maxIterations
-:Math.max(100,tasks.length*tasks.length*2);
-const working=tasks.map((t)=>({...t}));
-const order=working.map((t)=>String(t.id));
-const orderIndex=(id)=>order.indexOf(id);
-let schedule=computeSchedule(working,deps,schedOpts);
-if(!schedule.ok)return{ok:false,error:schedule.error};
-const originalStart=new Map();
-for(const id of schedule.order){
-const rec=schedule.tasks.get(id);
-if(rec&&!rec.isSummary)originalStart.set(id,rec.es);
-}
-let iterations=0;
-for(;iterations<maxIterations;iterations+=1){
-const load=computeResourceLoad(working,schedule,options);
-if(!load.overAllocations.length){
-return{ok:true,resolved:true,tasks:working,schedule,moves:collectMoves(originalStart,schedule),iterations};
-}
-const seg=load.overAllocations.slice().sort((a,b)=>a.start-b.start||b.load-a.load)[0];
-const rawById=new Map(working.map((t)=>[String(t.id),t]));
-const candidates=seg.taskIds
-.map((id)=>schedule.tasks.get(id))
-.filter(Boolean);
-const movable=candidates.filter((rec)=>!isPinned(rawById.get(rec.id)));
-if(!movable.length){
-return{ok:true,resolved:false,tasks:working,schedule,moves:collectMoves(originalStart,schedule),remaining:load.overAllocations,iterations};
-}
-movable.sort((a,b)=>{
-if(b.totalFloat!==a.totalFloat)return b.totalFloat-a.totalFloat;
-const pa=priorityOf(rawById.get(a.id),priorityField);
-const pb=priorityOf(rawById.get(b.id),priorityField);
-if(pa!==pb)return pa-pb;
-if(b.es!==a.es)return b.es-a.es;
-return orderIndex(b.id)-orderIndex(a.id);
-});
-const victim=movable[0];
-const competitorFinishes=candidates
-.filter((rec)=>rec.id!==victim.id)
-.map((rec)=>rec.ef)
-.filter((ef)=>ef>victim.es+EPS);
-const target=competitorFinishes.length?Math.min(...competitorFinishes):victim.es+1;
-rawById.get(victim.id).start=target;
-schedule=computeSchedule(working,deps,schedOpts);
-if(!schedule.ok)return{ok:false,error:schedule.error};
-}
-const finalLoad=computeResourceLoad(working,schedule,options);
-if(finalLoad.overAllocations.length){
-warnOnce(
-'gantt-level-unresolved',
-`[lattice] gantt: resource leveling hit its ${maxIterations}-iteration cap with ${finalLoad.overAllocations.length} over-allocation(s) unresolved; returning the partial result.`,
+`${this.#scope}.beforeThrow:${name}:${handlerId(handler,i)}`,
+`${this.#scope}: a '${name}' before-handler threw; the action was cancelled.`,
+err,
 );
 }
-return{
-ok:true,
-resolved:finalLoad.overAllocations.length===0,
-tasks:working,
-schedule,
-moves:collectMoves(originalStart,schedule),
-remaining:finalLoad.overAllocations,
-iterations,
-};
 }
-function collectMoves(originalStart,schedule){
-const moves=[];
-for(const id of schedule.order){
-const rec=schedule.tasks.get(id);
-if(!rec||rec.isSummary)continue;
-const from=originalStart.get(id);
-if(from==null)continue;
-if(rec.es>from+EPS)moves.push({id,from,to:rec.es,delay:rec.es-from});
+if(pending.length===0)return settle();
+return Promise.allSettled(pending).then((results)=>{
+for(const res of results){
+if(res.status==='rejected'){
+prevent('error');
+warnOnce(
+`${this.#scope}.beforeReject:${name}`,
+`${this.#scope}: a '${name}' before-handler rejected; the action was cancelled.`,
+res.reason,
+);
+}else if(res.value===false){
+prevent('prevented');
 }
-return moves;
 }
-});
-__def("packages/modules/gantt/earned-value.js",function(__exports,__req){
-'use strict';
-Object.defineProperty(__exports,"computeEarnedValue",{enumerable:true,get:function(){return computeEarnedValue;}});
-const __m0=__req("packages/modules/gantt/time.js");
-const toDayNumber=__m0["toDayNumber"];
-const EPS=1e-9;
-function asNumber(v){
-if(v==null||v==='')return null;
-const n=typeof v==='number'?v:Number(v);
-return Number.isFinite(n)?n:null;
-}
-function plannedFraction(status,start,end){
-if(end-start<=EPS)return status>=end?1:0;
-if(status<=start)return 0;
-if(status>=end)return 1;
-return(status-start)/(end-start);
-}
-function leafFigures(rec,raw,status,costField,actualCostField){
-const cost=raw?asNumber(raw[costField]):null;
-const bac=cost==null?rec.duration:cost;
-const ac=raw?asNumber(raw[actualCostField]):null;
-const pct=rec.percentComplete==null
-?0
-:Math.max(0,Math.min(100,rec.percentComplete))/100;
-const hasBaseline=rec.baselineStart!=null||rec.baselineEnd!=null;
-const bStart=rec.baselineStart!=null?rec.baselineStart:rec.es;
-const bEnd=rec.baselineEnd!=null?rec.baselineEnd:rec.ef;
-const pv=bac*plannedFraction(status,bStart,bEnd);
-const ev=bac*pct;
-return{bac,pv,ev,ac,hasBaseline};
-}
-function metricsOf(a){
-const ac=a.ac;
-return{
-bac:a.bac,
-pv:a.pv,
-ev:a.ev,
-ac,
-sv:a.ev-a.pv,
-cv:ac==null?null:a.ev-ac,
-spi:Math.abs(a.pv)<EPS?null:a.ev/a.pv,
-cpi:(ac==null||Math.abs(ac)<EPS)?null:a.ev/ac,
-};
-}
-function computeEarnedValue(tasks,schedule,options={}){
-if(!schedule||!schedule.ok||!schedule.tasks||!schedule.order){
-return{ok:false,error:{code:'NO_SCHEDULE',message:'earned value needs a successful schedule'}};
-}
-const costField=options.costField||'cost';
-const actualCostField=options.actualCostField||'actualCost';
-const status=options.statusDate==null
-?schedule.projectFinish
-:(toDayNumber(options.statusDate)??schedule.projectFinish);
-const rawById=new Map();
-for(const t of Array.isArray(tasks)?tasks:[]){
-if(t&&t.id!=null)rawById.set(String(t.id),t);
-}
-const blank=()=>({bac:0,pv:0,ev:0,ac:0,acAny:false,hasBaseline:false});
-const acc=new Map();
-for(const id of schedule.order)acc.set(id,blank());
-const projectAcc=blank();
-for(const id of schedule.order){
-const rec=schedule.tasks.get(id);
-if(!rec||rec.isSummary)continue;
-const f=leafFigures(rec,rawById.get(id),status,costField,actualCostField);
-let cur=id;
-while(cur!=null&&acc.has(cur)){
-const a=acc.get(cur);
-a.bac+=f.bac;a.pv+=f.pv;a.ev+=f.ev;
-if(f.ac!=null){a.ac+=f.ac;a.acAny=true;}
-if(f.hasBaseline)a.hasBaseline=true;
-cur=schedule.tasks.get(cur).parent;
-}
-projectAcc.bac+=f.bac;projectAcc.pv+=f.pv;projectAcc.ev+=f.ev;
-if(f.ac!=null){projectAcc.ac+=f.ac;projectAcc.acAny=true;}
-if(f.hasBaseline)projectAcc.hasBaseline=true;
-}
-const finalize=(a)=>metricsOf({bac:a.bac,pv:a.pv,ev:a.ev,ac:a.acAny?a.ac:null});
-const byTask=new Map();
-const rows=[];
-for(const id of schedule.order){
-const rec=schedule.tasks.get(id);
-const a=acc.get(id);
-const row={
-id:rec.id,
-name:rec.name,
-isSummary:!!rec.isSummary,
-isMilestone:!!rec.isMilestone,
-percentComplete:rec.percentComplete??null,
-hasBaseline:a.hasBaseline,
-hasActualCost:a.acAny,
-...finalize(a),
-};
-byTask.set(id,row);
-rows.push(row);
-}
-return{
-ok:true,
-statusDate:status,
-byTask,
-rows,
-project:{hasActualCost:projectAcc.acAny,hasBaseline:projectAcc.hasBaseline,...finalize(projectAcc)},
-};
-}
-});
-__def("packages/modules/gantt/mspdi.js",function(__exports,__req){
-'use strict';
-Object.defineProperty(__exports,"parseXml",{enumerable:true,get:function(){return parseXml;}});
-Object.defineProperty(__exports,"importMSPDI",{enumerable:true,get:function(){return importMSPDI;}});
-Object.defineProperty(__exports,"exportMSPDI",{enumerable:true,get:function(){return exportMSPDI;}});
-const __m0=__req("packages/core/src/internal/util.js");
-const warnOnce=__m0["warnOnce"];
-const __m1=__req("packages/modules/gantt/time.js");
-const toDayNumber=__m1["toDayNumber"];
-const toISODate=__m1["toISODate"];
-const LINK_TYPE_BY_CODE=Object.freeze({0:'FF',1:'FS',2:'SF',3:'SS'});
-const CODE_BY_LINK_TYPE=Object.freeze({FF:0,FS:1,SF:2,SS:3});
-const CONSTRAINT_BY_CODE=Object.freeze({1:'as-late-as-possible',2:'must-start-on',3:'must-finish-on'});
-const CODE_BY_CONSTRAINT=Object.freeze({ALAP:1,MSO:2,MFO:3});
-function decodeEntities(text){
-return String(text).replace(/&(#x?[0-9a-fA-F]+|lt|gt|amp|quot|apos);/g,(m,e)=>{
-if(e[0]==='#'){
-const code=(e[1]==='x'||e[1]==='X')?parseInt(e.slice(2),16):parseInt(e.slice(1),10);
-return Number.isFinite(code)?String.fromCodePoint(code):m;
-}
-return{lt:'<',gt:'>',amp:'&',quot:'"',apos:"'"}[e]??m;
+return settle();
 });
 }
-function escapeXml(value){
-return String(value==null?'':value)
-.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-.replace(/"/g,'&quot;').replace(/'/g,'&apos;');
-}
-function localName(qname){
-const i=qname.indexOf(':');
-return i<0?qname:qname.slice(i+1);
-}
-function parseXml(source){
-const s=String(source);
-let pos=0;
-const stack=[];
-let root=null;
-while(pos<s.length){
-const lt=s.indexOf('<',pos);
-if(lt<0)break;
-if(lt>pos&&stack.length){
-const txt=s.slice(pos,lt);
-if(txt.trim())stack[stack.length-1].text+=decodeEntities(txt);
-}
-if(s.startsWith('<?',lt)){const e=s.indexOf('?>',lt);pos=e<0?s.length:e+2;continue;}
-if(s.startsWith('<!--',lt)){const e=s.indexOf('-->',lt);pos=e<0?s.length:e+3;continue;}
-if(s.startsWith('<![CDATA[',lt)){
-const e=s.indexOf(']]>',lt);
-if(stack.length)stack[stack.length-1].text+=s.slice(lt+9,e<0?s.length:e);
-pos=e<0?s.length:e+3;
-continue;
-}
-if(s.startsWith('<!',lt)){const e=s.indexOf('>',lt);pos=e<0?s.length:e+1;continue;}
-const gt=s.indexOf('>',lt);
-if(gt<0)break;
-let tag=s.slice(lt+1,gt).trim();
-if(tag[0]==='/'){stack.pop();pos=gt+1;continue;}
-const selfClose=tag.endsWith('/');
-if(selfClose)tag=tag.slice(0,-1).trim();
-const sp=tag.search(/\s/);
-const name=localName(sp<0?tag:tag.slice(0,sp));
-const attrs={};
-if(sp>=0){
-for(const m of tag.slice(sp).matchAll(/([\w:.-]+)\s*=\s*"([^"]*)"|([\w:.-]+)\s*=\s*'([^']*)'/g)){
-attrs[localName(m[1]??m[3])]=decodeEntities(m[2]??m[4]??'');
+clear(){
+this.#handlers.clear();
 }
 }
-const node={name,attrs,children:[],text:''};
-if(stack.length)stack[stack.length-1].children.push(node);
-else if(!root)root=node;
-if(!selfClose)stack.push(node);
-pos=gt+1;
-}
-return root;
-}
-function child(node,name){
-return node?node.children.find((c)=>c.name===name):undefined;
-}
-function childrenOf(node,name){
-return node?node.children.filter((c)=>c.name===name):[];
-}
-function childText(node,name){
-const c=child(node,name);
-return c?c.text.trim():undefined;
-}
-function dateToDay(text){
-if(!text)return null;
-const m=String(text).match(/^\d{4}-\d{2}-\d{2}/);
-return m?toDayNumber(m[0]):toDayNumber(text);
-}
-function dayToDateTime(day,hour){
-const iso=toISODate(day);
-return`${iso}T${String(hour).padStart(2,'0')}:00:00`;
-}
-function durationToDays(text,hoursPerDay){
-if(!text)return null;
-const m=String(text).match(/PT?(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?/);
-if(!m)return null;
-const hours=(Number(m[1])||0)+(Number(m[2])||0)/60+(Number(m[3])||0)/3600;
-return hours/hoursPerDay;
-}
-function daysToDuration(days,hoursPerDay){
-const hours=Math.round((days||0)*hoursPerDay*1000)/1000;
-return`PT${hours}H0M0S`;
-}
-function lagToDays(text,hoursPerDay){
-const tenths=Number(text)||0;
-return tenths/(10*60*hoursPerDay);
-}
-function daysToLag(days,hoursPerDay){
-return Math.round((days||0)*10*60*hoursPerDay);
-}
-function importMSPDI(xml,opts={}){
-const hoursPerDay=opts.hoursPerDay??8;
-const root=parseXml(xml);
-if(!root||root.name!=='Project'){
-warnOnce('gantt-mspdi-not-project','[lattice] gantt: importMSPDI input is not an MSPDI <Project> document.');
-return{ok:false,error:'not an MSPDI <Project> document',tasks:[],dependencies:[],resources:[]};
-}
-const projectStart=dateToDay(childText(root,'StartDate'));
-const resourcesNode=child(root,'Resources');
-const resourceName=new Map();
-const resources=[];
-for(const r of childrenOf(resourcesNode,'Resource')){
-const uid=childText(r,'UID');
-const name=childText(r,'Name');
-if(uid==null)continue;
-if(name==null||name==='')continue;
-resourceName.set(uid,name);
-const maxUnits=childText(r,'MaxUnits');
-resources.push({id:name,name,capacity:maxUnits==null?1:Number(maxUnits)});
-}
-const assignmentsNode=child(root,'Assignments');
-const assignsByTask=new Map();
-for(const a of childrenOf(assignmentsNode,'Assignment')){
-const taskUid=childText(a,'TaskUID');
-const resUid=childText(a,'ResourceUID');
-const name=resourceName.get(resUid);
-if(taskUid==null||name==null)continue;
-const units=childText(a,'Units');
-if(!assignsByTask.has(taskUid))assignsByTask.set(taskUid,[]);
-assignsByTask.get(taskUid).push({resource:name,units:units==null?1:Number(units)});
-}
-const tasksNode=child(root,'Tasks');
-const tasks=[];
-const dependencies=[];
-const idByUid=new Map();
-const parentStack=[];
-const linkWork=[];
-for(const t of childrenOf(tasksNode,'Task')){
-if(childText(t,'IsNull')==='1')continue;
-const uid=childText(t,'UID');
-if(uid==null)continue;
-if(uid==='0')continue;
-const id=uid;
-idByUid.set(uid,id);
-const level=Number(childText(t,'OutlineLevel'))||1;
-while(parentStack.length&&parentStack[parentStack.length-1].level>=level)parentStack.pop();
-const parent=parentStack.length?parentStack[parentStack.length-1].uid:null;
-parentStack.push({uid,level});
-const isSummary=childText(t,'Summary')==='1';
-const isMilestone=childText(t,'Milestone')==='1';
-const task={id,name:childText(t,'Name')??id};
-if(parent)task.parent=parent;
-if(isMilestone)task.milestone=true;
-if(!isSummary&&!isMilestone){
-const dur=durationToDays(childText(t,'Duration'),hoursPerDay);
-if(dur!=null)task.duration=dur;
-}
-const start=dateToDay(childText(t,'Start'));
-if(!isSummary&&start!=null)task.start=start;
-const pc=childText(t,'PercentComplete');
-if(pc!=null)task.percentComplete=Number(pc);
-const ctype=CONSTRAINT_BY_CODE[Number(childText(t,'ConstraintType'))];
-if(ctype){
-task.constraint=ctype;
-const cdate=dateToDay(childText(t,'ConstraintDate'));
-if(cdate!=null)task.constraintDate=cdate;
-}
-const baseline=child(t,'Baseline');
-if(baseline){
-const bs=dateToDay(childText(baseline,'Start'));
-const bf=dateToDay(childText(baseline,'Finish'));
-if(bs!=null)task.baselineStart=bs;
-if(bf!=null)task.baselineEnd=bf;
-}
-const assigns=assignsByTask.get(uid);
-if(assigns&&assigns.length)task.assignments=assigns;
-tasks.push(task);
-for(const link of childrenOf(t,'PredecessorLink'))linkWork.push({raw:link,uid});
-}
-for(const{raw,uid}of linkWork){
-const predUid=childText(raw,'PredecessorUID');
-const from=idByUid.get(predUid);
-const to=idByUid.get(uid);
-if(from==null||to==null)continue;
-const type=LINK_TYPE_BY_CODE[Number(childText(raw,'Type')??1)]??'FS';
-const lag=lagToDays(childText(raw,'LinkLag'),hoursPerDay);
-const dep={from,to,type};
-if(lag)dep.lag=lag;
-dependencies.push(dep);
-}
-const calendar=importCalendar(root);
-const out={ok:true,tasks,dependencies,resources};
-if(projectStart!=null)out.projectStart=projectStart;
-if(calendar)out.calendar=calendar;
-return out;
-}
-function importCalendar(root){
-const calendarsNode=child(root,'Calendars');
-const calendars=childrenOf(calendarsNode,'Calendar');
-const baseUid=childText(root,'CalendarUID');
-const base=calendars.find((c)=>childText(c,'UID')===baseUid)??calendars[0];
-if(!base)return null;
-const weekDays=child(base,'WeekDays');
-const workdays=[];
-let sawWeekDays=false;
-for(const wd of childrenOf(weekDays,'WeekDay')){
-const dayType=Number(childText(wd,'DayType'));
-if(dayType>=1&&dayType<=7){
-sawWeekDays=true;
-if(childText(wd,'DayWorking')==='1')workdays.push(dayType-1);
-}
-}
-const holidays=[];
-const exceptions=child(base,'Exceptions');
-for(const ex of childrenOf(exceptions,'Exception')){
-if(childText(ex,'DayWorking')==='1')continue;
-const period=child(ex,'TimePeriod');
-const from=dateToDay(childText(period,'FromDate'));
-const to=dateToDay(childText(period,'ToDate'))??from;
-if(from==null)continue;
-for(let d=from;d<=to;d+=1)holidays.push(d);
-}
-if(!sawWeekDays&&!holidays.length)return null;
-return{workdays:sawWeekDays?workdays:[1,2,3,4,5],holidays};
-}
-function exportMSPDI(model,opts={}){
-const hoursPerDay=opts.hoursPerDay??8;
-const tasks=Array.isArray(model.tasks)?model.tasks:[];
-const deps=Array.isArray(model.dependencies)?model.dependencies:[];
-const resources=Array.isArray(model.resources)?model.resources:[];
-const schedule=model.schedule&&model.schedule.ok?model.schedule:null;
-const uidOf=new Map();
-tasks.forEach((t,i)=>{
-const raw=String(t.id);
-uidOf.set(raw,/^\d+$/.test(raw)?raw:String(i+1));
-});
-const childrenById=new Map();
-for(const t of tasks){
-const p=t.parent!=null?String(t.parent):null;
-if(p){if(!childrenById.has(p))childrenById.set(p,[]);childrenById.get(p).push(String(t.id));}
-}
-const isSummary=(id)=>childrenById.has(id);
-const outlineLevel=(id)=>{
-let level=1;
-let cur=tasks.find((t)=>String(t.id)===id);
-while(cur&&cur.parent!=null){level+=1;cur=tasks.find((t)=>String(t.id)===String(cur.parent));}
-return level;
+function gate(emitter,before,cancelled,payload,apply){
+const decision=emitter.emitBefore(before,payload,(payload).origin);
+const refuse=()=>{
+emitter.emit(cancelled,{...payload,reason:(payload).reason||'prevented'});
+return false;
 };
-const linksBySucc=new Map();
-for(const d of deps){
-const to=String(d.to);
-if(!linksBySucc.has(to))linksBySucc.set(to,[]);
-linksBySucc.get(to).push(d);
+if(decision===false)return refuse();
+if(decision&&isFunction((decision).then)){
+return(decision).then((ok)=>(ok?apply():refuse()));
 }
-const lines=[];
-lines.push('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
-lines.push('<Project xmlns="http://schemas.microsoft.com/project">');
-lines.push(`  <Name>${escapeXml(opts.projectName||'Lattice Gantt export')}</Name>`);
-const ps=model.projectStart!=null?toDayNumber(model.projectStart):(schedule?schedule.projectStart:null);
-if(ps!=null)lines.push(`  <StartDate>${dayToDateTime(ps,8)}</StartDate>`);
-const calendarSpec=normalizeCalendarSpec(model.calendar);
-if(calendarSpec)lines.push('  <CalendarUID>1</CalendarUID>');
-if(calendarSpec){
-lines.push('  <Calendars>');
-lines.push('    <Calendar>');
-lines.push('      <UID>1</UID>');
-lines.push('      <Name>Standard</Name>');
-lines.push('      <IsBaseCalendar>1</IsBaseCalendar>');
-lines.push('      <WeekDays>');
-for(let day=0;day<=6;day+=1){
-const working=calendarSpec.workdays.includes(day);
-lines.push('        <WeekDay>');
-lines.push(`          <DayType>${day+1}</DayType>`);
-lines.push(`          <DayWorking>${working?1:0}</DayWorking>`);
-lines.push('        </WeekDay>');
-}
-lines.push('      </WeekDays>');
-if(calendarSpec.holidays.length){
-lines.push('      <Exceptions>');
-for(const h of calendarSpec.holidays){
-lines.push('        <Exception>');
-lines.push('          <DayWorking>0</DayWorking>');
-lines.push(`          <TimePeriod><FromDate>${dayToDateTime(h,0)}</FromDate><ToDate>${dayToDateTime(h,23)}</ToDate></TimePeriod>`);
-lines.push('        </Exception>');
-}
-lines.push('      </Exceptions>');
-}
-lines.push('    </Calendar>');
-lines.push('  </Calendars>');
-}
-lines.push('  <Tasks>');
-for(const t of tasks){
-const id=String(t.id);
-const uid=uidOf.get(id);
-const summary=isSummary(id);
-const milestone=!!t.milestone||(!summary&&Number(t.duration)===0);
-const rec=schedule?schedule.tasks.get(id):null;
-lines.push('    <Task>');
-lines.push(`      <UID>${escapeXml(uid)}</UID>`);
-lines.push(`      <ID>${escapeXml(uid)}</ID>`);
-lines.push(`      <Name>${escapeXml(t.name!=null?t.name:id)}</Name>`);
-lines.push(`      <OutlineLevel>${outlineLevel(id)}</OutlineLevel>`);
-lines.push(`      <Summary>${summary?1:0}</Summary>`);
-lines.push(`      <Milestone>${milestone?1:0}</Milestone>`);
-const durDays=rec?rec.duration:(t.duration!=null?Number(t.duration):null);
-if(durDays!=null)lines.push(`      <Duration>${daysToDuration(durDays,hoursPerDay)}</Duration>`);
-lines.push('      <DurationFormat>7</DurationFormat>');
-const startDay=rec?rec.es:(t.start!=null?toDayNumber(t.start):null);
-const finishDay=rec?rec.ef:(t.end!=null?toDayNumber(t.end):(startDay!=null&&durDays!=null?startDay+durDays:null));
-if(startDay!=null)lines.push(`      <Start>${dayToDateTime(startDay,8)}</Start>`);
-if(finishDay!=null)lines.push(`      <Finish>${dayToDateTime(finishDay,17)}</Finish>`);
-const pc=rec?rec.percentComplete:t.percentComplete;
-if(pc!=null)lines.push(`      <PercentComplete>${Math.round(Number(pc))}</PercentComplete>`);
-const ccode=constraintCode(t.constraint??t.constraintType);
-if(ccode!=null){
-lines.push(`      <ConstraintType>${ccode}</ConstraintType>`);
-const cdate=dateOf(t.constraintDate??t.constraintAt??t.at);
-if(cdate!=null)lines.push(`      <ConstraintDate>${dayToDateTime(cdate,8)}</ConstraintDate>`);
-}
-const bs=dateOf(t.baselineStart??(t.baseline&&t.baseline.start));
-const bf=dateOf(t.baselineEnd??(t.baseline&&t.baseline.end));
-if(bs!=null||bf!=null){
-lines.push('      <Baseline>');
-lines.push('        <Number>0</Number>');
-if(bs!=null)lines.push(`        <Start>${dayToDateTime(bs,8)}</Start>`);
-if(bf!=null)lines.push(`        <Finish>${dayToDateTime(bf,17)}</Finish>`);
-if(bs!=null&&bf!=null)lines.push(`        <Duration>${daysToDuration(bf-bs,hoursPerDay)}</Duration>`);
-lines.push('      </Baseline>');
-}
-for(const d of linksBySucc.get(id)||[]){
-const predUid=uidOf.get(String(d.from));
-if(predUid==null)continue;
-lines.push('      <PredecessorLink>');
-lines.push(`        <PredecessorUID>${escapeXml(predUid)}</PredecessorUID>`);
-lines.push(`        <Type>${CODE_BY_LINK_TYPE[(d.type?String(d.type).toUpperCase():'FS')]??1}</Type>`);
-if(d.lag){
-lines.push(`        <LinkLag>${daysToLag(Number(d.lag),hoursPerDay)}</LinkLag>`);
-lines.push('        <LagFormat>7</LagFormat>');
-}
-lines.push('      </PredecessorLink>');
-}
-lines.push('    </Task>');
-}
-lines.push('  </Tasks>');
-const resByName=new Map();
-resources.forEach((r,i)=>{
-const name=String(r.name??r.id??`Resource ${i+1}`);
-resByName.set(name,{uid:String(i+1),capacity:r.capacity??r.maxUnits??1});
-});
-const assignmentRows=[];
-for(const t of tasks){
-for(const a of readAssignments(t)){
-if(!resByName.has(a.resource))resByName.set(a.resource,{uid:String(resByName.size+1),capacity:1});
-assignmentRows.push({taskUid:uidOf.get(String(t.id)),resUid:resByName.get(a.resource).uid,units:a.units});
-}
-}
-lines.push('  <Resources>');
-for(const[name,r]of resByName){
-lines.push('    <Resource>');
-lines.push(`      <UID>${escapeXml(r.uid)}</UID>`);
-lines.push(`      <ID>${escapeXml(r.uid)}</ID>`);
-lines.push(`      <Name>${escapeXml(name)}</Name>`);
-lines.push(`      <MaxUnits>${Number(r.capacity)}</MaxUnits>`);
-lines.push('    </Resource>');
-}
-lines.push('  </Resources>');
-lines.push('  <Assignments>');
-assignmentRows.forEach((a,i)=>{
-lines.push('    <Assignment>');
-lines.push(`      <UID>${i+1}</UID>`);
-lines.push(`      <TaskUID>${escapeXml(a.taskUid)}</TaskUID>`);
-lines.push(`      <ResourceUID>${escapeXml(a.resUid)}</ResourceUID>`);
-lines.push(`      <Units>${Number(a.units)}</Units>`);
-lines.push('    </Assignment>');
-});
-lines.push('  </Assignments>');
-lines.push('</Project>');
-return lines.join('\n');
-}
-function readAssignments(t){
-if(t&&Array.isArray(t.assignments)){
-return t.assignments
-.map((a)=>{
-const resource=a&&(a.resource??a.name??a.id);
-if(resource==null||resource==='')return null;
-const units=Number(a.units??a.allocation??1);
-return{resource:String(resource),units:Number.isFinite(units)?units:1};
-})
-.filter(Boolean);
-}
-const value=t?(t.assignee??t.assignees??t.owner):null;
-const names=Array.isArray(value)?value:(value==null||value===''?[]:[value]);
-return names.map((v)=>String(v)).filter((v)=>v!=='').map((name)=>({resource:name,units:1}));
-}
-function normalizeCalendarSpec(spec){
-if(spec==null)return null;
-if(spec==='weekends')return{workdays:[1,2,3,4,5],holidays:[]};
-const workdays=Array.isArray(spec.workdays)&&spec.workdays.length
-?spec.workdays.map(Number).filter((n)=>n>=0&&n<=6)
-:[1,2,3,4,5];
-const holidays=(Array.isArray(spec.holidays)?spec.holidays:[])
-.map((h)=>toDayNumber(h)).filter((d)=>d!=null);
-return{workdays,holidays};
-}
-function constraintCode(constraint){
-if(constraint==null||constraint==='')return null;
-const code=String(constraint).toLowerCase().replace(/\s+/g,'-');
-const map={
-mso:'MSO','must-start-on':'MSO',muststarton:'MSO','start-on':'MSO',
-mfo:'MFO','must-finish-on':'MFO',mustfinishon:'MFO','finish-on':'MFO',
-alap:'ALAP','as-late-as-possible':'ALAP',aslateaspossible:'ALAP',late:'ALAP',
-};
-const resolved=map[code]??(['MSO','MFO','ALAP'].includes(String(constraint).toUpperCase())?String(constraint).toUpperCase():null);
-return resolved?CODE_BY_CONSTRAINT[resolved]:null;
-}
-function dateOf(value){
-if(value==null||value==='')return null;
-return toDayNumber(value);
+return apply();
 }
 });
 __def("packages/modules/shared/autosize.js",function(__exports,__req){
@@ -1913,2395 +700,1129 @@ observer=null;
 };
 }
 });
-__def("packages/modules/charts/svg.js",function(__exports,__req){
+__def("packages/modules/layout/length.js",function(__exports,__req){
 'use strict';
-Object.defineProperty(__exports,"SVG_NS",{enumerable:true,get:function(){return SVG_NS;}});
-Object.defineProperty(__exports,"el",{enumerable:true,get:function(){return el;}});
-Object.defineProperty(__exports,"svg",{enumerable:true,get:function(){return svg;}});
-Object.defineProperty(__exports,"attr",{enumerable:true,get:function(){return attr;}});
-Object.defineProperty(__exports,"attrs",{enumerable:true,get:function(){return attrs;}});
-Object.defineProperty(__exports,"setText",{enumerable:true,get:function(){return setText;}});
-Object.defineProperty(__exports,"clear",{enumerable:true,get:function(){return clear;}});
-Object.defineProperty(__exports,"append",{enumerable:true,get:function(){return append;}});
-Object.defineProperty(__exports,"path",{enumerable:true,get:function(){return path;}});
-Object.defineProperty(__exports,"ribbonPath",{enumerable:true,get:function(){return ribbonPath;}});
-Object.defineProperty(__exports,"round",{enumerable:true,get:function(){return round;}});
-const SVG_NS='http://www.w3.org/2000/svg';
-function el(doc,tag,className){
-const node=doc.createElement(tag);
-if(className)node.setAttribute('class',className);
-return node;
+Object.defineProperty(__exports,"cssLength",{enumerable:true,get:function(){return cssLength;}});
+Object.defineProperty(__exports,"tracks",{enumerable:true,get:function(){return tracks;}});
+const __m0=__req("packages/core/src/internal/util.js");
+const warnOnce=__m0["warnOnce"];
+const LENGTH=/^(?:\d+\.?\d*|\.\d+)(?:px|%|fr|em|rem|ch|vh|vw|vmin|vmax|pt|cm|mm|in)$/i;
+function cssLength(value,fallback,key){
+if(value==null)return fallback;
+if(typeof value==='number'){
+return Number.isFinite(value)&&value>=0?`${value}px`:refuse(value,fallback,key);
 }
-function svg(doc,tag,attrs){
-const node=(doc.createElementNS(SVG_NS,tag));
-if(attrs)for(const key of Object.keys(attrs))node.setAttribute(key,String(attrs[key]));
-return node;
+if(typeof value!=='string')return refuse(value,fallback,key);
+const text=value.trim();
+if(text==='')return fallback;
+if(LENGTH.test(text))return text;
+const px=Number(text);
+if(Number.isFinite(px)&&px>=0)return`${px}px`;
+return refuse(value,fallback,key);
 }
-function attr(node,name,value){
-if(!node)return;
-if(value===null||value===undefined)node.removeAttribute(name);
-else node.setAttribute(name,String(value));
+function refuse(value,fallback,key){
+warnOnce(
+`layout.length:${key}`,
+`layout: ${key} was set to ${JSON.stringify(value)}, which is not a length this module `
++`understands (a number of pixels, or a string like '200px', '25%', '1fr', '2rem'). `
++`Using ${fallback}.`,
+);
+return fallback;
 }
-function attrs(node,values){
-if(!node)return;
-for(const name of Object.keys(values))attr(node,name,values[name]);
-}
-function setText(node,text){
-if(node)node.textContent=text===null||text===undefined?'':String(text);
-}
-function clear(node){
-if(!node)return;
-while(node.firstChild)node.removeChild(node.firstChild);
-}
-function append(parent,children){
-for(const child of children)if(child)parent.appendChild(child);
-return parent;
-}
-function path(parts){
-return parts.join(' ');
-}
-function ribbonPath(rows){
-if(!rows||rows.length<2)return'';
-const shape=['M',rows[0].x,rows[0].upper];
-for(let i=1;i<rows.length;i++)shape.push('L',rows[i].x,rows[i].upper);
-for(let i=rows.length-1;i>=0;i--)shape.push('L',rows[i].x,rows[i].lower);
-shape.push('Z');
-return path(shape);
-}
-function round(n){
-return Math.round(n*100)/100;
+function tracks(overflow,count,fixed){
+return overflow==='scroll'
+?`repeat(${count}, ${fixed})`
+:`repeat(${count}, minmax(0, 1fr))`;
 }
 });
-__def("packages/modules/charts/scale.js",function(__exports,__req){
+__def("packages/modules/layout/model.js",function(__exports,__req){
 'use strict';
-Object.defineProperty(__exports,"isNumber",{enumerable:true,get:function(){return isNumber;}});
-Object.defineProperty(__exports,"toNumber",{enumerable:true,get:function(){return toNumber;}});
-Object.defineProperty(__exports,"toTime",{enumerable:true,get:function(){return toTime;}});
-Object.defineProperty(__exports,"extent",{enumerable:true,get:function(){return extent;}});
-Object.defineProperty(__exports,"niceStep",{enumerable:true,get:function(){return niceStep;}});
-Object.defineProperty(__exports,"niceDomain",{enumerable:true,get:function(){return niceDomain;}});
-Object.defineProperty(__exports,"measureDomain",{enumerable:true,get:function(){return measureDomain;}});
-Object.defineProperty(__exports,"linearTicks",{enumerable:true,get:function(){return linearTicks;}});
-Object.defineProperty(__exports,"timeStepFor",{enumerable:true,get:function(){return timeStepFor;}});
-Object.defineProperty(__exports,"timeTicks",{enumerable:true,get:function(){return timeTicks;}});
-Object.defineProperty(__exports,"linearScale",{enumerable:true,get:function(){return linearScale;}});
-Object.defineProperty(__exports,"timeScale",{enumerable:true,get:function(){return timeScale;}});
-Object.defineProperty(__exports,"key",{enumerable:true,get:function(){return key;}});
-Object.defineProperty(__exports,"bandScale",{enumerable:true,get:function(){return bandScale;}});
-Object.defineProperty(__exports,"sqrtScale",{enumerable:true,get:function(){return sqrtScale;}});
-const STEPS=[1,2,2.5,5,10];
-const MINUTE=60000;
-const HOUR=3600000;
-const DAY=86400000;
-const TIME_STEPS=[
-1,5,10,25,50,100,250,500,
-1000,5000,15000,30000,
-MINUTE,5*MINUTE,15*MINUTE,30*MINUTE,
-HOUR,3*HOUR,6*HOUR,12*HOUR,
-DAY,2*DAY,7*DAY,14*DAY,
-30*DAY,90*DAY,180*DAY,
-365*DAY,2*365*DAY,5*365*DAY,10*365*DAY,100*365*DAY,
-];
-function isNumber(v){
-return typeof v==='number'&&Number.isFinite(v);
+Object.defineProperty(__exports,"positiveInt",{enumerable:true,get:function(){return positiveInt;}});
+Object.defineProperty(__exports,"overlaps",{enumerable:true,get:function(){return overlaps;}});
+Object.defineProperty(__exports,"clampToColumns",{enumerable:true,get:function(){return clampToColumns;}});
+Object.defineProperty(__exports,"readingOrder",{enumerable:true,get:function(){return readingOrder;}});
+Object.defineProperty(__exports,"pushDown",{enumerable:true,get:function(){return pushDown;}});
+Object.defineProperty(__exports,"pullUp",{enumerable:true,get:function(){return pullUp;}});
+Object.defineProperty(__exports,"compact",{enumerable:true,get:function(){return compact;}});
+Object.defineProperty(__exports,"firstFree",{enumerable:true,get:function(){return firstFree;}});
+Object.defineProperty(__exports,"occupiedRows",{enumerable:true,get:function(){return occupiedRows;}});
+function positiveInt(value,fallback){
+const n=Math.trunc(Number(value));
+return Number.isFinite(n)&&n>0?n:fallback;
 }
-function toNumber(v){
-if(v===null||v===undefined||v==='')return null;
-if(v instanceof Date){
-const t=v.getTime();
-return Number.isFinite(t)?t:null;
+function overlaps(a,b){
+return a.xPos<b.xPos+b.xSize
+&&b.xPos<a.xPos+a.xSize
+&&a.yPos<b.yPos+b.ySize
+&&b.yPos<a.yPos+a.ySize;
 }
-if(typeof v==='boolean')return v?1:0;
-const n=Number(v);
-return Number.isFinite(n)?n:null;
+function clampToColumns(placement,columns){
+const xSize=Math.max(1,Math.min(placement.xSize,columns));
+const xPos=Math.max(1,Math.min(placement.xPos,columns-xSize+1));
+return{xPos,yPos:Math.max(1,placement.yPos),xSize,ySize:Math.max(1,placement.ySize)};
 }
-function toTime(v){
-if(v===null||v===undefined||v==='')return null;
-if(v instanceof Date){
-const t=v.getTime();
-return Number.isFinite(t)?t:null;
+function readingOrder(a,b){
+return a.yPos-b.yPos||a.xPos-b.xPos;
 }
-if(typeof v==='number')return Number.isFinite(v)?v:null;
-const parsed=Date.parse(String(v));
-return Number.isFinite(parsed)?parsed:null;
+function pushDown(windows,movedId){
+const moved=windows.find((w)=>w.id===movedId);
+const settled=moved?[moved]:[];
+const rest=windows.filter((w)=>w!==moved).sort(readingOrder);
+const guardLimit=windows.length+2;
+for(const w of rest){
+for(let guard=0;guard<guardLimit;guard++){
+const blockers=settled.filter((s)=>overlaps(w,s));
+if(blockers.length===0)break;
+w.yPos=blockers.reduce((lowest,s)=>Math.max(lowest,s.yPos+s.ySize),w.yPos);
 }
-function extent(values){
-let min=Infinity;
-let max=-Infinity;
-for(let i=0;i<values.length;i++){
-const v=values[i];
-if(!isNumber(v))continue;
-if((v)<min)min=(v);
-if((v)>max)max=(v);
+settled.push(w);
 }
-return min===Infinity?null:{min,max};
+return windows;
 }
-function niceStep(step){
-if(!(step>0))return 1;
-const power=10**Math.floor(Math.log10(step));
-for(const s of STEPS){
-if(step<=s*power)return s*power;
+function pullUp(windows){
+const settled=[];
+for(const w of[...windows].sort(readingOrder)){
+while(w.yPos>1){
+const probe={...w,yPos:w.yPos-1};
+if(settled.some((s)=>overlaps(probe,s)))break;
+w.yPos-=1;
 }
-return 10*power;
+settled.push(w);
 }
-function niceDomain(domain,count=5){
-const step=niceStep((domain.max-domain.min)/Math.max(1,count));
-return{
-min:Math.floor(domain.min/step)*step,
-max:Math.ceil(domain.max/step)*step,
-step,
-};
+return windows;
 }
-function measureDomain(values,opts={}){
-const found=extent(values)||{min:0,max:1};
-let{min,max}=found;
-if(opts.zero){
-if(min>0)min=0;
-if(max<0)max=0;
+function compact(windows,mode,movedId){
+if(mode!=='vertical')return windows;
+pushDown(windows,movedId);
+return pullUp(windows);
 }
-if(min===max){
-const pad=Math.abs(min)>0?Math.abs(min)/10:1;
-min-=pad;
-max+=pad;
+function firstFree(placed,columns,xSize,ySize){
+const span=Math.max(1,Math.min(xSize,columns));
+const deepest=placed.reduce((max,w)=>Math.max(max,w.yPos+w.ySize),1);
+for(let y=1;y<=deepest+ySize;y++){
+for(let x=1;x<=columns-span+1;x++){
+const probe={xPos:x,yPos:y,xSize:span,ySize:Math.max(1,ySize)};
+if(!placed.some((w)=>overlaps(probe,w)))return{xPos:x,yPos:y};
 }
-if(opts.nice!==false){
-const nice=niceDomain({min,max},opts.ticks||5);
-min=nice.min;
-max=nice.max;
 }
-if(isNumber(opts.min))min=(opts.min);
-if(isNumber(opts.max))max=(opts.max);
-if(min===max)max=min+1;
-return{min,max};
+return{xPos:1,yPos:deepest};
 }
-function linearTicks(domain,count=5){
-const step=niceStep((domain.max-domain.min)/Math.max(1,count));
-const first=Math.ceil(domain.min/step);
-const last=Math.floor(domain.max/step);
-const out=[];
-for(let i=first;i<=last;i++){
-const v=i*step;
-out.push(Math.abs(v)<step/1e6?0:Number(v.toPrecision(12)));
-}
-return out;
-}
-function timeStepFor(span,count=5){
-const target=span/Math.max(1,count);
-for(const candidate of TIME_STEPS)if(candidate>=target)return candidate;
-return TIME_STEPS[TIME_STEPS.length-1];
-}
-function timeTicks(domain,count=5){
-const step=timeStepFor(domain.max-domain.min,count);
-const out=[];
-const first=Math.ceil(domain.min/step)*step;
-for(let t=first;t<=domain.max;t+=step)out.push(t);
-return out;
-}
-function linearScale(domain,range){
-const span=domain.max-domain.min||1;
-const[from,to]=range;
-return{
-kind:'linear',
-domain,
-range,
-of(v){
-return from+((v-domain.min)/span)*(to-from);
-},
-invert(px){
-return domain.min+((px-from)/((to-from)||1))*span;
-},
-ticks(count=5){
-return linearTicks(domain,count);
-},
-};
-}
-function timeScale(domain,range){
-const base=linearScale(domain,range);
-return{
-...base,
-kind:'time',
-ticks(count=5){
-return timeTicks(domain,count);
-},
-};
-}
-function key(v){
-if(v===null||v===undefined)return' null';
-if(v instanceof Date)return` date:${v.getTime()}`;
-if(typeof v==='object'){
-const record=(v);
-const id=record.id??record.key??record.value;
-if(id!==undefined&&typeof id!=='object')return` obj:${String(id)}`;
-return` obj:${String(v)}`;
-}
-return String(v);
-}
-function bandScale(values,range,padding=0.2){
-const pad=Math.min(0.9,Math.max(0,padding));
-const[from,to]=range;
-const index=new Map();
-for(let i=0;i<values.length;i++){
-const k=key(values[i]);
-if(!index.has(k))index.set(k,i);
-}
-const step=values.length?(to-from)/values.length:(to-from);
-const bandwidth=Math.max(0,step*(1-pad));
-return{
-kind:'band',
-domain:values,
-range,
-bandwidth,
-step,
-of(v){
-const i=index.get(key(v));
-if(i===undefined)return NaN;
-return from+i*step+(step-bandwidth)/2;
-},
-centre(v){
-const start=this.of(v);
-return Number.isNaN(start)?NaN:start+bandwidth/2;
-},
-ticks(){
-return values;
-},
-};
-}
-function sqrtScale(domain,range){
-const[from,to]=range;
-const max=Math.max(Math.abs(domain.max),Math.abs(domain.min),0)||1;
-return{
-kind:'sqrt',
-domain,
-range,
-of(v){
-const t=Math.sqrt(Math.abs(v)/max);
-return from+t*(to-from);
-},
-};
+function occupiedRows(windows,minimum){
+return windows.reduce((max,w)=>Math.max(max,w.yPos+w.ySize-1),minimum);
 }
 });
-__def("packages/modules/gantt/links.js",function(__exports,__req){
-'use strict';
-Object.defineProperty(__exports,"LINK_SIDES",{enumerable:true,get:function(){return LINK_SIDES;}});
-Object.defineProperty(__exports,"linkSides",{enumerable:true,get:function(){return linkSides;}});
-Object.defineProperty(__exports,"routeLink",{enumerable:true,get:function(){return routeLink;}});
-Object.defineProperty(__exports,"arrowheadPath",{enumerable:true,get:function(){return arrowheadPath;}});
-const __m0=__req("packages/modules/charts/svg.js");
-const path=__m0["path"];
-const round=__m0["round"];
-const LINK_SIDES=Object.freeze({
-FS:Object.freeze({depart:1,arrive:-1}),
-SS:Object.freeze({depart:-1,arrive:-1}),
-FF:Object.freeze({depart:1,arrive:1}),
-SF:Object.freeze({depart:-1,arrive:1}),
-});
-function linkSides(type){
-return LINK_SIDES[String(type||'FS').toUpperCase()]||LINK_SIDES.FS;
-}
-function routeLink(spec){
-const sx=Number(spec.sx);
-const sy=Number(spec.sy);
-const ex=Number(spec.ex);
-const ey=Number(spec.ey);
-const elbow=Number.isFinite(spec.elbow)&&spec.elbow>0?Number(spec.elbow):8;
-const rowGap=Number.isFinite(spec.rowGap)&&spec.rowGap>0?Number(spec.rowGap):elbow;
-const sides=linkSides(spec.type);
-const arrowDir=-sides.arrive;
-const sameRow=Math.abs(ey-sy)<0.5;
-const reach=(ex-sx)*arrowDir;
-if(sameRow&&reach>0){
-return{d:path(['M',round(sx),round(sy),'H',round(ex)]),arrowDir,route:'straight'};
-}
-if(reach>=0){
-return{
-d:path(['M',round(sx),round(sy),'V',round(ey),'H',round(ex)]),
-arrowDir,
-route:'drop',
-};
-}
-const lane=sameRow?sy+rowGap:(sy+ey)/2;
-const out=sx+sides.depart*elbow;
-const approach=ex+sides.arrive*elbow;
-return{
-d:path(['M',round(sx),round(sy),
-'H',round(out),
-'V',round(lane),
-'H',round(approach),
-'V',round(ey),
-'H',round(ex)]),
-arrowDir,
-route:'detour',
-};
-}
-function arrowheadPath(ex,ey,dir,h=4){
-return path(['M',round(ex),round(ey),
-'L',round(ex-dir*h),round(ey-h),
-'L',round(ex-dir*h),round(ey+h),'Z']);
-}
-});
-__def("packages/modules/gantt/render.js",function(__exports,__req){
+__def("packages/modules/layout/view.js",function(__exports,__req){
 'use strict';
 Object.defineProperty(__exports,"NS",{enumerable:true,get:function(){return NS;}});
-Object.defineProperty(__exports,"GanttView",{enumerable:true,get:function(){return GanttView;}});
-Object.defineProperty(__exports,"mountGantt",{enumerable:true,get:function(){return mountGantt;}});
+Object.defineProperty(__exports,"injectStyles",{enumerable:true,get:function(){return injectStyles;}});
+Object.defineProperty(__exports,"renderShell",{enumerable:true,get:function(){return renderShell;}});
+Object.defineProperty(__exports,"applyGeometry",{enumerable:true,get:function(){return applyGeometry;}});
+Object.defineProperty(__exports,"renderWindow",{enumerable:true,get:function(){return renderWindow;}});
+Object.defineProperty(__exports,"syncAffordances",{enumerable:true,get:function(){return syncAffordances;}});
+Object.defineProperty(__exports,"placeWindow",{enumerable:true,get:function(){return placeWindow;}});
+Object.defineProperty(__exports,"announce",{enumerable:true,get:function(){return announce;}});
+Object.defineProperty(__exports,"cellPitch",{enumerable:true,get:function(){return cellPitch;}});
+Object.defineProperty(__exports,"showGhost",{enumerable:true,get:function(){return showGhost;}});
+Object.defineProperty(__exports,"hideGhost",{enumerable:true,get:function(){return hideGhost;}});
+Object.defineProperty(__exports,"listen",{enumerable:true,get:function(){return listen;}});
+Object.defineProperty(__exports,"placementFromDelta",{enumerable:true,get:function(){return placementFromDelta;}});
+Object.defineProperty(__exports,"boundPlacement",{enumerable:true,get:function(){return boundPlacement;}});
+Object.defineProperty(__exports,"commitPlacement",{enumerable:true,get:function(){return commitPlacement;}});
+Object.defineProperty(__exports,"focusHandle",{enumerable:true,get:function(){return focusHandle;}});
 const __m0=__req("packages/core/src/internal/util.js");
-const warnOnce=__m0["warnOnce"];
-const __m1=__req("packages/modules/shared/autosize.js");
-const contentWidth=__m1["contentWidth"];
-const firstMeasured=__m1["firstMeasured"];
-const watchSize=__m1["watchSize"];
-const __m2=__req("packages/modules/charts/svg.js");
-const svg=__m2["svg"];
-const el=__m2["el"];
-const setText=__m2["setText"];
-const path=__m2["path"];
-const round=__m2["round"];
-const __m3=__req("packages/modules/charts/scale.js");
-const linearScale=__m3["linearScale"];
-const __m4=__req("packages/modules/gantt/time.js");
-const toISODate=__m4["toISODate"];
-const fromDayNumber=__m4["fromDayNumber"];
-const toDayNumber=__m4["toDayNumber"];
-const resolveProjectEpoch=__m4["resolveProjectEpoch"];
-const __m5=__req("packages/modules/gantt/links.js");
-const routeLink=__m5["routeLink"];
-const arrowheadPath=__m5["arrowheadPath"];
-const __m6=__req("packages/modules/gantt/schedule.js");
-const EPS=__m6["EPS"];
-const NS='lat-gantt';
-const STAMP='data-lat-gantt-styles';
-const FALLBACK_WIDTH=720;
-const DEFAULTS=Object.freeze({
-width:'container',
-rowHeight:26,
-barPadding:4,
-labelWidth:160,
-axisHeight:22,
-rightPadding:16,
-rowLabels:true,
-showArrows:true,
-showCritical:true,
-showProgress:true,
-hoverChain:true,
-dateAxis:true,
-label:'name',
-today:null,
-nonWorking:null,
-editable:true,
-resizeZone:6,
-zoom:null,
-projectEpoch:null,
-scrollToToday:false,
-tooltip:true,
-groupBy:null,
-keyboard:true,
-moveStep:1,
-});
-const ZOOM=Object.freeze({
-day:{px:28,step:1,level:'day'},
-week:{px:12,step:7,level:'week'},
-month:{px:4,step:30,level:'month'},
-quarter:{px:1.6,step:91,level:'quarter'},
-});
-function css(){
-return`
-.${NS}{font:12px/1.4 system-ui,sans-serif;color:#1f2933;overflow:auto}
-.${NS}__plot{max-width:100%;height:auto;display:block}
-.${NS}__shade{fill:#f1f3f5}
-.${NS}__gridline{stroke:#e6e8eb;stroke-width:1}
-.${NS}__tick{fill:#6b7280;font-size:11px}
-.${NS}__lane-band{fill:#eef1f4}
-.${NS}__lane-label{fill:#374151;font-size:12px;font-weight:600}
-.${NS}__rowlabel{fill:#1f2933;font-size:12px}
-.${NS}__rowlabel--summary{font-weight:600}
-.${NS}__bar{fill:#4a90d9;rx:3}
-.${NS}__bar--critical{fill:#e2513b}
-.${NS}__bar--violation{stroke:#d97706;stroke-width:2}
-.${NS}__bar--overdue{stroke:#b91c1c;stroke-width:2;stroke-dasharray:3 2}
-.${NS}__bar--atrisk{stroke:#f59e0b;stroke-width:2}
-.${NS}__summary{fill:#2c3e50}
-.${NS}__milestone{fill:#33404d}
-.${NS}__milestone--critical{fill:#e2513b}
-.${NS}__progress{fill:rgba(0,0,0,0.28)}
-.${NS}__label{fill:#374151;font-size:11px;dominant-baseline:middle}
-.${NS}__link{fill:none;stroke:#9aa5b1;stroke-width:1.5}
-.${NS}__link--critical{stroke:#e2513b}
-.${NS}__link--chain{stroke:#2563eb;stroke-width:2.5}
-.${NS}__arrowhead{fill:#9aa5b1}
-.${NS}__arrowhead--critical{fill:#e2513b}
-.${NS}__arrowhead--chain{fill:#2563eb}
-.${NS}__bar--chain{stroke:#2563eb;stroke-width:2}
-.${NS}__milestone--chain{stroke:#2563eb;stroke-width:2}
-.${NS}__summary--chain{stroke:#2563eb;stroke-width:2}
-.${NS}__lag{fill:#6b7280;font-size:10px}
-.${NS}__today{stroke:#e2513b;stroke-width:1.5;stroke-dasharray:4 3}
-.${NS}__tooltip{position:absolute;pointer-events:none;background:#1f2933;color:#fff;padding:4px 8px;border-radius:4px;font-size:11px;white-space:nowrap;z-index:5}
-.${NS}__tooltip[hidden]{display:none}
-.${NS}__live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.${NS}__row:focus{outline:2px solid #2563eb;outline-offset:1px}
-`.trim();
-}
+const isFunction=__m0["isFunction"];
+const __m1=__req("packages/modules/layout/length.js");
+const cssLength=__m1["cssLength"];
+const tracks=__m1["tracks"];
+const __m2=__req("packages/modules/layout/model.js");
+const clampToColumns=__m2["clampToColumns"];
+const compact=__m2["compact"];
+const occupiedRows=__m2["occupiedRows"];
+const NS='lat-layout';
 function injectStyles(doc){
-const root=doc.documentElement;
-if(!root||root.getAttribute(STAMP))return;
-root.setAttribute(STAMP,'1');
+if(!doc||(doc.getElementById&&doc.getElementById(`${NS}-styles`)))return;
 const style=doc.createElement('style');
-style.textContent=css();
-(doc.head||doc.body||root).appendChild(style);
+style.id=`${NS}-styles`;
+style.setAttribute('id',`${NS}-styles`);
+style.textContent=`
+.${NS}{display:flex;flex-direction:column;width:100%;height:100%;min-height:0;box-sizing:border-box;
+  font-family:var(--${NS}-font-family,var(--lattice-font-family,var(--lat-chrome-font-family,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif)));
+  font-size:var(--${NS}-font-size,var(--lattice-font-size,var(--lat-chrome-font-size,13px)));
+  line-height:var(--${NS}-line-height,var(--lattice-line-height,var(--lat-chrome-line-height,1.4)));
+  color:var(--${NS}-fg,var(--lattice-foreground,#1a1a1a))}
+.${NS} .${NS}__viewport{position:relative;flex:1 1 auto;min-height:0;min-width:0;
+  -webkit-overflow-scrolling:touch}
+.${NS} .${NS}__canvas{display:grid;box-sizing:border-box;align-items:stretch;justify-items:stretch}
+.${NS} .${NS}__window{position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;
+  box-sizing:border-box;overflow:hidden;
+  background:var(--${NS}-surface,var(--lattice-background,#fff));
+  border:1px solid var(--${NS}-border,var(--lattice-border-color,#d7dbe0));
+  border-radius:var(--${NS}-radius,var(--lattice-radius,6px))}
+.${NS} .${NS}__window[data-dragging="true"]{opacity:.65}
+.${NS} .${NS}__chrome{display:flex;align-items:center;gap:6px;flex:0 0 auto;min-width:0;
+  padding:var(--${NS}-chrome-pad,4px 6px);
+  background:var(--${NS}-chrome-bg,#f7f8f9);
+  border-bottom:1px solid var(--${NS}-border,var(--lattice-border-color,#d7dbe0))}
+.${NS} .${NS}__window[data-movable="true"] .${NS}__chrome{cursor:move;touch-action:none}
+.${NS} .${NS}__title{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-weight:600;color:var(--${NS}-title,#14171a)}
+.${NS} .${NS}__grip,.${NS} .${NS}__close{font:inherit;appearance:none;border:0;background:transparent;
+  padding:0 4px;cursor:pointer;flex:0 0 auto;color:var(--${NS}-muted,#586069);border-radius:3px}
+.${NS} .${NS}__grip{cursor:grab;touch-action:none}
+.${NS} .${NS}__window[data-grabbed="true"] .${NS}__grip{cursor:grabbing}
+.${NS} .${NS}__grip:hover,.${NS} .${NS}__close:hover{background:var(--${NS}-hover,#ebeef1)}
+.${NS} .${NS}__grip:focus-visible,.${NS} .${NS}__close:focus-visible,.${NS} .${NS}__resize:focus-visible{
+  outline:2px solid var(--${NS}-focus,#2563eb);outline-offset:1px}
+.${NS} .${NS}__handlebar{display:flex;align-items:center;flex:0 0 auto;padding:2px 4px;
+  cursor:move;touch-action:none}
+.${NS} [data-lat-layout-body]{flex:1 1 auto;min-width:0;min-height:0;overflow:auto;position:relative;box-sizing:border-box}
+.${NS} .${NS}__resize{position:absolute;right:0;bottom:0;width:16px;height:16px;padding:0;
+  appearance:none;border:0;background:transparent;cursor:nwse-resize;touch-action:none;z-index:2;
+  color:var(--${NS}-muted,#586069)}
+.${NS} .${NS}__resize::after{content:"";position:absolute;right:3px;bottom:3px;width:7px;height:7px;
+  border-right:2px solid currentColor;border-bottom:2px solid currentColor;opacity:.6}
+.${NS} .${NS}__ghost{position:absolute;pointer-events:none;z-index:3;box-sizing:border-box;
+  border:2px dashed var(--${NS}-accent,#1a6bc7);border-radius:var(--${NS}-radius,6px);
+  background:var(--${NS}-ghost,rgba(26,107,199,.08))}
+.${NS} .${NS}__window[data-grabbed="true"]{outline:2px solid var(--${NS}-accent,#1a6bc7);outline-offset:-2px}
+.${NS}__live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+`;
+(doc.head||doc.documentElement).appendChild(style);
 }
-function nonWorkingPredicate(spec,shift=0){
-if(spec==='weekends'){
-return(day)=>{
-const d=fromDayNumber(day+shift);
-const wd=d?d.getUTCDay():0;
-return wd===0||wd===6;
-};
+function renderShell(state){
+const{doc,el}=state;
+injectStyles(doc);
+const root=doc.createElement('div');
+root.className=NS;
+root.setAttribute('role','group');
+root.setAttribute('aria-label',state.ariaLabel);
+const viewport=doc.createElement('div');
+viewport.className=`${NS}__viewport`;
+const canvas=doc.createElement('div');
+canvas.className=`${NS}__canvas`;
+const live=doc.createElement('div');
+live.className=`${NS}__live`;
+live.setAttribute('role','status');
+live.setAttribute('aria-live','polite');
+viewport.appendChild(canvas);
+root.appendChild(viewport);
+root.appendChild(live);
+el.appendChild(root);
+state.rootEl=root;
+state.viewportEl=viewport;
+state.canvasEl=canvas;
+state.liveEl=live;
+applyGeometry(state);
 }
-return typeof spec==='function'?spec:null;
-}
-function xmlEscape(s){
-return String(s==null?'':s)
-.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-.replace(/"/g,'&quot;');
-}
-function attrPairs(node){
-const a=node.attributes;
-if(!a)return[];
-if(a instanceof Map)return[...a.entries()];
-const out=[];
-for(let i=0;i<a.length;i+=1)out.push([a[i].name,a[i].value]);
-return out;
-}
-function serialize(node){
-const tag=node.tagName?node.tagName.toLowerCase():null;
-if(!tag)return'';
-const attrs=attrPairs(node).map(([k,v])=>` ${k}="${xmlEscape(v)}"`).join('');
-const kids=node.children||[];
-if(kids.length){
-return`<${tag}${attrs}>${[...kids].map(serialize).join('')}</${tag}>`;
-}
-const text=node.textContent?xmlEscape(node.textContent):'';
-return text?`<${tag}${attrs}>${text}</${tag}>`:`<${tag}${attrs}></${tag}>`;
-}
-class GanttView{
-#controller;
-#container;
-#doc;
-#opts;
-#root=null;
-#svg=null;
-#tip=null;
-#live=null;
-#focusId=null;
-#linkFrom=null;
-#scrollUnlink=null;
-#off=null;
-#destroyed=false;
-#pxPerDay=1;
-#tickStep=null;
-#zoomLevel=null;
-#todayX=null;
-#drag=null;
-#dragHandlers=null;
-#epochShift=0;
-#today=null;
-#drawWidth=FALLBACK_WIDTH;
-#sizeWatch=null;
-#tickBudget=8;
-constructor(controller,container,opts={}){
-this.#controller=controller;
-this.#container=container;
-this.#doc=container.ownerDocument;
-this.#opts={...DEFAULTS,...opts};
-this.#epochShift=resolveProjectEpoch(this.#opts.projectEpoch);
-this.#today=this.#resolveToday(this.#opts.today);
-this.#warnZoomWidth(opts);
-this.#drawWidth=Number.isFinite(this.#opts.width)?Number(this.#opts.width):FALLBACK_WIDTH;
-injectStyles(this.#doc);
-this.#root=el(this.#doc,'div',NS);
-this.#container.appendChild(this.#root);
-if(this.#opts.tooltip){
-this.#tip=el(this.#doc,'div',`${NS}__tooltip`);
-this.#tip.setAttribute('hidden','');
-this.#root.appendChild(this.#tip);
-}
-this.#live=el(this.#doc,'div',`${NS}__live`);
-this.#live.setAttribute('role','status');
-this.#live.setAttribute('aria-live','polite');
-this.#root.appendChild(this.#live);
-this.#followContainer();
-this.#off=controller.on('schedule',()=>this.draw());
-this.draw();
-}
-#followContainer(){
-if(this.#opts.width!=='container')return;
-if(this.#zoom(this.#opts.zoom))return;
-this.#sizeWatch=watchSize({
-targets:[this.#root,this.#container],
-read:()=>firstMeasured([this.#root,this.#container],contentWidth),
-apply:(value)=>{
-this.#drawWidth=value;
-if(this.#svg)this.draw();
-},
-});
-}
-#warnZoomWidth(raw){
-if(!raw||!Number.isFinite(raw.width))return;
-if(!this.#zoom(this.#opts.zoom))return;
-warnOnce(
-`gantt.zoomWidth:${String(this.#opts.zoom)}`,
-`[lattice] gantt: mount was given both zoom (${JSON.stringify(this.#opts.zoom)}) and width (${raw.width}); zoom fixes the pixels-per-day, so the width is ignored and the plot scrolls. Drop one of the two.`,
-);
-}
-#resolveToday(spec){
-if(spec==null||spec==='')return null;
-if(Number.isFinite(spec))return Number(spec);
-const day=toDayNumber(spec);
-if(Number.isFinite(day))return(day)-this.#epochShift;
-warnOnce(
-`gantt.today:${String(spec)}`,
-`[lattice] gantt: today ${JSON.stringify(spec)} is not a date or a day number; no today line is drawn.`,
-);
-return null;
-}
-#calendarDay(day){return day+this.#epochShift;}
-#iso(day){return toISODate(this.#calendarDay(day));}
-get element(){return this.#root;}
-get options(){return{...this.#opts};}
-draw(){
-if(this.#destroyed)return;
-const schedule=this.#controller.schedule;
-if(!schedule||!schedule.ok)return;
-const o=this.#opts;
-const order=schedule.order;
-const plotLeft=o.rowLabels?o.labelWidth:0;
-const layout=this.#layout(schedule);
-const height=o.axisHeight+layout.count*o.rowHeight;
-const lo=schedule.projectStart;
-const hi=schedule.projectFinish;
-const today=this.#today;
-const bounds=[lo,hi];
-if(Number.isFinite(today))bounds.push(today);
-const min=Math.min(...bounds);
-const max=Math.max(...bounds);
-const pad=Math.max(1,(max-min)*0.04);
-const domainMin=min-pad;
-const domainMax=max+pad;
-const zoomPreset=this.#zoom(o.zoom);
-const fitWidth=this.#drawWidth;
-const plotWidth=zoomPreset
-?Math.max(1,(domainMax-domainMin)*zoomPreset.px)
-:Math.max(1,fitWidth-plotLeft-o.rightPadding);
-const totalWidth=zoomPreset?plotLeft+plotWidth+o.rightPadding:fitWidth;
-const scale=linearScale({min:domainMin,max:domainMax},[0,plotWidth]);
-this.#pxPerDay=scale.of(1)-scale.of(0);
-this.#tickStep=zoomPreset?zoomPreset.step:null;
-this.#tickBudget=this.#opts.width==='container'
-?Math.max(2,Math.min(8,Math.floor(plotWidth/(this.#opts.dateAxis?78:44))))
-:8;
-this.#zoomLevel=zoomPreset?zoomPreset.level:null;
-this.#todayX=Number.isFinite(today)?round(plotLeft+scale.of(today)):null;
-const x=(day)=>round(plotLeft+scale.of(day));
-const plot=svg(this.#doc,'svg',{
-class:`${NS}__plot`,
-width:totalWidth,
-height,
-viewBox:`0 0 ${totalWidth} ${height}`,
-preserveAspectRatio:'xMinYMin meet',
-role:'img',
-'aria-label':'Gantt chart',
-});
-const rowIndex=layout.rowIndexById;
-const depth=this.#depths(schedule);
-const violations=new Set(this.#controller.findViolations().map((v)=>v.id));
-this.#drawShading(plot,scale,x,min,max,plotLeft,o.axisHeight,height);
-this.#drawAxis(plot,scale,x,height);
-this.#drawRows(plot,schedule,layout,depth,x,violations);
-if(o.showArrows)this.#drawLinks(plot,schedule,rowIndex,x);
-if(Number.isFinite(today))this.#drawToday(plot,x,today,o.axisHeight,height);
-if(o.editable)plot.addEventListener('pointerdown',(e)=>this.#onPointerDown(e));
-if(o.tooltip){
-plot.addEventListener('pointermove',(e)=>this.#onHover(e));
-plot.addEventListener('pointerleave',()=>this.#hideTip());
-}
-if(o.keyboard)plot.addEventListener('keydown',(e)=>this.#onKey(e));
-if(o.showArrows&&o.hoverChain){
-plot.addEventListener('pointerover',(e)=>this.#onChainHover(e));
-plot.addEventListener('pointerleave',()=>this.#clearHighlight());
-}
-if(this.#svg)this.#root.removeChild(this.#svg);
-this.#root.appendChild(plot);
-this.#svg=plot;
-if(o.scrollToToday)this.scrollToToday();
-if(this.#focusId){
-const row=plot.querySelector(`.${NS}__row[data-task="${this.#focusId}"]`);
-if(row&&row.focus)row.focus();
-}
-}
-#zoom(zoom){
-if(Number.isFinite(zoom))return{px:Number(zoom),step:1,level:'custom'};
-return typeof zoom==='string'&&ZOOM[zoom]?ZOOM[zoom]:null;
-}
-linkVerticalScroll(other){
-if(this.#scrollUnlink){this.#scrollUnlink();this.#scrollUnlink=null;}
-if(!other||!this.#root||!other.addEventListener)return()=>{};
-const a=this.#root;
-const b=other;
-let lock=false;
-const mirror=(from,to)=>{if(lock)return;lock=true;to.scrollTop=from.scrollTop;lock=false;};
-const onA=()=>mirror(a,b);
-const onB=()=>mirror(b,a);
-a.addEventListener('scroll',onA);
-b.addEventListener('scroll',onB);
-const off=()=>{a.removeEventListener('scroll',onA);b.removeEventListener('scroll',onB);};
-this.#scrollUnlink=off;
-return off;
-}
-scrollToToday(){
-if(this.#todayX==null||!this.#root)return;
-const left=this.#opts.rowLabels?this.#opts.labelWidth:0;
-this.#root.scrollLeft=Math.max(0,this.#todayX-left-40);
-}
-#layout(schedule){
-const order=schedule.order;
-const rowIndexById=new Map();
-if(!this.#opts.groupBy){
-const rows=order.map((id)=>({kind:'task',id}));
-order.forEach((id,i)=>rowIndexById.set(id,i));
-return{rows,rowIndexById,count:rows.length};
-}
-const raw=new Map(this.#controller.tasks.map((t)=>[String(t.id),t]));
-const spec=this.#opts.groupBy;
-const groupOf=(id)=>{
-const t=raw.get(id)||{};
-const v=typeof spec==='function'?spec(t):t[spec];
-return v==null||v===''?'Ungrouped':String(v);
-};
-const groups=new Map();
-for(const id of order){
-const key=groupOf(id);
-if(!groups.has(key))groups.set(key,[]);
-groups.get(key).push(id);
-}
-const rows=[];
-for(const[key,ids]of groups){
-rows.push({kind:'header',key});
-for(const id of ids)rows.push({kind:'task',id});
-}
-rows.forEach((r,i)=>{if(r.kind==='task')rowIndexById.set(r.id,i);});
-return{rows,rowIndexById,count:rows.length};
-}
-#depths(schedule){
-const out=new Map();
-for(const id of schedule.order){
-let d=0;
-let cur=schedule.tasks.get(id).parent;
-while(cur!=null&&schedule.tasks.has(cur)){d+=1;cur=schedule.tasks.get(cur).parent;}
-out.set(id,d);
-}
-return out;
-}
-#drawShading(plot,scale,x,min,max,plotLeft,top,height){
-const pred=nonWorkingPredicate(this.#opts.nonWorking,this.#epochShift);
-if(!pred)return;
-const from=Math.floor(min);
-const to=Math.ceil(max);
-if(to-from>3660)return;
-const g=svg(this.#doc,'g',{class:`${NS}__shading`});
-for(let day=from;day<to;day+=1){
-if(!pred(day))continue;
-const x0=Math.max(plotLeft,x(day));
-const x1=x(day+1);
-g.appendChild(svg(this.#doc,'rect',{
-class:`${NS}__shade`,'data-day':String(day),x:x0,y:top,width:round(Math.max(0,x1-x0)),height:height-top,
-}));
-}
-plot.appendChild(g);
-}
-#drawAxis(plot,scale,x,height){
-const g=svg(this.#doc,'g',{class:`${NS}__axis`});
-const top=this.#opts.axisHeight;
-for(const tick of this.#axisTicks(scale)){
-const px=x(tick);
-g.appendChild(svg(this.#doc,'line',{
-class:`${NS}__gridline`,x1:px,y1:top,x2:px,y2:height,
-}));
-const text=svg(this.#doc,'text',{class:`${NS}__tick`,x:px+2,y:top-6});
-setText(text,this.#tickLabel(tick));
-g.appendChild(text);
-}
-plot.appendChild(g);
-}
-#axisTicks(scale){
-if(!this.#tickStep)return scale.ticks(this.#tickBudget);
-const{min,max}=scale.domain;
-const step=this.#tickStep;
-const out=[];
-for(let t=Math.ceil(min/step)*step;t<=max;t+=step)out.push(t);
-return out.length?out:scale.ticks(this.#tickBudget);
-}
-#tickLabel(tick){
-if(!this.#opts.dateAxis)return String(round(tick));
-const iso=this.#iso(Math.round(tick));
-if(!iso)return String(round(tick));
-return(this.#zoomLevel==='month'||this.#zoomLevel==='quarter')?iso.slice(0,7):iso;
-}
-#drawRows(plot,schedule,layout,depth,x,violations){
-const o=this.#opts;
-const rows=svg(this.#doc,'g',{class:`${NS}__rows`});
-layout.rows.forEach((entry,i)=>{
-const rowY=o.axisHeight+i*o.rowHeight;
-if(entry.kind==='header'){
-this.#drawLaneHeader(rows,entry.key,rowY,o.rowHeight);
-return;
-}
-const id=entry.id;
-const rec=schedule.tasks.get(id);
-const barY=rowY+o.barPadding;
-const barH=o.rowHeight-2*o.barPadding;
-const midY=rowY+o.rowHeight/2;
-const crit=o.showCritical&&rec.critical;
-const violated=violations.has(id);
-const incomplete=rec.percentComplete==null||rec.percentComplete<100;
-const overdue=Number.isFinite(this.#today)&&incomplete&&!rec.isSummary&&rec.ef<this.#today;
-const atRisk=rec.totalFloat<-EPS;
-const g=svg(this.#doc,'g',{class:`${NS}__row`});
-g.setAttribute('data-task',id);
-g.setAttribute('tabindex',o.keyboard?'0':'-1');
-g.setAttribute('role',rec.isSummary?'group':'button');
-g.setAttribute('aria-label',this.#describe(rec));
-if(crit)g.setAttribute('data-critical','true');
-if(violated)g.setAttribute('data-violation','true');
-if(overdue)g.setAttribute('data-overdue','true');
-if(atRisk)g.setAttribute('data-atrisk','true');
-if(o.rowLabels){
-const label=svg(this.#doc,'text',{
-class:`${NS}__rowlabel${rec.isSummary?` ${NS}__rowlabel--summary`:''}`,
-x:6+(depth.get(id)||0)*12,
-y:midY,
-'dominant-baseline':'middle',
-});
-setText(label,rec.name);
-g.appendChild(label);
-}
-if(rec.isMilestone){
-this.#drawMilestone(g,x(rec.es),midY,barH/2,crit);
+function applyGeometry(state){
+const{viewportEl:viewport,canvasEl:canvas,config:c}=state;
+viewport.style.overflowX=c.overflowX==='scroll'?'auto':'hidden';
+viewport.style.overflowY=c.overflowY==='scroll'?'auto':'hidden';
+const rows=c.overflowY==='scroll'
+?occupiedRows([...state.windows.values()].map((r)=>r.spec),c.rows)
+:c.rows;
+canvas.style.gap=c.gap;
+canvas.style.gridTemplateColumns=tracks(c.overflowX,c.columns,c.columnWidth);
+canvas.style.gridTemplateRows=tracks(c.overflowY,rows,c.rowHeight);
+canvas.style.width=c.overflowX==='scroll'?'max-content':'100%';
+if(c.overflowY==='scroll'){
+canvas.style.height='auto';
+canvas.style.minHeight='100%';
 }else{
-const x0=x(rec.es);
-const w=Math.max(1,x(rec.ef)-x0);
-const cls=rec.isSummary
-?`${NS}__summary`
-:`${NS}__bar${crit?` ${NS}__bar--critical`:''}${violated?` ${NS}__bar--violation`:''}`
-+`${overdue?` ${NS}__bar--overdue`:''}${atRisk?` ${NS}__bar--atrisk`:''}`;
-g.appendChild(svg(this.#doc,'rect',{
-class:cls,x:x0,y:barY,width:round(w),height:barH,rx:3,
-}));
-if(o.showProgress&&rec.percentComplete!=null&&rec.percentComplete>0){
-g.appendChild(svg(this.#doc,'rect',{
-class:`${NS}__progress`,x:x0,y:barY,width:round(w*Math.min(1,rec.percentComplete/100)),height:barH,rx:3,
-}));
+canvas.style.height='100%';
+canvas.style.minHeight='0';
+}
+state.trackRows=rows;
+}
+function makeGrip(doc,t,spec){
+const grip=doc.createElement('button');
+grip.type='button';
+grip.className=`${NS}__grip`;
+grip.setAttribute('data-drag','move');
+grip.textContent='⁙';
+grip.setAttribute('aria-label',t('layout.move',{title:spec.title||spec.id}));
+return grip;
+}
+function makeClose(doc,t,spec){
+const close=doc.createElement('button');
+close.type='button';
+close.className=`${NS}__close`;
+close.textContent='×';
+close.setAttribute('aria-label',t('layout.close',{title:spec.title||spec.id}));
+return close;
+}
+function makeResize(doc,t,spec){
+const resize=doc.createElement('button');
+resize.type='button';
+resize.className=`${NS}__resize`;
+resize.setAttribute('data-drag','resize');
+resize.setAttribute('aria-label',t('layout.resize',{title:spec.title||spec.id}));
+return resize;
+}
+function makeHandlebar(doc,grip){
+const bar=doc.createElement('div');
+bar.className=`${NS}__handlebar`;
+bar.setAttribute('data-drag','move');
+bar.appendChild(grip);
+return bar;
+}
+function renderWindow(state,spec){
+const{doc}=state;
+const t=state.t;
+const frame=doc.createElement('div');
+frame.className=`${NS}__window`;
+frame.setAttribute('data-window-id',spec.id);
+frame.setAttribute('role','group');
+frame.setAttribute('aria-label',spec.ariaLabel||spec.title||spec.id);
+if(spec.movable)frame.setAttribute('data-movable','true');
+let chromeEl=null;
+let gripEl=null;
+let closeEl=null;
+let titleEl=null;
+let handlebarEl=null;
+if(spec.movable)gripEl=makeGrip(doc,t,spec);
+if(spec.chrome){
+chromeEl=doc.createElement('div');
+chromeEl.className=`${NS}__chrome`;
+if(spec.movable)chromeEl.setAttribute('data-drag','move');
+if(gripEl)chromeEl.appendChild(gripEl);
+const title=doc.createElement('span');
+title.className=`${NS}__title`;
+title.textContent=spec.title==null?'':String(spec.title);
+chromeEl.appendChild(title);
+if(spec.closable){
+closeEl=makeClose(doc,t,spec);
+chromeEl.appendChild(closeEl);
+}
+frame.appendChild(chromeEl);
+titleEl=title;
+}else if(gripEl){
+handlebarEl=makeHandlebar(doc,gripEl);
+frame.appendChild(handlebarEl);
+}
+const body=doc.createElement('div');
+body.className=`${NS}__body`;
+body.setAttribute('data-lat-layout-body',spec.id);
+body.id=spec.payloadId;
+body.style.flex='1 1 auto';
+body.style.minWidth='0';
+body.style.minHeight='0';
+body.style.overflow='auto';
+body.style.position='relative';
+body.style.boxSizing='border-box';
+body.style.padding=spec.padding;
+frame.appendChild(body);
+let resizeEl=null;
+if(spec.resizable){
+resizeEl=makeResize(doc,t,spec);
+frame.appendChild(resizeEl);
 }
-const text=this.#labelText(rec);
-if(text){
-const t=svg(this.#doc,'text',{class:`${NS}__label`,x:round(x0+w+4),y:midY});
-setText(t,text);
-g.appendChild(t);
-}
-}
-rows.appendChild(g);
-});
-plot.appendChild(rows);
-}
-#drawLaneHeader(rows,key,rowY,rowHeight){
-const g=svg(this.#doc,'g',{class:`${NS}__lane`});
-g.setAttribute('data-group',key);
-g.appendChild(svg(this.#doc,'rect',{
-class:`${NS}__lane-band`,x:0,y:rowY,width:'100%',height:rowHeight,
-}));
-const label=svg(this.#doc,'text',{
-class:`${NS}__lane-label`,x:6,y:rowY+rowHeight/2,'dominant-baseline':'middle',
-});
-setText(label,key);
-g.appendChild(label);
-rows.appendChild(g);
-}
-#labelText(rec){
-const spec=this.#opts.label;
-if(typeof spec==='function')return String(spec(rec)??'');
-switch(spec){
-case'none':return'';
-case'percent':return rec.percentComplete==null?'':`${Math.round(rec.percentComplete)}%`;
-case'dates':return this.#opts.dateAxis
-?`${this.#iso(rec.es)} – ${this.#iso(rec.ef)}`
-:`${round(rec.es)} – ${round(rec.ef)}`;
-case'name':default:return rec.name;
-}
-}
-#drawMilestone(g,cx,cy,r,critical){
-const d=path(['M',round(cx-r),round(cy),'L',round(cx),round(cy-r),
-'L',round(cx+r),round(cy),'L',round(cx),round(cy+r),'Z']);
-g.appendChild(svg(this.#doc,'path',{
-class:`${NS}__milestone${critical?` ${NS}__milestone--critical`:''}`,d,
-}));
-}
-#drawLinks(plot,schedule,rowIndex,x){
-const o=this.#opts;
-const g=svg(this.#doc,'g',{class:`${NS}__links`});
-for(const dep of this.#controller.dependencies){
-const from=String(dep.from);
-const to=String(dep.to);
-const p=schedule.tasks.get(from);
-const s=schedule.tasks.get(to);
-if(!p||!s||!rowIndex.has(from)||!rowIndex.has(to))continue;
-const type=(dep.type?String(dep.type).toUpperCase():'FS');
-const startDay=(type==='FS'||type==='FF')?p.ef:p.es;
-const endDay=(type==='FF'||type==='SF')?s.ef:s.es;
-const sx=x(startDay);
-const sy=o.axisHeight+rowIndex.get(from)*o.rowHeight+o.rowHeight/2;
-const ex=x(endDay);
-const ey=o.axisHeight+rowIndex.get(to)*o.rowHeight+o.rowHeight/2;
-const critical=o.showCritical&&p.critical&&s.critical;
-const elbow=Math.max(8,o.rowHeight/2);
-const route=routeLink({sx,sy,ex,ey,type,elbow,rowGap:o.rowHeight/2});
-const line=svg(this.#doc,'path',{class:`${NS}__link${critical?` ${NS}__link--critical`:''}`,d:route.d});
-line.setAttribute('data-from',from);
-line.setAttribute('data-to',to);
-line.setAttribute('data-type',type);
-line.setAttribute('data-route',route.route);
-if(critical)line.setAttribute('data-critical','true');
-g.appendChild(line);
-g.appendChild(this.#arrowhead(ex,ey,route.arrowDir,critical));
-if(dep.lag){
-const label=svg(this.#doc,'text',{
-class:`${NS}__lag`,x:round((sx+ex)/2),y:round((sy+ey)/2)-2,
-});
-setText(label,`${dep.lag>0?'+':''}${dep.lag}d`);
-g.appendChild(label);
-}
-}
-plot.appendChild(g);
-}
-#arrowhead(ex,ey,dir,critical){
-return svg(this.#doc,'path',{
-class:`${NS}__arrowhead${critical?` ${NS}__arrowhead--critical`:''}`,
-d:arrowheadPath(ex,ey,dir),
-});
-}
-#drawToday(plot,x,today,top,height){
-const px=x(today);
-plot.appendChild(svg(this.#doc,'line',{
-class:`${NS}__today`,x1:px,y1:top,x2:px,y2:height,'data-today':String(today),
-}));
-}
-#svgX(event){
-const box=this.#svg&&this.#svg.getBoundingClientRect
-?this.#svg.getBoundingClientRect():{left:0};
-return(event.clientX||0)-(box.left||0);
-}
-#onPointerDown(event){
-const schedule=this.#controller.schedule;
-if(!schedule||!schedule.ok)return;
-const target=event.target;
-const row=target&&target.closest?target.closest(`.${NS}__row`):null;
-if(!row)return;
-const id=row.getAttribute('data-task');
-const rec=schedule.tasks.get(id);
-if(!rec||rec.isSummary)return;
-const barEl=row.querySelector(`.${NS}__bar`)||row.querySelector(`.${NS}__milestone`);
-if(!barEl)return;
-const px=this.#svgX(event);
-const mode=(!rec.isMilestone&&px>=this.#barRightPx(rec)-this.#opts.resizeZone)?'resize':'move';
-this.#drag={id,mode,startX:event.clientX||0,origStart:rec.es,origDuration:rec.duration,barEl};
-if(event.preventDefault)event.preventDefault();
-const move=(e)=>this.#onPointerMove(e);
-const up=(e)=>this.#onPointerUp(e);
-this.#dragHandlers={move,up};
-this.#doc.addEventListener('pointermove',move);
-this.#doc.addEventListener('pointerup',up);
-}
-#barRightPx(rec){
-const row=this.#svg.querySelector(`.${NS}__row[data-task="${rec.id}"]`);
-const bar=row?row.querySelector(`.${NS}__bar`):null;
-if(bar)return parseFloat(bar.getAttribute('x'))+parseFloat(bar.getAttribute('width'));
-return this.#opts.rowLabels?this.#opts.labelWidth:0;
-}
-#onPointerMove(event){
-if(!this.#drag)return;
-const deltaDays=Math.round(((event.clientX||0)-this.#drag.startX)/(this.#pxPerDay||1));
-const bar=this.#drag.barEl;
-if(this.#drag.mode==='move'){
-if(bar.getAttribute('d')){
-this.#shiftPath(bar,deltaDays*this.#pxPerDay);
-}else{
-bar.setAttribute('x',round(parseFloat(bar.getAttribute('x'))+deltaDays*this.#pxPerDay-this.#previewShift(bar)));
-this.#setPreviewShift(bar,deltaDays*this.#pxPerDay);
-}
-}else{
-const w=Math.max(1,parseFloat(bar.getAttribute('width'))+(deltaDays*this.#pxPerDay-this.#previewShift(bar)));
-bar.setAttribute('width',round(w));
-this.#setPreviewShift(bar,deltaDays*this.#pxPerDay);
-}
-}
-#previewShift(bar){return parseFloat(bar.getAttribute('data-preview')||'0');}
-#setPreviewShift(bar,px){bar.setAttribute('data-preview',String(px));}
-#shiftPath(bar,px){
-const prev=this.#previewShift(bar);
-const d=bar.getAttribute('d').split(' ');
-for(let i=1;i<d.length;i+=1){
-const n=parseFloat(d[i]);
-if(!Number.isNaN(n)&&(i%3===1))d[i]=String(round(n+(px-prev)));
-}
-bar.setAttribute('d',d.join(' '));
-this.#setPreviewShift(bar,px);
-}
-#onPointerUp(event){
-const drag=this.#drag;
-if(this.#dragHandlers){
-this.#doc.removeEventListener('pointermove',this.#dragHandlers.move);
-this.#doc.removeEventListener('pointerup',this.#dragHandlers.up);
-this.#dragHandlers=null;
-}
-this.#drag=null;
-if(!drag)return;
-const deltaDays=Math.round(((event.clientX||0)-drag.startX)/(this.#pxPerDay||1));
-if(deltaDays===0){this.draw();return;}
-if(drag.mode==='move'){
-this.#controller.applyEdit({id:drag.id,start:drag.origStart+deltaDays},{writeBack:true});
-}else{
-this.#controller.applyEdit({id:drag.id,duration:Math.max(0,drag.origDuration+deltaDays)},{writeBack:true});
-}
-this.draw();
-}
-#onHover(event){
-if(this.#drag||!this.#tip)return;
-const schedule=this.#controller.schedule;
-if(!schedule||!schedule.ok){this.#hideTip();return;}
-const target=event.target;
-const row=target&&target.closest?target.closest(`.${NS}__row`):null;
-const id=row?row.getAttribute('data-task'):null;
-const rec=id?schedule.tasks.get(id):null;
-if(!rec){this.#hideTip();return;}
-setText(this.#tip,this.#tipText(rec));
-this.#tip.removeAttribute('hidden');
-this.#tip.setAttribute('data-task',id);
-}
-#tipText(rec){
-const dates=this.#opts.dateAxis
-?`${this.#iso(rec.es)} to ${this.#iso(rec.ef)}`
-:`${round(rec.es)} to ${round(rec.ef)}`;
-const parts=[rec.name,dates,`${round(rec.duration)}d`];
-if(rec.percentComplete!=null)parts.push(`${Math.round(rec.percentComplete)}%`);
-parts.push(`slack ${round(rec.totalFloat)}d`);
-return parts.join(' · ');
-}
-#hideTip(){if(this.#tip)this.#tip.setAttribute('hidden','');}
-#chainOf(id){
-const preds=new Map();
-const succs=new Map();
-for(const dep of this.#controller.dependencies){
-const from=String(dep.from);
-const to=String(dep.to);
-(succs.get(from)||succs.set(from,[]).get(from)).push(to);
-(preds.get(to)||preds.set(to,[]).get(to)).push(from);
-}
-const chain=new Set([id]);
-const walk=(adj,start)=>{
-const stack=[start];
-while(stack.length){
-const cur=stack.pop();
-for(const next of adj.get(cur)||[]){
-if(!chain.has(next)){chain.add(next);stack.push(next);}
-}
-}
-};
-walk(preds,id);
-walk(succs,id);
-return chain;
-}
-#highlightChain(id){
-if(!this.#svg)return;
-this.#clearHighlight();
-const chain=this.#chainOf(id);
-for(const link of this.#svg.querySelectorAll(`.${NS}__link`)){
-const f=link.getAttribute('data-from');
-const t=link.getAttribute('data-to');
-if(chain.has(f)&&chain.has(t))link.classList.add(`${NS}__link--chain`);
-}
-for(const cid of chain){
-const row=this.#svg.querySelector(`.${NS}__row[data-task="${cid}"]`);
-if(!row)continue;
-const bar=row.querySelector(`.${NS}__bar`)||row.querySelector(`.${NS}__milestone`)||row.querySelector(`.${NS}__summary`);
-if(!bar)continue;
-const kind=bar.getAttribute('class')||'';
-if(kind.includes(`${NS}__milestone`))bar.classList.add(`${NS}__milestone--chain`);
-else if(kind.includes(`${NS}__summary`))bar.classList.add(`${NS}__summary--chain`);
-else bar.classList.add(`${NS}__bar--chain`);
-}
-}
-#clearHighlight(){
-if(!this.#svg)return;
-for(const cls of['__link--chain','__bar--chain','__milestone--chain','__summary--chain']){
-for(const elm of this.#svg.querySelectorAll(`.${NS}${cls}`))elm.classList.remove(`${NS}${cls}`);
-}
-}
-#onChainHover(event){
-if(this.#drag)return;
-const target=event.target;
-const row=target&&target.closest?target.closest(`.${NS}__row`):null;
-const id=row?row.getAttribute('data-task'):null;
-if(id)this.#highlightChain(id);
-else this.#clearHighlight();
-}
-#describe(rec){
-const kind=rec.isSummary?'summary':(rec.isMilestone?'milestone':'task');
-const dates=this.#opts.dateAxis
-?`${this.#iso(rec.es)} to ${this.#iso(rec.ef)}`
-:`day ${round(rec.es)} to ${round(rec.ef)}`;
-const parts=[`${rec.name}, ${kind}`,dates];
-if(!rec.isMilestone)parts.push(`${round(rec.duration)} days`);
-if(rec.percentComplete!=null)parts.push(`${Math.round(rec.percentComplete)}% complete`);
-parts.push(`slack ${round(rec.totalFloat)} days`);
-if(rec.critical)parts.push('on the critical path');
-return parts.join(', ');
-}
-#onKey(event){
-const schedule=this.#controller.schedule;
-if(!schedule||!schedule.ok)return;
-const row=event.target&&event.target.closest?event.target.closest(`.${NS}__row`):null;
-const id=row?row.getAttribute('data-task'):null;
-const rec=id?schedule.tasks.get(id):null;
-if(!rec)return;
-const step=this.#opts.moveStep;
-const key=event.key;
-if(key==='ArrowRight'||key==='ArrowLeft'){
-if(rec.isSummary)return;
-const dir=key==='ArrowRight'?1:-1;
-this.#focusId=id;
-if(event.shiftKey){
-if(rec.isMilestone)return;
-const nd=Math.max(0,rec.duration+dir*step);
-this.#controller.applyEdit({id,duration:nd},{writeBack:true});
-this.#announce(`${rec.name} resized to ${nd} days`);
-}else{
-const ns=rec.es+dir*step;
-this.#controller.applyEdit({id,start:ns},{writeBack:true});
-this.#announce(`${rec.name} moved to ${this.#opts.dateAxis?this.#iso(ns):`day ${ns}`}`);
-}
-if(event.preventDefault)event.preventDefault();
-}else if(key==='l'||key==='L'){
-if(rec.isSummary)return;
-if(!this.#linkFrom){
-this.#linkFrom=id;
-this.#announce(`Linking from ${rec.name}. Focus the successor and press L.`);
-}else if(this.#linkFrom!==id){
-const from=this.#linkFrom;
-this.#linkFrom=null;
-this.#focusId=id;
-this.#controller.setDependencies([...this.#controller.dependencies,{from,to:id,type:'FS'}]);
-this.#announce(`Linked ${from} to ${rec.name}, finish to start.`);
-}
-if(event.preventDefault)event.preventDefault();
-}else if(key==='Delete'||key==='Backspace'){
-if(rec.isSummary)return;
-this.#controller.deleteTask(id);
-this.#announce(`${rec.name} deleted.`);
-if(event.preventDefault)event.preventDefault();
-}else if(key==='Escape'&&this.#linkFrom){
-this.#linkFrom=null;
-this.#announce('Link cancelled.');
-}
-}
-#announce(message){if(this.#live)setText(this.#live,message);}
-toSVG(){
-return this.#svg?serialize(this.#svg):'';
-}
-destroy(){
-if(this.#destroyed)return;
-this.#destroyed=true;
-if(this.#dragHandlers){
-this.#doc.removeEventListener('pointermove',this.#dragHandlers.move);
-this.#doc.removeEventListener('pointerup',this.#dragHandlers.up);
-this.#dragHandlers=null;
-}
-this.#drag=null;
-if(this.#sizeWatch){this.#sizeWatch.release();this.#sizeWatch=null;}
-if(this.#scrollUnlink){this.#scrollUnlink();this.#scrollUnlink=null;}
-if(this.#off)this.#off();
-if(this.#root&&this.#root.parentNode)this.#root.parentNode.removeChild(this.#root);
-this.#root=null;
-this.#svg=null;
-}
-}
-function mountGantt(controller,container,opts={}){
-return new GanttView(controller,container,opts);
-}
-});
-__def("packages/modules/gantt/split.js",function(__exports,__req){
-'use strict';
-Object.defineProperty(__exports,"SPLIT_NS",{enumerable:true,get:function(){return SPLIT_NS;}});
-Object.defineProperty(__exports,"GanttSplitView",{enumerable:true,get:function(){return GanttSplitView;}});
-Object.defineProperty(__exports,"mountGanttSplit",{enumerable:true,get:function(){return mountGanttSplit;}});
-const __m0=__req("packages/modules/charts/svg.js");
-const svg=__m0["svg"];
-const el=__m0["el"];
-const setText=__m0["setText"];
-const path=__m0["path"];
-const round=__m0["round"];
-const __m1=__req("packages/modules/charts/scale.js");
-const linearScale=__m1["linearScale"];
-const __m2=__req("packages/modules/gantt/time.js");
-const fromDayNumber=__m2["fromDayNumber"];
-const toISODate=__m2["toISODate"];
-const __m3=__req("packages/modules/gantt/calendar.js");
-const createCalendar=__m3["createCalendar"];
-const __m4=__req("packages/modules/gantt/links.js");
-const routeLink=__m4["routeLink"];
-const arrowheadPath=__m4["arrowheadPath"];
-const SPLIT_NS='lat-gantt-split';
-const SPLIT_STAMP='data-lat-gantt-split-styles';
-const SPLIT_DEFAULTS=Object.freeze({
-height:420,
-rowHeight:34,
-headerHeight:44,
-gridWidth:320,
-indent:16,
-zoom:'day',
-today:null,
-nonWorking:null,
-calendar:null,
-showArrows:true,
-showProgress:true,
-showBaseline:true,
-barLabel:'name',
-columns:null,
-hoverChain:true,
-editable:true,
-});
-const SPLIT_ZOOM=Object.freeze({
-day:{px:26,step:1,level:'day'},
-week:{px:12,step:7,level:'week'},
-month:{px:4,step:30,level:'month'},
-quarter:{px:1.8,step:91,level:'quarter'},
-});
-const DAY_LETTERS=['S','M','T','W','T','F','S'];
-const DAY_NAMES=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const AVATAR_COLORS=['#4a90d9','#e2513b','#2c9c6a','#8b5cf6','#d97706','#0891b2','#be185d'];
-function splitCss(){
-const n=SPLIT_NS;
-return`
-.${n}{font:13px/1.4 system-ui,sans-serif;color:#1f2933;display:flex;flex-direction:column;border:1px solid #d7dbe0;border-radius:6px;overflow:hidden;box-sizing:border-box}
-.${n} *{box-sizing:border-box}
-.${n}__head{display:flex;flex:0 0 auto;overflow:hidden;background:#f6f8fa;border-bottom:1px solid #d0d7de}
-.${n}__body{display:flex;flex:1 1 auto;overflow-y:auto;overflow-x:hidden}
-.${n}__grid-head,.${n}__grid-body{flex:0 0 auto}
-.${n}__grid-head{display:flex;align-items:stretch}
-.${n}__colhead{display:flex;align-items:center;padding:0 8px;font-weight:600;color:#57606a;border-right:1px solid #eaeef2;overflow:hidden;white-space:nowrap}
-.${n}__divider{flex:0 0 1px;width:1px;background:#c4ccd4;align-self:stretch}
-.${n}__time-head,.${n}__time-body{flex:1 1 auto;overflow:hidden;position:relative}
-.${n}__time-body{overflow-x:auto;overflow-y:hidden}
-.${n}__row{display:flex;align-items:center;border-bottom:1px solid #eef1f4;overflow:hidden}
-.${n}__row--summary{background:#f3f6f9}
-.${n}__cell{display:flex;align-items:center;padding:0 8px;height:100%;overflow:hidden;border-right:1px solid #f0f2f4}
-.${n}__cell--name{gap:2px}
-.${n}__name-text{overflow:hidden;text-overflow:ellipsis}
-.${n}__name-text--summary{font-weight:600}
-.${n}__chevron{flex:0 0 auto;width:16px;height:16px;line-height:16px;text-align:center;cursor:pointer;color:#57606a;border:0;background:none;padding:0;font-size:11px}
-.${n}__chevron[aria-hidden="true"]{visibility:hidden}
-.${n}__avatars{display:flex}
-.${n}__avatar{width:22px;height:22px;border-radius:50%;color:#fff;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;margin-left:-6px;border:1.5px solid #fff}
-.${n}__avatar:first-child{margin-left:0}
-.${n}__avatar--overalloc{border-color:#e2513b;box-shadow:0 0 0 1.5px #e2513b}
-.${n}__ring{flex:0 0 auto}
-.${n}__plot{display:block}
-.${n}__shade{fill:#f1f3f5}
-.${n}__rowsep{stroke:#eef1f4;stroke-width:1}
-.${n}__bar{fill:#4a90d9}
-.${n}__bar--critical{fill:#e2513b}
-.${n}__bar--overalloc{stroke:#e2513b;stroke-width:2;stroke-dasharray:3 2}
-.${n}__progress{fill:rgba(0,0,0,0.26)}
-.${n}__summary-bar{fill:#33404d}
-.${n}__milestone{fill:#33404d}
-.${n}__baseline{fill:#b9c2cc;opacity:0.7}
-.${n}__barlabel{fill:#3d4650;font-size:11px;dominant-baseline:middle}
-.${n}__startlabel{fill:#57606a;font-size:10px;dominant-baseline:middle}
-.${n}__link{fill:none;stroke:#8a94a0;stroke-width:1.5}
-.${n}__link--critical{stroke:#e2513b}
-.${n}__link--chain{stroke:#2563eb;stroke-width:2.5}
-.${n}__arrowhead{fill:#8a94a0}
-.${n}__arrowhead--critical{fill:#e2513b}
-.${n}__arrowhead--chain{fill:#2563eb}
-.${n}__bar--chain{stroke:#2563eb;stroke-width:2}
-.${n}__milestone--chain{stroke:#2563eb;stroke-width:2}
-.${n}__summary-bar--chain{stroke:#2563eb;stroke-width:2}
-.${n}__row--chain{background:#eaf1fb}
-.${n}__cell--editable{cursor:text}
-.${n}__editor{width:100%;height:22px;box-sizing:border-box;border:1px solid #2563eb;border-radius:3px;padding:0 4px;font:inherit;color:inherit}
-.${n}__today{stroke:#e2513b;stroke-width:1.5;stroke-dasharray:4 3}
-.${n}__band{fill:#57606a;font-size:11px;font-weight:600}
-.${n}__bandsep{stroke:#d0d7de;stroke-width:1}
-.${n}__dayletter{fill:#8a94a0;font-size:10px;text-anchor:middle}
-.${n}__dayletter--nonwork{fill:#c4ccd4}
-`.trim();
-}
-function injectSplitStyles(doc){
-const root=doc.documentElement;
-if(!root||root.getAttribute(SPLIT_STAMP))return;
-root.setAttribute(SPLIT_STAMP,'1');
-const style=doc.createElement('style');
-style.textContent=splitCss();
-(doc.head||doc.body||root).appendChild(style);
-}
-function initials(name){
-const parts=String(name).trim().split(/\s+/).filter(Boolean);
-if(!parts.length)return'?';
-if(parts.length===1)return parts[0].slice(0,2).toUpperCase();
-return(parts[0][0]+parts[parts.length-1][0]).toUpperCase();
-}
-function avatarColor(name){
-let h=0;
-for(let i=0;i<name.length;i+=1)h=(h*31+name.charCodeAt(i))>>>0;
-return AVATAR_COLORS[h%AVATAR_COLORS.length];
-}
-function defaultColumns(){
-return[
-{key:'name',title:'Task name',width:0,kind:'name'},
-{key:'assignee',title:'Assignee',width:96,kind:'assignee'},
-{key:'progress',title:'%',width:56,kind:'progress'},
-];
-}
-class GanttSplitView{
-#controller;
-#container;
-#doc;
-#opts;
-#columns;
-#root=null;
-#gridHead=null;
-#gridBody=null;
-#timeHead=null;
-#timeBody=null;
-#collapsed=new Set();
-#geometry=[];
-#overResources=new Set();
-#overTasks=new Set();
-#evm=null;
-#off=null;
-#onHScroll=null;
-#onRowHover=null;
-#onRowOut=null;
-#onCellEdit=null;
-#editing=false;
-#destroyed=false;
-constructor(controller,container,opts={}){
-this.#controller=controller;
-this.#container=container;
-this.#doc=container.ownerDocument;
-this.#opts={...SPLIT_DEFAULTS,...opts};
-this.#columns=Array.isArray(opts.columns)&&opts.columns.length?opts.columns:defaultColumns();
-injectSplitStyles(this.#doc);
-this.#root=el(this.#doc,'div',SPLIT_NS);
-this.#root.setAttribute('role','table');
-if(Number.isFinite(this.#opts.height))this.#root.style.height=`${this.#opts.height}px`;
-const head=el(this.#doc,'div',`${SPLIT_NS}__head`);
-this.#gridHead=el(this.#doc,'div',`${SPLIT_NS}__grid-head`);
-this.#gridHead.style.width=`${this.#gridWidth()}px`;
-this.#timeHead=el(this.#doc,'div',`${SPLIT_NS}__time-head`);
-head.appendChild(this.#gridHead);
-head.appendChild(el(this.#doc,'div',`${SPLIT_NS}__divider`));
-head.appendChild(this.#timeHead);
-const body=el(this.#doc,'div',`${SPLIT_NS}__body`);
-this.#gridBody=el(this.#doc,'div',`${SPLIT_NS}__grid-body`);
-this.#gridBody.style.width=`${this.#gridWidth()}px`;
-this.#timeBody=el(this.#doc,'div',`${SPLIT_NS}__time-body`);
-body.appendChild(this.#gridBody);
-body.appendChild(el(this.#doc,'div',`${SPLIT_NS}__divider`));
-body.appendChild(this.#timeBody);
-this.#root.appendChild(head);
-this.#root.appendChild(body);
-this.#container.appendChild(this.#root);
-this.#onHScroll=()=>{if(this.#timeHead)this.#timeHead.scrollLeft=this.#timeBody.scrollLeft;};
-this.#timeBody.addEventListener('scroll',this.#onHScroll);
-if(this.#opts.hoverChain){
-this.#onRowHover=(e)=>this.#onChainHover(e);
-this.#onRowOut=()=>this.#clearHighlight();
-this.#gridBody.addEventListener('pointerover',this.#onRowHover);
-this.#gridBody.addEventListener('pointerleave',this.#onRowOut);
-this.#timeBody.addEventListener('pointerover',this.#onRowHover);
-this.#timeBody.addEventListener('pointerleave',this.#onRowOut);
-}
-if(this.#opts.editable){
-this.#onCellEdit=(e)=>this.#onCellDblClick(e);
-this.#gridBody.addEventListener('dblclick',this.#onCellEdit);
-}
-this.#off=controller.on('schedule',()=>this.draw());
-this.draw();
-}
-get element(){return this.#root;}
-get options(){return{...this.#opts};}
-get scroller(){return this.#root?this.#root.querySelector(`.${SPLIT_NS}__body`):null;}
-#gridWidth(){return Math.max(80,Number(this.#opts.gridWidth)||320);}
-rowGeometry(){return this.#geometry.map((g)=>({...g}));}
-get collapsed(){return new Set(this.#collapsed);}
-toggle(id){
-const key=String(id);
-if(this.#collapsed.has(key))this.#collapsed.delete(key);
-else this.#collapsed.add(key);
-this.draw();
-}
-draw(){
-if(this.#destroyed)return;
-const schedule=this.#controller.schedule;
-if(!schedule||!schedule.ok)return;
-const overAllocations=schedule.overAllocations||[];
-this.#overResources=new Set(overAllocations.map((o)=>o.resource));
-this.#overTasks=new Set(overAllocations.flatMap((o)=>o.taskIds));
-this.#evm=null;
-if(this.#opts.evm){
-const evmOpts=this.#opts.evm===true?{}:this.#opts.evm;
-const statusDate=evmOpts.statusDate!=null
-?evmOpts.statusDate
-:(Number.isFinite(this.#opts.today)?this.#opts.today:undefined);
-const result=this.#controller.earnedValue({...evmOpts,statusDate});
-if(result&&result.ok)this.#evm=result.byTask;
-}
-const rows=this.#visibleRows(schedule);
-const geometry=this.#computeGeometry(rows);
-this.#geometry=geometry;
-const totalHeight=geometry.length?geometry[geometry.length-1].top+geometry[geometry.length-1].height:0;
-const zoom=this.#resolveZoom();
-const lo=schedule.projectStart;
-const hi=schedule.projectFinish;
-const bounds=[lo,hi];
-if(Number.isFinite(this.#opts.today))bounds.push(this.#opts.today);
-const min=Math.floor(Math.min(...bounds));
-const max=Math.ceil(Math.max(...bounds));
-const pad=Math.max(1,Math.round((max-min)*0.04));
-const domainMin=min-pad;
-const domainMax=max+pad;
-const timelineWidth=Math.max(1,Math.round((domainMax-domainMin)*zoom.px));
-const scale=linearScale({min:domainMin,max:domainMax},[0,timelineWidth]);
-const x=(day)=>round(scale.of(day));
-this.#renderGridHead();
-this.#renderGridBody(schedule,rows,geometry);
-this.#renderTimeHead(zoom,domainMin,domainMax,x,timelineWidth);
-this.#renderTimeBody(schedule,rows,geometry,x,timelineWidth,totalHeight,min,max);
-}
-#visibleRows(schedule){
-const byParent=new Map();
-for(const id of schedule.order){
-const rec=schedule.tasks.get(id);
-const p=rec.parent==null?'__root__':String(rec.parent);
-if(!byParent.has(p))byParent.set(p,[]);
-byParent.get(p).push(id);
-}
-const out=[];
-const walk=(parentKey,depth)=>{
-for(const id of byParent.get(parentKey)||[]){
-const rec=schedule.tasks.get(id);
-const hasChildren=!!rec.isSummary&&(byParent.get(id)||[]).length>0;
-out.push({id,rec,depth,hasChildren});
-if(hasChildren&&!this.#collapsed.has(id))walk(id,depth+1);
-}
-};
-walk('__root__',0);
-return out;
-}
-#computeGeometry(rows){
-const base=Number(this.#opts.rowHeight)||34;
-const raw=new Map(this.#controller.tasks.map((t)=>[String(t.id),t]));
-const nameCol=this.#columns.find((c)=>c.kind==='name');
-const nameWidth=nameCol&&nameCol.width?nameCol.width:(this.#gridWidth()-this.#columns.filter((c)=>c.kind!=='name').reduce((a,c)=>a+(c.width||0),0));
-const out=[];
-let top=0;
-for(const row of rows){
-const t=raw.get(row.id)||{};
-let height=base;
-if(Number.isFinite(t.height)){
-height=Math.max(base,Number(t.height));
-}else{
-const avail=Math.max(24,nameWidth-row.depth*(this.#opts.indent||16)-28);
-const perLine=Math.max(4,Math.floor(avail/7));
-const lines=Math.max(1,Math.ceil(String(row.rec.name||'').length/perLine));
-if(lines>1)height=Math.max(base,lines*18+12);
-}
-out.push({id:row.id,top,height});
-top+=height;
-}
-return out;
-}
-#resolveZoom(){
-const z=this.#opts.zoom;
-if(Number.isFinite(z))return{px:Number(z),step:1,level:'custom'};
-return(typeof z==='string'&&SPLIT_ZOOM[z])?SPLIT_ZOOM[z]:SPLIT_ZOOM.day;
-}
-#nonWorking(){
-if(this.#opts.calendar){
-const cal=createCalendar(this.#opts.calendar,0);
-if(cal)return(day)=>!cal.isWorking(day);
-}
-if(this.#opts.nonWorking==='weekends'){
-return(day)=>{const d=fromDayNumber(day);const wd=d?d.getUTCDay():0;return wd===0||wd===6;};
-}
-return typeof this.#opts.nonWorking==='function'?this.#opts.nonWorking:null;
-}
-#renderGridHead(){
-const head=this.#gridHead;
-while(head.firstChild)head.removeChild(head.firstChild);
-head.style.height=`${this.#opts.headerHeight}px`;
-const widths=this.#columnWidths();
-this.#columns.forEach((col,i)=>{
-const cell=el(this.#doc,'div',`${SPLIT_NS}__colhead`);
-cell.style.width=`${widths[i]}px`;
-cell.style.flex=`0 0 ${widths[i]}px`;
-setText(cell,col.title||col.key);
-head.appendChild(cell);
-});
-}
-#columnWidths(){
-const total=this.#gridWidth();
-const fixed=this.#columns.reduce((a,c)=>a+(c.kind==='name'?0:(c.width||0)),0);
-return this.#columns.map((c)=>(c.kind==='name'?Math.max(80,total-fixed):(c.width||80)));
-}
-#renderGridBody(schedule,rows,geometry){
-const body=this.#gridBody;
-while(body.firstChild)body.removeChild(body.firstChild);
-const raw=new Map(this.#controller.tasks.map((t)=>[String(t.id),t]));
-const widths=this.#columnWidths();
-rows.forEach((row,i)=>{
-const g=geometry[i];
-const rowEl=el(this.#doc,'div',`${SPLIT_NS}__row${row.rec.isSummary?` ${SPLIT_NS}__row--summary`:''}`);
-rowEl.style.height=`${g.height}px`;
-rowEl.setAttribute('role','row');
-rowEl.setAttribute('data-task',row.id);
-rowEl.setAttribute('data-row-top',String(g.top));
-rowEl.setAttribute('data-row-height',String(g.height));
-this.#columns.forEach((col,ci)=>{
-const editable=this.#opts.editable&&!row.rec.isSummary&&this.#editableField(col)!=null;
-const cell=el(this.#doc,'div',`${SPLIT_NS}__cell${col.kind==='name'?` ${SPLIT_NS}__cell--name`:''}${editable?` ${SPLIT_NS}__cell--editable`:''}`);
-cell.style.width=`${widths[ci]}px`;
-cell.style.flex=`0 0 ${widths[ci]}px`;
-cell.setAttribute('data-col',String(ci));
-this.#fillCell(cell,col,row,raw.get(row.id)||{});
-rowEl.appendChild(cell);
-});
-body.appendChild(rowEl);
-});
-}
-#fillCell(cell,col,row,rawTask){
-if(typeof col.render==='function'){
-const text=col.render(row.rec,{rawTask,depth:row.depth});
-if(text!=null)setText(cell,String(text));
-return;
-}
-if(col.kind==='name'){this.#fillNameCell(cell,row);return;}
-if(col.kind==='assignee'){this.#fillAssigneeCell(cell,rawTask);return;}
-if(col.kind==='progress'){this.#fillProgressCell(cell,row.rec);return;}
-if(col.kind==='evm'){this.#fillEvmCell(cell,col,row);return;}
-const v=rawTask[col.key];
-setText(cell,v==null?'':String(v));
-}
-#fillEvmCell(cell,col,row){
-const metric=col.metric||'spi';
-const evmRow=this.#evm?this.#evm.get(row.id):null;
-const value=evmRow?evmRow[metric]:null;
-if(value==null||!Number.isFinite(value)){setText(cell,'—');return;}
-const digits=(metric==='spi'||metric==='cpi')?2:(Number.isFinite(col.digits)?col.digits:0);
-setText(cell,value.toFixed(digits));
-}
-#fillNameCell(cell,row){
-cell.style.paddingLeft=`${8+row.depth*(this.#opts.indent||16)}px`;
-const chevron=this.#doc.createElement('button');
-chevron.setAttribute('class',`${SPLIT_NS}__chevron`);
-chevron.setAttribute('type','button');
-if(row.hasChildren){
-const collapsed=this.#collapsed.has(row.id);
-setText(chevron,collapsed?'▸':'▾');
-chevron.setAttribute('aria-label',collapsed?`Expand ${row.rec.name}`:`Collapse ${row.rec.name}`);
-chevron.setAttribute('aria-expanded',collapsed?'false':'true');
-chevron.addEventListener('click',()=>this.toggle(row.id));
-}else{
-chevron.setAttribute('aria-hidden','true');
-}
-cell.appendChild(chevron);
-const text=el(this.#doc,'span',`${SPLIT_NS}__name-text${row.rec.isSummary?` ${SPLIT_NS}__name-text--summary`:''}`);
-setText(text,row.rec.name);
-cell.appendChild(text);
-}
-#fillAssigneeCell(cell,rawTask){
-const value=rawTask.assignee??rawTask.assignees??rawTask.owner;
-const names=(Array.isArray(value)?value:(value==null?[]:[value])).map((v)=>String(v)).filter(Boolean);
-if(!names.length)return;
-const wrap=el(this.#doc,'div',`${SPLIT_NS}__avatars`);
-for(const name of names.slice(0,3)){
-const over=this.#overResources.has(name);
-const av=el(this.#doc,'div',`${SPLIT_NS}__avatar${over?` ${SPLIT_NS}__avatar--overalloc`:''}`);
-av.style.background=avatarColor(name);
-av.setAttribute('title',over?`${name} — over-allocated`:name);
-setText(av,initials(name));
-wrap.appendChild(av);
-}
-cell.appendChild(wrap);
-}
-#fillProgressCell(cell,rec){
-const pct=rec.percentComplete==null?null:Math.max(0,Math.min(100,rec.percentComplete));
-if(pct==null)return;
-const size=26;
-const r=10;
-const c=2*Math.PI*r;
-const ring=svg(this.#doc,'svg',{class:`${SPLIT_NS}__ring`,width:size,height:size,viewBox:`0 0 ${size} ${size}`});
-ring.appendChild(svg(this.#doc,'circle',{cx:size/2,cy:size/2,r,fill:'none',stroke:'#e6e8eb','stroke-width':3}));
-ring.appendChild(svg(this.#doc,'circle',{
-cx:size/2,cy:size/2,r,fill:'none',stroke:pct>=100?'#2c9c6a':'#4a90d9','stroke-width':3,
-'stroke-dasharray':`${round(c*pct/100)} ${round(c)}`,'stroke-linecap':'round',
-transform:`rotate(-90 ${size/2} ${size/2})`,
-}));
-const label=svg(this.#doc,'text',{x:size/2,y:size/2+3,'text-anchor':'middle','font-size':8,fill:'#57606a'});
-setText(label,String(Math.round(pct)));
-ring.appendChild(label);
-cell.appendChild(ring);
-}
-#renderTimeHead(zoom,domainMin,domainMax,x,width){
-const pane=this.#timeHead;
-while(pane.firstChild)pane.removeChild(pane.firstChild);
-pane.style.height=`${this.#opts.headerHeight}px`;
-const h=this.#opts.headerHeight;
-const bandH=zoom.level==='day'?Math.round(h*0.55):h;
-const inner=svg(this.#doc,'svg',{
-class:`${SPLIT_NS}__plot`,width,height:h,viewBox:`0 0 ${width} ${h}`,
-});
-inner.setAttribute('data-role','time-head');
-const from=Math.floor(domainMin);
-const to=Math.ceil(domainMax);
-const pred=this.#nonWorking();
-const bandStep=(zoom.level==='month'||zoom.level==='quarter')?null:7;
-if(bandStep){
-let day=from-((fromDayNumber(from)?.getUTCDay()??0));
-for(;day<to;day+=bandStep){
-const px=x(day);
-inner.appendChild(svg(this.#doc,'line',{class:`${SPLIT_NS}__bandsep`,x1:px,y1:0,x2:px,y2:h}));
-const d=fromDayNumber(day);
-if(d){
-const label=svg(this.#doc,'text',{class:`${SPLIT_NS}__band`,x:px+4,y:Math.round(bandH*0.62)});
-setText(label,`${DAY_NAMES[d.getUTCDay()]} ${String(d.getUTCDate()).padStart(2,'0')} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`);
-inner.appendChild(label);
-}
-}
-}else{
-let d=fromDayNumber(from);
-if(d){
-let cursor=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1)/86400000;
-for(;cursor<to;){
-const md=fromDayNumber(cursor);
-const px=x(cursor);
-inner.appendChild(svg(this.#doc,'line',{class:`${SPLIT_NS}__bandsep`,x1:px,y1:0,x2:px,y2:h}));
-const label=svg(this.#doc,'text',{class:`${SPLIT_NS}__band`,x:px+4,y:Math.round(h*0.6)});
-setText(label,`${MONTHS[md.getUTCMonth()]} ${md.getUTCFullYear()}`);
-inner.appendChild(label);
-cursor=Date.UTC(md.getUTCFullYear(),md.getUTCMonth()+1,1)/86400000;
-}
-}
-}
-if(zoom.level==='day'){
-inner.appendChild(svg(this.#doc,'line',{class:`${SPLIT_NS}__bandsep`,x1:0,y1:bandH,x2:width,y2:bandH}));
-for(let day=from;day<to;day+=1){
-const d=fromDayNumber(day);
-if(!d)continue;
-const cx=(x(day)+x(day+1))/2;
-const letter=svg(this.#doc,'text',{
-class:`${SPLIT_NS}__dayletter${pred&&pred(day)?` ${SPLIT_NS}__dayletter--nonwork`:''}`,
-x:round(cx),y:bandH+Math.round((h-bandH)*0.62),
-});
-setText(letter,DAY_LETTERS[d.getUTCDay()]);
-inner.appendChild(letter);
-}
-}
-pane.appendChild(inner);
-pane.scrollLeft=this.#timeBody?this.#timeBody.scrollLeft:0;
-}
-#renderTimeBody(schedule,rows,geometry,x,width,totalHeight,min,max){
-const pane=this.#timeBody;
-while(pane.firstChild)pane.removeChild(pane.firstChild);
-const plot=svg(this.#doc,'svg',{
-class:`${SPLIT_NS}__plot`,width,height:totalHeight,viewBox:`0 0 ${width} ${totalHeight}`,role:'img','aria-label':'Gantt timeline',
-});
-const pred=this.#nonWorking();
-if(pred&&(max-min)<=3660){
-const g=svg(this.#doc,'g',{class:`${SPLIT_NS}__shading`});
-for(let day=Math.floor(min);day<Math.ceil(max);day+=1){
-if(!pred(day))continue;
-const x0=x(day);
-const x1=x(day+1);
-g.appendChild(svg(this.#doc,'rect',{class:`${SPLIT_NS}__shade`,x:x0,y:0,width:round(Math.max(0,x1-x0)),height:totalHeight}));
-}
-plot.appendChild(g);
-}
-const rowIndex=new Map(rows.map((r,i)=>[r.id,i]));
-const showProgress=this.#opts.showProgress;
-const showBaseline=this.#opts.showBaseline;
-rows.forEach((row,i)=>{
-const g=geometry[i];
-const rec=row.rec;
-const barH=Math.min(18,g.height-12);
-const barY=g.top+(g.height-barH)/2;
-const midY=g.top+g.height/2;
-const group=svg(this.#doc,'g',{class:`${SPLIT_NS}__barrow`});
-group.setAttribute('data-task',row.id);
-group.setAttribute('data-y',String(g.top));
-group.setAttribute('data-row-height',String(g.height));
-group.appendChild(svg(this.#doc,'rect',{class:`${SPLIT_NS}__rowbg`,x:0,y:round(g.top),width,height:round(g.height),fill:'transparent'}));
-group.appendChild(svg(this.#doc,'line',{class:`${SPLIT_NS}__rowsep`,x1:0,y1:round(g.top+g.height),x2:width,y2:round(g.top+g.height)}));
-if(showBaseline&&rec.baselineStart!=null&&rec.baselineEnd!=null){
-const bx=x(rec.baselineStart);
-const bw=Math.max(1,x(rec.baselineEnd)-bx);
-group.appendChild(svg(this.#doc,'rect',{class:`${SPLIT_NS}__baseline`,x:bx,y:round(barY+barH),width:round(bw),height:4,rx:2}));
-}
-if(rec.isMilestone){
-const cx=x(rec.es);
-const r=barH/2;
-group.appendChild(svg(this.#doc,'path',{
-class:`${SPLIT_NS}__milestone`,
-d:path(['M',round(cx-r),round(midY),'L',round(cx),round(midY-r),'L',round(cx+r),round(midY),'L',round(cx),round(midY+r),'Z']),
-}));
-}else if(rec.isSummary){
-const x0=x(rec.es);
-const w=Math.max(2,x(rec.ef)-x0);
-group.appendChild(svg(this.#doc,'rect',{class:`${SPLIT_NS}__summary-bar`,x:x0,y:round(barY+barH/3),width:round(w),height:round(barH/3),rx:1}));
-group.appendChild(svg(this.#doc,'path',{class:`${SPLIT_NS}__summary-bar`,d:path(['M',round(x0),round(barY+barH/3),'L',round(x0),round(barY+barH),'L',round(x0+5),round(barY+barH/3),'Z'])}));
-group.appendChild(svg(this.#doc,'path',{class:`${SPLIT_NS}__summary-bar`,d:path(['M',round(x0+w),round(barY+barH/3),'L',round(x0+w),round(barY+barH),'L',round(x0+w-5),round(barY+barH/3),'Z'])}));
-const sl=svg(this.#doc,'text',{class:`${SPLIT_NS}__startlabel`,x:round(x0+w+6),y:round(midY)});
-setText(sl,this.#dateLabel(rec.es));
-group.appendChild(sl);
-}else{
-const x0=x(rec.es);
-const w=Math.max(1,x(rec.ef)-x0);
-const crit=rec.critical;
-const over=this.#overTasks.has(String(rec.id));
-group.appendChild(svg(this.#doc,'rect',{class:`${SPLIT_NS}__bar${crit?` ${SPLIT_NS}__bar--critical`:''}${over?` ${SPLIT_NS}__bar--overalloc`:''}`,x:x0,y:round(barY),width:round(w),height:round(barH),rx:3}));
-if(showProgress&&rec.percentComplete!=null&&rec.percentComplete>0){
-group.appendChild(svg(this.#doc,'rect',{class:`${SPLIT_NS}__progress`,x:x0,y:round(barY),width:round(w*Math.min(1,rec.percentComplete/100)),height:round(barH),rx:3}));
-}
-const text=this.#barLabelText(rec);
-if(text){
-const t=svg(this.#doc,'text',{class:`${SPLIT_NS}__barlabel`,x:round(x0+w+6),y:round(midY)});
-setText(t,text);
-group.appendChild(t);
-}
-}
-plot.appendChild(group);
-});
-if(this.#opts.showArrows)this.#renderLinks(plot,schedule,rows,rowIndex,geometry,x);
-if(Number.isFinite(this.#opts.today)){
-const px=x(this.#opts.today);
-plot.appendChild(svg(this.#doc,'line',{class:`${SPLIT_NS}__today`,x1:px,y1:0,x2:px,y2:totalHeight,'data-today':String(this.#opts.today)}));
-}
-pane.appendChild(plot);
-}
-#renderLinks(plot,schedule,rows,rowIndex,geometry,x){
-const g=svg(this.#doc,'g',{class:`${SPLIT_NS}__links`});
-const midOf=(id)=>{const gi=geometry[rowIndex.get(id)];return gi.top+gi.height/2;};
-for(const dep of this.#controller.dependencies){
-const from=String(dep.from);
-const to=String(dep.to);
-if(!rowIndex.has(from)||!rowIndex.has(to))continue;
-const p=schedule.tasks.get(from);
-const s=schedule.tasks.get(to);
-if(!p||!s)continue;
-const type=dep.type?String(dep.type).toUpperCase():'FS';
-const startDay=(type==='FS'||type==='FF')?p.ef:p.es;
-const endDay=(type==='FF'||type==='SF')?s.ef:s.es;
-const sx=x(startDay);
-const sy=midOf(from);
-const ex=x(endDay);
-const ey=midOf(to);
-const critical=p.critical&&s.critical;
-const route=routeLink({sx,sy,ex,ey,type,elbow:10,rowGap:geometry[rowIndex.get(from)].height/2});
-const line=svg(this.#doc,'path',{class:`${SPLIT_NS}__link${critical?` ${SPLIT_NS}__link--critical`:''}`,d:route.d});
-line.setAttribute('data-from',from);
-line.setAttribute('data-to',to);
-line.setAttribute('data-type',type);
-line.setAttribute('data-route',route.route);
-g.appendChild(line);
-g.appendChild(svg(this.#doc,'path',{
-class:`${SPLIT_NS}__arrowhead${critical?` ${SPLIT_NS}__arrowhead--critical`:''}`,
-d:arrowheadPath(ex,ey,route.arrowDir),
-}));
-}
-plot.appendChild(g);
-}
-#barLabelText(rec){
-const spec=this.#opts.barLabel;
-if(typeof spec==='function')return String(spec(rec)??'');
-switch(spec){
-case'none':return'';
-case'percent':return rec.percentComplete==null?'':`${Math.round(rec.percentComplete)}%`;
-case'dates':return`${this.#dateLabel(rec.es)} – ${this.#dateLabel(rec.ef)}`;
-case'name':default:return rec.name;
-}
-}
-#dateLabel(day){
-const d=fromDayNumber(day);
-return d?`${String(d.getUTCDate()).padStart(2,'0')} ${MONTHS[d.getUTCMonth()]}`:(toISODate(day)??String(day));
-}
-#editableField(col){
-if(!col||col.editable===false)return null;
-if(col.editField)return String(col.editField);
-if(col.kind==='name')return'name';
-if(col.kind==='progress')return'percentComplete';
-if(col.editable===true)return col.key;
-return null;
-}
-#onCellDblClick(event){
-if(this.#editing)return;
-const target=event.target;
-const cell=target&&target.closest?target.closest(`.${SPLIT_NS}__cell`):null;
-if(!cell)return;
-const rowEl=cell.closest(`.${SPLIT_NS}__row`);
-if(!rowEl)return;
-const id=rowEl.getAttribute('data-task');
-const col=this.#columns[Number(cell.getAttribute('data-col'))];
-const field=this.#editableField(col);
-if(!id||!field)return;
-const rec=this.#controller.schedule&&this.#controller.schedule.ok?this.#controller.schedule.tasks.get(id):null;
-if(rec&&rec.isSummary)return;
-this.#openEditor(cell,id,field,col);
-}
-#openEditor(cell,id,field,col){
-const task=this.#controller.tasks.find((t)=>String(t.id)===String(id))||{};
-const numeric=field==='percentComplete'||col.kind==='progress'||col.kind==='number';
-const current=task[field]==null?'':task[field];
-while(cell.firstChild)cell.removeChild(cell.firstChild);
-const input=this.#doc.createElement('input');
-input.setAttribute('class',`${SPLIT_NS}__editor`);
-input.setAttribute('type',numeric?'number':'text');
-input.value=String(current);
-cell.appendChild(input);
-this.#editing=true;
-if(input.focus)input.focus();
-let done=false;
-const finish=(commit)=>{
-if(done)return;
-done=true;
-this.#editing=false;
-if(commit)this.#commitEdit(id,field,input.value,numeric);
-else this.draw();
-};
-input.addEventListener('keydown',(e)=>{
-if(e.key==='Enter'){if(e.preventDefault)e.preventDefault();finish(true);}
-else if(e.key==='Escape'){if(e.preventDefault)e.preventDefault();finish(false);}
-});
-input.addEventListener('blur',()=>finish(true));
-}
-#commitEdit(id,field,rawValue,numeric){
-let value=rawValue;
-if(numeric){
-const n=Number(rawValue);
-if(!Number.isFinite(n)){this.draw();return;}
-value=field==='percentComplete'?Math.max(0,Math.min(100,n)):n;
-}
-this.#controller.applyEdit({id,[field]:value},{writeBack:true});
-this.draw();
-}
-#chainOf(id){
-const preds=new Map();
-const succs=new Map();
-for(const dep of this.#controller.dependencies){
-const from=String(dep.from);
-const to=String(dep.to);
-(succs.get(from)||succs.set(from,[]).get(from)).push(to);
-(preds.get(to)||preds.set(to,[]).get(to)).push(from);
-}
-const chain=new Set([id]);
-const walk=(adj)=>{
-const stack=[id];
-while(stack.length){
-const cur=stack.pop();
-for(const next of adj.get(cur)||[]){
-if(!chain.has(next)){chain.add(next);stack.push(next);}
-}
-}
-};
-walk(preds);
-walk(succs);
-return chain;
-}
-#highlightChain(id){
-if(!this.#root)return;
-this.#clearHighlight();
-const chain=this.#chainOf(id);
-for(const cid of chain){
-const gr=this.#gridBody&&this.#gridBody.querySelector(`.${SPLIT_NS}__row[data-task="${cid}"]`);
-if(gr)gr.classList.add(`${SPLIT_NS}__row--chain`);
-}
-const plot=this.#timeBody;
-if(!plot)return;
-for(const link of plot.querySelectorAll(`.${SPLIT_NS}__link`)){
-const f=link.getAttribute('data-from');
-const t=link.getAttribute('data-to');
-if(chain.has(f)&&chain.has(t))link.classList.add(`${SPLIT_NS}__link--chain`);
-}
-for(const cid of chain){
-const group=plot.querySelector(`.${SPLIT_NS}__barrow[data-task="${cid}"]`);
-if(!group)continue;
-const bar=group.querySelector(`.${SPLIT_NS}__bar`)||group.querySelector(`.${SPLIT_NS}__milestone`)||group.querySelector(`.${SPLIT_NS}__summary-bar`);
-if(!bar)continue;
-const kind=bar.getAttribute('class')||'';
-if(kind.includes(`${SPLIT_NS}__milestone`))bar.classList.add(`${SPLIT_NS}__milestone--chain`);
-else if(kind.includes(`${SPLIT_NS}__summary-bar`))bar.classList.add(`${SPLIT_NS}__summary-bar--chain`);
-else bar.classList.add(`${SPLIT_NS}__bar--chain`);
-}
-}
-#clearHighlight(){
-if(!this.#root)return;
-for(const cls of['__row--chain','__link--chain','__bar--chain','__milestone--chain','__summary-bar--chain']){
-for(const elm of this.#root.querySelectorAll(`.${SPLIT_NS}${cls}`))elm.classList.remove(`${SPLIT_NS}${cls}`);
-}
-}
-#onChainHover(event){
-if(this.#editing)return;
-const target=event.target;
-const rowEl=target&&target.closest
-?(target.closest(`.${SPLIT_NS}__row`)||target.closest(`.${SPLIT_NS}__barrow`)):null;
-const id=rowEl?rowEl.getAttribute('data-task'):null;
-if(id)this.#highlightChain(id);
-else this.#clearHighlight();
-}
-destroy(){
-if(this.#destroyed)return;
-this.#destroyed=true;
-if(this.#onHScroll&&this.#timeBody)this.#timeBody.removeEventListener('scroll',this.#onHScroll);
-this.#onHScroll=null;
-if(this.#onRowHover){
-if(this.#gridBody){this.#gridBody.removeEventListener('pointerover',this.#onRowHover);this.#gridBody.removeEventListener('pointerleave',this.#onRowOut);}
-if(this.#timeBody){this.#timeBody.removeEventListener('pointerover',this.#onRowHover);this.#timeBody.removeEventListener('pointerleave',this.#onRowOut);}
-}
-this.#onRowHover=this.#onRowOut=null;
-if(this.#onCellEdit&&this.#gridBody)this.#gridBody.removeEventListener('dblclick',this.#onCellEdit);
-this.#onCellEdit=null;
-if(this.#off)this.#off();
-this.#off=null;
-if(this.#root&&this.#root.parentNode)this.#root.parentNode.removeChild(this.#root);
-this.#root=null;
-this.#gridHead=this.#gridBody=this.#timeHead=this.#timeBody=null;
-}
-}
-function mountGanttSplit(controller,container,opts={}){
-return new GanttSplitView(controller,container,opts);
-}
-});
-__def("packages/modules/gantt/index.js",function(__exports,__req){
-'use strict';
-Object.defineProperty(__exports,"GANTT_STATE_VERSION",{enumerable:true,get:function(){return GANTT_STATE_VERSION;}});
-Object.defineProperty(__exports,"createGantt",{enumerable:true,get:function(){return createGantt;}});
-Object.defineProperty(__exports,"default",{enumerable:true,get:function(){return __default;}});
-const __m0=__req("packages/core/src/internal/util.js");
-const warnOnce=__m0["warnOnce"];
-const isObject=__m0["isObject"];
-const __m1=__req("packages/modules/gantt/schedule.js");
-const computeSchedule=__m1["computeSchedule"];
-const findViolations=__m1["findViolations"];
-const normalizeLinkSpec=__m1["normalizeLinkSpec"];
-const __m2=__req("packages/modules/gantt/resources.js");
-const computeResourceLoad=__m2["computeResourceLoad"];
-const levelResources=__m2["levelResources"];
-const __m3=__req("packages/modules/gantt/earned-value.js");
-const computeEarnedValue=__m3["computeEarnedValue"];
-const __m4=__req("packages/modules/gantt/mspdi.js");
-const importMSPDI=__m4["importMSPDI"];
-const exportMSPDI=__m4["exportMSPDI"];
-const __m5=__req("packages/modules/gantt/time.js");
-const toISODate=__m5["toISODate"];
-const __m6=__req("packages/modules/gantt/render.js");
-const GanttView=__m6["GanttView"];
-const __m7=__req("packages/modules/gantt/split.js");
-const GanttSplitView=__m7["GanttSplitView"];
-Object.defineProperty(__exports,"computeSchedule",{enumerable:true,get:function(){return __m1["computeSchedule"];}});
-Object.defineProperty(__exports,"findViolations",{enumerable:true,get:function(){return __m1["findViolations"];}});
-Object.defineProperty(__exports,"normalizeTasks",{enumerable:true,get:function(){return __m1["normalizeTasks"];}});
-Object.defineProperty(__exports,"normalizeDependencies",{enumerable:true,get:function(){return __m1["normalizeDependencies"];}});
-Object.defineProperty(__exports,"topoOrder",{enumerable:true,get:function(){return __m1["topoOrder"];}});
-Object.defineProperty(__exports,"LINK_TYPES",{enumerable:true,get:function(){return __m1["LINK_TYPES"];}});
-Object.defineProperty(__exports,"SCHEDULE_ERROR",{enumerable:true,get:function(){return __m1["SCHEDULE_ERROR"];}});
-Object.defineProperty(__exports,"EPS",{enumerable:true,get:function(){return __m1["EPS"];}});
-Object.defineProperty(__exports,"toDayNumber",{enumerable:true,get:function(){return __m5["toDayNumber"];}});
-Object.defineProperty(__exports,"fromDayNumber",{enumerable:true,get:function(){return __m5["fromDayNumber"];}});
-Object.defineProperty(__exports,"toISODate",{enumerable:true,get:function(){return __m5["toISODate"];}});
-Object.defineProperty(__exports,"importMSPDI",{enumerable:true,get:function(){return __m4["importMSPDI"];}});
-Object.defineProperty(__exports,"exportMSPDI",{enumerable:true,get:function(){return __m4["exportMSPDI"];}});
-Object.defineProperty(__exports,"computeEarnedValue",{enumerable:true,get:function(){return __m3["computeEarnedValue"];}});
-const GANTT_STATE_VERSION=1;
-function emitter(){
-const map=new Map();
 return{
-on(event,fn){
-if(typeof fn!=='function')return()=>{};
-if(!map.has(event))map.set(event,new Set());
-map.get(event).add(fn);
-return()=>map.get(event)?.delete(fn);
-},
-off(event,fn){map.get(event)?.delete(fn);},
-emit(event,payload){for(const fn of map.get(event)??[])fn(payload);},
-emitBefore(type,payload){
-const set=map.get(type);
-const handlers=set?[...set]:[];
-let prevented=false;
-let reason=null;
-const prevent=(r)=>{prevented=true;if(r!=null&&reason===null)reason=String(r);};
-const event={
-...(payload||null),
-type,
-get defaultPrevented(){return prevented;},
-get reason(){return reason;},
-preventDefault(r){prevent(r);},
-};
-if(handlers.length===0)return true;
-const settle=()=>{
-if(prevented&&reason===null)reason='prevented';
-if(prevented&&payload&&typeof payload==='object')payload.reason=reason;
-return!prevented;
-};
-const pending=[];
-for(const handler of handlers){
-try{
-const ret=handler(event);
-if(ret&&typeof((ret).then)==='function')pending.push(ret);
-else if(ret===false)prevent('prevented');
-}catch(err){
-prevent('error');
-warnOnce(`gantt.beforeThrow:${type}`,`[lattice] gantt: a '${type}' before-handler threw; the action was cancelled.`,err);
-}
-}
-if(pending.length===0)return settle();
-return Promise.allSettled(pending).then((results)=>{
-for(const res of results){
-if(res.status==='rejected'){
-prevent('error');
-warnOnce(`gantt.beforeReject:${type}`,`[lattice] gantt: a '${type}' before-handler rejected; the action was cancelled.`,res.reason);
-}else if(res.value===false){
-prevent('prevented');
-}
-}
-return settle();
-});
-},
-clear(){map.clear();},
+el:frame,chromeEl,titleEl,bodyEl:body,gripEl,closeEl,resizeEl,handlebarEl,
 };
 }
-function createGantt(opts={}){
-const bus=emitter();
-let tasks=Array.isArray(opts.tasks)?opts.tasks.map((t)=>({...t})):[];
-let dependencies=Array.isArray(opts.dependencies)?opts.dependencies.map(normalizeLinkSpec):[];
-const projectStart=opts.projectStart;
-const deadline=opts.deadline;
-const calendar=opts.calendar??null;
-const resourceCaps=opts.resources??null;
-const defaultCapacity=opts.defaultCapacity;
-const autoSchedule=!!opts.autoSchedule;
-const grid=opts.grid??null;
-const columns=opts.columns&&typeof opts.columns==='object'?{...opts.columns}:null;
-const rowKeySpec=opts.rowKey??'id';
-const keyOf=(row)=>String(typeof rowKeySpec==='function'?rowKeySpec(row):row[rowKeySpec]);
-const fieldByCol=new Map();
-if(columns)for(const f of['start','end','duration','percentComplete','name'])if(columns[f])fieldByCol.set(columns[f],f);
-let schedule=null;
-let destroyed=false;
-let view=null;
-let mountedContainer=null;
-let mountedOpts=null;
-let mountedKind=null;
-const pending=new Set();
-const gridOff=[];
-function compute(){
-const result=computeSchedule(tasks,dependencies,{projectStart,deadline,calendar});
-if(result.ok){
-const load=computeResourceLoad(tasks,result,{resources:resourceCaps,defaultCapacity,calendar});
-result.resourceLoad=load;
-result.overAllocations=load.overAllocations;
-schedule=result;
-bus.emit('schedule',result);
-}else{
-bus.emit('error',result.error);
-}
-return result;
-}
-function gateBefore(beforeName,cancelledName,payload,apply,revalidate){
-const cancel=(reason)=>{bus.emit(cancelledName,{...payload,reason});return undefined;};
-const decision=bus.emitBefore(beforeName,payload);
-if(decision===true)return apply();
-if(decision===false)return cancel((payload.reason)||'prevented');
-return decision.then((ok)=>{
-if(!ok)return cancel((payload.reason)||'prevented');
-if(typeof revalidate==='function'&&!revalidate())return cancel('stale');
-return apply();
-});
-}
-function indexOf(id){return tasks.findIndex((t)=>String(t.id)===id);}
-function setField(id,field,value){
-const i=indexOf(id);
-if(i<0)return;
-const next={...tasks[i],[field]:value};
-tasks=tasks.slice();
-tasks[i]=next;
-}
-function pushWrites(ids){
-if(!grid||!grid.edit||typeof grid.edit.setCells!=='function'||!columns||!schedule||!schedule.ok)return 0;
-const writes=[];
-for(const id of ids){
-const rec=schedule.tasks.get(id);
-if(!rec||rec.isSummary)continue;
-if(columns.start)writes.push({key:id,colId:columns.start,value:rec.es});
-if(columns.end)writes.push({key:id,colId:columns.end,value:rec.ef});
-if(columns.duration)writes.push({key:id,colId:columns.duration,value:rec.duration});
-}
-if(!writes.length)return 0;
-for(const w of writes)pending.add([w.key,w.colId].join('\u0001'));
-return grid.edit.setCells(writes,'cell');
-}
-function pushFieldWrites(id,fields){
-if(!grid||!grid.edit||typeof grid.edit.setCells!=='function'||!columns)return 0;
-const i=indexOf(id);
-if(i<0)return 0;
-const writes=[];
-for(const f of fields){
-if(!columns[f])continue;
-writes.push({key:id,colId:columns[f],value:tasks[i][f]});
-}
-if(!writes.length)return 0;
-for(const w of writes)pending.add([w.key,w.colId].join('\u0001'));
-return grid.edit.setCells(writes,'cell');
-}
-function reconcile(kind,e){
-const field=fieldByCol.get(e.colId);
-if(!field)return;
-const cell=[e.key,e.colId].join('\u0001');
-const wasOurs=pending.delete(cell);
-const id=String(e.key);
-if(kind==='confirmed'){
-if(e.value!==undefined&&adopt(id,field,e.value))compute();
-}else if(kind==='reverted'&&wasOurs&&e.restored!==undefined){
-if(adopt(id,field,e.restored))compute();
-}else if(kind==='conflict'&&wasOurs&&e.value!==undefined){
-if(adopt(id,field,e.value))compute();
-}
-}
-function adopt(id,field,value){
-const i=indexOf(id);
-if(i<0)return false;
-const current=tasks[i][field];
-if(current===value||String(current)===String(value))return false;
-setField(id,field,value);
+function detachAffordance(state,record,el){
+if(!el)return false;
+const held=state.doc&&state.doc.activeElement===el;
+if(el.parentNode)el.parentNode.removeChild(el);
+if(!held)return false;
+const frame=record.el;
+if(frame.getAttribute('tabindex')==null)frame.setAttribute('tabindex','-1');
+if(isFunction(frame.focus))frame.focus();
 return true;
 }
-if(grid&&typeof grid.on==='function'){
-gridOff.push(grid.on('cell:changed',(e)=>reconcile('confirmed',e)));
-gridOff.push(grid.on('cell:confirmed',(e)=>reconcile('confirmed',e)));
-gridOff.push(grid.on('cell:reverted',(e)=>reconcile('reverted',e)));
-gridOff.push(grid.on('cell:conflict',(e)=>reconcile('conflict',e)));
-}
-compute();
-const api={
-get tasks(){return tasks.map((t)=>({...t}));},
-get dependencies(){return dependencies.map((d)=>({...d}));},
-get schedule(){return schedule;},
-get critical(){return schedule&&schedule.ok?schedule.critical:[];},
-get conflicts(){return schedule&&schedule.ok?(schedule.conflicts||[]):[];},
-get autoSchedule(){return autoSchedule;},
-get resourceLoad(){return schedule&&schedule.ok?(schedule.resourceLoad||null):null;},
-get overAllocations(){return schedule&&schedule.ok?(schedule.overAllocations||[]):[];},
-setTasks(next){
-if(destroyed){warnOnce('gantt-destroyed','[lattice] gantt: setTasks on a destroyed controller ignored.');return schedule;}
-tasks=Array.isArray(next)?next.map((t)=>({...t})):[];
-return compute();
-},
-setDependencies(next){
-if(destroyed){warnOnce('gantt-destroyed','[lattice] gantt: setDependencies on a destroyed controller ignored.');return schedule;}
-const nextList=Array.isArray(next)?next.map(normalizeLinkSpec):[];
-const depKey=(d)=>`${String(d.from)}\u0001${String(d.to)}\u0001${(d.type?String(d.type).toUpperCase():'FS')}`;
-const have=new Set(dependencies.map(depKey));
-const added=nextList.filter((d)=>!have.has(depKey(d)));
-const apply=()=>{dependencies=nextList;return compute();};
-if(!added.length)return apply();
-return gateBefore(
-'beforeDependencyCreate','dependencyCreate:cancelled',
-{added,dependencies:nextList,origin:'user'},
-apply,
-);
-},
-applyEdit(patch,editOpts={}){
-if(destroyed){warnOnce('gantt-destroyed','[lattice] gantt: applyEdit on a destroyed controller ignored.');return schedule;}
-const id=patch&&patch.id!=null?String(patch.id):null;
-if(indexOf(id)<0){
-warnOnce(`gantt-edit-unknown-${id}`,`[lattice] gantt: applyEdit for unknown task "${id}" ignored.`);
-return schedule;
-}
-const patchFields=Object.keys(patch).filter((k)=>k!=='id'&&patch[k]!==undefined);
-const otherFields=patchFields.filter((k)=>k!=='start'&&k!=='end'&&k!=='duration');
-const task={...tasks[indexOf(id)]};
-const rec=schedule&&schedule.ok?schedule.tasks.get(id):null;
-const isMilestone=rec?!!rec.isMilestone:!!task.milestone;
-const moved=patch.start!==undefined||patch.end!==undefined;
-const resized=patch.duration!==undefined;
-const progressed=patch.percentComplete!==undefined;
-let beforeName='beforeTaskEdit';
-let cancelledName='taskEdit:cancelled';
-if(isMilestone&&moved){beforeName='beforeMilestoneMove';cancelledName='milestoneMove:cancelled';}
-else if(progressed){beforeName='beforeProgressChange';cancelledName='progressChange:cancelled';}
-else if(resized){beforeName='beforeTaskResize';cancelledName='taskResize:cancelled';}
-else if(moved){beforeName='beforeTaskMove';cancelledName='taskMove:cancelled';}
-const payload={
-id,task,patch:{...patch},origin:'user',
-from:task.start!=null?task.start:(rec?rec.es:undefined),
-to:patch.start,
-duration:patch.duration,
-value:progressed?patch.percentComplete:undefined,
-oldValue:progressed?task.percentComplete:undefined,
-};
-const apply=()=>{
-const before=schedule&&schedule.ok?new Map([...schedule.tasks].map(([k,v])=>[k,v.es])):new Map();
-for(const f of patchFields)setField(id,f,patch[f]);
-compute();
-const changed=[id];
-if(autoSchedule&&schedule.ok){
-for(const other of schedule.order){
-if(other===id)continue;
-const orec=schedule.tasks.get(other);
-if(orec.isSummary)continue;
-if(before.get(other)!==orec.es){
-setField(other,'start',orec.es);
-changed.push(other);
+function syncAffordances(state,record){
+const{doc,t}=state;
+const{spec}=record;
+const frame=record.el;
+if(spec.movable){
+if(!record.gripEl){
+record.gripEl=makeGrip(doc,t,spec);
+if(record.chromeEl)record.chromeEl.insertBefore(record.gripEl,record.chromeEl.firstChild);
+else{
+record.handlebarEl=makeHandlebar(doc,record.gripEl);
+frame.insertBefore(record.handlebarEl,frame.firstChild);
 }
 }
-if(changed.length>1)compute();
+frame.setAttribute('data-movable','true');
+if(record.chromeEl)record.chromeEl.setAttribute('data-drag','move');
+}else{
+frame.removeAttribute('data-movable');
+if(record.chromeEl)record.chromeEl.removeAttribute('data-drag');
+detachAffordance(state,record,record.gripEl);
+record.gripEl=null;
+if(record.handlebarEl){
+detachAffordance(state,record,record.handlebarEl);
+record.handlebarEl=null;
 }
-if(editOpts.writeBack){
-pushWrites(changed);
-if(otherFields.length)pushFieldWrites(id,otherFields);
 }
-return schedule;
-};
-return gateBefore(beforeName,cancelledName,payload,apply,()=>indexOf(id)>=0);
-},
-deleteTask(taskId){
-if(destroyed){warnOnce('gantt-destroyed','[lattice] gantt: deleteTask on a destroyed controller ignored.');return schedule;}
-const id=taskId!=null?String(taskId):null;
-if(indexOf(id)<0){
-warnOnce(`gantt-delete-unknown-${id}`,`[lattice] gantt: deleteTask for unknown task "${id}" ignored.`);
-return schedule;
+const hadClose=record.closeEl;
+if(spec.closable&&record.chromeEl){
+if(!record.closeEl){
+record.closeEl=makeClose(doc,t,spec);
+record.chromeEl.appendChild(record.closeEl);
 }
-const task={...tasks[indexOf(id)]};
-const apply=()=>{
-tasks=tasks.filter((t)=>String(t.id)!==id);
-dependencies=dependencies.filter((d)=>String(d.from)!==id&&String(d.to)!==id);
-return compute();
-};
-return gateBefore(
-'beforeTaskDelete','taskDelete:cancelled',
-{id,task,origin:'user'},
-apply,()=>indexOf(id)>=0,
-);
-},
-compute,
-rows:{
-apply(change){
-if(destroyed||!change)return{added:[],updated:[],removed:[]};
-const index=new Map();
-tasks.forEach((t,i)=>index.set(keyOf(t),i));
-const next=tasks.slice();
-const added=[];
-const updated=[];
-const removed=[];
-for(const row of[...(change.add||[]),...(change.update||[])]){
-const k=keyOf(row);
-if(index.has(k)){next[index.get(k)]={...next[index.get(k)],...row};updated.push(row);}
-else{index.set(k,next.length);next.push({...row});added.push(row);}
+}else if(record.closeEl){
+detachAffordance(state,record,record.closeEl);
+record.closeEl=null;
 }
-for(const r of change.remove||[]){
-const k=r&&typeof r==='object'?keyOf(r):String(r);
-if(index.has(k)){next[index.get(k)]=null;removed.push(k);}
+if(spec.resizable){
+if(!record.resizeEl){
+record.resizeEl=makeResize(doc,t,spec);
+frame.appendChild(record.resizeEl);
 }
-tasks=next.filter(Boolean);
-compute();
-return{added,updated,removed};
-},
-},
-toCSV(csvOpts={}){
-if(!schedule||!schedule.ok)return'';
-const useDates=!!csvOpts.dates;
-const fmt=(day)=>(useDates?(toISODate(day)??String(day)):String(day));
-const esc=(v)=>{
-const s=v==null?'':String(v);
-return/[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;
-};
-const header=['id','name','start','end','duration','percentComplete','totalFloat','critical'];
-const lines=[header.join(',')];
-for(const id of schedule.order){
-const r=schedule.tasks.get(id);
-lines.push([r.id,r.name,fmt(r.es),fmt(r.ef),r.duration,
-r.percentComplete==null?'':r.percentComplete,r.totalFloat,r.critical].map(esc).join(','));
+}else if(record.resizeEl){
+detachAffordance(state,record,record.resizeEl);
+record.resizeEl=null;
 }
-return lines.join('\n');
-},
-toMSPDI(xmlOpts={}){
-return exportMSPDI({
-tasks,dependencies,resources:resourceCaps,projectStart,calendar,schedule,
-},xmlOpts);
-},
-findViolations(){return findViolations(tasks,schedule);},
-resources(loadOpts={}){
-return computeResourceLoad(tasks,schedule,{
-resources:loadOpts.resources??resourceCaps,
-defaultCapacity:loadOpts.defaultCapacity??defaultCapacity,
-calendar,
-});
-},
-level(levelOpts={}){
-if(destroyed){warnOnce('gantt-destroyed','[lattice] gantt: level on a destroyed controller ignored.');return{ok:false};}
-const result=levelResources(tasks,dependencies,{
-projectStart,deadline,calendar,
-resources:levelOpts.resources??resourceCaps,
-defaultCapacity:levelOpts.defaultCapacity??defaultCapacity,
-priorityField:levelOpts.priorityField,
-maxIterations:levelOpts.maxIterations,
-});
-if(!result.ok)return result;
-if(levelOpts.dryRun)return result;
-tasks=result.tasks.map((t)=>({...t}));
-compute();
-if(levelOpts.writeBack&&result.moves&&result.moves.length){
-pushWrites(result.moves.map((m)=>m.id));
+return hadClose!==record.closeEl;
 }
-return{...result,schedule};
-},
-on(event,fn){return bus.on(event,fn);},
-off(event,fn){bus.off(event,fn);},
-get grid(){return grid;},
-get view(){return view;},
-mount(container,renderOpts={}){
-if(destroyed){warnOnce('gantt-destroyed','[lattice] gantt: mount on a destroyed controller ignored.');return null;}
-if(view)view.destroy();
-view=new GanttView(api,container,renderOpts);
-mountedContainer=container;
-mountedOpts={...renderOpts};
-mountedKind='plain';
-return view;
-},
-mountSplit(container,splitOpts={}){
-if(destroyed){warnOnce('gantt-destroyed','[lattice] gantt: mountSplit on a destroyed controller ignored.');return null;}
-if(view){view.destroy();view=null;}
-view=new GanttSplitView(api,container,splitOpts);
-mountedContainer=container;
-mountedOpts={...splitOpts};
-mountedKind='split';
-return view;
-},
-captureBaseline(){
-if(!schedule||!schedule.ok)return[];
-const out=[];
-for(const id of schedule.order){
-const r=schedule.tasks.get(id);
-if(r.isSummary)continue;
-out.push({id:r.id,baselineStart:r.es,baselineEnd:r.ef,baselineDuration:r.ef-r.es});
+function placeWindow(record){
+const{spec}=record;
+record.el.style.gridColumn=`${spec.xPos} / span ${spec.xSize}`;
+record.el.style.gridRow=`${spec.yPos} / span ${spec.ySize}`;
 }
-return out;
-},
-earnedValue(evmOpts={}){
-return computeEarnedValue(tasks,schedule,evmOpts);
-},
-getState(){
-const kind=mountedKind;
-const o=view?view.options:{};
-const zoom=(typeof o.zoom==='string'||Number.isFinite(o.zoom))?o.zoom:null;
-const calendar=(o.calendar==null||typeof o.calendar==='string'||isObject(o.calendar))
-?(o.calendar??null):null;
+function announce(state,message){
+if(state.liveEl)state.liveEl.textContent=message;
+}
+function cellPitch(state){
+const canvas=state.canvasEl;
+const gap=parseFloat(state.gapPx)||0;
+const width=canvas.clientWidth||0;
+const height=canvas.clientHeight||0;
+const cols=Math.max(1,state.config.columns);
+const rows=Math.max(1,state.trackRows||state.config.rows);
 return{
-version:GANTT_STATE_VERSION,
-mounted:kind,
-zoom,
-showArrows:o.showArrows===undefined?true:!!o.showArrows,
-showProgress:o.showProgress===undefined?true:!!o.showProgress,
-showBaseline:kind==='split'?!!o.showBaseline:null,
-calendar,
-nonWorking:typeof o.nonWorking==='string'?o.nonWorking:null,
-groupBy:(kind==='plain'&&typeof o.groupBy==='string')?o.groupBy:null,
-gridWidth:(kind==='split'&&Number.isFinite(o.gridWidth))?o.gridWidth:null,
-collapsed:(kind==='split'&&view)?[...view.collapsed]:[],
+x:(width+gap)/cols,
+y:(height+gap)/rows,
 };
+}
+function showGhost(state,at){
+const{doc,canvasEl}=state;
+if(!state.ghostEl){
+const ghost=doc.createElement('div');
+ghost.className=`${NS}__ghost`;
+ghost.setAttribute('aria-hidden','true');
+canvasEl.appendChild(ghost);
+state.ghostEl=ghost;
+}
+const pitch=cellPitch(state);
+const gap=parseFloat(state.gapPx)||0;
+const ghost=state.ghostEl;
+ghost.style.left=`${(at.xPos-1)*pitch.x}px`;
+ghost.style.top=`${(at.yPos-1)*pitch.y}px`;
+ghost.style.width=`${Math.max(0,at.xSize*pitch.x-gap)}px`;
+ghost.style.height=`${Math.max(0,at.ySize*pitch.y-gap)}px`;
+}
+function hideGhost(state){
+if(state.ghostEl&&state.ghostEl.parentNode)state.ghostEl.parentNode.removeChild(state.ghostEl);
+state.ghostEl=null;
+}
+function listen(target,type,fn,opts){
+target.addEventListener(type,fn,opts);
+return()=>target.removeEventListener(type,fn,opts);
+}
+function placementFromDelta(state,drag,dx,dy){
+const pitch=cellPitch(state);
+const stepX=pitch.x>0?Math.round(dx/pitch.x):0;
+const stepY=pitch.y>0?Math.round(dy/pitch.y):0;
+const from=drag.from;
+const next=drag.kind==='resize'
+?{
+xPos:from.xPos,
+yPos:from.yPos,
+xSize:Math.max(1,from.xSize+stepX),
+ySize:Math.max(1,from.ySize+stepY),
+}
+:{
+xPos:from.xPos+stepX,
+yPos:from.yPos+stepY,
+xSize:from.xSize,
+ySize:from.ySize,
+};
+return boundPlacement(state,next);
+}
+function boundPlacement(state,placement){
+const bounded=clampToColumns(placement,state.config.columns);
+if(state.config.overflowY==='scroll')return bounded;
+const rows=state.config.rows;
+bounded.ySize=Math.max(1,Math.min(bounded.ySize,rows));
+bounded.yPos=Math.max(1,Math.min(bounded.yPos,rows-bounded.ySize+1));
+return bounded;
+}
+function commitPlacement(state,record,at){
+Object.assign(record.spec,at);
+const specs=[...state.windows.values()].map((r)=>r.spec);
+compact(specs,state.config.compact,record.spec.id);
+for(const r of state.windows.values())placeWindow(r);
+applyGeometry(state);
+}
+function focusHandle(record,kind){
+const target=kind==='resize'?record.resizeEl:record.gripEl;
+if(target&&isFunction(target.focus))target.focus();
+}
+});
+__def("packages/modules/layout/index.js",function(__exports,__req){
+'use strict';
+Object.defineProperty(__exports,"createLayout",{enumerable:true,get:function(){return createLayout;}});
+Object.defineProperty(__exports,"default",{enumerable:true,get:function(){return __default;}});
+const __m0=__req("packages/core/src/internal/util.js");
+const isObject=__m0["isObject"];
+const isFunction=__m0["isFunction"];
+const isNil=__m0["isNil"];
+const warnOnce=__m0["warnOnce"];
+const fail=__m0["fail"];
+const __m1=__req("packages/modules/shared/emitter.js");
+const Emitter=__m1["Emitter"];
+const gate=__m1["gate"];
+const __m2=__req("packages/modules/shared/autosize.js");
+const contentWidth=__m2["contentWidth"];
+const contentHeight=__m2["contentHeight"];
+const watchBox=__m2["watchBox"];
+const __m3=__req("packages/modules/layout/length.js");
+const cssLength=__m3["cssLength"];
+const __m4=__req("packages/modules/layout/model.js");
+const positiveInt=__m4["positiveInt"];
+const compact=__m4["compact"];
+const firstFree=__m4["firstFree"];
+const __m5=__req("packages/modules/layout/view.js");
+const NS=__m5["NS"];
+const renderShell=__m5["renderShell"];
+const renderWindow=__m5["renderWindow"];
+const placeWindow=__m5["placeWindow"];
+const applyGeometry=__m5["applyGeometry"];
+const announce=__m5["announce"];
+const showGhost=__m5["showGhost"];
+const hideGhost=__m5["hideGhost"];
+const listen=__m5["listen"];
+const placementFromDelta=__m5["placementFromDelta"];
+const boundPlacement=__m5["boundPlacement"];
+const commitPlacement=__m5["commitPlacement"];
+const focusHandle=__m5["focusHandle"];
+const syncAffordances=__m5["syncAffordances"];
+const CALLBACKS=Object.freeze({
+onWindowMoved:'window:moved',
+onWindowResized:'window:resized',
+onWindowClosed:'window:closed',
+onLayoutChanged:'layout:changed',
+onBeforeWindowMove:'beforeWindowMove',
+onBeforeWindowResize:'beforeWindowResize',
+onBeforeWindowClose:'beforeWindowClose',
+onWindowMoveCancelled:'windowMove:cancelled',
+onWindowResizeCancelled:'windowResize:cancelled',
+onWindowCloseCancelled:'windowClose:cancelled',
+});
+const FALLBACK_EN=Object.freeze({
+'layout.region':'Dashboard layout',
+'layout.move':'Move {title}',
+'layout.resize':'Resize {title}',
+'layout.close':'Close {title}',
+'a11y.layout.grabbed':'{title} grabbed, column {x} of {columns}, row {y}',
+'a11y.layout.position':'{title}, column {x} of {columns}, row {y}',
+'a11y.layout.dropped':'{title} dropped, column {x} of {columns}, row {y}',
+'a11y.layout.cancelled':'{title} move cancelled',
+'a11y.layout.resizeCancelled':'{title} resize cancelled',
+'a11y.layout.reverted':'{title} returned to column {x}, row {y}',
+'a11y.layout.resizeGrabbed':'{title} resize grabbed, {w} by {h} cells',
+'a11y.layout.resizeStep':'{title}, {w} by {h} cells',
+'a11y.layout.resized':'{title} resized to {w} by {h} cells',
+'a11y.layout.closed':'{title} closed',
+});
+function formatFallback(key,params){
+const template=FALLBACK_EN[key]||key;
+if(!params)return template;
+return template.replace(/\{(\w+)\}/g,(m,name)=>(name in params?String(params[name]):m));
+}
+function resolveMessages(config){
+const supplied=config.messages;
+if(supplied&&isFunction(supplied.t))return(key,params)=>supplied.t(key,params);
+return formatFallback;
+}
+function normaliseConfig(raw){
+const axis=(value)=>(value==='scroll'?'scroll':'static');
+return{
+columns:positiveInt(raw.columns,12),
+rows:positiveInt(raw.rows,6),
+overflowX:axis(raw.overflowX),
+overflowY:axis(raw.overflowY),
+columnWidth:cssLength(raw.columnWidth,'240px','layout.columnWidth'),
+rowHeight:cssLength(raw.rowHeight,'160px','layout.rowHeight'),
+gap:cssLength(raw.gap,'8px','layout.gap'),
+padding:cssLength(raw.padding,'5px','layout.padding'),
+compact:raw.compact==='none'?'none':'vertical',
+movable:raw.movable===true?true:undefined,
+resizable:raw.resizable===true?true:undefined,
+closable:raw.closable===true?true:undefined,
+};
+}
+const CAPABILITIES=Object.freeze(['movable','resizable','closable']);
+function resolveFlag(own,level){
+if(level===false)return false;
+if(typeof own==='boolean')return own;
+return level===true;
+}
+function normaliseWindows(raw,config){
+if(raw!=null&&!Array.isArray(raw)){
+fail('layout: config.windows must be an array of window descriptors.');
+}
+const list=Array.isArray(raw)?raw:[];
+const seen=new Set();
+const out=[];
+for(let i=0;i<list.length;i++){
+const spec=list[i];
+if(!isObject(spec)||isNil(spec.id)||String(spec.id)===''){
+fail(`layout: the window at index ${i} needs a non-empty "id".`);
+}
+const id=String(spec.id);
+if(seen.has(id))fail(`layout: duplicate window id "${id}".`);
+seen.add(id);
+out.push(normaliseWindow(spec,id,config,out));
+}
+compact(out,config.compact);
+return out;
+}
+function normaliseWindow(spec,id,config,placed){
+const xSize=Math.min(positiveInt(spec.xSize,1),config.columns);
+const ySize=positiveInt(spec.ySize,1);
+const auto=(isNil(spec.xPos)||isNil(spec.yPos))
+?firstFree(placed,config.columns,xSize,ySize)
+:null;
+const own=Object.freeze({
+closable:typeof spec.closable==='boolean'?spec.closable:undefined,
+movable:typeof spec.movable==='boolean'?spec.movable:undefined,
+resizable:typeof spec.resizable==='boolean'?spec.resizable:undefined,
+});
+const out={
+id,
+title:isNil(spec.title)?null:String(spec.title),
+ariaLabel:typeof spec.ariaLabel==='string'?spec.ariaLabel:undefined,
+xPos:auto?auto.xPos:positiveInt(spec.xPos,1),
+yPos:auto?auto.yPos:positiveInt(spec.yPos,1),
+xSize,
+ySize,
+chrome:spec.chrome!==false,
+closable:resolveFlag(own.closable,config.closable),
+movable:resolveFlag(own.movable,config.movable),
+resizable:resolveFlag(own.resizable,config.resizable),
+padding:spec.padding==null
+?config.padding
+:cssLength(spec.padding,config.padding,`layout.windows.${id}.padding`),
+payloadId:isNil(spec.payloadId)||String(spec.payloadId)===''
+?`${id}-body`:String(spec.payloadId),
+};
+Object.defineProperty(out,'own',{value:own,enumerable:false});
+return out;
+}
+function measureWindows(state){
+if(state.destroyed)return 0;
+let reported=0;
+for(const record of state.windows.values()){
+const width=contentWidth(record.bodyEl);
+const height=contentHeight(record.bodyEl);
+if(width==null||height==null)continue;
+const last=record.reportedSize;
+if(last&&Math.abs(last.width-width)<1&&Math.abs(last.height-height)<1)continue;
+record.reportedSize={width,height};
+reported++;
+state.emitter.emit('window:resized',{
+id:record.spec.id,
+payloadId:record.spec.payloadId,
+payload:record.bodyEl,
+width,
+height,
+xPos:record.spec.xPos,
+yPos:record.spec.yPos,
+xSize:record.spec.xSize,
+ySize:record.spec.ySize,
+});
+}
+return reported;
+}
+function snapshot(state){
+return{
+columns:state.config.columns,
+rows:state.config.rows,
+windows:[...state.windows.values()].map((r)=>({
+id:r.spec.id,
+xPos:r.spec.xPos,
+yPos:r.spec.yPos,
+xSize:r.spec.xSize,
+ySize:r.spec.ySize,
+})),
+};
+}
+function settle(state,cause){
+state.emitter.emit('layout:changed',{cause,...snapshot(state)});
+measureWindows(state);
+}
+function applyLayout(state,incoming,origin){
+const list=isObject(incoming)&&Array.isArray((incoming).windows)
+?(incoming).windows
+:(Array.isArray(incoming)?incoming:null);
+if(!list)return 0;
+let applied=0;
+for(const entry of list){
+if(!isObject(entry)||isNil(entry.id))continue;
+const id=String(entry.id);
+const record=state.windows.get(id);
+if(!record){
+state.pending.set(id,{...entry,id});
+continue;
+}
+const next=boundPlacement(state,{
+xPos:positiveInt(entry.xPos,record.spec.xPos),
+yPos:positiveInt(entry.yPos,record.spec.yPos),
+xSize:positiveInt(entry.xSize,record.spec.xSize),
+ySize:positiveInt(entry.ySize,record.spec.ySize),
+});
+Object.assign(record.spec,next);
+applied++;
+}
+if(!applied)return 0;
+const specs=[...state.windows.values()].map((r)=>r.spec);
+compact(specs,state.config.compact);
+for(const r of state.windows.values())placeWindow(r);
+applyGeometry(state);
+settle(state,origin==='init'?'init':'setLayout');
+return applied;
+}
+function commit(state,record,kind,to,origin){
+const from={
+xPos:record.spec.xPos,
+yPos:record.spec.yPos,
+xSize:record.spec.xSize,
+ySize:record.spec.ySize,
+};
+const unchanged=from.xPos===to.xPos&&from.yPos===to.yPos
+&&from.xSize===to.xSize&&from.ySize===to.ySize;
+if(unchanged)return true;
+const before=kind==='resize'?'beforeWindowResize':'beforeWindowMove';
+const cancelled=kind==='resize'?'windowResize:cancelled':'windowMove:cancelled';
+const notify=kind==='resize'?'window:resized':'window:moved';
+const payload={id:record.spec.id,from,to,origin};
+return(gate(state.emitter,before,cancelled,payload,()=>{
+commitPlacement(state,record,to);
+const landed={
+xPos:record.spec.xPos,
+yPos:record.spec.yPos,
+xSize:record.spec.xSize,
+ySize:record.spec.ySize,
+};
+if(notify==='window:moved'){
+state.emitter.emit('window:moved',{
+id:record.spec.id,from,to,landed,origin,
+});
+}
+settle(state,kind);
+return true;
+}));
+}
+function closeWindow(state,record,origin){
+const payload={id:record.spec.id,payloadId:record.spec.payloadId,origin};
+return(gate(state.emitter,'beforeWindowClose','windowClose:cancelled',payload,()=>{
+const{spec,bodyEl}=record;
+state.windows.delete(spec.id);
+if(record.el.parentNode)record.el.parentNode.removeChild(record.el);
+const specs=[...state.windows.values()].map((r)=>r.spec);
+compact(specs,state.config.compact);
+for(const r of state.windows.values())placeWindow(r);
+applyGeometry(state);
+announce(state,state.t('a11y.layout.closed',{title:spec.title||spec.id}));
+state.emitter.emit('window:closed',{
+id:spec.id,payloadId:spec.payloadId,payload:bodyEl,origin,
+});
+settle(state,'close');
+return true;
+}));
+}
+function wirePointer(state){
+state.off.push(listen(state.canvasEl,'pointerdown',(e)=>{
+if(state.destroyed||state.drag||state.grab)return;
+const handle=e.target&&e.target.closest?e.target.closest('[data-drag]'):null;
+if(!handle)return;
+const frame=handle.closest(`.${NS}__window`);
+if(!frame)return;
+const record=state.windows.get(frame.getAttribute('data-window-id'));
+if(!record)return;
+const kind=handle.getAttribute('data-drag')==='resize'?'resize':'move';
+if(kind==='move'&&!record.spec.movable)return;
+if(kind==='resize'&&!record.spec.resizable)return;
+if(e.button!=null&&e.button!==0)return;
+if(e.preventDefault)e.preventDefault();
+state.drag={
+kind,
+record,
+startX:e.clientX,
+startY:e.clientY,
+from:{
+xPos:record.spec.xPos,
+yPos:record.spec.yPos,
+xSize:record.spec.xSize,
+ySize:record.spec.ySize,
 },
-setState(snapshot){
-const s=isObject(snapshot)?snapshot:{};
-if(typeof s.version==='number'&&s.version>GANTT_STATE_VERSION){
-warnOnce('gantt-state-version',
-`[lattice] gantt: setState received a state from a newer version (${s.version} > ${GANTT_STATE_VERSION}); unrecognised fields are ignored.`);
+at:null,
+target:state.doc,
+};
+record.el.setAttribute('data-dragging','true');
+state.doc.addEventListener('pointermove',state.onPointerMove);
+state.doc.addEventListener('pointerup',state.onPointerUp);
+state.doc.addEventListener('pointercancel',state.onPointerUp);
+}));
+state.onPointerMove=(e)=>{
+const drag=state.drag;
+if(!drag)return;
+drag.at=placementFromDelta(state,drag,e.clientX-drag.startX,e.clientY-drag.startY);
+showGhost(state,drag.at);
+};
+state.onPointerUp=()=>{
+const drag=state.drag;
+if(!drag)return;
+releaseDrag(state);
+drag.record.el.removeAttribute('data-dragging');
+hideGhost(state);
+if(drag.at)commit(state,drag.record,drag.kind,drag.at,'user');
+};
 }
-const hasMounted=s.mounted==='plain'||s.mounted==='split'||s.mounted===null;
-const targetKind=hasMounted?s.mounted:mountedKind;
-if(targetKind!=='plain'&&targetKind!=='split'){
-if(view)api.unmount();
-return api;
+function releaseDrag(state){
+const drag=state.drag;
+state.drag=null;
+if(!drag||!drag.target)return;
+drag.target.removeEventListener('pointermove',state.onPointerMove);
+drag.target.removeEventListener('pointerup',state.onPointerUp);
+drag.target.removeEventListener('pointercancel',state.onPointerUp);
 }
-if(!mountedContainer){
-warnOnce('gantt-state-no-container',
-'[lattice] gantt: setState was asked to show a view but no container is known yet; call mount()/mountSplit() at least once first.');
-return api;
-}
-const patch={};
-if(typeof s.zoom==='string'||Number.isFinite(s.zoom))patch.zoom=s.zoom;
-if(typeof s.showArrows==='boolean')patch.showArrows=s.showArrows;
-if(typeof s.showProgress==='boolean')patch.showProgress=s.showProgress;
-if(targetKind==='split'&&typeof s.showBaseline==='boolean')patch.showBaseline=s.showBaseline;
-if(s.calendar===null||typeof s.calendar==='string'||isObject(s.calendar))patch.calendar=s.calendar;
-if(typeof s.nonWorking==='string')patch.nonWorking=s.nonWorking;
-if(targetKind==='plain'&&typeof s.groupBy==='string')patch.groupBy=s.groupBy;
-if(targetKind==='split'&&Number.isFinite(s.gridWidth))patch.gridWidth=s.gridWidth;
-const base=(mountedKind===targetKind&&mountedOpts)?mountedOpts:{};
-const merged={...base,...patch};
-if(targetKind==='split')api.mountSplit(mountedContainer,merged);
-else api.mount(mountedContainer,merged);
-if(targetKind==='split'&&Array.isArray(s.collapsed)&&view){
-for(const id of new Set(s.collapsed.map(String)))view.toggle(id);
-}
-return api;
+function wireKeyboard(state){
+state.off.push(listen(state.canvasEl,'keydown',(e)=>{
+if(state.destroyed)return;
+const handle=e.target&&e.target.closest?e.target.closest('[data-drag]'):null;
+if(!handle)return;
+const frame=handle.closest(`.${NS}__window`);
+if(!frame)return;
+const record=state.windows.get(frame.getAttribute('data-window-id'));
+if(!record)return;
+const kind=handle.getAttribute('data-drag')==='resize'?'resize':'move';
+if(state.grab&&state.grab.record===record){grabKey(state,e,record);return;}
+if(state.grab)return;
+if(e.key!==' '&&e.key!=='Spacebar'&&e.key!=='Enter')return;
+if(kind==='move'&&!record.spec.movable)return;
+if(kind==='resize'&&!record.spec.resizable)return;
+if(e.preventDefault)e.preventDefault();
+state.grab={
+kind,
+record,
+from:{
+xPos:record.spec.xPos,
+yPos:record.spec.yPos,
+xSize:record.spec.xSize,
+ySize:record.spec.ySize,
 },
-unmount(){
-if(view){view.destroy();view=null;}
-mountedKind=null;
+at:{
+xPos:record.spec.xPos,
+yPos:record.spec.yPos,
+xSize:record.spec.xSize,
+ySize:record.spec.ySize,
 },
+};
+record.el.setAttribute('data-grabbed','true');
+showGhost(state,state.grab.at);
+announce(state,kind==='resize'
+?state.t('a11y.layout.resizeGrabbed',{
+title:record.spec.title||record.spec.id,
+w:state.grab.at.xSize,
+h:state.grab.at.ySize,
+})
+:positionMessage(state,record,state.grab.at,'a11y.layout.grabbed'));
+}));
+}
+const STEPS=Object.freeze({
+ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1],
+});
+function grabKey(state,e,record){
+const grab=state.grab;
+if(e.key==='Escape'){
+if(e.preventDefault)e.preventDefault();
+const wasResize=grab.kind==='resize';
+endGrab(state,record);
+announce(state,state.t(
+wasResize?'a11y.layout.resizeCancelled':'a11y.layout.cancelled',
+{title:record.spec.title||record.spec.id},
+));
+return;
+}
+if(e.key==='Enter'||e.key===' '||e.key==='Spacebar'){
+if(e.preventDefault)e.preventDefault();
+const{kind,at}=grab;
+endGrab(state,record);
+Promise.resolve(commit(state,record,kind,at,'user')).then((ok)=>{
+const spec=record.spec;
+const title=spec.title||spec.id;
+if(ok===false){
+announce(state,state.t('a11y.layout.reverted',{title,x:spec.xPos,y:spec.yPos}));
+}else if(kind==='resize'){
+announce(state,state.t('a11y.layout.resized',{title,w:spec.xSize,h:spec.ySize}));
+}else{
+announce(state,positionMessage(state,record,spec,'a11y.layout.dropped'));
+}
+focusHandle(record,kind);
+});
+return;
+}
+const step=STEPS[e.key];
+if(!step)return;
+if(e.preventDefault)e.preventDefault();
+const[dx,dy]=step;
+const at=boundPlacement(state,grab.kind==='resize'
+?{...grab.at,xSize:Math.max(1,grab.at.xSize+dx),ySize:Math.max(1,grab.at.ySize+dy)}
+:{...grab.at,xPos:grab.at.xPos+dx,yPos:grab.at.yPos+dy});
+grab.at=at;
+showGhost(state,at);
+announce(state,grab.kind==='resize'
+?state.t('a11y.layout.resizeStep',{
+title:record.spec.title||record.spec.id,w:at.xSize,h:at.ySize,
+})
+:positionMessage(state,record,at,'a11y.layout.position'));
+}
+function endGrab(state,record){
+state.grab=null;
+record.el.removeAttribute('data-grabbed');
+hideGhost(state);
+}
+function positionMessage(state,record,at,key){
+return state.t(key,{
+title:record.spec.title||record.spec.id,
+x:at.xPos,
+y:at.yPos,
+columns:state.config.columns,
+});
+}
+function mountWindow(state,spec){
+const parts=renderWindow(state,spec);
+const record={spec,...parts,reportedSize:null,closeOff:null};
+state.canvasEl.appendChild(record.el);
+placeWindow(record);
+state.windows.set(spec.id,record);
+wireClose(state,record);
+state.off.push(()=>{
+if(record.closeOff){record.closeOff();record.closeOff=null;}
+});
+return record;
+}
+function wireClose(state,record){
+if(record.closeOff){record.closeOff();record.closeOff=null;}
+if(!record.closeEl)return;
+record.closeOff=listen(record.closeEl,'click',()=>closeWindow(state,record,'user'));
+}
+function abortGesture(state,record){
+const allowed=(kind)=>(kind==='resize'?record.spec.resizable:record.spec.movable);
+if(state.drag&&state.drag.record===record&&!allowed(state.drag.kind)){
+releaseDrag(state);
+record.el.removeAttribute('data-dragging');
+hideGhost(state);
+}
+if(state.grab&&state.grab.record===record&&!allowed(state.grab.kind)){
+endGrab(state,record);
+}
+}
+function applyInteractive(state){
+let changed=0;
+for(const record of state.windows.values()){
+const own=record.spec.own||{};
+let moved=false;
+for(const cap of CAPABILITIES){
+const resolved=resolveFlag(own[cap],state.config[cap]);
+if(record.spec[cap]===resolved)continue;
+record.spec[cap]=resolved;
+moved=true;
+}
+if(!moved)continue;
+changed++;
+abortGesture(state,record);
+if(syncAffordances(state,record))wireClose(state,record);
+}
+if(changed)measureWindows(state);
+return changed;
+}
+function readInteractive(state){
+return{
+movable:state.config.movable,
+resizable:state.config.resizable,
+closable:state.config.closable,
+};
+}
+function createLayout(el,config={}){
+if(!el||typeof el!=='object'||!('appendChild'in el)){
+fail('layout: createLayout needs a host element as its first argument.');
+}
+const doc=el.ownerDocument;
+if(!doc)fail('layout: createLayout needs a DOM (the host element has no ownerDocument).');
+if(el.classList&&el.classList.contains(`${NS}-host`)){
+fail('layout: this element already has a layout mounted on it; destroy() it first.');
+}
+const normalised=normaliseConfig(config);
+const t=resolveMessages(config);
+const state={
+el,
+doc,
+t,
+config:normalised,
+windows:new Map(),
+pending:new Map(),
+emitter:new Emitter('layout'),
+off:[],
+drag:null,
+grab:null,
+ghostEl:null,
+watcher:null,
+destroyed:false,
+gapPx:normalised.gap,
+trackRows:normalised.rows,
+ariaLabel:typeof config.ariaLabel==='string'?config.ariaLabel:t('layout.region'),
+};
+el.classList.add(`${NS}-host`);
+renderShell(state);
+for(const spec of normaliseWindows(config.windows,normalised))mountWindow(state,spec);
+applyGeometry(state);
+wirePointer(state);
+wireKeyboard(state);
+const view=doc.defaultView;
+if(view&&isFunction(view.getComputedStyle)){
+const computed=view.getComputedStyle(state.canvasEl);
+if(computed&&computed.rowGap)state.gapPx=computed.rowGap;
+}
+for(const[prop,name]of Object.entries(CALLBACKS)){
+if(isFunction(config[prop]))state.emitter.on(name,config[prop]);
+}
+state.watcher=watchBox({
+targets:[state.viewportEl,state.canvasEl],
+read:()=>({
+width:contentWidth(state.viewportEl),
+height:contentHeight(state.viewportEl),
+canvasWidth:contentWidth(state.canvasEl),
+canvasHeight:contentHeight(state.canvasEl),
+}),
+apply:()=>{measureWindows(state);},
+});
+if(config.layout!=null)applyLayout(state,config.layout,'init');
+measureWindows(state);
+return{
+get el(){return el;},
+windows(){return[...state.windows.keys()];},
+payload(id){
+const record=state.windows.get(String(id));
+return record?record.bodyEl:null;
+},
+window(id){
+const record=state.windows.get(String(id));
+return record?{...record.spec}:null;
+},
+add(spec){
+if(state.destroyed)fail('layout: add() was called on a destroyed layout.');
+if(!isObject(spec)||isNil(spec.id)||String(spec.id)===''){
+fail('layout: add() needs a descriptor with a non-empty "id".');
+}
+const id=String(spec.id);
+if(state.windows.has(id))fail(`layout: duplicate window id "${id}".`);
+const placed=[...state.windows.values()].map((r)=>r.spec);
+const normalisedSpec=normaliseWindow(spec,id,state.config,placed);
+const record=mountWindow(state,normalisedSpec);
+const waiting=state.pending.get(id);
+if(waiting){
+state.pending.delete(id);
+applyLayout(state,{windows:[waiting]},'api');
+}else{
+const specs=[...state.windows.values()].map((r)=>r.spec);
+compact(specs,state.config.compact,id);
+for(const r of state.windows.values())placeWindow(r);
+applyGeometry(state);
+settle(state,'add');
+}
+return record.bodyEl;
+},
+move(id,to){
+const record=state.windows.get(String(id));
+if(!record){
+warnOnce('layout.move.unknown',`layout: move("${id}") — no such window.`);
+return false;
+}
+const next=boundPlacement(state,{
+xPos:positiveInt(to&&to.xPos,record.spec.xPos),
+yPos:positiveInt(to&&to.yPos,record.spec.yPos),
+xSize:positiveInt(to&&to.xSize,record.spec.xSize),
+ySize:positiveInt(to&&to.ySize,record.spec.ySize),
+});
+const resizing=next.xSize!==record.spec.xSize||next.ySize!==record.spec.ySize;
+return commit(state,record,resizing?'resize':'move',next,'api');
+},
+close(id){
+const record=state.windows.get(String(id));
+if(!record){
+warnOnce('layout.close.unknown',`layout: close("${id}") — no such window.`);
+return false;
+}
+return closeWindow(state,record,'api');
+},
+getLayout(){return snapshot(state);},
+setLayout(incoming){return applyLayout(state,incoming,'api');},
+getState(){return{version:1,layout:snapshot(state)};},
+setState(snap){
+if(!isObject(snap))return 0;
+const inner=(snap).layout;
+return applyLayout(state,inner==null?snap:inner,'api');
+},
+setInteractive(value){
+let next=null;
+if(typeof value==='boolean'){
+next={movable:value,resizable:value,closable:value};
+}else if(isObject(value)){
+next=value;
+}else{
+warnOnce('layout.setInteractive.type',
+'layout: setInteractive() takes a boolean, or an object of '
++`{movable, resizable, closable}; ${typeof value} was ignored.`);
+return readInteractive(state);
+}
+for(const cap of CAPABILITIES){
+if(!(cap in next)||next[cap]===undefined)continue;
+if(typeof next[cap]!=='boolean'){
+warnOnce(`layout.setInteractive.${cap}`,
+`layout: setInteractive({${cap}}) takes a boolean; ${String(next[cap])} was ignored.`);
+continue;
+}
+state.config[cap]=next[cap];
+}
+applyInteractive(state);
+return readInteractive(state);
+},
+getInteractive(){return readInteractive(state);},
+refresh(){
+if(state.watcher)state.watcher.refresh();
+return measureWindows(state);
+},
+on(name,fn){return state.emitter.on(name,fn);},
+off(name,fn){state.emitter.off(name,fn);},
 destroy(){
-destroyed=true;
-if(view){view.destroy();view=null;}
-mountedContainer=null;
-mountedOpts=null;
-mountedKind=null;
-for(const off of gridOff)off();
-gridOff.length=0;
-pending.clear();
-bus.clear();
+if(state.destroyed)return;
+state.destroyed=true;
+releaseDrag(state);
+if(state.watcher){state.watcher.release();state.watcher=null;}
+for(const off of state.off.splice(0)){
+try{off();}catch{}
+}
+state.emitter.clear();
+state.windows.clear();
+state.pending.clear();
+if(state.rootEl&&state.rootEl.parentNode)state.rootEl.parentNode.removeChild(state.rootEl);
+el.classList.remove(`${NS}-host`);
 },
 };
-if(opts.element)api.mount(opts.element,opts.render||{});
-return api;
 }
-const __default=createGantt;
+const __default=createLayout;
 });
 try{
 __req("packages/worker/src/inline.js").setWorkerSource("(function(root){\n'use strict';\nvar __mods=Object.create(null);\nvar __cache=Object.create(null);\nfunction __def(id,fn){__mods[id]=fn;}\nfunction __req(id){\nvar hit=__cache[id];\nif(hit)return hit;\nvar exports=Object.create(null);\n__cache[id]=exports;\nvar fn=__mods[id];\nif(!fn)throw new Error('[lattice] missing module: '+id);\nfn(exports,__req);\nreturn exports;\n}\n__def(\"packages/core/src/internal/util.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"VERSION\",{enumerable:true,get:function(){return VERSION;}});\nObject.defineProperty(__exports,\"reportedWarnings\",{enumerable:true,get:function(){return reportedWarnings;}});\nObject.defineProperty(__exports,\"warnOnce\",{enumerable:true,get:function(){return warnOnce;}});\nObject.defineProperty(__exports,\"infoOnce\",{enumerable:true,get:function(){return infoOnce;}});\nObject.defineProperty(__exports,\"resetWarnings\",{enumerable:true,get:function(){return resetWarnings;}});\nObject.defineProperty(__exports,\"fail\",{enumerable:true,get:function(){return fail;}});\nObject.defineProperty(__exports,\"invariant\",{enumerable:true,get:function(){return invariant;}});\nObject.defineProperty(__exports,\"DEV\",{enumerable:true,get:function(){return DEV;}});\nObject.defineProperty(__exports,\"isObject\",{enumerable:true,get:function(){return isObject;}});\nObject.defineProperty(__exports,\"isFunction\",{enumerable:true,get:function(){return isFunction;}});\nObject.defineProperty(__exports,\"isNil\",{enumerable:true,get:function(){return isNil;}});\nObject.defineProperty(__exports,\"isBlank\",{enumerable:true,get:function(){return isBlank;}});\nObject.defineProperty(__exports,\"isCtor\",{enumerable:true,get:function(){return isCtor;}});\nObject.defineProperty(__exports,\"pathGetter\",{enumerable:true,get:function(){return pathGetter;}});\nObject.defineProperty(__exports,\"pathSetter\",{enumerable:true,get:function(){return pathSetter;}});\nObject.defineProperty(__exports,\"getPath\",{enumerable:true,get:function(){return getPath;}});\nObject.defineProperty(__exports,\"setPath\",{enumerable:true,get:function(){return setPath;}});\nObject.defineProperty(__exports,\"humanise\",{enumerable:true,get:function(){return humanise;}});\nObject.defineProperty(__exports,\"escapeHtml\",{enumerable:true,get:function(){return escapeHtml;}});\nObject.defineProperty(__exports,\"titleCase\",{enumerable:true,get:function(){return titleCase;}});\nObject.defineProperty(__exports,\"expand\",{enumerable:true,get:function(){return expand;}});\nObject.defineProperty(__exports,\"toArray\",{enumerable:true,get:function(){return toArray;}});\nObject.defineProperty(__exports,\"merge\",{enumerable:true,get:function(){return merge;}});\nObject.defineProperty(__exports,\"mergeRow\",{enumerable:true,get:function(){return mergeRow;}});\nObject.defineProperty(__exports,\"Lru\",{enumerable:true,get:function(){return Lru;}});\nObject.defineProperty(__exports,\"collator\",{enumerable:true,get:function(){return collator;}});\nObject.defineProperty(__exports,\"defaultCompare\",{enumerable:true,get:function(){return defaultCompare;}});\nObject.defineProperty(__exports,\"now\",{enumerable:true,get:function(){return now;}});\nObject.defineProperty(__exports,\"nextFrame\",{enumerable:true,get:function(){return nextFrame;}});\nObject.defineProperty(__exports,\"cancelFrame\",{enumerable:true,get:function(){return cancelFrame;}});\nObject.defineProperty(__exports,\"frameBatched\",{enumerable:true,get:function(){return frameBatched;}});\nObject.defineProperty(__exports,\"settleDebounce\",{enumerable:true,get:function(){return settleDebounce;}});\nObject.defineProperty(__exports,\"whenIdle\",{enumerable:true,get:function(){return whenIdle;}});\nObject.defineProperty(__exports,\"uid\",{enumerable:true,get:function(){return uid;}});\nconst STAMPED_VERSION=\"1.53.0\";\nasync function resolveVersion(){\nif(STAMPED_VERSION!=='0.0.0-source')return STAMPED_VERSION;\ntry{\nif(typeof process==='undefined'||!process.versions||!process.versions.node){\nreturn STAMPED_VERSION;\n}\nconst mod=await import('node:'+'module');\nconst req=mod.createRequire((typeof document!=='undefined'&&document.currentScript?document.currentScript.src:''));\nconst fs=req('node:'+'fs');\nconst url=new URL('../../../../package.json',(typeof document!=='undefined'&&document.currentScript?document.currentScript.src:''));\nconst text=fs.readFileSync(url,'utf8');\nreturn JSON.parse(text).version||STAMPED_VERSION;\n}catch{\nreturn STAMPED_VERSION;\n}\n}\nconst VERSION=\"1.53.0\";\nconst warned=new Set();\nconst WARNED_LIMIT=2000;\nfunction rememberWarned(key){\nwarned.add(key);\nif(warned.size>WARNED_LIMIT){\nconst oldest=warned.values().next().value;\nif(oldest!==undefined)warned.delete(oldest);\n}\n}\nconst reported=[];\nconst REPORT_LIMIT=500;\nfunction record(key,level,message){\nreported.push({\nkey,\nlevel,\nmessage:message.map((m)=>(typeof m==='string'?m:safeString(m))).join(' '),\nat:Date.now(),\n});\nif(reported.length>REPORT_LIMIT)reported.shift();\n}\nfunction safeString(value){\nif(value instanceof Error)return value.message;\ntry{return JSON.stringify(value);}catch{return String(value);}\n}\nfunction reportedWarnings(){return reported.map((r)=>({...r}));}\nfunction warnOnce(key,...message){\nif(warned.has(key))return;\nrememberWarned(key);\nrecord(key,'warn',message);\nconsole.warn('[lattice]',...message);\n}\nfunction infoOnce(key,...message){\nif(warned.has(key))return;\nrememberWarned(key);\nrecord(key,'info',message);\nconsole.info('[lattice]',...message);\n}\nfunction resetWarnings(){\nwarned.clear();\nreported.length=0;\n}\nfunction fail(message,extra){\nconst err=new Error(`[lattice] ${message}`);\nif(extra!==undefined)err.cause=extra;\nthrow err;\n}\nfunction invariant(condition,message){\nif(!condition)fail(message);\n}\nconst DEV=(()=>{\ntry{\nreturn!(typeof process!=='undefined'&&process.env\n&&process.env.NODE_ENV==='production');\n}catch{\nreturn true;\n}\n})();\nfunction isObject(v){\nreturn v!==null&&typeof v==='object'&&!Array.isArray(v);\n}\nfunction isFunction(v){\nreturn typeof v==='function';\n}\nfunction isNil(v){\nreturn v===null||v===undefined;\n}\nfunction isBlank(v){\nreturn v===null||v===undefined||v==='';\n}\nfunction isCtor(v){\nif(typeof v!=='function')return false;\nif(/^class[\\s{]/.test(Function.prototype.toString.call(v)))return true;\nreturn!!(v.prototype&&Object.getOwnPropertyNames(v.prototype).length>1);\n}\nconst pathCache=new Map();\nfunction pathGetter(path){\nlet fn=pathCache.get(path);\nif(fn)return fn;\nif(!path.includes('.')){\nfn=(o)=>(o==null?undefined:o[path]);\n}else{\nconst parts=path.split('.');\nconst n=parts.length;\nfn=(o)=>{\nlet cur=o;\nfor(let i=0;i<n;i++){\nif(cur==null)return undefined;\ncur=cur[parts[i]];\n}\nreturn cur;\n};\n}\npathCache.set(path,fn);\nreturn fn;\n}\nconst setterCache=new Map();\nfunction pathSetter(path){\nlet fn=setterCache.get(path);\nif(fn)return fn;\nif(!path.includes('.')){\nfn=(o,v)=>{if(o!=null)o[path]=v;};\n}else{\nconst parts=path.split('.');\nconst last=parts.length-1;\nfn=(o,v)=>{\nlet cur=o;\nfor(let i=0;i<last;i++){\nif(cur==null)return;\nconst k=parts[i];\nif(cur[k]==null)cur[k]={};\ncur=cur[k];\n}\nif(cur!=null)cur[parts[last]]=v;\n};\n}\nsetterCache.set(path,fn);\nreturn fn;\n}\nfunction getPath(obj,path){\nreturn pathGetter(path)(obj);\n}\nfunction setPath(obj,path,value){\npathSetter(path)(obj,value);\n}\nfunction humanise(field){\nif(!field)return'';\nconst leaf=field.includes('.')?field.slice(field.lastIndexOf('.')+1):field;\nreturn leaf\n.replace(/[_-]+/g,' ')\n.replace(/([a-z0-9])([A-Z])/g,'$1 $2')\n.replace(/([A-Z]+)([A-Z][a-z])/g,'$1 $2')\n.replace(/\\s+/g,' ')\n.trim()\n.replace(/^./,(c)=>c.toUpperCase());\n}\nconst ESCAPES={'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'};\nfunction escapeHtml(s){\nconst str=s==null?'':String(s);\nreturn/[&<>\"']/.test(str)?str.replace(/[&<>\"']/g,(c)=>ESCAPES[c]):str;\n}\nfunction titleCase(s){\nreturn String(s).replace(/\\w\\S*/g,(t)=>t[0].toUpperCase()+t.slice(1).toLowerCase());\n}\nfunction expand(value,key,whenTrue){\nif(value===undefined)return undefined;\nif(value===true)return{enabled:true,...whenTrue};\nif(value===false)return{enabled:false};\nif(isObject(value))return value;\nreturn{[key]:value,enabled:true};\n}\nfunction toArray(v){\nif(v===undefined||v===null)return[];\nreturn Array.isArray(v)?v:[v];\n}\nconst MERGE_FORBIDDEN_KEYS=Object.freeze(new Set(['__proto__','constructor','prototype']));\nfunction merge(a,b){\nif(!isObject(a))return isObject(b)?{...b}:b;\nif(!isObject(b))return b===undefined?a:b;\nconst out={...a};\nfor(const k of Object.keys(b)){\nif(MERGE_FORBIDDEN_KEYS.has(k))continue;\nconst bv=b[k];\nif(bv===undefined)continue;\nout[k]=isObject(bv)&&isObject(out[k])?merge(out[k],bv):bv;\n}\nreturn out;\n}\nfunction mergeRow(previous,patch){\nif(!isObject(previous)||!isObject(patch)||previous===patch)return patch;\nconst out=Object.create(Object.getPrototypeOf(previous));\nObject.assign(out,previous,patch);\nreturn out;\n}\nclass Lru{\n#max;\n#map=new Map();\n#onEvict;\nconstructor(max=256,onEvict=null){\nthis.#max=max;\nthis.#onEvict=onEvict;\n}\nget size(){\nreturn this.#map.size;\n}\nget max(){\nreturn this.#max;\n}\nset max(v){\nthis.#max=v;\nthis.#trim();\n}\nhas(k){\nreturn this.#map.has(k);\n}\nget(k){\nconst m=this.#map;\nif(!m.has(k))return undefined;\nconst v=m.get(k);\nm.delete(k);\nm.set(k,v);\nreturn v;\n}\npeek(k){\nreturn this.#map.get(k);\n}\nset(k,v){\nconst m=this.#map;\nif(m.has(k))m.delete(k);\nm.set(k,v);\nthis.#trim();\nreturn v;\n}\ndelete(k){\nconst v=this.#map.get(k);\nif(this.#map.delete(k)&&this.#onEvict)this.#onEvict(v,k);\nreturn v;\n}\nclear(){\nif(this.#onEvict)for(const[k,v]of this.#map)this.#onEvict(v,k);\nthis.#map.clear();\n}\nkeys(){\nreturn this.#map.keys();\n}\nvalues(){\nreturn this.#map.values();\n}\n#trim(){\nconst m=this.#map;\nwhile(m.size>this.#max){\nconst oldest=m.keys().next().value;\nconst v=m.get(oldest);\nm.delete(oldest);\nif(this.#onEvict)this.#onEvict(v,oldest);\n}\n}\n}\nconst collators=new Map();\nfunction collator(locale,opts){\nconst key=`${locale||''}|${opts?JSON.stringify(opts):''}`;\nlet c=collators.get(key);\nif(!c){\nc=new Intl.Collator(locale||undefined,{\nnumeric:true,sensitivity:'variant',...opts,\n});\ncollators.set(key,c);\n}\nreturn c;\n}\nfunction defaultCompare(a,b){\nif(a===b)return 0;\nif(a===null||a===undefined)return 1;\nif(b===null||b===undefined)return-1;\nif(typeof a==='number'&&typeof b==='number'){\nif(Number.isNaN(a))return Number.isNaN(b)?0:1;\nif(Number.isNaN(b))return-1;\nreturn a<b?-1:a>b?1:0;\n}\nconst sa=String(a);\nconst sb=String(b);\nreturn sa<sb?-1:sa>sb?1:0;\n}\nfunction now(){\nreturn typeof performance!=='undefined'&&performance.now\n?performance.now()\n:Date.now();\n}\nconst hasRaf=typeof requestAnimationFrame==='function';\nfunction nextFrame(fn){\nif(hasRaf)return requestAnimationFrame(fn);\nreturn setTimeout(()=>fn(now()),16);\n}\nfunction cancelFrame(handle){\nif(handle==null)return;\nif(hasRaf)cancelAnimationFrame(handle);\nelse clearTimeout(handle);\n}\nfunction frameBatched(fn){\nlet handle=null;\nlet lastArgs=null;\nconst run=()=>{\nhandle=null;\nconst a=lastArgs;\nlastArgs=null;\nfn(...(a||[]));\n};\nconst wrapped=(...args)=>{\nlastArgs=args;\nif(handle===null)handle=nextFrame(run);\n};\nwrapped.cancel=()=>{\ncancelFrame(handle);\nhandle=null;\nlastArgs=null;\n};\nwrapped.flush=()=>{\nif(handle!==null){\ncancelFrame(handle);\nrun();\n}\n};\nreturn wrapped;\n}\nfunction settleDebounce(fn,waitMs){\nlet timer=null;\nlet held=null;\nconst trailing=()=>{\ntimer=null;\nif(held===null)return;\nconst args=held;\nheld=null;\nfn(...args);\narm();\n};\nconst arm=()=>{\ntimer=setTimeout(trailing,waitMs);\nif(typeof timer?.unref==='function')timer.unref();\n};\nconst wrapped=(...args)=>{\nif(timer===null){\nfn(...args);\narm();\n}else{\nheld=args;\nclearTimeout(timer);\narm();\n}\n};\nwrapped.flush=()=>{\nif(timer!==null)clearTimeout(timer);\ntimer=null;\nif(held===null)return;\nconst args=held;\nheld=null;\nfn(...args);\n};\nwrapped.cancel=()=>{\nif(timer!==null)clearTimeout(timer);\ntimer=null;\nheld=null;\n};\nwrapped.pending=()=>timer!==null||held!==null;\nreturn wrapped;\n}\nfunction whenIdle(fn,timeout=50){\nif(typeof requestIdleCallback==='function'){\nreturn requestIdleCallback(fn,{timeout});\n}\nreturn setTimeout(()=>fn({timeRemaining:()=>0,didTimeout:true}),1);\n}\nlet idSeq=0;\nfunction uid(prefix='l'){\nreturn`${prefix}${(++idSeq).toString(36)}`;\n}\n});\n__def(\"packages/worker/src/transport.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"PROTOCOL\",{enumerable:true,get:function(){return PROTOCOL;}});\nObject.defineProperty(__exports,\"OPS\",{enumerable:true,get:function(){return OPS;}});\nObject.defineProperty(__exports,\"CONTROL\",{enumerable:true,get:function(){return CONTROL;}});\nObject.defineProperty(__exports,\"ERRORS\",{enumerable:true,get:function(){return ERRORS;}});\nObject.defineProperty(__exports,\"packHandle\",{enumerable:true,get:function(){return packHandle;}});\nObject.defineProperty(__exports,\"packHandles\",{enumerable:true,get:function(){return packHandles;}});\nObject.defineProperty(__exports,\"TransportedDictionary\",{enumerable:true,get:function(){return TransportedDictionary;}});\nObject.defineProperty(__exports,\"unpackHandle\",{enumerable:true,get:function(){return unpackHandle;}});\nObject.defineProperty(__exports,\"unpackHandles\",{enumerable:true,get:function(){return unpackHandles;}});\nObject.defineProperty(__exports,\"createMaskPool\",{enumerable:true,get:function(){return createMaskPool;}});\nObject.defineProperty(__exports,\"isTransferable\",{enumerable:true,get:function(){return isTransferable;}});\nObject.defineProperty(__exports,\"collectTransfers\",{enumerable:true,get:function(){return collectTransfers;}});\nObject.defineProperty(__exports,\"isPortable\",{enumerable:true,get:function(){return isPortable;}});\nObject.defineProperty(__exports,\"filterColumnIds\",{enumerable:true,get:function(){return filterColumnIds;}});\nconst __m0=__req(\"packages/core/src/internal/util.js\");\nconst collator=__m0[\"collator\"];\nconst isFunction=__m0[\"isFunction\"];\nconst PROTOCOL=1;\nconst OPS=Object.freeze({\nSORT_COLUMN:'sortColumn',\nSORT_MULTI:'sortMulti',\nEVALUATE_FILTERS:'evaluateFilters',\nCOMPACT:'compact',\nGROUP_BY_COLUMNS:'groupByColumns',\nTOTAL:'total',\nPIVOT:'pivot',\nFACET:'facet',\nCOLUMNIZE:'columnize',\nCOLLATE_STRING_RANKS:'collateStringRanks',\n});\nconst CONTROL=Object.freeze({\nREADY:'ready',\nCANCEL:'cancel',\nPING:'ping',\n});\nconst ERRORS=Object.freeze({\nNO_COMPUTE:'E_NO_COMPUTE',\nNO_KERNEL:'E_NO_KERNEL',\nABORTED:'E_ABORTED',\nKERNEL:'E_KERNEL',\nPROTOCOL:'E_PROTOCOL',\n});\nfunction packHandle(handle){\nif(handle==null)return null;\nconst presence=handle.presence;\nreturn{\nid:handle.id,\nkind:handle.kind,\nnullable:!!handle.nullable,\nvalues:handle.values??null,\npresence:presence?(presence.words??presence):null,\npresenceBits:presence?(presence.size??(presence.words??presence).length*8):0,\ndict:handle.dict?sliceDictionary(handle.dict):null,\noffsets:handle.offsets??null,\nversion:handle.version??0,\n};\n}\nfunction sliceDictionary(dict){\nif(Array.isArray(dict))return dict;\nif(isFunction(dict.values))return dict.values();\nreturn[];\n}\nfunction packHandles(handles){\nconst out=new Array(handles.length);\nfor(let i=0;i<handles.length;i++)out[i]=packHandle(handles[i]);\nreturn out;\n}\nclass TransportedBitset{\n#words;\n#bits;\nconstructor(words,bits){\nthis.#words=words;\nthis.#bits=bits;\n}\nget words(){return this.#words;}\nget size(){return this.#bits;}\nget(i){return(this.#words[i>>>3]&(1<<(i&7)))!==0;}\ncount(){\nconst w=this.#words;\nlet n=0;\nfor(let i=0;i<w.length;i++){\nlet v=w[i];\nwhile(v){v&=v-1;n++;}\n}\nreturn n;\n}\n}\nclass TransportedDictionary{\n#values;\n#index=null;\n#version=0;\n#ranks=new Map();\nconstructor(values){\nthis.#values=values||[];\n}\nget size(){return this.#values.length;}\nget version(){return this.#version;}\ncodeOf(value){\nif(this.#index===null){\nthis.#index=new Map();\nfor(let i=0;i<this.#values.length;i++)this.#index.set(this.#values[i],i);\n}\nconst found=this.#index.get(value);\nif(found!==undefined)return found;\nconst code=this.#values.length;\nthis.#values.push(value);\nthis.#index.set(value,code);\nthis.#version++;\nreturn code;\n}\nvalueOf(code){return this.#values[code];}\nvalues(){return this.#values;}\nranks(locale){\nconst key=locale||'';\nconst cached=this.#ranks.get(key);\nif(cached&&cached.version===this.#version)return cached.ranks;\nconst n=this.#values.length;\nconst order=new Uint32Array(n);\nfor(let i=0;i<n;i++)order[i]=i;\nconst cmp=collator(locale).compare;\nconst vals=this.#values;\nconst sorted=Array.from(order).sort((a,b)=>{\nconst av=vals[a];\nconst bv=vals[b];\nif(av===bv)return 0;\nif(av===null||av===undefined)return 1;\nif(bv===null||bv===undefined)return-1;\nreturn cmp(String(av),String(bv));\n});\nconst ranks=new Uint32Array(n);\nfor(let r=0;r<sorted.length;r++)ranks[sorted[r]]=r;\nthis.#ranks.set(key,{version:this.#version,ranks});\nreturn ranks;\n}\n}\nfunction unpackHandle(packed){\nif(packed==null)return null;\nconst presence=packed.presence\n?new TransportedBitset(packed.presence,packed.presenceBits||packed.presence.length*8)\n:null;\nconst dict=packed.dict?new TransportedDictionary(packed.dict):null;\nconst values=packed.values;\nconst offsets=packed.offsets??null;\nconst kind=packed.kind;\nconst get=(physical)=>{\nif(presence&&!presence.get(physical))return null;\nswitch(kind){\ncase'dictionary':\nreturn dict?dict.valueOf(values[physical]):values[physical];\ncase'bitset':\nreturn(values[physical>>>3]&(1<<(physical&7)))!==0;\ncase'multi':{\nif(!offsets)return null;\nconst from=offsets[physical];\nconst to=offsets[physical+1];\nconst out=new Array(to-from);\nfor(let i=from;i<to;i++)out[i-from]=dict?dict.valueOf(values[i]):values[i];\nreturn out;\n}\ndefault:\nreturn values[physical];\n}\n};\nreturn{\nid:packed.id,\nkind,\nnullable:packed.nullable,\nvalues,\npresence,\ndict,\noffsets,\nget,\nversion:packed.version,\n};\n}\nfunction unpackHandles(packed){\nconst out=new Array(packed.length);\nfor(let i=0;i<packed.length;i++)out[i]=unpackHandle(packed[i]);\nreturn out;\n}\nfunction createMaskPool(){\nconst masks=[];\nconst indices=[];\nreturn{\nmask(n){\nfor(let i=0;i<masks.length;i++){\nif(masks[i].length>=n){\nconst buf=masks.splice(i,1)[0].subarray(0,n);\nbuf.fill(0);\nreturn buf;\n}\n}\nreturn new Uint8Array(n);\n},\nindices(n){\nfor(let i=0;i<indices.length;i++){\nif(indices[i].length>=n)return indices.splice(i,1)[0].subarray(0,n);\n}\nreturn new Uint32Array(n);\n},\nrelease(buf){\nif(!buf)return;\nif(buf instanceof Uint8Array)masks.push(buf);\nelse if(buf instanceof Uint32Array)indices.push(buf);\n},\nclear(){masks.length=0;indices.length=0;},\n};\n}\nfunction isTransferable(v){\nif(!ArrayBuffer.isView(v))return false;\nconst buf=(v).buffer;\nif(!buf)return false;\nreturn typeof SharedArrayBuffer==='undefined'||!(buf instanceof SharedArrayBuffer);\n}\nfunction collectTransfers(value,out=[]){\nconst add=(v)=>{\nif(!isTransferable(v))return;\nconst buf=(v).buffer;\nif(!out.includes(buf))out.push(buf);\n};\nif(value==null)return out;\nif(ArrayBuffer.isView(value)){add(value);return out;}\nif(Array.isArray(value)){\nfor(const item of value)add(item);\nreturn out;\n}\nif(typeof value==='object'){\nfor(const key of Object.keys(value)){\nconst item=(value)[key];\nif(Array.isArray(item))for(const sub of item)add(sub);\nelse add(item);\n}\n}\nreturn out;\n}\nfunction isPortable(value,depth=0){\nif(value==null)return true;\nconst t=typeof value;\nif(t==='function'||t==='symbol')return false;\nif(t!=='object')return true;\nif(depth>4)return true;\nif(ArrayBuffer.isView(value)||value instanceof ArrayBuffer||value instanceof Date)return true;\nif(Array.isArray(value)){\nfor(const item of value)if(!isPortable(item,depth+1))return false;\nreturn true;\n}\nfor(const key of Object.keys(value)){\nif(!isPortable((value)[key],depth+1))return false;\n}\nreturn true;\n}\nfunction filterColumnIds(filters,out=new Set()){\nif(!filters||typeof filters!=='object')return out;\nconst node=(filters);\nif(typeof node.col==='string')out.add(node.col);\nconst conditions=node.conditions;\nif(Array.isArray(conditions))for(const child of conditions)filterColumnIds(child,out);\nreturn out;\n}\n});\n__def(\"packages/core/src/store/bitset.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"Bitset\",{enumerable:true,get:function(){return Bitset;}});\nconst WORD_BITS=8;\nclass Bitset{\nstatic#POP=new Uint8Array(256);\nstatic{\nfor(let i=1;i<256;i++)Bitset.#POP[i]=Bitset.#POP[i>>1]+(i&1);\n}\n#words;\n#bits;\nconstructor(bits=0){\nconst n=Math.max(0,bits|0);\nthis.#bits=n;\nthis.#words=new Uint8Array(Math.ceil(n/WORD_BITS));\n}\nget size(){return this.#bits;}\nget words(){return this.#words;}\nget bytes(){return this.#words?this.#words.byteLength:0;}\nget(i){\nif(i<0||i>=this.#bits)return 0;\nreturn(this.#words[i>>3]>>(i&7))&1;\n}\nset(i){\nif(i>=0&&i<this.#bits)this.#words[i>>3]|=1<<(i&7);\nreturn this;\n}\nclear(i){\nif(i>=0&&i<this.#bits)this.#words[i>>3]&=~(1<<(i&7));\nreturn this;\n}\nassign(i,bit){return bit?this.set(i):this.clear(i);}\nfill(bit=false){\nthis.#words.fill(bit?0xff:0);\nif(bit)this.#maskTail();\nreturn this;\n}\ngrow(bits){\nconst n=Math.max(0,bits|0);\nif(n<=this.#bits)return this;\nconst need=Math.ceil(n/WORD_BITS);\nif(need>this.#words.length){\nconst next=new Uint8Array(need);\nnext.set(this.#words);\nthis.#words=next;\n}\nthis.#bits=n;\nreturn this;\n}\ncount(){\nconst w=this.#words;\nconst pop=Bitset.#POP;\nlet total=0;\nfor(let i=0;i<w.length;i++)total+=pop[w[i]];\nreturn total;\n}\nand(other){\nconst b=other instanceof Bitset?other.words:other;\nconst w=this.#words;\nconst shared=Math.min(w.length,b.length);\nfor(let i=0;i<shared;i++)w[i]&=b[i];\nfor(let i=shared;i<w.length;i++)w[i]=0;\nreturn this;\n}\nor(other){\nconst b=other instanceof Bitset?other.words:other;\nconst w=this.#words;\nconst shared=Math.min(w.length,b.length);\nfor(let i=0;i<shared;i++)w[i]|=b[i];\nreturn this;\n}\nnot(){\nconst w=this.#words;\nfor(let i=0;i<w.length;i++)w[i]=~w[i]&0xff;\nthis.#maskTail();\nreturn this;\n}\nclone(){\nconst out=new Bitset(this.#bits);\nout.words.set(this.#words.subarray(0,out.words.length));\nreturn out;\n}\nrelease(){\nthis.#words=new Uint8Array(0);\nthis.#bits=0;\n}\n#maskTail(){\nconst used=this.#bits&7;\nif(used===0)return;\nconst last=(this.#bits>>3);\nif(last<this.#words.length)this.#words[last]&=(1<<used)-1;\n}\nstatic from(bools){\nconst arr=Array.isArray(bools)?bools:Array.from(bools);\nconst out=new Bitset(arr.length);\nfor(let i=0;i<arr.length;i++)if(arr[i])out.set(i);\nreturn out;\n}\n}\n});\n__def(\"packages/core/src/store/dictionary.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"Dictionary\",{enumerable:true,get:function(){return Dictionary;}});\nconst __m0=__req(\"packages/core/src/internal/util.js\");\nconst collator=__m0[\"collator\"];\nconst defaultCompare=__m0[\"defaultCompare\"];\nclass Dictionary{\n#values;\n#codes=new Map();\n#version=0;\n#ranks=null;\n#ranksVersion=-1;\n#ranksLocale='\\u0000';\nconstructor(values=[]){\nthis.#values=[];\nfor(let i=0;i<values.length;i++){\nconst v=values[i];\nif(this.#codes.has(v))continue;\nthis.#codes.set(v,this.#values.length);\nthis.#values.push(v);\n}\n}\nget size(){return this.#values.length;}\nget version(){return this.#version;}\nget bytes(){\nlet total=this.#values.length*8;\nfor(let i=0;i<this.#values.length;i++){\nconst v=this.#values[i];\nif(typeof v==='string')total+=v.length*2;\ntotal+=16;\n}\nreturn total;\n}\ncodeOf(value){\nconst existing=this.#codes.get(value);\nif(existing!==undefined)return existing;\nconst code=this.#values.length;\nthis.#values.push(value);\nthis.#codes.set(value,code);\nthis.#version++;\nreturn code;\n}\nlookup(value){\nconst code=this.#codes.get(value);\nreturn code===undefined?-1:code;\n}\nhas(value){return this.#codes.has(value);}\nvalueOf(code){return this.#values[code];}\nvalues(){return this.#values;}\nranks(locale){\nconst key=locale||'';\nif(this.#ranks&&this.#ranksVersion===this.#version&&this.#ranksLocale===key){\nreturn this.#ranks;\n}\nconst n=this.#values.length;\nconst order=new Array(n);\nfor(let i=0;i<n;i++)order[i]=i;\nconst cmp=collator(locale).compare;\nconst values=this.#values;\norder.sort((a,b)=>this.#compare(values[a],values[b],cmp));\nconst ranks=new Uint32Array(n);\nfor(let rank=0;rank<n;rank++)ranks[order[rank]]=rank;\nthis.#ranks=ranks;\nthis.#ranksVersion=this.#version;\nthis.#ranksLocale=key;\nreturn ranks;\n}\n#compare(a,b,compare){\nif(typeof a==='string'&&typeof b==='string')return compare(a,b);\nreturn defaultCompare(a,b);\n}\n}\n});\n__def(\"packages/core/src/store/multivalue.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"MultiValue\",{enumerable:true,get:function(){return MultiValue;}});\nclass MultiValue{\n#values;\n#offsets;\n#rows=0;\n#fill=0;\nconstructor(capacity={}){\nconst rows=Math.max(1,capacity.rows??16);\nconst values=Math.max(1,capacity.values??rows);\nthis.#values=new Int32Array(values);\nthis.#offsets=new Uint32Array(rows+1);\n}\nget values(){return this.#values;}\nget offsets(){return this.#offsets;}\nget rows(){return this.#rows;}\nget length(){return this.#fill;}\nget bytes(){return this.#values.byteLength+this.#offsets.byteLength;}\ncount(r){\nif(r<0||r>=this.#rows)return 0;\nreturn this.#offsets[r+1]-this.#offsets[r];\n}\nat(r){\nif(r<0||r>=this.#rows)return this.#values.subarray(0,0);\nreturn this.#values.subarray(this.#offsets[r],this.#offsets[r+1]);\n}\nhas(r,code){\nif(r<0||r>=this.#rows)return false;\nconst v=this.#values;\nconst end=this.#offsets[r+1];\nfor(let i=this.#offsets[r];i<end;i++)if(v[i]===code)return true;\nreturn false;\n}\nhasAny(r,codes){\nfor(let i=0;i<codes.length;i++)if(this.has(r,codes[i]))return true;\nreturn false;\n}\nhasAll(r,codes){\nfor(let i=0;i<codes.length;i++)if(!this.has(r,codes[i]))return false;\nreturn true;\n}\nhasNone(r,codes){return!this.hasAny(r,codes);}\npush(codes){\nconst r=this.#rows;\nconst n=codes.length;\nthis.#ensureRows(r+1);\nthis.#ensureValues(this.#fill+n);\nconst start=this.#fill;\nfor(let i=0;i<n;i++)this.#values[start+i]=codes[i]|0;\nthis.#fill+=n;\nthis.#rows=r+1;\nthis.#offsets[r]=start;\nthis.#offsets[r+1]=this.#fill;\nreturn r;\n}\nwrite(r,codes){\nif(r===this.#rows){this.push(codes);return;}\nif(r<0||r>this.#rows)return;\nconst start=this.#offsets[r];\nconst end=this.#offsets[r+1];\nconst n=codes.length;\nif(end-start===n){\nfor(let i=0;i<n;i++)this.#values[start+i]=codes[i]|0;\nreturn;\n}\nthis.#rebuild(r,codes);\n}\ncompact(remap,liveCount,dead){\nconst oldValues=this.#values;\nconst oldOffsets=this.#offsets;\nconst oldRows=this.#rows;\nconst values=new Int32Array(Math.max(1,this.#fill));\nconst offsets=new Uint32Array(liveCount+1);\nlet w=0;\nfor(let p=0;p<oldRows;p++){\nif(remap[p]===dead)continue;\nconst start=oldOffsets[p];\nconst end=oldOffsets[p+1];\noffsets[remap[p]]=w;\nfor(let i=start;i<end;i++)values[w++]=oldValues[i];\noffsets[remap[p]+1]=w;\n}\nthis.#values=values;\nthis.#offsets=offsets;\nthis.#rows=liveCount;\nthis.#fill=w;\n}\nrelease(){\nthis.#values=new Int32Array(0);\nthis.#offsets=new Uint32Array(1);\nthis.#rows=0;\nthis.#fill=0;\n}\n#ensureRows(rows){\nif(rows+1<=this.#offsets.length)return;\nlet cap=this.#offsets.length-1;\nwhile(cap<rows)cap=cap*2||16;\nconst next=new Uint32Array(cap+1);\nnext.set(this.#offsets);\nthis.#offsets=next;\n}\n#ensureValues(n){\nif(n<=this.#values.length)return;\nlet cap=this.#values.length;\nwhile(cap<n)cap=cap*2||16;\nconst next=new Int32Array(cap);\nnext.set(this.#values);\nthis.#values=next;\n}\n#rebuild(r,codes){\nconst oldValues=this.#values;\nconst oldOffsets=this.#offsets;\nconst rows=this.#rows;\nconst delta=codes.length-(oldOffsets[r+1]-oldOffsets[r]);\nconst values=new Int32Array(Math.max(1,this.#fill+delta));\nconst offsets=new Uint32Array(oldOffsets.length);\nlet w=0;\nfor(let p=0;p<rows;p++){\noffsets[p]=w;\nif(p===r){\nfor(let i=0;i<codes.length;i++)values[w++]=codes[i]|0;\n}else{\nfor(let i=oldOffsets[p];i<oldOffsets[p+1];i++)values[w++]=oldValues[i];\n}\noffsets[p+1]=w;\n}\nthis.#values=values;\nthis.#offsets=offsets;\nthis.#fill=w;\n}\n}\n});\n__def(\"packages/core/src/compute/handle.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"identity\",{enumerable:true,get:function(){return identity;}});\nObject.defineProperty(__exports,\"rowCount\",{enumerable:true,get:function(){return rowCount;}});\nObject.defineProperty(__exports,\"bitReader\",{enumerable:true,get:function(){return bitReader;}});\nObject.defineProperty(__exports,\"presenceReader\",{enumerable:true,get:function(){return presenceReader;}});\nObject.defineProperty(__exports,\"dictSize\",{enumerable:true,get:function(){return dictSize;}});\nObject.defineProperty(__exports,\"dictValue\",{enumerable:true,get:function(){return dictValue;}});\nObject.defineProperty(__exports,\"multiValue\",{enumerable:true,get:function(){return multiValue;}});\nObject.defineProperty(__exports,\"valueReader\",{enumerable:true,get:function(){return valueReader;}});\nObject.defineProperty(__exports,\"numericTotalOrder\",{enumerable:true,get:function(){return numericTotalOrder;}});\nObject.defineProperty(__exports,\"valueComparator\",{enumerable:true,get:function(){return valueComparator;}});\nObject.defineProperty(__exports,\"dictRanks\",{enumerable:true,get:function(){return dictRanks;}});\nObject.defineProperty(__exports,\"isMissing\",{enumerable:true,get:function(){return isMissing;}});\nconst __m0=__req(\"packages/core/src/internal/util.js\");\nconst collator=__m0[\"collator\"];\nconst defaultCompare=__m0[\"defaultCompare\"];\nconst warnOnce=__m0[\"warnOnce\"];\nfunction identity(n){\nconst out=new Uint32Array(n);\nfor(let i=0;i<n;i++)out[i]=i;\nreturn out;\n}\nfunction rowCount(handle,opts){\nif(opts&&typeof opts.count==='number')return opts.count;\nif(!handle)return 0;\nif(typeof handle.count==='number')return handle.count;\nif(typeof handle.length==='number')return handle.length;\nconst values=handle.values;\nif(handle.kind==='multi'&&handle.offsets)return Math.max(0,handle.offsets.length-1);\nif(!values)return handle.presence&&typeof handle.presence.size==='number'?handle.presence.size:0;\nif(handle.kind==='bitset'){\nif(typeof values.size==='number')return values.size;\nif(handle.presence&&typeof handle.presence.size==='number')return handle.presence.size;\nwarnOnce(`count:${handle.id}`,`column \"${handle.id}\" is bitset-backed with no declared row count; assuming ${values.length*8}`);\nreturn values.length*8;\n}\nreturn values.length;\n}\nconst bitOrders=new WeakMap();\nfunction bitOrderOf(bitset){\nconst ctor=bitset.constructor;\nif(!ctor)return'unknown';\nconst cached=bitOrders.get(ctor);\nif(cached)return cached;\nlet order='unknown';\ntry{\nlet probe=null;\nif(typeof ctor.from==='function')probe=ctor.from([false,true]);\nelse{\nprobe=new ctor(8);\nprobe.set(1);\n}\nconst words=probe&&probe.words;\nif(words&&words.length){\nif(words[0]===0x02)order='lsb';\nelse if(words[0]===0x40)order='msb';\n}\n}catch{\norder='unknown';\n}\nbitOrders.set(ctor,order);\nreturn order;\n}\nfunction bitReader(bits){\nif(!bits)return()=>0;\nconst raw=bits instanceof Uint8Array?bits:bits.words;\nif(raw instanceof Uint8Array){\nconst order=bits instanceof Uint8Array?'lsb':bitOrderOf(bits);\nif(order==='lsb')return(i)=>(raw[i>>>3]>>>(i&7))&1;\nif(order==='msb')return(i)=>(raw[i>>>3]>>>(7-(i&7)))&1;\n}\nif(typeof bits.get==='function')return(i)=>(bits.get(i)?1:0);\nreturn()=>0;\n}\nfunction presenceReader(handle){\nif(!handle||!handle.presence)return null;\nreturn bitReader(handle.presence);\n}\nfunction dictSize(dict){\nif(!dict)return 0;\nif(typeof dict.size==='number')return dict.size;\nif(typeof dict.values==='function')return dict.values().length;\nreturn 0;\n}\nfunction dictValue(dict,code){\nif(!dict)return null;\nif(typeof dict.valueOf==='function')return dict.valueOf(code);\nif(typeof dict.values==='function')return dict.values()[code];\nreturn null;\n}\nfunction multiValue(handle,i){\nconst offsets=handle.offsets;\nconst values=handle.values;\nif(!offsets||!values)return[];\nconst from=offsets[i];\nconst to=offsets[i+1];\nif(!(to>from))return[];\nconst dict=handle.dict;\nconst out=new Array(to-from);\nfor(let k=from;k<to;k++)out[k-from]=dict?dictValue(dict,values[k]):values[k];\nreturn out;\n}\nfunction valueReader(handle){\nif(!handle)return()=>undefined;\nconst values=handle.values;\nconst present=presenceReader(handle);\nconst kind=handle.kind;\nif(kind==='dictionary'){\nconst dict=handle.dict;\nif(present)return(i)=>(present(i)?dictValue(dict,values[i]):null);\nreturn(i)=>dictValue(dict,values[i]);\n}\nif(kind==='bitset'){\nconst bit=bitReader(values);\nif(present)return(i)=>(present(i)?bit(i)===1:null);\nreturn(i)=>bit(i)===1;\n}\nif(kind==='multi'){\nif(present)return(i)=>(present(i)?multiValue(handle,i):null);\nreturn(i)=>multiValue(handle,i);\n}\nif(!values&&typeof handle.get==='function'){\nconst get=handle.get.bind(handle);\nreturn(i)=>{\nconst v=get(i);\nreturn v===undefined?null:v;\n};\n}\nif(present){\nreturn(i)=>{\nif(!present(i))return null;\nconst v=values[i];\nreturn v===undefined?null:v;\n};\n}\nreturn(i)=>{\nconst v=values[i];\nreturn v===undefined?null:v;\n};\n}\nfunction numericTotalOrder(a,b){\nif(a<b)return-1;\nif(a>b)return 1;\nif(a===b){\nconst na=Object.is(a,-0);\nconst nb=Object.is(b,-0);\nif(na===nb)return 0;\nreturn na?-1:1;\n}\nconst an=Number.isNaN(a);\nconst bn=Number.isNaN(b);\nif(an&&bn)return 0;\nreturn an?1:-1;\n}\nfunction valueComparator(locale){\nconst coll=collator(locale);\nreturn(a,b)=>{\nif(a===b)return 0;\nconst ta=typeof a;\nconst tb=typeof b;\nif(ta==='string'&&tb==='string')return coll.compare(a,b);\nif(ta==='number'&&tb==='number')return numericTotalOrder(a,b);\nif(ta==='boolean'&&tb==='boolean')return a===b?0:a?1:-1;\nif(a instanceof Date||b instanceof Date){\nconst na=a instanceof Date?a.getTime():Number(a);\nconst nb=b instanceof Date?b.getTime():Number(b);\nreturn numericTotalOrder(na,nb);\n}\nreturn defaultCompare(a,b);\n};\n}\nfunction dictRanks(dict,locale){\nif(dict&&typeof dict.ranks==='function')return dict.ranks(locale);\nconst table=dict&&typeof dict.values==='function'?dict.values():[];\nconst n=table.length;\nconst cmp=valueComparator(locale);\nconst order=new Array(n);\nfor(let i=0;i<n;i++)order[i]=i;\norder.sort((a,b)=>cmp(table[a],table[b])||a-b);\nconst ranks=new Uint32Array(n);\nfor(let r=0;r<n;r++)ranks[order[r]]=r;\nreturn ranks;\n}\nfunction isMissing(v){\nreturn v===null||v===undefined||(typeof v==='number'&&Number.isNaN(v));\n}\n});\n__def(\"packages/core/src/compute/sort.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"radixSortFloat64\",{enumerable:true,get:function(){return radixSortFloat64;}});\nObject.defineProperty(__exports,\"radixSortInt32\",{enumerable:true,get:function(){return radixSortInt32;}});\nObject.defineProperty(__exports,\"rankSortDictionary\",{enumerable:true,get:function(){return rankSortDictionary;}});\nObject.defineProperty(__exports,\"mergeSortComparator\",{enumerable:true,get:function(){return mergeSortComparator;}});\nObject.defineProperty(__exports,\"rankSortStrings\",{enumerable:true,get:function(){return rankSortStrings;}});\nObject.defineProperty(__exports,\"collateStringRanks\",{enumerable:true,get:function(){return collateStringRanks;}});\nObject.defineProperty(__exports,\"sortColumn\",{enumerable:true,get:function(){return sortColumn;}});\nObject.defineProperty(__exports,\"sortMulti\",{enumerable:true,get:function(){return sortMulti;}});\nconst __m0=__req(\"packages/core/src/compute/handle.js\");\nconst bitReader=__m0[\"bitReader\"];\nconst dictRanks=__m0[\"dictRanks\"];\nconst dictSize=__m0[\"dictSize\"];\nconst identity=__m0[\"identity\"];\nconst isMissing=__m0[\"isMissing\"];\nconst presenceReader=__m0[\"presenceReader\"];\nconst rowCount=__m0[\"rowCount\"];\nconst valueComparator=__m0[\"valueComparator\"];\nconst valueReader=__m0[\"valueReader\"];\nconst EMPTY_INDICES=new Uint32Array(0);\nconst SCRATCH=new ArrayBuffer(8);\nconst SCRATCH_F64=new Float64Array(SCRATCH);\nconst SCRATCH_U32=new Uint32Array(SCRATCH);\nconst HI=(()=>{\nSCRATCH_F64[0]=-1;\nreturn(SCRATCH_U32[1]&0x80000000)!==0?1:0;\n})();\nconst LO=HI===1?0:1;\nfunction transformDouble(value,out){\nSCRATCH_F64[0]=value;\nlet hi=SCRATCH_U32[HI];\nlet lo=SCRATCH_U32[LO];\nif((hi&0x80000000)!==0){\nhi=~hi>>>0;\nlo=~lo>>>0;\n}else{\nhi=(hi^0x80000000)>>>0;\n}\nout[0]=lo;\nout[1]=hi;\n}\nfunction radixLsd64(idx,lo,hi,n){\nif(n<2)return idx;\nconst hist=new Uint32Array(256*8);\nfor(let i=0;i<n;i++){\nconst l=lo[i];\nconst h=hi[i];\nhist[l&0xff]++;\nhist[256+((l>>>8)&0xff)]++;\nhist[512+((l>>>16)&0xff)]++;\nhist[768+((l>>>24)&0xff)]++;\nhist[1024+(h&0xff)]++;\nhist[1280+((h>>>8)&0xff)]++;\nhist[1536+((h>>>16)&0xff)]++;\nhist[1792+((h>>>24)&0xff)]++;\n}\nlet srcIdx=idx;\nlet srcLo=lo;\nlet srcHi=hi;\nlet dstIdx=new Uint32Array(n);\nlet dstLo=new Uint32Array(n);\nlet dstHi=new Uint32Array(n);\nconst offset=new Uint32Array(256);\nfor(let pass=0;pass<8;pass++){\nconst base=pass<<8;\nconst shift=(pass&3)<<3;\nconst useHi=pass>=4;\nlet skip=false;\nfor(let b=0;b<256;b++){\nif(hist[base+b]===n){skip=true;break;}\n}\nif(skip)continue;\nlet sum=0;\nfor(let b=0;b<256;b++){\noffset[b]=sum;\nsum+=hist[base+b];\n}\nfor(let i=0;i<n;i++){\nconst l=srcLo[i];\nconst h=srcHi[i];\nconst digit=((useHi?h:l)>>>shift)&0xff;\nconst p=offset[digit]++;\ndstIdx[p]=srcIdx[i];\ndstLo[p]=l;\ndstHi[p]=h;\n}\nlet t=srcIdx;srcIdx=dstIdx;dstIdx=t;\nt=srcLo;srcLo=dstLo;dstLo=t;\nt=srcHi;srcHi=dstHi;dstHi=t;\n}\nreturn srcIdx;\n}\nfunction radixLsd32(idx,keys,n){\nif(n<2)return idx;\nconst hist=new Uint32Array(256*4);\nfor(let i=0;i<n;i++){\nconst k=keys[i];\nhist[k&0xff]++;\nhist[256+((k>>>8)&0xff)]++;\nhist[512+((k>>>16)&0xff)]++;\nhist[768+((k>>>24)&0xff)]++;\n}\nlet srcIdx=idx;\nlet srcKeys=keys;\nlet dstIdx=new Uint32Array(n);\nlet dstKeys=new Uint32Array(n);\nconst offset=new Uint32Array(256);\nfor(let pass=0;pass<4;pass++){\nconst base=pass<<8;\nconst shift=pass<<3;\nlet skip=false;\nfor(let b=0;b<256;b++){\nif(hist[base+b]===n){skip=true;break;}\n}\nif(skip)continue;\nlet sum=0;\nfor(let b=0;b<256;b++){\noffset[b]=sum;\nsum+=hist[base+b];\n}\nfor(let i=0;i<n;i++){\nconst k=srcKeys[i];\nconst p=offset[(k>>>shift)&0xff]++;\ndstIdx[p]=srcIdx[i];\ndstKeys[p]=k;\n}\nlet t=srcIdx;srcIdx=dstIdx;dstIdx=t;\nt=srcKeys;srcKeys=dstKeys;dstKeys=t;\n}\nreturn srcIdx;\n}\nfunction countingSort(idx,keys,n,radix){\nconst counts=new Uint32Array(radix+1);\nfor(let i=0;i<n;i++)counts[keys[i]]++;\nlet sum=0;\nfor(let k=0;k<=radix;k++){\nconst c=counts[k];\ncounts[k]=sum;\nsum+=c;\n}\nconst out=new Uint32Array(n);\nfor(let i=0;i<n;i++)out[counts[keys[i]]++]=idx[i];\nreturn out;\n}\nfunction sortUint32Keys(idx,keys,n,radix){\nif(n<2)return idx;\nif(radix<=65536||radix<=n*2)return countingSort(idx,keys,n,radix);\nreturn radixLsd32(idx,keys,n);\n}\nfunction exact(buffer,n){\nif(buffer.length===n&&buffer.byteOffset===0)return buffer;\nreturn Uint32Array.prototype.slice.call(buffer,0,n);\n}\nfunction radixSortFloat64(values,order,descending=false){\nconst src=order||identity(values.length);\nconst n=src.length;\nif(n<2)return Uint32Array.from(src);\nconst idx=new Uint32Array(n);\nconst lo=new Uint32Array(n);\nconst hi=new Uint32Array(n);\nconst nans=new Uint32Array(n);\nconst pair=new Uint32Array(2);\nlet m=0;\nlet nanCount=0;\nfor(let i=0;i<n;i++){\nconst row=src[i];\nconst v=values[row];\nif(Number.isNaN(v)){nans[nanCount++]=row;continue;}\ntransformDouble(v,pair);\nif(descending){\nlo[m]=~pair[0]>>>0;\nhi[m]=~pair[1]>>>0;\n}else{\nlo[m]=pair[0];\nhi[m]=pair[1];\n}\nidx[m++]=row;\n}\nconst sorted=radixLsd64(idx.subarray(0,m),lo.subarray(0,m),hi.subarray(0,m),m);\nif(nanCount===0)return exact(sorted,m);\nconst out=new Uint32Array(n);\nout.set(sorted.subarray(0,m),0);\nout.set(nans.subarray(0,nanCount),m);\nreturn out;\n}\nfunction radixSortInt32(values,order,descending=false){\nconst src=order||identity(values.length);\nconst n=src.length;\nif(n<2)return Uint32Array.from(src);\nconst idx=Uint32Array.from(src);\nconst keys=new Uint32Array(n);\nfor(let i=0;i<n;i++){\nconst k=(values[idx[i]]^0x80000000)>>>0;\nkeys[i]=descending?(~k>>>0):k;\n}\nreturn exact(radixLsd32(idx,keys,n),n);\n}\nfunction rankSortDictionary(handle,order,opts={}){\nconst src=order||identity(rowCount(handle,opts));\nconst n=src.length;\nif(n<2)return Uint32Array.from(src);\nconst ranks=dictRanks(handle.dict,opts.locale);\nconst codes=handle.values;\nconst present=presenceReader(handle);\nconst size=Math.max(dictSize(handle.dict),ranks.length);\nconst absentRank=size;\nconst idx=Uint32Array.from(src);\nconst keys=new Uint32Array(n);\nconst descending=!!opts.descending;\nfor(let i=0;i<n;i++){\nconst row=idx[i];\nlet rank=present&&present(row)===0?absentRank:ranks[codes[row]];\nif(rank===undefined)rank=absentRank;\nkeys[i]=descending?absentRank-rank:rank;\n}\nreturn exact(sortUint32Keys(idx,keys,n,size+1),n);\n}\nfunction mergeSortComparator(values,order,compare){\nconst n=order.length;\nlet src=Uint32Array.from(order);\nif(n<2)return src;\nlet dst=new Uint32Array(n);\nfor(let width=1;width<n;width<<=1){\nfor(let start=0;start<n;start+=width<<1){\nconst mid=Math.min(start+width,n);\nconst end=Math.min(start+(width<<1),n);\nlet i=start;\nlet j=mid;\nlet k=start;\nwhile(i<mid&&j<end){\ndst[k++]=compare(values[src[i]],values[src[j]])<=0?src[i++]:src[j++];\n}\nwhile(i<mid)dst[k++]=src[i++];\nwhile(j<end)dst[k++]=src[j++];\n}\nconst t=src;src=dst;dst=t;\n}\nreturn src;\n}\nfunction sortBitsetColumn(handle,idx,descending){\nconst bit=bitReader(handle.values);\nconst n=idx.length;\nconst out=new Uint32Array(n);\nconst first=descending?1:0;\nlet k=0;\nfor(let i=0;i<n;i++)if(bit(idx[i])===first)out[k++]=idx[i];\nfor(let i=0;i<n;i++)if(bit(idx[i])!==first)out[k++]=idx[i];\nreturn out;\n}\nfunction indexableValues(handle,idx){\nconst values=handle.values;\nconst kind=handle.kind;\nconst direct=(kind==='object'||kind===undefined)&&(Array.isArray(values)||ArrayBuffer.isView(values));\nif(direct&&!handle.presence)return values;\nconst reader=valueReader(handle);\nconst materialised=new Array(rowCount(handle)||0);\nfor(let i=0;i<idx.length;i++){\nconst row=idx[i];\nmaterialised[row]=reader(row);\n}\nreturn materialised;\n}\nfunction allStrings(values,idx){\nfor(let i=0;i<idx.length;i++){\nif(typeof values[idx[i]]!=='string')return false;\n}\nreturn true;\n}\nfunction rankSortStrings(idx,codes,ranks,d,descending){\nconst n=idx.length;\nconst idxOut=Uint32Array.from(idx);\nif(n<2||d<1)return idxOut;\nconst keys=new Uint32Array(n);\nconst top=d-1;\nfor(let i=0;i<n;i++){\nconst rank=ranks[codes[i]];\nkeys[i]=descending?top-rank:rank;\n}\nreturn exact(sortUint32Keys(idxOut,keys,n,d),n);\n}\nfunction collateStringRanks(table,d,locale){\nconst compare=valueComparator(locale);\nconst order=new Array(d);\nfor(let i=0;i<d;i++)order[i]=i;\norder.sort((a,b)=>compare(table[a],table[b])||a-b);\nconst ranks=new Uint32Array(d);\nfor(let r=0;r<d;r++)ranks[order[r]]=r;\nreturn ranks;\n}\nfunction keyedSortStrings(values,idx,opts){\nconst n=idx.length;\nconst codeOf=new Map();\nconst table=[];\nconst codes=new Uint32Array(n);\nfor(let i=0;i<n;i++){\nconst v=values[idx[i]];\nlet c=codeOf.get(v);\nif(c===undefined){c=table.length;codeOf.set(v,c);table.push(v);}\ncodes[i]=c;\n}\nconst d=table.length;\nconst ranks=collateStringRanks(table,d,opts.locale);\nreturn rankSortStrings(idx,codes,ranks,d,!!opts.descending);\n}\nfunction sortByComparator(handle,idx,opts){\nconst values=indexableValues(handle,idx);\nif(idx.length>=2&&allStrings(values,idx)){\nconst index=handle.stringRank;\nif(index&&index.version===handle.version&&index.usable(idx,values,opts.locale)){\nreturn index.sort(idx,opts);\n}\nreturn keyedSortStrings(values,idx,opts);\n}\nconst base=valueComparator(opts.locale);\nconst compare=opts.descending?(a,b)=>base(b,a):base;\nreturn mergeSortComparator(values,idx,compare);\n}\nfunction sortByCompare(handle,idx,opts){\nconst values=indexableValues(handle,idx);\nconst user=opts.compare;\nconst descending=!!opts.descending;\nconst compare=descending\n?(a,b)=>-user(a,b,undefined,undefined,true)\n:(a,b)=>user(a,b,undefined,undefined,false);\nreturn mergeSortComparator(values,idx,compare);\n}\nfunction partitionPresent(handle,idx){\nconst n=idx.length;\nconst present=presenceReader(handle);\nconst values=handle.values;\nconst checkNaN=handle.kind==='float64'&&!!values;\nconst looseKind=handle.kind==='object'||handle.kind==='multi'||handle.kind===undefined;\nif(!present&&!checkNaN&&!looseKind)return{present:idx,absent:EMPTY_INDICES};\nconst keep=new Uint32Array(n);\nconst drop=new Uint32Array(n);\nlet p=0;\nlet a=0;\nif(present&&checkNaN){\nfor(let i=0;i<n;i++){\nconst row=idx[i];\nif(present(row)===1&&!Number.isNaN(values[row]))keep[p++]=row;else drop[a++]=row;\n}\n}else if(checkNaN&&!present){\nfor(let i=0;i<n;i++){\nconst row=idx[i];\nif(!Number.isNaN(values[row]))keep[p++]=row;else drop[a++]=row;\n}\n}else if(present&&!looseKind){\nfor(let i=0;i<n;i++){\nconst row=idx[i];\nif(present(row)===1)keep[p++]=row;else drop[a++]=row;\n}\n}else{\nconst reader=valueReader(handle);\nfor(let i=0;i<n;i++){\nconst row=idx[i];\nif(!isMissing(reader(row)))keep[p++]=row;else drop[a++]=row;\n}\n}\nif(a===0)return{present:idx,absent:EMPTY_INDICES};\nreturn{present:keep.subarray(0,p),absent:drop.subarray(0,a)};\n}\nfunction joinRuns(sorted,absent,nullsFirst){\nif(absent.length===0)return sorted;\nconst out=new Uint32Array(sorted.length+absent.length);\nif(nullsFirst){\nout.set(absent,0);\nout.set(sorted,absent.length);\n}else{\nout.set(sorted,0);\nout.set(absent,sorted.length);\n}\nreturn out;\n}\nfunction sortColumn(handle,order,opts={}){\nconst src=order||identity(rowCount(handle,opts));\nif(!handle||src.length<2)return Uint32Array.from(src);\nconst{present,absent}=partitionPresent(handle,src);\nif(present.length===0)return Uint32Array.from(src);\nconst descending=!!opts.descending;\nlet sorted;\nif(typeof opts.compare==='function'){\nsorted=sortByCompare(handle,present,opts);\n}else{\nswitch(handle.kind){\ncase'float64':\nsorted=radixSortFloat64(handle.values,present,descending);\nbreak;\ncase'int32':\nsorted=radixSortInt32(handle.values,present,descending);\nbreak;\ncase'dictionary':\nsorted=rankSortDictionary(handle,present,opts);\nbreak;\ncase'bitset':\nsorted=sortBitsetColumn(handle,present,descending);\nbreak;\ndefault:\nsorted=sortByComparator(handle,present,opts);\nbreak;\n}\n}\nreturn joinRuns(sorted,absent,!!opts.nullsFirst);\n}\nfunction sortMulti(handles,entries,order,opts={}){\nconst list=entries||[];\nconst first=(list.length&&(list[0].handle||byId(handles,list[0].col)))||(handles&&handles[0]);\nlet current=order||identity(rowCount(first,opts));\nfor(let i=list.length-1;i>=0;i--){\nconst entry=list[i];\nconst handle=entry.handle||byId(handles,entry.col)||(handles&&handles[i]);\nif(!handle)continue;\ncurrent=sortColumn(handle,current,{\ndescending:entry.descending!==undefined?!!entry.descending:entry.dir==='desc',\nnullsFirst:!!entry.nullsFirst,\nlocale:entry.locale!==undefined?entry.locale:opts.locale,\ncompare:entry.compare,\n});\n}\nreturn current instanceof Uint32Array?current:Uint32Array.from(current);\n}\nfunction byId(handles,id){\nif(!handles||id===undefined)return undefined;\nfor(let i=0;i<handles.length;i++)if(handles[i]&&handles[i].id===id)return handles[i];\nreturn undefined;\n}\n});\n__def(\"packages/core/src/store/stringrank.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"DEFAULT_MAX_DISTINCT\",{enumerable:true,get:function(){return DEFAULT_MAX_DISTINCT;}});\nObject.defineProperty(__exports,\"StringRankIndex\",{enumerable:true,get:function(){return StringRankIndex;}});\nconst __m0=__req(\"packages/core/src/compute/sort.js\");\nconst collateStringRanks=__m0[\"collateStringRanks\"];\nconst rankSortStrings=__m0[\"rankSortStrings\"];\nconst DEFAULT_MAX_DISTINCT=100000;\nclass StringRankIndex{\n#table=[];\n#codeOf=new Map();\n#codeByRow;\n#length=0;\n#generation=0;\n#stamp=-1;\n#maxDistinct;\n#capped=false;\n#ranks=null;\n#ranksGeneration=-1;\n#ranksLocale='\\u0000';\nconstructor(maxDistinct=DEFAULT_MAX_DISTINCT){\nthis.#maxDistinct=maxDistinct>0?maxDistinct:DEFAULT_MAX_DISTINCT;\nthis.#codeByRow=new Uint32Array(0);\n}\nget version(){return this.#stamp;}\nset version(version){this.#stamp=version;}\nget generation(){return this.#generation;}\nget size(){return this.#table.length;}\nget capped(){return this.#capped;}\nget length(){return this.#length;}\nget bytes(){\nlet total=this.#codeByRow.byteLength;\nconst table=this.#table;\nfor(let i=0;i<table.length;i++)total+=table[i].length*2+24;\nreturn total;\n}\n#intern(value,capOnGrowth){\nconst existing=this.#codeOf.get(value);\nif(existing!==undefined)return existing;\nif(this.#capped)return-1;\nif(capOnGrowth&&this.#table.length>=this.#maxDistinct){\nthis.#capped=true;\nreturn-1;\n}\nconst code=this.#table.length;\nthis.#table.push(value);\nthis.#codeOf.set(value,code);\nthis.#generation++;\nreturn code;\n}\nbuild(values,count){\nconst n=count|0;\nthis.#table=[];\nthis.#codeOf=new Map();\nthis.#generation=0;\nthis.#capped=false;\nthis.#ranks=null;\nthis.#ranksGeneration=-1;\nthis.#codeByRow=new Uint32Array(n);\nfor(let row=0;row<n;row++){\nconst v=values[row];\nconst code=typeof v==='string'?this.#intern(v,false):-1;\nthis.#codeByRow[row]=code<0?0:code;\n}\nthis.#length=n;\n}\nappend(values,from,count){\nconst to=(from|0)+(count|0);\nif(to>this.#codeByRow.length){\nconst next=new Uint32Array(to);\nnext.set(this.#codeByRow.subarray(0,this.#length));\nthis.#codeByRow=next;\n}\nfor(let row=from|0;row<to;row++){\nconst v=values[row];\nconst code=typeof v==='string'?this.#intern(v,true):-1;\nthis.#codeByRow[row]=code<0?0:code;\n}\nthis.#length=Math.max(this.#length,to);\n}\nranks(locale){\nconst key=locale||'';\nif(this.#ranks&&this.#ranksGeneration===this.#generation&&this.#ranksLocale===key){\nreturn this.#ranks;\n}\nconst ranks=collateStringRanks(this.#table,this.#table.length,locale);\nthis.#ranks=ranks;\nthis.#ranksGeneration=this.#generation;\nthis.#ranksLocale=key;\nreturn ranks;\n}\nusable(idx,values,locale){\nif(this.#capped||this.#table.length===0)return false;\nconst codeByRow=this.#codeByRow;\nconst table=this.#table;\nconst covered=this.#length;\nfor(let i=0;i<idx.length;i++){\nconst row=idx[i];\nif(row>=covered)return false;\nif(table[codeByRow[row]]!==values[row])return false;\n}\nreturn true;\n}\nsort(idx,opts){\nconst ranks=this.ranks(opts.locale);\nconst d=this.#table.length;\nconst n=idx.length;\nconst codes=new Uint32Array(n);\nconst codeByRow=this.#codeByRow;\nfor(let i=0;i<n;i++)codes[i]=codeByRow[idx[i]];\nreturn rankSortStrings(idx,codes,ranks,d,!!opts.descending);\n}\n}\n});\n__def(\"packages/core/src/store/columnstore.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"REMOVED\",{enumerable:true,get:function(){return REMOVED;}});\nObject.defineProperty(__exports,\"toFloat\",{enumerable:true,get:function(){return toFloat;}});\nObject.defineProperty(__exports,\"ColumnHandle\",{enumerable:true,get:function(){return ColumnHandle;}});\nObject.defineProperty(__exports,\"ColumnStore\",{enumerable:true,get:function(){return ColumnStore;}});\nconst __m0=__req(\"packages/core/src/internal/util.js\");\nconst warnOnce=__m0[\"warnOnce\"];\nconst isFunction=__m0[\"isFunction\"];\nconst pathGetter=__m0[\"pathGetter\"];\nconst __m1=__req(\"packages/core/src/store/bitset.js\");\nconst Bitset=__m1[\"Bitset\"];\nconst __m2=__req(\"packages/core/src/store/dictionary.js\");\nconst Dictionary=__m2[\"Dictionary\"];\nconst __m3=__req(\"packages/core/src/store/multivalue.js\");\nconst MultiValue=__m3[\"MultiValue\"];\nconst __m4=__req(\"packages/core/src/store/stringrank.js\");\nconst StringRankIndex=__m4[\"StringRankIndex\"];\nconst REMOVED=0xFFFFFFFF;\nconst DEFAULT_CAPACITY=1024;\nconst DEFAULT_COLUMNAR_BELOW=5000;\nconst DEFAULT_COMPACT_RATIO=0.2;\nconst KINDS=new Set(['float64','int32','bitset','dictionary','object','multi']);\nfunction absent(v){return v===null||v===undefined;}\nfunction toFloat(v){\nif(typeof v==='number')return v;\nif(v instanceof Date)return v.getTime();\nif(typeof v==='boolean')return v?1:0;\nconst n=Number(v);\nreturn Number.isNaN(n)&&typeof v==='string'?Date.parse(v):n;\n}\nfunction toInt(v){\nconst n=toFloat(v);\nreturn Number.isFinite(n)?n|0:0;\n}\nfunction toMembers(v){\nif(absent(v))return[];\nreturn Array.isArray(v)?v:[v];\n}\nfunction decodeFrom(old,p){\nswitch(old.kind){\ncase'float64':\ncase'int32':return old.buf[p];\ncase'bitset':return old.bits.get(p)===1;\ncase'dictionary':return old.dict.valueOf(old.buf[p]);\ncase'multi':{\nconst codes=old.mv.at(p);\nconst out=new Array(codes.length);\nfor(let i=0;i<codes.length;i++)out[i]=old.dict.valueOf(codes[i]);\nreturn out;\n}\ndefault:return old.buf[p];\n}\n}\nfunction decodePacked(frag,i){\nswitch(frag.kind){\ncase'float64':\ncase'int32':return frag.values[i];\ncase'bitset':return(frag.values[i>>3]&(1<<(i&7)))!==0;\ncase'dictionary':return(frag.table||[])[frag.values[i]];\ncase'multi':{\nconst start=frag.offsets[i];\nconst end=frag.offsets[i+1];\nconst table=frag.table||[];\nconst out=new Array(end-start);\nfor(let k=start;k<end;k++)out[k-start]=table[frag.values[k]];\nreturn out;\n}\ndefault:return frag.values[i];\n}\n}\nclass ColumnHandle{\n#id;\n#kind;\n#target;\n#nullable;\n#read;\n#host;\n#seed;\n#columnar=false;\n#buf=null;\n#bits=null;\n#mv=null;\n#dict=null;\n#stringRank=null;\n#stringRankOn;\n#stringRankMax;\n#stringRankVersion=-1;\n#presence=null;\n#capacity=0;\n#version=0;\n#overlay=null;\n#cache=null;\n#released=false;\nconstructor(schema,host){\nthis.#id=schema.id;\nconst kind=KINDS.has(schema.kind)?schema.kind:'object';\nif(schema.kind&&!KINDS.has(schema.kind)){\nwarnOnce(`store.kind.${schema.id}`,\n`column \"${schema.id}\" declares unknown storage kind \"${schema.kind}\"; falling back to object`);\n}\nthis.#target=kind;\nthis.#kind=kind;\nthis.#nullable=schema.nullable!==false;\nthis.#seed=schema.dictionary??null;\nthis.#host=host;\nthis.#read=isFunction(schema.read)\n?schema.read\n:pathGetter(schema.field||schema.id);\nthis.#stringRankOn=schema.stringRankIndex!=='off';\nthis.#stringRankMax=typeof schema.stringRankMaxDistinct==='number'\n?schema.stringRankMaxDistinct\n:0;\nthis.#overlay=new Map();\n}\nget id(){return this.#id;}\nget kind(){return this.#columnar?this.#kind:'object';}\nget target(){return this.#target;}\nget nullable(){return this.#nullable;}\nget values(){\nif(this.#released)return null;\nif(!this.#columnar)return this.#lazy().values;\nif(this.#kind==='bitset')return this.#bits.words;\nif(this.#kind==='multi')return this.#mv.values;\nreturn this.#buf;\n}\nget presence(){\nif(this.#released||!this.#nullable)return null;\nreturn this.#columnar?this.#presence:this.#lazy().presence;\n}\nget dict(){\nif(this.#released||!this.#columnar)return null;\nreturn this.#kind==='dictionary'||this.#kind==='multi'?this.#dict:null;\n}\nget stringRank(){\nif(this.#released||!this.#stringRankOn)return null;\nif(this.kind!=='object')return null;\nconst values=this.values;\nconst n=this.#host.physical();\nif(!values||n===0)return null;\nif(this.#stringRank===null){\nif(typeof values[0]!=='string')return null;\nconst index=new StringRankIndex(this.#resolveStringRankMax());\nindex.build(values,n);\nindex.version=this.#version;\nthis.#stringRank=index;\nthis.#stringRankVersion=this.#version;\nreturn index.capped?null:index;\n}\nif(this.#stringRank.length<n){\nthis.#stringRank.append(values,this.#stringRank.length,n-this.#stringRank.length);\n}\nthis.#stringRank.version=this.#version;\nthis.#stringRankVersion=this.#version;\nreturn this.#stringRank.capped?null:this.#stringRank;\n}\n#resolveStringRankMax(){return this.#stringRankMax;}\n#dropStringRank(){\nthis.#stringRank=null;\nthis.#stringRankVersion=-1;\n}\nget offsets(){\nif(this.#released||!this.#columnar||this.#kind!=='multi')return null;\nreturn this.#mv.offsets;\n}\nget version(){return this.#version;}\nget bytes(){\nlet total=0;\nif(this.#buf)total+=this.#buf.byteLength??this.#buf.length*8;\nif(this.#bits)total+=this.#bits.bytes;\nif(this.#mv)total+=this.#mv.bytes;\nif(this.#presence)total+=this.#presence.bytes;\nif(this.#dict)total+=this.#dict.bytes;\nif(this.#overlay)total+=this.#overlay.size*24;\nreturn total;\n}\nget(physical){\nif(this.#released)return undefined;\nif(physical<0||physical>=this.#host.physical())return undefined;\nif(!this.#columnar)return this.#rowValue(physical);\nif(this.#nullable&&this.#presence.get(physical)===0)return null;\nswitch(this.#kind){\ncase'float64':\ncase'int32':return this.#buf[physical];\ncase'bitset':return this.#bits.get(physical)===1;\ncase'dictionary':return this.#dict.valueOf(this.#buf[physical]);\ncase'multi':{\nconst codes=this.#mv.at(physical);\nconst out=new Array(codes.length);\nfor(let i=0;i<codes.length;i++)out[i]=this.#dict.valueOf(codes[i]);\nreturn out;\n}\ndefault:return this.#buf[physical];\n}\n}\nset(physical,value){\nif(this.#released)return;\nif(this.#columnar)this.#writeValue(physical,value);\nelse this.#overlay.set(physical,value===undefined?null:value);\nif(this.#stringRank)this.#dropStringRank();\nthis.#version++;\n}\nread(row){return this.#read(row);}\nappendColumn(objects,from,n){\nif(this.#released||n<=0)return;\nif(!this.#columnar){this.#version++;return;}\nconst read=this.#read;\nconst nullable=this.#nullable;\nconst presence=this.#presence;\nlet sawAbsent=false;\nswitch(this.#kind){\ncase'float64':{\nconst buf=this.#buf;\nfor(let i=0;i<n;i++){\nconst v=read(objects[i]);\nif(typeof v==='number'){\nif(nullable)presence.set(from+i);\nbuf[from+i]=v;\ncontinue;\n}\nconst gone=v===null||v===undefined;\nif(nullable)presence.assign(from+i,!gone);\nelse if(gone)sawAbsent=true;\nbuf[from+i]=gone?NaN:toFloat(v);\n}\nbreak;\n}\ncase'int32':{\nconst buf=this.#buf;\nfor(let i=0;i<n;i++){\nconst v=read(objects[i]);\nconst gone=v===null||v===undefined;\nif(nullable)presence.assign(from+i,!gone);\nelse if(gone)sawAbsent=true;\nbuf[from+i]=gone?0:toInt(v);\n}\nbreak;\n}\ncase'bitset':{\nconst bits=this.#bits;\nfor(let i=0;i<n;i++){\nconst v=read(objects[i]);\nconst gone=v===null||v===undefined;\nif(nullable)presence.assign(from+i,!gone);\nelse if(gone)sawAbsent=true;\nbits.assign(from+i,!gone&&!!v);\n}\nbreak;\n}\ncase'dictionary':{\nconst buf=this.#buf;\nconst dict=this.#dict;\nfor(let i=0;i<n;i++){\nconst v=read(objects[i]);\nconst gone=v===null||v===undefined;\nif(nullable)presence.assign(from+i,!gone);\nelse if(gone)sawAbsent=true;\nbuf[from+i]=gone?0:dict.codeOf(v);\n}\nbreak;\n}\ncase'multi':{\nconst mv=this.#mv;\nconst dict=this.#dict;\nfor(let i=0;i<n;i++){\nconst v=read(objects[i]);\nconst gone=v===null||v===undefined;\nif(nullable)presence.assign(from+i,!gone);\nelse if(gone)sawAbsent=true;\nconst members=toMembers(v);\nconst codes=new Array(members.length);\nfor(let k=0;k<members.length;k++)codes[k]=dict.codeOf(members[k]);\nmv.write(from+i,codes);\n}\nbreak;\n}\ndefault:{\nconst buf=this.#buf;\nfor(let i=0;i<n;i++){\nconst v=read(objects[i]);\nconst gone=v===null||v===undefined;\nif(nullable)presence.assign(from+i,!gone);\nelse if(gone)sawAbsent=true;\nbuf[from+i]=gone?null:v;\n}\nbreak;\n}\n}\nif(sawAbsent){\nwarnOnce(`store.null.${this.#id}`,\n`column \"${this.#id}\" is declared non-nullable but received null; storing a filler value`);\n}\nif(this.#stringRank&&this.#kind==='object'){\nthis.#stringRank.append(this.#buf,from,n);\nthis.#stringRank.version=this.#version+1;\nthis.#stringRankVersion=this.#version+1;\n}\nthis.#version++;\n}\nappendPacked(frag,from,n){\nif(this.#released||n<=0||!frag)return;\nif(!this.#columnar){this.#version++;return;}\nconst presence=this.#presence;\nconst fragPresence=frag.presence;\nif(presence){\nif(fragPresence){\nfor(let i=0;i<n;i++)presence.assign(from+i,(fragPresence[i>>3]&(1<<(i&7)))!==0);\n}else{\nfor(let i=0;i<n;i++)presence.set(from+i);\n}\n}\nconst kindsAgree=frag.kind===this.#kind;\nif(kindsAgree&&(this.#kind==='float64'||this.#kind==='int32')){\nthis.#buf.set(frag.values,from);\nthis.#version++;\nreturn;\n}\nif(kindsAgree&&this.#kind==='bitset'){\nconst words=frag.values;\nfor(let i=0;i<n;i++)this.#bits.assign(from+i,(words[i>>3]&(1<<(i&7)))!==0);\nthis.#version++;\nreturn;\n}\nif(kindsAgree&&this.#kind==='dictionary'){\nconst table=frag.table||[];\nconst remap=new Uint32Array(table.length);\nfor(let t=0;t<table.length;t++)remap[t]=this.#dict.codeOf(table[t]);\nconst codes=frag.values;\nconst buf=this.#buf;\nconst pres=presence;\nfor(let i=0;i<n;i++){\nif(pres&&(fragPresence?(fragPresence[i>>3]&(1<<(i&7)))===0:false)){buf[from+i]=0;continue;}\nbuf[from+i]=remap[codes[i]]??0;\n}\nthis.#version++;\nreturn;\n}\nif(kindsAgree&&this.#kind==='multi'){\nconst table=frag.table||[];\nconst remap=new Uint32Array(table.length);\nfor(let t=0;t<table.length;t++)remap[t]=this.#dict.codeOf(table[t]);\nconst flat=frag.values;\nconst offsets=frag.offsets;\nfor(let i=0;i<n;i++){\nconst start=offsets[i];\nconst end=offsets[i+1];\nconst codes=new Array(end-start);\nfor(let k=start;k<end;k++)codes[k-start]=remap[flat[k]]??0;\nthis.#mv.write(from+i,codes);\n}\nthis.#version++;\nreturn;\n}\nfor(let i=0;i<n;i++){\nconst gone=fragPresence\n?(fragPresence[i>>3]&(1<<(i&7)))===0\n:(frag.kind==='object'?frag.values[i]===null:false);\nthis.#writeValue(from+i,gone?null:decodePacked(frag,i));\n}\nthis.#version++;\n}\ntouch(){this.#version++;}\ncolumnarise(capacity,fill){\nif(this.#columnar||this.#released)return;\nconst values=new Array(fill);\nfor(let p=0;p<fill;p++)values[p]=this.#rowValue(p);\nthis.#kind=this.#target;\nthis.#columnar=true;\nthis.#alloc(capacity);\nfor(let p=0;p<fill;p++)this.#writeValue(p,values[p]);\nthis.#overlay.clear();\nthis.#cache=null;\nthis.#dropStringRank();\nthis.#version++;\n}\ngrow(capacity){\nif(!this.#columnar||this.#released||capacity<=this.#capacity)return;\nswitch(this.#kind){\ncase'float64':case'int32':case'dictionary':{\nconst next=new this.#buf.constructor(capacity);\nnext.set(this.#buf);\nthis.#buf=next;\nbreak;\n}\ncase'bitset':this.#bits.grow(capacity);break;\ncase'multi':break;\ndefault:this.#buf.length=capacity;break;\n}\nif(this.#presence)this.#presence.grow(capacity);\nthis.#capacity=capacity;\nthis.#version++;\n}\nconvert(kind){\nif(this.#released||!KINDS.has(kind))return false;\nthis.#target=kind;\nif(!this.#columnar||kind===this.#kind)return false;\nconst old={kind:this.#kind,buf:this.#buf,bits:this.#bits,mv:this.#mv,dict:this.#dict};\nconst n=this.#host.physical();\nconst presence=this.#presence;\nthis.#kind=kind;\nthis.#alloc(this.#capacity);\nfor(let p=0;p<n;p++){\nconst gone=presence!==null&&presence.get(p)===0;\nif(gone&&kind!=='multi')continue;\nthis.#writeValue(p,gone?null:decodeFrom(old,p));\n}\nthis.#dropStringRank();\nthis.#version++;\nreturn true;\n}\ncompact(remap,oldFill,liveCount){\nif(this.#released)return;\nthis.#dropStringRank();\nif(!this.#columnar){\nconst overlay=this.#overlay;\nif(overlay.size){\nconst next=new Map();\nfor(const[p,v]of overlay)if(remap[p]!==REMOVED)next.set(remap[p],v);\nthis.#overlay=next;\n}\nthis.#cache=null;\nthis.#version++;\nreturn;\n}\nswitch(this.#kind){\ncase'float64':case'int32':case'dictionary':case'object':{\nconst buf=this.#buf;\nfor(let p=0;p<oldFill;p++)if(remap[p]!==REMOVED)buf[remap[p]]=buf[p];\nif(this.#kind==='object')for(let p=liveCount;p<oldFill;p++)buf[p]=undefined;\nbreak;\n}\ncase'bitset':{\nconst bits=this.#bits;\nfor(let p=0;p<oldFill;p++)if(remap[p]!==REMOVED)bits.assign(remap[p],bits.get(p)===1);\nfor(let p=liveCount;p<oldFill;p++)bits.clear(p);\nbreak;\n}\ncase'multi':this.#mv.compact(remap,liveCount,REMOVED);break;\ndefault:break;\n}\nif(this.#presence){\nconst pres=this.#presence;\nfor(let p=0;p<oldFill;p++)if(remap[p]!==REMOVED)pres.assign(remap[p],pres.get(p)===1);\nfor(let p=liveCount;p<oldFill;p++)pres.clear(p);\n}\nthis.#version++;\n}\nrelease(){\nif(this.#released)return;\nthis.#released=true;\nthis.#buf=null;\nif(this.#bits)this.#bits.release();\nthis.#bits=null;\nif(this.#mv)this.#mv.release();\nthis.#mv=null;\nif(this.#presence)this.#presence.release();\nthis.#presence=null;\nthis.#dict=null;\nthis.#stringRank=null;\nthis.#overlay=new Map();\nthis.#cache=null;\nthis.#capacity=0;\nthis.#version++;\n}\n#alloc(capacity){\nconst cap=Math.max(1,capacity);\nthis.#buf=null;\nthis.#bits=null;\nthis.#mv=null;\nswitch(this.#kind){\ncase'float64':this.#buf=new Float64Array(cap);break;\ncase'int32':this.#buf=new Int32Array(cap);break;\ncase'bitset':this.#bits=new Bitset(cap);break;\ncase'dictionary':\nthis.#buf=new Uint32Array(cap);\nthis.#dict=this.#dict??new Dictionary(this.#seed??[]);\nbreak;\ncase'multi':\nthis.#mv=new MultiValue({rows:cap,values:cap});\nthis.#dict=this.#dict??new Dictionary(this.#seed??[]);\nbreak;\ndefault:this.#buf=new Array(cap);break;\n}\nif(this.#kind!=='dictionary'&&this.#kind!=='multi')this.#dict=null;\nif(this.#nullable){\nif(this.#presence)this.#presence.grow(cap);\nelse this.#presence=new Bitset(cap);\n}\nthis.#capacity=cap;\n}\n#writeValue(p,value){\nconst gone=absent(value);\nif(this.#nullable)this.#presence.assign(p,!gone);\nelse if(gone){\nwarnOnce(`store.null.${this.#id}`,\n`column \"${this.#id}\" is declared non-nullable but received null; storing a filler value`);\n}\nswitch(this.#kind){\ncase'float64':this.#buf[p]=gone?NaN:toFloat(value);break;\ncase'int32':this.#buf[p]=gone?0:toInt(value);break;\ncase'bitset':this.#bits.assign(p,!gone&&!!value);break;\ncase'dictionary':this.#buf[p]=gone?0:this.#dict.codeOf(value);break;\ncase'multi':{\nconst members=toMembers(value);\nconst codes=new Array(members.length);\nfor(let i=0;i<members.length;i++)codes[i]=this.#dict.codeOf(members[i]);\nthis.#mv.write(p,codes);\nbreak;\n}\ndefault:this.#buf[p]=gone?null:value;break;\n}\n}\n#rowValue(p){\nif(this.#overlay.has(p))return this.#overlay.get(p);\nconst v=this.#read(this.#host.rowAt(p));\nreturn v===undefined?null:v;\n}\n#lazy(){\nif(this.#cache&&this.#cache.version===this.#version)return this.#cache;\nconst n=this.#host.physical();\nconst values=new Array(n);\nconst presence=this.#nullable?new Bitset(n):null;\nfor(let p=0;p<n;p++){\nconst v=this.#rowValue(p);\nvalues[p]=v;\nif(presence&&!absent(v))presence.set(p);\n}\nthis.#cache={version:this.#version,values,presence};\nreturn this.#cache;\n}\n}\nclass ColumnStore{\n#schema;\n#handles=new Map();\n#list=[];\n#rows=[];\n#fill=0;\n#capacity=0;\n#live=0;\n#dead=0;\n#tombs=new Bitset(0);\n#columnar=false;\n#retainSource=true;\n#columnarBelow;\n#initial;\n#ratio;\n#destroyed=false;\nconstructor(schema,opts={}){\nthis.#schema=Array.isArray(schema)?schema:[];\nthis.#initial=Math.max(1,opts.initialCapacity??DEFAULT_CAPACITY);\nthis.#retainSource=opts.retainSource!==false;\nthis.#columnarBelow=this.#retainSource?(opts.columnarBelow??DEFAULT_COLUMNAR_BELOW):0;\nthis.#ratio=opts.compactRatio??DEFAULT_COMPACT_RATIO;\nconst host={\nrowAt:(p)=>this.#rows[p],\nphysical:()=>this.#fill,\n};\nfor(const entry of this.#schema){\nif(!entry||!entry.id)continue;\nif(this.#handles.has(entry.id)){\nwarnOnce(`store.dup.${entry.id}`,`duplicate column id \"${entry.id}\" in the store schema; ignoring the second`);\ncontinue;\n}\nconst handle=new ColumnHandle(entry,host);\nthis.#handles.set(entry.id,handle);\nthis.#list.push(handle);\n}\nif(this.#columnarBelow<=0)this.#columnarise();\n}\nget count(){return this.#live;}\nget physical(){return this.#fill;}\nget capacity(){return this.#columnar?this.#capacity:this.#rows.length;}\nget tombstones(){return this.#dead;}\nget columnar(){return this.#columnar;}\nget destroyed(){return this.#destroyed;}\nget bytes(){\nlet total=this.#tombs.bytes+this.#rows.length*8;\nfor(const h of this.#list)total+=h.bytes;\nreturn total;\n}\nappend(objects){\nconst from=this.#fill;\nif(this.#destroyed||!objects)return{from,to:from};\nconst n=objects.length|0;\nif(n===0)return{from,to:from};\nif(this.#retainSource)for(let i=0;i<n;i++)this.#rows[from+i]=objects[i];\nthis.#fill=from+n;\nthis.#live+=n;\nthis.#tombs.grow(this.#fill);\nif(!this.#columnar){\nif(this.#fill>=this.#columnarBelow)this.#columnarise();\nelse for(const h of this.#list)h.touch();\nreturn{from,to:this.#fill};\n}\nthis.#ensure(this.#fill);\nconst cols=this.#list;\nfor(let c=0;c<cols.length;c++)cols[c].appendColumn(objects,from,n);\nreturn{from,to:this.#fill};\n}\nappendPacked(chunk,objects){\nconst from=this.#fill;\nif(this.#destroyed||!chunk)return{from,to:from};\nconst n=chunk.count|0;\nif(n===0)return{from,to:from};\nif(this.#retainSource&&objects){\nfor(let i=0;i<n;i++)this.#rows[from+i]=objects[i];\n}\nthis.#fill=from+n;\nthis.#live+=n;\nthis.#tombs.grow(this.#fill);\nif(!this.#columnar)this.#columnarise();\nthis.#ensure(this.#fill);\nconst byId=new Map();\nfor(const col of chunk.columns)byId.set(col.id,col);\nfor(const h of this.#list){\nconst frag=byId.get(h.id);\nif(frag)h.appendPacked(frag,from,n);\nelse{\nh.grow(this.#capacity);\n}\n}\nreturn{from,to:this.#fill};\n}\nsource(physical){\nif(this.#retainSource)return this.#rows[physical];\nif(physical<0||physical>=this.#fill)return undefined;\nreturn this.#reconstruct(physical);\n}\nsetSource(physical,object){\nif(this.#destroyed)return;\nif(physical<0||physical>=this.#fill)return;\nif(!this.#retainSource)return;\nthis.#rows[physical]=object;\n}\nget(colId,physical){\nconst h=this.#handles.get(colId);\nreturn h?h.get(physical):undefined;\n}\nset(colId,physical,value){\nif(this.#destroyed)return;\nif(physical<0||physical>=this.#fill)return;\nconst h=this.#handles.get(colId);\nif(!h){\nwarnOnce(`store.set.${colId}`,`set() on unknown column \"${colId}\"`);\nreturn;\n}\nh.set(physical,value);\n}\nremove(physical){\nif(this.#destroyed||physical<0||physical>=this.#fill)return false;\nif(this.#tombs.get(physical)===1)return false;\nthis.#tombs.set(physical);\nthis.#dead++;\nthis.#live--;\nreturn true;\n}\nlive(physical){\nif(physical<0||physical>=this.#fill)return false;\nreturn this.#tombs.get(physical)===0;\n}\ncompact(opts={}){\nif(this.#destroyed||this.#dead===0)return null;\nif(!opts.force&&this.#dead/this.#fill<this.#ratio)return null;\nconst oldFill=this.#fill;\nconst remap=new Uint32Array(oldFill);\nlet w=0;\nfor(let p=0;p<oldFill;p++)remap[p]=this.#tombs.get(p)===1?REMOVED:w++;\nfor(const h of this.#list)h.compact(remap,oldFill,w);\nif(this.#retainSource){\nconst rows=this.#rows;\nfor(let p=0;p<oldFill;p++)if(remap[p]!==REMOVED)rows[remap[p]]=rows[p];\nrows.length=w;\n}\nthis.#fill=w;\nthis.#live=w;\nthis.#dead=0;\nthis.#tombs=new Bitset(Math.max(this.#capacity,w));\nreturn remap;\n}\ncolumn(colId){return this.#handles.get(colId);}\ncolumns(){return this.#list.slice();}\nliveIndices(){\nconst out=new Uint32Array(this.#live);\nif(this.#dead===0){\nfor(let p=0;p<this.#fill;p++)out[p]=p;\nreturn out;\n}\nlet k=0;\nfor(let p=0;p<this.#fill;p++)if(this.#tombs.get(p)===0)out[k++]=p;\nreturn out;\n}\nconvert(colId,kind){\nconst h=this.#handles.get(colId);\nreturn h?h.convert(kind):false;\n}\ndestroy(){\nif(this.#destroyed)return;\nthis.#destroyed=true;\nfor(const h of this.#list)h.release();\nthis.#handles.clear();\nthis.#list.length=0;\nthis.#rows.length=0;\nthis.#tombs.release();\nthis.#fill=0;\nthis.#live=0;\nthis.#dead=0;\nthis.#capacity=0;\n}\n#ensure(n){\nif(n<=this.#capacity)return;\nlet cap=this.#capacity||this.#initial;\nwhile(cap<n)cap*=2;\nfor(const h of this.#list)h.grow(cap);\nthis.#tombs.grow(cap);\nthis.#capacity=cap;\n}\n#reconstruct(physical){\nconst out={};\nfor(const h of this.#list)out[h.id]=h.get(physical);\nreturn out;\n}\n#columnarise(){\nif(this.#columnar)return;\nlet cap=this.#initial;\nwhile(cap<this.#fill)cap*=2;\nthis.#columnar=true;\nthis.#capacity=cap;\nthis.#tombs.grow(cap);\nfor(const h of this.#list)h.columnarise(cap,this.#fill);\n}\n}\n});\n__def(\"packages/core/src/store/ingest.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"INGEST_DEFAULTS\",{enumerable:true,get:function(){return INGEST_DEFAULTS;}});\nObject.defineProperty(__exports,\"inferKind\",{enumerable:true,get:function(){return inferKind;}});\nObject.defineProperty(__exports,\"decideText\",{enumerable:true,get:function(){return decideText;}});\nObject.defineProperty(__exports,\"createReaders\",{enumerable:true,get:function(){return createReaders;}});\nObject.defineProperty(__exports,\"Ingest\",{enumerable:true,get:function(){return Ingest;}});\nObject.defineProperty(__exports,\"ingest\",{enumerable:true,get:function(){return ingest;}});\nObject.defineProperty(__exports,\"ingestSync\",{enumerable:true,get:function(){return ingestSync;}});\nconst __m0=__req(\"packages/core/src/internal/util.js\");\nconst now=__m0[\"now\"];\nconst nextFrame=__m0[\"nextFrame\"];\nconst infoOnce=__m0[\"infoOnce\"];\nconst warnOnce=__m0[\"warnOnce\"];\nconst isFunction=__m0[\"isFunction\"];\nconst pathGetter=__m0[\"pathGetter\"];\nconst __m1=__req(\"packages/core/src/store/columnstore.js\");\nconst ColumnStore=__m1[\"ColumnStore\"];\nconst INGEST_DEFAULTS=Object.freeze({\nchunkMs:8,\nchunkRows:512,\nsampleSize:100,\ndictionaryRatio:0.1,\ncolumnarBelow:5000,\ninitialCapacity:1024,\n});\nfunction inferKind(samples,hints={}){\nif(hints.multi)return'multi';\nif(samples.length===0)return'object';\nlet numbers=0;let booleans=0;let strings=0;let dates=0;let arrays=0;\nfor(let i=0;i<samples.length;i++){\nconst v=samples[i];\nif(typeof v==='number')numbers++;\nelse if(typeof v==='boolean')booleans++;\nelse if(typeof v==='string')strings++;\nelse if(v instanceof Date)dates++;\nelse if(Array.isArray(v))arrays++;\n}\nconst n=samples.length;\nif(numbers===n)return'float64';\nif(booleans===n)return'bitset';\nif(dates===n)return'float64';\nif(strings===n)return'text';\nif(arrays===n)return'multi';\nreturn'object';\n}\nfunction decideText(distinct,rows,ratio){\nif(rows<=0)return'dictionary';\nreturn distinct<ratio*rows?'dictionary':'object';\n}\nfunction createReaders(columns,computed,context){\nconst readers=new Map();\nconst base=new Map();\nfor(const col of columns){\nif(col.computed)continue;\nconst read=isFunction(col.read)?col.read:pathGetter(col.field||col.id);\nbase.set(col.id,read);\nreaders.set(col.id,read);\n}\nconst order=computed?.order??[];\nconst fns=computed?.fns??{};\nconst deps=computed?.deps??{};\nconst wrapDeps=computed?.wrapDeps??null;\nconst active=order.filter((id)=>isFunction(fns[id]));\nconst wildcard=active.some((id)=>deps[id]==='*');\nlet memo=new WeakMap();\nconst resolve=(data)=>{\nconst values={};\nif(wildcard)for(const[id,read]of base)values[id]=read(data);\nfor(const id of active){\nconst declared=deps[id];\nlet bag;\nif(declared==='*'){\nbag=values;\n}else{\nbag={};\nconst list=declared||[];\nfor(let i=0;i<list.length;i++){\nconst d=list[i];\nbag[d]=d in values?values[d]:base.get(d)?.(data);\n}\n}\nvalues[id]=fns[id](wrapDeps?wrapDeps(bag,id):bag,{\ndata,row:null,column:null,grid:null,context,\n});\n}\nreturn values;\n};\nconst valuesFor=(data)=>{\nif(data===null||(typeof data!=='object'&&typeof data!=='function'))return resolve(data);\nlet v=memo.get(data);\nif(v===undefined){v=resolve(data);memo.set(data,v);}\nreturn v;\n};\nfor(const id of active){\nreaders.set(id,\n(data)=>valuesFor(data)[id]);\n}\nreturn{\nreaders,\nreset(){memo=new WeakMap();},\n};\n}\nclass ColumnPlan{\nspec;\nread;\nkind;\ninferred;\nnullable;\ncandidate=false;\ndistinct=null;\nchange=null;\nreason='';\nconstructor(spec,read){\nthis.spec=spec;\nthis.read=read;\nthis.kind='object';\nthis.inferred=false;\nthis.nullable=spec.nullable!==false;\n}\n}\nclass Ingest{\n#rows;\n#plans=[];\n#store=null;\n#readers;\n#cursor=0;\n#opts;\n#done=false;\n#cancelled=false;\n#elapsed=0;\n#columnar;\nconstructor(rows,plan={},opts={}){\nthis.#rows=Array.isArray(rows)?rows:Array.from(rows||[]);\nthis.#opts={...INGEST_DEFAULTS,...opts};\nconst columns=plan.columns??[];\nthis.#readers=createReaders(columns,plan.computed??null,plan.context);\nthis.#columnar=this.#rows.length>=this.#opts.columnarBelow;\nthis.#planColumns(columns,plan.computed??null);\nthis.#store=new ColumnStore(this.#plans.map((p)=>({\nid:p.spec.id,\nkind:p.kind,\nnullable:p.nullable,\nread:p.read,\ndictionary:p.spec.dictionary,\n})),{\ninitialCapacity:this.#opts.initialCapacity,\ncolumnarBelow:this.#opts.columnarBelow,\n});\n}\nget store(){return this.#store;}\nget done(){return this.#done||this.#cancelled;}\nget progress(){return this.#cursor;}\nslice(){\nif(this.done)return false;\nif(this.#opts.signal?.aborted){this.#cancelled=true;return false;}\nconst started=now();\nconst{chunkMs,chunkRows}=this.#opts;\nconst total=this.#rows.length;\ndo{\nconst end=Math.min(this.#cursor+chunkRows,total);\nthis.#store.append(this.#rows.slice(this.#cursor,end));\nthis.#measure(this.#cursor,end);\nthis.#cursor=end;\nthis.#readers.reset();\nthis.#reviewCardinality(false);\n}while(this.#cursor<total&&now()-started<chunkMs);\nthis.#elapsed+=now()-started;\nthis.#opts.onProgress?.({loaded:this.#cursor,total});\nif(this.#cursor>=total){\nthis.#reviewCardinality(true);\nthis.#done=true;\nreturn false;\n}\nreturn true;\n}\ncancel(){this.#cancelled=true;}\nresult(){\nreturn{\nstore:this.#store,\nschema:this.#plans.map((p)=>({\nid:p.spec.id,kind:p.kind,nullable:p.nullable,read:p.read,\ndictionary:p.spec.dictionary,\n})),\ndecisions:this.#plans.map((p)=>({\nid:p.spec.id,\nkind:p.kind,\nnullable:p.nullable,\ninferred:p.inferred,\ndistinct:p.candidate||p.change?this.#distinctOf(p):null,\nchange:p.change,\nreason:p.reason,\n})),\ncount:this.#store.count,\nelapsed:this.#elapsed,\ncancelled:this.#cancelled,\n};\n}\n#planColumns(columns,computed){\nconst rows=this.#rows;\nconst sampleN=Math.min(this.#opts.sampleSize,rows.length);\nconst ratio=this.#opts.dictionaryRatio;\nconst pure=computed?.pure instanceof Set\n?computed.pure\n:new Set(computed?.pure??computed?.order??[]);\nfor(const spec of columns){\nif(!spec||!spec.id)continue;\nif(spec.computed&&(spec.pure===false||(computed&&!pure.has(spec.id)))){\nwarnOnce(`ingest.impure.${spec.id}`,\n`column \"${spec.id}\" is an impure computed column and is not materialised into the store`);\ncontinue;\n}\nconst read=this.#readers.readers.get(spec.id)\n??(isFunction(spec.read)?spec.read:pathGetter(spec.field||spec.id));\nconst plan=new ColumnPlan(spec,read);\nif(spec.kind){\nplan.kind=spec.kind;\nplan.reason='declared by the caller';\n}else if(spec.dictionary){\nplan.kind=spec.multi?'multi':'dictionary';\nplan.reason='value table supplied (lookup column)';\n}else{\nconst samples=[];\nfor(let i=0;i<sampleN&&samples.length<this.#opts.sampleSize;i++){\nconst v=read(rows[i]);\nif(v!==null&&v!==undefined)samples.push(v);\n}\nplan.inferred=true;\nconst kind=inferKind(samples,{multi:spec.multi});\nif(kind==='text'){\nconst distinct=new Set(samples).size;\nplan.kind=decideText(distinct,samples.length,ratio);\nplan.candidate=this.#columnar;\nplan.reason=`sampled ${distinct} distinct in ${samples.length}`;\n}else{\nplan.kind=kind;\nplan.reason=`inferred from ${samples.length} sampled values`;\nif(kind==='object'&&samples.length){\ninfoOnce(`ingest.mixed.${spec.id}`,\n`column \"${spec.id}\" holds mixed or unrecognised value types; storing as an object array. Declare a type to avoid this.`);\n}\n}\nif(plan.kind==='object'&&plan.candidate)plan.distinct=new Set(samples);\n}\nthis.#plans.push(plan);\n}\n}\n#measure(from,to){\nconst rows=this.#rows;\nfor(const plan of this.#plans){\nif(!plan.candidate||!plan.distinct)continue;\nconst set=plan.distinct;\nfor(let i=from;i<to;i++){\nconst v=plan.read(rows[i]);\nif(v!==null&&v!==undefined)set.add(v);\n}\n}\n}\n#distinctOf(plan){\nif(plan.distinct)return plan.distinct.size;\nconst handle=this.#store.column(plan.spec.id);\nreturn handle?.dict?handle.dict.size:0;\n}\n#reviewCardinality(final){\nconst ratio=this.#opts.dictionaryRatio;\nconst total=this.#rows.length;\nfor(const plan of this.#plans){\nif(!plan.candidate)continue;\nconst distinct=this.#distinctOf(plan);\nif(plan.kind==='dictionary'&&distinct>=ratio*total){\nconst handle=this.#store.column(plan.spec.id);\nplan.distinct=new Set(handle?.dict?handle.dict.values():[]);\nthis.#store.convert(plan.spec.id,'object');\nplan.kind='object';\nplan.change='demoted';\nplan.reason=`${distinct} distinct values is at or above ${ratio*100}% of ${total} rows`;\ncontinue;\n}\nif(plan.kind==='object'&&distinct>=ratio*total){\nplan.candidate=false;\nplan.distinct=null;\nplan.reason=`${distinct} distinct values is at or above ${ratio*100}% of ${total} rows`;\ncontinue;\n}\nif(final&&plan.kind==='object'&&distinct<ratio*total){\nthis.#store.convert(plan.spec.id,'dictionary');\nplan.kind='dictionary';\nplan.change=plan.change==='demoted'?null:'promoted';\nplan.reason=`${distinct} distinct values is below ${ratio*100}% of ${total} rows`;\nplan.distinct=null;\n}\nif(final)plan.candidate=false;\n}\n}\n}\nasync function ingest(rows,plan={},opts={}){\nconst run=new Ingest(rows,plan,opts);\nconst frame=opts.scheduler?.frame??nextFrame;\nwhile(run.slice()){\nawait new Promise((resolve)=>{frame(resolve);});\n}\nreturn run.result();\n}\nfunction ingestSync(rows,plan={},opts={}){\nconst run=new Ingest(rows,plan,{...opts,chunkMs:Infinity});\nwhile(run.slice());\nreturn run.result();\n}\n});\n__def(\"packages/core/src/store/columnpack.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"isPortableSchema\",{enumerable:true,get:function(){return isPortableSchema;}});\nObject.defineProperty(__exports,\"packChunk\",{enumerable:true,get:function(){return packChunk;}});\nObject.defineProperty(__exports,\"packedTransfers\",{enumerable:true,get:function(){return packedTransfers;}});\nconst __m0=__req(\"packages/core/src/internal/util.js\");\nconst pathGetter=__m0[\"pathGetter\"];\nconst __m1=__req(\"packages/core/src/store/ingest.js\");\nconst inferKind=__m1[\"inferKind\"];\nconst decideText=__m1[\"decideText\"];\nconst INGEST_DEFAULTS=__m1[\"INGEST_DEFAULTS\"];\nconst __m2=__req(\"packages/core/src/store/columnstore.js\");\nconst toFloat=__m2[\"toFloat\"];\nconst PORTABLE_KINDS=new Set(['float64','int32','bitset','dictionary','object','multi']);\nfunction isPortableSchema(schema){\nif(!Array.isArray(schema)||schema.length===0)return false;\nfor(const col of schema){\nif(!col||typeof col.id!=='string')return false;\nif(typeof col.field!=='string'||col.field==='')return false;\nif(col.kind&&!PORTABLE_KINDS.has(col.kind))return false;\n}\nreturn true;\n}\nfunction toInt(v){\nconst n=toFloat(v);\nreturn Number.isFinite(n)?n|0:0;\n}\nfunction toMembers(v){\nif(v===null||v===undefined)return[];\nreturn Array.isArray(v)?v:[v];\n}\nfunction resolveKind(col,values,rows,ratio){\nif(col.kind)return col.kind;\nconst samples=[];\nfor(let i=0;i<values.length&&samples.length<INGEST_DEFAULTS.sampleSize;i++){\nconst v=values[i];\nif(v!==null&&v!==undefined)samples.push(v);\n}\nconst kind=inferKind(samples,{multi:col.multi});\nif(kind!=='text')return kind;\nconst distinct=new Set(samples).size;\nreturn decideText(distinct,samples.length,ratio);\n}\nfunction packChunk(schema,rows,opts={}){\nconst n=rows.length|0;\nconst ratio=opts.dictionaryRatio??INGEST_DEFAULTS.dictionaryRatio;\nconst columns=[];\nfor(const col of schema){\nconst read=pathGetter(col.field||col.id);\nconst nullable=col.nullable!==false;\nconst raw=new Array(n);\nfor(let i=0;i<n;i++){\nconst v=read(rows[i]);\nraw[i]=v===undefined?null:v;\n}\nconst kind=resolveKind(col,raw,n,ratio);\nconst presence=nullable?new Uint8Array((n+7)>>3):null;\nconst present=(i)=>{if(presence)presence[i>>3]|=1<<(i&7);};\nlet packed;\nswitch(kind){\ncase'float64':{\nconst values=new Float64Array(n);\nfor(let i=0;i<n;i++){\nconst v=raw[i];\nconst gone=v===null;\nif(!gone)present(i);\nvalues[i]=gone?NaN:toFloat(v);\n}\npacked={id:col.id,kind,nullable,values,presence,offsets:null,table:null};\nbreak;\n}\ncase'int32':{\nconst values=new Int32Array(n);\nfor(let i=0;i<n;i++){\nconst v=raw[i];\nconst gone=v===null;\nif(!gone)present(i);\nvalues[i]=gone?0:toInt(v);\n}\npacked={id:col.id,kind,nullable,values,presence,offsets:null,table:null};\nbreak;\n}\ncase'bitset':{\nconst words=new Uint8Array((n+7)>>3);\nfor(let i=0;i<n;i++){\nconst v=raw[i];\nconst gone=v===null;\nif(!gone)present(i);\nif(!gone&&!!v)words[i>>3]|=1<<(i&7);\n}\npacked={id:col.id,kind,nullable,values:words,presence,offsets:null,table:null};\nbreak;\n}\ncase'dictionary':{\nconst codes=new Uint32Array(n);\nconst table=[];\nconst index=new Map();\nfor(let i=0;i<n;i++){\nconst v=raw[i];\nif(v===null){codes[i]=0;continue;}\npresent(i);\nlet code=index.get(v);\nif(code===undefined){code=table.length;table.push(v);index.set(v,code);}\ncodes[i]=code;\n}\npacked={id:col.id,kind,nullable,values:codes,presence,offsets:null,table};\nbreak;\n}\ncase'multi':{\nconst table=[];\nconst index=new Map();\nconst offsets=new Uint32Array(n+1);\nconst flat=[];\nfor(let i=0;i<n;i++){\nconst v=raw[i];\noffsets[i]=flat.length;\nconst gone=v===null;\nif(!gone)present(i);\nconst members=toMembers(v);\nfor(let k=0;k<members.length;k++){\nconst m=members[k];\nlet code=index.get(m);\nif(code===undefined){code=table.length;table.push(m);index.set(m,code);}\nflat.push(code);\n}\n}\noffsets[n]=flat.length;\npacked={id:col.id,kind,nullable,values:Int32Array.from(flat),presence,offsets,table};\nbreak;\n}\ndefault:{\nconst values=new Array(n);\nfor(let i=0;i<n;i++){\nconst v=raw[i];\nif(v!==null)present(i);\nvalues[i]=v;\n}\npacked={id:col.id,kind:'object',nullable,values,presence,offsets:null,table:null};\nbreak;\n}\n}\ncolumns.push(packed);\n}\nreturn{count:n,columns};\n}\nfunction packedTransfers(chunk){\nconst out=[];\nif(!chunk||!Array.isArray(chunk.columns))return out;\nconst add=(v)=>{\nif(ArrayBuffer.isView(v)&&v.buffer&&!out.includes(v.buffer))out.push(v.buffer);\n};\nfor(const col of chunk.columns){\nadd(col.values);\nadd(col.presence);\nadd(col.offsets);\n}\nreturn out;\n}\n});\n__def(\"packages/core/src/compute/sortspec.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"collationDescriptor\",{enumerable:true,get:function(){return collationDescriptor;}});\nObject.defineProperty(__exports,\"isPortableSort\",{enumerable:true,get:function(){return isPortableSort;}});\nObject.defineProperty(__exports,\"isPortableSortSet\",{enumerable:true,get:function(){return isPortableSortSet;}});\nObject.defineProperty(__exports,\"describeSortEntry\",{enumerable:true,get:function(){return describeSortEntry;}});\nObject.defineProperty(__exports,\"describeSort\",{enumerable:true,get:function(){return describeSort;}});\nfunction collationDescriptor(locale){\nreturn{locale:locale===undefined?undefined:String(locale),numeric:true,sensitivity:'variant'};\n}\nfunction isPortableSort(entry){\nreturn!!entry&&typeof entry.compare!=='function';\n}\nfunction isPortableSortSet(entries){\nif(!entries)return true;\nfor(let i=0;i<entries.length;i++)if(!isPortableSort(entries[i]))return false;\nreturn true;\n}\nfunction describeSortEntry(entry,locale){\nconst col=entry.col!==undefined?entry.col:(entry.handle&&entry.handle.id);\nconst chosen=entry.locale!==undefined?entry.locale:locale;\nreturn{\ncol,\ndescending:entry.descending!==undefined?!!entry.descending:entry.dir==='desc',\nnullsFirst:!!entry.nullsFirst,\ncollation:collationDescriptor(chosen),\n};\n}\nfunction describeSort(entries,locale){\nconst list=entries||[];\nconst out=new Array(list.length);\nfor(let i=0;i<list.length;i++)out[i]=describeSortEntry(list[i],locale);\nreturn out;\n}\n});\n__def(\"packages/core/src/format/date.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"scanPattern\",{enumerable:true,get:function(){return scanPattern;}});\nObject.defineProperty(__exports,\"toDate\",{enumerable:true,get:function(){return toDate;}});\nObject.defineProperty(__exports,\"compilePattern\",{enumerable:true,get:function(){return compilePattern;}});\nObject.defineProperty(__exports,\"compileDate\",{enumerable:true,get:function(){return compileDate;}});\nObject.defineProperty(__exports,\"toIsoDate\",{enumerable:true,get:function(){return toIsoDate;}});\nObject.defineProperty(__exports,\"toIsoDateTime\",{enumerable:true,get:function(){return toIsoDateTime;}});\nObject.defineProperty(__exports,\"compareIso\",{enumerable:true,get:function(){return compareIso;}});\nconst __m0=__req(\"packages/core/src/internal/util.js\");\nconst isNil=__m0[\"isNil\"];\nconst warnOnce=__m0[\"warnOnce\"];\nconst TOKENS=[\n'yyyy','yy','MMMM','MMM','MM','M','dd','d',\n'EEEE','EEE','HH','H','hh','h','mm','m','ss','s','SSS','a',\n];\nfunction scanPattern(pattern){\nconst out=[];\nlet i=0;\nlet literal='';\nconst flush=()=>{if(literal){out.push({token:null,text:literal});literal='';}};\nwhile(i<pattern.length){\nconst ch=pattern[i];\nif(ch===\"'\"){\nif(pattern[i+1]===\"'\"){literal+=\"'\";i+=2;continue;}\nconst end=pattern.indexOf(\"'\",i+1);\nif(end===-1){literal+=pattern.slice(i+1);i=pattern.length;continue;}\nliteral+=pattern.slice(i+1,end);\ni=end+1;\ncontinue;\n}\nconst token=TOKENS.find((t)=>pattern.startsWith(t,i));\nif(token){flush();out.push({token,text:token});i+=token.length;continue;}\nif(/[A-Za-z]/.test(ch)){\nwarnOnce(\n`date.pattern.token:${ch}`,\n`the date pattern \"${pattern}\" contains '${ch}', which is not a supported token, `\n+'so it is rendered as text. Quote it as a literal to silence this. '\n+`Supported: ${TOKENS.join(' ')}.`,\n);\n}\nliteral+=ch;\ni+=1;\n}\nflush();\nreturn out;\n}\nconst WALL_CLOCK=/^(\\d{4})-(\\d{2})-(\\d{2})(?:[T ](\\d{2}):(\\d{2})(?::(\\d{2}))?(?:\\.\\d+)?)?$/;\nfunction toDate(value){\nif(isNil(value)||value==='')return null;\nif(value instanceof Date)return Number.isNaN(value.getTime())?null:value;\nif(typeof value==='number')return Number.isNaN(value)?null:new Date(value);\nif(typeof value==='string'){\nconst wall=WALL_CLOCK.exec(value.trim());\nif(wall){\nconst[,y,mo,d,h='0',mi='0',sec='0']=wall;\nreturn new Date(+y,+mo-1,+d,+h,+mi,+sec);\n}\nconst d=new Date(value);\nreturn Number.isNaN(d.getTime())?null:d;\n}\nreturn null;\n}\nfunction pad(n,w){return String(n).padStart(w,'0');}\nfunction fieldReader(timeZone){\nif(!timeZone){\nreturn(d)=>({\nyear:d.getFullYear(),month:d.getMonth()+1,day:d.getDate(),\nhour:d.getHours(),minute:d.getMinutes(),second:d.getSeconds(),\nms:d.getMilliseconds(),weekday:d.getDay(),\n});\n}\nconst zoned=new Intl.DateTimeFormat('en-US',{\ntimeZone,year:'numeric',month:'2-digit',day:'2-digit',\nhour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,weekday:'short',\n});\nconst days={Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6};\nreturn(d)=>{\nconst f={year:0,month:1,day:1,hour:0,minute:0,second:0,ms:d.getMilliseconds(),weekday:0};\nfor(const part of zoned.formatToParts(d)){\nswitch(part.type){\ncase'year':f.year=Number(part.value);break;\ncase'month':f.month=Number(part.value);break;\ncase'day':f.day=Number(part.value);break;\ncase'hour':f.hour=Number(part.value)%24;break;\ncase'minute':f.minute=Number(part.value);break;\ncase'second':f.second=Number(part.value);break;\ncase'weekday':f.weekday=days[part.value]??0;break;\ndefault:break;\n}\n}\nreturn f;\n};\n}\nfunction compilePattern(pattern,locale,timeZone){\nconst segments=scanPattern(pattern);\nconst read=fieldReader(timeZone);\nconst used=new Set(segments.filter((s)=>s.token).map((s)=>s.token));\nconst monthShort=used.has('MMM')?new Intl.DateTimeFormat(locale,{month:'short',timeZone}):null;\nconst monthLong=used.has('MMMM')?new Intl.DateTimeFormat(locale,{month:'long',timeZone}):null;\nconst dayShort=used.has('EEE')?new Intl.DateTimeFormat(locale,{weekday:'short',timeZone}):null;\nconst dayLong=used.has('EEEE')?new Intl.DateTimeFormat(locale,{weekday:'long',timeZone}):null;\nreturn(d)=>{\nconst f=read(d);\nlet out='';\nfor(const seg of segments){\nif(!seg.token){out+=seg.text;continue;}\nswitch(seg.token){\ncase'yyyy':out+=pad(f.year,4);break;\ncase'yy':out+=pad(f.year%100,2);break;\ncase'MMMM':out+=monthLong.format(d);break;\ncase'MMM':out+=monthShort.format(d);break;\ncase'MM':out+=pad(f.month,2);break;\ncase'M':out+=String(f.month);break;\ncase'dd':out+=pad(f.day,2);break;\ncase'd':out+=String(f.day);break;\ncase'EEEE':out+=dayLong.format(d);break;\ncase'EEE':out+=dayShort.format(d);break;\ncase'HH':out+=pad(f.hour,2);break;\ncase'H':out+=String(f.hour);break;\ncase'hh':out+=pad(f.hour%12===0?12:f.hour%12,2);break;\ncase'h':out+=String(f.hour%12===0?12:f.hour%12);break;\ncase'mm':out+=pad(f.minute,2);break;\ncase'm':out+=String(f.minute);break;\ncase'ss':out+=pad(f.second,2);break;\ncase's':out+=String(f.second);break;\ncase'SSS':out+=pad(f.ms,3);break;\ncase'a':out+=f.hour<12?'AM':'PM';break;\ndefault:out+=seg.text;break;\n}\n}\nreturn out;\n};\n}\nconst UNITS=[\n['year',365*24*3600e3],\n['month',30*24*3600e3],\n['week',7*24*3600e3],\n['day',24*3600e3],\n['hour',3600e3],\n['minute',60e3],\n['second',1e3],\n];\nfunction compileDate(spec,locale){\nconst s=spec||{};\nconst loc=s.locale||locale||undefined;\nconst nullDisplay=s.nullDisplay??'';\nconst timeZone=s.timeZone;\nlet absolute;\nif(s.pattern){\nabsolute=compilePattern(s.pattern,loc,timeZone);\n}else if(s.dateStyle||s.timeStyle){\nconst opts={timeZone};\nif(s.dateStyle)opts.dateStyle=s.dateStyle;\nif(s.timeStyle)opts.timeStyle=s.timeStyle;\nconst dtf=new Intl.DateTimeFormat(loc,opts);\nabsolute=(d)=>dtf.format(d);\n}else{\nconst dtf=new Intl.DateTimeFormat(loc,{dateStyle:'medium',timeZone});\nabsolute=(d)=>dtf.format(d);\n}\nconst relative=s.relative?new Intl.RelativeTimeFormat(loc,{numeric:'auto'}):null;\nconst thresholdDays=typeof s.relative==='object'&&s.relative\n?(s.relative.threshold??7)\n:7;\nconst thresholdMs=thresholdDays*24*3600e3;\nconst format=(value,params)=>{\nconst d=toDate(value);\nif(!d)return nullDisplay;\nif(relative){\nconst now=params&&typeof params.now==='number'?params.now:Date.now();\nconst delta=d.getTime()-now;\nif(Math.abs(delta)<thresholdMs){\nfor(const[unit,ms]of UNITS){\nif(Math.abs(delta)>=ms||unit==='second'){\nreturn relative.format(Math.round(delta/ms),unit);\n}\n}\n}\n}\nreturn absolute(d);\n};\nformat.spec=s;\nreturn format;\n}\nfunction toIsoDate(value){\nif(isNil(value)||value==='')return null;\nif(typeof value==='string'){\nconst match=/^(\\d{4}-\\d{2}-\\d{2})/.exec(value.trim());\nif(match)return match[1];\nconst parsed=toDate(value);\nreturn parsed?toIsoDate(parsed):null;\n}\nconst date=toDate(value);\nif(!date)return null;\nconst pad=(n)=>String(n).padStart(2,'0');\nreturn`${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`;\n}\nfunction toIsoDateTime(value,timeZone){\nif(isNil(value)||value==='')return null;\nif(typeof value==='string'){\nconst text=value.trim();\nif(ZONE_SUFFIX.test(text)){\nconst instant=toDate(text);\nreturn instant?wallClockIn(instant,timeZone):null;\n}\nconst match=/^(\\d{4}-\\d{2}-\\d{2})[T ](\\d{2}):(\\d{2})(?::(\\d{2}))?/.exec(text);\nif(match){\nconst[,day,hour,minute,second]=match;\nreturn`${day}T${hour}:${minute}${second&&second!=='00'?`:${second}`:''}`;\n}\nif(/^\\d{4}-\\d{2}-\\d{2}$/.test(text))return`${text}T00:00`;\nconst parsed=toDate(text);\nreturn parsed?toIsoDateTime(parsed):null;\n}\nconst date=toDate(value);\nif(!date)return null;\nreturn wallClockIn(date,timeZone);\n}\nconst ZONE_SUFFIX=/(?:Z|[+-]\\d{2}:?\\d{2})$/i;\nfunction wallClockIn(date,timeZone){\nconst pad=(n)=>String(n).padStart(2,'0');\nif(timeZone){\ntry{\nconst parts=new Intl.DateTimeFormat('en-CA',{\ntimeZone,\nyear:'numeric',month:'2-digit',day:'2-digit',\nhour:'2-digit',minute:'2-digit',second:'2-digit',\nhour12:false,\n}).formatToParts(date).reduce((out,part)=>{\nif(part.type!=='literal')out[part.type]=part.value;\nreturn out;\n},{});\nconst hour=parts.hour==='24'?'00':parts.hour;\nconst seconds=Number(parts.second);\nreturn`${parts.year}-${parts.month}-${parts.day}T${hour}:${parts.minute}`\n+(seconds?`:${parts.second}`:'');\n}catch{\n}\n}\nconst day=`${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`;\nconst seconds=date.getSeconds();\nconst clock=`${pad(date.getHours())}:${pad(date.getMinutes())}${seconds?`:${pad(seconds)}`:''}`;\nreturn`${day}T${clock}`;\n}\nfunction compareIso(a,b){\nconst left=isNil(a)||a===''?null:String(a);\nconst right=isNil(b)||b===''?null:String(b);\nif(left===null)return right===null?0:1;\nif(right===null)return-1;\nreturn left<right?-1:left>right?1:0;\n}\n});\n__def(\"packages/core/src/compute/filter.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"releaseMask\",{enumerable:true,get:function(){return releaseMask;}});\nObject.defineProperty(__exports,\"compilePredicate\",{enumerable:true,get:function(){return compilePredicate;}});\nObject.defineProperty(__exports,\"testValue\",{enumerable:true,get:function(){return testValue;}});\nObject.defineProperty(__exports,\"evaluateCondition\",{enumerable:true,get:function(){return evaluateCondition;}});\nObject.defineProperty(__exports,\"evaluateFilters\",{enumerable:true,get:function(){return evaluateFilters;}});\nObject.defineProperty(__exports,\"pruneColumn\",{enumerable:true,get:function(){return pruneColumn;}});\nObject.defineProperty(__exports,\"mentionsColumn\",{enumerable:true,get:function(){return mentionsColumn;}});\nObject.defineProperty(__exports,\"compact\",{enumerable:true,get:function(){return compact;}});\nconst __m0=__req(\"packages/core/src/internal/util.js\");\nconst isBlank=__m0[\"isBlank\"];\nconst toArray=__m0[\"toArray\"];\nconst warnOnce=__m0[\"warnOnce\"];\nconst __m1=__req(\"packages/core/src/format/date.js\");\nconst toIsoDate=__m1[\"toIsoDate\"];\nconst __m2=__req(\"packages/core/src/compute/handle.js\");\nconst bitReader=__m2[\"bitReader\"];\nconst dictSize=__m2[\"dictSize\"];\nconst dictValue=__m2[\"dictValue\"];\nconst presenceReader=__m2[\"presenceReader\"];\nconst valueComparator=__m2[\"valueComparator\"];\nconst valueReader=__m2[\"valueReader\"];\nconst ISO_DAY=/^\\d{4}-\\d{2}-\\d{2}$/;\nconst NULL_KEY='\\u0000null\\u0000';\nfunction acquireMask(ctx,n){\nconst pool=ctx&&ctx.pool;\nif(pool){\nconst take=pool.mask||pool.acquireMask||pool.acquire||pool.take;\nif(typeof take==='function'){\nconst mask=take.call(pool,n);\nif(mask&&mask.length>=n)return mask;\n}\n}\nreturn new Uint8Array(n);\n}\nfunction releaseMask(ctx,mask){\nconst pool=ctx&&ctx.pool;\nif(!pool||!mask)return;\nconst give=pool.release||pool.releaseMask||pool.free||pool.recycle;\nif(typeof give==='function')give.call(pool,mask);\n}\nfunction fillMask(mask,n,value){\nmask.fill(value,0,n);\nreturn mask;\n}\nfunction unorderable(v){\nreturn v===null||v===undefined||(typeof v==='number'&&Number.isNaN(v));\n}\nfunction coerceTarget(value,type){\nif(value===null||value===undefined)return value;\nif(type==='number')return typeof value==='number'?value:Number(value);\nif(type==='date'||type==='dateString'){\nconst iso=toIsoDate(value);\nreturn iso===null?toMillis(value):iso;\n}\nif(type==='boolean'){\nif(typeof value==='boolean')return value;\nif(value==='true'||value===1)return true;\nif(value==='false'||value===0)return false;\nreturn!!value;\n}\nreturn value;\n}\nfunction toMillis(value){\nif(value instanceof Date)return value.getTime();\nif(typeof value==='number')return value;\nreturn Date.parse(String(value));\n}\nfunction toNumber(value){\nif(typeof value==='number')return value;\nif(value instanceof Date)return value.getTime();\nif(value===null||value===undefined||value==='')return NaN;\nreturn Number(value);\n}\nfunction textOf(v,caseSensitive){\nconst s=typeof v==='string'?v:String(v);\nreturn caseSensitive?s:s.toLowerCase();\n}\nfunction setKey(v,caseSensitive){\nif(v===null||v===undefined)return NULL_KEY;\nif(typeof v==='string')return caseSensitive?v:v.toLowerCase();\nif(v instanceof Date)return v.getTime();\nreturn v;\n}\nfunction buildSet(value,caseSensitive,type){\nconst set=new Set();\nfor(const raw of toArray(value)){\nconst entry=coerceTarget(raw,type);\nset.add(setKey(entry,caseSensitive));\nif(typeof entry==='string'&&entry!==''&&Number.isFinite(Number(entry)))set.add(Number(entry));\nelse if(typeof entry==='number'&&Number.isFinite(entry))set.add(setKey(String(entry),caseSensitive));\n}\nreturn set;\n}\nfunction valueEquals(a,b,caseSensitive){\nif(a===null||a===undefined||b===null||b===undefined){\nreturn(a===null||a===undefined)&&(b===null||b===undefined);\n}\nconst ta=typeof a;\nconst tb=typeof b;\nif(ta==='string'&&tb==='string')return caseSensitive?a===b:a.toLowerCase()===b.toLowerCase();\nif(a instanceof Date||b instanceof Date)return toMillis(a)===toMillis(b);\nif(ta==='number'&&tb==='number')return a===b||(Number.isNaN(a)&&Number.isNaN(b));\nif(ta==='number'&&tb==='string')return a===Number(b);\nif(ta==='string'&&tb==='number')return Number(a)===b;\nif(ta==='boolean'||tb==='boolean')return a===b;\nif(Array.isArray(a)&&Array.isArray(b)){\nreturn a.length===b.length&&a.every((x,i)=>valueEquals(x,b[i],caseSensitive));\n}\nreturn a===b;\n}\nfunction compileRegExp(value,caseSensitive){\ntry{\nif(value instanceof RegExp){\nconst flags=value.flags.replace(/[gy]/g,'');\nreturn new RegExp(value.source,caseSensitive?flags:flags.includes('i')?flags:`${flags}i`);\n}\nreturn new RegExp(String(value),caseSensitive?'':'i');\n}catch(err){\nwarnOnce(`regex:${String(value)}`,`filter operator \"matches\" received an invalid pattern: ${String(value)}`,err);\nreturn null;\n}\n}\nfunction compilePredicate(condition,locale){\nconst predicate=compileValuePredicate(condition,locale);\nconst type=condition&&condition.type;\nif(type!=='date'&&type!=='dateString')return predicate;\nreturn(v)=>predicate(typeof v==='string'&&ISO_DAY.test(v)?v:(toIsoDate(v)??v));\n}\nfunction compileValuePredicate(condition,locale){\nconst op=condition&&condition.op;\nconst caseSensitive=!!(condition&&condition.caseSensitive);\nconst type=condition&&condition.type;\nconst cmp=valueComparator(locale);\nconst not=(p)=>(v)=>!p(v);\nswitch(op){\ncase'eq':{\nconst target=coerceTarget(condition.value,type);\nreturn(v)=>valueEquals(v,target,caseSensitive);\n}\ncase'ne':{\nconst target=coerceTarget(condition.value,type);\nreturn(v)=>!valueEquals(v,target,caseSensitive);\n}\ncase'lt':case'lte':case'gt':case'gte':{\nconst target=coerceTarget(condition.value,type);\nif(unorderable(target))return()=>false;\nconst want=op==='lt'?-1:op==='lte'?0:op==='gt'?1:2;\nreturn(v)=>{\nif(unorderable(v))return false;\nconst c=cmp(v,target);\nreturn want===-1?c<0:want===0?c<=0:want===1?c>0:c>=0;\n};\n}\ncase'between':case'notBetween':{\nconst pair=toArray(condition.value);\nconst lo=coerceTarget(pair[0],type);\nconst hi=coerceTarget(pair[1],type);\nconst bounds=condition.bounds||'[]';\nconst loInclusive=bounds.charAt(0)!=='(';\nconst hiInclusive=bounds.charAt(1)!==')';\nif(unorderable(lo)||unorderable(hi))return op==='between'?()=>false:()=>true;\nconst inRange=(v)=>{\nif(unorderable(v))return false;\nconst a=cmp(v,lo);\nconst b=cmp(v,hi);\nreturn(loInclusive?a>=0:a>0)&&(hiInclusive?b<=0:b<0);\n};\nreturn op==='between'?inRange:not(inRange);\n}\ncase'in':case'notIn':{\nconst set=buildSet(condition.value,caseSensitive,type);\nconst member=(v)=>set.has(setKey(v,caseSensitive));\nreturn op==='in'?member:not(member);\n}\ncase'contains':case'notContains':{\nconst needle=textOf(coerceTarget(condition.value,type),caseSensitive);\nconst has=(v)=>(v===null||v===undefined?false:textOf(v,caseSensitive).includes(needle));\nreturn op==='contains'?has:not(has);\n}\ncase'startsWith':{\nconst needle=textOf(coerceTarget(condition.value,type),caseSensitive);\nreturn(v)=>(v===null||v===undefined?false:textOf(v,caseSensitive).startsWith(needle));\n}\ncase'endsWith':{\nconst needle=textOf(coerceTarget(condition.value,type),caseSensitive);\nreturn(v)=>(v===null||v===undefined?false:textOf(v,caseSensitive).endsWith(needle));\n}\ncase'matches':{\nconst re=compileRegExp(condition.value,caseSensitive);\nif(!re)return()=>false;\nreturn(v)=>(v===null||v===undefined?false:re.test(String(v)));\n}\ncase'blank':\nreturn(v)=>isBlank(v)||(Array.isArray(v)&&v.length===0);\ncase'notBlank':\nreturn(v)=>!(isBlank(v)||(Array.isArray(v)&&v.length===0));\ncase'containsAny':case'containsNone':{\nconst set=buildSet(condition.value,caseSensitive,type);\nconst any=(v)=>{\nconst list=v===null||v===undefined?[]:toArray(v);\nfor(let i=0;i<list.length;i++)if(set.has(setKey(list[i],caseSensitive)))return true;\nreturn false;\n};\nreturn op==='containsAny'?any:not(any);\n}\ncase'containsAll':{\nconst wanted=toArray(condition.value).map((x)=>setKey(coerceTarget(x,type),caseSensitive));\nreturn(v)=>{\nconst list=v===null||v===undefined?[]:toArray(v);\nif(wanted.length===0)return true;\nconst have=new Set(list.map((x)=>setKey(x,caseSensitive)));\nfor(let i=0;i<wanted.length;i++)if(!have.has(wanted[i]))return false;\nreturn true;\n};\n}\ndefault:\nwarnOnce(`op:${String(op)}`,`unknown filter operator \"${String(op)}\"; the condition passes every row`);\nreturn()=>true;\n}\n}\nfunction testValue(value,condition,locale){\nreturn compilePredicate(condition,locale)(value);\n}\nfunction presenceCondition(handle,wantPresent,mask,count){\nconst present=presenceReader(handle);\nif(present){\nconst target=wantPresent?1:0;\nfor(let i=0;i<count;i++)mask[i]=present(i)===target?1:0;\nreturn mask;\n}\nconst kind=handle.kind;\nif(kind==='float64'||kind==='int32'||kind==='bitset'){\nreturn fillMask(mask,count,wantPresent?1:0);\n}\nconst read=valueReader(handle);\nfor(let i=0;i<count;i++){\nconst v=read(i);\nconst blank=isBlank(v)||(Array.isArray(v)&&v.length===0);\nmask[i]=blank===wantPresent?0:1;\n}\nreturn mask;\n}\nfunction dictionaryCondition(handle,pred,mask,count){\nconst dict=handle.dict;\nconst size=dictSize(dict);\nconst allowed=new Uint8Array(size);\nfor(let code=0;code<size;code++)allowed[code]=pred(dictValue(dict,code))?1:0;\nconst codes=handle.values;\nconst present=presenceReader(handle);\nif(!present){\nfor(let i=0;i<count;i++)mask[i]=allowed[codes[i]];\nreturn mask;\n}\nconst absentAnswer=pred(null)?1:0;\nfor(let i=0;i<count;i++)mask[i]=present(i)===1?allowed[codes[i]]:absentAnswer;\nreturn mask;\n}\nfunction booleanCondition(handle,pred,mask,count){\nconst bit=bitReader(handle.values);\nconst whenTrue=pred(true)?1:0;\nconst whenFalse=pred(false)?1:0;\nconst present=presenceReader(handle);\nif(!present){\nfor(let i=0;i<count;i++)mask[i]=bit(i)===1?whenTrue:whenFalse;\nreturn mask;\n}\nconst absentAnswer=pred(null)?1:0;\nfor(let i=0;i<count;i++){\nmask[i]=present(i)===0?absentAnswer:(bit(i)===1?whenTrue:whenFalse);\n}\nreturn mask;\n}\nfunction numericCondition(handle,condition,pred,mask,count){\nconst values=handle.values;\nconst type=condition.type;\nconst op=condition.op;\nlet handled=true;\nswitch(op){\ncase'eq':case'ne':{\nconst target=toNumber(coerceTarget(condition.value,type));\nconst wantNaN=typeof condition.value==='number'&&Number.isNaN(condition.value);\nconst invert=op==='ne'?1:0;\nif(wantNaN){\nfor(let i=0;i<count;i++)mask[i]=(Number.isNaN(values[i])?1:0)^invert;\n}else{\nfor(let i=0;i<count;i++)mask[i]=((values[i]===target)?1:0)^invert;\n}\nbreak;\n}\ncase'lt':{\nconst t=toNumber(coerceTarget(condition.value,type));\nfor(let i=0;i<count;i++)mask[i]=values[i]<t?1:0;\nbreak;\n}\ncase'lte':{\nconst t=toNumber(coerceTarget(condition.value,type));\nfor(let i=0;i<count;i++)mask[i]=values[i]<=t?1:0;\nbreak;\n}\ncase'gt':{\nconst t=toNumber(coerceTarget(condition.value,type));\nfor(let i=0;i<count;i++)mask[i]=values[i]>t?1:0;\nbreak;\n}\ncase'gte':{\nconst t=toNumber(coerceTarget(condition.value,type));\nfor(let i=0;i<count;i++)mask[i]=values[i]>=t?1:0;\nbreak;\n}\ncase'between':case'notBetween':{\nconst pair=toArray(condition.value);\nconst lo=toNumber(coerceTarget(pair[0],type));\nconst hi=toNumber(coerceTarget(pair[1],type));\nconst bounds=condition.bounds||'[]';\nconst loInclusive=bounds.charAt(0)!=='(';\nconst hiInclusive=bounds.charAt(1)!==')';\nconst invert=op==='notBetween'?1:0;\nif(loInclusive&&hiInclusive){\nfor(let i=0;i<count;i++)mask[i]=(((values[i]>=lo)&(values[i]<=hi))?1:0)^invert;\n}else if(loInclusive){\nfor(let i=0;i<count;i++)mask[i]=(((values[i]>=lo)&(values[i]<hi))?1:0)^invert;\n}else if(hiInclusive){\nfor(let i=0;i<count;i++)mask[i]=(((values[i]>lo)&(values[i]<=hi))?1:0)^invert;\n}else{\nfor(let i=0;i<count;i++)mask[i]=(((values[i]>lo)&(values[i]<hi))?1:0)^invert;\n}\nbreak;\n}\ncase'in':case'notIn':{\nconst set=new Set();\nfor(const raw of toArray(condition.value)){\nconst n=toNumber(coerceTarget(raw,type));\nif(!Number.isNaN(n))set.add(n);\n}\nconst invert=op==='notIn'?1:0;\nfor(let i=0;i<count;i++)mask[i]=(set.has(values[i])?1:0)^invert;\nbreak;\n}\ndefault:\nhandled=false;\nbreak;\n}\nif(!handled)return false;\nconst present=presenceReader(handle);\nif(present){\nconst absentAnswer=pred(null)?1:0;\nfor(let i=0;i<count;i++)if(present(i)===0)mask[i]=absentAnswer;\n}\nreturn true;\n}\nfunction genericCondition(handle,pred,mask,count){\nconst read=valueReader(handle);\nfor(let i=0;i<count;i++)mask[i]=pred(read(i))?1:0;\nreturn mask;\n}\nfunction evaluateCondition(condition,ctx,out){\nconst count=ctx.count|0;\nconst mask=out||acquireMask(ctx,count);\nif(!condition)return fillMask(mask,count,1);\nconst handle=typeof ctx.handle==='function'?ctx.handle(condition.col):undefined;\nconst custom=typeof ctx.custom==='function'?ctx.custom:null;\nif(!handle){\nif(custom){\nfor(let i=0;i<count;i++)mask[i]=custom(condition,i)?1:0;\nreturn mask;\n}\nwarnOnce(`filter:col:${String(condition.col)}`,\n`filter references unknown column \"${String(condition.col)}\"; the condition passes every row`);\nreturn fillMask(mask,count,1);\n}\nconst op=condition.op;\nif(op==='blank'||op==='notBlank')return presenceCondition(handle,op==='notBlank',mask,count);\nconst pred=compilePredicate(condition,ctx.locale);\nswitch(handle.kind){\ncase'dictionary':\nreturn dictionaryCondition(handle,pred,mask,count);\ncase'bitset':\nreturn booleanCondition(handle,pred,mask,count);\ncase'float64':case'int32':\nif(numericCondition(handle,condition,pred,mask,count))return mask;\nreturn genericCondition(handle,pred,mask,count);\ndefault:\nreturn genericCondition(handle,pred,mask,count);\n}\n}\nfunction evaluateNode(node,ctx,count){\nif(!node)return fillMask(acquireMask(ctx,count),count,1);\nif(Array.isArray(node.conditions)){\nconst children=node.conditions.filter((c)=>c!=null);\nconst op=node.op==='or'?'or':node.op==='not'?'not':'and';\nif(children.length===0)return fillMask(acquireMask(ctx,count),count,1);\nconst acc=evaluateNode(children[0],ctx,count);\nfor(let k=1;k<children.length;k++){\nconst rhs=evaluateNode(children[k],ctx,count);\nif(op==='or')for(let i=0;i<count;i++)acc[i]|=rhs[i];\nelse for(let i=0;i<count;i++)acc[i]&=rhs[i];\nreleaseMask(ctx,rhs);\n}\nif(op==='not')for(let i=0;i<count;i++)acc[i]^=1;\nreturn acc;\n}\nreturn evaluateCondition(node,ctx,acquireMask(ctx,count));\n}\nfunction evaluateFilters(filters,ctx){\nreturn evaluateNode(filters,ctx,ctx.count|0);\n}\nfunction pruneColumn(filters,colId){\nif(!filters||!colId)return filters||null;\nconst node=(filters);\nif(Array.isArray(node.conditions)){\nconst op=node.op==='or'?'or':node.op==='not'?'not':'and';\nif(op!=='and'){\nreturn mentionsColumn(node,colId)?null:filters;\n}\nconst kept=[];\nfor(const child of node.conditions){\nconst pruned=pruneColumn(child,colId);\nif(pruned)kept.push(pruned);\n}\nif(!kept.length)return null;\nreturn{...node,op:'and',conditions:kept};\n}\nreturn node.col===colId?null:filters;\n}\nfunction mentionsColumn(filters,colId){\nif(!filters||typeof filters!=='object')return false;\nconst node=(filters);\nif(node.col===colId)return true;\nif(Array.isArray(node.conditions)){\nfor(const child of node.conditions)if(mentionsColumn(child,colId))return true;\n}\nreturn false;\n}\nfunction compact(mask,count,out){\nif(out&&out.length>=count){\nlet k=0;\nfor(let i=0;i<count;i++)if(mask[i])out[k++]=i;\nreturn out.subarray(0,k);\n}\nlet survivors=0;\nfor(let i=0;i<count;i++)survivors+=mask[i]?1:0;\nconst result=new Uint32Array(survivors);\nlet k=0;\nfor(let i=0;i<count;i++)if(mask[i])result[k++]=i;\nreturn result;\n}\n});\n__def(\"packages/core/src/compute/group.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"packKeys\",{enumerable:true,get:function(){return packKeys;}});\nObject.defineProperty(__exports,\"groupByColumns\",{enumerable:true,get:function(){return groupByColumns;}});\nconst __m0=__req(\"packages/core/src/compute/handle.js\");\nconst dictSize=__m0[\"dictSize\"];\nconst identity=__m0[\"identity\"];\nconst presenceReader=__m0[\"presenceReader\"];\nconst rowCount=__m0[\"rowCount\"];\nconst valueReader=__m0[\"valueReader\"];\nconst KEY_SEPARATOR='\\u001F';\nconst NULL_MARKER='\\u0000';\nconst MAX_DIRECT_COUNTS=1<<20;\nfunction packKeys(handles,idx,n,project){\nconst k=handles.length;\nconst base=handles.map((h)=>valueReader(h));\nconst projected=Array.isArray(project)&&project.some(Boolean);\nconst readers=projected\n?base.map((r,j)=>(project[j]?(i)=>project[j](r(i)):r))\n:base;\nconst allDictionary=!projected&&k>0&&handles.every((h)=>h&&h.kind==='dictionary'&&h.dict);\nif(allDictionary){\nconst cards=handles.map((h)=>dictSize(h.dict)+1);\nlet product=1;\nfor(let j=0;j<k;j++)product*=cards[j];\nif(product<=Number.MAX_SAFE_INTEGER){\nconst codes=handles.map((h)=>h.values);\nconst presence=handles.map((h)=>presenceReader(h));\nconst keyOf=(row)=>{\nlet key=0;\nfor(let j=0;j<k;j++){\nconst present=presence[j];\nconst code=present&&present(row)===0?cards[j]-1:codes[j][row];\nkey=key*cards[j]+code;\n}\nreturn key;\n};\nconst packed=new Float64Array(n);\nfor(let i=0;i<n;i++)packed[i]=keyOf(idx[i]);\nreturn{packed,strings:null,product,readers,keyOf};\n}\n}\nconst keyOf=(row)=>{\nlet key='';\nfor(let j=0;j<k;j++){\nconst v=readers[j](row);\nkey+=(j===0?'':KEY_SEPARATOR)+(v===null||v===undefined?NULL_MARKER:String(v));\n}\nreturn key;\n};\nconst strings=new Array(n);\nfor(let i=0;i<n;i++)strings[i]=keyOf(idx[i]);\nreturn{packed:null,strings,product:Infinity,readers,keyOf};\n}\nfunction scatterBuckets(idx,ids,n,groups){\nconst offsets=new Uint32Array(groups+1);\nfor(let i=0;i<n;i++)offsets[ids[i]+1]++;\nfor(let g=0;g<groups;g++)offsets[g+1]+=offsets[g];\nconst scattered=new Uint32Array(n);\nconst cursor=offsets.slice(0,groups);\nfor(let i=0;i<n;i++)scattered[cursor[ids[i]]++]=idx[i];\nconst buckets=new Array(groups);\nfor(let g=0;g<groups;g++)buckets[g]=scattered.subarray(offsets[g],offsets[g+1]);\nreturn buckets;\n}\nfunction groupByColumns(handles,order,opts={}){\nconst list=handles||[];\nconst idx=order||identity(rowCount(list[0],opts));\nconst n=idx.length;\nif(list.length===0||n===0)return{keys:[],buckets:[]};\nconst{packed,strings,product,readers}=packKeys(list,idx,n,opts.project);\nconst ids=new Uint32Array(n);\nlet groups=0;\nlet packedKeys=null;\nif(packed&&product<=Math.max(1024,Math.min(MAX_DIRECT_COUNTS,n*4))){\nconst size=product;\nconst seen=new Int32Array(size).fill(-1);\nfor(let i=0;i<n;i++)seen[packed[i]]=0;\nfor(let key=0;key<size;key++)if(seen[key]===0)seen[key]=groups++;\nfor(let i=0;i<n;i++)ids[i]=seen[packed[i]];\npackedKeys=new Float64Array(groups);\nfor(let key=0;key<size;key++)if(seen[key]>=0)packedKeys[seen[key]]=key;\n}else if(packed){\nconst seen=new Map();\nfor(let i=0;i<n;i++){\nconst key=packed[i];\nlet id=seen.get(key);\nif(id===undefined){id=groups++;seen.set(key,id);}\nids[i]=id;\n}\npackedKeys=new Float64Array(groups);\nfor(const[key,id]of seen)packedKeys[id]=key;\n}else{\nconst seen=new Map();\nfor(let i=0;i<n;i++){\nconst key=strings[i];\nlet id=seen.get(key);\nif(id===undefined){id=groups++;seen.set(key,id);}\nids[i]=id;\n}\n}\nconst buckets=scatterBuckets(idx,ids,n,groups);\nconst keys=new Array(groups);\nfor(let g=0;g<groups;g++){\nconst row=buckets[g][0];\nconst tuple=new Array(readers.length);\nfor(let j=0;j<readers.length;j++)tuple[j]=readers[j](row);\nkeys[g]=tuple;\n}\nconst result={keys,buckets};\nif(packedKeys)result.packed=packedKeys;\nreturn result;\n}\n});\n__def(\"packages/core/src/compute/facet.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"STRATEGIES\",{enumerable:true,get:function(){return STRATEGIES;}});\nObject.defineProperty(__exports,\"GRANULARITIES\",{enumerable:true,get:function(){return GRANULARITIES;}});\nObject.defineProperty(__exports,\"DEFAULT_BUCKETS\",{enumerable:true,get:function(){return DEFAULT_BUCKETS;}});\nObject.defineProperty(__exports,\"DEFAULT_CARDINALITY_LIMIT\",{enumerable:true,get:function(){return DEFAULT_CARDINALITY_LIMIT;}});\nObject.defineProperty(__exports,\"QUANTILE_SAMPLE\",{enumerable:true,get:function(){return QUANTILE_SAMPLE;}});\nObject.defineProperty(__exports,\"facetKind\",{enumerable:true,get:function(){return facetKind;}});\nObject.defineProperty(__exports,\"orderedReader\",{enumerable:true,get:function(){return orderedReader;}});\nObject.defineProperty(__exports,\"toNumeric\",{enumerable:true,get:function(){return toNumeric;}});\nObject.defineProperty(__exports,\"cardinalityOf\",{enumerable:true,get:function(){return cardinalityOf;}});\nObject.defineProperty(__exports,\"pickGranularity\",{enumerable:true,get:function(){return pickGranularity;}});\nObject.defineProperty(__exports,\"floorTo\",{enumerable:true,get:function(){return floorTo;}});\nObject.defineProperty(__exports,\"advance\",{enumerable:true,get:function(){return advance;}});\nObject.defineProperty(__exports,\"computeBounds\",{enumerable:true,get:function(){return computeBounds;}});\nObject.defineProperty(__exports,\"countInto\",{enumerable:true,get:function(){return countInto;}});\nObject.defineProperty(__exports,\"bucketOf\",{enumerable:true,get:function(){return bucketOf;}});\nObject.defineProperty(__exports,\"facet\",{enumerable:true,get:function(){return facet;}});\nObject.defineProperty(__exports,\"default\",{enumerable:true,get:function(){return __default;}});\nconst __m0=__req(\"packages/core/src/compute/handle.js\");\nconst presenceReader=__m0[\"presenceReader\"];\nconst valueReader=__m0[\"valueReader\"];\nconst dictSize=__m0[\"dictSize\"];\nconst dictValue=__m0[\"dictValue\"];\nconst STRATEGIES=Object.freeze(['equal','quantile','log']);\nconst GRANULARITIES=Object.freeze(['hour','day','week','month','quarter','year']);\nconst DEFAULT_BUCKETS=20;\nconst DEFAULT_CARDINALITY_LIMIT=50;\nconst QUANTILE_SAMPLE=10_000;\nfunction facetKind(handle,type){\nif(!handle)return'none';\nconst base=type&&type.base;\nif(base==='date'||base==='datetime'||base==='time'||base==='dateString')return'date';\nswitch(handle.kind){\ncase'bitset':return'boolean';\ncase'float64':case'int32':return'numeric';\ncase'dictionary':return'category';\ncase'multi':return'category';\ndefault:\nif(base==='number')return'numeric';\nif(base==='boolean')return'boolean';\nif(base==='text')return'category';\nreturn'none';\n}\n}\nfunction orderedReader(handle){\nconst values=handle.values;\nconst kind=handle.kind;\nif((kind==='float64'||kind==='int32')&&values)return(i)=>values[i];\nconst read=valueReader(handle);\nreturn(i)=>toNumeric(read(i));\n}\nfunction toNumeric(v){\nif(typeof v==='number')return v;\nif(v instanceof Date)return v.getTime();\nif(v===null||v===undefined||v==='')return NaN;\nif(typeof v==='boolean')return v?1:0;\nif(typeof v==='string'){\nconst n=Number(v);\nif(Number.isFinite(n))return n;\nconst t=Date.parse(v);\nreturn Number.isFinite(t)?t:NaN;\n}\nreturn NaN;\n}\nfunction cardinalityOf(handle,indices,count,limit=DEFAULT_CARDINALITY_LIMIT){\nif(!handle)return{cardinality:0,exact:true};\nif(handle.dict)return{cardinality:dictSize(handle.dict),exact:true};\nif(handle.kind==='bitset')return{cardinality:2,exact:true};\nconst read=valueReader(handle);\nconst n=indices?indices.length:count;\nconst seen=new Set();\nfor(let k=0;k<n;k++){\nconst v=read(indices?indices[k]:k);\nif(v===null||v===undefined)continue;\nseen.add(v);\nif(seen.size>limit)return{cardinality:seen.size,exact:false};\n}\nreturn{cardinality:seen.size,exact:true};\n}\nconst HOUR_MS=3600_000;\nconst DAY_MS=86_400_000;\nfunction pickGranularity(span,target=DEFAULT_BUCKETS){\nconst ms=Number.isFinite(span)&&span>0?span:0;\nconst wide=Math.max(1,target)*2;\nif(ms/HOUR_MS<=wide)return'hour';\nif(ms/DAY_MS<=wide)return'day';\nif(ms/(7*DAY_MS)<=wide)return'week';\nif(ms/(30*DAY_MS)<=wide)return'month';\nif(ms/(91*DAY_MS)<=wide)return'quarter';\nreturn'year';\n}\nfunction floorTo(ms,granularity){\nif(!Number.isFinite(ms))return NaN;\nconst d=new Date(ms);\nswitch(granularity){\ncase'hour':d.setMinutes(0,0,0);return d.getTime();\ncase'day':d.setHours(0,0,0,0);return d.getTime();\ncase'week':{\nd.setHours(0,0,0,0);\nconst back=(d.getDay()+6)%7;\nd.setDate(d.getDate()-back);\nreturn d.getTime();\n}\ncase'month':d.setDate(1);d.setHours(0,0,0,0);return d.getTime();\ncase'quarter':\nd.setMonth(Math.floor(d.getMonth()/3)*3,1);\nd.setHours(0,0,0,0);\nreturn d.getTime();\ndefault:d.setMonth(0,1);d.setHours(0,0,0,0);return d.getTime();\n}\n}\nfunction advance(ms,granularity){\nconst d=new Date(ms);\nswitch(granularity){\ncase'hour':d.setHours(d.getHours()+1);break;\ncase'day':d.setDate(d.getDate()+1);break;\ncase'week':d.setDate(d.getDate()+7);break;\ncase'month':d.setMonth(d.getMonth()+1);break;\ncase'quarter':d.setMonth(d.getMonth()+3);break;\ndefault:d.setFullYear(d.getFullYear()+1);break;\n}\nreturn d.getTime();\n}\nfunction numericExtent(handle,indices,count){\nconst read=orderedReader(handle);\nconst present=presenceReader(handle);\nconst n=indices?indices.length:count;\nlet min=Infinity;\nlet max=-Infinity;\nlet nulls=0;\nlet finite=0;\nfor(let k=0;k<n;k++){\nconst i=indices?indices[k]:k;\nif(present&&!present(i)){nulls++;continue;}\nconst v=read(i);\nif(!Number.isFinite(v)){nulls++;continue;}\nif(v<min)min=v;\nif(v>max)max=v;\nfinite++;\n}\nreturn{min,max,nulls,finite};\n}\nfunction sortedSample(handle,indices,count,cap){\nconst read=orderedReader(handle);\nconst present=presenceReader(handle);\nconst n=indices?indices.length:count;\nconst step=n>cap?n/cap:1;\nconst out=[];\nfor(let s=0;s<n;s+=step){\nconst i=indices?indices[Math.floor(s)]:Math.floor(s);\nif(present&&!present(i))continue;\nconst v=read(i);\nif(Number.isFinite(v))out.push(v);\n}\nconst arr=Float64Array.from(out);\narr.sort();\nreturn arr;\n}\nfunction computeBounds(handle,indices,count,opts={}){\nconst kind=opts.kind||facetKind(handle,opts.type);\nif(kind==='none'||!handle)return{kind:'none',buckets:[],suppressed:'type'};\nif(kind==='boolean')return boundsForBoolean(handle,indices,count);\nif(kind==='category')return boundsForCategory(handle,indices,count,opts);\nreturn boundsForOrdered(handle,indices,count,kind,opts);\n}\nfunction boundsForBoolean(handle,indices,count){\nconst present=presenceReader(handle);\nlet nulls=0;\nif(present){\nconst n=indices?indices.length:count;\nfor(let k=0;k<n;k++)if(!present(indices?indices[k]:k))nulls++;\n}\nconst buckets=[{value:false,label:'false'},{value:true,label:'true'}];\nif(nulls>0)buckets.push({null:true,label:'Empty'});\nreturn{kind:'boolean',buckets};\n}\nfunction boundsForCategory(handle,indices,count,opts){\nconst limit=opts.cardinalityLimit??DEFAULT_CARDINALITY_LIMIT;\nconst{cardinality}=cardinalityOf(handle,indices,count,limit);\nif(cardinality>limit&&(opts.aboveLimit||'suppress')==='suppress'){\nreturn{kind:'category',buckets:[],suppressed:'cardinality',cardinality};\n}\nconst read=valueReader(handle);\nconst n=indices?indices.length:count;\nconst tally=new Map();\nlet nulls=0;\nfor(let k=0;k<n;k++){\nconst v=read(indices?indices[k]:k);\nif(v===null||v===undefined||v===''){nulls++;continue;}\nif(Array.isArray(v)){\nif(!v.length){nulls++;continue;}\nfor(const m of v)tally.set(m,(tally.get(m)||0)+1);\ncontinue;\n}\ntally.set(v,(tally.get(v)||0)+1);\n}\nlet entries=[...tally.entries()];\nif(opts.order==='alpha'){\nentries.sort((a,b)=>String(a[0]).localeCompare(String(b[0])));\n}else{\nentries.sort((a,b)=>b[1]-a[1]);\n}\nlet remainder=0;\nlet dropped=0;\nif(entries.length>limit){\ndropped=entries.length-limit;\nfor(let i=limit;i<entries.length;i++)remainder+=entries[i][1];\nentries=entries.slice(0,limit);\n}\nconst buckets=entries.map(([value])=>({value,label:String(value)}));\nif(remainder>0)buckets.push({remainder:true,label:`Other (${dropped} values)`});\nif(nulls>0)buckets.push({null:true,label:'Empty'});\nreturn{kind:'category',buckets,cardinality};\n}\nfunction boundsForOrdered(handle,indices,count,kind,opts){\nconst{min,max,nulls,finite}=numericExtent(handle,indices,count);\nif(!finite){\nreturn{kind,buckets:nulls?[{null:true,label:'Empty'}]:[],empty:true};\n}\nconst wanted=Math.max(1,Math.floor(opts.buckets||DEFAULT_BUCKETS));\nlet buckets=[];\nif(kind==='date'){\nconst granularity=GRANULARITIES.includes(opts.granularity)\n?opts.granularity:pickGranularity(max-min,wanted);\nlet edge=floorTo(min,granularity);\nwhile(edge<=max&&buckets.length<4096){\nconst next=advance(edge,granularity);\nif(!(next>edge))break;\nbuckets.push({from:edge,to:next});\nedge=next;\n}\nreturn{kind,buckets:withNull(buckets,nulls),granularity};\n}\nconst strategy=STRATEGIES.includes(opts.strategy)?opts.strategy:'equal';\nif(strategy==='quantile'){\nconst sample=sortedSample(handle,indices,count,QUANTILE_SAMPLE);\nif(sample.length){\nconst edges=[sample[0]];\nfor(let b=1;b<wanted;b++){\nconst v=sample[Math.min(sample.length-1,Math.floor((b/wanted)*sample.length))];\nif(v>edges[edges.length-1])edges.push(v);\n}\nedges.push(max);\nfor(let b=0;b<edges.length-1;b++)buckets.push({from:edges[b],to:edges[b+1]});\n}\n}else if(strategy==='log'&&min>0){\nconst lo=Math.log10(min);\nconst hi=Math.log10(max);\nconst step=(hi-lo)/wanted||1;\nfor(let b=0;b<wanted;b++){\nbuckets.push({from:10**(lo+b*step),to:10**(lo+(b+1)*step)});\n}\n}\nif(!buckets.length){\nconst width=(max-min)/wanted||1;\nfor(let b=0;b<wanted;b++)buckets.push({from:min+b*width,to:min+(b+1)*width});\n}\nbuckets[buckets.length-1].to=max;\nreturn{kind,buckets:withNull(buckets,nulls),strategy,min,max};\n}\nfunction withNull(buckets,nulls){\nreturn nulls>0?[...buckets,{null:true,label:'Empty'}]:buckets;\n}\nfunction countInto(handle,indices,count,bounds,out){\nconst buckets=(bounds&&bounds.buckets)||[];\nconst counts=out&&out.length>=buckets.length?out.subarray(0,buckets.length)\n:new Uint32Array(buckets.length);\ncounts.fill(0);\nif(!handle||!buckets.length)return counts;\nconst nullBucket=buckets.length-1;\nconst hasNull=!!buckets[nullBucket]&&buckets[nullBucket].null===true;\nconst n=indices?indices.length:count;\nif(bounds.kind==='boolean'){\nconst read=valueReader(handle);\nfor(let k=0;k<n;k++){\nconst v=read(indices?indices[k]:k);\nif(v===null||v===undefined){if(hasNull)counts[nullBucket]++;continue;}\ncounts[v?1:0]++;\n}\nreturn counts;\n}\nif(bounds.kind==='category'){\nconst slot=new Map();\nfor(let b=0;b<buckets.length;b++){\nif(!buckets[b].null&&!buckets[b].remainder)slot.set(buckets[b].value,b);\n}\nconst remainderAt=buckets.findIndex((b)=>b.remainder);\nconst read=valueReader(handle);\nfor(let k=0;k<n;k++){\nconst v=read(indices?indices[k]:k);\nif(v===null||v===undefined||v===''){if(hasNull)counts[nullBucket]++;continue;}\nif(Array.isArray(v)){\nif(!v.length){if(hasNull)counts[nullBucket]++;continue;}\nfor(const m of v){\nconst at=slot.get(m);\nif(at!==undefined)counts[at]++;\nelse if(remainderAt>=0)counts[remainderAt]++;\n}\ncontinue;\n}\nconst at=slot.get(v);\nif(at!==undefined)counts[at]++;\nelse if(remainderAt>=0)counts[remainderAt]++;\n}\nreturn counts;\n}\nconst ordered=hasNull?buckets.length-1:buckets.length;\nconst edges=new Float64Array(ordered+1);\nfor(let b=0;b<ordered;b++)edges[b]=buckets[b].from;\nedges[ordered]=ordered?buckets[ordered-1].to:0;\nconst read=orderedReader(handle);\nconst present=presenceReader(handle);\nfor(let k=0;k<n;k++){\nconst i=indices?indices[k]:k;\nif(present&&!present(i)){if(hasNull)counts[nullBucket]++;continue;}\nconst v=read(i);\nif(!Number.isFinite(v)){if(hasNull)counts[nullBucket]++;continue;}\nconst at=bucketOf(edges,ordered,v);\nif(at>=0)counts[at]++;\n}\nreturn counts;\n}\nfunction bucketOf(edges,ordered,v){\nif(!ordered)return-1;\nif(v<edges[0])return-1;\nif(v>=edges[ordered])return v===edges[ordered]?ordered-1:-1;\nlet lo=0;\nlet hi=ordered-1;\nwhile(lo<hi){\nconst mid=(lo+hi+1)>>>1;\nif(v>=edges[mid])lo=mid;else hi=mid-1;\n}\nreturn lo;\n}\nfunction facet(handle,indices,count,opts={}){\nconst bounds=opts.bounds||computeBounds(handle,opts.boundsIndices??indices,count,opts);\nreturn{bounds,counts:countInto(handle,indices,count,bounds)};\n}\nconst __default=facet;\n});\n__def(\"packages/core/src/compute/special.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"logGamma\",{enumerable:true,get:function(){return logGamma;}});\nObject.defineProperty(__exports,\"incompleteBeta\",{enumerable:true,get:function(){return incompleteBeta;}});\nObject.defineProperty(__exports,\"normalQuantile\",{enumerable:true,get:function(){return normalQuantile;}});\nObject.defineProperty(__exports,\"normalCdf\",{enumerable:true,get:function(){return normalCdf;}});\nObject.defineProperty(__exports,\"studentT\",{enumerable:true,get:function(){return studentT;}});\nObject.defineProperty(__exports,\"studentTQuantile\",{enumerable:true,get:function(){return studentTQuantile;}});\nObject.defineProperty(__exports,\"regularizedGammaP\",{enumerable:true,get:function(){return regularizedGammaP;}});\nObject.defineProperty(__exports,\"chiSquareCdf\",{enumerable:true,get:function(){return chiSquareCdf;}});\nObject.defineProperty(__exports,\"chiSquareUpperTail\",{enumerable:true,get:function(){return chiSquareUpperTail;}});\nconst LANCZOS=Object.freeze([\n676.5203681218851,-1259.1392167224028,771.32342877765313,\n-176.61502916214059,12.507343278686905,-0.13857109526572012,\n9.9843695780195716e-6,1.5056327351493116e-7,\n]);\nconst EPS=3e-12;\nconst TINY=1e-300;\nfunction logGamma(x){\nif(x<0.5)return Math.log(Math.PI/Math.sin(Math.PI*x))-logGamma(1-x);\nconst z=x-1;\nlet a=0.99999999999980993;\nconst t=z+7.5;\nfor(let i=0;i<LANCZOS.length;i++)a+=LANCZOS[i]/(z+i+1);\nreturn 0.5*Math.log(2*Math.PI)+(z+0.5)*Math.log(t)-t+Math.log(a);\n}\nfunction betaContinuedFraction(a,b,x){\nconst qab=a+b;\nconst qap=a+1;\nconst qam=a-1;\nlet c=1;\nlet d=1-(qab*x)/qap;\nif(Math.abs(d)<TINY)d=TINY;\nd=1/d;\nlet h=d;\nfor(let m=1;m<=300;m++){\nconst m2=2*m;\nlet aa=(m*(b-m)*x)/((qam+m2)*(a+m2));\nd=1+aa*d;\nif(Math.abs(d)<TINY)d=TINY;\nc=1+aa/c;\nif(Math.abs(c)<TINY)c=TINY;\nd=1/d;\nh*=d*c;\naa=(-(a+m)*(qab+m)*x)/((a+m2)*(qap+m2));\nd=1+aa*d;\nif(Math.abs(d)<TINY)d=TINY;\nc=1+aa/c;\nif(Math.abs(c)<TINY)c=TINY;\nd=1/d;\nconst step=d*c;\nh*=step;\nif(Math.abs(step-1)<EPS)break;\n}\nreturn h;\n}\nfunction incompleteBeta(a,b,x){\nif(!(a>0)||!(b>0)||!Number.isFinite(x))return Number.NaN;\nif(x<=0)return 0;\nif(x>=1)return 1;\nconst front=Math.exp(\nlogGamma(a+b)-logGamma(a)-logGamma(b)+a*Math.log(x)+b*Math.log(1-x),\n);\nreturn x<(a+1)/(a+b+2)\n?(front*betaContinuedFraction(a,b,x))/a\n:1-(front*betaContinuedFraction(b,a,1-x))/b;\n}\nfunction normalQuantile(p){\nif(!(p>0)||!(p<1))return p===0?-Infinity:(p===1?Infinity:Number.NaN);\nconst a=[-3.969683028665376e+1,2.209460984245205e+2,-2.759285104469687e+2,\n1.383577518672690e+2,-3.066479806614716e+1,2.506628277459239];\nconst b=[-5.447609879822406e+1,1.615858368580409e+2,-1.556989798598866e+2,\n6.680131188771972e+1,-1.328068155288572e+1];\nconst c=[-7.784894002430293e-3,-3.223964580411365e-1,-2.400758277161838,\n-2.549732539343734,4.374664141464968,2.938163982698783];\nconst d=[7.784695709041462e-3,3.224671290700398e-1,2.445134137142996,\n3.754408661907416];\nconst low=0.02425;\nlet q;\nlet r;\nlet x;\nif(p<low){\nq=Math.sqrt(-2*Math.log(p));\nx=(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])\n/ ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);\n}else if(p<=1-low){\nq=p-0.5;\nr=q*q;\nx=((((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q)\n/ (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);\n}else{\nq=Math.sqrt(-2*Math.log(1-p));\nx=-(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])\n/ ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);\n}\nconst e=0.5*erfc(-x/Math.SQRT2)-p;\nconst u=e*Math.sqrt(2*Math.PI)*Math.exp((x*x)/2);\nreturn x-u/(1+(x*u)/2);\n}\nfunction erfc(x){\nconst z=Math.abs(x);\nconst t=2/(2+z);\nconst ty=4*t-2;\nconst cof=[-1.3026537197817094,6.4196979235649026e-1,1.9476473204185836e-2,\n-9.561514786808631e-3,-9.46595344482036e-4,3.66839497852761e-4,\n4.2523324806907e-5,-2.0278578112534e-5,-1.624290004647e-6,\n1.303655835580e-6,1.5626441722e-8,-8.5238095915e-8,6.529054439e-9,\n5.059343495e-9,-9.91364156e-10,-2.27365122e-10,9.6467911e-11,\n2.394038e-12,-6.886027e-12,8.94487e-13,3.13092e-13,-1.12708e-13,\n3.81e-16,7.106e-15];\nlet dd=0;\nlet dv=0;\nlet tmp;\nfor(let j=cof.length-1;j>0;j--){\ntmp=dv;\ndv=ty*dv-dd+cof[j];\ndd=tmp;\n}\nconst ans=t*Math.exp(-z*z+0.5*(cof[0]+ty*dv)-dd);\nreturn x>=0?ans:2-ans;\n}\nfunction normalCdf(x){\nreturn 0.5*erfc(-x/Math.SQRT2);\n}\nfunction studentT(t,df){\nif(!(df>0)||!Number.isFinite(t))return Number.NaN;\nconst tail=0.5*incompleteBeta(df/2,0.5,df/(df+t*t));\nreturn t>0?1-tail:tail;\n}\nfunction studentTQuantile(p,df){\nif(!(p>0)||!(p<1)||!(df>0))return Number.NaN;\nif(df>1e7)return normalQuantile(p);\nlet lo=-1e4;\nlet hi=1e4;\nlet x=normalQuantile(p);\nconst logBeta=logGamma(df/2)+logGamma(0.5)-logGamma((df+1)/2);\nfor(let i=0;i<60;i++){\nconst cdf=studentT(x,df);\nif(cdf<p)lo=x;else hi=x;\nconst pdf=Math.exp(-((df+1)/2)*Math.log(1+(x*x)/df)-logBeta)\n/ Math.sqrt(df);\nconst step=pdf>0?(cdf-p)/pdf:0;\nif(Math.abs(step)<1e-12)break;\nconst next=x-step;\nx=next>lo&&next<hi&&Number.isFinite(next)?next:(lo+hi)/2;\nif(hi-lo<1e-12)break;\n}\nreturn x;\n}\nfunction gammaSeries(a,x){\nlet ap=a;\nlet sum=1/a;\nlet del=sum;\nfor(let n=0;n<300;n++){\nap+=1;\ndel*=x/ap;\nsum+=del;\nif(Math.abs(del)<Math.abs(sum)*EPS)break;\n}\nreturn sum*Math.exp(-x+a*Math.log(x)-logGamma(a));\n}\nfunction gammaContinuedFraction(a,x){\nlet b=x+1-a;\nlet c=1/TINY;\nlet d=1/b;\nlet h=d;\nfor(let i=1;i<=300;i++){\nconst an=-i*(i-a);\nb+=2;\nd=an*d+b;\nif(Math.abs(d)<TINY)d=TINY;\nc=b+an/c;\nif(Math.abs(c)<TINY)c=TINY;\nd=1/d;\nconst del=d*c;\nh*=del;\nif(Math.abs(del-1)<EPS)break;\n}\nreturn Math.exp(-x+a*Math.log(x)-logGamma(a))*h;\n}\nfunction regularizedGammaP(a,x){\nif(!(a>0)||!(x>=0)||!Number.isFinite(x))return Number.NaN;\nif(x===0)return 0;\nreturn x<a+1?gammaSeries(a,x):1-gammaContinuedFraction(a,x);\n}\nfunction chiSquareCdf(x,df){\nif(!(df>0))return Number.NaN;\nreturn regularizedGammaP(df/2,x/2);\n}\nfunction chiSquareUpperTail(x,df){\nconst cdf=chiSquareCdf(x,df);\nreturn Number.isNaN(cdf)?Number.NaN:Math.min(1,Math.max(0,1-cdf));\n}\n});\n__def(\"packages/core/src/compute/linalg.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"cholesky\",{enumerable:true,get:function(){return cholesky;}});\nObject.defineProperty(__exports,\"choleskySolve\",{enumerable:true,get:function(){return choleskySolve;}});\nObject.defineProperty(__exports,\"choleskyInverse\",{enumerable:true,get:function(){return choleskyInverse;}});\nObject.defineProperty(__exports,\"normalEquations\",{enumerable:true,get:function(){return normalEquations;}});\nObject.defineProperty(__exports,\"matVec\",{enumerable:true,get:function(){return matVec;}});\nObject.defineProperty(__exports,\"quadForm\",{enumerable:true,get:function(){return quadForm;}});\nfunction cholesky(a){\nconst n=a.length;\nconst l=Array.from({length:n},()=>new Array(n).fill(0));\nfor(let i=0;i<n;i++){\nfor(let j=0;j<=i;j++){\nlet sum=a[i][j];\nfor(let k=0;k<j;k++)sum-=l[i][k]*l[j][k];\nif(i===j){\nif(!(sum>0))return null;\nl[i][j]=Math.sqrt(sum);\n}else{\nl[i][j]=sum/l[j][j];\n}\n}\n}\nreturn l;\n}\nfunction choleskySolve(l,b){\nconst n=l.length;\nconst y=new Array(n).fill(0);\nfor(let i=0;i<n;i++){\nlet sum=b[i];\nfor(let k=0;k<i;k++)sum-=l[i][k]*y[k];\ny[i]=sum/l[i][i];\n}\nconst x=new Array(n).fill(0);\nfor(let i=n-1;i>=0;i--){\nlet sum=y[i];\nfor(let k=i+1;k<n;k++)sum-=l[k][i]*x[k];\nx[i]=sum/l[i][i];\n}\nreturn x;\n}\nfunction choleskyInverse(l){\nconst n=l.length;\nconst inv=Array.from({length:n},()=>new Array(n).fill(0));\nfor(let c=0;c<n;c++){\nconst e=new Array(n).fill(0);\ne[c]=1;\nconst col=choleskySolve(l,e);\nfor(let r=0;r<n;r++)inv[r][c]=col[r];\n}\nreturn inv;\n}\nfunction normalEquations(x,y,w){\nconst n=x.length;\nconst p=n?x[0].length:0;\nconst xtwx=Array.from({length:p},()=>new Array(p).fill(0));\nconst xtwy=new Array(p).fill(0);\nfor(let i=0;i<n;i++){\nconst wi=w?w[i]:1;\nconst row=x[i];\nfor(let a=0;a<p;a++){\nconst wxa=wi*row[a];\nxtwy[a]+=wxa*y[i];\nfor(let b=a;b<p;b++)xtwx[a][b]+=wxa*row[b];\n}\n}\nfor(let a=0;a<p;a++)for(let b=0;b<a;b++)xtwx[a][b]=xtwx[b][a];\nreturn{xtwx,xtwy};\n}\nfunction matVec(m,v){\nreturn m.map((row)=>row.reduce((sum,cell,j)=>sum+cell*v[j],0));\n}\nfunction quadForm(x,m){\nlet sum=0;\nfor(let a=0;a<x.length;a++){\nlet inner=0;\nfor(let b=0;b<x.length;b++)inner+=m[a][b]*x[b];\nsum+=x[a]*inner;\n}\nreturn sum;\n}\n});\n__def(\"packages/core/src/compute/sketch.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"Welford\",{enumerable:true,get:function(){return Welford;}});\nObject.defineProperty(__exports,\"Reservoir\",{enumerable:true,get:function(){return Reservoir;}});\nObject.defineProperty(__exports,\"hash32\",{enumerable:true,get:function(){return hash32;}});\nObject.defineProperty(__exports,\"HyperLogLog\",{enumerable:true,get:function(){return HyperLogLog;}});\nObject.defineProperty(__exports,\"SpaceSaving\",{enumerable:true,get:function(){return SpaceSaving;}});\nObject.defineProperty(__exports,\"KLL\",{enumerable:true,get:function(){return KLL;}});\nObject.defineProperty(__exports,\"SKETCH_BOUNDS\",{enumerable:true,get:function(){return SKETCH_BOUNDS;}});\nObject.defineProperty(__exports,\"default\",{enumerable:true,get:function(){return __default;}});\nclass Welford{\n#n=0;\n#mean=0;\n#m2=0;\nstatic get errorBound(){\nreturn Object.freeze({\nkind:'exact',metric:'none',value:0,\nstatement:'mean and variance match a full recompute to float rounding',\n});\n}\nget count(){return this.#n;}\nadd(x){\nif(!Number.isFinite(x))return;\nthis.#n++;\nconst delta=x-this.#mean;\nthis.#mean+=delta/this.#n;\nthis.#m2+=delta*(x-this.#mean);\n}\nmerge(other){\nif(other.#n===0)return;\nif(this.#n===0){this.#n=other.#n;this.#mean=other.#mean;this.#m2=other.#m2;return;}\nconst n=this.#n+other.#n;\nconst delta=other.#mean-this.#mean;\nthis.#mean+=delta*(other.#n/n);\nthis.#m2+=other.#m2+delta*delta*(this.#n*other.#n/n);\nthis.#n=n;\n}\nmean(){return this.#n?this.#mean:null;}\nvariance(){return this.#n>1?this.#m2/(this.#n-1):null;}\nvarianceP(){return this.#n?this.#m2/this.#n:null;}\nstddev(){const v=this.variance();return v===null?null:Math.sqrt(v);}\nstddevP(){const v=this.varianceP();return v===null?null:Math.sqrt(v);}\n}\nclass Reservoir{\n#items=[];\n#seen=0;\n#capacity;\n#rng;\nconstructor(capacity,rng=Math.random){\nif(!(capacity>0))throw new RangeError('reservoir capacity must be positive');\nthis.#capacity=Math.floor(capacity);\nthis.#rng=rng;\n}\nstatic get errorBound(){\nreturn Object.freeze({\nkind:'probabilistic',metric:'none',value:0,\nstatement:'uniform sample: each element included with probability capacity/n; sample statistics are unbiased estimators',\n});\n}\nget seen(){return this.#seen;}\nget size(){return this.#items.length;}\nadd(x){\nif(!Number.isFinite(x))return;\nthis.#seen++;\nif(this.#items.length<this.#capacity){\nthis.#items.push(x);\nreturn;\n}\nconst j=Math.floor(this.#rng()*this.#seen);\nif(j<this.#capacity)this.#items[j]=x;\n}\nsample(){return this.#items.slice();}\nmean(){\nif(!this.#items.length)return null;\nlet s=0;\nfor(const v of this.#items)s+=v;\nreturn s/this.#items.length;\n}\nquantile(p){\nconst n=this.#items.length;\nif(!n)return null;\nconst sorted=this.#items.slice().sort((a,b)=>a-b);\nif(n===1)return sorted[0];\nconst h=(n-1)*Math.min(1,Math.max(0,p));\nconst lo=Math.floor(h);\nconst hi=Math.ceil(h);\nreturn lo===hi?sorted[lo]:sorted[lo]+(h-lo)*(sorted[hi]-sorted[lo]);\n}\n}\nfunction fmix32(h){\nh^=h>>>16;\nh=Math.imul(h,0x85ebca6b);\nh^=h>>>13;\nh=Math.imul(h,0xc2b2ae35);\nh^=h>>>15;\nreturn h>>>0;\n}\nfunction hash32(v){\nif(typeof v==='number'){\nconst buf=new DataView(new ArrayBuffer(8));\nbuf.setFloat64(0,v===0?0:v);\nreturn fmix32(buf.getUint32(0)^buf.getUint32(4));\n}\nconst s=typeof v==='string'?v:String(v);\nlet h=0x811c9dc5;\nfor(let i=0;i<s.length;i++){\nh^=s.charCodeAt(i);\nh=Math.imul(h,0x01000193);\n}\nreturn fmix32(h);\n}\nclass HyperLogLog{\n#p;\n#m;\n#registers;\nconstructor(precision=14){\nconst p=Math.floor(precision);\nif(p<4||p>16)throw new RangeError('HLL precision must be 4..16');\nthis.#p=p;\nthis.#m=1<<p;\nthis.#registers=new Uint8Array(this.#m);\n}\nstatic errorBoundFor(precision=14){\nconst m=1<<Math.floor(precision);\nconst rse=1.04/Math.sqrt(m);\nreturn Object.freeze({\nkind:'probabilistic',metric:'relative',value:rse,\nstatement:`distinct count within ~${(rse*100).toFixed(2)}% relative standard error (m=${m} buckets)`,\n});\n}\nerrorBound(){return HyperLogLog.errorBoundFor(this.#p);}\nadd(v){\nconst h=hash32(v);\nconst idx=h&(this.#m-1);\nconst rest=(h>>>this.#p)|(1<<(32-this.#p));\nlet rank=1;\nlet x=rest;\nwhile((x&1)===0){rank++;x>>>=1;}\nif(rank>this.#registers[idx])this.#registers[idx]=rank;\n}\ncount(){\nconst m=this.#m;\nconst q=32-this.#p;\nconst hist=new Float64Array(q+2);\nfor(let i=0;i<m;i++)hist[this.#registers[i]]++;\nlet z=m*tau(1-hist[q+1]/m);\nfor(let k=q;k>=1;k--)z=0.5*(z+hist[k]);\nz+=m*sigma(hist[0]/m);\nconst estimate=(ERTL_ALPHA_INF*m*m)/z;\nreturn Math.round(estimate);\n}\n}\nconst ERTL_ALPHA_INF=0.5/Math.log(2);\nfunction sigma(x){\nif(x===1)return Infinity;\nlet y=1;\nlet z=x;\nlet prev;\ndo{\nx*=x;\nprev=z;\nz+=x*y;\ny+=y;\n}while(z!==prev);\nreturn z;\n}\nfunction tau(x){\nif(x===0||x===1)return 0;\nlet y=1;\nlet z=1-x;\nlet prev;\ndo{\nx=Math.sqrt(x);\nprev=z;\ny*=0.5;\nz-=(1-x)**2*y;\n}while(z!==prev);\nreturn z/3;\n}\nclass SpaceSaving{\n#counters=new Map();\n#capacity;\n#n=0;\nconstructor(capacity){\nif(!(capacity>0))throw new RangeError('Space-Saving capacity must be positive');\nthis.#capacity=Math.floor(capacity);\n}\nerrorBoundFor(n){\nconst value=n/this.#capacity;\nreturn Object.freeze({\nkind:'deterministic',metric:'absolute',value,\nstatement:`each count overestimates the truth by at most N/m = ${value.toFixed(2)} (N=${n}, m=${this.#capacity})`,\n});\n}\nget seen(){return this.#n;}\nadd(item){\nthis.#n++;\nconst existing=this.#counters.get(item);\nif(existing){existing.count++;return;}\nif(this.#counters.size<this.#capacity){\nthis.#counters.set(item,{count:1,error:0});\nreturn;\n}\nlet minItem;\nlet minCount=Infinity;\nfor(const[k,v]of this.#counters){\nif(v.count<minCount){minCount=v.count;minItem=k;}\n}\nthis.#counters.delete(minItem);\nthis.#counters.set(item,{count:minCount+1,error:minCount});\n}\ntop(k=this.#capacity){\nconst all=[...this.#counters.entries()]\n.map(([item,v])=>({item,count:v.count,error:v.error}))\n.sort((a,b)=>b.count-a.count);\nreturn all.slice(0,Math.max(0,Math.floor(k)));\n}\n}\nclass KLL{\n#k;\n#levels=[[]];\n#n=0;\n#rng;\n#capacityFactor;\nconstructor(k=200,rng=Math.random){\nthis.#k=Math.max(8,Math.floor(k));\nthis.#rng=rng;\nthis.#capacityFactor=2/3;\n}\nstatic errorBoundFor(k=200){\nconst eps=1/Math.max(8,Math.floor(k));\nreturn Object.freeze({\nkind:'probabilistic',metric:'rank',value:eps,\nstatement:`queried quantile's true rank within ~${(eps*100).toFixed(2)}% of N of the requested rank (k=${k})`,\n});\n}\nerrorBound(){return KLL.errorBoundFor(this.#k);}\nget count(){return this.#n;}\n#levelCapacity(height){\nconst top=this.#levels.length-1;\nconst depthFromTop=top-height;\nconst cap=Math.ceil(this.#k*this.#capacityFactor**depthFromTop);\nreturn Math.max(2,cap);\n}\nadd(x){\nif(!Number.isFinite(x))return;\nthis.#n++;\nthis.#levels[0].push(x);\nif(this.#levels[0].length>=this.#levelCapacity(0))this.#compact(0);\n}\n#compact(height){\nconst level=this.#levels[height];\nlevel.sort((a,b)=>a-b);\nif(height+1>=this.#levels.length)this.#levels.push([]);\nconst up=this.#levels[height+1];\nconst offset=this.#rng()<0.5?0:1;\nfor(let i=offset;i<level.length;i+=2)up.push(level[i]);\nthis.#levels[height]=[];\nfor(let h=0;h<this.#levels.length;h++){\nif(this.#levels[h].length>=this.#levelCapacity(h)){this.#compact(h);return;}\n}\n}\n#weighted(){\nconst out=[];\nfor(let h=0;h<this.#levels.length;h++){\nconst w=1<<h;\nfor(const v of this.#levels[h])out.push({v,w});\n}\nreturn out;\n}\nquantile(p){\nconst items=this.#weighted();\nif(!items.length)return null;\nitems.sort((a,b)=>a.v-b.v);\nlet totalW=0;\nfor(const it of items)totalW+=it.w;\nconst target=Math.min(1,Math.max(0,p))*totalW;\nlet cum=0;\nfor(const it of items){\ncum+=it.w;\nif(cum>=target)return it.v;\n}\nreturn items[items.length-1].v;\n}\nrank(x){\nlet cum=0;\nfor(let h=0;h<this.#levels.length;h++){\nconst w=1<<h;\nfor(const v of this.#levels[h])if(v<=x)cum+=w;\n}\nreturn cum;\n}\n}\nconst SKETCH_BOUNDS=Object.freeze({\ndistinct:HyperLogLog.errorBoundFor(14),\nmedian:KLL.errorBoundFor(200),\np25:KLL.errorBoundFor(200),\np75:KLL.errorBoundFor(200),\np90:KLL.errorBoundFor(200),\np95:KLL.errorBoundFor(200),\np99:KLL.errorBoundFor(200),\niqr:KLL.errorBoundFor(200),\ntopK:Object.freeze({\nkind:'deterministic',metric:'absolute',value:0,\nstatement:'each count overestimates the truth by at most N/m; top-K exact when the K-th item exceeds N/m',\n}),\n});\nconst __default={\nWelford,Reservoir,HyperLogLog,SpaceSaving,KLL,hash32,SKETCH_BOUNDS,\n};\n});\n__def(\"packages/core/src/compute/statistics.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"KENDALL_LIMIT\",{enumerable:true,get:function(){return KENDALL_LIMIT;}});\nObject.defineProperty(__exports,\"MAINTENANCE\",{enumerable:true,get:function(){return MAINTENANCE;}});\nObject.defineProperty(__exports,\"APPROXIMATE\",{enumerable:true,get:function(){return APPROXIMATE;}});\nObject.defineProperty(__exports,\"maintenanceOf\",{enumerable:true,get:function(){return maintenanceOf;}});\nObject.defineProperty(__exports,\"numbers\",{enumerable:true,get:function(){return numbers;}});\nObject.defineProperty(__exports,\"frequencies\",{enumerable:true,get:function(){return frequencies;}});\nObject.defineProperty(__exports,\"herfindahl\",{enumerable:true,get:function(){return herfindahl;}});\nObject.defineProperty(__exports,\"entropy\",{enumerable:true,get:function(){return entropy;}});\nObject.defineProperty(__exports,\"evenness\",{enumerable:true,get:function(){return evenness;}});\nObject.defineProperty(__exports,\"topShare\",{enumerable:true,get:function(){return topShare;}});\nObject.defineProperty(__exports,\"gini\",{enumerable:true,get:function(){return gini;}});\nObject.defineProperty(__exports,\"moments\",{enumerable:true,get:function(){return moments;}});\nObject.defineProperty(__exports,\"quantileSorted\",{enumerable:true,get:function(){return quantileSorted;}});\nObject.defineProperty(__exports,\"quantile\",{enumerable:true,get:function(){return quantile;}});\nObject.defineProperty(__exports,\"STAT_FNS\",{enumerable:true,get:function(){return STAT_FNS;}});\nObject.defineProperty(__exports,\"STAT_LABELS\",{enumerable:true,get:function(){return STAT_LABELS;}});\nObject.defineProperty(__exports,\"weightedAverage\",{enumerable:true,get:function(){return weightedAverage;}});\nObject.defineProperty(__exports,\"extremeRow\",{enumerable:true,get:function(){return extremeRow;}});\nObject.defineProperty(__exports,\"correlation\",{enumerable:true,get:function(){return correlation;}});\nObject.defineProperty(__exports,\"trimmedMean\",{enumerable:true,get:function(){return trimmedMean;}});\nObject.defineProperty(__exports,\"winsorizedMean\",{enumerable:true,get:function(){return winsorizedMean;}});\nObject.defineProperty(__exports,\"modifiedZOutliers\",{enumerable:true,get:function(){return modifiedZOutliers;}});\nObject.defineProperty(__exports,\"jarqueBera\",{enumerable:true,get:function(){return jarqueBera;}});\nObject.defineProperty(__exports,\"weightedQuantile\",{enumerable:true,get:function(){return weightedQuantile;}});\nObject.defineProperty(__exports,\"pairs\",{enumerable:true,get:function(){return pairs;}});\nObject.defineProperty(__exports,\"covariance\",{enumerable:true,get:function(){return covariance;}});\nObject.defineProperty(__exports,\"regression\",{enumerable:true,get:function(){return regression;}});\nObject.defineProperty(__exports,\"fitLinearModel\",{enumerable:true,get:function(){return fitLinearModel;}});\nObject.defineProperty(__exports,\"ADF_CT_CRITICAL\",{enumerable:true,get:function(){return ADF_CT_CRITICAL;}});\nObject.defineProperty(__exports,\"augmentedDickeyFuller\",{enumerable:true,get:function(){return augmentedDickeyFuller;}});\nObject.defineProperty(__exports,\"autocorrelations\",{enumerable:true,get:function(){return autocorrelations;}});\nObject.defineProperty(__exports,\"spearman\",{enumerable:true,get:function(){return spearman;}});\nObject.defineProperty(__exports,\"kendall\",{enumerable:true,get:function(){return kendall;}});\nObject.defineProperty(__exports,\"seriesStats\",{enumerable:true,get:function(){return seriesStats;}});\nObject.defineProperty(__exports,\"D2_N2\",{enumerable:true,get:function(){return D2_N2;}});\nObject.defineProperty(__exports,\"D4_N2\",{enumerable:true,get:function(){return D4_N2;}});\nObject.defineProperty(__exports,\"movingRanges\",{enumerable:true,get:function(){return movingRanges;}});\nObject.defineProperty(__exports,\"withinSigma\",{enumerable:true,get:function(){return withinSigma;}});\nObject.defineProperty(__exports,\"capability\",{enumerable:true,get:function(){return capability;}});\nObject.defineProperty(__exports,\"controlLimits\",{enumerable:true,get:function(){return controlLimits;}});\nObject.defineProperty(__exports,\"westernElectricViolations\",{enumerable:true,get:function(){return westernElectricViolations;}});\nObject.defineProperty(__exports,\"nelsonViolations\",{enumerable:true,get:function(){return nelsonViolations;}});\nObject.defineProperty(__exports,\"CONTROL_RULE_SETS\",{enumerable:true,get:function(){return CONTROL_RULE_SETS;}});\nObject.defineProperty(__exports,\"controlViolations\",{enumerable:true,get:function(){return controlViolations;}});\nObject.defineProperty(__exports,\"countOutside\",{enumerable:true,get:function(){return countOutside;}});\nObject.defineProperty(__exports,\"histogram\",{enumerable:true,get:function(){return histogram;}});\nObject.defineProperty(__exports,\"DEFAULT_CONFIDENCE\",{enumerable:true,get:function(){return DEFAULT_CONFIDENCE;}});\nObject.defineProperty(__exports,\"meanInterval\",{enumerable:true,get:function(){return meanInterval;}});\nObject.defineProperty(__exports,\"proportionInterval\",{enumerable:true,get:function(){return proportionInterval;}});\nObject.defineProperty(__exports,\"slopeInterval\",{enumerable:true,get:function(){return slopeInterval;}});\nObject.defineProperty(__exports,\"capabilityInterval\",{enumerable:true,get:function(){return capabilityInterval;}});\nObject.defineProperty(__exports,\"standardizedMeanDifference\",{enumerable:true,get:function(){return standardizedMeanDifference;}});\nObject.defineProperty(__exports,\"normalTotalVariation\",{enumerable:true,get:function(){return normalTotalVariation;}});\nObject.defineProperty(__exports,\"frequencyMap\",{enumerable:true,get:function(){return frequencyMap;}});\nObject.defineProperty(__exports,\"categoricalDistance\",{enumerable:true,get:function(){return categoricalDistance;}});\nObject.defineProperty(__exports,\"SUBSET_RELIABILITY_FLOOR\",{enumerable:true,get:function(){return SUBSET_RELIABILITY_FLOOR;}});\nObject.defineProperty(__exports,\"compareColumn\",{enumerable:true,get:function(){return compareColumn;}});\nObject.defineProperty(__exports,\"isNumericColumn\",{enumerable:true,get:function(){return isNumericColumn;}});\nObject.defineProperty(__exports,\"populationRead\",{enumerable:true,get:function(){return populationRead;}});\nconst __m0=__req(\"packages/core/src/compute/handle.js\");\nconst presenceReader=__m0[\"presenceReader\"];\nconst valueReader=__m0[\"valueReader\"];\nconst __m1=__req(\"packages/core/src/compute/special.js\");\nconst studentTQuantile=__m1[\"studentTQuantile\"];\nconst studentT=__m1[\"studentT\"];\nconst normalQuantile=__m1[\"normalQuantile\"];\nconst normalCdf=__m1[\"normalCdf\"];\nconst chiSquareUpperTail=__m1[\"chiSquareUpperTail\"];\nconst __m2=__req(\"packages/core/src/compute/linalg.js\");\nconst cholesky=__m2[\"cholesky\"];\nconst choleskySolve=__m2[\"choleskySolve\"];\nconst choleskyInverse=__m2[\"choleskyInverse\"];\nconst normalEquations=__m2[\"normalEquations\"];\nconst quadForm=__m2[\"quadForm\"];\nconst __m3=__req(\"packages/core/src/compute/sketch.js\");\nconst SKETCH_BOUNDS=__m3[\"SKETCH_BOUNDS\"];\nconst KENDALL_LIMIT=5000;\nconst MAINTENANCE=Object.freeze({\nvariance:'rescan',\nvarianceP:'rescan',\nstddev:'rescan',\nstddevP:'rescan',\nsumSquares:'rescan',\nweightedAvg:'rescan',\nmedian:'rescan',\np25:'rescan',\np75:'rescan',\np90:'rescan',\np95:'rescan',\np99:'rescan',\niqr:'rescan',\nmode:'rescan',\ndistinct:'rescan',\nrange:'rescan',\nskewness:'rescan',\nkurtosis:'rescan',\ngeomean:'rescan',\nharmean:'rescan',\nmad:'rescan',\nargmin:'rescan',\nargmax:'rescan',\nhhi:'rescan',\nentropy:'rescan',\nevenness:'rescan',\ntop3Share:'rescan',\ntop10Share:'rescan',\ngini:'rescan',\ntrimmedMean:'rescan',\nwinsorizedMean:'rescan',\nrobustOutliers:'rescan',\njarqueBera:'rescan',\npassRate:'rescan',\nfailureCount:'rescan',\n});\nconst APPROXIMATE=Object.freeze({\ndistinct:Object.freeze({sketch:'HyperLogLog',bound:SKETCH_BOUNDS.distinct}),\nmedian:Object.freeze({sketch:'KLL',bound:SKETCH_BOUNDS.median}),\np25:Object.freeze({sketch:'KLL',bound:SKETCH_BOUNDS.p25}),\np75:Object.freeze({sketch:'KLL',bound:SKETCH_BOUNDS.p75}),\np90:Object.freeze({sketch:'KLL',bound:SKETCH_BOUNDS.p90}),\np95:Object.freeze({sketch:'KLL',bound:SKETCH_BOUNDS.p95}),\np99:Object.freeze({sketch:'KLL',bound:SKETCH_BOUNDS.p99}),\niqr:Object.freeze({sketch:'KLL',bound:SKETCH_BOUNDS.iqr}),\ntop3Share:Object.freeze({sketch:'SpaceSaving',bound:SKETCH_BOUNDS.topK}),\ntop10Share:Object.freeze({sketch:'SpaceSaving',bound:SKETCH_BOUNDS.topK}),\n});\nfunction maintenanceOf(fn){\nconst exact=fn==='sum'||fn==='avg'||fn==='countValues'||fn==='min'||fn==='max'\n?'maintained'\n:(Object.prototype.hasOwnProperty.call(MAINTENANCE,fn)?MAINTENANCE[fn]:null);\nconst approximate=Object.prototype.hasOwnProperty.call(APPROXIMATE,fn)?APPROXIMATE[fn]:null;\nreturn{stat:fn,exact,approximate};\n}\nfunction numbers(handle,indices){\nconst n=indices.length;\nconst out=new Float64Array(n);\nlet count=0;\nconst numeric=handle&&(handle.kind==='float64'||handle.kind==='int32');\nif(numeric){\nconst values=handle.values;\nconst present=presenceReader(handle);\nfor(let i=0;i<n;i++){\nconst row=indices[i];\nif(present&&present(row)!==1)continue;\nconst v=values[row];\nif(Number.isNaN(v))continue;\nout[count++]=v;\n}\nreturn out.subarray(0,count);\n}\nconst read=valueReader(handle);\nfor(let i=0;i<n;i++){\nconst raw=read(indices[i]);\nif(raw===null||raw===undefined||raw==='')continue;\nconst v=typeof raw==='number'?raw:Number(raw);\nif(!Number.isFinite(v))continue;\nout[count++]=v;\n}\nreturn out.subarray(0,count);\n}\nfunction frequencies(handle,indices){\nconst seen=new Map();\nconst read=valueReader(handle);\nlet total=0;\nfor(let i=0;i<indices.length;i++){\nconst raw=read(indices[i]);\nif(raw===null||raw===undefined||raw==='')continue;\nif(typeof raw==='number'&&Number.isNaN(raw))continue;\nconst key=typeof raw==='object'?String(raw):raw;\nseen.set(key,(seen.get(key)||0)+1);\ntotal++;\n}\nconst counts=[...seen.values()].sort((a,b)=>b-a);\nreturn{counts,total,distinct:counts.length};\n}\nfunction sharesOf(freq){\nreturn freq.total>0?freq.counts.map((c)=>c/freq.total):[];\n}\nfunction herfindahl(handle,indices){\nconst freq=frequencies(handle,indices);\nif(!freq.total)return null;\nlet sum=0;\nfor(const share of sharesOf(freq))sum+=share*share;\nreturn sum;\n}\nfunction entropy(handle,indices){\nconst freq=frequencies(handle,indices);\nif(!freq.total)return null;\nlet sum=0;\nfor(const share of sharesOf(freq))if(share>0)sum-=share*Math.log2(share);\nreturn sum;\n}\nfunction evenness(handle,indices){\nconst freq=frequencies(handle,indices);\nif(!freq.total||freq.distinct<2)return freq.total?1:null;\nlet sum=0;\nfor(const share of sharesOf(freq))if(share>0)sum-=share*Math.log2(share);\nreturn sum/Math.log2(freq.distinct);\n}\nfunction topShare(handle,indices,n=3){\nconst freq=frequencies(handle,indices);\nif(!freq.total)return null;\nconst take=Math.max(1,Math.floor(n));\nlet held=0;\nfor(let i=0;i<Math.min(take,freq.counts.length);i++)held+=freq.counts[i];\nreturn held/freq.total;\n}\nfunction gini(handle,indices){\nconst values=numbers(handle,indices);\nconst n=values.length;\nif(!n)return null;\nconst sorted=values.slice().sort();\nif(sorted[0]<0)return null;\nlet total=0;\nlet weighted=0;\nfor(let i=0;i<n;i++){\ntotal+=sorted[i];\nweighted+=(i+1)*sorted[i];\n}\nif(total===0)return 0;\nreturn(2*weighted)/(n*total)-(n+1)/n;\n}\nfunction moments(values){\nlet n=0;\nlet mean=0;\nlet m2=0;\nfor(let i=0;i<values.length;i++){\nconst x=values[i];\nn++;\nconst delta=x-mean;\nmean+=delta/n;\nm2+=delta*(x-mean);\n}\nreturn{n,mean,m2};\n}\nfunction quantileSorted(sorted,p){\nconst n=sorted.length;\nif(!n)return NaN;\nif(n===1)return sorted[0];\nconst h=(n-1)*Math.min(1,Math.max(0,p));\nconst lo=Math.floor(h);\nconst hi=Math.ceil(h);\nif(lo===hi)return sorted[lo];\nreturn sorted[lo]+(h-lo)*(sorted[hi]-sorted[lo]);\n}\nfunction quantile(values,p){\nif(!values.length)return NaN;\nconst sorted=values.slice().sort();\nreturn quantileSorted(sorted,p);\n}\nfunction specTally(handle,indices){\nconst read=valueReader(handle);\nlet pass=0;\nlet fail=0;\nlet warn=0;\nfor(let k=0;k<indices.length;k++){\nconst raw=read(indices[k]);\nif(raw===null||raw===undefined||raw==='')continue;\nconst token=String(raw).toUpperCase();\nif(token==='PASS')pass++;\nelse if(token==='FAIL')fail++;\nelse if(token==='WARN')warn++;\n}\nreturn{pass:pass+warn,fail,warn,judged:pass+warn+fail};\n}\nconst STAT_FNS=Object.freeze({\nhhi:(h,i)=>herfindahl(h,i),\nentropy:(h,i)=>entropy(h,i),\nevenness:(h,i)=>evenness(h,i),\ntop3Share:(h,i)=>topShare(h,i,3),\ntop10Share:(h,i)=>topShare(h,i,10),\ngini:(h,i)=>gini(h,i),\ntrimmedMean:(h,i)=>trimmedMean(numbers(h,i),0.1),\nwinsorizedMean:(h,i)=>winsorizedMean(numbers(h,i),0.1),\nrobustOutliers:(h,i)=>modifiedZOutliers(numbers(h,i),3.5),\njarqueBera:(h,i)=>jarqueBera(numbers(h,i)),\nvariance:(h,i)=>{\nconst{n,m2}=moments(numbers(h,i));\nreturn n>1?m2/(n-1):null;\n},\nvarianceP:(h,i)=>{\nconst{n,m2}=moments(numbers(h,i));\nreturn n>0?m2/n:null;\n},\nstddev:(h,i)=>{\nconst{n,m2}=moments(numbers(h,i));\nreturn n>1?Math.sqrt(m2/(n-1)):null;\n},\nstddevP:(h,i)=>{\nconst{n,m2}=moments(numbers(h,i));\nreturn n>0?Math.sqrt(m2/n):null;\n},\nmedian:(h,i)=>{\nconst values=numbers(h,i);\nreturn values.length?quantile(values,0.5):null;\n},\np25:(h,i)=>{\nconst values=numbers(h,i);\nreturn values.length?quantile(values,0.25):null;\n},\np75:(h,i)=>{\nconst values=numbers(h,i);\nreturn values.length?quantile(values,0.75):null;\n},\np90:(h,i)=>{\nconst values=numbers(h,i);\nreturn values.length?quantile(values,0.9):null;\n},\np95:(h,i)=>{\nconst values=numbers(h,i);\nreturn values.length?quantile(values,0.95):null;\n},\np99:(h,i)=>{\nconst values=numbers(h,i);\nreturn values.length?quantile(values,0.99):null;\n},\niqr:(h,i)=>{\nconst values=numbers(h,i);\nif(!values.length)return null;\nconst sorted=values.slice().sort();\nreturn quantileSorted(sorted,0.75)-quantileSorted(sorted,0.25);\n},\nmad:(h,i)=>{\nconst values=numbers(h,i);\nif(!values.length)return null;\nconst middle=quantile(values,0.5);\nconst deviations=new Float64Array(values.length);\nfor(let k=0;k<values.length;k++)deviations[k]=Math.abs(values[k]-middle);\nreturn quantile(deviations,0.5);\n},\nrange:(h,i)=>{\nconst values=numbers(h,i);\nif(!values.length)return null;\nlet lo=Infinity;\nlet hi=-Infinity;\nfor(let k=0;k<values.length;k++){\nif(values[k]<lo)lo=values[k];\nif(values[k]>hi)hi=values[k];\n}\nreturn hi-lo;\n},\ndistinct:(h,i)=>{\nconst read=valueReader(h);\nconst seen=new Set();\nfor(let k=0;k<i.length;k++){\nconst v=read(i[k]);\nif(v===null||v===undefined||v==='')continue;\nseen.add(v instanceof Date?v.getTime():v);\n}\nreturn seen.size;\n},\nmode:(h,i)=>{\nconst read=valueReader(h);\nconst counts=new Map();\nfor(let k=0;k<i.length;k++){\nconst v=read(i[k]);\nif(v===null||v===undefined||v==='')continue;\nconst id=v instanceof Date?v.getTime():v;\ncounts.set(id,(counts.get(id)||0)+1);\n}\nlet best=null;\nlet most=1;\nfor(const[value,times]of counts){\nif(times>most){\nmost=times;\nbest=value;\n}\n}\nreturn best;\n},\nskewness:(h,i)=>{\nconst values=numbers(h,i);\nconst{n,mean,m2}=moments(values);\nif(n<3||m2<=0)return null;\nconst sd=Math.sqrt(m2/(n-1));\nlet sum=0;\nfor(let k=0;k<values.length;k++)sum+=((values[k]-mean)/sd)**3;\nreturn(n/((n-1)*(n-2)))*sum;\n},\nkurtosis:(h,i)=>{\nconst values=numbers(h,i);\nconst{n,mean,m2}=moments(values);\nif(n<4||m2<=0)return null;\nconst sd=Math.sqrt(m2/(n-1));\nlet sum=0;\nfor(let k=0;k<values.length;k++)sum+=((values[k]-mean)/sd)**4;\nconst a=(n*(n+1))/((n-1)*(n-2)*(n-3));\nconst b=(3*(n-1)**2)/((n-2)*(n-3));\nreturn a*sum-b;\n},\ngeomean:(h,i)=>{\nconst values=numbers(h,i);\nif(!values.length)return null;\nlet sum=0;\nfor(let k=0;k<values.length;k++){\nif(values[k]<=0)return null;\nsum+=Math.log(values[k]);\n}\nreturn Math.exp(sum/values.length);\n},\nharmean:(h,i)=>{\nconst values=numbers(h,i);\nif(!values.length)return null;\nlet sum=0;\nfor(let k=0;k<values.length;k++){\nif(values[k]===0)return null;\nsum+=1/values[k];\n}\nreturn values.length/sum;\n},\nsumSquares:(h,i)=>{\nconst values=numbers(h,i);\nlet sum=0;\nfor(let k=0;k<values.length;k++)sum+=values[k]*values[k];\nreturn sum;\n},\npassRate:(h,i)=>{\nconst{pass,judged}=specTally(h,i);\nreturn judged?pass/judged:null;\n},\nfailureCount:(h,i)=>specTally(h,i).fail,\n});\nconst STAT_LABELS=Object.freeze({\nhhi:'Concentration (HHI)',\nentropy:'Entropy',\nevenness:'Evenness',\ntop3Share:'Top 3 share',\ntop10Share:'Top 10 share',\ngini:'Gini coefficient',\ntrimmedMean:'Trimmed mean',\nwinsorizedMean:'Winsorized mean',\nrobustOutliers:'Outliers (robust)',\njarqueBera:'Jarque–Bera',\nmedian:'Median',\np25:'25th percentile',\np75:'75th percentile',\np90:'90th percentile',\np95:'95th percentile',\np99:'99th percentile',\niqr:'Interquartile range',\nmad:'Median absolute deviation',\nvariance:'Variance',\nvarianceP:'Variance (population)',\nstddev:'Standard deviation',\nstddevP:'Standard deviation (population)',\nrange:'Range',\ndistinct:'Distinct',\nmode:'Mode',\nskewness:'Skewness',\nkurtosis:'Kurtosis',\ngeomean:'Geometric mean',\nharmean:'Harmonic mean',\nsumSquares:'Sum of squares',\nweightedAvg:'Weighted average',\nargmin:'Lowest by',\nargmax:'Highest by',\npassRate:'Pass rate',\nfailureCount:'Failures',\n});\nfunction weightedAverage(handle,weights,indices){\nconst readValue=valueReader(handle);\nconst readWeight=valueReader(weights);\nlet top=0;\nlet bottom=0;\nfor(let i=0;i<indices.length;i++){\nconst row=indices[i];\nconst value=Number(readValue(row));\nconst weight=Number(readWeight(row));\nif(!Number.isFinite(value)||!Number.isFinite(weight))continue;\ntop+=value*weight;\nbottom+=weight;\n}\nreturn bottom===0?null:top/bottom;\n}\nfunction extremeRow(handle,indices,largest){\nconst read=valueReader(handle);\nlet best=null;\nlet bestValue=largest?-Infinity:Infinity;\nfor(let i=0;i<indices.length;i++){\nconst row=indices[i];\nconst value=Number(read(row));\nif(!Number.isFinite(value))continue;\nif(largest?value>bestValue:value<bestValue){\nbestValue=value;\nbest=row;\n}\n}\nreturn best;\n}\nfunction correlation(a,b,indices){\nconst readA=valueReader(a);\nconst readB=valueReader(b);\nlet n=0;\nlet sx=0;\nlet sy=0;\nlet sxx=0;\nlet syy=0;\nlet sxy=0;\nfor(let i=0;i<indices.length;i++){\nconst row=indices[i];\nconst x=Number(readA(row));\nconst y=Number(readB(row));\nif(!Number.isFinite(x)||!Number.isFinite(y))continue;\nn++;\nsx+=x;\nsy+=y;\nsxx+=x*x;\nsyy+=y*y;\nsxy+=x*y;\n}\nif(n<2)return null;\nconst top=n*sxy-sx*sy;\nconst bottom=Math.sqrt((n*sxx-sx*sx)*(n*syy-sy*sy));\nif(bottom===0)return null;\nconst r=top/bottom;\nreturn Math.max(-1,Math.min(1,r));\n}\nfunction trimmedMean(values,share=0.1){\nconst n=values.length;\nif(!n)return null;\nconst sorted=Array.from(values).sort((a,b)=>a-b);\nconst cut=Math.floor(n*Math.min(0.49,Math.max(0,share)));\nconst kept=sorted.slice(cut,n-cut);\nif(!kept.length)return quantileSorted(sorted,0.5);\nlet sum=0;\nfor(const v of kept)sum+=v;\nreturn sum/kept.length;\n}\nfunction winsorizedMean(values,share=0.1){\nconst n=values.length;\nif(!n)return null;\nconst sorted=Array.from(values).sort((a,b)=>a-b);\nconst cut=Math.floor(n*Math.min(0.49,Math.max(0,share)));\nconst low=sorted[cut];\nconst high=sorted[n-1-cut];\nlet sum=0;\nfor(const v of sorted)sum+=Math.min(high,Math.max(low,v));\nreturn sum/n;\n}\nfunction modifiedZOutliers(values,threshold=3.5){\nconst n=values.length;\nif(!n)return null;\nconst sorted=Array.from(values).sort((a,b)=>a-b);\nconst middle=quantileSorted(sorted,0.5);\nconst deviations=sorted.map((v)=>Math.abs(v-middle)).sort((a,b)=>a-b);\nconst mad=quantileSorted(deviations,0.5);\nif(mad===0)return null;\nlet count=0;\nfor(const v of sorted)if(Math.abs((0.6745*(v-middle))/mad)>threshold)count++;\nreturn count;\n}\nfunction jarqueBera(values){\nconst n=values.length;\nif(n<8)return null;\nlet mean=0;\nfor(const v of values)mean+=v;\nmean/=n;\nlet m2=0;\nlet m3=0;\nlet m4=0;\nfor(const v of values){\nconst d=v-mean;\nm2+=d*d;\nm3+=d*d*d;\nm4+=d*d*d*d;\n}\nm2/=n;\nm3/=n;\nm4/=n;\nif(m2===0)return null;\nconst skew=m3/m2**1.5;\nconst excess=m4/(m2*m2)-3;\nreturn(n/6)*(skew*skew+(excess*excess)/4);\n}\nfunction weightedQuantile(values,weights,p){\nconst paired=[];\nlet total=0;\nfor(let i=0;i<values.length;i++){\nconst v=Number(values[i]);\nconst w=Number(weights[i]);\nif(!Number.isFinite(v)||!Number.isFinite(w)||w<=0)continue;\npaired.push([v,w]);\ntotal+=w;\n}\nif(!paired.length||total<=0)return null;\npaired.sort((a,b)=>a[0]-b[0]);\nif(paired.length===1)return paired[0][0];\nconst at=[];\nlet seen=0;\nfor(const[,w]of paired){\nat.push((seen+w/2)/total);\nseen+=w;\n}\nconst target=Math.max(0,Math.min(1,p));\nif(target<=at[0])return paired[0][0];\nif(target>=at[at.length-1])return paired[paired.length-1][0];\nfor(let i=1;i<at.length;i++){\nif(target>at[i])continue;\nconst span=at[i]-at[i-1];\nconst within=span>0?(target-at[i-1])/span:0;\nreturn paired[i-1][0]+(paired[i][0]-paired[i-1][0])*within;\n}\nreturn paired[paired.length-1][0];\n}\nfunction pairs(a,b,indices){\nconst readA=valueReader(a);\nconst readB=valueReader(b);\nconst xs=new Float64Array(indices.length);\nconst ys=new Float64Array(indices.length);\nlet n=0;\nfor(let i=0;i<indices.length;i++){\nconst row=indices[i];\nconst x=Number(readA(row));\nconst y=Number(readB(row));\nif(!Number.isFinite(x)||!Number.isFinite(y))continue;\nxs[n]=x;\nys[n]=y;\nn++;\n}\nreturn{xs:xs.subarray(0,n),ys:ys.subarray(0,n),n};\n}\nfunction covariance(a,b,indices,population=false){\nconst{xs,ys,n}=pairs(a,b,indices);\nif(n<2)return null;\nlet mx=0;\nlet my=0;\nfor(let i=0;i<n;i++){mx+=xs[i];my+=ys[i];}\nmx/=n;\nmy/=n;\nlet sum=0;\nfor(let i=0;i<n;i++)sum+=(xs[i]-mx)*(ys[i]-my);\nreturn sum/(population?n:n-1);\n}\nfunction regression(a,b,indices){\nconst{xs,ys,n}=pairs(a,b,indices);\nif(n<2)return null;\nlet mx=0;\nlet my=0;\nfor(let i=0;i<n;i++){mx+=xs[i];my+=ys[i];}\nmx/=n;\nmy/=n;\nlet sxx=0;\nlet sxy=0;\nlet syy=0;\nfor(let i=0;i<n;i++){\nconst dx=xs[i]-mx;\nconst dy=ys[i]-my;\nsxx+=dx*dx;\nsxy+=dx*dy;\nsyy+=dy*dy;\n}\nif(sxx===0)return null;\nconst slope=sxy/sxx;\nconst intercept=my-slope*mx;\nconst r2=syy===0?1:Math.max(0,Math.min(1,(sxy*sxy)/(sxx*syy)));\nconst residual=Math.max(0,syy-slope*sxy);\nconst stdError=n>2?Math.sqrt(residual/(n-2)/sxx):0;\nreturn{slope,intercept,r2,stdError,n};\n}\nconst SUPPORTED_METHODS=new Set(['ols','wls','robust']);\nconst DEFERRED_METHODS=new Set(['quantile']);\nconst OUT_OF_SCOPE_METHODS=new Set(['ridge','lasso','elasticnet','mixed','gls']);\nconst HUBER_C=1.345;\nfunction solveWls(design,y,w){\nconst{xtwx,xtwy}=normalEquations(design,y,w);\nconst l=cholesky(xtwx);\nif(!l)return null;\nconst beta=choleskySolve(l,xtwy);\nconst cov=choleskyInverse(l);\nconst fitted=matVecRows(design,beta);\nconst residuals=y.map((yi,i)=>yi-fitted[i]);\nreturn{beta,cov,fitted,residuals};\n}\nfunction matVecRows(rows,v){\nreturn rows.map((row)=>row.reduce((sum,cell,j)=>sum+cell*v[j],0));\n}\nfunction auxiliaryR2(predictors,j){\nconst n=predictors.length;\nconst y=predictors.map((row)=>row[j]);\nconst design=predictors.map((row)=>[1,...row.filter((unused,c)=>c!==j)]);\nconst fit=solveWls(design,y,null);\nif(!fit)return 1;\nconst ybar=y.reduce((s,v)=>s+v,0)/n;\nlet rss=0;\nlet tss=0;\nfor(let i=0;i<n;i++){rss+=fit.residuals[i]**2;tss+=(y[i]-ybar)**2;}\nif(tss===0)return 1;\nreturn Math.max(0,Math.min(1,1-rss/tss));\n}\nfunction madScale(values){\nconst sorted=[...values].sort((a,b)=>a-b);\nconst med=medianOfSorted(sorted);\nconst dev=values.map((v)=>Math.abs(v-med)).sort((a,b)=>a-b);\nreturn medianOfSorted(dev)/0.6745;\n}\nfunction medianOfSorted(sorted){\nconst n=sorted.length;\nif(!n)return 0;\nconst mid=Math.floor(n/2);\nreturn n%2?sorted[mid]:(sorted[mid-1]+sorted[mid])/2;\n}\nfunction fitLinearModel(matrix,y,opts={}){\nconst method=opts.method||'ols';\nif(OUT_OF_SCOPE_METHODS.has(method)){\nthrow new Error(`[lattice] regression method \"${method}\" is out of scope; use ols, wls or robust.`);\n}\nif(DEFERRED_METHODS.has(method)){\nthrow new Error(`[lattice] quantile regression is coming next and not yet available; use ols, wls or robust.`);\n}\nif(!SUPPORTED_METHODS.has(method)){\nthrow new Error(`[lattice] unknown regression method \"${method}\"; use ols, wls or robust.`);\n}\nconst n=Array.isArray(y)?y.length:0;\nconst k=n&&Array.isArray(matrix[0])?matrix[0].length:0;\nconst p=k+1;\nif(!(n>p))return null;\nfor(let i=0;i<n;i++){\nif(!Number.isFinite(y[i]))return null;\nif(!Array.isArray(matrix[i])||matrix[i].length!==k)return null;\nfor(let j=0;j<k;j++)if(!Number.isFinite(matrix[i][j]))return null;\n}\nlet weights=null;\nif(method==='wls'){\nweights=opts.weights;\nif(!Array.isArray(weights)||weights.length!==n)return null;\nfor(let i=0;i<n;i++)if(!(weights[i]>0)||!Number.isFinite(weights[i]))return null;\n}\nconst design=matrix.map((row)=>[1,...row]);\nlet fit;\nlet robustWeights=null;\nif(method==='robust'){\nfit=solveWls(design,y,null);\nif(!fit)return null;\nfor(let iter=0;iter<50;iter++){\nconst scale=madScale(fit.residuals);\nif(!(scale>0))break;\nconst w=fit.residuals.map((r)=>{\nconst u=Math.abs(r/scale);\nreturn u<=HUBER_C?1:HUBER_C/u;\n});\nconst next=solveWls(design,y,w);\nif(!next)return null;\nconst moved=next.beta.reduce((m,b,j)=>Math.max(m,Math.abs(b-fit.beta[j])),0);\nfit=next;\nrobustWeights=w;\nif(moved<1e-10)break;\n}\n}else{\nfit=solveWls(design,y,weights);\nif(!fit)return null;\n}\nconst w=method==='robust'?robustWeights:weights;\nconst{beta,cov,fitted,residuals}=fit;\nlet rss=0;\nlet sw=0;\nlet swy=0;\nfor(let i=0;i<n;i++){\nconst wi=w?w[i]:1;\nrss+=wi*residuals[i]**2;\nsw+=wi;\nswy+=wi*y[i];\n}\nconst ybar=swy/sw;\nlet tss=0;\nfor(let i=0;i<n;i++){const wi=w?w[i]:1;tss+=wi*(y[i]-ybar)**2;}\nconst df=n-p;\nconst sigma2=rss/df;\nconst r2=tss===0?1:Math.max(0,Math.min(1,1-rss/tss));\nconst adjR2=1-(1-r2)*(n-1)/df;\nconst names=Array.isArray(opts.names)&&opts.names.length===k\n?opts.names:matrix[0].map((unused,j)=>`x${j+1}`);\nconst conf=level(opts.confidence);\nconst tCrit=df>0?studentTQuantile(1-(1-conf)/2,df):Infinity;\nconst coefficients=beta.map((estimate,j)=>{\nconst stdError=Math.sqrt(Math.max(0,sigma2*cov[j][j]));\nconst t=stdError>0?estimate/stdError:(estimate===0?0:Infinity);\nconst pv=Number.isFinite(t)?2*(1-studentT(Math.abs(t),df)):0;\nconst half=Number.isFinite(tCrit)?tCrit*stdError:null;\nreturn{\nname:j===0?'(intercept)':names[j-1],\nestimate,\nstdError,\nt,\np:Math.max(0,Math.min(1,pv)),\nlower:half===null?null:estimate-half,\nupper:half===null?null:estimate+half,\n};\n});\nconst leverage=new Array(n);\nconst cooksD=new Array(n);\nfor(let i=0;i<n;i++){\nconst wi=w?w[i]:1;\nconst h=Math.max(0,Math.min(1,wi*quadForm(design[i],cov)));\nleverage[i]=h;\nconst denom=(1-h)**2;\ncooksD[i]=(denom>0&&sigma2>0)\n?(residuals[i]**2/(p*sigma2))*(h/denom)\n:null;\n}\nconst vif=matrix[0].map((unused,j)=>{\nif(k<2)return 1;\nconst rj=auxiliaryR2(matrix,j);\nreturn rj>=1?Infinity:1/(1-rj);\n});\nlet hetero=null;\n{\nconst e2=residuals.map((r)=>r*r);\nconst aux=solveWls(design,e2,null);\nif(aux){\nconst e2bar=e2.reduce((s,v)=>s+v,0)/n;\nlet arss=0;\nlet atss=0;\nfor(let i=0;i<n;i++){arss+=aux.residuals[i]**2;atss+=(e2[i]-e2bar)**2;}\nconst auxR2=atss===0?0:Math.max(0,Math.min(1,1-arss/atss));\nconst statistic=n*auxR2;\nconst pv=chiSquareUpperTail(statistic,k);\nhetero={statistic,df:k,p:pv,heteroscedastic:pv<0.05};\n}\n}\nlet band=null;\nif(k===1){\nconst order=matrix.map((row,i)=>i).sort((i,j)=>matrix[i][0]-matrix[j][0]);\nband={\nconfidence:conf,\npoints:order.map((i)=>{\nconst xo=design[i];\nconst se=Math.sqrt(Math.max(0,sigma2*quadForm(xo,cov)));\nreturn{x:matrix[i][0],yhat:fitted[i],lower:fitted[i]-tCrit*se,upper:fitted[i]+tCrit*se};\n}),\n};\n}\nreturn{\nmethod,\ncoefficients,\nr2,\nadjR2,\nn,\ndf,\nsigma2,\nfitted,\nresiduals,\nleverage,\ncooksD,\nvif,\nheteroscedasticity:hetero,\nband,\nweights:w?[...w]:null,\n};\n}\nfunction ranksOf(values){\nconst n=values.length;\nconst order=Array.from({length:n},(unused,i)=>i)\n.sort((i,j)=>values[i]-values[j]);\nconst ranks=new Float64Array(n);\nlet i=0;\nwhile(i<n){\nlet j=i;\nwhile(j+1<n&&values[order[j+1]]===values[order[i]])j++;\nconst shared=(i+j)/2+1;\nfor(let k=i;k<=j;k++)ranks[order[k]]=shared;\ni=j+1;\n}\nreturn ranks;\n}\nconst ADF_CT_CRITICAL=Object.freeze({'1%':-3.9638,'5%':-3.4126,'10%':-3.1279});\nfunction adfInterpolatedP(stat){\nconst levels=[0.01,0.05,0.10];\nconst crit=[ADF_CT_CRITICAL['1%'],ADF_CT_CRITICAL['5%'],ADF_CT_CRITICAL['10%']];\nif(stat<=crit[0]){\nconst slope=(Math.log(levels[1])-Math.log(levels[0]))/(crit[1]-crit[0]);\nreturn Math.max(1e-4,Math.min(0.01,Math.exp(Math.log(levels[0])+slope*(stat-crit[0]))));\n}\nif(stat>=crit[2]){\nconst slope=(Math.log(levels[2])-Math.log(levels[1]))/(crit[2]-crit[1]);\nreturn Math.max(0.10,Math.min(0.999,Math.exp(Math.log(levels[2])+slope*(stat-crit[2]))));\n}\nconst i=stat<crit[1]?0:1;\nconst t=(stat-crit[i])/(crit[i+1]-crit[i]);\nreturn Math.exp(Math.log(levels[i])+t*(Math.log(levels[i+1])-Math.log(levels[i])));\n}\nfunction augmentedDickeyFuller(x,opts={}){\nconst series=[];\nfor(let i=0;i<x.length;i++){\nconst v=Number(x[i]);\nif(Number.isFinite(v))series.push(v);\n}\nconst n=series.length;\nconst m=n-1;\nif(n<8||m<6)return null;\nconst xdiff=new Array(m);\nfor(let i=0;i<m;i++)xdiff[i]=series[i+1]-series[i];\nlet maxlag=Number.isFinite(opts.maxlag)\n?Math.floor(opts.maxlag)\n:Math.ceil(12*(n/100)**0.25);\nmaxlag=Math.max(0,Math.min(maxlag,Math.floor((m-5)/2)));\nconst fit=(p,start)=>{\nconst rows=[];\nconst y=[];\nfor(let j=start;j<m;j++){\nconst row=[(j-start)+1,series[j]];\nfor(let d=1;d<=p;d++)row.push(xdiff[j-d]);\nrows.push(row);\ny.push(xdiff[j]);\n}\nreturn fitLinearModel(rows,y,{method:'ols'});\n};\nconst nFixed=m-maxlag;\nlet bestLag=0;\nlet bestAic=Infinity;\nfor(let p=0;p<=maxlag;p++){\nconst model=fit(p,maxlag);\nif(!model)continue;\nconst params=p+3;\nconst rss=model.sigma2*(nFixed-params);\nif(!(rss>0))continue;\nconst aic=nFixed*Math.log(rss/nFixed)+2*params;\nif(aic<bestAic){bestAic=aic;bestLag=p;}\n}\nconst finalModel=fit(bestLag,bestLag);\nif(!finalModel||!finalModel.coefficients[2])return null;\nconst statistic=finalModel.coefficients[2].t;\nconst pValue=adfInterpolatedP(statistic);\nconst stationary=statistic<ADF_CT_CRITICAL['5%'];\nreturn{\nstatistic,\nusedLag:bestLag,\nnobs:m-bestLag,\ncriticalValues:{...ADF_CT_CRITICAL},\npValue,\npApproximate:true,\nstationary,\nverdict:stationary?'stationary':'non-stationary',\nregression:'ct',\n};\n}\nfunction autocorrelations(x,opts={}){\nconst y=[];\nfor(let i=0;i<x.length;i++){\nconst v=Number(x[i]);\nif(Number.isFinite(v))y.push(v);\n}\nconst n=y.length;\nif(n<3)return null;\nlet maxlag=Number.isFinite(opts.maxlag)?Math.floor(opts.maxlag):Math.min(10,n-1);\nmaxlag=Math.max(1,Math.min(maxlag,n-1));\nlet mean=0;\nfor(const v of y)mean+=v;\nmean/=n;\nconst dev=y.map((v)=>v-mean);\nlet c0=0;\nfor(const d of dev)c0+=d*d;\nc0/=n;\nconst acf=new Array(maxlag+1).fill(0);\nacf[0]=1;\nfor(let k=1;k<=maxlag;k++){\nlet s=0;\nfor(let t=k;t<n;t++)s+=dev[t]*dev[t-k];\nacf[k]=c0>0?(s/n)/c0:0;\n}\nconst pacf=new Array(maxlag+1).fill(0);\npacf[0]=1;\nlet prev=[];\nfor(let k=1;k<=maxlag;k++){\nlet num=acf[k];\nfor(let j=1;j<k;j++)num-=prev[j-1]*acf[k-j];\nlet den=1;\nfor(let j=1;j<k;j++)den-=prev[j-1]*acf[j];\nconst phikk=den!==0?num/den:0;\nconst cur=new Array(k);\nfor(let j=1;j<k;j++)cur[j-1]=prev[j-1]-phikk*prev[k-1-j];\ncur[k-1]=phikk;\npacf[k]=phikk;\nprev=cur;\n}\nconst bound=1.96/Math.sqrt(n);\nreturn{acf,pacf,bounds:{upper:bound,lower:-bound},n,nlags:maxlag,approximate:true};\n}\nfunction spearman(a,b,indices){\nconst{xs,ys,n}=pairs(a,b,indices);\nif(n<2)return null;\nconst rx=ranksOf(xs);\nconst ry=ranksOf(ys);\nlet mx=0;\nlet my=0;\nfor(let i=0;i<n;i++){mx+=rx[i];my+=ry[i];}\nmx/=n;\nmy/=n;\nlet sxy=0;\nlet sxx=0;\nlet syy=0;\nfor(let i=0;i<n;i++){\nconst dx=rx[i]-mx;\nconst dy=ry[i]-my;\nsxy+=dx*dy;\nsxx+=dx*dx;\nsyy+=dy*dy;\n}\nif(sxx===0||syy===0)return null;\nreturn Math.max(-1,Math.min(1,sxy/Math.sqrt(sxx*syy)));\n}\nfunction kendall(a,b,indices){\nconst{xs,ys,n}=pairs(a,b,indices);\nif(n<2||n>KENDALL_LIMIT)return null;\nlet concordant=0;\nlet discordant=0;\nlet tiedXOnly=0;\nlet tiedYOnly=0;\nfor(let i=0;i<n;i++){\nfor(let j=i+1;j<n;j++){\nconst dx=Math.sign(xs[i]-xs[j]);\nconst dy=Math.sign(ys[i]-ys[j]);\nconst product=dx*dy;\nif(product>0)concordant++;\nelse if(product<0)discordant++;\nelse if(dx===0&&dy===0){}\nelse if(dx===0)tiedXOnly++;\nelse tiedYOnly++;\n}\n}\nconst orderedByX=concordant+discordant+tiedYOnly;\nconst orderedByY=concordant+discordant+tiedXOnly;\nif(orderedByX===0||orderedByY===0)return null;\nreturn(concordant-discordant)/Math.sqrt(orderedByX*orderedByY);\n}\nfunction seriesStats(ordered,opts={}){\nconst n=ordered.length;\nif(n<2)return null;\nconst first=ordered[0];\nconst last=ordered[n-1];\nconst returns=[];\nfor(let i=1;i<n;i++){\nconst previous=ordered[i-1];\nif(previous===0)continue;\nreturns.push((ordered[i]-previous)/Math.abs(previous));\n}\nlet volatility=null;\nif(returns.length>1){\nlet mean=0;\nfor(const r of returns)mean+=r;\nmean/=returns.length;\nlet m2=0;\nfor(const r of returns)m2+=(r-mean)**2;\nvolatility=Math.sqrt(m2/(returns.length-1));\n}\nconst periods=Number(opts.periodsPerYear)>0?Number(opts.periodsPerYear):null;\nlet peak=ordered[0];\nlet peakAt=0;\nlet worst=0;\nlet worstFrom=0;\nlet worstTo=0;\nfor(let i=1;i<n;i++){\nif(ordered[i]>peak){peak=ordered[i];peakAt=i;continue;}\nif(peak<=0)continue;\nconst fall=(peak-ordered[i])/peak;\nif(fall>worst){worst=fall;worstFrom=peakAt;worstTo=i;}\n}\nlet autocorrelation=null;\nif(n>2){\nlet mean=0;\nfor(let i=0;i<n;i++)mean+=ordered[i];\nmean/=n;\nlet top=0;\nlet bottom=0;\nfor(let i=0;i<n;i++){\nconst d=ordered[i]-mean;\nbottom+=d*d;\nif(i>0)top+=d*(ordered[i-1]-mean);\n}\nautocorrelation=bottom>0?top/bottom:null;\n}\nlet up=0;\nlet down=0;\nfor(const r of returns){if(r>0)up++;else if(r<0)down++;}\nlet growth=null;\nif(first>0&&last>0){\nconst perPeriod=(last/first)**(1/(n-1))-1;\ngrowth=periods?(1+perPeriod)**periods-1:perPeriod;\n}\nreturn{\nn,\nfirst,\nlast,\nchange:last-first,\nchangePercent:first===0?null:((last-first)/Math.abs(first))*100,\nvolatility,\nannualisedVolatility:volatility!==null&&periods?volatility*Math.sqrt(periods):null,\ngrowth,\nmaxDrawdown:worst,\nmaxDrawdownFrom:worstFrom,\nmaxDrawdownTo:worstTo,\nautocorrelation,\nupDays:up,\ndownDays:down,\n};\n}\nconst D2_N2=1.128;\nconst D4_N2=3.267;\nfunction movingRanges(ordered){\nconst n=ordered.length;\nif(n<2)return null;\nconst ranges=[];\nfor(let i=1;i<n;i++)ranges.push(Math.abs(ordered[i]-ordered[i-1]));\nconst centre=ranges.reduce((t,r)=>t+r,0)/ranges.length;\nreturn{ranges,centre,upper:D4_N2*centre,lower:0};\n}\nfunction withinSigma(ordered){\nconst n=ordered.length;\nif(n<2)return null;\nlet total=0;\nfor(let i=1;i<n;i++)total+=Math.abs(ordered[i]-ordered[i-1]);\nconst meanRange=total/(n-1);\nreturn{sigma:meanRange/D2_N2,meanRange};\n}\nfunction capability(ordered,spec){\nconst n=ordered.length;\nif(n<2||!spec)return null;\nconst lower=Number.isFinite(Number(spec.lower))?Number(spec.lower):null;\nconst upper=Number.isFinite(Number(spec.upper))?Number(spec.upper):null;\nif(lower===null&&upper===null)return null;\nlet mean=0;\nfor(let i=0;i<n;i++)mean+=ordered[i];\nmean/=n;\nlet m2=0;\nfor(let i=0;i<n;i++)m2+=(ordered[i]-mean)**2;\nconst overall=Math.sqrt(m2/(n-1));\nconst within=withinSigma(ordered);\nconst sigmaWithin=within?within.sigma:null;\nconst indices=(sigma)=>{\nif(!sigma||sigma<=0)return{index:null,k:null};\nconst both=lower!==null&&upper!==null;\nconst index=both?(upper-lower)/(6*sigma):null;\nconst upperSide=upper!==null?(upper-mean)/(3*sigma):Infinity;\nconst lowerSide=lower!==null?(mean-lower)/(3*sigma):Infinity;\nreturn{index,k:Math.min(upperSide,lowerSide)};\n};\nconst short=indices(sigmaWithin);\nconst long=indices(overall);\nlet outOfSpec=0;\nfor(let i=0;i<n;i++){\nif(lower!==null&&ordered[i]<lower){outOfSpec++;continue;}\nif(upper!==null&&ordered[i]>upper)outOfSpec++;\n}\nreturn{\nn,\nmean,\nlower,\nupper,\ntarget:Number.isFinite(Number(spec.target))?Number(spec.target):null,\nsigmaWithin,\nsigmaOverall:overall,\ncp:short.index,\ncpk:short.k,\npp:long.index,\nppk:long.k,\noutOfSpec,\ndefectRate:n?outOfSpec/n:null,\n};\n}\nfunction controlLimits(ordered){\nconst n=ordered.length;\nif(n<2)return null;\nconst within=withinSigma(ordered);\nif(!within||!(within.sigma>0))return null;\nlet centre=0;\nfor(let i=0;i<n;i++)centre+=ordered[i];\ncentre/=n;\nreturn{\ncentre,\nsigma:within.sigma,\nupper:centre+3*within.sigma,\nlower:centre-3*within.sigma,\n};\n}\nfunction westernElectricViolations(ordered,limits){\nif(!limits||!(limits.sigma>0))return[];\nconst n=ordered.length;\nconst{centre,sigma}=limits;\nconst z=(i)=>(ordered[i]-centre)/sigma;\nconst out=[];\nfor(let i=0;i<n;i++){\nif(Math.abs(z(i))>3){\nout.push({index:i,rule:1,description:'beyond three sigma'});\n}\nif(i>=2){\nfor(const side of[1,-1]){\nlet hits=0;\nfor(let k=i-2;k<=i;k++)if(z(k)*side>2)hits++;\nif(hits>=2){\nout.push({index:i,rule:2,description:'two of three past two sigma'});\nbreak;\n}\n}\n}\nif(i>=4){\nfor(const side of[1,-1]){\nlet hits=0;\nfor(let k=i-4;k<=i;k++)if(z(k)*side>1)hits++;\nif(hits>=4){\nout.push({index:i,rule:3,description:'four of five past one sigma'});\nbreak;\n}\n}\n}\nif(i>=7){\nfor(const side of[1,-1]){\nlet all=true;\nfor(let k=i-7;k<=i;k++)if(z(k)*side<=0){all=false;break;}\nif(all){\nout.push({index:i,rule:4,description:'eight in a row on one side'});\nbreak;\n}\n}\n}\n}\nreturn out;\n}\nfunction nelsonViolations(ordered,limits){\nif(!limits||!(limits.sigma>0))return[];\nconst n=ordered.length;\nconst{centre,sigma}=limits;\nconst z=(i)=>(ordered[i]-centre)/sigma;\nconst oneSide=(from,to,past,need)=>{\nfor(const side of[1,-1]){\nlet hits=0;\nfor(let k=from;k<=to;k++)if(z(k)*side>past)hits++;\nif(hits>=need)return true;\n}\nreturn false;\n};\nconst out=[];\nfor(let i=0;i<n;i++){\nif(Math.abs(z(i))>3)out.push({index:i,rule:1,description:'beyond three sigma'});\nif(i>=8){\nfor(const side of[1,-1]){\nlet all=true;\nfor(let k=i-8;k<=i;k++)if(z(k)*side<=0){all=false;break;}\nif(all){out.push({index:i,rule:2,description:'nine in a row on one side'});break;}\n}\n}\nif(i>=5){\nfor(const dir of[1,-1]){\nlet all=true;\nfor(let k=i-4;k<=i;k++){\nif((ordered[k]-ordered[k-1])*dir<=0){all=false;break;}\n}\nif(all){\nout.push({index:i,rule:3,description:dir>0?'six rising':'six falling'});\nbreak;\n}\n}\n}\nif(i>=13){\nlet alternating=true;\nfor(let k=i-12;k<=i;k++){\nconst a=ordered[k]-ordered[k-1];\nconst b=ordered[k+1<=i?k+1:k]-ordered[k];\nif(k+1>i)break;\nif(a===0||b===0||(a>0)===(b>0)){alternating=false;break;}\n}\nif(alternating)out.push({index:i,rule:4,description:'fourteen alternating'});\n}\nif(i>=2&&oneSide(i-2,i,2,2)){\nout.push({index:i,rule:5,description:'two of three past two sigma'});\n}\nif(i>=4&&oneSide(i-4,i,1,4)){\nout.push({index:i,rule:6,description:'four of five past one sigma'});\n}\nif(i>=14){\nlet inside=true;\nfor(let k=i-14;k<=i;k++)if(Math.abs(z(k))>=1){inside=false;break;}\nif(inside)out.push({index:i,rule:7,description:'fifteen within one sigma'});\n}\nif(i>=7){\nlet outside=true;\nfor(let k=i-7;k<=i;k++)if(Math.abs(z(k))<=1){outside=false;break;}\nif(outside)out.push({index:i,rule:8,description:'eight beyond one sigma'});\n}\n}\nreturn out;\n}\nconst CONTROL_RULE_SETS=Object.freeze(['westernElectric','nelson']);\nfunction controlViolations(ordered,limits,ruleSet='westernElectric'){\nreturn String(ruleSet)==='nelson'\n?nelsonViolations(ordered,limits)\n:westernElectricViolations(ordered,limits);\n}\nfunction countOutside(values,low,high){\nlet count=0;\nfor(let i=0;i<values.length;i++){\nif(values[i]<low||values[i]>high)count++;\n}\nreturn count;\n}\nfunction histogram(sorted,q1,q3,cap=20){\nconst n=sorted.length;\nif(!n)return[];\nconst min=sorted[0];\nconst max=sorted[n-1];\nif(max===min)return[{from:min,to:max,count:n}];\nconst iqr=q3-q1;\nconst fence=1.5*iqr;\nlet lo=iqr>0?Math.max(min,q1-fence):min;\nlet hi=iqr>0?Math.min(max,q3+fence):max;\nif(!(hi>lo)){lo=min;hi=max;}\nconst width=iqr>0?(2*iqr)/Math.cbrt(n):(hi-lo)/(Math.ceil(Math.log2(n))+1);\nconst count=width>0\n?Math.min(cap,Math.max(1,Math.ceil((hi-lo)/width)))\n:1;\nconst step=(hi-lo)/count;\nconst bins=[];\nfor(let i=0;i<count;i++){\nbins.push({from:lo+i*step,to:lo+(i+1)*step,count:0});\n}\nfor(let i=0;i<n;i++){\nconst at=Math.min(count-1,Math.max(0,Math.floor((sorted[i]-lo)/step)));\nbins[at].count++;\n}\nbins[0].from=min;\nbins[count-1].to=max;\nreturn bins;\n}\nconst DEFAULT_CONFIDENCE=0.95;\nfunction level(conf){\nconst c=Number(conf);\nreturn Number.isFinite(c)&&c>0&&c<1?c:DEFAULT_CONFIDENCE;\n}\nfunction meanInterval(values,conf=DEFAULT_CONFIDENCE){\nconst n=values.length;\nif(n<2)return null;\nlet sum=0;\nfor(let i=0;i<n;i++)sum+=values[i];\nconst mean=sum/n;\nlet ss=0;\nfor(let i=0;i<n;i++){const d=values[i]-mean;ss+=d*d;}\nconst sd=Math.sqrt(ss/(n-1));\nconst c=level(conf);\nconst t=studentTQuantile(1-(1-c)/2,n-1);\nconst margin=(t*sd)/Math.sqrt(n);\nreturn{mean,lower:mean-margin,upper:mean+margin,margin,n,confidence:c};\n}\nfunction proportionInterval(successes,n,conf=DEFAULT_CONFIDENCE){\nconst k=Number(successes);\nconst total=Number(n);\nif(!(total>0)||!(k>=0)||k>total)return null;\nconst c=level(conf);\nconst z=normalQuantile(1-(1-c)/2);\nconst p=k/total;\nconst z2=z*z;\nconst denominator=1+z2/total;\nconst centre=(p+z2/(2*total))/denominator;\nconst half=(z/denominator)\n*Math.sqrt((p*(1-p))/total+z2/(4*total*total));\nreturn{\nproportion:p,\nlower:Math.max(0,centre-half),\nupper:Math.min(1,centre+half),\nn:total,\nconfidence:c,\n};\n}\nfunction slopeInterval(fit,conf=DEFAULT_CONFIDENCE){\nif(!fit||!(fit.n>2)||!Number.isFinite(fit.stdError))return null;\nconst c=level(conf);\nconst t=studentTQuantile(1-(1-c)/2,fit.n-2);\nconst margin=t*fit.stdError;\nreturn{\nslope:fit.slope,\nlower:fit.slope-margin,\nupper:fit.slope+margin,\nmargin,\nconfidence:c,\n};\n}\nfunction capabilityInterval(index,n,conf=DEFAULT_CONFIDENCE){\nconst k=Number(index);\nconst count=Number(n);\nif(!Number.isFinite(k)||!(count>1))return null;\nconst c=level(conf);\nconst z=normalQuantile(1-(1-c)/2);\nconst margin=z*Math.sqrt(1/(9*count)+(k*k)/(2*(count-1)));\nreturn{index:k,lower:k-margin,upper:k+margin,margin,n:count,confidence:c};\n}\nfunction standardizedMeanDifference(population,subsetMean){\nif(!population||!(population.sd>0))return null;\nif(!Number.isFinite(subsetMean)||!Number.isFinite(population.mean))return null;\nreturn(subsetMean-population.mean)/population.sd;\n}\nfunction normalTotalVariation(d){\nif(!Number.isFinite(d))return 0;\nreturn Math.min(1,Math.max(0,2*normalCdf(Math.abs(d)/2)-1));\n}\nfunction frequencyMap(handle,indices){\nconst map=new Map();\nconst read=valueReader(handle);\nlet total=0;\nfor(let i=0;i<indices.length;i++){\nconst raw=read(indices[i]);\nif(raw===null||raw===undefined||raw==='')continue;\nif(typeof raw==='number'&&Number.isNaN(raw))continue;\nconst key=raw instanceof Date?raw.getTime()\n:(typeof raw==='object'?String(raw):raw);\nmap.set(key,(map.get(key)||0)+1);\ntotal++;\n}\nreturn{map,total};\n}\nfunction categoricalDistance(subset,subsetTotal,population,populationTotal){\nif(!(subsetTotal>0)||!(populationTotal>0))return null;\nlet sum=0;\nconst keys=new Set(subset.keys());\nfor(const k of population.keys())keys.add(k);\nfor(const k of keys){\nconst a=(subset.get(k)||0)/subsetTotal;\nconst b=(population.get(k)||0)/populationTotal;\nsum+=Math.abs(a-b);\n}\nreturn sum/2;\n}\nconst SUBSET_RELIABILITY_FLOOR=10;\nfunction compareColumn(handle,subsetIndices,populationStats){\nconst numeric=populationStats&&populationStats.numeric;\nif(numeric){\nconst values=numbers(handle,subsetIndices);\nconst{n,mean}=moments(values);\nconst d=n>0\n?standardizedMeanDifference(\n{mean:populationStats.mean,sd:populationStats.sd},mean,\n)\n:null;\nreturn{\nmeasure:'standardizedMeanDifference',\nmagnitude:d,\ndistance:d===null?0:normalTotalVariation(d),\ndirection:d===null?0:Math.sign(d),\nsubsetN:n,\npopulationN:populationStats.n||0,\nreliable:n>=SUBSET_RELIABILITY_FLOOR,\n};\n}\nconst{map,total}=frequencyMap(handle,subsetIndices);\nconst tvd=categoricalDistance(map,total,populationStats.map,populationStats.total);\nreturn{\nmeasure:'categoricalTotalVariation',\nmagnitude:tvd,\ndistance:tvd===null?0:tvd,\ndirection:0,\nsubsetN:total,\npopulationN:populationStats.total||0,\nreliable:total>=SUBSET_RELIABILITY_FLOOR,\n};\n}\nfunction isNumericColumn(handle,indices){\nif(handle&&(handle.kind==='float64'||handle.kind==='int32'))return true;\nconst read=valueReader(handle);\nlet seen=0;\nlet numeric=0;\nfor(let i=0;i<indices.length&&seen<200;i++){\nconst raw=read(indices[i]);\nif(raw===null||raw===undefined||raw==='')continue;\nif(raw instanceof Date)return false;\nseen++;\nconst v=typeof raw==='number'?raw:Number(raw);\nif(Number.isFinite(v))numeric++;\n}\nif(seen===0)return false;\nreturn numeric/seen>=0.9;\n}\nfunction populationRead(handle,populationIndices){\nif(isNumericColumn(handle,populationIndices)){\nconst values=numbers(handle,populationIndices);\nconst{n,mean,m2}=moments(values);\nreturn{numeric:true,mean,sd:n>0?Math.sqrt(m2/n):0,n};\n}\nconst{map,total}=frequencyMap(handle,populationIndices);\nreturn{numeric:false,map,total};\n}\n});\n__def(\"packages/core/src/compute/total.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"TOTAL_FNS\",{enumerable:true,get:function(){return TOTAL_FNS;}});\nObject.defineProperty(__exports,\"TOTAL_LABELS\",{enumerable:true,get:function(){return TOTAL_LABELS;}});\nObject.defineProperty(__exports,\"totalLabel\",{enumerable:true,get:function(){return totalLabel;}});\nObject.defineProperty(__exports,\"aggregatesFor\",{enumerable:true,get:function(){return aggregatesFor;}});\nObject.defineProperty(__exports,\"aggregateAllowed\",{enumerable:true,get:function(){return aggregateAllowed;}});\nObject.defineProperty(__exports,\"collectValues\",{enumerable:true,get:function(){return collectValues;}});\nObject.defineProperty(__exports,\"total\",{enumerable:true,get:function(){return total;}});\nconst __m0=__req(\"packages/core/src/internal/util.js\");\nconst isFunction=__m0[\"isFunction\"];\nconst warnOnce=__m0[\"warnOnce\"];\nconst __m1=__req(\"packages/core/src/compute/handle.js\");\nconst presenceReader=__m1[\"presenceReader\"];\nconst valueComparator=__m1[\"valueComparator\"];\nconst valueReader=__m1[\"valueReader\"];\nconst __m2=__req(\"packages/core/src/compute/statistics.js\");\nconst STAT_FNS=__m2[\"STAT_FNS\"];\nconst STAT_LABELS=__m2[\"STAT_LABELS\"];\nfunction isNumericBacking(handle){\nreturn!!handle&&(handle.kind==='float64'||handle.kind==='int32');\n}\nfunction sum(handle,indices){\nconst n=indices.length;\nlet acc=0;\nif(isNumericBacking(handle)){\nconst values=handle.values;\nconst present=presenceReader(handle);\nif(!present){\nfor(let i=0;i<n;i++){\nconst v=values[indices[i]];\nif(!Number.isNaN(v))acc+=v;\n}\nreturn acc;\n}\nfor(let i=0;i<n;i++){\nconst row=indices[i];\nif(present(row)===1){\nconst v=values[row];\nif(!Number.isNaN(v))acc+=v;\n}\n}\nreturn acc;\n}\nconst read=valueReader(handle);\nfor(let i=0;i<n;i++){\nconst v=numberOf(read(indices[i]));\nif(v!==null)acc+=v;\n}\nreturn acc;\n}\nsum.kernel=true;\nfunction countValues(handle,indices){\nconst n=indices.length;\nlet count=0;\nif(isNumericBacking(handle)){\nconst values=handle.values;\nconst present=presenceReader(handle);\nif(!present){\nfor(let i=0;i<n;i++)if(!Number.isNaN(values[indices[i]]))count++;\nreturn count;\n}\nfor(let i=0;i<n;i++){\nconst row=indices[i];\nif(present(row)===1&&!Number.isNaN(values[row]))count++;\n}\nreturn count;\n}\nconst read=valueReader(handle);\nfor(let i=0;i<n;i++){\nconst v=read(indices[i]);\nif(v!==null&&v!==undefined&&!(typeof v==='number'&&Number.isNaN(v)))count++;\n}\nreturn count;\n}\ncountValues.kernel=true;\nfunction count(handle,indices){\nreturn indices.length;\n}\ncount.kernel=true;\nfunction avg(handle,indices){\nconst values=countValues(handle,indices);\nif(values===0)return null;\nreturn sum(handle,indices)/values;\n}\navg.kernel=true;\nfunction extreme(handle,indices,direction,locale){\nconst n=indices.length;\nif(isNumericBacking(handle)){\nconst values=handle.values;\nconst present=presenceReader(handle);\nlet best=null;\nif(!present){\nfor(let i=0;i<n;i++){\nconst v=values[indices[i]];\nif(Number.isNaN(v))continue;\nif(best===null||(direction<0?v<best:v>best))best=v;\n}\nreturn best;\n}\nfor(let i=0;i<n;i++){\nconst row=indices[i];\nif(present(row)===0)continue;\nconst v=values[row];\nif(Number.isNaN(v))continue;\nif(best===null||(direction<0?v<best:v>best))best=v;\n}\nreturn best;\n}\nconst read=valueReader(handle);\nconst cmp=valueComparator(locale);\nlet best=null;\nfor(let i=0;i<n;i++){\nconst v=read(indices[i]);\nif(v===null||v===undefined||(typeof v==='number'&&Number.isNaN(v)))continue;\nif(best===null||(direction<0?cmp(v,best)<0:cmp(v,best)>0))best=v;\n}\nreturn best;\n}\nfunction min(handle,indices,ctx){\nreturn extreme(handle,indices,-1,ctx&&ctx.locale);\n}\nmin.kernel=true;\nfunction max(handle,indices,ctx){\nreturn extreme(handle,indices,1,ctx&&ctx.locale);\n}\nmax.kernel=true;\nfunction first(handle,indices){\nif(indices.length===0)return null;\nreturn valueReader(handle)(indices[0]);\n}\nfirst.kernel=true;\nfunction last(handle,indices){\nif(indices.length===0)return null;\nreturn valueReader(handle)(indices[indices.length-1]);\n}\nlast.kernel=true;\nfunction numberOf(v){\nif(typeof v==='number')return Number.isNaN(v)?null:v;\nif(v===null||v===undefined||v===''||typeof v==='boolean')return null;\nif(v instanceof Date)return v.getTime();\nconst n=Number(v);\nreturn Number.isNaN(n)?null:n;\n}\nconst TOTAL_FNS={\nsum,min,max,avg,count,first,last,countValues,\n...STAT_FNS,\n};\nconst TOTAL_LABELS=Object.freeze({\n...STAT_LABELS,\nsum:'Sum',\navg:'Average',\nmin:'Min',\nmax:'Max',\ncount:'Count',\ncountValues:'Count of values',\nfirst:'First',\nlast:'Last',\n});\nfunction totalLabel(fn){\nif(!fn)return'';\nif(typeof fn==='string')return TOTAL_LABELS[fn]||fn;\nreturn'Total';\n}\nconst CHOOSER_ORDER=Object.freeze([\n'sum','avg','min','max','count','countValues','first','last',\n]);\nfunction aggregatesFor(column){\nconst supported=column&&column.dataType\n&&column.dataType.totals&&column.dataType.totals.supported;\nif(Array.isArray(supported))return supported.slice();\nconst named=CHOOSER_ORDER.filter((name)=>name in TOTAL_FNS);\nfor(const name of Object.keys(TOTAL_FNS))if(!named.includes(name))named.push(name);\nreturn named;\n}\nfunction aggregateAllowed(column,name){\nif(typeof name!=='string')return true;\nreturn aggregatesFor(column).includes(name);\n}\nfunction collectValues(handle,indices){\nconst read=valueReader(handle);\nconst out=[];\nfor(let i=0;i<indices.length;i++){\nconst v=read(indices[i]);\nif(v===null||v===undefined)continue;\nout.push(v);\n}\nreturn out;\n}\nfunction total(handle,indices,fn,ctx){\nconst list=indices||[];\nif(typeof fn==='string'){\nconst kernel=TOTAL_FNS[fn];\nif(!kernel){\nwarnOnce(`total:${fn}`,`unknown total function \"${fn}\"; register it in config.totalFns`);\nreturn null;\n}\nreturn kernel(handle,list,ctx);\n}\nif(isFunction(fn)){\nif(fn.kernel===true)return fn(handle,list,ctx);\nreturn fn(collectValues(handle,list),ctx||{});\n}\nreturn null;\n}\n});\n__def(\"packages/core/src/compute/pivot.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"KEY_DELIMITER\",{enumerable:true,get:function(){return KEY_DELIMITER;}});\nObject.defineProperty(__exports,\"DEFAULT_PATH_SEPARATOR\",{enumerable:true,get:function(){return DEFAULT_PATH_SEPARATOR;}});\nObject.defineProperty(__exports,\"DEFAULT_MAX_COLUMNS\",{enumerable:true,get:function(){return DEFAULT_MAX_COLUMNS;}});\nObject.defineProperty(__exports,\"pivotKey\",{enumerable:true,get:function(){return pivotKey;}});\nObject.defineProperty(__exports,\"joinPath\",{enumerable:true,get:function(){return joinPath;}});\nObject.defineProperty(__exports,\"resolvePivotKeys\",{enumerable:true,get:function(){return resolvePivotKeys;}});\nObject.defineProperty(__exports,\"pivot\",{enumerable:true,get:function(){return pivot;}});\nconst __m0=__req(\"packages/core/src/internal/util.js\");\nconst warnOnce=__m0[\"warnOnce\"];\nconst __m1=__req(\"packages/core/src/compute/handle.js\");\nconst valueComparator=__m1[\"valueComparator\"];\nconst __m2=__req(\"packages/core/src/compute/group.js\");\nconst packKeys=__m2[\"packKeys\"];\nconst __m3=__req(\"packages/core/src/compute/total.js\");\nconst total=__m3[\"total\"];\nconst KEY_DELIMITER='|';\nconst DEFAULT_PATH_SEPARATOR='/';\nconst DEFAULT_MAX_COLUMNS=2000;\nfunction pivotKey(groupPath,pivotPath,colId){\nreturn`${groupPath}${KEY_DELIMITER}${pivotPath}${KEY_DELIMITER}${colId}`;\n}\nfunction joinPath(parts,separator){\nlet out='';\nfor(let i=0;i<parts.length;i++){\nconst v=parts[i];\nout+=(i===0?'':separator)+(v===null||v===undefined?'':String(v));\n}\nreturn out;\n}\nfunction resolvePivotKeys(handles,order,opts={}){\nconst separator=opts.separator||DEFAULT_PATH_SEPARATOR;\nconst n=order.length;\nconst{keyOf,readers}=packKeys(handles,order,0);\nconst seen=new Map();\nconst tuples=[];\nconst rawKeys=[];\nfor(let i=0;i<n;i++){\nconst row=order[i];\nconst key=keyOf(row);\nif(seen.has(key))continue;\nseen.set(key,tuples.length);\nrawKeys.push(key);\nconst tuple=new Array(readers.length);\nfor(let j=0;j<readers.length;j++)tuple[j]=readers[j](row);\ntuples.push(tuple);\n}\nconst cmp=valueComparator(opts.locale);\nconst rank=tuples.map((_,i)=>i);\nrank.sort((a,b)=>{\nconst ta=tuples[a];\nconst tb=tuples[b];\nfor(let j=0;j<ta.length;j++){\nconst c=compareNullable(ta[j],tb[j],cmp);\nif(c!==0)return c;\n}\nreturn a-b;\n});\nconst keys=new Array(rank.length);\nconst paths=new Array(rank.length);\nconst idByKey=new Map();\nfor(let position=0;position<rank.length;position++){\nconst from=rank[position];\nkeys[position]=tuples[from];\npaths[position]=joinPath(tuples[from],separator);\nidByKey.set(rawKeys[from],position);\n}\nconst idOf=(row)=>{\nconst id=idByKey.get(keyOf(row));\nreturn id===undefined?-1:id;\n};\nreturn{keys,paths,idOf};\n}\nfunction compareNullable(a,b,cmp){\nconst na=a===null||a===undefined;\nconst nb=b===null||b===undefined;\nif(na||nb)return na&&nb?0:na?1:-1;\nreturn cmp(a,b);\n}\nfunction resolveValueColumns(opts){\nconst declared=opts.values||opts.totals||[];\nif(declared.length&&typeof declared[0]==='object'&&declared[0]!==null){\nreturn declared.filter((entry)=>entry&&entry.handle);\n}\nconst resolve=typeof opts.handle==='function'?opts.handle:null;\nif(!resolve){\nif(declared.length){\nwarnOnce('pivot:handles',\n'pivot was given total column ids but no handle(colId) resolver, so no cell values were reduced. Pass values: [{ colId, handle, fn }] or opts.handle.');\n}\nreturn[];\n}\nconst totalOf=typeof opts.totalOf==='function'?opts.totalOf:null;\nconst out=[];\nfor(const colId of declared){\nconst handle=resolve(colId);\nif(!handle)continue;\nout.push({colId,handle,fn:totalOf?totalOf(colId):'sum'});\n}\nreturn out;\n}\nfunction normaliseArgs(a,b,c){\nif(Array.isArray(a)){\nconst opts=c||{};\nreturn{...opts,pivotHandles:a,order:b||null,groups:opts.groups||null};\n}\nreturn a||{};\n}\nfunction pivot(input,orderArg,optsArg){\nconst opts=normaliseArgs(input,orderArg,optsArg);\nconst separator=opts.separator||DEFAULT_PATH_SEPARATOR;\nconst valueColumns=resolveValueColumns(opts);\nconst maxColumns=opts.maxColumns===undefined?DEFAULT_MAX_COLUMNS:opts.maxColumns;\nconst groups=opts.groups&&opts.groups.buckets?opts.groups:null;\nconst buckets=groups?groups.buckets:[opts.order||new Uint32Array(0)];\nconst groupPaths=opts.groupPaths\n||(groups?groups.keys.map((tuple)=>joinPath(tuple,separator)):['']);\nconst scope=concatIndices(buckets);\nconst{keys,paths,idOf}=resolvePivotKeys(opts.pivotHandles||[],scope,opts);\nconst columns=paths.length*Math.max(1,valueColumns.length);\nconst fields=derivedFields(paths,valueColumns,separator);\nif(maxColumns&&columns>maxColumns){\nconst empty=new Map();\nreturn{\nkeys,\npaths,\nfields,\ngroupPaths,\ncolumns,\nvalues:empty,\ncells:empty,\nerror:{\ncode:'pivot-max-columns',\nmessage:`[lattice] pivot would generate ${columns} columns, above pivot.maxColumns of ${maxColumns}. Narrow the pivot columns or raise the limit.`,\ncolumns,\nmaxColumns,\n},\n};\n}\nconst cells=new Map();\nconst keyCount=paths.length;\nfor(let g=0;g<buckets.length;g++){\nconst bucket=buckets[g];\nconst groupPath=groupPaths[g]===undefined?'':groupPaths[g];\nconst n=bucket.length;\nif(n===0)continue;\nconst ids=new Int32Array(n);\nconst counts=new Uint32Array(keyCount+1);\nfor(let i=0;i<n;i++){\nconst id=idOf(bucket[i]);\nids[i]=id;\nif(id>=0)counts[id+1]++;\n}\nfor(let k=0;k<keyCount;k++)counts[k+1]+=counts[k];\nconst scattered=new Uint32Array(n);\nconst cursor=counts.slice(0,keyCount);\nfor(let i=0;i<n;i++){\nconst id=ids[i];\nif(id>=0)scattered[cursor[id]++]=bucket[i];\n}\nfor(let k=0;k<keyCount;k++){\nconst from=counts[k];\nconst to=counts[k+1];\nif(to===from)continue;\nconst slice=scattered.subarray(from,to);\nfor(let c=0;c<valueColumns.length;c++){\nconst column=valueColumns[c];\nconst result=total(column.handle,slice,column.fn,opts.totalContext||{locale:opts.locale});\ncells.set(pivotKey(groupPath,paths[k],column.colId),result);\n}\n}\n}\nreturn{keys,paths,fields,groupPaths,columns,values:cells,cells,error:null};\n}\nfunction derivedFields(paths,valueColumns,separator){\nif(valueColumns.length===0)return paths.slice();\nconst out=[];\nfor(const path of paths){\nfor(const column of valueColumns)out.push(`${path}${separator}${column.colId}`);\n}\nreturn out;\n}\nfunction concatIndices(buckets){\nif(buckets.length===1)return buckets[0]||new Uint32Array(0);\nlet n=0;\nfor(const b of buckets)n+=b?b.length:0;\nconst out=new Uint32Array(n);\nlet at=0;\nfor(const b of buckets){\nif(!b||b.length===0)continue;\nout.set(b,at);\nat+=b.length;\n}\nreturn out;\n}\n});\n__def(\"packages/core/src/compute/pivotmatrix.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"GRAND_PATH\",{enumerable:true,get:function(){return GRAND_PATH;}});\nObject.defineProperty(__exports,\"resolveAxis\",{enumerable:true,get:function(){return resolveAxis;}});\nObject.defineProperty(__exports,\"pivotMatrix\",{enumerable:true,get:function(){return pivotMatrix;}});\nObject.defineProperty(__exports,\"cellKey\",{enumerable:true,get:function(){return cellKey;}});\nObject.defineProperty(__exports,\"marginKey\",{enumerable:true,get:function(){return marginKey;}});\nconst __m0=__req(\"packages/core/src/compute/handle.js\");\nconst valueComparator=__m0[\"valueComparator\"];\nconst __m1=__req(\"packages/core/src/compute/total.js\");\nconst total=__m1[\"total\"];\nconst __m2=__req(\"packages/core/src/compute/group.js\");\nconst packKeys=__m2[\"packKeys\"];\nconst __m3=__req(\"packages/core/src/compute/pivot.js\");\nconst joinPath=__m3[\"joinPath\"];\nconst DEFAULT_PATH_SEPARATOR=__m3[\"DEFAULT_PATH_SEPARATOR\"];\nconst DEFAULT_MAX_COLUMNS=__m3[\"DEFAULT_MAX_COLUMNS\"];\nconst GRAND_PATH='';\nfunction resolveAxis(handles,leaves,opts={}){\nconst separator=opts.separator||DEFAULT_PATH_SEPARATOR;\nconst list=handles||[];\nconst order=leaves instanceof Uint32Array?leaves:Uint32Array.from(leaves||[]);\nconst n=order.length;\nif(list.length===0){\nreturn{tuples:[[]],paths:[GRAND_PATH],buckets:[order]};\n}\nconst{keyOf,readers}=packKeys(list,order,0);\nconst seen=new Map();\nconst tuples=[];\nconst rawKeys=[];\nconst rowsByKey=[];\nfor(let i=0;i<n;i++){\nconst row=order[i];\nconst key=keyOf(row);\nlet at=seen.get(key);\nif(at===undefined){\nat=tuples.length;\nseen.set(key,at);\nrawKeys.push(key);\nconst tuple=new Array(readers.length);\nfor(let j=0;j<readers.length;j++)tuple[j]=readers[j](row);\ntuples.push(tuple);\nrowsByKey.push([]);\n}\nrowsByKey[at].push(row);\n}\nconst cmp=valueComparator(opts.locale);\nconst rank=tuples.map((_,i)=>i);\nrank.sort((a,b)=>{\nconst ta=tuples[a];\nconst tb=tuples[b];\nfor(let j=0;j<ta.length;j++){\nconst c=compareNullable(ta[j],tb[j],cmp);\nif(c!==0)return c;\n}\nreturn a-b;\n});\nconst outTuples=new Array(rank.length);\nconst paths=new Array(rank.length);\nconst buckets=new Array(rank.length);\nfor(let position=0;position<rank.length;position++){\nconst from=rank[position];\noutTuples[position]=tuples[from];\npaths[position]=joinPath(tuples[from],separator);\nbuckets[position]=Uint32Array.from(rowsByKey[from]);\n}\nreturn{tuples:outTuples,paths,buckets};\n}\nfunction compareNullable(a,b,cmp){\nconst na=a===null||a===undefined;\nconst nb=b===null||b===undefined;\nif(na||nb)return na&&nb?0:na?1:-1;\nreturn cmp(a,b);\n}\nfunction intersect(a,b,bSet){\nconst out=[];\nfor(let i=0;i<a.length;i++){\nif(bSet.has(a[i]))out.push(a[i]);\n}\nreturn Uint32Array.from(out);\n}\nfunction reduceCell(handle,leaves,fn,ctx){\nconst value=leaves.length?total(handle,leaves,fn,ctx):null;\nreturn{value,leaves,count:leaves.length};\n}\nfunction pivotMatrix(input){\nconst opts=(input&&input.opts)||{};\nconst separator=opts.separator||DEFAULT_PATH_SEPARATOR;\nconst ctx=opts.totalContext||{locale:opts.locale};\nconst measures=(input.measures||[]).filter((m)=>m&&m.handle);\nconst leaves=input.leaves instanceof Uint32Array\n?input.leaves\n:Uint32Array.from(input.leaves||[]);\nconst rowAxis=resolveAxis(input.rowHandles||[],leaves,{...opts,separator});\nconst columnAxis=resolveAxis(input.columnHandles||[],leaves,{...opts,separator});\nconst maxColumns=opts.maxColumns===undefined?DEFAULT_MAX_COLUMNS:opts.maxColumns;\nconst columns=columnAxis.paths.length*Math.max(1,measures.length);\nconst empty=new Map();\nif(maxColumns&&columns>maxColumns){\nreturn{\nrowAxis,\ncolumnAxis,\nmeasures:measures.map((m)=>({colId:m.colId,fn:m.fn})),\nbody:empty,\nrowMargin:empty,\ncolumnMargin:empty,\ngrand:empty,\ncolumns,\nerror:{\ncode:'pivot-max-columns',\nmessage:`[lattice] pivot would generate ${columns} columns, above pivot.maxColumns of `\n+`${maxColumns}. Narrow the pivot columns or raise the limit.`,\ncolumns,\nmaxColumns,\n},\n};\n}\nconst body=new Map();\nconst rowMargin=new Map();\nconst columnMargin=new Map();\nconst grand=new Map();\nconst columnSets=columnAxis.buckets.map((b)=>new Set(b));\nfor(let c=0;c<columnAxis.paths.length;c++){\nconst columnLeaves=columnAxis.buckets[c];\nconst columnPath=columnAxis.paths[c];\nfor(const m of measures){\ncolumnMargin.set(marginKey(columnPath,m.colId),reduceCell(m.handle,columnLeaves,m.fn,ctx));\n}\n}\nfor(let r=0;r<rowAxis.paths.length;r++){\nconst rowLeaves=rowAxis.buckets[r];\nconst rowPath=rowAxis.paths[r];\nfor(const m of measures){\nrowMargin.set(marginKey(rowPath,m.colId),reduceCell(m.handle,rowLeaves,m.fn,ctx));\n}\nfor(let c=0;c<columnAxis.paths.length;c++){\nconst cellLeaves=intersect(rowLeaves,columnAxis.buckets[c],columnSets[c]);\nif(cellLeaves.length===0)continue;\nconst columnPath=columnAxis.paths[c];\nfor(const m of measures){\nbody.set(cellKey(rowPath,columnPath,m.colId),reduceCell(m.handle,cellLeaves,m.fn,ctx));\n}\n}\n}\nfor(const m of measures){\ngrand.set(m.colId,reduceCell(m.handle,leaves,m.fn,ctx));\n}\nreturn{\nrowAxis,\ncolumnAxis,\nmeasures:measures.map((m)=>({colId:m.colId,fn:m.fn})),\nbody,\nrowMargin,\ncolumnMargin,\ngrand,\ncolumns,\nerror:null,\n};\n}\nfunction cellKey(rowPath,columnPath,colId){\nreturn`${rowPath}\\u0000${columnPath}\\u0000${colId}`;\n}\nfunction marginKey(path,colId){\nreturn`${path}\\u0000${colId}`;\n}\n});\n__def(\"packages/core/src/compute/reference.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"referenceValue\",{enumerable:true,get:function(){return referenceValue;}});\nObject.defineProperty(__exports,\"referenceSort\",{enumerable:true,get:function(){return referenceSort;}});\nObject.defineProperty(__exports,\"referenceFilter\",{enumerable:true,get:function(){return referenceFilter;}});\nObject.defineProperty(__exports,\"referencePasses\",{enumerable:true,get:function(){return referencePasses;}});\nObject.defineProperty(__exports,\"referenceGroup\",{enumerable:true,get:function(){return referenceGroup;}});\nObject.defineProperty(__exports,\"referenceTotal\",{enumerable:true,get:function(){return referenceTotal;}});\nconst __m0=__req(\"packages/core/src/internal/util.js\");\nconst getPath=__m0[\"getPath\"];\nconst __m1=__req(\"packages/core/src/compute/handle.js\");\nconst isMissing=__m1[\"isMissing\"];\nconst valueComparator=__m1[\"valueComparator\"];\nconst __m2=__req(\"packages/core/src/compute/filter.js\");\nconst testValue=__m2[\"testValue\"];\nconst KEY_SEPARATOR=String.fromCharCode(0x1f);\nconst NULL_MARKER=String.fromCharCode(0x00);\nfunction referenceValue(row,col){\nconst v=col.includes('.')?getPath(row,col):(row==null?undefined:row[col]);\nreturn v===undefined?null:v;\n}\nfunction referenceSort(rows,entries,opts={}){\nconst list=entries||[];\nlet order=rows.map((_,i)=>i);\nif(list.length===0)return order;\nfor(let e=list.length-1;e>=0;e--){\norder=referenceSortOne(rows,order,list[e],opts);\n}\nreturn order;\n}\nfunction referenceSortOne(rows,order,entry,opts){\nconst locale=entry.locale!==undefined?entry.locale:opts.locale;\nconst base=valueComparator(locale);\nconst descending=entry.descending!==undefined?!!entry.descending:entry.dir==='desc';\nconst present=[];\nconst absent=[];\nfor(const i of order){\nconst v=referenceValue(rows[i],entry.col);\nif(isMissing(v))absent.push(i);else present.push(i);\n}\nconst position=new Map();\nfor(let p=0;p<present.length;p++)position.set(present[p],p);\nconst compare=(a,b)=>{\nconst va=referenceValue(rows[a],entry.col);\nconst vb=referenceValue(rows[b],entry.col);\nlet c;\nif(typeof entry.compare==='function'){\nc=entry.compare(va,vb,rows[a],rows[b],descending);\nif(descending)c=-c;\n}else{\nc=descending?base(vb,va):base(va,vb);\n}\nreturn c!==0?c:position.get(a)-position.get(b);\n};\npresent.sort(compare);\nreturn entry.nullsFirst?absent.concat(present):present.concat(absent);\n}\nfunction referenceFilter(rows,filters,opts={}){\nconst out=[];\nfor(let i=0;i<rows.length;i++){\nif(referencePasses(rows[i],filters,opts,i))out.push(i);\n}\nreturn out;\n}\nfunction referencePasses(row,node,opts,index){\nif(!node)return true;\nif(Array.isArray(node.conditions)){\nconst children=node.conditions.filter((c)=>c!=null);\nif(children.length===0)return true;\nif(node.op==='or')return children.some((c)=>referencePasses(row,c,opts,index));\nconst all=children.every((c)=>referencePasses(row,c,opts,index));\nreturn node.op==='not'?!all:all;\n}\nif(node.col===undefined&&typeof opts.custom==='function')return!!opts.custom(node,row,index);\nreturn testValue(referenceValue(row,node.col),node,opts.locale);\n}\nfunction referenceGroup(rows,cols,order,project){\nconst source=order||rows.map((_,i)=>i);\nconst seen=new Map();\nconst keys=[];\nconst buckets=[];\nfor(const i of source){\nconst tuple=cols.map((col,j)=>{\nconst v=referenceValue(rows[i],col);\nreturn(project&&project[j])?project[j](v):v;\n});\nconst key=tuple\n.map((v)=>(v===null||v===undefined?NULL_MARKER:String(v)))\n.join(KEY_SEPARATOR);\nlet at=seen.get(key);\nif(at===undefined){\nat=keys.length;\nseen.set(key,at);\nkeys.push(tuple);\nbuckets.push([]);\n}\nbuckets[at].push(i);\n}\nreturn{keys,buckets};\n}\nfunction referenceTotal(values,fn,opts={}){\nconst cmp=valueComparator(opts.locale);\nconst live=values.filter((v)=>!isMissing(v));\nconst numbers=live.map(toNumberOrNull).filter((v)=>v!==null);\nswitch(fn){\ncase'count':return values.length;\ncase'countValues':return live.length;\ncase'sum':return numbers.reduce((a,b)=>a+b,0);\ncase'avg':return live.length===0?null:numbers.reduce((a,b)=>a+b,0)/live.length;\ncase'min':return live.length===0?null:live.reduce((a,b)=>(cmp(b,a)<0?b:a));\ncase'max':return live.length===0?null:live.reduce((a,b)=>(cmp(b,a)>0?b:a));\ncase'first':return values.length===0?null:normaliseNull(values[0]);\ncase'last':return values.length===0?null:normaliseNull(values[values.length-1]);\ndefault:return null;\n}\n}\nfunction toNumberOrNull(v){\nif(typeof v==='number')return Number.isNaN(v)?null:v;\nif(v===null||v===undefined||v===''||typeof v==='boolean')return null;\nif(v instanceof Date)return v.getTime();\nconst n=Number(v);\nreturn Number.isNaN(n)?null:n;\n}\nfunction normaliseNull(v){\nreturn v===undefined?null:v;\n}\n});\n__def(\"packages/core/src/compute/windowed.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"Window\",{enumerable:true,get:function(){return Window;}});\nObject.defineProperty(__exports,\"WINDOW_KINDS\",{enumerable:true,get:function(){return WINDOW_KINDS;}});\nObject.defineProperty(__exports,\"openWindow\",{enumerable:true,get:function(){return openWindow;}});\nObject.defineProperty(__exports,\"default\",{enumerable:true,get:function(){return __default;}});\nconst __m0=__req(\"packages/core/src/compute/sketch.js\");\nconst Welford=__m0[\"Welford\"];\nclass Window{\n#kind;\n#span;\n#ticks=[];\n#now;\n#opened;\nconstructor(kind,span=0,now=Date.now){\nif(kind!=='count'&&kind!=='time'&&kind!=='session'){\nthrow new RangeError(`unknown window kind: ${kind}`);\n}\nif((kind==='count'||kind==='time')&&!(span>0)){\nthrow new RangeError(`a ${kind} window needs a positive span`);\n}\nthis.#kind=kind;\nthis.#span=Math.floor(span);\nthis.#now=now;\nthis.#opened=now();\n}\nget size(){return this.#ticks.length;}\npush(v,t=this.#now()){\nif(!Number.isFinite(v))return;\nthis.#ticks.push({t,v});\nthis.#evict(t);\n}\n#evict(nowT){\nif(this.#kind==='count'){\nwhile(this.#ticks.length>this.#span)this.#ticks.shift();\n}else if(this.#kind==='time'){\nconst cutoff=nowT-this.#span;\nwhile(this.#ticks.length&&this.#ticks[0].t<cutoff)this.#ticks.shift();\n}\n}\nspec(){\nconst span=this.#kind==='session'?this.#now()-this.#opened:this.#span;\nreturn{kind:this.#kind,span,size:this.#ticks.length};\n}\nvalues(){return this.#ticks.map((tk)=>tk.v);}\naggregate(){\nconst spec=this.spec();\nif(!this.#ticks.length){\nreturn{over:spec,count:0,sum:null,mean:null,min:null,max:null,variance:null,stddev:null};\n}\nconst w=new Welford();\nlet sum=0;\nlet min=Infinity;\nlet max=-Infinity;\nfor(const{v}of this.#ticks){\nsum+=v;\nif(v<min)min=v;\nif(v>max)max=v;\nw.add(v);\n}\nreturn{\nover:spec,\ncount:this.#ticks.length,\nsum,\nmean:w.mean(),\nmin,\nmax,\nvariance:w.variance(),\nstddev:w.stddev(),\n};\n}\nreduce(fn){\nconst agg=this.aggregate();\nconst map={\nsum:agg.sum,avg:agg.mean,mean:agg.mean,min:agg.min,max:agg.max,\ncount:agg.count,variance:agg.variance,stddev:agg.stddev,\n};\nif(!(fn in map))throw new RangeError(`unknown windowed aggregate: ${fn}`);\nreturn{value:map[fn],over:agg.over};\n}\n}\nconst WINDOW_KINDS=Object.freeze(['count','time','session']);\nfunction openWindow(opts,now=Date.now){\nconst span=opts.kind==='time'&&opts.minutes!=null\n?opts.minutes*60_000\n:opts.span??0;\nreturn new Window(opts.kind,span,now);\n}\nconst __default={Window,WINDOW_KINDS,openWindow};\n});\n__def(\"packages/core/src/compute/anomaly.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"MAD_SCALE\",{enumerable:true,get:function(){return MAD_SCALE;}});\nObject.defineProperty(__exports,\"DEFAULT_MODIFIED_Z_THRESHOLD\",{enumerable:true,get:function(){return DEFAULT_MODIFIED_Z_THRESHOLD;}});\nObject.defineProperty(__exports,\"DEFAULT_IQR_K\",{enumerable:true,get:function(){return DEFAULT_IQR_K;}});\nObject.defineProperty(__exports,\"DEFAULT_CHI_SQUARE_P\",{enumerable:true,get:function(){return DEFAULT_CHI_SQUARE_P;}});\nObject.defineProperty(__exports,\"ANOMALY_METHODS\",{enumerable:true,get:function(){return ANOMALY_METHODS;}});\nObject.defineProperty(__exports,\"robustSpread\",{enumerable:true,get:function(){return robustSpread;}});\nObject.defineProperty(__exports,\"modifiedZScores\",{enumerable:true,get:function(){return modifiedZScores;}});\nObject.defineProperty(__exports,\"iqrFences\",{enumerable:true,get:function(){return iqrFences;}});\nObject.defineProperty(__exports,\"chiSquareCdf\",{enumerable:true,get:function(){return chiSquareCdf;}});\nObject.defineProperty(__exports,\"chiSquareQuantile\",{enumerable:true,get:function(){return chiSquareQuantile;}});\nObject.defineProperty(__exports,\"mahalanobis\",{enumerable:true,get:function(){return mahalanobis;}});\nObject.defineProperty(__exports,\"DEFAULT_ROLLING_WINDOW\",{enumerable:true,get:function(){return DEFAULT_ROLLING_WINDOW;}});\nObject.defineProperty(__exports,\"ROLLING_ANOMALY_METHODS\",{enumerable:true,get:function(){return ROLLING_ANOMALY_METHODS;}});\nObject.defineProperty(__exports,\"rollingAnomalies\",{enumerable:true,get:function(){return rollingAnomalies;}});\nObject.defineProperty(__exports,\"anomalyCondition\",{enumerable:true,get:function(){return anomalyCondition;}});\nconst __m0=__req(\"packages/core/src/compute/statistics.js\");\nconst quantileSorted=__m0[\"quantileSorted\"];\nconst __m1=__req(\"packages/core/src/compute/special.js\");\nconst logGamma=__m1[\"logGamma\"];\nconst MAD_SCALE=0.6745;\nconst DEFAULT_MODIFIED_Z_THRESHOLD=3.5;\nconst DEFAULT_IQR_K=1.5;\nconst DEFAULT_CHI_SQUARE_P=0.975;\nconst ANOMALY_METHODS=Object.freeze(['modifiedZScore','iqr','mahalanobis']);\nfunction robustSpread(values){\nconst n=values.length;\nif(!n)return null;\nconst sorted=Array.from(values,Number).sort((a,b)=>a-b);\nconst median=quantileSorted(sorted,0.5);\nconst deviations=sorted.map((v)=>Math.abs(v-median)).sort((a,b)=>a-b);\nconst mad=quantileSorted(deviations,0.5);\nreturn{median,mad};\n}\nfunction modifiedZScores(values,opts={}){\nconst threshold=Number.isFinite(opts.threshold)?opts.threshold:DEFAULT_MODIFIED_Z_THRESHOLD;\nconst n=values.length;\nconst scores=new Array(n).fill(null);\nconst flags=new Array(n).fill(false);\nconst finite=[];\nfor(let i=0;i<n;i++){\nconst v=Number(values[i]);\nif(Number.isFinite(v))finite.push(v);\n}\nif(!finite.length)return{median:null,mad:null,threshold,scores,flags,flagged:0};\nconst spread=robustSpread(finite);\nif(spread.mad===0)return{median:spread.median,mad:0,threshold,scores,flags,flagged:0};\nlet flagged=0;\nfor(let i=0;i<n;i++){\nconst v=Number(values[i]);\nif(!Number.isFinite(v))continue;\nconst score=(MAD_SCALE*(v-spread.median))/spread.mad;\nscores[i]=score;\nif(Math.abs(score)>threshold){flags[i]=true;flagged++;}\n}\nreturn{median:spread.median,mad:spread.mad,threshold,scores,flags,flagged};\n}\nfunction iqrFences(values,opts={}){\nconst k=Number.isFinite(opts.k)?opts.k:DEFAULT_IQR_K;\nconst finite=[];\nfor(let i=0;i<values.length;i++){\nconst v=Number(values[i]);\nif(Number.isFinite(v))finite.push(v);\n}\nif(!finite.length)return null;\nconst sorted=finite.sort((a,b)=>a-b);\nconst q1=quantileSorted(sorted,0.25);\nconst q3=quantileSorted(sorted,0.75);\nconst iqr=q3-q1;\nreturn{q1,q3,iqr,lower:q1-k*iqr,upper:q3+k*iqr,k};\n}\nfunction regularizedGammaP(a,x){\nif(x<=0)return 0;\nconst gln=logGamma(a);\nif(x<a+1){\nlet ap=a;\nlet sum=1/a;\nlet term=sum;\nfor(let i=0;i<1000;i++){\nap+=1;\nterm*=x/ap;\nsum+=term;\nif(Math.abs(term)<Math.abs(sum)*1e-15)break;\n}\nreturn sum*Math.exp(-x+a*Math.log(x)-gln);\n}\nconst tiny=1e-300;\nlet b=x+1-a;\nlet c=1/tiny;\nlet d=1/b;\nlet h=d;\nfor(let i=1;i<1000;i++){\nconst an=-i*(i-a);\nb+=2;\nd=an*d+b;\nif(Math.abs(d)<tiny)d=tiny;\nc=b+an/c;\nif(Math.abs(c)<tiny)c=tiny;\nd=1/d;\nconst delta=d*c;\nh*=delta;\nif(Math.abs(delta-1)<1e-15)break;\n}\nconst q=Math.exp(-x+a*Math.log(x)-gln)*h;\nreturn 1-q;\n}\nfunction chiSquareCdf(x,df){\nif(x<=0)return 0;\nreturn regularizedGammaP(df/2,x/2);\n}\nfunction chiSquareQuantile(df,p=DEFAULT_CHI_SQUARE_P){\nif(!(p>0)||!(p<1))return NaN;\nlet lo=0;\nlet hi=Math.max(1,df);\nwhile(chiSquareCdf(hi,df)<p)hi*=2;\nfor(let i=0;i<200;i++){\nconst mid=(lo+hi)/2;\nif(chiSquareCdf(mid,df)<p)lo=mid;else hi=mid;\nif(hi-lo<1e-10)break;\n}\nreturn(lo+hi)/2;\n}\nfunction invertMatrix(matrix){\nconst k=matrix.length;\nconst a=matrix.map((row,i)=>{\nconst copy=row.slice();\nfor(let j=0;j<k;j++)copy.push(i===j?1:0);\nreturn copy;\n});\nfor(let col=0;col<k;col++){\nlet pivot=col;\nfor(let r=col+1;r<k;r++){\nif(Math.abs(a[r][col])>Math.abs(a[pivot][col]))pivot=r;\n}\nif(Math.abs(a[pivot][col])<1e-12)return null;\nif(pivot!==col){const t=a[pivot];a[pivot]=a[col];a[col]=t;}\nconst div=a[col][col];\nfor(let j=0;j<2*k;j++)a[col][j]/=div;\nfor(let r=0;r<k;r++){\nif(r===col)continue;\nconst factor=a[r][col];\nif(factor===0)continue;\nfor(let j=0;j<2*k;j++)a[r][j]-=factor*a[col][j];\n}\n}\nreturn a.map((row)=>row.slice(k));\n}\nfunction meanAndCovariance(rows,k){\nconst n=rows.length;\nconst mean=new Array(k).fill(0);\nfor(const row of rows)for(let j=0;j<k;j++)mean[j]+=row[j];\nfor(let j=0;j<k;j++)mean[j]/=n;\nconst cov=Array.from({length:k},()=>new Array(k).fill(0));\nfor(const row of rows){\nfor(let a=0;a<k;a++){\nconst da=row[a]-mean[a];\nfor(let b=a;b<k;b++){\ncov[a][b]+=da*(row[b]-mean[b]);\n}\n}\n}\nconst denom=n>1?n-1:1;\nfor(let a=0;a<k;a++){\nfor(let b=a;b<k;b++){\ncov[a][b]/=denom;\ncov[b][a]=cov[a][b];\n}\n}\nreturn{mean,cov};\n}\nfunction mahalanobis(matrix,opts={}){\nconst p=Number.isFinite(opts.p)?opts.p:DEFAULT_CHI_SQUARE_P;\nconst ridgeFraction=Number.isFinite(opts.ridge)?opts.ridge:1e-6;\nconst n=matrix.length;\nif(!n)return null;\nconst k=matrix[0].length;\nif(!k)return null;\nconst distances=new Array(n).fill(null);\nconst squared=new Array(n).fill(null);\nconst flags=new Array(n).fill(false);\nconst completeIndex=[];\nconst complete=[];\nfor(let i=0;i<n;i++){\nconst row=matrix[i];\nlet ok=row.length===k;\nconst coords=new Array(k);\nfor(let j=0;ok&&j<k;j++){\nconst v=Number(row[j]);\nif(!Number.isFinite(v))ok=false;else coords[j]=v;\n}\nif(ok){completeIndex.push(i);complete.push(coords);}\n}\nconst df=k;\nconst cutoff=chiSquareQuantile(df,p);\nif(complete.length<=k){\nreturn{center:[],df,cutoff,singular:true,used:complete.length,distances,squared,flags,flagged:0};\n}\nconst{mean,cov}=meanAndCovariance(complete,k);\nlet inverse=invertMatrix(cov);\nlet singular=false;\nif(!inverse){\nsingular=true;\nlet trace=0;\nfor(let j=0;j<k;j++)trace+=cov[j][j];\nconst ridge=(trace/k)*ridgeFraction||ridgeFraction;\nconst nudged=cov.map((row,i)=>row.map((v,j)=>(i===j?v+ridge:v)));\ninverse=invertMatrix(nudged);\nif(!inverse){\nreturn{center:mean,df,cutoff,singular:true,used:complete.length,distances,squared,flags,flagged:0};\n}\n}\nlet flagged=0;\nfor(let c=0;c<complete.length;c++){\nconst row=complete[c];\nconst dev=new Array(k);\nfor(let j=0;j<k;j++)dev[j]=row[j]-mean[j];\nlet d2=0;\nfor(let a=0;a<k;a++){\nlet sa=0;\nfor(let b=0;b<k;b++)sa+=inverse[a][b]*dev[b];\nd2+=dev[a]*sa;\n}\nif(d2<0)d2=0;\nconst at=completeIndex[c];\nsquared[at]=d2;\ndistances[at]=Math.sqrt(d2);\nif(d2>cutoff){flags[at]=true;flagged++;}\n}\nreturn{\ncenter:mean,df,cutoff,singular,used:complete.length,distances,squared,flags,flagged,\n};\n}\nconst DEFAULT_ROLLING_WINDOW=20;\nconst ROLLING_ANOMALY_METHODS=Object.freeze(['rollingModifiedZScore','rollingIqr']);\nfunction rollingAnomalies(values,opts={}){\nconst method=opts.method==='rollingIqr'?'rollingIqr':'rollingModifiedZScore';\nconst windowLen=Number.isFinite(opts.windowLen)&&opts.windowLen>=1\n?Math.floor(opts.windowLen):DEFAULT_ROLLING_WINDOW;\nconst threshold=Number.isFinite(opts.threshold)?opts.threshold:DEFAULT_MODIFIED_Z_THRESHOLD;\nconst k=Number.isFinite(opts.k)?opts.k:DEFAULT_IQR_K;\nconst minPeriods=Number.isFinite(opts.minPeriods)&&opts.minPeriods>=1\n?Math.floor(opts.minPeriods):windowLen;\nconst n=values.length;\nconst scores=new Array(n).fill(null);\nconst flags=new Array(n).fill(false);\nlet flagged=0;\nfor(let i=0;i<n;i++){\nconst v=Number(values[i]);\nif(!Number.isFinite(v))continue;\nconst start=Math.max(0,i-windowLen+1);\nconst win=[];\nfor(let j=start;j<=i;j++){\nconst w=Number(values[j]);\nif(Number.isFinite(w))win.push(w);\n}\nif(win.length<minPeriods)continue;\nif(method==='rollingIqr'){\nconst fences=iqrFences(win,{k});\nif(!fences)continue;\nif(v<fences.lower||v>fences.upper){flags[i]=true;flagged++;}\n}else{\nconst spread=robustSpread(win);\nif(!spread||spread.mad===0)continue;\nconst score=(MAD_SCALE*(v-spread.median))/spread.mad;\nscores[i]=score;\nif(Math.abs(score)>threshold){flags[i]=true;flagged++;}\n}\n}\nreturn{method,windowLen,minPeriods,threshold,k,scores,flags,flagged};\n}\nfunction anomalyCondition(opts={}){\nconst spec=opts||{};\nconst field=spec.field;\nif(typeof field!=='string'||!field){\nthrow new TypeError('[lattice] anomalyCondition: a string `field` naming the numeric property to monitor is required');\n}\nconst method=spec.method||'modifiedZScore';\nconst known=ANOMALY_METHODS.includes(method)||ROLLING_ANOMALY_METHODS.includes(method);\nif(!known||method==='mahalanobis'){\nthrow new RangeError(`[lattice] anomalyCondition: unknown or unsupported method '${method}'`);\n}\nconst orderBy=typeof spec.orderBy==='string'?spec.orderBy:null;\nconst latest=spec.latest===true;\nconst isRolling=ROLLING_ANOMALY_METHODS.includes(method);\nconst read=(row)=>Number(row==null?NaN:row[field]);\nreturn(rows)=>{\nconst list=Array.isArray(rows)?rows.slice():[...rows];\nif(orderBy){\nlist.sort((a,b)=>{\nconst av=a==null?undefined:a[orderBy];\nconst bv=b==null?undefined:b[orderBy];\nif(av===bv)return 0;\nif(av===undefined||av===null)return-1;\nif(bv===undefined||bv===null)return 1;\nreturn av<bv?-1:1;\n});\n}\nconst values=list.map(read);\nlet flags;\nlet scores;\nif(isRolling){\nconst r=rollingAnomalies(values,{\nmethod,windowLen:spec.windowLen,threshold:spec.threshold,k:spec.k,minPeriods:spec.minPeriods,\n});\n({flags,scores}=r);\n}else if(method==='iqr'){\nconst fences=iqrFences(values,{k:spec.k});\nflags=values.map((v)=>(fences?Number.isFinite(v)&&(v<fences.lower||v>fences.upper):false));\nscores=values.map(()=>null);\n}else{\nconst z=modifiedZScores(values,{threshold:spec.threshold});\n({flags,scores}=z);\n}\nif(latest){\nconst i=flags.length-1;\nif(i<0||!flags[i])return false;\nreturn{method,field,flagged:[{row:list[i],score:scores[i]}]};\n}\nconst flaggedRows=[];\nfor(let i=0;i<flags.length;i++){\nif(flags[i])flaggedRows.push({row:list[i],score:scores[i]});\n}\nreturn flaggedRows.length?{method,field,flagged:flaggedRows}:false;\n};\n}\n});\n__def(\"packages/core/src/compute/forecast.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"FORECAST_METHODS\",{enumerable:true,get:function(){return FORECAST_METHODS;}});\nObject.defineProperty(__exports,\"forecast\",{enumerable:true,get:function(){return forecast;}});\nObject.defineProperty(__exports,\"default\",{enumerable:true,get:function(){return __default;}});\nconst __m0=__req(\"packages/core/src/compute/special.js\");\nconst normalQuantile=__m0[\"normalQuantile\"];\nconst studentTQuantile=__m0[\"studentTQuantile\"];\nconst __m1=__req(\"packages/core/src/internal/util.js\");\nconst warnOnce=__m1[\"warnOnce\"];\nconst FORECAST_METHODS=Object.freeze([\n'movingAverage','ses','holt','holtWinters','linear',\n]);\nconst SMOOTH_LO=1e-4;\nconst SMOOTH_HI=1-1e-4;\nfunction normalise(seq){\nconst rows=[];\nfor(let i=0;i<seq.length;i++){\nconst el=seq[i];\nif(el!==null&&typeof el==='object'){\nconst at=Number.isFinite(el.at)?el.at:i;\nconst value=Number.isFinite(el.value)?el.value:null;\nrows.push({at,value});\n}else{\nrows.push({at:i,value:Number.isFinite(el)?Number(el):null});\n}\n}\nreturn rows;\n}\nfunction axis(rows){\nconst finite=rows.filter((r)=>r.value!==null);\nconst first=finite[0];\nconst last=finite[finite.length-1];\nconst span=last.at-first.at;\nconst step=finite.length>1&&span>0?span/(finite.length-1):1;\nreturn{lastAt:last.at,step};\n}\nfunction clamp(x){return Math.min(SMOOTH_HI,Math.max(SMOOTH_LO,x));}\nfunction goldenMin(f,lo=SMOOTH_LO,hi=SMOOTH_HI,iters=80){\nconst invphi=(Math.sqrt(5)-1)/2;\nlet a=lo;\nlet b=hi;\nlet c=b-invphi*(b-a);\nlet d=a+invphi*(b-a);\nlet fc=f(c);\nlet fd=f(d);\nfor(let i=0;i<iters;i++){\nif(fc<fd){b=d;d=c;fd=fc;c=b-invphi*(b-a);fc=f(c);}\nelse{a=c;c=d;fc=fd;d=a+invphi*(b-a);fd=f(d);}\n}\nreturn(a+b)/2;\n}\nfunction runSes(y,alpha){\nlet level=null;\nlet sse=0;\nlet m=0;\nfor(let i=0;i<y.length;i++){\nconst v=y[i];\nif(v===null)continue;\nif(level===null){level=v;continue;}\nsse+=(v-level)**2;\nm+=1;\nlevel=alpha*v+(1-alpha)*level;\n}\nreturn{level,sse,m};\n}\nfunction runHolt(y,alpha,beta){\nlet level=null;\nlet trend=null;\nlet sse=0;\nlet m=0;\nfor(let i=0;i<y.length;i++){\nconst v=y[i];\nif(v===null){if(level!==null&&trend!==null)level+=trend;continue;}\nif(level===null){level=v;continue;}\nif(trend===null){trend=v-level;}\nconst forecast=level+trend;\nsse+=(v-forecast)**2;\nm+=1;\nconst prev=level;\nlevel=alpha*v+(1-alpha)*(prev+trend);\ntrend=beta*(level-prev)+(1-beta)*trend;\n}\nreturn{level,trend,sse,m};\n}\nfunction runHoltWinters(y,m,alpha,beta,gamma){\nconst n=y.length;\nif(n<2*m)return null;\nconst seasonMean=(from)=>{\nlet s=0;\nlet c=0;\nfor(let i=from;i<from+m&&i<n;i++)if(y[i]!==null){s+=y[i];c+=1;}\nreturn c?s/c:null;\n};\nconst m0=seasonMean(0);\nconst m1=seasonMean(m);\nif(m0===null||m1===null)return null;\nlet level=m0;\nlet trend=(m1-m0)/m;\nconst season=new Array(m).fill(0);\nfor(let i=0;i<m;i++)season[i]=(y[i]===null?0:y[i]-level);\nconst bias=season.reduce((a,b)=>a+b,0)/m;\nfor(let i=0;i<m;i++)season[i]-=bias;\nlet sse=0;\nlet count=0;\nfor(let t=m;t<n;t++){\nconst phase=t%m;\nconst s=season[phase];\nconst v=y[t];\nif(v===null){level+=trend;continue;}\nconst forecast=level+trend+s;\nsse+=(v-forecast)**2;\ncount+=1;\nconst prevLevel=level;\nlevel=alpha*(v-s)+(1-alpha)*(level+trend);\ntrend=beta*(level-prevLevel)+(1-beta)*trend;\nseason[phase]=gamma*(v-level)+(1-gamma)*s;\n}\nreturn{level,trend,season,phase:(n-1)%m,sse,count};\n}\nfunction esBand(sigma2,c,z){\nlet acc=1;\nfor(const cj of c)acc+=cj*cj;\nconst se=Math.sqrt(sigma2*acc);\nreturn{se,margin:z*se};\n}\nfunction forecast(seq,opts={}){\nif(!seq||typeof seq.length!=='number'||seq.length===0)return null;\nconst method=FORECAST_METHODS.includes(opts.method)?opts.method:'linear';\nconst horizon=Math.max(1,Math.floor(Number(opts.horizon)||1));\nconst conf=Number.isFinite(opts.confidence)&&opts.confidence>0&&opts.confidence<1\n?opts.confidence:0.95;\nconst tail=1-(1-conf)/2;\nconst rows=normalise(seq);\nconst y=rows.map((r)=>r.value);\nconst finite=y.filter((v)=>v!==null);\nconst n=finite.length;\nconst{lastAt,step}=n?axis(rows):{lastAt:0,step:1};\nconst atOf=(h)=>lastAt+h*step;\nif(method==='linear')return forecastLinear(rows,n,horizon,conf,tail,atOf);\nif(method==='movingAverage')return forecastMovingAverage(finite,n,horizon,conf,tail,opts,atOf);\nif(method==='ses')return forecastSes(y,n,horizon,conf,tail,opts,atOf);\nif(method==='holt')return forecastHolt(y,n,horizon,conf,tail,opts,atOf);\nreturn forecastHoltWinters(y,n,horizon,conf,tail,opts,atOf);\n}\nfunction forecastLinear(rows,n,horizon,conf,tail,atOf){\nif(n<2)return null;\nlet mx=0;\nlet my=0;\nfor(const r of rows)if(r.value!==null){mx+=r.at;my+=r.value;}\nmx/=n;\nmy/=n;\nlet sxx=0;\nlet sxy=0;\nlet syy=0;\nfor(const r of rows){\nif(r.value===null)continue;\nconst dx=r.at-mx;\nconst dy=r.value-my;\nsxx+=dx*dx;\nsxy+=dx*dy;\nsyy+=dy*dy;\n}\nif(sxx===0)return null;\nconst slope=sxy/sxx;\nconst intercept=my-slope*mx;\nconst r2=syy===0?1:Math.max(0,Math.min(1,(sxy*sxy)/(sxx*syy)));\nconst sse=Math.max(0,syy-slope*sxy);\nconst s=n>2?Math.sqrt(sse/(n-2)):null;\nconst t=n>2?studentTQuantile(tail,n-2):null;\nconst points=[];\nfor(let h=1;h<=horizon;h++){\nconst x0=atOf(h);\nconst mean=intercept+slope*x0;\nlet lower=null;\nlet upper=null;\nlet lowerMean=null;\nlet upperMean=null;\nlet se=null;\nif(s!==null){\nconst leverage=1/n+((x0-mx)**2)/sxx;\nconst sePred=s*Math.sqrt(1+leverage);\nconst seMean=s*Math.sqrt(leverage);\nse=sePred;\nlower=mean-t*sePred;\nupper=mean+t*sePred;\nlowerMean=mean-t*seMean;\nupperMean=mean+t*seMean;\n}\npoints.push({step:h,at:x0,mean,lower,upper,lowerMean,upperMean,se});\n}\nreturn{\nmethod:'linear',horizon,confidence:conf,n,sigma:s,r2,\nparams:{slope,intercept},points,\n};\n}\nfunction forecastMovingAverage(finite,n,horizon,conf,tail,opts,atOf){\nif(n<1)return null;\nconst k=Math.max(1,Math.min(n,Math.floor(Number(opts.windowLen)||n)));\nconst recent=finite.slice(n-k);\nlet sum=0;\nfor(const v of recent)sum+=v;\nconst mean=sum/k;\nlet se=null;\nlet t=null;\nif(k>1){\nlet ss=0;\nfor(const v of recent)ss+=(v-mean)**2;\nconst s=Math.sqrt(ss/(k-1));\nse=s*Math.sqrt(1+1/k);\nt=studentTQuantile(tail,k-1);\n}\nconst margin=se===null?null:t*se;\nconst points=[];\nfor(let h=1;h<=horizon;h++){\npoints.push({\nstep:h,at:atOf(h),mean,\nlower:margin===null?null:mean-margin,\nupper:margin===null?null:mean+margin,\nse,\n});\n}\nreturn{\nmethod:'movingAverage',horizon,confidence:conf,n,\nsigma:se===null?null:se,params:{windowLen:k},points,\n};\n}\nfunction forecastSes(y,n,horizon,conf,tail,opts,atOf){\nif(n<1)return null;\nlet alpha=Number.isFinite(opts.alpha)?clamp(opts.alpha):null;\nif(alpha===null)alpha=goldenMin((x)=>runSes(y,x).sse);\nconst run=runSes(y,alpha);\nconst z=normalQuantile(tail);\nconst sigma2=run.m>0?run.sse/run.m:null;\nconst points=[];\nfor(let h=1;h<=horizon;h++){\nconst mean=run.level;\nlet lower=null;\nlet upper=null;\nlet se=null;\nif(sigma2!==null){\nconst c=[];\nfor(let j=1;j<h;j++)c.push(alpha);\nconst band=esBand(sigma2,c,z);\nse=band.se;\nlower=mean-band.margin;\nupper=mean+band.margin;\n}\npoints.push({step:h,at:atOf(h),mean,lower,upper,se});\n}\nreturn{\nmethod:'ses',horizon,confidence:conf,n,\nsigma:sigma2===null?null:Math.sqrt(sigma2),params:{alpha},points,\n};\n}\nfunction forecastHolt(y,n,horizon,conf,tail,opts,atOf){\nif(n<2)return null;\nlet alpha=Number.isFinite(opts.alpha)?clamp(opts.alpha):null;\nlet beta=Number.isFinite(opts.beta)?clamp(opts.beta):null;\nif(alpha===null||beta===null){\nlet a=alpha===null?0.5:alpha;\nlet b=beta===null?0.5:beta;\nfor(let round=0;round<6;round++){\nif(alpha===null)a=goldenMin((x)=>runHolt(y,x,b).sse);\nif(beta===null)b=goldenMin((x)=>runHolt(y,a,x).sse);\n}\nalpha=alpha===null?a:alpha;\nbeta=beta===null?b:beta;\n}\nconst run=runHolt(y,alpha,beta);\nconst z=normalQuantile(tail);\nconst sigma2=run.m>0?run.sse/run.m:null;\nconst phi=alpha*beta;\nconst points=[];\nfor(let h=1;h<=horizon;h++){\nconst mean=run.level+h*run.trend;\nlet lower=null;\nlet upper=null;\nlet se=null;\nif(sigma2!==null){\nconst c=[];\nfor(let j=1;j<h;j++)c.push(alpha+j*phi);\nconst band=esBand(sigma2,c,z);\nse=band.se;\nlower=mean-band.margin;\nupper=mean+band.margin;\n}\npoints.push({step:h,at:atOf(h),mean,lower,upper,se});\n}\nreturn{\nmethod:'holt',horizon,confidence:conf,n,\nsigma:sigma2===null?null:Math.sqrt(sigma2),params:{alpha,beta},points,\n};\n}\nfunction forecastHoltWinters(y,n,horizon,conf,tail,opts,atOf){\nconst m=Math.floor(Number(opts.period));\nif(!(m>=2)){\nwarnOnce('forecast.holtWinters.period','forecast: holtWinters needs a period (opts.period >= 2)');\nreturn null;\n}\nif(n<2*m)return null;\nlet alpha=Number.isFinite(opts.alpha)?clamp(opts.alpha):null;\nlet beta=Number.isFinite(opts.beta)?clamp(opts.beta):null;\nlet gamma=Number.isFinite(opts.gamma)?clamp(opts.gamma):null;\nconst sseAt=(a,b,g)=>{\nconst r=runHoltWinters(y,m,a,b,g);\nreturn r?r.sse:Infinity;\n};\nif(alpha===null||beta===null||gamma===null){\nlet a=alpha===null?0.5:alpha;\nlet b=beta===null?0.5:beta;\nlet g=gamma===null?0.5:gamma;\nfor(let round=0;round<8;round++){\nif(alpha===null)a=goldenMin((x)=>sseAt(x,b,g));\nif(beta===null)b=goldenMin((x)=>sseAt(a,x,g));\nif(gamma===null)g=goldenMin((x)=>sseAt(a,b,x));\n}\nalpha=alpha===null?a:alpha;\nbeta=beta===null?b:beta;\ngamma=gamma===null?g:gamma;\n}\nconst run=runHoltWinters(y,m,alpha,beta,gamma);\nif(!run)return null;\nconst z=normalQuantile(tail);\nconst sigma2=run.count>0?run.sse/run.count:null;\nconst phi=alpha*beta;\nconst gs=gamma*(1-alpha);\nconst points=[];\nfor(let h=1;h<=horizon;h++){\nconst s=run.season[(run.phase+h)%m];\nconst mean=run.level+h*run.trend+s;\nlet lower=null;\nlet upper=null;\nlet se=null;\nif(sigma2!==null){\nconst c=[];\nfor(let j=1;j<h;j++)c.push(alpha+j*phi+(j%m===0?gs:0));\nconst band=esBand(sigma2,c,z);\nse=band.se;\nlower=mean-band.margin;\nupper=mean+band.margin;\n}\npoints.push({step:h,at:atOf(h),mean,lower,upper,se});\n}\nreturn{\nmethod:'holtWinters',horizon,confidence:conf,n,\nsigma:sigma2===null?null:Math.sqrt(sigma2),\nparams:{alpha,beta,gamma,period:m},points,\n};\n}\nconst __default={FORECAST_METHODS,forecast};\n});\n__def(\"packages/core/src/compute/index.js\",function(__exports,__req){\n'use strict';\nconst __m0=__req(\"packages/core/src/compute/sort.js\");\nObject.defineProperty(__exports,\"sortColumn\",{enumerable:true,get:function(){return __m0[\"sortColumn\"];}});\nObject.defineProperty(__exports,\"sortMulti\",{enumerable:true,get:function(){return __m0[\"sortMulti\"];}});\nObject.defineProperty(__exports,\"radixSortFloat64\",{enumerable:true,get:function(){return __m0[\"radixSortFloat64\"];}});\nObject.defineProperty(__exports,\"radixSortInt32\",{enumerable:true,get:function(){return __m0[\"radixSortInt32\"];}});\nObject.defineProperty(__exports,\"rankSortDictionary\",{enumerable:true,get:function(){return __m0[\"rankSortDictionary\"];}});\nObject.defineProperty(__exports,\"mergeSortComparator\",{enumerable:true,get:function(){return __m0[\"mergeSortComparator\"];}});\nObject.defineProperty(__exports,\"collateStringRanks\",{enumerable:true,get:function(){return __m0[\"collateStringRanks\"];}});\nObject.defineProperty(__exports,\"rankSortStrings\",{enumerable:true,get:function(){return __m0[\"rankSortStrings\"];}});\nconst __m1=__req(\"packages/core/src/compute/sortspec.js\");\nObject.defineProperty(__exports,\"collationDescriptor\",{enumerable:true,get:function(){return __m1[\"collationDescriptor\"];}});\nObject.defineProperty(__exports,\"isPortableSort\",{enumerable:true,get:function(){return __m1[\"isPortableSort\"];}});\nObject.defineProperty(__exports,\"isPortableSortSet\",{enumerable:true,get:function(){return __m1[\"isPortableSortSet\"];}});\nObject.defineProperty(__exports,\"describeSortEntry\",{enumerable:true,get:function(){return __m1[\"describeSortEntry\"];}});\nObject.defineProperty(__exports,\"describeSort\",{enumerable:true,get:function(){return __m1[\"describeSort\"];}});\nconst __m2=__req(\"packages/core/src/compute/filter.js\");\nObject.defineProperty(__exports,\"evaluateFilters\",{enumerable:true,get:function(){return __m2[\"evaluateFilters\"];}});\nObject.defineProperty(__exports,\"evaluateCondition\",{enumerable:true,get:function(){return __m2[\"evaluateCondition\"];}});\nObject.defineProperty(__exports,\"compact\",{enumerable:true,get:function(){return __m2[\"compact\"];}});\nObject.defineProperty(__exports,\"testValue\",{enumerable:true,get:function(){return __m2[\"testValue\"];}});\nObject.defineProperty(__exports,\"compilePredicate\",{enumerable:true,get:function(){return __m2[\"compilePredicate\"];}});\nObject.defineProperty(__exports,\"releaseMask\",{enumerable:true,get:function(){return __m2[\"releaseMask\"];}});\nObject.defineProperty(__exports,\"pruneColumn\",{enumerable:true,get:function(){return __m2[\"pruneColumn\"];}});\nObject.defineProperty(__exports,\"mentionsColumn\",{enumerable:true,get:function(){return __m2[\"mentionsColumn\"];}});\nconst __m3=__req(\"packages/core/src/compute/group.js\");\nObject.defineProperty(__exports,\"groupByColumns\",{enumerable:true,get:function(){return __m3[\"groupByColumns\"];}});\nObject.defineProperty(__exports,\"packKeys\",{enumerable:true,get:function(){return __m3[\"packKeys\"];}});\nconst __m4=__req(\"packages/core/src/compute/facet.js\");\nObject.defineProperty(__exports,\"facet\",{enumerable:true,get:function(){return __m4[\"facet\"];}});\nObject.defineProperty(__exports,\"computeBounds\",{enumerable:true,get:function(){return __m4[\"computeBounds\"];}});\nObject.defineProperty(__exports,\"countInto\",{enumerable:true,get:function(){return __m4[\"countInto\"];}});\nObject.defineProperty(__exports,\"bucketOf\",{enumerable:true,get:function(){return __m4[\"bucketOf\"];}});\nObject.defineProperty(__exports,\"facetKind\",{enumerable:true,get:function(){return __m4[\"facetKind\"];}});\nObject.defineProperty(__exports,\"cardinalityOf\",{enumerable:true,get:function(){return __m4[\"cardinalityOf\"];}});\nObject.defineProperty(__exports,\"pickGranularity\",{enumerable:true,get:function(){return __m4[\"pickGranularity\"];}});\nObject.defineProperty(__exports,\"floorTo\",{enumerable:true,get:function(){return __m4[\"floorTo\"];}});\nObject.defineProperty(__exports,\"advance\",{enumerable:true,get:function(){return __m4[\"advance\"];}});\nObject.defineProperty(__exports,\"STRATEGIES\",{enumerable:true,get:function(){return __m4[\"STRATEGIES\"];}});\nObject.defineProperty(__exports,\"GRANULARITIES\",{enumerable:true,get:function(){return __m4[\"GRANULARITIES\"];}});\nObject.defineProperty(__exports,\"DEFAULT_BUCKETS\",{enumerable:true,get:function(){return __m4[\"DEFAULT_BUCKETS\"];}});\nObject.defineProperty(__exports,\"DEFAULT_CARDINALITY_LIMIT\",{enumerable:true,get:function(){return __m4[\"DEFAULT_CARDINALITY_LIMIT\"];}});\nObject.defineProperty(__exports,\"QUANTILE_SAMPLE\",{enumerable:true,get:function(){return __m4[\"QUANTILE_SAMPLE\"];}});\nconst __m5=__req(\"packages/core/src/compute/total.js\");\nObject.defineProperty(__exports,\"TOTAL_FNS\",{enumerable:true,get:function(){return __m5[\"TOTAL_FNS\"];}});\nObject.defineProperty(__exports,\"TOTAL_LABELS\",{enumerable:true,get:function(){return __m5[\"TOTAL_LABELS\"];}});\nObject.defineProperty(__exports,\"totalLabel\",{enumerable:true,get:function(){return __m5[\"totalLabel\"];}});\nObject.defineProperty(__exports,\"total\",{enumerable:true,get:function(){return __m5[\"total\"];}});\nObject.defineProperty(__exports,\"collectValues\",{enumerable:true,get:function(){return __m5[\"collectValues\"];}});\nconst __m6=__req(\"packages/core/src/compute/pivot.js\");\nObject.defineProperty(__exports,\"pivot\",{enumerable:true,get:function(){return __m6[\"pivot\"];}});\nObject.defineProperty(__exports,\"resolvePivotKeys\",{enumerable:true,get:function(){return __m6[\"resolvePivotKeys\"];}});\nObject.defineProperty(__exports,\"pivotKey\",{enumerable:true,get:function(){return __m6[\"pivotKey\"];}});\nObject.defineProperty(__exports,\"joinPath\",{enumerable:true,get:function(){return __m6[\"joinPath\"];}});\nObject.defineProperty(__exports,\"KEY_DELIMITER\",{enumerable:true,get:function(){return __m6[\"KEY_DELIMITER\"];}});\nObject.defineProperty(__exports,\"DEFAULT_PATH_SEPARATOR\",{enumerable:true,get:function(){return __m6[\"DEFAULT_PATH_SEPARATOR\"];}});\nObject.defineProperty(__exports,\"DEFAULT_MAX_COLUMNS\",{enumerable:true,get:function(){return __m6[\"DEFAULT_MAX_COLUMNS\"];}});\nconst __m7=__req(\"packages/core/src/compute/pivotmatrix.js\");\nObject.defineProperty(__exports,\"pivotMatrix\",{enumerable:true,get:function(){return __m7[\"pivotMatrix\"];}});\nObject.defineProperty(__exports,\"resolveAxis\",{enumerable:true,get:function(){return __m7[\"resolveAxis\"];}});\nObject.defineProperty(__exports,\"cellKey\",{enumerable:true,get:function(){return __m7[\"cellKey\"];}});\nObject.defineProperty(__exports,\"marginKey\",{enumerable:true,get:function(){return __m7[\"marginKey\"];}});\nObject.defineProperty(__exports,\"GRAND_PATH\",{enumerable:true,get:function(){return __m7[\"GRAND_PATH\"];}});\nconst __m8=__req(\"packages/core/src/compute/reference.js\");\nObject.defineProperty(__exports,\"referenceSort\",{enumerable:true,get:function(){return __m8[\"referenceSort\"];}});\nObject.defineProperty(__exports,\"referenceFilter\",{enumerable:true,get:function(){return __m8[\"referenceFilter\"];}});\nObject.defineProperty(__exports,\"referenceGroup\",{enumerable:true,get:function(){return __m8[\"referenceGroup\"];}});\nObject.defineProperty(__exports,\"referenceTotal\",{enumerable:true,get:function(){return __m8[\"referenceTotal\"];}});\nObject.defineProperty(__exports,\"referencePasses\",{enumerable:true,get:function(){return __m8[\"referencePasses\"];}});\nObject.defineProperty(__exports,\"referenceValue\",{enumerable:true,get:function(){return __m8[\"referenceValue\"];}});\nconst __m9=__req(\"packages/core/src/compute/handle.js\");\nObject.defineProperty(__exports,\"identity\",{enumerable:true,get:function(){return __m9[\"identity\"];}});\nObject.defineProperty(__exports,\"rowCount\",{enumerable:true,get:function(){return __m9[\"rowCount\"];}});\nObject.defineProperty(__exports,\"presenceReader\",{enumerable:true,get:function(){return __m9[\"presenceReader\"];}});\nObject.defineProperty(__exports,\"bitReader\",{enumerable:true,get:function(){return __m9[\"bitReader\"];}});\nObject.defineProperty(__exports,\"valueReader\",{enumerable:true,get:function(){return __m9[\"valueReader\"];}});\nObject.defineProperty(__exports,\"valueComparator\",{enumerable:true,get:function(){return __m9[\"valueComparator\"];}});\nObject.defineProperty(__exports,\"numericTotalOrder\",{enumerable:true,get:function(){return __m9[\"numericTotalOrder\"];}});\nObject.defineProperty(__exports,\"dictRanks\",{enumerable:true,get:function(){return __m9[\"dictRanks\"];}});\nObject.defineProperty(__exports,\"dictSize\",{enumerable:true,get:function(){return __m9[\"dictSize\"];}});\nObject.defineProperty(__exports,\"dictValue\",{enumerable:true,get:function(){return __m9[\"dictValue\"];}});\nObject.defineProperty(__exports,\"multiValue\",{enumerable:true,get:function(){return __m9[\"multiValue\"];}});\nObject.defineProperty(__exports,\"isMissing\",{enumerable:true,get:function(){return __m9[\"isMissing\"];}});\nconst __m10=__req(\"packages/core/src/compute/sketch.js\");\nObject.defineProperty(__exports,\"Welford\",{enumerable:true,get:function(){return __m10[\"Welford\"];}});\nObject.defineProperty(__exports,\"Reservoir\",{enumerable:true,get:function(){return __m10[\"Reservoir\"];}});\nObject.defineProperty(__exports,\"HyperLogLog\",{enumerable:true,get:function(){return __m10[\"HyperLogLog\"];}});\nObject.defineProperty(__exports,\"SpaceSaving\",{enumerable:true,get:function(){return __m10[\"SpaceSaving\"];}});\nObject.defineProperty(__exports,\"KLL\",{enumerable:true,get:function(){return __m10[\"KLL\"];}});\nObject.defineProperty(__exports,\"hash32\",{enumerable:true,get:function(){return __m10[\"hash32\"];}});\nObject.defineProperty(__exports,\"SKETCH_BOUNDS\",{enumerable:true,get:function(){return __m10[\"SKETCH_BOUNDS\"];}});\nconst __m11=__req(\"packages/core/src/compute/windowed.js\");\nObject.defineProperty(__exports,\"Window\",{enumerable:true,get:function(){return __m11[\"Window\"];}});\nObject.defineProperty(__exports,\"WINDOW_KINDS\",{enumerable:true,get:function(){return __m11[\"WINDOW_KINDS\"];}});\nObject.defineProperty(__exports,\"openWindow\",{enumerable:true,get:function(){return __m11[\"openWindow\"];}});\nconst __m12=__req(\"packages/core/src/compute/statistics.js\");\nObject.defineProperty(__exports,\"MAINTENANCE\",{enumerable:true,get:function(){return __m12[\"MAINTENANCE\"];}});\nObject.defineProperty(__exports,\"APPROXIMATE\",{enumerable:true,get:function(){return __m12[\"APPROXIMATE\"];}});\nObject.defineProperty(__exports,\"maintenanceOf\",{enumerable:true,get:function(){return __m12[\"maintenanceOf\"];}});\nconst __m13=__req(\"packages/core/src/compute/anomaly.js\");\nObject.defineProperty(__exports,\"ANOMALY_METHODS\",{enumerable:true,get:function(){return __m13[\"ANOMALY_METHODS\"];}});\nObject.defineProperty(__exports,\"modifiedZScores\",{enumerable:true,get:function(){return __m13[\"modifiedZScores\"];}});\nObject.defineProperty(__exports,\"iqrFences\",{enumerable:true,get:function(){return __m13[\"iqrFences\"];}});\nObject.defineProperty(__exports,\"mahalanobis\",{enumerable:true,get:function(){return __m13[\"mahalanobis\"];}});\nObject.defineProperty(__exports,\"ROLLING_ANOMALY_METHODS\",{enumerable:true,get:function(){return __m13[\"ROLLING_ANOMALY_METHODS\"];}});\nObject.defineProperty(__exports,\"rollingAnomalies\",{enumerable:true,get:function(){return __m13[\"rollingAnomalies\"];}});\nObject.defineProperty(__exports,\"anomalyCondition\",{enumerable:true,get:function(){return __m13[\"anomalyCondition\"];}});\nconst __m14=__req(\"packages/core/src/compute/forecast.js\");\nObject.defineProperty(__exports,\"FORECAST_METHODS\",{enumerable:true,get:function(){return __m14[\"FORECAST_METHODS\"];}});\nObject.defineProperty(__exports,\"forecast\",{enumerable:true,get:function(){return __m14[\"forecast\"];}});\n});\n__def(\"packages/worker/src/kernel.js\",function(__exports,__req){\n'use strict';\nObject.defineProperty(__exports,\"loadCompute\",{enumerable:true,get:function(){return loadCompute;}});\nObject.defineProperty(__exports,\"setCompute\",{enumerable:true,get:function(){return setCompute;}});\nObject.defineProperty(__exports,\"dispatch\",{enumerable:true,get:function(){return dispatch;}});\nObject.defineProperty(__exports,\"handleMessage\",{enumerable:true,get:function(){return handleMessage;}});\nObject.defineProperty(__exports,\"installKernel\",{enumerable:true,get:function(){return installKernel;}});\nconst __m0=__req(\"packages/worker/src/transport.js\");\nconst PROTOCOL=__m0[\"PROTOCOL\"];\nconst OPS=__m0[\"OPS\"];\nconst CONTROL=__m0[\"CONTROL\"];\nconst ERRORS=__m0[\"ERRORS\"];\nconst unpackHandle=__m0[\"unpackHandle\"];\nconst unpackHandles=__m0[\"unpackHandles\"];\nconst createMaskPool=__m0[\"createMaskPool\"];\nconst collectTransfers=__m0[\"collectTransfers\"];\nconst __m1=__req(\"packages/core/src/store/columnpack.js\");\nconst packChunk=__m1[\"packChunk\"];\nconst packedTransfers=__m1[\"packedTransfers\"];\nlet computeModule=null;\nlet computePromise=null;\nlet computeError=null;\nasync function loadCompute(loader){\nif(computeModule)return computeModule;\nif(!computePromise){\nconst load=loader||(()=>Promise.resolve(__req(\"packages/core/src/compute/index.js\")));\ncomputePromise=Promise.resolve()\n.then(load)\n.then((mod)=>{computeModule=mod;return mod;})\n.catch((err)=>{\ncomputeError=err;\ncomputeModule=null;\nreturn null;\n});\n}\nreturn computePromise;\n}\nfunction setCompute(mod){\ncomputeModule=mod;\ncomputePromise=mod?Promise.resolve(mod):null;\ncomputeError=mod?null:computeError;\n}\nfunction filterContext(handles,count,locale){\nconst byId=new Map();\nfor(const h of handles)if(h)byId.set(h.id,h);\nreturn{\nhandle(colId){return byId.get(colId);},\ncount,\npool:createMaskPool(),\nlocale,\n};\n}\nfunction dispatch(request,compute){\nconst{op,args}=request;\nif(op===OPS.COLUMNIZE){\nreturn packChunk(args.schema||[],args.rows||[],args.opts||{});\n}\nconst fn=compute[op];\nif(typeof fn!=='function'){\nconst err=new Error(`[lattice] compute kernel '${op}' is not exported`);\n(err).code=ERRORS.NO_KERNEL;\nthrow err;\n}\nswitch(op){\ncase OPS.COLLATE_STRING_RANKS:\nreturn fn(args.table||[],(args.table||[]).length,args.locale);\ncase OPS.SORT_COLUMN:\nreturn fn(unpackHandle(args.handle),args.order??null,args.opts||{});\ncase OPS.SORT_MULTI:{\nconst handles=unpackHandles(args.handles||[]);\nconst entries=(args.entries||[]).map((e)=>({\n...e,\nhandle:handles[e.index],\n}));\nreturn fn(handles,entries,args.order??null);\n}\ncase OPS.EVALUATE_FILTERS:\nreturn fn(args.filters,filterContext(unpackHandles(args.handles||[]),args.count,args.locale));\ncase OPS.COMPACT:\nreturn fn(args.mask,args.count,undefined);\ncase OPS.GROUP_BY_COLUMNS:\nreturn fn(unpackHandles(args.handles||[]),args.order??null,args.opts||{});\ncase OPS.TOTAL:\nreturn fn(unpackHandle(args.handle),args.indices??null,args.fn);\ncase OPS.PIVOT:\nreturn fn(unpackHandles(args.handles||[]),args.order??null,args.opts||{});\ncase OPS.FACET:\nreturn fn(unpackHandle(args.handle),args.indices??null,args.count,args.opts||{});\ndefault:{\nconst err=new Error(`[lattice] unknown worker op '${op}'`);\n(err).code=ERRORS.PROTOCOL;\nthrow err;\n}\n}\n}\nasync function handleMessage(message,opts={}){\nif(!message||message.lattice!==PROTOCOL)return null;\nconst{id,op}=message;\nif(op===CONTROL.CANCEL){\nopts.cancelled?.add(message.target);\nreturn null;\n}\nif(op===CONTROL.PING){\nreturn{reply:{lattice:PROTOCOL,id,ok:true,result:'pong'},transfer:[]};\n}\nif(op===OPS.COLUMNIZE){\nif(opts.cancelled?.has(id)){opts.cancelled.delete(id);return null;}\ntry{\nconst result=packChunk(message.args.schema||[],message.args.rows||[],message.args.opts||{});\nif(opts.cancelled?.has(id)){\nopts.cancelled.delete(id);\nreturn{reply:{lattice:PROTOCOL,id,ok:false,error:{code:ERRORS.ABORTED,message:'[lattice] request superseded'}},transfer:[]};\n}\nreturn{reply:{lattice:PROTOCOL,id,ok:true,result},transfer:packedTransfers(result)};\n}catch(err){\nconst e=(err);\nreturn{\nreply:{lattice:PROTOCOL,id,ok:false,error:{code:e.code||ERRORS.KERNEL,message:e.message||String(err),stack:e.stack}},\ntransfer:[],\n};\n}\n}\nconst compute=await loadCompute(opts.loader);\nif(!compute){\nreturn{\nreply:{\nlattice:PROTOCOL,\nid,\nok:false,\nerror:{\ncode:ERRORS.NO_COMPUTE,\nmessage:`[lattice] compute kernels unavailable in worker: ${computeError?computeError.message:'module not found'}`,\n},\n},\ntransfer:[],\n};\n}\nif(opts.cancelled?.has(id)){\nopts.cancelled.delete(id);\nreturn{reply:{lattice:PROTOCOL,id,ok:false,error:{code:ERRORS.ABORTED,message:'[lattice] request superseded'}},transfer:[]};\n}\ntry{\nconst result=dispatch(message,compute);\nif(opts.cancelled?.has(id)){\nopts.cancelled.delete(id);\nreturn{reply:{lattice:PROTOCOL,id,ok:false,error:{code:ERRORS.ABORTED,message:'[lattice] request superseded'}},transfer:[]};\n}\nreturn{reply:{lattice:PROTOCOL,id,ok:true,result},transfer:collectTransfers(result)};\n}catch(err){\nconst e=(err);\nreturn{\nreply:{\nlattice:PROTOCOL,\nid,\nok:false,\nerror:{code:e.code||ERRORS.KERNEL,message:e.message||String(err),stack:e.stack},\n},\ntransfer:[],\n};\n}\n}\nfunction installKernel(scope,opts={}){\nconst cancelled=new Set();\nconst onMessage=async(event)=>{\nconst outcome=await handleMessage(event.data,{loader:opts.loader,cancelled});\nif(!outcome)return;\nscope.postMessage(outcome.reply,outcome.transfer);\n};\nscope.addEventListener('message',onMessage);\nloadCompute(opts.loader).then((mod)=>{\nscope.postMessage({lattice:PROTOCOL,id:0,op:CONTROL.READY,compute:!!mod});\n});\nreturn()=>scope.removeEventListener('message',onMessage);\n}\n});\nvar __entry=__req(\"packages/worker/src/kernel.js\");\nroot[\"__latticeKernel\"]=__entry;\n})(typeof globalThis!=='undefined'?globalThis:this);\n__latticeKernel.installKernel(self);\n",{type:'classic'});
 }catch(err){}
-const __entry=__req("packages/modules/gantt/index.js");
-export const
-GANTT_STATE_VERSION=__entry.GANTT_STATE_VERSION,
-computeSchedule=__entry.computeSchedule,
-findViolations=__entry.findViolations,
-normalizeTasks=__entry.normalizeTasks,
-normalizeDependencies=__entry.normalizeDependencies,
-topoOrder=__entry.topoOrder,
-LINK_TYPES=__entry.LINK_TYPES,
-SCHEDULE_ERROR=__entry.SCHEDULE_ERROR,
-EPS=__entry.EPS,
-toDayNumber=__entry.toDayNumber,
-fromDayNumber=__entry.fromDayNumber,
-toISODate=__entry.toISODate,
-importMSPDI=__entry.importMSPDI,
-exportMSPDI=__entry.exportMSPDI,
-computeEarnedValue=__entry.computeEarnedValue,
-createGantt=__entry.createGantt;
-export default __entry.default;
+var __entry=__req("packages/modules/layout/index.js");
+if(typeof module==='object'&&module.exports){module.exports=__entry;}
+else if(typeof define==='function'&&define.amd){define(function(){return __entry;});}
+else{root["LatticeGridLayout"]=__entry;}
+})(typeof globalThis!=='undefined'?globalThis:this);
