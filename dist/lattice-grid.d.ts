@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.53.0, type declarations
+ * Lattice Grid 1.54.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -8715,14 +8715,17 @@ declare module 'lattice-grid/modules/kpi' {
     value: unknown;
     formatted: string;
     /**
-     * The tile's semantic band, or `unknown` when the panel holds no rows at
-     * all. `unknown` is decided from data presence before any threshold is
+     * The tile's semantic band, or `unknown` when the tile measured nothing.
+     * `unknown` is decided from data presence before any threshold is
      * consulted: an aggregation over nothing returns the identity of its
      * operation (`sum` and `count` return 0), and 0 is a number a threshold
-     * grades, so without it an empty panel would report as a healthy one. A
-     * tile whose `filter` matches none of the rows the panel *does* hold has
-     * measured a real zero and is banded normally. `null` means the tile has no
-     * thresholds or bands configured.
+     * grades, so without it an empty panel would report as a healthy one.
+     *
+     * Two things make a tile `unknown`: the panel holds no rows at all, or the
+     * tile's `field` names no column on the bound grid, so it never read a cell
+     * to reduce over. A tile whose `filter` matches none of the rows the panel
+     * *does* hold is neither — it has measured a real zero and is banded
+     * normally. `null` means the tile has no thresholds or bands configured.
      */
     status: 'good' | 'warn' | 'critical' | 'unknown' | null;
     target?: number;
@@ -8746,6 +8749,14 @@ declare module 'lattice-grid/modules/kpi' {
     rows?: KPIRow[];
     grid?: unknown;
     rowKey?: string | ((row: KPIRow) => unknown);
+    /**
+     * Extra columns of the bound `grid` to project onto the rows a tile `filter`
+     * sees, beyond the fields the tiles themselves declare. A grid-bound panel
+     * hands a filter a projection, not a whole grid row, so a filter over a
+     * column no tile names would otherwise read `undefined` and report a
+     * confident zero. Ignored on a panel over a plain `rows` array.
+     */
+    fields?: string[];
     tiles?: KPITile[];
     columns?: number;
     ariaLabel?: string;
@@ -9348,6 +9359,21 @@ declare module 'lattice-grid/modules/layout' {
     movable?: boolean;
     /** Whether the window can be resized by drag or keyboard (default `false`). */
     resizable?: boolean;
+    /**
+     * Whether to offer a maximise control in the chrome (default `false`).
+     *
+     * Maximising fills the **layout host**, not the browser window, and hides
+     * every other window for the duration. Escape restores it, unless a payload
+     * has already claimed the key.
+     */
+    maximisable?: boolean;
+    /**
+     * Whether to offer a minimise control in the chrome (default `false`).
+     *
+     * A window with `chrome: false` cannot be minimised whatever this says:
+     * there would be nothing left on screen to restore it with.
+     */
+    minimisable?: boolean;
     /** Padding inside the window; the layout's `padding` (default `'5px'`) otherwise. */
     padding?: number | string;
     /** The `id` given to the payload container (default `` `${id}-body` ``). */
@@ -9469,6 +9495,16 @@ declare module 'lattice-grid/modules/layout' {
     resizable?: boolean;
     /** The default `closable` for windows that declare none (default `false`); see `movable`. */
     closable?: boolean;
+    /**
+     * The default `maximisable` for windows that declare none (default `false`).
+     *
+     * Not touched by `setInteractive()`: a display mode neither moves nor resizes
+     * a window in the arrangement, so a locked dashboard can still be blown up
+     * to read.
+     */
+    maximisable?: boolean;
+    /** The default `minimisable` for windows that declare none (default `false`); see `maximisable`. */
+    minimisable?: boolean;
     /** The windows, in mount order. */
     windows?: LayoutWindow[];
     /** An arrangement to apply at mount, as produced by `getLayout()`. */
@@ -9513,7 +9549,50 @@ declare module 'lattice-grid/modules/layout' {
     move(id: string, to: Partial<LayoutPlacement>): boolean | Promise<boolean>;
     /** Close a window through `beforeWindowClose`; the payload is not destroyed. */
     close(id: string): boolean | Promise<boolean>;
-    /** The full current arrangement. */
+    /**
+     * Blow one window up to fill the layout host, hiding the rest.
+     *
+     * It fills the **host element**, not the browser window, so there is no
+     * `position: fixed` (whose containing block is the nearest ancestor carrying
+     * a `transform` or a `contain`, which is why the same rule fills the screen
+     * on one page and lands in a 300px box on the next), no reparenting and
+     * nothing that can disturb the page around the dashboard.
+     *
+     * **Nothing moves**: no compaction runs, no placement changes, and the
+     * payload container is the same DOM node throughout. **Escape restores it**,
+     * from anywhere inside the layout, unless a payload has already claimed the
+     * key — a grid marks every Escape as handled, at two independent sites (a
+     * focused body cell and a focused header cell), so from inside a maximised
+     * grid the way back is the restore control. A minimised window is expanded first,
+     * and maximising a second window restores the first.
+     */
+    maximise(id: string): boolean;
+    /**
+     * Collapse one window to a single row: its payload is hidden and its chrome
+     * stays, carrying the control that brings it back.
+     *
+     * On screen it becomes one row and the windows below pull up into the space
+     * under `compact: 'vertical'`. In the arrangement nothing moves at all — the
+     * collapse is a projection of it — so `restore()` gives back exactly the
+     * arrangement that was there, in **any** order and with any number of other
+     * windows still collapsed.
+     *
+     * A window with `chrome: false` is refused, with a warning naming it.
+     */
+    minimise(id: string): boolean;
+    /** Leave whichever display mode a window is in; `false` when it was in none. */
+    restore(id: string): boolean;
+    /** The id of the window filling the host, or `null`. At most one. */
+    maximised(): string | null;
+    /** The ids of every currently minimised window, in mount order. */
+    minimised(): string[];
+    /**
+     * The full current arrangement.
+     *
+     * **A mode is not an arrangement**: this reports the *underlying* placement
+     * of a maximised or minimised window — where it will be when restored — never
+     * the geometry it is drawn at.
+     */
     getLayout(): LayoutSnapshot;
     /** Restore an arrangement; never throws on garbage. */
     setLayout(incoming: LayoutSnapshot | LayoutWindow[]): number;
