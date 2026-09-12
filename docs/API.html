@@ -360,7 +360,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.55.0</p>
+    <p class="rail__sub">API reference · v1.56.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -443,7 +443,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.55.0</span>
+      <span class="chip">Version 1.56.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -571,15 +571,59 @@
           <tr>
             <td class="sig">createGrid(element, config?)</td>
             <td class="type">Grid</td>
-            <td class="desc">Resolves the document from <code>element.ownerDocument</code>, so a grid inside an iframe uses that frame's document. Throws with a clear message if there is no DOM.</td>
+            <td class="desc">Resolves the document from <code>element.ownerDocument</code>, so a grid inside an iframe uses that frame's document. Throws with a clear message if there is no DOM. The exported name itself cannot be reassigned to wrap it — see the note below.</td>
           </tr>
           <tr>
             <td class="sig">createHeadlessGrid(config?)</td>
             <td class="type">Grid</td>
-            <td class="desc">Core only. Everything below except <code>grid.element</code> and the DOM-only config keys works unchanged.</td>
+            <td class="desc">Core only. Everything below except <code>grid.element</code> and the DOM-only config keys works unchanged. What that does and doesn't reach is spelled out below.</td>
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="note" id="wrapping-creategrid">
+      <p><strong><code>createGrid</code> cannot be monkey-patched.</strong> Wherever it is exported —
+      <code>window.LatticeGrid.createGrid</code> from the UMD build, or the named import from the ESM
+      build — it is defined with <code>Object.defineProperty(..., { get, enumerable: true })</code>
+      and no setter, and <code>configurable</code> defaults to <code>false</code> because the
+      descriptor never sets it. Assigning to it in an ordinary (non-strict) script is not an error:
+      the assignment is simply discarded and <code>LatticeGrid.createGrid</code> still returns the
+      original function. In a module or any script under <code>'use strict'</code> — which every ES
+      module is — the same assignment throws <code>TypeError: Cannot set property createGrid of
+      [object Object] which has only a getter</code>. Either way, a house-wide patch applied this way
+      has no effect, and in the sloppy-mode case nothing tells you it didn't. There is no supported
+      way to replace the function in place. The supported pattern is a factory your own code owns:</p>
+      <pre><code><span class="cmt">// your-lattice.js — the one place that knows your house defaults</span>
+<span class="kw">import</span> { createGrid <span class="kw">as</span> baseCreateGrid } <span class="kw">from</span> '@toclocoinc/lattice-grid';
+
+<span class="kw">export function</span> createGrid(element, config) {
+  <span class="kw">return</span> baseCreateGrid(element, { theme: 'house', density: 'compact', ...config });
+}
+
+<span class="cmt">// everywhere else</span>
+<span class="kw">import</span> { createGrid } <span class="kw">from</span> './your-lattice.js';</code></pre>
+      <p>There is no built-in <code>defaults()</code> call that applies house-wide options for you
+      today; a separate card (BACKLOG-0001187) considers adding one. Until then, the wrapping
+      function above — called everywhere <code>createGrid</code> would otherwise be called directly —
+      is the supported seam.</p>
+    </div>
+
+    <div class="note" id="headless-coverage">
+      <p><strong>What <code>createHeadlessGrid</code> covers, and what it cannot.</strong> It builds
+      the same core the DOM build attaches a renderer to, so everything that is not the renderer
+      itself is exercised exactly as it runs in a browser:</p>
+      <ul>
+        <li>Covered: data (<code>rows</code>, <code>columns</code>), state (<code>grid.state</code>,
+        saved views), sort, filter, group, total and pivot, formulas and computed columns, editing
+        and optimistic write-back, export, and every event the grid emits.</li>
+        <li>Not covered: the DOM renderer, layout and measurement (column widths, row heights,
+        scrolling), focus, and anything whose behaviour depends on a real box being painted on
+        screen — <code>grid.element</code> is <code>null</code> and there is nothing to measure.</li>
+      </ul>
+      <p>See <a href="api-detail.html#concepts">How it works</a> in the guide for the two specifics
+      that have cost real debugging time: a grid mounted where it has no rendered box, and what the
+      in-repo test DOM stub does and does not stand in for.</p>
     </div>
 
     <h2 id="webcomponent">&lt;lattice-grid&gt; web component</h2>
@@ -756,7 +800,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">columns</td><td class="type">(Column | ColumnGroup)[]</td><td class="dflt">, </td><td class="desc">Column definitions. Groups may nest.</td></tr>
           <tr><td class="name">columnGroups</td><td class="type">ColumnGroup[]</td><td class="dflt">, </td><td class="desc">Header grouping declared separately from the columns.</td></tr>
           <tr><td class="name">rows</td><td class="type">unknown[]</td><td class="dflt">, </td><td class="desc">Row objects. Held by reference; not copied.</td></tr>
-          <tr><td class="name">rowKey</td><td class="type">string | (row) =&gt; string</td><td class="dflt">, </td><td class="desc">Stable row identity. Without it the grid assigns a key per row object and warns: enough for sorting, filtering, selection and copying within a session, but change tracking, streaming dedupe, selection persistence and remote reload all switch off, because new objects are new rows.</td></tr>
+          <tr><td class="name">rowKey</td><td class="type">string | (row) =&gt; string</td><td class="dflt">, </td><td class="desc">Stable row identity. Without it the grid assigns a key per row object and warns: enough for sorting, filtering, selection and copying within a session, but change tracking, streaming dedupe, selection persistence and remote reload all switch off, because new objects are new rows. If it is configured but resolves to nothing for some rows — a field absent, or present on some rows only — those rows collapse onto one key and the grid warns once, naming the field(s) and how many rows were affected, on <code>rows.load()</code> as well as at construction.</td></tr>
           <tr><td class="name">source</td><td class="type">SourceConfig</td><td class="dflt">memory</td><td class="desc">Where rows come from: <code>memory</code>, <code>paged</code>, <code>remote</code> or <code>stream</code>. See <a href="#sources">Sources</a>.</td></tr>
           <tr><td class="name">ingest</td><td class="type">IngestConfig</td><td class="dflt">, </td><td class="desc"><code>{ retainSource, dropSourceRows }</code>. How rows enter the column store. <code>retainSource</code> defaults to <code>true</code>: the caller's row objects are held by reference so <code>rows.data()</code> returns them unchanged and <code>row === sourceObject</code> holds. Set it <code>false</code> to stop the store retaining them and reconstruct a row on demand — but the source layer and grid config still hold the array, so the resident footprint does not actually fall. <code>dropSourceRows: true</code> closes that gap: it releases the objects from the source layer too, so the packed columns become the only copy and the footprint drops by roughly an order of magnitude at scale. Either way <code>rows.data()</code> then returns freshly reconstructed objects, so identity checks and <code>row.sourceObject</code> no longer hold and equality becomes value-based. Cell values are unchanged.</td></tr>
           <tr><td class="name">tree</td><td class="type">TreeConfig</td><td class="dflt">, </td><td class="desc"><code>{ path }</code> or <code>{ parentKey }</code>, plus <code>label</code>, <code>orphans</code>. Rows form a hierarchy. See <a href="api-detail.html#tree-data">Tree data</a>.</td></tr>
@@ -789,7 +833,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">selection</td><td class="type">SelectionConfig | 'single' | 'multiple' | 'none'</td><td class="dflt">, </td><td class="desc">Object form adds <code>checkbox</code> (a pinned column of row checkboxes), <code>headerCheckbox</code> (tri-state select-all in its heading), <code>groupSelectsChildren</code>, <code>ranges</code>, <code>fillHandle</code>, <code>fill</code>. See <a href="api-detail.html#selection-checkbox">Selection and ranges</a>.</td></tr>
+          <tr><td class="name">selection</td><td class="type">SelectionConfig | 'single' | 'multiple' | 'none'</td><td class="dflt">, </td><td class="desc">Object form adds <code>checkbox</code> (a pinned column of row checkboxes), <code>headerCheckbox</code> (tri-state select-all in its heading), <code>checkboxOnly</code> (only that column may change selection — for a row with its own click action), <code>groupSelectsChildren</code>, <code>ranges</code>, <code>fillHandle</code>, <code>fill</code>. See <a href="api-detail.html#selection-checkbox">Selection and ranges</a>.</td></tr>
           <tr><td class="name">edit</td><td class="type">EditConfig | boolean</td><td class="dflt">, </td><td class="desc"><code>{ enabled, mode: 'cell' | 'row', start: 'single' | 'double' | 'key', enterMovesDown, undoDepth, commit, confirm, pendingTimeout, pastePreview }</code>. <code>commit</code>/<code>confirm</code>/<code>pendingTimeout</code> turn on optimistic writes; <code>pastePreview</code> (default off) shows a confirm/cancel diff before a bulk paste commits.</td></tr>
           <tr><td class="name">pagination</td><td class="type">PaginationConfig | boolean</td><td class="dflt">, </td><td class="desc">Local or remote paging.</td></tr>
           <tr><td class="name">quickFilterText</td><td class="type">string</td><td class="dflt">, </td><td class="desc">Initial quick-filter term. Equivalent to <code>grid.filters.quick(text)</code>.</td></tr>
@@ -905,7 +949,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
 
     <h2 id="column">Column definition</h2>
     <p class="section-note">Everything is optional. A column with only <code>field</code> infers its type from sampled data and takes every default from there.</p>
-    <p><strong>Inferring a <code>Date</code>.</strong> Inference walks
+    <p><strong>Inferring a <code>Date</code>, or an ISO string.</strong> Inference walks
     <code>boolean</code>, <code>number</code>, <code>date</code>, <code>dateString</code>,
     <code>datetime</code>, <code>text</code>, <code>object</code> and takes the first type that
     matches every sampled value. A <code>Date</code> whose <em>local</em> wall clock reads exactly
@@ -913,17 +957,27 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
     a <code>Date</code> carrying any time of day infers as <code>datetime</code> and stores
     <code>YYYY-MM-DDTHH:mm</code> (with seconds when they are non-zero), because a
     <code>date</code> column would discard the clock on ingest and nothing downstream could
-    recover it. <strong>This is a heuristic with one stated blind spot:</strong> a genuine
+    recover it. <strong>An ISO string follows the same rule:</strong> a date-only string
+    (<code>YYYY-MM-DD</code>) infers as <code>date</code>; a string with a time part
+    (<code>T</code> plus a time, with or without a zone offset — <code>'2026-09-12T14:30:00Z'</code>)
+    infers as <code>datetime</code> and keeps the time, and a column mixing both forms infers
+    <code>datetime</code> rather than falling back to <code>text</code>. A timestamp such as
+    <code>'2026-09-12T14:30:00Z'</code> therefore keeps its 14:30 on ingest, rather than being
+    read as the calendar day <code>'2026-09-12'</code> with nothing to say that a time had been
+    dropped. <strong>This is a heuristic with one stated blind spot:</strong> a genuine
     timestamp that lands on exactly local midnight — a nightly batch stamped
-    <code>00:00:00.000</code> — is indistinguishable from a date-only value and is still inferred
+    <code>00:00:00.000</code>, or a bare <code>'2026-09-12'</code> string that really meant an
+    instant — is indistinguishable from a date-only value and is still inferred
     as <code>date</code>, so its time of day is still discarded. Sub-second resolution is never
     retained by <code>datetime</code>. <strong>If you group by such a column, declare it:</strong> an
     undeclared <code>Date</code> column groups by the instant, which is one group per row, where a
     <code>type: 'date'</code> column groups into day buckets. Date filters are unaffected either way
     — they compare on the day and return the same rows. Declare <code>type</code> and none of this applies:
     <code>'date'</code> truncates on purpose, <code>'datetime'</code> keeps a wall clock, and
-    <code>'timestamp'</code> keeps the instant to the millisecond. Strings are unaffected — an ISO
-    string with or without a time component still infers as <code>date</code>.</p>
+    <code>'timestamp'</code> keeps the instant to the millisecond. A column of ISO timestamps that
+    must stay a calendar day opts out with an explicit <code>type: 'date'</code> — no warning is
+    logged for that column, because the value is preserved (declared, not narrowed) and there is
+    nothing to disclose.</p>
 
     <div class="table-wrap">
       <table>
@@ -963,9 +1017,9 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
       <table>
         <thead><tr><th>Key</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">compute</td><td class="type">(deps, ctx) =&gt; unknown</td><td class="desc">Derived value. Receives only its declared dependencies.</td></tr>
-          <tr><td class="name">deps</td><td class="type">string[] | '*'</td><td class="desc">Declared dependencies. Cycles are caught at compile time, not at render.</td></tr>
-          <tr><td class="name">pure</td><td class="type">boolean</td><td class="desc">Allows caching. A DEV-mode proxy flags impure computes that read outside their deps.</td></tr>
+          <tr><td class="name">compute</td><td class="type">(deps, ctx) =&gt; unknown</td><td class="desc">Derived value. Receives only its declared dependencies. A pure result is computed at ingest and cached; it is re-run when its row is replaced by <code>rows.apply({ update })</code> or <code>rows.load()</code>, when the grid a derived grid follows changes, and when the host asks with <code>rows.refresh({ rows, columns, force: true })</code>. An in-place cell edit to one of its <code>deps</code> does not currently re-run it. For an answer that arrives later (an id-to-name lookup, a rate table), return a placeholder, then call <code>rows.refresh({ rows, columns: [id], force: true })</code> once it resolves &mdash; or declare <code>pure: false</code>.</td></tr>
+          <tr><td class="name">deps</td><td class="type">string[] | '*'</td><td class="desc">Declared dependencies. Cycles are caught at compile time, not at render. An edit to a column outside <code>deps</code> does not re-run a pure compute.</td></tr>
+          <tr><td class="name">pure</td><td class="type">boolean</td><td class="desc">Default <code>true</code>: the result is cached and served until a dependency changes or a refresh forces it. <code>false</code> guarantees the compute is re-evaluated on every read and every paint &mdash; never served from a cache &mdash; and is the right declaration for a value that depends on something the grid cannot see. A DEV-mode proxy flags pure computes that read outside their deps.</td></tr>
           <tr><td class="name">format</td><td class="type">(p) =&gt; string</td><td class="desc">Overrides the type's formatter.</td></tr>
           <tr><td class="name">parse</td><td class="type">(p) =&gt; unknown</td><td class="desc">Editor output to value. Always called, whatever the editor emitted.</td></tr>
           <tr><td class="name">apply</td><td class="type">(p) =&gt; boolean</td><td class="desc">Writes the value back into the row object.</td></tr>
@@ -1030,7 +1084,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.55.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.56.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -1080,7 +1134,7 @@ grid.overlay.hide();</code></pre>
           <tr><td class="sig">forEachExcept(colId, fn)</td><td class="type">void</td><td class="desc">Walks the rows surviving every filter <em>except</em> that column's own, the faceting question, asked of the rows. It is what lets a header histogram keep every bar after one is clicked, and what lets a <a href="#cross-filter">cross-filtering</a> panel avoid narrowing itself out of existence. Needs a memory source; anything else falls back to the filtered rows and warns.</td></tr>
           <tr><td class="sig">apply(change)</td><td class="type">object</td><td class="desc">Transactional add / update / remove. Needs <code>rowKey</code>.</td></tr>
           <tr><td class="sig">queue(change)</td><td class="type">void</td><td class="desc">Batches a change into the next frame, the high-frequency path.</td></tr>
-          <tr><td class="sig">refresh(opts)</td><td class="type">void</td><td class="desc">Force re-evaluation of computed values and cells.</td></tr>
+          <tr><td class="sig">refresh(opts)</td><td class="type">void</td><td class="desc">Re-run computed values and repaint, without re-running sort, filter or grouping. <code>{ rows, columns }</code> narrows it to those cells; nothing named means every cell. Either way, the cached results for the named cells are discarded from every cache the grid keeps &mdash; the one behind <code>rows.text()</code> and the painted cell, and the one sort and filter read &mdash; so a non-stored computation is re-run on the next read, sort or filter. <code>force: true</code> also recomputes a <em>pure</em> (stored) computation for those cells and rewrites it, and repaints cells whose text did not change &mdash; the call to make when the answer changed for a reason the grid cannot see, such as an async lookup resolving. A column declared <code>pure: false</code> is never cached, so a plain <code>refresh()</code> is enough to show its new value. Without <code>force</code>, whether a <em>stored</em> (pure) computation is re-run for the named cells depends on the store the grid chose for the row count, and it flips at <code>columnarBelow</code>: below that many rows the named cell is re-run on its next read, at or above it the stored value stands until a <code>force: true</code>. Pass <code>force: true</code> when you want the same answer whatever the row count.</td></tr>
           <tr><td class="sig">move(key, to)</td><td class="type">{ moved, from, to, reason? }</td><td class="desc">Move a row to another position in the data. Refuses, naming the reason, while a sort, filter or grouping is active. Emits <code>row:moved</code>; persisting the new order is yours.</td></tr>
           <tr><td class="sig">groupHeadings(index)</td><td class="type">Row[]</td><td class="desc">The group rows enclosing a display index, outermost first. Empty when the grid is not grouped. Useful for a breadcrumb of your own.</td></tr>
           <tr><td class="sig">expand(key, deep?)</td><td class="type">void</td><td class="desc"></td></tr>
@@ -2843,10 +2897,12 @@ grid.destroy();
           <tr><td class="name">profile</td><td class="type">string | string[]</td><td class="desc">Replaces the pipeline with a transpose: one row per column, with count, present, missing, distinct, min, max, mean, median, quartiles, deviation and outlier count as its columns.</td></tr>
           <tr><td class="name">orient</td><td class="type">'columns' | 'metrics'</td><td class="desc">With <code>profile</code>, emit one row per statistic instead of one per column, the shape a dashboard tile wants.</td></tr>
           <tr><td class="name">crossFilter</td><td class="type">boolean | string</td><td class="desc">Let this grid filter the grid it derives from. <code>true</code> cross-filters through whatever it groups by; a string names a different source column.</td></tr>
-          <tr><td class="name">refresh</td><td class="type">'live' | 'idle' | 'manual' | number</td><td class="desc">When to re-derive. <code>idle</code> by default, coalescing to a frame, because a hundred cell updates in one frame are one derivation. A number debounces by that many milliseconds.</td></tr>
+          <tr><td class="name">refresh</td><td class="type">'live' | 'idle' | 'manual' | number</td><td class="desc">When to re-derive. <code>idle</code> by default, coalescing to a frame, because a hundred cell updates in one frame are one derivation. A number debounces by that many milliseconds. <code>live</code> re-derives on every change. <code>manual</code> never re-derives on its own: the host triggers it by calling <code>rows.load()</code> on the derived grid, with no argument, which re-reads <code>from</code> there and then &mdash; <a href="api-detail.html#derived-manual-refresh">a frozen panel refreshed on a button press</a>, executed.</td></tr>
         </tbody>
       </table>
     </div>
+    <pre><code><span class="cmt">// refresh: 'manual' — the summary re-derives only when the host asks.</span>
+refreshButton.addEventListener('click', () =&gt; summary.rows.load());</code></pre>
     <h3 id="derived-statistics">The relational statistics, as rows</h3>
     <p class="section-note">
       A single-column statistic already has a route: <code>select</code> reduces a group with any
@@ -4184,7 +4240,7 @@ off();                                       <span class="cmt">// on() returns i
           <tr><td class="name">scroll</td><td class="type">{ top, left }</td><td class="desc">Throttled to the frame.</td></tr>
           <tr><td class="name">scroll:end</td><td class="type">{}</td><td class="desc">Scrolling settled, the moment to trigger deferred work.</td></tr>
           <tr><td class="name">size:changed</td><td class="type">{}</td><td class="desc">The viewport resized.</td></tr>
-          <tr><td class="name">state:changed</td><td class="type">{ state, report }</td><td class="desc"><code>report</code> lists anything a restore could not apply.</td></tr>
+          <tr><td class="name">state:changed</td><td class="type">{ cause, sections, state, report }</td><td class="desc">Every state change, gesture or API call, announced exactly once — with one known gap: a predicate registered through <code>filters.where()</code> changes the <code>where</code> section and the rows on screen without raising it (BACKLOG-0001235). <code>cause</code> is <code>'user'</code> (a sort, filter, column move, resize, pin or hide, a grouping, a pivot, a page), <code>'apply'</code> (<code>state.apply()</code>, including an undo and a <code>config.state</code> seed) or <code>'reset'</code> (<code>state.reset()</code>) — build view persistence on this one event and skip <code>'reset'</code>, or the default is written back over the view the user just left. <code>sections</code> names the <code>GridState</code> keys that moved. <code>state</code> and <code>report</code> are carried by an apply or a reset and are <code>null</code> for <code>'user'</code>: call <code>grid.state.get()</code>, which is permission-sanitised, when you write. Selection, scroll, expansion, facets and annotations do not raise it.</td></tr>
           <tr><td class="name">stream:chunk</td><td class="type">{ loaded, estimated, count, renders }</td><td class="desc">A streamed chunk landed.</td></tr>
           <tr><td class="name">stream:end</td><td class="type">{ loaded, promoted, threshold }</td><td class="desc">Streaming finished; <code>promoted</code> means it switched to in-memory.</td></tr>
           <tr><td class="name">source:error</td><td class="type">{ error, block?, range? }</td><td class="desc">A source or block load failed.</td></tr>
@@ -4616,7 +4672,7 @@ const chart = createChart({
       </table>
     </div>
     <p>A chart given data it cannot draw (a candlestick with three measures rather than four) says so on the chart rather than drawing nothing, because a chart that silently draws nothing is indistinguishable from one that is broken.</p>
-    <p><strong>Hierarchical data.</strong> The part-to-whole types read nested input from the grid's own grouping, not from the spec: with <code>grid.columns.group(['region', 'product'])</code> in place, the tree is that grouping, one level per grouped column in that order, and <code>x</code> is not consulted; <code>depth</code> caps how many levels are read. On a flat grid, <code>x</code> is the single level. What each type draws of that tree: a <code>pie</code> or <code>donut</code> draws the top level; a <code>sunburst</code> draws every level as a ring, each segment its share of the segment inside it, and names a segment on any ring where the name fits, leaving it unnamed where it does not; a <code>treemap</code> nests: children inside their parent's tile, each branch with a header band naming it and padding round its children, to the depth the tree has. A child whose tile would be smaller than a line of text is not drawn and its parent's tile stands for it, so the levels drawn are the levels that can be read; a small group at the top level is always drawn, as a labelled tile with no children inside it. <code>drill</code> descends the tree a level per click on either.</p>
+    <p><strong>Hierarchical data.</strong> The part-to-whole types read nested input from the grid's own grouping, not from the spec: with <code>grid.columns.group(['region', 'product'])</code> in place, the tree is that grouping, one level per grouped column in that order, and <code>x</code> is not consulted; <code>depth</code> caps how many levels are read. On a flat grid, <code>x</code> is the single level. What each type draws of that tree: a <code>pie</code> or <code>donut</code> draws the top level; a <code>sunburst</code> draws every level as a ring, each segment its share of the segment inside it, and names a segment on any ring where the name fits, leaving it unnamed where it does not; a <code>treemap</code> nests: children inside their parent's tile, each branch with a header band naming it and padding round its children, to the depth the tree has. A child whose tile would be smaller than a line of text is not drawn and its parent's tile stands for it, so the levels drawn are the levels that can be read; a small group at the top level is always drawn, as a labelled tile with no children inside it. <code>drill</code> descends the tree on click, on either: clicking any tile or arc, at any depth, makes that node the root — a tile nested two levels down, or a segment on the outer ring, not only the top level — and the <code>drill</code> event carries the full <code>path</code> of labels from the root to it. <code>ascend()</code> comes back out a level at a time along the same path.</p>
 
     <h3>The spec</h3>
     <div class="table-wrap">
@@ -4661,6 +4717,48 @@ const chart = createChart({
         </tbody>
       </table>
     </div>
+    <p class="section-note">
+      <strong>A reduction over no readings is a gap, not a zero (BACKLOG-0001088).</strong>
+      <code>sum</code>, <code>avg</code>/<code>mean</code>, <code>min</code>, <code>max</code>,
+      <code>first</code> and <code>last</code> all answer <code>null</code> for a category whose
+      rows carry no value to reduce, so the line breaks and the bar is absent rather than dropping
+      to zero &mdash; a zero is a real reading, and drawing one where the data reported nothing
+      would show a plunge that never happened. <code>count</code> and <code>countValues</code> are
+      the deliberate exception: <code>count</code> tallies rows and <code>countValues</code> tallies
+      the values actually present, so both are honestly zero when that is the true answer.
+      <code>countValues</code> is the one to ask for when &ldquo;none arrived&rdquo; is the reading
+      you want drawn as zero rather than as a break in the line.
+    </p>
+    <pre data-run="js" data-expect="10,null | 1,0" data-covers="export:bindSeries config:fn config:countValues"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { bindSeries } = <span class="kw">await</span> import('../packages/modules/charts/bind.js');
+
+<span class="cmt">// 'a' has a reading; 'b' has a row, but the reading itself is absent.</span>
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'day', type: 'text' }, { field: 'sales', type: 'number' }],
+  rows: [
+    { id: 1, day: 'a', sales: 10 },
+    { id: 2, day: 'b', sales: null },
+  ],
+});
+
+<span class="cmt">// avg over no readings is null: 'b' is a gap in the line, not a zero.</span>
+<span class="kw">const</span> gap = bindSeries(grid, { x: 'day', y: { col: 'sales', fn: 'avg' } });
+<span class="cmt">// countValues asks "how many arrived": honestly 0 for 'b', not null.</span>
+<span class="kw">const</span> none = bindSeries(grid, { x: 'day', y: { col: 'sales', fn: 'countValues' } });
+grid.destroy();
+
+<span class="kw">return</span> [gap, none].map((bound) =&gt; bound.series[0].points.map((p) =&gt; String(p.y)).join(',')).join(' | ');</code></pre>
+    <p class="section-note">
+      <strong>A rolling <code>axis.x.window</code> that has aged past its data shows the empty
+      state, not a picture drawn off-plot.</strong> The window's domain ends at the wall clock
+      (see <code>window</code> under the <a href="#type-ChartAxis">axis</a> options below), so a
+      feed that has gone quiet for longer than the window's span would otherwise have every mark
+      fall outside the plot, with the axes and legend still drawn as if the chart were healthy.
+      The chart shows its empty state instead and warns once <strong>per chart instance</strong>,
+      naming the span and how old the newest reading is, so a dead feed reads as no data rather
+      than as a chart that quietly stopped moving.
+    </p>
 
     <h3>The chart</h3>
     <div class="table-wrap">
@@ -6308,6 +6406,9 @@ createGrid(el, {
     }],
   },
 });</code></pre>
+    <p>An <code>icon</code> naming a sprite the registry does not have draws the blank glyph
+    and logs a <code>[lattice]</code> warning once, naming the icon and how to register it
+    (BACKLOG-0001211) — it does not fail silently as an empty, still-clickable button.</p>
 
     <h2 id="styling">Styling and your page's CSS</h2>
     <p><strong>Forced colours.</strong> In Windows High Contrast Mode the grid translates state that
@@ -6413,7 +6514,7 @@ createGrid(el, {
       <span class="chip">clock</span><span class="chip">lock</span><span class="chip">link</span><span class="chip">external</span><span class="chip">filter</span>
       <span class="chip">sortAsc</span><span class="chip">sortDesc</span><span class="chip">menu</span><span class="chip">drag</span>
       <span class="chip">star</span><span class="chip">heart</span><span class="chip">circleFilled</span><span class="chip">square</span><span class="chip">bolt</span><span class="chip">flag</span><span class="chip">thumbUp</span>
-      <span class="chip">eye</span><span class="chip">eyeOff</span><span class="chip">copy</span><span class="chip">blank</span>
+      <span class="chip">eye</span><span class="chip">eyeOff</span><span class="chip">copy</span><span class="chip">present</span><span class="chip">blank</span>
     </div>
 
     <h2 id="operators">Filter grammar</h2>
@@ -6450,8 +6551,91 @@ createGrid(el, {
     </div>
 
     <div class="note">
+      <p><strong>An operator outside this list is refused, not applied (BACKLOG-0001180).</strong> <code>filters.set()</code> and <code>state.apply()</code> drop a condition whose <code>op</code> is not one of the operators above rather than installing it &mdash; it never reaches <code>filters.get()</code> and the grid is left exactly as filtered as it was before. A <code>[lattice]</code> warning names the operator received and the operators valid for that column's type. In a compound filter only the offending leaf is dropped; every other condition still applies.</p>
+    </div>
+
+    <div class="note">
       <p><strong>One filter, not two.</strong> A condition set from a header popup, from the tool panel, or through <code>grid.filters.set()</code> all merge into the same tree. Reading <code>grid.filters.get()</code> always gives the whole truth.</p>
     </div>
+
+    <h3 id="where-predicates">Host predicates: <code>where</code></h3>
+    <p class="section-note">
+      Some filters cannot be written as a condition, because what they test is not in any column:
+      whether this user may see the row, whether you hold a rate for its currency, whether it is in
+      the set your last API call returned. Register those as named predicates.
+    </p>
+
+    <pre><code>grid.filters.where('visibleToMe', row =&gt; row.owner === me);
+grid.filters.where('rateKnown', row =&gt; rates.has(row.ccy), { deps: ['ccy'], pinned: <span class="kw">true</span> });
+grid.filters.where('visibleToMe', <span class="kw">null</span>);   <span class="cmt">// remove</span>
+grid.filters.where();                      <span class="cmt">// the registered names</span>
+grid.filters.reapply('rateKnown');         <span class="cmt">// re-run one</span>
+grid.filters.reapply();                    <span class="cmt">// re-run all</span></code></pre>
+
+    <div class="note">
+      <p><strong>Registering is activating.</strong> There is no "a filter is present" flag to keep in step, because that flag is the thing that goes wrong: it is a second piece of state describing the first, and when the two disagree the grid either filters while reporting that it is not, or reports a filter while every row passes. A predicate is in force from the moment it is registered until it is removed.</p>
+    </div>
+
+    <p>Several are in force at once under their own names, ANDed with each other and with the
+    condition tree; removing one leaves the rest alone. The predicate is handed the <strong>data
+    row</strong>, the same shape <code>DerivedSourceConfig.where</code> receives.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>Type</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td class="name">deps</td><td class="type">string[]</td><td class="desc">The columns the predicate reads, in the same spirit as <code>value.deps</code> on a computed column. Declared, the verdict is cached per row and re-run only when one of these columns changes on that row. Omitted, the predicate is treated as reading the whole row and runs on every pass &mdash; never stale, and never skipped either.</td></tr>
+          <tr><td class="name">pinned</td><td class="type">boolean</td><td class="desc">Survive <code>filters.clear()</code>. For row-level permissions and tenant scoping, where a "clear filters" button must never widen what the user can see.</td></tr>
+          <tr><td class="name">condition</td><td class="type">FilterSet</td><td class="desc">A declarative twin, pushed to the source while the function stays as the residual. It must be implied by the predicate: the grid ANDs both, so a twin wider than the function costs only time, while one narrower than it hides rows the function would have kept.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <p><strong>Coming from AG Grid's external filter?</strong> The three pieces map onto two. <code>isExternalFilterPresent()</code> disappears &mdash; registration <em>is</em> presence. <code>doesExternalFilterPass(node)</code> becomes the named predicate you pass to <code>where</code>. <code>onFilterChanged()</code> becomes either <code>deps</code>, when what changed is a column the grid can watch, or <code>reapply(name?)</code>, when it is something the grid cannot see at all &mdash; a rate table arriving late, a permission refresh.</p>
+    </div>
+
+    <div class="note">
+      <p><strong>On a pushdown source the counts are page-relative, and the grid says so.</strong> A predicate is a function: no engine can evaluate it, so it always runs client-side, over the rows that came back. The grid warns once that match counts and totals are therefore relative to the fetched set, and names the fix &mdash; give the predicate a <code>condition</code> twin so the engine narrows the fetch itself. The paged and remote sources receive the twin but do <strong>not</strong> apply the predicate to their window: their rows are held in a block cache indexed by the server's own ranges and totals, so filtering a block client-side would leave <code>count()</code> disagreeing with what is painted.</p>
+    </div>
+
+    <div class="note">
+      <p><strong>Only names are state.</strong> <code>filters.get()</code> still returns exactly what the user set. <code>state.get()</code> carries <code>where: string[]</code> &mdash; the names in force &mdash; because a predicate is your code and cannot be serialised into a saved view or restored from one. <code>state.apply()</code> naming a predicate you have not registered <em>reports the skip</em> rather than installing anything, and never removes a predicate a saved view did not name.</p>
+    </div>
+
+    <p class="section-note">A pinned permission filter and a "my items" toggle on one grid, executed on every build:</p>
+    <pre data-run="js" data-expect="1|2|2|teamVisible|teamVisible" data-covers="config:deps config:pinned config:condition"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> me = 'ana';
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'team' }, { field: 'owner' }, { field: 'ccy' }],
+  rows: [
+    { id: '1', team: 'eu', owner: 'ana', ccy: 'USD' },
+    { id: '2', team: 'us', owner: 'ana', ccy: 'USD' },
+    { id: '3', team: 'eu', owner: 'bo', ccy: 'ZWL' },
+  ],
+});
+
+<span class="cmt">// Row-level permission. Pinned, so "clear filters" cannot widen it, and it</span>
+<span class="cmt">// carries a declarative twin a server can push.</span>
+grid.filters.where('teamVisible', (row) =&gt; row.team === 'eu', {
+  pinned: <span class="kw">true</span>,
+  condition: { col: 'team', op: 'eq', value: 'eu' },
+});
+<span class="cmt">// An ordinary "my items" toggle, re-run only when `owner` changes on a row.</span>
+grid.filters.where('myItems', (row) =&gt; row.owner === me, { deps: ['owner'] });
+
+<span class="kw">const</span> both = grid.rows.count();          <span class="cmt">// permission AND my items</span>
+grid.filters.where('myItems', <span class="kw">null</span>);      <span class="cmt">// toggle off</span>
+<span class="kw">const</span> afterToggleOff = grid.rows.count();
+grid.filters.clear();                    <span class="cmt">// the pinned one survives</span>
+<span class="kw">const</span> afterClear = grid.rows.count();
+<span class="kw">const</span> stillOn = grid.filters.where().join(',');
+<span class="kw">const</span> inState = grid.state.get().where.join(',');
+grid.destroy();
+
+<span class="kw">return</span> `${both}|${afterToggleOff}|${afterClear}|${stillOn}|${inState}`;</code></pre>
 
     <h3 id="config-example">A configuration, executed</h3>
     <p class="section-note">This block runs on every build. If a key here stopped being honoured, or was
@@ -6592,6 +6776,38 @@ grid.state.reset();                                <span class="cmt">// state:re
 <span class="kw">const</span> raised = seen.size;
 grid.destroy();
 <span class="kw">return</span> raised;</code></pre>
+
+    <h3 id="persistence-example">View persistence, executed</h3>
+    <p class="section-note">One event carries every state change and says what caused it, so a save
+    layer subscribes once and skips the restore-to-default — which would otherwise write the default
+    straight back over the view the user had just abandoned.</p>
+    <pre data-run="js" data-expect="user,apply,reset:2" data-covers="event:state:changed method:state method:on method:destroy"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ id: 'n', field: 'n' }, { id: 's', field: 's', type: 'number' }],
+  rows: [{ id: '1', n: 'a', s: 3 }, { id: '2', n: 'b', s: 1 }],
+});
+
+<span class="kw">const</span> causes = [];
+<span class="kw">let</span> writes = 0;
+grid.on('state:changed', (event) =&gt; {
+  causes.push(event.cause);
+  <span class="cmt">// The one cause a save must ignore: persisting a reset writes the default</span>
+  <span class="cmt">// back over the view the user has just abandoned.</span>
+  <span class="kw">if</span> (event.cause === 'reset') <span class="kw">return</span>;
+  <span class="cmt">// A real host debounces, then writes grid.state.get() — which is</span>
+  <span class="cmt">// permission-sanitised, unlike the raw capture.</span>
+  writes++;
+});
+
+grid.sort.set([{ col: 's', dir: 'asc' }]);   <span class="cmt">// cause: 'user', sections: ['sort']</span>
+grid.state.apply({ version: 2, sort: [] });  <span class="cmt">// cause: 'apply', with a report</span>
+grid.state.reset();                          <span class="cmt">// cause: 'reset' — deliberately not saved</span>
+
+<span class="kw">const</span> result = `${causes.join(',')}:${writes}`;
+grid.destroy();
+<span class="kw">return</span> result;</code></pre>
 
     <h3 id="methods-example">Every grid namespace and method, executed</h3>
     <p class="section-note">Reading a namespace builds it, so this proves each is reachable rather than
@@ -6788,7 +7004,7 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
     <h3 id="nested-config-example">Nested configuration, executed</h3>
     <p class="section-note">Thirteen option blocks, each key written where it belongs. Parsed and evaluated on
     every build, so a key that was renamed or moved shows up here.</p>
-    <pre data-run="js" data-expect="14" data-covers="config:aboveLimit config:adapter config:ageBy config:binary config:bucket config:bucketFn config:buckets config:cacheLimit config:cardinalityLimit config:checkbox config:coalesceMs config:commit config:confirm config:cumulative config:debounce config:decimals config:delimiter config:display config:download config:enabled config:enterMovesDown config:fetch config:fileName config:fill config:fillHandle config:follow config:format config:from config:granularity config:groupBy config:hasChildren config:headerCheckbox config:headers config:hint config:idleMs config:indexLimit config:isMaster config:join config:label config:limit config:limitPer config:lineEnding config:loadChildren config:lock config:lockMs config:markdown config:maxCachedPages config:maxAge config:maxDecimals config:maxRows config:me config:minDecimals config:mode config:onCreate config:open config:orient config:orphans config:pageSize config:palette config:parentKey config:path config:pendingTimeout config:placement config:processCell config:profile config:promoteToMemoryBelow config:provider config:quote config:ranges config:removeMs config:retainSource config:roster config:scale config:select config:space config:start config:strategy config:system config:target config:throttleMs config:undoDepth config:unit config:unnest config:where"><code><span class="cmt">// Placeholders for the things a real page supplies. The point of this block is</span>
+    <pre data-run="js" data-expect="14" data-covers="config:aboveLimit config:adapter config:ageBy config:binary config:bucket config:bucketFn config:buckets config:cacheLimit config:cardinalityLimit config:checkbox config:checkboxOnly config:coalesceMs config:commit config:confirm config:cumulative config:debounce config:decimals config:delimiter config:display config:download config:enabled config:enterMovesDown config:fetch config:fileName config:fill config:fillHandle config:follow config:format config:from config:granularity config:groupBy config:hasChildren config:headerCheckbox config:headers config:hint config:idleMs config:indexLimit config:isMaster config:join config:label config:limit config:limitPer config:lineEnding config:loadChildren config:lock config:lockMs config:markdown config:maxCachedPages config:maxAge config:maxDecimals config:maxRows config:me config:minDecimals config:mode config:onCreate config:open config:orient config:orphans config:pageSize config:palette config:parentKey config:path config:pendingTimeout config:placement config:processCell config:profile config:promoteToMemoryBelow config:provider config:quote config:ranges config:removeMs config:retainSource config:roster config:scale config:select config:space config:start config:strategy config:system config:target config:throttleMs config:undoDepth config:unit config:unnest config:where"><code><span class="cmt">// Placeholders for the things a real page supplies. The point of this block is</span>
 <span class="cmt">// the option names: each one below is a documented key, written where it</span>
 <span class="cmt">// belongs, so a key that was renamed or moved stops matching its interface.</span>
 <span class="kw">const</span> source = {}, other = {}, provider = {}, compute = {}, adapter = {};
@@ -6808,7 +7024,7 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
     enterMovesDown: true, undoDepth: 50, pendingTimeout: 2000 };
 
 <span class="cmt">// Selection — SelectionConfig</span>
-<span class="kw">const</span> selectionConfig = { checkbox: true, headerCheckbox: true, ranges: true, fill: true, fillHandle: true };
+<span class="kw">const</span> selectionConfig = { checkbox: true, headerCheckbox: true, checkboxOnly: true, ranges: true, fill: true, fillHandle: true };
 
 <span class="cmt">// Tree data — TreeConfig</span>
 <span class="kw">const</span> treeConfig = { parentKey: 'parentId', path: 'path', orphans: 'root',
@@ -7870,7 +8086,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">template</td><td class="type">string</td><td class="desc">Not read by the header renderer; use `render` to draw a custom heading. <small>(optional)</small></td></tr>
           <tr><td class="name">render</td><td class="type">string | RendererCtor</td><td class="desc">A custom heading renderer: a function, or a component (a class with a `render` method). A string names a registered renderer. Either form draws the same two ways and they are interchangeable — it may append to the passed label element itself and return nothing, or return an `Element` (attached for you) or a `string` (used as the heading text). <small>(optional)</small></td></tr>
           <tr><td class="name">props</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Props passed to `render` as `params.props`. <small>(optional)</small></td></tr>
-          <tr><td class="name">class</td><td class="type">string | string[]</td><td class="desc">A class, or classes, added to the heading cell. <small>(optional)</small></td></tr>
+          <tr><td class="name">class</td><td class="type">string | string[]</td><td class="desc">A class, or classes, added to the heading cell. A string may hold several space-separated tokens (`'a b'`), each applied individually. <small>(optional)</small></td></tr>
           <tr><td class="name">tooltip</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">align</td><td class="type">Align</td><td class="desc"><small>(optional)</small></td></tr>
         </tbody>
@@ -8407,8 +8623,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">cumulative</td><td class="type">{ of: string; upTo: number }</td><td class="desc">Keep rows until their running share of the total reaches `upTo`, 0 to 1. <small>(optional)</small></td></tr>
           <tr><td class="name">profile</td><td class="type">string | string[]</td><td class="desc">One row per column, with the statistics as columns. Replaces the pipeline. <small>(optional)</small></td></tr>
           <tr><td class="name">orient</td><td class="type">'columns' | 'metrics'</td><td class="desc">With `profile`, emit one row per statistic instead of one per column. <small>(optional)</small></td></tr>
-          <tr><td class="name">statistics</td><td class="type">DerivedStatistics</td><td class="desc">Project a **relational** statistic into rows (BACKLOG-0001046): the figures that need two or more columns, or a second grid, and so cannot be reached through `select`. Every *single-column* statistic already has a route and this is not it — the derived `select` reduces a group by any kernel the totals row uses, and that table is a superset of the statistics one, so `select: { p95: { of: 'amount', fn: 'p95' } }` (or `gini`, `stddev`, `median`, `trimmedMean`, …) works today. Reach for `statistics` only when the answer is a correlation, a series summary or a comparison against another dataset. **A terminal producer, like `profile`, not a pipeline stage.** A correlation is one row per column *pair*, a series summary one row per *metric*, a comparison one row per compared *column* — none of which is one row per group, so there is no position in `unnest → where → bucket → groupBy → select → sort → limit` for it to occupy. It replaces the pipeline, and those keys are ignored with a warning naming them (BACKLOG-0001092) rather than silently discarded. Sort, filter or limit the derived grid itself instead, or chain a second derived grid whose `from` is this one. **`profile` and `statistics` are mutually exclusive** and declaring both is refused, by name, when the source is built. **Not supported alongside a union `from`** — a relational statistic reduces one grid's own columns and a union has no single set of them; also refused by name. **Cost.** Like every terminal producer this never patches incrementally: a change on the parent re-derives the whole thing. `correlation` additionally scans the rows once *per pair*, so N columns cost N·(N−1)/2 passes. Use `refresh` (`'idle'` is the default; `'manual'` or a debounce in ms for an expensive analysis over a live feed) — see `docs/api-detail.html` for the measured figures. Every row carries `n`, the rows the figure covered, because a derived statistic travels into an export or a chart without its grid and "r = 0.98 over eleven rows" is a different claim from the same number over eleven thousand. It does NOT carry a windowed/approximate flag: whether a source held fewer rows than matched its filters is decided from the source's own counters, which a derived source cannot reach, so that signal stays where it already works - the `stat.windowed:*` console warning the parent grid emits. <small>(optional)</small></td></tr>
-          <tr><td class="name">refresh</td><td class="type">'live' | 'idle' | 'manual' | number</td><td class="desc">When to re-derive. `idle` by default: coalesced to a frame. <small>(optional)</small></td></tr>
+          <tr><td class="name">statistics</td><td class="type">DerivedStatistics</td><td class="desc">Project a **relational** statistic into rows (BACKLOG-0001046): the figures that need two or more columns, or a second grid, and so cannot be reached through `select`. Every *single-column* statistic already has a route and this is not it — the derived `select` reduces a group by any kernel the totals row uses, and that table is a superset of the statistics one, so `select: { p95: { of: 'amount', fn: 'p95' } }` (or `gini`, `stddev`, `median`, `trimmedMean`, …) works today. Reach for `statistics` only when the answer is a correlation, a series summary or a comparison against another dataset. **A terminal producer, like `profile`, not a pipeline stage.** A correlation is one row per column *pair*, a series summary one row per *metric*, a comparison one row per compared *column* — none of which is one row per group, so there is no position in `unnest → where → bucket → groupBy → select → sort → limit` for it to occupy. It replaces the pipeline, and those keys are ignored with a warning naming them (BACKLOG-0001092) rather than silently discarded. Sort, filter or limit the derived grid itself instead, or chain a second derived grid whose `from` is this one. **`profile` and `statistics` are mutually exclusive** and declaring both is refused, by name, when the source is built. **Not supported alongside a union `from`** — a relational statistic reduces one grid's own columns and a union has no single set of them; also refused by name. **Cost.** Like every terminal producer this never patches incrementally: a change on the parent re-derives the whole thing. `correlation` additionally scans the rows once *per pair*, so N columns cost N·(N−1)/2 passes. Use `refresh` (`'idle'` is the default; `'manual'` or a debounce in ms for an expensive analysis over a live feed; under `'manual'` the host re-derives by calling `rows.load()` on the derived grid) — see `docs/api-detail.html` for the measured figures. Every row carries `n`, the rows the figure covered, because a derived statistic travels into an export or a chart without its grid and "r = 0.98 over eleven rows" is a different claim from the same number over eleven thousand. It does NOT carry a windowed/approximate flag: whether a source held fewer rows than matched its filters is decided from the source's own counters, which a derived source cannot reach, so that signal stays where it already works - the `stat.windowed:*` console warning the parent grid emits. <small>(optional)</small></td></tr>
+          <tr><td class="name">refresh</td><td class="type">'live' | 'idle' | 'manual' | number</td><td class="desc">When to re-derive. `idle` by default: coalesced to a frame. A number debounces by that many milliseconds; `live` re-derives on every change. `manual` never re-derives on its own: the host triggers it by calling `rows.load()`, with no argument, on the derived grid - from a Refresh button, say. Each call re-reads `from` there and then and replaces the rows; a derived grid takes its rows from `from`, so anything passed to `load` is not used. Executed example: `docs/api-detail.html#derived-manual-refresh`. <small>(optional)</small></td></tr>
           <tr><td class="name">crossFilter</td><td class="type">boolean | string | { col?: string }</td><td class="desc">Let this grid filter the grid it derives from. `true` cross-filters through whatever it groups by; a string names a different source column. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -8781,8 +8997,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">quickState</td><td class="type">(): { text: string; mode: string }</td><td class="desc">The quick filter's text and match mode, for restoring a control.</td></tr>
           <tr><td class="name">get</td><td class="type">(): FilterSet</td><td class="desc"></td></tr>
           <tr><td class="name">set</td><td class="type">(filters: FilterSet): void</td><td class="desc"></td></tr>
-          <tr><td class="name">clear</td><td class="type">(): void</td><td class="desc"></td></tr>
+          <tr><td class="name">clear</td><td class="type">(): void</td><td class="desc">Drop the condition tree, the quick filter, and every `where` predicate that was not registered `{ pinned: true }`.</td></tr>
           <tr><td class="name">quick</td><td class="type">(text: string): void</td><td class="desc"></td></tr>
+          <tr><td class="name">where</td><td class="type">(): string[]</td><td class="desc">The names of the `where` predicates in force, in registration order.</td></tr>
+          <tr><td class="name">where</td><td class="type">(name: string, predicate: ((row: any) =&gt; boolean) | null, opts?: WhereOptions): void</td><td class="desc">Register, replace or remove a named row predicate composed with the filter set (BACKLOG-0001202). Registering *is* activating: there is no companion "a predicate is present" flag to keep in sync, which is the failure mode this replaces. Several may be in force at once under their own names, ANDed with each other and with the declarative set, and removing one leaves the rest alone. The predicate is handed the **data row**. grid.filters.where('visibleToMe', row =&gt; row.owner === me); grid.filters.where('rateKnown', row =&gt; rates.has(row.ccy), { deps: ['ccy'], pinned: true }); grid.filters.where('visibleToMe', null); // remove Only the names reach `filters.get()` and `state.get()`; the functions never do.</td></tr>
+          <tr><td class="name">reapply</td><td class="type">(name?: string): boolean</td><td class="desc">Re-run `where` predicates whose inputs changed where the grid could not see it — a rate table that arrived late, a permission set that refreshed. The out-of-band half of re-evaluation; `deps` is the half the grid observes for itself. Together they replace the manual "filter again" call.</td></tr>
         </tbody>
       </table>
     </div>
@@ -9054,7 +9273,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">columns</td><td class="type">(Column | ColumnGroup)[]</td><td class="desc">The columns, in order. A group nests columns under one heading. <small>(optional)</small></td></tr>
           <tr><td class="name">columnGroups</td><td class="type">ColumnGroup[]</td><td class="desc">Header groups declared separately from the columns they contain. <small>(optional)</small></td></tr>
           <tr><td class="name">rows</td><td class="type">unknown[]</td><td class="desc">The data, for a memory grid. Use `source` for anything fetched. <small>(optional)</small></td></tr>
-          <tr><td class="name">rowKey</td><td class="type">string | ((row: unknown) =&gt; string)</td><td class="desc">What identifies a row. Everything that survives a refresh (selection, expansion, and edits in flight) is keyed on it, so it must be stable and unique. A derived grid defaults to its own derived key. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowKey</td><td class="type">string | string[] | ((row: unknown) =&gt; string | string[])</td><td class="desc">What identifies a row. Everything that survives a refresh (selection, expansion, and edits in flight) is keyed on it, so it must be stable and unique. A derived grid defaults to its own derived key. Three shapes: a field name (`'id'`, dot paths allowed); an array of field names, joined into one composite key (`['tenantId', 'circuitId']`); or a function of the row (`row =&gt; \`${row.tenantId}#${row.circuitId}\``), itself allowed to return an array to the same effect. <small>(optional)</small></td></tr>
           <tr><td class="name">source</td><td class="type">SourceConfig</td><td class="desc">Where rows come from: memory, paged, remote, stream or derived. <small>(optional)</small></td></tr>
           <tr><td class="name">ingest</td><td class="type">IngestConfig</td><td class="desc">How rows are ingested into the column store. <small>(optional)</small></td></tr>
           <tr><td class="name">columnDefaults</td><td class="type">Column</td><td class="desc">Applied to every column before its own settings. <small>(optional)</small></td></tr>
@@ -9068,7 +9287,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">variants</td><td class="type">Record&lt;string, VariantDefinition&gt;</td><td class="desc">Named appearance variants a row or cell can be switched into by a rule. <small>(optional)</small></td></tr>
           <tr><td class="name">tree</td><td class="type">TreeConfig</td><td class="desc">Hierarchical rows: where the parent link or the path lives. <small>(optional)</small></td></tr>
           <tr><td class="name">detail</td><td class="type">DetailConfig</td><td class="desc">The expandable panel beneath a row. <small>(optional)</small></td></tr>
-          <tr><td class="name">selection</td><td class="type">SelectionConfig | 'single' | 'multiple' | 'none'</td><td class="desc">What the user may select, and how selection behaves across groups. <small>(optional)</small></td></tr>
+          <tr><td class="name">selection</td><td class="type">SelectionConfig | 'single' | 'multiple' | 'none'</td><td class="desc">What the user may select, and how selection behaves across groups. The `'none'` shorthand is `{ mode: 'none' }` and behaves identically: no row selection, and no cell ranges or fill handle either. <small>(optional)</small></td></tr>
           <tr><td class="name">edit</td><td class="type">EditConfig | boolean</td><td class="desc">Editing, and how a change is committed and validated. <small>(optional)</small></td></tr>
           <tr><td class="name">pagination</td><td class="type">PaginationConfig | boolean</td><td class="desc">Page the rows rather than scrolling them. <small>(optional)</small></td></tr>
           <tr><td class="name">locale</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
@@ -9099,7 +9318,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">headerHeight</td><td class="type">number</td><td class="desc">Header height in pixels. Omitted, the header takes its height from the density-scaled `--lattice-header-height` token, so `density` sizes the header as it sizes the rows. A number names one explicitly and outranks the token. <small>(optional)</small></td></tr>
           <tr><td class="name">overscan</td><td class="type">number</td><td class="desc">How many rows to render beyond the viewport. More costs memory and smooths fast scrolling; fewer is lighter and can show a gap. <small>(optional)</small></td></tr>
           <tr><td class="name">autoHeight</td><td class="type">boolean | 'visible'</td><td class="desc">Size rows to their content rather than to the density token. Only rows that are actually rendered are ever measured, in both settings: the grid does not lay out rows you cannot see. The difference is what happens on a large grid: `true` gives up above ten thousand rows and falls back to fixed heights, because a cumulative offset array being patched as you scroll a million rows is not worth the result. `'visible'` keeps measuring at any size, accepting that the scrollbar shifts as rows are measured on the way past. The name is historical and reads as though it were about which rows are measured; it is about whether the ceiling applies. <small>(optional)</small></td></tr>
-          <tr><td class="name">state</td><td class="type">GridState</td><td class="desc">Sort, filters, grouping, widths and the rest, restored at construction. <small>(optional)</small></td></tr>
+          <tr><td class="name">state</td><td class="type">GridState</td><td class="desc">Sort, filters, grouping, widths and the rest, restored at construction. Takes precedence over a saved view flagged `isDefault`: when both are present, this wins outright and the default view is never applied — the active view id stays `null`. <small>(optional)</small></td></tr>
           <tr><td class="name">licence</td><td class="type">string</td><td class="desc">Your licence key. Without one the grid renders in full and watermarks off localhost. <small>(optional)</small></td></tr>
           <tr><td class="name">maximise</td><td class="type">boolean</td><td class="desc">Offer a full-screen control. <small>(optional)</small></td></tr>
           <tr><td class="name">formulaFunctions</td><td class="type">Record&lt;string, (args: unknown[]) =&gt; unknown&gt;</td><td class="desc">Extra functions a formula may call, on top of the built-in library. <small>(optional)</small></td></tr>
@@ -9187,6 +9406,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">columnOrder</td><td class="type">string[]</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">columnGroups</td><td class="type">ColumnGroupState[]</td><td class="desc">The banded-header tree, when the grid has one (BACKLOG-0000739). <small>(optional)</small></td></tr>
           <tr><td class="name">filters</td><td class="type">FilterSet</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">where</td><td class="type">string[]</td><td class="desc">The `where` predicates that were in force, as names only (BACKLOG-0001202). A predicate is host code: it cannot be serialised into a view or restored from one. `apply` reconciles these against what the host has registered and reports every name it cannot honour rather than restoring a view that silently shows more rows than the one that was saved. Absent when none is registered. <small>(optional)</small></td></tr>
           <tr><td class="name">quick</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">sort</td><td class="type">SortEntry[]</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">group</td><td class="type">string[]</td><td class="desc"><small>(optional)</small></td></tr>
@@ -10322,7 +10542,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">name</td><td class="type">string</td><td class="desc"></td></tr>
           <tr><td class="name">description</td><td class="type">string</td><td class="desc"></td></tr>
           <tr><td class="name">shared</td><td class="type">boolean</td><td class="desc"></td></tr>
-          <tr><td class="name">isDefault</td><td class="type">boolean</td><td class="desc"></td></tr>
+          <tr><td class="name">isDefault</td><td class="type">boolean</td><td class="desc">Applied on load when no `config.state` is given. `config.state` wins outright over this flag: with both present, the default view is never applied and the active view id stays `null`.</td></tr>
           <tr><td class="name">builtin</td><td class="type">boolean</td><td class="desc">Supplied in `config.views.saved`: listed apart, and not renamable or deletable.</td></tr>
           <tr><td class="name">createdAt</td><td class="type">number</td><td class="desc"></td></tr>
           <tr><td class="name">updatedAt</td><td class="type">number</td><td class="desc"></td></tr>
@@ -10372,9 +10592,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">mode</td><td class="type">'none' | 'single' | 'multiple'</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">mode</td><td class="type">'none' | 'single' | 'multiple'</td><td class="desc">`'none'` also turns off `ranges` and `fillHandle` unless either is set explicitly alongside it. <small>(optional)</small></td></tr>
           <tr><td class="name">checkbox</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">headerCheckbox</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">checkboxOnly</td><td class="type">boolean</td><td class="desc">Only the `checkbox` column may change row selection — a click anywhere else in the row, and Space with focus anywhere but the checkbox, leave selection untouched. Range and cell selection are unaffected either way. For a host whose row click is bound to its own action (opening a record): without this, that click also selects the row, so a later bulk action can reach rows nobody chose. Off by default. `mode: 'none'` already refuses every selection path regardless of this flag. <small>(optional)</small></td></tr>
           <tr><td class="name">groupSelectsChildren</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">groupSelectsFiltered</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">ranges</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
@@ -10411,7 +10632,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">get</td><td class="type">(): SortEntry[]</td><td class="desc"></td></tr>
-          <tr><td class="name">set</td><td class="type">(entries: SortEntry[]): void</td><td class="desc"></td></tr>
+          <tr><td class="name">set</td><td class="type">(entries: SortEntry[]): void</td><td class="desc">Replace the sort model; an entry naming no known column is dropped with a warning.</td></tr>
           <tr><td class="name">clear</td><td class="type">(): void</td><td class="desc"></td></tr>
         </tbody>
       </table>
@@ -10489,7 +10710,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">get</td><td class="type">(): GridState</td><td class="desc"></td></tr>
           <tr><td class="name">apply</td><td class="type">(state: GridState, opts?: { skip?: (keyof GridState)[] }): StateApplyReport</td><td class="desc"></td></tr>
-          <tr><td class="name">baseline</td><td class="type">(): GridState | null</td><td class="desc">The state the grid started in, captured once after `config.state`.</td></tr>
+          <tr><td class="name">baseline</td><td class="type">(): GridState | null</td><td class="desc">The grid as configured, without `config.state` — captured once, before that seed is applied, so a view opened through `config.state` is never itself mistaken for the default `reset()` returns to.</td></tr>
           <tr><td class="name">reset</td><td class="type">(): StateApplyReport | null</td><td class="desc">Put the grid back the way it started, as one undoable step.</td></tr>
           <tr><td class="name">modified</td><td class="type">(): boolean</td><td class="desc">Whether anything has changed since construction.</td></tr>
         </tbody>
@@ -10502,6 +10723,19 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">applied</td><td class="type">string[]</td><td class="desc"></td></tr>
           <tr><td class="name">skipped</td><td class="type">{ key: string; reason: string }[]</td><td class="desc"></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-StateChangedEvent">StateChangedEvent</h3>
+    <p class="section-note">The `state:changed` event (BACKLOG-0001182). Fires once per logical state change, whether it began as a user gesture or as a programmatic call, so view persistence is built on this one event rather than on the ten individual ones — `reset()` raises those too, which made a debounced save write the reset arrangement back. **Exactly one event per change.** A change that internally routes through `state.apply()` — applying a saved view, an undo, a reset — announces itself once, carrying the outermost cause rather than the inner mechanism's. **One known gap** (BACKLOG-0001235): a host predicate registered through `filters.where(name, fn)` changes the `where` section and the rows on screen without raising this event, so a persistence layer does not yet see it.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">cause</td><td class="type">StateChangeCause</td><td class="desc">Why the state changed. `'reset'` is the one a save should ignore.</td></tr>
+          <tr><td class="name">sections</td><td class="type">StateSection[]</td><td class="desc">Which sections moved, sorted and de-duplicated. For `'apply'` and `'reset'` these are the sections the report applied; for `'user'`, the sections the change touches.</td></tr>
+          <tr><td class="name">state</td><td class="type">GridState | null</td><td class="desc">The state that was applied — present for `'apply'` and `'reset'`, null for `'user'`. A full capture on every gesture would put an unsanitised copy of the state, hidden column ids and widths included, on the bus for every listener; a host calls `grid.state.get()` when it decides to write, which is permission-sanitised.</td></tr>
+          <tr><td class="name">report</td><td class="type">StateApplyReport | null</td><td class="desc">What an apply could not restore; null for `'user'`.</td></tr>
         </tbody>
       </table>
     </div>
@@ -10817,6 +11051,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h3 id="type-WhereOptions">WhereOptions</h3>
+    <p class="section-note">How a `where` predicate is re-evaluated, whether `filters.clear()` may remove it, and what the source may be told about it (BACKLOG-0001202).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">deps</td><td class="type">string[]</td><td class="desc">The columns the predicate reads, in the same spirit as `value.deps` on a computed column (§8.4.2). Declared, the verdict is cached per row and re-run only when one of these columns changes on that row. Omitted, the predicate is treated as reading the whole row and is called on every pass — never stale, and never skipped either. <small>(optional)</small></td></tr>
+          <tr><td class="name">pinned</td><td class="type">boolean</td><td class="desc">Survive `filters.clear()`. For a predicate that is not the user's filter — row-level permissions, tenant scoping — where a "clear filters" button must never widen what the user can see. <small>(optional)</small></td></tr>
+          <tr><td class="name">condition</td><td class="type">FilterSet</td><td class="desc">A declarative twin of the predicate, pushed to the source while the function stays as the residual. On a pushdown engine this narrows the fetch instead of filtering a page client-side. It must be implied by the predicate: the grid ANDs both, so a twin wider than the function costs only time, while one narrower than it hides rows the function would have kept. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-WindowedResult">WindowedResult</h3>
     <p class="section-note">One windowed figure and the window it covers.</p>
     <div class="table-wrap">
@@ -10843,7 +11089,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.55.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.56.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

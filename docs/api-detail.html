@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.55.0</p>
+    <p class="rail__sub">Developer guide · v1.56.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -553,7 +553,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.55.0</span>
+        <span class="chip">Version 1.56.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1278,7 +1278,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.55.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.56.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -1286,6 +1286,46 @@ LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid
       "the grid on this page", and whoever reads it has a grid rather than the module it was built
       from.
     </p>
+
+    <h3 id="headless-vs-dom">A headless grid is not a smaller grid, it is a grid without a renderer</h3>
+    <p class="lead-in">
+      <code>createGrid</code> builds this same core and attaches the DOM renderer to it;
+      <code>createHeadlessGrid</code> stops one step earlier. Everything the core owns — data, state,
+      sort, filter, group, total, pivot, formulas and computed columns, editing and optimistic
+      write-back, export, and every event — runs unchanged with no renderer attached, which is why
+      most of the examples in this guide that call <code>createHeadlessGrid</code> are settling real
+      API questions, not toy snippets. What it does not have is the renderer: no layout, no
+      measurement, no scrolling geometry, no focus, and <code>grid.element</code> is <code>null</code>.
+    </p>
+    <div class="why">
+      <p><strong>A grid mounted where it has no rendered box paints only a handful of rows, not the
+      whole dataset — by design, not as a bug.</strong> The visible row window is computed from the
+      container's own height; a container that is detached from the document, or sits under a
+      <code>display: none</code> ancestor, measures zero, and the virtualiser falls back to a small
+      band around the top of the data (the overscan margin, five rows with the default configuration)
+      rather than nothing at all. A harness that builds a grid off in a hidden or unattached container
+      and then asserts on what is visible reads far fewer rows than it loaded and looks broken; giving
+      the container a real, measured box before asserting is what fixes it. Note that this is about
+      the container having <em>no computed size</em>, not about being visually off-screen: a
+      container positioned outside the browser's visible area with real, explicit dimensions (for
+      example <code>position: fixed; left: -9999px</code> with a width and height) still gets a real
+      box and renders fully.</p>
+      <p><strong>The in-repo test DOM (<code>testdom.js</code>) is a stub, not a browser, and says so
+      in its own header comment.</strong> It implements exactly the surface the renderer touches —
+      element creation, attributes, <code>classList</code>, <code>style</code>, children,
+      <code>textContent</code>, event dispatch, injected geometry, and shims for
+      <code>ResizeObserver</code> and <code>requestAnimationFrame</code> — which is enough to drive
+      the renderer's logic in Node for most of the suite. It does not compute a cascade or a layout,
+      so a class or style change that a stylesheet then overrides, or a box that depends on CSS rather
+      than on the geometry a test injected, is invisible to it; those need the real-browser tests
+      (<code>test/*-browser.test.js</code>) that drive an actual headless Chrome instead. It also does
+      not model real focus semantics — its <code>focus()</code> simply records which element is
+      "focused" with no check for visibility, tab order or focusability. Since BACKLOG-0001181,
+      <code>classList.add</code> does throw on a token containing a space, the same
+      <code>InvalidCharacterError</code> a real <code>DOMTokenList</code> throws, closing the specific
+      gap where a two-word class name passed every headless test and then blanked a real page.</p>
+    </div>
+
     <h2 id="columns-guide">Defining columns</h2>
     <p class="lead-in">
       A column is an object with a <code>field</code> (the path to read from your data) and
@@ -1345,6 +1385,55 @@ LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid
       assume any change might affect any computed column and recompute all of them on every edit.
       A cycle is caught at compile time with the full path named, rather than becoming a stack
       overflow at render time.</p>
+    </div>
+    <p>When a computed value is re-run, stated plainly:</p>
+    <ul>
+      <li>A pure compute (the default) runs at ingest and is cached. It runs again when its row is
+        replaced through <code>rows.apply({ update })</code> or the data through
+        <code>rows.load()</code> &mdash; unconditionally, since a value derived from data that is
+        gone is stale by definition; when the grid a derived grid follows changes; and when you ask
+        with <code>rows.refresh({ rows, columns, force: true })</code>. A sort, a filter, a state
+        restore or an edit to a column outside its <code>deps</code> does not re-run it. An in-place
+        cell edit to one of its <code>deps</code> does not currently re-run it either.</li>
+      <li>Naming a column re-runs what depends on it: <code>refresh({ columns: ['p'], force: true })</code>
+        recomputes a <code>q</code> whose <code>deps</code> include <code>p</code>;
+        <code>refresh({ columns: ['q'] })</code> does not recompute <code>p</code>.</li>
+      <li><code>pure: false</code> guarantees the compute is re-evaluated on every read and every
+        paint. It is never served from a cache.</li>
+      <li>Whenever a compute re-runs, <code>rows.text()</code> and the painted cell show the new
+        result, and so do a sort or filter on the column: every cache the grid keeps for that cell
+        &mdash; the one behind the text and the paint, and the one sort and filter handles read
+        &mdash; is invalidated together.</li>
+      <li>Without <code>force</code>, a targeted <code>refresh({ rows, columns })</code> behaves
+        differently by store mode, and which one you get flips at <code>columnarBelow</code>. On a
+        grid below that row count the named cell is re-run on its next read; on a columnar one the
+        stored value stands until you pass <code>force: true</code>. This is behaviour to plan for,
+        not a tuning detail: the same call on the same data recomputes or does not purely according
+        to how many rows arrived. Pass <code>force: true</code> when you want the same answer
+        whatever the row count.</li>
+    </ul>
+    <div class="example">
+      <p class="example__label">An answer that arrives later</p>
+      <pre><code><span class="cmt">// A lookup the grid cannot see: show a placeholder, fill the table, then</span>
+<span class="cmt">// tell the grid which cells to recompute. The compute stays pure, so it is</span>
+<span class="cmt">// not re-run on every paint &mdash; only when you say the answer changed.</span>
+const names = new Map();
+const column = {
+  id: 'owner', title: 'Owner',
+  value: {
+    deps: ['ownerId'],
+    compute: (deps) =&gt; names.get(deps.ownerId) ?? 'Loading…',
+  },
+};
+
+const missing = [...new Set(grid.rows.data().map((r) =&gt; r.ownerId))].filter((id) =&gt; !names.has(id));
+const resolved = await fetchNames(missing);        <span class="cmt">// { id: name }</span>
+for (const id of missing) names.set(id, resolved[id]);
+const rows = grid.rows.data().filter((r) =&gt; missing.includes(r.ownerId)).map((r) =&gt; r.id);
+grid.rows.refresh({ rows, columns: ['owner'], force: true });
+
+<span class="cmt">// Or declare the column `pure: false` and it re-reads `names` on every</span>
+<span class="cmt">// paint; then a plain grid.rows.refresh() after the fetch is enough.</span></code></pre>
     </div>
 
     <h3>Sizing and pinning</h3>
@@ -2104,6 +2193,59 @@ grid.filters.quick('');          <span class="cmt">// clear</span></code></pre>
       <code>containsAll</code>, <code>containsNone</code>. <code>blank</code> and
       <code>notBlank</code> work everywhere.
     </p>
+
+    <h3 id="where-guide">Filters your application owns: <code>where</code></h3>
+    <p class="lead-in">
+      A condition tree can only test what is in a column. Plenty of real filters cannot be written
+      that way &mdash; whether this user may see the row, whether you hold an exchange rate for its
+      currency, whether it came back from your last search call. Those go in as <strong>named
+      predicates</strong>, and they compose with everything above.
+    </p>
+
+    <div class="example">
+      <p class="example__label">A permission filter and a toggle, side by side</p>
+      <pre><code>grid.filters.where('visibleToMe', row =&gt; row.owner === me, { pinned: true });
+grid.filters.where('rateKnown', row =&gt; rates.has(row.ccy), { deps: ['ccy'] });
+
+grid.filters.where();              <span class="cmt">// ['visibleToMe', 'rateKnown']</span>
+grid.filters.where('rateKnown', null);   <span class="cmt">// remove just that one</span>
+grid.filters.reapply('rateKnown');       <span class="cmt">// the rate table arrived late</span></code></pre>
+    </div>
+
+    <div class="why">
+      <p>There is deliberately no "a filter is present" flag. That flag is a second piece of state
+      describing the first, and the two drift: the classic symptom is a grid that filters while the
+      UI insists it is not, or insists it is filtering while every row passes. Here, registering a
+      predicate is what puts it in force, and removing it is what takes it out.</p>
+    </div>
+
+    <p class="lead-in">
+      Three options shape one. <code>deps</code> names the columns the predicate reads, exactly as
+      <code>value.deps</code> does for a computed column: the verdict is then cached per row and
+      re-run when one of <em>those</em> columns changes on that row, not when an unrelated one does.
+      Leave it off and the predicate is assumed to read the whole row, so it runs every pass and can
+      never be stale. <code>pinned</code> makes a predicate survive
+      <code>filters.clear()</code>, which is what you want for permissions and tenant scoping and
+      not much else. <code>condition</code> gives the predicate a declarative twin that is pushed to
+      the source while the function stays as the residual, so a pushdown engine narrows the fetch
+      instead of your code filtering a page.
+    </p>
+
+    <div class="why">
+      <p><strong>Migrating from AG Grid's external filter:</strong> its three pieces become two.
+      <code>isExternalFilterPresent()</code> goes away, because registration is presence.
+      <code>doesExternalFilterPass(node)</code> becomes the predicate itself.
+      <code>onFilterChanged()</code> becomes <code>deps</code> where the grid can watch the change
+      for you, and <code>reapply(name?)</code> where it cannot.</p>
+    </div>
+
+    <div class="why">
+      <p><strong>What travels in a saved view is the name, not the function.</strong>
+      <code>state.get()</code> carries <code>where: string[]</code>; your predicates are your code
+      and the grid will not pretend it can serialise them. Applying a view that names a predicate
+      you have not registered <em>reports</em> the skip instead of quietly showing a wider row set,
+      and never removes a predicate the view did not mention.</p>
+    </div>
 
     <h2 id="grouping">Grouping, totals and pivot</h2>
     <div class="example">
@@ -3342,6 +3484,15 @@ createGrid(right, {
       hundred updates against a two hundred thousand row source cost under 300 ms in total. Set
       <code>refresh</code> to <code>live</code>, <code>manual</code> or a number of milliseconds to
       change the coalescing; <code>idle</code> is the default and settles to a frame.</p>
+      <p><strong><code>manual</code> means the host says when, and <code>rows.load()</code> is how it
+      says it.</strong> A <code>manual</code> derived grid never re-derives on its own: the source can
+      filter, edit and tick underneath it and the panel keeps showing what it last derived. Call
+      <code>rows.load()</code> <em>on the derived grid</em>, with no argument, and it re-reads its
+      <code>from</code> there and then and replaces its rows; call it again whenever you want the next
+      reading. A derived grid takes its rows from <code>from</code>, so anything passed to
+      <code>load</code> is not used. The derived grid's own sort and filters stay as they were. Press
+      it as often as you like &mdash; the source is left exactly as one press leaves it, and
+      destroying the panel leaves nothing of it attached there.</p>
       <p><strong>Derived grids are read-only.</strong> There is one copy of the data and it lives in
       the source. Write there and the derived grid follows: an edit through the source's editing
       API (<code>edit.setCells</code>, an inline commit, a fill, a paste, an undo, a redo or an
@@ -3357,6 +3508,59 @@ createGrid(right, {
       <p><strong>The key comes for free.</strong> A derived grid keys on <code>__key</code>, which
       the source writes onto every row it produces: the group value, the profiled column, or the
       source row's own key when nothing is grouped. Set <code>rowKey</code> only to override it.</p>
+    </div>
+    <div class="example" id="derived-manual-refresh">
+      <p class="example__label">A frozen panel, refreshed on a button press, executed</p>
+      <pre data-run="js" data-expect="20 20 10 10 5; steady; released" data-covers="config:refresh method:rows method:diagnostics"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> detail = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'region' }, { field: 'capacity', type: 'number' }],
+  rows: Array.from({ length: <span class="num">20</span> }, (_, i) =&gt; ({ id: i, region: i % <span class="num">2</span> ? 'North' : 'South', capacity: i })),
+});
+detail.rows.count();
+
+<span class="cmt">// What the detail grid is listening with before any panel is attached.</span>
+<span class="kw">const</span> listening = () =&gt; Object.values(detail.diagnostics.events()).reduce((a, b) =&gt; a + b, <span class="num">0</span>);
+<span class="kw">const</span> alone = listening();
+
+<span class="cmt">// A summary that derives once, then waits to be told.</span>
+<span class="kw">const</span> panel = createHeadlessGrid({
+  columns: [{ field: 'region' }, { field: 'sites', type: 'number' }],
+  source: { mode: 'derived', from: detail, groupBy: 'region',
+    select: { sites: { fn: 'count' } }, refresh: 'manual' },
+});
+
+<span class="cmt">// The Refresh button. In a page this is your &lt;button&gt;; here any EventTarget will do.</span>
+<span class="kw">const</span> button = <span class="kw">new</span> EventTarget();
+button.addEventListener('click', () =&gt; panel.rows.load());   <span class="cmt">// no argument</span>
+
+<span class="kw">const</span> sites = () =&gt; {
+  <span class="kw">let</span> n = <span class="num">0</span>;
+  panel.rows.forEach((row) =&gt; { n += panel.rows.value(row.key, 'sites'); });
+  <span class="kw">return</span> n;
+};
+<span class="cmt">// Longer than any automatic refresh would take to land, so "frozen" is a finding.</span>
+<span class="kw">const</span> settle = () =&gt; <span class="kw">new</span> Promise((done) =&gt; setTimeout(done, <span class="num">50</span>));
+
+<span class="kw">const</span> attached = listening();
+<span class="kw">const</span> seen = [sites()];                                   <span class="cmt">// 20</span>
+detail.filters.set({ col: 'capacity', op: 'lt', value: <span class="num">10</span> });
+<span class="kw">await</span> settle(); seen.push(sites());                      <span class="cmt">// 20: the source moved, the panel did not</span>
+button.dispatchEvent(<span class="kw">new</span> Event('click'));
+seen.push(sites());                                       <span class="cmt">// 10: re-derived on the press</span>
+detail.filters.set({ col: 'capacity', op: 'lt', value: <span class="num">5</span> });
+<span class="kw">await</span> settle(); seen.push(sites());                      <span class="cmt">// 10: frozen again</span>
+button.dispatchEvent(<span class="kw">new</span> Event('click'));
+seen.push(sites());                                       <span class="cmt">// 5</span>
+
+<span class="cmt">// Pressing it any number of times leaves the detail grid as one press does,</span>
+<span class="cmt">// and destroying the panel leaves nothing of it behind there.</span>
+<span class="kw">const</span> steady = listening() === attached ? 'steady' : 'grew';
+panel.destroy();
+<span class="kw">const</span> released = listening() === alone ? 'released' : 'left behind';
+detail.destroy();
+<span class="kw">return</span> `${seen.join(' ')}; ${steady}; ${released}`;</code></pre>
     </div>
 
     <h3>Other shapes</h3>
@@ -3561,7 +3765,11 @@ createGrid(right, {
       next frame; a <strong>number</strong> is a debounce in milliseconds; <code>'live'</code>
       derives on every change and is the one to avoid for an expensive analysis over a ticking feed;
       <code>'manual'</code> stops automatic derivation entirely, leaving the host to drive the
-      source. Below a few tens of thousands of rows none of this matters.</p>
+      source: call <code>rows.load()</code> on the derived grid, with no argument, whenever the
+      analysis should be brought up to date &mdash; from a Refresh button, when its tab is shown, or
+      on a timer of your own. Each call re-derives once, at the cost in the table above;
+      <a href="#derived-manual-refresh">a frozen panel refreshed on a button press</a> is executed
+      above. Below a few tens of thousands of rows none of this matters.</p>
 
     <h2 id="cross-filter">Cross-filtering</h2>
     <p class="lead-in">
@@ -4610,6 +4818,27 @@ grid.selection.extendRange(34, 'cap');  <span class="cmt">// grows the block jus
       Selected rows carry <code>aria-selected</code> and the class
       <code>lat-row--selected</code>, which the theme styles.
     </p>
+    <div class="example">
+      <p class="example__label">A row with its own click action</p>
+      <pre><code>selection: { mode: 'multiple', checkbox: <span class="kw">true</span>, checkboxOnly: <span class="kw">true</span> }</code></pre>
+    </div>
+    <p class="lead-in">
+      <code>checkboxOnly: true</code> restricts row selection to the checkbox column:
+      clicking the checkbox selects or deselects the row, and clicking anywhere else in the
+      row does neither. This is for a host that binds its own action — typically opening a
+      record's detail view — to a plain click on the row: without it, that click also
+      selects the row, and a bulk action run afterwards operates on rows the user never
+      chose to select. The same restriction applies to the keyboard: Space still toggles
+      selection while focus is on the checkbox cell, and does nothing elsewhere. Cell ranges
+      and the fill handle are unaffected either way. Off by default, so a plain click still
+      selects a row exactly as it always has.
+    </p>
+    <p class="lead-in">
+      <code>checkboxOnly</code> only narrows which gesture may change selection; it does not
+      grant selection where <code>mode: 'none'</code> has already refused it, and it composes
+      normally with <code>mode: 'single'</code> — the checkbox remains the only way to change
+      which one row is selected.
+    </p>
 
     <div class="why">
       <p><strong>Ctrl+Shift+Arrow is the keyboard form of ctrl-dragging.</strong> The first press
@@ -4743,6 +4972,15 @@ createChart({
       chart stops moving, even though time is still passing &mdash; and the silence is usually the
       thing worth seeing. <code>maxAge</code> is a span of wall clock, so it means the same thing
       whatever the feed is doing.</p>
+      <p><strong>An empty reduction is a gap, not a zero.</strong> <code>fn: 'avg'</code> above
+      &mdash; and <code>sum</code>, <code>mean</code>, <code>min</code>, <code>max</code>,
+      <code>first</code> and <code>last</code> beside it &mdash; read as <code>null</code> when a
+      bucket carries no rows to reduce (BACKLOG-0001088), so a producer that has stopped sending is
+      drawn as a break in the line rather than a value dropping to zero, which would read as a real
+      observation nobody made. <code>count</code> and <code>countValues</code> are the deliberate
+      exception: they are already honest at zero, a tally of rows or of values actually present, so
+      reach for <code>countValues</code> when the reading you actually want is &ldquo;how many
+      arrived&rdquo; and zero has to be drawn as zero rather than as a gap.</p>
       <p><strong>Two bounds, one eviction path.</strong> <code>maxAge</code> and
       <code>maxRows</code> are independent and compose: both are applied on the same pass and
       whichever bites first is simply the one that drops rows. Neither is silently ignored.
@@ -4801,6 +5039,16 @@ createChart({
       that far ahead the chart shows its empty state, with the same warning.
       <code>chart.data().windowed</code> counts the readings dropped at either edge of the
       window. The fix for the warning is the producer&rsquo;s clock, not a wider window.</p>
+      <p><strong>The other edge: a producer that has simply stopped.</strong> The case above is a
+      clock running fast; the opposite is a feed that has gone quiet for longer than the window
+      (BACKLOG-0001088) &mdash; every reading is older than the span, so every mark would fall to
+      the left of the domain, off the plot, while the axes and legend keep drawing as if the chart
+      were healthy. Rather than draw that, the chart shows its empty state and warns once <strong>per
+      chart instance</strong>, naming the span and how old the newest reading actually is, so a dead
+      feed reads as &ldquo;no data&rdquo; rather than as a chart that quietly stopped moving. Two
+      charts bound to the same stale column each get their own warning &mdash; the key is scoped to
+      the chart, not just the column, so a dashboard of tiled charts sharing one timestamp column
+      does not lose the second warning to the first.</p>
       <p><strong>Idle costs nothing.</strong> Both halves advance on a plain interval &mdash; a
       quarter of the window, clamped to between 50&nbsp;ms and one second &mdash; and never on an
       animation frame. The source&rsquo;s wake returns after a single number comparison unless a
@@ -7287,7 +7535,7 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
           <tr><td class="name">filter:changed</td><td class="desc">The condition tree or the quick filter changed.</td></tr>
           <tr><td class="name">page:changed</td><td class="desc">Fired after the rows have moved, whether the page changed by API or by the pager control.</td></tr>
           <tr><td class="name">sort:changed</td><td class="desc">The full sort entry list.</td></tr>
-          <tr><td class="name">state:changed</td><td class="desc">report lists anything a restore could not apply.</td></tr>
+          <tr><td class="name">state:changed</td><td class="desc">Every state change, whether a user gesture or a programmatic call, announced exactly once — with one known gap, filters.where (BACKLOG-0001235), which changes the where section and the rows on screen without raising it. cause is 'user', 'apply' or 'reset'; sections names the GridState keys that moved; report lists anything a restore could not apply. A save layer subscribes to this one event and ignores cause 'reset'.</td></tr>
           <tr><td class="name">state:reset</td><td class="desc">The grid was returned to its baseline.</td></tr>
           <tr><td class="name">timeline:attached</td><td class="desc">A time brush was connected to the grid.</td></tr>
           <tr><td class="name">timeline:detached</td><td class="desc">The brush was removed.</td></tr>
@@ -7534,9 +7782,31 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 });</code></pre>
     </div>
 
+    <h3 id="wrapping-creategrid-recipe">House-wide defaults, without patching <code>createGrid</code></h3>
+    <p class="lead-in">
+      <code>createGrid</code> is exported through a getter with no setter, so
+      <code>LatticeGrid.createGrid = myWrapper</code> does not replace it — silently in a plain
+      script, with a <code>TypeError</code> in a module (see the <a
+      href="API.html#wrapping-creategrid">reference</a> for the exact descriptor). Own the seam
+      yourself instead: one module that every call site imports from.
+    </p>
+    <div class="example">
+      <pre><code><span class="cmt">// lattice.js</span>
+<span class="kw">import</span> { createGrid <span class="kw">as</span> baseCreateGrid } <span class="kw">from</span> '@toclocoinc/lattice-grid';
+
+<span class="kw">export function</span> createGrid(element, config) {
+  <span class="kw">return</span> baseCreateGrid(element, { theme: 'house', locale: 'en-GB', ...config });
+}</code></pre>
+    </div>
+    <p class="lead-in">
+      There is no shipped <code>defaults()</code> call that does this for you today (a separate card,
+      BACKLOG-0001187, is considering one) — a wrapping module you own and every call site imports is
+      the supported pattern until then.
+    </p>
+
     <footer>
       <p>
-        Lattice Grid 1.55.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.56.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

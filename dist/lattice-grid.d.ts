@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.55.0, type declarations
+ * Lattice Grid 1.56.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -626,7 +626,10 @@ export interface ColumnHeaderSpec {
   render?: string | RendererCtor;
   /** Props passed to `render` as `params.props`. */
   props?: Record<string, unknown>;
-  /** A class, or classes, added to the heading cell. */
+  /**
+   * A class, or classes, added to the heading cell. A string may hold several
+   * space-separated tokens (`'a b'`), each applied individually.
+   */
   class?: string | string[];
   tooltip?: string;
   align?: Align;
@@ -1354,8 +1357,9 @@ export interface DerivedSourceConfig {
    * change on the parent re-derives the whole thing. `correlation` additionally
    * scans the rows once *per pair*, so N columns cost N·(N−1)/2 passes. Use
    * `refresh` (`'idle'` is the default; `'manual'` or a debounce in ms for an
-   * expensive analysis over a live feed) — see `docs/api-detail.html` for the
-   * measured figures.
+   * expensive analysis over a live feed; under `'manual'` the host re-derives
+   * by calling `rows.load()` on the derived grid) — see `docs/api-detail.html`
+   * for the measured figures.
    *
    * Every row carries `n`, the rows the figure covered, because a derived
    * statistic travels into an export or a chart without its grid and "r = 0.98
@@ -1368,7 +1372,15 @@ export interface DerivedSourceConfig {
    */
   statistics?: DerivedStatistics;
 
-  /** When to re-derive. `idle` by default: coalesced to a frame. */
+  /**
+   * When to re-derive. `idle` by default: coalesced to a frame. A number
+   * debounces by that many milliseconds; `live` re-derives on every change.
+   * `manual` never re-derives on its own: the host triggers it by calling
+   * `rows.load()`, with no argument, on the derived grid - from a Refresh
+   * button, say. Each call re-reads `from` there and then and replaces the
+   * rows; a derived grid takes its rows from `from`, so anything passed to
+   * `load` is not used. Executed example: `docs/api-detail.html#derived-manual-refresh`.
+   */
   refresh?: 'live' | 'idle' | 'manual' | number;
 
   /**
@@ -1566,9 +1578,20 @@ export interface DetailConfig {
 }
 
 export interface SelectionConfig {
+  /** `'none'` also turns off `ranges` and `fillHandle` unless either is set explicitly alongside it. */
   mode?: 'none' | 'single' | 'multiple';
   checkbox?: boolean;
   headerCheckbox?: boolean;
+  /**
+   * Only the `checkbox` column may change row selection — a click anywhere
+   * else in the row, and Space with focus anywhere but the checkbox, leave
+   * selection untouched. Range and cell selection are unaffected either way.
+   * For a host whose row click is bound to its own action (opening a record):
+   * without this, that click also selects the row, so a later bulk action can
+   * reach rows nobody chose. Off by default. `mode: 'none'` already refuses
+   * every selection path regardless of this flag.
+   */
+  checkboxOnly?: boolean;
   groupSelectsChildren?: boolean;
   groupSelectsFiltered?: boolean;
   ranges?: boolean;
@@ -1703,8 +1726,13 @@ export interface GridConfig {
    * What identifies a row. Everything that survives a refresh (selection,
    * expansion, and edits in flight) is keyed on it, so it must be stable and
    * unique. A derived grid defaults to its own derived key.
+   *
+   * Three shapes: a field name (`'id'`, dot paths allowed); an array of field
+   * names, joined into one composite key (`['tenantId', 'circuitId']`); or a
+   * function of the row (`row => \`${row.tenantId}#${row.circuitId}\``),
+   * itself allowed to return an array to the same effect.
    */
-  rowKey?: string | ((row: unknown) => string);
+  rowKey?: string | string[] | ((row: unknown) => string | string[]);
   /** Where rows come from: memory, paged, remote, stream or derived. */
   source?: SourceConfig;
   /** How rows are ingested into the column store. */
@@ -1735,7 +1763,11 @@ export interface GridConfig {
   tree?: TreeConfig;
   /** The expandable panel beneath a row. */
   detail?: DetailConfig;
-  /** What the user may select, and how selection behaves across groups. */
+  /**
+   * What the user may select, and how selection behaves across groups.
+   * The `'none'` shorthand is `{ mode: 'none' }` and behaves identically: no
+   * row selection, and no cell ranges or fill handle either.
+   */
   selection?: SelectionConfig | 'single' | 'multiple' | 'none';
   /** Editing, and how a change is committed and validated. */
   edit?: EditConfig | boolean;
@@ -2158,7 +2190,12 @@ export interface GridConfig {
    * measured; it is about whether the ceiling applies.
    */
   autoHeight?: boolean | 'visible';
-  /** Sort, filters, grouping, widths and the rest, restored at construction. */
+  /**
+   * Sort, filters, grouping, widths and the rest, restored at construction.
+   * Takes precedence over a saved view flagged `isDefault`: when both are
+   * present, this wins outright and the default view is never applied — the
+   * active view id stays `null`.
+   */
   state?: GridState;
   /** Your licence key. Without one the grid renders in full and watermarks off localhost. */
   licence?: string;
@@ -2664,6 +2701,15 @@ export interface GridState {
   /** The banded-header tree, when the grid has one (BACKLOG-0000739). */
   columnGroups?: ColumnGroupState[];
   filters?: FilterSet;
+  /**
+   * The `where` predicates that were in force, as names only (BACKLOG-0001202).
+   * A predicate is host code: it cannot be serialised into a view or restored
+   * from one. `apply` reconciles these against what the host has registered and
+   * reports every name it cannot honour rather than restoring a view that
+   * silently shows more rows than the one that was saved. Absent when none is
+   * registered.
+   */
+  where?: string[];
   quick?: string;
   sort?: SortEntry[];
   group?: string[];
@@ -2691,6 +2737,27 @@ export interface StateApplyReport {
   applied: string[];
   skipped: { key: string; reason: string }[];
 }
+
+/**
+ * Every top-level section of a {@link GridState} bar `version` — the
+ * vocabulary `state.apply`'s `skip` list, `StateApplyReport.applied` and
+ * `StateChangedEvent.sections` all speak, derived from `GridState` itself so a
+ * new section cannot appear in one and be missing from the others.
+ */
+export type StateSection = Exclude<keyof GridState, 'version'>;
+
+/**
+ * What caused a `state:changed` (BACKLOG-0001182).
+ *
+ * `'user'` is a change to one part of the view — a sort, a filter, a column
+ * moved, resized, pinned or hidden, a grouping, a page — whether it arrived as
+ * a gesture or as the equivalent API call. `'apply'` is `state.apply()`,
+ * including the restore an undo performs and a `config.state` seed at
+ * construction. `'reset'` is `state.reset()`, and is the one a persistence
+ * layer skips: saving the reset arrangement writes the default straight back
+ * over the view the user had just abandoned.
+ */
+export type StateChangeCause = 'user' | 'apply' | 'reset';
 
 // ---------------------------------------------------------------------------
 // Conditional formatting (spec 8.12)
@@ -4191,6 +4258,43 @@ export interface BeforeEvent extends GridEvent {
   reason: string | null;
 }
 
+/**
+ * The `state:changed` event (BACKLOG-0001182).
+ *
+ * Fires once per logical state change, whether it began as a user gesture or
+ * as a programmatic call, so view persistence is built on this one event
+ * rather than on the ten individual ones — `reset()` raises those too, which
+ * made a debounced save write the reset arrangement back.
+ *
+ * **Exactly one event per change.** A change that internally routes through
+ * `state.apply()` — applying a saved view, an undo, a reset — announces itself
+ * once, carrying the outermost cause rather than the inner mechanism's.
+ *
+ * **One known gap** (BACKLOG-0001235): a host predicate registered through
+ * `filters.where(name, fn)` changes the `where` section and the rows on screen
+ * without raising this event, so a persistence layer does not yet see it.
+ */
+export interface StateChangedEvent extends GridEvent {
+  /** Why the state changed. `'reset'` is the one a save should ignore. */
+  cause: StateChangeCause;
+  /**
+   * Which sections moved, sorted and de-duplicated. For `'apply'` and
+   * `'reset'` these are the sections the report applied; for `'user'`, the
+   * sections the change touches.
+   */
+  sections: StateSection[];
+  /**
+   * The state that was applied — present for `'apply'` and `'reset'`, null for
+   * `'user'`. A full capture on every gesture would put an unsanitised copy of
+   * the state, hidden column ids and widths included, on the bus for every
+   * listener; a host calls `grid.state.get()` when it decides to write, which
+   * is permission-sanitised.
+   */
+  state: GridState | null;
+  /** What an apply could not restore; null for `'user'`. */
+  report: StateApplyReport | null;
+}
+
 export type EventHandler = (e: GridEvent) => void;
 export type Unsubscribe = () => void;
 
@@ -4489,17 +4593,84 @@ export interface CellRange {
   columns: string[];
 }
 
+/**
+ * How a `where` predicate is re-evaluated, whether `filters.clear()` may remove
+ * it, and what the source may be told about it (BACKLOG-0001202).
+ */
+export interface WhereOptions {
+  /**
+   * The columns the predicate reads, in the same spirit as `value.deps` on a
+   * computed column (§8.4.2). Declared, the verdict is cached per row and
+   * re-run only when one of these columns changes on that row. Omitted, the
+   * predicate is treated as reading the whole row and is called on every pass —
+   * never stale, and never skipped either.
+   */
+  deps?: string[];
+  /**
+   * Survive `filters.clear()`. For a predicate that is not the user's filter —
+   * row-level permissions, tenant scoping — where a "clear filters" button must
+   * never widen what the user can see.
+   */
+  pinned?: boolean;
+  /**
+   * A declarative twin of the predicate, pushed to the source while the function
+   * stays as the residual. On a pushdown engine this narrows the fetch instead
+   * of filtering a page client-side. It must be implied by the predicate: the
+   * grid ANDs both, so a twin wider than the function costs only time, while one
+   * narrower than it hides rows the function would have kept.
+   */
+  condition?: FilterSet;
+}
+
 export interface FiltersApi {
   /** The quick filter's text and match mode, for restoring a control. */
   quickState(): { text: string; mode: string };
   get(): FilterSet;
   set(filters: FilterSet): void;
+  /**
+   * Drop the condition tree, the quick filter, and every `where` predicate that
+   * was not registered `{ pinned: true }`.
+   */
   clear(): void;
   quick(text: string): void;
+  /** The names of the `where` predicates in force, in registration order. */
+  where(): string[];
+  /**
+   * Register, replace or remove a named row predicate composed with the filter
+   * set (BACKLOG-0001202).
+   *
+   * Registering *is* activating: there is no companion "a predicate is present"
+   * flag to keep in sync, which is the failure mode this replaces. Several may
+   * be in force at once under their own names, ANDed with each other and with
+   * the declarative set, and removing one leaves the rest alone. The predicate
+   * is handed the **data row**.
+   *
+   *     grid.filters.where('visibleToMe', row => row.owner === me);
+   *     grid.filters.where('rateKnown', row => rates.has(row.ccy),
+   *       { deps: ['ccy'], pinned: true });
+   *     grid.filters.where('visibleToMe', null);   // remove
+   *
+   * Only the names reach `filters.get()` and `state.get()`; the functions never
+   * do.
+   * @param name the name to register under
+   * @param predicate the predicate, or null to remove it
+   * @param opts re-evaluation, pinning, and the pushed-down twin
+   */
+  where(name: string, predicate: ((row: any) => boolean) | null, opts?: WhereOptions): void;
+  /**
+   * Re-run `where` predicates whose inputs changed where the grid could not see
+   * it — a rate table that arrived late, a permission set that refreshed. The
+   * out-of-band half of re-evaluation; `deps` is the half the grid observes for
+   * itself. Together they replace the manual "filter again" call.
+   * @param name the predicate to re-run; every one when omitted
+   * @returns whether anything was re-run
+   */
+  reapply(name?: string): boolean;
 }
 
 export interface SortApi {
   get(): SortEntry[];
+  /** Replace the sort model; an entry naming no known column is dropped with a warning. */
   set(entries: SortEntry[]): void;
   clear(): void;
 }
@@ -4743,6 +4914,11 @@ export interface SavedView {
   name: string;
   description: string;
   shared: boolean;
+  /**
+   * Applied on load when no `config.state` is given. `config.state` wins
+   * outright over this flag: with both present, the default view is never
+   * applied and the active view id stays `null`.
+   */
   isDefault: boolean;
   /** Supplied in `config.views.saved`: listed apart, and not renamable or deletable. */
   builtin: boolean;
@@ -5375,7 +5551,11 @@ export interface FindApi {
 export interface StateApi {
   get(): GridState;
   apply(state: GridState, opts?: { skip?: (keyof GridState)[] }): StateApplyReport;
-  /** The state the grid started in, captured once after `config.state`. */
+  /**
+   * The grid as configured, without `config.state` — captured once, before
+   * that seed is applied, so a view opened through `config.state` is never
+   * itself mistaken for the default `reset()` returns to.
+   */
   baseline(): GridState | null;
   /** Put the grid back the way it started, as one undoable step. */
   reset(): StateApplyReport | null;
@@ -7938,7 +8118,15 @@ declare module 'lattice-grid/modules/webcomponent' {
    * is disconnected.
    */
   export function defineLatticeGrid(tag?: string): void;
-  export function createLatticeGridElement(deps?: object): unknown;
+  /**
+   * Build the `<lattice-grid>` element class. The one argument is the grid
+   * factory the element creates its grid with — `createGrid`-shaped, and
+   * defaulting to it — injectable for tests. Returns the class, or `null`
+   * where `HTMLElement` is undefined (a Node import, a server-side pass).
+   */
+  export function createLatticeGridElement(
+    factory?: (element: Element, config: GridConfig) => Grid,
+  ): typeof HTMLElement | null;
   export const TAG_NAME: string;
   export const EVENT_PREFIX: string;
   export const ATTRIBUTE_CONFIG: Readonly<Record<string, unknown>>;
@@ -7960,7 +8148,14 @@ declare module 'lattice-grid/modules/htmx' {
    */
   export function createGrid(element: Element, config: GridConfig): Grid;
   export function autoInit(root?: ParentNode): Grid[];
-  export function attach(element: Element, config?: GridConfig): Grid;
+  /**
+   * Wire the htmx lifecycle events on a document: grids are built in each
+   * swapped-in fragment, released before htmx detaches one, and their view
+   * state carried across history navigation. Called once on import against
+   * the global `document`; call it again only for another document. Returns
+   * the function that removes every listener it installed.
+   */
+  export function attach(doc?: Document): () => void;
   export function initWithin(root: ParentNode): Grid[];
   export function destroyWithin(root: ParentNode): void;
   export function gridElementsWithin(root: ParentNode): Element[];
@@ -7968,9 +8163,41 @@ declare module 'lattice-grid/modules/htmx' {
   export function readTable(table: Element): { columns: Column[]; rows: unknown[] };
   export function rowsFromFragment(fragment: ParentNode): unknown[];
   export function rowsFromJson(text: string): unknown[];
-  export function ingestResponse(grid: Grid, response: unknown): void;
-  export function driveServerMode(grid: Grid, opts?: object): () => void;
-  export function driveInfiniteScroll(grid: Grid, opts?: object): () => void;
+  /**
+   * Parse a response into rows by its content type: JSON through
+   * `rowsFromJson`, anything else through `rowsFromFragment` against the
+   * columns given. The fragment arrives already parsed; this never touches
+   * `DOMParser` or `innerHTML`. Returns the rows and, when the body carried
+   * one, the total.
+   */
+  export function ingestResponse(
+    response: { contentType: string; text?: string; fragment?: ParentNode },
+    columns: { field: string }[],
+  ): { rows: unknown[]; total: number | undefined };
+  /**
+   * Drive server-side sort and filter through htmx. `trigger` is the element
+   * carrying the htmx request attributes (`hx-get`, `hx-target`,
+   * `hx-trigger="lattice:query-changed"`); the grid's query parameters are
+   * merged into that element's request and its response ingested. Returns the
+   * function that detaches everything this attached.
+   */
+  export function driveServerMode(
+    grid: Grid,
+    trigger: Element,
+    opts?: { columns?: { field: string }[] },
+  ): () => void;
+  /**
+   * Load rows in chunks as the user nears the end of what is loaded.
+   * `sentinelEl` is the element carrying `hx-get` and
+   * `hx-trigger="revealed, lattice:scroll-near-end"`; `threshold` is how many
+   * rows from the end counts as near (default 20). Returns the function that
+   * detaches everything this attached.
+   */
+  export function driveInfiniteScroll(
+    grid: Grid,
+    sentinelEl: Element,
+    opts?: { columns?: { field: string }[]; threshold?: number },
+  ): () => void;
   export function driveOobUpdates(grid: Grid, opts?: object): () => void;
   export function serialiseState(grid: Grid): string;
   export function restoreState(grid: Grid, state: string): void;
@@ -8034,7 +8261,12 @@ declare module 'lattice-grid/modules/devtools' {
     destroy(): void;
   };
   export function expose(grid: Grid, name?: string): void;
-  export const CONSOLE_ACTIVATION: string;
+  /**
+   * Whether the console entry point is compiled in. A build that replaces the
+   * activation token with `false` removes the global entirely; in every other
+   * build this is `true`.
+   */
+  export const CONSOLE_ACTIVATION: boolean;
   export default createDevtools;
 }
 
