@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.54.0, type declarations
+ * Lattice Grid 1.55.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -250,11 +250,6 @@ export interface NumberFormat {
    * leaves the remainder in English rather than showing raw keys.
    */
   messages?: Record<string, string | Record<string, string>>;
-  /**
-   * Writing direction. Omit to settle it from the element's own `dir` and then
-   * from `locale`: `ar`, `he`, `fa` and the rest resolve to `rtl`.
-   */
-  direction?: 'ltr' | 'rtl';
   scale?: number;
 }
 
@@ -1747,6 +1742,14 @@ export interface GridConfig {
   /** Page the rows rather than scrolling them. */
   pagination?: PaginationConfig | boolean;
   locale?: string;
+  /**
+   * Writing direction. Omit it, or say `'auto'`, to settle it from the
+   * element's own computed `dir` and then from `locale`: `ar`, `he`, `fa` and
+   * the rest resolve to `rtl`. In a right-to-left grid the logical alignments
+   * `start`/`end` mirror while the physical `left`/`right` do not (see
+   * {@link Align}).
+   */
+  direction?: 'ltr' | 'rtl' | 'auto';
   /**
    * IANA zone every date column formats in, e.g. 'Europe/London' or 'UTC'.
    * Omit to use each viewer's own zone. A column's own `format.timeZone` wins.
@@ -4410,6 +4413,22 @@ export interface ColumnsApi {
    */
   decorate(id: string, decoration: DecorationName | DecorationSpec | null, opts?: { variant?: VariantSpec }): void;
   autoSize(ids?: string | string[]): void;
+  /**
+   * Size the visible resizable columns so that every column the grid draws,
+   * together, exactly fills the width the cells occupy: the body viewport's
+   * client width at the moment of the call, which excludes the vertical
+   * scrollbar when the grid draws one and is the full inner width when it does
+   * not. Columns it does not size keep their width and are taken out of that
+   * width first: `resizable: false` columns and the grid's own selection
+   * checkbox, detail expander, group and tree columns. The rest share what is
+   * left in proportion to their current widths, within each `min`/`max`. If
+   * that leaves less than their minimums, each is set to its minimum (never
+   * below), the grid scrolls horizontally, and a `[lattice]` warning says so.
+   * Rows given to `createGrid` or `rows.load()` before the call are counted.
+   * One-shot: it sets fixed widths once (a `flex` column included) and does not
+   * follow later changes; after a resize, or after rows arriving later bring a
+   * vertical scrollbar in, call it again.
+   */
   fit(): void;
   group(ids: string | string[]): void;
   pivot(ids: string | string[]): void;
@@ -5520,13 +5539,21 @@ export interface PaginationApi {
 /** What a cell-menu builder and a host item's `action` are handed. */
 export interface CellMenuParams {
   key: string;
-  colId: string;
+  /**
+   * The column under the pointer, or `null` when the row belongs to no column:
+   * a right-click in the empty tail of a row beyond the last column
+   * (BACKLOG-0001153), or on a group row, pivot group row or full-width row.
+   * The grid-level menu stands in that case (BACKLOG-0001068).
+   */
+  colId: string | null;
+  /** The cell's value; `undefined` when there is no column. */
   value: unknown;
   /** The row wrapper. */
   row: Row;
   /** Your original row object. */
   data: unknown;
-  column: ResolvedColumn;
+  /** The resolved column; `undefined` when `colId` is `null`. */
+  column: ResolvedColumn | undefined;
   index: number;
   grid: Grid;
 }
@@ -9560,11 +9587,12 @@ declare module 'lattice-grid/modules/layout' {
      *
      * **Nothing moves**: no compaction runs, no placement changes, and the
      * payload container is the same DOM node throughout. **Escape restores it**,
-     * from anywhere inside the layout, unless a payload has already claimed the
-     * key — a grid marks every Escape as handled, at two independent sites (a
-     * focused body cell and a focused header cell), so from inside a maximised
-     * grid the way back is the restore control. A minimised window is expanded first,
-     * and maximising a second window restores the first.
+     * from anywhere inside the layout — a focused grid body cell or column
+     * heading included — unless a payload has already claimed the key: an open
+     * cell editor, filter menu or column menu closes first, and the next Escape
+     * restores the window. Afterwards focus lands on the window's maximise
+     * control. A minimised window is expanded first, and maximising a second
+     * window restores the first.
      */
     maximise(id: string): boolean;
     /**

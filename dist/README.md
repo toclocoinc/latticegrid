@@ -4,7 +4,7 @@
 dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it.
 
-Version 1.54.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.55.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -301,11 +301,13 @@ Alongside those: the stylesheet `lattice-grid.min.css` (required, imported as
 published package directly:
 
 ```
-https://cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@<version>/<file>
+https://cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@1/<file>
 ```
 
-Pin an exact `<version>` in production. The `<file>` column in each table below
-is exactly what you append.
+`@1` pins the major: a page in production picks up fixes within 1.x and never a
+breaking release, where `@latest` would. To freeze a page on one exact build,
+replace `@1` with the full version `getVersion()` reports. The `<file>` column
+in each table below is exactly what you append.
 
 ### Core
 

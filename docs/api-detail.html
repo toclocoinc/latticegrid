@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.54.0</p>
+    <p class="rail__sub">Developer guide · v1.55.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -553,7 +553,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.7.1</span>
+        <span class="chip">Version 1.55.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -584,6 +584,10 @@ createGrid(element, { locale: 'fr-FR', messages: FR_FR });</code></pre>
     <p>Placeholders are named, so word order is yours to choose. The parameter called <code>count</code> selects the plural form, using the categories the language actually has: English needs two, French treats zero as singular, Arabic has six. Numbers are formatted for the locale automatically; do not format them yourself.</p>
 
     <p><code>MESSAGE_KEYS</code> lists every key. <code>auditCatalogue(yours)</code> returns what is missing and what is not a real key, which is the quickest way to check a translation before shipping it.</p>
+
+    <h3>Keys seeded in English, awaiting translation</h3>
+    <p>A key added after a catalogue was written ships in British English only until a translator supplies it; <code>Messages</code> merges every catalogue over the default, so the grid says it in English rather than showing the key. The shipped catalogues do not carry an English copy under the guise of a translation, and the build's completeness test lists exactly which keys are in this state. As of 1.55 the most recent additions are the strings that had shipped as template literals, untranslated in every locale (BACKLOG-0001106): the presence live region and roster note, <code>a11y.presence.refused</code>, <code>presence.someoneElse</code> and <code>presence.hidden</code>; the comment panel's changed-since note, <code>comments.valueMoved</code>; the facet band's accessible name, <code>facets.filter</code>; the heading tooltip that names a reduction, <code>header.totalOf</code>; the audit-mode tooltip, <code>diff.before</code> and <code>diff.empty</code>; the kanban list names, <code>kanban.columnCards</code> and <code>kanban.laneCards</code>, both plural objects selected by <code>count</code>; and the gantt lag label, <code>gantt.lag</code> and <code>gantt.lead</code>. Supply any of them in <code>messages</code> to translate it today.</p>
+    <p>The kanban board and the gantt view are modules and do not import the catalogue. A board bound to a grid, or a plan created with one, borrows that grid's <code>messages</code>; otherwise pass <code>messages</code> — a grid's own, or any object with <code>t(key, params)</code> — to <code>createKanban</code> or to <code>gantt.mount</code>. With neither they render the English.</p>
 
     <div class="why">
       <p><strong>The grid is checked in the other direction too.</strong> <code>auditCatalogue</code> tells you a catalogue is complete: that a translator covered every key. It cannot tell you the grid only ever renders text that came from a catalogue in the first place, and a string written into the source passes every test, because the tests assert on the English the grid happens to produce.</p>
@@ -668,8 +672,8 @@ createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so out
 
     <div class="example">
       <p class="example__label">jsDelivr, no npm install, no bundler</p>
-      <pre><code>&lt;link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@1.7.1/lattice-grid.min.css"&gt;
-&lt;script src="https://cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@1.7.1/lattice-grid.min.js"&gt;&lt;/script&gt;
+      <pre><code>&lt;link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@1/lattice-grid.min.css"&gt;
+&lt;script src="https://cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@1/lattice-grid.min.js"&gt;&lt;/script&gt;
 
 &lt;script&gt;
   <span class="kw">const</span> grid = LatticeGrid.createGrid(document.getElementById('grid'), config);
@@ -694,9 +698,10 @@ createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so out
 
     <div class="note">
       <p><strong>jsDelivr mirrors every version published to npm</strong> at
-      <code>cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@&lt;version&gt;/&lt;file&gt;</code>: pin an
-      exact version, e.g. <code>@1.7.1</code> rather than <code>@latest</code>, so a later release
-      does not change what a page already in production loads. The same convention reaches a
+      <code>cdn.jsdelivr.net/npm/@toclocoinc/lattice-grid@1/&lt;file&gt;</code>. <code>@1</code> pins
+      the major: a page in production picks up fixes within 1.x and never a breaking release, where
+      <code>@latest</code> would. To freeze a page on one exact build, replace <code>@1</code> with
+      the full version <code>getVersion()</code> reports. The same convention reaches a
       module: <code>.../modules/htmx.esm.min.js</code>, <code>.../modules/dhtmlx-compat.esm.min.js</code>,
       and so on. Type declarations resolve automatically through npm's own <code>types</code> field;
       for editor tooling against the CDN or a plain script tag, point your <code>tsconfig</code> at
@@ -1273,7 +1278,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.7.1'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.55.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -1354,6 +1359,31 @@ LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid
       <code>grid.columns.fit()</code> distributes the viewport width across visible columns, and
       <code>autoSize</code> measures content.
     </p>
+    <p>The width <code>fit()</code> distributes is the space the cells actually occupy: the body
+      viewport&rsquo;s client width, read when you call it. When the grid has enough rows to
+      scroll vertically, that width excludes the scrollbar, so the columns end flush with it
+      instead of running under it; when there is no vertical scrollbar, it is the full inner
+      width. Rows you passed to <code>createGrid</code> or <code>grid.rows.load()</code> before
+      the call are counted, so calling it straight after either works.</p>
+    <p>Every column the grid draws counts toward that width, not only the ones <code>fit()</code>
+      sizes. It sizes your resizable columns. A column it does not size keeps its width, and that
+      width comes off the target first: a column declared <code>resizable: false</code>, and the
+      grid&rsquo;s own selection checkbox, detail expander, group and tree columns. Your resizable
+      columns then share what is left in proportion to their current widths, within each
+      <code>min</code> and <code>max</code>; a column held at a bound stays there and the others
+      share the rest, so all the drawn columns together still come to the viewport width
+      exactly. Under a pivot every column drawn is one the grid generates, so <code>fit()</code>
+      has nothing to size and leaves the widths as they are.</p>
+    <p>If what is left is less than those columns&rsquo; minimums, which happens when the columns
+      <code>fit()</code> does not size already take the width, each resizable column is set to its
+      <code>min</code> (40px when it declares none). None goes below its minimum, and none is
+      squeezed to nothing: the grid scrolls horizontally instead, and a <code>[lattice]</code>
+      warning in the console names the widths that ran out.</p>
+    <p><code>fit()</code> is one-shot. It sets a fixed width on each column once, including a
+      <code>flex</code> column, and does not follow the grid afterwards. If the width changes
+      later, because the container is resized or because rows that arrive afterwards bring a
+      vertical scrollbar in, call it again. A column that should keep tracking the width by
+      itself wants <code>flex</code> instead of <code>fit()</code>.</p>
     <p>Both are also on the column menu: Move left, Move right, Move to start, Move to end, and
       a Width submenu, and bound to the keyboard with a heading focused: <kbd>Alt</kbd> with a
       left or right arrow resizes, <kbd>Shift</kbd> with one moves the column. Neither operation
@@ -1969,9 +1999,16 @@ grid.edit.setCells([
 <span class="cmt">// → the number of cells written</span></code></pre>
     </div>
     <p class="lead-in">
-      This is the full path, not a shortcut: it validates, emits <code>cell:changed</code>,
+      This is the full path, not a shortcut: it validates, emits <code>cell:changed</code> per cell,
       re-sorts if the column is sorted on, records one undo entry, and returns <code>0</code> for a
-      column the user may not write.
+      column the user may not write. It then announces the whole call <strong>once</strong> as
+      <code>rows:changed</code> (<code>identified: true</code>, <code>edit: true</code>, the
+      <code>updated</code> rows and the <code>columns</code> written), after the per-cell events, so
+      a derived grid, a statistic tile or anything else that follows <code>rows:changed</code>
+      re-reads once for a twenty-cell paste rather than twenty times. An editor commit, a fill, a
+      paste, an undo, a redo and an optimistic rollback each announce themselves the same way, once
+      per batch. Earlier releases announced nothing here, and a derived view of an edited grid went
+      silently stale.
     </p>
 
     <h3>High-frequency updates</h3>
@@ -3306,7 +3343,17 @@ createGrid(right, {
       <code>refresh</code> to <code>live</code>, <code>manual</code> or a number of milliseconds to
       change the coalescing; <code>idle</code> is the default and settles to a frame.</p>
       <p><strong>Derived grids are read-only.</strong> There is one copy of the data and it lives in
-      the source. Write there and the derived grid follows.</p>
+      the source. Write there and the derived grid follows: an edit through the source's editing
+      API (<code>edit.setCells</code>, an inline commit, a fill, a paste, an undo, a redo or an
+      optimistic rollback) is announced once per batch, after the per-cell
+      <code>cell:changed</code> events, and the derived grid re-derives once for the batch. A
+      grouped derivation patches the groups the edited rows belong to; a derivation with a
+      <code>where</code>, an <code>unnest</code>, a producer, or an edit to a column the source
+      filters on re-reads in full, at the cost measured above. <strong>Use <code>idle</code> when a
+      derived child follows an editable grid.</strong> Under <code>live</code> the derivation runs
+      synchronously inside the edit call, so a keystroke's commit on a 200k-row source pays the
+      whole re-read before the editor closes; <code>idle</code> defers it to the next frame and
+      folds a burst of edits into one.</p>
       <p><strong>The key comes for free.</strong> A derived grid keys on <code>__key</code>, which
       the source writes onto every row it produces: the group value, the profiled column, or the
       source row's own key when nothing is grouped. Set <code>rowKey</code> only to override it.</p>
@@ -5368,6 +5415,17 @@ grid.annotate.use(null);                     <span class="cmt">// hand the grid 
     <h3>Keyboard</h3>
     <p>Every operation is reachable without a pointer. Resizing and reordering a column were once
       drag-only; both now have key bindings and menu items, so nothing depends on dragging.</p>
+    <p><strong>Entering the grid.</strong> The grid is one stop in the page's tab order. Pressing
+      <kbd>Tab</kbd> into a grid that has not been used yet puts focus on the grid itself, and the
+      grid draws a focus ring around its own edge at once, in the theme's focus colour, so a keyboard
+      user can see where focus went before pressing anything else. In Windows High Contrast Mode
+      the ring is drawn in the system text colour. A screen reader announces the grid (or tree grid),
+      its row and column counts and whether it is read-only. The first arrow key, <kbd>Home</kbd>
+      or <kbd>Ctrl</kbd>+<kbd>Home</kbd> moves focus to a cell, and the ring moves with it. From then
+      on the cell you were on is the grid's tab stop: <kbd>Shift</kbd>+<kbd>Tab</kbd> from the first
+      cell leaves the grid, and <kbd>Tab</kbd> back into the grid returns to that cell. The grid takes
+      the tab stop back only when that cell is outside the rendered rows, and then draws its own
+      ring again.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Keys</th><th>Does</th></tr></thead>
@@ -5717,10 +5775,11 @@ grid.edit.pasteInto(text);                        <span class="cmt">// Excel's t
           <tr><td class="sig">Delete / Backspace</td><td class="desc">Clear the selected cells.</td></tr>
           <tr><td class="sig">Enter</td><td class="desc">Start editing; commit and step down.</td></tr>
           <tr><td class="sig">Tab</td><td class="desc">Commit and step across.</td></tr>
-          <tr><td class="sig">Escape</td><td class="desc">Cancel the edit; restore a maximised grid once nothing else wants it.</td></tr>
+          <tr><td class="sig">Escape</td><td class="desc">Cancel the edit; restore a maximised grid once nothing else wants it. Coming back from full screen, whether by Escape or the rail's restore button, puts focus back on the cell you were on, not on the page.</td></tr>
           <tr><td class="sig">Ctrl/Cmd + F</td><td class="desc">Open the <a href="#find">find bar</a>; in it, Enter / Shift+Enter step through the matches and Escape closes.</td></tr>
           <tr><td class="sig">Space</td><td class="desc">Toggle the row's selection.</td></tr>
           <tr><td class="sig">Home / End, Page Up / Down</td><td class="desc">Jump; with Ctrl, to the ends of the grid.</td></tr>
+          <tr><td class="sig">Ctrl/Cmd + Alt + H</td><td class="desc">Move focus to the column heading. On a heading, ArrowLeft / ArrowRight move between headings, Enter or Space sort by the column (Shift to add it to the sort), Alt + arrows resize, Shift + arrows move the column, Alt + ArrowDown opens the column menu, and ArrowDown or Escape return you to the data. The full list is in the <a href="#accessibility-guide">accessibility guide</a>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -5728,6 +5787,10 @@ grid.edit.pasteInto(text);                        <span class="cmt">// Excel's t
       <p>None of these fire while you are typing into an input, a filter box, an open editor, the
       view-name field. The grid checks where the keystroke came from before claiming it, which
       sounds obvious and is the sort of thing that is usually wrong.</p>
+      <p>A key a heading handles acts once, on the heading: Enter sorts and does not also open an
+      editor on a body cell, ArrowRight reaches the next heading and not a cell beneath it. A key
+      the heading declines still travels, which is how Escape reaches a maximised grid from a
+      heading.</p>
     </div>
 
     <h2 id="rules-guide">Conditional formatting</h2>
@@ -7473,7 +7536,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.7.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.55.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>
