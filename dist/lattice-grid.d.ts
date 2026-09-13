@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.56.0, type declarations
+ * Lattice Grid 1.57.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -340,7 +340,8 @@ export interface Option {
   label: string;
   disabled?: boolean;
   variant?: VariantName;
-  icon?: string;
+  /** A glyph name from the icon registry (see {@link IconName}), shown before the label. */
+  icon?: IconName;
   group?: string;
 }
 
@@ -364,6 +365,32 @@ export interface LookupSpec {
 export type DecorationName = 'plain' | 'fill' | 'pill' | 'dot' | 'bar' | 'heat' | 'icon';
 export type VariantName = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent' | 'none' | (string & {});
 
+/**
+ * A glyph name from the icon sprite registry (`packages/dom/src/cell/icons.js`).
+ *
+ * The union below is every built-in name, generated from `iconNames()` so an
+ * editor can autocomplete and typo-check them — see
+ * `test/icon-name-type-drift.test.js`, which fails if this list and the
+ * registry ever disagree. It is deliberately **not closed**: the registry is
+ * extensible at runtime via `registerIcon`, `registerIcons`, `config.icons` and
+ * `grid.icons`, and `(string & {})` widens the type so a custom registered name
+ * still typechecks without losing autocomplete on the built-ins. A name the
+ * registry has never heard of — built-in or custom — draws a blank glyph and
+ * warns once at runtime; it is not a type error.
+ */
+export type IconName =
+  | 'chevronRight' | 'chevronDown' | 'chevronUp' | 'chevronLeft'
+  | 'check' | 'dash' | 'close' | 'plus' | 'minus'
+  | 'info' | 'success' | 'warning' | 'danger' | 'clock' | 'lock'
+  | 'link' | 'external' | 'filter' | 'pause' | 'play' | 'chart' | 'palette'
+  | 'undo' | 'redo' | 'columns' | 'download' | 'restore' | 'spreadsheet' | 'print'
+  | 'maximise' | 'minimise' | 'views' | 'search' | 'pencil' | 'trash' | 'share'
+  | 'pin' | 'sortAsc' | 'sortDesc' | 'menu' | 'drag'
+  | 'star' | 'heart' | 'circleFilled' | 'square' | 'bolt' | 'flag'
+  | 'arrow' | 'highlight' | 'thumbUp' | 'eye' | 'eyeOff' | 'copy' | 'present'
+  | 'blank'
+  | (string & {});
+
 /** A built-in threshold icon set, mapping value bands to built-in glyphs. */
 export type IconSetName = 'trafficLights' | 'arrows' | 'trafficArrows' | 'ratings' | (string & {});
 
@@ -375,7 +402,8 @@ export type IconSetName = 'trafficLights' | 'arrows' | 'trafficArrows' | 'rating
  */
 export interface IconBand {
   min?: number;
-  icon: string;
+  /** A glyph name from the icon registry (see {@link IconName}). */
+  icon: IconName;
   label?: string;
   variant?: VariantName;
 }
@@ -387,7 +415,12 @@ export interface DecorationSpec {
   outline?: boolean;
   edge?: boolean;
   position?: 'start' | 'end';
-  name?: string | Record<string, string>;
+  /**
+   * `icon` decoration only: either a single glyph name (see {@link IconName})
+   * used for every value, or a value -> glyph name map for exact-value icons.
+   * Omit both `name` and `bands` to use `iconSet`/its default instead.
+   */
+  name?: IconName | Record<string, IconName>;
   /** icon only: a built-in threshold icon set, expanded to `bands`. */
   iconSet?: IconSetName;
   /** icon only: value bands mapped to glyphs, first match by descending `min`. */
@@ -4156,6 +4189,11 @@ export type EventName =
   | 'model:changed' | 'rows:changed' | 'rows:queued' | 'rows:deferred'
   | 'rows:paused' | 'rows:resumed' | 'row:received' | 'row:sent' | 'row:copied'
   | 'row:moved' | 'source:error' | 'stream:chunk' | 'stream:end' | 'stream:evicted'
+  /* The row-drag gesture as it happens (BACKLOG-0001224). Notifications only:
+   * the drop is already vetoable by `beforeRowMove` and `beforeRowReceive`, and
+   * a third veto on the same gesture would be a fourth place to look. All four
+   * fire on the grid the drag started in and carry a {@link RowDragEvent}. */
+  | 'rowDrag:started' | 'rowDrag:moved' | 'rowDrag:left' | 'rowDrag:ended'
   /* Cells and editing */
   | 'cell:changed' | 'cell:pending' | 'cell:confirmed' | 'cell:reverted' | 'cell:conflict'
   | 'cell:clicked' | 'cell:dblclicked' | 'cell:contextmenu'
@@ -4212,11 +4250,14 @@ export type EventName =
   | 'beforeEdit' | 'beforeSort' | 'beforeFilter'
   | 'beforeColumnMove' | 'beforeColumnResize' | 'beforeColumnHide'
   | 'beforeSelect' | 'beforeRowAdd' | 'beforeDelete' | 'beforeRowMove' | 'beforeGroup'
+  /* A row dropped in from another grid, on the receiving grid (BACKLOG-0001225):
+   * a {@link BeforeRowReceiveEvent}. */
+  | 'beforeRowReceive'
   /* Their cancellation notifications (past-tense, non-cancellable). */
   | 'edit:cancelled' | 'sort:cancelled' | 'filter:cancelled'
   | 'columnMove:cancelled' | 'columnResize:cancelled' | 'columnHide:cancelled'
   | 'selection:cancelled' | 'rowAdd:cancelled' | 'delete:cancelled'
-  | 'rowMove:cancelled' | 'group:cancelled'
+  | 'rowMove:cancelled' | 'group:cancelled' | 'rowReceive:cancelled'
   /* Every event at once, for logging and debugging. */
   | '*';
 
@@ -4259,6 +4300,157 @@ export interface BeforeEvent extends GridEvent {
 }
 
 /**
+ * The `beforeRowReceive` event (BACKLOG-0001225): a row dragged from another
+ * grid is about to be inserted into this one. Fires on the **receiving** grid,
+ * before the insert, with the row under the pointer named — so a drop that
+ * means "assign this to that" can be recorded by the host and the insert
+ * stopped with `preventDefault(reason)`.
+ *
+ * A veto leaves the source grid untouched: the row stays where it was, and
+ * neither `row:sent` nor `row:copied` fires there. The source removes its row
+ * only after the target has admitted it, and a veto is a refusal to admit.
+ * The paired `rowReceive:cancelled` carries the same context plus the reason.
+ *
+ * Like every {@link BeforeEvent}, the handler may be `async`; the insert is
+ * held until it settles, and is cancelled as `'stale'` (BACKLOG-0001242) if
+ * the source row is gone by then, or if the row under the pointer is gone or
+ * has moved to a different index — `at` names a slot as "before `overKey`",
+ * and once that is no longer where `overKey`'s row sits, `at` is a stale index
+ * into a list that changed while the handler was thinking, not the slot the
+ * drop meant. `overKey: null` (the drop landed on no row) has no row to drift
+ * against and is never stale on that account.
+ */
+export interface BeforeRowReceiveEvent extends BeforeEvent {
+  /**
+   * The row about to be inserted: a shallow copy of the source row's data,
+   * and the very object that is inserted if no handler vetoes, so a change
+   * made to it here lands with the row.
+   */
+  data: Record<string, unknown>;
+  /**
+   * The display index the row would be inserted at: the index of the row
+   * under the pointer, or `rows.count()` when the drop landed on no row. When
+   * `overKey` names a row, this is guaranteed to still be that row's index at
+   * the moment the insert actually runs — an async handler that leaves the
+   * named row at a different index causes the drop to be cancelled as
+   * `'stale'` (BACKLOG-0001242) rather than inserted at this index regardless.
+   */
+  at: number;
+  /**
+   * The key of the row under the pointer when the drop happened — the row the
+   * user meant. Null when the drop landed past the last row, on empty space,
+   * on the header, or on a pinned row: there is no row to name, and a nearest
+   * guess would be wrong in a way that looks right.
+   */
+  overKey: string | null;
+  /** The grid the row is being dragged from. */
+  source: Grid;
+}
+
+/**
+ * The `rowReceive:cancelled` event (BACKLOG-0001225): a `beforeRowReceive`
+ * was vetoed, or went stale during an async handler. Nothing was inserted and
+ * the source grid is untouched.
+ */
+export interface RowReceiveCancelledEvent extends GridEvent {
+  /** The row that was not inserted, as the handler saw it. */
+  data: Record<string, unknown>;
+  /** The display index it would have taken. */
+  at: number;
+  /** The key of the row under the pointer, or null. */
+  overKey: string | null;
+  /** The grid the row would have come from; it still holds the row. */
+  source: Grid;
+  /**
+   * The reason given to `preventDefault`, `'prevented'` when none was given,
+   * or `'stale'` when the row under the pointer or the source row was gone by
+   * the time an async handler settled.
+   */
+  reason: string;
+}
+
+/**
+ * The row-drag lifecycle events (BACKLOG-0001224): `rowDrag:started`,
+ * `rowDrag:moved`, `rowDrag:left` and `rowDrag:ended`, which report a row drag
+ * *as it happens* rather than once it has settled. Before them a host got the
+ * handle the grid draws and then one settled event, with nothing in between to
+ * highlight a candidate target, drive a custom drop indicator, or react when
+ * the pointer left the grid.
+ *
+ * **All four fire on the grid the drag started in**, whether the row is being
+ * reordered within that grid or dragged into another one. A drag is one gesture
+ * with one owner, and the source grid is the only grid present for the whole of
+ * it — the pointer may cross several others, or none. `over` names whichever
+ * grid the event is about, so a single subscription can drive decoration on any
+ * of them.
+ *
+ * **Notifications, not gates.** None of these is cancellable and none carries
+ * `preventDefault`. The drop is already vetoable twice over — `beforeRowMove`
+ * for a reorder, `beforeRowReceive` for a drop into another grid — and a third
+ * veto on the same gesture would be a third place to look when a drop does not
+ * happen.
+ *
+ * **What is safe to do in a handler.** Read, measure and draw: highlight a
+ * candidate row, move an indicator, update a side panel. Do not mutate rows,
+ * columns, sort, filters or grouping from one of these. The drag resolves where
+ * it would land against the display order, so changing that order mid-gesture
+ * moves the ground under the drop; and `data` is the source row's own object
+ * rather than a copy, so writing to it edits the row that is still in the grid
+ * without announcing it. Work that changes the grid belongs in
+ * `beforeRowReceive`, which is asked before the insert, or in the settled
+ * events afterwards.
+ *
+ * **`rowDrag:moved` is coalesced to one event per animation frame**, carrying
+ * the latest pointer position of that frame, so a handler runs at the display's
+ * rate rather than the pointer's several hundred events a second. The other
+ * three fire on the transition itself.
+ *
+ * The sequence for any gesture is `rowDrag:started`, then `rowDrag:moved` and
+ * `rowDrag:left` as the pointer travels, then exactly one `rowDrag:ended` —
+ * including when the pointer is released outside every grid. No `rowDrag:moved`
+ * is delivered after `rowDrag:ended`. A press that never passes the drag
+ * threshold is a click and raises none of them; a grid destroyed mid-drag
+ * raises no `rowDrag:ended`.
+ */
+export interface RowDragEvent extends GridEvent {
+  /** The key of the row being dragged. */
+  key: string;
+  /**
+   * The dragged row's data as it stands in the source grid — that row's own
+   * object, not a copy. Null if the row has left the source during the drag.
+   */
+  data: Record<string, unknown> | null;
+  /**
+   * The grid the event is about: the grid under the pointer for
+   * `rowDrag:started`, `rowDrag:moved` and `rowDrag:ended`, and the grid just
+   * left for `rowDrag:left`. Null when the pointer is over no grid at all.
+   */
+  over: Grid | null;
+  /**
+   * Where the row would land in `over`: the display index it would take. Null
+   * when there is no candidate to report — the pointer is over no grid, over a
+   * grid that will refuse the row, or over a header; and on `rowDrag:left`,
+   * which is about a grid the pointer has already gone from.
+   */
+  at: number | null;
+  /**
+   * The key of the row under the pointer in `over`, or null where there is no
+   * row to name: past the last row, on empty space, on a header, on a pinned
+   * row, on a grid that will refuse the drop, or on `rowDrag:left`.
+   */
+  overKey: string | null;
+  /**
+   * `rowDrag:ended` only: whether the release is being acted on — a transfer
+   * the target accepts, or a same-grid reorder that is a real move and is not
+   * refused by a sort, filter or grouping. False when the row was released over
+   * no grid, over a grid that refuses it, or back where it started. What became
+   * of an acted-on drop is reported by `row:moved`, `row:sent`, `row:received`
+   * and `rowReceive:cancelled`.
+   */
+  dropped?: boolean;
+}
+
+/**
  * The `state:changed` event (BACKLOG-0001182).
  *
  * Fires once per logical state change, whether it began as a user gesture or
@@ -4270,9 +4462,10 @@ export interface BeforeEvent extends GridEvent {
  * `state.apply()` — applying a saved view, an undo, a reset — announces itself
  * once, carrying the outermost cause rather than the inner mechanism's.
  *
- * **One known gap** (BACKLOG-0001235): a host predicate registered through
- * `filters.where(name, fn)` changes the `where` section and the rows on screen
- * without raising this event, so a persistence layer does not yet see it.
+ * A host predicate registered, replaced or removed through
+ * `filters.where(name, fn)`, and a `filters.reapply()` that re-runs one, go
+ * through the same tracked door as `sort` and `filters`: each fires this
+ * event once, `cause: 'user'`, with `'where'` in `sections` (BACKLOG-0001235).
  */
 export interface StateChangedEvent extends GridEvent {
   /** Why the state changed. `'reset'` is the one a save should ignore. */
@@ -5776,7 +5969,18 @@ export interface RailActionParams {
 export interface RailAction {
   name: string;
   title: string | (() => string);
-  icon?: string | (() => string);
+  /**
+   * A glyph name from the icon registry (see {@link IconName}) — a built-in
+   * name, or one registered with `registerIcon`/`registerIcons`,
+   * `config.icons` or `grid.icons`. A function form is re-read on every
+   * repaint, the same as `title`, so a toggle can swap its glyph with its
+   * state. When omitted, the rail tries `name` as the icon name instead (so an
+   * action named after a built-in, e.g. `'undo'`, needs no separate `icon`);
+   * an unrecognised name — from either `icon` or the `name` fallback — draws a
+   * blank glyph, and only an explicitly-given unrecognised `icon` warns once
+   * in the console.
+   */
+  icon?: IconName | (() => IconName);
   run(params: RailActionParams): void;
   enabled?(): boolean;
   /**
@@ -6538,6 +6742,28 @@ export function createGrid(element: HTMLElement, config?: GridConfig): Grid;
 export function createHeadlessGrid(config?: GridConfig): Grid;
 
 /**
+ * House-wide defaults, merged beneath every grid built afterwards.
+ *
+ * For an application with many grids that should agree on theme, density or
+ * row key. The exported factories cannot be wrapped in place — `createGrid` is
+ * exported through a getter with no setter, so assigning over it is discarded
+ * in a plain script and throws in a module — so this is the supported route.
+ *
+ * - **The per-grid config always wins.** Defaults sit *beneath* what
+ *   `createGrid`/`createHeadlessGrid` is passed; a key the grid names keeps the
+ *   grid's value, a key it omits takes the house value.
+ * - **Plain objects deep-merge; arrays and everything else replace.** A house
+ *   `views: { storage }` and a grid's `views: { local: true }` both survive;
+ *   a grid's `columns` array replaces the house one rather than extending it.
+ * - **Calling it again replaces the set, it does not accumulate.** Extend
+ *   explicitly with `defaults({ ...defaults(), density: 'compact' })`.
+ * - **Never retroactive.** Grids already built are untouched.
+ *
+ * `defaults()` reads the current set; `defaults(null)` clears it.
+ */
+export function defaults(config?: Partial<GridConfig> | null): Partial<GridConfig>;
+
+/**
  * The library version, e.g. `'1.13.1'`.
  *
  * The same value `grid.getVersion()` returns, available without a grid. The
@@ -6620,6 +6846,7 @@ export function version(): string;
 export const LatticeGrid: {
   createGrid: typeof createGrid;
   createHeadlessGrid: typeof createHeadlessGrid;
+  defaults: typeof defaults;
   registerModules: typeof registerModules;
   setLicence: typeof setLicence;
   version: typeof version;
@@ -8640,8 +8867,12 @@ declare module 'lattice-grid/modules/kanban' {
     addCard?: boolean;
     /** Persist a standalone inline edit; return false or a rejected promise to revert. */
     onCardEdit?: (event: { card: KanbanCard; key: unknown; field: string; fieldPath: string; value: unknown }) => boolean | void | Promise<boolean | void>;
-    /** Create a card for a column on add-card; return the row to create (with its key), or nothing to auto-generate. */
-    onAddCard?: (columnId: string) => KanbanRow | void;
+    /**
+     * Create a card for a column on add-card; return the row to create (with
+     * its key), a Promise of that row, or nothing to auto-generate. A rejected
+     * Promise creates no card and leaves the board unchanged (BACKLOG-0001230).
+     */
+    onAddCard?: (columnId: string) => KanbanRow | Promise<KanbanRow> | void;
     /** A predicate filter over cards; only matching cards are shown. */
     filter?: (row: KanbanRow, card: KanbanCard) => boolean;
     /** Quick-filter text matched case-insensitively across card fields. */
@@ -8725,6 +8956,26 @@ declare module 'lattice-grid/modules/kanban' {
   }
 
   /**
+   * Named card predicates, composed with AND (BACKLOG-0001229), following the
+   * grid's `filters.where` convention (BACKLOG-0001202). Several may be
+   * registered under different names at once; each can be replaced or removed
+   * without touching the others. `setFilter(fn)` is unchanged sugar for
+   * `where(DEFAULT, fn)` / `where(DEFAULT, null)`.
+   */
+  interface KanbanFilters {
+    /** The reserved name `board.setFilter` registers/removes under. */
+    readonly DEFAULT: string;
+    /** The registered names, in registration order. */
+    where(): string[];
+    /** Register or replace the predicate under `name`. */
+    where(name: string, predicate: (row: KanbanRow, card: KanbanCard) => boolean): Kanban;
+    /** Remove whatever is registered under `name`; a no-op if nothing was. */
+    where(name: string, predicate: null): Kanban;
+    /** Re-run every named predicate (or one, by name) and re-render. */
+    reapply(name?: string): boolean;
+  }
+
+  /**
    * A board instance: a kanban view of grid rows as cards grouped into columns.
    * It consumes data through the same keyed-diff `rows.apply` contract a grid
    * exposes, so `dataRouter.attach(value, board)` drives it like any other
@@ -8772,9 +9023,11 @@ declare module 'lattice-grid/modules/kanban' {
     reorderLanes(order: string[]): Kanban;
     /** Move one swimlane before another (or to the end); emits `swimlane:reorder`. */
     moveLane(id: string, beforeId: string | null): Kanban;
-    /** Set a predicate filter over cards, or clear it with null. */
+    /** Named card predicates, composed with AND (BACKLOG-0001229). See {@link KanbanFilters}. */
+    filters: KanbanFilters;
+    /** Set a predicate filter over cards, or clear it with null. Sugar for `filters.where(filters.DEFAULT, fn)`. */
     setFilter(fn: ((row: KanbanRow, card: KanbanCard) => boolean) | null): Kanban;
-    /** Set the quick-filter text matched across card fields. */
+    /** Set the quick-filter text matched across card fields. Independent of every `filters.where` predicate. */
     setQuickFilter(text: string): Kanban;
     /** Distinct values of a property with card counts — the raw material for a facet control. */
     facets(property: string): { value: unknown; count: number }[];
@@ -8808,8 +9061,13 @@ declare module 'lattice-grid/modules/kanban' {
     editCard(key: unknown, name?: string): object | null;
     /** Commit an inline edit through the write-back path (grid.edit.setCells when bound); emits `card:edit`. */
     applyEdit(key: unknown, name: string, value: unknown): Promise<boolean>;
-    /** Add a card to a column and open it in inline edit; emits `card:add`. */
-    addCard(columnId: string, seed?: KanbanRow): unknown;
+    /**
+     * Add a card to a column and open it in inline edit; emits `card:add`.
+     * Returns the new key directly, or a Promise of it when `onAddCard`
+     * returns a Promise or a `beforeAdd` handler defers (BACKLOG-0001230); a
+     * rejected `onAddCard` Promise resolves this to `null` with no card added.
+     */
+    addCard(columnId: string, seed?: KanbanRow): unknown | Promise<unknown>;
     /** Serialise the restorable state: collapsed columns/lanes, order, filter, sprint/epic, selection. */
     getState(): object;
     /** Restore a state snapshot from {@link Kanban#getState}. */
@@ -8819,6 +9077,15 @@ declare module 'lattice-grid/modules/kanban' {
     /** Set (or clear with null) an error state, rendered as a host-supplied message. */
     setError(message: string | null): Kanban;
     setRows(rows: KanbanRow[]): Kanban;
+    /**
+     * Replace the board's configured column set (BACKLOG-0001228). Keeps card
+     * placement and interaction state (collapsed columns, column order, quick
+     * filter, selection) for every column id that survives; a dropped id is
+     * not specially handled — a card whose value has nowhere configured to go
+     * re-derives an ad hoc column rather than becoming `unplaced` (the same
+     * "never silently drop a card" rule an unconfigured value already gets).
+     */
+    setColumns(defs: KanbanColumnDef[]): Kanban;
     refresh(): Kanban;
     destroy(): void;
   }

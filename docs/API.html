@@ -360,7 +360,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.56.0</p>
+    <p class="rail__sub">API reference · v1.57.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -443,7 +443,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.56.0</span>
+      <span class="chip">Version 1.57.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -578,6 +578,11 @@
             <td class="type">Grid</td>
             <td class="desc">Core only. Everything below except <code>grid.element</code> and the DOM-only config keys works unchanged. What that does and doesn't reach is spelled out below.</td>
           </tr>
+          <tr>
+            <td class="sig">defaults(config?)</td>
+            <td class="type">object</td>
+            <td class="desc">House-wide defaults, merged <em>beneath</em> the config of every grid built afterwards, through either factory. The per-grid value always wins. <code>defaults()</code> reads the current set; <code>defaults(null)</code> clears it. See the note below.</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -603,10 +608,51 @@
 
 <span class="cmt">// everywhere else</span>
 <span class="kw">import</span> { createGrid } <span class="kw">from</span> './your-lattice.js';</code></pre>
-      <p>There is no built-in <code>defaults()</code> call that applies house-wide options for you
-      today; a separate card (BACKLOG-0001187) considers adding one. Until then, the wrapping
-      function above — called everywhere <code>createGrid</code> would otherwise be called directly —
-      is the supported seam.</p>
+      <p>The wrapping function above is still a good seam when the wrapper does more than supply
+      options. When all it does is supply options, use <code>defaults()</code> instead: it applies to
+      every grid built afterwards through <em>either</em> factory, including the ones built for you
+      inside a framework adapter or a module, which a wrapper in your own code never reaches.</p>
+      <ul>
+        <li><strong>The per-grid config always wins.</strong> Defaults sit beneath what the factory
+        is passed: a key the grid names keeps the grid's value, a key it omits takes the house one.
+        A key passed as <code>undefined</code> means "say nothing" — as it does everywhere else in
+        the config surface — and so takes the house value rather than blanking it.</li>
+        <li><strong>Plain objects deep-merge; arrays and everything else replace.</strong> A house
+        <code>views: { storage }</code> and a grid's <code>views: { local: true }</code> both
+        survive. A grid's <code>columns</code> array replaces the house one rather than extending
+        it. Which keys behave as option bags follows from the value at the key, not from a fixed
+        list.</li>
+        <li><strong>Calling it again replaces the set, it does not accumulate</strong>, so the
+        result never depends on the order your modules load. Extend explicitly with
+        <code>defaults({ ...defaults(), density: 'compact' })</code>.</li>
+        <li><strong>Never retroactive.</strong> The merge happens as a grid is built, so a grid that
+        already exists is never revisited. Nothing reached from the defaults is shared between two
+        grids: nested objects and arrays are copied per grid.</li>
+      </ul>
+      <pre data-run="js" data-expect="Ada; own-key true; cleared {}" data-covers="export:defaults"><code><span class="kw">const</span> { createHeadlessGrid, defaults } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="cmt">// One place says what every grid in this application starts from.</span>
+defaults({ rowKey: 'id', selection: 'multiple' });
+
+<span class="cmt">// This grid says nothing about rowKey, so the house value applies.</span>
+<span class="kw">const</span> a = createHeadlessGrid({
+  columns: [{ field: 'id' }, { field: 'name' }],
+  rows: [{ id: 'a1', name: 'Ada' }],
+});
+<span class="kw">const</span> house = a.rows.byKey('a1').data.name;
+
+<span class="cmt">// This one names its own rowKey. The grid's own config always wins.</span>
+<span class="kw">const</span> b = createHeadlessGrid({
+  rowKey: 'sku',
+  columns: [{ field: 'sku' }],
+  rows: [{ sku: 's9', id: 'ignored' }],
+});
+<span class="kw">const</span> own = b.rows.byKey('s9') !== <span class="kw">undefined</span> &amp;&amp; b.rows.byKey('ignored') === <span class="kw">undefined</span>;
+
+a.destroy();
+b.destroy();
+defaults(<span class="kw">null</span>);                <span class="cmt">// clear: grids built after this are unaffected</span>
+<span class="kw">return</span> `${house}; own-key ${own}; cleared ${JSON.stringify(defaults())}`;</code></pre>
     </div>
 
     <div class="note" id="headless-coverage">
@@ -1084,7 +1130,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.56.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.57.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -1178,7 +1224,7 @@ grid.overlay.hide();</code></pre>
           <tr><td class="sig">keys()</td><td class="type">string[]</td><td class="desc">Selected row keys.</td></tr>
           <tr><td class="sig">rows()</td><td class="type">Row[]</td><td class="desc"></td></tr>
           <tr><td class="sig">all()</td><td class="type">Row[]</td><td class="desc">Including rows selected but currently filtered out.</td></tr>
-          <tr><td class="sig">set(keys)</td><td class="type">void</td><td class="desc">Replace the selection.</td></tr>
+          <tr><td class="sig">set(keys)</td><td class="type">void</td><td class="desc">Replace the selection. In <code>mode: 'single'</code>, only the <em>first</em> key of the array is kept; the rest are dropped, they are not an error.</td></tr>
           <tr><td class="sig">clear()</td><td class="type">void</td><td class="desc"></td></tr>
           <tr><td class="sig">ranges()</td><td class="type">Range[]</td><td class="desc">Cell ranges, for spreadsheet-style selection.</td></tr>
           <tr><td class="sig">setRange(range)</td><td class="type">void</td><td class="desc">Replace every range with one.</td></tr>
@@ -4290,6 +4336,10 @@ off();                                       <span class="cmt">// on() returns i
           <tr><td class="name">row:sent</td><td class="desc">A row was written back to a source.</td></tr>
           <tr><td class="name">row:copied</td><td class="desc">A row was duplicated.</td></tr>
           <tr><td class="name">row:moved</td><td class="desc">A row was dragged to a new position.</td></tr>
+          <tr><td class="name">rowDrag:started</td><td class="type">{ key, data, over, at, overKey }</td><td class="desc">A row drag passed the drag threshold and began (BACKLOG-0001224). Fires on the grid the drag started in, as do the other three, for a same-grid reorder and a cross-grid transfer alike. See <a href="#type-RowDragEvent">RowDragEvent</a>.</td></tr>
+          <tr><td class="name">rowDrag:moved</td><td class="type">{ key, data, over, at, overKey }</td><td class="desc">The drag is over a candidate position. <strong>Coalesced to one event per animation frame</strong>, carrying that frame's latest pointer position, so a handler runs at the display's rate rather than the pointer's several hundred a second. <code>over</code> is the grid under the pointer (null over none), <code>at</code> and <code>overKey</code> where the row would land in it.</td></tr>
+          <tr><td class="name">rowDrag:left</td><td class="type">{ key, data, over, at, overKey }</td><td class="desc">The pointer left a grid: <code>over</code> names the grid it left, <code>at</code> and <code>overKey</code> are null. Emitted on the transition rather than on a frame, so un-highlighting is never a frame behind the pointer.</td></tr>
+          <tr><td class="name">rowDrag:ended</td><td class="type">{ key, data, over, at, overKey, dropped }</td><td class="desc">The gesture ended, whether or not a drop followed — including a release outside every grid, where <code>over</code> is null. <code>dropped</code> is whether the release is being acted on; the outcome is reported by <code>row:moved</code>, <code>row:sent</code>, <code>row:received</code> and <code>rowReceive:cancelled</code>. These four are notifications: none is cancellable, because the drop is already vetoable by <code>beforeRowMove</code> and <code>beforeRowReceive</code>.</td></tr>
           <tr><td class="name">stream:evicted</td><td class="desc">A streaming source dropped rows to stay within its cap.</td></tr>
           <tr><td class="name">header:contextmenu</td><td class="desc">A heading was right-clicked.</td></tr>
           <tr><td class="name">timeline:attached</td><td class="desc">A time brush was connected to the grid.</td></tr>
@@ -4337,6 +4387,7 @@ off();                                       <span class="cmt">// on() returns i
           <tr><td class="name">beforeDelete</td><td class="type">{ key, rows, origin }</td><td class="desc">An optimistic row delete is about to apply — the canonical confirm-before-delete hook.</td></tr>
           <tr><td class="name">beforeRowMove</td><td class="type">{ key, from, to, origin }</td><td class="desc">A row reorder is about to apply.</td></tr>
           <tr><td class="name">beforeGroup</td><td class="type">{ key, expanded, origin }</td><td class="desc">A group/tree expand or collapse is about to apply.</td></tr>
+          <tr><td class="name">beforeRowReceive</td><td class="type">{ data, at, overKey, source, origin }</td><td class="desc">A row dragged from another grid is about to be inserted into this one; fires on the <strong>receiving</strong> grid (BACKLOG-0001225). <code>overKey</code> is the key of the row under the pointer — null past the last row, on empty space, on the header or on a pinned row — <code>at</code> the display index it would take, <code>source</code> the grid it came from. A veto leaves the source untouched: the row stays and neither <code>row:sent</code> nor <code>row:copied</code> fires. See <a href="#type-BeforeRowReceiveEvent">BeforeRowReceiveEvent</a>.</td></tr>
           <tr><td class="name">edit:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeEdit</code> was vetoed. <code>reason</code> is <code>'stale'</code> when a live delta moved the cell during an async gate.</td></tr>
           <tr><td class="name">sort:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeSort</code> was vetoed.</td></tr>
           <tr><td class="name">filter:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeFilter</code> was vetoed.</td></tr>
@@ -4348,6 +4399,7 @@ off();                                       <span class="cmt">// on() returns i
           <tr><td class="name">delete:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeDelete</code> was vetoed. <code>reason</code> is <code>'stale'</code> when the row was already gone.</td></tr>
           <tr><td class="name">rowMove:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeRowMove</code> was vetoed. <code>reason</code> is <code>'stale'</code> when the row had moved.</td></tr>
           <tr><td class="name">group:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeGroup</code> was vetoed.</td></tr>
+          <tr><td class="name">rowReceive:cancelled</td><td class="type">{ ...context, reason }</td><td class="desc">A <code>beforeRowReceive</code> was vetoed; nothing was inserted and the source still holds the row. <code>reason</code> is <code>'stale'</code> when the row under the pointer had moved or was gone, or the source row was gone, by the time an async handler settled. See <a href="#type-RowReceiveCancelledEvent">RowReceiveCancelledEvent</a>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -4388,7 +4440,7 @@ grid.destroy();
     settles, which is what makes a confirm dialog or a server check a genuine gate. On a veto the paired
     <code>&lt;action&gt;:cancelled</code> fires with the reason. Host/API writes and remote deltas do not
     fire them. Run headless on every build.</p>
-    <pre data-run="js" data-expect="0|Ann|sort,edit locked" data-covers="event:beforeEdit event:beforeSort event:beforeFilter event:beforeColumnMove event:beforeColumnResize event:beforeColumnHide event:beforeSelect event:beforeRowAdd event:beforeDelete event:beforeRowMove event:beforeGroup event:edit:cancelled event:sort:cancelled event:filter:cancelled event:columnMove:cancelled event:columnResize:cancelled event:columnHide:cancelled event:selection:cancelled event:rowAdd:cancelled event:delete:cancelled event:rowMove:cancelled event:group:cancelled event:print:before event:print:after event:export:request event:export:done event:shortcuts:opened event:shortcuts:closed"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="0|Ann|sort,edit locked" data-covers="event:beforeEdit event:beforeSort event:beforeFilter event:beforeColumnMove event:beforeColumnResize event:beforeColumnHide event:beforeSelect event:beforeRowAdd event:beforeDelete event:beforeRowMove event:beforeGroup event:edit:cancelled event:sort:cancelled event:filter:cancelled event:columnMove:cancelled event:columnResize:cancelled event:columnHide:cancelled event:selection:cancelled event:rowAdd:cancelled event:delete:cancelled event:rowMove:cancelled event:group:cancelled event:beforeRowReceive event:rowReceive:cancelled event:print:before event:print:after event:export:request event:export:done event:shortcuts:opened event:shortcuts:closed"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> grid = createHeadlessGrid({
   rowKey: 'id',
   columns: [{ field: 'id' }, { field: 'name', edit: { enabled: <span class="kw">true</span> } }, { field: 'v', type: 'number', edit: { enabled: <span class="kw">true</span> } }],
@@ -4419,6 +4471,10 @@ grid.on('beforeRowMove', (e) =&gt; e.preventDefault('ordered'));
 grid.on('rowMove:cancelled', () =&gt; log.push('rowmove'));
 grid.on('beforeRowAdd', (e) =&gt; e.preventDefault('quota'));
 grid.on('rowAdd:cancelled', () =&gt; log.push('rowadd'));
+<span class="cmt">// A row dropped in from another grid: fires on the receiving grid, naming the</span>
+<span class="cmt">// row under the pointer, so "assign this to that" can veto the insert.</span>
+grid.on('beforeRowReceive', (e) =&gt; { <span class="kw">if</span> (e.overKey !== <span class="kw">null</span>) e.preventDefault('assigned'); });
+grid.on('rowReceive:cancelled', () =&gt; log.push('receive'));
 grid.on('beforeSelect', () =&gt; {});
 grid.on('selection:cancelled', () =&gt; log.push('sel'));
 
@@ -5609,7 +5665,9 @@ const board = createKanban(document.querySelector('#board'), {
           <tr><td class="sig">select / selection / isSelected / clearSelection</td><td class="desc">Card selection: <code>select(keys, 'set'|'add'|'toggle'|'remove')</code>, the selected keys, a membership test, and a clear. Click selects; Ctrl/Cmd toggles; Shift extends within a column.</td></tr>
           <tr><td class="sig">collapseColumn(id) / collapseLane(id)</td><td class="desc">Collapse, expand or toggle a column or swimlane; emits <code>column:collapse</code> / <code>swimlane:collapse</code>. State survives a keyed-diff update.</td></tr>
           <tr><td class="sig">reorderColumns(order) / moveColumn(id, before)</td><td class="desc">Reorder the columns (also done by dragging a column header); emits <code>column:reorder</code>.</td></tr>
+          <tr><td class="sig">setColumns(defs)</td><td class="desc">Replace the whole column set after construction &mdash; a tenant renaming, adding or removing a column, in one call, without rebuilding the board. Id-keyed like the grid's own <code>columns.apply(state)</code>: a column that keeps its id keeps its cards, its collapsed state and its place in a pinned <code>reorderColumns</code> order; the quick filter and the selection are untouched. A column dropped from <code>defs</code> is not specially handled &mdash; a card whose value has nowhere configured to go re-derives a plain, humanised ad hoc column rather than being dropped, the same rule an always-unconfigured value already gets.</td></tr>
           <tr><td class="sig">setQuickFilter(text) / setFilter(fn) / facets(property)</td><td class="desc">Quick text search across card fields, a predicate filter, and distinct-value counts for a facet control.</td></tr>
+          <tr><td class="sig">filters.where(name, fn) / filters.where(name, null) / filters.where() / filters.reapply(name?)</td><td class="desc">Named predicates, composed with AND (BACKLOG-0001229) &mdash; the grid's own <code>filters.where</code> convention. Register or replace one under <code>name</code>; <code>where(name, null)</code> removes only that one, leaving the others in force; <code>where()</code> lists the registered names; <code>reapply(name?)</code> re-runs and re-renders. The quick filter is untouched by any of this. <code>setFilter(fn)</code> is unchanged sugar for <code>where(filters.DEFAULT, fn)</code>, so it composes with any other named predicate instead of replacing it.</td></tr>
           <tr><td class="sig">setSprint(id) / showBacklog() / sprints()</td><td class="desc">Sprint view and switcher: show one sprint, the backlog (<code>board.BACKLOG</code> — cards with no sprint), or all; and the distinct sprint values. Emits <code>sprint:changed</code>.</td></tr>
           <tr><td class="sig">setEpic(id) / epics() / epicRollup() / rollup(property)</td><td class="desc">Epic view and rollup: filter to an epic, list epics, and roll rows up by epic (or any property) into count, points, and progress toward the <code>done</code> columns.</td></tr>
           <tr><td class="sig">expand(key) / closeDetail() / canExpand(card)</td><td class="desc">Pop a card's children out as a nested child grid (or board) in a drawer/modal/inline container; emits <code>card:expand</code> and <code>card:drill</code>.</td></tr>
@@ -5627,7 +5685,7 @@ const board = createKanban(document.querySelector('#board'), {
       </table>
     </div>
     <p><strong>Drag-and-drop and keyboard move (write-back).</strong> Cards drag between columns (writing <code>columnProperty</code>) and within a column into a position (writing <code>orderProperty</code> with fractional ranking, so only the moved cards' order is written). The same move is available from the keyboard: focus a card, press <kbd>Space</kbd> to grab it, use the arrows to choose a target column and position (announced on a live region), <kbd>Space</kbd>/<kbd>Enter</kbd> to drop, <kbd>Escape</kbd> to cancel. Multi-select drags every selected card. A move calls <code>onBeforeMove(card, from, to, index)</code> first — return <code>false</code> (or a promise of it) to veto — then persists: <strong>grid-bound</strong>, through <code>grid.edit.setCells</code> (the same public edit-commit path inline editing and the write-back adapter use, so the grid's own pipeline owns the optimistic apply, the confirm and the revert); <strong>standalone</strong>, optimistically with a revert when <code>onCardMove</code> returns <code>false</code>/rejects. A configurable per-card <code>contextMenu</code> (an array or <code>fn(card, selected)</code>) replaces the <code>card:contextmenu</code> event when present.</p>
-    <p><strong>Swimlanes, collapse, reorder and search.</strong> Set <code>swimlanes: true</code> to render a 2D lane&times;column grid grouped by <code>swimlaneProperty</code>: one band per lane with its own count/points, columns aligned across every lane, the board scrolling vertically through lanes and horizontally through columns inside its own box. A drag across lanes writes the swimlane property too. Columns and lanes collapse (their state survives a keyed-diff update); columns reorder by dragging their header (<code>reorderColumns</code>/<code>moveColumn</code>). <code>setQuickFilter(text)</code> searches across card fields, <code>setFilter(fn)</code> applies a predicate, and <code>facets(property)</code> returns distinct-value counts to build a facet control. Naming the <code>swimlaneProperty</code> is separate from turning on the lane view, so a board can carry it for a cross-lane move without switching layout.</p>
+    <p><strong>Swimlanes, collapse, reorder and search.</strong> Set <code>swimlanes: true</code> to render a 2D lane&times;column grid grouped by <code>swimlaneProperty</code>: one band per lane with its own count/points, columns aligned across every lane, the board scrolling vertically through lanes and horizontally through columns inside its own box. A drag across lanes writes the swimlane property too. Columns and lanes collapse (their state survives a keyed-diff update); columns reorder by dragging their header (<code>reorderColumns</code>/<code>moveColumn</code>). <code>setQuickFilter(text)</code> searches across card fields, <code>setFilter(fn)</code> applies a predicate (sugar for <code>filters.where(filters.DEFAULT, fn)</code> &mdash; <code>filters.where(name, fn)</code> registers any number of independent named predicates, ANDed together), and <code>facets(property)</code> returns distinct-value counts to build a facet control. Naming the <code>swimlaneProperty</code> is separate from turning on the lane view, so a board can carry it for a cross-lane move without switching layout.</p>
     <p><strong>Sprint, epic and card pop-out.</strong> <code>setSprint(id)</code> shows one sprint, <code>showBacklog()</code> the cards with no sprint, and <code>sprints()</code> feeds a switcher; <code>setEpic(id)</code> narrows to an epic and <code>epicRollup()</code> (or <code>rollup(property)</code>) returns per-epic count, points and progress toward the <code>done</code> columns. A card can <strong>pop out a nested grid of its children</strong> — an epic's stories, a story's tasks, recursively. The child relationship is a <code>childrenProperty</code> (parent-id within the dataset) and/or a <code>loadChildren(card)</code> (per-card dataset or async fetch), and the child is a full composed <code>createGrid</code> (sort/filter/edit/write-back) — supplied as <code>children.factory</code> — opened in a <code>drawer</code> (default), <code>modal</code> or <code>inline</code>. With <code>children.asBoard</code> the child is itself a board, so it can pop its own children. This reuses the grid by composition and adds no grid-core coupling. <code>expand(key)</code> and the per-card drill affordance emit <code>card:expand</code>; a deeper open emits <code>card:drill</code>.</p>
     <p><strong>Live updates.</strong> Because the board consumes data through the same keyed-diff contract a grid does, a <a href="#datarouter">Data Router</a> drives it directly — <code>router.attach(board, predicate)</code> — and one feed fans out to a grid, a kanban, a chart and a KPI tile at once. A live <code>rows.apply({ add, update, remove })</code> is applied as a keyed diff (an unchanged card keeps its model) and re-rendered <strong>preserving</strong> scroll, focus, selection, collapsed columns/lanes and any open pop-out, so a card can appear, move or update under the user without losing their place.</p>
     <p><strong>Scale, state and accessibility.</strong> <code>virtualize</code> renders only a scroll window of a tall column (with true-height spacers so the scrollbar stays honest), for boards of thousands of cards. <code>getState()</code>/<code>setState()</code> (and <code>config.state</code>) save and restore the collapsed columns and lanes, the column order, the quick filter and the sprint/epic selection, so a reopened board comes back as it was; <code>setLoading</code>/<code>setError</code> add loading and error states. Accessibility runs throughout: the board is a labelled group of labelled column lists, cards are a roving-tabindex focus ring (arrows to move focus, Enter to activate), the move is fully keyboard-driven (<kbd>Space</kbd> grab, arrows for column/position, <kbd>Alt</kbd>+<kbd>↑/↓</kbd> across swimlanes, <kbd>Space</kbd>/<kbd>Enter</kbd> drop, <kbd>Escape</kbd> cancel) with live-region announcements, and every affordance carries a name.</p>
@@ -7119,7 +7177,7 @@ grid.destroy();
     <p class="section-note">Each documented event is subscribed to and unsubscribed on every build. A consumer
     wiring a handler to a renamed event gets silence, which is indistinguishable from an event that
     has not fired yet — so the name is checked rather than left to be discovered.</p>
-    <pre data-run="js" data-expect="108" data-covers="event:find:changed event:cell:changed event:cell:clicked event:cell:confirmed event:cell:conflict event:cell:contextmenu event:cell:dblclicked event:cell:edit:end event:cell:edit:start event:cell:pending event:cell:reverted event:clipboard:copy event:column:filter:open event:column:profile:open event:column:grouped event:column:menu:open event:column:pivoted event:column:resized event:columns:changed event:columns:tagged event:comment:added event:comment:deleted event:comment:edited event:comment:failed event:comment:indexLoaded event:comment:resolved event:comment:threadClosed event:comment:threadOpened event:comment:unresolved event:destroy event:detail:toggled event:diff:changed event:diff:swapped event:export:progress event:facet:computed event:facet:expanded event:facet:failed event:facet:filtered event:form:closed event:form:error event:form:opened event:form:saved event:formatting:changed event:group:toggled event:header:contextmenu event:highlight:changed event:history:applied event:history:changed event:licence:changed event:page:changed event:permissions:changed event:presence:failed event:presence:joined event:presence:left event:presence:lockRefused event:presence:published event:presence:updated event:presentation:captured event:presentation:changed event:presentation:ended event:presentation:scale event:presentation:spotlight event:presentation:started event:presentation:view event:range:changed event:ready event:redaction:changed event:render:done event:render:first event:row:clicked event:row:copied event:row:dblclicked event:row:edit:end event:row:edit:start event:row:moved event:row:received event:row:sent event:rows:deferred event:rows:paused event:rows:queued event:rows:resumed event:scroll event:scroll:end event:selection:changed event:size:changed event:source:error event:stream:chunk event:stream:end event:stream:evicted event:timeline:attached event:timeline:detached event:timeline:seek event:timeline:seeking event:toolpanel:focus event:tree:loadAborted event:tree:loadFailed event:tree:loaded event:tree:loading event:view:applied event:view:default event:view:removed event:view:renamed event:view:saved event:views:changed event:row:pending event:row:confirmed event:row:reverted event:row:conflict"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="112" data-covers="event:rowDrag:started event:rowDrag:moved event:rowDrag:left event:rowDrag:ended event:find:changed event:cell:changed event:cell:clicked event:cell:confirmed event:cell:conflict event:cell:contextmenu event:cell:dblclicked event:cell:edit:end event:cell:edit:start event:cell:pending event:cell:reverted event:clipboard:copy event:column:filter:open event:column:profile:open event:column:grouped event:column:menu:open event:column:pivoted event:column:resized event:columns:changed event:columns:tagged event:comment:added event:comment:deleted event:comment:edited event:comment:failed event:comment:indexLoaded event:comment:resolved event:comment:threadClosed event:comment:threadOpened event:comment:unresolved event:destroy event:detail:toggled event:diff:changed event:diff:swapped event:export:progress event:facet:computed event:facet:expanded event:facet:failed event:facet:filtered event:form:closed event:form:error event:form:opened event:form:saved event:formatting:changed event:group:toggled event:header:contextmenu event:highlight:changed event:history:applied event:history:changed event:licence:changed event:page:changed event:permissions:changed event:presence:failed event:presence:joined event:presence:left event:presence:lockRefused event:presence:published event:presence:updated event:presentation:captured event:presentation:changed event:presentation:ended event:presentation:scale event:presentation:spotlight event:presentation:started event:presentation:view event:range:changed event:ready event:redaction:changed event:render:done event:render:first event:row:clicked event:row:copied event:row:dblclicked event:row:edit:end event:row:edit:start event:row:moved event:row:received event:row:sent event:rows:deferred event:rows:paused event:rows:queued event:rows:resumed event:scroll event:scroll:end event:selection:changed event:size:changed event:source:error event:stream:chunk event:stream:end event:stream:evicted event:timeline:attached event:timeline:detached event:timeline:seek event:timeline:seeking event:toolpanel:focus event:tree:loadAborted event:tree:loadFailed event:tree:loaded event:tree:loading event:view:applied event:view:default event:view:removed event:view:renamed event:view:saved event:views:changed event:row:pending event:row:confirmed event:row:reverted event:row:conflict"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 
 <span class="cmt">// Every documented event name, checked against the bus that would carry it.</span>
 <span class="cmt">// Subscribing to a name the grid does not know is the failure this catches:</span>
@@ -7153,6 +7211,7 @@ grid.destroy();
   'tree:loadFailed', 'tree:loaded', 'tree:loading', 'view:applied',
   'view:default', 'view:removed', 'view:renamed', 'view:saved',
   'views:changed',
+  'rowDrag:started', 'rowDrag:moved', 'rowDrag:left', 'rowDrag:ended',
 ];
 
 <span class="kw">const</span> grid = createHeadlessGrid({
@@ -7597,6 +7656,19 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">preventDefault</td><td class="type">(reason?: string): void</td><td class="desc">Cancel the pending action; the optional reason is surfaced on the cancellation event.</td></tr>
           <tr><td class="name">defaultPrevented</td><td class="type">boolean</td><td class="desc">True once any handler has called `preventDefault` or returned false.</td></tr>
           <tr><td class="name">reason</td><td class="type">string | null</td><td class="desc">The reason given to `preventDefault`, or null; `'stale'` when re-validation failed.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-BeforeRowReceiveEvent">BeforeRowReceiveEvent</h3>
+    <p class="section-note">The `beforeRowReceive` event (BACKLOG-0001225): a row dragged from another grid is about to be inserted into this one. Fires on the **receiving** grid, before the insert, with the row under the pointer named — so a drop that means "assign this to that" can be recorded by the host and the insert stopped with `preventDefault(reason)`. A veto leaves the source grid untouched: the row stays where it was, and neither `row:sent` nor `row:copied` fires there. The source removes its row only after the target has admitted it, and a veto is a refusal to admit. The paired `rowReceive:cancelled` carries the same context plus the reason. Like every {@link BeforeEvent}, the handler may be `async`; the insert is held until it settles, and is cancelled as `'stale'` (BACKLOG-0001242) if the source row is gone by then, or if the row under the pointer is gone or has moved to a different index — `at` names a slot as "before `overKey`", and once that is no longer where `overKey`'s row sits, `at` is a stale index into a list that changed while the handler was thinking, not the slot the drop meant. `overKey: null` (the drop landed on no row) has no row to drift against and is never stale on that account.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">data</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">The row about to be inserted: a shallow copy of the source row's data, and the very object that is inserted if no handler vetoes, so a change made to it here lands with the row.</td></tr>
+          <tr><td class="name">at</td><td class="type">number</td><td class="desc">The display index the row would be inserted at: the index of the row under the pointer, or `rows.count()` when the drop landed on no row. When `overKey` names a row, this is guaranteed to still be that row's index at the moment the insert actually runs — an async handler that leaves the named row at a different index causes the drop to be cancelled as `'stale'` (BACKLOG-0001242) rather than inserted at this index regardless.</td></tr>
+          <tr><td class="name">overKey</td><td class="type">string | null</td><td class="desc">The key of the row under the pointer when the drop happened — the row the user meant. Null when the drop landed past the last row, on empty space, on the header, or on a pinned row: there is no row to name, and a nearest guess would be wrong in a way that looks right.</td></tr>
+          <tr><td class="name">source</td><td class="type">Grid</td><td class="desc">The grid the row is being dragged from.</td></tr>
         </tbody>
       </table>
     </div>
@@ -8527,7 +8599,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">outline</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">edge</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">position</td><td class="type">'start' | 'end'</td><td class="desc"><small>(optional)</small></td></tr>
-          <tr><td class="name">name</td><td class="type">string | Record&lt;string, string&gt;</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">name</td><td class="type">IconName | Record&lt;string, IconName&gt;</td><td class="desc">`icon` decoration only: either a single glyph name (see {@link IconName}) used for every value, or a value -&gt; glyph name map for exact-value icons. Omit both `name` and `bands` to use `iconSet`/its default instead. <small>(optional)</small></td></tr>
           <tr><td class="name">iconSet</td><td class="type">IconSetName</td><td class="desc">icon only: a built-in threshold icon set, expanded to `bands`. <small>(optional)</small></td></tr>
           <tr><td class="name">bands</td><td class="type">IconBand[]</td><td class="desc">icon only: value bands mapped to glyphs, first match by descending `min`. <small>(optional)</small></td></tr>
           <tr><td class="name">min</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
@@ -9543,7 +9615,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">min</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
-          <tr><td class="name">icon</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">icon</td><td class="type">IconName</td><td class="desc">A glyph name from the icon registry (see {@link IconName}).</td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">variant</td><td class="type">VariantName</td><td class="desc"><small>(optional)</small></td></tr>
         </tbody>
@@ -9877,7 +9949,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">label</td><td class="type">string</td><td class="desc"></td></tr>
           <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">variant</td><td class="type">VariantName</td><td class="desc"><small>(optional)</small></td></tr>
-          <tr><td class="name">icon</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">icon</td><td class="type">IconName</td><td class="desc">A glyph name from the icon registry (see {@link IconName}), shown before the label. <small>(optional)</small></td></tr>
           <tr><td class="name">group</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -10195,7 +10267,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">name</td><td class="type">string</td><td class="desc"></td></tr>
           <tr><td class="name">title</td><td class="type">string | (() =&gt; string)</td><td class="desc"></td></tr>
-          <tr><td class="name">icon</td><td class="type">string | (() =&gt; string)</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">icon</td><td class="type">IconName | (() =&gt; IconName)</td><td class="desc">A glyph name from the icon registry (see {@link IconName}) — a built-in name, or one registered with `registerIcon`/`registerIcons`, `config.icons` or `grid.icons`. A function form is re-read on every repaint, the same as `title`, so a toggle can swap its glyph with its state. When omitted, the rail tries `name` as the icon name instead (so an action named after a built-in, e.g. `'undo'`, needs no separate `icon`); an unrecognised name — from either `icon` or the `name` fallback — draws a blank glyph, and only an explicitly-given unrecognised `icon` warns once in the console. <small>(optional)</small></td></tr>
           <tr><td class="name">run</td><td class="type">(params: RailActionParams): void</td><td class="desc"></td></tr>
           <tr><td class="name">enabled</td><td class="type">(): boolean</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">active</td><td class="type">(): boolean</td><td class="desc">Marks the action as a toggle and reports whether it is currently on. When present the rail renders `aria-pressed` and a pressed style, re-read on every repaint; a one-shot action omits it and is unchanged. This is the hook the native annotation tools use, and it is available to a host button that is itself a toggle. <small>(optional)</small></td></tr>
@@ -10477,6 +10549,21 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h3 id="type-RowDragEvent">RowDragEvent</h3>
+    <p class="section-note">The row-drag lifecycle events (BACKLOG-0001224): `rowDrag:started`, `rowDrag:moved`, `rowDrag:left` and `rowDrag:ended`, which report a row drag *as it happens* rather than once it has settled. Before them a host got the handle the grid draws and then one settled event, with nothing in between to highlight a candidate target, drive a custom drop indicator, or react when the pointer left the grid. **All four fire on the grid the drag started in**, whether the row is being reordered within that grid or dragged into another one. A drag is one gesture with one owner, and the source grid is the only grid present for the whole of it — the pointer may cross several others, or none. `over` names whichever grid the event is about, so a single subscription can drive decoration on any of them. **Notifications, not gates.** None of these is cancellable and none carries `preventDefault`. The drop is already vetoable twice over — `beforeRowMove` for a reorder, `beforeRowReceive` for a drop into another grid — and a third veto on the same gesture would be a third place to look when a drop does not happen. **What is safe to do in a handler.** Read, measure and draw: highlight a candidate row, move an indicator, update a side panel. Do not mutate rows, columns, sort, filters or grouping from one of these. The drag resolves where it would land against the display order, so changing that order mid-gesture moves the ground under the drop; and `data` is the source row's own object rather than a copy, so writing to it edits the row that is still in the grid without announcing it. Work that changes the grid belongs in `beforeRowReceive`, which is asked before the insert, or in the settled events afterwards. **`rowDrag:moved` is coalesced to one event per animation frame**, carrying the latest pointer position of that frame, so a handler runs at the display's rate rather than the pointer's several hundred events a second. The other three fire on the transition itself. The sequence for any gesture is `rowDrag:started`, then `rowDrag:moved` and `rowDrag:left` as the pointer travels, then exactly one `rowDrag:ended` — including when the pointer is released outside every grid. No `rowDrag:moved` is delivered after `rowDrag:ended`. A press that never passes the drag threshold is a click and raises none of them; a grid destroyed mid-drag raises no `rowDrag:ended`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">key</td><td class="type">string</td><td class="desc">The key of the row being dragged.</td></tr>
+          <tr><td class="name">data</td><td class="type">Record&lt;string, unknown&gt; | null</td><td class="desc">The dragged row's data as it stands in the source grid — that row's own object, not a copy. Null if the row has left the source during the drag.</td></tr>
+          <tr><td class="name">over</td><td class="type">Grid | null</td><td class="desc">The grid the event is about: the grid under the pointer for `rowDrag:started`, `rowDrag:moved` and `rowDrag:ended`, and the grid just left for `rowDrag:left`. Null when the pointer is over no grid at all.</td></tr>
+          <tr><td class="name">at</td><td class="type">number | null</td><td class="desc">Where the row would land in `over`: the display index it would take. Null when there is no candidate to report — the pointer is over no grid, over a grid that will refuse the row, or over a header; and on `rowDrag:left`, which is about a grid the pointer has already gone from.</td></tr>
+          <tr><td class="name">overKey</td><td class="type">string | null</td><td class="desc">The key of the row under the pointer in `over`, or null where there is no row to name: past the last row, on empty space, on a header, on a pinned row, on a grid that will refuse the drop, or on `rowDrag:left`.</td></tr>
+          <tr><td class="name">dropped</td><td class="type">boolean</td><td class="desc">`rowDrag:ended` only: whether the release is being acted on — a transfer the target accepts, or a same-grid reorder that is a real move and is not refused by a sort, filter or grouping. False when the row was released over no grid, over a grid that refuses it, or back where it started. What became of an acted-on drop is reported by `row:moved`, `row:sent`, `row:received` and `rowReceive:cancelled`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-RowFormApi">RowFormApi</h3>
     <div class="table-wrap">
       <table>
@@ -10486,6 +10573,20 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">close</td><td class="type">(): void</td><td class="desc"></td></tr>
           <tr><td class="name">save</td><td class="type">(): boolean</td><td class="desc"></td></tr>
           <tr><td class="name">isOpen</td><td class="type">(): boolean</td><td class="desc"></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-RowReceiveCancelledEvent">RowReceiveCancelledEvent</h3>
+    <p class="section-note">The `rowReceive:cancelled` event (BACKLOG-0001225): a `beforeRowReceive` was vetoed, or went stale during an async handler. Nothing was inserted and the source grid is untouched.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">data</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">The row that was not inserted, as the handler saw it.</td></tr>
+          <tr><td class="name">at</td><td class="type">number</td><td class="desc">The display index it would have taken.</td></tr>
+          <tr><td class="name">overKey</td><td class="type">string | null</td><td class="desc">The key of the row under the pointer, or null.</td></tr>
+          <tr><td class="name">source</td><td class="type">Grid</td><td class="desc">The grid the row would have come from; it still holds the row.</td></tr>
+          <tr><td class="name">reason</td><td class="type">string</td><td class="desc">The reason given to `preventDefault`, `'prevented'` when none was given, or `'stale'` when the row under the pointer or the source row was gone by the time an async handler settled.</td></tr>
         </tbody>
       </table>
     </div>
@@ -10727,7 +10828,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       </table>
     </div>
     <h3 id="type-StateChangedEvent">StateChangedEvent</h3>
-    <p class="section-note">The `state:changed` event (BACKLOG-0001182). Fires once per logical state change, whether it began as a user gesture or as a programmatic call, so view persistence is built on this one event rather than on the ten individual ones — `reset()` raises those too, which made a debounced save write the reset arrangement back. **Exactly one event per change.** A change that internally routes through `state.apply()` — applying a saved view, an undo, a reset — announces itself once, carrying the outermost cause rather than the inner mechanism's. **One known gap** (BACKLOG-0001235): a host predicate registered through `filters.where(name, fn)` changes the `where` section and the rows on screen without raising this event, so a persistence layer does not yet see it.</p>
+    <p class="section-note">The `state:changed` event (BACKLOG-0001182). Fires once per logical state change, whether it began as a user gesture or as a programmatic call, so view persistence is built on this one event rather than on the ten individual ones — `reset()` raises those too, which made a debounced save write the reset arrangement back. **Exactly one event per change.** A change that internally routes through `state.apply()` — applying a saved view, an undo, a reset — announces itself once, carrying the outermost cause rather than the inner mechanism's. A host predicate registered, replaced or removed through `filters.where(name, fn)`, and a `filters.reapply()` that re-runs one, go through the same tracked door as `sort` and `filters`: each fires this event once, `cause: 'user'`, with `'where'` in `sections` (BACKLOG-0001235).</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
@@ -11089,7 +11190,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.56.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.57.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>
