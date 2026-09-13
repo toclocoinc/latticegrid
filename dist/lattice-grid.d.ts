@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.57.0, type declarations
+ * Lattice Grid 1.58.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -2313,6 +2313,36 @@ export interface GridConfig {
   sharedMemory?: boolean;
   /** A totals line at the foot of each group as well as the grid. */
   groupFooter?: boolean;
+  /**
+   * Draw the group row yourself.
+   *
+   * The grid's own group row is an expander, a label and a count. A host that
+   * needs more — a section header with a points rollup, a done/total count and
+   * a progress bar — supplies this instead, and owns the whole row: it is drawn
+   * as one band across every column, and no ordinary cells are mounted for it.
+   *
+   * Return an HTML string, or a node, or write into `params.element` and return
+   * nothing. Unlike `fullWidth.render`, a string here **is** inserted as markup,
+   * on the same footing as the board's `cardRenderer`: this is your own template
+   * for a row the grid synthesised, not a value out of your data.
+   *
+   * The chevron is yours to draw and yours to wire: give any element in your
+   * markup `data-lat-group-toggle` and a click on it expands or collapses the
+   * group, or call `params.toggle()` from a node you built yourself.
+   */
+  groupRenderer?(params: GroupRowParams): string | Node | void;
+  /**
+   * Which groups start expanded, before anyone has opened or closed one.
+   *
+   * `true` (the default) opens every group, `false` closes every group, a
+   * number opens the first N levels (`0` closes everything, a negative opens
+   * every level), and a predicate answers per group — the current sprint's
+   * section open while the rest start closed.
+   *
+   * Only ever consulted for a group nobody has touched: once the user or your
+   * code expands or collapses one, that decision stands.
+   */
+  groupDefaultExpanded?: boolean | number | ((group: GroupInfo) => boolean);
   /**
    * Where the grand total goes.
    *
@@ -4634,6 +4664,13 @@ export interface RowsApi {
    * grid is not grouped.
    */
   groupHeadings(index: number): Row[];
+  /**
+   * The leaf rows beneath a group heading: the members it counts in
+   * `leafCount`, as rows, so you can roll up a field the grid was never told
+   * to total. Filtered members in display order. Computed per call, so call it
+   * when you draw a group row rather than in a loop over every row.
+   */
+  leavesOf(key: string): Row[];
   expand(key: string, deep?: boolean): void;
   collapse(key: string): void;
   expandAll(): void;
@@ -5929,6 +5966,53 @@ export interface CellMenuParams {
   column: ResolvedColumn | undefined;
   index: number;
   grid: Grid;
+}
+
+/** Which group `groupDefaultExpanded` is being asked about. */
+export interface GroupInfo {
+  /** The group's key, the same string `Row.key` carries and `rows.expand` takes. */
+  key: string;
+  /** The id of the column this level groups on. */
+  column?: string;
+  /** The value this group stands for. */
+  value?: unknown;
+  /** Depth of the group. Zero is the outermost level. */
+  level?: number;
+  /** The group path from the root down to this group. */
+  path?: string[];
+}
+
+/** What `groupRenderer` is handed. */
+export interface GroupRowParams {
+  /** The group row itself. */
+  row: Row;
+  /** The group's key, as `rows.expand`/`rows.collapse` take it. */
+  key: string;
+  /** The id of the column this level groups on. */
+  column?: string;
+  /** The value this group stands for. */
+  value: unknown;
+  /** Depth of the group. Zero is the outermost level. */
+  level: number;
+  /** Whether the group is currently open. */
+  expanded: boolean;
+  /** How many records sit beneath it, at any depth. */
+  leafCount: number;
+  /** The group's own reductions, by column id — whatever `total` asked for. */
+  totals?: Record<string, unknown>;
+  /**
+   * The rows beneath this group, computed when you call it.
+   *
+   * A function rather than an array because a group is unbounded and this runs
+   * per paint: a host that only needs the count should read `leafCount` and
+   * never call this.
+   */
+  leaves(): Row[];
+  /** Expand the group if it is closed, collapse it if it is open. */
+  toggle(): void;
+  grid: Grid;
+  /** The element to fill. Write into it directly, or return content instead. */
+  element: HTMLElement;
 }
 
 /** What `fullWidth.render` is handed. */

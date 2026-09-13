@@ -360,7 +360,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.57.0</p>
+    <p class="rail__sub">API reference · v1.58.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -443,7 +443,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.57.0</span>
+      <span class="chip">Version 1.58.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -889,6 +889,8 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">pinnedTopRows</td><td class="type">object[]</td><td class="dflt">, </td><td class="desc">Rows held above the scrolling body. Rendered through the ordinary column pipeline, but not part of the data: not counted, sorted, filtered, grouped, selectable or exported. See <a href="api-detail.html#pinned-rows">Pinned rows</a>.</td></tr>
           <tr><td class="name">pinnedBottomRows</td><td class="type">object[]</td><td class="dflt">, </td><td class="desc">As <code>pinnedTopRows</code>, held below the body instead. Sits under the grand total when both are shown.</td></tr>
           <tr><td class="name">fullWidth</td><td class="type">{ when, render }</td><td class="dflt">, </td><td class="desc">Draw matching rows as one band across every column instead of dividing them into columns, a section banner, a note, a “load more” affordance. <code>when(row)</code> picks them, <code>render(params)</code> fills them. Still ordinary data rows in every other respect. See <a href="api-detail.html#full-width-rows">Full-width rows</a>.</td></tr>
+          <tr><td class="name">groupRenderer</td><td class="type">(params) =&gt; string | Node | void</td><td class="dflt">, </td><td class="desc">Draw the group row yourself &mdash; a section header with a chevron, a rollup, a count, a progress bar &mdash; instead of the grid's expander-and-label. The row is drawn as one band across every column and no ordinary cells are mounted underneath it. Return an HTML string, a node, or write into <code>params.element</code>. A string <strong>is</strong> inserted as markup here, unlike <code>fullWidth.render</code>, because a group heading is synthesised by the grid and has no data row: the string can only be your own template, the same contract the board's <code>cardRenderer</code> has. The renderer is handed the group key, the grouped column id, the value, the level, the expanded state, <code>leafCount</code>, the group's <code>totals</code> and <code>leaves()</code> for the rows themselves. Mark any element in your markup <code>data-lat-group-toggle</code> to make it expand and collapse the group. See <a href="api-detail.html#group-row-renderer">Group rows you draw yourself</a>.</td></tr>
+          <tr><td class="name">groupDefaultExpanded</td><td class="type">boolean | number | (group) =&gt; boolean</td><td class="dflt">, </td><td class="desc">Which groups start open before anyone has touched one. <code>true</code> (the default) opens every group, <code>false</code> closes every group, a number opens the first N levels (<code>0</code> closes everything, a negative opens every level), and a predicate answers per group &mdash; the current sprint open while the rest start closed. It is handed <code>{ key, column, value, level, path }</code>. Only ever consulted for a group nobody has expanded or collapsed: once the user or your code decides, that decision stands. See <a href="api-detail.html#group-row-renderer">Group rows you draw yourself</a>.</td></tr>
           <tr><td class="name">groupFooter</td><td class="type">boolean</td><td class="dflt">false</td><td class="desc">A closing total row per group.</td></tr>
           <tr><td class="name">totalFilteredOnly</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc">Totals reduce the filtered set. <code>false</code> totals the whole dataset, group totals included. See <a href="api-detail.html#total-filtered-only">Grouping, totals and pivot</a>.</td></tr>
           <tr><td class="name">totalOnlyChangedColumns</td><td class="type">boolean</td><td class="dflt">false</td><td class="desc">Reduce only the totalled columns an edit actually changed. Off by default, it asserts that each total depends on nothing but its own column. See <a href="api-detail.html#grouping">Grouping, totals and pivot</a>.</td></tr>
@@ -1130,7 +1132,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.57.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.58.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -9407,6 +9409,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">workerUrl</td><td class="type">string</td><td class="desc">Where to load the worker kernel from, when hosting it yourself. <small>(optional)</small></td></tr>
           <tr><td class="name">sharedMemory</td><td class="type">boolean</td><td class="desc">Use a shared buffer for the worker, where the page's headers allow it. <small>(optional)</small></td></tr>
           <tr><td class="name">groupFooter</td><td class="type">boolean</td><td class="desc">A totals line at the foot of each group as well as the grid. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupRenderer</td><td class="type">(params: GroupRowParams): string | Node | void</td><td class="desc">Draw the group row yourself. The grid's own group row is an expander, a label and a count. A host that needs more — a section header with a points rollup, a done/total count and a progress bar — supplies this instead, and owns the whole row: it is drawn as one band across every column, and no ordinary cells are mounted for it. Return an HTML string, or a node, or write into `params.element` and return nothing. Unlike `fullWidth.render`, a string here **is** inserted as markup, on the same footing as the board's `cardRenderer`: this is your own template for a row the grid synthesised, not a value out of your data. The chevron is yours to draw and yours to wire: give any element in your markup `data-lat-group-toggle` and a click on it expands or collapses the group, or call `params.toggle()` from a node you built yourself. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupDefaultExpanded</td><td class="type">boolean | number | ((group: GroupInfo) =&gt; boolean)</td><td class="desc">Which groups start expanded, before anyone has opened or closed one. `true` (the default) opens every group, `false` closes every group, a number opens the first N levels (`0` closes everything, a negative opens every level), and a predicate answers per group — the current sprint's section open while the rest start closed. Only ever consulted for a group nobody has touched: once the user or your code expands or collapses one, that decision stands. <small>(optional)</small></td></tr>
           <tr><td class="name">grandTotalRow</td><td class="type">boolean | 'bottom'</td><td class="desc">Where the grand total goes. `true` adds it as the last display row, counted by `rows.count()` like any other. `'bottom'` pins it beneath the viewport instead, so it stays in view while the rows scroll and is *not* part of `rows.count()`. Omitted or `false` means no grand total row. <small>(optional)</small></td></tr>
           <tr><td class="name">pinnedTopRows</td><td class="type">unknown[]</td><td class="desc">Rows pinned above the scrolling body. The objects are rendered through the ordinary column pipeline but are not part of the data: not counted by `rows.count()`, not sorted, filtered, grouped, selectable or exported. Use it for a totals line or a units row that must stay against the header. <small>(optional)</small></td></tr>
           <tr><td class="name">pinnedBottomRows</td><td class="type">unknown[]</td><td class="desc">Rows pinned below the scrolling body. As `pinnedTopRows`, at the other edge. <small>(optional)</small></td></tr>
@@ -9539,6 +9543,41 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">name</td><td class="type">string</td><td class="desc">The named measure: `pooledStandardMeanDifference` (Cohen's d) for the numeric tests, `categoricalTotalVariation` for chi-square.</td></tr>
           <tr><td class="name">value</td><td class="type">number | null</td><td class="desc">The effect size in its own terms, or null when it has no scale here.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-GroupInfo">GroupInfo</h3>
+    <p class="section-note">Which group `groupDefaultExpanded` is being asked about.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">key</td><td class="type">string</td><td class="desc">The group's key, the same string `Row.key` carries and `rows.expand` takes.</td></tr>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">The id of the column this level groups on. <small>(optional)</small></td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The value this group stands for. <small>(optional)</small></td></tr>
+          <tr><td class="name">level</td><td class="type">number</td><td class="desc">Depth of the group. Zero is the outermost level. <small>(optional)</small></td></tr>
+          <tr><td class="name">path</td><td class="type">string[]</td><td class="desc">The group path from the root down to this group. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-GroupRowParams">GroupRowParams</h3>
+    <p class="section-note">What `groupRenderer` is handed.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">row</td><td class="type">Row</td><td class="desc">The group row itself.</td></tr>
+          <tr><td class="name">key</td><td class="type">string</td><td class="desc">The group's key, as `rows.expand`/`rows.collapse` take it.</td></tr>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">The id of the column this level groups on. <small>(optional)</small></td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The value this group stands for.</td></tr>
+          <tr><td class="name">level</td><td class="type">number</td><td class="desc">Depth of the group. Zero is the outermost level.</td></tr>
+          <tr><td class="name">expanded</td><td class="type">boolean</td><td class="desc">Whether the group is currently open.</td></tr>
+          <tr><td class="name">leafCount</td><td class="type">number</td><td class="desc">How many records sit beneath it, at any depth.</td></tr>
+          <tr><td class="name">totals</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">The group's own reductions, by column id — whatever `total` asked for. <small>(optional)</small></td></tr>
+          <tr><td class="name">leaves</td><td class="type">(): Row[]</td><td class="desc">The rows beneath this group, computed when you call it. A function rather than an array because a group is unbounded and this runs per paint: a host that only needs the count should read `leafCount` and never call this.</td></tr>
+          <tr><td class="name">toggle</td><td class="type">(): void</td><td class="desc">Expand the group if it is closed, collapse it if it is open.</td></tr>
+          <tr><td class="name">grid</td><td class="type">Grid</td><td class="desc"></td></tr>
+          <tr><td class="name">element</td><td class="type">HTMLElement</td><td class="desc">The element to fill. Write into it directly, or return content instead.</td></tr>
         </tbody>
       </table>
     </div>
@@ -10613,6 +10652,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">refresh</td><td class="type">(opts?: { rows?: string[]; columns?: string[]; force?: boolean }): void</td><td class="desc"></td></tr>
           <tr><td class="name">move</td><td class="type">(key: string, to: number): { moved: boolean; from: number; to: number; reason?: string }</td><td class="desc">Move a row to another position in the data. Refuses, with a reason, while a sort, filter or grouping is active.</td></tr>
           <tr><td class="name">groupHeadings</td><td class="type">(index: number): Row[]</td><td class="desc">The group headings enclosing a display row, outermost first. Empty when the grid is not grouped.</td></tr>
+          <tr><td class="name">leavesOf</td><td class="type">(key: string): Row[]</td><td class="desc">The leaf rows beneath a group heading: the members it counts in `leafCount`, as rows, so you can roll up a field the grid was never told to total. Filtered members in display order. Computed per call, so call it when you draw a group row rather than in a loop over every row.</td></tr>
           <tr><td class="name">expand</td><td class="type">(key: string, deep?: boolean): void</td><td class="desc"></td></tr>
           <tr><td class="name">collapse</td><td class="type">(key: string): void</td><td class="desc"></td></tr>
           <tr><td class="name">expandAll</td><td class="type">(): void</td><td class="desc"></td></tr>
@@ -11190,7 +11230,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.57.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.58.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.57.0</p>
+    <p class="rail__sub">Developer guide · v1.58.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -553,7 +553,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.57.0</span>
+        <span class="chip">Version 1.58.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1278,7 +1278,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.57.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.58.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -2683,6 +2683,131 @@ grid.setPinnedRows([], { edge: 'top' });        <span class="cmt">// clear</span
       definition, and hiding the last visible column hides the band. A band is exposed to assistive
       technology as one <code>role="columnheader"</code> cell with an <code>aria-colspan</code>.</p>
     </div>
+
+    <h2 id="group-row-renderer">Group rows you draw yourself</h2>
+    <p class="lead-in">
+      The grid's own group row is an expander, a label and a count. When the heading has to carry
+      more than that &mdash; a sprint section with a chevron, the section name, the points summed
+      across it, a done/total count and a progress bar &mdash; <code>groupRenderer</code> hands you
+      the whole row. It is drawn as one band across every column, over the pinned regions, and no
+      ordinary cells are mounted underneath it.
+    </p>
+
+    <div class="example">
+      <p class="example__label">A section header with a rollup the grid was never told to compute</p>
+      <pre><code>createGrid(element, {
+  columns,
+  rows,
+  groupRenderer: ({ value, leafCount, expanded, leaves }) =&gt; {
+    <span class="cmt">// `leaves()` is the group's own rows. Roll up whatever you like.</span>
+    <span class="kw">const</span> rows = leaves();
+    <span class="kw">const</span> points = rows.reduce((sum, r) =&gt; sum + r.data.points, 0);
+    <span class="kw">const</span> done = rows.filter((r) =&gt; r.data.done).length;
+    <span class="kw">const</span> pct = Math.round((done / leafCount) * 100);
+    <span class="kw">return</span> `&lt;span data-lat-group-toggle&gt;${expanded ? '▾' : '▸'}&lt;/span&gt;
+      &lt;b&gt;${value}&lt;/b&gt; ${points} pts · ${done}/${leafCount}
+      &lt;progress value="${pct}" max="100"&gt;&lt;/progress&gt;`;
+  },
+});</code></pre>
+    </div>
+
+    <h3 id="group-row-renderer-params">What the renderer is given</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Field</th><th>What it is</th></tr></thead>
+        <tbody>
+          <tr><td class="name">key</td><td class="desc">The group's key &mdash; the same string <code>rows.expand()</code> and <code>rows.collapse()</code> take, and the one <code>group:toggled</code> carries.</td></tr>
+          <tr><td class="name">column</td><td class="desc">The id of the column <em>this level</em> groups on. It is stamped per rebuild from the grouping, not derived from the row's depth, so it stays correct when an outer grouping is removed and this level becomes the outermost.</td></tr>
+          <tr><td class="name">value</td><td class="desc">The value this group stands for.</td></tr>
+          <tr><td class="name">level</td><td class="desc">Depth of the group. Zero is the outermost.</td></tr>
+          <tr><td class="name">expanded</td><td class="desc">Whether the group is open. Draw your chevron from this; the row is re-rendered when it changes.</td></tr>
+          <tr><td class="name">leafCount</td><td class="desc">How many records sit beneath the heading, at any depth. Read this when the size is all you need.</td></tr>
+          <tr><td class="name">totals</td><td class="desc">The group's own reductions by column id &mdash; whatever <code>total</code> asked for. Unaffected by drawing the row.</td></tr>
+          <tr><td class="name">leaves()</td><td class="desc">The rows beneath the heading, computed <em>when you call it</em>. The members the filters left, in display order, so a rollup agrees with the rows drawn below. Also available on its own as <code>grid.rows.leavesOf(key)</code>.</td></tr>
+          <tr><td class="name">toggle()</td><td class="desc">Expand the group if it is closed, collapse it if it is open.</td></tr>
+          <tr><td class="name">grid, row, element</td><td class="desc">The grid, the group row model, and the element to fill if you would rather write into it than return anything.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="why">
+      <p><strong>A string here is markup, and in <code>fullWidth.render</code> it is text.</strong>
+      That difference is deliberate, and it is the difference between the two features. A
+      <a href="#full-width-rows">full-width row</a> renders one of <em>your data</em> rows, and
+      §8.9 keeps host markup behind <code>allowUnsafeTemplates</code> everywhere a data value
+      reaches the page. A group heading has no data row at all &mdash; the grid synthesised it from
+      the grouping &mdash; so its string can only be a template you wrote in your own source. That
+      is the same footing the board's <code>cardRenderer</code> already stands on, and the header
+      this exists for (a chevron, a bar) is unwritable without it. If you interpolate a value that
+      came from outside your application, escape it yourself, or build a node and return that
+      instead.</p>
+      <p><strong>Your chevron is yours to wire.</strong> The grid's own expander binds a click
+      handler to the button it built; a string cannot carry a handler, so that chevron would be
+      dead. Any element in your markup carrying <code>data-lat-group-toggle</code> expands or
+      collapses the group it sits in, and <code>toggle()</code> does the same from a node you built
+      yourself.</p>
+      <p><strong><code>leaves()</code> is a function on purpose.</strong> A group is unbounded and
+      the renderer runs as rows are painted. Handing every group an array of its members would cost
+      a hundred thousand rows on a heading nobody looked at. Call it when you need the rows; read
+      <code>leafCount</code> when you need the size.</p>
+    </div>
+
+    <h3 id="group-default-expanded">Which groups start open</h3>
+    <p class="lead-in">
+      <code>groupDefaultExpanded</code> decides the state of a group <em>before anyone has touched
+      it</em>: <code>true</code> (the default) opens them all, <code>false</code> closes them all, a
+      number opens the first N levels, and a predicate answers per group. Once the user or your own
+      code expands or collapses a group, that decision stands &mdash; the default is not consulted
+      for it again, so a group cannot spring shut under the user on the next rebuild.
+    </p>
+
+    <div class="example">
+      <p class="example__label">The current sprint open, everything else closed, executed</p>
+      <pre data-run="js" data-expect="Backlog 0/1 8pts closed | Sprint 12 1/2 8pts open" data-covers="config:groupRenderer config:groupDefaultExpanded"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="cmt">// The renderer the grid calls for each group row. Called here directly too,</span>
+<span class="cmt">// with the params the grid builds, so this block shows its actual output.</span>
+<span class="kw">const</span> groupRenderer = (p) =&gt; {
+  <span class="kw">const</span> rows = p.leaves();
+  <span class="kw">const</span> done = rows.filter((r) =&gt; r.data.done).length;
+  <span class="kw">const</span> points = rows.reduce((sum, r) =&gt; sum + r.data.points, 0);
+  <span class="kw">return</span> `${p.value} ${done}/${p.leafCount} ${points}pts ${p.expanded ? 'open' : 'closed'}`;
+};
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'section' }, { field: 'points', type: 'number', total: 'sum' }, { field: 'done' }],
+  rows: [
+    { id: 1, section: 'Sprint 12', points: 3, done: <span class="kw">true</span> },
+    { id: 2, section: 'Sprint 12', points: 5, done: <span class="kw">false</span> },
+    { id: 3, section: 'Backlog', points: 8, done: <span class="kw">false</span> },
+  ],
+  groupRenderer,
+  <span class="cmt">// Per group, not merely per depth: only the current sprint starts open.</span>
+  groupDefaultExpanded: (group) =&gt; group.value === 'Sprint 12',
+});
+grid.columns.group(['section']);
+
+<span class="kw">const</span> out = [];
+<span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; grid.rows.count(); i++) {
+  <span class="kw">const</span> row = grid.rows.get(i);
+  <span class="kw">if</span> (!row.group) <span class="kw">continue</span>;
+  out.push(groupRenderer({
+    row, key: row.key, column: row.groupColumn, value: row.groupValue,
+    level: row.level, expanded: row.expanded, leafCount: row.leafCount,
+    totals: row.totals, leaves: () =&gt; grid.rows.leavesOf(row.key),
+    toggle: () =&gt; {}, grid, element: <span class="kw">null</span>,
+  }));
+}
+grid.destroy();
+<span class="kw">return</span> out.join(' | ');</code></pre>
+    </div>
+
+    <p class="lead-in">
+      <code>grid.rows.leavesOf(key)</code> is the same reach on its own, for a breadcrumb, a
+      side panel or a rollup computed away from the row: it returns the leaf rows beneath a group
+      heading, which is what <code>leafCount</code> counts.
+    </p>
 
     <h2 id="row-reorder">Row reorder</h2>
     <p class="lead-in">
@@ -7901,7 +8026,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.57.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.58.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>
