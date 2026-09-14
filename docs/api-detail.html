@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.58.0</p>
+    <p class="rail__sub">Developer guide · v1.59.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -553,7 +553,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.58.0</span>
+        <span class="chip">Version 1.59.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1278,7 +1278,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.58.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.59.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -4218,6 +4218,55 @@ grid.edit.deleteRows();</code></pre>
 grid.destroy();
 <span class="kw">return</span> `${a}, ${b}`;</code></pre>
     </div>
+
+    <h2 id="cell-tooltips">Rich cell tooltips</h2>
+    <p class="lead-in">
+      A <code>cell.tooltip</code> string becomes the browser's own <code>title</code>. That is one
+      line of plain text, shown on the browser's schedule, styled by the browser, and unreachable
+      with a keyboard &mdash; it cannot show a related record, a small chart, a list of validation
+      errors or an edit history. The object form of <code>cell.tooltip</code> declares a tooltip the
+      grid draws itself instead (BACKLOG-0001204): <code>{ render, mount, unmount }</code>. The
+      plain-text form is unchanged and still produces a <code>title</code>.
+    </p>
+    <p class="lead-in">
+      <code>render(params)</code> may return an element, a <code>{ title, rows, note }</code> spec the
+      grid renders as text, a <code>{ html }</code> wrapper, or a string. <strong>A bare string is
+      always text, never markup.</strong> That is deliberate and is not a style choice: the most
+      natural tooltip anyone writes is <code>render: (p) =&gt; p.value</code>, and a value is row data
+      &mdash; so if a bare string were markup, a field holding an <code>onerror</code> attribute would
+      execute while the code that rendered it looked harmless. Markup has to be asked for explicitly,
+      in the source, where review can see it; and what goes through <code>{ html }</code> is scrubbed
+      of script the same way <code>allowUnsafeTemplates</code> output is.
+    </p>
+    <p class="lead-in">
+      <code>mount(el, params)</code> and <code>unmount(el)</code> hold live content. The grid core
+      never imports a module, so a sparkline or a KPI tile is mounted by <em>you</em>, inside
+      <code>mount</code>, from a module bundle your page loaded. <code>unmount</code> runs on every
+      close, so nothing is left running behind a hidden tooltip.
+    </p>
+    <p class="lead-in">
+      <code>tooltip: { delay, maxWidth }</code> on the grid carries the defaults. <code>delay</code>
+      is the rest before anything is built &mdash; 400ms by default, which is what stops a pointer
+      sweeping across the grid from mounting a chart per cell &mdash; and <code>maxWidth</code> caps
+      the width (a number is pixels, a string is used as written). Neither switches tooltips on: a
+      column with no <code>cell.tooltip</code> has none.
+    </p>
+    <p class="lead-in">
+      <strong>Keyboard and assistive technology.</strong> Focusing a cell shows the same tooltip after
+      the same delay, and the cell carries <code>aria-describedby</code> pointing at it, so the
+      content is announced rather than merely drawn. Any <code>aria-describedby</code> the cell
+      already had &mdash; a validation message, for instance &mdash; is preserved and restored, not
+      replaced. The tooltip is hoverable and stays open while the pointer rests on it, and Escape
+      dismisses it without moving the pointer (WCAG 2.2 AA, 1.4.13). Escape is consumed only while a
+      tooltip is open, so an editor, a menu or a maximised grid still sees it otherwise.
+    </p>
+    <p class="lead-in">
+      <strong>Pooled rows.</strong> The tooltip closes on scroll, and its content is resolved from the
+      DOM at the moment it opens rather than when the pointer arrived. Both follow from the same
+      fact: rows and cells are recycled as the grid scrolls, so a bubble left open would be anchored
+      to a node that has since been handed to a different row. It can therefore never show one row's
+      content over another's.
+    </p>
 
     <h2 id="scrollbars">Always-visible scrollbars</h2>
     <p class="lead-in">
@@ -7707,6 +7756,8 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
           <tr><td class="name">cell:conflict</td><td class="desc">The write was accepted but the server row had moved underneath it. Last-write-wins with the divergence surfaced: your value stands and serverRow carries the server's truth.</td></tr>
           <tr><td class="name">cell:contextmenu</td><td class="desc">Right-click on a cell.</td></tr>
           <tr><td class="name">cell:dblclicked</td><td class="desc">A cell was double-clicked. Carries the row, column, value and text.</td></tr>
+          <tr><td class="name">cell:mouseover</td><td class="desc">The pointer entered a cell. Fires once per cell, carries what cell:clicked carries plus the cell element as target, and is delegated on the viewport so it stays correct over pooled rows.</td></tr>
+          <tr><td class="name">cell:mouseout</td><td class="desc">The pointer left a cell. Fires once per cell, including when the pointer left the grid; moving to the next cell fires this first, then cell:mouseover.</td></tr>
           <tr><td class="name">cell:edit:end</td><td class="desc">It closed: committed or cancelled.</td></tr>
           <tr><td class="name">cell:edit:start</td><td class="desc">An edit session opened.</td></tr>
           <tr><td class="name">cell:pending</td><td class="desc">Applied optimistically, not yet durable. Only with edit.commit.</td></tr>
@@ -8026,7 +8077,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.58.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.59.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

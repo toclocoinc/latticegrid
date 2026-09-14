@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.58.0, type declarations
+ * Lattice Grid 1.59.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -541,6 +541,125 @@ export interface ColumnValueSpec {
   quickFilterText?: (p: ValueParams) => string;
 }
 
+/**
+ * One label/value line in a {@link TooltipSpec}.
+ *
+ * Both halves are written as text by the grid, whatever they contain.
+ */
+export interface TooltipRow {
+  /** The line's label, drawn on the leading edge. */
+  label?: unknown;
+  /** The line's value, drawn on the trailing edge. */
+  value?: unknown;
+}
+
+/**
+ * Structured tooltip content the grid renders for you (BACKLOG-0001204): a
+ * heading, a list of label/value lines, and a closing note.
+ *
+ * Every field is written as **text**, never as markup, so a spec built out of
+ * row values needs no escaping and cannot become HTML by accident. Return
+ * `{ html }` from `render` when markup is genuinely wanted.
+ */
+export interface TooltipSpec {
+  /** A heading for the tooltip. */
+  title?: unknown;
+  /** Label/value lines, in order. */
+  rows?: TooltipRow[];
+  /** A closing note under the lines, drawn quieter than them. */
+  note?: unknown;
+}
+
+/**
+ * What a tooltip's `render` and `mount` are given: the same identification
+ * `cell:clicked` carries, plus the cell element itself and the grid.
+ *
+ * Resolved from the DOM at the moment the tooltip opens rather than when the
+ * pointer arrived, so a pooled row re-used in between names the row it is
+ * showing now.
+ */
+export interface TooltipParams {
+  /** The row under the pointer or the keyboard cursor. */
+  row: Row;
+  /** That row's key. */
+  key: string;
+  /** Its display index. */
+  index: number;
+  /** The column the cell belongs to. */
+  colId: string;
+  /** The resolved column. */
+  column: Column;
+  /** The cell's value. */
+  value: unknown;
+  /** The cell's formatted text. */
+  text: string;
+  /** The cell element the tooltip is anchored to. */
+  cell: HTMLElement;
+  /** The grid. */
+  grid: Grid;
+}
+
+/**
+ * A rich, keyboard-accessible tooltip for a column's cells (BACKLOG-0001204) —
+ * the object form of `cell.tooltip`, drawn by the grid rather than handed to
+ * the browser as a native `title`.
+ *
+ * Shown after a delay (`tooltip.delay`, 400ms by default) on hover *and* on
+ * keyboard focus; the cell points at it with `aria-describedby`; it can be
+ * hovered without closing and Escape dismisses it (WCAG 2.2 AA, 1.4.13). It
+ * closes on scroll, because rows are pooled and a bubble left open would be
+ * anchored to a node that is now showing a different row.
+ */
+export interface ColumnTooltipSpec {
+  /**
+   * Produce the content. Four shapes, and the difference between the last two
+   * is a security property rather than a style choice:
+   *
+   * - an **element** — your own DOM, attached as it is;
+   * - a **{@link TooltipSpec}** — `{ title, rows, note }`, rendered as text;
+   * - **`{ html }`** — the only wrapper that inserts markup, scrubbed of script
+   *   the same way `allowUnsafeTemplates` output is;
+   * - a **string** — *always* text, never markup.
+   *
+   * The last rule is what makes `render: (p) => p.value` safe: a value comes
+   * from row data, and data must not be able to promote itself to HTML.
+   */
+  render?: (params: TooltipParams) => HTMLElement | TooltipSpec | { html: string } | string | null | undefined;
+  /**
+   * Put live content in the tooltip — a sparkline, a KPI tile — by calling into
+   * a module bundle your application loaded. The grid core never imports a
+   * module, so anything live is mounted here by you.
+   */
+  mount?: (el: HTMLElement, params: TooltipParams) => void;
+  /**
+   * Tear down whatever `mount` built. Called every time the tooltip closes, so
+   * nothing keeps running behind a hidden box.
+   */
+  unmount?: (el: HTMLElement) => void;
+}
+
+/**
+ * Grid-level defaults for the rich cell tooltip (BACKLOG-0001204), set once for
+ * every column rather than repeated on each.
+ *
+ * Defaults only: it switches nothing on. A tooltip exists because a column
+ * declares `cell.tooltip`, and a grid whose columns declare none has no
+ * tooltips whatever is set here.
+ */
+export interface TooltipConfig {
+  /**
+   * How long the pointer or the keyboard cursor must rest on a cell before the
+   * tooltip is built, in milliseconds. 400 by default.
+   *
+   * The delay is why a pointer sweeping across the grid mounts nothing: a
+   * tooltip that built a chart on every cell it crossed would be unusable, and
+   * `0` asks for exactly that.
+   */
+  delay?: number;
+  /** How wide the tooltip may grow. A number is pixels; a string is used as written. */
+  maxWidth?: number | string;
+}
+
 export interface ColumnCellSpec {
   decoration?: DecorationName | DecorationSpec;
   variant?: VariantSpec;
@@ -551,7 +670,15 @@ export interface ColumnCellSpec {
   class?: string | string[] | ((p: CellParams) => string | string[]);
   classWhen?: Record<string, string | ((p: CellParams) => boolean)>;
   style?: CellStyle | ((p: CellParams) => CellStyle);
-  tooltip?: string | ((p: CellParams) => string);
+  /**
+   * A tooltip for this column's cells.
+   *
+   * A string or a function is the plain-text case and becomes the browser's own
+   * `title`. An object is a {@link ColumnTooltipSpec}: a tooltip the grid draws,
+   * which can carry structure, markup or live content and which a keyboard user
+   * can reach (BACKLOG-0001204).
+   */
+  tooltip?: string | ((p: CellParams) => string) | ColumnTooltipSpec;
   align?: Align;
   /**
    * Vertical alignment of this column's cell content, overriding the grid-level
@@ -635,6 +762,31 @@ export interface ColumnLayoutSpec {
    * the grid only when nothing else is fixed.
    */
   width?: number | string;
+  /**
+   * `'content'` sizes the column to what it is actually showing, the way
+   * `columns.autoSize()` does, and keeps doing it: on the first paint, and
+   * again whenever the rows change, the columns are shown, hidden, reordered
+   * or pinned, or the grid is resized. It is the declarative form of the
+   * imperative call, so a host no longer has to re-issue `autoSize()` after
+   * every data change.
+   *
+   * Sized to the *visible* content, not to the widest value in the dataset:
+   * the measurement reads the rows the renderer has mounted, because measuring
+   * a million rows is not a plan. It measures the heading too, so a column
+   * whose title is longer than its values widens to show the title.
+   *
+   * **Anything the caller states outranks it.** A declared `width` wins, and
+   * so does a width the user drags to — a resize is recorded as a `width`, so
+   * from that moment the column is that wide and the fit no longer touches it.
+   * `min` and `max` clamp the fitted width as they clamp any other. `flex` is
+   * resolved before this and wins, the two being contradictory instructions:
+   * `flex` fits the column to the *grid*, this fits it to the *content*.
+   *
+   * Not re-measured on scroll, deliberately: different rows mount as the grid
+   * scrolls, and re-fitting against them would make the columns jitter under
+   * the reader.
+   */
+  fit?: 'content';
   min?: number;
   max?: number;
   flex?: number;
@@ -1875,6 +2027,16 @@ export interface GridConfig {
   verticalAlign?: VAlign;
 
   /**
+   * Defaults for the rich cell tooltip (BACKLOG-0001204).
+   *
+   * The tooltip itself is declared per column, on `cell.tooltip`; this only
+   * carries the settings that are a house style rather than a per-column
+   * decision. It switches nothing on: a column with no `cell.tooltip` has no
+   * tooltip whatever is set here.
+   */
+  tooltip?: TooltipConfig;
+
+  /**
    * Keep the scroll viewport's scrollbars visible (BACKLOG-0000990).
    *
    * `'auto'` (the default) is the platform's native behaviour, where overlay
@@ -2330,7 +2492,7 @@ export interface GridConfig {
    * markup `data-lat-group-toggle` and a click on it expands or collapses the
    * group, or call `params.toggle()` from a node you built yourself.
    */
-  groupRenderer?(params: GroupRowParams): string | Node | void;
+  groupRenderer?: (params: GroupRowParams) => string | Node | void;
   /**
    * Which groups start expanded, before anyone has opened or closed one.
    *
@@ -2376,13 +2538,13 @@ export interface GridConfig {
    * should *not* be part of the data, use `pinnedTopRows`.
    */
   fullWidth?: {
-    when(row: Row): boolean;
+    when: (row: Row) => boolean;
     /**
      * Return a string for text, or a node for content. Return nothing and
      * write into `params.element` yourself. An HTML string is deliberately not
      * accepted: see `allowUnsafeTemplates` for that decision elsewhere.
      */
-    render(params: FullWidthParams): string | Node | void;
+    render: (params: FullWidthParams) => string | Node | void;
   };
   /** Total what the filters left rather than the whole set. */
   totalFilteredOnly?: boolean;
@@ -2574,10 +2736,12 @@ export interface GridConfig {
     exportName?: string;
     /**
      * Put the native annotation tools — pen, arrow, rectangle, highlighter — on
-     * the rail. Off by default; each is a real toggle button that shows pressed
-     * while it is the tool in use and turns off when pressed again. The tools
-     * also appear automatically for the duration of a presentation, so this is
-     * only needed to keep them available outside one.
+     * the rail. Each is a real toggle button that shows pressed while it is the
+     * tool in use and turns off when pressed again. Three states, not two:
+     * `true` opts in and keeps the tools on the rail always, presentation or
+     * not; `false` opts OUT and the tools are never added, not even for a
+     * presentation; omitted keeps the default, where the tools are off until a
+     * presentation starts, appear for its duration, and leave when it ends.
      */
     annotate?: boolean;
   };
@@ -2648,7 +2812,7 @@ export interface GridConfig {
    * host's, and owns the model, the key and the privacy decision.
    */
   ai?: {
-    ask(p: {
+    ask: (p: {
     /** The full text to send: the schema description and the question together. */
     prompt: string;
     /** The grid's schema as data: columns, types and operators. No row values. */
@@ -2658,7 +2822,7 @@ export interface GridConfig {
     /** What the user typed. */
     message: string;
     context?: unknown;
-  }): Promise<unknown>;
+  }) => Promise<unknown>;
     schemaOptions?: object;
     context?: unknown;
     element?: HTMLElement;
@@ -4227,6 +4391,13 @@ export type EventName =
   /* Cells and editing */
   | 'cell:changed' | 'cell:pending' | 'cell:confirmed' | 'cell:reverted' | 'cell:conflict'
   | 'cell:clicked' | 'cell:dblclicked' | 'cell:contextmenu'
+  /* The pointer entering and leaving a cell (BACKLOG-0001203). Announcements
+   * only, carrying what `cell:clicked` carries plus the cell element as
+   * `target`. A host cannot wire these itself: rows and cells are pooled and
+   * re-used as the grid scrolls, so a listener bound to a cell node fires for
+   * whichever row occupies it next. Nothing in the grid is gated on hover, so
+   * a keyboard user reaches everything a pointer does. */
+  | 'cell:mouseover' | 'cell:mouseout'
   | 'cell:edit:start' | 'cell:edit:end' | 'row:edit:start' | 'row:edit:end'
   | 'row:clicked' | 'row:dblclicked'
   | 'row:pending' | 'row:confirmed' | 'row:reverted' | 'row:conflict'
@@ -8378,6 +8549,26 @@ declare module 'lattice-grid/modules/gantt' {
     columns?: { start?: string; end?: string; duration?: string };
     /** Task identity for the live `rows.apply` surface (a field or fn); default 'id'. */
     rowKey?: string | ((row: GanttTask) => unknown);
+    /**
+     * The host's own names for the task properties the scheduler reads, so a
+     * plan can be fed as it already exists rather than renamed for the Gantt:
+     * `{ id: 'taskId', start: 'startDate', name: 'jobName' }`. Each value is a
+     * field name or a reader `(row) => value`; anything unmapped reads its
+     * canonical name. The vocabulary is `id`, `name`, `start`, `end`,
+     * `duration`, `milestone`, `percentComplete`, `parent`, `baselineStart`,
+     * `baselineEnd`, `constraint`, `constraintDate`.
+     *
+     * `rowKey` also reaches the scheduler now: a task with no `id` of its own
+     * is identified by whatever `rowKey` names, which it previously was not —
+     * such a plan was keyed correctly by `rows.apply` and then refused to
+     * schedule.
+     *
+     * This is a READ mapping. `applyEdit` and `level()` write the canonical
+     * property, so each says so rather than writing where nothing reads;
+     * `assignee`, `cost` and `actualCost` belong to the resource and
+     * earned-value layers and are not mapped.
+     */
+    fields?: Record<string, string | ((row: GanttTask) => unknown)>;
     /** Auto-mount into this element at construction. */
     element?: unknown;
   }): Gantt;
@@ -9848,8 +10039,21 @@ declare module 'lattice-grid/modules/tabs' {
     id: string;
     /** The tab button's text. Defaults to `id`. */
     label?: string;
-    /** The grid config passed to `createGrid` for this tab (merged with the derived `source`, when `from` is set). */
+    /** The config for this tab's body: the grid config passed to `createGrid` (merged with the derived `source`, when `from` is set), or — with `view` — that viewer's own config. */
     config?: object;
+    /**
+     * Mount something other than a grid in this tab: the factory that builds
+     * it, called as `(el, config) => instance`. `createKanban` and `createKPI`
+     * have that signature already; a Gantt is adapted in a line
+     * (`(el, config) => createGantt({ ...config, element: el })`). The factory
+     * is injected rather than imported, exactly as `createGrid` is.
+     *
+     * A `view` tab derives from `from` exactly as a grid tab does: a headless
+     * grid carries the derived source and its rows are piped into the viewer
+     * through `rows.apply`, so deriving into one needs `createHeadlessGrid`
+     * injected too.
+     */
+    view?: (el: HTMLElement, config: object) => unknown;
     /** The parent tab id to derive from. When set, `config.source` is built for you and any of your own is replaced (with a warning). */
     from?: string;
     /** Row predicate forwarded to the derived source. */
@@ -9877,6 +10081,12 @@ declare module 'lattice-grid/modules/tabs' {
     profile?: unknown;
     /** This tab's panel's own `aria-label`, when the label alone is not enough context. */
     ariaLabel?: string;
+    /** A leading icon: a single character or emoji, or an element you built. Never a markup string — nothing here parses HTML. Decorative, so it is hidden from assistive technology. */
+    icon?: string | HTMLElement;
+    /** A count badge. `true` shows this tab's own live row count and follows it; a number or string is static; a function is given the live count and returns what to show (`null` hides it). Off when absent. */
+    badge?: true | number | string | ((count: number | null, tab: { id: string; label: string; from: string | null }) => unknown);
+    /** The badge's tone, declared by the host rather than derived from a threshold: `'good' | 'warn' | 'bad' | 'unknown'`, or a function of the live count returning one. */
+    badgeTone?: 'good' | 'warn' | 'bad' | 'unknown' | ((count: number | null, tab: { id: string; label: string; from: string | null }) => 'good' | 'warn' | 'bad' | 'unknown' | null);
   }
 
   /** The payload every tab-change event carries. */
@@ -9894,6 +10104,8 @@ declare module 'lattice-grid/modules/tabs' {
   interface TabsConfig {
     /** The grid factory to mount each tab with, e.g. `import { createGrid } from 'lattice-grid'`. Required. */
     createGrid: (el: HTMLElement, config: object) => unknown;
+    /** The headless grid factory, injected the same way and for the same reason. Optional, and only needed for badges: with it, a tab that has never been activated still carries a live count, computed with no DOM. Without it, such a tab shows no badge until its first activation. */
+    createHeadlessGrid?: (config: object) => unknown;
     /** The tabs, in display order. Required, at least one. */
     tabs: TabDescriptor[];
     /** The initially active tab id. Defaults to the first tab. */
@@ -10092,8 +10304,15 @@ declare module 'lattice-grid/modules/layout' {
     gap?: number | string;
     /** The default padding inside a window (default `'5px'`). */
     padding?: number | string;
-    /** Rearrangement (default `'vertical'`): push displaced windows down, then pull up. */
-    compact?: 'vertical' | 'none';
+    /**
+     * Rearrangement (default `'vertical'`). One gravity direction, never two:
+     * `'vertical'` pushes displaced windows down and then floats everything up,
+     * `'horizontal'` pushes them right and then floats everything left — so
+     * dragging a window out of a row closes the hole sideways — and `'none'`
+     * leaves every placement exactly where it was put. An unrecognised value
+     * warns once, naming what it got, and falls back to `'vertical'`.
+     */
+    compact?: 'vertical' | 'horizontal' | 'none';
     /**
      * The default `movable` for every window that does not declare its own
      * (default `false`). This states a default, so `false` takes nothing away
