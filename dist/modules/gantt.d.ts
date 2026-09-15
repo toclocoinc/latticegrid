@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.60.0, gantt module type declarations
+ * Lattice Grid 1.61.0, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -48,6 +48,26 @@ export interface GanttTask {
    * `units: 1`.
    */
   assignments?: Array<{ resource?: string; name?: string; id?: string; units?: number }>;
+  /**
+   * The task's effort, in one of two forms (BACKLOG-0001281/1282).
+   *
+   * A **number** is the task's TOTAL hours; the workload band divides it
+   * between the assignments in proportion to their units and spreads each
+   * share evenly over the working days the task spans. (`hours` is accepted
+   * as the same field under its other common name.)
+   *
+   * An **array** is an explicit per-day contour — what a planner types into a
+   * workload cell — and states each day's hours itself: the task's total is
+   * the sum of the entries, nothing is spread, and the contour is
+   * authoritative for the span, so `applyEdit` derives the task's `start` and
+   * `duration` from its first and last day. An EMPTY array means "no hours
+   * booked", which is how clearing every bucket is expressed without reviving
+   * the even spread. A bar move re-times the contour onto the new days
+   * unchanged; a resize stretches it across the new span at the same daily
+   * levels. `date` is an ISO date, a `Date` or a plan day-number; the module
+   * writes ISO dates back.
+   */
+  work?: number | Array<{ date: number | string | Date; hours: number }>;
   /** Leveling priority: a higher value is delayed last (default 0). */
   priority?: number;
   /** An explicit row height (px) for the split view; applied to both panels. */
@@ -281,7 +301,19 @@ interface Gantt {
   readonly resourceLoad: GanttResourceLoad | null;
   setTasks(tasks: GanttTask[]): GanttSchedule;
   setDependencies(deps: GanttDependency[]): GanttSchedule;
-  applyEdit(patch: { id: string | number; start?: number; end?: number; duration?: number }, editOpts?: { writeBack?: boolean }): GanttSchedule;
+  /**
+   * Apply one task edit and recompute — the single gated choke point every
+   * drag, keypress, table cell and workload cell commits through.
+   *
+   * A `work` ARRAY is the task's per-day contour (BACKLOG-0001282). Given
+   * without an explicit `start`/`end`/`duration` it SETS the span: the task
+   * starts on the contour's first day and runs through its last, so booking
+   * hours beyond the bar extends it and clearing an edge bucket pulls it
+   * back. Conversely, a `start` or `duration` in the patch re-times an
+   * existing contour rather than discarding it — a move keeps its shape, a
+   * resize stretches it across the new span at the same daily levels.
+   */
+  applyEdit(patch: { id: string | number; start?: number; end?: number; duration?: number; percentComplete?: number; work?: number | Array<{ date: number | string | Date; hours: number }> }, editOpts?: { writeBack?: boolean }): GanttSchedule;
   compute(): GanttSchedule;
   findViolations(): GanttViolation[];
   /**
@@ -383,11 +415,30 @@ interface Gantt {
   }): unknown;
   /**
    * Mount the JOINED split view (BACKLOG-0000938): one continuous, row-aligned
-   * surface with a left task-grid panel (Task Name tree with expand/collapse,
-   * assignee avatars, a circular % ring, plus any host columns) and the right
-   * timeline, sharing a single vertical scroll so every grid row lines up
-   * exactly with its bar row. The timeline scrolls horizontally on its own.
-   * Composes the controller's schedule; makes no change to grid core.
+   * surface with a left task-grid panel — by default the Task Name tree with
+   * expand/collapse, start, finish, duration, assignee avatars and a circular
+   * % ring (BACKLOG-0001285), plus any host columns — and the right timeline,
+   * sharing a single vertical scroll so every grid row lines up exactly with
+   * its bar row. The timeline scrolls horizontally on its own. Composes the
+   * controller's schedule; makes no change to grid core.
+   *
+   * The plan is editable from BOTH panes (BACKLOG-0001280): every gesture
+   * `mount` has — pointer drag to move, drag on the right edge to resize,
+   * arrow-key move, Shift+arrow resize, `l` to link, Delete — works on the
+   * timeline here, and a `start`/`end`/`duration`/`progress`/`name` column in
+   * the left panel is inline-editable on a double-click. Both routes commit
+   * through the same `applyEdit` choke point, so `beforeTaskMove`,
+   * `beforeTaskResize`, `beforeProgressChange` and `beforeTaskEdit` stay the
+   * single veto whichever pane the edit came from.
+   *
+   * The three switches that govern it carry the same meaning and the same
+   * defaults as `mount`'s: `editable` (default true) turns every edit on or
+   * off, both panes at once; `keyboard` (default true) turns off the
+   * focusable bars, the arrow-key gestures and the ARIA announcements while
+   * leaving pointer editing alone; and `resizeZone` (default 6) is how many
+   * pixels in from a bar's right edge begin a resize rather than a move.
+   * `workload` adds the resource band beneath the plan (BACKLOG-0001281),
+   * which is display-only — it reports hours, it does not accept them.
    */
   mountSplit(container: unknown, options?: {
     height?: number;
@@ -409,7 +460,85 @@ interface Gantt {
      * overrides the status date and the cost field names.
      */
     evm?: boolean | { statusDate?: number | string | Date; costField?: string; actualCostField?: string };
-    columns?: Array<{ key: string; title?: string; width?: number; kind?: 'name' | 'assignee' | 'progress' | 'evm'; metric?: 'bac' | 'pv' | 'ev' | 'ac' | 'sv' | 'cv' | 'spi' | 'cpi'; digits?: number; render?: (task: GanttScheduledTask, ctx: { rawTask: GanttTask; depth: number }) => unknown }>;
+    /**
+     * Whether the plan can be edited: pointer drags on the timeline and the
+     * left panel's inline cell editors (default true). Same meaning and
+     * default as `mount`'s.
+     */
+    editable?: boolean;
+    /**
+     * Keyboard editing + focusable bars + ARIA announcements on the timeline
+     * (default true). Same meaning and default as `mount`'s.
+     */
+    keyboard?: boolean;
+    /**
+     * Pixels from a bar's right edge that begin a resize rather than a move
+     * (default 6). Same meaning and default as `mount`'s.
+     */
+    resizeZone?: number;
+    /**
+     * A `{ t(key, params) }` resolver for the view's own text — the live
+     * region's edit announcements. Omit it and a gantt bound to a grid borrows
+     * that grid's catalogue; a standalone plan falls back to English.
+     */
+    messages?: { t: (key: string, params?: Record<string, unknown>) => string };
+    /**
+     * The left panel's columns. `kind` decides what the cell shows and what a
+     * double-click edits: `'name'` the WBS tree (edits the name), `'assignee'`
+     * the avatars, `'progress'` the % ring (edits `percentComplete`), `'evm'`
+     * an earned-value `metric`, and `'start'`/`'end'`/`'duration'` the
+     * scheduled window — an ISO date, an ISO date, and a whole number of days,
+     * each of which edits the plan through the same path a bar drag takes
+     * (BACKLOG-0001280). A column with no `kind` shows the raw task's `key`
+     * and edits it only with `editable: true`.
+     */
+    columns?: Array<{ key: string; title?: string; width?: number; kind?: 'name' | 'assignee' | 'progress' | 'evm' | 'start' | 'end' | 'duration' | 'number'; metric?: 'bac' | 'pv' | 'ev' | 'ac' | 'sv' | 'cv' | 'spi' | 'cpi'; digits?: number; editable?: boolean; editField?: string; render?: (task: GanttScheduledTask, ctx: { rawTask: GanttTask; depth: number }) => unknown }>;
+    /**
+     * A resource workload band beneath the split view (BACKLOG-0001281):
+     * one row per resource on the left and, on the right, that resource's
+     * hours per time bucket — aligned column-for-column with the timeline's
+     * scale header, scroll-locked to it horizontally (vertically it scrolls
+     * on its own), and redrawn in the same paint as the bars whenever the
+     * plan changes. `true` takes the defaults below; an object overrides
+     * them; omitted, no band is drawn.
+     *
+     * **Editing (BACKLOG-0001282).** A resource row expands (a disclosure
+     * button, `aria-expanded`) into one sub-row per task it carries. The
+     * resource's own cell is the read-only aggregate; a SUB-ROW cell accepts
+     * a typed number of hours on a double-click whenever the view's
+     * `editable` is on. What is typed is written to that task's `work`
+     * contour through the same `applyEdit` choke point (and the same
+     * `beforeTaskEdit` veto) a bar drag uses, so the bar, the table row and
+     * the band all move in one paint — including the span, which follows the
+     * contour: type into a column beyond the bar and the bar grows to reach
+     * it. A bucket containing no working day declines the edit and says so.
+     *
+     * **Where the hours come from.** They are DERIVED from the tasks, never
+     * supplied: a task's own `work` (or `hours`) field when it carries a
+     * finite one, otherwise `working days × hoursPerDay × units`, divided
+     * between the task's assignments in proportion to their units and spread
+     * evenly over the working days the task spans. Working days are the days
+     * this view already shades — pass the `calendar`/`nonWorking` option the
+     * plan is scheduled with. Resources, units and capacities are the gantt's
+     * existing vocabulary (`assignee`/`assignees`/`owner`/`assignments` on a
+     * task; `resources`/`defaultCapacity` on `createGantt`); a task naming no
+     * resource is carried on an "Unassigned" row rather than dropped. An
+     * empty bucket is blank, not `0`, and a bucket over
+     * `capacity × hoursPerDay × the bucket's working days` is marked with a
+     * class and an accessible label.
+     */
+    workload?: boolean | {
+      /** Hours a full-time (`units: 1`) resource works in a working day; default 8. */
+      hoursPerDay?: number;
+      /** The band's height in pixels, taken from the view's own `height`; default 160. */
+      height?: number;
+      /** A band row's height in pixels; default 28. */
+      rowHeight?: number;
+      /** Maximum decimal places in a cell, trailing zeros dropped; default 1. */
+      decimals?: number;
+      /** Draw the totals row and totals column; default true. */
+      totals?: boolean;
+    };
   }): unknown;
   /**
    * Capture a baseline (planned) snapshot of the current schedule as HOST data
@@ -471,10 +600,13 @@ export function createGantt(opts?: {
    * such a plan was keyed correctly by `rows.apply` and then refused to
    * schedule.
    *
-   * This is a READ mapping. `applyEdit` and `level()` write the canonical
-   * property, so each says so rather than writing where nothing reads;
-   * `assignee`, `cost` and `actualCost` belong to the resource and
-   * earned-value layers and are not mapped.
+   * A mapping to a field NAME is two-way: `applyEdit` writes back to that
+   * name, so an edit on a mapped plan lands instead of springing back
+   * (BACKLOG-0001280). A mapping to a READER FUNCTION has no inverse, so an
+   * edit to such a field writes the canonical property and says so once, and
+   * `level()` refuses a mapped `start` outright rather than writing where
+   * nothing reads. `assignee`, `cost` and `actualCost` belong to the resource
+   * and earned-value layers and are not mapped.
    */
   fields?: Record<string, string | ((row: GanttTask) => unknown)>;
   /** Auto-mount into this element at construction. */
