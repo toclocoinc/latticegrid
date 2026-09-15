@@ -4,7 +4,7 @@
 dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it.
 
-Version 1.59.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.60.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -27,7 +27,7 @@ Every module is optional and none of them is loaded unless you import it.
 
 | Module | What it is |
 |---|---|
-| `modules/charts.esm.min.js` | Thirty-seven chart types drawn from the grid's data, including control and capability charts. |
+| `modules/charts.esm.min.js` | Thirty-eight chart types drawn from the grid's data, including control and capability charts. |
 | `modules/react.esm.min.js` | React adapter. |
 | `modules/vue.esm.min.js` | Vue adapter. |
 | `modules/svelte.esm.min.js` | Svelte adapter. |
@@ -110,7 +110,7 @@ enough to know whether the grid covers what you need.
 
 ### Seeing the data
 
-- **Charts.** `modules/charts` draws thirty-seven chart types from the grid's
+- **Charts.** `modules/charts` draws thirty-eight chart types from the grid's
   own data: line, bar, area, scatter, pie, donut, sunburst, treemap, radar, gauge,
   funnel, heatmap, histogram, box plot, candlestick, combo, geomap, sankey,
   chord, network, stream, violin, gantt, Q-Q, ECDF, Lorenz, correlogram,
