@@ -4,7 +4,7 @@
 dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it.
 
-Version 1.62.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.62.1 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -282,7 +282,8 @@ modules pays for none of them. This section is the complete map: every public
 entry point, how to import it from npm, how to reach it on a CDN, and — for the
 `<script>`-tag builds — the browser global it leaves behind.
 
-**Three variants ship for most entry points.** Pick the one your page loads by:
+**Three variants ship for every entry point**, the chart-type extensions
+included. Pick the one your page loads by:
 
 - **ESM** — `*.esm.min.js`. The default for a bundler or a native `<script
   type="module">`. This is what the bare `@toclocoinc/lattice-grid` and
@@ -366,11 +367,13 @@ the page already imported rather than carrying a second copy.
 
 ### Chart-type extensions
 
-Eighteen additional chart types ship as separate, tree-shakeable ESM modules.
-Each one **self-registers** its type onto the charts module's shared registry the
-moment it is imported — so load the base charts module first, import the
-extension for its side effect, then name the type in `createChart`. They ship as
-ESM only (import for side effect; there is no global to reach).
+Eighteen additional chart types ship as separate, tree-shakeable modules. Each
+one **self-registers** its type onto the charts module's shared registry the
+moment it is loaded — so load the base charts module first, load the extension
+for its side effect, then name the type in `createChart`.
+
+Each ships all three variants, like every other module: `.esm.min.js` for a
+bundler, `.min.js` (UMD) for a `<script src>` page, `.min.cjs` for `require()`.
 
 ```js
 import '@toclocoinc/lattice-grid/modules/charts';       // the base registry
@@ -378,8 +381,20 @@ import '@toclocoinc/lattice-grid/modules/chart-alluvial'; // registers 'alluvial
 createChart({ grid, container, type: 'alluvial', source: 'from', target: 'to', value: 'count' });
 ```
 
+```html
+<script src="lattice-grid.min.js"></script>
+<script src="modules/charts.min.js"></script>          <!-- the base registry -->
+<script src="modules/chart-alluvial.min.js"></script>  <!-- registers 'alluvial' -->
+<script>LatticeGrid.createChart({ grid, container, type: 'alluvial', /* ... */ });</script>
+```
+
+The UMD build extends the `LatticeGrid` global, exactly as `modules/charts.min.js`
+does, so the order above is the order to load them in: an extension loaded before
+the base charts module throws rather than registering nothing.
+
 Each is imported from `@toclocoinc/lattice-grid/modules/chart-<type>` (CDN
-`<file>`: `modules/chart-<type>.esm.min.js`), and registers the `type` shown.
+`<file>`: `modules/chart-<type>.esm.min.js`, or `modules/chart-<type>.min.js` for
+the UMD build), and registers the `type` shown.
 
 | Import / `type` | What it draws |
 |---|---|
