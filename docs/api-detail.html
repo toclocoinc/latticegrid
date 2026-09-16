@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.61.0</p>
+    <p class="rail__sub">Developer guide · v1.62.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.61.0</span>
+        <span class="chip">Version 1.62.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1279,7 +1279,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.61.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.62.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -4308,32 +4308,110 @@ grid.destroy();
       content over another's.
     </p>
 
-    <h2 id="scrollbars">Always-visible scrollbars</h2>
+    <h2 id="scrollbars">Always-visible and grid-drawn scrollbars</h2>
     <p class="lead-in">
       Native scrollbars are overlay bars on most platforms now: they fade away when the pointer is
       idle, which reads as a cleaner surface but hides the affordance &mdash; a touchpad user has no
-      standing sign that a grid scrolls at all. <code>scrollbars: 'always'</code> keeps them shown
-      whether or not the pointer is over the grid; <code>'auto'</code> (the default) leaves the
-      platform's own behaviour alone, so an existing grid is unchanged on upgrade.
+      standing sign that a grid scrolls at all. <code>scrollbars</code> takes three modes.
+      <code>'auto'</code> (the default) leaves the platform's own behaviour alone, so an existing
+      grid is unchanged on upgrade. <code>'always'</code> keeps the platform's bar shown whether or
+      not the pointer is over the grid. <code>'custom'</code> replaces it with a bar the grid draws
+      itself.
     </p>
     <p class="lead-in">
       The two axes are separate decisions, so the object form controls each on its own:
       <code>{ y: 'always' }</code> pins the vertical bar while the horizontal one stays native, and
       <code>{ x: 'always', y: 'always' }</code> is the same as the bare <code>'always'</code>. Under
-      the hood the pinned axis switches to <code>overflow: scroll</code> so its track is present even
-      when the content fits, and the scrollbar is styled as a classic, always-drawn bar rather than a
-      fading overlay (BACKLOG-0000990). The same viewport also suppresses the overscroll rubber-band
-      bounce, so a synchronised grid does not spring at its scroll boundary (BACKLOG-0000991).
+      <code>'always'</code> the pinned axis switches to <code>overflow: scroll</code> so its track is
+      present even when the content fits, and the scrollbar is styled as a classic, always-drawn bar
+      rather than a fading overlay (BACKLOG-0000990). The same viewport also suppresses the
+      overscroll rubber-band bounce, so a synchronised grid does not spring at its scroll boundary
+      (BACKLOG-0000991).
     </p>
 
+    <h3>Why <code>'custom'</code> exists, and when to reach for it</h3>
+    <p class="lead-in">
+      <code>'always'</code> pins the <em>native</em> bar, which leaves two things it cannot fix. Its
+      size is still the platform's &mdash; on Chrome/macOS a 7&nbsp;pixel overlay ribbon, small to
+      see and fiddly to grab. And the rules that style it are a WebKit/Blink extension, so Firefox
+      ignores them: <code>'always'</code> is not the same feature there. <code>'custom'</code> makes
+      the grid draw the bar, so its thickness, colour, minimum thumb length and hit area are the
+      same in every browser on every platform, and all of them are theme tokens a host can raise.
+      The default is a 12&nbsp;pixel track with a 32&nbsp;pixel minimum thumb, which is a comfortably
+      larger target than the platform's own (BACKLOG-0001288).
+    </p>
+    <p class="lead-in">
+      <strong>Scrolling is unchanged.</strong> The drawn bars are display and input only: the grid's
+      body still scrolls itself, so the wheel, the trackpad, a finger, the keyboard and
+      <code>scrollToRow</code> behave exactly as they do in the other two modes, with the browser's
+      own momentum and acceleration. The thumb is a readout of the scroll position that happens to
+      be draggable, and it is placed in the same painted frame as the content, so it never trails
+      what is on screen.
+    </p>
+    <p class="lead-in">
+      <strong>Everything a scrollbar does.</strong> The thumb's length is the fraction of the content
+      on screen, never shorter than <code>--lattice-scrollbar-thumb-min</code>; dragging it scrolls;
+      pressing the track above or below it pages by one viewport; and with the bar focused the
+      arrows, <kbd>Page&nbsp;Up</kbd>/<kbd>Page&nbsp;Down</kbd>, <kbd>Home</kbd> and <kbd>End</kbd>
+      all work. Each bar carries <code>role="scrollbar"</code> with
+      <code>aria-orientation</code>, <code>aria-controls</code> and
+      <code>aria-valuenow</code>, and its accessible name comes from the message catalogue, so it is
+      announced in the grid's own language. It is deliberately <em>not</em> in the page's tab order:
+      the grid is a single tab stop and its own arrow keys already scroll.
+    </p>
+    <p class="lead-in">
+      <strong>Two things to know.</strong> The gutter the drawn bar occupies is reserved permanently
+      while the mode is on &mdash; the same 12&nbsp;pixels <code>'always'</code> reserves, so column
+      widths and <code>columns.fit()</code> are unaffected by the change and nothing moves under the
+      pointer as rows come and go. And no browser lets one axis' native scrollbar be hidden on its
+      own, so setting <code>'custom'</code> on one axis hides the native bar on <em>both</em>; the
+      grid warns once if the two axes disagree. Set <code>'custom'</code> on both axes, or on
+      neither.
+    </p>
+
+    <h3>Theming the drawn bar</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Token</th><th>Default</th><th>What it sets</th></tr></thead>
+        <tbody>
+          <tr><td class="name"><code>--lattice-scrollbar-size</code></td><td class="desc"><code>12px</code></td><td class="desc">The thickness of each bar, and the gutter reserved for it. Raise it for a larger grab target.</td></tr>
+          <tr><td class="name"><code>--lattice-scrollbar-thumb-min</code></td><td class="desc"><code>32px</code></td><td class="desc">The shortest the thumb may ever be. Sized strictly in proportion, a very long list gives a thumb of a pixel or two.</td></tr>
+          <tr><td class="name"><code>--lattice-scrollbar-track</code></td><td class="desc"><code>transparent</code></td><td class="desc">The track behind the thumb.</td></tr>
+          <tr><td class="name"><code>--lattice-scrollbar-thumb</code></td><td class="desc"><code>var(--lattice-border-strong)</code></td><td class="desc">The thumb at rest. Derived from the theme's line colour, so dark, high-contrast and terminal themes follow without declaring anything.</td></tr>
+          <tr><td class="name"><code>--lattice-scrollbar-thumb-hover</code></td><td class="desc"><code>var(--lattice-foreground-muted)</code></td><td class="desc">The thumb while the pointer is over its bar.</td></tr>
+          <tr><td class="name"><code>--lattice-scrollbar-thumb-active</code></td><td class="desc"><code>var(--lattice-accent)</code></td><td class="desc">The thumb while it is being dragged, or while the bar has keyboard focus.</td></tr>
+          <tr><td class="name"><code>--lattice-scrollbar-radius</code></td><td class="desc"><code>var(--lattice-radius-pill)</code></td><td class="desc">The thumb's corner radius. Set it to <code>0</code> for a square thumb.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
     <div class="example">
-      <p class="example__label">Pinning both axes, and one axis at a time</p>
-      <pre data-run="js" data-expect="always: always/always; y-only: auto/always" data-covers="config:scrollbars"><code><span class="cmt">// The renderer resolves `scrollbars` to a per-axis mode it stamps on the root.</span>
+      <p class="example__label">The three modes, and one axis at a time</p>
+      <pre data-run="js" data-expect="always: always/always; custom: custom/custom; y-only: auto/always; mixed: custom/auto" data-covers="config:scrollbars"><code><span class="cmt">// The renderer resolves `scrollbars` to a per-axis mode it stamps on the root.</span>
 <span class="kw">const</span> { resolveScrollbars } = <span class="kw">await</span> import('../packages/dom/src/renderer/renderer.js');
 
-<span class="kw">const</span> both = resolveScrollbars(<span class="str">'always'</span>);        <span class="cmt">// pins both axes</span>
+<span class="kw">const</span> both = resolveScrollbars(<span class="str">'always'</span>);        <span class="cmt">// pins both native bars</span>
+<span class="kw">const</span> drawn = resolveScrollbars(<span class="str">'custom'</span>);       <span class="cmt">// the grid draws both</span>
 <span class="kw">const</span> onlyY = resolveScrollbars({ y: <span class="str">'always'</span> }); <span class="cmt">// pins the vertical bar only</span>
-<span class="kw">return</span> `always: ${both.x}/${both.y}; y-only: ${onlyY.x}/${onlyY.y}`;</code></pre>
+<span class="kw">const</span> mixed = resolveScrollbars({ x: <span class="str">'custom'</span> }); <span class="cmt">// draws x, leaves y native (and warns)</span>
+<span class="kw">return</span> `always: ${both.x}/${both.y}; custom: ${drawn.x}/${drawn.y}; `
+  + `y-only: ${onlyY.x}/${onlyY.y}; mixed: ${mixed.x}/${mixed.y}`;</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">A bigger grab target than the platform's</p>
+      <pre><code>createGrid(host, {
+  columns, rows,
+  <span class="cmt">// Always visible, the same in every browser, and drawn by the grid.</span>
+  scrollbars: <span class="str">'custom'</span>,
+});
+
+<span class="cmt">/* Wider and darker than the default, in your own stylesheet: */</span>
+.lattice {
+  --lattice-scrollbar-size: 16px;
+  --lattice-scrollbar-thumb-min: 48px;
+  --lattice-scrollbar-thumb: #8a9199;
+}</code></pre>
     </div>
 
     <h2 id="cards">Cards, lists and feeds</h2>
@@ -7867,6 +7945,774 @@ grid.import.apply(preview);</code></pre>
       </table>
     </div>
 
+    <h3 id="kanban-config-examples">Kanban config keys, executed</h3>
+    <p class="lead-in">
+      The table above names each Kanban config key on its own line; these six examples run the
+      board (headless, or over the test DOM where a key's effect is visual) and show what each key
+      actually does, grouped by what they configure together.
+    </p>
+
+    <div class="example">
+      <p class="example__label">Board structure: grouping, order and a done set, executed</p>
+      <pre data-run="js" data-expect="done,todo | 2,1 | points 5 | done 5" data-covers="config:columnProperty config:columnOrder config:pointsProperty config:orderProperty config:doneColumns"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+const rows = [
+  { id: 1, status: 'todo', epic: 'E1', points: 3, order: 20 },
+  { id: 2, status: 'todo', epic: 'E1', points: 2, order: 10 },
+  { id: 3, status: 'done', epic: 'E1', points: 5, order: 5 },
+];
+const b = createKanban(null, {
+  rows, rowKey: 'id',
+  columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'done' }],
+  columnOrder: ['done', 'todo'],
+  pointsProperty: 'points', showPoints: true,
+  orderProperty: 'order',
+  doneColumns: ['done'],
+});
+const ids = b.columns().map((c) =&gt; c.id);
+const todoOrder = b.column('todo').cards.map((c) =&gt; c.row.id);
+const donePoints = b.rollup('epic')[0].donePoints;
+return (`${ids.join(',')} | ${todoOrder.join(',')} | points ${b.points('todo')} | done ${donePoints}`);
+</code></pre>
+      <p>
+        <code>columnOrder</code> pins <code>done</code> before <code>todo</code> though it was configured
+        second; <code>orderProperty</code> sorts card 2 (order 10) before card 1 (order 20) inside
+        <code>todo</code>; <code>pointsProperty</code> is what makes <code>b.points('todo')</code> a real
+        sum rather than 0 (<code>showPoints</code> only decides whether that sum is drawn into the DOM
+        column header — see the accessible-name example below for that half); and
+        <code>doneColumns: ['done']</code> — set directly, with no column def carrying
+        <code>done: true</code> — is what lets <code>rollup('epic')</code> count card 3's points as done.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Sprint, epic and swimlane selection, executed</p>
+      <pre data-run="js" data-expect="1 | lanes Zed,Ann | empty 0 | sprints S1,S2" data-covers="config:sprintProperty config:sprint config:sprints config:epicProperty config:epic config:swimlaneProperty config:swimlanes config:lanes config:laneOrder"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+const rows = [
+  { id: 1, status: 'todo', sprint: 'S1', epic: 'E1', assignee: 'Ann' },
+  { id: 2, status: 'todo', sprint: 'S2', epic: 'E1', assignee: 'Bob' },
+  { id: 3, status: 'todo', sprint: 'S1', epic: 'E2', assignee: 'Cy' },
+];
+const b = createKanban(null, {
+  rows, rowKey: 'id',
+  columnProperty: 'status',
+  columns: [{ id: 'todo' }],
+  sprintProperty: 'sprint', sprint: 'S1',
+  epicProperty: 'epic', epic: 'E1',
+  swimlaneProperty: 'assignee', swimlanes: true,
+  lanes: [{ id: 'Ann', title: 'Ann T' }, { id: 'Zed', title: 'Empty lane' }],
+  laneOrder: ['Zed', 'Ann'],
+  sprints: [{ id: 'S1', title: 'Sprint 1' }, { id: 'S2', title: 'Sprint 2' }],
+});
+const visible = [...b.model.cardsByKey.keys()];
+const laneIds = b.model.lanes.map((l) =&gt; l.id);
+const emptyLane = b.model.lanes.find((l) =&gt; l.id === 'Zed');
+return (`${visible.join(',')} | lanes ${laneIds.join(',')} | empty ${emptyLane ? emptyLane.count : 'MISSING'} | sprints ${b.sprints().join(',')}`);
+</code></pre>
+      <p>
+        The board is constructed already narrowed to sprint S1 and epic E1 — no <code>setSprint</code>/
+        <code>setEpic</code> call — so only card 1 is visible. <code>lanes</code> configures an
+        <code>Ann</code> lane and a <code>Zed</code> lane nobody's <code>assignee</code> matches, kept
+        (count 0) because it is configured, exactly as an empty column is; <code>laneOrder</code> pins
+        it first. <code>sprints</code> lists both configured sprints even though only S1 has a visible
+        card.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Card mapping, quick filter and readonly, executed</p>
+      <pre data-run="js" data-expect="OAuth flow | readonly true" data-covers="config:card config:quickFilter config:readonly"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+const rows = [
+  { id: 1, status: 'todo', title: 'Login form' },
+  { id: 2, status: 'todo', title: 'OAuth flow' },
+];
+const b = createKanban(null, {
+  rows, rowKey: 'id',
+  columnProperty: 'status',
+  columns: [{ id: 'todo' }],
+  card: { title: 'title' },
+  quickFilter: 'oauth',
+  readonly: { columns: { todo: true } },
+});
+const visibleTitles = [...b.model.cardsByKey.values()].map((c) =&gt; c.fields.title);
+const isReadonly = b.readonly({ column: 'todo' });
+return (`${visibleTitles.join(',')} | readonly ${isReadonly}`);
+</code></pre>
+      <p>
+        <code>card: { title: 'title' }</code> is what makes <code>c.fields.title</code> readable at all;
+        the initial <code>quickFilter</code> narrows the board to the one matching card before anything
+        renders; and the per-column <code>readonly</code> map reports <code>todo</code> as locked.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Accessible name, localised labels and selection, executed</p>
+      <pre data-run="js" data-expect="Sprint board | selectable-click 0 | grab 'Grabbed, A, Todo, 1/1' | empty 'No cards' | points true" data-covers="config:ariaLabel config:selectable config:labels config:emptyText config:showPoints"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createKanban } = await import('../packages/modules/kanban/index.js');
+const dom = createTestDom({});
+const el = dom.document.createElement('div');
+dom.root.appendChild(el);
+const b = createKanban(el, {
+  rows: [{ id: 1, status: 'todo', title: 'A', points: 5 }],
+  rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'blocked' }],
+  card: { title: 'title' },
+  ariaLabel: 'Sprint board',
+  emptyText: 'No cards',
+  selectable: false,
+  labels: { grabbed: 'Grabbed' },
+  pointsProperty: 'points', showPoints: true,
+});
+const cardEl = el.querySelector('.lat-kanban__card');
+cardEl.dispatchEvent(new TestEvent('click', {}));
+const selectedAfterClick = b.selection().length;
+cardEl.setAttribute('tabindex', '0');
+cardEl.dispatchEvent(new TestEvent('keydown', { key: ' ' }));
+const liveText = b.live.textContent;
+const blockedEmpty = [...el.querySelectorAll('.lat-kanban__column')].find(c =&gt; c.dataset.column === 'blocked').querySelector('.lat-kanban__empty').textContent;
+const ariaLabel = el.getAttribute('aria-label');
+const todoContent = el.querySelector('.lat-kanban__headcontent');
+const hasPoints = /lat-kanban__points/.test(todoContent.innerHTML);
+return (`${ariaLabel} | selectable-click ${selectedAfterClick} | grab '${liveText}' | empty '${blockedEmpty}' | points ${hasPoints}`);
+</code></pre>
+      <p>
+        <code>ariaLabel</code> replaces the default "Board" name; <code>selectable: false</code> means a
+        plain click leaves the selection empty (the keyboard grab is a separate mechanism, unaffected);
+        <code>labels.grabbed</code> supplies the word the live region announces; <code>emptyText</code>
+        is the placeholder shown in the empty <code>blocked</code> column; and <code>showPoints</code>
+        (with <code>pointsProperty</code>) is what draws the points span into the column header — its
+        real job, distinct from <code>pointsProperty</code> alone computing the sum (see the board
+        structure example above, where <code>showPoints</code> is absent and <code>b.points()</code>
+        still works).
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Add-card, edit and move lifecycle, plus WIP enforcement, executed</p>
+      <pre data-run="js" data-expect="created Created by onAddCard | edited Renamed | wip-moved 0 | veto-moved 0 | reverted true | events click:a,dbl:a,ctx:a" data-covers="config:addCard config:onAddCard config:onCardEdit config:onBeforeMove config:onCardMove config:onCardClick config:onCardDblClick config:onCardContextMenu config:enforceWip"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+const seen = [];
+const b = createKanban(null, {
+  rows: [{ id: 'a', status: 'todo' }, { id: 'b', status: 'doing' }],
+  rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'doing', wipLimit: 1 }, { id: 'blocked' }, { id: 'review' }],
+  card: { title: { field: 'title', edit: true } },
+  addCard: true,
+  onAddCard: (columnId) =&gt; ({ id: 'new', status: columnId, title: 'Created by onAddCard' }),
+  onCardEdit: () =&gt; true,
+  onBeforeMove: (card, from, to) =&gt; to !== 'blocked',
+  onCardMove: (e) =&gt; e.keys[0] !== 'a' || e.to !== 'review',
+  onCardClick: (e) =&gt; seen.push(`click:${e.card.key}`),
+  onCardDblClick: (e) =&gt; seen.push(`dbl:${e.card.key}`),
+  onCardContextMenu: (e) =&gt; seen.push(`ctx:${e.card.key}`),
+  enforceWip: true,
+});
+
+const newKey = b.addCard('todo');
+const createdTitle = b.card(newKey).row.title;
+await b.applyEdit('a', 'title', 'Renamed');
+const editedTitle = b.card('a').row.title;
+
+const wipRefused = await b.move('a', 'doing');
+const vetoRefused = await b.move('a', 'blocked');
+const revertedMove = await b.move('a', 'review');
+
+b.fire('card:click', { card: b.card('a') });
+b.fire('card:dblclick', { card: b.card('a') });
+b.fire('card:contextmenu', { card: b.card('a') });
+
+return ([
+  `created ${createdTitle}`,
+  `edited ${editedTitle}`,
+  `wip-moved ${wipRefused.moved.length}`,
+  `veto-moved ${vetoRefused.moved.length}`,
+  `reverted ${revertedMove.reverted}`,
+  `events ${seen.join(',')}`,
+].join(' | '));
+</code></pre>
+      <p>
+        <code>addCard</code> opts the column into add-card at all; <code>onAddCard</code> supplies the
+        new row rather than an auto-generated one; <code>onCardEdit</code> confirms the inline edit.
+        <code>enforceWip</code> refuses the move into <code>doing</code> (already at its limit of 1) before
+        <code>onBeforeMove</code> is ever asked; a separate move into <code>blocked</code> is vetoed by
+        <code>onBeforeMove</code> instead; and a move into <code>review</code> — allowed by both — is
+        still reverted because <code>onCardMove</code> rejects it. <code>onCardClick</code>/
+        <code>onCardDblClick</code>/<code>onCardContextMenu</code> each fire from the matching
+        <code>card:*</code> event.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Card aging / SLA: basis, thresholds, callbacks and the tick, executed</p>
+      <pre data-run="js" data-expect="basis-column ok | basis-board breach | ignore-default null | ignore-false breach | hits warn:warn:w,breach:breach:br | age 3d | tick-fired true" data-covers="config:sla config:basis config:createdProperty config:enteredProperty config:ignoreDone config:now config:warn config:breach config:onWarn config:onBreach config:showAge config:useTransitionLog config:tick"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+const E = 1_700_000_000_000;
+const DAY = 24 * 60 * 60 * 1000;
+
+// basis comparison: same row data, two boards differing only in `basis`.
+const rowData = { id: 'x', status: 'doing', enteredAt: E - 1 * DAY, createdAt: E - 10 * DAY };
+function makeBoard(basis) {
+  return createKanban(null, {
+    rows: [rowData],
+    rowKey: 'id', columnProperty: 'status',
+    columns: [{ id: 'doing' }],
+    flow: false,
+    sla: {
+      basis, enteredProperty: 'enteredAt', createdProperty: 'createdAt',
+      useTransitionLog: false, warn: { days: 2 }, breach: { days: 5 },
+      now: () =&gt; E,
+    },
+  });
+}
+const byColumn = makeBoard('column').sla.stateFor('x').level; // uses enteredAt (1d) -&gt; ok
+const byBoard = makeBoard('board').sla.stateFor('x').level;   // uses createdAt (10d) -&gt; breach
+
+// ignoreDone
+const doneRow = { id: 'd', status: 'done', enteredAt: E - 30 * DAY };
+const withIgnore = createKanban(null, {
+  rows: [doneRow], rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'done', done: true }], flow: false,
+  sla: { enteredProperty: 'enteredAt', useTransitionLog: false, warn: { days: 2 }, breach: { days: 5 }, now: () =&gt; E },
+});
+const ignoredByDefault = withIgnore.sla.stateFor('d').level;
+const notIgnored = createKanban(null, {
+  rows: [doneRow], rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'done', done: true }], flow: false,
+  sla: { enteredProperty: 'enteredAt', useTransitionLog: false, ignoreDone: false, warn: { days: 2 }, breach: { days: 5 }, now: () =&gt; E },
+}).sla.stateFor('d').level;
+
+// onWarn/onBreach + showAge
+const hits = [];
+const warnBoard = createKanban(null, {
+  rows: [
+    { id: 'w', status: 'doing', enteredAt: E - 3 * DAY },
+    { id: 'br', status: 'doing', enteredAt: E - 6 * DAY },
+  ],
+  rowKey: 'id', columnProperty: 'status', columns: [{ id: 'doing' }], flow: false,
+  sla: {
+    enteredProperty: 'enteredAt', useTransitionLog: false,
+    warn: { days: 2 }, breach: { days: 5 }, now: () =&gt; E, showAge: 'always',
+    onWarn: (level, rows) =&gt; hits.push(`warn:${level}:${rows[0].id}`),
+    onBreach: (level, rows) =&gt; hits.push(`breach:${level}:${rows[0].id}`),
+  },
+});
+const showAgeState = warnBoard.sla.stateFor('w').ageText;
+
+// tick: a real re-check interval that fires without a manual evaluate()/move.
+const clock = { t: E };
+const ticks = [];
+const tickBoard = createKanban(null, {
+  rows: [{ id: 't', status: 'doing', enteredAt: E }],
+  rowKey: 'id', columnProperty: 'status', columns: [{ id: 'doing' }], flow: false,
+  sla: {
+    enteredProperty: 'enteredAt', useTransitionLog: false,
+    breach: { days: 1 }, tick: 15, now: () =&gt; clock.t,
+  },
+});
+tickBoard.on('card:sla', (e) =&gt; ticks.push(e.level));
+clock.t = E + 2 * DAY; // now past breach, but nobody called evaluate()
+await new Promise((resolve) =&gt; setTimeout(resolve, 60));
+tickBoard.sla.destroy();
+
+return ([
+  `basis-column ${byColumn}`,
+  `basis-board ${byBoard}`,
+  `ignore-default ${ignoredByDefault}`,
+  `ignore-false ${notIgnored}`,
+  `hits ${hits.join(',')}`,
+  `age ${showAgeState}`,
+  `tick-fired ${ticks.length &gt; 0}`,
+].join(' | '));
+</code></pre>
+      <p>
+        The same card (an <code>enteredAt</code> of 1 day and a <code>createdAt</code> of 10 days) is
+        <code>ok</code> under <code>basis: 'column'</code> (which prefers <code>enteredProperty</code>) and
+        <code>breach</code> under <code>basis: 'board'</code> (which prefers <code>createdProperty</code>)
+        — the same <code>warn</code>/<code>breach</code> thresholds, only the basis changed.
+        <code>ignoreDone</code> defaults a done card to no ageing at all (<code>null</code>) and
+        <code>ignoreDone: false</code> ages it anyway. <code>onWarn</code> and <code>onBreach</code> each
+        fire, shaped <code>(level, rows)</code>, for the card that reaches that level; <code>showAge:
+        'always'</code> gives an age chip on a card that is not yet warned. <code>tick</code> re-evaluates
+        on its own timer — the card crosses into breach with no <code>move</code> or manual
+        <code>evaluate()</code> call — and <code>useTransitionLog: false</code> throughout is what keeps
+        every reading on the row timestamps rather than the flow log.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Custom card body, virtualization and a child pop-out, executed</p>
+      <pre data-run="js" data-expect="virtual true | rendered true | custom true | expand-epic true | expand-leaf false" data-covers="config:cardRenderer config:virtualize config:children"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createKanban } = await import('../packages/modules/kanban/index.js');
+
+const dom = createTestDom({});
+const el = dom.document.createElement('div');
+dom.root.appendChild(el);
+
+const many = [];
+for (let i = 0; i &lt; 200; i++) many.push({ id: i, status: 'todo', title: `C${i}`, parent: null });
+many.push({ id: 'e1', status: 'todo', title: 'Epic', parent: null });
+many.push({ id: 's1', status: 'todo', title: 'Story', parent: 'e1' });
+
+const b = createKanban(el, {
+  rows: many, rowKey: 'id', columnProperty: 'status', columns: [{ id: 'todo' }],
+  card: { title: 'title' },
+  cardRenderer: (card) =&gt; `&lt;div class="custom"&gt;${card.fields.title}!&lt;/div&gt;`,
+  virtualize: { rowHeight: 100, viewport: 500, threshold: 50, overscan: 2 },
+  children: { property: 'parent' },
+});
+
+const list = el.querySelector('.lat-kanban__cards');
+const rendered = list.querySelectorAll('.lat-kanban__card').length;
+const isVirtual = list.dataset.virtual;
+const first = list.querySelector('.lat-kanban__card');
+const customRendered = /class="custom"/.test(first.innerHTML);
+const canExpandEpic = b.canExpand(b.card('e1'));
+const canExpandLeaf = b.canExpand(b.card('s1'));
+
+return ([
+  `virtual ${isVirtual}`,
+  `rendered ${rendered &gt; 0 &amp;&amp; rendered &lt; 202}`,
+  `custom ${customRendered}`,
+  `expand-epic ${canExpandEpic}`,
+  `expand-leaf ${canExpandLeaf}`,
+].join(' | '));
+</code></pre>
+      <p>
+        202 cards in one column, but <code>virtualize</code> renders only a scroll window of them;
+        <code>cardRenderer</code> owns the whole card body, replacing the default template; and
+        <code>children: { property: 'parent' }</code> is what makes the epic card expandable
+        (<code>canExpand</code> true) while a plain story is not.
+      </p>
+    </div>
+
+    <h3 id="layout-config-examples">Layout config keys, executed</h3>
+    <p class="lead-in">
+      The reference table names each Layout config key on its own line; these five examples run a
+      real dashboard over the test DOM and show what each key actually does, grouped by what they
+      configure together.
+    </p>
+
+    <div class="example">
+      <p class="example__label">Geometry: overflow axes, track size, gap and padding, executed</p>
+      <pre data-run="js" data-expect="auto hidden | repeat(6, 200px) | gap 20px | padding 15px" data-covers="config:overflowX config:overflowY config:columnWidth config:gap config:padding config:compact"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createLayout } = await import('../packages/modules/layout/index.js');
+const { document, root } = createTestDom({ width: 600, height: 400 });
+const host = document.createElement('div');
+root.appendChild(host);
+const layout = createLayout(host, {
+  columns: 6, rows: 4, overflowX: 'scroll', overflowY: 'static', columnWidth: '200px',
+  gap: '20px', padding: '15px', compact: 'none',
+  windows: [{ id: 'a', xPos: 1, yPos: 1, xSize: 2, ySize: 1 }],
+});
+const canvas = host.querySelector('.lat-layout__canvas');
+const viewport = host.querySelector('.lat-layout__viewport');
+return (`${viewport.style.overflowX} ${viewport.style.overflowY} | ${canvas.style.gridTemplateColumns} | gap ${canvas.style.gap} | padding ${layout.payload('a').style.padding}`);
+</code></pre>
+      <p>
+        <code>overflowX: 'scroll'</code> is the axis that scrolls; <code>overflowY</code> stays
+        <code>'static'</code> independently; <code>columnWidth</code> is the fixed track a scrolling
+        axis repeats; and <code>gap</code>/<code>padding</code> reach the DOM as the real CSS lengths
+        configured, not their 8px/5px built-in fallbacks. <code>compact: 'none'</code> is what a
+        single-window layout cannot show on its own &mdash; see the before-events example below for
+        <code>compact</code>'s effect on a move.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Layout-level interactivity defaults, executed</p>
+      <pre data-run="js" data-expect="close true | grip true | opted-out-grip false | maximise true | minimise true" data-covers="config:closable config:movable config:resizable config:maximisable config:minimisable"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createLayout } = await import('../packages/modules/layout/index.js');
+const { document, root } = createTestDom({ width: 600, height: 400 });
+const host = document.createElement('div');
+root.appendChild(host);
+const layout = createLayout(host, {
+  columns: 3, rows: 1,
+  closable: true, movable: true, resizable: true, maximisable: true, minimisable: true,
+  windows: [
+    { id: 'bare', xPos: 1, yPos: 1, xSize: 1, ySize: 1 },
+    { id: 'opted-out', xPos: 2, yPos: 1, xSize: 1, ySize: 1, movable: false },
+  ],
+});
+const frame = (id) =&gt; host.querySelector(`[data-window-id="${id}"]`);
+const bareHasClose = !!frame('bare').querySelector('.lat-layout__close');
+const bareHasGrip = !!frame('bare').querySelector('.lat-layout__grip');
+const optedOutHasGrip = !!frame('opted-out').querySelector('.lat-layout__grip');
+const canMaximise = layout.maximise('bare');
+const canMinimise = layout.minimise('bare');
+return (`close ${bareHasClose} | grip ${bareHasGrip} | opted-out-grip ${optedOutHasGrip} | maximise ${canMaximise} | minimise ${canMinimise}`);
+</code></pre>
+      <p>
+        Every layout-level default (<code>closable</code>, <code>movable</code>, <code>resizable</code>,
+        <code>maximisable</code>, <code>minimisable</code>) applies to <code>bare</code>, which declares
+        none of its own; <code>opted-out</code>'s own <code>movable: false</code> beats the layout-level
+        <code>true</code>, which is why it renders no grip. <code>maximisable</code>/<code>minimisable</code>
+        are what let <code>maximise()</code>/<code>minimise()</code> succeed on a window that never
+        declared either itself.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">The window list and a saved arrangement applied at mount, executed</p>
+      <pre data-run="js" data-expect="a,b | a@3,2 | b@2,1" data-covers="config:windows config:layout"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createLayout } = await import('../packages/modules/layout/index.js');
+const { document, root } = createTestDom({ width: 600, height: 400 });
+const host = document.createElement('div');
+root.appendChild(host);
+const layout = createLayout(host, {
+  columns: 4, rows: 4, compact: 'none',
+  windows: [
+    { id: 'a', xPos: 1, yPos: 1, xSize: 1, ySize: 1 },
+    { id: 'b', xPos: 2, yPos: 1, xSize: 1, ySize: 1 },
+  ],
+  layout: { columns: 4, rows: 4, windows: [{ id: 'a', xPos: 3, yPos: 2, xSize: 1, ySize: 1 }] },
+});
+const ids = layout.windows();
+const snap = layout.getLayout();
+const aPlaced = snap.windows.find((w) =&gt; w.id === 'a');
+const bPlaced = snap.windows.find((w) =&gt; w.id === 'b');
+return (`${ids.join(',')} | a@${aPlaced.xPos},${aPlaced.yPos} | b@${bPlaced.xPos},${bPlaced.yPos}`);
+</code></pre>
+      <p>
+        <code>windows</code> declares two windows, <code>a</code> at column 1 and <code>b</code> at
+        column 2; the mount-time <code>layout</code> arrangement then moves <code>a</code> to (3, 2),
+        overriding its own declared placement, while <code>b</code> — not named in <code>layout</code> —
+        stays exactly where <code>windows</code> put it.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Move and resize before-events, independently gated and paired with their cancellations, executed</p>
+      <pre data-run="js" data-expect="moved true/false to xPos 2 | resized true/false to xSize 2 | cancelled-move pinned | cancelled-resize too-wide | moved-events 1 | resized-events 1" data-covers="config:onWindowMoved config:onWindowResized config:onBeforeWindowMove config:onWindowMoveCancelled config:onBeforeWindowResize config:onWindowResizeCancelled"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createLayout } = await import('../packages/modules/layout/index.js');
+const { document, root } = createTestDom({ width: 600, height: 400 });
+const host = document.createElement('div');
+root.appendChild(host);
+const moved = [];
+const resized = [];
+const cancelledMove = [];
+const cancelledResize = [];
+const layout = createLayout(host, {
+  columns: 4, rows: 4, compact: 'none',
+  windows: [{ id: 'a', xPos: 1, yPos: 1, xSize: 1, ySize: 1 }],
+  onWindowMoved: (e) =&gt; moved.push(e),
+  onWindowResized: (e) =&gt; resized.push([e.id, e.xSize, e.ySize]),
+  onBeforeWindowMove: (e) =&gt; (e.to.xPos === 4 ? e.preventDefault('pinned') : true),
+  onWindowMoveCancelled: (e) =&gt; cancelledMove.push(e.reason),
+  onBeforeWindowResize: (e) =&gt; (e.to.xSize === 3 ? e.preventDefault('too-wide') : true),
+  onWindowResizeCancelled: (e) =&gt; cancelledResize.push(e.reason),
+});
+const okMove = await layout.move('a', { xPos: 2 });
+const vetoedMove = await layout.move('a', { xPos: 4 });
+const okResize = await layout.move('a', { xSize: 2 });
+const vetoedResize = await layout.move('a', { xSize: 3 });
+return (`moved ${okMove}/${vetoedMove} to xPos ${layout.getLayout().windows[0].xPos} | resized ${okResize}/${vetoedResize} to xSize ${layout.getLayout().windows[0].xSize} | cancelled-move ${cancelledMove.join(',')} | cancelled-resize ${cancelledResize.join(',')} | moved-events ${moved.length} | resized-events ${resized.length}`);
+</code></pre>
+      <p>
+        <code>move(id, to)</code> resolves to a resize or a move from what changed. The first move and
+        the first resize both succeed and fire <code>onWindowMoved</code>/<code>onWindowResized</code>
+        once each; the second of each is vetoed by its own before-hook — <code>onBeforeWindowMove</code>
+        never sees the resize and <code>onBeforeWindowResize</code> never sees the move — firing
+        <code>onWindowMoveCancelled</code>/<code>onWindowResizeCancelled</code> with the veto's reason
+        and leaving the window exactly where it was.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Close before-event and layout:changed, executed</p>
+      <pre data-run="js" data-expect="closed true/false | ids a | cancelled unsaved | changed-causes close | remaining locked" data-covers="config:onBeforeWindowClose config:onWindowCloseCancelled config:onWindowClosed config:onLayoutChanged"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createLayout } = await import('../packages/modules/layout/index.js');
+const { document, root } = createTestDom({ width: 600, height: 400 });
+const host = document.createElement('div');
+root.appendChild(host);
+const closed = [];
+const cancelledClose = [];
+const changed = [];
+const layout = createLayout(host, {
+  columns: 4, rows: 4, compact: 'none',
+  windows: [
+    { id: 'a', xPos: 1, yPos: 1, xSize: 1, ySize: 1, closable: true },
+    { id: 'locked', xPos: 2, yPos: 1, xSize: 1, ySize: 1, closable: true },
+  ],
+  onWindowClosed: (e) =&gt; closed.push(e.id),
+  onBeforeWindowClose: (e) =&gt; (e.id === 'locked' ? e.preventDefault('unsaved') : true),
+  onWindowCloseCancelled: (e) =&gt; cancelledClose.push(e.reason),
+  onLayoutChanged: (e) =&gt; changed.push(e.cause),
+});
+const okClose = await layout.close('a');
+const vetoedClose = await layout.close('locked');
+return (`closed ${okClose}/${vetoedClose} | ids ${closed.join(',')} | cancelled ${cancelledClose.join(',')} | changed-causes ${changed.join(',')} | remaining ${layout.windows().join(',')}`);
+</code></pre>
+      <p>
+        Closing <code>a</code> succeeds, firing <code>onWindowClosed</code> and <code>onLayoutChanged</code>
+        (cause <code>'close'</code>); closing <code>locked</code> is vetoed by <code>onBeforeWindowClose</code>,
+        firing <code>onWindowCloseCancelled</code> with the reason instead, and it survives in
+        <code>windows()</code>.
+      </p>
+    </div>
+
+    <h3 id="ai-config-examples">AI config keys, executed</h3>
+    <p class="lead-in">
+      The reference table names each AI config key on its own line; these three examples run a
+      real controller (a MOCK <code>ask()</code> throughout &mdash; never a real provider) and show
+      what each key actually does.
+    </p>
+
+    <div class="example">
+      <p class="example__label">The insights panel: element, tools, enable, maxColumns, reconcile, onNarrative, executed</p>
+      <pre data-run="js" data-expect="There are 2 rows. Confidence 900%. | narrated 1 | flagged 900% | panel true | facts 12/34" data-covers="config:ask config:element config:tools config:enable config:maxColumns config:reconcile config:onNarrative"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createAI } = await import('../packages/modules/ai/index.js');
+const dom = createTestDom({});
+const el = dom.document.createElement('div');
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'a' }, { field: 'b' }],
+  rows: [{ id: 1, a: 1, b: 2 }, { id: 2, a: 3, b: 4 }],
+});
+const narrated = [];
+const ai = createAI(grid, {
+  ask: async () =&gt; ({ text: 'There are 2 rows. Confidence 900%.' }),
+  element: el,
+  tools: false,
+  maxColumns: 1,
+  reconcile: 'flag',
+  enable: ['narrative'],
+  onNarrative: (r) =&gt; narrated.push(r.text),
+});
+ai.insights();
+const result = await ai.explain({ kind: 'view' });
+const cappedFacts = ai.facts({ kind: 'view' }).facts.length;
+const uncapped = createAI(grid, { ask: async () =&gt; ({ text: '' }) }).facts({ kind: 'view' }).facts.length;
+return (`${result.text} | narrated ${narrated.length} | flagged ${result.flagged.join(',')} | panel ${!!el.querySelector('.lat-ai__btn')} | facts ${cappedFacts}/${uncapped}`);
+</code></pre>
+      <p>
+        <code>element</code> + <code>tools: false</code> (packet mode, no function-calling) are what
+        make <code>ai.insights()</code> mount a real panel button; <code>enable: ['narrative']</code>
+        is what lets that mounting succeed at all &mdash; leaving it out of <code>enable</code> would
+        return with no panel. <code>enable</code> gates only the three DOM-mounting convenience
+        methods (<code>insights()</code>, <code>askBar()</code>, <code>actorBar()</code>): the
+        <code>ai.explain()</code> call right below still runs and returns a result even though
+        <code>'insights'</code>/<code>'query'</code>/<code>'ask'</code>/<code>'actor'</code> are absent
+        from this <code>enable</code> list &mdash; the programmatic API is never gated, so a host that
+        wants no AI surface at all simply never calls these methods. <code>reconcile: 'flag'</code>
+        keeps the ungrounded "900%" in the text
+        (the default strips it instead) while still reporting it in <code>flagged</code>;
+        <code>onNarrative</code> fires with the same result <code>explain()</code> returns;
+        <code>maxColumns: 1</code> is why the capped run gathers 12 facts against 34 uncapped.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Ask-your-data: autoApply, schemaOptions, redact, router, onQuery, onError, executed</p>
+      <pre data-run="js" data-expect="queried true | schema-cols id,region | chart 1,3 | errors 0" data-covers="config:autoApply config:schemaOptions config:redact config:router config:onQuery config:onError"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createDataRouter } = await import('../packages/modules/data-router/index.js');
+const { createAI } = await import('../packages/modules/ai/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'region' }, { field: 'ssn' }],
+  rows: [
+    { id: 1, region: 'EMEA', ssn: 'a' },
+    { id: 2, region: 'AMER', ssn: 'b' },
+    { id: 3, region: 'EMEA', ssn: 'c' },
+  ],
+});
+const chart = createHeadlessGrid({ rowKey: 'id', columns: [{ field: 'id' }, { field: 'region' }] });
+const router = createDataRouter({ rowKey: 'id', overlap: true });
+router.attach(chart, () =&gt; true);
+
+const errors = [];
+const queried = [];
+let capturedSchema = null;
+const ask = async (req) =&gt; {
+  capturedSchema = req.schema;
+  return { actions: [{ type: 'setFilters', filters: { col: 'region', op: 'eq', value: 'EMEA' } }] };
+};
+const ai = createAI(grid, {
+  ask, router, autoApply: true, schemaOptions: { maxColumns: 2 }, redact: ['ssn'],
+  onQuery: (r) =&gt; queried.push(r.ok), onError: (e) =&gt; errors.push(e),
+});
+await ai.query('EMEA only');
+const chartIds = [];
+for (let i = 0; i &lt; chart.rows.count(); i++) chartIds.push(chart.rows.get(i).key);
+return (`queried ${queried.join(',')} | schema-cols ${capturedSchema.columns.map((c) =&gt; c.id).join(',')} | chart ${chartIds.sort().join(',')} | errors ${errors.length}`);
+</code></pre>
+      <p>
+        <code>schemaOptions: { maxColumns: 2 }</code> is why the model is shown only
+        <code>id,region</code> — <code>ssn</code> is also stripped by <code>redact</code>, so it
+        never reaches the schema either way; <code>autoApply</code> runs the safe read the moment it
+        resolves, with no confirm step; <code>router</code>, configured once here rather than passed
+        to every call, is what fans the answer to the chart with no <code>opts.router</code> anywhere
+        in this example; <code>onQuery</code> fires with the result, and <code>onError</code> is wired
+        but silent because nothing failed.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">The governed actor: onProposal, executed</p>
+      <pre data-run="js" data-expect="proposals true | diff old 10 new 50 | applied 1 | score-now 50" data-covers="config:onProposal"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createAI } = await import('../packages/modules/ai/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'name' }, { field: 'score', type: 'number', edit: { enabled: true } }],
+  rows: [{ id: 1, name: 'Alpha', score: 10 }],
+});
+const proposals = [];
+const ask = async () =&gt; ({ structured: { edits: [{ match: 'Alpha', column: 'score', value: 50 }] } });
+const ai = createAI(grid, { ask, onProposal: (r) =&gt; proposals.push(r.ok) });
+const result = await ai.propose('set Alpha score to 50');
+const report = await ai.applyProposal(result);
+return (`proposals ${proposals.join(',')} | diff ${result.diff.map((d) =&gt; `old ${d.oldValue} new ${d.newValue}`).join(',')} | applied ${report.applied} | score-now ${grid.rows.byKey('1').data.score}`);
+</code></pre>
+      <p>
+        <code>onProposal</code> fires with the built diff before any approval; <code>applyProposal</code>
+        is the separate human-approval step that actually writes, through the grid's own gated edit
+        path.
+      </p>
+    </div>
+
+    <h3 id="kpi-config-examples">KPI config keys, executed</h3>
+    <p class="lead-in">
+      Three examples covering the eleven KPI config keys not already demonstrated elsewhere in this
+      guide.
+    </p>
+
+    <div class="example">
+      <p class="example__label">The tile hierarchy: tiles, an explicit separator, expanded, onNodeToggle, executed</p>
+      <pre data-run="js" data-expect="compute,network | tiles 3 | toggled /compute:false" data-covers="config:tiles config:separator config:expanded config:onNodeToggle"><code>const { createKPI } = await import('../packages/modules/kpi/index.js');
+
+const HOSTS = [{ id: 1, cpu: 91, mem: 40, lat: 12 }, { id: 2, cpu: 30, mem: 55, lat: 40 }];
+const toggled = [];
+const kpi = createKPI(null, {
+  rows: HOSTS, rowKey: 'id',
+  tree: { separator: '/', expanded: true },
+  tiles: [
+    { id: 'compute/cpu', label: 'cpu', aggregation: 'max', field: 'cpu' },
+    { id: 'compute/memory', label: 'memory', aggregation: 'avg', field: 'mem' },
+    { id: 'network/latency', label: 'latency', aggregation: 'max', field: 'lat' },
+  ],
+  onNodeToggle: (e) =&gt; toggled.push([e.key, e.expanded]),
+});
+const topLevel = kpi.nodes().map((n) =&gt; n.label).sort();
+const key = kpi.nodes()[0].key;
+kpi.toggle(key);
+return (`${topLevel.join(',')} | tiles ${kpi.model.tiles.length} | toggled ${toggled.map((t) => t.join(':')).join(',')}`);
+</code></pre>
+      <p>
+        <code>tiles</code> declares the three measured leaves; <code>separator: '/'</code> is what
+        derives <code>compute</code>/<code>network</code> from ids that only contain <code>/</code>,
+        not the default <code>.</code>; <code>expanded: true</code> opens every branch at construction,
+        so the very first <code>toggle()</code> call closes one rather than opening it;
+        <code>onNodeToggle</code> reports exactly that.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Grid-bound events: fields, onTileClick, onTileDblClick, onTileContextMenu, onChange, executed</p>
+      <pre data-run="js" data-expect="p1-jobs 1 | click p1 | dbl p1 | ctx p1 | changes 1" data-covers="config:fields config:onTileClick config:onTileDblClick config:onTileContextMenu config:onChange"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createKPI } = await import('../packages/modules/kpi/index.js');
+
+const dom = createTestDom({});
+const el = dom.document.createElement('div');
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ id: 'id', field: 'id' }, { id: 'priority', field: 'priority' }],
+  rows: [{ id: 1, priority: 'P1' }, { id: 2, priority: 'P2' }],
+});
+const clicks = [];
+const dbl = [];
+const ctx = [];
+const changes = [];
+const kpi = createKPI(el, {
+  grid,
+  fields: ['priority'],
+  tiles: [{ id: 'p1', label: 'P1 jobs', aggregation: 'count', filter: (r) =&gt; r.priority === 'P1' }],
+  onTileClick: ({ id }) =&gt; clicks.push(id),
+  onTileDblClick: ({ id }) =&gt; dbl.push(id),
+  onTileContextMenu: ({ id }) =&gt; ctx.push(id),
+  onChange: (e) =&gt; changes.push(e.model.tiles[0].value),
+});
+const fig = el.querySelector('.lat-kpi__tile');
+fig.dispatchEvent(new TestEvent('click', {}));
+fig.dispatchEvent(new TestEvent('dblclick', {}));
+fig.dispatchEvent(new TestEvent('contextmenu', {}));
+return (`p1-jobs ${kpi.value('p1')} | click ${clicks.join(',')} | dbl ${dbl.join(',')} | ctx ${ctx.join(',')} | changes ${changes.length}`);
+</code></pre>
+      <p>
+        <code>fields: ['priority']</code> is what lets the tile's <code>filter</code> read
+        <code>priority</code> at all on a grid-bound panel — a field a tile does not itself declare is
+        otherwise not projected; the three pointer events each route to their matching config
+        callback, and <code>onChange</code> fires once, at construction.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">A host catalogue and an unmeasured tile: messages, nullText, executed</p>
+      <pre data-run="js" data-expect="compute, 2 items, schlimmster Status kritisch | disk-formatted n/a | disk-status null" data-covers="config:messages config:nullText"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createKPI } = await import('../packages/modules/kpi/index.js');
+
+const dom = createTestDom({});
+const el = dom.document.createElement('div');
+const HOSTS = [{ id: 1, cpu: 91, mem: 40 }];
+const kpi = createKPI(el, {
+  rows: HOSTS, rowKey: 'id',
+  tree: { expanded: true },
+  nullText: 'n/a',
+  messages: {
+    t: (key, params) =&gt; {
+      if (key === 'kpi.status.critical') return 'kritisch';
+      if (key === 'kpi.node.worst') return `schlimmster Status ${params.status}`;
+      return key;
+    },
+  },
+  tiles: [
+    { id: 'compute.cpu', label: 'cpu', aggregation: 'max', field: 'cpu', thresholds: { warn: 70, critical: 90, direction: 'lowerIsBetter' } },
+    // A tile whose field names no column any row carries: measures nothing.
+    { id: 'compute.disk', label: 'disk', aggregation: 'max', field: 'disk' },
+  ],
+});
+const compute = kpi.nodes()[0];
+const diskTile = kpi.tile('compute.disk');
+return (`${el.querySelectorAll('.lat-kpi__node')[0].getAttribute('aria-label')} | disk-formatted ${diskTile.formatted} | disk-status ${diskTile.status}`);
+</code></pre>
+      <p>
+        <code>messages</code> translates the node's accessible name (falling back to English for a key
+        the host catalogue omits); <code>nullText</code> is what the unmeasured <code>disk</code> tile
+        renders instead of a fabricated zero.
+      </p>
+    </div>
+
+    <h3 id="route-options-examples">Data Router route options, executed</h3>
+    <div class="example">
+      <p class="example__label">A per-route filter and transform, executed</p>
+      <pre data-run="js" data-expect="o2,o3 | label #o2:30" data-covers="config:filter config:transform"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createDataRouter } = await import('../packages/modules/data-router/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'amt', field: 'amt', type: 'number' }, { id: 'label', field: 'label' }],
+});
+const router = createDataRouter({ key: 'type', rowKey: 'id' });
+router.attach(grid, 'order', {
+  filter: (row) =&gt; row.amt &gt;= 20,
+  transform: (row) =&gt; ({ id: row.id, type: row.type, amt: row.amt, label: `#${row.id}:${row.amt}` }),
+});
+router.load([
+  { id: 'o1', type: 'order', amt: 10 },
+  { id: 'o2', type: 'order', amt: 30 },
+  { id: 'o3', type: 'order', amt: 20 },
+]);
+const ids = [];
+for (let i = 0; i &lt; grid.rows.count(); i++) ids.push(grid.rows.get(i).key);
+return (`${ids.sort().join(',')} | label ${grid.rows.value('o2', 'label')}`);
+</code></pre>
+      <p>
+        <code>filter</code> gives the grid only the rows at or above 20 — the route decides what the
+        grid ever sees, before any grid-level filter runs; <code>transform</code> derives the
+        <code>label</code> field the columns declare, reshaping each row on the way in.
+      </p>
+    </div>
+
     <h2 id="webcomponent-guide">Web component</h2>
     <p class="lead-in">
       <code>&lt;lattice-grid&gt;</code> is the grid as a custom element, shipped as a self-contained
@@ -8342,7 +9188,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.61.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.62.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

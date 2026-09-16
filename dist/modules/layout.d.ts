@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.61.0, layout module type declarations
+ * Lattice Grid 1.62.0, layout module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

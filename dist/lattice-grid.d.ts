@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.61.0, type declarations
+ * Lattice Grid 1.62.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -72,14 +72,17 @@ export type Align = 'start' | 'center' | 'end' | 'left' | 'right' | 'centre';
  */
 export type VAlign = 'top' | 'middle' | 'bottom';
 /**
- * When the grid's scroll viewport keeps its scrollbars visible
- * (BACKLOG-0000990).
+ * How the grid's scroll viewport draws its scrollbars (BACKLOG-0000990,
+ * BACKLOG-0001288).
  *
  * `auto` is the platform's native behaviour — overlay scrollbars fade away when
- * idle. `always` keeps the bar shown whether or not the pointer is over the
- * grid, so the affordance never disappears on a touchpad or an overlay OS.
+ * idle. `always` keeps that native bar shown whether or not the pointer is over
+ * the grid, so the affordance never disappears on a touchpad or an overlay OS.
+ * `custom` replaces it with a bar the grid draws itself: the same size, colour
+ * and hit area in every browser, sized by the `--lattice-scrollbar-*` tokens,
+ * for a target bigger than the platform's own thin overlay ribbon.
  */
-export type ScrollbarMode = 'auto' | 'always';
+export type ScrollbarMode = 'auto' | 'always' | 'custom';
 /**
  * A named preset, or a raw scale where 1 is `standard`. Row heights are
  * 23.8 / 28 / 42 / 56px for the four presets; a number scales 28px.
@@ -2079,13 +2082,21 @@ export interface GridConfig {
   tooltip?: TooltipConfig;
 
   /**
-   * Keep the scroll viewport's scrollbars visible (BACKLOG-0000990).
+   * How the scroll viewport's scrollbars are drawn (BACKLOG-0000990,
+   * BACKLOG-0001288).
    *
    * `'auto'` (the default) is the platform's native behaviour, where overlay
-   * scrollbars fade when idle. `'always'` keeps both axes shown whether or not
-   * the pointer is over the grid. The object form controls each axis on its
-   * own — `{ y: 'always' }` pins the vertical bar while the horizontal one
-   * stays native. Omitted, the grid is unchanged on upgrade.
+   * scrollbars fade when idle. `'always'` keeps that native bar shown whether
+   * or not the pointer is over the grid. `'custom'` makes the grid draw its
+   * own bar on each axis instead — always visible, the same in every browser,
+   * and sized by `--lattice-scrollbar-size` / `--lattice-scrollbar-thumb-min`
+   * rather than by the platform. Scrolling itself is unchanged in every mode.
+   *
+   * The object form controls each axis on its own — `{ y: 'always' }` pins the
+   * vertical bar while the horizontal one stays native. Note that `'custom'` on
+   * one axis hides the native bar on both, because no browser offers per-axis
+   * control of that; the grid warns once if the two axes disagree. Omitted, the
+   * grid is unchanged on upgrade.
    */
   scrollbars?: ScrollbarMode | { x?: ScrollbarMode; y?: ScrollbarMode };
 

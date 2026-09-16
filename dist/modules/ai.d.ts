@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.61.0, ai module type declarations
+ * Lattice Grid 1.62.0, ai module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -141,7 +141,16 @@ interface AINarrative {
 interface AIConfig {
   /** The host's model callback. Falls back to the grid's `ai.ask` when omitted. */
   ask?: AIAsk;
-  /** Opt into specific features: `'narrative'`, `'insights'`, `'query'`/`'ask'`. All on when omitted. */
+  /**
+   * Restricts which of the three DOM-mounting convenience methods are
+   * allowed to mount: `'narrative'`/`'insights'` for `insights()`,
+   * `'query'`/`'ask'` for `askBar()`, `'actor'` for `actorBar()`. All three
+   * are allowed when `enable` is omitted. This does NOT gate the
+   * programmatic API — `explain()`, `query()`, `propose()`, `facts()`,
+   * `riskSummary()` and the rest of the controller always run regardless of
+   * `enable` — because a host that wants no AI surface at all simply never
+   * calls these methods.
+   */
   enable?: string[];
   /**
    * Ask-your-data: apply a safe (read-only) query result without a confirm
