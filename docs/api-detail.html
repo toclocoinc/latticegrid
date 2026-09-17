@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.62.1</p>
+    <p class="rail__sub">Developer guide · v1.63.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.62.1</span>
+        <span class="chip">Version 1.63.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -811,6 +811,96 @@ createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so out
       <p>StrictMode is handled. React 18 deliberately mounts, unmounts and mounts again in
       development; the effect cleanup destroys the first grid, so the second starts clean and
       nothing leaks.</p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">React: every viewer, not only the grid (1.63)</p>
+      <pre><code><span class="kw">import</span> React <span class="kw">from</span> 'react';
+<span class="kw">import</span> ReactDOM <span class="kw">from</span> 'react-dom';
+<span class="kw">import</span> { createGrid } <span class="kw">from</span> '@toclocoinc/lattice-grid';
+<span class="kw">import</span> { createKPI } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/kpi';
+<span class="kw">import</span> { createChart } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/charts';
+<span class="kw">import</span> { createTabs } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/tabs';
+<span class="kw">import</span> { createDataRouter } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/data-router';
+<span class="kw">import</span> { createLatticeReact } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/react';
+
+<span class="cmt">// createLatticeReact builds whichever components the factories you pass support.</span>
+<span class="cmt">// The individual factories are there too, if you want only one:</span>
+<span class="cmt">// createLatticeGrid, createLatticeKPI, createLatticeChart, createLatticeKanban,</span>
+<span class="cmt">// createLatticeGantt, createLatticeLayout, createLatticeTabs,</span>
+<span class="cmt">// createLatticeGridContext, createLatticeRouter, createLatticeViewer.</span>
+<span class="kw">const</span> L = createLatticeReact({
+  React, ReactDOM, createGrid, createKPI, createChart, createTabs, createDataRouter,
+});
+
+<span class="kw">function</span> Dashboard({ rows, updates }) {
+  <span class="kw">const</span> router = L.useLatticeRouter(ROUTER_CONFIG);
+  <span class="kw">const</span> [tab, setTab] = React.useState('all');
+  <span class="kw">return</span> (
+    &lt;L.LatticeRouterProvider router={router}&gt;
+      &lt;L.LatticeGridProvider&gt;
+        &lt;L.LatticeTabs
+          active={tab}
+          onTabChanged={(e) =&gt; setTab(e.id)}
+          tabs={[
+            { id: 'all', label: 'All',
+              content: &lt;L.LatticeGrid name="all" route="all" {...CONFIG} rowUpdates={updates} /&gt; },
+            { id: 'big', label: 'Significant',
+              content: () =&gt; &lt;L.LatticeGrid name="big" route="significant" {...CONFIG} /&gt; },
+          ]}
+        /&gt;
+        &lt;L.LatticeKPI gridName="all" tiles={TILES} columns={5} /&gt;
+        &lt;L.LatticeChart gridName="all" type="bar" x="region" y="count" onClick={pick} /&gt;
+      &lt;/L.LatticeGridProvider&gt;
+    &lt;/L.LatticeRouterProvider&gt;
+  );
+}</code></pre>
+    </div>
+    <div class="why">
+      <p><strong>Every viewer is a component now.</strong> Before 1.63 the adapter wrapped
+      <code>createGrid</code> and nothing else, so a React application wrote its own
+      <code>useEffect</code> for the KPI panel, for each chart, for the board, for the Gantt — and
+      its own tab strip, because the tabs module builds its tabs' grids itself and a grid built that
+      way is not a component. <code>createLatticeKPI</code>, <code>createLatticeChart</code>,
+      <code>createLatticeKanban</code>, <code>createLatticeGantt</code>,
+      <code>createLatticeLayout</code> and <code>createLatticeTabs</code> each return one component;
+      <code>createLatticeViewer</code> is the generic behind them, for anything not yet named, and
+      <code>createViewerController</code> is the framework-free lifecycle underneath.</p>
+      <p><strong>A viewer finds its grid through context, not a ref.</strong> A KPI panel and a chart
+      are built <em>against</em> a grid instance, and that instance does not exist until after the
+      first render. Writing to a ref re-renders nobody, so a sibling never learns the grid arrived.
+      <code>createLatticeGridContext</code> returns
+      <code>{ LatticeGridProvider, useLatticeGrid }</code>: a grid publishes itself under its
+      <code>name</code>, a viewer takes it by <code>gridName</code>, and the viewer is built the
+      moment it appears. A page with one grid names nothing.</p>
+      <p><strong>A tab's content is yours.</strong> <code>createLatticeTabs</code> keeps the module's
+      tablist semantics, keyboard handling, lazy first mount and live badges, and renders each tab's
+      React <code>content</code> into the module's own panel element through a portal — so a tab's
+      grid is a real <code>&lt;LatticeGrid&gt;</code> with props, a ref and the surrounding context.
+      A tab with no <code>content</code> is left to the module, so both kinds mix on one strip.</p>
+      <p><strong>The router is owned by a hook.</strong> <code>createLatticeRouter</code> returns
+      <code>useLatticeRouter</code>, which creates the router in an effect and destroys it in that
+      effect's cleanup — never in a <code>useState</code> initialiser, which React calls more than
+      once by design and whose discarded copy is never destroyed. It returns <code>null</code> on
+      the first render and the router on the second. <code>&lt;LatticeGrid route="…"&gt;</code>
+      attaches to whichever router <code>LatticeRouterProvider</code> published, and detaches
+      <em>before</em> the grid is destroyed so the router never holds a dead grid.</p>
+      <p><strong>A live feed needs no ref.</strong> <code>rowUpdates</code> is a keyed diff handed to
+      <code>grid.rows.apply()</code> whenever the object's identity changes.
+      <code>predicates</code> maps <code>{ name: fn }</code> to
+      <code>grid.filters.where(name, fn)</code>, which composes with whatever filter the reader set
+      — unlike the <code>filters</code> prop, which replaces the whole tree.</p>
+      <p><strong>What is a live prop is declared, not guessed.</strong> The grid takes any changed
+      configuration key through one call; no other viewer does. So each viewer lists the props it
+      can take while running (<code>VIEWER_APPLY</code>) and everything else is mount-time
+      configuration. A mount-time prop that changes is neither ignored nor silently remounted: it is
+      named once, with the remedy — a <code>key</code> that changes when you want the rebuild, or
+      the ref. <code>VIEWER_EVENTS</code> and <code>viewerHandlerName</code> are the matching event
+      surface (<code>card:move</code> becomes <code>onCardMove</code>), and
+      <code>DEFAULT_GRID_NAME</code> is the name a grid publishes under when you choose none.</p>
+      <p><strong>React 18 and 19, client only.</strong> Nothing uses an API added in 19 or removed in
+      19. Every component owns a real DOM element, so there is no SSR and no React Server Component
+      support.</p>
     </div>
 
     <div class="example">
@@ -1279,7 +1369,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.62.1'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.63.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -1704,8 +1794,23 @@ format: {                                    <span class="cmt">// when the short
   negative: 'parentheses',                   <span class="cmt">// (£1,234.50)</span>
   negativeClass: 'is-loss',
   nullDisplay: ', ',
-}</code></pre>
+}
+
+format: { decimals: 0, signed: true }        <span class="cmt">// +5, 0, -5</span></code></pre>
     </div>
+    <p class="lead-in">
+      <code>signed</code> puts a leading <code>+</code> on a positive number, currency or percent
+      value. Zero gets no sign either way — it is neither positive nor negative — and a negative
+      value is entirely unaffected: it still renders however <code>negative</code> says
+      (<code>'minus'</code> by default). Off by default, so an existing column's negatives-only
+      look never changes underneath it.
+    </p>
+    <p class="lead-in">
+      A key in <code>format</code> that the resolved type does not read — a typo, or a key that
+      belongs to a different <code>format</code> shape, such as <code>signed</code> written on a
+      text column — is never silently dropped. It warns once, by column and key name, instead of
+      doing nothing.
+    </p>
 
     <h3>Lookups</h3>
     <p class="lead-in">
@@ -2256,6 +2361,19 @@ grid.rows.expandAll();
 grid.rows.collapse('EMEA');</code></pre>
     </div>
 
+    <p class="lead-in">
+      <strong>Expand all</strong> and <strong>Collapse all</strong> are on the menu too, once the
+      grid is grouped: the data area's own right-click menu and every column's header menu (the
+      3-dot button and a right-click on the heading alike) carry both, driving
+      <code>grid.rows.expandAll()</code>/<code>collapseAll()</code> — the same public API a host
+      calls directly (BACKLOG-0001305). They are hidden, not disabled, on an ungrouped grid: there
+      is nothing for either to act on. Both flow through the same <code>contextMenu</code>/
+      <code>columnMenu</code> customisation chain as every other built-in item, so a host filtering
+      or extending the menu sees them as ordinary items — matched, like every other built-in, by
+      their translated <code>name</code> (catalogue keys <code>menu.expandAll</code> and
+      <code>menu.collapseAll</code>, the same ones the generated group column's own header menu
+      already used — see <a href="#custom-menu">your own menu items</a>).
+    </p>
     <p class="lead-in">
       <code>groupPanel: true</code> adds a drag-and-drop strip above the column header — the
       row-group panel. A user drags a heading into it to group by that column; the active
@@ -3550,6 +3668,52 @@ createGrid(el, {
       with no server involved, including a time-window filter on its <code>TIMESTAMP</code> column.</p>
     </div>
 
+    <h3 id="duckdb-range-reads-guide">Whether a Parquet file streams or downloads whole</h3>
+    <p class="lead-in">
+      <code>duckdbAdapter</code> writes SQL and hands it to the connection you built; it never opens
+      the file itself, so it has no say in whether <code>read_parquet(...)</code> reads the whole
+      thing or only the bytes a query needs. That is decided by DuckDB's own configuration and by the
+      HTTP server the file is served from.
+    </p>
+    <div class="example">
+      <p class="example__label">Enable range reads before the first query</p>
+      <pre><code><span class="kw">const</span> db = <span class="kw">await</span> makeDuckDB();          <span class="cmt">// yours: @duckdb/duckdb-wasm</span>
+<span class="kw">const</span> conn = <span class="kw">await</span> db.connect();
+
+<span class="cmt">// Before the first read_parquet(...) call, on DuckDB-Wasm 1.32 and later:</span>
+<span class="kw">await</span> conn.query(<span class="str">'LOAD httpfs;'</span>);
+
+createGrid(el, {
+  columns,
+  source: createPushdownSource({
+    adapter: duckdbAdapter({
+      connection: conn,
+      from: <span class="str">"read_parquet('https://example.com/readings.parquet')"</span>,
+    }),
+  }),
+});</code></pre>
+    </div>
+    <div class="why">
+      <p>Measured against a 1.5&nbsp;MB Parquet file on GitHub Pages (BACKLOG-0001324): without
+      <code>LOAD httpfs;</code>, DuckDB-Wasm 1.32.0's default HTTP path issued zero Range requests
+      and read the whole file — <strong>100%</strong> — for every query, chip filters included. With
+      it loaded on the connection first, the same query issued 25 Range requests and read
+      <strong>30%</strong> of the file. DuckDB-Wasm 1.29.0 read 119% of the file on the same test
+      (its ranges overlapped), so treat the exact percentages as a version's behaviour, not a fixed
+      promise — re-measure against the DuckDB build you ship.</p>
+      <p>The file host has to cooperate too: it must answer <code>HEAD</code>, advertise
+      <code>Accept-Ranges: bytes</code>, and answer a range request with <code>206 Partial
+      Content</code> and a <code>Content-Range</code> header (GitHub Pages does all three). Cross-
+      origin, its CORS policy must also expose <code>Content-Range</code> and
+      <code>Content-Length</code>, or the browser cannot read them back. Any of that missing, and
+      DuckDB falls back to a full read with nothing said.</p>
+      <p>A file registered with <code>db.registerFileBuffer(...)</code> is always downloaded whole,
+      whatever version is loaded or however the host answers: a buffer has already been fetched in
+      full before DuckDB ever opens it, so there is nothing left to range-read. There is no
+      <code>force_download</code> option — it does not exist in DuckDB-Wasm; registering a buffer
+      is the way to force a whole download.</p>
+    </div>
+
     <h3 id="fulldataset">Whole-dataset statistics over a remote source</h3>
     <p class="lead-in">
       A windowed source reduces a total or statistic over the rows it has loaded, not the whole
@@ -3910,6 +4074,31 @@ detail.destroy();
       } }</code> works today, and so do <code>median</code>, <code>stddev</code>, <code>gini</code>,
       <code>iqr</code>, <code>entropy</code>, <code>trimmedMean</code> and the rest.
       <code>statistics</code> is for what <code>select</code> structurally cannot reach.</p>
+    <p id="statistics-coverage"><strong>Say whether the figure is approximate.</strong> Every
+      statistics row carries <code>n</code>, the rows the figure was computed over &mdash; but
+      <code>n</code> alone cannot tell you whether that was <em>all</em> of them. Over a windowed
+      parent it quietly is not: a stream with <code>maxRows: 200</code> that has had 2,000 rows
+      through it computes over the 200 it is holding, and the parent's
+      <code>rows.count()</code>, <code>rows.matchCount()</code> and <code>rows.totalCount()</code>
+      all report 200 as well, so nothing in those numbers says a thing has been left out. Ask the
+      parent grid instead: <code>parent.rows.coverage()</code> returns
+      <code>{ covered, total, windowed }</code>, and <strong><code>covered &lt; total</code>, or
+      <code>total === null</code>, means the figure is approximate</strong>. For that stream it
+      reads <code>{ covered: 200, total: 2000, windowed: true }</code> &mdash; the 1,800 rows that
+      have aged out are visible there and nowhere else. <code>total</code> is <code>null</code>,
+      never a guess, when the source genuinely cannot know: a stream still open that has evicted
+      nothing has no idea how many rows are coming. A memory parent reads
+      <code>{ covered: n, total: n, windowed: false }</code>, so the check costs nothing to leave
+      in and stays quiet when there is nothing to disclose.</p>
+    <pre data-run="js" data-expect="true" data-covers="method:rows"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: <span class="str">'id'</span>,
+  columns: [{ field: <span class="str">'id'</span> }, { field: <span class="str">'amount'</span>, type: <span class="str">'number'</span> }],
+  rows: [{ id: 1, amount: 10 }, { id: 2, amount: 20 }],
+});
+<span class="kw">const</span> { covered, total, windowed } = grid.rows.coverage();
+<span class="cmt">// A memory grid is exact: the figure covers everything there is.</span>
+<span class="kw">return</span> covered === total &amp;&amp; windowed === <span class="kw">false</span>;</code></pre>
     <div class="example">
       <p class="example__label">Which columns move together</p>
       <pre><code>source: {
@@ -9188,7 +9377,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.62.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.63.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.62.1, type declarations
+ * Lattice Grid 1.63.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -238,6 +238,12 @@ export interface NumberFormat {
   notation?: 'standard' | 'compact' | 'scientific';
   negative?: 'minus' | 'parentheses' | 'suffix';
   negativeClass?: string;
+  /**
+   * Show a leading `+` on a positive value (`+5`, `+£5.00`, `+12%`). A
+   * negative value keeps whatever `negative` says regardless of this flag,
+   * and zero shows no sign either way (BACKLOG-0001095). Off by default.
+   */
+  signed?: boolean;
   prefix?: string;
   suffix?: string;
   zeroDisplay?: string;
@@ -1225,7 +1231,12 @@ export interface Source {
   destroy?(): void;
 }
 
-export interface MemorySourceConfig { mode: 'memory'; columnarBelow?: number }
+export interface MemorySourceConfig {
+  mode: 'memory';
+  columnarBelow?: number;
+  /** The rows a memory source opens with; equivalent to top-level `rows`, which wins if both are given. */
+  rows?: unknown[];
+}
 
 /**
  * How rows are ingested into the column store.
@@ -1333,8 +1344,33 @@ export interface RemoteRequest {
   protocol: 1;
   range: { start: number; end: number };
   groupPath: string[];
+  /**
+   * The same ancestry as `groupPath`, but as the values the server returned
+   * rather than their display strings (BACKLOG-0001325). Always present, empty
+   * at the root, so a source can tell "no ancestors" from "a host that does not
+   * send this".
+   *
+   * `groupPath` is stringified because it is a stable *identity* for expansion
+   * state, and that is what it must stay: a numeric key `3` is `'3'` there and
+   * an absent key is `''`, indistinguishable from a group whose key really is
+   * the empty string. Useless for narrowing a query, then — which is what a
+   * grouping engine needs it for — so the typed values travel beside it.
+   */
+  groupValues: unknown[];
   groupBy: ColumnRef[];
   totals: ColumnRef[];
+  /**
+   * The named statistic each totalled column reduces with — `{ amount: 'sum' }`
+   * (BACKLOG-0001325). `totals` has always said *which* columns want a subtotal
+   * and never *what*, because the client reads the reduction off the column
+   * model and a server had no way to.
+   *
+   * Only string reductions appear: a column totalling with a host function has
+   * no name to send, and naming one that merely resembles it would put a
+   * plausible wrong number on every group row. `groupTotal` wins over `total`,
+   * the same precedence the client applies for the group scope.
+   */
+  totalFns: Record<string, string>;
   pivotBy: ColumnRef[];
   pivotMode: boolean;
   filters: FilterSet;
@@ -3197,7 +3233,22 @@ export interface PushdownCapabilities {
   range?: boolean;
   /** Whether it can report the count of matching rows. */
   total?: boolean;
-  /** Whether it can group and aggregate. */
+  /**
+   * Whether it can answer the grid's grouped view — group rows, their counts,
+   * their subtotals and their order — one level at a time, instead of returning
+   * the leaves for the grid to group in the browser (BACKLOG-0001325).
+   *
+   * All or nothing, unlike `filter`. A filter splits because the engine
+   * narrowing a superset and the grid narrowing what is left reach the same set;
+   * a grouping cannot, because group rows counted over the wrong set are wrong
+   * rows, not slow ones. So the push router refuses the whole grouped level —
+   * and says why in `PushdownPlan.groupReason` — whenever anything else in the
+   * query failed to push.
+   *
+   * An adapter declaring this must implement `executeGroupLevel`; one that
+   * declares it without the method is re-planned without grouping and warned
+   * about, rather than half-pushed.
+   */
   group?: boolean;
   /**
    * What the adapter can persist back — the write-back contract (§4.1). `false`
@@ -3215,6 +3266,43 @@ export interface PushdownAdapter {
   /** Run the part of the query the adapter declared it could handle. */
   execute(query: RemoteRequest, request?: RemoteRequest):
     Promise<{ rows: unknown[]; total?: number }>;
+  /**
+   * Answer one level of a grouped grid (BACKLOG-0001325). Present only when
+   * `capabilities.group` opts in.
+   *
+   * The level is `query.groupValues.length`: the root asks for the outermost
+   * grouping column's distinct values, expanding a group asks for the next
+   * column's values within it, and past the last grouping column the children
+   * are the leaves (`leaves: true`).
+   *
+   * A group row comes back in the shape the remote source already reads from a
+   * grouping server: the grouping column's own id carries the key, `leafCount`
+   * the group's row count, `totals` the subtotals keyed by column id. `total` is
+   * how many group rows the level holds. At the root, `matchCount` and `grand`
+   * carry the whole-set figures a grouped window cannot derive — the rows the
+   * filter matched, and the grand total over them.
+   *
+   * `aggregates` is the subtotal list the source routed to the engine; anything
+   * it could not route is named in `PushdownPlan.aggregates.client` and left
+   * absent from the group row rather than computed over the wrong set.
+   */
+  executeGroupLevel?(
+    query: RemoteRequest,
+    aggregates: Array<{ id: string; col: string; fn: string; weight?: string }>,
+    request?: RemoteRequest,
+  ): Promise<{
+    rows: unknown[];
+    total?: number;
+    leaves?: boolean;
+    matchCount?: number;
+    grand?: Record<string, unknown>;
+  }>;
+  /**
+   * The row count before any filter (BACKLOG-0001325) — the denominator of
+   * "1,204 of 100,000" under grouping, where the display count is group headers
+   * rather than rows. Optional; a source falls back to the display count.
+   */
+  unfilteredCount?(): Promise<number | null>;
   /**
    * Persist one mutation (§4.2). Present only when `capabilities.mutate` opts
    * in. `createPushdownSource` synthesises an `edit.commit` that calls this for
@@ -3252,8 +3340,28 @@ export interface PushdownPlan {
   };
   /** Whether the whole result had to be fetched rather than a window. */
   needsAll: boolean;
-  /** Which parts could not be pushed: `filter`, `sort`, `quick`, `where`. */
+  /**
+   * Which parts could not be pushed: `filter`, `sort`, `quick`, `where`,
+   * `group`.
+   */
   unpushed: string[];
+  /**
+   * Whether the engine answered the grid's grouped view for this request
+   * (BACKLOG-0001325). False for an ungrouped query and for a grouped one the
+   * engine was refused — `groupReason` says which.
+   */
+  grouped: boolean;
+  /**
+   * Which grouping level a pushed grouped request asked for: 0 at the root, 1
+   * inside a group, and so on. Zero when nothing was grouped.
+   */
+  groupLevel: number;
+  /**
+   * Why a grouped request was *not* pushed, in a sentence, or `''` when it was
+   * pushed or when nothing was grouped. Grouping is all or nothing, so this is
+   * the whole story rather than a residual.
+   */
+  groupReason: string;
   /**
    * Whether the whole result was fetched because `fullDataset` is on, rather
    * than only because residual work forced it. When true, totals and statistics
@@ -4900,6 +5008,20 @@ export interface ClipboardOptions {
 // Grid API (spec 18.3)
 // ---------------------------------------------------------------------------
 
+/**
+ * How much of the data a computed figure actually covers.
+ *
+ * `covered < total`, or `total === null`, means the figure is approximate.
+ */
+export interface StatCoverage {
+  /** Rows the figure was computed over. */
+  covered: number;
+  /** Rows the source knows about, or `null` when it cannot know — never a guess. */
+  total: number | null;
+  /** True when a window bounded the computation, so the figure covers part of the data. */
+  windowed: boolean;
+}
+
 export interface RowsApi {
   /** Replace the data. Sort, filters, grouping and column layout are kept. */
   load(rows: unknown[]): void;
@@ -4912,6 +5034,11 @@ export interface RowsApi {
   totalCount(): number;
   /** Data rows matching the filters, excluding group, footer and total rows. */
   matchCount(): number;
+  /**
+   * How much of the data a figure computed from this grid covers, so a
+   * statistic over a windowed source can say it is approximate.
+   */
+  coverage(): StatCoverage;
   data(): unknown[];
   forEach(fn: (row: Row, index: number) => void): void;
   /** Every row in the data, before any filter. Leaf rows, in physical order. */
@@ -6995,6 +7122,41 @@ export function duckdbAdapter(options: {
    * (BACKLOG-0001065). `null` when the adapter was built with `count: false`.
    */
   countSqlFor(query: RemoteRequest): { sql: string; params: unknown[] } | null;
+  /**
+   * The `GROUP BY` statement one level of a grouped grid becomes
+   * (BACKLOG-0001325), exposed like {@link sqlFor} so a test can read it without
+   * an engine. `keyCol` is the grouping column at the request's depth and
+   * `keyAlias` the name its value comes back under.
+   */
+  groupLevelSqlFor(
+    query: RemoteRequest,
+    aggregates?: Array<{ id: string; col: string; fn: string; weight?: string }>,
+  ): { sql: string; params: unknown[]; keyCol: string; keyAlias: string };
+  /**
+   * The statement that counts the *groups* at one level — a `count(*)` over the
+   * grouped sub-select, which is not the matching row count (BACKLOG-0001325).
+   * `null` when the adapter was built with `count: false`.
+   */
+  groupCountSqlFor(query: RemoteRequest): { sql: string; params: unknown[] } | null;
+  /**
+   * The row query for the leaves of a group: the page statement with the parent
+   * group path ANDed onto its `WHERE` (BACKLOG-0001325).
+   */
+  groupLeafSqlFor(query: RemoteRequest): { sql: string; params: unknown[] };
+  /**
+   * The count of leaves inside one group (BACKLOG-0001325). `null` when the
+   * adapter was built with `count: false`.
+   */
+  groupLeafCountSqlFor(query: RemoteRequest): { sql: string; params: unknown[] } | null;
+  /**
+   * The whole-matching-set summary that rides alongside a root-level grouped
+   * fetch: the matching row count and the grand total in one statement
+   * (BACKLOG-0001325).
+   */
+  groupSummarySqlFor(
+    query: RemoteRequest,
+    aggregates?: Array<{ id: string; col: string; fn: string; weight?: string }>,
+  ): { sql: string; params: unknown[] };
 };
 
 /**
@@ -7338,6 +7500,17 @@ export interface ChartAxis {
   grid?: boolean;
   /** Draw the tick labels. */
   labels?: boolean;
+  /**
+   * Pin the x axis's scale rather than taking it from the column's type
+   * (BACKLOG-0001344). The default, `'auto'`, is the rule stated in the charts
+   * section: a temporal column type (`date`, `datetime`, `timestamp`,
+   * `dateString`) draws a time axis, a numeric one draws a linear axis whatever
+   * its distinct count, and everything else draws bands. `'band'` is how a
+   * numeric code column — a quarter, a rating, a star count — asks for its
+   * bands back; `'linear'` and `'time'` put a column the grid types as text
+   * onto a continuous axis. Only the x axis reads it.
+   */
+  scale?: 'auto' | 'linear' | 'time' | 'band' | 'category';
   /** Show every nth category label, on a crowded category axis. */
   every?: number;
   /** Force the category labels' rotation rather than deciding it. */
@@ -7476,6 +7649,29 @@ export interface ChartLabels {
 }
 
 /**
+ * An optional geometry pack for a geomap, as one of the `modules/geo-*`
+ * packages exports (BACKLOG-0001321). Generated at build time from a named
+ * public source; `source`, `licence` and `attribution` record where the
+ * geometry came from and what its licence requires. A single-layer pack
+ * carries `topology` directly; a multi-layer pack (the UK) carries `layers`
+ * instead, keyed by layer name, each with its own `topology`.
+ */
+export interface GeoPack {
+  id: string;
+  title: string;
+  kind: string;
+  projection?: ChartSpec['projection'];
+  projectionOptions?: ChartSpec['projectionOptions'];
+  source: { name: string; url: string; version: string; retrieved: string };
+  licence: { name: string; url: string };
+  /** The attribution line the licence requires, verbatim, or `''` when it asks for none. */
+  attribution: string;
+  topology?: object;
+  layers?: Record<string, { name: string; topology: object }>;
+  defaultLayer?: string;
+}
+
+/**
  * What a chart draws and how.
  *
  * `grid` and `container` are required; everything else describes the chart.
@@ -7610,9 +7806,43 @@ export interface ChartSpec {
   buckets?: number;
   /** A diverging colour ramp, for heatmap and geomap. */
   diverging?: boolean;
-  /** Country outlines, for a geomap drawing countries rather than continents. */
+  /**
+   * Country outlines, for a geomap drawing countries rather than continents.
+   * Either GeoJSON, an object of code to SVG path data, or a geometry
+   * {@link GeoPack} imported from an optional `modules/geo-*` package
+   * (BACKLOG-0001321) — as the pack itself, or as `{ pack: id }` once its
+   * module has been imported and registered.
+   */
   shapes?: unknown;
   codeProperty?: string;
+  /**
+   * Which layer of a multi-layer geometry pack to draw — the UK pack, for
+   * instance, ships `regions`, `local-authorities` and `constituencies`
+   * together (BACKLOG-0001321). Ignored for a single-layer pack.
+   */
+  layer?: string;
+  /**
+   * The map projection a geomap draws through (BACKLOG-0001321): `'equalEarth'`
+   * (the default for a world), `'robinson'`, `'mercator'`, `'equirectangular'`,
+   * `'albers'`, `'transverseMercator'`, or a projection function of the
+   * caller's own `(lon: number, lat: number) => [number, number]`. Left unset,
+   * a geometry pack draws through the projection it declares.
+   */
+  projection?: 'equalEarth' | 'robinson' | 'mercator' | 'equirectangular' | 'albers'
+    | 'transverseMercator' | 'britishNationalGrid'
+    | ((lon: number, lat: number) => [number, number]);
+  /**
+   * Parameters for the projections that take them: `parallels` and `centre`
+   * for `albers`, `centre` for `transverseMercator` (BACKLOG-0001321).
+   */
+  projectionOptions?: { parallels?: [number, number]; centre?: [number, number] };
+  /**
+   * A lon/lat reference grid under a geomap's regions, off by default
+   * (BACKLOG-0001321 part 2). Only drawn over a geometry pack's fitted
+   * projection — the schematic continents have no fitted projection to draw
+   * one against. `step` is the spacing between lines in degrees (default 30).
+   */
+  graticule?: boolean | { step?: number };
   /** One chart per distinct value of this column. */
   multiples?: string;
   /** Draw to canvas past this many points. */

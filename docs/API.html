@@ -360,7 +360,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.62.1</p>
+    <p class="rail__sub">API reference · v1.63.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -443,7 +443,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.62.1</span>
+      <span class="chip">Version 1.63.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -518,7 +518,7 @@
       <table>
         <thead><tr><th>Entry point</th><th>Factory</th><th>Needs</th></tr></thead>
         <tbody>
-          <tr><td class="name">modules/react</td><td class="sig">createLatticeGrid({ React, createGrid })</td><td class="desc">Returns a component. Forwards a ref exposing <code>.grid</code>.</td></tr>
+          <tr><td class="name">modules/react</td><td class="sig">createLatticeGrid({ React, createGrid })</td><td class="desc">Returns a component. Forwards a ref exposing <code>.grid</code>. Since 1.63 the same entry point also builds a component for <a href="#react-v2">every other viewer</a> and the data router.</td></tr>
           <tr><td class="name">modules/vue</td><td class="sig">createLatticeGrid({ vue, createGrid })</td><td class="desc">Returns a Vue 3 component definition.</td></tr>
           <tr><td class="name">modules/svelte</td><td class="sig">createLatticeAction({ createGrid })</td><td class="desc">Returns a <code>use:</code> action.</td></tr>
         </tbody>
@@ -539,6 +539,171 @@
         </tbody>
       </table>
     </div>
+
+    <h3 id="react-v2">React: every viewer, not only the grid</h3>
+    <p>
+      Until 1.63 the React adapter wrapped <code>createGrid</code> and nothing else. Every other
+      shipped viewer &mdash; the KPI panel, a chart, the board, the Gantt, the layout, the tab
+      strip &mdash; and the data router had no React surface, so a React application wrote its own
+      <code>useEffect</code> per viewer. It does not have to any more: there is one component per
+      viewer, and each keeps the contract the grid component already kept.
+    </p>
+    <pre><code><span class="kw">import</span> React <span class="kw">from</span> 'react';
+<span class="kw">import</span> ReactDOM <span class="kw">from</span> 'react-dom';
+<span class="kw">import</span> { createGrid } <span class="kw">from</span> '@toclocoinc/lattice-grid';
+<span class="kw">import</span> { createKPI } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/kpi';
+<span class="kw">import</span> { createChart } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/charts';
+<span class="kw">import</span> { createDataRouter } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/data-router';
+<span class="kw">import</span> { createLatticeReact } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/react';
+
+<span class="cmt">// Built once, at module scope. Building components inside a component hands React a</span>
+<span class="cmt">// new type on every render, and a new type is a different element: the subtree would</span>
+<span class="cmt">// unmount and remount, destroying and rebuilding the grid on every keystroke.</span>
+<span class="kw">const</span> L = createLatticeReact({
+  React, ReactDOM, createGrid, createKPI, createChart, createDataRouter,
+});
+
+<span class="kw">function</span> Dashboard({ rows }) {
+  <span class="kw">const</span> router = L.useLatticeRouter(ROUTER_CONFIG);
+  <span class="kw">return</span> (
+    &lt;L.LatticeRouterProvider router={router}&gt;
+      &lt;L.LatticeGridProvider&gt;
+        &lt;L.LatticeGrid name="quakes" route="all" {...GRID_CONFIG} rows={rows} /&gt;
+        &lt;L.LatticeKPI gridName="quakes" tiles={TILES} columns={5} /&gt;
+        &lt;L.LatticeChart gridName="quakes" type="bar" x="region" y="count" /&gt;
+      &lt;/L.LatticeGridProvider&gt;
+    &lt;/L.LatticeRouterProvider&gt;
+  );
+}</code></pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Export</th><th>Signature</th><th>What it is</th></tr></thead>
+        <tbody>
+          <tr><td class="name">createLatticeGrid</td><td class="sig">({ React, createGrid })</td><td class="desc">The grid component. Extended in 1.63 with <code>rowUpdates</code>, <code>predicates</code>, <code>onGridReady</code>, <code>onGridDestroy</code>, <code>name</code> and <code>route</code>.</td></tr>
+          <tr><td class="name">createLatticeKPI</td><td class="sig">({ React, createKPI })</td><td class="desc">The KPI panel. Grid-bound through context by default; pass <code>rows</code> instead for a panel with no grid.</td></tr>
+          <tr><td class="name">createLatticeChart</td><td class="sig">({ React, createChart })</td><td class="desc">A chart. Requires a grid, so nothing is mounted until one exists; a changed spec key goes to <code>chart.update()</code> and the chart redraws rather than being rebuilt.</td></tr>
+          <tr><td class="name">createLatticeKanban</td><td class="sig">({ React, createKanban })</td><td class="desc">The board. <code>rows</code>, <code>quickFilter</code>, <code>sprint</code>, <code>epic</code>, <code>loading</code> and <code>error</code> are live props.</td></tr>
+          <tr><td class="name">createLatticeGantt</td><td class="sig">({ React, createGantt })</td><td class="desc">The Gantt. <code>tasks</code> and <code>dependencies</code> are live props.</td></tr>
+          <tr><td class="name">createLatticeLayout</td><td class="sig">({ React, createLayout })</td><td class="desc">The layout. Windows are driven through the ref; its events arrive as <code>onLayoutChanged</code>, <code>onWindowMoved</code> and the rest.</td></tr>
+          <tr><td class="name">createLatticeTabs</td><td class="sig">({ React, ReactDOM, createTabs, createGrid? })</td><td class="desc">The tab strip, with <strong>React-rendered tab content</strong>: a tab's <code>content</code> is a React element (or a function returning one) rendered into the strip's own panel through <code>createPortal</code>, so a tab's grid is a real <code>&lt;LatticeGrid&gt;</code> with props, a ref and the surrounding context. A tab with no <code>content</code> is left to the module, so the two kinds mix on one strip.</td></tr>
+          <tr><td class="name">createLatticeGridContext</td><td class="sig">({ React })</td><td class="desc">Returns <code>{ LatticeGridProvider, useLatticeGrid }</code>. A grid-bound viewer needs the grid <em>instance</em>, which appears after the first render; a ref cannot help because writing to a ref re-renders nobody. Several grids may publish under one provider &mdash; <code>name</code> on the grid, <code>gridName</code> on the viewer.</td></tr>
+          <tr><td class="name">createLatticeRouter</td><td class="sig">({ React, createDataRouter })</td><td class="desc">Returns <code>{ useLatticeRouter, LatticeRouterProvider, useRouter }</code>. The hook creates the router in an effect and destroys it in that effect's cleanup, so it returns <code>null</code> on the first render; the config is read once, because rebuilding would drop every attached grid and every row held.</td></tr>
+          <tr><td class="name">createLatticeViewer</td><td class="sig">({ React, viewer, mount, … })</td><td class="desc">The generic behind all of the above, and the escape hatch for a viewer with no named factory yet.</td></tr>
+          <tr><td class="name">createLatticeReact</td><td class="sig">({ React, ReactDOM?, …factories })</td><td class="desc">Every binding from one call: pass the factories the application uses and it builds those components, leaving the rest undefined. Nothing is imported, so an application that never uses the board never loads the board.</td></tr>
+          <tr><td class="name">createViewerController</td><td class="sig">({ viewer, mount, element, props })</td><td class="desc">The framework-free viewer lifecycle &mdash; mount once, push changed props into the live instance, destroy &mdash; shared by every adapter.</td></tr>
+          <tr><td class="name">VIEWER_EVENTS</td><td class="type">Record&lt;string, readonly string[]&gt;</td><td class="desc">Every event each non-grid viewer emits, keyed by viewer name.</td></tr>
+          <tr><td class="name">VIEWER_APPLY</td><td class="type">Record&lt;string, Record&lt;string, Function&gt;&gt;</td><td class="desc">Which props each viewer can take <em>live</em>, and the instance call each becomes. Anything not listed is mount-time configuration.</td></tr>
+          <tr><td class="name">viewerHandlerName</td><td class="type">(event) =&gt; string</td><td class="desc">A viewer event as its React prop: <code>card:move</code> becomes <code>onCardMove</code>.</td></tr>
+          <tr><td class="name">DEFAULT_GRID_NAME</td><td class="type">string</td><td class="desc">The name a grid publishes itself under when you do not choose one: <code>default</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <pre data-run="js" data-expect="8 components, onCardMove, default, rows 2, events 5/6" data-covers="export:createLatticeReact export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeGantt export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/react/index.js');
+
+<span class="cmt">// A stand-in for React and react-dom. The adapter never imports either, so a</span>
+<span class="cmt">// factory only needs the handful of names it destructures — which is exactly</span>
+<span class="cmt">// why this example runs in Node with no framework installed.</span>
+<span class="kw">const</span> React = { createElement: () =&gt; ({}), createContext: () =&gt; ({}), forwardRef: (f) =&gt; f };
+<span class="kw">const</span> ReactDOM = { createPortal: () =&gt; ({}) };
+<span class="kw">const</span> stub = () =&gt; ({ on: () =&gt; () =&gt; {}, destroy() {} });
+
+<span class="cmt">// One call builds whichever components the factories you pass support.</span>
+<span class="kw">const</span> L = A.createLatticeReact({
+  React, ReactDOM, createGrid: stub, createKPI: stub, createChart: stub, createDataRouter: stub,
+});
+
+<span class="cmt">// …or one factory at a time.</span>
+<span class="kw">const</span> components = [
+  A.createLatticeGrid({ React, createGrid: stub }),
+  A.createLatticeKPI({ React, createKPI: stub }),
+  A.createLatticeChart({ React, createChart: stub }),
+  A.createLatticeKanban({ React, createKanban: stub }),
+  A.createLatticeGantt({ React, createGantt: stub }),
+  A.createLatticeLayout({ React, createLayout: stub }),
+  A.createLatticeTabs({ React, ReactDOM, createTabs: stub }),
+  A.createLatticeViewer({ React, viewer: 'kpi', mount: stub }),
+].filter((c) =&gt; typeof c === 'function');
+
+<span class="cmt">// The provider/hook pair and the router hook are built the same way.</span>
+<span class="kw">const</span> { LatticeGridProvider, useLatticeGrid } = A.createLatticeGridContext({ React });
+<span class="kw">const</span> { useLatticeRouter } = A.createLatticeRouter({ React, createDataRouter: stub });
+
+<span class="cmt">// And the lifecycle underneath, driven with no framework at all: mount once,</span>
+<span class="cmt">// push a changed live prop into the instance that already exists, destroy.</span>
+<span class="kw">const</span> seen = [];
+<span class="kw">const</span> controller = A.createViewerController({
+  viewer: 'kpi',
+  element: {},
+  props: { rows: [{ id: 1 }] },
+  mount: () =&gt; ({ setRows: (r) =&gt; seen.push(r.length), on: () =&gt; () =&gt; {}, destroy() {} }),
+});
+controller.update({ rows: [{ id: 1 }, { id: 2 }] });
+controller.destroy();
+
+<span class="kw">return</span> `${components.length} components, ${A.viewerHandlerName('card:move')}, `
+  + `${A.DEFAULT_GRID_NAME}, rows ${seen.join('/')}, `
+  + `events ${A.VIEWER_EVENTS.kpi.length}/${Object.keys(A.VIEWER_APPLY).length}`;</code></pre>
+
+    <p class="section-note">
+      <strong>Live props versus mount-time props.</strong> The grid takes any changed configuration
+      key through one call (<code>grid.setAll</code>); no other viewer does. So each viewer declares
+      which props it can take while it is running &mdash; the table above, and
+      <code>VIEWER_APPLY</code> at runtime &mdash; and everything else is mount-time configuration.
+      A mount-time prop that changes is <em>not</em> silently ignored and <em>not</em> silently
+      remounted (that would throw away scroll position, selection and expansion): it is named once
+      in a warning that tells you to give the component a <code>key</code> that changes when the
+      rebuild is wanted, or to drive the instance through the ref.
+    </p>
+    <p class="section-note">
+      <strong>Two props rebuild a viewer rather than update it:</strong> the grid it is bound to,
+      and anything it cannot exist without. A chart holding a destroyed grid is not stale, it is
+      invalid, so a new grid tears the old chart down and builds a new one against it &mdash; in
+      that order, never the reverse.
+    </p>
+    <p class="section-note">
+      <strong>A live feed: <code>rowUpdates</code> and <code>predicates</code>.</strong>
+      <code>rowUpdates</code> is a keyed diff handed straight to <code>grid.rows.apply()</code>,
+      applied when the object's identity changes &mdash; a feed produces a new change object per
+      batch, so identity is the right trigger and re-applying the same object would re-land rows the
+      grid already has. <code>predicates</code> is <code>{ name: fn }</code> mapped to
+      <code>grid.filters.where(name, fn)</code>, diffed by name, with a name that has gone removed.
+      Those <em>compose</em> with whatever filter the reader set in the tool panel; the
+      <code>filters</code> prop cannot, because it maps to <code>filters.set</code> and replaces the
+      whole condition tree.
+    </p>
+    <p class="section-note">
+      <strong>StrictMode creates one instance.</strong> React 18's StrictMode deliberately mounts,
+      unmounts and mounts again in development. Every component here builds its instance in an
+      effect with an empty dependency list and destroys it in that effect's cleanup, so the first is
+      destroyed before the second is built and exactly one survives. There is no module-level
+      "already mounted" flag, because that would defeat a genuine remount.
+    </p>
+    <p class="section-note">
+      <strong>Props are diffed with <code>Object.is</code>, and that is a promise about identity.</strong>
+      An inline <code>columns={[{ field: 'a' }]}</code> is a new array on every render, so it counts
+      as changed every render and reconfigures the grid every render. Hoist it to module scope or
+      wrap it in <code>useMemo</code>. This is not a defect to work around: a deep compare of a
+      million-row array on every render would cost more than the reload it prevents.
+    </p>
+    <p class="section-note">
+      <strong>Sharing one <code>rows</code> array between grids is safe.</strong> Since 1.63 the
+      grid copies the array it is handed on ingest, so two grids given the same
+      <code>rows={EMPTY}</code> default no longer contaminate each other. The row <em>objects</em>
+      are still shared, as they always were &mdash; mutate one and both grids see it.
+    </p>
+    <p class="section-note">
+      <strong>React 18 and 19, no SSR.</strong> Nothing in the adapter uses an API added in 19 or
+      removed in 19 (<code>forwardRef</code> is still supported there). Every component owns a real
+      DOM element, so there is no server rendering and no React Server Component support: render
+      them on the client.
+    </p>
+    <p class="section-note">
+      <strong>One build warning is gone.</strong> The version resolver carried a Node-only fallback
+      whose <code>import('node:' + 'module')</code> Vite could not analyse statically, so every Vite
+      build of every application printed "The above dynamic import cannot be analyzed by Vite" about
+      a line that could never run. The build now deletes that branch from every emitted artefact.
+    </p>
 
     <div class="note">
       <p><strong>Published as <code>@toclocoinc/lattice-grid</code></strong>: <code>npm install
@@ -845,7 +1010,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
         <tbody>
           <tr><td class="name">columns</td><td class="type">(Column | ColumnGroup)[]</td><td class="dflt">, </td><td class="desc">Column definitions. Groups may nest.</td></tr>
           <tr><td class="name">columnGroups</td><td class="type">ColumnGroup[]</td><td class="dflt">, </td><td class="desc">Header grouping declared separately from the columns.</td></tr>
-          <tr><td class="name">rows</td><td class="type">unknown[]</td><td class="dflt">, </td><td class="desc">Row objects. Held by reference; not copied.</td></tr>
+          <tr><td class="name">rows</td><td class="type">unknown[]</td><td class="dflt">, </td><td class="desc">Row objects. <strong>The array is copied on ingest; the row objects in it are not.</strong> The grid keeps a shallow copy of the array you pass here (and of <code>source.rows</code>, and of the array given to <code>rows.load()</code>), so your array is never written to: after <code>rows.apply</code>, a sort, a group or an edit it holds exactly what it held when you passed it, and two grids built from one array are independent. The <em>objects</em> inside it are still yours &mdash; <code>row.data</code> is the object you supplied and <code>rows.data()</code> returns those same objects, so identity round-trips (see <code>ingest.retainSource</code>). <code>rows.apply({ update })</code> does not write through either: it merges into a <em>new</em> object, which replaces that slot in the grid's copy only, so <code>row.data</code> for an updated row is a new object and the one you passed is untouched. An <strong>in-place cell edit does</strong>: <code>edit.setCells</code>, or typing in a cell, writes the new value into the shared object, which is the other face of <code>row === sourceObject</code>. <code>ingest.retainSource: false</code> and <code>ingest.dropSourceRows</code> opt out of sharing altogether.</td></tr>
           <tr><td class="name">rowKey</td><td class="type">string | (row) =&gt; string</td><td class="dflt">, </td><td class="desc">Stable row identity. Without it the grid assigns a key per row object and warns: enough for sorting, filtering, selection and copying within a session, but change tracking, streaming dedupe, selection persistence and remote reload all switch off, because new objects are new rows. If it is configured but resolves to nothing for some rows — a field absent, or present on some rows only — those rows collapse onto one key and the grid warns once, naming the field(s) and how many rows were affected, on <code>rows.load()</code> as well as at construction.</td></tr>
           <tr><td class="name">source</td><td class="type">SourceConfig</td><td class="dflt">memory</td><td class="desc">Where rows come from: <code>memory</code>, <code>paged</code>, <code>remote</code> or <code>stream</code>. See <a href="#sources">Sources</a>.</td></tr>
           <tr><td class="name">ingest</td><td class="type">IngestConfig</td><td class="dflt">, </td><td class="desc"><code>{ retainSource, dropSourceRows }</code>. How rows enter the column store. <code>retainSource</code> defaults to <code>true</code>: the caller's row objects are held by reference so <code>rows.data()</code> returns them unchanged and <code>row === sourceObject</code> holds. Set it <code>false</code> to stop the store retaining them and reconstruct a row on demand — but the source layer and grid config still hold the array, so the resident footprint does not actually fall. <code>dropSourceRows: true</code> closes that gap: it releases the objects from the source layer too, so the packed columns become the only copy and the footprint drops by roughly an order of magnitude at scale. Either way <code>rows.data()</code> then returns freshly reconstructed objects, so identity checks and <code>row.sourceObject</code> no longer hold and equality becomes value-based. Cell values are unchanged.</td></tr>
@@ -1023,7 +1188,16 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
     <code>type: 'date'</code> column groups into day buckets. Date filters are unaffected either way
     — they compare on the day and return the same rows. Declare <code>type</code> and none of this applies:
     <code>'date'</code> truncates on purpose, <code>'datetime'</code> keeps a wall clock, and
-    <code>'timestamp'</code> keeps the instant to the millisecond. A column of ISO timestamps that
+    <code>'timestamp'</code> keeps the instant to the millisecond.
+    <strong><code>rows.value()</code> returns that stored form &mdash; and the same one on every
+    path:</strong> the rows you passed at construction, <code>rows.load()</code>,
+    <code>rows.apply({ add })</code> and <code>rows.apply({ update })</code>, <code>edit.setCells</code>
+    and a typed cell edit, a stream chunk and a stream re-send, a store-backed or columnar store,
+    off-thread ingest, a bound KPI tile and a chart binding all answer the same shape for the same
+    instant, so a host can do arithmetic on it without testing what it got.
+    <code>rows.text()</code> is the formatted form, and <code>row.data</code> is always the raw
+    value you supplied, unconverted. For millisecond arithmetic use <code>type: 'timestamp'</code>,
+    which answers the epoch number on every one of those paths. A column of ISO timestamps that
     must stay a calendar day opts out with an explicit <code>type: 'date'</code> — no warning is
     logged for that column, because the value is preserved (declared, not narrowed) and there is
     nothing to disclose.</p>
@@ -1218,7 +1392,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.62.1'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.63.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -1257,6 +1431,7 @@ grid.overlay.hide();</code></pre>
           <tr><td class="sig">get(index)</td><td class="type">Row</td><td class="desc">By display index, after filtering, grouping and flattening.</td></tr>
           <tr><td class="sig">byKey(key)</td><td class="type">Row</td><td class="desc">By row key, whether or not it is on screen.</td></tr>
           <tr><td class="sig">matchCount()</td><td class="type">number</td><td class="desc">Data rows passing the filters, across every page. Excludes group headers, footers and totals, the numerator of "1,204 of 100,000".</td></tr>
+          <tr><td class="sig">coverage()</td><td class="type">{ covered, total, windowed }</td><td class="desc">How much of the data a figure computed from this grid covers &mdash; the question the counters above cannot answer, because on a windowed source they all report the rows it is <em>holding</em> and so agree with each other while the data that has been through is larger. <code>covered</code> is the rows a figure would be computed over; <code>total</code> is the rows the source knows about, or <strong><code>null</code> when it cannot know</strong> (a stream still open that has evicted nothing has no idea how many rows are coming, and says so rather than repeating <code>covered</code>); <code>windowed</code> is true when a window bounded the computation. <strong><code>covered &lt; total</code>, or <code>total === null</code>, means the figure is approximate</strong> &mdash; that is the test to write. False <code>windowed</code> means the figure is over all of it: a memory source, or a stream that finished having dropped nothing. Read on demand and cheap (one <code>matchCount()</code> and one <code>progress()</code> on the source, nothing cached), so call it beside every figure you publish rather than once at setup &mdash; on a live stream the answer moves.</td></tr>
           <tr><td class="sig">count()</td><td class="type">number</td><td class="desc">Display rows: group rows included, collapsed children excluded.</td></tr>
           <tr><td class="sig">totalCount()</td><td class="type">number</td><td class="desc">Source rows before filtering. The denominator of "1,204 of 100,000".</td></tr>
           <tr><td class="sig">value(key, colId)</td><td class="type">unknown</td><td class="desc">The stored value.</td></tr>
@@ -2495,6 +2670,7 @@ createGrid(el, {
 
     <h3 id="stationarity">Stationarity (ADF)</h3>
     <p>Before you compare two series or detrend one, it helps to know whether it is <strong>stationary</strong> — reverting to a level or trend — or wandering with a unit root. <code>grid.statistics.adf</code> runs the Augmented Dickey-Fuller test (BACKLOG-0000873) and returns a scalar readout, not a per-row column: the statistic, the augmenting lag chosen by AIC, MacKinnon's critical values, an interpolated p-value (stamped approximate), and a plain-language verdict at the 5% level. The constant+trend regression and the AIC lag choice match statsmodels' <code>adfuller</code>, against which the statistic and lag are verified.</p>
+    <p><strong>The lag search and what it costs.</strong> <code>maxlag</code> caps the number of augmenting lags the AIC search considers; left out, it is the Schwert rule <code>⌈12·(n/100)^0.25⌉</code> — 34 candidates on 7,000 rows — itself capped so the fixed sample keeps degrees of freedom. The candidates are nested, so the search builds one design matrix at the cap and reads every smaller candidate off it — one pass to accumulate the normal equations, then a small solve and a single residual pass per candidate, rather than a fresh fit each time (BACKLOG-0001347). The default search over 7,000 rows is a matter of milliseconds. Setting <code>maxlag</code> narrows the search, never the arithmetic: the lag chosen, the statistic and the p-value are whatever the data says, and a cap that still contains the AIC-preferred lag returns exactly the same readout.</p>
     <pre data-run="js" data-expect="non-stationary|0" data-covers="method:statistics"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="cmt">// A random walk (a unit root): it wanders rather than reverting.</span>
 <span class="kw">const</span> walk = [0.138, -0.725, -1.26, -0.536, -0.267, 0.167, -0.765, -0.146, -0.311, -0.586,
@@ -2921,6 +3097,18 @@ grid.licence.state();      <span class="cmt">// 'licensed' | 'localhost' | 'tria
 
     <h2 id="sources">Sources</h2>
     <p class="section-note">Where rows come from. <code>memory</code> is the default and needs no configuration.</p>
+    <p><strong>A memory grid's rows may be declared either way.</strong> The top-level
+    <code>rows</code> option is the usual one and what every example here uses; the same array
+    inside the block works identically &mdash; <code>createGrid(el, { columns, source: { mode:
+    'memory', rows } })</code> opens with exactly those rows, with the same
+    <code>count()</code>, <code>value()</code>, <code>text()</code>, type inference and bound KPI
+    and chart readings as <code>createGrid(el, { columns, rows })</code>, and
+    <code>rows.load()</code> and <code>rows.apply()</code> behave the same afterwards. Either
+    array is copied on ingest, so the one you passed is never written to (see
+    <code>rows</code> under <a href="#config">Configuration</a>). <strong>Declare them once:</strong>
+    a grid given <em>both</em> uses the top-level <code>rows</code>, ignores the block's, and warns
+    once naming both places. Only <code>memory</code> reads a <code>rows</code> key from the block
+    &mdash; the fetching modes take theirs from the server.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Mode</th><th>Needs</th><th>Description</th></tr></thead>
@@ -3498,7 +3686,7 @@ createGrid(host, { source, columns: [...] });</code></pre>
         <tbody>
           <tr><td class="name">odataAdapter</td><td class="desc">Any OData v4 endpoint</td><td class="desc">Writes <code>$filter</code>, <code>$orderby</code>, <code>$top</code>, <code>$skip</code> and <code>$count</code>. System options keep their <code>$</code> unencoded, which several servers require.</td></tr>
           <tr><td class="name">restAdapter</td><td class="desc">The API you already have</td><td class="desc">Parameter names are yours to choose. Paging and sorting are assumed; filtering is assumed absent until you declare <code>operators</code>, because an adapter that claims to filter when the endpoint ignores it returns the wrong rows silently.</td></tr>
-          <tr><td class="name">duckdbAdapter</td><td class="desc">A DuckDB connection</td><td class="desc">Writes SQL and takes the whole query: filter tree, multi-column sort and paging. <code>from</code> is any FROM expression, so <code>read_parquet('s3://bucket/*.parquet')</code> is as valid as a table name. The engine is yours to create and install; this imports nothing, so the bundle is unchanged whether you use it or not.</td></tr>
+          <tr><td class="name">duckdbAdapter</td><td class="desc">A DuckDB connection</td><td class="desc">Writes SQL and takes the whole query: filter tree, multi-column sort, paging and <a href="#duckdb-grouping">grouping</a> — a grouped grid is answered by <code>GROUP BY</code>, one level at a time, with the group counts, the subtotals, the matching count and the grand total all computed in the engine. <code>from</code> is any FROM expression, so <code>read_parquet('s3://bucket/*.parquet')</code> is as valid as a table name. The engine is yours to create and install; this imports nothing, so the bundle is unchanged whether you use it or not.</td></tr>
           <tr><td class="name">dfqlAdapter</td><td class="desc">DemandFlow entities</td><td class="desc">Speaks <code>POST /v1/query</code>. Sends the entity, the key attribute and the prefix to match, a field projection and one field-and-term filter, matched as a case-insensitive substring. It cannot sort or page, so the grid does both, and every request carries a <code>countOnly</code> line because <code>limit</code> caps rows <em>scanned</em> rather than matched: a filtered query returns an arbitrary subset, and the count is the only thing that reveals it.</td></tr>
           <tr><td class="name">graphqlAdapter</td><td class="desc">Any GraphQL endpoint</td><td class="desc">Configured, not zero-config: GraphQL has no fixed query semantics, so you pass <code>buildQuery</code> to turn the plan into a <code>{ query, variables }</code> operation and <code>parseResponse</code> to read <code>data</code> back into rows and total. Defaults cover an offset/limit list with <code>totalCount</code> and a Relay cursor connection (<code>first</code>/<code>after</code> with <code>pageInfo</code>). The default pushes only the window and the total; declare <code>operators</code> or <code>capabilities</code> for filter/sort only alongside a <code>buildQuery</code> that emits them. A cursor connection is forward-only, so a deep window costs round trips proportional to its offset.</td></tr>
         </tbody>
@@ -3620,7 +3808,9 @@ createGrid(host, { source, columns: [...] });</code></pre>
       before <code>LIMIT</code>, so one round trip returns both the window and the size of the set it
       was cut from. Against a local table it is free. Against a remote Parquet it is the most
       expensive thing the adapter does — a window function has to see every matching row of the
-      <em>projected</em> columns, so row-group pruning and range reads cannot help and the whole file
+      <em>projected</em> columns, so whatever row-group pruning or range reads DuckDB and the file
+      host might otherwise manage between them (see <a href="#duckdb-range-reads">whether a Parquet
+      file streams or downloads whole</a>) cannot help, and the whole file
       crosses the wire to produce one page. Measured in Chrome on <code>duckdb-eh.wasm</code> against
       a 10,000,000-row Parquet of 162,386,227&nbsp;bytes — <strong>162.4&nbsp;MB</strong> decimal,
       154.9&nbsp;MiB binary, and every transfer figure on this page is decimal MB so that it can be
@@ -3696,6 +3886,25 @@ createGrid(host, { source, columns: [...] });</code></pre>
       real row 900 means paging to it. Turn the count off for a grid whose users scroll; leave it on
       for one whose users jump.
     </p>
+    <p class="section-note" id="duckdb-range-reads">
+      <strong>Whether a Parquet file streams or downloads whole is DuckDB's and the file host's
+      doing, not the grid's.</strong> <code>duckdbAdapter</code> only writes SQL; it never opens a
+      file, so it has no say in whether <code>read_parquet(...)</code> reads the whole thing or only
+      the row groups a query needs. Measured against a 1.5&nbsp;MB Parquet on GitHub Pages
+      (BACKLOG-0001324): DuckDB-Wasm 1.32.0's default HTTP path issued <strong>0 Range requests and
+      read 100%</strong> of the file, for every query including a single-value chip filter. Running
+      <code>LOAD httpfs;</code> on the connection before the first <code>read_parquet(...)</code>
+      call changed that to <strong>25 Range requests and 30%</strong> of the file for the same query.
+      (DuckDB-Wasm 1.29.0 read 119% of the file on the same test — its ranges overlapped — so the
+      exact figures are a version's, not a promise.) A file registered with
+      <code>db.registerFileBuffer(...)</code> is always read whole, whatever version is loaded: a
+      buffer has already been downloaded in full before DuckDB ever sees it. And the file host has to
+      cooperate: it must answer <code>HEAD</code>, advertise <code>Accept-Ranges: bytes</code> and
+      answer a range request with <code>206 Partial Content</code> and a <code>Content-Range</code>
+      header — GitHub Pages does all three — and, cross-origin, its CORS policy must expose
+      <code>Content-Range</code> and <code>Content-Length</code> or the browser cannot read them back.
+      Any of that missing and DuckDB falls back to reading the file whole, silently.
+    </p>
     <p class="section-note">
       <strong>Typed binding for timestamp and date columns.</strong> A prepared statement binds a
       filter value with the value's own type, not the column's: the grid sends an instant as an
@@ -3730,6 +3939,94 @@ createGrid(host, { source, columns: [...] });</code></pre>
       and a string with <em>no</em> zone is interpreted in the engine's session
       <code>TimeZone</code> (UTC in DuckDB-Wasm unless the ICU extension is loaded and the setting
       changed). Against a <code>DATE</code> column an instant is truncated to its UTC day.
+    </p>
+
+    <h5 id="duckdb-grouping"><code>duckdbAdapter</code>: grouping runs in the engine, one level at a time</h5>
+    <p>
+      Grouping a hundred million Parquet rows used to mean fetching a hundred million Parquet rows:
+      the adapter declared no <code>group</code> capability, so the push router never sent it a
+      grouped request and the grid grouped whatever it held. <code>duckdbAdapter</code> now declares
+      <code>group: true</code> and answers the grouped view with <code>GROUP BY</code> — one
+      statement per grid level, paged like any other window.
+    </p>
+    <p class="section-note">
+      Nothing is configured. Group a grid over a DuckDB source and the grouping is pushed:
+    </p>
+    <pre><code><span class="kw">const</span> grid = createGrid(el, {
+  columns: [
+    { id: <span class="str">'region'</span> },
+    { id: <span class="str">'tier'</span> },
+    { id: <span class="str">'amount'</span>, type: <span class="str">'number'</span>, total: <span class="str">'sum'</span> },
+  ],
+  groupBy: [<span class="str">'region'</span>, <span class="str">'tier'</span>],
+  source: createPushdownSource({
+    adapter: duckdbAdapter({ connection, from: <span class="str">"read_parquet('s3://bucket/sales/*.parquet')"</span> }),
+  }),
+});</code></pre>
+    <p class="section-note">
+      The root level is one statement — <code>SELECT "region", count(*), sum("amount") … GROUP BY
+      "region" ORDER BY "region" ASC NULLS LAST LIMIT ? OFFSET ?</code> — so the group rows on screen
+      cost a grouped scan and no leaf crosses the wire. Expanding a group narrows the next level by
+      its parent's key; expanding the deepest one runs the ordinary row query with the same predicate
+      ANDed on, so the leaves arrive paged and sorted exactly as they would without grouping. Every
+      identifier goes through the same validation the row query uses and every value is bound, so the
+      grouped path is no more exposed than the read path.
+    </p>
+    <p class="section-note">
+      <strong>Subtotals come from the engine, and a statistic it cannot express shows nothing rather
+      than something.</strong> Each totalled column contributes one aggregate expression, taken from
+      the same verified pushdown map the statistics panel uses (see
+      <a href="#pushdown-aggregates">pushing statistics down</a>) — <code>sum</code>,
+      <code>avg</code>, <code>min</code>, <code>max</code>, <code>count</code>, the quantiles, and the
+      rest. A column whose total is a host function, a two-column statistic such as
+      <code>weightedAvg</code> (a grouped request carries no weight column), and the one genuine
+      fallback <code>weightedQuantile</code> are <em>not</em> sent, are named in
+      <code>source.lastPlan().aggregates.client</code> with the reason, and warn once. The group row
+      then carries no value for that column. That is deliberate: the leaves of an unexpanded group
+      are not in the browser, so the only alternative to the engine's figure is a figure computed
+      over something that is not the group.
+    </p>
+    <p class="section-note">
+      <strong>The counts a grouped grid shows are the engine's.</strong> Under grouping the display
+      count is group headers plus whatever is expanded, which is how a grid showing three rows under
+      one group once reported &ldquo;4 of 3&rdquo;. The root level's fetch therefore also asks for
+      <code>count(*)</code> over the matching set and the grand total over it, in one extra
+      statement, and an unfiltered <code>count(*)</code> once per adapter (on a Parquet file that is
+      a footer read, not a scan). <code>rows.matchCount()</code> and <code>rows.totalCount()</code>
+      read them, and <code>grandTotalRow: 'bottom'</code> draws its row from them.
+    </p>
+    <p class="section-note">
+      <strong>Group order, and the collation decision.</strong> Group rows are ordered by their own
+      key, ascending unless the sort names that column, which is exactly what the grid does to
+      sibling group rows in memory — a sort naming some other column does not reorder groups in
+      either. Absent keys sort last ascending and first descending, written as explicit
+      <code>NULLS LAST</code>/<code>NULLS FIRST</code> rather than left to the connection's
+      <code>default_null_order</code>. <strong>No <code>COLLATE</code> is written and the ICU
+      extension is not loaded</strong>: the grid compares group keys with <code>&lt;</code> on the
+      JavaScript string (UTF-16 code-unit order) and DuckDB's default <code>VARCHAR</code> ordering
+      is UTF-8 byte order, and the two agree for every character in the Basic Multilingual Plane.
+      They part only for supplementary-plane characters (emoji, CJK extension B and above) compared
+      against U+E000–U+FFFF. An ICU collation would disagree with the grid everywhere instead, so
+      binary ordering is the pin. Practically: <code>'North'</code> sorts before <code>'north'</code>
+      in both.
+    </p>
+    <p class="section-note">
+      <strong>When grouping is <em>not</em> pushed, it says so.</strong> Grouping is all or nothing —
+      group rows counted over the wrong set are wrong rows, not slow ones — so the whole level is
+      refused if anything else in the query stayed behind: a filter that did not fully push, a sort
+      the engine could not take, a quick search, a host <code>where</code> predicate, a grouping key
+      that is not a plain column, or <code>fullDataset</code> (which holds the whole set and groups it
+      client-side on purpose). <code>source.lastPlan()</code> then reports
+      <code>grouped: false</code>, <code>'group'</code> in <code>unpushed</code> and a
+      <code>groupReason</code> sentence, and a one-time warning names it.
+    </p>
+    <p class="section-note">
+      <strong>One known difference from a memory grid.</strong> A column holding both
+      <code>NULL</code> and the empty string produces two groups in the engine and one in a memory
+      grid, because the grid keys its group nodes on a display path where an absent value and an
+      empty string are both <code>''</code>. The engine's answer is the right one; the two are
+      otherwise identical group for group, count for count and subtotal for subtotal, which the
+      parity suite asserts at every level.
     </p>
 
     <h5 id="dfql-options"><code>dfqlAdapter</code></h5>
@@ -4959,6 +5256,42 @@ grid.destroy();
       naming the span and how old the newest reading is, so a dead feed reads as no data rather
       than as a chart that quietly stopped moving.
     </p>
+    <p class="section-note">
+      <strong>The x scale comes from the column's type, and nothing else</strong>
+      (BACKLOG-0001344). A temporal type &mdash; <code>date</code>, <code>datetime</code>,
+      <code>timestamp</code> or <code>dateString</code> &mdash; draws a time axis; a numeric type
+      draws a linear axis <em>whatever its distinct count</em>; every other type draws bands, one
+      per distinct value. A declared numeric or temporal column is therefore never demoted to a
+      band, which it used to be below thirteen distinct values &mdash; silently turning off
+      <code>fit</code>, <code>band</code> and everything else that needs a continuous x. Where the
+      column's type is not what you want, pin the scale with
+      <code>axis: { x: { scale: 'band' | 'linear' | 'time' } }</code>: <code>'band'</code> is how a
+      numeric code column (a quarter, a rating, a star count) asks for its bands back, and
+      <code>'time'</code> or <code>'linear'</code> lifts a column the grid types as
+      <code>text</code> onto a continuous axis. That last case is worth knowing about: a grid built
+      with <strong>no rows</strong> infers <code>text</code> and does not revisit it when rows
+      arrive, so a streamed date column binds bands where the same column beside a populated grid
+      binds time. The chart warns once when it bands a column whose values all read as dates or as
+      numbers, naming the column, its type and the option that overrules it. A band scale always
+      draws: a line, area or step on one is drawn through the band centres, and its labels are
+      thinned to the pitch the font can be read at rather than one per row
+      (<code>axis.x.every</code> overrides the count).
+    </p>
+    <p class="section-note">
+      <strong>The margin a chart leaves for its labels is measured from the labels</strong>
+      (BACKLOG-0001343). Where a chart names its rows down the left &mdash; a
+      <code>correlogram</code>'s columns, a <code>horizontalBar</code>'s categories, a
+      <code>gantt</code>'s tasks, a <code>forest</code>'s coefficients, a <code>heatmap</code>'s
+      rows &mdash; the gutter is the widest name it will draw, <strong>capped at two fifths of the
+      chart</strong>. Past that cap a name is ellipsised and keeps the whole of itself as
+      <code>aria-label</code>, so a screen reader announces the real name and the glyphs still stop
+      inside the chart; no label is ever cut mid-glyph, and the gutter is re-measured whenever the
+      chart is resized. Widening the chart therefore gives the names more room, which is the thing
+      a fixed margin could not do. Where the left-hand gutter holds a <em>measure</em> axis the
+      room is estimated from five digits instead, because the numbers on it are not known until
+      after the plot has been laid out. <code>margin: { left }</code> is added to whatever the
+      labels need rather than competing with it.
+    </p>
 
     <h3>The chart</h3>
     <div class="table-wrap">
@@ -5062,7 +5395,7 @@ createGrid(el, {
     explicit-bound error-bar primitive. A preset a given model cannot support (no multicollinearity
     for one predictor, no band for several) is returned as a null spec carrying a machine-readable
     reason rather than silently dropped.</p>
-    <pre data-run="js" data-expect="scatter|5|scatter|qq|bubble|cook|scatter|forest" data-covers="export:regressionPlots"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="scatter|5|scatter|qq|bubble|cook|scatter|forest" data-covers="export:regressionPlots config:columnarBelow"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { regressionPlots } = <span class="kw">await</span> import('../packages/modules/charts/index.js');
 
 <span class="cmt">// x=1..5, y=2,4,5,4,5. Shadow columns carry the model's per-row diagnostics —</span>
@@ -5103,8 +5436,52 @@ createGrid(el, {
 ].join('|');</code></pre>
 
     <h3>Maps</h3>
-    <p>A <code>geomap</code> takes an ISO code from one column and a value from another. Alpha-2, alpha-3 and numeric codes are all accepted, and continent codes draw a continent map without any outline data. Country outlines are yours to supply through <code>shapes</code>, because a world atlas is larger than the whole library and this package fetches nothing at runtime.</p>
-    <p>Codes that match nothing are counted and reported on the chart rather than dropped, a map missing half its data looks exactly like a map of a world where half the data is zero. The full code tables are in <a href="CHART-CODES.md">CHART-CODES.md</a>.</p>
+    <p>A <code>geomap</code> takes an ISO code from one column and a value from another. Alpha-2, alpha-3 and numeric codes are all accepted, and continent codes draw a continent map without any outline data. Codes that match nothing are counted and reported on the chart rather than dropped, a map missing half its data looks exactly like a map of a world where half the data is zero. The full code tables are in <a href="CHART-CODES.md">CHART-CODES.md</a>.</p>
+
+    <h4 id="geometry-packs">Real outlines: geometry packs</h4>
+    <p><strong>A pack is an optional module you import only if you draw that map.</strong> Real boundaries are tens to hundreds of kilobytes, so none of them are in the charts bundle and the grid still fetches nothing at runtime: you import the pack you want, exactly as you import an extension chart type, and hand it to <code>shapes</code>. Each pack is <a href="https://github.com/topojson/topojson-specification">TopoJSON</a> — quantised and delta-encoded, decoded by the chart — generated from the published source below by <code>tools/build-geo-packs.mjs</code>, and it carries its own provenance: the source URL, the version, the date it was retrieved, the licence, and the attribution line that licence requires.</p>
+    <pre><code><span class="kw">import</span> { pack } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/geo-world-110m';
+
+createChart({ grid, container: '#map', type: 'geomap', code: 'iso', y: 'revenue',
+  shapes: pack });                       <span class="cmt">// Equal Earth, fitted to the pack</span></code></pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Module</th><th>Regions</th><th>Source and licence</th><th>Size (gzipped)</th><th>Attribution required</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">modules/geo-world-110m</td><td>177 countries</td><td>Natural Earth 1:110m Admin 0, via world-atlas — public domain</td><td>39&nbsp;KB</td><td>None</td></tr>
+          <tr><td class="sig">modules/geo-world-50m</td><td>241 countries</td><td>Natural Earth 1:50m Admin 0, via world-atlas — public domain</td><td>225&nbsp;KB</td><td>None</td></tr>
+          <tr><td class="sig">modules/geo-us-states</td><td>50 states + DC</td><td>US Census cartographic boundaries, via us-atlas — public domain</td><td>36&nbsp;KB</td><td>None</td></tr>
+          <tr><td class="sig">modules/geo-europe-nuts</td><td>NUTS 0–2</td><td>Eurostat GISCO NUTS 2021 1:20m — free re-use with attribution</td><td>95&nbsp;KB</td><td><code>© EuroGeographics for the administrative boundaries</code></td></tr>
+          <tr><td class="sig">modules/geo-uk</td><td>9 regions, 361 local authorities, 650 constituencies</td><td>ONS Open Geography, generalised clipped — Open Government Licence v3.0</td><td>292&nbsp;KB</td><td><code>Contains OS data © Crown copyright and database right 2026; Source: Office for National Statistics licensed under the Open Government Licence v.3.0</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Joining.</strong> A pack is keyed by the code its source is published under and by the codes that source also knows: the world packs by ISO alpha-2, with alpha-3 and numeric accepted; <code>geo-us-states</code> by the two-letter USPS abbreviation, with the FIPS code accepted; <code>geo-europe-nuts</code> by NUTS id (<code>DE</code>, <code>DE1</code>, <code>DE11</code>); <code>geo-uk</code> by ONS code (<code>E12000007</code>). A region the pack does not know is reported as unmatched exactly as before.</p>
+    <p><strong>Choosing a grain.</strong> <code>geo-uk</code> ships three layers in one module because they share a coastline: <code>layer: 'regions'</code> (the default), <code>'local-authorities'</code> or <code>'constituencies'</code>.</p>
+    <p><strong>Two notes from the data, not from us.</strong> Natural Earth at 1:110m leaves out the micro-states — Singapore, Malta, Monaco have no outline at that scale — so bind country-level data to <code>geo-world-50m</code> if those matter. And <code>geo-us-states</code> places Alaska and Hawaii at their true longitudes rather than in the insets an Albers&nbsp;USA composite uses, so a map of all 51 spans the Pacific; the five US territories are left out of the pack for the same reason.</p>
+
+    <h4 id="map-projections">Projections</h4>
+    <p>Every map names a projection, and a pack declares the right one for itself, so <code>shapes: pack</code> alone gives a sensible map. <code>projection</code> overrides it; <code>projectionOptions</code> passes <code>parallels</code> and <code>centre</code> to the two that take them. The drawn geometry is then <strong>fitted</strong> to the panel, so a map of the UK fills its box rather than sitting inside the whole globe's.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>What it is</th><th>Use it for</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">equalEarth</td><td>Equal-area (Šavrič, Patterson &amp; Jenny 2018)</td><td>A world map — the default. Areas are honest and the shapes are recognisable.</td></tr>
+          <tr><td class="sig">robinson</td><td>Compromise, tabulated</td><td>A world map where the poles matter more than area.</td></tr>
+          <tr><td class="sig">mercator</td><td>Conformal, cut at ±85.05°</td><td>Matching a web-map basemap.</td></tr>
+          <tr><td class="sig">albers</td><td>Conic equal-area, two standard parallels</td><td>A country or continent in the mid-latitudes — the US and Europe packs default to it.</td></tr>
+          <tr><td class="sig">transverseMercator</td><td>Conformal about a central meridian</td><td>A tall, narrow country. The UK pack defaults to it through 2°W, which is what stands Britain upright.</td></tr>
+          <tr><td class="sig">equirectangular</td><td>Longitude and latitude straight onto x and y</td><td>Back-compatibility: the projection every map here drew before 1.63.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre><code>createChart({ grid, container: '#uk', type: 'geomap', code: 'lad', y: 'claims',
+  shapes: ukPack, layer: 'local-authorities' });        <span class="cmt">// transverse Mercator</span>
+
+createChart({ grid, container: '#us', type: 'geomap', code: 'state', y: 'sales',
+  shapes: usPack, projection: 'albers',
+  projectionOptions: { parallels: [29.5, 45.5], centre: [-96, 37.5] } });</code></pre>
+    <p><strong>The antimeridian is handled in the chart.</strong> A country whose outline crosses ±180° — Russia, Fiji, New Zealand's Chathams — is split there before it is projected, so it draws as the parts it is rather than as a band running the wrong way across the map. Antarctica is cropped until it carries a value, by its country code <code>AQ</code> as well as the continent code <code>AN</code>.</p>
 
     <div class="note"><p>The module imports nothing from the grid: <code>createChart</code> is handed a grid rather than importing one. That is what keeps the charts bundle to the drawing, and it is why the grid must be created first, and why a chart cannot outlive it.</p></div>
 
@@ -5781,6 +6158,22 @@ gantt.mount(document.querySelector('#plan'), {
   width: 'container',       // the default: fill the container, and keep following it
 });</code></pre>
     <p><strong>Sizing (BACKLOG-0001079).</strong> <code>width</code> defaults to <code>'container'</code>: the view measures the box it was mounted into and redraws itself whenever that box changes, so a plan in a tab, a drawer, an accordion, a responsive panel or a split pane fits without the host writing a <code>ResizeObserver</code> of its own. A container with no box &mdash; a hidden tab, or an element that has not been laid out yet &mdash; is not treated as a container of zero width: the view holds a 720px fallback and adopts the real width the moment there is one. Pass a <strong>number</strong> to take the decision yourself; a numeric <code>width</code> is honoured exactly, installs no observer, and keeps the eight-tick axis it always had &mdash; only a container-sized plot thins its tick labels to the width it was given, because only a container-sized plot can be somewhere it had not been before. <code>zoom</code> and a numeric <code>width</code> are mutually exclusive: <strong>zoom wins</strong> &mdash; it fixes the pixels-per-day and lets the plot scroll past the container &mdash; and passing both now warns rather than discarding the <code>width</code> in silence.</p>
+    <p><strong>The time axis thins its own labels (BACKLOG-0001319).</strong> A Gantt picks its tick
+      rhythm from the calendar &mdash; every day at <code>zoom: 'day'</code>, every seven days at
+      <code>'week'</code>, every month above that &mdash; and that rhythm knows nothing about how wide
+      a date is. Where a label is wider than the gap between two ticks, only <strong>every nth</strong>
+      label is drawn: the largest regular stride that leaves at least 6px of clear space between
+      neighbours, so the axis keeps an even rhythm a reader can count on rather than the uneven gaps a
+      greedy left-to-right fit would leave. <strong>The gridlines and the split view's week separators
+      are not thinned with the text</strong> &mdash; the fine rhythm is information and costs nothing to
+      read; it was only ever the text that collided. Both surfaces do it: <code>mount</code>'s axis and
+      <code>mountSplit</code>'s timeline header, which is where a week-zoom header used to read
+      <code>Sun 05 Oct 2025 Sun 12 Oct 2025 Sun 19 Oct 2025</code> with each date painted across the
+      next. Widening the Gantt now shows more dates rather than the same overlap, and the thinning is
+      re-decided on every draw, so a resize or a zoom change re-fits the labels. An <strong>un-zoomed</strong>
+      axis is untouched: it already chooses how many ticks to draw from the plot's own width, so its
+      labels always fitted, and a host that passed an explicit <code>width</code> keeps exactly the
+      drawing it had.</p>
     <p><strong>The project anchor (BACKLOG-0001079).</strong> A <code>mount</code> option, not a <code>mountSplit</code> one: the joined split view below takes neither <code>projectEpoch</code> nor a date-valued <code>today</code>, and its weekend shading is unanchored. The engine's time line is whole days since the Unix epoch, so a plan written as day offsets (<code>0, 4, 9&hellip;</code>) legitimately renders as January 1970 &mdash; day 0 <em>is</em> 1970-01-01, and the module cannot tell an offset from a real epoch day, so it cannot warn about it. <code>projectEpoch</code> says which calendar date plan day 0 stands for. It and <code>today</code> take an ISO date string, a <code>Date</code> or a day number. <strong>A <code>Date</code> is read as the calendar date its local wall clock shows</strong> (BACKLOG-0001104), the way a <code>date</code> column reads one: <code>new Date(2026, 2, 2)</code> is 2 March in every time zone, and a <code>Date</code> that carries a time of day is the local day it falls on. Before 1104 the UTC instant was floored, which put local midnight a day early everywhere east of Greenwich. A <code>Date</code> is therefore decided by the reader's zone; a string is the same day on every machine &mdash; <code>'2026-03-02'</code> is 2 March in Sydney and in New York alike &mdash; which is the form to prefer for an anchor stored with the plan. Recognise your own case: if you worked around the old behaviour by passing <code>new Date(Date.UTC(y, m, d))</code>, a reader west of Greenwich now sees the previous day, because UTC midnight is still the evening before in New York &mdash; pass <code>new Date(y, m, d)</code> or the ISO string instead. It is <strong>display-only</strong>: axis ticks, bar labels, tooltips, screen-reader text and the built-in weekend shading move with it, and nothing the scheduler, <code>getState</code>, the CSV or the MSPDI export produces does &mdash; every <code>es</code>/<code>ef</code> you read back is still the number you supplied. A host-supplied <code>nonWorking</code> function keeps receiving raw plan days, since it was written against your day numbers. Use <code>projectStart</code> instead when you want the model itself to be on calendar dates.</p>
     <pre><code>// A relative plan: offsets in the data, real dates on the screen.
 gantt.mount(el, {
@@ -6723,6 +7116,15 @@ createGrid(el, {
     versions give one column <code>layout: { flex: 1 }</code> so the cells reach the edge and there
     is no tail to click.</p>
 
+    <p><strong>Expand all</strong> and <strong>Collapse all</strong> are built-in row/grid items
+    (BACKLOG-0001305): present, in this order, on the row context menu and on every column's
+    header menu (the 3-dot button and a right-click on the heading) whenever the grid is grouped,
+    hidden rather than disabled otherwise. Each drives the public
+    <code>grid.rows.expandAll()</code> / <code>collapseAll()</code>, is matched by its translated
+    <code>name</code> like any other built-in item (catalogue keys <code>menu.expandAll</code> /
+    <code>menu.collapseAll</code>), and passes through the same <code>contextMenu</code> /
+    <code>columnMenu</code> chain above.</p>
+
     <p><code>columnMenu</code> takes the same form for the header's menu: both the 3-dot button
     and a right-click on a heading. Its <code>params</code> is
     <code>{ colId, column, grid }</code>. Anything of your own that you put on a column definition
@@ -7291,7 +7693,7 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
 
     <h3 id="module-exports-example">Every module export, executed</h3>
     <p class="section-note">Every shipped module’s exports, resolved against its own barrel on every build.</p>
-    <pre data-run="js" data-expect="67" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:regressionPlots export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload export:createDataRouter export:MockWebSocket export:rng export:opsFeed export:priceFeed export:createKanban"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
+    <pre data-run="js" data-expect="68" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:regressionPlots export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload export:createDataRouter export:MockWebSocket export:rng export:opsFeed export:priceFeed export:createKanban export:pack"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
 <span class="cmt">// barrel. A module that stopped exporting something fails here.</span>
 <span class="kw">const</span> modules = [
   [<span class="kw">await</span> import('../packages/dom/src/index.js'), [
@@ -7340,6 +7742,9 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
   ]],
   [<span class="kw">await</span> import('../packages/modules/kanban/index.js'), [
     'createKanban',
+  ]],
+  [<span class="kw">await</span> import('../packages/modules/geo-world-110m/index.js'), [
+    'pack',
   ]],
 ];
 
@@ -8336,6 +8741,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">format</td><td class="type">string | ((value: unknown) =&gt; string)</td><td class="desc">A format mask, or a function of the value. <small>(optional)</small></td></tr>
           <tr><td class="name">grid</td><td class="type">boolean</td><td class="desc">Draw the gridlines this axis owns. Default true for the measure axis. <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">boolean</td><td class="desc">Draw the tick labels. <small>(optional)</small></td></tr>
+          <tr><td class="name">scale</td><td class="type">'auto' | 'linear' | 'time' | 'band' | 'category'</td><td class="desc">Pin the x axis's scale rather than taking it from the column's type (BACKLOG-0001344). The default, `'auto'`, is the rule stated in the charts section: a temporal column type (`date`, `datetime`, `timestamp`, `dateString`) draws a time axis, a numeric one draws a linear axis whatever its distinct count, and everything else draws bands. `'band'` is how a numeric code column — a quarter, a rating, a star count — asks for its bands back; `'linear'` and `'time'` put a column the grid types as text onto a continuous axis. Only the x axis reads it. <small>(optional)</small></td></tr>
           <tr><td class="name">every</td><td class="type">number</td><td class="desc">Show every nth category label, on a crowded category axis. <small>(optional)</small></td></tr>
           <tr><td class="name">rotate</td><td class="type">boolean | 'auto'</td><td class="desc">Force the category labels' rotation rather than deciding it. <small>(optional)</small></td></tr>
           <tr><td class="name">window</td><td class="type">Pick&lt;WindowSpec, 'kind' | 'span'&gt;</td><td class="desc">A rolling window for the axis domain (BACKLOG-0001036), in the shipped `WindowSpec` vocabulary that rolling statistics already use. Only `{ kind: 'time', span }` applies to an axis: the domain becomes the last `span` milliseconds ending **now**, so the chart keeps scrolling left while the feed is silent — the thing a count window cannot do, because with no rows arriving nothing changes. Advanced on a low-frequency clock (a quarter of the window, between 50 ms and 1 s), never per frame, and stopped when the chart is destroyed or its document is hidden. Needs a continuous x axis carrying wall-clock times; `{ kind: 'count' }` is the source's `maxRows` and is refused here rather than given a second meaning. <small>(optional)</small></td></tr>
@@ -8404,8 +8810,12 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">annotations</td><td class="type">ChartAnnotation[]</td><td class="desc">The declarative annotation layer: reference and target lines, shaded bands and callouts, each naming the axis it reads and each described into the accessible table as a sentence. A value may be a constant or `compute`d from the data it annotates, so it follows the chart as the grid is filtered. <small>(optional)</small></td></tr>
           <tr><td class="name">buckets</td><td class="type">number</td><td class="desc">Bins for a histogram; the default is twelve. <small>(optional)</small></td></tr>
           <tr><td class="name">diverging</td><td class="type">boolean</td><td class="desc">A diverging colour ramp, for heatmap and geomap. <small>(optional)</small></td></tr>
-          <tr><td class="name">shapes</td><td class="type">unknown</td><td class="desc">Country outlines, for a geomap drawing countries rather than continents. <small>(optional)</small></td></tr>
+          <tr><td class="name">shapes</td><td class="type">unknown</td><td class="desc">Country outlines, for a geomap drawing countries rather than continents. Either GeoJSON, an object of code to SVG path data, or a geometry {@link GeoPack} imported from an optional `modules/geo-*` package (BACKLOG-0001321) — as the pack itself, or as `{ pack: id }` once its module has been imported and registered. <small>(optional)</small></td></tr>
           <tr><td class="name">codeProperty</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">layer</td><td class="type">string</td><td class="desc">Which layer of a multi-layer geometry pack to draw — the UK pack, for instance, ships `regions`, `local-authorities` and `constituencies` together (BACKLOG-0001321). Ignored for a single-layer pack. <small>(optional)</small></td></tr>
+          <tr><td class="name">projection</td><td class="type">'equalEarth' | 'robinson' | 'mercator' | 'equirectangular' | 'albers'</td><td class="desc">The map projection a geomap draws through (BACKLOG-0001321): `'equalEarth'` (the default for a world), `'robinson'`, `'mercator'`, `'equirectangular'`, `'albers'`, `'transverseMercator'`, or a projection function of the caller's own `(lon: number, lat: number) =&gt; [number, number]`. Left unset, a geometry pack draws through the projection it declares. <small>(optional)</small></td></tr>
+          <tr><td class="name">projectionOptions</td><td class="type">{ parallels?: [number, number]; centre?: [number, number] }</td><td class="desc">Parameters for the projections that take them: `parallels` and `centre` for `albers`, `centre` for `transverseMercator` (BACKLOG-0001321). <small>(optional)</small></td></tr>
+          <tr><td class="name">graticule</td><td class="type">boolean | { step?: number }</td><td class="desc">A lon/lat reference grid under a geomap's regions, off by default (BACKLOG-0001321 part 2). Only drawn over a geometry pack's fitted projection — the schematic continents have no fitted projection to draw one against. `step` is the spacing between lines in degrees (default 30). <small>(optional)</small></td></tr>
           <tr><td class="name">multiples</td><td class="type">string</td><td class="desc">One chart per distinct value of this column. <small>(optional)</small></td></tr>
           <tr><td class="name">canvas</td><td class="type">boolean | number</td><td class="desc">Draw to canvas past this many points. <small>(optional)</small></td></tr>
           <tr><td class="name">downsample</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
@@ -10113,6 +10523,26 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h3 id="type-GeoPack">GeoPack</h3>
+    <p class="section-note">An optional geometry pack for a geomap, as one of the `modules/geo-*` packages exports (BACKLOG-0001321). Generated at build time from a named public source; `source`, `licence` and `attribution` record where the geometry came from and what its licence requires. A single-layer pack carries `topology` directly; a multi-layer pack (the UK) carries `layers` instead, keyed by layer name, each with its own `topology`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">title</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">kind</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">projection</td><td class="type">ChartSpec['projection']</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">projectionOptions</td><td class="type">ChartSpec['projectionOptions']</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">source</td><td class="type">{ name: string; url: string; version: string; retrieved: string }</td><td class="desc"></td></tr>
+          <tr><td class="name">licence</td><td class="type">{ name: string; url: string }</td><td class="desc"></td></tr>
+          <tr><td class="name">attribution</td><td class="type">string</td><td class="desc">The attribution line the licence requires, verbatim, or `''` when it asks for none.</td></tr>
+          <tr><td class="name">topology</td><td class="type">object</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">layers</td><td class="type">Record&lt;string, { name: string; topology: object }&gt;</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">defaultLayer</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-Grid">Grid</h3>
     <div class="table-wrap">
       <table>
@@ -11115,6 +11545,54 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h3 id="type-LatticeGridHandle">LatticeGridHandle</h3>
+    <p class="section-note">The live instance a `&lt;LatticeGrid&gt;` ref exposes; `null` before mount.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">grid</td><td class="type">Grid | null</td><td class="desc"><small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-LatticeTabSpec">LatticeTabSpec</h3>
+    <p class="section-note">One tab of a `&lt;LatticeTabs&gt;`; `content` makes it React's rather than the module's.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">content</td><td class="type">unknown | (() =&gt; unknown)</td><td class="desc">A React element, or a function returning one, rendered through a portal. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-LatticeViewerCommonProps">LatticeViewerCommonProps</h3>
+    <p class="section-note">What every viewer component takes beyond its own configuration (BACKLOG-0001307): the grid it binds to, which published grid to take when that is left off, the lifecycle callbacks, and the host-element props.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">grid</td><td class="type">Grid | null</td><td class="desc">The grid this viewer is built against; taken from context when absent. <small>(optional)</small></td></tr>
+          <tr><td class="name">gridName</td><td class="type">string</td><td class="desc">Which published grid to take from context; `'default'` when absent. <small>(optional)</small></td></tr>
+          <tr><td class="name">onReady</td><td class="type">(instance: Instance) =&gt; void</td><td class="desc">Told when the viewer exists. <small>(optional)</small></td></tr>
+          <tr><td class="name">onDestroy</td><td class="type">() =&gt; void</td><td class="desc">Told just before it is destroyed. <small>(optional)</small></td></tr>
+          <tr><td class="name">className</td><td class="type">string</td><td class="desc">Applied to the host element rather than to the viewer. <small>(optional)</small></td></tr>
+          <tr><td class="name">style</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Applied to the host element rather than to the viewer. <small>(optional)</small></td></tr>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">Applied to the host element rather than to the viewer. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-LatticeViewerHandle">LatticeViewerHandle</h3>
+    <p class="section-note">The live instance a viewer component's ref exposes; `null` before mount.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">instance</td><td class="type">Instance | null</td><td class="desc"><small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-Layout">Layout</h3>
     <p class="section-note">A reconfigurable dashboard: a cell grid inside an element, and a set of windows on it that a user can move, resize and close by pointer or by keyboard (BACKLOG-0001108). The module is **payload-agnostic**: a window body is a container with an id, which this module creates and sizes and never reads. It tells a payload it was resized by emitting `window:resized`; it never calls into one, because it cannot know what one is.</p>
     <div class="table-wrap">
@@ -11373,6 +11851,17 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h3 id="type-MemorySourceConfig">MemorySourceConfig</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">mode</td><td class="type">'memory'</td><td class="desc"></td></tr>
+          <tr><td class="name">columnarBelow</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">rows</td><td class="type">unknown[]</td><td class="desc">The rows a memory source opens with; equivalent to top-level `rows`, which wins if both are given. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-MenuItem">MenuItem</h3>
     <div class="table-wrap">
       <table>
@@ -11483,6 +11972,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">notation</td><td class="type">'standard' | 'compact' | 'scientific'</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">negative</td><td class="type">'minus' | 'parentheses' | 'suffix'</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">negativeClass</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">signed</td><td class="type">boolean</td><td class="desc">Show a leading `+` on a positive value (`+5`, `+£5.00`, `+12%`). A negative value keeps whatever `negative` says regardless of this flag, and zero shows no sign either way (BACKLOG-0001095). Off by default. <small>(optional)</small></td></tr>
           <tr><td class="name">prefix</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">suffix</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">zeroDisplay</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
@@ -11769,6 +12259,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">name</td><td class="type">string</td><td class="desc">Used in diagnostics and in the message when work cannot be pushed. <small>(optional)</small></td></tr>
           <tr><td class="name">capabilities</td><td class="type">PushdownCapabilities</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">execute</td><td class="type">(query: RemoteRequest, request?: RemoteRequest):</td><td class="desc">Run the part of the query the adapter declared it could handle.</td></tr>
+          <tr><td class="name">executeGroupLevel</td><td class="type">(</td><td class="desc">Answer one level of a grouped grid (BACKLOG-0001325). Present only when `capabilities.group` opts in. The level is `query.groupValues.length`: the root asks for the outermost grouping column's distinct values, expanding a group asks for the next column's values within it, and past the last grouping column the children are the leaves (`leaves: true`). A group row comes back in the shape the remote source already reads from a grouping server: the grouping column's own id carries the key, `leafCount` the group's row count, `totals` the subtotals keyed by column id. `total` is how many group rows the level holds. At the root, `matchCount` and `grand` carry the whole-set figures a grouped window cannot derive — the rows the filter matched, and the grand total over them. `aggregates` is the subtotal list the source routed to the engine; anything it could not route is named in `PushdownPlan.aggregates.client` and left absent from the group row rather than computed over the wrong set. <small>(optional)</small></td></tr>
+          <tr><td class="name">unfilteredCount</td><td class="type">(): Promise&lt;number | null&gt;</td><td class="desc">The row count before any filter (BACKLOG-0001325) — the denominator of "1,204 of 100,000" under grouping, where the display count is group headers rather than rows. Optional; a source falls back to the display count. <small>(optional)</small></td></tr>
           <tr><td class="name">mutate</td><td class="type">(op: MutationOp, request?: RemoteRequest): Promise&lt;MutationResult&gt;</td><td class="desc">Persist one mutation (§4.2). Present only when `capabilities.mutate` opts in. `createPushdownSource` synthesises an `edit.commit` that calls this for cell updates (§4.3 Option A); `request` threads the abort signal through the way `execute` receives it, and auth already lives on the adapter. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -11796,7 +12288,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">quick</td><td class="type">boolean</td><td class="desc">Whether a free-text search across columns can be pushed. <small>(optional)</small></td></tr>
           <tr><td class="name">range</td><td class="type">boolean</td><td class="desc">Whether the engine can return a window rather than the whole result. <small>(optional)</small></td></tr>
           <tr><td class="name">total</td><td class="type">boolean</td><td class="desc">Whether it can report the count of matching rows. <small>(optional)</small></td></tr>
-          <tr><td class="name">group</td><td class="type">boolean</td><td class="desc">Whether it can group and aggregate. <small>(optional)</small></td></tr>
+          <tr><td class="name">group</td><td class="type">boolean</td><td class="desc">Whether it can answer the grid's grouped view — group rows, their counts, their subtotals and their order — one level at a time, instead of returning the leaves for the grid to group in the browser (BACKLOG-0001325). All or nothing, unlike `filter`. A filter splits because the engine narrowing a superset and the grid narrowing what is left reach the same set; a grouping cannot, because group rows counted over the wrong set are wrong rows, not slow ones. So the push router refuses the whole grouped level — and says why in `PushdownPlan.groupReason` — whenever anything else in the query failed to push. An adapter declaring this must implement `executeGroupLevel`; one that declares it without the method is re-planned without grouping and warned about, rather than half-pushed. <small>(optional)</small></td></tr>
           <tr><td class="name">mutate</td><td class="type">false | MutateCapability</td><td class="desc">What the adapter can persist back — the write-back contract (§4.1). `false` (the default) is read-only by declaration. A declared block opts kinds in; `capabilitiesOf` resolves it to a full `MutateCapability` (or `false`). <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -11822,7 +12314,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">pushed</td><td class="type">RemoteRequest</td><td class="desc">The query the adapter was given.</td></tr>
           <tr><td class="name">residual</td><td class="type">{</td><td class="desc">What the grid applied afterwards. `where` is the host predicate runtime when one survived the `whereRowLimit` gate, and `null` when none was registered or the gate refused it (BACKLOG-0001268).</td></tr>
           <tr><td class="name">needsAll</td><td class="type">boolean</td><td class="desc">Whether the whole result had to be fetched rather than a window.</td></tr>
-          <tr><td class="name">unpushed</td><td class="type">string[]</td><td class="desc">Which parts could not be pushed: `filter`, `sort`, `quick`, `where`.</td></tr>
+          <tr><td class="name">unpushed</td><td class="type">string[]</td><td class="desc">Which parts could not be pushed: `filter`, `sort`, `quick`, `where`, `group`.</td></tr>
+          <tr><td class="name">grouped</td><td class="type">boolean</td><td class="desc">Whether the engine answered the grid's grouped view for this request (BACKLOG-0001325). False for an ungrouped query and for a grouped one the engine was refused — `groupReason` says which.</td></tr>
+          <tr><td class="name">groupLevel</td><td class="type">number</td><td class="desc">Which grouping level a pushed grouped request asked for: 0 at the root, 1 inside a group, and so on. Zero when nothing was grouped.</td></tr>
+          <tr><td class="name">groupReason</td><td class="type">string</td><td class="desc">Why a grouped request was *not* pushed, in a sentence, or `''` when it was pushed or when nothing was grouped. Grouping is all or nothing, so this is the whole story rather than a residual.</td></tr>
           <tr><td class="name">full</td><td class="type">boolean</td><td class="desc">Whether the whole result was fetched because `fullDataset` is on, rather than only because residual work forced it. When true, totals and statistics reduce over the whole matching set and the windowed-stat warning is silent.</td></tr>
           <tr><td class="name">aggregates</td><td class="type">{</td><td class="desc">Per-aggregate provenance, present only when the last request computed aggregates (BACKLOG-0000730 Part B): which statistics the engine computed and which the client did, with the class the pushdown map assigned each. Under grouping it also carries the `groupBy` the subtotals were computed over. Build-time inspection, not a runtime per-figure marker. <small>(optional)</small></td></tr>
         </tbody>
@@ -12004,8 +12499,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">protocol</td><td class="type">1</td><td class="desc"></td></tr>
           <tr><td class="name">range</td><td class="type">{ start: number; end: number }</td><td class="desc"></td></tr>
           <tr><td class="name">groupPath</td><td class="type">string[]</td><td class="desc"></td></tr>
+          <tr><td class="name">groupValues</td><td class="type">unknown[]</td><td class="desc">The same ancestry as `groupPath`, but as the values the server returned rather than their display strings (BACKLOG-0001325). Always present, empty at the root, so a source can tell "no ancestors" from "a host that does not send this". `groupPath` is stringified because it is a stable *identity* for expansion state, and that is what it must stay: a numeric key `3` is `'3'` there and an absent key is `''`, indistinguishable from a group whose key really is the empty string. Useless for narrowing a query, then — which is what a grouping engine needs it for — so the typed values travel beside it.</td></tr>
           <tr><td class="name">groupBy</td><td class="type">ColumnRef[]</td><td class="desc"></td></tr>
           <tr><td class="name">totals</td><td class="type">ColumnRef[]</td><td class="desc"></td></tr>
+          <tr><td class="name">totalFns</td><td class="type">Record&lt;string, string&gt;</td><td class="desc">The named statistic each totalled column reduces with — `{ amount: 'sum' }` (BACKLOG-0001325). `totals` has always said *which* columns want a subtotal and never *what*, because the client reads the reduction off the column model and a server had no way to. Only string reductions appear: a column totalling with a host function has no name to send, and naming one that merely resembles it would put a plausible wrong number on every group row. `groupTotal` wins over `total`, the same precedence the client applies for the group scope.</td></tr>
           <tr><td class="name">pivotBy</td><td class="type">ColumnRef[]</td><td class="desc"></td></tr>
           <tr><td class="name">pivotMode</td><td class="type">boolean</td><td class="desc"></td></tr>
           <tr><td class="name">filters</td><td class="type">FilterSet</td><td class="desc"></td></tr>
@@ -12200,6 +12697,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">count</td><td class="type">(): number</td><td class="desc"></td></tr>
           <tr><td class="name">totalCount</td><td class="type">(): number</td><td class="desc">Rows in the source before filtering; under pagination, across every page.</td></tr>
           <tr><td class="name">matchCount</td><td class="type">(): number</td><td class="desc">Data rows matching the filters, excluding group, footer and total rows.</td></tr>
+          <tr><td class="name">coverage</td><td class="type">(): StatCoverage</td><td class="desc">How much of the data a figure computed from this grid covers, so a statistic over a windowed source can say it is approximate.</td></tr>
           <tr><td class="name">data</td><td class="type">(): unknown[]</td><td class="desc"></td></tr>
           <tr><td class="name">forEach</td><td class="type">(fn: (row: Row, index: number) =&gt; void): void</td><td class="desc"></td></tr>
           <tr><td class="name">forEachAll</td><td class="type">(fn: (row: Row, index: number) =&gt; void): void</td><td class="desc">Every row in the data, before any filter. Leaf rows, in physical order.</td></tr>
@@ -12399,6 +12897,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">empty</td><td class="type">string</td><td class="desc">Shown when there is no value. `, ` by default. <small>(optional)</small></td></tr>
           <tr><td class="name">decimals</td><td class="type">number</td><td class="desc">Fraction digits for a value whose reduction changed the unit. 2 by default. <small>(optional)</small></td></tr>
           <tr><td class="name">class</td><td class="type">string</td><td class="desc">Extra class names for the tile's root. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-StatCoverage">StatCoverage</h3>
+    <p class="section-note">How much of the data a computed figure actually covers. `covered &lt; total`, or `total === null`, means the figure is approximate.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">covered</td><td class="type">number</td><td class="desc">Rows the figure was computed over.</td></tr>
+          <tr><td class="name">total</td><td class="type">number | null</td><td class="desc">Rows the source knows about, or `null` when it cannot know — never a guess.</td></tr>
+          <tr><td class="name">windowed</td><td class="type">boolean</td><td class="desc">True when a window bounded the computation, so the figure covers part of the data.</td></tr>
         </tbody>
       </table>
     </div>
@@ -12934,7 +13444,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.62.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.63.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.62.1, chart-arc module
+ * Lattice Grid 1.63.0, chart-arc module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
