@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.63.2, kpi module type declarations
+ * Lattice Grid 1.63.3, kpi module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

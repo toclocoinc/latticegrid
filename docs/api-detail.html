@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.63.2</p>
+    <p class="rail__sub">Developer guide · v1.63.3</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.63.2</span>
+        <span class="chip">Version 1.63.3</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1369,7 +1369,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.63.2'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.63.3'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -5762,6 +5762,37 @@ socket.onmessage = (event) => {
       no idea whether it is talking to the first connection or the fifth.</p>
     </div>
 
+    <h3 id="router-websocket-tuning-guide">The knobs a live feed makes you reach for</h3>
+    <p>
+      Four factory options and one route option matter once the feed is real rather than a
+      fixture, and none of them is needed to get started. <code>onUnrouted</code> is the sink
+      for whatever matched no route &mdash; it receives the row on <code>load</code> and
+      <code>query</code>, and the whole delta on <code>apply</code> &mdash; and is the honest
+      alternative to an <code>attachDefault</code> grid when a stray record is a bug to log
+      rather than a row to show. <code>selectionDebounce</code> (ms, default 16) is how long a
+      linked grid waits before refiltering on a selection change; set it to <code>0</code> in a
+      test so every <code>selection.set</code> refilters before the next statement.
+      <code>metricsInterval</code> (ms, default 1000) is the cadence of the
+      <code>on('metrics')</code> emit, which runs only while a listener is registered; a
+      devtools panel inherits it. On a route, <code>backpressure</code> (<code>{ maxHz,
+      minInterval, sample, maxLag }</code>) throttles how often that one viewer repaints under
+      load without touching what it holds &mdash; a chart that cannot draw 200 times a second
+      gets <code>{ maxHz: 10 }</code>, and the grid beside it stays live.
+    </p>
+    <div class="example">
+      <p class="example__label">Persistence survives a reload: choose the store once</p>
+      <pre><code>router.persist({ key: 'orders', dbName: 'lattice', storeName: 'router' });
+await router.restore();   // true when a snapshot was found and applied</code></pre>
+    </div>
+    <p>
+      <code>persist</code> writes the router's state to IndexedDB under <code>dbName</code> /
+      <code>storeName</code> (defaults are provided; pass your own <code>indexedDB</code> to
+      test against a fake, or a <code>storage</code> pair of <code>get</code>/<code>set</code>
+      to use something else entirely). <code>persisting</code> reads <code>false</code> when the
+      store was unavailable and the router degraded to memory, which is the case to check
+      before promising a user their view will be there tomorrow.
+    </p>
+
     <h3 id="router-websocket-fanin-guide">Several independent feeds, one router</h3>
     <div class="example">
       <p class="example__label">Two sockets, two sources, one merged store</p>
@@ -9377,7 +9408,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.63.2 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.63.3 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

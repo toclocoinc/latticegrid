@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.63.2, chart-diverging module
+ * Lattice Grid 1.63.3, chart-diverging module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
