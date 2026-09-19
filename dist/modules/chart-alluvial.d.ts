@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, chart-alluvial module type declarations
+ * Lattice Grid 1.65.0, chart-alluvial module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -8,7 +8,7 @@ import type {
 } from '../lattice-grid.js';
 
 /**
- * The alluvial extension type (BACKLOG-0000886). Importing this module
+ * The alluvial extension type. Importing this module
  * registers `alluvial`. Ribbons from `source` categories to `target`
  * categories sized by `value` — categorical flow between two dimensions.
  */

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, kpi module type declarations
+ * Lattice Grid 1.65.0, kpi module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -69,7 +69,7 @@ interface KPIStatTile {
 }
 
 /**
- * A clock tile: the device clock, not an aggregate (BACKLOG-0001640) — the
+ * A clock tile: the device clock, not an aggregate — the
  * date on one line and the time on the next, ticking once a second from one
  * shared panel timer. It takes none of a stat tile's measurement options
  * (`aggregation`, `field`, `format`, `thresholds`, `bands`, `target`,
@@ -108,7 +108,7 @@ interface KPIClockTile {
 type KPITile = KPIStatTile | KPIClockTile;
 
 /**
- * The hierarchy a KPI panel arranges its tiles into (BACKLOG-0001059): a rail
+ * The hierarchy a KPI panel arranges its tiles into: a rail
  * of top-level items that expand to the indicators beneath them, each parent
  * highlighted with the worst status below it.
  *
@@ -180,7 +180,7 @@ interface KPINodeModel {
 interface KPITileModel {
   id: string;
   label: string;
-  /** `'stat'` for an aggregate tile, `'clock'` for a clock tile (BACKLOG-0001640). */
+  /** `'stat'` for an aggregate tile, `'clock'` for a clock tile. */
   kind: 'stat' | 'clock';
   aggregation: string;
   field?: string;
@@ -239,7 +239,7 @@ interface KPIConfig {
   nullText?: string;
   /**
    * The default locale a clock tile formats in when the tile itself declares
-   * none (BACKLOG-0001640); falls back to the browser's default. No effect
+   * none; falls back to the browser's default. No effect
    * on a stat tile, which takes its own `format.locale`.
    */
   locale?: string;

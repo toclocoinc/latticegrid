@@ -1,10 +1,10 @@
 /*!
- * Lattice Grid 1.64.0, chart-ridgeline module type declarations
+ * Lattice Grid 1.65.0, chart-ridgeline module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 /**
- * The ridgeline (joy plot) extension chart type (BACKLOG-0000886). Importing
+ * The ridgeline (joy plot) extension chart type. Importing
  * this module registers `ridgeline` with the base charts module; the base
  * bundle does not include it unless a caller imports it. Draws one
  * kernel-density ridge per category (`x`), stacked and overlapping, over the

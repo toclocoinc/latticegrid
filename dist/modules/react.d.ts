@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, react module type declarations
+ * Lattice Grid 1.65.0, react module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -17,7 +17,7 @@ import type {
 
 /**
  * The handler prop name one event maps to, as a type: `'cell:changed'`
- * becomes `'onCellChanged'` (BACKLOG-0001307).
+ * becomes `'onCellChanged'`.
  *
  * Recursive over the `:` segments, so a three-part name like
  * `'cell:edit:start'` becomes `'onCellEditStart'` — the same rule
@@ -54,7 +54,7 @@ export interface LatticeGridHandle {
  */
 export type LatticeGridProps<Row = unknown> =
   Omit<GridConfig, 'rows'> & LatticeGridEventProps & {
-    /** The rows, copied on ingest (BACKLOG-0001334) so two grids may share one array. */
+    /** The rows, copied on ingest so two grids may share one array. */
     rows?: Row[];
     /** Applied through `grid.sort.set`, not as configuration. */
     sort?: SortEntry[];
@@ -119,8 +119,7 @@ export interface LatticeViewerHandle<Instance = unknown> {
 }
 
 /**
- * What every viewer component takes beyond its own configuration
- * (BACKLOG-0001307): the grid it binds to, which published grid to take when
+ * What every viewer component takes beyond its own configuration: the grid it binds to, which published grid to take when
  * that is left off, the lifecycle callbacks, and the host-element props.
  */
 export interface LatticeViewerCommonProps<Instance = unknown> {

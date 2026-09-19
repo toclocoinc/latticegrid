@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, webcomponent module type declarations
+ * Lattice Grid 1.65.0, webcomponent module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -41,7 +41,7 @@ export function domEventName(event: string): string;
 export class GridElementController {}
 // Core factories re-exported from this module so they bind to the one engine
 // the element already carries: a type built with these here shares the
-// element's registry rather than a second copy's (BACKLOG-0000787). Typed by
+// element's registry rather than a second copy's. Typed by
 // reference to the base package.
 export { createCurrencyType, createUnitType, registerUnitSystem, createStat } from '../lattice-grid.js';
 export default defineLatticeGrid;

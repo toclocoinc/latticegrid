@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, htmx module type declarations
+ * Lattice Grid 1.65.0, htmx module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -155,7 +155,7 @@ export const SCROLL_NEAR_END_EVENT: string;
 export const HTML_ROW_WARNING_THRESHOLD: number;
 // The core factory surface this module re-exports, so an htmx page builds its
 // configured columns (a currency type, a unit type, a stat) from the one
-// engine it already carries rather than a second copy (BACKLOG-0000786).
+// engine it already carries rather than a second copy.
 // Typed by reference to the base package; names the base package leaves
 // untyped stay untyped here too.
 export {

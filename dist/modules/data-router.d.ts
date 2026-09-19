@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, data-router module type declarations
+ * Lattice Grid 1.65.0, data-router module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -93,7 +93,7 @@ interface RouteOptions {
 interface AlertOptions { rowKey?: RouterKey; filter?: (row: RouterRecord) => boolean; debounce?: number }
 
 /**
- * A cross-grid selection relation (v2, BACKLOG-0000880): a key map (target
+ * A cross-grid selection relation (v2): a key map (target
  * rows whose `to` value is among the selected source rows' `from` values — an
  * IN set), or a function handed the selected source rows that returns a
  * target-row predicate.
@@ -110,7 +110,7 @@ type SelectionRelation =
 interface RouterEdge { from: unknown; to: unknown; on?: SelectionRelation; relation?: SelectionRelation; mutual?: boolean }
 
 /**
- * A declarative routing graph (v5, BACKLOG-0000910): the same routes, links,
+ * A declarative routing graph (v5): the same routes, links,
  * relationship edges and buffer the imperative calls would make, as one data
  * spec. Desugars to those calls and composes with them.
  */
@@ -235,7 +235,7 @@ interface RouterPersistOptions {
 
 /**
  * A data router: one arriving stream, partitioned by a property (or composite
- * predicate), fanned out to a grid per partition (BACKLOG-0000879). Each grid
+ * predicate), fanned out to a grid per partition. Each grid
  * sees only its slice, updated by keyed diff through the public
  * `grid.rows.apply` path — no grid-core change, no cross-references between
  * grids. Snapshots apply keyed diffs (unchanged rows never repaint); deltas add,
@@ -253,8 +253,7 @@ interface DataRouter {
   /** Take the whole routing graph as one declarative spec (v5); desugars to the calls above and composes with them. */
   configure(spec?: RouterConfig): DataRouter;
   /**
-   * Link a source grid's selection to what a target grid receives (v2,
-   * BACKLOG-0000880): the target shows the subset of its partition the
+   * Link a source grid's selection to what a target grid receives (v2): the target shows the subset of its partition the
    * `relation` admits, re-pushed through the keyed-diff path. No selection
    * shows the full partition; changes are debounced.
    */

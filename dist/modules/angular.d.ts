@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, angular module type declarations
+ * Lattice Grid 1.65.0, angular module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -9,7 +9,7 @@ import type {
 
 /**
  * Build the Angular standalone component and directive from one shared
- * controller (BACKLOG-0000805).
+ * controller.
  *
  * The Angular core namespace and `createGrid` are passed in, for the same
  * reason as every other adapter: the package ships no dependencies and cannot

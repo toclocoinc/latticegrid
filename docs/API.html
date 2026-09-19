@@ -360,7 +360,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.64.0</p>
+    <p class="rail__sub">API reference · v1.65.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -414,6 +414,12 @@
         <a href="#events">Event reference</a>
       </div>
       <div class="rail__group">
+        <span class="rail__label">Frameworks</span>
+        <a href="#adapters">Framework adapters</a>
+        <a href="#react-v2">React</a>
+        <a href="#angular-v2">Angular</a>
+      </div>
+      <div class="rail__group">
         <span class="rail__label">Registries</span>
         <a href="#names">Built-in names</a>
         <a href="#rules">Conditional formatting</a>
@@ -444,7 +450,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.64.0</span>
+      <span class="chip">Version 1.65.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -520,6 +526,7 @@
         <thead><tr><th>Entry point</th><th>Factory</th><th>Needs</th></tr></thead>
         <tbody>
           <tr><td class="name">modules/react</td><td class="sig">createLatticeGrid({ React, createGrid })</td><td class="desc">Returns a component. Forwards a ref exposing <code>.grid</code>. Since 1.63 the same entry point also builds a component for <a href="#react-v2">every other viewer</a> and the data router.</td></tr>
+          <tr><td class="name">@toclocoinc/<wbr>lattice-grid-angular</td><td class="sig">&lt;lattice-grid [config]="…"&gt;</td><td class="desc">A package of its own, not a bundle: standalone components compiled ahead of time, one per viewer, plus the data router as a service. See <a href="#angular-v2">Angular</a>. <code>modules/angular</code>, which needs the JIT compiler, is deprecated.</td></tr>
           <tr><td class="name">modules/vue</td><td class="sig">createLatticeGrid({ vue, createGrid })</td><td class="desc">Returns a Vue 3 component definition.</td></tr>
           <tr><td class="name">modules/svelte</td><td class="sig">createLatticeAction({ createGrid })</td><td class="desc">Returns a <code>use:</code> action.</td></tr>
         </tbody>
@@ -704,6 +711,120 @@ controller.destroy();
       whose <code>import('node:' + 'module')</code> Vite could not analyse statically, so every Vite
       build of every application printed "The above dynamic import cannot be analyzed by Vite" about
       a line that could never run. The build now deletes that branch from every emitted artefact.
+    </p>
+
+    <h3 id="angular-v2">Angular: a compiled package, <code>@toclocoinc/lattice-grid-angular</code></h3>
+    <p>
+      Angular's components are not objects a library can assemble at run time in a production
+      build. <code>modules/angular</code> did assemble them that way, which needs Angular's JIT
+      compiler in the page &mdash; present on a development server, absent from every AOT build.
+      So Angular gets a package of its own: TypeScript components compiled by
+      <code>@angular/compiler-cli</code> into a partial-Ivy library, which your build's Angular
+      Linker turns into definitions exactly as it does for any other Angular library you install.
+      <strong>No compiler in your bundle, and one standalone component per viewer.</strong>
+    </p>
+    <pre><code>npm install @toclocoinc/lattice-grid @toclocoinc/lattice-grid-angular</code></pre>
+    <pre><code><span class="kw">import</span> { bootstrapApplication } <span class="kw">from</span> '@angular/platform-browser';
+<span class="kw">import</span> { createGrid } <span class="kw">from</span> '@toclocoinc/lattice-grid';
+<span class="kw">import</span> { createKPI } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/kpi';
+<span class="kw">import</span> { createChart } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/charts';
+<span class="kw">import</span> {
+  LatticeGridComponent, LatticeKpiComponent, LatticeChartComponent, provideLattice,
+} <span class="kw">from</span> '@toclocoinc/lattice-grid-angular';
+
+@Component({
+  selector: 'app-dashboard',
+  imports: [LatticeGridComponent, LatticeKpiComponent, LatticeChartComponent],
+  template: `
+    &lt;lattice-grid #grid name="quakes" [config]="config" [quickFilter]="search()"
+                  (cell-changed)="save($event)" /&gt;
+    &lt;lattice-kpi  gridName="quakes" [config]="{ tiles }" /&gt;
+    &lt;lattice-chart gridName="quakes" [config]="{ type: 'bar', x: 'region', y: 'count' }" /&gt;
+  `,
+})
+<span class="kw">export class</span> Dashboard {
+  <span class="cmt">// The live grid, the same object createGrid returns.</span>
+  grid = viewChild&lt;LatticeGridComponent&gt;('grid');
+}
+
+<span class="cmt">// Each factory is injected, not imported by the library: an application that</span>
+<span class="cmt">// shows a grid downloads the grid, and never the board or the eighteen charts.</span>
+bootstrapApplication(Dashboard, {
+  providers: [provideLattice({ createGrid, createKPI, createChart })],
+});</code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Export</th><th>Element</th><th>What it is</th></tr></thead>
+        <tbody>
+          <tr><td class="name">LatticeGridComponent</td><td class="sig">&lt;lattice-grid&gt;</td><td class="desc">The grid. <code>[config]</code> is every configuration key; <code>[sort]</code>, <code>[filters]</code>, <code>[quickFilter]</code> and <code>[selectedKeys]</code> are applied through the matching API; <code>[rowUpdates]</code> and <code>[predicates]</code> drive a live feed. Every grid event is an output under its kebab-case name, and <code>(grid-ready)</code> hands you the instance. Give the element a height.</td></tr>
+          <tr><td class="name">LatticeGridDirective</td><td class="sig">[latticeGrid]</td><td class="desc">The same component on an element your template already owns: <code>&lt;div [latticeGrid]="config" class="tall"&gt;&lt;/div&gt;</code>. Same inputs, outputs and <code>grid</code> reference.</td></tr>
+          <tr><td class="name">LatticeKpiComponent</td><td class="sig">&lt;lattice-kpi&gt;</td><td class="desc">The KPI panel. Grid-bound by default &mdash; <code>[gridName]</code> picks which published grid &mdash; or give it <code>[rows]</code> for a panel with no grid.</td></tr>
+          <tr><td class="name">LatticeChartComponent</td><td class="sig">&lt;lattice-chart&gt;</td><td class="desc">A chart. Requires a grid, so nothing is built until one exists; a changed spec key goes to <code>chart.update()</code> and the chart redraws rather than being rebuilt. <code>(click)</code>, <code>(hover)</code> and <code>(leave)</code> on this element are the chart's events, carrying the datum under the pointer.</td></tr>
+          <tr><td class="name">LatticeKanbanComponent</td><td class="sig">&lt;lattice-kanban&gt;</td><td class="desc">The board. <code>[rows]</code>, <code>[quickFilter]</code>, <code>[sprint]</code>, <code>[epic]</code>, <code>[loading]</code> and <code>[error]</code> are live inputs.</td></tr>
+          <tr><td class="name">LatticeGanttComponent</td><td class="sig">&lt;lattice-gantt&gt;</td><td class="desc">The plan. <code>[tasks]</code> and <code>[dependencies]</code> are live inputs. It takes an explicit <code>[grid]</code> but never adopts a published one.</td></tr>
+          <tr><td class="name">LatticeLayoutComponent</td><td class="sig">&lt;lattice-layout&gt;</td><td class="desc">The dashboard layout. Windows are driven through the instance; its events arrive as <code>(layout-changed)</code>, <code>(window-moved)</code> and the rest.</td></tr>
+          <tr><td class="name">LatticeTabsComponent<br>LatticeTabDirective</td><td class="sig">&lt;lattice-tabs&gt;<br>ng-template[latticeTab]</td><td class="desc">The tab strip, with <strong>Angular-rendered tab content</strong>: a tab's content is an <code>&lt;ng-template latticeTab="id"&gt;</code> in your own template, rendered into the strip's panel through this component's <code>ViewContainerRef</code> &mdash; so a tab's grid is a real <code>&lt;lattice-grid&gt;</code> with inputs, a reference and your injectors above it. A tab with no template is left to the module, so configuration-driven grid tabs still work and the two kinds mix on one strip.</td></tr>
+          <tr><td class="name">LatticeGridRegistry</td><td class="sig">inject(LatticeGridRegistry)</td><td class="desc">Where <code>&lt;lattice-grid name="…"&gt;</code> publishes itself and grid-bound viewers find it, as a signal per name &mdash; a panel declared before its grid exists mounts itself the moment the grid arrives. <code>providedIn: 'root'</code>; put it in a component's own <code>providers</code> to scope a registry to that subtree.</td></tr>
+          <tr><td class="name">provideLattice</td><td class="sig">provideLattice({ …factories })</td><td class="desc">The factories the components build through. Give it the ones your application uses; a component whose factory is missing names the import and the provider call that fixes it.</td></tr>
+          <tr><td class="name">provideLatticeRouter<br>LatticeRouter</td><td class="sig">providers: [provideLatticeRouter(cfg)]</td><td class="desc">The data router as a service. Put it in a component's <code>providers</code> and it is created when the first <code>&lt;lattice-grid route="…"&gt;</code> under it attaches, and destroyed with that component &mdash; its configuration read once, because rebuilding would drop every attached grid and every row it holds. Each grid detaches before it is destroyed, so the router never holds a dead grid.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="section-note">
+      <strong>Change detection: zone or zoneless, unconfigured.</strong> The grid is created inside
+      <code>NgZone.runOutsideAngular</code>, because it installs its own scroll, wheel and pointer
+      listeners and running change detection on every scroll frame of a million-row grid is the
+      difference between smooth and unusable. An event that reaches an output you have
+      <em>bound</em> re-enters the zone, so <code>(cell-changed)="count = count + 1"</code> repaints
+      exactly as you expect; an output nobody bound costs nothing. Under zoneless change detection
+      that machinery is Angular's own no-op and a signal you set in a handler repaints the view.
+      The one thing to know when reading the grid's DOM from Angular: <strong>the grid paints on its
+      own schedule, not Angular's</strong>, so measure a cell in a grid event, not in
+      <code>ngAfterViewInit</code>.
+    </p>
+    <p class="section-note">
+      <strong><code>OnPush</code> is safe everywhere.</strong> None of these components asks its
+      parent to re-render: each owns one element, builds one instance in
+      <code>afterNextRender</code> and pushes changed inputs into it from <code>ngOnChanges</code>.
+      A host on <code>OnPush</code> that never re-renders still gets a fully live grid, because the
+      grid is not rendered by Angular.
+    </p>
+    <p class="section-note">
+      <strong>Inputs are diffed by identity, and never rebuild the instance.</strong> A changed
+      input reaches the viewer that is already on screen &mdash; scroll position, selection,
+      expansion and any open editor intact. Two things rebuild rather than update: the grid a
+      viewer is bound to, and an input it cannot exist without. An input a viewer has no live
+      setter for is named once in a warning rather than silently dropped. And because the
+      comparison is <code>Object.is</code>, an inline <code>[config]="{ rows: rows }"</code> is a
+      new object on every pass: hold it in a field or a signal.
+    </p>
+    <p class="section-note">
+      <strong>Cleanup is the component's.</strong> <code>ngOnDestroy</code> detaches from the
+      router, withdraws the grid from the registry and destroys the instance &mdash; in that order.
+      An <code>&#64;if</code> that closes and opens again leaves exactly one instance alive, and
+      destroying the application leaves no instance, interval or listener behind. That is asserted
+      with counters in a real browser, against the linked package, in
+      <code>test/angular-package-browser.test.js</code>.
+    </p>
+    <p class="section-note">
+      <strong>Angular 17 and up, browser only.</strong> The library is compiled partially, so your
+      own Angular version compiles it: its declarations need a linker no newer than 14, and its peer
+      range is <code>&gt;=17</code>. Nothing is created on the server &mdash;
+      <code>isPlatformBrowser</code> guards every build and <code>afterNextRender</code> does not
+      run there &mdash; so a server-rendered page emits the empty host element and the grid is built
+      on hydration. Angular Universal is not otherwise supported.
+    </p>
+    <p class="section-note">
+      <strong><code>modules/angular</code> is deprecated.</strong> The old bundle still works where
+      it always worked &mdash; a page with <code>@angular/compiler</code> loaded &mdash; and it now
+      says so once, and fails with a <code>[lattice]</code> message naming this package when it
+      finds a real Angular with no JIT compiler, instead of leaving you with Angular's own. In
+      1.65 it also gained the fix that <code>&lt;div [latticeGrid]="config"&gt;</code> binds the
+      configuration through the directive's selector, as its documentation always said it did. It
+      will be removed in a later release; move to <code>@toclocoinc/lattice-grid-angular</code>,
+      which covers every viewer rather than the grid alone.
     </p>
 
     <div class="note">
@@ -1393,7 +1514,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.64.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.65.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -11083,6 +11204,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">pipes</td><td class="type">Record&lt;string, (value: unknown, ...args: string[]) =&gt; string&gt;</td><td class="desc">Named text transforms usable from a format mask or a template. <small>(optional)</small></td></tr>
           <tr><td class="name">totalFns</td><td class="type">Record&lt;string, TotalFn&gt;</td><td class="desc">Your own reductions, alongside the built-in ones. <small>(optional)</small></td></tr>
           <tr><td class="name">variants</td><td class="type">Record&lt;string, VariantDefinition&gt;</td><td class="desc">Named appearance variants a row or cell can be switched into by a rule. <small>(optional)</small></td></tr>
+          <tr><td class="name">icons</td><td class="type">Record&lt;string, IconDefinition&gt;</td><td class="desc">Your own SVG glyphs, registered by name before the first paint. The same registry `registerIcon` writes to and every cell, header control, rail button and chart glyph is painted from, so a name given here is usable anywhere a glyph name is: a column's `icon` decoration, a rail action's `icon`, a network node's `icon`. Registering a built-in name overrides it. Read the result back through {@link Grid.icons}. <small>(optional)</small></td></tr>
           <tr><td class="name">tree</td><td class="type">TreeConfig</td><td class="desc">Hierarchical rows: where the parent link or the path lives. <small>(optional)</small></td></tr>
           <tr><td class="name">detail</td><td class="type">DetailConfig</td><td class="desc">The expandable panel beneath a row. <small>(optional)</small></td></tr>
           <tr><td class="name">selection</td><td class="type">SelectionConfig | 'single' | 'multiple' | 'none'</td><td class="desc">What the user may select, and how selection behaves across groups. The `'none'` shorthand is `{ mode: 'none' }` and behaves identically: no row selection, and no cell ranges or fill handle either. <small>(optional)</small></td></tr>
@@ -11162,7 +11284,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">rowClass</td><td class="type">string | string[] | ((p: RowStyleParams) =&gt; string | string[])</td><td class="desc">A class, or classes, for every row. Re-evaluated on each repaint. <small>(optional)</small></td></tr>
           <tr><td class="name">rowStyle</td><td class="type">CellStyle | ((p: RowStyleParams) =&gt; CellStyle)</td><td class="desc">Inline styles for every row. Camel-case or hyphenated property names. <small>(optional)</small></td></tr>
           <tr><td class="name">toolPanel</td><td class="type">boolean | {</td><td class="desc"><small>(optional)</small></td></tr>
-          <tr><td class="name">groupPanel</td><td class="type">boolean | {</td><td class="desc">A drag-and-drop group-by strip above the column header — the pattern AG Grid calls the row-group panel. Drag a column heading into it to group by that column; the active groups show as removable, reorderable chips, and reordering the chips changes the nesting order. It is keyboard-operable (arrows navigate, Shift+arrow reorders, Delete ungroups, and an add control groups any column), and every change is announced through the live region, which is why it also addresses the drag-only complaint of BACKLOG-0000429. Off by default and non-breaking, matching `toolPanel`. It drives the same grouping model as `grid.columns.group()`; it reimplements nothing. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupPanel</td><td class="type">boolean | {</td><td class="desc">A drag-and-drop group-by strip above the column header — the pattern AG Grid calls the row-group panel. Drag a column heading into it to group by that column; the active groups show as removable, reorderable chips, and reordering the chips changes the nesting order. It is keyboard-operable (arrows navigate, Shift+arrow reorders, Delete ungroups, and an add control groups any column), and every change is announced through the live region, which is why it also addresses the drag-only complaint (BACKLOG-0000429). Off by default and non-breaking, matching `toolPanel`. It drives the same grouping model as `grid.columns.group()`; it reimplements nothing. <small>(optional)</small></td></tr>
           <tr><td class="name">kpis</td><td class="type">Array&lt;Omit&lt;StatConfig, 'grid' | 'container'&gt;&gt;</td><td class="desc">A built-in KPI/stat strip: a labelled band of {@link createStat} tiles the grid places for you, above the column header. Each entry is a stat spec — the same fields {@link StatConfig} takes, minus `grid` and `container`, which the grid supplies — so a strip tile and a hand-placed one are the same object. The tiles follow the grid's filters, recomputing on every change exactly as a stand-alone stat does. Off by default and non-breaking, matching `groupPanel`: no `kpis` means no band and no cost. It reuses `createStat` and reimplements no compute. <small>(optional)</small></td></tr>
           <tr><td class="name">quickFilterText</td><td class="type">string</td><td class="desc">The quick filter's initial text. <small>(optional)</small></td></tr>
           <tr><td class="name">permissions</td><td class="type">PermissionPolicy</td><td class="desc">Per-column read/write/hidden policy. A usability control, not a security boundary: hidden data is still resident in the store. Enforce the same policy server-side with `permittedColumns` / `permittedExport`. <small>(optional)</small></td></tr>
@@ -14065,7 +14187,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.64.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.65.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

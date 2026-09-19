@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, geo-uk module type declarations
+ * Lattice Grid 1.65.0, geo-uk module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -9,7 +9,7 @@ import type {
 
 /**
  * United Kingdom: regions, local authorities and constituencies, in one
- * multi-layer pack — an optional geometry pack (BACKLOG-0001321). Generated
+ * multi-layer pack — an optional geometry pack. Generated
  * from the ONS Open Geography Portal (Open Government Licence v3.0), whose
  * required attribution the pack carries and the map draws automatically. Pick
  * the grain with `layer: 'regions' | 'local-authorities' | 'constituencies'`.

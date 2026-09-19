@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, chart-hexmap module type declarations
+ * Lattice Grid 1.65.0, chart-hexmap module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -8,7 +8,7 @@ import type {
 } from '../lattice-grid.js';
 
 /**
- * The hexbin-map extension type (BACKLOG-0000886). Importing this module
+ * The hexbin-map extension type. Importing this module
  * registers `hexmap`. `lon`/`lat` points binned into hexagons shaded by count,
  * so a geographic density reads without overplotting or outlines.
  */

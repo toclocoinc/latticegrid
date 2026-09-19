@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, layout module type declarations
+ * Lattice Grid 1.65.0, layout module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -211,7 +211,7 @@ interface LayoutConfig {
 /**
  * A reconfigurable dashboard: a cell grid inside an element, and a set of
  * windows on it that a user can move, resize and close by pointer or by
- * keyboard (BACKLOG-0001108).
+ * keyboard.
  *
  * The module is **payload-agnostic**: a window body is a container with an id,
  * which this module creates and sizes and never reads. It tells a payload it

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, chart-fan module type declarations
+ * Lattice Grid 1.65.0, chart-fan module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -8,7 +8,7 @@ import type {
 } from '../lattice-grid.js';
 
 /**
- * The fan / forecast extension chart type (BACKLOG-0000886). Importing this
+ * The fan / forecast extension chart type. Importing this
  * module registers `fan`. Draws `y` (history) as a solid line, `forecast` as a
  * dashed continuation, and the `lower`/`upper` interval as a widening band.
  */

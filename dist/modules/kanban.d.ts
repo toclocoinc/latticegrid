@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, kanban module type declarations
+ * Lattice Grid 1.65.0, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -47,7 +47,7 @@ type KanbanColumnDef = string | {
   wipLimit?: number;
   collapsed?: boolean;
   /**
-   * A per-column SLA override (BACKLOG-0000960): a lone threshold read as the
+   * A per-column SLA override: a lone threshold read as the
    * breach level, or a `{ warn, breach }` pair. Overrides the global `sla`
    * thresholds for cards in this column (precedence: lane → column → global).
    */
@@ -102,7 +102,7 @@ interface KanbanEvent {
 }
 
 /**
- * A card-aging / SLA threshold (BACKLOG-0000960): a raw millisecond count, or
+ * A card-aging / SLA threshold: a raw millisecond count, or
  * a `{ weeks, days, hours, minutes, seconds, ms }` spec whose fields are summed
  * (`{ days: 3, hours: 12 }` → 3.5 days). A negative or non-finite value means
  * "no threshold at this level".
@@ -117,7 +117,7 @@ type KanbanSlaThreshold = number | {
 };
 
 /**
- * Card-aging / SLA configuration (BACKLOG-0000960). A card is measured against a
+ * Card-aging / SLA configuration. A card is measured against a
  * `warn` and a `breach` threshold; the view puts an age chip on aged cards and a
  * highlight on breached ones, and a rising crossing fires the `card:sla` event
  * and the matching `onWarn`/`onBreach` callback (signature `(level, rows)`, the
@@ -159,7 +159,7 @@ interface KanbanSlaConfig {
   onBreach?: (level: 'warn' | 'breach', rows: KanbanRow[]) => void;
 }
 
-/** The computed SLA state of one card (BACKLOG-0000960). */
+/** The computed SLA state of one card. */
 interface KanbanSlaState {
   key: unknown;
   columnId: string | null;
@@ -181,7 +181,7 @@ interface KanbanSlaState {
 }
 
 /**
- * The card-aging / SLA monitor (BACKLOG-0000960), reached as {@link Kanban#sla}
+ * The card-aging / SLA monitor, reached as {@link Kanban#sla}
  * when a `sla` config is supplied. Pure and DOM-free: it computes each card's
  * ageing state from the board's card model and the flow transition log, and the
  * view paints it.
@@ -248,7 +248,7 @@ interface KanbanConfig {
   /** Card virtualization for tall columns: true, or `{ rowHeight, overscan, threshold, viewport }`. */
   virtualize?: boolean | { rowHeight?: number; overscan?: number; threshold?: number; viewport?: number };
   /**
-   * Card aging / SLA highlighting (BACKLOG-0000960): warn/breach thresholds
+   * Card aging / SLA highlighting: warn/breach thresholds
    * (globally, per column and/or per lane) that age each card and fire
    * `card:sla` on a rising crossing. Opt-in; reached at runtime as
    * {@link Kanban#sla}. See {@link KanbanSlaConfig}.
@@ -263,7 +263,7 @@ interface KanbanConfig {
   /**
    * Create a card for a column on add-card; return the row to create (with
    * its key), a Promise of that row, or nothing to auto-generate. A rejected
-   * Promise creates no card and leaves the board unchanged (BACKLOG-0001230).
+   * Promise creates no card and leaves the board unchanged.
    */
   onAddCard?: (columnId: string) => KanbanRow | Promise<KanbanRow> | void;
   /** A predicate filter over cards; only matching cards are shown. */
@@ -349,8 +349,8 @@ interface KanbanRows {
 }
 
 /**
- * Named card predicates, composed with AND (BACKLOG-0001229), following the
- * grid's `filters.where` convention (BACKLOG-0001202). Several may be
+ * Named card predicates, composed with AND, following the
+ * grid's `filters.where` convention. Several may be
  * registered under different names at once; each can be replaced or removed
  * without touching the others. `setFilter(fn)` is unchanged sugar for
  * `where(DEFAULT, fn)` / `where(DEFAULT, null)`.
@@ -378,7 +378,7 @@ interface Kanban {
   readonly el: unknown | null;
   readonly rowKey: string | ((row: KanbanRow) => unknown);
   rows: KanbanRows;
-  /** The card-aging / SLA monitor, present only when a `sla` config was supplied (BACKLOG-0000960). */
+  /** The card-aging / SLA monitor, present only when a `sla` config was supplied. */
   sla?: KanbanSla;
   columns(): KanbanColumn[];
   column(id: string): KanbanColumn | undefined;
@@ -416,7 +416,7 @@ interface Kanban {
   reorderLanes(order: string[]): Kanban;
   /** Move one swimlane before another (or to the end); emits `swimlane:reorder`. */
   moveLane(id: string, beforeId: string | null): Kanban;
-  /** Named card predicates, composed with AND (BACKLOG-0001229). See {@link KanbanFilters}. */
+  /** Named card predicates, composed with AND. See {@link KanbanFilters}. */
   filters: KanbanFilters;
   /** Set a predicate filter over cards, or clear it with null. Sugar for `filters.where(filters.DEFAULT, fn)`. */
   setFilter(fn: ((row: KanbanRow, card: KanbanCard) => boolean) | null): Kanban;
@@ -457,7 +457,7 @@ interface Kanban {
   /**
    * Add a card to a column and open it in inline edit; emits `card:add`.
    * Returns the new key directly, or a Promise of it when `onAddCard`
-   * returns a Promise or a `beforeAdd` handler defers (BACKLOG-0001230); a
+   * returns a Promise or a `beforeAdd` handler defers; a
    * rejected `onAddCard` Promise resolves this to `null` with no card added.
    */
   addCard(columnId: string, seed?: KanbanRow): unknown | Promise<unknown>;
@@ -471,7 +471,7 @@ interface Kanban {
   setError(message: string | null): Kanban;
   setRows(rows: KanbanRow[]): Kanban;
   /**
-   * Replace the board's configured column set (BACKLOG-0001228). Keeps card
+   * Replace the board's configured column set. Keeps card
    * placement and interaction state (collapsed columns, column order, quick
    * filter, selection) for every column id that survives; a dropped id is
    * not specially handled — a card whose value has nowhere configured to go

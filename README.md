@@ -2,9 +2,10 @@
 
 **A high-performance data grid for the browser.** Vanilla JavaScript, no runtime
 dependencies, no build step required. Optional adapters for React, Vue, Svelte
-and Web Components ship alongside it.
+and Web Components ship alongside it, and Angular has a compiled package of its
+own, `@toclocoinc/lattice-grid-angular`.
 
-Version 1.64.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.65.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 

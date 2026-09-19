@@ -1,10 +1,10 @@
 /*!
- * Lattice Grid 1.64.0, ai module type declarations
+ * Lattice Grid 1.65.0, ai module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 /**
- * The provider-agnostic model callback the host supplies (BACKLOG-0000965).
+ * The provider-agnostic model callback the host supplies.
  * The module never imports a provider SDK, reads a key, or makes a network
  * call — it builds this payload and awaits the host's reply. A host may wrap a
  * chat provider (`{ text }`), a completion (a bare string), a tool-calling turn
@@ -46,8 +46,7 @@ interface AIFact {
  * A narrative target. `view` narrates the current filtered view; `column`
  * narrates one column's profile; `forecast` adds its projection; `kpi`/`chart`
  * narrate figures the caller passes through in `facts`; `risk` assembles a
- * project RISK SUMMARY from the separate Gantt / Kanban modules' public outputs
- * (BACKLOG-0000979).
+ * project RISK SUMMARY from the separate Gantt / Kanban modules' public outputs.
  */
 interface AITarget {
   kind?: 'view' | 'column' | 'forecast' | 'kpi' | 'chart' | 'risk';
@@ -109,7 +108,7 @@ interface AIFactsPacket {
 }
 
 /**
- * The risk facts a board / Gantt risk summary grounds on (BACKLOG-0000979),
+ * The risk facts a board / Gantt risk summary grounds on,
  * from {@link buildRiskFacts}: the facts plus which module sources resolved and
  * which opt-in exposures (task names, cost) were honoured.
  */
@@ -172,8 +171,7 @@ interface AIConfig {
   onProposal?: (result: AIProposal) => void;
   /**
    * A Kanban board (from `createKanban`) the governed actor writes moves
-   * through: an NL card move applies via the board's own `beforeMove` gate
-   * (BACKLOG-0000967), never a kanban-specific write bypass.
+   * through: an NL card move applies via the board's own `beforeMove` gate, never a kanban-specific write bypass.
    */
   board?: unknown;
   /** Cap on rows any tool result carries to `ask()`. */
@@ -210,7 +208,7 @@ interface AIApplyReport {
 }
 
 /**
- * The result of an ask-your-data question (BACKLOG-0000966): a validated,
+ * The result of an ask-your-data question: a validated,
  * READ-ONLY query spec — never rows — that the host reviews before applying.
  */
 interface AIQueryResult {
@@ -238,7 +236,7 @@ interface AIQueryResult {
   apply(opts?: { router?: unknown; onResult?: (rows: object[]) => void }): AIApplyReport;
 }
 
-/** One before/after change in a governed-actor proposal (BACKLOG-0000967). */
+/** One before/after change in a governed-actor proposal. */
 interface AIDiffEntry {
   /** The target row key. */
   key: string;
@@ -259,7 +257,7 @@ interface AIDiffEntry {
 }
 
 /**
- * A governed-actor proposal (Play C, BACKLOG-0000967): the model's structured
+ * A governed-actor proposal (Play C): the model's structured
  * edits, VALIDATED and resolved against the current view — never written until
  * a human approves. `apply()` writes ONLY through the grid's own gate.
  */
@@ -325,8 +323,7 @@ interface AI {
   /** An alias for {@link AI.explain}. */
   narrate(target?: AITarget, opts?: object): Promise<AINarrative>;
   /**
-   * Produce a grounded, reconciled board / Gantt RISK SUMMARY
-   * (BACKLOG-0000979): a plain-language reading like "3 tasks at risk on the
+   * Produce a grounded, reconciled board / Gantt RISK SUMMARY: a plain-language reading like "3 tasks at risk on the
    * critical path, SPI 0.67, 2 SLA breaches". A convenience over
    * `explain({ kind: 'risk', ... })`; the module sources go in `sources`
    * (`gantt`, `board`/`sla`, or precomputed outputs). Every figure runs through
@@ -395,7 +392,7 @@ interface AI {
 export function createAI(grid: unknown, config?: AIConfig): AI;
 
 /**
- * Build the RISK-SUMMARY facts packet (BACKLOG-0000979) from the separate
+ * Build the RISK-SUMMARY facts packet from the separate
  * Gantt / Kanban modules' public outputs — SPI/CPI and variances from
  * `gantt.earnedValue()`, tasks at risk / on the critical path from
  * `gantt.schedule`, and SLA breaches from `board.sla`. Reads the module

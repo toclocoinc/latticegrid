@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.64.0</p>
+    <p class="rail__sub">Developer guide · v1.65.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.64.0</span>
+        <span class="chip">Version 1.65.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1369,7 +1369,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.64.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.65.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -7971,6 +7971,41 @@ createChart({
       forty rows behind a bar is not what a click on a bar means.</p>
     </div>
 
+    <p class="lead-in">
+      The glyphs those nodes draw are yours to supply. <code>icons</code> on the grid configuration
+      registers SVG sprites by name, before the first paint, into the same registry the built-in
+      chevrons and sort arrows live in &mdash; so a name you register is usable anywhere a glyph
+      name is: a column&rsquo;s <code>icon</code> decoration, a rail action&rsquo;s
+      <code>icon</code>, a network node&rsquo;s <code>icon</code>. Registering a built-in name
+      overrides it, which is how the expander chevron becomes your own mark. A sprite is a view box
+      and its path data; one filled path on the house 16&times;16 box is the common case, so a bare
+      path string is read as exactly that. <code>grid.icons</code> reads the registry back.
+    </p>
+    <div class="example">
+      <p class="example__label">Registering your own glyphs, executed</p>
+      <pre data-run="js" data-expect="router 2 stroke | hub 1 fill" data-covers="config:icons"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { root } = createTestDom();
+<span class="kw">const</span> { createGrid } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+
+<span class="kw">const</span> grid = createGrid(root, {
+  rowKey: 'id',
+  rows: [{ id: 'core-1', load: 41 }],
+  columns: [{ field: 'id' }, { field: 'load', type: 'number' }],
+  <span class="cmt">// Your own sprites, by name, alongside the built-in set.</span>
+  icons: {
+    router: { viewBox: '0 0 16 16', paths: ['M2 6h12v6H2Z', 'M5 6V3h6v3'], paint: 'stroke' },
+    hub: 'M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2Z',      <span class="cmt">// one filled path is enough</span>
+  },
+});
+
+<span class="cmt">// Read back what the registry holds: the normalised glyph, whichever form registered it.</span>
+<span class="kw">const</span> router = grid.icons.get('router');
+<span class="kw">const</span> hub = grid.icons.get('hub');
+grid.destroy();
+
+<span class="kw">return</span> `router ${router.paths.length} ${router.paint} | hub ${hub.paths.length} ${hub.paint}`;</code></pre>
+    </div>
+
     <h3 id="removed-rows">Showing what was deleted</h3>
     <div class="example">
       <p class="example__label">A deletion is a change too</p>
@@ -9483,7 +9518,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.64.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.65.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

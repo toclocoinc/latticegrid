@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, chart-roc module type declarations
+ * Lattice Grid 1.65.0, chart-roc module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -8,7 +8,7 @@ import type {
 } from '../lattice-grid.js';
 
 /**
- * The ROC / PR / calibration extension chart type (BACKLOG-0000886). Importing
+ * The ROC / PR / calibration extension chart type. Importing
  * this module registers `roc`. `spec.curve` chooses `'roc'` (default, with the
  * chance diagonal and AUC), `'pr'`, or `'calibration'`; `label` is the outcome
  * column (positive when truthy or equal to `spec.positive`), `score` the model

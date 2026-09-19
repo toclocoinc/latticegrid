@@ -1,10 +1,10 @@
 /*!
- * Lattice Grid 1.64.0, chart-slope module type declarations
+ * Lattice Grid 1.65.0, chart-slope module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 /**
- * The slope-chart extension type (BACKLOG-0000886). Importing this module
+ * The slope-chart extension type. Importing this module
  * registers `slope`. One line per `series` connecting its `y` across the `x`
  * periods — before/after comparison read from the slopes.
  */

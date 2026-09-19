@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, svelte module type declarations
+ * Lattice Grid 1.65.0, svelte module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -11,8 +11,7 @@ import type {
  * A Svelte action: `use:lattice={config}`.
  *
  * The action owns nothing but the node the caller already has, so the grid is
- * reached one of two ways. Pass an `onGrid` callback in the action params
- * (BACKLOG-0000785): `use:lattice={{ ...config, onGrid: (g) => (grid = g) }}`
+ * reached one of two ways. Pass an `onGrid` callback in the action params: `use:lattice={{ ...config, onGrid: (g) => (grid = g) }}`
  * calls it once with the live `Grid` the moment it is built — synchronously,
  * before `ready` fires — and again if you hand the action a different
  * `onGrid`. Or read it off an event: every grid event carries the grid on its

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, geo-us-states module type declarations
+ * Lattice Grid 1.65.0, geo-us-states module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -8,7 +8,7 @@ import type {
 } from '../lattice-grid.js';
 
 /**
- * United States, states and DC — an optional geometry pack (BACKLOG-0001321).
+ * United States, states and DC — an optional geometry pack.
  * Generated from the US Census Bureau via `us-atlas` (public domain); joins on
  * USPS, FIPS or ISO codes.
  */

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, chart-hexbin module type declarations
+ * Lattice Grid 1.65.0, chart-hexbin module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -8,7 +8,7 @@ import type {
 } from '../lattice-grid.js';
 
 /**
- * The hexbin / 2D-density extension chart type (BACKLOG-0000886). Importing
+ * The hexbin / 2D-density extension chart type. Importing
  * this module registers `hexbin`. Bins `x`/`y` points into hexagons shaded by
  * count, so a large scatter reads as a density field rather than overplotting.
  */

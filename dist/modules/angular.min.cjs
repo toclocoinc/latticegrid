@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, angular module
+ * Lattice Grid 1.65.0, angular module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -18,6 +18,403 @@ if(!fn)throw new Error('[lattice] missing module: '+id);
 fn(exports,__req);
 return exports;
 }
+__def("packages/core/src/internal/util.js",function(__exports,__req){
+'use strict';
+Object.defineProperty(__exports,"VERSION",{enumerable:true,get:function(){return VERSION;}});
+Object.defineProperty(__exports,"reportedWarnings",{enumerable:true,get:function(){return reportedWarnings;}});
+Object.defineProperty(__exports,"warnOnce",{enumerable:true,get:function(){return warnOnce;}});
+Object.defineProperty(__exports,"infoOnce",{enumerable:true,get:function(){return infoOnce;}});
+Object.defineProperty(__exports,"resetWarnings",{enumerable:true,get:function(){return resetWarnings;}});
+Object.defineProperty(__exports,"fail",{enumerable:true,get:function(){return fail;}});
+Object.defineProperty(__exports,"invariant",{enumerable:true,get:function(){return invariant;}});
+Object.defineProperty(__exports,"DEV",{enumerable:true,get:function(){return DEV;}});
+Object.defineProperty(__exports,"isObject",{enumerable:true,get:function(){return isObject;}});
+Object.defineProperty(__exports,"isFunction",{enumerable:true,get:function(){return isFunction;}});
+Object.defineProperty(__exports,"isNil",{enumerable:true,get:function(){return isNil;}});
+Object.defineProperty(__exports,"isBlank",{enumerable:true,get:function(){return isBlank;}});
+Object.defineProperty(__exports,"isCtor",{enumerable:true,get:function(){return isCtor;}});
+Object.defineProperty(__exports,"pathGetter",{enumerable:true,get:function(){return pathGetter;}});
+Object.defineProperty(__exports,"pathSetter",{enumerable:true,get:function(){return pathSetter;}});
+Object.defineProperty(__exports,"getPath",{enumerable:true,get:function(){return getPath;}});
+Object.defineProperty(__exports,"setPath",{enumerable:true,get:function(){return setPath;}});
+Object.defineProperty(__exports,"humanise",{enumerable:true,get:function(){return humanise;}});
+Object.defineProperty(__exports,"escapeHtml",{enumerable:true,get:function(){return escapeHtml;}});
+Object.defineProperty(__exports,"titleCase",{enumerable:true,get:function(){return titleCase;}});
+Object.defineProperty(__exports,"expand",{enumerable:true,get:function(){return expand;}});
+Object.defineProperty(__exports,"toArray",{enumerable:true,get:function(){return toArray;}});
+Object.defineProperty(__exports,"merge",{enumerable:true,get:function(){return merge;}});
+Object.defineProperty(__exports,"mergeRow",{enumerable:true,get:function(){return mergeRow;}});
+Object.defineProperty(__exports,"Lru",{enumerable:true,get:function(){return Lru;}});
+Object.defineProperty(__exports,"collator",{enumerable:true,get:function(){return collator;}});
+Object.defineProperty(__exports,"defaultCompare",{enumerable:true,get:function(){return defaultCompare;}});
+Object.defineProperty(__exports,"now",{enumerable:true,get:function(){return now;}});
+Object.defineProperty(__exports,"nextFrame",{enumerable:true,get:function(){return nextFrame;}});
+Object.defineProperty(__exports,"cancelFrame",{enumerable:true,get:function(){return cancelFrame;}});
+Object.defineProperty(__exports,"frameBatched",{enumerable:true,get:function(){return frameBatched;}});
+Object.defineProperty(__exports,"settleDebounce",{enumerable:true,get:function(){return settleDebounce;}});
+Object.defineProperty(__exports,"whenIdle",{enumerable:true,get:function(){return whenIdle;}});
+Object.defineProperty(__exports,"uid",{enumerable:true,get:function(){return uid;}});
+const STAMPED_VERSION="1.65.0";
+async function resolveVersion(){
+if(STAMPED_VERSION!=='0.0.0-source')return STAMPED_VERSION;
+return STAMPED_VERSION;
+}
+const VERSION="1.65.0";
+const warned=new Set();
+const WARNED_LIMIT=2000;
+function rememberWarned(key){
+warned.add(key);
+if(warned.size>WARNED_LIMIT){
+const oldest=warned.values().next().value;
+if(oldest!==undefined)warned.delete(oldest);
+}
+}
+const reported=[];
+const REPORT_LIMIT=500;
+function record(key,level,message){
+reported.push({
+key,
+level,
+message:message.map((m)=>(typeof m==='string'?m:safeString(m))).join(' '),
+at:Date.now(),
+});
+if(reported.length>REPORT_LIMIT)reported.shift();
+}
+function safeString(value){
+if(value instanceof Error)return value.message;
+try{return JSON.stringify(value);}catch{return String(value);}
+}
+function reportedWarnings(){return reported.map((r)=>({...r}));}
+function warnOnce(key,...message){
+if(warned.has(key))return;
+rememberWarned(key);
+record(key,'warn',message);
+console.warn('[lattice]',...message);
+}
+function infoOnce(key,...message){
+if(warned.has(key))return;
+rememberWarned(key);
+record(key,'info',message);
+console.info('[lattice]',...message);
+}
+function resetWarnings(){
+warned.clear();
+reported.length=0;
+}
+function fail(message,extra){
+const err=new Error(`[lattice] ${message}`);
+if(extra!==undefined)err.cause=extra;
+throw err;
+}
+function invariant(condition,message){
+if(!condition)fail(message);
+}
+const DEV=(()=>{
+try{
+return!(typeof process!=='undefined'&&process.env
+&&process.env.NODE_ENV==='production');
+}catch{
+return true;
+}
+})();
+function isObject(v){
+return v!==null&&typeof v==='object'&&!Array.isArray(v);
+}
+function isFunction(v){
+return typeof v==='function';
+}
+function isNil(v){
+return v===null||v===undefined;
+}
+function isBlank(v){
+return v===null||v===undefined||v==='';
+}
+function isCtor(v){
+if(typeof v!=='function')return false;
+if(/^class[\s{]/.test(Function.prototype.toString.call(v)))return true;
+return!!(v.prototype&&Object.getOwnPropertyNames(v.prototype).length>1);
+}
+const pathCache=new Map();
+function pathGetter(path){
+let fn=pathCache.get(path);
+if(fn)return fn;
+if(!path.includes('.')){
+fn=(o)=>(o==null?undefined:o[path]);
+}else{
+const parts=path.split('.');
+const n=parts.length;
+fn=(o)=>{
+let cur=o;
+for(let i=0;i<n;i++){
+if(cur==null)return undefined;
+cur=cur[parts[i]];
+}
+return cur;
+};
+}
+pathCache.set(path,fn);
+return fn;
+}
+const setterCache=new Map();
+function pathSetter(path){
+let fn=setterCache.get(path);
+if(fn)return fn;
+if(!path.includes('.')){
+fn=(o,v)=>{if(o!=null)o[path]=v;};
+}else{
+const parts=path.split('.');
+const last=parts.length-1;
+fn=(o,v)=>{
+let cur=o;
+for(let i=0;i<last;i++){
+if(cur==null)return;
+const k=parts[i];
+if(cur[k]==null)cur[k]={};
+cur=cur[k];
+}
+if(cur!=null)cur[parts[last]]=v;
+};
+}
+setterCache.set(path,fn);
+return fn;
+}
+function getPath(obj,path){
+return pathGetter(path)(obj);
+}
+function setPath(obj,path,value){
+pathSetter(path)(obj,value);
+}
+function humanise(field){
+if(!field)return'';
+const leaf=field.includes('.')?field.slice(field.lastIndexOf('.')+1):field;
+return leaf
+.replace(/[_-]+/g,' ')
+.replace(/([a-z0-9])([A-Z])/g,'$1 $2')
+.replace(/([A-Z]+)([A-Z][a-z])/g,'$1 $2')
+.replace(/\s+/g,' ')
+.trim()
+.replace(/^./,(c)=>c.toUpperCase());
+}
+const ESCAPES={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+function escapeHtml(s){
+const str=s==null?'':String(s);
+return/[&<>"']/.test(str)?str.replace(/[&<>"']/g,(c)=>ESCAPES[c]):str;
+}
+function titleCase(s){
+return String(s).replace(/\w\S*/g,(t)=>t[0].toUpperCase()+t.slice(1).toLowerCase());
+}
+function expand(value,key,whenTrue){
+if(value===undefined)return undefined;
+if(value===true)return{enabled:true,...whenTrue};
+if(value===false)return{enabled:false};
+if(isObject(value))return value;
+return{[key]:value,enabled:true};
+}
+function toArray(v){
+if(v===undefined||v===null)return[];
+return Array.isArray(v)?v:[v];
+}
+const MERGE_FORBIDDEN_KEYS=Object.freeze(new Set(['__proto__','constructor','prototype']));
+function merge(a,b){
+if(!isObject(a))return isObject(b)?{...b}:b;
+if(!isObject(b))return b===undefined?a:b;
+const out={...a};
+for(const k of Object.keys(b)){
+if(MERGE_FORBIDDEN_KEYS.has(k))continue;
+const bv=b[k];
+if(bv===undefined)continue;
+out[k]=isObject(bv)&&isObject(out[k])?merge(out[k],bv):bv;
+}
+return out;
+}
+function mergeRow(previous,patch){
+if(!isObject(previous)||!isObject(patch)||previous===patch)return patch;
+const out=Object.create(Object.getPrototypeOf(previous));
+Object.assign(out,previous,patch);
+return out;
+}
+class Lru{
+#max;
+#map=new Map();
+#onEvict;
+constructor(max=256,onEvict=null){
+this.#max=max;
+this.#onEvict=onEvict;
+}
+get size(){
+return this.#map.size;
+}
+get max(){
+return this.#max;
+}
+set max(v){
+this.#max=v;
+this.#trim();
+}
+has(k){
+return this.#map.has(k);
+}
+get(k){
+const m=this.#map;
+if(!m.has(k))return undefined;
+const v=m.get(k);
+m.delete(k);
+m.set(k,v);
+return v;
+}
+peek(k){
+return this.#map.get(k);
+}
+set(k,v){
+const m=this.#map;
+if(m.has(k))m.delete(k);
+m.set(k,v);
+this.#trim();
+return v;
+}
+delete(k){
+const v=this.#map.get(k);
+if(this.#map.delete(k)&&this.#onEvict)this.#onEvict(v,k);
+return v;
+}
+clear(){
+if(this.#onEvict)for(const[k,v]of this.#map)this.#onEvict(v,k);
+this.#map.clear();
+}
+keys(){
+return this.#map.keys();
+}
+values(){
+return this.#map.values();
+}
+#trim(){
+const m=this.#map;
+while(m.size>this.#max){
+const oldest=m.keys().next().value;
+const v=m.get(oldest);
+m.delete(oldest);
+if(this.#onEvict)this.#onEvict(v,oldest);
+}
+}
+}
+const collators=new Map();
+function collator(locale,opts){
+const key=`${locale||''}|${opts?JSON.stringify(opts):''}`;
+let c=collators.get(key);
+if(!c){
+c=new Intl.Collator(locale||undefined,{
+numeric:true,sensitivity:'variant',...opts,
+});
+collators.set(key,c);
+}
+return c;
+}
+function defaultCompare(a,b){
+if(a===b)return 0;
+if(a===null||a===undefined)return 1;
+if(b===null||b===undefined)return-1;
+if(typeof a==='number'&&typeof b==='number'){
+if(Number.isNaN(a))return Number.isNaN(b)?0:1;
+if(Number.isNaN(b))return-1;
+return a<b?-1:a>b?1:0;
+}
+const sa=String(a);
+const sb=String(b);
+return sa<sb?-1:sa>sb?1:0;
+}
+function now(){
+return typeof performance!=='undefined'&&performance.now
+?performance.now()
+:Date.now();
+}
+const hasRaf=typeof requestAnimationFrame==='function';
+function nextFrame(fn){
+if(hasRaf)return requestAnimationFrame(fn);
+return setTimeout(()=>fn(now()),16);
+}
+function cancelFrame(handle){
+if(handle==null)return;
+if(hasRaf)cancelAnimationFrame(handle);
+else clearTimeout(handle);
+}
+function frameBatched(fn){
+let handle=null;
+let lastArgs=null;
+const run=()=>{
+handle=null;
+const a=lastArgs;
+lastArgs=null;
+fn(...(a||[]));
+};
+const wrapped=(...args)=>{
+lastArgs=args;
+if(handle===null)handle=nextFrame(run);
+};
+wrapped.cancel=()=>{
+cancelFrame(handle);
+handle=null;
+lastArgs=null;
+};
+wrapped.flush=()=>{
+if(handle!==null){
+cancelFrame(handle);
+run();
+}
+};
+return wrapped;
+}
+function settleDebounce(fn,waitMs){
+let timer=null;
+let held=null;
+const trailing=()=>{
+timer=null;
+if(held===null)return;
+const args=held;
+held=null;
+fn(...args);
+arm();
+};
+const arm=()=>{
+timer=setTimeout(trailing,waitMs);
+if(typeof timer?.unref==='function')timer.unref();
+};
+const wrapped=(...args)=>{
+if(timer===null){
+fn(...args);
+arm();
+}else{
+held=args;
+clearTimeout(timer);
+arm();
+}
+};
+wrapped.flush=()=>{
+if(timer!==null)clearTimeout(timer);
+timer=null;
+if(held===null)return;
+const args=held;
+held=null;
+fn(...args);
+};
+wrapped.cancel=()=>{
+if(timer!==null)clearTimeout(timer);
+timer=null;
+held=null;
+};
+wrapped.pending=()=>timer!==null||held!==null;
+return wrapped;
+}
+function whenIdle(fn,timeout=50){
+if(typeof requestIdleCallback==='function'){
+return requestIdleCallback(fn,{timeout});
+}
+return setTimeout(()=>fn({timeRemaining:()=>0,didTimeout:true}),1);
+}
+let idSeq=0;
+function uid(prefix='l'){
+return`${prefix}${(++idSeq).toString(36)}`;
+}
+});
 __def("packages/modules/shared/adapter.js",function(__exports,__req){
 'use strict';
 Object.defineProperty(__exports,"EVENT_NAMES",{enumerable:true,get:function(){return EVENT_NAMES;}});
@@ -178,14 +575,22 @@ Object.defineProperty(__exports,"EVENT_NAMES",{enumerable:true,get:function(){re
 Object.defineProperty(__exports,"dashedName",{enumerable:true,get:function(){return dashedName;}});
 Object.defineProperty(__exports,"createLatticeGrid",{enumerable:true,get:function(){return createLatticeGrid;}});
 Object.defineProperty(__exports,"default",{enumerable:true,get:function(){return __default;}});
-const __m0=__req("packages/modules/shared/adapter.js");
-const createGridController=__m0["createGridController"];
-const EVENT_NAMES=__m0["EVENT_NAMES"];
-const dashedName=__m0["dashedName"];
-const handlerName=__m0["handlerName"];
+const __m0=__req("packages/core/src/internal/util.js");
+const warnOnce=__m0["warnOnce"];
+const __m1=__req("packages/modules/shared/adapter.js");
+const createGridController=__m1["createGridController"];
+const EVENT_NAMES=__m1["EVENT_NAMES"];
+const dashedName=__m1["dashedName"];
+const handlerName=__m1["handlerName"];
 const IMPERATIVE_INPUTS=Object.freeze(['sort','filters','quickFilter','selectedKeys']);
 function emitterKey(event){
 return String(event).replace(/:/g,'_');
+}
+function canCompileAtRuntime(ng){
+const real=typeof((ng))['\u0275\u0275defineComponent']==='function';
+if(!real)return true;
+const globals=(globalThis);
+return!!(globals.ng&&globals.ng['\u0275compilerFacade']);
 }
 function createLatticeGrid(deps){
 const ng=deps&&deps.ng;
@@ -197,6 +602,18 @@ throw new TypeError('createLatticeGrid needs the Angular core namespace: createL
 }
 if(typeof createGrid!=='function'){
 throw new TypeError('createLatticeGrid needs createGrid: createLatticeGrid({ ng, createGrid }).');
+}
+warnOnce('angular.deprecated',
+'modules/angular is deprecated: it needs the JIT compiler. '
++'Use @toclocoinc/lattice-grid-angular.');
+if(!canCompileAtRuntime(ng)){
+throw new Error(
+'[lattice] modules/angular builds its component at run time, which needs Angular\'s JIT '
++'compiler, and this page has none — which is what a production (AOT) build looks like. '
++'Install @toclocoinc/lattice-grid-angular, an ahead-of-time Angular library that needs no '
++"compiler: import { LatticeGridComponent, provideLattice } from "
++"'@toclocoinc/lattice-grid-angular'. (To keep using this adapter, import "
++"'@angular/compiler' before it — a development-server shape, not a production one.)");
 }
 const{
 Component,Directive,Input,Output,EventEmitter,ElementRef,inject,
@@ -242,7 +659,7 @@ this.__controller=null;
 }
 },
 };
-const build=(cls,classDecorator)=>{
+const build=(cls,classDecorator,configAlias)=>{
 const proto=cls.prototype;
 Object.assign(proto,lifecycle);
 Object.defineProperty(proto,'grid',{
@@ -250,6 +667,14 @@ get(){return this.__controller?this.__controller.grid:null;},
 configurable:true,
 });
 Input()(proto,'config');
+if(configAlias){
+Object.defineProperty(proto,configAlias,{
+set(value){if(value!=='')this.config=value;},
+get(){return this.config;},
+configurable:true,
+});
+Input()(proto,configAlias);
+}
 for(const key of IMPERATIVE_INPUTS)Input()(proto,key);
 for(const name of EVENT_NAMES)Output(dashedName(name))(proto,emitterKey(name));
 const decorated=classDecorator(cls);
@@ -266,6 +691,7 @@ class LatticeGridDirective{
 constructor(){init(this);}
 },
 Directive({selector:'[latticeGrid]',standalone:true}),
+'latticeGrid',
 );
 return{LatticeGridComponent,LatticeGridDirective};
 }

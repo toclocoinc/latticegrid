@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, chart-dumbbell module type declarations
+ * Lattice Grid 1.65.0, chart-dumbbell module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -8,7 +8,7 @@ import type {
 } from '../lattice-grid.js';
 
 /**
- * The dumbbell / connected-dot extension type (BACKLOG-0000886). Importing
+ * The dumbbell / connected-dot extension type. Importing
  * this module registers `dumbbell`. Two dots (`start`, `end`) joined by a bar
  * per `x` category — the gap is the bar's length.
  */

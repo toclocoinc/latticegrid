@@ -1,10 +1,10 @@
 /*!
- * Lattice Grid 1.64.0, chart-calendar module type declarations
+ * Lattice Grid 1.65.0, chart-calendar module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 /**
- * The calendar-heatmap extension chart type (BACKLOG-0000886). Importing this
+ * The calendar-heatmap extension chart type. Importing this
  * module registers `calendar`. Draws value-by-day as a GitHub-style grid: `x`
  * is a date column, `y` the measure summed per day.
  */

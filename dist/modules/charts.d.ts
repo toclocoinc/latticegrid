@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, charts module type declarations
+ * Lattice Grid 1.65.0, charts module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -55,7 +55,7 @@ export function deriveRangeSpec(
 };
 /**
  * Turn a fitted regression model into diagnostic chart specs ready for
- * `createChart` (BACKLOG-0000812). Pass a precomputed `model`, or a `spec` to
+ * `createChart`. Pass a precomputed `model`, or a `spec` to
  * fit one over the grid, and the `fitted` and `residual` fit-shadow column ids
  * the residual and QQ plots draw over.
  *
@@ -95,7 +95,7 @@ export function resolveScheme(spec?: object): object;
 export function schemeNames(): string[];
 export function setDefaultScheme(name: string): void;
 /**
- * The definition an extension chart type registers (BACKLOG-0000886). `draw`
+ * The definition an extension chart type registers. `draw`
  * receives the base drawing context — `plot`, `bound`, `groups`, `scheme`,
  * `typography`, `fontSize`, `labels`, `grid`, `spec`, `doc` — plus
  * `ctx.helpers`, the base's own toolkit of primitives (element factory, scales,
@@ -111,8 +111,7 @@ interface ChartTypeDefinition {
   labelled?: boolean;
 }
 /**
- * Register an extension chart type so `createChart({ type })` can draw it
- * (BACKLOG-0000886). Extension types ship as their own opt-in modules, so the
+ * Register an extension chart type so `createChart({ type })` can draw it. Extension types ship as their own opt-in modules, so the
  * base charts bundle does not grow for a type a caller never imports — you pay
  * only for the charts you use.
  */

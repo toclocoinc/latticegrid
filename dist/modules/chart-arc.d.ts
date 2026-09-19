@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, chart-arc module type declarations
+ * Lattice Grid 1.65.0, chart-arc module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -8,7 +8,7 @@ import type {
 } from '../lattice-grid.js';
 
 /**
- * The arc-diagram extension type (BACKLOG-0000886). Importing this module
+ * The arc-diagram extension type. Importing this module
  * registers `arc`. Nodes on a baseline with `source`→`target` relationships as
  * semicircular arcs, thickness by `value`.
  */

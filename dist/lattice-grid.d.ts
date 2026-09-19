@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, type declarations
+ * Lattice Grid 1.65.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -63,7 +63,7 @@ export type TypeName =
  */
 export type Align = 'start' | 'center' | 'end' | 'left' | 'right' | 'centre';
 /**
- * Vertical alignment of a cell's content within its row (BACKLOG-0000989).
+ * Vertical alignment of a cell's content within its row.
  *
  * The vertical counterpart to {@link Align}. `top` sits the content at the top
  * of the row, `middle` centres it and `bottom` drops it to the bottom. It is
@@ -72,8 +72,7 @@ export type Align = 'start' | 'center' | 'end' | 'left' | 'right' | 'centre';
  */
 export type VAlign = 'top' | 'middle' | 'bottom';
 /**
- * How the grid's scroll viewport draws its scrollbars (BACKLOG-0000990,
- * BACKLOG-0001288).
+ * How the grid's scroll viewport draws its scrollbars.
  *
  * `auto` is the platform's native behaviour — overlay scrollbars fade away when
  * idle. `always` keeps that native bar shown whether or not the pointer is over
@@ -241,7 +240,7 @@ export interface NumberFormat {
   /**
    * Show a leading `+` on a positive value (`+5`, `+£5.00`, `+12%`). A
    * negative value keeps whatever `negative` says regardless of this flag,
-   * and zero shows no sign either way (BACKLOG-0001095). Off by default.
+   * and zero shows no sign either way. Off by default.
    */
   signed?: boolean;
   prefix?: string;
@@ -399,6 +398,35 @@ export type IconName =
   | 'arrow' | 'highlight' | 'thumbUp' | 'eye' | 'eyeOff' | 'copy' | 'present'
   | 'blank'
   | (string & {});
+
+/**
+ * One sprite as a registration route accepts it: `config.icons`, `registerIcon`
+ * and `registerIcons` all take this shape.
+ *
+ * The long form is the glyph itself — a view box, one or more SVG path `d`
+ * strings, and whether they are stroked or filled. The two short forms exist
+ * because most glyphs are one filled path on the house 16x16 box: a bare path
+ * string, or an array of them, is read as exactly that, so a host registering
+ * its own mark writes the path and nothing else. `path` is accepted as a
+ * singular spelling of `paths`. What comes back out of {@link IconRegistryApi}
+ * is always the normalised {@link IconGlyph}, never the short form.
+ *
+ * A name already in the registry is overridden, which is how the expander
+ * chevron or the sort arrow is swapped for a host's own.
+ */
+export type IconDefinition =
+  | string
+  | string[]
+  | {
+    /** The SVG view box the paths are drawn in. Default `'0 0 16 16'`. */
+    viewBox?: string;
+    /** One or more SVG path `d` strings, drawn in order. */
+    paths?: string[];
+    /** A single path `d` string, as an alternative to a one-element `paths`. */
+    path?: string;
+    /** How the paths are painted. Default `'fill'`. */
+    paint?: 'stroke' | 'fill';
+  };
 
 /** A built-in threshold icon set, mapping value bands to built-in glyphs. */
 export type IconSetName = 'trafficLights' | 'arrows' | 'trafficArrows' | 'ratings' | (string & {});
@@ -563,7 +591,7 @@ export interface TooltipRow {
 }
 
 /**
- * Structured tooltip content the grid renders for you (BACKLOG-0001204): a
+ * Structured tooltip content the grid renders for you: a
  * heading, a list of label/value lines, and a closing note.
  *
  * Every field is written as **text**, never as markup, so a spec built out of
@@ -609,7 +637,7 @@ export interface TooltipParams {
 }
 
 /**
- * A rich, keyboard-accessible tooltip for a column's cells (BACKLOG-0001204) —
+ * A rich, keyboard-accessible tooltip for a column's cells —
  * the object form of `cell.tooltip`, drawn by the grid rather than handed to
  * the browser as a native `title`.
  *
@@ -648,7 +676,7 @@ export interface ColumnTooltipSpec {
 }
 
 /**
- * Grid-level defaults for the rich cell tooltip (BACKLOG-0001204), set once for
+ * Grid-level defaults for the rich cell tooltip, set once for
  * every column rather than repeated on each.
  *
  * Defaults only: it switches nothing on. A tooltip exists because a column
@@ -685,13 +713,13 @@ export interface ColumnCellSpec {
    * A string or a function is the plain-text case and becomes the browser's own
    * `title`. An object is a {@link ColumnTooltipSpec}: a tooltip the grid draws,
    * which can carry structure, markup or live content and which a keyboard user
-   * can reach (BACKLOG-0001204).
+   * can reach.
    */
   tooltip?: string | ((p: CellParams) => string) | ColumnTooltipSpec;
   align?: Align;
   /**
    * Vertical alignment of this column's cell content, overriding the grid-level
-   * `verticalAlign` for this column alone (BACKLOG-0000989). Accepted at the
+   * `verticalAlign` for this column alone. Accepted at the
    * top level of the column too, as `align` is.
    */
   verticalAlign?: VAlign;
@@ -711,7 +739,7 @@ export interface ColumnEditSpec {
 }
 
 /**
- * Declarative edit-validation rules for a column (BACKLOG-0000956).
+ * Declarative edit-validation rules for a column.
  *
  * Rules are checked in a fixed order — `required` first, then the value-shape
  * rules, then the functions — and the first failure wins. A blank but optional
@@ -870,7 +898,7 @@ export interface Column {
   /** Whether and how the cell can be edited. A string names an editor. */
   edit?: ColumnEditSpec | boolean | string;
   /**
-   * Declarative edit-validation rules (BACKLOG-0000956). Each is checked against
+   * Declarative edit-validation rules. Each is checked against
    * a value before it is written, through the `beforeEdit` before-event: a
    * failing value cancels the commit and marks the cell. Distinct from and
    * complementary to `edit.validate`, which is an imperative function.
@@ -904,13 +932,13 @@ export interface Column {
    * pivot cells — where it should differ from the grand total. Overrides
    * `total` for those scopes only; when omitted the column's `total` applies to
    * both. Lets a column average within each group while the grand total sums,
-   * for example (BACKLOG-0000726).
+   * for example.
    */
   groupTotal?: TotalName | TotalFn;
   /**
    * The reduction for the pinned grand-total row, where it should differ from
    * the group subtotals. Overrides `total` for the grand total only; when
-   * omitted the column's `total` applies (BACKLOG-0000726).
+   * omitted the column's `total` applies.
    */
   grandTotal?: TotalName | TotalFn;
   /**
@@ -923,7 +951,7 @@ export interface Column {
     kind: ShadowKind;
     /**
      * For `kind: 'history'`, how many past readings to keep (20 by default). With
-     * a time `window` (BACKLOG-0001043) this is instead how many buckets the span
+     * a time `window` this is instead how many buckets the span
      * divides into — `window: {kind: 'time', span: 60_000}, depth: 20` is sixty
      * one-second buckets. Ignored by every other kind.
      */
@@ -953,8 +981,7 @@ export interface Column {
     warnUpper?: number;
     /**
      * For a rolling time-series kind (`rollingSum`/`rollingAvg`/`rollingMin`/
-     * `rollingMax`/`windowCoverage`/`cumulativeToDate`/`periodOverPeriod`,
-     * BACKLOG-0000748), the column whose order defines the series — dates,
+     * `rollingMax`/`windowCoverage`/`cumulativeToDate`/`periodOverPeriod`), the column whose order defines the series — dates,
      * sequence numbers, timestamps. **Required**: the screen sort is never used,
      * because a rolling figure would then change on every header click, so a
      * rolling column with no `orderBy` reports null and warns.
@@ -967,7 +994,7 @@ export interface Column {
      * carry a partial window, stamped by a `windowCoverage` companion rather than
      * dressed as full.
      *
-     * For `kind: 'history'` (BACKLOG-0001043), only `{kind: 'time', span}` (or
+     * For `kind: 'history'`, only `{kind: 'time', span}` (or
      * `minutes`) applies, and it changes what `history` means rather than what it
      * aggregates: the `depth` buckets that span divides into are read once each,
      * carrying the row's last known value forward into any bucket in which it did
@@ -997,7 +1024,7 @@ export interface Column {
     q?: number;
     /**
      * For a seasonal-decomposition kind (`tsTrend`/`tsSeasonal`/`tsResidual`/
-     * `tsCoverage`, BACKLOG-0000873), the season length — **required**, since
+     * `tsCoverage`), the season length — **required**, since
      * there is no auto-detection in v1: 7 for a weekly cycle in daily data, 12
      * for a monthly cycle in monthly data. An integer of at least 2.
      */
@@ -1010,7 +1037,7 @@ export interface Column {
     decomposition?: 'additive' | 'multiplicative';
     /**
      * For an exponential-smoothing kind (`tsSmoothed`/`tsSmoothingAlpha`/
-     * `tsSmoothingBeta`, BACKLOG-0000873), the model: single exponential
+     * `tsSmoothingBeta`), the model: single exponential
      * smoothing (`ses`, the default) or Holt's level+trend (`holt`).
      */
     smoothing?: 'ses' | 'holt';
@@ -1026,7 +1053,7 @@ export interface Column {
      */
     beta?: number;
     /**
-     * For a `fit*` kind (BACKLOG-0000812), the regression model the shadow reads
+     * For a `fit*` kind, the regression model the shadow reads
      * — predictors, response, method and confidence. Its predictors/response may
      * also be given directly on this object.
      */
@@ -1056,7 +1083,7 @@ export interface Column {
   /** The header cell: its text, tooltip, menu and any header chart. */
   header?: ColumnHeaderSpec | string;
   /**
-   * The cell right-click menu for this column alone (BACKLOG-0001068), in the
+   * The cell right-click menu for this column alone, in the
    * same shapes the grid-level `contextMenu` takes plus a bare array for the
    * common "just these items here" case.
    *
@@ -1076,22 +1103,20 @@ export interface Column {
   /**
    * When this column's header controls — its sort arrow, filter funnel and menu
    * button — are shown, overriding the grid-level `headerControls` default for
-   * this column alone (BACKLOG-0000982). `'hover'` reveals them on hover or
+   * this column alone. `'hover'` reveals them on hover or
    * focus, `'always'` keeps them visible, `'hidden'` draws none of them and
    * leaves them out of the tab order. Omitted, the column follows the grid
    * default, which is itself `'hover'`.
    */
   headerControls?: 'hover' | 'always' | 'hidden';
   /**
-   * Vertical alignment of this column's cell content within the row
-   * (BACKLOG-0000989). Overrides the grid-level `verticalAlign` for this column
+   * Vertical alignment of this column's cell content within the row. Overrides the grid-level `verticalAlign` for this column
    * alone; `top`, `middle` or `bottom`. Also accepted as `cell.verticalAlign`,
    * the way `align` is. Omitted, the column follows the grid default.
    */
   verticalAlign?: VAlign;
   /**
-   * When this leaf column is shown, the same union `ColumnGroup` declares
-   * (BACKLOG-0001279). A leaf reads its own `showWhen` exactly as a group
+   * When this leaf column is shown, the same union `ColumnGroup` declares. A leaf reads its own `showWhen` exactly as a group
    * reads its own — `open`/`closed` tie the leaf to an ancestor group's
    * collapsed state, `always` (the default) shows it regardless — so tying a
    * leaf's visibility to a group's open/closed state does not require
@@ -1134,7 +1159,7 @@ export interface ResolvedColumn {
   nullable: boolean;
   align: Align;
   /**
-   * The resolved vertical alignment (BACKLOG-0000989), or `undefined` when
+   * The resolved vertical alignment, or `undefined` when
    * neither the column nor the grid set one — in which case the cell keeps the
    * grid's historical vertical placement (centred, or top for `autoHeight`).
    */
@@ -1148,19 +1173,17 @@ export interface ResolvedColumn {
   pivot: { enabled: boolean; index: number };
   total: TotalName | TotalFn | null;
   /**
-   * The group-subtotal override, or null when group subtotals follow `total`
-   * (BACKLOG-0000726).
+   * The group-subtotal override, or null when group subtotals follow `total`.
    */
   groupTotal: TotalName | TotalFn | null;
   /**
-   * The grand-total override, or null when the grand total follows `total`
-   * (BACKLOG-0000726).
+   * The grand-total override, or null when the grand total follows `total`.
    */
   grandTotal: TotalName | TotalFn | null;
   layout: ColumnLayoutSpec;
   header: ColumnHeaderSpec;
   /**
-   * This column's own cell-menu declaration (BACKLOG-0001068), or null when it
+   * This column's own cell-menu declaration, or null when it
    * makes none and the grid-level menu stands alone. Carried onto the resolved
    * column so a column preset or `columnDefaults` can supply one.
    */
@@ -1346,7 +1369,7 @@ export interface RemoteRequest {
   groupPath: string[];
   /**
    * The same ancestry as `groupPath`, but as the values the server returned
-   * rather than their display strings (BACKLOG-0001325). Always present, empty
+   * rather than their display strings. Always present, empty
    * at the root, so a source can tell "no ancestors" from "a host that does not
    * send this".
    *
@@ -1360,8 +1383,7 @@ export interface RemoteRequest {
   groupBy: ColumnRef[];
   totals: ColumnRef[];
   /**
-   * The named statistic each totalled column reduces with — `{ amount: 'sum' }`
-   * (BACKLOG-0001325). `totals` has always said *which* columns want a subtotal
+   * The named statistic each totalled column reduces with — `{ amount: 'sum' }`. `totals` has always said *which* columns want a subtotal
    * and never *what*, because the client reads the reduction off the column
    * model and a server had no way to.
    *
@@ -1380,7 +1402,7 @@ export interface RemoteRequest {
   signal: AbortSignal;
   /**
    * The `where` predicates in force, as a runtime the source can evaluate but
-   * not mutate (BACKLOG-0001268). Present **only when at least one predicate is
+   * not mutate. Present **only when at least one predicate is
    * registered**, so a grid that does not use `where` sends the request it
    * always sent, field for field.
    *
@@ -1396,7 +1418,7 @@ export interface RemoteRequest {
 }
 
 /**
- * The `where` predicates in force, as a source sees them (BACKLOG-0001268).
+ * The `where` predicates in force, as a source sees them.
  *
  * A snapshot rather than the model, so a source can evaluate the predicates but
  * cannot register or remove one through it.
@@ -1451,7 +1473,7 @@ export interface StreamSourceConfig {
   maxRows?: number;
   /**
    * The longest a row is kept, in milliseconds — a rolling *time* window, sitting
-   * beside `maxRows` as a second, independent bound (BACKLOG-0001036). Rows older
+   * beside `maxRows` as a second, independent bound. Rows older
    * than the span are evicted through the same path, the same `evicted` counters
    * and the same `stream:evicted` event as the count bound, so an existing
    * readout keeps working. Set both and whichever bites first applies. Eviction
@@ -1475,8 +1497,7 @@ export interface StreamSourceConfig {
   maxAge?: number;
   /**
    * Which clock `maxAge` reads: a column id (or dotted path), or a function of
-   * the row returning a `Date`, epoch milliseconds, or an ISO string
-   * (BACKLOG-0001036). Given, the window follows the **data's own** clock, so it
+   * the row returning a `Date`, epoch milliseconds, or an ISO string. Given, the window follows the **data's own** clock, so it
    * means what the producer means — and inherits the producer's clock skew.
    * Omitted, `maxAge` falls back to **arrival time**: when the row reached this
    * source. Arrival time needs no timestamp column and cannot be skewed, but it
@@ -1510,7 +1531,7 @@ export interface DerivedSourceConfig {
    */
   /**
    * The grid to read, or several to combine into one row set before the rest
-   * of the pipeline runs (BACKLOG-0001045). A bare `Grid` is shorthand for a
+   * of the pipeline runs. A bare `Grid` is shorthand for a
    * `UnionSourceOptions` with no `label`/`follow`/`map` override, so an
    * existing `from: <grid>` keeps meaning exactly what it always has.
    *
@@ -1557,7 +1578,7 @@ export interface DerivedSourceConfig {
   /**
    * Which of its rows to read. `filtered` by default. Ignored — with a
    * `warnOnce` — when `from` is a union array: each entry there carries its
-   * own `follow` instead (BACKLOG-0001045).
+   * own `follow` instead.
    */
   follow?: 'filtered' | 'all' | 'selected' | 'grouped';
 
@@ -1592,7 +1613,7 @@ export interface DerivedSourceConfig {
   orient?: 'columns' | 'metrics';
 
   /**
-   * Project a **relational** statistic into rows (BACKLOG-0001046): the figures
+   * Project a **relational** statistic into rows: the figures
    * that need two or more columns, or a second grid, and so cannot be reached
    * through `select`.
    *
@@ -1610,7 +1631,7 @@ export interface DerivedSourceConfig {
    * row per group, so there is no position in
    * `unnest → where → bucket → groupBy → select → sort → limit` for it to
    * occupy. It replaces the pipeline, and those keys are ignored with a warning
-   * naming them (BACKLOG-0001092) rather than silently discarded. Sort, filter
+   * naming them rather than silently discarded. Sort, filter
    * or limit the derived grid itself instead, or chain a second derived grid
    * whose `from` is this one.
    *
@@ -1657,8 +1678,7 @@ export interface DerivedSourceConfig {
 }
 
 /**
- * Which relational statistic a derived source projects into rows, and how
- * (BACKLOG-0001046). See `DerivedSourceConfig.statistics`.
+ * Which relational statistic a derived source projects into rows, and how. See `DerivedSourceConfig.statistics`.
  *
  * A discriminated union on `fn`, so the relational statistics still deferred —
  * `regression`, `regressionModel`, `forecast`, `anomalies`, `adf`, `acf`,
@@ -1737,7 +1757,7 @@ export interface DerivedDatasetComparison {
 }
 
 /**
- * One member of a union `from` (BACKLOG-0001045): a grid to combine with the
+ * One member of a union `from`: a grid to combine with the
  * others, plus how to read it and reshape it before it joins the rest. A bare
  * `Grid` in the `from` array is shorthand for `{ grid }` with every other
  * field defaulted.
@@ -2025,6 +2045,16 @@ export interface GridConfig {
   totalFns?: Record<string, TotalFn>;
   /** Named appearance variants a row or cell can be switched into by a rule. */
   variants?: Record<string, VariantDefinition>;
+  /**
+   * Your own SVG glyphs, registered by name before the first paint.
+   *
+   * The same registry `registerIcon` writes to and every cell, header control,
+   * rail button and chart glyph is painted from, so a name given here is usable
+   * anywhere a glyph name is: a column's `icon` decoration, a rail action's
+   * `icon`, a network node's `icon`. Registering a built-in name overrides it.
+   * Read the result back through {@link Grid.icons}.
+   */
+  icons?: Record<string, IconDefinition>;
   /** Hierarchical rows: where the parent link or the path lives. */
   tree?: TreeConfig;
   /** The expandable panel beneath a row. */
@@ -2096,7 +2126,7 @@ export interface GridConfig {
 
   /**
    * Vertical alignment of cell content within a row, as a default for every
-   * column (BACKLOG-0000989). `top`, `middle` or `bottom`; a column's own
+   * column. `top`, `middle` or `bottom`; a column's own
    * `verticalAlign` overrides it for that column.
    *
    * The horizontal counterpart is the per-column `align`. Omitted, the grid
@@ -2108,7 +2138,7 @@ export interface GridConfig {
   verticalAlign?: VAlign;
 
   /**
-   * Defaults for the rich cell tooltip (BACKLOG-0001204).
+   * Defaults for the rich cell tooltip.
    *
    * The tooltip itself is declared per column, on `cell.tooltip`; this only
    * carries the settings that are a house style rather than a per-column
@@ -2118,8 +2148,7 @@ export interface GridConfig {
   tooltip?: TooltipConfig;
 
   /**
-   * How the scroll viewport's scrollbars are drawn (BACKLOG-0000990,
-   * BACKLOG-0001288).
+   * How the scroll viewport's scrollbars are drawn.
    *
    * `'auto'` (the default) is the platform's native behaviour, where overlay
    * scrollbars fade when idle. `'always'` keeps that native bar shown whether
@@ -2150,7 +2179,7 @@ export interface GridConfig {
   /**
    * Show a small chip in the grid chrome that reads how many rows an anomaly
    * shadow column has flagged, and filters the grid to exactly those when it is
-   * clicked (BACKLOG-0000799).
+   * clicked.
    *
    * Off by default, and it draws nothing unless a column declares a
    * `shadow: { kind: 'anomalyFlag' }`. The count and the filter both read that
@@ -2307,8 +2336,7 @@ export interface GridConfig {
   };
 
   /**
-   * Present the grid as a pivot — a cross-tab drawn as a matrix (§10,
-   * BACKLOG-0000738).
+   * Present the grid as a pivot — a cross-tab drawn as a matrix (§10).
    *
    * The row dimensions (the grid's `group`) go down the left gutter, the column
    * dimensions (the grid's `pivot`) go across the top, and each totalled column
@@ -2405,7 +2433,7 @@ export interface GridConfig {
   showColumnFunctions?: boolean;
   /**
    * When the per-column header controls — the sort arrow, the filter funnel and
-   * the menu button — are shown, as a default for every column (BACKLOG-0000982).
+   * the menu button — are shown, as a default for every column.
    *
    * - `'hover'` (the default) reveals them when the heading is hovered or a
    *   keyboard user focuses into it, which is the historical behaviour: a wide
@@ -2669,7 +2697,7 @@ export interface GridConfig {
    */
   import?: boolean | ImportSettings;
   /**
-   * Enable the built-in row-delete gesture (§18.4, BACKLOG-0000968) — the
+   * Enable the built-in row-delete gesture (§18.4) — the
    * Delete/Backspace key on selected rows and a "Delete row" cell-menu item —
    * and the `grid.edit.deleteRows` API. Off by default, because deleting data
    * on a keystroke is destructive and opt-in. Every deletion flows through the
@@ -2708,7 +2736,7 @@ export interface GridConfig {
   shortcuts?: boolean;
 
   /**
-   * The in-grid find bar (BACKLOG-0001018): Ctrl+F / Cmd+F with focus in the
+   * The in-grid find bar: Ctrl+F / Cmd+F with focus in the
    * grid opens it; typing highlights every matching cell in place without
    * filtering a row away; Enter and Shift+Enter step through the matches.
    * `false` removes the bar and its shortcut; the `grid.find` API still works.
@@ -2841,7 +2869,7 @@ export interface GridConfig {
    * reordering the chips changes the nesting order. It is keyboard-operable
    * (arrows navigate, Shift+arrow reorders, Delete ungroups, and an add control
    * groups any column), and every change is announced through the live region,
-   * which is why it also addresses the drag-only complaint of BACKLOG-0000429.
+   * which is why it also addresses the drag-only complaint.
    *
    * Off by default and non-breaking, matching `toolPanel`. It drives the same
    * grouping model as `grid.columns.group()`; it reimplements nothing.
@@ -2987,7 +3015,7 @@ export interface ColumnState {
   /** The grand-total override, when one differs from `total`. */
   grandTotal?: TotalName | null;
   /**
-   * The column's runtime decoration (BACKLOG-0000723), present only when the
+   * The column's runtime decoration, present only when the
    * column carries one, so a `columns.decorate()` survives a saved view and
    * participates in undo/redo. Absent means "not recorded"; an explicit `null`
    * on an undo patch clears a decoration back to plain text.
@@ -2998,7 +3026,7 @@ export interface ColumnState {
 }
 
 /**
- * A persisted banded-header node (§15, BACKLOG-0000739): a band with a `columns`
+ * A persisted banded-header node (§15): a band with a `columns`
  * list whose members are leaf ids or nested bands. This is what round-trips a
  * drag-created group through a saved view.
  */
@@ -3014,11 +3042,11 @@ export interface GridState {
   version: number;
   columns?: ColumnState[];
   columnOrder?: string[];
-  /** The banded-header tree, when the grid has one (BACKLOG-0000739). */
+  /** The banded-header tree, when the grid has one. */
   columnGroups?: ColumnGroupState[];
   filters?: FilterSet;
   /**
-   * The `where` predicates that were in force, as names only (BACKLOG-0001202).
+   * The `where` predicates that were in force, as names only.
    * A predicate is host code: it cannot be serialised into a view or restored
    * from one. `apply` reconciles these against what the host has registered and
    * reports every name it cannot honour rather than restoring a view that
@@ -3031,14 +3059,14 @@ export interface GridState {
   group?: string[];
   pivot?: { enabled: boolean; columns: string[] };
   /**
-   * The pivot presentation's collapse state (§10, BACKLOG-0000738): which
+   * The pivot presentation's collapse state (§10): which
    * row-axis and column-axis nodes are collapsed. Absent when the matrix is
    * fully expanded, and tolerated as "expand all" when applied.
    */
   pivotView?: { rowsCollapsed: string[]; columnsCollapsed: string[] };
   formatting?: Record<string, FormattingRule[]>;
   /**
-   * Durable annotation marks (BACKLOG-0000813): seeded from here on first paint,
+   * Durable annotation marks: seeded from here on first paint,
    * and written back by `getState` so a host can persist and restore them. In
    * content coordinates, so they track scroll and resize.
    */
@@ -3063,7 +3091,7 @@ export interface StateApplyReport {
 export type StateSection = Exclude<keyof GridState, 'version'>;
 
 /**
- * What caused a `state:changed` (BACKLOG-0001182).
+ * What caused a `state:changed`.
  *
  * `'user'` is a change to one part of the view — a sort, a filter, a column
  * moved, resized, pinned or hidden, a grouping, a page — whether it arrived as
@@ -3109,7 +3137,7 @@ export interface FormattingScale {
 }
 
 /**
- * An in-cell proportional bar (BACKLOG-0000955). Drawn as a CSS gradient on the
+ * An in-cell proportional bar. Drawn as a CSS gradient on the
  * cell background — no extra element, and it composes with the cell's text.
  *
  * The bar's length is the value's position between `min` and `max`. Give both to
@@ -3139,7 +3167,7 @@ export interface DataBarSpec {
 }
 
 /**
- * An icon set (BACKLOG-0000955): a glyph placed beside the value by the band it
+ * An icon set: a glyph placed beside the value by the band it
  * falls in. Drawn as a `background-image` with padding, so it too needs no extra
  * element and stays a plain style value.
  *
@@ -3174,9 +3202,9 @@ export interface FormattingRule {
   when?: FormattingCondition;
   style?: CellStyle | ((p: CellParams) => CellStyle | null);
   scale?: FormattingScale;
-  /** An in-cell proportional bar (BACKLOG-0000955). */
+  /** An in-cell proportional bar. */
   dataBar?: DataBarSpec;
-  /** A per-band glyph beside the value (BACKLOG-0000955). */
+  /** A per-band glyph beside the value. */
   iconSet?: IconSetSpec;
   stopIfTrue?: boolean;
   enabled?: boolean;
@@ -3236,7 +3264,7 @@ export interface PushdownCapabilities {
   /**
    * Whether it can answer the grid's grouped view — group rows, their counts,
    * their subtotals and their order — one level at a time, instead of returning
-   * the leaves for the grid to group in the browser (BACKLOG-0001325).
+   * the leaves for the grid to group in the browser.
    *
    * All or nothing, unlike `filter`. A filter splits because the engine
    * narrowing a superset and the grid narrowing what is left reach the same set;
@@ -3267,7 +3295,7 @@ export interface PushdownAdapter {
   execute(query: RemoteRequest, request?: RemoteRequest):
     Promise<{ rows: unknown[]; total?: number }>;
   /**
-   * Answer one level of a grouped grid (BACKLOG-0001325). Present only when
+   * Answer one level of a grouped grid. Present only when
    * `capabilities.group` opts in.
    *
    * The level is `query.groupValues.length`: the root asks for the outermost
@@ -3298,7 +3326,7 @@ export interface PushdownAdapter {
     grand?: Record<string, unknown>;
   }>;
   /**
-   * The row count before any filter (BACKLOG-0001325) — the denominator of
+   * The row count before any filter — the denominator of
    * "1,204 of 100,000" under grouping, where the display count is group headers
    * rather than rows. Optional; a source falls back to the display count.
    */
@@ -3319,7 +3347,7 @@ export interface PushdownPlan {
   /**
    * What the grid applied afterwards. `where` is the host predicate runtime
    * when one survived the `whereRowLimit` gate, and `null` when none was
-   * registered or the gate refused it (BACKLOG-0001268).
+   * registered or the gate refused it.
    */
   residual: {
     filters: object | null;
@@ -3328,7 +3356,7 @@ export interface PushdownPlan {
     where: WhereRuntime | null;
     /**
      * Whether the rows the residual runs over are the whole matching set rather
-     * than a fetched fraction (BACKLOG-0001268). Set by the source when it hands
+     * than a fetched fraction. Set by the source when it hands
      * the residual to `applyResidual`; absent on the plan `lastPlan()` reports,
      * because it is a property of one fetch's result, not of the plan.
      *
@@ -3346,8 +3374,7 @@ export interface PushdownPlan {
    */
   unpushed: string[];
   /**
-   * Whether the engine answered the grid's grouped view for this request
-   * (BACKLOG-0001325). False for an ungrouped query and for a grouped one the
+   * Whether the engine answered the grid's grouped view for this request. False for an ungrouped query and for a grouped one the
    * engine was refused — `groupReason` says which.
    */
   grouped: boolean;
@@ -3370,7 +3397,7 @@ export interface PushdownPlan {
   full: boolean;
   /**
    * Per-aggregate provenance, present only when the last request computed
-   * aggregates (BACKLOG-0000730 Part B): which statistics the engine computed
+   * aggregates: which statistics the engine computed
    * and which the client did, with the class the pushdown map assigned each.
    * Under grouping it also carries the `groupBy` the subtotals were computed
    * over. Build-time inspection, not a runtime per-figure marker.
@@ -3383,8 +3410,7 @@ export interface PushdownPlan {
 }
 
 /**
- * Opt-in, sticky full-dataset pull for a pushdown/remote source
- * (BACKLOG-0000730). Off by default. When enabled, the source materialises the
+ * Opt-in, sticky full-dataset pull for a pushdown/remote source. Off by default. When enabled, the source materialises the
  * entire matching set client-side once per query signature and serves every
  * window, total and statistic from it, so those figures are computed over the
  * whole set rather than the loaded window. A set past either limit is refused
@@ -3403,8 +3429,7 @@ export interface PushdownFullDatasetConfig {
 export type AggregateMode = 'engine' | 'client' | 'engine-if-identical';
 
 /**
- * Design-time aggregate-pushdown policy for a pushdown source
- * (BACKLOG-0000730 Part B). The developer chooses, at grid setup
+ * Design-time aggregate-pushdown policy for a pushdown source. The developer chooses, at grid setup
  * before render, whether each statistic is computed by the engine (fast, over
  * the matching set) or client-side (the grid's exact definition, needs a
  * full-dataset pull). It is fixed for the life of the grid, never a runtime
@@ -3493,7 +3518,7 @@ export interface PushdownSourceConfig {
   allowPartialResults?: boolean;
   /**
    * The most rows the source will fetch and hold in order to run a twinless
-   * `where` predicate as the residual (BACKLOG-0001268). Defaults to `50_000`,
+   * `where` predicate as the residual. Defaults to `50_000`,
    * the same anchor as the grid's `workerThreshold` — the size at which this
    * codebase already judges a dataset big enough to need different handling.
    *
@@ -3522,7 +3547,7 @@ export interface StatisticsApi {
   shadow(colId: string, kind: ShadowKind, rowKey: string,
     scope?: 'all' | 'filtered', spec?: object): unknown;
   /**
-   * One regression shadow value for a row, by key (BACKLOG-0000812): the
+   * One regression shadow value for a row, by key: the
    * predicted value, residual, or Cook's-distance influence flag from the fitted
    * model, over the filtered rows. Null for a row outside the fit.
    */
@@ -3540,7 +3565,7 @@ export interface StatisticsApi {
   /** Everything worth knowing about one column, in one pass each. */
   profile(colId: string): ColumnProfile | null;
   /**
-   * The rows that do not belong (BACKLOG-0000749): anomaly detection over the
+   * The rows that do not belong: anomaly detection over the
    * filtered rows by the robust modified z-score (`modifiedZScore`, the
    * default), Tukey's IQR fences (`iqr`), or multivariate Mahalanobis distance
    * over the chosen columns (`mahalanobis`). Every flagged row carries the score
@@ -3559,7 +3584,7 @@ export interface StatisticsApi {
   subsetVsPopulation(opts?: { columns?: string[] }): SubsetComparison;
   /**
    * Which columns differ most between this grid and another, ranked by effect
-   * size — never by a p-value (BACKLOG-0000735). The generalisation of
+   * size — never by a p-value. The generalisation of
    * {@link subsetVsPopulation} from subset-vs-population to dataset-vs-dataset:
    * two independent grids, yoked by passing one in, no shared store. A numeric
    * column reports a pooled standardised mean difference (Cohen's d, symmetric
@@ -3571,7 +3596,7 @@ export interface StatisticsApi {
   datasetVsDataset(other: Grid, opts?: { columns?: string[] }): DatasetComparison;
   /**
    * Is the difference between two groups real? A two-sample test returned as
-   * data to interpret — never a verdict (BACKLOG-0000750). The significance
+   * data to interpret — never a verdict. The significance
    * boundary the comparison story (653, 735) stopped short of: those rank by how
    * *much* columns differ and return no p-value; this answers *how sure* for one
    * chosen pair of groups and hands the p-value back as data. There is no
@@ -3596,12 +3621,12 @@ export interface StatisticsApi {
    * per predictor; a Breusch–Pagan heteroscedasticity flag; and, for a single
    * predictor, a pointwise confidence band. `method` is `ols`, `wls` (needs a
    * `weights` column) or `robust`; `quantile` is reserved and the regularised
-   * families refuse. Null on degenerate input (BACKLOG-0000792).
+   * families refuse. Null on degenerate input.
    */
   regressionModel(spec: RegressionSpec): RegressionModel | null;
   /**
    * The Augmented Dickey-Fuller stationarity test over the `of` series in
-   * `orderBy` order (BACKLOG-0000873), constant+trend form with the lag order
+   * `orderBy` order, constant+trend form with the lag order
    * chosen by AIC up to an optional cap. Returns the statistic, the lag used,
    * MacKinnon's critical values, an approximate (interpolated) p-value and a
    * plain-language verdict at the 5% level — a scalar readout, not a column.
@@ -3609,7 +3634,7 @@ export interface StatisticsApi {
   adf(spec: { of: string; orderBy: string; maxlag?: number }): AdfResult | null;
   /**
    * The autocorrelation (ACF) and partial autocorrelation (PACF) of the `of`
-   * series in `orderBy` order out to `maxlag` (BACKLOG-0000873), with the
+   * series in `orderBy` order out to `maxlag`, with the
    * approximate ±1.96/√n band. A short-series readout; feed the arrays to a bar
    * chart over explicit points with the band as reference lines. The lag-1
    * autocorrelation matches `series(...).autocorrelation`.
@@ -3653,7 +3678,7 @@ export interface StatisticsApi {
    */
   series(colId: string, opts: { by: string; periodsPerYear?: number }): SeriesStats | null;
   /**
-   * Forecast one column forward (BACKLOG-0000963): the stats-surface face of the
+   * Forecast one column forward: the stats-surface face of the
    * {@link forecast} kernel. The column is read over the filtered rows in arrival
    * order, or ordered by `opts.by` (a date or numeric column, as {@link series}
    * orders) when the time axis matters, then projected `opts.horizon` steps ahead
@@ -3686,7 +3711,7 @@ export interface StatisticsApi {
    */
   maintenanceTier(fn: string): MaintenanceTier;
   /**
-   * A windowed aggregate — "the average lately" (BACKLOG-0000654) — over one
+   * A windowed aggregate — "the average lately" — over one
    * column, stamped with the window it covers (`over`), so a windowed figure is
    * never read without its window. Exact over the values inside the window.
    *
@@ -3763,7 +3788,7 @@ export interface WindowSpec {
 export const WINDOW_KINDS: readonly ('count' | 'time' | 'session')[];
 
 /**
- * A sliding window over a stream of timestamped values (BACKLOG-0000654). Holds
+ * A sliding window over a stream of timestamped values. Holds
  * the values currently in the window and re-reduces them on demand; the reduction
  * is exact over the values in the window. `grid.statistics.windowed(...)` drives
  * one of these over a column; a host can also drive one live, tick by tick.
@@ -3794,7 +3819,7 @@ export function openWindow(
 ): Window;
 
 /**
- * The anomaly-detection methods (BACKLOG-0000749): the robust univariate
+ * The anomaly-detection methods: the robust univariate
  * modified z-score, Tukey's IQR fences, and multivariate Mahalanobis distance.
  * Interpretable statistics with written-down cuts, never a black box.
  */
@@ -3838,7 +3863,7 @@ export function mahalanobis(
   flagged: number } | null;
 
 /**
- * The rolling (windowed) anomaly methods (BACKLOG-0000954): the robust modified
+ * The rolling (windowed) anomaly methods: the robust modified
  * z-score and Tukey's IQR fences, each computed over a trailing window rather
  * than the whole series, for live monitoring where a drift or a shifted regime
  * must not poison a global baseline.
@@ -3846,7 +3871,7 @@ export function mahalanobis(
 export const ROLLING_ANOMALY_METHODS: readonly ('rollingModifiedZScore' | 'rollingIqr')[];
 
 /**
- * Rolling (windowed) anomaly detection (BACKLOG-0000954): judge every reading
+ * Rolling (windowed) anomaly detection: judge every reading
  * against a causal trailing window ending at it — the current point and the
  * `window − 1` before it — so a spike is caught against its recent neighbours and
  * a slow drift does not permanently poison the baseline. With a window at least
@@ -3864,9 +3889,9 @@ export function rollingAnomalies(
   scores: (number | null)[]; flags: boolean[]; flagged: number };
 
 /**
- * Build a Data Router alert condition from an anomaly detector (BACKLOG-0000954):
+ * Build a Data Router alert condition from an anomaly detector:
  * a `(rows) => signal` for the router's existing `router.alert(value, condition,
- * handler)` (BACKLOG-0000909), so live monitoring reuses the router's
+ * handler)`, so live monitoring reuses the router's
  * partitioning, debounce and rising-edge re-arm rather than duplicating any of
  * it. Reads one numeric `field` off each row, runs the chosen detector, and
  * returns the flagged rows and scores when anything is anomalous or `false` when
@@ -3884,7 +3909,7 @@ export function anomalyCondition(
   false | { method: string; field: string; flagged: { row: Record<string, unknown>; score: number | null }[] };
 
 /**
- * The forecasting methods a caller may ask for (BACKLOG-0000963), named so a
+ * The forecasting methods a caller may ask for, named so a
  * result says which produced it: a trailing moving average, single / double
  * (Holt) / triple (Holt-Winters) exponential smoothing, and a linear least-squares
  * fit of the time axis.
@@ -3935,7 +3960,7 @@ export interface ForecastResult {
 }
 
 /**
- * Forecast an ordered series `horizon` steps into the future (BACKLOG-0000963).
+ * Forecast an ordered series `horizon` steps into the future.
  *
  * `movingAverage` and `ses` are flat forecasts (the trailing-window mean, the
  * final smoothed level); `holt` adds a projected trend, `holtWinters` a projected
@@ -3964,7 +3989,7 @@ export type ShadowKind =
   | 'rank' | 'rankAsc' | 'rankChange' | 'percentile' | 'quartile'
   | 'zScore' | 'shareOfTotal'
   /**
-   * A robust outlier score and flag per row (BACKLOG-0000749): the modified
+   * A robust outlier score and flag per row: the modified
    * z-score on the median and MAD, and the boolean of whether it clears
    * `threshold` (default 3.5, read off the shadow declaration). Sortable,
    * filterable, groupable and exportable like any cell. Null where there is no
@@ -3980,8 +4005,7 @@ export type ShadowKind =
    */
   | 'specStatus'
   /**
-   * Rolling time-series aggregates over a stated `orderBy` (BACKLOG-0000748,
-   * Phase 1), computed in one ordered pass the grid caches by row key and never
+   * Rolling time-series aggregates over a stated `orderBy` (Phase 1), computed in one ordered pass the grid caches by row key and never
    * over the screen sort. `rollingSum`/`rollingAvg`/`rollingMin`/`rollingMax`
    * reduce the `window`; `windowCoverage` reports how much of the requested
    * window a row actually covers (so a partial window is never dressed as full);
@@ -3992,7 +4016,7 @@ export type ShadowKind =
   | 'rollingSum' | 'rollingAvg' | 'rollingMin' | 'rollingMax'
   | 'windowCoverage' | 'cumulativeToDate' | 'periodOverPeriod'
   /**
-   * A rolling quantile over the `orderBy` window (BACKLOG-0000748) — a trailing
+   * A rolling quantile over the `orderBy` window — a trailing
    * median or p95, the quantile set by `q`. Exact while the window is small;
    * past an internal span cap, and for a session window, it comes from a KLL
    * sketch and `windowApproximate` reports which rows are approximate, so a
@@ -4000,7 +4024,7 @@ export type ShadowKind =
    */
   | 'rollingQuantile' | 'windowApproximate'
   /**
-   * Classical seasonal decomposition over a declared `period` (BACKLOG-0000873),
+   * Classical seasonal decomposition over a declared `period`,
    * matching `statsmodels.seasonal_decompose`: `tsTrend` is the centred
    * moving-average trend, `tsSeasonal` the repeating seasonal index, `tsResidual`
    * what the two leave behind, and `tsCoverage` the stamp (1 for an interior row,
@@ -4010,7 +4034,7 @@ export type ShadowKind =
    */
   | 'tsTrend' | 'tsSeasonal' | 'tsResidual' | 'tsCoverage'
   /**
-   * Exponential smoothing over the `orderBy` series (BACKLOG-0000873):
+   * Exponential smoothing over the `orderBy` series:
    * `tsSmoothed` is the fitted level from single exponential smoothing (`ses`) or
    * Holt's level+trend (`holt`) — the signal with the noise removed, not a
    * forecast. The smoothing factor(s) are caller-set or fit by minimising
@@ -4020,7 +4044,7 @@ export type ShadowKind =
    */
   | 'tsSmoothed' | 'tsSmoothingAlpha' | 'tsSmoothingBeta'
   /**
-   * Model-backed regression shadows (BACKLOG-0000812): the predicted value, the
+   * Model-backed regression shadows: the predicted value, the
    * residual, and a Cook's-distance influence flag for the row, read from the
    * fitted model named on the shadow declaration (`shadow: { kind:
    * 'fitResidual', model: { predictors, response, method } }`). They follow the
@@ -4030,7 +4054,7 @@ export type ShadowKind =
    * via `threshold`); "not influential" (`false`) and "cannot tell" (`null`)
    * stay distinct.
    *
-   * `fitStdResidual`, `fitLeverage` and `fitCooksD` (BACKLOG-0000872) surface
+   * `fitStdResidual`, `fitLeverage` and `fitCooksD` surface
    * the diagnostics the engine already computes — the internally studentised
    * residual `eᵢ/(s·√(1−hᵢ))`, the hat-matrix leverage `hᵢ`, and Cook's distance
    * — as their own numeric columns, so the scale-location and
@@ -4054,7 +4078,7 @@ export interface RegressionFit {
   n: number;
 }
 
-/** The specification of a multi-predictor model (BACKLOG-0000792). */
+/** The specification of a multi-predictor model. */
 export interface RegressionSpec {
   /** The predictor column ids. */
   predictors: string[];
@@ -4080,7 +4104,7 @@ export interface RegressionCoefficient {
   p: number;
   /**
    * The Wald confidence interval at the model's confidence level
-   * (BACKLOG-0000872) — the whiskers a coefficient forest plot draws. Null when
+   * — the whiskers a coefficient forest plot draws. Null when
    * there is no residual degree of freedom to form a critical value.
    */
   lower: number | null;
@@ -4102,7 +4126,7 @@ export interface Heteroscedasticity {
   heteroscedastic: boolean;
 }
 
-/** The Augmented Dickey-Fuller stationarity test result (BACKLOG-0000873). */
+/** The Augmented Dickey-Fuller stationarity test result. */
 export interface AdfResult {
   /** The ADF t-statistic on the lagged level. */
   statistic: number;
@@ -4124,7 +4148,7 @@ export interface AdfResult {
   regression: 'ct';
 }
 
-/** Autocorrelation (ACF) and partial autocorrelation (PACF) arrays (BACKLOG-0000873). */
+/** Autocorrelation (ACF) and partial autocorrelation (PACF) arrays. */
 export interface AcfResult {
   /** The autocorrelation at each lag; index 0 is lag 0 and is always 1. */
   acf: number[];
@@ -4140,7 +4164,7 @@ export interface AcfResult {
   approximate: boolean;
 }
 
-/** A fitted multi-predictor linear model and its diagnostics (BACKLOG-0000792). */
+/** A fitted multi-predictor linear model and its diagnostics. */
 export interface RegressionModel {
   method: string;
   coefficients: RegressionCoefficient[];
@@ -4245,7 +4269,7 @@ export interface ColumnProfile {
   histogram: HistogramBin[];
   /**
    * For a categorical (non-numeric) column, the commonest values, largest
-   * first (BACKLOG-0000959). Absent for a numeric column, whose shape the
+   * first. Absent for a numeric column, whose shape the
    * numeric figures and the histogram already carry.
    */
   topValues?: TopValue[];
@@ -4257,7 +4281,7 @@ export interface HistogramBin {
   count: number;
 }
 
-/** One row of a categorical column's top-values table (BACKLOG-0000959). */
+/** One row of a categorical column's top-values table. */
 export interface TopValue {
   /** The value itself, as it is stored. */
   value: unknown;
@@ -4296,7 +4320,7 @@ export interface ColumnDifference {
   reliable: boolean;
 }
 
-/** The subset-vs-population ranking (BACKLOG-0000653). */
+/** The subset-vs-population ranking. */
 export interface SubsetComparison {
   /** Every compared column, largest difference first. */
   ranked: ColumnDifference[];
@@ -4518,7 +4542,7 @@ export interface FormattingApi {
   distribution(colId: string): ColumnDistribution | null;
 }
 
-/** One recorded validation error (BACKLOG-0000956). */
+/** One recorded validation error. */
 export interface ValidationError {
   key: string;
   colId: string;
@@ -4526,7 +4550,7 @@ export interface ValidationError {
   message: string;
 }
 
-/** The runtime face of declarative column validation (BACKLOG-0000956). */
+/** The runtime face of declarative column validation. */
 export interface ValidationApi {
   /** Run a column's rules against a value, returning the first failure or null. */
   check(colId: string, value: unknown, row?: unknown): { code: string; message: string } | null;
@@ -4584,7 +4608,7 @@ export type EventName =
   | 'model:changed' | 'rows:changed' | 'rows:queued' | 'rows:deferred'
   | 'rows:paused' | 'rows:resumed' | 'row:received' | 'row:sent' | 'row:copied'
   | 'row:moved' | 'source:error' | 'stream:chunk' | 'stream:end' | 'stream:evicted'
-  /* The row-drag gesture as it happens (BACKLOG-0001224). Notifications only:
+  /* The row-drag gesture as it happens. Notifications only:
    * the drop is already vetoable by `beforeRowMove` and `beforeRowReceive`, and
    * a third veto on the same gesture would be a fourth place to look. All four
    * fire on the grid the drag started in and carry a {@link RowDragEvent}. */
@@ -4592,14 +4616,14 @@ export type EventName =
   /* Cells and editing */
   | 'cell:changed' | 'cell:pending' | 'cell:confirmed' | 'cell:reverted' | 'cell:conflict'
   | 'cell:clicked' | 'cell:dblclicked' | 'cell:contextmenu'
-  /* The pointer entering and leaving a cell (BACKLOG-0001203). Announcements
+  /* The pointer entering and leaving a cell. Announcements
    * only, carrying what `cell:clicked` carries plus the cell element as
    * `target`. A host cannot wire these itself: rows and cells are pooled and
    * re-used as the grid scrolls, so a listener bound to a cell node fires for
    * whichever row occupies it next. Nothing in the grid is gated on hover, so
    * a keyboard user reaches everything a pointer does. */
   | 'cell:mouseover' | 'cell:mouseout'
-  /* A pointer press and release on a cell (BACKLOG-0001272), the same
+  /* A pointer press and release on a cell, the same
    * convention as the hover pair above: announcements only, carrying what
    * `cell:clicked` carries plus the cell element as `target`. A host cannot
    * wire these itself for the same reason it cannot wire the hover pair —
@@ -4629,7 +4653,7 @@ export type EventName =
   | 'state:changed' | 'state:reset' | 'history:changed' | 'history:applied'
   | 'views:changed' | 'view:applied' | 'view:saved' | 'view:removed'
   | 'view:renamed' | 'view:default'
-  /* Validation (BACKLOG-0000956): a declared column rule vetoed an edit, or a
+  /* Validation: a declared column rule vetoed an edit, or a
    * recorded error was cleared. The veto itself rides the cancellable `beforeEdit`. */
   | 'validation:failed' | 'validation:cleared'
   /* Formatting and presentation */
@@ -4652,14 +4676,14 @@ export type EventName =
   | 'export:progress' | 'export:request' | 'export:done'
   /* Keyboard help overlay (past-tense notifications) */
   | 'shortcuts:opened' | 'shortcuts:closed'
-  /* Print (past-tense notifications, BACKLOG-0000941) */
+  /* Print (past-tense notifications) */
   | 'print:before' | 'print:after'
-  /* Cancellable before-events (BACKLOG-0000943). Delivered through the async
+  /* Cancellable before-events. Delivered through the async
    * before-dispatch path with a {@link BeforeEvent} carrying preventDefault. */
   | 'beforeEdit' | 'beforeSort' | 'beforeFilter'
   | 'beforeColumnMove' | 'beforeColumnResize' | 'beforeColumnHide'
   | 'beforeSelect' | 'beforeRowAdd' | 'beforeDelete' | 'beforeRowMove' | 'beforeGroup'
-  /* A row dropped in from another grid, on the receiving grid (BACKLOG-0001225):
+  /* A row dropped in from another grid, on the receiving grid:
    * a {@link BeforeRowReceiveEvent}. */
   | 'beforeRowReceive'
   /* Their cancellation notifications (past-tense, non-cancellable). */
@@ -4673,7 +4697,7 @@ export type EventName =
 export interface GridEvent {
   type: string;
   /**
-   * Who caused the action. `'ai'` (BACKLOG-0000967) tags a write an AI proposed
+   * Who caused the action. `'ai'` tags a write an AI proposed
    * and a human approved, applied through `grid.edit.setCells(writes, type,
    * { origin: 'ai' })`; it fires the same cancellable `beforeEdit` gate a
    * `'user'` edit does, so a host can policy-gate AI writes distinctly.
@@ -4684,7 +4708,7 @@ export interface GridEvent {
 }
 
 /**
- * A cancellable *before*-event (BACKLOG-0000943), delivered to `on('beforeX')`
+ * A cancellable *before*-event, delivered to `on('beforeX')`
  * handlers before a user-initiated mutation is applied.
  *
  * A handler cancels the pending action by calling `preventDefault(reason?)`; the
@@ -4709,7 +4733,7 @@ export interface BeforeEvent extends GridEvent {
 }
 
 /**
- * The `beforeRowReceive` event (BACKLOG-0001225): a row dragged from another
+ * The `beforeRowReceive` event: a row dragged from another
  * grid is about to be inserted into this one. Fires on the **receiving** grid,
  * before the insert, with the row under the pointer named — so a drop that
  * means "assign this to that" can be recorded by the host and the insert
@@ -4721,7 +4745,7 @@ export interface BeforeEvent extends GridEvent {
  * The paired `rowReceive:cancelled` carries the same context plus the reason.
  *
  * Like every {@link BeforeEvent}, the handler may be `async`; the insert is
- * held until it settles, and is cancelled as `'stale'` (BACKLOG-0001242) if
+ * held until it settles, and is cancelled as `'stale'` if
  * the source row is gone by then, or if the row under the pointer is gone or
  * has moved to a different index — `at` names a slot as "before `overKey`",
  * and once that is no longer where `overKey`'s row sits, `at` is a stale index
@@ -4742,7 +4766,7 @@ export interface BeforeRowReceiveEvent extends BeforeEvent {
    * `overKey` names a row, this is guaranteed to still be that row's index at
    * the moment the insert actually runs — an async handler that leaves the
    * named row at a different index causes the drop to be cancelled as
-   * `'stale'` (BACKLOG-0001242) rather than inserted at this index regardless.
+   * `'stale'` rather than inserted at this index regardless.
    */
   at: number;
   /**
@@ -4757,7 +4781,7 @@ export interface BeforeRowReceiveEvent extends BeforeEvent {
 }
 
 /**
- * The `rowReceive:cancelled` event (BACKLOG-0001225): a `beforeRowReceive`
+ * The `rowReceive:cancelled` event: a `beforeRowReceive`
  * was vetoed, or went stale during an async handler. Nothing was inserted and
  * the source grid is untouched.
  */
@@ -4779,7 +4803,7 @@ export interface RowReceiveCancelledEvent extends GridEvent {
 }
 
 /**
- * The row-drag lifecycle events (BACKLOG-0001224): `rowDrag:started`,
+ * The row-drag lifecycle events: `rowDrag:started`,
  * `rowDrag:moved`, `rowDrag:left` and `rowDrag:ended`, which report a row drag
  * *as it happens* rather than once it has settled. Before them a host got the
  * handle the grid draws and then one settled event, with nothing in between to
@@ -4860,7 +4884,7 @@ export interface RowDragEvent extends GridEvent {
 }
 
 /**
- * The `state:changed` event (BACKLOG-0001182).
+ * The `state:changed` event.
  *
  * Fires once per logical state change, whether it began as a user gesture or
  * as a programmatic call, so view persistence is built on this one event
@@ -4874,7 +4898,7 @@ export interface RowDragEvent extends GridEvent {
  * A host predicate registered, replaced or removed through
  * `filters.where(name, fn)`, and a `filters.reapply()` that re-runs one, go
  * through the same tracked door as `sort` and `filters`: each fires this
- * event once, `cause: 'user'`, with `'where'` in `sections` (BACKLOG-0001235).
+ * event once, `cause: 'user'`, with `'where'` in `sections`.
  */
 export interface StateChangedEvent extends GridEvent {
   /** Why the state changed. `'reset'` is the one a save should ignore. */
@@ -5081,8 +5105,7 @@ export interface ColumnsApi {
    *
    * With no `scope`, `fn` becomes the column's single `total`, applied to both
    * group subtotals and the grand total, and any independent group/grand
-   * overrides are cleared — the same one-property behaviour as before
-   * (BACKLOG-0000726). Pass `scope: 'group'` or `scope: 'grand'` to set just
+   * overrides are cleared — the same one-property behaviour as before. Pass `scope: 'group'` or `scope: 'grand'` to set just
    * that scope's reduction independently, leaving the other and the base
    * `total` untouched; the scope that has no override falls back to `total`.
    */
@@ -5117,12 +5140,11 @@ export interface ColumnsApi {
   hide(ids: string | string[]): void;
   move(id: string, to: number): void;
   /**
-   * Wrap leaf columns in a banded header, or add them to an existing band
-   * (BACKLOG-0000739). Header banding, not row grouping (see {@link group}); the
+   * Wrap leaf columns in a banded header, or add them to an existing band. Header banding, not row grouping (see {@link group}); the
    * band is a {@link ColumnGroup} node so a drag-, keyboard- or config-built band
    * is the same tree, and it round-trips through a saved view. Emits
    * `columngroup:changed`. Pass `groupId` to add to the band already carrying
-   * that id, or `id` (BACKLOG-0000985) to create a new band with a caller-chosen
+   * that id, or `id` to create a new band with a caller-chosen
    * stable id you can reference later; `groupId` wins if both are given and an
    * `id` already in use warns and no-ops.
    */
@@ -5238,7 +5260,7 @@ export interface CellRange {
 
 /**
  * How a `where` predicate is re-evaluated, whether `filters.clear()` may remove
- * it, and what the source may be told about it (BACKLOG-0001202).
+ * it, and what the source may be told about it.
  */
 export interface WhereOptions {
   /**
@@ -5265,7 +5287,7 @@ export interface WhereOptions {
    * **The twin is what works at any size.** Without one, a pushdown source can
    * still run the function — but only as the residual over the whole matching
    * set, so it does so only while that set is under `whereRowLimit` (default
-   * `50_000`) and refuses loudly past it (BACKLOG-0001268). A paged or remote
+   * `50_000`) and refuses loudly past it. A paged or remote
    * source cannot run it at all and warns at registration. The twin is pushed
    * to the engine, so it narrows the fetch itself and none of that applies.
    */
@@ -5287,7 +5309,7 @@ export interface FiltersApi {
   where(): string[];
   /**
    * Register, replace or remove a named row predicate composed with the filter
-   * set (BACKLOG-0001202).
+   * set.
    *
    * Registering *is* activating: there is no companion "a predicate is present"
    * flag to keep in sync, which is the failure mode this replaces. Several may
@@ -5335,7 +5357,7 @@ export interface EditApi {
    * `'api'` — the ungated seam every existing caller uses (a fill, a paste, a
    * kanban move), unchanged. Pass `{ origin: 'ai' }` (or `'user'`) to route the
    * write through the cancellable `beforeEdit` gate, exactly as an interactive
-   * edit is (BACKLOG-0000967): the AI writes through this so a host `beforeEdit`
+   * edit is: the AI writes through this so a host `beforeEdit`
    * handler can veto it and nothing persists when it does. With a gated origin
    * and an async (deferring) before-handler, the return is a `Promise<number>`.
    */
@@ -5412,7 +5434,7 @@ export interface EditApi {
   deleteRow(key: string): string | null;
   /**
    * Delete rows on a user gesture, through the cancellable `beforeDelete` event
-   * (§18.4, BACKLOG-0000968) — what the built-in Delete-key and "Delete row"
+   * (§18.4) — what the built-in Delete-key and "Delete row"
    * gestures call. Unlike {@link deleteRow}, `beforeDelete` fires on a
    * memory-source grid too, so the row can be confirmed or vetoed there. Off
    * until `config.rowDelete` opts in; the keys default to the row selection.
@@ -5539,15 +5561,14 @@ export interface ImportXlsxPreview {
   warnings: string[];
 }
 
-/** Bringing rows in — the mirror of {@link ExportApi} (§14, BACKLOG-0000949). */
+/** Bringing rows in — the mirror of {@link ExportApi} (§14). */
 export interface ImportApi {
   /** Parse delimited text into a preview, changing nothing. */
   preview(text: string, opts?: object): ImportPreview;
   /** Parse delimited text into coerced records — the inverse of `export.csv`. */
   csv(text: string, opts?: object): Record<string, unknown>[];
   /**
-   * Parse an `.xlsx` file's bytes into a preview, changing nothing (§14,
-   * BACKLOG-0000970). Async: the archive is inflated with `DecompressionStream`.
+   * Parse an `.xlsx` file's bytes into a preview, changing nothing (§14). Async: the archive is inflated with `DecompressionStream`.
    */
   previewXlsx(bytes: Uint8Array | ArrayBuffer, opts?: object): Promise<ImportXlsxPreview>;
   /** Parse an `.xlsx` file's bytes into coerced records — the inverse of `export.excel`. */
@@ -5612,8 +5633,7 @@ export interface RowStyleParams {
  * interactive throughout.
  */
 /**
- * Rendering the grid to a still image. `scale` multiplies the pixel dimensions
- *: 2 for a retina still, 3 or 4 for a slide. `background` fills behind the
+ * Rendering the grid to a still image. `scale` multiplies the pixel dimensions: 2 for a retina still, 3 or 4 for a slide. `background` fills behind the
  * grid so a PNG dropped into a deck does not show it through.
  */
 export interface CaptureOptions {
@@ -5631,7 +5651,7 @@ export interface CaptureOptions {
  * cleared when a presentation ends.
  */
 /**
- * A durable annotation mark descriptor (BACKLOG-0000813) — the shape a host
+ * A durable annotation mark descriptor — the shape a host
  * seeds through `state.annotations`, adds through {@link AnnotationApi.add}, and
  * reads back through {@link AnnotationApi.list} and `getState`.
  *
@@ -5639,7 +5659,7 @@ export interface CaptureOptions {
  * stored in), so a mark tracks scroll and resize rather than hanging over the
  * viewport. A `freehand` mark is a trail of points; `arrow` and `rect` are their
  * two endpoints. A `text` mark is a label anchored at a single content point,
- * carrying its `text` string and an optional basic style (BACKLOG-0000875).
+ * carrying its `text` string and an optional basic style.
  * `pen` is accepted as an alias for `freehand` on input; `list()` reports
  * `freehand`.
  */
@@ -5671,8 +5691,7 @@ export interface AnnotationApi {
   readonly count: number;
   use(tool: 'pen' | 'arrow' | 'rect' | 'highlight' | null, opts?: { colour?: string }): string | null;
   /**
-   * Add a durable mark from a descriptor, without synthesising pointer input
-   * (BACKLOG-0000813). The mark is painted, survives a presentation ending, and
+   * Add a durable mark from a descriptor, without synthesising pointer input. The mark is painted, survives a presentation ending, and
    * round-trips through `getState`. Returns the mark count.
    */
   add(mark: AnnotationMark): number;
@@ -6064,7 +6083,7 @@ export interface PresentationApi {
 }
 
 /**
- * Controls for the pivot presentation (§10, BACKLOG-0000738): expand or collapse
+ * Controls for the pivot presentation (§10): expand or collapse
  * an axis node, and read the collapse state a saved view carries. Every method
  * is a no-op on a headless grid, which has no matrix to collapse.
  */
@@ -6106,7 +6125,7 @@ export interface HighlightApi {
 }
 
 /**
- * The in-grid find bar's settings (BACKLOG-0001018). `find: true` or an
+ * The in-grid find bar's settings. `find: true` or an
  * omitted key mounts the bar with these defaults; `find: false` removes the
  * bar and its shortcut while `grid.find` keeps working programmatically.
  */
@@ -6177,7 +6196,7 @@ export interface FindState {
 }
 
 /**
- * In-grid find (BACKLOG-0001018): locate text and step through where it
+ * In-grid find: locate text and step through where it
  * occurs without filtering anything away. Matches are a visual overlay — no
  * row is reordered, removed or edited — and coexist with the quick filter.
  */
@@ -6376,9 +6395,8 @@ export interface CellMenuParams {
   key: string;
   /**
    * The column under the pointer, or `null` when the row belongs to no column:
-   * a right-click in the empty tail of a row beyond the last column
-   * (BACKLOG-0001153), or on a group row, pivot group row or full-width row.
-   * The grid-level menu stands in that case (BACKLOG-0001068).
+   * a right-click in the empty tail of a row beyond the last column, or on a group row, pivot group row or full-width row.
+   * The grid-level menu stands in that case.
    */
   colId: string | null;
   /** The cell's value; `undefined` when there is no column. */
@@ -6858,8 +6876,7 @@ export function createPushdownSource(
   lastPlan(): PushdownPlan | null;
   /**
    * Compute a set of aggregates over the matching set, splitting them between
-   * the engine and the client by the design-time `aggregates` config
-   * (BACKLOG-0000730 Part B). Ungrouped, returns the engine-computed `values`
+   * the engine and the client by the design-time `aggregates` config. Ungrouped, returns the engine-computed `values`
    * keyed by id. When the request carries a `groupBy`, returns `groups` instead:
    * one entry per subtotal level and the grand total (`level: 0`, produced by a
    * single `GROUP BY ROLLUP`), each with its key values and its aggregate values
@@ -6886,7 +6903,7 @@ export function createPushdownSource(
 };
 
 /**
- * Load a JSON or NDJSON file from a URL (BACKLOG-0000944).
+ * Load a JSON or NDJSON file from a URL.
  *
  * Returns a `StreamSourceConfig` for `createGrid(el, { source: createUrlSource(url, opts) })`.
  * A JSON file (a top-level array, or a nested array selected by `rowsPath`/`map`)
@@ -6933,7 +6950,7 @@ export function createUrlSource(
 ): StreamSourceConfig;
 
 /**
- * The pushdown map (BACKLOG-0000730 Part B): one published record per statistic
+ * The pushdown map: one published record per statistic
  * giving whether the engine can express it, the DuckDB aggregate SQL it emits,
  * and whether that result is IDENTICAL to the grid's own kernel or MAY-DIFFER.
  * The single source of truth the push router, the docs and `lastPlan()` all read.
@@ -7035,8 +7052,7 @@ export function odataAdapter(options: {
    * read-only; `true` advertises `mutate: { update: true, delete: true, append:
    * true, returning: 'row' }` so a committed cell edit is persisted with
    * `PATCH`, a row delete with `DELETE /EntitySet(key)`, and an add-row with
-   * `POST /EntitySet` reading the created entity back (§7 OData,
-   * BACKLOG-0000766, BACKLOG-0000795).
+   * `POST /EntitySet` reading the created entity back (§7 OData).
    */
   edit?: boolean;
 }): PushdownAdapter & { urlFor(query: RemoteRequest): string };
@@ -7056,7 +7072,7 @@ export function restAdapter(options: {
    * read-only; `true` advertises `mutate: { update: true, delete: true, append:
    * true, returning }` so a committed cell edit is persisted with `PATCH`, a row
    * delete with `DELETE`, and an add-row with `POST` to the collection URL
-   * (§7 REST, BACKLOG-0000769, BACKLOG-0000795).
+   * (§7 REST).
    */
   edit?: boolean;
   /**
@@ -7116,8 +7132,7 @@ export function duckdbAdapter(options: {
   /**
    * Whether to count the matching set at all. `true` by default: the total is a
    * separate `count(*)` statement carrying the same `WHERE`, dispatched in the
-   * same tick as the page query rather than serialised behind it
-   * (BACKLOG-0001065). `false` issues no count statement, declares
+   * same tick as the page query rather than serialised behind it. `false` issues no count statement, declares
    * `capabilities.total: false`, and leaves the result's `total` **absent** — so
    * the grid scrolls open-ended instead of being told the page length is the
    * whole set. Turn it off for a grid that never shows a count: an unfiltered
@@ -7135,8 +7150,7 @@ export function duckdbAdapter(options: {
   /**
    * Allow write-back against a plain writable table. `false` (the default) keeps
    * the source read-only, so a `from` that is a view or an expression can never
-   * be mutated by accident. Enables `update`, `delete` and `append`
-   * (BACKLOG-0000765, BACKLOG-0000795).
+   * be mutated by accident. Enables `update`, `delete` and `append`.
    */
   writable?: boolean;
   /**
@@ -7151,13 +7165,11 @@ export function duckdbAdapter(options: {
   sqlFor(query: RemoteRequest): { sql: string; params: unknown[] };
   /**
    * The separate `count(*)` statement that reports the matching set's size, with
-   * the same `WHERE` as {@link sqlFor} and no `ORDER BY` or `LIMIT`
-   * (BACKLOG-0001065). `null` when the adapter was built with `count: false`.
+   * the same `WHERE` as {@link sqlFor} and no `ORDER BY` or `LIMIT`. `null` when the adapter was built with `count: false`.
    */
   countSqlFor(query: RemoteRequest): { sql: string; params: unknown[] } | null;
   /**
-   * The `GROUP BY` statement one level of a grouped grid becomes
-   * (BACKLOG-0001325), exposed like {@link sqlFor} so a test can read it without
+   * The `GROUP BY` statement one level of a grouped grid becomes, exposed like {@link sqlFor} so a test can read it without
    * an engine. `keyCol` is the grouping column at the request's depth and
    * `keyAlias` the name its value comes back under.
    */
@@ -7167,24 +7179,23 @@ export function duckdbAdapter(options: {
   ): { sql: string; params: unknown[]; keyCol: string; keyAlias: string };
   /**
    * The statement that counts the *groups* at one level — a `count(*)` over the
-   * grouped sub-select, which is not the matching row count (BACKLOG-0001325).
+   * grouped sub-select, which is not the matching row count.
    * `null` when the adapter was built with `count: false`.
    */
   groupCountSqlFor(query: RemoteRequest): { sql: string; params: unknown[] } | null;
   /**
    * The row query for the leaves of a group: the page statement with the parent
-   * group path ANDed onto its `WHERE` (BACKLOG-0001325).
+   * group path ANDed onto its `WHERE`.
    */
   groupLeafSqlFor(query: RemoteRequest): { sql: string; params: unknown[] };
   /**
-   * The count of leaves inside one group (BACKLOG-0001325). `null` when the
+   * The count of leaves inside one group. `null` when the
    * adapter was built with `count: false`.
    */
   groupLeafCountSqlFor(query: RemoteRequest): { sql: string; params: unknown[] } | null;
   /**
    * The whole-matching-set summary that rides alongside a root-level grouped
-   * fetch: the matching row count and the grand total in one statement
-   * (BACKLOG-0001325).
+   * fetch: the matching row count and the grand total in one statement.
    */
   groupSummarySqlFor(
     query: RemoteRequest,
@@ -7233,7 +7244,7 @@ export function dfqlAdapter(options: {
 }): PushdownAdapter & { linesFor(query: RemoteRequest): object[] };
 
 /**
- * An adapter for a GraphQL endpoint (BACKLOG-0000741).
+ * An adapter for a GraphQL endpoint.
  *
  * GraphQL has no fixed query semantics — a filter, a sort and pagination are
  * whatever the schema defines — so this adapter is configured, not zero-config.
@@ -7274,7 +7285,7 @@ export function graphqlAdapter(options: {
    * Whether the default query asks for `totalCount`. `true` by default.
    * `false` drops it from the selection set and declares
    * `capabilities.total: false`, so a grid that never shows a count does not
-   * make the server compute one (BACKLOG-0001065). Unlike the DuckDB adapter the
+   * make the server compute one. Unlike the DuckDB adapter the
    * count is not split into a second operation — that would cost an extra HTTP
    * round trip rather than saving one — so suppression is the only lever here.
    */
@@ -7421,6 +7432,34 @@ export const LatticeGrid: {
 
 export default LatticeGrid;
 
+/**
+ * The namespace object the script-tag build publishes, as a type.
+ *
+ * Named so that the ambient global below can refer to it: inside a
+ * `declare global` block the identifier `LatticeGrid` is the global being
+ * declared, so `typeof LatticeGrid` there would describe itself.
+ */
+export type LatticeGridGlobal = typeof LatticeGrid;
+
+declare global {
+  /**
+   * The grid, as a `<script src>` page reaches it.
+   *
+   * The UMD bundle assigns its exports to `window.LatticeGrid`, and every
+   * optional module bundle merges its own onto the same object. Declaring it
+   * here is what gives a page that loads the grid from a CDN the same
+   * completion and type-checking an `import` gets: without it the global is
+   * untyped and every `LatticeGrid.createGrid(...)` is an error under
+   * `noImplicitAny`.
+   *
+   * `var`, not `const` or `let`: only a `var` declaration in an ambient
+   * global block becomes a property of the global object, which is what
+   * `window.LatticeGrid` has to resolve against.
+   */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGrid: LatticeGridGlobal;
+}
+
 /** The default British English catalogue. */
 export const EN_GB: Record<string, string | Record<string, string>>;
 /** Every key the default catalogue defines. */
@@ -7534,8 +7573,7 @@ export interface ChartAxis {
   /** Draw the tick labels. */
   labels?: boolean;
   /**
-   * Pin the x axis's scale rather than taking it from the column's type
-   * (BACKLOG-0001344). The default, `'auto'`, is the rule stated in the charts
+   * Pin the x axis's scale rather than taking it from the column's type. The default, `'auto'`, is the rule stated in the charts
    * section: a temporal column type (`date`, `datetime`, `timestamp`,
    * `dateString`) draws a time axis, a numeric one draws a linear axis whatever
    * its distinct count, and everything else draws bands. `'band'` is how a
@@ -7549,7 +7587,7 @@ export interface ChartAxis {
   /** Force the category labels' rotation rather than deciding it. */
   rotate?: boolean | 'auto';
   /**
-   * A rolling window for the axis domain (BACKLOG-0001036), in the shipped
+   * A rolling window for the axis domain, in the shipped
    * `WindowSpec` vocabulary that rolling statistics already use. Only
    * `{ kind: 'time', span }` applies to an axis: the domain becomes the last
    * `span` milliseconds ending **now**, so the chart keeps scrolling left while
@@ -7564,7 +7602,7 @@ export interface ChartAxis {
 }
 
 /**
- * One declarative annotation (BACKLOG-0000744).
+ * One declarative annotation.
  *
  * A reference or target line, a shaded band, or a callout. Its value is a
  * constant `value` (or `from`/`to` for a band), or a `compute` reduction of the
@@ -7575,7 +7613,7 @@ export interface ChartAxis {
  * sentence.
  */
 /**
- * A trend or forecast overlay method (BACKLOG-0000952). Each name has aliases:
+ * A trend or forecast overlay method. Each name has aliases:
  * `linear` (also `lr`, `ols`, `regression`); `movingAverage` (also `ma`, `sma`,
  * `rolling`); `exponential` (also `ewma`, `ses`, `holt`, `smoothing`).
  */
@@ -7583,7 +7621,7 @@ export type ChartTrendMethod = 'linear' | 'movingAverage' | 'exponential'
   | 'lr' | 'ols' | 'regression' | 'ma' | 'sma' | 'rolling'
   | 'ewma' | 'ses' | 'holt' | 'smoothing';
 
-/** One trend or forecast overlay (BACKLOG-0000952). */
+/** One trend or forecast overlay. */
 export interface ChartTrend {
   /** The overlay method; `linear` by default. */
   method?: ChartTrendMethod;
@@ -7604,7 +7642,7 @@ export interface ChartTrend {
   /** For Holt's exponential smoothing, the trend factor in `[0, 1]`; omit to fit it. */
   beta?: number;
   /**
-   * The uncertainty band shaded around a linear `forecast` (BACKLOG-0000975).
+   * The uncertainty band shaded around a linear `forecast`.
    * The Student-t `prediction` band (a future observation) by default;
    * `confidence` shades the narrower mean-response band; `false` opts out and
    * leaves the bare dashed line. Ignored where there is no linear forecast to
@@ -7618,7 +7656,7 @@ export interface ChartTrend {
 }
 
 /**
- * One declarative annotation (BACKLOG-0000744, extended by BACKLOG-0000953). A
+ * One declarative annotation. A
  * reference or target line, a shaded band, a callout, or an `event` marker. Its
  * value is a constant `value` (or `from`/`to` for a band), or a `compute`
  * reduction of the data it annotates — `mean`, `median`, `min`, `max`, or `p95`
@@ -7635,7 +7673,7 @@ export interface ChartAnnotation {
   /**
    * The default is a reference line. `event` is a labelled vertical marker with
    * a flag at a position on the x axis, described into the accessible table with
-   * that position stated (BACKLOG-0000953).
+   * that position stated.
    */
   kind?: 'line' | 'target' | 'band' | 'callout' | 'event';
   /** A constant value, for a line, target or callout's measure position. */
@@ -7645,7 +7683,7 @@ export interface ChartAnnotation {
   /**
    * A band's two edges. On a horizontal band each is a measure value, a constant
    * or (with `fromCompute`/`toCompute`) computed. On a vertical band (`orient:
-   * 'vertical'`, BACKLOG-0000953) each is an x position — a category or a number
+   * 'vertical'`) each is an x position — a category or a number
    * — and the band shades the x-range between them: an event window, a
    * maintenance period, a recession.
    */
@@ -7658,7 +7696,7 @@ export interface ChartAnnotation {
   at?: unknown;
   /**
    * Force a line vertical rather than horizontal, or shade a `band` across an
-   * x-range rather than a measure range (BACKLOG-0000953).
+   * x-range rather than a measure range.
    */
   orient?: 'horizontal' | 'vertical';
   /** Which measure axis the annotation reads. */
@@ -7683,7 +7721,7 @@ export interface ChartLabels {
 
 /**
  * An optional geometry pack for a geomap, as one of the `modules/geo-*`
- * packages exports (BACKLOG-0001321). Generated at build time from a named
+ * packages exports. Generated at build time from a named
  * public source; `source`, `licence` and `attribution` record where the
  * geometry came from and what its licence requires. A single-layer pack
  * carries `topology` directly; a multi-layer pack (the UK) carries `layers`
@@ -7744,8 +7782,7 @@ export interface ChartSpec {
   /**
    * Per-axis configuration. Each side is a title string or an object of
    * `{ title, min, max, ticks, format, grid, labels }`. `y2` (or `right`)
-   * configures the second measure axis of a dual-axis or combo chart
-   * (BACKLOG-0000743); a dual-axis chart labels both axes by default so it
+   * configures the second measure axis of a dual-axis or combo chart; a dual-axis chart labels both axes by default so it
    * cannot silently mislead.
    */
   axis?: {
@@ -7759,7 +7796,7 @@ export interface ChartSpec {
    * the grid; `'zoom'` changes only this chart's own domain; `'select'` selects
    * the rows under the drag. The object form names which axis the drag acts on —
    * `axis: 'y'` or `'y2'` brushes a value axis, which on a dual-axis chart must
-   * say which one it means (BACKLOG-0000743).
+   * say which one it means.
    */
   brush?: boolean | 'filter' | 'zoom' | 'select'
     | { mode: 'filter' | 'zoom' | 'select'; axis?: 'x' | 'y' | 'y2' };
@@ -7776,7 +7813,7 @@ export interface ChartSpec {
    */
   fit?: boolean | 'line';
   /**
-   * Trend and forecast overlays (BACKLOG-0000952): a least-squares line, a
+   * Trend and forecast overlays: a least-squares line, a
    * trailing moving average, or exponential smoothing, drawn over a line, area
    * or scatter chart. `true` draws a single linear trend; a method name or a
    * {@link ChartTrend} object configures one; an array draws several.
@@ -7794,7 +7831,7 @@ export interface ChartSpec {
   trend?: boolean | ChartTrendMethod | ChartTrend | Array<ChartTrendMethod | ChartTrend>;
   /**
    * A pointwise confidence band, drawn as a varying-width ribbon beneath the fit
-   * line (BACKLOG-0000812). Fed by a fitted model's own interval — the `band`
+   * line. Fed by a fitted model's own interval — the `band`
    * from {@link StatisticsApi.regressionModel}, or as produced by
    * {@link regressionPlots} — so the ribbon and the diagnostics report the one
    * computation rather than a slope redrawn here. `line: false` suppresses the
@@ -7804,7 +7841,7 @@ export interface ChartSpec {
    */
   band?: (RegressionBand & { line?: boolean }) | null;
   /**
-   * An explicit point set, bypassing the by-column binder (BACKLOG-0000872): a
+   * An explicit point set, bypassing the by-column binder: a
    * cartesian chart whose values are not a grid column — a scale-location plot's
    * √|standardised residual|, a coefficient forest's per-coefficient estimate —
    * hands its points in directly. Each is `{x, y}` with an optional `label`,
@@ -7843,7 +7880,7 @@ export interface ChartSpec {
    * Country outlines, for a geomap drawing countries rather than continents.
    * Either GeoJSON, an object of code to SVG path data, or a geometry
    * {@link GeoPack} imported from an optional `modules/geo-*` package
-   * (BACKLOG-0001321) — as the pack itself, or as `{ pack: id }` once its
+   * — as the pack itself, or as `{ pack: id }` once its
    * module has been imported and registered.
    */
   shapes?: unknown;
@@ -7870,11 +7907,11 @@ export interface ChartSpec {
   /**
    * Which layer of a multi-layer geometry pack to draw — the UK pack, for
    * instance, ships `regions`, `local-authorities` and `constituencies`
-   * together (BACKLOG-0001321). Ignored for a single-layer pack.
+   * together. Ignored for a single-layer pack.
    */
   layer?: string;
   /**
-   * The map projection a geomap draws through (BACKLOG-0001321): `'equalEarth'`
+   * The map projection a geomap draws through: `'equalEarth'`
    * (the default for a world), `'robinson'`, `'mercator'`, `'equirectangular'`,
    * `'albers'`, `'transverseMercator'`, or a projection function of the
    * caller's own `(lon: number, lat: number) => [number, number]`. Left unset,
@@ -7885,12 +7922,11 @@ export interface ChartSpec {
     | ((lon: number, lat: number) => [number, number]);
   /**
    * Parameters for the projections that take them: `parallels` and `centre`
-   * for `albers`, `centre` for `transverseMercator` (BACKLOG-0001321).
+   * for `albers`, `centre` for `transverseMercator`.
    */
   projectionOptions?: { parallels?: [number, number]; centre?: [number, number] };
   /**
-   * A lon/lat reference grid under a geomap's regions, off by default
-   * (BACKLOG-0001321 part 2). Only drawn over a geometry pack's fitted
+   * A lon/lat reference grid under a geomap's regions, off by default. Only drawn over a geometry pack's fitted
    * projection — the schematic continents have no fitted projection to draw
    * one against. `step` is the spacing between lines in degrees (default 30).
    */

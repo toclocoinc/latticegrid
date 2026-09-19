@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, tabs module type declarations
+ * Lattice Grid 1.65.0, tabs module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -102,8 +102,7 @@ interface TabsConfig {
 
 /**
  * A tabbed grid: a `role="tablist"` strip above a stack of `role="tabpanel"`
- * regions, each hosting its own, independently-configured grid instance
- * (BACKLOG-0001039). A tab's grid mounts on first activation and is kept
+ * regions, each hosting its own, independently-configured grid instance. A tab's grid mounts on first activation and is kept
  * alive, hidden, until `destroy()`.
  */
 interface Tabs {

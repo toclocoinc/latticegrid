@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.64.0, chart-decomposition module type declarations
+ * Lattice Grid 1.65.0, chart-decomposition module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -8,7 +8,7 @@ import type {
 } from '../lattice-grid.js';
 
 /**
- * The seasonal-decomposition panel extension chart type (BACKLOG-0000886),
+ * The seasonal-decomposition panel extension chart type,
  * companion to the `tsTrend`/`tsSeasonal`/`tsResidual` shadow columns.
  * Importing this module registers `decomposition`. Draws a stacked panel per
  * named component column (`observed`/`trend`/`seasonal`/`residual`) sharing one
