@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.63.3, type declarations
+ * Lattice Grid 1.64.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -5167,6 +5167,21 @@ export interface ColumnsApi {
   totals(ids: string | string[]): void;
 }
 
+/** One sprite: its view box, its path data, and how it is painted. */
+export interface IconGlyph {
+  viewBox: string;
+  paths: string[];
+  paint: 'stroke' | 'fill';
+}
+
+/** Read access to the grid's icon sprite set (see {@link Grid.icons}). */
+export interface IconRegistryApi {
+  /** One glyph, as a copy, or null when the name is not registered. */
+  get(name: string): IconGlyph | null;
+  /** Every registered name, in registration order. */
+  names(): string[];
+}
+
 export interface RowFormApi {
   /** Open the form for a row. False when the form is not configured. */
   open(key: string): boolean;
@@ -5642,6 +5657,13 @@ export interface AnnotationMark {
   fontSize?: number;
   /** An optional backing colour drawn behind a `text` mark's label. */
   background?: string;
+  /**
+   * Which columns the mark belongs to: a pinned region holds still while the
+   * grid scrolls sideways, the centre moves with it. Set from where a stroke
+   * began; omitted (the centre) for every mark that is not over a pinned
+   * column, so a mark saved before this existed reads unchanged.
+   */
+  region?: 'start' | 'centre' | 'end';
 }
 
 export interface AnnotationApi {
@@ -6618,6 +6640,17 @@ export interface Grid {
 
   /** The row form. Declines when `rowForm` is not configured. */
   readonly form: RowFormApi;
+
+  /**
+   * The grid's icon registry, read-only.
+   *
+   * The same sprite set `registerIcon` writes to and every cell paints from,
+   * reachable from the grid instance so that code outside the grid bundle — an
+   * optional module drawing its own glyph, a network chart putting a `router`
+   * on a node — draws from the one registry rather than a second, empty copy of
+   * it. Register with `registerIcon` or `config.icons`, as before.
+   */
+  readonly icons: IconRegistryApi;
 
   /** The library version. */
   getVersion(): string;
@@ -7816,6 +7849,25 @@ export interface ChartSpec {
   shapes?: unknown;
   codeProperty?: string;
   /**
+   * The longitude column, for the types that place a row by where it is rather
+   * than by a code: `markermap`, `bubblemap` and `hexmap`. Degrees east, -180
+   * to 180; a row outside that, or with no reading, is left off the map and
+   * counted.
+   */
+  lon?: string;
+  /**
+   * The latitude column, beside {@link ChartSpec.lon}. Degrees north, -90 to
+   * 90, on the same terms.
+   */
+  lat?: string;
+  /**
+   * The measure a `markermap` writes beside each dot and colours it by. Its
+   * text is the column's own formatted cell text and its colour is whatever
+   * the column's conditional-formatting rules give that value, so a map and the
+   * table beside it say the same thing about the same number.
+   */
+  value?: string;
+  /**
    * Which layer of a multi-layer geometry pack to draw — the UK pack, for
    * instance, ships `regions`, `local-authorities` and `constituencies`
    * together (BACKLOG-0001321). Ignored for a single-layer pack.
@@ -7882,6 +7934,25 @@ export interface ChartSpec {
   values?: boolean;
   /** Network layouts: how many relaxation passes to run. */
   iterations?: number;
+  /**
+   * The nodes of a `network`, named by the host rather than inferred from the
+   * rows: an icon per device, a label, and a position the layout must honour.
+   * A node listed here that appears in no row is still drawn. A node in the
+   * rows that is not listed here takes the chart's `icon` default and its own
+   * id as its label.
+   */
+  nodes?: ChartNode[];
+  /**
+   * The default glyph for a `network` node that names none of its own: any name
+   * in the grid's icon registry (see {@link Grid.icons}). Unset, a node with no
+   * icon is a plain disc.
+   */
+  icon?: string;
+  /**
+   * A `network` link's stroke width in pixels, fixed. Unset, width follows the
+   * link's value as a share of the heaviest link, as it always has.
+   */
+  linkWidth?: number;
 
   /**
    * Control and capability charts: a tolerance overriding the column's own
@@ -7893,6 +7964,27 @@ export interface ChartSpec {
   baseline?: number;
   rules?: 'westernElectric' | 'nelson';
   confidence?: number;
+}
+
+/**
+ * One node of a `network` chart, as the host declares it.
+ *
+ * `x` and `y` are fractions of the plot, 0 to 1, measured from its top-left. A
+ * node giving both is **pinned** there and takes no part in the force
+ * simulation; the rest are laid out around it, deterministically. Giving only
+ * one of the two is not a position and the node is laid out.
+ */
+export interface ChartNode {
+  /** Matches a value in the `source` or `target` column. */
+  id: string;
+  /** Drawn beneath the node. The id is used when this is absent. */
+  label?: string;
+  /** A name in the grid's icon registry, drawn inside the node's disc. */
+  icon?: string;
+  /** Where to pin it, as a fraction of the plot's width. */
+  x?: number;
+  /** Where to pin it, as a fraction of the plot's height. */
+  y?: number;
 }
 
 /**

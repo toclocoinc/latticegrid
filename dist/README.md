@@ -4,7 +4,7 @@
 dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it.
 
-Version 1.63.3 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.64.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -410,6 +410,7 @@ the UMD build), and registers the `type` shown.
 | `chart-hexbin` → `hexbin` | Hexbin / 2D-density plot. |
 | `chart-hexmap` → `hexmap` | Hexbin map. |
 | `chart-icicle` → `icicle` | Icicle chart. |
+| `chart-markermap` → `markermap` | Marker map: a labelled figure per location, filled from the value column's conditional-formatting rules. |
 | `chart-parallel` → `parallel` | Parallel coordinates. |
 | `chart-ridgeline` → `ridgeline` | Ridgeline (joy) plot. |
 | `chart-roc` → `roc` | ROC / PR / calibration curves. |

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.63.3, kpi module type declarations
+ * Lattice Grid 1.64.0, kpi module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -38,8 +38,10 @@ interface KPISparkline {
   y: string | ((row: KPIRow) => unknown);
 }
 
-/** One tile: an aggregate over the routed rows, with optional filter, format, threshold and trend. */
-interface KPITile {
+/** An aggregate stat tile: the routed rows reduced to one number, with optional filter, format, threshold and trend. */
+interface KPIStatTile {
+  /** Absent, or `'stat'`: the default tile kind. */
+  kind?: 'stat';
   /** A stable identity for the tile (defaults to the label, then the index). */
   id?: string;
   /** The tile's accessible label. */
@@ -65,6 +67,45 @@ interface KPITile {
   /** A trend sparkline series. */
   sparkline?: KPISparkline | string;
 }
+
+/**
+ * A clock tile: the device clock, not an aggregate (BACKLOG-0001640) — the
+ * date on one line and the time on the next, ticking once a second from one
+ * shared panel timer. It takes none of a stat tile's measurement options
+ * (`aggregation`, `field`, `format`, `thresholds`, `bands`, `target`,
+ * `baseline`, `sparkline`): supplying any of them is reported as a
+ * configuration warning by name and ignored, because a tile that measures
+ * nothing has nothing for them to apply to.
+ */
+interface KPIClockTile {
+  /** Discriminates a clock tile from an aggregate stat tile. */
+  kind: 'clock';
+  /** A stable identity for the tile (defaults to the label, then the index). */
+  id?: string;
+  /** The tile's accessible label (e.g. the city or zone it names). */
+  label?: string;
+  /**
+   * Any IANA zone name (`'Europe/London'`). Omitted, the tile shows the
+   * viewer's local time. A name `Intl.DateTimeFormat` does not recognise is
+   * reported through the usual diagnostics warning and the tile falls back
+   * to local time rather than rendering nothing.
+   */
+  timeZone?: string;
+  /**
+   * The locale the date and time are formatted in — the tile's own, else the
+   * panel's `KPIConfig.locale`, else the browser's default. A 24-hour clock
+   * or a 12-hour one with an AM/PM marker follows from the locale itself
+   * (`Intl.DateTimeFormat`'s own convention), never a separate option.
+   */
+  locale?: string;
+  /** Show the seconds on the time line. Default `true`. */
+  seconds?: boolean;
+  /** Show the date line at all. Default `true`. */
+  date?: boolean;
+}
+
+/** One tile: a `kind`-discriminated aggregate stat tile (the default) or a clock tile. */
+type KPITile = KPIStatTile | KPIClockTile;
 
 /**
  * The hierarchy a KPI panel arranges its tiles into (BACKLOG-0001059): a rail
@@ -139,10 +180,16 @@ interface KPINodeModel {
 interface KPITileModel {
   id: string;
   label: string;
+  /** `'stat'` for an aggregate tile, `'clock'` for a clock tile (BACKLOG-0001640). */
+  kind: 'stat' | 'clock';
   aggregation: string;
   field?: string;
+  /** For a clock tile, the read instant as epoch milliseconds. */
   value: unknown;
+  /** For a clock tile, the date and time text joined by a space (the same text `clock.date` and `clock.time` carry separately). */
   formatted: string;
+  /** Present only on a clock tile: the date and time lines rendered separately. `date` is `null` when the tile was given `date: false`. */
+  clock?: { date: string | null; time: string };
   /**
    * The tile's semantic band, or `unknown` when the tile measured nothing.
    * `unknown` is decided from data presence before any threshold is
@@ -190,6 +237,12 @@ interface KPIConfig {
   columns?: number;
   ariaLabel?: string;
   nullText?: string;
+  /**
+   * The default locale a clock tile formats in when the tile itself declares
+   * none (BACKLOG-0001640); falls back to the browser's default. No effect
+   * on a stat tile, which takes its own `format.locale`.
+   */
+  locale?: string;
   /** Arrange the tiles as a hierarchy; `false` keeps the panel flat. */
   tree?: KPITreeConfig | false;
   /**

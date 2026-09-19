@@ -253,6 +253,30 @@ createChart({ grid, container: '#map', type: 'bubblemap', lon: 'lng', lat: 'lat'
   size: 'sales', shapes: us });
 ```
 
+### Against a marker map
+
+`chart-markermap` places a labelled figure per location on the same packs, and
+takes its colour from the **value column's own conditional-formatting rules**
+rather than from anything on the chart. Set the rules once, on the column, and
+the cell and the marker agree; the legend lists the rules that fired. The
+coordinates are `lon`/`lat` in degrees, the name is `label`, and the number is
+`value`, written in the column's own format.
+
+```js
+import '@toclocoinc/lattice-grid/modules/chart-markermap';
+import { pack as world } from '@toclocoinc/lattice-grid/modules/geo-world-110m';
+
+grid.formatting.add('availability', {
+  when: { op: 'gte', value: 0.999 }, style: { background: '#1b7f3b' }, label: 'Healthy',
+});
+createChart({ grid, container: '#map', type: 'markermap', lon: 'lng', lat: 'lat',
+  label: 'site', value: 'availability', shapes: world, selection: true });
+```
+
+A row whose `lon`/`lat` is absent, non-numeric or outside ±180 / ±90 draws no
+marker; the count is on `chart.data().unplaced` and written under the map.
+`labels: false` drops the text and keeps the tooltip.
+
 ---
 
 ## Country codes

@@ -360,7 +360,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.63.3</p>
+    <p class="rail__sub">API reference · v1.64.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -444,7 +444,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.63.3</span>
+      <span class="chip">Version 1.64.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -1393,7 +1393,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.63.3'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.64.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -5164,7 +5164,7 @@ const chart = createChart({
           <tr><td class="sig">Part to whole</td><td><code>pie</code>, <code>donut</code>, <code>sunburst</code>, <code>treemap</code></td><td><code>x</code>, <code>y</code>; or the grid's grouping, see below</td></tr>
           <tr><td class="sig">Specialist</td><td><code>radar</code>, <code>gauge</code>, <code>funnel</code>, <code>candlestick</code></td><td>varies; candlestick takes four <code>measures</code> in open, high, low, close order</td></tr>
           <tr><td class="sig">Geographic</td><td><code>geomap</code></td><td><code>x</code> as an ISO code, <code>y</code> as the value</td></tr>
-          <tr><td class="sig">Flow</td><td><code>sankey</code>, <code>chord</code>, <code>network</code></td><td><code>source</code>, <code>target</code>, <code>y</code></td></tr>
+          <tr><td class="sig">Flow</td><td><code>sankey</code>, <code>chord</code>, <code>network</code></td><td><code>source</code>, <code>target</code>, <code>y</code>; a <code>network</code> also takes <code>nodes</code> &mdash; see <a href="#network-map">Network diagrams</a></td></tr>
           <tr><td class="sig">Over time</td><td><code>stream</code>, <code>marimekko</code>, <code>violin</code>, <code>gantt</code></td><td>varies; gantt takes <code>label</code>, <code>start</code>, <code>end</code></td></tr>
         </tbody>
       </table>
@@ -5211,6 +5211,9 @@ const chart = createChart({
           <tr><td class="name">code / codeProperty</td><td class="type">string</td><td class="desc">A geomap's ISO code column, and the property carrying the code in your <code>shapes</code>.</td></tr>
           <tr><td class="name">columns / method / values</td><td class="type">string[] / string / boolean</td><td class="desc">Correlogram: which columns to correlate, by <code>pearson</code>, <code>spearman</code> or <code>kendall</code>, and whether to print the coefficients in the cells.</td></tr>
           <tr><td class="name">iterations</td><td class="type">number</td><td class="desc">Network layouts: how many relaxation passes to run.</td></tr>
+          <tr><td class="name">nodes</td><td class="type">ChartNode[]</td><td class="desc">A <code>network</code>'s nodes, named by you rather than inferred from the rows: <code>{ id, label, icon, x, y }</code>. <code>id</code> matches a value in the <code>source</code> or <code>target</code> column; <code>icon</code> is any name in the grid's icon registry; <code>x</code>/<code>y</code> are fractions of the plot (0&nbsp;to&nbsp;1) and <strong>pin</strong> the node there, out of the force simulation. A node listed here that appears in no row is still drawn. See <a href="#network-map">Network diagrams</a>.</td></tr>
+          <tr><td class="name">icon</td><td class="type">string</td><td class="desc">The default glyph for a <code>network</code> node that names none of its own. Unset, an undeclared node is a plain disc.</td></tr>
+          <tr><td class="name">linkWidth</td><td class="type">number</td><td class="desc">Fix a <code>network</code> link's stroke width in pixels. Unset, width follows the link's value as a share of the heaviest link.</td></tr>
           <tr><td class="name">spec / baseline / rules / confidence</td><td class="type">object / number / string / number</td><td class="desc">Control and capability charts: a tolerance overriding the column's own <code>spec</code>, how many leading readings fix the control limits, which rule set judges the violations (<code>westernElectric</code> or <code>nelson</code>), and the level for the capability interval.</td></tr>
         </tbody>
       </table>
@@ -5486,6 +5489,97 @@ createChart({ grid, container: '#us', type: 'geomap', code: 'state', y: 'sales',
 
     <div class="note"><p>The module imports nothing from the grid: <code>createChart</code> is handed a grid rather than importing one. That is what keeps the charts bundle to the drawing, and it is why the grid must be created first, and why a chart cannot outlive it.</p></div>
 
+    <h3 id="network-map">Network diagrams &mdash; icon nodes, links coloured by their value</h3>
+    <p>A <code>network</code> draws the grid's rows as a graph: <code>source</code> and <code>target</code> name the two endpoint columns and <code>y</code> carries the value on the link between them. Three things make it a picture of <em>your</em> network rather than a generic hairball, and each is a fact only you have.</p>
+    <p><strong>Nodes you name.</strong> <code>nodes: [{ id, label, icon, x, y }]</code> gives a node a glyph from the grid's own icon registry &mdash; a built-in name, or one you registered &mdash; and a label drawn beneath it. A node that appears in the rows but not in <code>nodes</code> takes the chart's <code>icon</code> default (a plain disc when there is none) and its own id as its label. A node listed in <code>nodes</code> that appears in <em>no</em> row is still drawn: a device with no links is a fact worth seeing. The glyphs are SVG paths from the same registry the cells paint from, so they are sharp at any chart size and take the chart's theme colours.</p>
+    <p><strong>Positions you choose.</strong> <code>x</code> and <code>y</code> are fractions of the plot, measured from its top-left. A node giving <em>both</em> is <strong>pinned</strong> there and takes no part in the force simulation; everything else is laid out around it by the same deterministic relaxation as before, so &ldquo;core on top, regions below&rdquo; needs no hand-placed SVG. Half a position is not a position: a node with only <code>x</code> is laid out. A fraction outside 0&nbsp;to&nbsp;1 clamps to the edge of the plot rather than drawing where nobody can see it. Pinning one node never reshuffles the others &mdash; the layout's seeding draws for every node, pinned or not, precisely so that it cannot.</p>
+    <p><strong>Colours from the rules you already wrote.</strong> Each link's stroke comes from the value column's own conditional-formatting rules, through <code>grid.formatting.styleFor(col, value)</code> &mdash; the colour order is <code>background</code>, then <code>backgroundColor</code>, then <code>color</code>; a gradient (a data bar, an icon set) is not a colour and is not read. A link no rule matches keeps the chart's default link colour. <strong>There is no chart-level threshold option, deliberately</strong>: a second place to say &ldquo;red above 80&rdquo; is a second place for the chart and the cell to disagree. The legend lists the rules that actually fired, with their own labels and their own swatches; a rule that matched nothing is not advertised. Change a rule and the links recolour on the next frame without the layout re-running, so nothing moves.</p>
+    <p><strong>Links are undirected, and parallel links stay parallel.</strong> There are no arrowheads, and <code>A,B</code> is the same pair as <code>B,A</code> &mdash; a cable has two ends and no direction. <strong>Several rows between the same pair are drawn as several lines</strong>, side by side, offset perpendicular to the pair by 4&nbsp;px and symmetric about it, in row order, each with its own value and its own colour. They are <em>not</em> summed: three circuits between two sites are three readings, and one line carrying 120% would be a number nothing measured. The tooltip on any one line names both endpoints and that line's own value, and the pointer picks out the line you are actually over rather than the pair. Width follows the value unless <code>linkWidth</code> fixes it.</p>
+    <p><strong>Linked like every other chart.</strong> The graph is drawn from the grid's filtered rows and follows filter and sort. With <code>selection: true</code>, clicking a link selects its row and clicking a node selects every row it is an end of; the grid's selection then lights those links and nodes and dims the rest. A <code>click</code> handler still fires first and can <code>preventDefault()</code>.</p>
+
+    <h4 id="network-map-example">The picture, executed</h4>
+    <p class="section-note">Two core routers pinned across the top, three regional routers pinned below, two circuits between every pair, and one rule set on the <code>load</code> column doing all the colouring. Thirteen rows, thirteen lines, three colours, five glyphs, and a legend that names the three rules.</p>
+    <pre data-run="js" data-expect="13 links, #107c41/#a4262c/#f0b400 | pinned true | gap 4 | 5 icons | Healthy,Busy,Saturated" data-covers="export:createChart export:createGrid config:formatting config:selection"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid } = await import('../packages/dom/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 640, height: 420 });
+
+// Two circuits between every core and every region: six pairs, twelve rows.
+const rows = [];
+for (const core of ['core-1', 'core-2']) {
+  for (const site of ['emea', 'amer', 'apac']) {
+    for (const [n, load] of [['a', 18], ['b', 92]]) {
+      rows.push({ id: `${core}/${site}/${n}`, from: core, to: site, load });
+    }
+  }
+}
+rows.push({ id: 'core-1/core-2/x', from: 'core-1', to: 'core-2', load: 61 });
+
+const grid = createGrid(root, {
+  rowKey: 'id',
+  selection: 'multiple',
+  columns: [{ field: 'from' }, { field: 'to' }, { field: 'load', type: 'number' }],
+  rows,
+  // One rule set on the column. The cells and the links read it together.
+  formatting: {
+    load: [
+      { id: 'ok', label: 'Healthy', when: { op: 'lt', value: 40 }, style: { background: '#107c41' } },
+      { id: 'busy', label: 'Busy', when: { op: 'lt', value: 80 }, style: { background: '#f0b400' } },
+      { id: 'hot', label: 'Saturated', when: { op: 'gte', value: 80 }, style: { background: '#a4262c' } },
+    ],
+  },
+});
+
+const container = document.createElement('div');
+container.rect = { width: 600, height: 400, top: 0, left: 0 };
+root.appendChild(container);
+
+const chart = createChart({
+  grid, container, type: 'network', source: 'from', target: 'to',
+  y: { col: 'load', fn: 'sum' }, selection: true,
+  nodes: [
+    { id: 'core-1', label: 'Core', icon: 'square', x: 0.3, y: 0.15 },
+    { id: 'core-2', label: 'Core', icon: 'square', x: 0.7, y: 0.15 },
+    { id: 'emea', label: 'EMEA', icon: 'circleFilled', x: 0.2, y: 0.8 },
+    { id: 'amer', label: 'AMER', icon: 'circleFilled', x: 0.5, y: 0.8 },
+    { id: 'apac', label: 'APAC', icon: 'circleFilled', x: 0.8, y: 0.8 },
+  ],
+});
+
+const find = (tag, cls) =&gt; [...container.querySelectorAll(tag)]
+  .filter((n) =&gt; (n.getAttribute('class') || '').includes(cls));
+const at = (key) =&gt; find('circle', '__node').find((c) =&gt; c.getAttribute('data-node') === key);
+const num = (el, name) =&gt; Number(el.getAttribute(name));
+
+// The picture: two cores on one row, three regions on another below them.
+const top = [at('core-1'), at('core-2')].map((c) =&gt; num(c, 'cy'));
+const bottom = ['emea', 'amer', 'apac'].map((k) =&gt; num(at(k), 'cy'));
+const rowsPinned = top[0] === top[1] &amp;&amp; bottom.every((y) =&gt; y === bottom[0]) &amp;&amp; bottom[0] &gt; top[0]
+  &amp;&amp; num(at('core-1'), 'cx') &lt; num(at('core-2'), 'cx');
+
+// Every link its own line, coloured by the rule its value matched.
+const edges = find('path', '__edge');
+const stroke = (e) =&gt; ((e.getAttribute('style') || '').match(/stroke:\s*([^;]+)/) || [])[1];
+const colours = [...new Set(edges.map(stroke))].sort();
+
+// Two circuits between core-1 and emea, drawn side by side 4px apart.
+const ends = (d) =&gt; d.match(/-?\d+(?:\.\d+)?/g).map(Number);
+const pair = edges.slice(0, 2).map((e) =&gt; ends(e.getAttribute('d')));
+const gap = Math.round(Math.hypot(pair[0][0] - pair[1][0], pair[0][1] - pair[1][1]));
+
+// Five glyphs, drawn from the registry the host extended.
+const glyphs = find('path', '__node-icon').length;
+
+// The legend names the rules that fired, not a palette.
+const legend = [...container.querySelectorAll('button')]
+  .filter((b) =&gt; (b.getAttribute('class') || '').includes('__legend-item'))
+  .map((b) =&gt; b.textContent).join(',');
+
+chart.destroy();
+grid.destroy();
+return `${edges.length} links, ${colours.join('/')} | pinned ${rowsPinned} | gap ${gap} | ${glyphs} icons | ${legend}`;</code></pre>
+
     <h3 id="chart-extension-types">Extension chart types — pay only for what you draw</h3>
     <p>The base charts bundle draws the built-in <code>TYPES</code> and nothing else. A new chart type is a <strong>separate, opt-in module</strong> a caller imports only if they use it (BACKLOG-0000886, on the slim-core seam BACKLOG-0000884). Importing it self-registers the type with the base module through <code>registerChartType</code>; the base <code>Chart</code> consults that registry for any type it does not draw natively. Because the base never imports the extension, the base bundle <strong>does not grow</strong> for a type a caller never uses.</p>
     <pre><code><span class="kw">import</span> '@toclocoinc/lattice-grid/modules/charts';           <span class="cmt">// the base</span>
@@ -5600,6 +5694,62 @@ grid.destroy();
   typeof bubblemap.drawBubbleMap, typeof bubblemap.bindBubbleMap,
   typeof hexmap.drawHexMap, typeof hexmap.bindHexMap,
 ].join(' | ');</code></pre>
+
+    <h3 id="chart-markermap">Map markers &mdash; a figure per location, coloured by its own rule</h3>
+    <p><code>modules/chart-markermap</code> registers <code>markermap</code>: one marker per row, placed by <code>lon</code>/<code>lat</code> over a geometry pack's outlines, showing the row's <code>label</code> and its <code>value</code> beside the dot. Two things come from the grid rather than from the chart, and that is the whole point of the type. The <strong>number</strong> is the value column's own formatted cell text, so a percentage, a currency or a unit reads on the map exactly as it reads in the table. The <strong>colour</strong> is whatever <code>grid.formatting.styleFor(valueColumn, value)</code> returns for that row &mdash; the rule's <code>background</code>, or its <code>color</code> where it sets no background &mdash; so a red / amber / green availability wall is one rule set on one column plus one chart configuration. There is deliberately no chart-level thresholds option and no colour column: the rules are the one source, and a legend lists the rules that actually fired, with each rule's own swatch.</p>
+    <p>With <code>shapes</code> it draws the pack's regions underneath, through the pack's own <code>projection</code>, and pans and zooms exactly as a <a href="#geometry-packs">geomap</a> of that pack does; without <code>shapes</code> the markers fall back to the projection alone. A row whose coordinates are absent, non-numeric or outside &plusmn;180 / &plusmn;90 draws no marker and is counted in <code>chart.data().unplaced</code>, which the map also writes under itself. Labels are deconflicted by trying four positions in a fixed order &mdash; right of the dot, then left, then above, then below &mdash; and a label with nowhere to go is dropped rather than overprinted; <code>labels: false</code> turns them all off on a dense map and leaves the tooltip, which carries the name, the value, the coordinates and the status. With <code>selection: true</code> a click on a marker selects that row in the grid, and the grid's selection emphasises the marker.</p>
+    <pre data-run="js" data-expect="#1b7f3b #1b7f3b #c8a415 #c0392b | London 99.95% / Sydney 99.91% / Frankfurt 99.62% / New York 98.05% | unplaced 0" data-covers="export:drawMarkerMap export:bindMarkerMap"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { document, root } = createTestDom({ width: 700, height: 460 });
+<span class="kw">const</span> panel = document.createElement('div');
+panel.rect = { width: 700, height: 460, top: 0, left: 0 };
+root.appendChild(panel);
+
+<span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createChart } = <span class="kw">await</span> import('../packages/modules/charts/index.js');
+<span class="cmt">// Importing the module registers `markermap`; its drawer is drawMarkerMap.</span>
+<span class="kw">const</span> markermap = <span class="kw">await</span> import('../packages/modules/chart-markermap/index.js');
+<span class="kw">const</span> { pack } = <span class="kw">await</span> import('../packages/modules/geo-world-110m/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'site', type: 'text' }, { field: 'lng', type: 'number' },
+    { field: 'lat', type: 'number' }, { field: 'avail', type: 'number', format: '0.00%' },
+  ],
+  rows: [
+    { id: 'ldn', site: 'London', lng: -0.13, lat: 51.5, avail: 0.9995 },
+    { id: 'syd', site: 'Sydney', lng: 151.2, lat: -33.87, avail: 0.9991 },
+    { id: 'fra', site: 'Frankfurt', lng: 8.68, lat: 50.11, avail: 0.9962 },
+    { id: 'nyc', site: 'New York', lng: -74.0, lat: 40.71, avail: 0.9805 },
+  ],
+});
+<span class="cmt">// Three rules on the column. Nothing below repeats a threshold or a colour.</span>
+grid.formatting.add('avail', { when: { op: 'gte', value: 0.999 }, style: { background: '#1b7f3b' }, label: 'Healthy' });
+grid.formatting.add('avail', { when: { op: 'gte', value: 0.99 }, style: { background: '#c8a415' }, label: 'Watch' });
+grid.formatting.add('avail', { when: { op: 'lt', value: 0.99 }, style: { background: '#c0392b' }, label: 'Breached' });
+
+<span class="kw">const</span> chart = createChart({
+  grid, container: panel, type: 'markermap',
+  lon: 'lng', lat: 'lat', label: 'site', value: 'avail', shapes: pack,
+});
+
+<span class="cmt">// What was painted: a fill per marker, and the text beside each dot.</span>
+<span class="kw">const</span> fills = [];
+<span class="kw">const</span> labels = [];
+<span class="kw">const</span> walk = (node) =&gt; {
+  <span class="kw">for</span> (<span class="kw">const</span> child <span class="kw">of</span> node.children || []) {
+    <span class="kw">const</span> cls = String(child.getAttribute('class') || '');
+    <span class="kw">if</span> (cls.includes('markermap-dot')) fills.push(child.getAttribute('fill'));
+    <span class="kw">if</span> (cls.includes('data-label')) labels.push(child.textContent);
+    walk(child);
+  }
+};
+walk(chart.element);
+
+<span class="cmt">// The binder is public too, for a host that wants the placed rows itself.</span>
+<span class="kw">const</span> bound = markermap.bindMarkerMap(grid, { lon: 'lng', lat: 'lat', label: 'site', value: 'avail' });
+chart.destroy();
+<span class="kw">return</span> `${fills.join(' ')} | ${labels.join(' / ')} | unplaced ${bound.unplaced}`;</code></pre>
 
     <h2 id="datarouter">The data router</h2>
     <p><code>modules/data-router</code> is a host-layer demultiplexer: it takes <strong>one</strong> arriving stream or dataset, splits it by what each record <em>is</em>, and routes each partition to its own grid &mdash; or to a headless grid driving a chart. One round-trip, or one live feed, hydrates a whole screen of grids that each see only their slice. It is optional, imports nothing from the grid, and adds no core hook: every grid is driven through the <strong>public</strong> incremental path, <code>grid.rows.apply({ add, update, remove })</code>. <strong>The router never opens a connection itself &mdash; the host owns the connection (a <code>WebSocket</code>, SSE, CDC, a message bus, a plain fetch), and the router owns everything once a message has arrived</strong>; see <a href="#datarouter-websocket-example">a live WebSocket feed</a> for the worked, runnable integration.</p>
@@ -5869,7 +6019,7 @@ socketA.close();
 <span class="kw">const</span> droppedBefore = router.dropped;
 <span class="kw">const</span> socketB = <span class="kw">new</span> MockWebSocket({ feed: feedB(), rate: 5, jitter: 0, snapshotDelay: 5 });
 wireRouter(router, socketB);
-<span class="kw">await</span> wait(30);
+<span class="kw">await</span> wait(80);
 <span class="kw">const</span> afterReconnect = g.rows.value('a', 'label');        <span class="cmt">// A@4 — only the new delta advanced it</span>
 <span class="kw">const</span> replaysDropped = router.dropped - droppedBefore;    <span class="cmt">// 2 — both replays dropped</span>
 socketB.close();
@@ -6681,6 +6831,52 @@ const kpi = createKPI(document.querySelector('#kpis'), {
       </table>
     </div>
     <p><strong>Interaction is light and host-driven.</strong> A tile emits <code>tile:click</code> (also from the keyboard) carrying the tile model, so a host can drill down or, in a demo, filter a routed grid &mdash; the wiring lives in the host, not the module. This is deliberately not a dashboard layout engine (that is the parked dashboard generator) and charting beyond a minimal sparkline belongs to the charts module.</p>
+    <h3 id="kpi-clock">The clock tile: the device clock, not an aggregate</h3>
+    <p><code>{ kind: 'clock', label, timeZone?, locale?, seconds?, date? }</code> in <code>tiles</code> renders a tile that shows the current date and time instead of a figure &mdash; the date on one line, the time on the next, e.g. <code>Mon, 21 Apr 2025</code> over <code>14:32:18</code> &mdash; styled like any other tile, so a panel of zone clocks beside a panel of figures reads as one visual system with no host CSS.</p>
+    <pre><code>const kpi = createKPI(document.querySelector('#kpis'), {
+  tiles: [
+    { kind: 'clock', label: 'London',   timeZone: 'Europe/London' },
+    { kind: 'clock', label: 'New York', timeZone: 'America/New_York', locale: 'en-US' },
+    { id: 'open', label: 'Open deals', aggregation: 'count', filter: (r) =&gt; r.stage !== 'won' },
+  ],
+});</code></pre>
+    <p><strong>Where the time comes from.</strong> The device clock, read every second in exact alignment with the second boundary &mdash; not a fixed <code>setInterval(1000)</code>, which drifts &mdash; so every clock tile on a panel ticks in the same repaint. One timer serves the <em>whole panel</em>, not one per tile: a panel of three zone clocks runs one shared interval, not three. The timer stops when the panel is <code>destroy()</code>ed or the document goes into the background (<code>document.hidden</code>) and resumes correctly &mdash; catching up immediately, then re-aligning &mdash; when the tab returns. A panel with no clock tile starts no timer at all.</p>
+    <p><strong>Zone and format.</strong> <code>timeZone</code> is any IANA zone name; omitted, the tile shows the viewer's local time. A name <code>Intl.DateTimeFormat</code> does not recognise is reported through the usual <code>[lattice]</code> diagnostics warning, by name, and the tile falls back to local time rather than rendering nothing. The date and time are formatted for <code>locale</code> &mdash; the tile's own, else the panel's <code>locale</code>, else the browser's default &mdash; entirely through <code>Intl.DateTimeFormat</code>: a 24-hour clock where the locale uses one, 12-hour with an AM/PM marker where it does not, because that is the locale's own convention rather than a second option to set. <code>seconds: false</code> drops the seconds from the time line; <code>date: false</code> drops the date line entirely. Every formatter is built once, at tile resolution, and reused on every tick.</p>
+    <p><strong>Inert everywhere a stat tile measures.</strong> A clock tile takes none of a stat tile's measurement options &mdash; <code>aggregation</code>, <code>field</code>, <code>format</code>, <code>thresholds</code>, <code>bands</code>, <code>target</code>, <code>baseline</code>, <code>sparkline</code> &mdash; because a tile that measures nothing has nothing for them to apply to. Supplying any of them is reported as a configuration warning by name and ignored: the tile still renders the clock, nothing else. It contributes nothing to the panel's totals, to a parent's rolled-up status in a <a href="#kpi-tree">tree</a> (its own <code>status</code> is always <code>null</code>, never <code>unknown</code> &mdash; a clock tile is never &ldquo;not measured&rdquo;, it always has a reading) and nothing to what a host reads out of <code>onChange</code> beyond its own text. It otherwise behaves exactly like any other tile: it sits in <code>tiles()</code>/<code>tile(id)</code> and a <a href="#kpi-tree">tree</a> alongside stat tiles, responds to <code>columns</code>, fires <code>tile:click</code>/<code>tile:dblclick</code>/<code>tile:contextmenu</code>, and its accessible name (<code>aria-label</code>) carries the same date and time text the two visible lines show.</p>
+    <h3 id="kpi-clock-example">A clock tile, two zones, executed</h3>
+    <p class="section-note">Structural assertions only &mdash; the clock reads the real device clock, so a doc example run on every build cannot pin a literal
+    time without freezing it. The <a href="#kpi-clock">formatting itself</a> is pinned for two locales and two zones with a fixed clock
+    in the test suite. Run headless on every build.</p>
+    <pre data-run="js" data-expect="clock clock null null null | true true | clock" data-covers="export:createKPI"><code><span class="kw">const</span> { createKPI } = <span class="kw">await</span> import('../packages/modules/kpi/index.js');
+
+<span class="kw">const</span> kpi = createKPI(null, {
+  tiles: [
+    { kind: 'clock', id: 'london', label: 'London', timeZone: 'Europe/London', locale: 'en-GB' },
+    <span class="cmt">// aggregation/thresholds are measurement options a clock tile refuses (warned, ignored):</span>
+    { kind: 'clock', id: 'ny', label: 'New York', timeZone: 'America/New_York', locale: 'en-US',
+      aggregation: 'sum', thresholds: { warn: 1, critical: 2 } },
+  ],
+});
+
+<span class="kw">const</span> london = kpi.tile('london');
+<span class="kw">const</span> ny = kpi.tile('ny');
+
+<span class="cmt">// kind, status and bar are the same three neutral values on every clock tile,</span>
+<span class="cmt">// whatever was supplied for the ignored options above (String(), because</span>
+<span class="cmt">// Array#join renders null as '' rather than 'null'):</span>
+<span class="kw">const</span> shapes = [london.kind, ny.kind, String(london.status), String(ny.status), String(ny.bar)].join(' '); <span class="cmt">// clock clock null null null</span>
+
+<span class="cmt">// The date and time lines hold the shape the formatting spec promises:</span>
+<span class="kw">const</span> shaped = [
+  /^[A-Za-z]{3}, \d{2} [A-Za-z]{3,4} \d{4}$/.test(london.clock.date),
+  /^\d{2}:\d{2}:\d{2}(\s?[AP]M)?$/.test(ny.clock.time),
+].join(' '); <span class="cmt">// true true</span>
+
+<span class="cmt">// The ignored `aggregation: 'sum'` never took effect:</span>
+<span class="kw">const</span> ignoredAgg = ny.aggregation; <span class="cmt">// clock</span>
+
+kpi.destroy();
+<span class="kw">return</span> [shapes, shaped, ignoredAgg].join(' | ');</code></pre>
     <h3 id="kpi-tree">The KPI tree: top-level items that expand to the indicators beneath them</h3>
     <p>Set <code>tree</code> and the panel becomes a <strong>rail</strong> instead of a grid of tiles: a small number of top-level items, each expanding to the indicators underneath it, with the parent telling you at a glance whether anything below needs attention. <code>Compute</code> expands to <code>psi</code> and <code>cpu</code>; collapsed, it still shows you that one of them is in breach.</p>
     <pre><code>const kpi = createKPI(document.querySelector('#rail'), {
@@ -6877,7 +7073,7 @@ grid.destroy();
 <span class="kw">return</span> `${by['risk.atRisk'].display} at risk | SPI ${by['risk.spi'].display} | ${by['risk.sla.breaches'].display} breaches`;</code></pre>
 
     <h2 id="tabs">The tabbed grid</h2>
-    <p><code>modules/tabs</code> is an opt-in top-of-grid tab strip where <strong>each tab is its own full, independently-configured grid instance</strong> &mdash; "configure each tab as per a normal grid" rather than one grid whose state is swapped. That is a deliberate rejection of the cheaper alternative: <code>grid.state.get()</code>/<code>.apply()</code> only repositions, hides, resizes and sorts <strong>existing</strong> columns by id (no field, type, editor or row data), so a state-swap only works when every tab shares one column schema and one source &mdash; strictly less than the ask. A tab may instead declare <code>from: '&lt;tabId&gt;'</code> plus a narrowing (<code>where</code>, <code>group</code>, <code>join</code>, &hellip;), and the module wires a <code>source: { mode: 'derived', from: &lt;the parent tab's live grid&gt;, &hellip; }</code> for it &mdash; the shipped derived-source mechanism, not a new config-inheritance one. <code>createGrid</code> is <strong>injected</strong> (the same pattern the React/Vue/Svelte adapters use), so the module imports no engine code regardless of how it is loaded — its own minified ESM build (<code>tabs.esm.min.js</code>) is ~65KB gzipped, the same size class as the KPI and framework-adapter modules (~61&ndash;66KB), rather than the ~700KB a module that inlines the whole engine (the web component, htmx) ships.</p>
+    <p><code>modules/tabs</code> is an opt-in top-of-grid tab strip where <strong>each tab is its own full, independently-configured grid instance</strong> &mdash; "configure each tab as per a normal grid" rather than one grid whose state is swapped. That is a deliberate rejection of the cheaper alternative: <code>grid.state.get()</code>/<code>.apply()</code> only repositions, hides, resizes and sorts <strong>existing</strong> columns by id (no field, type, editor or row data), so a state-swap only works when every tab shares one column schema and one source &mdash; strictly less than the ask. A tab may instead declare <code>from: '&lt;tabId&gt;'</code> plus a narrowing (<code>where</code>, <code>group</code>, <code>join</code>, &hellip;), and the module wires a <code>source: { mode: 'derived', from: &lt;the parent tab's live grid&gt;, &hellip; }</code> for it &mdash; the shipped derived-source mechanism, not a new config-inheritance one. <code>createGrid</code> is <strong>injected</strong> (the same pattern the React/Vue/Svelte adapters use), so the module imports no engine code regardless of how it is loaded — its own minified ESM build (<code>tabs.esm.min.js</code>) is about 12KB gzipped &mdash; the module and nothing else. A module bundle carries its own code plus a small shared runtime, not the engine: the framework adapters are 3&ndash;11KB, the KPI module about 50KB, while a module that inlines the whole engine (the web component, htmx) ships at roughly 760KB.</p>
     <pre><code>import { createGrid } from '@toclocoinc/lattice-grid';
 import { createTabs } from '@toclocoinc/lattice-grid/modules/tabs';
 
@@ -7019,7 +7215,7 @@ tabs.destroy();
 
     <h2 id="layout">The dashboard layout</h2>
     <p><code>modules/layout</code> is an opt-in <strong>reconfigurable dashboard surface</strong>: a cell grid inside an element, and a set of windows placed on it that a user can move, resize and close &mdash; by drag <em>or</em> by keyboard. It is the thing a customer would otherwise reach for GridStack or react-grid-layout to get, which means a second dependency, a second sizing model, and a seam where the viewers in it do not resize properly.</p>
-    <p><strong>It is payload-agnostic, and that is the whole design.</strong> A window body is a <code>div</code> with an <code>id</code>. The module creates it, sizes it, and never reads or writes its contents &mdash; it does not import <code>createGrid</code>, does not know what a payload is, and never calls into one. What it does instead is emit <code>window:resized</code> with the measured content box, which is the contract. That rule is what keeps its own code to <strong>12,890 bytes gzipped</strong> (measured: a 77,190-byte bundle over a 62,206-byte fixed floor, of which 2,094 bytes are the two shared module helpers) and what makes it usable for a payload we have not written yet.</p>
+    <p><strong>It is payload-agnostic, and that is the whole design.</strong> A window body is a <code>div</code> with an <code>id</code>. The module creates it, sizes it, and never reads or writes its contents &mdash; it does not import <code>createGrid</code>, does not know what a payload is, and never calls into one. What it does instead is emit <code>window:resized</code> with the measured content box, which is the contract. That rule is what keeps the whole module to <strong>about 17,500 bytes gzipped</strong> (measured on the built bundle: its own code over a shared module runtime of roughly 2KB) and what makes it usable for a payload we have not written yet.</p>
     <pre><code>import { createLayout } from '@toclocoinc/lattice-grid/modules/layout';
 
 const layout = createLayout(document.querySelector('#dash'), {
@@ -8685,6 +8881,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">text</td><td class="type">string</td><td class="desc">The label of a `text` mark. Required for `text`, ignored for other types. <small>(optional)</small></td></tr>
           <tr><td class="name">fontSize</td><td class="type">number</td><td class="desc">A `text` mark's font size in content pixels (before presentation scale). Defaults to 14. <small>(optional)</small></td></tr>
           <tr><td class="name">background</td><td class="type">string</td><td class="desc">An optional backing colour drawn behind a `text` mark's label. <small>(optional)</small></td></tr>
+          <tr><td class="name">region</td><td class="type">'start' | 'centre' | 'end'</td><td class="desc">Which columns the mark belongs to: a pinned region holds still while the grid scrolls sideways, the centre moves with it. Set from where a stroke began; omitted (the centre) for every mark that is not over a pinned column, so a mark saved before this existed reads unchanged. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -8959,6 +9156,20 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h3 id="type-ChartNode">ChartNode</h3>
+    <p class="section-note">One node of a `network` chart, as the host declares it. `x` and `y` are fractions of the plot, 0 to 1, measured from its top-left. A node giving both is **pinned** there and takes no part in the force simulation; the rest are laid out around it, deterministically. Giving only one of the two is not a position and the node is laid out.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">Matches a value in the `source` or `target` column.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">Drawn beneath the node. The id is used when this is absent. <small>(optional)</small></td></tr>
+          <tr><td class="name">icon</td><td class="type">string</td><td class="desc">A name in the grid's icon registry, drawn inside the node's disc. <small>(optional)</small></td></tr>
+          <tr><td class="name">x</td><td class="type">number</td><td class="desc">Where to pin it, as a fraction of the plot's width. <small>(optional)</small></td></tr>
+          <tr><td class="name">y</td><td class="type">number</td><td class="desc">Where to pin it, as a fraction of the plot's height. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-ChartSpec">ChartSpec</h3>
     <p class="section-note">What a chart draws and how. `grid` and `container` are required; everything else describes the chart. A chart reads the grid's *filtered* rows, so it follows the grid without being told to.</p>
     <div class="table-wrap">
@@ -8997,6 +9208,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">diverging</td><td class="type">boolean</td><td class="desc">A diverging colour ramp, for heatmap and geomap. <small>(optional)</small></td></tr>
           <tr><td class="name">shapes</td><td class="type">unknown</td><td class="desc">Country outlines, for a geomap drawing countries rather than continents. Either GeoJSON, an object of code to SVG path data, or a geometry {@link GeoPack} imported from an optional `modules/geo-*` package (BACKLOG-0001321) — as the pack itself, or as `{ pack: id }` once its module has been imported and registered. <small>(optional)</small></td></tr>
           <tr><td class="name">codeProperty</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">lon</td><td class="type">string</td><td class="desc">The longitude column, for the types that place a row by where it is rather than by a code: `markermap`, `bubblemap` and `hexmap`. Degrees east, -180 to 180; a row outside that, or with no reading, is left off the map and counted. <small>(optional)</small></td></tr>
+          <tr><td class="name">lat</td><td class="type">string</td><td class="desc">The latitude column, beside {@link ChartSpec.lon}. Degrees north, -90 to 90, on the same terms. <small>(optional)</small></td></tr>
+          <tr><td class="name">value</td><td class="type">string</td><td class="desc">The measure a `markermap` writes beside each dot and colours it by. Its text is the column's own formatted cell text and its colour is whatever the column's conditional-formatting rules give that value, so a map and the table beside it say the same thing about the same number. <small>(optional)</small></td></tr>
           <tr><td class="name">layer</td><td class="type">string</td><td class="desc">Which layer of a multi-layer geometry pack to draw — the UK pack, for instance, ships `regions`, `local-authorities` and `constituencies` together (BACKLOG-0001321). Ignored for a single-layer pack. <small>(optional)</small></td></tr>
           <tr><td class="name">projection</td><td class="type">'equalEarth' | 'robinson' | 'mercator' | 'equirectangular' | 'albers'</td><td class="desc">The map projection a geomap draws through (BACKLOG-0001321): `'equalEarth'` (the default for a world), `'robinson'`, `'mercator'`, `'equirectangular'`, `'albers'`, `'transverseMercator'`, or a projection function of the caller's own `(lon: number, lat: number) =&gt; [number, number]`. Left unset, a geometry pack draws through the projection it declares. <small>(optional)</small></td></tr>
           <tr><td class="name">projectionOptions</td><td class="type">{ parallels?: [number, number]; centre?: [number, number] }</td><td class="desc">Parameters for the projections that take them: `parallels` and `centre` for `albers`, `centre` for `transverseMercator` (BACKLOG-0001321). <small>(optional)</small></td></tr>
@@ -9023,6 +9237,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">method</td><td class="type">'pearson' | 'spearman' | 'kendall'</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">values</td><td class="type">boolean</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">iterations</td><td class="type">number</td><td class="desc">Network layouts: how many relaxation passes to run. <small>(optional)</small></td></tr>
+          <tr><td class="name">nodes</td><td class="type">ChartNode[]</td><td class="desc">The nodes of a `network`, named by the host rather than inferred from the rows: an icon per device, a label, and a position the layout must honour. A node listed here that appears in no row is still drawn. A node in the rows that is not listed here takes the chart's `icon` default and its own id as its label. <small>(optional)</small></td></tr>
+          <tr><td class="name">icon</td><td class="type">string</td><td class="desc">The default glyph for a `network` node that names none of its own: any name in the grid's icon registry (see {@link Grid.icons}). Unset, a node with no icon is a plain disc. <small>(optional)</small></td></tr>
+          <tr><td class="name">linkWidth</td><td class="type">number</td><td class="desc">A `network` link's stroke width in pixels, fixed. Unset, width follows the link's value as a share of the heaviest link, as it always has. <small>(optional)</small></td></tr>
           <tr><td class="name">spec</td><td class="type">{ lower?: number; upper?: number; target?: number }</td><td class="desc">Control and capability charts: a tolerance overriding the column's own `spec`, how many leading readings fix the control limits, which rule set the violations are judged against, and the level for the capability interval. <small>(optional)</small></td></tr>
           <tr><td class="name">baseline</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">rules</td><td class="type">'westernElectric' | 'nelson'</td><td class="desc"><small>(optional)</small></td></tr>
@@ -10840,6 +11057,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">setPinnedRows</td><td class="type">(rows: unknown[], opts?: { edge?: 'top' | 'bottom' }): void</td><td class="desc">Pin rows above or below the scrolling body. The rows render through the ordinary column pipeline but are not part of the data: not counted, sorted, filtered, grouped, selectable or exported. Pass a new array rather than mutating the one you passed before: array identity is how the grid knows the pinned rows have changed.</td></tr>
           <tr><td class="name">getPinnedRows</td><td class="type">(opts?: { edge?: 'top' | 'bottom' }): unknown[]</td><td class="desc">The objects currently pinned at one edge, as a copy.</td></tr>
           <tr><td class="name">form</td><td class="type">RowFormApi</td><td class="desc">The row form. Declines when `rowForm` is not configured. <small>(read-only)</small></td></tr>
+          <tr><td class="name">icons</td><td class="type">IconRegistryApi</td><td class="desc">The grid's icon registry, read-only. The same sprite set `registerIcon` writes to and every cell paints from, reachable from the grid instance so that code outside the grid bundle — an optional module drawing its own glyph, a network chart putting a `router` on a node — draws from the one registry rather than a second, empty copy of it. Register with `registerIcon` or `config.icons`, as before. <small>(read-only)</small></td></tr>
           <tr><td class="name">getVersion</td><td class="type">(): string</td><td class="desc">The library version.</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">Release everything: listeners, timers, workers and the DOM the grid made.</td></tr>
         </tbody>
@@ -11164,6 +11382,29 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">icon</td><td class="type">IconName</td><td class="desc">A glyph name from the icon registry (see {@link IconName}).</td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">variant</td><td class="type">VariantName</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-IconGlyph">IconGlyph</h3>
+    <p class="section-note">One sprite: its view box, its path data, and how it is painted.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">viewBox</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">paths</td><td class="type">string[]</td><td class="desc"></td></tr>
+          <tr><td class="name">paint</td><td class="type">'stroke' | 'fill'</td><td class="desc"></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="type-IconRegistryApi">IconRegistryApi</h3>
+    <p class="section-note">Read access to the grid's icon sprite set (see {@link Grid.icons}).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">get</td><td class="type">(name: string): IconGlyph | null</td><td class="desc">One glyph, as a copy, or null when the name is not registered.</td></tr>
+          <tr><td class="name">names</td><td class="type">(): string[]</td><td class="desc">Every registered name, in registration order.</td></tr>
         </tbody>
       </table>
     </div>
@@ -11633,6 +11874,22 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h3 id="type-KPIClockTile">KPIClockTile</h3>
+    <p class="section-note">A clock tile: the device clock, not an aggregate (BACKLOG-0001640) — the date on one line and the time on the next, ticking once a second from one shared panel timer. It takes none of a stat tile's measurement options (`aggregation`, `field`, `format`, `thresholds`, `bands`, `target`, `baseline`, `sparkline`): supplying any of them is reported as a configuration warning by name and ignored, because a tile that measures nothing has nothing for them to apply to.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">kind</td><td class="type">'clock'</td><td class="desc">Discriminates a clock tile from an aggregate stat tile.</td></tr>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">A stable identity for the tile (defaults to the label, then the index). <small>(optional)</small></td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The tile's accessible label (e.g. the city or zone it names). <small>(optional)</small></td></tr>
+          <tr><td class="name">timeZone</td><td class="type">string</td><td class="desc">Any IANA zone name (`'Europe/London'`). Omitted, the tile shows the viewer's local time. A name `Intl.DateTimeFormat` does not recognise is reported through the usual diagnostics warning and the tile falls back to local time rather than rendering nothing. <small>(optional)</small></td></tr>
+          <tr><td class="name">locale</td><td class="type">string</td><td class="desc">The locale the date and time are formatted in — the tile's own, else the panel's `KPIConfig.locale`, else the browser's default. A 24-hour clock or a 12-hour one with an AM/PM marker follows from the locale itself (`Intl.DateTimeFormat`'s own convention), never a separate option. <small>(optional)</small></td></tr>
+          <tr><td class="name">seconds</td><td class="type">boolean</td><td class="desc">Show the seconds on the time line. Default `true`. <small>(optional)</small></td></tr>
+          <tr><td class="name">date</td><td class="type">boolean</td><td class="desc">Show the date line at all. Default `true`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-KPIConfig">KPIConfig</h3>
     <p class="section-note">KPI panel configuration.</p>
     <div class="table-wrap">
@@ -11647,6 +11904,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">columns</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">ariaLabel</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">nullText</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
+          <tr><td class="name">locale</td><td class="type">string</td><td class="desc">The default locale a clock tile formats in when the tile itself declares none (BACKLOG-0001640); falls back to the browser's default. No effect on a stat tile, which takes its own `format.locale`. <small>(optional)</small></td></tr>
           <tr><td class="name">tree</td><td class="type">KPITreeConfig | false</td><td class="desc">Arrange the tiles as a hierarchy; `false` keeps the panel flat. <small>(optional)</small></td></tr>
           <tr><td class="name">messages</td><td class="type">{ t(key: string, params?: Record&lt;string, unknown&gt;): string }</td><td class="desc">The catalogue the panel's own text is read from. A panel routinely has no grid to borrow one off — two of its three input modes have none — so this is the first-class way to translate it. A grid's own `messages` satisfies the shape; a key it does not carry falls back to English. <small>(optional)</small></td></tr>
           <tr><td class="name">onTileClick</td><td class="type">(event: KPIEvent) =&gt; void</td><td class="desc"><small>(optional)</small></td></tr>
@@ -11717,24 +11975,13 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
-    <h3 id="type-KPIThresholds">KPIThresholds</h3>
-    <p class="section-note">A semantic threshold: two cut points and a direction. `higherIsBetter` (the default) makes a value at/above `warn` good, at/above `critical` a warning, below it critical; `lowerIsBetter` mirrors it. Colour is a host concern.</p>
+    <h3 id="type-KPIStatTile">KPIStatTile</h3>
+    <p class="section-note">An aggregate stat tile: the routed rows reduced to one number, with optional filter, format, threshold and trend.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">warn</td><td class="type">number</td><td class="desc"></td></tr>
-          <tr><td class="name">critical</td><td class="type">number</td><td class="desc"></td></tr>
-          <tr><td class="name">direction</td><td class="type">'higherIsBetter' | 'lowerIsBetter'</td><td class="desc"><small>(optional)</small></td></tr>
-        </tbody>
-      </table>
-    </div>
-    <h3 id="type-KPITile">KPITile</h3>
-    <p class="section-note">One tile: an aggregate over the routed rows, with optional filter, format, threshold and trend.</p>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
-        <tbody>
+          <tr><td class="name">kind</td><td class="type">'stat'</td><td class="desc">Absent, or `'stat'`: the default tile kind. <small>(optional)</small></td></tr>
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">A stable identity for the tile (defaults to the label, then the index). <small>(optional)</small></td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc">The tile's accessible label. <small>(optional)</small></td></tr>
           <tr><td class="name">aggregation</td><td class="type">KPIAggregation | ((rows: KPIRow[], tile: object) =&gt; unknown)</td><td class="desc">The aggregation kind, or a reducer `(rows, tile) =&gt; value` for a custom tile. <small>(optional)</small></td></tr>
@@ -11750,6 +11997,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h3 id="type-KPIThresholds">KPIThresholds</h3>
+    <p class="section-note">A semantic threshold: two cut points and a direction. `higherIsBetter` (the default) makes a value at/above `warn` good, at/above `critical` a warning, below it critical; `lowerIsBetter` mirrors it. Colour is a host concern.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">warn</td><td class="type">number</td><td class="desc"></td></tr>
+          <tr><td class="name">critical</td><td class="type">number</td><td class="desc"></td></tr>
+          <tr><td class="name">direction</td><td class="type">'higherIsBetter' | 'lowerIsBetter'</td><td class="desc"><small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="type-KPITileModel">KPITileModel</h3>
     <p class="section-note">A computed tile, as it appears in the model.</p>
     <div class="table-wrap">
@@ -11758,10 +12017,12 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">id</td><td class="type">string</td><td class="desc"></td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">kind</td><td class="type">'stat' | 'clock'</td><td class="desc">`'stat'` for an aggregate tile, `'clock'` for a clock tile (BACKLOG-0001640).</td></tr>
           <tr><td class="name">aggregation</td><td class="type">string</td><td class="desc"></td></tr>
           <tr><td class="name">field</td><td class="type">string</td><td class="desc"><small>(optional)</small></td></tr>
-          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc"></td></tr>
-          <tr><td class="name">formatted</td><td class="type">string</td><td class="desc"></td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">For a clock tile, the read instant as epoch milliseconds.</td></tr>
+          <tr><td class="name">formatted</td><td class="type">string</td><td class="desc">For a clock tile, the date and time text joined by a space (the same text `clock.date` and `clock.time` carry separately).</td></tr>
+          <tr><td class="name">clock</td><td class="type">{ date: string | null; time: string }</td><td class="desc">Present only on a clock tile: the date and time lines rendered separately. `date` is `null` when the tile was given `date: false`. <small>(optional)</small></td></tr>
           <tr><td class="name">status</td><td class="type">'good' | 'warn' | 'critical' | 'unknown' | null</td><td class="desc">The tile's semantic band, or `unknown` when the tile measured nothing. `unknown` is decided from data presence before any threshold is consulted: an aggregation over nothing returns the identity of its operation (`sum` and `count` return 0), and 0 is a number a threshold grades, so without it an empty panel would report as a healthy one. Two things make a tile `unknown`: the panel holds no rows at all, or the tile's `field` names no column on the bound grid, so it never read a cell to reduce over. A tile whose `filter` matches none of the rows the panel *does* hold is neither — it has measured a real zero and is banded normally. `null` means the tile has no thresholds or bands configured.</td></tr>
           <tr><td class="name">target</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
           <tr><td class="name">baseline</td><td class="type">number</td><td class="desc"><small>(optional)</small></td></tr>
@@ -13804,7 +14065,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.63.3 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.64.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>
