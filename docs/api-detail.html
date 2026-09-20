@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.65.0</p>
+    <p class="rail__sub">Developer guide · v1.66.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.65.0</span>
+        <span class="chip">Version 1.66.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -926,6 +926,116 @@ createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so out
     </div>
 
     <div class="example">
+      <p class="example__label">Vue 3: every viewer, not only the grid (1.66)</p>
+      <pre><code><span class="cmt">// lattice.js</span>
+<span class="kw">import</span> * <span class="kw">as</span> vue <span class="kw">from</span> 'vue';
+<span class="kw">import</span> { createGrid } <span class="kw">from</span> '@toclocoinc/lattice-grid';
+<span class="kw">import</span> { createKPI } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/kpi';
+<span class="kw">import</span> { createChart } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/charts';
+<span class="kw">import</span> { createTabs } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/tabs';
+<span class="kw">import</span> { createDataRouter } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/data-router';
+<span class="kw">import</span> { createLatticeVue } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/vue';
+
+<span class="cmt">// createLatticeVue builds whichever components the factories you pass support.</span>
+<span class="cmt">// The individual factories are there too, if you want only one:</span>
+<span class="cmt">// createLatticeGrid, createLatticeKPI, createLatticeChart, createLatticeKanban,</span>
+<span class="cmt">// createLatticeGantt, createLatticeLayout, createLatticeTabs,</span>
+<span class="cmt">// createLatticeGridContext, createLatticeRouter, createLatticeViewer.</span>
+<span class="kw">export const</span> L = createLatticeVue({
+  vue, createGrid, createKPI, createChart, createTabs, createDataRouter,
+});</code></pre>
+      <pre><code><span class="cmt">// Dashboard.vue</span>
+&lt;script setup&gt;
+<span class="kw">import</span> { shallowRef } <span class="kw">from</span> 'vue';
+<span class="kw">import</span> { L } <span class="kw">from</span> './lattice.js';
+
+L.provideLatticeGrids();
+L.provideLatticeRouter(ROUTER_CONFIG);
+
+<span class="kw">const</span> tab = shallowRef('all');
+<span class="kw">const</span> updates = shallowRef(<span class="kw">null</span>);
+&lt;/script&gt;
+
+&lt;template&gt;
+  &lt;component :is="L.LatticeTabs" :active="tab" :tabs="TABS" @tab-changed="tab = $event.id"&gt;
+    &lt;template #all&gt;
+      &lt;component :is="L.LatticeGrid" name="all" route="all" v-bind="CONFIG" :row-updates="updates" /&gt;
+    &lt;/template&gt;
+    &lt;template #big&gt;
+      &lt;component :is="L.LatticeGrid" name="big" route="significant" v-bind="CONFIG" /&gt;
+    &lt;/template&gt;
+  &lt;/component&gt;
+
+  &lt;component :is="L.LatticeKPI" grid-name="all" :tiles="TILES" :columns="5" /&gt;
+  &lt;component :is="L.LatticeChart" grid-name="all" type="bar" x="region" y="count" @click="pick" /&gt;
+&lt;/template&gt;</code></pre>
+    </div>
+    <div class="why">
+      <p><strong>Every viewer is a component now.</strong> Before 1.66 the adapter wrapped
+      <code>createGrid</code> and nothing else, so a Vue application wrote its own
+      <code>onMounted</code>/<code>onBeforeUnmount</code> pair for the KPI panel, for each chart, for
+      the board, for the Gantt — and its own tab strip, because the tabs module builds its tabs'
+      grids itself and a grid built that way is not a component.
+      <code>createLatticeKPI</code>, <code>createLatticeChart</code>,
+      <code>createLatticeKanban</code>, <code>createLatticeGantt</code>,
+      <code>createLatticeLayout</code> and <code>createLatticeTabs</code> each return one component
+      definition; <code>createLatticeViewer</code> is the generic behind them, for anything not yet
+      named, and <code>createViewerController</code> is the framework-free lifecycle underneath.
+      Everything is built with <code>defineComponent</code> and render functions, so no template
+      compiler is needed in your build and <code>vue.runtime.*</code> is enough. The floor is Vue
+      3.3, and Vue 2 is not supported.</p>
+      <p><strong>A viewer finds its grid through <code>provide</code>, not a template ref.</strong> A
+      KPI panel and a chart are built <em>against</em> a grid instance, and that instance does not
+      exist until after the first render. Assigning to a template ref re-renders nobody, so a
+      sibling never learns the grid arrived. <code>createLatticeGridContext</code> returns
+      <code>{ LatticeGridProvider, provideLatticeGrids, useLatticeGrid }</code>: call
+      <code>provideLatticeGrids()</code> in a parent's <code>setup</code> (or wrap the subtree in
+      <code>&lt;LatticeGridProvider&gt;</code>), a grid publishes itself under its <code>name</code>,
+      a viewer takes it by <code>grid-name</code>, and the viewer is built the moment it appears. A
+      page with one grid names nothing.</p>
+      <p><strong>A tab's content is a slot.</strong> <code>createLatticeTabs</code> keeps the
+      module's tablist semantics, keyboard handling, lazy first mount and live badges, and renders
+      each tab's named slot — <code>&lt;template #all&gt;</code> for a tab with <code>id: 'all'</code>,
+      or <code>&lt;template #tab-all&gt;</code> — into the module's own panel element through a
+      <code>&lt;Teleport&gt;</code>. So a tab's grid is a real component with props, a ref and the
+      surrounding <code>provide</code>s. A tab with no slot is left to the module, so both kinds mix
+      on one strip.</p>
+      <p><strong>The router belongs to a scope.</strong> <code>createLatticeRouter</code> returns
+      <code>provideLatticeRouter</code>, which you call in a component's <code>setup</code>. The
+      router is built lazily by the first grid beneath it that names a <code>route</code>, and
+      destroyed when that component's scope is disposed — so it lives exactly as long as the page
+      that owns it. The configuration is read once: rebuilding would drop every attached grid and
+      every row held. A grid detaches <em>before</em> it is destroyed, so the router never holds a
+      dead grid, and <code>useLatticeRouter()</code> hands any descendant the same handle.</p>
+      <p><strong>A live feed needs no ref.</strong> <code>row-updates</code> is a keyed diff handed
+      to <code>grid.rows.apply()</code> whenever the object's identity changes.
+      <code>predicates</code> maps <code>{ name: fn }</code> to
+      <code>grid.filters.where(name, fn)</code>, which composes with whatever filter the reader set
+      — unlike the <code>filters</code> prop, which replaces the whole tree.</p>
+      <p><strong>What is a live prop is declared, not guessed.</strong> The grid takes any changed
+      configuration key through one call; no other viewer does. So each viewer lists the props it
+      can take while running (<code>VIEWER_APPLY</code>) and everything else is mount-time
+      configuration. A mount-time prop that changes is neither ignored nor silently remounted: it is
+      named once, with the remedy — a <code>:key</code> that changes when you want the rebuild, or
+      the exposed instance. <code>VIEWER_EVENTS</code> and <code>viewerHandlerName</code> are the
+      matching event surface (<code>card:move</code>, which a template binds as
+      <code>@card-move</code>), and <code>DEFAULT_GRID_NAME</code> is the name a grid publishes
+      under when you choose none.</p>
+      <p><strong>Reactivity: shallow, and measured on a grid event.</strong> Hold a large
+      <code>rows</code> array in a <code>shallowRef</code> and assign a new array when it changes;
+      a plain <code>ref</code> makes every row object a reactive proxy, which the grid neither needs
+      nor wants. Nothing in the adapter uses a <code>{ deep: true }</code> watcher, for the same
+      reason — one watcher per prop, compared with <code>Object.is</code>. And the grid paints on its
+      own schedule rather than Vue's, so <code>nextTick()</code> means "Vue has patched", not "the
+      grid has painted": measure in <code>@render-done</code> or <code>@rows-changed</code>.</p>
+      <p><strong>Client only.</strong> Every component owns a real DOM element and builds nothing
+      before <code>onMounted</code>, so a server render emits the empty host: there is no SSR or
+      Nuxt server-side support. Every component destroys its instance, stops its watchers and
+      unsubscribes its listeners in <code>onBeforeUnmount</code>, so a <code>v-if</code> toggled
+      twice leaves exactly one instance alive.</p>
+    </div>
+
+    <div class="example">
       <p class="example__label">Svelte</p>
       <pre><code>&lt;script&gt;
   <span class="kw">import</span> { createGrid } <span class="kw">from</span> '@toclocoinc/lattice-grid';
@@ -943,6 +1053,19 @@ createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so out
 &gt;&lt;/div&gt;</code></pre>
     </div>
     <div class="why">
+      <p><strong>Since 1.66, components too.</strong> An action cannot express what the other
+      adapters express — it takes a node and a value, so it has no children, no snippets and no
+      context — so the package also ships a Svelte 5 component per viewer as <code>.svelte</code>
+      source at <code>@toclocoinc/lattice-grid/svelte/*.svelte</code>, compiled by your own
+      toolchain, with <code>svelte</code> as an optional peer dependency. Wrap a subtree in
+      <code>GridProvider.svelte</code> and a grid publishes itself under its <code>name</code> for a
+      chart or a KPI panel beside it to find; wrap one in <code>Router.svelte</code> and a grid that
+      names a <code>route</code> is attached to a Data Router built with the first of them. Both are
+      built from exported helpers you can call yourself — <code>createGridRegistry()</code> returns
+      the registry a provider puts in context, and <code>createRouterHandle({ createDataRouter })</code>
+      returns the router handle, built on first use and destroyed with the component that owns it.
+      See <a href="API.html#svelte-v2">Svelte 5: components you compile</a>. The action below is
+      unchanged and still supported.</p>
       <p><strong>An action, not a component.</strong> Svelte's action contract is
       <code>{ update, destroy }</code> over a node the caller already owns, which is exactly the
       shape of the work: create, push changes, tear down. A component wrapper would add an element
@@ -1369,7 +1492,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.65.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.66.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -8194,6 +8317,16 @@ grid.import.apply(preview);</code></pre>
           <tr><td class="name">createLatticeGridElement</td><td class="desc">Build the element class without registering it, for a custom registry.</td></tr>
           <tr><td class="name">createMessages</td><td class="desc">Build a message catalogue. A partial set lays over the built-in British English one.</td></tr>
           <tr><td class="name">defineLatticeGrid</td><td class="desc">Register &amp;lt;lattice-grid&amp;gt;, or your own tag name.</td></tr>
+          <tr><td class="name">defineLatticeElements</td><td class="desc">Register one custom element per Lattice viewer — <code>&amp;lt;lattice-kpi&amp;gt;</code>, <code>&amp;lt;lattice-chart&amp;gt;</code>, <code>&amp;lt;lattice-kanban&amp;gt;</code>, <code>&amp;lt;lattice-gantt&amp;gt;</code>, <code>&amp;lt;lattice-layout&amp;gt;</code>, <code>&amp;lt;lattice-tabs&amp;gt;</code> and <code>&amp;lt;lattice-router&amp;gt;</code> — from the module factories your page has imported, under a configurable tag prefix. Nothing is imported by the web component module itself, so a page that draws no charts never loads the charts bundle; the grid element is already registered on import. Structures (<code>columns</code>, <code>rows</code>, <code>tiles</code>, <code>tasks</code>, <code>windows</code>, a geometry pack) are properties and scalars work as attributes too, a property assigned before the element upgrades is honoured, a change is diffed into the live instance rather than rebuilding it, and a viewer declared before its grid mounts when the grid arrives. Safe to call twice: an already-registered tag is handed back.</td></tr>
+          <tr><td class="name">createLatticeElements</td><td class="desc">The same element classes without registering them, for a page that owns its own tag names or its own registry.</td></tr>
+          <tr><td class="name">createLatticeKPIElement</td><td class="desc">The <code>&amp;lt;lattice-kpi&amp;gt;</code> class on its own, given the KPI module's factory. Grid-bound through <code>grid-name</code> by default; set <code>rows</code> for a standalone panel.</td></tr>
+          <tr><td class="name">createLatticeChartElement</td><td class="desc">The <code>&amp;lt;lattice-chart&amp;gt;</code> class on its own. A chart is always drawn from a grid, so nothing is built until one is published and a different grid builds a new chart; every other attribute is the chart spec and a change goes into <code>chart.update()</code>.</td></tr>
+          <tr><td class="name">createLatticeKanbanElement</td><td class="desc">The <code>&amp;lt;lattice-kanban&amp;gt;</code> class on its own, given the board's factory.</td></tr>
+          <tr><td class="name">createLatticeGanttElement</td><td class="desc">The <code>&amp;lt;lattice-gantt&amp;gt;</code> class on its own; <code>tasks</code> and <code>dependencies</code> are live properties.</td></tr>
+          <tr><td class="name">createLatticeLayoutElement</td><td class="desc">The <code>&amp;lt;lattice-layout&amp;gt;</code> class on its own; <code>windows</code> is a property.</td></tr>
+          <tr><td class="name">createLatticeTabsElement</td><td class="desc">The <code>&amp;lt;lattice-tabs&amp;gt;</code> class on its own. A tab's content is a <code>&amp;lt;template data-tab="&#8249;id&#8250;"&amp;gt;</code> child cloned into the panel the module creates for it, so a tab can hold a real <code>&amp;lt;lattice-grid&amp;gt;</code>; a tab with no template is built by the module from its configuration, and the two kinds mix on one strip.</td></tr>
+          <tr><td class="name">createLatticeRouterElement</td><td class="desc">The <code>&amp;lt;lattice-router&amp;gt;</code> class on its own. It is a grouping element: it owns one Data Router, built by the first <code>&amp;lt;lattice-grid route="&#8230;"&amp;gt;</code> beneath it and destroyed on disconnect, and the name registry its descendants resolve <code>grid-name</code> through.</td></tr>
+          <tr><td class="name">adoptLatticeStyles</td><td class="desc">Make a host's shadow root see Lattice's styles, and keep it seeing them. The theme, each module's injected stylesheet and the grid's <em>growing</em> generated one are mirrored into the root as constructable stylesheets and kept level with their sources, so a class compiled later still arrives; a sheet that cannot be read as text (cross-origin, or carrying <code>@import</code>) is cloned into the root as a link instead. Every Lattice element calls it for its own root on connect, so this is for a host that mounts Lattice inside a shadow root by other means. Returns the undo.</td></tr>
           <tr><td class="name">defineUnit</td><td class="desc">Add one unit to a system, or override one of ours under the same name.</td></tr>
           <tr><td class="name">registerChartType</td><td class="desc">Register an extension chart type so <code>createChart({ type })</code> can draw it (BACKLOG-0000886). Extension types ship as their own opt-in modules (e.g. <code>modules/chart-ridgeline</code>), so the base charts bundle does not grow for a type a caller never imports — you pay only for the charts you use. <code>registeredChartTypes()</code> lists what is registered.</td></tr>
           <tr><td class="name">registerModules</td><td class="desc">Install optional modules once, for every grid on the page.</td></tr>
@@ -9518,7 +9651,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.65.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.66.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

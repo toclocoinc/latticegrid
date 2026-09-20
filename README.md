@@ -2,10 +2,10 @@
 
 **A high-performance data grid for the browser.** Vanilla JavaScript, no runtime
 dependencies, no build step required. Optional adapters for React, Vue, Svelte
-and Web Components ship alongside it, and Angular has a compiled package of its
-own, `@toclocoinc/lattice-grid-angular`.
+and Web Components ship alongside it, and Angular has compiled components of its
+own at `@toclocoinc/lattice-grid/angular` — inside this package, not beside it.
 
-Version 1.65.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.66.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -21,6 +21,7 @@ runtime, not a CDN, not a font, not an icon sprite.
 | `lattice-grid.esm.min.js` | The same, as an ES module. |
 | `lattice-grid.min.css` | The theme. Required. |
 | `lattice-grid.d.ts` | TypeScript declarations. |
+| `angular/` | The Angular components, compiled ahead of time: `@toclocoinc/lattice-grid/angular`. |
 | `docs/API.html` | The complete API reference. |
 | `docs/api-detail.html` | The developer guide: what each part does, and why. |
 
@@ -332,7 +333,8 @@ shown; append `.js` for the UMD build or `.cjs` for CommonJS.
 | react | `@toclocoinc/lattice-grid/modules/react` | `modules/react.min.js` | `LatticeGridReact` | React adapter. |
 | vue | `@toclocoinc/lattice-grid/modules/vue` | `modules/vue.min.js` | `LatticeGridVue` | Vue adapter. |
 | svelte | `@toclocoinc/lattice-grid/modules/svelte` | `modules/svelte.min.js` | `LatticeGridSvelte` | Svelte adapter. |
-| angular | `@toclocoinc/lattice-grid/modules/angular` | `modules/angular.min.js` | `LatticeGridAngular` | Angular adapter. |
+| angular (compiled) | `@toclocoinc/lattice-grid/angular` | — | — | **Angular components, compiled ahead of time**: one standalone component per viewer, plus the Data Router as a service. A partial-Ivy library your build's Angular Linker handles like any other; no JIT compiler in the page. `@angular/core` and `@angular/common` are optional peers, so a non-Angular install pulls in nothing. |
+| angular (deprecated) | `@toclocoinc/lattice-grid/modules/angular` | `modules/angular.min.js` | `LatticeGridAngular` | The old run-time adapter for the grid alone. Needs Angular's JIT compiler, which a production build does not ship; use `@toclocoinc/lattice-grid/angular` instead. |
 | webcomponent | `@toclocoinc/lattice-grid/modules/webcomponent` | `modules/webcomponent.min.js` | `LatticeGrid` (extends it) | `<lattice-grid>` as a self-contained custom element. |
 | htmx | `@toclocoinc/lattice-grid/modules/htmx` | `modules/htmx.min.js` | `LatticeGridHtmx` | htmx integration that survives DOM swaps and hydrates from a server-rendered `<table>`. |
 
