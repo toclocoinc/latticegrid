@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.67.0, type declarations
+ * Lattice Grid 1.68.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -7558,6 +7558,12 @@ export interface ChartMeasure {
   type?: 'bar' | 'line' | 'area';
   /** Which axis it belongs to, on a combo chart. */
   axis?: 'left' | 'right';
+  /**
+   * The series label a combo's legend and axis titles use.
+   * `label` is read too, as an undeclared alias, for a caller already using
+   * it; `title` wins when both are given. Falls back to the measure column's
+   * own `title`, then to `col`, when neither is set.
+   */
   title?: string;
 }
 
@@ -7670,7 +7676,11 @@ export interface ChartTrend {
  * which on a dual-axis chart is what stops it being placed against the wrong
  * scale, and is written into the accessible table as a sentence — a vertical
  * marker and an event stating the position they sit at, because a screen-reader
- * user needs where and when, not only that a marker exists.
+ * user needs where and when, not only that a marker exists. An annotation the
+ * chart cannot place — an x value it cannot resolve on the axis, or a band
+ * whose edges are off-scale — is dropped with one console warning naming the
+ * annotation's kind, the axis and the reason, rather than vanishing without a
+ * trace.
  */
 export interface ChartAnnotation {
   /**

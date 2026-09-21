@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.67.0, kpi module type declarations
+ * Lattice Grid 1.68.0, kpi module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -60,6 +60,15 @@ interface KPIStatTile {
   target?: number;
   /** A baseline the tile's delta is measured against. */
   baseline?: number;
+  /**
+   * What the movement line prints against `baseline` (F-FRED-G): `'absolute'` the difference alone, `'relative'` the
+   * percentage alone, `'both'` (the default, unchanged) both together. A
+   * rate series (4.10 vs 4.30) makes the percentage a percent-of-a-percent
+   * and meaningless, so `'absolute'` is how a host keeps the line without
+   * it. The arrow and its colour follow the sign of the difference either
+   * way.
+   */
+  delta?: 'absolute' | 'relative' | 'both';
   /** Threshold bands, either two cut points or an explicit band list. */
   thresholds?: KPIThresholds;
   /** Explicit status bands (an alternative to `thresholds`). */
@@ -112,12 +121,15 @@ type KPITile = KPIStatTile | KPIClockTile;
  * of top-level items that expand to the indicators beneath them, each parent
  * highlighted with the worst status below it.
  *
- * The shape is declared with `path` or `parentKey` — the same two shapes the
- * grid's tree data and the tree-select editor take — over the **tile specs**,
- * not the rows. With neither declared, one is derived by splitting the tile
- * ids on `separator`, so `system.compute.cpu` files itself under Compute
- * under System. A panel whose ids carry no separator stays flat, and `false`
- * keeps it flat whatever they look like.
+ * `tree` is an opt-in: omitted or `false`, the panel is
+ * flat whatever its tile ids look like, and a dotted id seen with `tree`
+ * unset is reported once rather than silently turned into a hierarchy. Given
+ * any object (`{}` included), the shape is declared with `path` or
+ * `parentKey` — the same two shapes the grid's tree data and the tree-select
+ * editor take — over the **tile specs**, not the rows. With neither declared,
+ * one is derived by splitting the tile ids on `separator`, so
+ * `system.compute.cpu` files itself under Compute under System. A panel
+ * whose ids carry no separator stays flat even with `tree` set.
  *
  * A tile's `field` is never a source: a dot there already means a nested
  * object property.
@@ -209,6 +221,8 @@ interface KPITileModel {
   delta: number | null;
   deltaPercent: number | null;
   deltaFormatted?: string;
+  /** What the movement line prints; see `KPIStatTile.delta`. Always present once `baseline` is. */
+  deltaMode?: 'absolute' | 'relative' | 'both';
   count: number;
   sparkline: number[] | null;
 }
@@ -249,7 +263,11 @@ interface KPIConfig {
    * on a stat tile, which takes its own `format.locale`.
    */
   locale?: string;
-  /** Arrange the tiles as a hierarchy; `false` keeps the panel flat. */
+  /**
+   * Arrange the tiles as a hierarchy; unset or `false` keeps the panel flat.
+   * Opt-in: a dotted tile id is not a hierarchy until
+   * `tree` is set, and warns once while it is not.
+   */
   tree?: KPITreeConfig | false;
   /**
    * The catalogue the panel's own text is read from. A panel routinely has no

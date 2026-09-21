@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.67.0</p>
+    <p class="rail__sub">Developer guide · v1.68.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.67.0</span>
+        <span class="chip">Version 1.68.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1492,7 +1492,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.67.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.68.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -9035,7 +9035,7 @@ return (`proposals ${proposals.join(',')} | diff ${result.diff.map((d) =&gt; `ol
 
     <h3 id="kpi-config-examples">KPI config keys, executed</h3>
     <p class="lead-in">
-      Three examples covering the eleven KPI config keys not already demonstrated elsewhere in this
+      Four examples covering the twelve KPI config keys not already demonstrated elsewhere in this
       guide.
     </p>
 
@@ -9142,6 +9142,41 @@ return (`${el.querySelectorAll('.lat-kpi__node')[0].getAttribute('aria-label')} 
         <code>messages</code> translates the node's accessible name (falling back to English for a key
         the host catalogue omits); <code>nullText</code> is what the unmeasured <code>disk</code> tile
         renders instead of a fabricated zero.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">What the movement line prints against a baseline: delta, executed</p>
+      <pre data-run="js" data-expect="both:▼ -0.2 (-4.7%) | absolute:▼ -0.2 | relative:▼ -4.7%" data-covers="config:delta"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createKPI } = await import('../packages/modules/kpi/index.js');
+
+const dom = createTestDom({});
+const el = dom.document.createElement('div');
+// A rate series (4.10 vs a 4.30 baseline a year earlier): the percentage of a
+// rate is meaningless, so a host names 'absolute' to keep the line without it.
+const kpi = createKPI(el, {
+  rows: [{ id: 1, rate: 4.10 }], rowKey: 'id',
+  tiles: [
+    { id: 'both', label: 'Default', aggregation: 'max', field: 'rate',
+      baseline: 4.30, format: { decimals: 1 } },
+    { id: 'absolute', label: 'Difference alone', aggregation: 'max', field: 'rate',
+      baseline: 4.30, format: { decimals: 1 }, delta: 'absolute' },
+    { id: 'relative', label: 'Percentage alone', aggregation: 'max', field: 'rate',
+      baseline: 4.30, format: { decimals: 1 }, delta: 'relative' },
+  ],
+});
+const lines = ['both', 'absolute', 'relative'].map((id) =&gt; {
+  const fig = [...el.querySelectorAll('.lat-kpi__tile')].find((f) =&gt; f.getAttribute('aria-label').startsWith(
+    id === 'both' ? 'Default' : (id === 'absolute' ? 'Difference' : 'Percentage')));
+  return `${id}:${fig.querySelector('.lat-kpi__delta').textContent}`;
+});
+return lines.join(' | ');
+</code></pre>
+      <p>
+        <code>delta: 'absolute' | 'relative' | 'both'</code> (default <code>'both'</code>, unchanged)
+        chooses what a tile's movement line prints against its <code>baseline</code> &mdash; the
+        difference alone, the percentage alone, or both together, exactly as before this option
+        existed. The arrow and its colour follow the sign of the difference in every mode.
       </p>
     </div>
 
@@ -9651,7 +9686,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.67.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.68.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>
