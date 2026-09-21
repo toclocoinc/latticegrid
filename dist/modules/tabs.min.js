@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.66.0, tabs module
+ * Lattice Grid 1.67.0, tabs module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -54,12 +54,12 @@ Object.defineProperty(__exports,"frameBatched",{enumerable:true,get:function(){r
 Object.defineProperty(__exports,"settleDebounce",{enumerable:true,get:function(){return settleDebounce;}});
 Object.defineProperty(__exports,"whenIdle",{enumerable:true,get:function(){return whenIdle;}});
 Object.defineProperty(__exports,"uid",{enumerable:true,get:function(){return uid;}});
-const STAMPED_VERSION="1.66.0";
+const STAMPED_VERSION="1.67.0";
 async function resolveVersion(){
 if(STAMPED_VERSION!=='0.0.0-source')return STAMPED_VERSION;
 return STAMPED_VERSION;
 }
-const VERSION="1.66.0";
+const VERSION="1.67.0";
 const warned=new Set();
 const WARNED_LIMIT=2000;
 function rememberWarned(key){

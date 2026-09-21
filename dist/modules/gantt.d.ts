@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.66.0, gantt module type declarations
+ * Lattice Grid 1.67.0, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -579,8 +579,13 @@ export function createGantt(opts?: {
   grid?: unknown;
   /** Map task fields to grid column ids to enable drag write-back. */
   columns?: { start?: string; end?: string; duration?: string };
-  /** Task identity for the live `rows.apply` surface (a field or fn); default 'id'. */
-  rowKey?: string | ((row: GanttTask) => unknown);
+  /**
+   * Task identity for the live `rows.apply` surface (a field or fn, returning
+   * a string or number); default 'id'. Composite (`string[]`) keys are
+   * core-grid-only: the Gantt keys its own task/board identity from one
+   * value, so there is nothing for an array to join into here.
+   */
+  rowKey?: string | ((row: GanttTask) => string | number);
   /**
    * The host's own names for the task properties the scheduler reads, so a
    * plan can be fed as it already exists rather than renamed for the Gantt:

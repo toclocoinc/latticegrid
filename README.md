@@ -5,7 +5,7 @@ dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it, and Angular has compiled components of its
 own at `@toclocoinc/lattice-grid/angular` — inside this package, not beside it.
 
-Version 1.66.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.67.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 

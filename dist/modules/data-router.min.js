@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.66.0, data-router module
+ * Lattice Grid 1.67.0, data-router module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -54,12 +54,12 @@ Object.defineProperty(__exports,"frameBatched",{enumerable:true,get:function(){r
 Object.defineProperty(__exports,"settleDebounce",{enumerable:true,get:function(){return settleDebounce;}});
 Object.defineProperty(__exports,"whenIdle",{enumerable:true,get:function(){return whenIdle;}});
 Object.defineProperty(__exports,"uid",{enumerable:true,get:function(){return uid;}});
-const STAMPED_VERSION="1.66.0";
+const STAMPED_VERSION="1.67.0";
 async function resolveVersion(){
 if(STAMPED_VERSION!=='0.0.0-source')return STAMPED_VERSION;
 return STAMPED_VERSION;
 }
-const VERSION="1.66.0";
+const VERSION="1.67.0";
 const warned=new Set();
 const WARNED_LIMIT=2000;
 function rememberWarned(key){
@@ -1638,6 +1638,28 @@ if(typeof spec==='function')return spec;
 if(typeof spec==='string')return(row)=>row[spec];
 return fallback;
 }
+function rowKeyTypeName(v){
+if(Array.isArray(v))return'array';
+if(v===null)return'null';
+return typeof v;
+}
+function assertRowKeySpec(spec,where){
+if(spec===undefined)return spec;
+if(typeof spec==='string'&&spec.length>0)return spec;
+if(typeof spec==='function'){
+return(row)=>{
+const key=spec(row);
+if(typeof key==='string')return key;
+if(typeof key==='number'&&Number.isFinite(key))return key;
+throw new Error(
+`lattice-data-router: rowKey function must return a string or number; got ${rowKeyTypeName(key)}.`,
+);
+};
+}
+throw new Error(
+`lattice-data-router: rowKey must be a property name or a function; composite keys are not supported on ${where}.`,
+);
+}
 function comparator(sort){
 if(typeof sort==='function')return sort;
 if(sort&&typeof sort==='object'&&typeof sort.key==='string'){
@@ -1750,7 +1772,7 @@ return evalCondition(node,row);
 }
 function createDataRouter(opts={}){
 const partOf=resolver(opts.key,()=>undefined);
-const defaultKeyOf=resolver(opts.rowKey,(row)=>row.rowKey);
+const defaultKeyOf=resolver(assertRowKeySpec(opts.rowKey,'routes'),(row)=>row.rowKey);
 const overlap=!!opts.overlap;
 const onUnrouted=typeof opts.onUnrouted==='function'?opts.onUnrouted:null;
 const debounceMs=Number.isFinite(opts.selectionDebounce)?Number(opts.selectionDebounce):16;
@@ -2035,7 +2057,7 @@ const makeRoute=(grid,match,o)=>({
 grid,
 sink:targetSink(grid),
 match,
-keyOf:resolver(o.rowKey,defaultKeyOf),
+keyOf:resolver(assertRowKeySpec(o.rowKey,'routes'),defaultKeyOf),
 partition:new Map(),
 keys:new Map(),
 transform:typeof o.transform==='function'?o.transform:null,
@@ -2728,7 +2750,7 @@ const match=typeof predicate==='function'
 :(row)=>partOf(row)===predicate;
 const al={
 match,
-keyOf:resolver(o.rowKey,defaultKeyOf),
+keyOf:resolver(assertRowKeySpec(o.rowKey,'alerts'),defaultKeyOf),
 filter:typeof o.filter==='function'?o.filter:null,
 condition:typeof condition==='function'?condition:()=>false,
 handler:typeof handler==='function'?handler:()=>{},

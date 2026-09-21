@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.66.0, kpi module type declarations
+ * Lattice Grid 1.67.0, kpi module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -224,7 +224,13 @@ interface KPIEvent {
 interface KPIConfig {
   rows?: KPIRow[];
   grid?: unknown;
-  rowKey?: string | ((row: KPIRow) => unknown);
+  /**
+   * Row identity (a field or fn, returning a string or number); default
+   * 'id'. Composite (`string[]`) keys are core-grid-only: a panel keys its
+   * own tile identity from one value, so there is nothing for an array to
+   * join into here.
+   */
+  rowKey?: string | ((row: KPIRow) => string | number);
   /**
    * Extra columns of the bound `grid` to project onto the rows a tile `filter`
    * sees, beyond the fields the tiles themselves declare. A grid-bound panel
@@ -274,7 +280,8 @@ interface KPIRows {
  */
 interface KPI {
   readonly el: unknown | null;
-  readonly rowKey: string | ((row: KPIRow) => unknown);
+  /** The resolved row identity; see `KPIConfig.rowKey`. */
+  readonly rowKey: string | ((row: KPIRow) => string | number);
   /** Whether the panel renders as a hierarchy rather than a flat tile grid. */
   readonly tree: boolean;
   rows: KPIRows;

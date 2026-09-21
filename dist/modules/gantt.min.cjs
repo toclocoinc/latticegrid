@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.66.0, gantt module
+ * Lattice Grid 1.67.0, gantt module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -54,12 +54,12 @@ Object.defineProperty(__exports,"frameBatched",{enumerable:true,get:function(){r
 Object.defineProperty(__exports,"settleDebounce",{enumerable:true,get:function(){return settleDebounce;}});
 Object.defineProperty(__exports,"whenIdle",{enumerable:true,get:function(){return whenIdle;}});
 Object.defineProperty(__exports,"uid",{enumerable:true,get:function(){return uid;}});
-const STAMPED_VERSION="1.66.0";
+const STAMPED_VERSION="1.67.0";
 async function resolveVersion(){
 if(STAMPED_VERSION!=='0.0.0-source')return STAMPED_VERSION;
 return STAMPED_VERSION;
 }
-const VERSION="1.66.0";
+const VERSION="1.67.0";
 const warned=new Set();
 const WARNED_LIMIT=2000;
 function rememberWarned(key){
@@ -4839,6 +4839,21 @@ Object.defineProperty(__exports,"importMSPDI",{enumerable:true,get:function(){re
 Object.defineProperty(__exports,"exportMSPDI",{enumerable:true,get:function(){return __m4["exportMSPDI"];}});
 Object.defineProperty(__exports,"computeEarnedValue",{enumerable:true,get:function(){return __m3["computeEarnedValue"];}});
 const GANTT_STATE_VERSION=1;
+function rowKeyTypeName(v){
+if(Array.isArray(v))return'array';
+if(v===null)return'null';
+return typeof v;
+}
+function assertGanttRowKeyFn(fn){
+return(row)=>{
+const key=fn(row);
+if(typeof key==='string')return key;
+if(typeof key==='number'&&Number.isFinite(key))return key;
+throw new Error(
+`lattice-gantt: rowKey function must return a string or number; got ${rowKeyTypeName(key)}.`,
+);
+};
+}
 function emitter(){
 const map=new Map();
 return{
@@ -4911,7 +4926,15 @@ const autoSchedule=!!opts.autoSchedule;
 const grid=opts.grid??null;
 const columns=opts.columns&&typeof opts.columns==='object'?{...opts.columns}:null;
 const fields=isObject(opts.fields)?{...opts.fields}:{};
-const rowKeySpec=opts.rowKey??(typeof fields.id==='string'?fields.id:'id');
+if(opts.rowKey!==undefined&&typeof opts.rowKey!=='function'
+&&!(typeof opts.rowKey==='string'&&opts.rowKey.length>0)){
+throw new Error(
+'lattice-gantt: rowKey must be a property name or a function; composite keys are not supported on tasks.',
+);
+}
+const rowKeySpec=typeof opts.rowKey==='function'
+?assertGanttRowKeyFn(opts.rowKey)
+:(opts.rowKey??(typeof fields.id==='string'?fields.id:'id'));
 const keyOf=(row)=>String(typeof rowKeySpec==='function'?rowKeySpec(row):row[rowKeySpec]);
 if(fields.id===undefined){
 fields.id=(raw)=>{

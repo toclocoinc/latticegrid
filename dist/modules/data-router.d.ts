@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.66.0, data-router module type declarations
+ * Lattice Grid 1.67.0, data-router module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -9,8 +9,13 @@
  */
 type RouterRecord = Record<string, unknown>;
 
-/** A property name, or a function reading the value off a row. */
-type RouterKey = string | ((row: RouterRecord) => unknown);
+/**
+ * A property name, or a function reading the value off a row, returning a
+ * string or number. Composite (`string[]`) keys are
+ * core-grid-only: a route (or an alert, or a group) keys its own partition
+ * by one value, so there is nothing for an array to join into here.
+ */
+type RouterKey = string | ((row: RouterRecord) => string | number);
 
 /** A per-route diff summary returned by `load`. */
 interface RouteDiff { added: number; updated: number; removed: number }

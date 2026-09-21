@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.66.0, type declarations
+ * Lattice Grid 1.67.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -2071,11 +2071,14 @@ export interface GridConfig {
   pagination?: PaginationConfig | boolean;
   locale?: string;
   /**
-   * Writing direction. Omit it, or say `'auto'`, to settle it from the
-   * element's own computed `dir` and then from `locale`: `ar`, `he`, `fa` and
-   * the rest resolve to `rtl`. In a right-to-left grid the logical alignments
-   * `start`/`end` mirror while the physical `left`/`right` do not (see
-   * {@link Align}).
+   * Writing direction. An explicit `'ltr'` or `'rtl'` always wins. Omit it, or
+   * say `'auto'`, to settle it from the mount or the nearest ancestor
+   * carrying a `dir="ltr"`/`dir="rtl"` attribute, and only then from
+   * `locale`: `ar`, `he`, `fa` and the rest resolve to `rtl`. A page-level
+   * `dir="ltr"` therefore wins over an RTL locale — a host that wants RTL
+   * inside an LTR page sets `direction: 'rtl'` explicitly. In a right-to-left
+   * grid the logical alignments `start`/`end` mirror while the physical
+   * `left`/`right` do not (see {@link Align}).
    */
   direction?: 'ltr' | 'rtl' | 'auto';
   /**

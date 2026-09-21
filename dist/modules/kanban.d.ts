@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.66.0, kanban module type declarations
+ * Lattice Grid 1.67.0, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -215,7 +215,13 @@ interface KanbanSla {
 interface KanbanConfig {
   rows?: KanbanRow[];
   grid?: unknown;
-  rowKey?: string | ((row: KanbanRow) => unknown);
+  /**
+   * Card identity (a field or fn, returning a string or number); default
+   * 'id'. Composite (`string[]`) keys are core-grid-only: a board keys its
+   * own card identity from one value, so there is nothing for an array to
+   * join into here.
+   */
+  rowKey?: string | ((row: KanbanRow) => string | number);
   columnProperty?: string;
   columns?: KanbanColumnDef[];
   columnOrder?: string[];
@@ -376,7 +382,8 @@ interface KanbanFilters {
  */
 interface Kanban {
   readonly el: unknown | null;
-  readonly rowKey: string | ((row: KanbanRow) => unknown);
+  /** The resolved card identity; see `KanbanConfig.rowKey`. */
+  readonly rowKey: string | ((row: KanbanRow) => string | number);
   rows: KanbanRows;
   /** The card-aging / SLA monitor, present only when a `sla` config was supplied. */
   sla?: KanbanSla;
