@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.0, layout module type declarations
+ * Lattice Grid 1.68.1, layout module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -70,38 +70,82 @@ interface LayoutWindow {
  * read correctly and round-trip wrongly, so it is reported as it is.
  */
 interface LayoutInteractive {
+  /**
+   * Whether dragging a window to another cell is currently allowed for the layout as a
+   * whole. Undefined means nothing has been locked or unlocked, so each window's own flag
+   * decides.
+   */
   movable: boolean | undefined;
+  /**
+   * Whether dragging a window's edge is currently allowed for the layout as a whole, on
+   * the same terms as `movable`.
+   */
   resizable: boolean | undefined;
+  /**
+   * Whether the close control is currently allowed for the layout as a whole, on the same
+   * terms as `movable`.
+   */
   closable: boolean | undefined;
 }
 
 /** The plain, JSON-safe arrangement `getLayout()` returns and `setLayout()` takes. */
 interface LayoutSnapshot {
+  /**
+   * How many cell columns the layout had when the snapshot was taken. Informational on
+   * the way back in: `setLayout` reads only `windows`, and clamps each placement to the
+   * layout it is restored into.
+   */
   columns: number;
+  /** How many cell rows the layout had when the snapshot was taken; informational too. */
   rows: number;
+  /**
+   * Each window's id and its cell placement. Position and size only: titles, content and
+   * capabilities stay with the configuration.
+   */
   windows: { id: string; xPos: number; yPos: number; xSize: number; ySize: number }[];
 }
 
 /** A cell placement, as carried on the move and resize events. */
 interface LayoutPlacement {
+  /** The window's left-hand column, counted from 1. */
   xPos: number;
+  /** The window's top row, counted from 1. */
   yPos: number;
+  /** How many columns wide the window is; at least 1, and never more than the layout has. */
   xSize: number;
+  /** How many rows tall the window is; at least 1. */
   ySize: number;
 }
 
 /** The payload of `window:moved`, `beforeWindowMove`, `beforeWindowResize`. */
 interface LayoutMoveEvent {
+  /** Which window moved or was asked to move. */
   id: string;
+  /**
+   * Where the window was before the gesture. A move that would change nothing is not
+   * reported at all.
+   */
   from: LayoutPlacement;
   /** Where the window was asked to go. */
   to: LayoutPlacement;
   /** Where it actually ended up, which under `compact: 'vertical'` may differ. */
   landed?: LayoutPlacement;
+  /**
+   * Who caused it: `user` for a drag, `api` for a call, `init` for the opening
+   * arrangement. Defaults to `user`.
+   */
   origin?: 'api' | 'user' | 'init';
+  /**
+   * Why it was cancelled — whatever was passed to `preventDefault`, `prevented` when
+   * nothing was, or `error` when a handler threw. Null while nothing has cancelled it.
+   */
   reason?: string | null;
   /** Cancel the action (only meaningful on a `before*` event). */
   preventDefault?: (reason?: string) => void;
+  /**
+   * True once a handler has cancelled the action. Read it in a later handler to see that
+   * an earlier one already refused.
+   */
   defaultPrevented?: boolean;
 }
 
@@ -111,32 +155,65 @@ interface LayoutMoveEvent {
  * changes size, including on the opening frame; never with a zero box.
  */
 interface LayoutResizeEvent {
+  /** Which window changed size. */
   id: string;
+  /**
+   * The id of the window's content container, so a host can find the element it mounted
+   * into. Defaults to the window id plus `-body`.
+   */
   payloadId: string;
   /** The payload container itself, so a host can act on it directly. */
   payload: HTMLElement;
+  /**
+   * The content box's width in CSS pixels, measured — not a cell count. A change under a
+   * pixel is not reported.
+   */
   width: number;
+  /** The content box's height in CSS pixels, on the same terms as `width`. */
   height: number;
+  /** The window's left-hand column at the time of the measurement. */
   xPos: number;
+  /** The window's top row at the time of the measurement. */
   yPos: number;
+  /** How many columns wide the window now is. */
   xSize: number;
+  /** How many rows tall the window now is. */
   ySize: number;
 }
 
 /** The payload of `window:closed` and `beforeWindowClose`. */
 interface LayoutCloseEvent {
+  /** Which window was closed, or is about to be. */
   id: string;
+  /**
+   * The id of its content container — the handle for tearing down whatever was mounted
+   * inside.
+   */
   payloadId: string;
   /** The payload container, handed back so the host can destroy what it mounted. */
   payload?: HTMLElement;
+  /** Who caused it: `user` for the close control, `api` for a call. Defaults to `user`. */
   origin?: 'api' | 'user';
+  /**
+   * Why the close was refused — the reason given to `preventDefault`, `prevented` when
+   * none was, or `error` when a handler threw.
+   */
   reason?: string | null;
+  /**
+   * Refuse the close, optionally saying why. Only `beforeWindowClose` is cancellable; by
+   * `window:closed` the window has gone.
+   */
   preventDefault?: (reason?: string) => void;
+  /** True once a handler has refused the close. */
   defaultPrevented?: boolean;
 }
 
 /** The payload of `layout:changed`: the whole arrangement, plus what moved it. */
 interface LayoutChangedEvent extends LayoutSnapshot {
+  /**
+   * What moved the arrangement: `move`, `resize`, `close`, `add`, `minimise`, `restore`,
+   * `setLayout` or `init`.
+   */
   cause: string;
 }
 
@@ -196,15 +273,44 @@ interface LayoutConfig {
   ariaLabel?: string;
   /** A message catalogue, e.g. `grid.messages`; built-in English seeds otherwise. */
   messages?: { t(key: string, params?: Record<string, unknown>): string };
+  /** Called after a window has moved, alongside the `window:moved` event. */
   onWindowMoved?: (event: LayoutMoveEvent) => void;
+  /**
+   * Called when a window's measured content box changes, alongside `window:resized` —
+   * including on the opening frame.
+   */
   onWindowResized?: (event: LayoutResizeEvent) => void;
+  /**
+   * Called after a window has closed, with its content container handed back so the host
+   * can destroy what it mounted. Alongside `window:closed`.
+   */
   onWindowClosed?: (event: LayoutCloseEvent) => void;
+  /**
+   * Called whenever the arrangement settles, with the whole snapshot and what caused it —
+   * the hook for persisting a dashboard. Alongside `layout:changed`.
+   */
   onLayoutChanged?: (event: LayoutChangedEvent) => void;
+  /**
+   * Called before a move is applied. Return `false`, call `preventDefault(reason)`, or
+   * throw, to refuse it; return a promise and the move waits for it. Alongside the
+   * `beforeWindowMove` event.
+   */
   onBeforeWindowMove?: (event: LayoutMoveEvent) => boolean | void | Promise<boolean>;
+  /** Called before a resize is applied, on the same terms as `onBeforeWindowMove`. */
   onBeforeWindowResize?: (event: LayoutMoveEvent) => boolean | void | Promise<boolean>;
+  /**
+   * Called before a window closes, on the same terms as `onBeforeWindowMove`. This is
+   * where an unsaved-changes prompt belongs.
+   */
   onBeforeWindowClose?: (event: LayoutCloseEvent) => boolean | void | Promise<boolean>;
+  /**
+   * Called when a move was refused, with the reason on the payload. Alongside
+   * `windowMove:cancelled`.
+   */
   onWindowMoveCancelled?: (event: LayoutMoveEvent) => void;
+  /** Called when a resize was refused. Alongside `windowResize:cancelled`. */
   onWindowResizeCancelled?: (event: LayoutMoveEvent) => void;
+  /** Called when a close was refused. Alongside `windowClose:cancelled`. */
   onWindowCloseCancelled?: (event: LayoutCloseEvent) => void;
 }
 
@@ -219,6 +325,10 @@ interface LayoutConfig {
  * cannot know what one is.
  */
 interface Layout {
+  /**
+   * The element the layout was mounted on. It carries the layout's host class, which is
+   * also how a second `createLayout` on the same element is refused.
+   */
   readonly el: HTMLElement;
   /** The window ids, in mount order. */
   windows(): string[];
@@ -315,6 +425,11 @@ interface Layout {
   getInteractive(): LayoutInteractive;
   /** Re-measure every window and emit `window:resized` for those that changed. */
   refresh(): number;
+  /**
+   * Subscribe to a layout event, or to `'*'` for every past-tense one; returns a function
+   * that unsubscribes. Only an explicit `before…` subscription can cancel an action — the
+   * `'*'` stream never gates.
+   */
   on(
     name: 'window:moved' | 'window:resized' | 'window:closed' | 'layout:changed'
       | 'beforeWindowMove' | 'beforeWindowResize' | 'beforeWindowClose'
@@ -322,6 +437,7 @@ interface Layout {
       | '*' | string,
     fn: (event: any) => unknown,
   ): () => void;
+  /** Remove a handler registered with `on`. */
   off(name: string, fn: (event: any) => unknown): void;
   /** Tear the layout down; whatever the host mounted in a payload is the host's to destroy. */
   destroy(): void;

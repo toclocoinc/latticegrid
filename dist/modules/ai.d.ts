@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.0, ai module type declarations
+ * Lattice Grid 1.68.1, ai module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -32,13 +32,20 @@ type AIAsk = (payload: {
 
 /** A single computed figure a narrative is grounded on. */
 interface AIFact {
+  /** A stable identifier for the figure, so a caller can find it again in the packet. */
   id: string;
+  /** What the figure is, in words — the column's resolved title where it has one. */
   label: string;
   /** The raw numeric value, or null for a context-only fact. */
   value: number | null;
   /** The pre-formatted display string the model is told to use verbatim. */
   display: string;
+  /**
+   * What sort of figure it is, which is what the model is told alongside it. `context`
+   * marks a fact with no number: it may be mentioned but grounds nothing.
+   */
   kind: string;
+  /** The column the figure is about, where it is about one. */
   colId?: string;
 }
 
@@ -49,7 +56,17 @@ interface AIFact {
  * project RISK SUMMARY from the separate Gantt / Kanban modules' public outputs.
  */
 interface AITarget {
+  /**
+   * What to narrate. Defaults to `view` — the current filtered view — with `column` and
+   * `forecast` narrating one column, `kpi` and `chart` narrating figures you pass in
+   * `facts`, and `risk` assembling a project summary from a Gantt and a board.
+   */
   kind?: 'view' | 'column' | 'forecast' | 'kpi' | 'chart' | 'risk';
+  /**
+   * Which column to narrate, for `column` and `forecast`. A redacted column grounds
+   * nothing: the packet comes back empty and flagged as redacted rather than quietly
+   * narrating without it.
+   */
   colId?: string;
   /** Forecast options, for `kind: 'forecast'`. */
   options?: object;
@@ -94,10 +111,21 @@ interface AITarget {
 
 /** The facts packet a narrative grounds on. */
 interface AIFactsPacket {
+  /** The target the packet was built for, as given. */
   target: AITarget;
+  /**
+   * Every figure the narrative may cite, each with the display string the model is told
+   * to use verbatim.
+   */
   facts: AIFact[];
   /** The numeric values seeding the reconciliation registry. */
   groundedValues: number[];
+  /**
+   * What the packet is and how it was built: the target kind, whether the view was
+   * filtered, how many facts there are, and — where they apply — the redaction flag, the
+   * column, which module sources resolved for a risk summary, and which opt-in exposures
+   * were honoured.
+   */
   meta: {
     kind: string; filtered: boolean; factCount: number; redacted?: boolean; colId?: string;
     /** For `kind: 'risk'`: which module sources resolved. */
@@ -113,7 +141,17 @@ interface AIFactsPacket {
  * which opt-in exposures (task names, cost) were honoured.
  */
 interface AIRiskFacts {
+  /**
+   * The risk figures the summary grounds on — schedule and earned-value indices, float,
+   * SLA breaches — and, when task names are allowed, the at-risk tasks as context facts
+   * carrying no number.
+   */
   facts: AIFact[];
+  /**
+   * Which of the three sources actually resolved (schedule, earned value, SLA) and which
+   * opt-in exposures were honoured. Nothing resolving warns, because there is then
+   * nothing to summarise.
+   */
   meta: {
     kind: 'risk';
     sources: { schedule: boolean; earnedValue: boolean; sla: boolean };
@@ -125,14 +163,26 @@ interface AIRiskFacts {
 interface AINarrative {
   /** The narrative, with every ungrounded figure stripped (or flagged). */
   text: string;
+  /**
+   * The figures the narrative was grounded on — the packet's facts, for showing beside
+   * the prose.
+   */
   facts: AIFact[];
   /** The figures that reconciled against a computed value. */
   grounded: string[];
   /** The figures removed as ungrounded. */
   flagged: string[];
+  /**
+   * The whole facts packet the narrative was built from, for a host that wants to show
+   * its working.
+   */
   packet: AIFactsPacket;
   /** How many ask() rounds ran (>1 only on the tool-use path). */
   rounds: number;
+  /**
+   * Which path ran: `tools` when the model was given read-only tools to call, `packet`
+   * when it was handed the facts up front.
+   */
   mode: 'tools' | 'packet';
 }
 
@@ -196,6 +246,10 @@ interface AIConfig {
 
 /** The report from applying an ask-your-data query. */
 interface AIApplyReport {
+  /**
+   * Whether the query was applied. False when the read-only gate refused the plan, and
+   * when the grid could not apply it.
+   */
   ok: boolean;
   /** The action types that were applied. */
   applied: string[];
@@ -379,8 +433,17 @@ interface AI {
    * through the gate.
    */
   actorBar(el?: HTMLElement, opts?: object): AI;
+  /**
+   * Subscribe to `narrative`, `query`, `proposal` or `error`; returns a function that
+   * unsubscribes. Any other name is warned about once.
+   */
   on(name: 'narrative' | 'query' | 'proposal' | 'error' | string, fn: (payload: object) => void): () => void;
+  /** Remove a handler registered with `on`. */
   off(name: string, fn: (payload: object) => void): void;
+  /**
+   * Tear the controller down: empty anything it mounted and remove only the classes it
+   * added. The grid is left exactly as it was.
+   */
   destroy(): void;
 }
 

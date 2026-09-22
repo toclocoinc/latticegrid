@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.0, chart-fan module type declarations
+ * Lattice Grid 1.68.1, chart-fan module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

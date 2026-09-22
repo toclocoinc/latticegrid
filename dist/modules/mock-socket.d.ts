@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.0, mock-socket module type declarations
+ * Lattice Grid 1.68.1, mock-socket module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -15,6 +15,11 @@ interface FeedChange { op: 'upsert' | 'delete'; row: FeedRow }
  * `kind`, exactly as against a real feed that framed its messages the same way.
  */
 interface FeedMessage {
+  /**
+   * Whether this message opens the feed with a full set of rows
+   * (`'snapshot'`, which the feed yields first) or carries changes to apply
+   * to what is already there (`'delta'`, every message after it).
+   */
   kind: 'snapshot' | 'delta';
   /** Present on a snapshot: the full opening set of rows. */
   rows?: FeedRow[];

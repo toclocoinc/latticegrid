@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.0, vue module type declarations
+ * Lattice Grid 1.68.1, vue module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -143,6 +143,7 @@ export type LatticeVueGridEmit = {
 
 /** What a `<LatticeGrid>` template ref exposes; `grid()` is null before mount. */
 export interface LatticeVueGridExposed {
+  /** The live grid the component built, or null before mount. */
   grid(): Grid | null;
 }
 
@@ -190,6 +191,7 @@ export type LatticeVueViewerCommonProps = LatticeVueHostProps & {
 
 /** What a viewer's template ref exposes; `instance()` is null before mount. */
 export interface LatticeVueViewerExposed<Instance = unknown> {
+  /** The live viewer the component built, or null before mount. */
   instance(): Instance | null;
 }
 
@@ -233,7 +235,12 @@ export type LatticeVueLayoutProps = Record<string, unknown> & LatticeVueViewerCo
 
 /** One tab of a `<LatticeTabs>`; a slot named for its `id` makes it Vue's. */
 export interface LatticeVueTabSpec {
+  /**
+   * The tab's identity, which also names the slot whose content Vue renders into the
+   * panel. Required, non-empty and unique.
+   */
   id: string;
+  /** The text on the tab button. Defaults to the id. */
   label?: string;
   [key: string]: unknown;
 }

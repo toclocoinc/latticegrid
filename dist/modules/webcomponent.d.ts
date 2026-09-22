@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.0, webcomponent module type declarations
+ * Lattice Grid 1.68.1, webcomponent module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -70,12 +70,34 @@ export interface LatticeViewerEventDetail<Instance = unknown> { instance: Instan
 export interface LatticeGridElement<Row = any> extends HTMLElement {
   /** Every attribute in the table above is also a property of the same name. */
   theme: string | undefined;
+  /**
+   * The row height and padding as a named step, rather than pixel by pixel. The `density`
+   * attribute.
+   */
   density: string | undefined;
+  /** The locale the grid formats and sorts in. The `locale` attribute. */
   locale: string | undefined;
+  /**
+   * Which field identifies a row. As an attribute it can only be a field name; the
+   * composite and function forms are properties.
+   */
   rowKey: string | undefined;
+  /** Row height in pixels. The `row-height` attribute, parsed as a number. */
   rowHeight: number | undefined;
+  /**
+   * Header height in pixels. The `header-height` attribute, parsed as a number; unset,
+   * the header follows the density token.
+   */
   headerHeight: number | undefined;
+  /**
+   * Let the grid grow to its rows rather than capping its height. The `auto-height`
+   * attribute is a bare boolean — present is true.
+   */
   autoHeight: boolean | undefined;
+  /**
+   * What the reader may select: `single`, `multiple` or `none`. The `selection`
+   * attribute; the full selection config goes through `config`.
+   */
   selection: string | undefined;
   /** The live grid, or null while the element is disconnected. */
   readonly grid: Grid | null;
@@ -122,64 +144,150 @@ export interface LatticeViewerElement<Instance = unknown> extends HTMLElement {
  * empty; give it `rows` for a standalone panel.
  */
 export interface LatticeKPIElement<Row = any> extends LatticeViewerElement {
+  /** The panel's tiles. A structure, so it is a property rather than an attribute. */
   tiles: unknown[];
+  /** Rows for a standalone panel. Set them and the element stops waiting for a grid. */
   rows: Row[];
+  /** How many tile columns to aim for. */
   columns: number | undefined;
+  /** Which field identifies a row, for the panel's own keyed store. */
   rowKey: string | undefined;
+  /** The default locale a clock tile formats in. */
   locale: string | undefined;
+  /**
+   * Passed to the panel as `theme`, which the panel does not read — it mirrors the
+   * theme of the grid it is mounted beside, and otherwise follows the page's tokens.
+   */
   theme: string | undefined;
+  /**
+   * Passed to the panel as `density`, which the panel does not read — density is
+   * mirrored from the grid the panel belongs to.
+   */
   density: string | undefined;
+  /**
+   * Passed to the panel as `format`, which the panel does not read — formatting is
+   * per tile (`tiles: [{ format }]`).
+   */
   format: unknown;
 }
 
 /** `<lattice-chart>`. Always drawn from a grid, so it waits for one. */
 export interface LatticeChartElement extends LatticeViewerElement {
+  /**
+   * A geomap's geometry: a loaded pack, `{ pack: id }`, GeoJSON, or a map of code to path
+   * data. A structure, so it is a property.
+   */
   shapes: unknown;
+  /** The column that splits the measure into one series per distinct value. */
   series: unknown;
+  /**
+   * Passed to the chart as `data`, which the chart does not read — a chart draws the
+   * grid's own filtered rows. Use the grid's rows, or the chart spec's `rows`, through
+   * `config`.
+   */
   data: unknown;
+  /**
+   * Passed to the chart as `formatting`, which the chart does not read — a chart formats
+   * through the grid's own formatting and each column's type.
+   */
   formatting: unknown;
+  /** Which chart to draw. The `type` attribute. */
   type: string | undefined;
+  /** The category column. */
   x: string | undefined;
+  /** The measure column, or several for a multi-measure chart. */
   y: string | string[] | undefined;
+  /** The measure a markermap writes beside each dot and colours it by. */
   value: string | undefined;
+  /** The row-label column, for the types that name their rows. */
   label: string | undefined;
+  /** The longitude column, in degrees east, for the maps that place a row by where it is. */
   lon: string | undefined;
+  /** The latitude column, in degrees north. */
   lat: string | undefined;
+  /** Print the value beside each mark. The `labels` attribute is a bare boolean. */
   labels: boolean | undefined;
+  /**
+   * Passed to the chart as `stacked`, which the chart does not read — its own option is
+   * `stack`, reachable through `config`.
+   */
   stacked: boolean | undefined;
+  /**
+   * Passed to the chart as `horizontal`, which the chart does not read — orientation
+   * follows the chart type (`horizontalBar` and the row-named types draw along y).
+   */
   horizontal: boolean | undefined;
+  /** The colour scheme by name. */
   scheme: string | undefined;
 }
 
 /** `<lattice-kanban>`. Grid-bound like the KPI panel; give it `rows` to stand alone. */
 export interface LatticeKanbanElement<Row = any> extends LatticeViewerElement {
+  /** Rows for a standalone board. Set them and the element stops waiting for a grid. */
   rows: Row[];
+  /** The board's column definitions. */
   columns: unknown[];
+  /** The card template's field mapping — title, subtitle, labels, assignee and the rest. */
   card: unknown;
+  /**
+   * Passed to the board as `facets`, which the board does not read — filter it with
+   * `filter`, `quickFilter`, `setSprint` or `setEpic` instead.
+   */
   facets: unknown;
+  /** Which field identifies a card. */
   rowKey: string | undefined;
+  /** The row property that puts a card in a column. */
   columnProperty: string | undefined;
+  /**
+   * Passed to the board as `titleProperty`, which the board does not read — map the
+   * card's headline through `card` (`card: { title: 'name' }`).
+   */
   titleProperty: string | undefined;
+  /**
+   * Draw the two-dimensional swimlane layout. The `swimlanes` attribute is a bare
+   * boolean; name the lane property through `swimlane-property`.
+   */
   swimlanes: boolean | undefined;
 }
 
 /** `<lattice-gantt>`. */
 export interface LatticeGanttElement extends LatticeViewerElement {
+  /** The plan's tasks. A structure, so it is a property. */
   tasks: unknown[];
+  /** The links between tasks. */
   dependencies: unknown[];
+  /** The resource capacities, for over-allocation and levelling. */
   resources: unknown;
+  /** The working-time calendar: the `weekends` preset, or explicit workdays and holidays. */
   calendar: unknown;
+  /** The table panel's columns, for the split view. */
   columns: unknown;
+  /** Which field identifies a task. */
   rowKey: string | undefined;
+  /**
+   * Passed to the plan as `scale`, which it does not read — the timeline's zoom is a
+   * render option, set through `config: { render: { zoom } }`.
+   */
   scale: string | undefined;
+  /**
+   * Cascade an edit down the dependency chain rather than only recomputing. A bare
+   * boolean attribute.
+   */
   autoSchedule: boolean | undefined;
 }
 
 /** `<lattice-layout>`. */
 export interface LatticeLayoutElement extends LatticeViewerElement {
+  /**
+   * The windows to place, each with its content and its cell. A structure, so it is a
+   * property.
+   */
   windows: unknown[];
+  /** How many columns the grid of windows has. */
   columns: number | undefined;
+  /** How many rows the grid of windows has. */
   rows: number | undefined;
+  /** Which way windows collapse into the space a closed one left. */
   compact: string | undefined;
 }
 
@@ -189,6 +297,10 @@ export interface LatticeLayoutElement extends LatticeViewerElement {
  * left to the module.
  */
 export interface LatticeTabsElement extends LatticeViewerElement {
+  /**
+   * The tab descriptors. A tab's content comes from a `<template data-tab="‹id›">` child
+   * when there is one.
+   */
   tabs: unknown[];
 }
 

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.0, charts module type declarations
+ * Lattice Grid 1.68.1, charts module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -105,9 +105,24 @@ export function setDefaultScheme(name: string): void;
  * declares that `labels` applies.
  */
 interface ChartTypeDefinition {
+  /**
+   * Draws the type. It is handed the same context a built-in drawer gets — the plot
+   * rectangle, the bound data, the SVG groups, the scheme, the typography and the spec —
+   * plus `helpers`, the base's own element, scale, axis and pool primitives, and returns
+   * what it drew.
+   */
   draw: (ctx: object) => object;
+  /**
+   * Turns the grid and spec into the bound data `draw` receives. Omitted, the base's
+   * by-series binder is used.
+   */
   bind?: (grid: Grid, spec: ChartSpec) => object;
+  /**
+   * Set it when the type lays itself out across the whole frame instead of drawing inside
+   * the axis gutters.
+   */
   freeform?: boolean;
+  /** Whether the spec's `labels` option applies to this type. Default false. */
   labelled?: boolean;
 }
 /**

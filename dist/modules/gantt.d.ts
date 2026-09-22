@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.0, gantt module type declarations
+ * Lattice Grid 1.68.1, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -25,21 +25,83 @@ export type GanttCalendar =
  * view's grid panel.
  */
 export interface GanttTask {
+  /**
+   * The task's identity, used by dependencies, edits and `rows.apply`. Stringified; a
+   * duplicate id fails the schedule with `duplicate-id`.
+   */
   id: string | number;
+  /** The task's label in the table and on its bar. Defaults to the id. */
   name?: string;
+  /**
+   * Where the task is placed — a day-number, an ISO date or a `Date`. It is a floor, not
+   * a pin: the forward pass never starts the task earlier, but a predecessor may push it
+   * later. Use a `constraint` to pin it.
+   */
   start?: number | string | Date;
+  /**
+   * The task's finish, in the same forms as `start`. Given with `start` and no
+   * `duration`, the duration becomes `end − start`.
+   */
   end?: number | string | Date;
+  /**
+   * How long the task takes, in working days (the plan's time unit). Negative fails the
+   * schedule with `bad-duration`; a leaf with no duration and no start/end pair is an
+   * error, while a summary's is ignored because its window comes from its children.
+   */
   duration?: number;
+  /**
+   * Progress, 0-100, drawn as the filled part of the bar and used as the earned-value
+   * multiplier. A summary's is the duration-weighted mean of its descendant leaves;
+   * anything unparseable reads as null.
+   */
   percentComplete?: number;
+  /**
+   * Marks a zero-duration point: the task is scheduled as an instant (start equals
+   * finish) and drawn as a diamond. `duration: 0` does the same.
+   */
   milestone?: boolean;
+  /**
+   * The id of the summary task this one sits under. A summary is never scheduled in its
+   * own right — its window, progress and criticality are derived from its children — and
+   * a parent chain that loops fails with `parent-cycle`.
+   */
   parent?: string | number;
+  /**
+   * The planned start the task is measured against, in the same forms as `start`. With a
+   * baseline the schedule reports `startVariance` (actual − planned; positive is a slip).
+   */
   baselineStart?: number | string | Date;
+  /**
+   * The planned finish. With both baseline dates the schedule reports `finishVariance`
+   * and `durationVariance` too.
+   */
   baselineEnd?: number | string | Date;
+  /** The planned window as one object, read when `baselineStart`/`baselineEnd` are absent. */
   baseline?: { start?: number | string | Date; end?: number | string | Date };
+  /**
+   * Pins or pulls the task: must-start-on and must-finish-on place it on
+   * `constraintDate`, as-late-as-possible pulls it into its late window, consuming its
+   * float. A constraint date earlier than the predecessors allow is reported in
+   * `schedule.conflicts` and the feasible date is used instead.
+   */
   constraint?: GanttConstraintType;
+  /**
+   * The date the constraint pins to — a day-number, ISO date or `Date`. Unused by
+   * as-late-as-possible.
+   */
   constraintDate?: number | string | Date;
+  /**
+   * Who is booked on the task: one name or a list. Each name is a full-time booking
+   * (units 1) for resource load, over-allocation and the split view's avatars. Ignored
+   * when `assignments` is present.
+   */
   assignee?: string | string[];
+  /** An alternative spelling of `assignee`, read when that is absent. */
   assignees?: string[];
+  /**
+   * A third spelling of `assignee`, read when neither `assignee` nor `assignees` is
+   * present.
+   */
   owner?: string;
   /**
    * Explicit resource assignments with fractional units:
@@ -101,55 +163,147 @@ export type GanttResourceSpec =
  * field warns; the explicit field wins.
  */
 export interface GanttDependency {
+  /**
+   * The predecessor task's id. A link naming a summary is expanded to its descendant
+   * leaves before scheduling.
+   */
   from: string | number;
+  /** The successor task's id. */
   to: string | number;
+  /**
+   * Which ends the link ties together — finish-to-start (the default), start-to-start,
+   * finish-to-finish or start-to-finish — optionally with the MS Project lag shorthand,
+   * `'FS+2'` or `'SS-1'`. It is normalised on the way in, so `gantt.dependencies` always
+   * reads back as `{ type, lag }`.
+   */
   type?: GanttLinkType | `${GanttLinkType}${'+' | '-'}${number}`;
+  /**
+   * A signed offset on the link in working days; a negative value is a lead. Given
+   * alongside a shorthand lag in `type`, this field wins and the mismatch is warned
+   * about.
+   */
   lag?: number;
 }
 
 /** The computed CPM values for one task (a leaf is scheduled, a summary derived). */
 interface GanttScheduledTask {
+  /** The task's id, as a string. */
   id: string;
+  /** The task's name, defaulting to its id. */
   name: string;
+  /** The task's length in working days. A summary's is its derived window, `ef − es`. */
   duration: number;
+  /**
+   * Early start: the earliest day the task can begin once every predecessor and its own
+   * placement floor are honoured.
+   */
   es: number;
+  /**
+   * Early finish, `es + duration` (mapped back to calendar days when a working-time
+   * calendar is in use).
+   */
   ef: number;
+  /**
+   * Late start: the latest the task can begin without pushing the project finish (or the
+   * deadline) out.
+   */
   ls: number;
+  /**
+   * Late finish, `ls + duration`. A task pinned by a constraint has `lf` equal to its
+   * `ef`, so it has no float.
+   */
   lf: number;
+  /**
+   * Slack in working days, `ls − es`. Zero means critical; a deadline earlier than the
+   * natural finish drives it negative, which is the at-risk signal.
+   */
   totalFloat: number;
+  /**
+   * True when the total float is zero or negative. A summary is critical when any child
+   * is; an as-late-as-possible task is always marked critical.
+   */
   critical: boolean;
+  /**
+   * The task's progress, or null when it states none. A summary's is the
+   * duration-weighted mean of its descendant leaves, and null when every one of them is a
+   * milestone.
+   */
   percentComplete: number | null;
+  /** The id of this task's summary, or null at the top level. */
   parent: string | null;
+  /** True when the task has children, and so was derived from them rather than scheduled. */
   isSummary: boolean;
+  /** True when the task's duration is zero — a point in the plan. */
   isMilestone: boolean;
+  /** A summary's direct children, by id, in input order. Empty for a leaf. */
   children: string[];
   /** The planned (baseline) window, present only when the task carries a baseline. */
   baselineStart?: number | null;
+  /** The planned finish day-number, or null when only a baseline start was given. */
   baselineEnd?: number | null;
   /** Variance vs the baseline (actual − planned, day-numbers); a positive value is a slip. */
   startVariance?: number | null;
+  /**
+   * `ef − baselineEnd` in days; positive means finishing later than planned. Null without
+   * a baseline finish.
+   */
   finishVariance?: number | null;
+  /**
+   * How much longer the task runs than its baseline window, in days. Null unless both
+   * baseline dates were given.
+   */
   durationVariance?: number | null;
 }
 
 /** An unhonourable scheduling constraint, reported rather than obeyed. */
 interface GanttConflict {
+  /** The task whose constraint could not be honoured. */
   id: string;
+  /** The constraint that was refused, as its normalised code (`MSO` or `MFO`). */
   type: string;
+  /** The date the constraint asked for, as a day-number, or null when it named none. */
   at: number | null;
+  /**
+   * The earliest start the predecessors actually allow — the day the engine used instead.
+   * It never places a task before its predecessors.
+   */
   earliestFeasible: number;
 }
 
 /** A CPM schedule result: per-task dates/float and the critical path, or an error. */
 interface GanttSchedule {
+  /**
+   * Whether the schedule computed. False leaves every other field absent except `error`,
+   * and the controller keeps its previous schedule.
+   */
   ok: boolean;
+  /**
+   * Why the schedule was refused: a code such as `cycle`, `duplicate-id`, `bad-duration`,
+   * `unknown-parent` or `parent-cycle`, a message, and for a cycle the ids that form it.
+   */
   error?: { code: string; message: string; cycle?: string[] };
+  /** Every task's computed values, keyed by id — leaves scheduled, summaries derived. */
   tasks?: Map<string, GanttScheduledTask>;
+  /** Every task id in input order, which is the order a table or WBS tree walks. */
   order?: string[];
+  /** The ids of the leaf tasks with no float, in input order. */
   critical?: string[];
+  /**
+   * Each zero-float chain through the network as its own list of ids, so a plan with
+   * several critical routes shows all of them.
+   */
   criticalPaths?: string[][];
+  /**
+   * The day the plan is anchored to — the `projectStart` option, or the calendar's first
+   * working day when one is set.
+   */
   projectStart?: number;
+  /** The latest early finish across every task, as a calendar day-number. */
   projectFinish?: number;
+  /**
+   * `projectFinish − projectStart` in days — calendar days when a working-time calendar
+   * stretched the plan, not the sum of the durations.
+   */
   projectDuration?: number;
   /** Constraints a predecessor made infeasible (empty when all are satisfied). */
   conflicts?: GanttConflict[];
@@ -163,46 +317,105 @@ interface GanttSchedule {
 
 /** One contiguous load segment for a resource: how many units are booked over a span. */
 interface GanttResourceSegment {
+  /** The day the segment begins (inclusive), as a calendar day-number. */
   start: number;
+  /**
+   * The day the segment ends (exclusive). A task that finishes as another starts does not
+   * double-count the boundary.
+   */
   end: number;
+  /**
+   * The units booked across the whole segment — the sum of the covering tasks' assignment
+   * units, where 1 is one full-time booking.
+   */
   load: number;
+  /** The tasks active during the segment, which is what makes a heavy stretch explainable. */
   taskIds: string[];
 }
 
 /** A resource booked beyond its capacity across concurrent tasks. */
 interface GanttOverAllocation {
+  /** The over-booked resource's name. */
   resource: string;
+  /**
+   * The resource's capacity in units — from the `resources` option, or `defaultCapacity`
+   * (1) when it names none.
+   */
   capacity: number;
+  /** The day the over-allocation begins, as a calendar day-number. */
   start: number;
+  /** The day it ends (exclusive). */
   end: number;
+  /**
+   * The units booked over that stretch — strictly greater than `capacity`, which is what
+   * makes it an over-allocation.
+   */
   load: number;
+  /** The tasks competing for the resource over that stretch. */
   taskIds: string[];
 }
 
 /** The per-resource load and the over-allocations across a schedule. */
 interface GanttResourceLoad {
+  /**
+   * Whether the load could be computed. False — with empty lists — when there is no
+   * successful schedule to read.
+   */
   ok: boolean;
+  /**
+   * One entry per resource that anything is booked on, sorted by name, each with its
+   * capacity, peak load and load segments. A resource named only in the capacities, with
+   * no booking, does not appear.
+   */
   resources: Array<{ resource: string; capacity: number; peak: number; segments: GanttResourceSegment[] }>;
+  /**
+   * Every stretch where a resource is booked beyond its capacity, earliest first. Empty
+   * when the plan fits.
+   */
   overAllocations: GanttOverAllocation[];
+  /** The same entries as `resources`, keyed by resource name for a direct lookup. */
   byResource: Map<string, { capacity: number; peak: number; segments: GanttResourceSegment[] }>;
 }
 
 /** The result of resource leveling: the shifted tasks and what moved. */
 interface GanttLevelResult {
+  /**
+   * Whether leveling ran. False only when the plan would not schedule, in which case
+   * `error` says why.
+   */
   ok: boolean;
+  /**
+   * Whether every over-allocation was cleared. False when only pinned tasks were left to
+   * move, or the iteration cap was hit — the partial result is still returned.
+   */
   resolved?: boolean;
+  /**
+   * The tasks with their new starts. These are copies; the controller adopts them unless
+   * the call was a dry run.
+   */
   tasks?: GanttTask[];
+  /** The schedule computed from the levelled tasks. */
   schedule?: GanttSchedule;
+  /**
+   * What actually moved: the task, its start before leveling, its start after, and the
+   * delay in days. Unmoved tasks are not listed.
+   */
   moves?: Array<{ id: string; from: number; to: number; delay: number }>;
+  /** The over-allocations leveling could not clear. Absent when it resolved everything. */
   remaining?: GanttOverAllocation[];
+  /** Why the plan would not schedule — the same codes `GanttSchedule.error` uses. */
   error?: { code: string; message: string };
 }
 
 /** A placement violation flagged by `findViolations`. */
 interface GanttViolation {
+  /** The task placed earlier than its predecessors allow. */
   id: string;
+  /** Where the plan puts the task — the `start` on the raw task, as a day-number. */
   placedStart: number;
+  /** The earliest start CPM allows, given the dependencies and the calendar. */
   earliestStart: number;
+  /** How many days early the placement is, `earliestStart − placedStart`. */
   by: number;
 }
 
@@ -228,10 +441,25 @@ export function toISODate(day: number): string | null;
 
 /** Earned-value metrics for one task or the whole project. */
 interface GanttEarnedValueRow {
+  /**
+   * The task the row is for. Absent on the `project` total, which carries only the
+   * money fields and the two `has…` flags.
+   */
   id: string;
+  /** The task's name. Absent on the `project` total. */
   name: string;
+  /**
+   * True for a summary row, whose figures are the sums of its descendant leaves. Absent
+   * on the `project` total.
+   */
   isSummary: boolean;
+  /** True for a zero-duration task. Absent on the `project` total. */
   isMilestone: boolean;
+  /**
+   * The task's progress, reported exactly as the task states it, or null when it states
+   * none — which earns nothing. The earned-value multiplier clamps it to 0-100 first.
+   * Absent on the `project` total.
+   */
   percentComplete: number | null;
   /** Whether a baseline (not the fallback scheduled window) drove PV. */
   hasBaseline: boolean;
@@ -257,7 +485,12 @@ interface GanttEarnedValueRow {
 
 /** The earned-value result at a status date. */
 interface GanttEarnedValue {
+  /**
+   * Whether the metrics could be computed. False when there is no successful schedule to
+   * measure against.
+   */
   ok: boolean;
+  /** Why the metrics were refused — `NO_SCHEDULE` when the plan has not scheduled. */
   error?: { code: string; message: string };
   /** The status date the metrics were evaluated at (day-number). */
   statusDate?: number;
@@ -284,19 +517,46 @@ export function computeEarnedValue(
 
 /** A headless Gantt controller: holds the model, recomputes on edits, emits changes. */
 interface Gantt {
+  /**
+   * The current tasks, as fresh shallow copies — mutating them changes nothing; call
+   * `applyEdit` or `setTasks`.
+   */
   readonly tasks: GanttTask[];
+  /**
+   * The current links, as fresh copies, always in the normalised `{ from, to, type, lag
+   * }` form.
+   */
   readonly dependencies: GanttDependency[];
+  /**
+   * The latest schedule result. It keeps the last successful one when a recompute fails,
+   * so a cycle does not blank the view.
+   */
   readonly schedule: GanttSchedule | null;
+  /** The critical task ids from the latest schedule; empty when the last compute failed. */
   readonly critical: string[];
   /** Constraints the latest schedule could not honour (empty when all are satisfied). */
   readonly conflicts: GanttConflict[];
+  /**
+   * Whether the controller was asked to cascade an edit down the dependency chain rather
+   * than only recomputing.
+   */
   readonly autoSchedule: boolean;
+  /** The grid this controller is bound to, or null for a standalone plan. */
   readonly grid: unknown;
   /** The over-allocations from the latest schedule. */
   readonly overAllocations: GanttOverAllocation[];
   /** The latest resource-load report, or null before a successful schedule. */
   readonly resourceLoad: GanttResourceLoad | null;
+  /**
+   * Replace the whole task list (copied in) and recompute, returning the new schedule.
+   * Ignored with a warning after `destroy()`.
+   */
   setTasks(tasks: GanttTask[]): GanttSchedule;
+  /**
+   * Replace the link list and recompute. Adding a link is gated on
+   * `beforeDependencyCreate`, so this returns undefined on a veto, or a promise when a
+   * handler defers; a pure removal or reorder applies straight away.
+   */
   setDependencies(deps: GanttDependency[]): GanttSchedule;
   /**
    * Apply one task edit and recompute — the single gated choke point every
@@ -311,7 +571,16 @@ interface Gantt {
    * resize stretches it across the new span at the same daily levels.
    */
   applyEdit(patch: { id: string | number; start?: number; end?: number; duration?: number; percentComplete?: number; work?: number | Array<{ date: number | string | Date; hours: number }> }, editOpts?: { writeBack?: boolean }): GanttSchedule;
+  /**
+   * Recompute the schedule now and return it. On success it emits `schedule` and
+   * refreshes the resource load; on a cycle or bad input it emits `error` and leaves the
+   * previous schedule in place.
+   */
   compute(): GanttSchedule;
+  /**
+   * The tasks placed earlier than CPM allows — the "manual with validation" flag. Empty
+   * when every placement is feasible, and when there is no successful schedule.
+   */
   findViolations(): GanttViolation[];
   /**
    * Compute the resource load and over-allocations on demand,
@@ -350,7 +619,12 @@ interface Gantt {
       added: GanttTask[]; updated: GanttTask[]; removed: string[];
     };
   };
+  /**
+   * Subscribe to `schedule` (a recompute succeeded, payload the schedule) or `error`
+   * (payload the error). Returns a function that unsubscribes.
+   */
   on(event: 'schedule' | 'error', fn: (payload: unknown) => void): () => void;
+  /** Remove a listener registered with `on`. */
   off(event: 'schedule' | 'error', fn: (payload: unknown) => void): void;
   /**
    * Render the plan into a container as an SVG timeline (bars, dependency
@@ -552,6 +826,11 @@ interface Gantt {
   unmount(): void;
   /** The mounted view, or null. */
   readonly view: unknown;
+  /**
+   * Destroy the mounted view, drop the grid subscriptions and clear the listeners. The
+   * controller then refuses further edits with a warning; the host still owns the grid
+   * and the container.
+   */
   destroy(): void;
 }
 
@@ -615,11 +894,33 @@ export default createGantt;
 
 /** The model {@link importMSPDI} returns and {@link exportMSPDI} takes. */
 interface GanttMSPDIModel {
+  /**
+   * The plan's tasks, written out with their outline level, summary and milestone flags,
+   * constraints, baseline and progress.
+   */
   tasks: GanttTask[];
+  /** The typed links, written as predecessor links with their lag on the successor task. */
   dependencies?: GanttDependency[];
+  /**
+   * The resource list, written with each resource's capacity as `MaxUnits`. Only the
+   * array form is read here: a name-to-capacity map is ignored, and its resources then
+   * appear only through the tasks' assignments, at capacity 1.
+   */
   resources?: GanttResourceSpec;
+  /**
+   * The project's start date. Defaults to the schedule's own start when a schedule is
+   * supplied.
+   */
   projectStart?: number | string | Date;
+  /**
+   * The working-time calendar written as the project's base calendar — a `weekends`
+   * preset or explicit workdays and holidays. Null writes no calendar.
+   */
   calendar?: GanttCalendar | null;
+  /**
+   * A computed schedule, so the written start and finish dates are the scheduled ones.
+   * Without it (or with a failed one) the tasks' own placements are used.
+   */
   schedule?: GanttSchedule;
 }
 

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.0, kanban module type declarations
+ * Lattice Grid 1.68.1, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -14,28 +14,93 @@ type KanbanRow = Record<string, unknown>;
  * and carried for the later cycles that render them.
  */
 interface KanbanCard {
+  /** The card's identity, from the board's `rowKey`. */
   key: unknown;
+  /**
+   * The row behind the card. On a grid-bound board this is the materialised object the
+   * board read off the grid, not the grid's own row.
+   */
   row: KanbanRow;
+  /**
+   * Which column the card sits in — the stringified group value — or null when the row's
+   * group value is null or undefined, which leaves the card unplaced.
+   */
   columnId: string | null;
+  /**
+   * The card's estimate, from `pointsProperty`. Zero when there is no points property or
+   * the value is not a finite number.
+   */
   points: number;
+  /**
+   * Whether the points value was a finite number. A card without points contributes
+   * nothing to a column's sum.
+   */
   hasPoints: boolean;
+  /**
+   * The raw value of `orderProperty`, which ranks the card inside its column. Undefined
+   * when no order property is configured.
+   */
   order?: unknown;
+  /**
+   * The raw value of `swimlaneProperty`, the lane the card belongs to. Undefined when no
+   * swimlane property is configured.
+   */
   swimlane?: unknown;
+  /**
+   * The raw value of `sprintProperty`, used by the sprint selection. Undefined when no
+   * sprint property is configured.
+   */
   sprint?: unknown;
+  /**
+   * The raw value of `epicProperty`, used by the epic selection. Undefined when no epic
+   * property is configured.
+   */
   epic?: unknown;
+  /**
+   * The card template's text, one entry per `card` mapping. A mapping that names a grid
+   * column is read through that column's own formatter, so it reads exactly as the cell
+   * does; anything missing is ''.
+   */
   fields: Record<string, string>;
 }
 
 /** A column with its cards and aggregates. `over` is true when `count` exceeds `wipLimit`. */
 interface KanbanColumn {
+  /**
+   * The column's identity — a configured column's `id`, or the stringified group value a
+   * data-driven column came from.
+   */
   id: string;
+  /** The heading shown above the column. Defaults to the id, humanised. */
   title: string;
+  /**
+   * The accent colour drawn as a dot in the header, as configured. Null when the column
+   * def set none.
+   */
   color: string | null;
+  /**
+   * The work-in-progress limit for this column, or null when it has none. Advisory unless
+   * `enforceWip` is on.
+   */
   wipLimit: number | null;
+  /**
+   * Whether the column is currently collapsed to a strip — either configured so, or
+   * collapsed by the user.
+   */
   collapsed: boolean;
+  /**
+   * The column's cards that survive the board's filters, in arrival order, re-sorted by
+   * `orderProperty` when one is configured.
+   */
   cards: KanbanCard[];
+  /** How many cards the column holds — the length of `cards`, after filtering. */
   count: number;
+  /** The sum of the column's card points; cards without a finite points value add nothing. */
   points: number;
+  /**
+   * True when the column has a WIP limit and its count exceeds it. The header shows this
+   * whether or not `enforceWip` refuses the move.
+   */
   over: boolean;
 }
 
@@ -60,8 +125,17 @@ type KanbanColumnDef = string | {
 
 /** A card field editor handle returned by a host editor factory. */
 interface KanbanEditor {
+  /** The editor's element. The board appends it to the card being edited. */
   el: HTMLElement;
+  /**
+   * Called straight after the editor is appended, to put the caret where it belongs.
+   * Without it the board focuses `el` itself.
+   */
   focus?: () => void;
+  /**
+   * Called when the edit commits or is cancelled, so the editor can release what it
+   * holds. Optional.
+   */
   destroy?: () => void;
 }
 
@@ -74,14 +148,29 @@ type KanbanFieldMap = string | ((row: KanbanRow) => unknown) | {
 
 /** The field-to-property mapping that drives the card template. */
 interface KanbanCardMap {
+  /** The card's headline text. */
   title?: KanbanFieldMap;
+  /** A second line under the title. */
   subtitle?: KanbanFieldMap;
+  /** A comma-separated string rendered as one chip per label; blanks are skipped. */
   labels?: KanbanFieldMap;
+  /** The person shown first in the card's meta row. */
   assignee?: KanbanFieldMap;
+  /** The due date, shown in the meta row as whatever text the mapping produces. */
   due?: KanbanFieldMap;
+  /** An image URL drawn as a cover band across the top of the card. */
   cover?: KanbanFieldMap;
+  /**
+   * A progress bar over the card. The value is read as a percentage (0-100); a value that
+   * is not a number draws no bar.
+   */
   progress?: KanbanFieldMap;
+  /** A single badge chip at the end of the meta row. */
   badges?: KanbanFieldMap;
+  /**
+   * A colour for the card's left border. Any CSS colour; an empty value leaves the border
+   * plain.
+   */
   accent?: KanbanFieldMap;
   [field: string]: KanbanFieldMap | undefined;
 }
@@ -95,9 +184,19 @@ type KanbanReadonly = boolean | {
 
 /** The payload every board event carries. */
 interface KanbanEvent {
+  /** The card the event is about. */
   card: KanbanCard;
+  /** The id of the column the card is in, or null when it is unplaced. */
   column: string | null;
+  /**
+   * The card's element, for a host that wants to anchor a popover to it. Absent on a
+   * headless board.
+   */
   el?: unknown;
+  /**
+   * The DOM event that caused this one, so a host can read modifier keys or call
+   * `preventDefault`.
+   */
   originalEvent?: unknown;
 }
 
@@ -161,8 +260,17 @@ interface KanbanSlaConfig {
 
 /** The computed SLA state of one card. */
 interface KanbanSlaState {
+  /** The card this ageing state belongs to. */
   key: unknown;
+  /**
+   * The column the card was in when it was aged — the thresholds are looked up per
+   * column.
+   */
   columnId: string | null;
+  /**
+   * The card's swimlane value, for a per-lane threshold. Undefined on a board without
+   * swimlanes.
+   */
   lane?: unknown;
   /** The ageing-clock start epoch (ms), or null when no time source could be resolved. */
   start: number | null;
@@ -213,7 +321,13 @@ interface KanbanSla {
  * swimlane property) and any customer schema without code change.
  */
 interface KanbanConfig {
+  /** The source rows, one per card. Use this or `grid`, not both — `rows` wins. */
   rows?: KanbanRow[];
+  /**
+   * A Lattice grid to bind to instead of `rows`: the board reads the grid's displayed
+   * rows through its own value pipeline and writes moves back through it. On a bound
+   * board `rows.apply` and `setRows` are ignored with a warning.
+   */
   grid?: unknown;
   /**
    * Card identity (a field or fn, returning a string or number); default
@@ -222,12 +336,40 @@ interface KanbanConfig {
    * join into here.
    */
   rowKey?: string | ((row: KanbanRow) => string | number);
+  /**
+   * The row property whose value puts a card in a column. Without it (and without `grid`
+   * or `columns`) the board warns and shows nothing.
+   */
   columnProperty?: string;
+  /**
+   * The columns to show, as ids or `{ id, title, color, wipLimit, collapsed, done }`.
+   * Configured columns appear even when empty; a group value outside them still gets a
+   * column of its own, appended, so no card is dropped.
+   */
   columns?: KanbanColumnDef[];
+  /**
+   * Pins the leading column order by id; anything not named keeps its natural position
+   * after the pinned ones. A user reorder replaces this.
+   */
   columnOrder?: string[];
+  /** The row property summed into each column header's points figure. */
   pointsProperty?: string;
+  /**
+   * Show the points sum in each column and lane header (default false). It needs
+   * `pointsProperty` too.
+   */
   showPoints?: boolean;
+  /**
+   * The row property that ranks cards within a column. Set it to make dropping a card at
+   * a position meaningful: a move then writes a new order value. Without it cards stay in
+   * arrival order.
+   */
   orderProperty?: string;
+  /**
+   * The row property that puts a card in a swimlane. Naming it does not switch on the
+   * lane layout — set `swimlanes` for that — but it does let a cross-lane drop write the
+   * lane back.
+   */
   swimlaneProperty?: string;
   /** Render the 2D swimlane layout using `swimlaneProperty` (default false). */
   swimlanes?: boolean;
@@ -239,7 +381,15 @@ interface KanbanConfig {
   enforceWip?: boolean;
   /** A custom card template: return an HTML string or a DOM node to own the whole card body. */
   cardRenderer?: (card: KanbanCard, ctx: { column: KanbanColumn; readonly: boolean; el: HTMLElement; doc: Document }) => string | Node | void;
+  /**
+   * The row property holding a card's sprint, which `setSprint` and the sprint selection
+   * filter on.
+   */
   sprintProperty?: string;
+  /**
+   * The row property holding a card's epic, which `setEpic` and the epic selection filter
+   * on.
+   */
   epicProperty?: string;
   /** A configurable sprint dataset: the canonical sprint list (order + titles), shown even when empty. */
   sprints?: (string | { id: unknown; title?: string })[];
@@ -276,9 +426,23 @@ interface KanbanConfig {
   filter?: (row: KanbanRow, card: KanbanCard) => boolean;
   /** Quick-filter text matched case-insensitively across card fields. */
   quickFilter?: string;
+  /**
+   * Maps the card template's slots — title, subtitle, labels, assignee, due, cover,
+   * progress, badges, accent — to row properties, and opts a slot into inline edit. Any
+   * other name is carried as an extra field on `KanbanCard.fields`.
+   */
   card?: KanbanCardMap;
+  /**
+   * Blocks edits and moves: `true` for the whole board, or a map singling out columns and
+   * cards by id and key. Default false.
+   */
   readonly?: KanbanReadonly;
+  /** The board's accessible name. Defaults to `Board`. */
   ariaLabel?: string;
+  /**
+   * The placeholder shown in a column with no cards. Empty by default, so the module
+   * ships no English of its own.
+   */
   emptyText?: string;
   /** Whether card selection is enabled (default true). */
   selectable?: boolean;
@@ -297,8 +461,17 @@ interface KanbanConfig {
   onCardMove?: (event: KanbanMoveEvent) => boolean | void | Promise<boolean | void>;
   /** A per-card context menu: items, or `fn(card, selectedCards)` returning items. Suppresses `card:contextmenu`. */
   contextMenu?: KanbanMenuItem[] | ((card: KanbanCard, selected: KanbanCard[]) => KanbanMenuItem[]);
+  /**
+   * Called when a card is clicked, with the same payload as the `card:click` event. Both
+   * fire: this does not replace a registered handler.
+   */
   onCardClick?: (event: KanbanEvent) => void;
+  /** Called when a card is double-clicked, alongside the `card:dblclick` event. */
   onCardDblClick?: (event: KanbanEvent) => void;
+  /**
+   * Called on a card's context-menu gesture, alongside the `card:contextmenu` event. A
+   * configured `contextMenu` suppresses both.
+   */
   onCardContextMenu?: (event: KanbanEvent) => void;
 }
 
@@ -332,25 +505,48 @@ interface KanbanChildren {
 
 /** One context-menu item. `action` receives the card, the selected cards, and the board. */
 interface KanbanMenuItem {
+  /** The item's text in the menu. */
   label: string;
+  /**
+   * Runs when the item is chosen, with the clicked card, the selected cards (the clicked
+   * one when nothing is selected) and the board. Not called on a disabled item.
+   */
   action?: (ctx: { card: KanbanCard; cards: KanbanCard[]; board: Kanban }) => void;
+  /** Greys the item out and ignores clicks on it. */
   disabled?: boolean;
 }
 
 /** The payload of a `card:move` (and `card:reverted`) event. */
 interface KanbanMoveEvent {
+  /** The keys of the cards that actually moved — the ones no `beforeMove` veto refused. */
   keys: unknown[];
+  /** The moved cards, in the same order as `keys`. */
   cards: KanbanCard[];
+  /** Where each card came from, one column id (or null for unplaced) per moved card. */
   from: (string | null)[];
+  /** The column the cards landed in. */
   to: string;
+  /** The position asked for within the target column, or null for the end. */
   index: number | null;
+  /**
+   * The new order values written to `orderProperty`, one per moved card — computed to sit
+   * between the neighbours at the drop point. Null when no order property is configured.
+   */
   orders: number[] | null;
 }
 
 /** The keyed-diff consumer surface a board shares with a grid, so a Data Router routes to it directly. */
 interface KanbanRows {
+  /**
+   * Apply a keyed diff: `add` replaces whatever row each key names, `update` merges its
+   * fields into the stored row (so a patch need only carry what changed), `remove` drops
+   * the keys. The board regroups and repaints, keeping scroll, focus, selection, collapse
+   * and any open pop-out. Ignored with a warning on a grid-bound board.
+   */
   apply(change: { add?: KanbanRow[]; update?: KanbanRow[]; remove?: unknown[] }): void;
+  /** Visit every row the board holds, with its key. */
   forEach(fn: (row: KanbanRow, key: unknown) => void): void;
+  /** How many rows the board holds, before filtering. */
   readonly count: number;
 }
 
@@ -381,20 +577,43 @@ interface KanbanFilters {
  * viewer.
  */
 interface Kanban {
+  /** The element the board renders into, or null for a headless board. */
   readonly el: unknown | null;
   /** The resolved card identity; see `KanbanConfig.rowKey`. */
   readonly rowKey: string | ((row: KanbanRow) => string | number);
+  /**
+   * The keyed-diff consumer surface, the same shape a grid exposes — this is what makes a
+   * board a Data Router target.
+   */
   rows: KanbanRows;
   /** The card-aging / SLA monitor, present only when a `sla` config was supplied. */
   sla?: KanbanSla;
+  /** The current columns in display order, each with its cards and aggregates. */
   columns(): KanbanColumn[];
+  /** One column by id, or undefined when the board has no such column. */
   column(id: string): KanbanColumn | undefined;
+  /** How many cards a column holds after filtering; 0 for an unknown column. */
   count(id: string): number;
+  /** A column's points sum; 0 for an unknown column. */
   points(id: string): number;
+  /** Every card on the board, unplaced ones included, in no particular column order. */
   cards(): KanbanCard[];
+  /**
+   * One card by key, or undefined when no card has that key (it may have been filtered
+   * out).
+   */
   card(key: unknown): KanbanCard | undefined;
+  /**
+   * Register an event handler; returns a function that removes it. An unrecognised event
+   * name is warned about once, because it names a binding that could never fire.
+   */
   on(name: string, fn: (event: KanbanEvent) => void): () => void;
+  /** Remove a handler registered with `on`. */
   off(name: string, fn: (event: KanbanEvent) => void): void;
+  /**
+   * Whether editing is blocked — for the whole board, or for the column or card named in
+   * the scope.
+   */
   readonly(scope?: { column?: string; card?: unknown }): boolean;
   /**
    * Move one or more cards to a column (and, with an order property, to a
@@ -476,6 +695,10 @@ interface Kanban {
   setLoading(loading: boolean): Kanban;
   /** Set (or clear with null) an error state, rendered as a host-supplied message. */
   setError(message: string | null): Kanban;
+  /**
+   * Replace the source rows and re-render, and make that array the board's source again
+   * so a later `refresh()` re-reads it. Ignored with a warning on a grid-bound board.
+   */
   setRows(rows: KanbanRow[]): Kanban;
   /**
    * Replace the board's configured column set. Keeps card
@@ -486,7 +709,16 @@ interface Kanban {
    * "never silently drop a card" rule an unconfigured value already gets).
    */
   setColumns(defs: KanbanColumnDef[]): Kanban;
+  /**
+   * Re-read the source and re-render: a bound grid's rows, or the configured array. Once
+   * rows have arrived through `rows.apply` nothing is re-read — the board regroups what
+   * it holds, so a routed feed is never thrown away.
+   */
   refresh(): Kanban;
+  /**
+   * Empty the element, remove only the class the board added, and stop the flow and SLA
+   * monitors. A bound grid is left alone — the host owns it.
+   */
   destroy(): void;
 }
 

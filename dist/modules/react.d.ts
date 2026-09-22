@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.0, react module type declarations
+ * Lattice Grid 1.68.1, react module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -37,6 +37,10 @@ export type LatticeGridEventProps = {
 
 /** The live instance a `<LatticeGrid>` ref exposes; `null` before mount. */
 export interface LatticeGridHandle {
+  /**
+   * The live grid the component built, or null before the mount effect has run and after
+   * it has been destroyed.
+   */
   readonly grid: Grid | null;
 }
 
@@ -115,6 +119,10 @@ export function createLatticeGrid<Row = unknown>(deps: {
 
 /** The live instance a viewer component's ref exposes; `null` before mount. */
 export interface LatticeViewerHandle<Instance = unknown> {
+  /**
+   * The live viewer the component built — the board, panel, chart, plan, layout or strip
+   * — or null before mount.
+   */
   readonly instance: Instance | null;
 }
 
@@ -185,7 +193,12 @@ export type LatticeLayoutProps = Record<string, unknown> & LatticeViewerCommonPr
 
 /** One tab of a `<LatticeTabs>`; `content` makes it React's rather than the module's. */
 export interface LatticeTabSpec {
+  /**
+   * The tab's identity, used to select it, to name its slot and to derive another tab
+   * from it. Required, non-empty and unique; a duplicate or missing id is refused.
+   */
   id: string;
+  /** The text on the tab button. Defaults to the id. */
   label?: string;
   /** A React element, or a function returning one, rendered through a portal. */
   content?: unknown | (() => unknown);

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.0, data-router module type declarations
+ * Lattice Grid 1.68.1, data-router module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -53,7 +53,16 @@ type RouteWhere = Record<string, unknown>;
  * shorthand (`sum`, `avg`, `min`, `max`, `count`).
  */
 interface RouteRollup {
+  /**
+   * What identifies a group: a property name, a `fn(row)`, or a list of either for a
+   * composite. Named properties are carried onto the summary row.
+   */
   groupBy: RouterKey | RouterKey[];
+  /**
+   * The summary fields, each a reducer over the group's rows: a function handed the rows,
+   * or `{ op, field }` for `count`, `sum`, `avg`, `min` or `max` over the numeric values
+   * of `field`. `avg` over no numeric values is 0; `min` and `max` are undefined.
+   */
   aggregate?: Record<string, ((rows: RouterRecord[]) => unknown) | { op: string; field?: string }>;
 }
 
@@ -81,16 +90,68 @@ type RouterWrite = Record<string, unknown>;
  * refresh under load (v13).
  */
 interface RouteOptions {
+  /**
+   * What identifies a row on this route — a field name or a `fn(row)` — overriding the
+   * router's own `rowKey`.
+   */
   rowKey?: RouterKey;
+  /**
+   * Reshapes each row before the viewer sees it. The row's identity is still taken from
+   * the original, so the keyed diff is unaffected; a transform route is derived and its
+   * edits are always reverted.
+   */
   transform?: (row: RouterRecord) => RouterRecord;
+  /**
+   * Admits a subset of the route's partition to the viewer. It runs on the original row,
+   * before any transform and before a rollup groups them.
+   */
   filter?: (row: RouterRecord) => boolean;
+  /**
+   * Orders the rows the viewer receives — a comparator, or `{ key, dir }`. A viewer with
+   * a sort model of its own still governs the final display; for a rollup route this
+   * sorts the summary rows.
+   */
   sort?: RouteSort;
+  /**
+   * Feeds the viewer one summary row per group instead of the raw rows. A rollup route is
+   * derived and its edits are always reverted.
+   */
   rollup?: RouteRollup;
+  /**
+   * A filter-wire condition for this route's slice, read only by `query()`: the pushable
+   * part goes to the engine and the rest is finished in the browser. It has no effect on
+   * rows arriving through `load`, `apply` or `push`.
+   */
   where?: RouteWhere;
+  /**
+   * Captures the viewer's committed edits and routes them to `onWrite` instead of leaving
+   * them local. Defaults to false; on a derived (rollup or transform) route the edit is
+   * reverted with a warning whatever this says.
+   */
   writable?: boolean;
+  /**
+   * Receives each captured edit as `{ key, colId, value, before, row }`. Return `false`
+   * or `{ ok: false }` (or reject, or throw) to revert the cell, `{ conflict, row }` to
+   * fire `onConflict` and take the winning row, anything else to accept; a promise is
+   * awaited with the optimistic value standing. Overrides the router-wide handler. The
+   * context's `route` is the viewer; `source` is always null.
+   */
   onWrite?: (change: RouterWrite, ctx: { route: unknown; source: unknown }) => unknown;
+  /**
+   * Called when `onWrite` returns a `conflict`, with the server's row, so the host can
+   * tell the user. The router itself is last-write-wins: the returned row (or the
+   * optimistic one) re-enters regardless. Overrides the router-wide handler.
+   */
   onConflict?: (change: RouterWrite, ctx: { serverRow: RouterRecord }) => void;
+  /**
+   * Names this route in `metrics()` and the devtools panel. Defaults to null — the
+   * default route reports `default`.
+   */
   label?: string;
+  /**
+   * Throttles how often this route's viewer is refreshed under load. Omitted, every
+   * change repaints the viewer at once.
+   */
   backpressure?: RouteBackpressure;
 }
 
@@ -120,9 +181,26 @@ interface RouterEdge { from: unknown; to: unknown; on?: SelectionRelation; relat
  * spec. Desugars to those calls and composes with them.
  */
 interface RouterConfig {
+  /**
+   * The routes to open, each `{ grid, when, ...routeOptions }`, or `{ default: grid }`,
+   * or `{ subscribe: handler, when }`, or `{ alert: handler, when, condition }`. `when`
+   * is the partition value or predicate `attach` takes.
+   */
   routes?: Record<string, unknown>[];
+  /**
+   * Selection links to make, each naming the `from` and `to` grids and the relation as
+   * `on` (or `relation`) — the arguments of `link()`.
+   */
   links?: { from: unknown; to: unknown; on?: SelectionRelation; relation?: SelectionRelation }[];
+  /**
+   * Relationship-graph edges to register, as `relate()` takes them; an edge may be
+   * `mutual` to work in both directions.
+   */
   relate?: RouterEdge[];
+  /**
+   * Turns on the time-travel buffer, bounded by `window` (ms of feed time) and/or `max`
+   * deltas. An empty object applies a default cap of 10,000 deltas and warns.
+   */
   buffer?: { window?: number; max?: number };
 }
 
@@ -136,13 +214,37 @@ interface RouterConfig {
  * `passthrough` it unjoined, or fill the fields with `null`.
  */
 interface RouterJoin {
+  /** The id of the registered source holding the lookup rows. */
   from: string;
+  /**
+   * Reads the joining value off this source's row — a field name or a `fn(row)`.
+   * Required: without it (or `on`) the join is ignored with a warning.
+   */
   localKey?: RouterKey;
+  /** An alias for `localKey`, read when `localKey` is absent. */
   on?: RouterKey;
+  /**
+   * Reads the joining value off the lookup row — a field name or a `fn(row)`. Defaults to
+   * a string `localKey`; with a function `localKey` and no `foreignKey`, the join is
+   * ignored with a warning.
+   */
   foreignKey?: RouterKey;
+  /** An alias for `foreignKey`, read when `foreignKey` is absent. */
   fromKey?: RouterKey;
+  /**
+   * Which lookup fields to carry onto the row: a list of names, a `{ from: to }` rename
+   * map, or a `fn(lookupRow, leftRow)` returning the fields to merge. With none, rows
+   * pass through unenriched and the router warns.
+   */
   fields?: string[] | Record<string, string> | ((lookupRow: RouterRecord | null, leftRow: RouterRecord) => RouterRecord);
+  /** An alias for `fields`, read when `fields` is absent. */
   select?: string[] | Record<string, string> | ((lookupRow: RouterRecord | null, leftRow: RouterRecord) => RouterRecord);
+  /**
+   * What happens while the lookup row has not arrived: `hold` keeps the row from viewers
+   * until it does, `passthrough` sends it unenriched, `null` fills the declared fields
+   * with null. Defaults to `passthrough`, which an unrecognised value also falls back to,
+   * with a warning.
+   */
   missing?: 'hold' | 'passthrough' | 'null';
 }
 
@@ -178,9 +280,19 @@ interface RouterSourceHandle {
 
 /** One route's figures in a `metrics()` snapshot (v10). */
 interface RouterRouteMetrics {
+  /** The route's `label`, or `default` for the default route, or null when it has neither. */
   label: string | null;
+  /** How many rows the route's partition holds, before its filter, links and rollup. */
   rows: number;
+  /**
+   * How many rows the viewer currently holds — the partition after the route's filter,
+   * any cross-grid links, and a rollup's grouping.
+   */
   shown: number;
+  /**
+   * Rows routed to this route per second since the previous metrics read. The first read
+   * of a route reports 0, having no interval to measure.
+   */
   throughput: number;
   [key: string]: unknown;
 }
@@ -194,12 +306,31 @@ interface RouterSourceMetrics { id: string; rows: number; throughput: number; [k
  * dropped (duplicate), buffered and lag figures.
  */
 interface RouterMetrics {
+  /** One entry per route, in attach order, the default route last. */
   routes: RouterRouteMetrics[];
+  /** One entry per registered fan-in source. */
   sources: RouterSourceMetrics[];
+  /**
+   * How many arriving records matched no route (and went to the default sink, if there is
+   * one). Counted since the last `load()` or `query()`, each of which resets it.
+   */
   unrouted: number;
+  /**
+   * How many deltas the dedupe gate discarded as stale or already seen, cumulative for
+   * the router's life.
+   */
   dropped: number;
+  /** How many deltas the time-travel ring currently holds. Zero when not buffering. */
   buffered: number;
+  /**
+   * How many buffered deltas the viewers are behind the live head, in deltas. Nonzero
+   * only while scrubbed into the past.
+   */
   lag: number;
+  /**
+   * Rows routed across every route per second since the previous metrics read; 0 on the
+   * first read.
+   */
   throughput: number;
 }
 
@@ -220,7 +351,17 @@ interface RouterDevtoolsPanel { refresh(): void; destroy(): void }
  * `capabilities` the planner consults to decide what it may push down.
  */
 interface RouterQueryAdapter {
+  /**
+   * What the engine can evaluate, as the pushdown capability model reads it; the planner
+   * consults it to decide how much of a filter to push down. Omitted, the conservative
+   * defaults apply.
+   */
   capabilities?: Record<string, unknown>;
+  /**
+   * Runs one planned query and resolves to its rows (`total` optional and unused by the
+   * router). Called once per `where` route, plus once for the base query shared by the
+   * routes without one.
+   */
   execute: (query: Record<string, unknown>, request?: Record<string, unknown>) => Promise<{ rows: RouterRecord[]; total?: number }>;
 }
 
@@ -230,11 +371,24 @@ interface RouterQueryAdapter {
  * `indexedDB` / `dbName` / `storeName` select the browser store.
  */
 interface RouterPersistOptions {
+  /** The record the snapshot is written under. Defaults to `lattice-router`. */
   key?: string;
+  /**
+   * How long to wait after a change before writing, in ms, so a burst costs one write.
+   * Defaults to 250; zero or less writes on every change.
+   */
   debounce?: number;
+  /** An async key/value backend of your own. Given one, IndexedDB is never opened. */
   storage?: { get: (key: string) => Promise<unknown>; set: (key: string, value: unknown) => Promise<void> };
+  /**
+   * The `IDBFactory` to open the database with. Defaults to the global `indexedDB`; where
+   * none is reachable the router warns once and keeps running in memory with no durable
+   * resume.
+   */
   indexedDB?: unknown;
+  /** The IndexedDB database to open. Defaults to `lattice-router`. */
   dbName?: string;
+  /** The object store inside the database. Defaults to `snapshots`. */
   storeName?: string;
 }
 
@@ -356,20 +510,92 @@ interface DataRouter {
  * disables the timer) (v10).
  */
 interface DataRouterOptions {
+  /**
+   * How a record says which partition it belongs to: a property name, or a
+   * function of the record. This is the one thing the router needs to route.
+   */
   key?: RouterKey;
+  /**
+   * A record's identity within a route — a property name or a function. It
+   * is what makes an update an update rather than a second row, and what
+   * lets a record whose partition changed *move* between routes instead of
+   * being duplicated. Defaults to the record's `rowKey` property.
+   */
   rowKey?: RouterKey;
+  /**
+   * Send a record to every route whose predicate it matches, rather than to
+   * the first one only. Off by default.
+   */
   overlap?: boolean;
+  /**
+   * Called with each record that matched no route. They are never silently
+   * dropped: they are counted as well, and go to the default route when one
+   * is attached.
+   */
   onUnrouted?: (item: RouterRecord | RouterDelta) => void;
+  /**
+   * How long, in milliseconds, to wait before re-filtering linked grids
+   * after a selection changes. 16 by default; `0` re-filters synchronously.
+   */
   selectionDebounce?: number;
+  /**
+   * Where a record carries its version or sequence number — a property name
+   * or a function. Supplying it lets the router apply a feed in order and,
+   * unless `dedupe` says otherwise, drop a delta it has already seen.
+   */
   seq?: RouterKey;
+  /**
+   * Whether to drop a record whose sequence number is not newer than the
+   * last one applied for that identity. On whenever `seq` is given;
+   * meaningless without it.
+   */
   dedupe?: boolean;
+  /**
+   * Buffer incoming records and apply them on an interval rather than one at
+   * a time: a number of milliseconds, or `{ intervalMs }`. Batching also
+   * turns coalescing on.
+   */
   batch?: number | { intervalMs: number };
+  /**
+   * Settle repeated updates to the same identity inside one batch into a
+   * single apply, so a fast feed costs one update per row rather than one
+   * per message.
+   */
   coalesce?: boolean;
+  /**
+   * Where a record carries its timestamp — a property name or a function. It
+   * is the axis `scrubTo` and `replay` move along when time-travel is
+   * buffering.
+   */
   time?: RouterKey;
+  /**
+   * The clock the router stamps and expires by. `Date.now` unless you supply
+   * one, which is how a test drives time without faking the global.
+   */
   now?: () => number;
+  /**
+   * A whole router described as data — routes, links, buffering — applied
+   * through `configure()` as soon as the router is built.
+   */
   config?: RouterConfig;
+  /**
+   * Persist an edit committed in any route attached `{ writable: true }`
+   * that names no handler of its own. Return, or resolve, falsely to revert
+   * the edit; a route with neither this nor its own handler leaves the edit
+   * in place unpersisted and warns.
+   */
   onWrite?: (change: RouterWrite, ctx: { route: unknown; source: unknown }) => unknown;
+  /**
+   * Called when a write comes back reporting a conflict, with the server's
+   * version of the row. The router itself is last-write-wins; this is where
+   * a host resolves it differently.
+   */
   onConflict?: (change: RouterWrite, ctx: { serverRow: RouterRecord }) => void;
+  /**
+   * How often, in milliseconds, to emit the `metrics` event. 1000 by
+   * default; `0` stops the timer and leaves `metrics()` to be read on
+   * demand.
+   */
   metricsInterval?: number;
 }
 

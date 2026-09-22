@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.0, devtools module type declarations
+ * Lattice Grid 1.68.1, devtools module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

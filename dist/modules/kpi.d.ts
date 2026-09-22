@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.0, kpi module type declarations
+ * Lattice Grid 1.68.1, kpi module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -20,21 +20,47 @@ type KPIFormat =
  * below it critical; `lowerIsBetter` mirrors it. Colour is a host concern.
  */
 interface KPIThresholds {
+  /**
+   * The cut point between good and warning. With the default `higherIsBetter`, a value at
+   * or above it is good.
+   */
   warn: number;
+  /**
+   * The cut point between warning and critical. With `higherIsBetter`, a value at or
+   * above it (but below `warn`) is a warning and anything below it is critical.
+   */
   critical: number;
+  /**
+   * Which way is good. `higherIsBetter` (the default) grades upwards from the cut points;
+   * `lowerIsBetter` mirrors them, so a small value is the healthy one.
+   */
   direction?: 'higherIsBetter' | 'lowerIsBetter';
 }
 
 /** An explicit band: the `status` of the first band whose half-open `[min, max)` contains the value. */
 interface KPIBand {
+  /** The lower bound, inclusive. Omitted, the band reaches down without limit. */
   min?: number;
+  /** The upper bound, exclusive. Omitted, the band reaches up without limit. */
   max?: number;
+  /**
+   * The status a value inside this band reports. The first matching band in the list
+   * wins, so order them from the narrowest.
+   */
   status: 'good' | 'warn' | 'critical';
 }
 
 /** An optional sparkline series: the `y` field plotted in order of the `x` field (or insertion). */
 interface KPISparkline {
+  /**
+   * The field the points are ordered by. Omitted, the rows are plotted in the order the
+   * panel holds them.
+   */
   x?: string;
+  /**
+   * The value plotted — a field name or a function of the row. Anything that is not a
+   * finite number is dropped, and a series with no finite points renders no sparkline.
+   */
   y: string | ((row: KPIRow) => unknown);
 }
 
@@ -165,18 +191,37 @@ interface KPINodeModel {
   key: string;
   /** The tile id, or null on a synthesised level. */
   id: string | null;
+  /**
+   * What the node is called: the tile's own label, or the path segment a synthesised
+   * level came from.
+   */
   label: string;
   /** Depth, 0 at the top level. */
   level: number;
   /** Its place among its siblings, from 1, and how many there are. */
   posinset: number;
+  /**
+   * How many siblings the node sits among — the other half of the screen-reader's "3 of
+   * 7".
+   */
   setsize: number;
+  /** Whether the node has anything beneath it. A leaf is never expandable. */
   hasChildren: boolean;
+  /**
+   * Whether the branch is currently open. Always false for a leaf; a collapsed branch's
+   * children are not rendered, because its worst status is already on the node that is.
+   */
   expanded: boolean;
+  /** The node's children, in order, each a full node model. */
   children: KPINodeModel[];
   /** The node's own tile, or null on a synthesised level. */
   tile: KPITileModel | null;
+  /**
+   * The node's own reading, from its tile. Null on a synthesised level — no value is
+   * invented for a branch from its children.
+   */
   value: unknown;
+  /** The node's reading as text, formatted by its tile. Null on a synthesised level. */
   formatted: string | null;
   /** The node's own status. */
   status: 'good' | 'warn' | 'critical' | 'unknown' | null;
@@ -190,11 +235,21 @@ interface KPINodeModel {
 
 /** A computed tile, as it appears in the model. */
 interface KPITileModel {
+  /** The tile's identity — its configured `id`, else its label, else its index. */
   id: string;
+  /** The tile's accessible name, as configured. */
   label: string;
   /** `'stat'` for an aggregate tile, `'clock'` for a clock tile. */
   kind: 'stat' | 'clock';
+  /**
+   * How the value was reduced: `sum`, `avg`, `min`, `max`, `count`, `countDistinct` or
+   * `custom`.
+   */
   aggregation: string;
+  /**
+   * The row field the aggregation read. Undefined for a `count` or custom tile that names
+   * none, and on a clock tile.
+   */
   field?: string;
   /** For a clock tile, the read instant as epoch milliseconds. */
   value: unknown;
@@ -216,27 +271,64 @@ interface KPITileModel {
    * normally. `null` means the tile has no thresholds or bands configured.
    */
   status: 'good' | 'warn' | 'critical' | 'unknown' | null;
+  /**
+   * The tile's target, as configured. It also extends the meter's scale when it falls
+   * outside the bands. Undefined on a clock tile.
+   */
   target?: number;
+  /** The comparison value the movement line is measured from, as configured. */
   baseline?: number;
+  /** `value − baseline`. Null when the tile has no baseline or measured no number. */
   delta: number | null;
+  /**
+   * The delta as a fraction of the baseline. Null when there is no delta, and when the
+   * baseline is zero — a percentage of nothing is not reported as infinity.
+   */
   deltaPercent: number | null;
+  /**
+   * The delta rendered with the tile's own number format. Undefined when there is no
+   * delta.
+   */
   deltaFormatted?: string;
   /** What the movement line prints; see `KPIStatTile.delta`. Always present once `baseline` is. */
   deltaMode?: 'absolute' | 'relative' | 'both';
+  /**
+   * How many of the panel's rows this tile's filter admitted — its own membership, which
+   * may be 0 while the panel holds rows. Always 0 on a clock tile.
+   */
   count: number;
+  /**
+   * The tile's trend series, as the finite numbers it plots, in `x` order. Null when the
+   * tile declares no sparkline and when no row yielded a finite value.
+   */
   sparkline: number[] | null;
 }
 
 /** The payload every tile event carries. */
 interface KPIEvent {
+  /** The tile model the event is about. */
   tile: KPITileModel;
+  /** That tile's id, for a host that only needs to switch on it. */
   id: string;
+  /**
+   * The DOM event behind this one — a click, double-click, context-menu gesture or the
+   * Enter/Space keypress that stands in for a click.
+   */
   originalEvent?: unknown;
 }
 
 /** KPI panel configuration. */
 interface KPIConfig {
+  /**
+   * The rows the tiles reduce over. Use this or `grid`; passing both leaves the panel on
+   * the array.
+   */
   rows?: KPIRow[];
+  /**
+   * A Lattice grid to follow instead of `rows`: the panel reads the grid's displayed rows
+   * and re-reads them whenever the grid settles, so it never disagrees with the table
+   * beneath it. On a bound panel `rows.apply` and `setRows` are ignored with a warning.
+   */
   grid?: unknown;
   /**
    * Row identity (a field or fn, returning a string or number); default
@@ -253,9 +345,20 @@ interface KPIConfig {
    * confident zero. Ignored on a panel over a plain `rows` array.
    */
   fields?: string[];
+  /** The tiles to show, in display order: aggregate stat tiles, or clock tiles. */
   tiles?: KPITile[];
+  /**
+   * How many tile columns to aim for. Tiles shrink to fit rather than overflow the host,
+   * so a narrow panel settles on fewer. Unset, the layout fits as many as the width
+   * allows.
+   */
   columns?: number;
+  /** The panel's accessible name. Unset, the panel carries none. */
   ariaLabel?: string;
+  /**
+   * The placeholder printed where a tile has no number — an unknown tile, or one whose
+   * aggregation returned nothing. Defaults to an em dash.
+   */
   nullText?: string;
   /**
    * The default locale a clock tile formats in when the tile itself declares
@@ -276,17 +379,41 @@ interface KPIConfig {
    * the shape; a key it does not carry falls back to English.
    */
   messages?: { t(key: string, params?: Record<string, unknown>): string };
+  /**
+   * Called when a tile is clicked (or activated from the keyboard), with the same payload
+   * as the `tile:click` event. Both fire.
+   */
   onTileClick?: (event: KPIEvent) => void;
+  /** Called when a tile is double-clicked, alongside the `tile:dblclick` event. */
   onTileDblClick?: (event: KPIEvent) => void;
+  /** Called on a tile's context-menu gesture, alongside the `tile:contextmenu` event. */
   onTileContextMenu?: (event: KPIEvent) => void;
+  /**
+   * Called when a branch of a hierarchical panel opens or closes, with the node's key,
+   * its new state and the node model. Alongside the `node:toggle` event.
+   */
   onNodeToggle?: (event: { key: string; expanded: boolean; node?: KPINodeModel }) => void;
+  /**
+   * Called after every recompute, with the freshly built model — the hook for mirroring
+   * the panel's numbers somewhere else. Alongside the `change` event.
+   */
   onChange?: (event: { model: { tiles: KPITileModel[]; nodes?: KPINodeModel[] } }) => void;
 }
 
 /** The keyed-diff consumer surface a KPI panel shares with a grid, so a Data Router routes to it directly. */
 interface KPIRows {
+  /**
+   * Apply a keyed diff: `add` and `update` upsert a row by its key, `remove` drops one.
+   * Only the rows in the diff touch each tile's running total, so a live feed costs
+   * nothing per unchanged row. Ignored with a warning on a grid-bound panel.
+   */
   apply(change: { add?: KPIRow[]; update?: KPIRow[]; remove?: unknown[] }): void;
+  /** Visit every row the panel holds, with its key. */
   forEach(fn: (row: KPIRow, key: unknown) => void): void;
+  /**
+   * How many rows the panel holds. This is the panel's emptiness test: with none, every
+   * stat tile reports `unknown` rather than a healthy zero.
+   */
   readonly count: number;
 }
 
@@ -297,14 +424,25 @@ interface KPIRows {
  * updating each tile incrementally from the routed delta.
  */
 interface KPI {
+  /** The element the panel renders into, or null for a headless panel. */
   readonly el: unknown | null;
   /** The resolved row identity; see `KPIConfig.rowKey`. */
   readonly rowKey: string | ((row: KPIRow) => string | number);
   /** Whether the panel renders as a hierarchy rather than a flat tile grid. */
   readonly tree: boolean;
+  /**
+   * The keyed-diff consumer surface, the same shape a grid exposes — this is what makes a
+   * panel a Data Router target.
+   */
   rows: KPIRows;
+  /** Every tile model, in configured order. */
   tiles(): KPITileModel[];
+  /** One tile model by id, or undefined when no tile has that id. */
   tile(id: string): KPITileModel | undefined;
+  /**
+   * A tile's computed value. Null for an unknown id, and for a tile that measured
+   * nothing.
+   */
   value(id: string): unknown;
   /** The top-level nodes of the hierarchy. Empty on a flat panel. */
   nodes(): KPINodeModel[];
@@ -312,15 +450,47 @@ interface KPI {
   node(key: string): KPINodeModel | undefined;
   /** The nodes on screen: the roots, plus the children of every open branch. */
   visibleNodes(): KPINodeModel[];
+  /**
+   * Open a branch of a hierarchical panel by node key, re-render, and fire `node:toggle`.
+   * A key that is already open changes nothing.
+   */
   expand(key: string): KPI;
+  /** Close a branch by node key, re-render, and fire `node:toggle`. */
   collapse(key: string): KPI;
+  /** Flip a branch between open and closed, firing `node:toggle` on the change. */
   toggle(key: string): KPI;
+  /**
+   * Replace the source rows and recompute, and make that array the source again so a
+   * later `refresh()` re-reads it. Ignored with a warning on a grid-bound panel.
+   */
   setRows(rows: KPIRow[]): KPI;
+  /**
+   * Recompute every tile and re-render. A bound panel re-reads the grid now rather than
+   * at the end of the turn; a configured panel re-reads its array; once rows have arrived
+   * through `rows.apply` nothing is re-read, so a routed feed is never thrown away.
+   */
   refresh(): KPI;
+  /**
+   * The restorable state: the rows the panel holds, and — on a hierarchical panel only —
+   * which branches are open.
+   */
   getState(): object;
+  /**
+   * Restore a snapshot from `getState`. A snapshot without `expanded` leaves the
+   * expansion alone rather than collapsing the rail.
+   */
   setState(snapshot: object): KPI;
+  /**
+   * Register an event handler; returns a function that removes it. An unrecognised event
+   * name is warned about once.
+   */
   on(name: string, fn: (event: KPIEvent) => void): () => void;
+  /** Remove a handler registered with `on`. */
   off(name: string, fn: (event: KPIEvent) => void): void;
+  /**
+   * Drop every listener, stop following the bound grid, stop any clock tile ticking, and
+   * empty the element (removing only the class the panel added).
+   */
   destroy(): void;
 }
 
