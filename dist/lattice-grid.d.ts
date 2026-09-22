@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.2, type declarations
+ * Lattice Grid 1.69.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -3410,6 +3410,15 @@ export interface GridConfig {
    * own `<html lang>` and then to `en-GB`.
    */
   locale?: string;
+  /**
+   * A partial message catalogue laid over the one `locale` resolves — every
+   * string the grid renders or announces. Supply a bundled catalogue (`FR_FR`,
+   * `AR`, …) or your own object; overrides merge over the default rather than
+   * replacing it, so translating part of the interface leaves the remainder in
+   * English rather than showing raw keys. Every valid key is listed in
+   * `MESSAGE_KEYS`; a key that is not is ignored with a warning.
+   */
+  messages?: Record<string, string | Record<string, string>>;
   /**
    * Writing direction. An explicit `'ltr'` or `'rtl'` always wins. Omit it, or
    * say `'auto'`, to settle it from the mount or the nearest ancestor
