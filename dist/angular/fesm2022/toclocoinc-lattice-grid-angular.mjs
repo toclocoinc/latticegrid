@@ -2764,6 +2764,7 @@ class LatticeTabsComponent {
             const emitter = this[eventProp(event)];
             if (!emitter)
                 continue;
+
             const stop = strip.on(event, (payload) => {
                 emitInZone(this.zone, emitter, payload);
             });

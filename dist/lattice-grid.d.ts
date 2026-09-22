@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.1, type declarations
+ * Lattice Grid 1.68.2, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -329,6 +329,12 @@ export interface NumberFormat {
    * `'scientific'`.
    */
   notation?: 'standard' | 'compact' | 'scientific';
+  /**
+   * Which compact form `notation: 'compact'` uses — `'short'` (the default)
+   * gives `1.2M`, `'long'` gives `1.2 million`. Ignored under any other
+   * notation.
+   */
+  compactDisplay?: 'short' | 'long';
   /**
    * How a negative number reads: `'minus'`, the default, gives `-1,234`;
    * `'parentheses'` gives `(1,234)`, the accounting form; `'suffix'` gives
@@ -954,8 +960,11 @@ export interface Editor {
    */
   cancelBeforeStart?(): boolean;
   /**
-   * Declared, but not consulted by the grid: an editor discards its session by
-   * calling `params.stop(true)`, which is what the built-in editors do.
+   * Return `true` when the session ends to discard the edit instead of
+   * committing it — the counterpart of `cancelBeforeStart`, asked once, on the
+   * commit path every route ends at (Enter, Tab, and clicking away). The
+   * built-in editors answer `true` after their own `cancel()`; an editor may
+   * also discard at any moment by calling `params.stop(true)`.
    */
   cancelOnClose?(): boolean;
   /**
@@ -1343,17 +1352,20 @@ export interface ColumnCellSpec {
    */
   wrap?: boolean;
   /**
-   * Declared, but not read: rows that grow to fit their content are a
-   * grid-level setting, `autoHeight`, and this per-column flag reaches
-   * nothing. `cell.wrap` is the per-column half that does work.
+   * Flash this column's cells when their value changes — the per-column half
+   * of the grid-level `highlightOnChange`, for a grid where one column is the
+   * one worth watching. `true` takes the default colour and duration; an
+   * object takes the same `{ colour, duration }` the grid-level key accepts.
+   * Grid-level `highlightOnChange` covers every column and wins where both are
+   * set.
    */
-  autoHeight?: boolean;
-  /**
-   * Declared, but not read: flashing a cell whose value changed is a
-   * grid-level setting, `highlightOnChange`, and this per-column flag reaches
-   * nothing.
-   */
-  flash?: boolean;
+  flash?: boolean | string | {
+    colour?: string;
+    color?: string;
+    /** Milliseconds. `0` leaves the highlight until it is cleared. */
+    duration?: number;
+    enabled?: boolean;
+  };
   /**
    * Make this column's cell span several columns, as a function of the cell.
    * Return 1 or less for no span; the span is floored and clamped to the
@@ -1553,12 +1565,16 @@ export interface ColumnLayoutSpec {
    */
   lockVisible?: boolean;
   /**
-   * Hold this column where it is: it cannot be dragged, and it cannot be
-   * pulled into a header band. Off by default. Only truthiness is read, so
-   * `'start'` and `'end'` lock the column where it already sits rather than
-   * moving it to that edge.
+   * Hold this column where it is: it cannot be dragged, it cannot be moved by
+   * the keyboard, and it cannot be pulled into a header band. Off by default.
+   *
+   * This locks a column; it does not place one. `'start'` and `'end'` were
+   * declared and never implemented — every reader tested truthiness, so either
+   * one pinned the column wherever it already sat — and the union was narrowed
+   * to the boolean the grid actually honours. Put a column
+   * at an edge by ordering `columns`, or pin it with `layout.pinned`.
    */
-  lockPosition?: boolean | 'start' | 'end';
+  lockPosition?: boolean;
 }
 
 export interface ColumnHeaderSpec {
@@ -1929,8 +1945,10 @@ export interface ColumnGroup {
    */
   showWhen?: 'open' | 'closed' | 'always';
   /**
-   * Declared, and carried onto the resolved band, but not read: nothing in the
-   * grid consults it when a column is moved.
+   * Keep this band's columns together: a move that would take one of them out
+   * of the band's run, or drop a column from outside into it, is refused with
+   * a warning. Off by default, in which case a drag, a keyboard move or the
+   * column menu may separate them.
    */
   marryChildren?: boolean;
   /**
@@ -3119,8 +3137,9 @@ export interface EditConfig {
   mode?: 'cell' | 'row';
   /**
    * Which mouse gesture opens an editor: `'double'` click, the default, or
-   * `'single'`. The keyboard path is always live regardless. `'key'` is
-   * accepted but behaves as `'double'` — it does not suppress the mouse.
+   * `'single'`. `'key'` binds no mouse gesture at all, for a grid that is read
+   * with the mouse and written with the keyboard. The keyboard path (Enter,
+   * F2, typing over a cell) is live under all three.
    */
   start?: 'single' | 'double' | 'key';
   /**
@@ -4491,6 +4510,12 @@ export interface GridState {
   where?: string[];
   /** The quick-filter text. Absent when there was none. */
   quick?: string;
+  /**
+   * How the quick filter matched. Saved with the text and only when it is not
+   * the default, because a view restored as `contains` when it was saved as
+   * `words` or `regex` shows a different set of rows than the one it captured.
+   */
+  quickMode?: 'contains' | 'words' | 'fuzzy' | 'regex';
   /** The sort entries that were in force, outermost first. */
   sort?: SortEntry[];
   /** The ids of the columns the rows were grouped by, outermost first. */
@@ -4515,6 +4540,17 @@ export interface GridState {
    * content coordinates, so they track scroll and resize.
    */
   annotations?: AnnotationMark[];
+  /**
+   * The ids of the redacted columns. Always present when the grid has a
+   * redaction model — even empty — so that "stop redacting" is an action redo
+   * can reproduce.
+   */
+  redaction?: string[];
+  /**
+   * The ids of the columns whose histogram is open. Always present when the
+   * grid has a facet model, for the same reason `redaction` is.
+   */
+  facets?: string[];
   /** The keys of the group and tree rows that were open. */
   expanded?: string[];
   /** The keys of the selected rows. */
@@ -4595,8 +4631,10 @@ export interface FormattingScale {
   /** The value that takes the last colour. Required unless `from` derives it. */
   max?: number;
   /**
-   * Declared, but not read: a three-colour scale is made by giving three
-   * `colours`, whose middle stop is reached at the midpoint of the range.
+   * The value the middle colour is reached at. Needs an odd number of
+   * `colours` (a middle stop to pin) and a value inside `min`..`max`; each
+   * half of the scale is then spaced evenly within itself, so only the pivot
+   * moves. Without it the middle stop sits at the midpoint of the range.
    */
   mid?: number;
   /**
@@ -5972,6 +6010,18 @@ export interface ColumnProfile {
    * profile is opened to answer.
    */
   missing: number;
+  /**
+   * How many of those rows carry a value the statistics could use — a number.
+   * `present` counts values of any kind, so the two differ on a text column
+   * and on one with unparseable entries.
+   */
+  numeric: number;
+  /**
+   * What the figures were computed over, when that is a window rather than
+   * every matching row (a source that holds everything omits it, so
+   * `if (profile.coverage)` is the "is this windowed" test).
+   */
+  coverage?: { covered: number; total: number };
   /** How many different values the column holds over those rows. */
   distinct: number;
   /** The smallest numeric value, or null on a column with no numbers in it. */
@@ -6446,96 +6496,368 @@ export interface ColumnDistribution {
  */
 export type EventName =
   /* Lifecycle */
-  | 'ready' | 'destroy' | 'render:first' | 'render:done' | 'config:changed'
+  /** The grid has finished building and every API on it is ready to call; fires once, on the frame after `createGrid` returns. */
+  | 'ready'
+  /** `grid.destroy()` was called and is about to release everything, so a handler can still read the grid one last time. */
+  | 'destroy'
+  /** The renderer has written its first frame into the host element. */
+  | 'render:first'
+  /** A render pass has finished writing cells: the row window it drew, what caused the pass, and how long each phase took. */
+  | 'render:done'
+  /** A configuration key was written at run time through `grid.set(key, value)` or `grid.setAll(values)`, after the grid rebuilt. */
+  | 'config:changed'
+  /** A licence key was installed through `grid.licence.set(key)`, and again when its asynchronous verification settles. */
   | 'licence:changed'
   /* Data */
-  | 'model:changed' | 'rows:changed' | 'rows:queued' | 'rows:deferred'
-  | 'rows:paused' | 'rows:resumed' | 'row:received' | 'row:sent' | 'row:copied'
-  | 'row:moved' | 'source:error' | 'stream:chunk' | 'stream:end' | 'stream:evicted'
+  /** The display model was rebuilt — rows reloaded, the tree re-flattened, a page fetched, a query re-run — with `reason` naming which. */
+  | 'model:changed'
+  /** Rows were added, updated, removed or moved. `identified: true` means the payload names exactly which rows moved. */
+  | 'rows:changed'
+  /** A change arrived while the feed was being batched and was put on the queue instead of applied. */
+  | 'rows:queued'
+  /** A flush ran out of its frame budget and carried the rest of the change into the next one. */
+  | 'rows:deferred'
+  /** `grid.changes.pause()` held the feed: changes keep arriving and stop being applied. */
+  | 'rows:paused'
+  /** `grid.changes.resume()` released the feed and applied what had been held. */
+  | 'rows:resumed'
+  /** A row dragged from another grid was accepted into this one, on the receiving grid. */
+  | 'row:received'
+  /** A row was dragged out of this grid into another one and removed from here (a move, not a copy). */
+  | 'row:sent'
+  /** A row was dragged out of this grid into another one and kept here as well (a copy). */
+  | 'row:copied'
+  /** A row was reordered within this grid, from one display index to another. */
+  | 'row:moved'
+  /** A source could not fetch what was asked of it: a page, a group's children, a tree branch, or the stream itself. */
+  | 'source:error'
+  /** A streaming source applied a chunk of arriving rows. */
+  | 'stream:chunk'
+  /** A streaming source reached the end of its feed; `promoted` says whether it handed over to an in-memory source. */
+  | 'stream:end'
+  /** A rolling-window stream dropped rows off the back of its window to stay inside its limit. */
+  | 'stream:evicted'
   /* The row-drag gesture as it happens. Notifications only:
    * the drop is already vetoable by `beforeRowMove` and `beforeRowReceive`, and
    * a third veto on the same gesture would be a fourth place to look. All four
    * fire on the grid the drag started in and carry a {@link RowDragEvent}. */
-  | 'rowDrag:started' | 'rowDrag:moved' | 'rowDrag:left' | 'rowDrag:ended'
+  /** A row drag passed the drag threshold and began, on the grid the row was picked up in. */
+  | 'rowDrag:started'
+  /** The pointer moved during a row drag, coalesced to one event per animation frame. */
+  | 'rowDrag:moved'
+  /** The pointer left a grid it had been dragging over; `over` names the grid just left. */
+  | 'rowDrag:left'
+  /** The row drag ended — released anywhere, inside a grid or outside every one; `dropped` says whether it is being acted on. */
+  | 'rowDrag:ended'
   /* Cells and editing */
-  | 'cell:changed' | 'cell:pending' | 'cell:confirmed' | 'cell:reverted' | 'cell:conflict'
-  | 'cell:clicked' | 'cell:dblclicked' | 'cell:contextmenu'
+  /** A cell's value was written: by an edit commit, by a revert, or by an undo/redo step. */
+  | 'cell:changed'
+  /** An optimistic cell edit was sent to the transport and is awaiting the server's answer. */
+  | 'cell:pending'
+  /** The server accepted a pending cell edit; `value` is what it confirmed, which may not be what was sent. */
+  | 'cell:confirmed'
+  /** A pending cell edit was refused and the previous value put back. */
+  | 'cell:reverted'
+  /** The server accepted a pending cell edit but returned a row that disagrees with what the grid holds. */
+  | 'cell:conflict'
+  /** A cell was clicked (primary button, single click). */
+  | 'cell:clicked'
+  /** A cell was double-clicked. */
+  | 'cell:dblclicked'
+  /** A context menu was requested on a cell, by the pointer or by the keyboard's menu key. */
+  | 'cell:contextmenu'
   /* The pointer entering and leaving a cell. Announcements
    * only, carrying what `cell:clicked` carries plus the cell element as
    * `target`. A host cannot wire these itself: rows and cells are pooled and
    * re-used as the grid scrolls, so a listener bound to a cell node fires for
    * whichever row occupies it next. Nothing in the grid is gated on hover, so
    * a keyboard user reaches everything a pointer does. */
-  | 'cell:mouseover' | 'cell:mouseout'
+  /** The pointer entered a cell; crossing between two children of one cell is not a re-entry. */
+  | 'cell:mouseover'
+  /** The pointer left a cell; crossing between two children of one cell is not a departure. */
+  | 'cell:mouseout'
   /* A pointer press and release on a cell, the same
    * convention as the hover pair above: announcements only, carrying what
    * `cell:clicked` carries plus the cell element as `target`. A host cannot
    * wire these itself for the same reason it cannot wire the hover pair —
    * rows and cells are pooled and re-used as the grid scrolls, so a listener
    * bound to a cell node fires for whichever row occupies it next. */
-  | 'cell:mousedown' | 'cell:mouseup'
-  | 'cell:edit:start' | 'cell:edit:end' | 'row:edit:start' | 'row:edit:end'
-  | 'row:clicked' | 'row:dblclicked'
-  | 'row:pending' | 'row:confirmed' | 'row:reverted' | 'row:conflict'
-  | 'form:opened' | 'form:closed' | 'form:saved' | 'form:error'
+  /** A pointer button was pressed on a cell, before any click is resolved. */
+  | 'cell:mousedown'
+  /** A pointer button was released on a cell. */
+  | 'cell:mouseup'
+  /** A cell editor opened, by double-click, by Enter, or by typing into the cell. */
+  | 'cell:edit:start'
+  /** A cell editor closed: committed, cancelled, or refused by validation — `valid` and `cancelled` say which. */
+  | 'cell:edit:end'
+  /** A whole-row editor opened, the row-edit counterpart of `cell:edit:start`. */
+  | 'row:edit:start'
+  /** A whole-row editor closed, the row-edit counterpart of `cell:edit:end`. */
+  | 'row:edit:end'
+  /** A row was clicked, alongside the `cell:clicked` for the cell under the pointer. */
+  | 'row:clicked'
+  /** A row was double-clicked, alongside the `cell:dblclicked` for the cell under the pointer. */
+  | 'row:dblclicked'
+  /** An optimistic row append or delete was sent to the transport and is awaiting the server's answer. */
+  | 'row:pending'
+  /** The server accepted a pending row append or delete; an append is rekeyed from its temporary key first. */
+  | 'row:confirmed'
+  /** A pending row append or delete was refused: the optimistic append is discarded, the tombstoned row restored. */
+  | 'row:reverted'
+  /** The server accepted a pending row append or delete but returned a row that disagrees with what the grid holds. */
+  | 'row:conflict'
+  /** The row form opened over a row. */
+  | 'form:opened'
+  /** The row form was closed without saving. */
+  | 'form:closed'
+  /** The row form's values were saved back to the row. */
+  | 'form:saved'
+  /** The row form could not load or save a row; `timedOut` distinguishes a slow backend from a refusal. */
+  | 'form:error'
   /* Query */
-  | 'sort:changed' | 'filter:changed' | 'group:toggled'
-  | 'facet:computed' | 'facet:filtered' | 'facet:expanded' | 'facet:failed'
+  /** The sort order changed, through `grid.sort.set()` or a header click. */
+  | 'sort:changed'
+  /** The filters changed: a structured condition, the quick filter's text, or a named host predicate. */
+  | 'filter:changed'
+  /** A group row was expanded or collapsed — one group, one branch, or all of them at once. */
+  | 'group:toggled'
+  /** A column's facet buckets finished computing, with how long it took and whether a worker did it. */
+  | 'facet:computed'
+  /** A facet histogram was used to filter its column, or that filter was cleared. */
+  | 'facet:filtered'
+  /** A facet panel section was opened or closed. */
+  | 'facet:expanded'
+  /** A column's facet buckets could not be computed. */
+  | 'facet:failed'
   /* Columns */
-  | 'column:moved' | 'column:resized' | 'column:visible' | 'column:pinned'
-  | 'column:grouped' | 'column:pivoted' | 'column:filter:open' | 'column:profile:open'
+  /** A column was moved to a different display position. */
+  | 'column:moved'
+  /** A column's width changed, by a header drag or by `grid.columns.resize()`. */
+  | 'column:resized'
+  /** Columns were shown or hidden. */
+  | 'column:visible'
+  /** A column was pinned to a side, or unpinned. */
+  | 'column:pinned'
+  /** The row grouping changed: which columns the rows are grouped by. */
+  | 'column:grouped'
+  /** The pivot changed: which columns the rows are pivoted by, locally or pushed down to the backend. */
+  | 'column:pivoted'
+  /** The header's filter affordance was activated and the column's filter popup should open. */
+  | 'column:filter:open'
+  /** The column menu's profile item was activated and the column's profile should open. */
+  | 'column:profile:open'
+  /** The header's menu affordance was activated and the column menu should open. */
   | 'column:menu:open'
+  /** A pivot measure cell was drilled into; the payload names the row and column paths behind it. */
   | 'pivot:drill'
-  | 'columns:changed' | 'columns:tagged' | 'columngroup:changed' | 'header:contextmenu'
+  /** The column set changed other than by moving, resizing, hiding or pinning — a type inference pass rewrote it. */
+  | 'columns:changed'
+  /** `grid.columns.showTagged()` chose which columns to show from their tags. */
+  | 'columns:tagged'
+  /** A banded header group was formed, renamed, moved, dissolved, removed or restored from state. */
+  | 'columngroup:changed'
+  /** A context menu was requested on a column header. */
+  | 'header:contextmenu'
   /* Selection and view */
-  | 'selection:changed' | 'range:changed' | 'clipboard:copy'
-  | 'page:changed' | 'scroll' | 'scroll:end' | 'size:changed'
-  | 'detail:toggled' | 'toolpanel:focus' | 'highlight:changed' | 'find:changed'
+  /** The row selection changed and was accepted (a `beforeSelect` veto raises `selection:cancelled` instead). */
+  | 'selection:changed'
+  /** The selected cell ranges changed. */
+  | 'range:changed'
+  /** A copy to the clipboard was attempted; `ok` says whether it reached the clipboard. */
+  | 'clipboard:copy'
+  /** The page or the page size changed. */
+  | 'page:changed'
+  /** The viewport scrolled to a new offset; fires only when the offset actually moved, not on a refresh. */
+  | 'scroll'
+  /** Scrolling settled: the last of a scroll gesture's frames has been drawn. */
+  | 'scroll:end'
+  /** The host element's box changed size, as reported by the `ResizeObserver` the grid watches it with. */
+  | 'size:changed'
+  /** A master-detail region was opened or closed. */
+  | 'detail:toggled'
+  /** The keyboard asked for focus to move to the tool panel (Ctrl+Alt+P). */
+  | 'toolpanel:focus'
+  /** The set of host-declared highlights changed. */
+  | 'highlight:changed'
+  /** The find bar's query, open state or match count changed. */
+  | 'find:changed'
   /* Tree data */
-  | 'tree:loading' | 'tree:loaded' | 'tree:loadFailed' | 'tree:loadAborted'
+  /** A tree branch was expanded and `tree.loadChildren` was called for it. */
+  | 'tree:loading'
+  /** A tree branch's children arrived and were added. */
+  | 'tree:loaded'
+  /** A tree branch's `loadChildren` rejected; the branch is left unloaded so it can be retried. */
+  | 'tree:loadFailed'
+  /** A tree branch was collapsed before its children arrived, so the fetch was abandoned. */
+  | 'tree:loadAborted'
   /* State, history and views */
-  | 'state:changed' | 'state:reset' | 'history:changed' | 'history:applied'
-  | 'views:changed' | 'view:applied' | 'view:saved' | 'view:removed'
-  | 'view:renamed' | 'view:default'
+  /** One logical state change — a gesture, an apply, an undo or a reset — announced once, whatever routed it. */
+  | 'state:changed'
+  /** `grid.state.reset()` restored the arrangement the grid was built with. */
+  | 'state:reset'
+  /** The undo/redo stacks moved: what can now be undone or redone. */
+  | 'history:changed'
+  /** An undo or redo step was applied. */
+  | 'history:applied'
+  /** The saved-view list changed, for any reason; the named `view:*` events say which view moved. */
+  | 'views:changed'
+  /** A saved view was applied to the grid. */
+  | 'view:applied'
+  /** A saved view was created, updated or imported. */
+  | 'view:saved'
+  /** A saved view was deleted. */
+  | 'view:removed'
+  /** A saved view was renamed. */
+  | 'view:renamed'
+  /** A saved view was made the default one. */
+  | 'view:default'
   /* Validation: a declared column rule vetoed an edit, or a
    * recorded error was cleared. The veto itself rides the cancellable `beforeEdit`. */
-  | 'validation:failed' | 'validation:cleared'
+  /** A declared column rule refused an edit; the failures name the column and the message for each. */
+  | 'validation:failed'
+  /** Recorded validation errors were cleared — for one cell, one row, or the whole grid. */
+  | 'validation:cleared'
   /* Formatting and presentation */
-  | 'formatting:changed' | 'redaction:changed' | 'permissions:changed'
-  | 'presentation:changed' | 'presentation:started' | 'presentation:ended'
+  /** A conditional-formatting rule was added, changed, removed or replaced. */
+  | 'formatting:changed'
+  /** The set of redacted columns changed. */
+  | 'redaction:changed'
+  /** The per-column permission levels changed. */
+  | 'permissions:changed'
+  /** Either the responsive presentation switched between the table and the card layout, or `presentation.start()` was called again while already running. */
+  | 'presentation:changed'
+  /** `grid.presentation.start()` began presenting. */
+  | 'presentation:started'
+  /** `grid.presentation.stop()` stopped presenting. */
+  | 'presentation:ended'
+  /** The presentation stepped to a view in its deck, including the first one. */
   | 'presentation:view'
-  | 'presentation:scale' | 'presentation:spotlight' | 'presentation:captured'
+  /** The presentation's enlargement changed. */
+  | 'presentation:scale'
+  /** The presentation's spotlight was armed over some rows and columns, or cleared. */
+  | 'presentation:spotlight'
+  /** A screenshot of the grid was captured (`grid.capture()`), with the image's size and type. */
+  | 'presentation:captured'
   /* Collaboration */
-  | 'comment:added' | 'comment:edited' | 'comment:deleted' | 'comment:failed'
-  | 'comment:resolved' | 'comment:unresolved'
-  | 'comment:threadOpened' | 'comment:threadClosed' | 'comment:indexLoaded'
-  | 'presence:published' | 'presence:joined' | 'presence:updated' | 'presence:left'
-  | 'presence:failed' | 'presence:lockRefused'
+  /** A comment was added to a cell, or a reply added to a thread. */
+  | 'comment:added'
+  /** A comment's text was edited. */
+  | 'comment:edited'
+  /** A comment was deleted. */
+  | 'comment:deleted'
+  /** A comment operation could not reach the backend; `operation` names which one. */
+  | 'comment:failed'
+  /** A comment thread was marked resolved. */
+  | 'comment:resolved'
+  /** A resolved comment thread was reopened. */
+  | 'comment:unresolved'
+  /** A cell's comment thread was opened. */
+  | 'comment:threadOpened'
+  /** A cell's comment thread was closed or dismissed. */
+  | 'comment:threadClosed'
+  /** The comment index for the visible rows finished loading, with how many entries it carried. */
+  | 'comment:indexLoaded'
+  /** This grid published its own presence — the cell it is on, its selection — to the presence transport. */
+  | 'presence:published'
+  /** A peer appeared in the presence channel for the first time. */
+  | 'presence:joined'
+  /** A peer already present moved or changed what it is doing. */
+  | 'presence:updated'
+  /** A peer left the presence channel or timed out. */
+  | 'presence:left'
+  /** A presence subscribe or publish could not reach the transport. */
+  | 'presence:failed'
+  /** An edit was refused because a peer holds the cell's lock. */
+  | 'presence:lockRefused'
   /* Comparison and time */
-  | 'diff:changed' | 'diff:swapped'
-  | 'timeline:attached' | 'timeline:detached' | 'timeline:seek' | 'timeline:seeking'
+  /** Diff mode was turned on against a snapshot, or turned off. */
+  | 'diff:changed'
+  /** The two sides of a diff were swapped. */
+  | 'diff:swapped'
+  /** The timeline scrubber began recording what each change replaces. */
+  | 'timeline:attached'
+  /** The timeline scrubber stopped recording and the grid returned to the present. */
+  | 'timeline:detached'
+  /** The timeline finished moving and the grid now stands at that position. */
+  | 'timeline:seek'
+  /** The timeline is about to move, with where it is coming from and going to. */
+  | 'timeline:seeking'
   /* Annotations */
+  /** The annotation overlay's marks changed: one was drawn, moved or erased, or the tool changed. */
   | 'annotation:changed'
   /* Export */
-  | 'export:progress' | 'export:request' | 'export:done'
+  /** A streaming export wrote another chunk, with rows written, rows expected and bytes so far. */
+  | 'export:progress'
+  /** A remote export request is about to be handed to the host's `export.remote.fetch` hook. */
+  | 'export:request'
+  /** A remote export came back and the file was handed over (or downloaded). */
+  | 'export:done'
   /* Keyboard help overlay (past-tense notifications) */
-  | 'shortcuts:opened' | 'shortcuts:closed'
+  /** The keyboard-shortcuts overlay was opened. */
+  | 'shortcuts:opened'
+  /** The keyboard-shortcuts overlay was closed. */
+  | 'shortcuts:closed'
   /* Print (past-tense notifications) */
-  | 'print:before' | 'print:after'
+  /** Print mode has been applied and the grid laid out un-virtualised, just before the print dialog. */
+  | 'print:before'
+  /** The print dialog has returned and print mode has been undone. */
+  | 'print:after'
   /* Cancellable before-events. Delivered through the async
    * before-dispatch path with a {@link BeforeEvent} carrying preventDefault. */
-  | 'beforeEdit' | 'beforeSort' | 'beforeFilter'
-  | 'beforeColumnMove' | 'beforeColumnResize' | 'beforeColumnHide'
-  | 'beforeSelect' | 'beforeRowAdd' | 'beforeDelete' | 'beforeRowMove' | 'beforeGroup'
+  /** A user or AI edit is about to be committed; call `preventDefault(reason?)` to stop it. */
+  | 'beforeEdit'
+  /** A user sort is about to be applied; call `preventDefault(reason?)` to stop it. */
+  | 'beforeSort'
+  /** A user filter — structured or quick — is about to be applied; call `preventDefault(reason?)` to stop it. */
+  | 'beforeFilter'
+  /** A user column move is about to be applied; call `preventDefault(reason?)` to stop it. */
+  | 'beforeColumnMove'
+  /** A user column resize is about to be applied; call `preventDefault(reason?)` to stop it. */
+  | 'beforeColumnResize'
+  /** A user column hide is about to be applied; call `preventDefault(reason?)` to stop it. */
+  | 'beforeColumnHide'
+  /** A user selection change is about to be announced; call `preventDefault(reason?)` to snap it back. */
+  | 'beforeSelect'
+  /** A user row append is about to be sent; call `preventDefault(reason?)` to stop it. */
+  | 'beforeRowAdd'
+  /** A user row delete is about to be applied; call `preventDefault(reason?)` to stop it. */
+  | 'beforeDelete'
+  /** A user row reorder is about to be applied; call `preventDefault(reason?)` to stop it. */
+  | 'beforeRowMove'
+  /** A user group expand or collapse is about to be applied; call `preventDefault(reason?)` to stop it. */
+  | 'beforeGroup'
+  /* Row transfer between grids */
   /* A row dropped in from another grid, on the receiving grid:
    * a {@link BeforeRowReceiveEvent}. */
+  /** A row dragged from another grid is about to be inserted here; call `preventDefault(reason?)` to refuse it. */
   | 'beforeRowReceive'
   /* Their cancellation notifications (past-tense, non-cancellable). */
-  | 'edit:cancelled' | 'sort:cancelled' | 'filter:cancelled'
-  | 'columnMove:cancelled' | 'columnResize:cancelled' | 'columnHide:cancelled'
-  | 'selection:cancelled' | 'rowAdd:cancelled' | 'delete:cancelled'
-  | 'rowMove:cancelled' | 'group:cancelled' | 'rowReceive:cancelled'
+  /** A `beforeEdit` handler vetoed the commit, or it went stale while an async handler was thinking. */
+  | 'edit:cancelled'
+  /** A `beforeSort` handler vetoed the sort. */
+  | 'sort:cancelled'
+  /** A `beforeFilter` handler vetoed the filter. */
+  | 'filter:cancelled'
+  /** A `beforeColumnMove` handler vetoed the move. */
+  | 'columnMove:cancelled'
+  /** A `beforeColumnResize` handler vetoed the resize. */
+  | 'columnResize:cancelled'
+  /** A `beforeColumnHide` handler vetoed the hide. */
+  | 'columnHide:cancelled'
+  /** A `beforeSelect` handler vetoed the selection change, which has been snapped back. */
+  | 'selection:cancelled'
+  /** A `beforeRowAdd` handler vetoed the append. */
+  | 'rowAdd:cancelled'
+  /** A `beforeDelete` handler vetoed the delete, or the rows were gone by the time an async handler settled. */
+  | 'delete:cancelled'
+  /** A `beforeRowMove` handler vetoed the reorder. */
+  | 'rowMove:cancelled'
+  /** A `beforeGroup` handler vetoed the expand or collapse. */
+  | 'group:cancelled'
+  /** A `beforeRowReceive` handler refused the drop, or the drop went stale while an async handler was thinking. */
+  | 'rowReceive:cancelled'
   /* Every event at once, for logging and debugging. */
+  /** Every event above, delivered to one handler; the payload is whichever event fired. */
   | '*';
 
 export interface GridEvent {
@@ -6553,6 +6875,11 @@ export interface GridEvent {
   origin: 'api' | 'user' | 'init' | 'ai';
   /** The grid that emitted it, so one handler can serve several grids. */
   grid: Grid;
+  /**
+   * The event's own fields, spread alongside the three above: which cell, which
+   * column, which rows. What arrives depends on the event — {@link EventPayloads}
+   * names the specialisation each one carries.
+   */
   [key: string]: unknown;
 }
 
@@ -6909,10 +7236,35 @@ export interface CsvExportOptions {
    */
   columns?: string[];
   /**
+   * Include the columns the grid hides, rather than only the visible ones.
+   * Off by default. Columns that opted out with `export.csv: false` are still
+   * excluded.
+   */
+  hidden?: boolean;
+  /**
    * Which rows to export: `'visible'` (the default — what the filters and sort
    * leave), `'all'`, or `'selected'`.
    */
   rows?: 'visible' | 'all' | 'selected';
+  /**
+   * The formula-injection guard, **on by default**: a field beginning with
+   * `=`, `+`, `-`, `@`, a tab or a CR is prefixed with an apostrophe, because
+   * a spreadsheet would otherwise execute it when the file is opened. `false`
+   * turns it off; an object tunes it — `characters` to widen or narrow the
+   * set, `prefix` to change the escape, `keepNumbers: true` to leave a field
+   * that is entirely a number alone (so a negative currency stays numeric).
+   */
+  sanitise?: boolean | {
+    enabled?: boolean;
+    prefix?: string;
+    characters?: string;
+    keepNumbers?: boolean;
+  };
+  /**
+   * Emit a UTF-8 byte-order mark, so Excel detects the encoding instead of
+   * guessing at it. Off by default.
+   */
+  bom?: boolean;
   /**
    * The name for the downloaded file. A `.csv` extension is added when it has
    * none, and a name is generated when you give none.
@@ -6986,6 +7338,11 @@ export interface ExcelExportOptions extends Omit<CsvExportOptions, 'delimiter' |
    * `'hidden'` keeps them as Excel-hidden columns for round-trip fidelity.
    */
   hiddenColumns?: 'omit' | 'hidden';
+  /**
+   * Put Excel's filter dropdowns on the header row, so the sheet opens ready
+   * to filter. On by default; `false` writes a plain header.
+   */
+  autoFilter?: boolean;
   /** Explicit merged body ranges in A1 form, e.g. ['A3:A4']. */
   merges?: string[];
   /**
@@ -7391,6 +7748,20 @@ export interface SelectionApi {
   /** Drop every range, leaving the row and cell selection alone. */
   clearRange(): void;
   /**
+   * The selected cells as a status bar states them: how many carry a value,
+   * how many of those are numbers, and the sum, extremes and mean of the
+   * numbers. Every figure but the two counts is null when nothing selected is
+   * numeric. {@link SelectionApi.statistics} is the fuller answer.
+   */
+  summary(): {
+    count: number;
+    numeric: number;
+    sum: number | null;
+    min: number | null;
+    max: number | null;
+    avg: number | null;
+  };
+  /**
    * Everything worth knowing about the selected cells: what `summary()`
    * reports plus median, quartiles, deviation, distinct and outliers. Over the
    * cells rather than a column, so a rectangle spanning three columns is one
@@ -7769,11 +8140,20 @@ export interface ExportApi {
   /**
    * Switch the grid into print layout — every row in the document, no
    * virtualisation, no paging, pinned columns released — let the layout settle,
-   * call the browser's print dialog, and put the grid back as it was. Refused
-   * above 5,000 rows, with a message pointing at the CSV and Excel exports,
-   * because that is roughly a hundred printed pages.
+   * call the browser's print dialog, and put the grid back as it was.
+   *
+   * Refused above `maxRows` (5,000 by default, roughly a hundred printed
+   * pages), with a message pointing at the CSV and Excel exports. `unpin`
+   * keeps the pinned columns in place; `print: false` lays the grid out and
+   * restores it without calling the dialog, which is how a host paginates or
+   * photographs it. Resolves with what happened, so a caller can show the
+   * reason instead of guessing.
    */
-  print(): void;
+  print(opts?: {
+    maxRows?: number;
+    unpin?: boolean;
+    print?: boolean;
+  }): Promise<{ printed: boolean; rows: number; reason?: string }>;
 }
 
 /** How `config.import` tunes the DOM import affordances (§14). */
@@ -9127,6 +9507,11 @@ export interface HistoryEntry {
   delegated: boolean;
   /** Set once the entry has been undone. */
   undone?: boolean;
+  /**
+   * Whatever else the action that was recorded needed to replay itself — the
+   * writes behind an edit, the widths behind a resize. Private to the history
+   * model's own apply path, and not a shape to depend on.
+   */
   [key: string]: unknown;
 }
 
@@ -9171,10 +9556,18 @@ export interface ViewsApi {
   readonly activeId: string | null;
   /**
    * Save the grid's current state as a named view and make it the active one.
-   * The options carry `id` to overwrite a specific view, plus `shared`,
-   * `description` and `isDefault`.
+   *
+   * `id` naming an existing view overwrites it; `id` naming none creates a
+   * view with that id, which is how a host with server-issued ids seeds the
+   * store; with no `id`, a name already taken is overwritten rather than
+   * duplicated.
    */
-  save(name: string, opts?: { id?: string; overwrite?: boolean }): SavedView;
+  save(name: string, opts?: {
+    id?: string;
+    shared?: boolean;
+    description?: string;
+    isDefault?: boolean;
+  }): SavedView;
   /**
    * Apply a view and make it active. It is a destination, not a patch: the
    * grid returns to its baseline first, so the same view gives the same grid
@@ -9203,16 +9596,49 @@ export interface ViewsApi {
   defaultView(): SavedView | null;
   /** What applying the view would change, without applying it. */
   diff(id: string): Record<string, unknown> | null;
-  /** A shareable payload for one view, or for every view when no id is given. */
-  export(id: string): string;
   /**
-   * Take a shared payload — the object, or its JSON — and report what was
-   * imported, skipped and repaired. It reports rather than throwing: an import
-   * that fails silently is worse than one that says so.
+   * A shareable payload for one view, or for every view when no id is given —
+   * an object, not JSON text, so a host can add to it before sending it.
+   * `null` when the id names no view. The default marker never travels: it
+   * belongs to this user's store, not to the view.
    */
-  import(json: string): SavedView;
+  export(id?: string): ViewPayload | null;
+  /**
+   * Take a shared payload — the object, its JSON text, a bare view or a bare
+   * array — and report what was imported, skipped and repaired. It reports
+   * rather than throwing: an import that fails silently is worse than one that
+   * says so, and one bad entry never rejects the rest of the file.
+   */
+  import(json: ViewPayload | SavedView | SavedView[] | string, opts?: {
+    /** What a name already in the store does. `'rename'` (the default) keeps both. */
+    onConflict?: 'rename' | 'overwrite' | 'skip';
+    /** Overrides the shared flag on every incoming view. */
+    shared?: boolean;
+  }): ViewImportReport;
   /** Re-read from storage, after another tab or the server changed it. */
   reload(): void;
+}
+
+/** What {@link ViewsApi.export} produces and {@link ViewsApi.import} accepts. */
+export interface ViewPayload {
+  /** Marks the object as a Lattice view payload. */
+  kind: string;
+  /** The payload format version, so an older file can be read or refused. */
+  version: number;
+  /** When it was exported, in epoch milliseconds. */
+  exportedAt: number;
+  /** The views themselves, each with `isDefault` cleared. */
+  views: SavedView[];
+}
+
+/** What {@link ViewsApi.import} reports. */
+export interface ViewImportReport {
+  /** The views that were stored, as metadata — the state is not repeated. */
+  imported: Omit<SavedView, 'state'>[];
+  /** Each view that was not stored, with a reason in words a host can show. */
+  skipped: { name: string; reason: string }[];
+  /** Each state section that was dropped from an otherwise valid view. */
+  repaired: { name: string; key: string; reason: string }[];
 }
 
 export interface DiffApi {
@@ -9674,7 +10100,18 @@ export interface Grid {
 
   /** The resolved configuration, as one object. */
   config(): GridConfig;
+  /**
+   * One configuration value, as it stands after defaults and validation — not
+   * what was passed in. Typed by the key, so `get('rowHeight')` is a number
+   * without a cast.
+   */
   get<K extends keyof GridConfig>(key: K): GridConfig[K];
+  /**
+   * Write one configuration value, doing only the work that key implies. Every
+   * key is settable at runtime — there is no "initial options" versus "live
+   * options" distinction to learn — and `config:changed` follows, after the
+   * grid has rebuilt.
+   */
   set<K extends keyof GridConfig>(key: K, value: GridConfig[K]): void;
   /** Apply several configuration changes as one update rather than several. */
   setAll(values: Partial<GridConfig>): void;
@@ -9817,6 +10254,18 @@ export interface UnitConfig {
    *  value stays a single base-unit number, so sort, filter and total are
    *  unchanged. Parsing sums the parts. */
   compound?: string[];
+  /**
+   * Round to this many significant figures before the rung is chosen, so
+   * 999,999 B at three figures reads `1 MB` rather than `1,000 kB`. Off when
+   * unset or not a positive number; ignored by a `compound` column, which
+   * renders across units instead.
+   */
+  significantFigures?: number;
+  /**
+   * What to show for a value that is not a finite number — null, undefined,
+   * empty, or unparseable text. Empty by default.
+   */
+  nullDisplay?: string;
 }
 
 export function defineUnit(
@@ -11315,38 +11764,247 @@ export interface ChartNode {
 }
 
 /**
+ * What every chart event carries, whatever it is about.
+ *
+ * The three members the chart's own dispatcher adds to each payload before it
+ * reaches a handler, so one handler bound to several charts can tell which chart
+ * and which grid it is being told about.
+ */
+export interface ChartEvent {
+  /** Which event this is: `click`, `hover`, `leave`, `focus`, `draw`, `drill`, `brush` or `legend`. */
+  type: ChartEventName;
+  /** The chart that raised it. */
+  chart: Chart;
+  /** The grid the chart draws, as given in the spec. */
+  grid: Grid;
+}
+
+/**
+ * One series' reading under a mark, on a chart with several series.
+ *
+ * `value` is that series' own number at the mark, and `rows` how many source
+ * rows were aggregated into it — a count, not the rows themselves.
+ */
+export interface ChartDatumSeries {
+  /** The series key, as bound. */
+  key: string;
+  /** The series' display label. */
+  label: string;
+  /** This series' value at the mark. */
+  value: number | null;
+  /** How many source rows were aggregated into that value. */
+  rows: number;
+}
+
+/**
+ * A mark, in the terms a host thinks in: `hover`'s payload, and the shape
+ * `click` adds its `preventDefault` to.
+ *
+ * One shape for every chart type, so a host need not know whether it attached to
+ * a pie, a bar chart, a treemap, a map, a matrix or a network to read what the
+ * pointer is on: a type with no third channel leaves the field null. There is no
+ * `point` wrapper — the fields are flat.
+ */
+export interface ChartDatumEvent extends ChartEvent {
+  /** The mark's label: the category, the slice, the tile, the region or the node. */
+  label: string;
+  /**
+   * The measure under the mark when a single series sits there, otherwise null —
+   * in which case the per-series numbers are in `series`.
+   */
+  value: number | null;
+  /** The value to filter `column` to: the stored category behind the label, or null where the geometry has none. */
+  category: unknown;
+  /** The grid column the mark filters on, or null (a network node is a source in some rows and a target in others). */
+  column: string | null;
+  /** The per-series readings under the mark, or null on a geometry that has one value per mark. */
+  series: ChartDatumSeries[] | null;
+  /** The keys of the source rows behind the mark; empty where the geometry keeps none. */
+  rowKeys: unknown[];
+  /** The mark's path from the drawn root, on a hierarchy — a treemap tile, a sunburst arc, a flow end. */
+  path?: unknown[];
+  /** How deep the mark sits below the drawn root, on a hierarchy. */
+  depth?: number;
+  /** A histogram bin's lower bound, present only on a bin. */
+  from?: number;
+  /** A histogram bin's upper bound, present only on a bin. */
+  to?: number;
+  /** The DOM pointer event behind it. */
+  native: object;
+}
+
+/**
+ * `click`: a mark was clicked, **before** the chart does anything about it.
+ *
+ * The one event most callers want: it is how a click on a mark becomes a filter
+ * on the grid. It fires whether or not the spec sets `filterOnClick`, and it
+ * fires before the filter, the drill or the selection the chart would otherwise
+ * apply — so a host that wants to do something else entirely (open a drawer,
+ * cross-filter a second grid) calls `preventDefault()` and takes the click over.
+ */
+export interface ChartClickEvent extends ChartDatumEvent {
+  /**
+   * Stop the chart acting on this click — no filter, no drill, no selection
+   * change. It takes no reason, and there is no `<action>:cancelled` event: this
+   * is a default a host takes over, not a mutation a host vetoes.
+   */
+  preventDefault(): void;
+  /**
+   * True once a handler has called `preventDefault`. Absent until then — a
+   * handler may also set it directly, which the chart honours the same way.
+   */
+  defaultPrevented?: boolean;
+}
+
+/**
+ * `focus`: the keyboard moved onto a mark, which has just been given the
+ * `aria-label` a screen reader announces.
+ */
+export interface ChartFocusEvent extends ChartEvent {
+  /** The focused mark's label. */
+  label: string;
+  /** The focused mark's value. */
+  value: number | null;
+  /** The mark's position in the drawn order. */
+  index: number;
+}
+
+/**
+ * `draw`: the chart finished a draw, at its settled size.
+ *
+ * Raised once per `draw()`, after the second pass a legend or heading that
+ * changed the plot box forces — so a handler never sees the in-between,
+ * wrongly-sized pass. A draw that showed the empty state instead raises nothing.
+ */
+export interface ChartDrawEvent extends ChartEvent {
+  /** The type drawn, which for an extension type is its registered name. */
+  chartType: string;
+  /** The categories drawn, in plot order. */
+  categories: unknown[];
+  /** Whether the binding had nothing to draw. */
+  empty: boolean;
+}
+
+/**
+ * `drill`: the chart descended into a hierarchy, or `ascend()` came back up.
+ * Raised after the new level is set and before it is drawn.
+ */
+export interface ChartDrillEvent extends ChartEvent {
+  /** The drill path from the top, a label per level. */
+  path: unknown[];
+  /** The label just descended into, or the level now shown after an `ascend()`. */
+  label: string | null;
+}
+
+/**
+ * `brush`: a range was dragged out on an axis, **before** the chart zooms or
+ * filters on it.
+ *
+ * A handler that wants to take the brush over calls `preventDefault()` on the
+ * payload, which stops the chart zooming its own domain or filtering the grid
+ * for this drag; writing `defaultPrevented` directly still works, the same way.
+ */
+export interface ChartBrushEvent extends ChartEvent {
+  /** What the spec asked a brush to do: `zoom` the chart's own domain, or `filter` the grid. */
+  mode: string;
+  /** What the dragged range resolved to: a continuous `range`, or the discrete `values` of a category axis. */
+  kind: string;
+  /** The category values the drag covered, on a category axis. */
+  values: unknown[];
+  /** The numeric or time bounds the drag covered, on a continuous axis, or null. */
+  range: { from: unknown; to: unknown } | null;
+  /** Which axis was dragged: `x`, `y` or `y2`. */
+  axis: string;
+  /** The grid column the range names — the measure's on a value axis, the dimension's on `x`. */
+  column: string | null;
+  /**
+   * Stop the chart acting on this brush — no zoom, no filter. It takes no
+   * reason, and there is no `<action>:cancelled` event: this is a default a
+   * host takes over, not a mutation a host vetoes.
+   */
+  preventDefault(): void;
+  /**
+   * True once a handler has called `preventDefault`. Absent until then — a
+   * handler may also set it directly, which the chart honours the same way.
+   */
+  defaultPrevented?: boolean;
+}
+
+/** `legend`: a legend entry was clicked and the hidden set already changed; the redraw follows. */
+export interface ChartLegendEvent extends ChartEvent {
+  /** The clicked entry's label. */
+  label: string;
+  /** The clicked entry's series key. */
+  key: string;
+  /** Whether that series is now hidden. */
+  hidden: boolean;
+  /** Every hidden series key after the click. */
+  hiddenKeys: string[];
+}
+
+/**
  * The events a chart raises.
  *
  * A chart's own, not the grid's: `grid.on` takes {@link EventName} and knows
  * nothing about these. There is no `point:click`, `point:hover` or
- * `series:toggle`; the events are the flat names below and `click` is the one
- * most callers want, it is how a click on a mark becomes a filter on the grid.
+ * `series:toggle`; the events are the flat names below, and `click` is the one
+ * most callers want — it is how a click on a mark becomes a filter on the grid.
  *
- * `click` and `hover` carry a **flat** payload — there is no `point` wrapper:
- * `{ label, category, column, value, series, rowKeys, native, preventDefault }`.
- * `column` is the grid column the mark filters on and `category` the value to
- * filter it to; `value` is the measure when a single series sits under the mark,
- * otherwise null with the per-series numbers in `series`; `rowKeys` are the
- * source rows behind the mark; `native` is the DOM event.
+ * Every payload carries `type`, `chart` and `grid` ({@link ChartEvent}); what
+ * else arrives is {@link ChartEventPayloads}. A handler that throws is reported
+ * to the console and the rest still run. Each event also fires the matching
+ * `on<Event>` in the spec (`onClick`, `onDraw`, …) before the subscribers.
  *
- * `click` fires whether or not the spec sets `filterOnClick`, and it fires
- * *before* any filter is applied: call `preventDefault()` on the payload to stop
- * the chart filtering the grid and take the click over yourself. With
- * `filterOnClick: true` in the spec the chart filters the grid itself on the
- * clicked mark's `column`/`category` unless a handler prevented it.
+ * `click` and `brush` are the two events the chart acts on, and both carry a
+ * `preventDefault` a handler can call to take the action over; the rest are
+ * notifications.
  */
 export type ChartEventName =
-  | 'click' | 'hover' | 'leave' | 'focus'
-  | 'draw' | 'drill' | 'brush' | 'legend';
+  /** A mark was clicked, before the chart filters, drills or selects on it; cancellable. */
+  | 'click'
+  /** The pointer moved onto a mark and its tooltip was shown. */
+  | 'hover'
+  /** The pointer left every mark and the tooltip was hidden. */
+  | 'leave'
+  /** The keyboard moved onto a mark, which has just been described for a screen reader. */
+  | 'focus'
+  /** A draw finished, at the settled plot size; a draw that showed the empty state raises nothing. */
+  | 'draw'
+  /** The chart descended into a hierarchy, or `ascend()` came back up. */
+  | 'drill'
+  /** A range was dragged out on an axis, before the chart zooms or filters on it; cancellable. */
+  | 'brush'
+  /** A legend entry was clicked and the hidden set changed. */
+  | 'legend';
+
+/** What a handler receives, per chart event. */
+export interface ChartEventPayloads {
+  /** The mark clicked, with `preventDefault` to take the click over. */
+  click: ChartClickEvent;
+  /** The mark under the pointer, the same shape a click reports. */
+  hover: ChartDatumEvent;
+  /** Nothing but the chart and its grid: the pointer is over no mark. */
+  leave: ChartEvent;
+  /** The mark the keyboard is on. */
+  focus: ChartFocusEvent;
+  /** What was drawn, and whether there was anything to draw. */
+  draw: ChartDrawEvent;
+  /** The new drill path. */
+  drill: ChartDrillEvent;
+  /** The range dragged out, and the column it names, with `preventDefault` to take the brush over. */
+  brush: ChartBrushEvent;
+  /** The legend entry clicked, and every hidden series after it. */
+  legend: ChartLegendEvent;
+}
 
 /** A live chart. */
 export interface Chart {
   /**
    * The chart's root element — the wrapper the chart built inside the container, which
-   * holds the heading, the SVG, the legend and the accessible table. (Declared as an
-   * `SVGElement`; it is the wrapping element, and the `<svg>` is inside it.)
+   * holds the heading, the SVG, the legend and the accessible table. The `<svg>` is a
+   * descendant of it, not this element.
    */
-  readonly element: SVGElement;
+  readonly element: HTMLElement;
   /** Redraw now. */
   draw(): void;
   /** Change the spec and redraw; unnamed keys keep their values. */
@@ -11356,16 +12014,18 @@ export interface Chart {
   /** Go up one level, on a drillable hierarchy. */
   ascend(levels?: number): void;
   /**
-   * Subscribe to `click`, `hover`, `leave`, `draw` or `legend`; returns a function that
-   * unsubscribes. A handler that throws is reported to the console and the rest still run.
+   * Register an event handler; returns a function that unsubscribes. A handler that throws
+   * is reported to the console and the rest still run. What each event carries is
+   * {@link ChartEventPayloads}; the handler is declared with the widest of them, so narrow
+   * on the name inside it.
    */
-  on(event: ChartEventName, handler: (payload: unknown) => void): () => void;
+  on(event: ChartEventName, handler: (payload: ChartEventPayloads[ChartEventName]) => void): () => void;
   /**
    * Fire an event at the subscribers and at the matching `on<Event>` in the spec, and
    * return the payload the handlers saw — which is how a caller reads back what a handler
    * changed.
    */
-  emit(event: ChartEventName, payload?: unknown): void;
+  emit(event: ChartEventName, payload?: object): object;
   /**
    * The chart as standalone SVG markup, empty string before the first draw. Pass `{
    * inlineStyles: true }` to copy the computed styles onto a clone, which is what an SVG
@@ -11378,7 +12038,7 @@ export interface Chart {
    * `scale` defaults to the device pixel ratio. Resolves to null where there is no canvas
    * or `Image`.
    */
-  toPNG(opts?: { scale?: number; background?: string }): Promise<Blob>;
+  toPNG(opts?: { scale?: number; background?: string }): Promise<Blob | null>;
   /**
    * The numbers the chart is drawing, as CSV: one column per series, one row per category
    * (or label and total, for a hierarchy). Empty string before the first draw.
@@ -11395,6 +12055,1524 @@ export interface Chart {
 // Event payloads
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Event payloads, per event
+// ---------------------------------------------------------------------------
+
+/**
+ * `render:done`: one render pass has finished writing cells.
+ *
+ * The pass is over and the cells are stable, which is why anything that
+ * decorates them from outside — a highlight painter, a diff painter — hangs
+ * off this rather than guessing at a frame delay.
+ */
+export interface RenderDoneEvent extends GridEvent {
+  /** The first display index the pass drew, including the overscan either side. */
+  first: number;
+  /** The last display index the pass drew, inclusive; `-1` when there were no rows. */
+  last: number;
+  /** What asked for the pass — `'scroll'` unless something else invalidated first. */
+  cause: string;
+  /**
+   * Milliseconds per phase. `layoutMs` is deciding what to draw, `hintMs` is
+   * telling the source about it, `writeMs` is the DOM itself. The wait for
+   * paint is the browser's and is not measurable here.
+   */
+  phases: { layoutMs: number; hintMs: number; writeMs: number; totalMs: number };
+}
+
+/**
+ * `config:changed`: a configuration key was written at run time.
+ *
+ * `grid.set(key, value)` fills the single form; `grid.setAll(values)` fills the
+ * batch form and fires once for the whole batch rather than once per key, so a
+ * host restoring a saved arrangement hears one event describing a settled
+ * grid instead of a dozen describing half-applied ones.
+ */
+export interface ConfigChangedEvent extends GridEvent {
+  /** The key that was written, on a `grid.set` change. */
+  key?: string;
+  /** Its new value, on a `grid.set` change. */
+  value?: unknown;
+  /** What it held before, on a `grid.set` change. */
+  oldValue?: unknown;
+  /** The keys that were written, on a `grid.setAll` change. */
+  keys?: string[];
+  /** Their new values, by key, on a `grid.setAll` change. */
+  values?: Record<string, unknown>;
+  /** What each of them held before, by key, on a `grid.setAll` change. */
+  oldValues?: Record<string, unknown>;
+}
+
+/** `licence:changed`: a key was installed, and again when its check settles. */
+export interface LicenceChangedEvent extends GridEvent {
+  /** The verdict as it stands — provisional on the first firing, settled on the second. */
+  info: LicenceInfo;
+  /** What this deployment is now treated as. */
+  state: 'licensed' | 'localhost' | 'trial';
+}
+
+/**
+ * `model:changed`: the display model was rebuilt.
+ *
+ * The one event every viewer of the grid follows. `reason` is what actually
+ * happened, and the rest of the payload is whatever that reason has to say —
+ * a page's block and range, a tree branch's row, a stream's anchor.
+ */
+export interface ModelChangedEvent extends GridEvent {
+  /**
+   * Why it was rebuilt: `'rows'`, `'tree'`, `'expanded'`, `'children'`,
+   * `'children:loading'`, `'reload'`, `'page'`, `'expand'`, `'collapse'`,
+   * `'query'`, `'stream'`, or one of the pipeline's settle reasons.
+   */
+  reason: string;
+  /** How many display rows there now are, or how many children arrived. */
+  count?: number;
+  /** The branch row a `'children'` or `'children:loading'` rebuild is about. */
+  row?: Row;
+  /** The row key an `'expand'` or `'collapse'` is about. */
+  key?: string;
+  /** The block id a `'page'` rebuild filled. */
+  block?: string | number;
+  /** The first display index a `'page'` rebuild filled. */
+  from?: number;
+  /** One past the last display index a `'page'` rebuild filled. */
+  to?: number;
+  /** The group path a remote source's `'page'` rebuild filled under. */
+  groupPath?: unknown[];
+  /** How far a stream's arrivals pushed the rows above the viewport down. */
+  shiftAboveViewport?: number;
+  /** The row the stream is holding the viewport against. */
+  anchor?: unknown;
+}
+
+/**
+ * `rows:changed`: rows were added, updated, removed or moved.
+ *
+ * **Read `identified` first.** When it is `true` the three arrays name exactly
+ * the rows that moved and a derived viewer can patch rather than rescan. Every
+ * other firing omits it, and a consumer that does not see it re-reads in full
+ * (§5.8.1) — the default is deliberately the safe one.
+ *
+ * The `companion: true` firings carry **counts** in `added`/`updated`/
+ * `removed`, not rows: they come from the source's own companion channel,
+ * which has the numbers and not the records. Anything reading `.length` has to
+ * check `identified` rather than assume an array (F-1688-B).
+ */
+export interface RowsChangedEvent extends GridEvent {
+  /** True when `added`, `updated` and `removed` name exactly the rows that moved. */
+  identified?: boolean;
+  /** The rows added — records when `identified`, a count on a companion firing. */
+  added?: Row[] | number;
+  /** The rows updated — records when `identified`, a count on a companion firing. */
+  updated?: Row[] | number;
+  /** The keys removed — keys when `identified`, a count on a companion firing. */
+  removed?: string[] | number;
+  /** Rows the host could not apply; the rest of the batch still applied. */
+  rejected?: RejectedRow[];
+  /** How the change was planned and applied, for diagnostics. */
+  plan?: unknown;
+  /** True on the firings that echo a change the source has already applied. */
+  companion?: boolean;
+  /** The change as it was handed in, on a companion firing that carries one. */
+  change?: RowChange;
+  /** `'import'` on a CSV/Excel import; `'edit'`-side reasons name the write. */
+  reason?: string;
+  /** True when the change came from an edit commit rather than a data feed. */
+  edit?: boolean;
+  /** The column ids an edit wrote to. */
+  columns?: string[];
+  /** `1` when the change was a single row reorder. */
+  moved?: number;
+  /** The key of the row that moved. */
+  key?: string;
+  /** The display index it moved from. */
+  from?: number;
+  /** The display index it moved to. */
+  to?: number;
+}
+
+/** `rows:queued`: a change arrived while the feed was batching and was queued. */
+export interface RowsQueuedEvent extends GridEvent {
+  /** How many changes are waiting to be applied. */
+  pending: number;
+  /** How many rows those changes carry. */
+  queued: number;
+  /** How many rows coalescing has saved on this queue. */
+  coalesced: number;
+  /** Whether the feed is currently paused. */
+  paused: boolean;
+}
+
+/** `rows:deferred`: a flush ran out of frame budget and carried work over. */
+export interface RowsDeferredEvent extends GridEvent {
+  /** How many rows were carried into the next frame. */
+  deferred: number;
+  /** How many rows this flush did apply. */
+  applied: number;
+  /** The per-flush budget, in milliseconds, that ran out. */
+  budgetMs: number;
+}
+
+/**
+ * `rows:paused` and `rows:resumed`: the whole counter set the feed keeps,
+ * which is what a host watching a live feed wants at the moment it stops or
+ * starts. Identical to what `grid.changes.stats()` returns.
+ */
+export interface RowsFlowEvent extends GridEvent {
+  /** Whether the feed is held. */
+  paused: boolean;
+  /** Changes waiting to be applied. */
+  pending: number;
+  /** Rows those changes carry. */
+  queued: number;
+  /** Rows coalescing saved on the current queue. */
+  coalesced: number;
+  /** Rows coalescing has saved over the grid's life. */
+  coalescedTotal: number;
+  /** Rows that have arrived over the grid's life. */
+  rows: number;
+  /** Rows dropped because the buffer was full. */
+  dropped: number;
+  /** Rows the change log is holding right now. */
+  held: number;
+  /** The most it will hold before trimming. */
+  heldLimit: number;
+  /** How many flushes have run. */
+  flushes: number;
+  /** The batching strategy in force. */
+  strategy: string;
+  /** Flushes that ran out of budget and carried work over; a rising number means the feed outpaces the grid. */
+  deferrals: number;
+  /** The largest queue seen. */
+  maxQueued: number;
+  /** The per-flush budget, in milliseconds. */
+  budgetMs: number;
+  /** The time span the held log covers, or null when it holds nothing. */
+  span: { from: number; to: number } | null;
+}
+
+/** `row:received`: a row dragged from another grid was inserted here. */
+export interface RowReceivedEvent extends GridEvent {
+  /** The row's data, as it was inserted. */
+  data: Record<string, unknown>;
+  /** The display index it took. */
+  at: number;
+  /** The key of the row it was dropped on, or null when it landed on no row. */
+  overKey: string | null;
+  /** Rows the insert could not apply; empty on a clean insert. */
+  rejected: RejectedRow[];
+}
+
+/**
+ * `row:sent` and `row:copied`: a row left this grid for another one. `row:sent`
+ * means it was removed from here, `row:copied` means it was kept.
+ */
+export interface RowTransferEvent extends GridEvent {
+  /** The key of the row that was transferred. */
+  key: string;
+  /** That row's data, as the target received it. */
+  data: Record<string, unknown>;
+  /** Which gesture it was. */
+  mode: 'move' | 'copy';
+}
+
+/** `row:moved`: a row was reordered within this grid. */
+export interface RowMovedEvent extends GridEvent {
+  /** The key of the row that moved. */
+  key: string;
+  /** The display index it came from. */
+  from: number;
+  /** The display index it went to. */
+  to: number;
+  /** That row's data. */
+  data: Record<string, unknown>;
+}
+
+/**
+ * `source:error`: a source could not fetch what was asked of it. Which of the
+ * optional fields is present says what was being fetched.
+ */
+export interface SourceErrorEvent extends GridEvent {
+  /** What the source threw or rejected with. */
+  error: unknown;
+  /** The branch row whose children could not be loaded. */
+  row?: Row;
+  /** `'loadChildren'` on a tree fetch; absent on a page or stream failure. */
+  reason?: string;
+  /** The block id that failed, on a paged or remote source. */
+  block?: string | number;
+  /** The display range that block covers. */
+  range?: { start: number; end: number };
+  /** The group path the failed block sits under, on a remote grouped source. */
+  groupPath?: unknown[];
+}
+
+/** `stream:chunk`: a streaming source applied a chunk of arriving rows. */
+export interface StreamChunkEvent extends GridEvent {
+  /** Bytes or rows read so far, as the transport reports them. */
+  loaded: number;
+  /** What the transport expects in total, or 0 when it does not say. */
+  estimated: number;
+  /** How many rows the source now holds. */
+  count: number;
+  /** How many times the grid has been asked to repaint for this stream. */
+  renders: number;
+}
+
+/** `stream:end`: a streaming source reached the end of its feed. */
+export interface StreamEndEvent extends GridEvent {
+  /** How many rows arrived in all. */
+  loaded: number;
+  /** True when the stream handed over to an in-memory source at the end. */
+  promoted: boolean;
+  /** The row count above which it would have promoted. */
+  threshold: number;
+}
+
+/** `stream:evicted`: a rolling-window stream dropped rows off the back. */
+export interface StreamEvictedEvent extends GridEvent {
+  /** How many rows this eviction dropped. */
+  evicted: number;
+  /** How many rows have been evicted over the stream's life. */
+  total: number;
+  /** How many rows are still live in the window. */
+  live: number;
+}
+
+/**
+ * `cell:changed`: a cell's value was written.
+ *
+ * Fired by an edit commit, by a revert, and by each cell an undo or redo step
+ * moves — `revert` and `undo` say which, and both are absent on a plain edit.
+ */
+export interface CellChangedEvent extends GridEvent {
+  /** The row the cell belongs to. */
+  row: Row;
+  /** That row's key. */
+  key: string;
+  /** The column id that was written. */
+  colId: string;
+  /** The value the cell now holds. */
+  value: unknown;
+  /** The value it held before. */
+  oldValue: unknown;
+  /** True when the write put back a value the server refused. */
+  revert?: boolean;
+  /** Why it was reverted, or null. */
+  reason?: string | null;
+  /** True when the write came from an undo step rather than a redo. */
+  undo?: boolean;
+}
+
+/** `cell:pending`: an optimistic cell edit was sent and is awaiting an answer. */
+export interface CellPendingEvent extends GridEvent {
+  /** The row the cell belongs to. */
+  row: Row;
+  /** That row's key. */
+  key: string;
+  /** The column id that was written. */
+  colId: string;
+  /** The value that was sent. */
+  value: unknown;
+  /** The value it is holding in reserve to put back if the write is refused. */
+  before: unknown;
+  /** The id the op is tracked under; `grid.edit.settle(id, …)` answers it. */
+  id: string;
+}
+
+/** `cell:confirmed`: the server accepted a pending cell edit. */
+export interface CellConfirmedEvent extends GridEvent {
+  /** The row the cell belongs to. */
+  row: Row;
+  /** That row's key. */
+  key: string;
+  /** The column id that was written. */
+  colId: string;
+  /** What the server confirmed, which need not be what was sent. */
+  value: unknown;
+  /** The id the op was tracked under. */
+  id: string;
+  /** True when a newer write on the same cell had already replaced this one. */
+  superseded: boolean;
+}
+
+/** `cell:reverted`: a pending cell edit was refused and rolled back. */
+export interface CellRevertedEvent extends GridEvent {
+  /** The row the cell belongs to. */
+  row: Row;
+  /** That row's key. */
+  key: string;
+  /** The column id that was written. */
+  colId: string;
+  /** The value the server refused. */
+  rejected: unknown;
+  /** The value put back, or `undefined` when a newer write owns the cell. */
+  restored: unknown;
+  /** Why it was refused, or null when the transport gave no reason. */
+  reason: string | null;
+  /** The id the op was tracked under. */
+  id: string;
+  /** True when a newer write on the same cell had already replaced this one. */
+  superseded: boolean;
+  /** True when the rollback was actually applied; false when it was superseded. */
+  applied: boolean;
+}
+
+/** `cell:conflict`: the server confirmed, but returned a row that disagrees. */
+export interface CellConflictEvent extends GridEvent {
+  /** The row the cell belongs to. */
+  row: Row;
+  /** That row's key. */
+  key: string;
+  /** The column id that was written. */
+  colId: string;
+  /** What the server confirmed for the cell. */
+  value: unknown;
+  /** The row the server sent back, which the grid applied over its own. */
+  serverRow: Record<string, unknown>;
+  /** The id the op was tracked under. */
+  id: string;
+}
+
+/**
+ * The pointer events a cell raises: `cell:clicked`, `cell:dblclicked`,
+ * `cell:mouseover`, `cell:mouseout`, `cell:mousedown` and `cell:mouseup`.
+ *
+ * All six carry the cell, its value and the DOM event behind them.
+ * `target` — the cell element — is carried by the hover and press pairs,
+ * which exist precisely so a host does not have to find that node itself:
+ * rows and cells are pooled and re-used as the grid scrolls, so a listener a
+ * host bound to a cell node would fire for whichever row occupies it next.
+ */
+export interface CellPointerEvent extends GridEvent {
+  /** The row under the pointer. */
+  row: Row;
+  /** That row's key. */
+  key: string;
+  /** Its display index. */
+  index: number;
+  /** The column id under the pointer. */
+  colId: string;
+  /** The resolved column. */
+  column: Column;
+  /** The cell's value, before formatting. */
+  value: unknown;
+  /** The cell's text, as it is drawn. */
+  text: string;
+  /** The DOM event behind this one, for modifier keys and `preventDefault`. */
+  event: unknown;
+  /** The cell element, on the hover and press pairs; absent on click and double-click. */
+  target?: unknown;
+}
+
+/**
+ * `cell:contextmenu`: a context menu was requested on a cell.
+ *
+ * Raised twice over, by two routes with different payloads: the keyboard's
+ * menu key goes through the grid's action table and carries `rowIndex` and
+ * `colId`; the pointer goes through the renderer and carries the full cell
+ * with the pointer position. A handler that wants the position must read it
+ * defensively (F-1688-E).
+ */
+export interface CellContextMenuEvent extends GridEvent {
+  /** The row the menu was requested on. */
+  row: Row;
+  /** That row's key; absent on the keyboard route. */
+  key?: string;
+  /** Its display index; absent on the keyboard route. */
+  index?: number;
+  /** Its display index, on the keyboard route. */
+  rowIndex?: number;
+  /** The column id the menu was requested on. */
+  colId: string;
+  /** The resolved column; absent on the keyboard route. */
+  column?: Column;
+  /** The cell's value; absent on the keyboard route. */
+  value?: unknown;
+  /** The pointer's viewport x, on the pointer route. */
+  x?: number;
+  /** The pointer's viewport y, on the pointer route. */
+  y?: number;
+  /** The DOM event behind this one, on the pointer route. */
+  event?: unknown;
+}
+
+/** `cell:edit:start` and `row:edit:start`: an editor opened. */
+export interface EditStartEvent extends GridEvent {
+  /** The row being edited. */
+  row: Row;
+  /** That row's key. */
+  key: string;
+  /** The column the caret is in; null on a row editor with no focused column. */
+  colId: string | null;
+  /** The resolved column the caret is in. */
+  column: Column;
+  /** The key that opened the editor, when a keypress did. */
+  keyName?: string;
+  /** The character typed into the cell to open it, when typing did. */
+  charPress?: string;
+}
+
+/**
+ * `cell:edit:end` and `row:edit:end`: an editor closed.
+ *
+ * `valid: false` means a column rule refused the commit and the editor stayed
+ * the user's problem; `cancelled: true` means nothing was written, either
+ * because the user pressed Escape or because a `beforeEdit` handler vetoed.
+ */
+export interface EditEndEvent extends GridEvent {
+  /** The row that was being edited. */
+  row: Row;
+  /** That row's key. */
+  key: string;
+  /** The column the caret was in; null on a row editor with none. */
+  colId: string | null;
+  /** True when the commit passed validation, false when a rule refused it. */
+  valid: boolean;
+  /** True when nothing was written — Escape, or a vetoed commit. */
+  cancelled?: boolean;
+  /** The validation failures, when `valid` is false. */
+  errors?: ValidationError[];
+  /** The cells that were written; empty on a cancel. */
+  writes?: { key: string; colId: string; before: unknown; after: unknown }[];
+}
+
+/** `row:clicked` and `row:dblclicked`: a row was clicked or double-clicked. */
+export interface RowPointerEvent extends GridEvent {
+  /** The row under the pointer. */
+  row: Row;
+  /** That row's key. */
+  key: string;
+  /** Its display index. */
+  index: number;
+  /** The DOM event behind this one. */
+  event: unknown;
+}
+
+/** `row:pending`: an optimistic row append or delete was sent to the transport. */
+export interface RowPendingEvent extends GridEvent {
+  /** The id the op is tracked under; `grid.edit.settleRow(id, …)` answers it. */
+  id: string;
+  /** Which structural write it is. */
+  kind: 'append' | 'delete';
+  /** The row key — a temporary one for an append until the server rekeys it. */
+  key: string;
+  /** True while the key is the grid's own temporary one. */
+  temp: boolean;
+  /** The row as it stands in the grid, or undefined when there is none. */
+  row?: Row;
+}
+
+/** `row:confirmed`: the server accepted a pending row append or delete. */
+export interface RowConfirmedEvent extends GridEvent {
+  /** The id the op was tracked under. */
+  id: string;
+  /** Which structural write it was. */
+  kind: 'append' | 'delete';
+  /** The row key, already rekeyed from the temporary one on an append. */
+  key: string;
+  /** The temporary key an append was rekeyed from. */
+  tempKey?: string;
+  /** The row as it now stands; undefined for a confirmed delete. */
+  row?: Row;
+  /** True when a newer op on the same key had already replaced this one. */
+  superseded: boolean;
+}
+
+/** `row:reverted`: a pending row append or delete was refused and rolled back. */
+export interface RowRevertedEvent extends GridEvent {
+  /** The id the op was tracked under. */
+  id: string;
+  /** Which structural write it was. */
+  kind: 'append' | 'delete';
+  /** The row key. */
+  key: string;
+  /** The temporary key the append had been given. */
+  tempKey?: string;
+  /** Why it was refused, or null when the transport gave no reason. */
+  reason: string | null;
+  /** True when a newer op on the same key had already replaced this one. */
+  superseded: boolean;
+  /** True when the rollback was applied; false when it was superseded. */
+  applied: boolean;
+  /** The row as it stands after the rollback, where there is one. */
+  row?: Row;
+}
+
+/** `row:conflict`: the server confirmed a structural write but sent back a row that disagrees. */
+export interface RowConflictEvent extends GridEvent {
+  /** The id the op was tracked under. */
+  id: string;
+  /** Which structural write it was. */
+  kind: 'append' | 'delete';
+  /** The row key. */
+  key: string;
+  /** The row the server sent back. */
+  serverRow: Record<string, unknown>;
+  /** The row as the grid holds it; undefined for a delete. */
+  row?: Row;
+}
+
+/** `form:opened`: the row form opened over a row. */
+export interface FormOpenedEvent extends GridEvent {
+  /** The key of the row the form is editing. */
+  key: string;
+  /** That row. */
+  row: Row;
+}
+
+/** `form:closed`: the row form was closed without saving. */
+export interface FormClosedEvent extends GridEvent {
+  /** The key of the row the form was editing. */
+  key: string;
+}
+
+/** `form:saved`: the row form's values were written back to the row. */
+export interface FormSavedEvent extends GridEvent {
+  /** The key of the row that was saved. */
+  key: string;
+  /** Every value the form held, by field name. */
+  values: Record<string, unknown>;
+  /** Only the values that differ from what the row held. */
+  changed: Record<string, unknown>;
+  /** Fields the form held that no column maps, so nothing was written for them. */
+  unmapped: string[];
+}
+
+/** `form:error`: the row form could not load or save a row. */
+export interface FormErrorEvent extends GridEvent {
+  /** The key of the row the form was working on. */
+  key: string;
+  /** What went wrong. */
+  error: unknown;
+  /** True when the load timed out rather than being refused. */
+  timedOut: boolean;
+}
+
+/** `sort:changed`: the sort order changed. */
+export interface SortChangedEvent extends GridEvent {
+  /** The sort now in force, in precedence order; empty when nothing is sorted. */
+  sort: SortEntry[];
+}
+
+/**
+ * `filter:changed`: the filters changed.
+ *
+ * Four routes reach it — a structured condition, the quick filter, a named
+ * host predicate, and the comments filter — and each fills its own fields,
+ * so every one of them is optional.
+ */
+export interface FilterChangedEvent extends GridEvent {
+  /** The structured filter now in force, or null when it was cleared. */
+  filters?: FilterSet;
+  /** The quick-filter text now in force. */
+  quick?: string;
+  /** How the quick filter matches. */
+  quickMode?: string;
+  /** The named host predicates now in force. */
+  where?: string[];
+  /** `'where'` when a host predicate was registered, replaced, removed or re-run. */
+  cause?: string;
+  /** `'unresolved'` or `'any'` when the change was the comments filter. */
+  comments?: string;
+}
+
+/**
+ * `group:toggled`: a group row was expanded or collapsed.
+ *
+ * One group carries `key` or `row`; "expand all" / "collapse all" carries
+ * `all: true` and no target; a deep expand carries `deep: true`.
+ */
+export interface GroupToggledEvent extends GridEvent {
+  /** The key of the group row that was toggled. */
+  key?: string;
+  /** That group row, where the caller had it. */
+  row?: Row;
+  /** True when it is now open. */
+  expanded: boolean;
+  /** True when the whole branch beneath it was opened. */
+  deep?: boolean;
+  /** True when every group was toggled at once. */
+  all?: boolean;
+}
+
+/** `facet:computed`: a column's facet buckets finished computing. */
+export interface FacetComputedEvent extends GridEvent {
+  /** The column the facets are for. */
+  colId: string;
+  /** How many buckets the distribution was cut into. */
+  buckets: number;
+  /** How long it took, in milliseconds. */
+  ms: number;
+  /** True when a worker computed it rather than the main thread. */
+  worker: boolean;
+}
+
+/** `facet:filtered`: a facet histogram was used to filter its column, or cleared. */
+export interface FacetFilteredEvent extends GridEvent {
+  /** The column that was filtered. */
+  colId: string;
+  /** The condition that was installed, or null when the filter was cleared. */
+  filter: FilterSet;
+  /** The gesture behind it: `'click'`, `'drag'`, `'clear'`, or whatever the caller named. */
+  gesture: string;
+  /** The inclusive bucket range that was selected. */
+  buckets?: [number, number];
+}
+
+/** `facet:expanded`: a facet panel section was opened or closed. */
+export interface FacetExpandedEvent extends GridEvent {
+  /** The column whose section moved. */
+  colId: string;
+  /** True when it is now open. */
+  expanded: boolean;
+}
+
+/** `facet:failed`: a column's facet buckets could not be computed. */
+export interface FacetFailedEvent extends GridEvent {
+  /** The column the facets were for. */
+  colId: string;
+  /** What went wrong. */
+  error: unknown;
+}
+
+/**
+ * `column:moved`: a column was moved to a different display position.
+ *
+ * Two routes, two spellings of the same thing: the column model names it
+ * `id`, and the header drag names it `colId` (F-1688-C). Read whichever is
+ * present.
+ */
+export interface ColumnMovedEvent extends GridEvent {
+  /** The column that moved, on the model route. */
+  id?: string;
+  /** The column that moved, on the header-drag route. */
+  colId?: string;
+  /** The display index it moved to. */
+  to: number;
+}
+
+/** `column:resized`: a column's width changed. Named `id` by the model and `colId` by the header drag (F-1688-C). */
+export interface ColumnResizedEvent extends GridEvent {
+  /** The column that was resized, on the model route. */
+  id?: string;
+  /** The column that was resized, on the header-drag route. */
+  colId?: string;
+  /** Its new width, in pixels. */
+  width: number;
+}
+
+/** `column:visible`: columns were shown or hidden. */
+export interface ColumnVisibleEvent extends GridEvent {
+  /** The columns whose visibility actually changed. */
+  ids: string[];
+  /** True when they were hidden, false when they were shown. */
+  hidden: boolean;
+}
+
+/** `column:pinned`: a column was pinned to a side, or unpinned. */
+export interface ColumnPinnedEvent extends GridEvent {
+  /** The column that was pinned. */
+  id: string;
+  /**
+   * Which side it is pinned to now, or null when it was unpinned. The sides are
+   * the writing-direction ones {@link ColumnApi#pin} takes — `'start'` and
+   * `'end'` — not left and right, so a right-to-left grid reports the same value
+   * for the same gesture.
+   */
+  side: 'start' | 'end' | null;
+}
+
+/** `column:grouped`: the row grouping changed. */
+export interface ColumnGroupedEvent extends GridEvent {
+  /** The column ids the rows are grouped by, outermost first; empty when grouping was cleared. */
+  columns: string[];
+}
+
+/** `column:pivoted`: the pivot changed, locally or pushed down to the backend. */
+export interface ColumnPivotedEvent extends GridEvent {
+  /** The column ids the rows are pivoted by, on a local pivot. */
+  columns?: string[];
+  /** The fields the backend was asked to pivot by, on a pushed-down pivot. */
+  pivotFields?: string[];
+  /** True when the backend did the pivot. */
+  remote?: boolean;
+}
+
+/**
+ * `column:filter:open`, `column:profile:open` and `column:menu:open`: the
+ * header asked for a popup to be opened over a column. The grid raises these
+ * rather than opening anything itself, so a host can put its own control
+ * where the built-in one would go.
+ */
+export interface ColumnMenuEvent extends GridEvent {
+  /** The column the popup belongs to. */
+  colId: string;
+  /** The header element to anchor it to, where the caller had one. */
+  element?: unknown;
+}
+
+/** `pivot:drill`: a pivot measure cell was drilled into. */
+export interface PivotDrillEvent extends GridEvent {
+  /** The keys of the source rows behind the measure. */
+  keys: string[];
+  /** The row path of the cell, as the header wrote it. */
+  rowPath: string | null;
+  /** The column path of the cell. */
+  colPath: string | null;
+  /** Which measure the cell shows. */
+  measure: string | null;
+  /** The DOM event behind the drill. */
+  event: unknown;
+}
+
+/** `columns:changed`: the column set was rewritten other than by moving, resizing, hiding or pinning. */
+export interface ColumnsChangedEvent extends GridEvent {
+  /** Why it was rewritten; `'inferred'` when a type-inference pass did it. */
+  reason: string;
+  /** The type inferred for each column, by column id. */
+  types: Record<string, string>;
+}
+
+/** `columns:tagged`: `grid.columns.showTagged()` chose the visible set from the columns' tags. */
+export interface ColumnsTaggedEvent extends GridEvent {
+  /** The tags that were asked for. */
+  tags: string[];
+  /** The columns hidden because they carry none of them. */
+  hidden: string[];
+}
+
+/** `columngroup:changed`: a banded header group was formed, renamed, moved, dissolved, removed or restored. */
+export interface ColumnGroupChangedEvent extends GridEvent {
+  /** What happened to it. */
+  action: 'formed' | 'removed' | 'renamed' | 'dissolved' | 'moved' | 'applied';
+  /** The band the action was on, where it has an id. */
+  groupId?: string;
+  /** The leaf column removed from a band, on `'removed'`. */
+  id?: string;
+  /** The leaves a band was formed over, on `'formed'`. */
+  ids?: string[];
+  /** The display position a band moved to, on `'moved'`. */
+  to?: number;
+  /** The band's new title, on `'renamed'`. */
+  title?: string;
+  /** True when removing the last leaf dissolved the band with it. */
+  dissolved?: boolean;
+}
+
+/** `header:contextmenu`: a context menu was requested on a column header. */
+export interface HeaderContextMenuEvent extends GridEvent {
+  /** The column the menu was requested on. */
+  colId: string;
+  /** The resolved column. */
+  column: Column;
+  /** The header element, to anchor a menu to. */
+  element: unknown;
+  /** The pointer's viewport x. */
+  x: number;
+  /** The pointer's viewport y. */
+  y: number;
+  /** The DOM event behind this one. */
+  event: unknown;
+}
+
+/** `selection:changed`: the row selection changed and was accepted. */
+export interface SelectionChangedEvent extends GridEvent {
+  /** The keys of every selected row. */
+  keys: string[];
+  /** Those rows. */
+  rows: Row[];
+}
+
+/** `range:changed`: the selected cell ranges changed. */
+export interface RangeChangedEvent extends GridEvent {
+  /** Every range now selected. */
+  ranges: CellRange[];
+}
+
+/** `clipboard:copy`: a copy to the clipboard was attempted. */
+export interface ClipboardCopyEvent extends GridEvent {
+  /** The text that was put on the clipboard; empty when the copy was refused. */
+  text: string;
+  /** Whether it reached the clipboard. */
+  ok: boolean;
+  /** What was copied: `'range'`, or whichever row scope the options asked for. */
+  rows: string;
+  /** Why a refused copy was refused — `'discontiguous'` for a non-rectangular range. */
+  reason?: string;
+}
+
+/** `page:changed`: the page or the page size changed. */
+export interface PageChangedEvent extends GridEvent {
+  /** The page now showing, zero-based. */
+  page: number;
+  /** Rows per page; 0 means paging is off. */
+  pageSize: number;
+  /** How many rows the current query produces. */
+  total: number;
+  /** How many pages that makes. */
+  pageCount: number;
+}
+
+/**
+ * `scroll` and `scroll:end`: the viewport's offset. `scroll` fires only when
+ * the offset actually moved, so a refresh is never mistaken for a scroll;
+ * `scroll:end` fires once the gesture has settled.
+ */
+export interface ScrollEvent extends GridEvent {
+  /** The vertical offset, in content space rather than spacer space, so it survives a row-count change. */
+  top: number;
+  /** The logical horizontal offset: zero at the content's start in either writing direction. */
+  left: number;
+}
+
+/** `detail:toggled`: a master-detail region was opened or closed. */
+export interface DetailToggledEvent extends GridEvent {
+  /** The keys of every row with an open detail region. */
+  keys: string[];
+  /** The key of the region that is mounted, or null when none is. */
+  active: string | null;
+}
+
+/** `highlight:changed`: the set of host-declared highlights changed. */
+export interface HighlightChangedEvent extends GridEvent {
+  /** Every highlight in force, with its scope, target, colour and duration. */
+  highlights: { scope: string; key: string | null; colId: string | null; colour: string; duration: number }[];
+}
+
+/**
+ * `find:changed`: the find bar's query, open state or match count changed.
+ *
+ * The count here is the model's narrower one — `current`, `total` and
+ * `complete`. `grid.find.count()` adds the windowed-scope fields on top; this
+ * event does not carry them (F-1688-D).
+ */
+export interface FindChangedEvent extends GridEvent {
+  /** What is being searched for. */
+  text: string;
+  /** Whether the search distinguishes case. */
+  caseSensitive: boolean;
+  /** Whether the whole cell must match rather than contain. */
+  wholeCell: boolean;
+  /** The columns being searched, or null for every visible column. */
+  columns: string[] | null;
+  /** Whether the find bar is showing. */
+  open: boolean;
+  /** Which match is current, how many there are, and whether the scan finished. */
+  count: { current: number; total: number; complete: boolean };
+}
+
+/** `tree:loading`: a branch was expanded and `tree.loadChildren` was called for it. */
+export interface TreeLoadingEvent extends GridEvent {
+  /** The branch's row key. */
+  key: string;
+  /** That branch row. */
+  row: Row;
+}
+
+/** `tree:loaded`: a branch's children arrived and were added. */
+export interface TreeLoadedEvent extends GridEvent {
+  /** The branch's row key. */
+  key: string;
+  /** How many children arrived. */
+  count: number;
+}
+
+/** `tree:loadFailed`: a branch's `loadChildren` rejected; the branch stays unloaded so it can be retried. */
+export interface TreeLoadFailedEvent extends GridEvent {
+  /** The branch's row key. */
+  key: string;
+  /** What the loader rejected with. */
+  error: unknown;
+}
+
+/** `tree:loadAborted`: a branch was collapsed before its children arrived, so the fetch was abandoned. */
+export interface TreeLoadAbortedEvent extends GridEvent {
+  /** The branch's row key. */
+  key: string;
+}
+
+/** `state:reset`: `grid.state.reset()` restored the arrangement the grid was built with. */
+export interface StateResetEvent extends GridEvent {
+  /** The baseline that was restored. */
+  state: GridState;
+}
+
+/** `history:changed`: the undo and redo stacks moved. */
+export interface HistoryChangedEvent extends GridEvent {
+  /** Whether there is anything to undo. */
+  canUndo: boolean;
+  /** Whether there is anything to redo. */
+  canRedo: boolean;
+  /** The entry an undo would apply, or null. */
+  undo: HistoryEntry | null;
+  /** The entry a redo would apply, or null. */
+  redo: HistoryEntry | null;
+}
+
+/** `history:applied`: an undo or redo step was applied. */
+export interface HistoryAppliedEvent extends GridEvent {
+  /** Which way the stack moved. */
+  direction: 'undo' | 'redo';
+  /** The entry that was applied, or null when there was nothing to apply. */
+  step: HistoryEntry | null;
+}
+
+/**
+ * `views:changed`: the saved-view list changed, for any reason.
+ *
+ * Paired with a named `view:*` event that carries the one view that moved:
+ * this one is what a picker or a `localStorage` mirror wants, the named one is
+ * what a host persisting to a server wants.
+ */
+export interface ViewsChangedEvent extends GridEvent {
+  /** Every view after the change. */
+  views: SavedView[];
+  /** What happened: `'save'`, `'update'`, `'import'`, `'remove'`, `'rename'`, `'default'`, `'seed'`, `'replace'` or `'apply'`. */
+  reason: string;
+  /** The view that moved, or null when the change was not about one view. */
+  view: SavedView | null;
+  /** The view now applied, on the `'apply'` firing. */
+  activeId?: string;
+}
+
+/** `view:applied`: a saved view was applied to the grid. */
+export interface ViewAppliedEvent extends GridEvent {
+  /** The view that was applied. */
+  view: SavedView;
+  /** Every view, unchanged by the apply. */
+  views: SavedView[];
+  /** The id of the view now active. */
+  activeId: string;
+}
+
+/**
+ * `view:saved`, `view:removed`, `view:renamed` and `view:default`: the one
+ * view that moved, so a host can POST that record instead of diffing two
+ * full lists to work out what the user just did.
+ */
+export interface ViewChangedEvent extends GridEvent {
+  /** The view that moved. */
+  view: SavedView | null;
+  /** Every view after the change. */
+  views: SavedView[];
+  /** The underlying reason: `'save'`, `'update'`, `'import'`, `'remove'`, `'rename'` or `'default'`. */
+  reason: string;
+}
+
+/** `validation:failed`: a declared column rule refused an edit. */
+export interface ValidationFailedEvent extends GridEvent {
+  /** The key of the row whose commit was refused. */
+  key: string;
+  /** One entry per failing cell, with its column, code and message. */
+  failures: ValidationError[];
+  /** How many cells failed. */
+  count: number;
+}
+
+/** `validation:cleared`: recorded validation errors were cleared. */
+export interface ValidationClearedEvent extends GridEvent {
+  /** The row that was cleared, or null when every row was. */
+  key: string | null;
+  /** The column that was cleared, or null when every column was. */
+  colId: string | null;
+}
+
+/** `formatting:changed`: a conditional-formatting rule was added, changed, removed or replaced. */
+export interface FormattingChangedEvent extends GridEvent {
+  /** What happened to it. */
+  reason: string;
+  /** The scope that changed: a column id, or the grid scope. */
+  scope: FormattingScope;
+  /** Every rule now in force, by scope. */
+  rules: Record<FormattingScope, FormattingRule[]>;
+}
+
+/** `redaction:changed`: the set of redacted columns changed. */
+export interface RedactionChangedEvent extends GridEvent {
+  /** Every column id now redacted. */
+  columns: string[];
+}
+
+/** `permissions:changed`: the per-column permission levels changed. */
+export interface PermissionsChangedEvent extends GridEvent {
+  /** The level now in force for each column that has one. */
+  levels: Record<string, PermissionLevel>;
+}
+
+/**
+ * `presentation:changed`: raised by two unrelated things under one name
+ * (F-1688-A). The renderer raises it with `presentation` when the responsive
+ * layout switches between the table and the card view; the presentation model
+ * raises it with the deck's settings when `start()` is called again on an
+ * already-running presentation. A handler has to check which fields arrived.
+ */
+export interface PresentationChangedEvent extends GridEvent {
+  /** `'cards'` or `'table'`, on the responsive-layout firing. */
+  presentation?: 'cards' | 'table';
+  /** The enlargement now in force, on the presentation-model firing. */
+  scale?: number;
+  /** The options the presentation is running with. */
+  options?: Record<string, unknown>;
+  /** The view ids in the deck. */
+  views?: string[];
+  /** Which of them is showing, or -1 when the deck is empty. */
+  index?: number;
+}
+
+/** `presentation:started`: `grid.presentation.start()` began presenting. */
+export interface PresentationStartedEvent extends GridEvent {
+  /** The enlargement it started at. */
+  scale: number;
+  /** The options it was started with. */
+  options: Record<string, unknown>;
+  /** The view ids in the deck; empty when it is presenting the grid as it stands. */
+  views: string[];
+  /** Which view is showing, or -1 when there is no deck. */
+  index: number;
+}
+
+/** `presentation:view`: the presentation stepped to a view, including the first. */
+export interface PresentationViewEvent extends GridEvent {
+  /** The view now showing, or null when the deck is empty. */
+  viewId: string | null;
+  /** Its position in the deck. */
+  index: number;
+  /** How many views the deck holds. */
+  count: number;
+}
+
+/** `presentation:scale`: the presentation's enlargement changed. */
+export interface PresentationScaleEvent extends GridEvent {
+  /** The enlargement now in force, already clamped to the allowed range. */
+  scale: number;
+}
+
+/** `presentation:spotlight`: the spotlight was armed over some rows and columns, or cleared. */
+export interface PresentationSpotlightEvent extends GridEvent {
+  /** What is lit, or null when the spotlight was cleared. */
+  spotlight: { keys: string[]; colIds: string[] } | null;
+}
+
+/** `presentation:captured`: a screenshot of the grid was taken. */
+export interface PresentationCapturedEvent extends GridEvent {
+  /** The image's width in pixels. */
+  width: number;
+  /** Its height in pixels. */
+  height: number;
+  /** Its size in bytes. */
+  bytes: number;
+  /** Its MIME type. */
+  mimeType: string;
+  /** The file name it was downloaded under, or null when it was not downloaded. */
+  fileName: string | null;
+}
+
+/** `comment:added`: a comment was added to a cell, or a reply added to a thread. */
+export interface CommentAddedEvent extends GridEvent {
+  /** The cell the comment is on, as the provider keys it. */
+  cellKey: string;
+  /** The stored comment's id, where the provider returned one. */
+  commentId?: string;
+  /** The comment this one replies to, or null when it starts a thread. */
+  parentId: string | null;
+}
+
+/** `comment:edited` and `comment:deleted`: one comment changed. */
+export interface CommentEvent extends GridEvent {
+  /** The cell the comment is on. */
+  cellKey: string;
+  /** The comment that changed. */
+  commentId: string;
+}
+
+/** `comment:resolved` and `comment:unresolved`: a thread was marked resolved or reopened. */
+export interface CommentResolvedEvent extends GridEvent {
+  /** The cell whose thread changed. */
+  cellKey: string;
+}
+
+/** `comment:threadOpened`: a cell's comment thread was opened. */
+export interface CommentThreadOpenedEvent extends GridEvent {
+  /** The cell whose thread was opened. */
+  cellKey: string;
+  /** The row it sits on. */
+  rowId: string;
+  /** The column it sits on. */
+  field: string;
+  /** The cell's value, so a thread header can quote what is being discussed. */
+  value: unknown;
+}
+
+/** `comment:threadClosed`: a cell's comment thread was closed. */
+export interface CommentThreadClosedEvent extends GridEvent {
+  /** The cell whose thread was closed. */
+  cellKey: string;
+  /** Why it closed; `'dismissed'` when the caller gave no reason. */
+  reason: string;
+}
+
+/** `comment:indexLoaded`: the comment index for the visible rows finished loading. */
+export interface CommentIndexLoadedEvent extends GridEvent {
+  /** How many rows the index was asked for. */
+  rows: number;
+  /** How many entries came back. */
+  entries: number;
+  /** How long it took, in milliseconds. */
+  ms: number;
+}
+
+/** `comment:failed`: a comment operation could not reach the backend. */
+export interface CommentFailedEvent extends GridEvent {
+  /** Which provider call failed. */
+  operation: 'loadIndex' | 'loadThread' | 'addComment' | 'editComment' | 'deleteComment' | 'resolveThread' | 'unresolveThread';
+  /** The cell it was for, where the call named one. */
+  cellKey?: string;
+  /** The comment it was for, where the call named one. */
+  commentId?: string;
+  /** What the provider threw or rejected with. */
+  error: unknown;
+}
+
+/** `presence:published`: this grid published its own presence to the transport. */
+export interface PresencePublishedEvent extends GridEvent {
+  /** What was published: this peer's cursor, selection and identity. */
+  state: Record<string, unknown>;
+}
+
+/** `presence:joined` and `presence:updated`: a peer appeared, or one already present moved. */
+export interface PresencePeerEvent extends GridEvent {
+  /** The peer, as the grid now holds it. */
+  peer: Peer;
+}
+
+/** `presence:left`: a peer left the presence channel or timed out. */
+export interface PresenceLeftEvent extends GridEvent {
+  /** The peer that left. */
+  peer: Peer;
+  /** Why it left — the transport's reason, or the grid's own timeout. */
+  reason: string;
+}
+
+/** `presence:failed`: a presence subscribe or publish could not reach the transport. */
+export interface PresenceFailedEvent extends GridEvent {
+  /** Which call failed. */
+  operation: 'subscribe' | 'publish';
+  /** What the transport threw or rejected with. */
+  error: unknown;
+}
+
+/** `presence:lockRefused`: an edit was refused because a peer holds the cell's lock. */
+export interface PresenceLockRefusedEvent extends GridEvent {
+  /** The row key of the locked cell. */
+  key: string;
+  /** Its column. */
+  colId: string;
+  /** The peer holding the lock. */
+  peer: Peer;
+}
+
+/** `diff:changed`: diff mode was turned on against a snapshot, or turned off. */
+export interface DiffChangedEvent extends GridEvent {
+  /** Whether the grid is now diffing. */
+  enabled: boolean;
+}
+
+/** `diff:swapped`: the two sides of a diff were swapped. */
+export interface DiffSwappedEvent extends GridEvent {
+  /** True when the grid is now showing the snapshot as the "after" side. */
+  swapped: boolean;
+  /** How many rows are on the side now being shown. */
+  rows: number;
+  /** How many rows are on the side it came from. */
+  snapshot: number;
+}
+
+/** `timeline:attached`: the scrubber began recording what each change replaces. */
+export interface TimelineAttachedEvent extends GridEvent {
+  /** How many steps back it is currently possible to go. */
+  depth: number;
+}
+
+/** `timeline:seek`: the timeline finished moving. */
+export interface TimelineSeekEvent extends GridEvent {
+  /** How many steps back from the present the grid now stands; 0 is live. */
+  position: number;
+  /** How many steps back it is possible to go. */
+  depth: number;
+  /** Whether it is standing in the present. */
+  live: boolean;
+  /** The timestamp of the recorded state it is standing at, or null when live. */
+  at: number | null;
+}
+
+/** `timeline:seeking`: the timeline is about to move. */
+export interface TimelineSeekingEvent extends GridEvent {
+  /** How many steps back it is coming from. */
+  from: number;
+  /** How many steps back it is going to. */
+  to: number;
+}
+
+/** `annotation:changed`: the annotation overlay's marks or tool changed. */
+export interface AnnotationChangedEvent extends GridEvent {
+  /** The tool now in use, or null when none is. */
+  tool: 'pen' | 'arrow' | 'rect' | 'highlight' | null;
+  /** How many marks the layer now holds. */
+  count: number;
+}
+
+/** `export:progress`: a streaming export wrote another chunk. */
+export interface ExportProgressEvent extends GridEvent {
+  /** Rows written so far. */
+  written: number;
+  /** Rows expected in all. */
+  total: number;
+  /** Bytes written so far. */
+  bytes: number;
+}
+
+/** `export:request`: a remote export request is about to go to the host's `export.remote.fetch` hook. */
+export interface ExportRequestEvent extends GridEvent {
+  /** The request, as the hook will receive it: the query, the columns and the format. */
+  request: Record<string, unknown>;
+}
+
+/** `export:done`: a remote export came back and the file was handed over. */
+export interface ExportDoneEvent extends GridEvent {
+  /** The request that produced it. */
+  request: Record<string, unknown>;
+  /** True — this firing is the remote path's; a local export does not raise it. */
+  remote: boolean;
+}
+
+/** `print:before` and `print:after`: print mode was applied, and undone. */
+export interface PrintEvent extends GridEvent {
+  /** How many rows the print covers. */
+  rows: number;
+}
+
+/**
+ * `beforeEdit`: a cell or row edit is about to be committed.
+ *
+ * Raised only for a person's or the AI's write — origin `'user'` or `'ai'`. An
+ * `'api'` write (`grid.edit.setCells` with no origin, and the paste, fill and
+ * clear that funnel through it) is not gated and raises nothing, so nothing
+ * that worked before the gate existed changed shape.
+ */
+export interface BeforeEditEvent extends BeforeEvent {
+  /** The row about to be committed. */
+  row: Row;
+  /** That row's key. */
+  key: string;
+  /** Whether it is a cell edit or a row edit. */
+  mode: 'cell' | 'row';
+  /** The writes that are about to be made. */
+  changes: { colId: string; oldValue: unknown; newValue: unknown }[];
+}
+
+/** `beforeSort`: the user asked for a sort, which has not been applied yet. */
+export interface BeforeSortEvent extends BeforeEvent {
+  /** The sort that is about to be applied. */
+  sort: SortEntry[];
+}
+
+/**
+ * `beforeFilter`: the user asked for a filter, which has not been applied yet.
+ *
+ * The quick filter rides the same gate as the condition tree, marked `kind:
+ * 'quick'` so a handler can tell them apart; each firing carries one of
+ * `filters` and `quick`, never both.
+ */
+export interface BeforeFilterEvent extends BeforeEvent {
+  /** The structured filter about to be applied, on a `kind: 'structured'` firing. */
+  filters?: FilterSet;
+  /** The quick-filter text about to be applied, on a `kind: 'quick'` firing. */
+  quick?: string;
+  /** Which filter this is. */
+  kind: 'structured' | 'quick';
+}
+
+/** `beforeSelect`: the user changed the selection, which has not been announced yet. */
+export interface BeforeSelectEvent extends BeforeEvent {
+  /** The keys the user has just selected. */
+  keys: string[];
+  /** The keys the selection would snap back to on a veto. */
+  previous: string[];
+}
+
+/** `beforeColumnMove`: a column is about to be moved. */
+export interface BeforeColumnMoveEvent extends BeforeEvent {
+  /** The column being moved. */
+  column: string;
+  /** The display index it would take. */
+  to: number;
+}
+
+/** `beforeColumnResize`: a column is about to be resized. */
+export interface BeforeColumnResizeEvent extends BeforeEvent {
+  /** The column being resized. */
+  column: string;
+  /** The width it would take, in pixels. */
+  width: number;
+}
+
+/** `beforeColumnHide`: one or more columns are about to be hidden. */
+export interface BeforeColumnHideEvent extends BeforeEvent {
+  /** The columns about to be hidden. */
+  columns: string[];
+}
+
+/** `beforeRowAdd`: a record is about to be appended through the pending-row path. */
+export interface BeforeRowAddEvent extends BeforeEvent {
+  /** The record about to be appended. */
+  row: Record<string, unknown>;
+}
+
+/** `beforeDelete`: one or more rows are about to be deleted. */
+export interface BeforeDeleteEvent extends BeforeEvent {
+  /** The first key about to be deleted. */
+  key: string;
+  /** Every key about to be deleted, on the multi-row gesture. */
+  keys?: string[];
+  /** Every key about to be deleted. */
+  rows: string[];
+}
+
+/** `beforeRowMove`: a row is about to be reordered within this grid. */
+export interface BeforeRowMoveEvent extends BeforeEvent {
+  /** The key of the row being moved. */
+  key: string;
+  /** The display index it is at. */
+  from: number;
+  /** The display index it would take. */
+  to: number;
+}
+
+/** `beforeGroup`: a group row is about to be expanded or collapsed. */
+export interface BeforeGroupEvent extends BeforeEvent {
+  /** The key of the group row. */
+  key: string;
+  /** True when it is being opened, false when it is being closed. */
+  expanded: boolean;
+}
+
+/** `edit:cancelled`: a `beforeEdit` handler vetoed the commit, or it went stale. */
+export interface EditCancelledEvent extends GridEvent {
+  /** The row whose commit was abandoned. */
+  row: Row;
+  /** That row's key. */
+  key: string;
+  /** Whether it was a cell edit or a row edit. */
+  mode: 'cell' | 'row';
+  /** The writes that would have been made. */
+  changes: { colId: string; oldValue: unknown; newValue: unknown }[];
+  /** The reason given to `preventDefault`, `'prevented'` when none was, or `'stale'`. */
+  reason: string;
+}
+
+/** `sort:cancelled`: a `beforeSort` handler vetoed the sort. */
+export interface SortCancelledEvent extends GridEvent {
+  /** The sort that was not applied. */
+  sort: SortEntry[];
+  /** The reason given to `preventDefault`, or `'prevented'`. */
+  reason: string;
+}
+
+/** `filter:cancelled`: a `beforeFilter` handler vetoed the filter. */
+export interface FilterCancelledEvent extends GridEvent {
+  /** The structured filter that was not applied, on a `kind: 'structured'` veto. */
+  filters?: FilterSet;
+  /** The quick-filter text that was not applied, on a `kind: 'quick'` veto. */
+  quick?: string;
+  /** Which filter was refused. */
+  kind: 'structured' | 'quick';
+  /** The reason given to `preventDefault`, or `'prevented'`. */
+  reason: string;
+}
+
+/** `columnMove:cancelled`: a `beforeColumnMove` handler vetoed the move. */
+export interface ColumnMoveCancelledEvent extends GridEvent {
+  /** The column that was not moved. */
+  column: string;
+  /** The display index it would have taken. */
+  to: number;
+  /** The reason given to `preventDefault`, or `'prevented'`. */
+  reason: string;
+}
+
+/** `columnResize:cancelled`: a `beforeColumnResize` handler vetoed the resize. */
+export interface ColumnResizeCancelledEvent extends GridEvent {
+  /** The column that was not resized. */
+  column: string;
+  /** The width it would have taken, in pixels. */
+  width: number;
+  /** The reason given to `preventDefault`, or `'prevented'`. */
+  reason: string;
+}
+
+/** `columnHide:cancelled`: a `beforeColumnHide` handler vetoed the hide. */
+export interface ColumnHideCancelledEvent extends GridEvent {
+  /** The columns that were not hidden. */
+  columns: string[];
+  /** The reason given to `preventDefault`, or `'prevented'`. */
+  reason: string;
+}
+
+/** `selection:cancelled`: a `beforeSelect` handler vetoed the change, which has been snapped back. */
+export interface SelectionCancelledEvent extends GridEvent {
+  /** The keys the user had selected, which are no longer selected. */
+  keys: string[];
+  /** The keys the selection was snapped back to. */
+  previous: string[];
+  /** The reason given to `preventDefault`, or `'prevented'`. */
+  reason: string;
+}
+
+/** `rowAdd:cancelled`: a `beforeRowAdd` handler vetoed the append. */
+export interface RowAddCancelledEvent extends GridEvent {
+  /** The record that was not appended. */
+  row: Record<string, unknown>;
+  /** The reason given to `preventDefault`, or `'prevented'`. */
+  reason: string;
+}
+
+/** `delete:cancelled`: a `beforeDelete` handler vetoed the delete, or the rows were gone by the time it settled. */
+export interface DeleteCancelledEvent extends GridEvent {
+  /** The first key that was not deleted. */
+  key: string;
+  /** Every key that was not deleted, on the multi-row gesture. */
+  keys?: string[];
+  /** Every key that was not deleted. */
+  rows: string[];
+  /** The reason given to `preventDefault`, `'prevented'` when none was, or `'stale'`. */
+  reason: string;
+}
+
+/** `rowMove:cancelled`: a `beforeRowMove` handler vetoed the reorder. */
+export interface RowMoveCancelledEvent extends GridEvent {
+  /** The key of the row that did not move. */
+  key: string;
+  /** The display index it is still at. */
+  from: number;
+  /** The display index it would have taken. */
+  to: number;
+  /** The reason given to `preventDefault`, `'prevented'`, or `'unchanged'` when the move was a no-op. */
+  reason: string;
+}
+
+/** `group:cancelled`: a `beforeGroup` handler vetoed the expand or collapse. */
+export interface GroupCancelledEvent extends GridEvent {
+  /** The key of the group row that did not move. */
+  key: string;
+  /** Whether it was being opened (true) or closed (false). */
+  expanded: boolean;
+  /** The reason given to `preventDefault`, or `'prevented'`. */
+  reason: string;
+}
+
+
 /**
  * What a handler receives, per event.
  *
@@ -11409,29 +13587,334 @@ export interface Chart {
  * by the undescribed-member ratchet in `tools/check.js`, so the gaps are
  * visible and shrink rather than being papered over with a generic type. Every
  * payload extends {@link GridEvent}; an entry says which specialisation.
+ *
+ * An entry of `void` means the event carries nothing of its own: the bus
+ * still hands the handler the {@link GridEvent} envelope — `type`, `origin`
+ * and `grid` — and the reference prints "no payload" rather than a type.
  */
 export interface EventPayloads {
+  /** Nothing: the grid being ready is the whole message. */
+  ready: void;
+  /** Nothing: the grid is still readable from the handler, and that is the point. */
+  destroy: void;
+  /** Nothing: the first frame's window is reported by `render:done`, which follows it. */
+  'render:first': void;
+  /** The window that was drawn and the milliseconds each phase took. */
+  'render:done': RenderDoneEvent;
+  /** The key (or keys) that were written, with their old values. */
+  'config:changed': ConfigChangedEvent;
+  /** The verdict and what this deployment is now treated as. */
+  'licence:changed': LicenceChangedEvent;
+  /** Why the model was rebuilt, and whatever that reason has to say. */
+  'model:changed': ModelChangedEvent;
+  /** Which rows moved — records when `identified`, counts on a companion firing. */
+  'rows:changed': RowsChangedEvent;
+  /** How much is waiting on the batch queue. */
+  'rows:queued': RowsQueuedEvent;
+  /** How much a flush carried into the next frame, and the budget it ran out of. */
+  'rows:deferred': RowsDeferredEvent;
+  /** The whole feed counter set, as `grid.changes.stats()` returns it. */
+  'rows:paused': RowsFlowEvent;
+  /** The whole feed counter set, as `grid.changes.stats()` returns it. */
+  'rows:resumed': RowsFlowEvent;
+  /** The row that arrived, where it landed, and anything the insert refused. */
+  'row:received': RowReceivedEvent;
+  /** The row that left and whether it was moved or copied. */
+  'row:sent': RowTransferEvent;
+  /** The row that was copied out and left here as well. */
+  'row:copied': RowTransferEvent;
+  /** The row that was reordered, and the indices it moved between. */
+  'row:moved': RowMovedEvent;
+  /** What the source threw, and what it was fetching. */
+  'source:error': SourceErrorEvent;
+  /** How much of the stream has arrived and how much is expected. */
+  'stream:chunk': StreamChunkEvent;
+  /** The final row count and whether the stream promoted to memory. */
+  'stream:end': StreamEndEvent;
+  /** How many rows the window dropped, and how many are still live. */
+  'stream:evicted': StreamEvictedEvent;
   /** The row-drag gesture; all four carry the same payload. */
   'rowDrag:started': RowDragEvent;
+  /** The row being dragged, the grid under the pointer, and where it would land. */
   'rowDrag:moved': RowDragEvent;
+  /** The grid the pointer has just left, with no candidate index to report. */
   'rowDrag:left': RowDragEvent;
+  /** Where the drag ended and whether the release is being acted on. */
   'rowDrag:ended': RowDragEvent;
-  /** The cancellable before-events: a {@link BeforeEvent} carrying `preventDefault`. */
-  beforeEdit: BeforeEvent;
-  beforeSort: BeforeEvent;
-  beforeFilter: BeforeEvent;
-  beforeColumnMove: BeforeEvent;
-  beforeColumnResize: BeforeEvent;
-  beforeColumnHide: BeforeEvent;
-  beforeSelect: BeforeEvent;
-  beforeRowAdd: BeforeEvent;
-  beforeDelete: BeforeEvent;
-  beforeRowMove: BeforeEvent;
-  beforeGroup: BeforeEvent;
-  /** A row dropped in from another grid, on the receiving grid. */
-  beforeRowReceive: BeforeRowReceiveEvent;
-  /** That veto's notification, with the reason. */
-  'rowReceive:cancelled': RowReceiveCancelledEvent;
+  /** The cell that was written, with its old and new values. */
+  'cell:changed': CellChangedEvent;
+  /** The cell that was sent, the value held in reserve, and the op id. */
+  'cell:pending': CellPendingEvent;
+  /** What the server confirmed, which need not be what was sent. */
+  'cell:confirmed': CellConfirmedEvent;
+  /** The value that was refused, the value put back, and why. */
+  'cell:reverted': CellRevertedEvent;
+  /** The row the server sent back, which disagrees with what the grid holds. */
+  'cell:conflict': CellConflictEvent;
+  /** The cell that was clicked, with its value and the DOM event. */
+  'cell:clicked': CellPointerEvent;
+  /** The cell that was double-clicked, with its value and the DOM event. */
+  'cell:dblclicked': CellPointerEvent;
+  /** The cell the menu was requested on; the two routes fill different fields (F-1688-E). */
+  'cell:contextmenu': CellContextMenuEvent;
+  /** The cell entered, plus its element as `target`. */
+  'cell:mouseover': CellPointerEvent;
+  /** The cell left, plus its element as `target`. */
+  'cell:mouseout': CellPointerEvent;
+  /** The cell pressed, plus its element as `target`. */
+  'cell:mousedown': CellPointerEvent;
+  /** The cell released over, plus its element as `target`. */
+  'cell:mouseup': CellPointerEvent;
+  /** The cell being edited, and the keypress that opened the editor. */
+  'cell:edit:start': EditStartEvent;
+  /** Whether the commit was valid, whether it was cancelled, and what was written. */
+  'cell:edit:end': EditEndEvent;
+  /** The row being edited, and the keypress that opened the editor. */
+  'row:edit:start': EditStartEvent;
+  /** Whether the commit was valid, whether it was cancelled, and what was written. */
+  'row:edit:end': EditEndEvent;
+  /** The row that was clicked and the DOM event. */
+  'row:clicked': RowPointerEvent;
+  /** The row that was double-clicked and the DOM event. */
+  'row:dblclicked': RowPointerEvent;
+  /** Which structural write was sent, under which id and key. */
+  'row:pending': RowPendingEvent;
+  /** The confirmed write, already rekeyed when it was an append. */
+  'row:confirmed': RowConfirmedEvent;
+  /** The refused write, why, and whether the rollback was applied. */
+  'row:reverted': RowRevertedEvent;
+  /** The row the server sent back, which disagrees with what the grid holds. */
+  'row:conflict': RowConflictEvent;
+  /** The row the form is editing. */
+  'form:opened': FormOpenedEvent;
+  /** The row the form was editing. */
+  'form:closed': FormClosedEvent;
+  /** Every value the form held, which of them changed, and which mapped to no column. */
+  'form:saved': FormSavedEvent;
+  /** What went wrong, and whether it was a timeout rather than a refusal. */
+  'form:error': FormErrorEvent;
+  /** The sort now in force, in precedence order. */
+  'sort:changed': SortChangedEvent;
+  /** Whichever of the four filter routes changed, and to what. */
+  'filter:changed': FilterChangedEvent;
+  /** Which group moved, whether it is now open, and whether it was a deep or an all-groups toggle. */
+  'group:toggled': GroupToggledEvent;
+  /** How many buckets, how long it took, and whether a worker did it. */
+  'facet:computed': FacetComputedEvent;
+  /** The condition the facet installed, or null when it was cleared. */
+  'facet:filtered': FacetFilteredEvent;
+  /** The facet section that opened or closed. */
+  'facet:expanded': FacetExpandedEvent;
+  /** The column the facets were for, and what went wrong. */
+  'facet:failed': FacetFailedEvent;
+  /** The column that moved and where to; spelled `id` or `colId` by route (F-1688-C). */
+  'column:moved': ColumnMovedEvent;
+  /** The column that was resized and its new width. */
+  'column:resized': ColumnResizedEvent;
+  /** The columns whose visibility changed, and which way. */
+  'column:visible': ColumnVisibleEvent;
+  /** The column and the side it is pinned to now, or null. */
+  'column:pinned': ColumnPinnedEvent;
+  /** The columns the rows are grouped by now. */
+  'column:grouped': ColumnGroupedEvent;
+  /** The columns the rows are pivoted by now, locally or on the backend. */
+  'column:pivoted': ColumnPivotedEvent;
+  /** The column whose filter popup should open, and the element to anchor it to. */
+  'column:filter:open': ColumnMenuEvent;
+  /** The column whose profile should open. */
+  'column:profile:open': ColumnMenuEvent;
+  /** The column whose menu should open, and the element to anchor it to. */
+  'column:menu:open': ColumnMenuEvent;
+  /** The source rows behind the measure, and the paths that identify the cell. */
+  'pivot:drill': PivotDrillEvent;
+  /** Why the column set was rewritten, and what was inferred. */
+  'columns:changed': ColumnsChangedEvent;
+  /** The tags that were asked for and the columns hidden for carrying none. */
+  'columns:tagged': ColumnsTaggedEvent;
+  /** What happened to the band, and to which one. */
+  'columngroup:changed': ColumnGroupChangedEvent;
+  /** The header the menu was requested on, and where the pointer was. */
+  'header:contextmenu': HeaderContextMenuEvent;
+  /** The keys and rows now selected. */
+  'selection:changed': SelectionChangedEvent;
+  /** Every cell range now selected. */
+  'range:changed': RangeChangedEvent;
+  /** The text, whether it reached the clipboard, and why not when it did not. */
+  'clipboard:copy': ClipboardCopyEvent;
+  /** The page, the page size, and how many pages the data makes. */
+  'page:changed': PageChangedEvent;
+  /** The viewport's new offset. */
+  scroll: ScrollEvent;
+  /** The viewport's offset once the gesture settled. */
+  'scroll:end': ScrollEvent;
+  /** Nothing: the new size is read off the element, which the handler already has. */
+  'size:changed': void;
+  /** Which detail regions are open, and which one is mounted. */
+  'detail:toggled': DetailToggledEvent;
+  /** Nothing: it is a request to move focus, not a report about state. */
+  'toolpanel:focus': void;
+  /** Every highlight now in force. */
+  'highlight:changed': HighlightChangedEvent;
+  /** The query, whether the bar is open, and the match count. */
+  'find:changed': FindChangedEvent;
+  /** The branch whose children are being fetched. */
+  'tree:loading': TreeLoadingEvent;
+  /** The branch and how many children arrived. */
+  'tree:loaded': TreeLoadedEvent;
+  /** The branch and what the loader rejected with. */
+  'tree:loadFailed': TreeLoadFailedEvent;
+  /** The branch whose fetch was abandoned. */
+  'tree:loadAborted': TreeLoadAbortedEvent;
   /** One event per logical state change. */
   'state:changed': StateChangedEvent;
+  /** The baseline that was restored. */
+  'state:reset': StateResetEvent;
+  /** What can now be undone and redone. */
+  'history:changed': HistoryChangedEvent;
+  /** Which way the stack moved, and the entry that was applied. */
+  'history:applied': HistoryAppliedEvent;
+  /** Every view after the change, and which one moved. */
+  'views:changed': ViewsChangedEvent;
+  /** The view that was applied, and the id now active. */
+  'view:applied': ViewAppliedEvent;
+  /** The one view that was created, updated or imported. */
+  'view:saved': ViewChangedEvent;
+  /** The one view that was deleted. */
+  'view:removed': ViewChangedEvent;
+  /** The one view that was renamed. */
+  'view:renamed': ViewChangedEvent;
+  /** The one view that was made the default. */
+  'view:default': ViewChangedEvent;
+  /** Every cell a column rule refused, with its code and message. */
+  'validation:failed': ValidationFailedEvent;
+  /** The row and column that were cleared, or null for all of them. */
+  'validation:cleared': ValidationClearedEvent;
+  /** What changed, in which scope, and every rule now in force. */
+  'formatting:changed': FormattingChangedEvent;
+  /** Every column id now redacted. */
+  'redaction:changed': RedactionChangedEvent;
+  /** The permission level now in force for each column that has one. */
+  'permissions:changed': PermissionsChangedEvent;
+  /** Either the responsive layout's new presentation, or the deck's settings (F-1688-A). */
+  'presentation:changed': PresentationChangedEvent;
+  /** The scale, options and deck the presentation started with. */
+  'presentation:started': PresentationStartedEvent;
+  /** Nothing: the presentation is over and there is no state left to report. */
+  'presentation:ended': void;
+  /** The view now showing and its position in the deck. */
+  'presentation:view': PresentationViewEvent;
+  /** The enlargement now in force. */
+  'presentation:scale': PresentationScaleEvent;
+  /** What is lit, or null when the spotlight was cleared. */
+  'presentation:spotlight': PresentationSpotlightEvent;
+  /** The captured image's size, type and file name. */
+  'presentation:captured': PresentationCapturedEvent;
+  /** The cell, the stored comment, and the thread it replies to. */
+  'comment:added': CommentAddedEvent;
+  /** The comment whose text changed. */
+  'comment:edited': CommentEvent;
+  /** The comment that was deleted. */
+  'comment:deleted': CommentEvent;
+  /** Which provider call failed, on what, and with what. */
+  'comment:failed': CommentFailedEvent;
+  /** The cell whose thread was marked resolved. */
+  'comment:resolved': CommentResolvedEvent;
+  /** The cell whose thread was reopened. */
+  'comment:unresolved': CommentResolvedEvent;
+  /** The cell whose thread was opened, and the value being discussed. */
+  'comment:threadOpened': CommentThreadOpenedEvent;
+  /** The cell whose thread was closed, and why. */
+  'comment:threadClosed': CommentThreadClosedEvent;
+  /** How many rows were indexed, how many entries came back, and how long it took. */
+  'comment:indexLoaded': CommentIndexLoadedEvent;
+  /** This grid's own presence, as it was published. */
+  'presence:published': PresencePublishedEvent;
+  /** The peer that appeared. */
+  'presence:joined': PresencePeerEvent;
+  /** The peer that moved or changed what it is doing. */
+  'presence:updated': PresencePeerEvent;
+  /** The peer that left, and why. */
+  'presence:left': PresenceLeftEvent;
+  /** Which presence call failed, and with what. */
+  'presence:failed': PresenceFailedEvent;
+  /** The locked cell and the peer holding it. */
+  'presence:lockRefused': PresenceLockRefusedEvent;
+  /** Whether the grid is now diffing. */
+  'diff:changed': DiffChangedEvent;
+  /** Which way round the diff now is, and how many rows are on each side. */
+  'diff:swapped': DiffSwappedEvent;
+  /** How far back the recorded window now reaches. */
+  'timeline:attached': TimelineAttachedEvent;
+  /** Nothing: the grid is back in the present and nothing is recorded. */
+  'timeline:detached': void;
+  /** Where the grid now stands, and whether that is live. */
+  'timeline:seek': TimelineSeekEvent;
+  /** Where the move is coming from and going to. */
+  'timeline:seeking': TimelineSeekingEvent;
+  /** The tool in use and how many marks the layer holds. */
+  'annotation:changed': AnnotationChangedEvent;
+  /** Rows written, rows expected, bytes so far. */
+  'export:progress': ExportProgressEvent;
+  /** The request about to go to the host's export hook. */
+  'export:request': ExportRequestEvent;
+  /** The request that produced the file that came back. */
+  'export:done': ExportDoneEvent;
+  /** Nothing: the overlay is open and there is nothing else to say about it. */
+  'shortcuts:opened': void;
+  /** Nothing: the overlay is closed and focus has gone back where it was. */
+  'shortcuts:closed': void;
+  /** How many rows the print covers. */
+  'print:before': PrintEvent;
+  /** How many rows the print covered. */
+  'print:after': PrintEvent;
+  /** The row, the mode and the writes about to be committed, with `preventDefault` to stop them. */
+  beforeEdit: BeforeEditEvent;
+  /** The sort about to be applied, with `preventDefault` to stop it. */
+  beforeSort: BeforeSortEvent;
+  /** The filter about to be applied, with `preventDefault` to stop it. */
+  beforeFilter: BeforeFilterEvent;
+  /** The column move about to be applied, with `preventDefault` to stop it. */
+  beforeColumnMove: BeforeColumnMoveEvent;
+  /** The column resize about to be applied, with `preventDefault` to stop it. */
+  beforeColumnResize: BeforeColumnResizeEvent;
+  /** The column hide about to be applied, with `preventDefault` to stop it. */
+  beforeColumnHide: BeforeColumnHideEvent;
+  /** The selection about to be announced, with `preventDefault` to snap it back. */
+  beforeSelect: BeforeSelectEvent;
+  /** The row append about to be sent, with `preventDefault` to stop it. */
+  beforeRowAdd: BeforeRowAddEvent;
+  /** The row delete about to be applied, with `preventDefault` to stop it. */
+  beforeDelete: BeforeDeleteEvent;
+  /** The row reorder about to be applied, with `preventDefault` to stop it. */
+  beforeRowMove: BeforeRowMoveEvent;
+  /** The group toggle about to be applied, with `preventDefault` to stop it. */
+  beforeGroup: BeforeGroupEvent;
+  /** A row dropped in from another grid, on the receiving grid. */
+  beforeRowReceive: BeforeRowReceiveEvent;
+  /** The commit that was abandoned, and why. */
+  'edit:cancelled': EditCancelledEvent;
+  /** The sort that was not applied, and why. */
+  'sort:cancelled': SortCancelledEvent;
+  /** The filter that was not applied, and why. */
+  'filter:cancelled': FilterCancelledEvent;
+  /** The column move that was not applied, and why. */
+  'columnMove:cancelled': ColumnMoveCancelledEvent;
+  /** The column resize that was not applied, and why. */
+  'columnResize:cancelled': ColumnResizeCancelledEvent;
+  /** The column hide that was not applied, and why. */
+  'columnHide:cancelled': ColumnHideCancelledEvent;
+  /** The selection that was snapped back, and why. */
+  'selection:cancelled': SelectionCancelledEvent;
+  /** The append that was not sent, and why. */
+  'rowAdd:cancelled': RowAddCancelledEvent;
+  /** The delete that was not applied, and why. */
+  'delete:cancelled': DeleteCancelledEvent;
+  /** The reorder that was not applied, and why. */
+  'rowMove:cancelled': RowMoveCancelledEvent;
+  /** The group toggle that was not applied, and why. */
+  'group:cancelled': GroupCancelledEvent;
+  /** That veto's notification, with the reason. */
+  'rowReceive:cancelled': RowReceiveCancelledEvent;
+  /** Whichever past-tense event fired; the wildcard is never given a before-event. */
+  '*': GridEvent;
 }

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.1, tabs module type declarations
+ * Lattice Grid 1.68.2, tabs module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -71,26 +71,101 @@ interface TabDescriptor {
   badgeTone?: 'good' | 'warn' | 'bad' | 'unknown' | ((count: number | null, tab: { id: string; label: string; from: string | null }) => 'good' | 'warn' | 'bad' | 'unknown' | null);
 }
 
-/** The payload every tab-change event carries. */
+/**
+ * `beforeTabChange`: a switch is about to be applied, and may be refused.
+ *
+ * Delivered through `packages/modules/shared/emitter.js`'s `emitBefore`, which
+ * builds the event from the module's action context plus `type`, the resolved
+ * `origin` and the veto surface — so every member below is always present on
+ * this event. A handler refuses the switch by calling `preventDefault(reason?)`
+ * or by returning a Promise that resolves `false`; the active tab then does not
+ * change and `tabChange:cancelled` fires carrying the reason.
+ */
 interface TabChangeEvent {
+  /** Which event this is: `beforeTabChange`. */
+  type: string;
   /** The tab being switched to. */
   id: string;
-  /** The tab being left, or null for the first activation. */
+  /** The tab being left, or null when no tab was active. */
   previousId: string | null;
   /**
-   * Who caused the switch: `user` for a click or keypress, `api` for `activate()`, `init`
-   * for the opening tab. Defaults to `user`.
+   * Who asked for the switch: `user` for a click or a keypress, `api` for
+   * `activate()`. The opening tab is activated silently, so it raises no
+   * `beforeTabChange` at all.
    */
-  origin?: 'api' | 'user' | 'init';
+  origin: 'api' | 'user';
+  /** The reason given to `preventDefault`, or null while nothing has refused the switch. */
+  reason: string | null;
+  /** True once a handler has refused the switch. */
+  defaultPrevented: boolean;
+  /** Refuse the switch; the optional reason is carried on `tabChange:cancelled`. */
+  preventDefault(reason?: string): void;
+}
+
+/**
+ * `tab:changed`: the switch happened — the target panel is revealed, its grid
+ * materialised on first activation, the badges refreshed and `aria-selected`
+ * moved. A notification, so it carries no `preventDefault`.
+ */
+interface TabChangedEvent {
+  /** Which event this is: `tab:changed`. */
+  type: string;
+  /** The tab now active. */
+  id: string;
   /**
-   * Why the switch was refused — the reason given to `preventDefault`, `prevented` when
-   * none was, or `error` when a handler threw.
+   * The tab that was left, or null for the mount-time activation — which
+   * happens while the strip is being built, before a handler can subscribe.
    */
-  reason?: string | null;
-  /** Cancel the switch (only meaningful on `beforeTabChange`). */
-  preventDefault?: (reason?: string) => void;
-  /** True once a handler has cancelled the switch. */
-  defaultPrevented?: boolean;
+  previousId: string | null;
+}
+
+/**
+ * `tabChange:cancelled`: a `beforeTabChange` handler refused the switch, so the
+ * active tab did not change. A notification, so it carries no `preventDefault`.
+ */
+interface TabChangeCancelledEvent {
+  /** Which event this is: `tabChange:cancelled`. */
+  type: string;
+  /** The tab that was not switched to. */
+  id: string;
+  /** The tab that is still active, or null when none was. */
+  previousId: string | null;
+  /** Who asked for the switch that was refused. */
+  origin: 'api' | 'user';
+  /** The reason given to `preventDefault`, or `'prevented'` when none was. */
+  reason: string;
+}
+
+/**
+ * The events a tabbed grid raises.
+ *
+ * The strip's own, not a grid's: `grid.on` takes {@link EventName} and knows
+ * nothing about these, and each tab's grid keeps raising its own events itself.
+ * `on()` warns once on any other name, because a binding to an event that can
+ * never fire is a silent no-op. Each event also has a config callback
+ * (`onBeforeTabChange`, `onTabChange`, `onTabChangeCancelled`); both routes
+ * fire.
+ *
+ * Only `beforeTabChange` is cancellable — it is the one that runs before
+ * anything moves. `tab:changed` and `tabChange:cancelled` report a decision
+ * already taken and carry no `preventDefault`.
+ */
+type TabsEventName =
+  /** A switch is about to be applied; cancellable. */
+  | 'beforeTabChange'
+  /** The active tab changed: its panel is showing and its grid is mounted. */
+  | 'tab:changed'
+  /** A `beforeTabChange` handler refused the switch; the active tab did not change. */
+  | 'tabChange:cancelled';
+
+/** What a handler receives, per tabs event. */
+interface TabsEventPayloads {
+  /** The switch about to happen, with `preventDefault` to refuse it. */
+  beforeTabChange: TabChangeEvent;
+  /** The tab now active, and the one it replaced. */
+  'tab:changed': TabChangedEvent;
+  /** The switch that was refused, and why. */
+  'tabChange:cancelled': TabChangeCancelledEvent;
 }
 
 /** Tabbed-grid configuration. */
@@ -108,7 +183,7 @@ interface TabsConfig {
   /** An explicit message-catalogue override; otherwise a mounted tab's own `grid.messages` is used. */
   messages?: { t(key: string, params?: Record<string, unknown>): string };
   /** Called after the active tab has changed, alongside the `tab:changed` event. */
-  onTabChange?: (event: TabChangeEvent) => void;
+  onTabChange?: (event: TabChangedEvent) => void;
   /**
    * Called before the switch. Return `false`, call `preventDefault(reason)`, or throw, to
    * stay where you are; return a promise and the switch waits for it. Alongside the
@@ -119,7 +194,7 @@ interface TabsConfig {
    * Called when a switch was refused, with the reason on the payload. Alongside
    * `tabChange:cancelled`.
    */
-  onTabChangeCancelled?: (event: TabChangeEvent) => void;
+  onTabChangeCancelled?: (event: TabChangeCancelledEvent) => void;
 }
 
 /**
@@ -141,13 +216,14 @@ interface Tabs {
   /** Switch the active tab, gated by `beforeTabChange`. */
   activate(id: string, opts?: { origin?: 'api' | 'user' }): boolean | Promise<boolean>;
   /**
-   * Subscribe to `beforeTabChange`, `tab:changed` or `tabChange:cancelled`; returns a
-   * function that unsubscribes. Any other name is warned about once, because it names a
-   * binding that could never fire.
+   * Register an event handler; returns a function that removes it. Any other name is
+   * warned about once, because it names a binding that could never fire. What each event
+   * carries is {@link TabsEventPayloads}; the handler is declared with the widest of
+   * them, so narrow on the name inside it.
    */
-  on(name: 'beforeTabChange' | 'tab:changed' | 'tabChange:cancelled' | string, fn: (event: TabChangeEvent) => void): () => void;
+  on(name: TabsEventName, fn: (event: TabsEventPayloads[TabsEventName]) => void): () => void;
   /** Remove a handler registered with `on`. */
-  off(name: string, fn: (event: TabChangeEvent) => void): void;
+  off(name: TabsEventName, fn: (event: TabsEventPayloads[TabsEventName]) => void): void;
   /** Tear the whole strip down; destroys every mounted tab's grid. */
   destroy(): void;
 }

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.1, webcomponent module type declarations
+ * Lattice Grid 1.68.2, webcomponent module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -154,21 +154,6 @@ export interface LatticeKPIElement<Row = any> extends LatticeViewerElement {
   rowKey: string | undefined;
   /** The default locale a clock tile formats in. */
   locale: string | undefined;
-  /**
-   * Passed to the panel as `theme`, which the panel does not read — it mirrors the
-   * theme of the grid it is mounted beside, and otherwise follows the page's tokens.
-   */
-  theme: string | undefined;
-  /**
-   * Passed to the panel as `density`, which the panel does not read — density is
-   * mirrored from the grid the panel belongs to.
-   */
-  density: string | undefined;
-  /**
-   * Passed to the panel as `format`, which the panel does not read — formatting is
-   * per tile (`tiles: [{ format }]`).
-   */
-  format: unknown;
 }
 
 /** `<lattice-chart>`. Always drawn from a grid, so it waits for one. */
@@ -181,16 +166,10 @@ export interface LatticeChartElement extends LatticeViewerElement {
   /** The column that splits the measure into one series per distinct value. */
   series: unknown;
   /**
-   * Passed to the chart as `data`, which the chart does not read — a chart draws the
-   * grid's own filtered rows. Use the grid's rows, or the chart spec's `rows`, through
-   * `config`.
+   * Rows to draw instead of the grid's own filtered rows — the chart spec's `rows`,
+   * under the name the element gives it. An explicit `config: { rows }` wins.
    */
   data: unknown;
-  /**
-   * Passed to the chart as `formatting`, which the chart does not read — a chart formats
-   * through the grid's own formatting and each column's type.
-   */
-  formatting: unknown;
   /** Which chart to draw. The `type` attribute. */
   type: string | undefined;
   /** The category column. */
@@ -207,14 +186,11 @@ export interface LatticeChartElement extends LatticeViewerElement {
   lat: string | undefined;
   /** Print the value beside each mark. The `labels` attribute is a bare boolean. */
   labels: boolean | undefined;
-  /**
-   * Passed to the chart as `stacked`, which the chart does not read — its own option is
-   * `stack`, reachable through `config`.
-   */
+  /** Stack the series rather than drawing them side by side — the spec's `stack`. */
   stacked: boolean | undefined;
   /**
-   * Passed to the chart as `horizontal`, which the chart does not read — orientation
-   * follows the chart type (`horizontalBar` and the row-named types draw along y).
+   * Draw a `type="bar"` chart along y instead of x, by selecting the `horizontalBar`
+   * type. Ignored on any other chart type, whose orientation is the type's own.
    */
   horizontal: boolean | undefined;
   /** The colour scheme by name. */
@@ -229,18 +205,13 @@ export interface LatticeKanbanElement<Row = any> extends LatticeViewerElement {
   columns: unknown[];
   /** The card template's field mapping — title, subtitle, labels, assignee and the rest. */
   card: unknown;
-  /**
-   * Passed to the board as `facets`, which the board does not read — filter it with
-   * `filter`, `quickFilter`, `setSprint` or `setEpic` instead.
-   */
-  facets: unknown;
   /** Which field identifies a card. */
   rowKey: string | undefined;
   /** The row property that puts a card in a column. */
   columnProperty: string | undefined;
   /**
-   * Passed to the board as `titleProperty`, which the board does not read — map the
-   * card's headline through `card` (`card: { title: 'name' }`).
+   * The row property a card's headline comes from — the shorthand for
+   * `card: { title }`, which wins where both are given.
    */
   titleProperty: string | undefined;
   /**
@@ -265,8 +236,8 @@ export interface LatticeGanttElement extends LatticeViewerElement {
   /** Which field identifies a task. */
   rowKey: string | undefined;
   /**
-   * Passed to the plan as `scale`, which it does not read — the timeline's zoom is a
-   * render option, set through `config: { render: { zoom } }`.
+   * The timeline's zoom — the shorthand for `config: { render: { zoom } }`, which wins
+   * where both are given.
    */
   scale: string | undefined;
   /**

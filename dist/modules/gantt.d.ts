@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.1, gantt module type declarations
+ * Lattice Grid 1.68.2, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -277,11 +277,8 @@ interface GanttSchedule {
    * and the controller keeps its previous schedule.
    */
   ok: boolean;
-  /**
-   * Why the schedule was refused: a code such as `cycle`, `duplicate-id`, `bad-duration`,
-   * `unknown-parent` or `parent-cycle`, a message, and for a cycle the ids that form it.
-   */
-  error?: { code: string; message: string; cycle?: string[] };
+  /** Why the schedule was refused — the same object the `error` event carries. */
+  error?: GanttScheduleError;
   /** Every task's computed values, keyed by id — leaves scheduled, summaries derived. */
   tasks?: Map<string, GanttScheduledTask>;
   /** Every task id in input order, which is the order a table or WBS tree walks. */
@@ -440,27 +437,13 @@ export function findViolations(tasks: GanttTask[], schedule: GanttSchedule): Gan
 export function toISODate(day: number): string | null;
 
 /** Earned-value metrics for one task or the whole project. */
-interface GanttEarnedValueRow {
-  /**
-   * The task the row is for. Absent on the `project` total, which carries only the
-   * money fields and the two `has…` flags.
-   */
-  id: string;
-  /** The task's name. Absent on the `project` total. */
-  name: string;
-  /**
-   * True for a summary row, whose figures are the sums of its descendant leaves. Absent
-   * on the `project` total.
-   */
-  isSummary: boolean;
-  /** True for a zero-duration task. Absent on the `project` total. */
-  isMilestone: boolean;
-  /**
-   * The task's progress, reported exactly as the task states it, or null when it states
-   * none — which earns nothing. The earned-value multiplier clamps it to 0-100 first.
-   * Absent on the `project` total.
-   */
-  percentComplete: number | null;
+/**
+ * The earned-value figures themselves, without the task they belong to.
+ *
+ * The project total is exactly this and no more, so it has its own type
+ * rather than claiming to be a row with five fields it has never carried.
+ */
+interface GanttEarnedValueTotals {
   /** Whether a baseline (not the fallback scheduled window) drove PV. */
   hasBaseline: boolean;
   /** Whether any actual cost fed AC (else AC/CV/CPI are null). */
@@ -483,6 +466,23 @@ interface GanttEarnedValueRow {
   cpi: number | null;
 }
 
+/** One task's earned-value figures. */
+interface GanttEarnedValueRow extends GanttEarnedValueTotals {
+  /** The task the row is for. */
+  id: string;
+  /** The task's name. */
+  name: string;
+  /** True for a summary row, whose figures are the sums of its descendant leaves. */
+  isSummary: boolean;
+  /** True for a zero-duration task. */
+  isMilestone: boolean;
+  /**
+   * The task's progress, reported exactly as the task states it, or null when it states
+   * none — which earns nothing. The earned-value multiplier clamps it to 0-100 first.
+   */
+  percentComplete: number | null;
+}
+
 /** The earned-value result at a status date. */
 interface GanttEarnedValue {
   /**
@@ -498,8 +498,11 @@ interface GanttEarnedValue {
   byTask?: Map<string, GanttEarnedValueRow>;
   /** The same rows in schedule order. */
   rows?: GanttEarnedValueRow[];
-  /** The project total, rolled up as money sums of the leaves. */
-  project?: GanttEarnedValueRow;
+  /**
+   * The project total, rolled up as money sums of the leaves. The figures only:
+   * a total belongs to no task, so it carries no id, name or progress.
+   */
+  project?: GanttEarnedValueTotals;
 }
 
 /**
@@ -514,6 +517,252 @@ export function computeEarnedValue(
   schedule: GanttSchedule,
   options?: { statusDate?: number | string | Date; costField?: string; actualCostField?: string },
 ): GanttEarnedValue;
+
+/**
+ * Why a schedule was refused.
+ *
+ * The payload of the `error` event — the very object the failed
+ * {@link GanttSchedule} carries, handed straight to the handler.
+ */
+interface GanttScheduleError {
+  /**
+   * What was wrong: `cycle`, `duplicate-id`, `bad-duration`, `unknown-task`,
+   * `unknown-parent`, `parent-cycle`, `self-dependency`, `bad-link-type` or
+   * `dep-across-hierarchy`.
+   */
+  code: string;
+  /** The failure in one English sentence, naming the task or link it is about. */
+  message: string;
+  /** The ids that form the cycle, on a `cycle`. */
+  cycle?: string[];
+  /** The task the failure is about, where one task is to blame. */
+  id?: string;
+  /** A rejected dependency's predecessor, on `dep-across-hierarchy`. */
+  from?: string;
+  /** A rejected dependency's successor, on `dep-across-hierarchy`. */
+  to?: string;
+}
+
+/**
+ * What every cancellable Gantt event carries on top of its own context.
+ *
+ * The controller's bus mirrors the grid core's `emitBefore` contract exactly,
+ * so a host writes the same handler shape against a Gantt as against a grid: a
+ * handler refuses the action by calling `preventDefault(reason?)`, by returning
+ * `false`, or by throwing, and may be `async` — every thenable return is
+ * awaited before the decision, so a confirm dialog or a server check can hold
+ * the write. Veto wins. On a veto the matching `<action>:cancelled` fires with
+ * the reason and the model is untouched; an action re-validated after an await
+ * and no longer applicable is cancelled as `'stale'`.
+ *
+ * Only the user-initiated paths are gated. The live/router `rows.apply` path is
+ * remote truth and raises none of these.
+ */
+interface GanttBeforeEvent {
+  /** Which event this is — `beforeTaskMove`, `beforeTaskDelete` and the rest. */
+  type: string;
+  /** True once a handler has refused the action. */
+  defaultPrevented: boolean;
+  /** The reason given to `preventDefault`, or null while nothing has refused it. */
+  reason: string | null;
+  /** Refuse the action; the optional reason is carried on the `<action>:cancelled` event. */
+  preventDefault(reason?: string): void;
+}
+
+/**
+ * An edit about to be applied to one task: the payload of `beforeTaskEdit`,
+ * `beforeTaskMove`, `beforeTaskResize`, `beforeProgressChange` and
+ * `beforeMilestoneMove`.
+ *
+ * One payload for the five, because they are one choke point — `applyEdit`
+ * classifies the patch and names the event, so which of the five fires says
+ * what kind of edit it is and the context below says what the edit is.
+ */
+interface GanttTaskEditEvent extends GanttBeforeEvent {
+  /** The task being edited, by id. */
+  id: string;
+  /** The task as it stands before the edit, as a shallow copy. */
+  task: GanttTask;
+  /** The edit itself: only the fields it changes. */
+  patch: { id: string | number; start?: number; end?: number; duration?: number; percentComplete?: number; work?: unknown };
+  /** Always `user`: only the user-initiated path is gated. */
+  origin: string;
+  /** Where the task starts now, from the plan, or its computed early start when it holds no start. */
+  from?: number | string | Date;
+  /** Where the patch would move it to; absent unless the patch sets `start`. */
+  to?: number | string | Date;
+  /** The duration the patch asks for; absent unless the patch sets one. */
+  duration?: number;
+  /** The progress the patch asks for; present only on a `beforeProgressChange`. */
+  value?: number;
+  /** The progress before it; present only on a `beforeProgressChange`. */
+  oldValue?: number;
+}
+
+/**
+ * An edit that was refused: the payload of `taskEdit:cancelled`,
+ * `taskMove:cancelled`, `taskResize:cancelled`, `progressChange:cancelled` and
+ * `milestoneMove:cancelled`. The same context the before-event carried, plus
+ * the reason; a notification, so it carries no `preventDefault`.
+ */
+interface GanttTaskEditCancelledEvent {
+  /** The task that was not edited. */
+  id: string;
+  /** The task, unchanged. */
+  task: GanttTask;
+  /** The edit that was not applied. */
+  patch: { id: string | number; start?: number; end?: number; duration?: number; percentComplete?: number; work?: unknown };
+  /** Always `user`. */
+  origin: string;
+  /** Where the task starts, still. */
+  from?: number | string | Date;
+  /** Where it would have gone. */
+  to?: number | string | Date;
+  /** The duration that was asked for. */
+  duration?: number;
+  /** The progress that was asked for. */
+  value?: number;
+  /** The progress before it. */
+  oldValue?: number;
+  /** The reason given to `preventDefault`, `'prevented'` when none was, or `'stale'` when the task had gone by the time a handler settled. */
+  reason: string;
+}
+
+/**
+ * Links about to be created: the payload of `beforeDependencyCreate`. A pure
+ * removal or reorder adds no link and is not gated at all.
+ */
+interface GanttDependencyCreateEvent extends GanttBeforeEvent {
+  /** Only the links this call adds, normalised. */
+  added: GanttDependency[];
+  /** The whole list the call would leave behind. */
+  dependencies: GanttDependency[];
+  /** Always `user`. */
+  origin: string;
+}
+
+/**
+ * Links that were not created: the payload of `dependencyCreate:cancelled`. A
+ * notification, so it carries no `preventDefault`.
+ */
+interface GanttDependencyCreateCancelledEvent {
+  /** The links that were not added. */
+  added: GanttDependency[];
+  /** The list that was not adopted; the controller kept the one it had. */
+  dependencies: GanttDependency[];
+  /** Always `user`. */
+  origin: string;
+  /** The reason given to `preventDefault`, or `'prevented'` when none was. */
+  reason: string;
+}
+
+/** A task about to be deleted, with its incident links: the payload of `beforeTaskDelete`. */
+interface GanttTaskDeleteEvent extends GanttBeforeEvent {
+  /** The task being deleted, by id. */
+  id: string;
+  /** The task itself, as a shallow copy — the only chance a handler has to read it. */
+  task: GanttTask;
+  /** Always `user`: the live/router `rows.apply` remove is never gated. */
+  origin: string;
+}
+
+/**
+ * A task that was not deleted: the payload of `taskDelete:cancelled`. A
+ * notification, so it carries no `preventDefault`.
+ */
+interface GanttTaskDeleteCancelledEvent {
+  /** The task that stayed. */
+  id: string;
+  /** The task itself. */
+  task: GanttTask;
+  /** Always `user`. */
+  origin: string;
+  /** The reason given to `preventDefault`, `'prevented'` when none was, or `'stale'`. */
+  reason: string;
+}
+
+/**
+ * The events a Gantt controller raises.
+ *
+ * The controller's own, not a grid's: `grid.on` takes {@link EventName} and
+ * knows nothing about these, and a grid-bound Gantt follows the grid's events
+ * itself rather than re-publishing them. `on()` takes a name and a listener and
+ * warns about nothing, so a misspelt name is a subscription that never fires.
+ *
+ * The seven `before…` events are cancellable ({@link GanttBeforeEvent}); each
+ * has a matching `<action>:cancelled` that fires when a handler refuses,
+ * carrying the same context plus the reason. `schedule` and `error` are the
+ * recompute's own pair and are raised on every recompute, whatever caused it.
+ */
+type GanttEventName =
+  /** A recompute succeeded; the payload is the new schedule, resource load and over-allocations included. */
+  | 'schedule'
+  /** A recompute failed; the previous schedule is kept and the payload says what was wrong. */
+  | 'error'
+  /** A task edit that is not a move, a resize or a progress change is about to be applied; cancellable. */
+  | 'beforeTaskEdit'
+  /** A task is about to be moved — the patch sets `start` or `end`; cancellable. */
+  | 'beforeTaskMove'
+  /** A task is about to be resized — the patch sets `duration`; cancellable. */
+  | 'beforeTaskResize'
+  /** A task's progress is about to change — the patch sets `percentComplete`; cancellable. */
+  | 'beforeProgressChange'
+  /** A milestone is about to be moved — a move patch on a zero-length task; cancellable. */
+  | 'beforeMilestoneMove'
+  /** One or more dependency links are about to be created; cancellable. */
+  | 'beforeDependencyCreate'
+  /** A task is about to be deleted, along with every link touching it; cancellable. */
+  | 'beforeTaskDelete'
+  /** A `beforeTaskEdit` handler refused the edit. */
+  | 'taskEdit:cancelled'
+  /** A `beforeTaskMove` handler refused the move. */
+  | 'taskMove:cancelled'
+  /** A `beforeTaskResize` handler refused the resize. */
+  | 'taskResize:cancelled'
+  /** A `beforeProgressChange` handler refused the progress change. */
+  | 'progressChange:cancelled'
+  /** A `beforeMilestoneMove` handler refused the milestone move. */
+  | 'milestoneMove:cancelled'
+  /** A `beforeDependencyCreate` handler refused the links. */
+  | 'dependencyCreate:cancelled'
+  /** A `beforeTaskDelete` handler refused the delete. */
+  | 'taskDelete:cancelled';
+
+/** What a handler receives, per Gantt event. */
+interface GanttEventPayloads {
+  /** The recomputed schedule, exactly as `gantt.schedule` now reads. */
+  schedule: GanttSchedule;
+  /** Why the recompute failed. */
+  error: GanttScheduleError;
+  /** The edit about to be applied, with `preventDefault` to stop it. */
+  beforeTaskEdit: GanttTaskEditEvent;
+  /** The move about to be applied, with `preventDefault` to stop it. */
+  beforeTaskMove: GanttTaskEditEvent;
+  /** The resize about to be applied, with `preventDefault` to stop it. */
+  beforeTaskResize: GanttTaskEditEvent;
+  /** The progress about to be written, with `preventDefault` to stop it. */
+  beforeProgressChange: GanttTaskEditEvent;
+  /** The milestone move about to be applied, with `preventDefault` to stop it. */
+  beforeMilestoneMove: GanttTaskEditEvent;
+  /** The links about to be created, with `preventDefault` to stop them. */
+  beforeDependencyCreate: GanttDependencyCreateEvent;
+  /** The task about to be deleted, with `preventDefault` to stop it. */
+  beforeTaskDelete: GanttTaskDeleteEvent;
+  /** The edit that was not applied, and why. */
+  'taskEdit:cancelled': GanttTaskEditCancelledEvent;
+  /** The move that was not applied, and why. */
+  'taskMove:cancelled': GanttTaskEditCancelledEvent;
+  /** The resize that was not applied, and why. */
+  'taskResize:cancelled': GanttTaskEditCancelledEvent;
+  /** The progress change that was not written, and why. */
+  'progressChange:cancelled': GanttTaskEditCancelledEvent;
+  /** The milestone move that was not applied, and why. */
+  'milestoneMove:cancelled': GanttTaskEditCancelledEvent;
+  /** The links that were not created, and why. */
+  'dependencyCreate:cancelled': GanttDependencyCreateCancelledEvent;
+  /** The task that was not deleted, and why. */
+  'taskDelete:cancelled': GanttTaskDeleteCancelledEvent;
+}
 
 /** A headless Gantt controller: holds the model, recomputes on edits, emits changes. */
 interface Gantt {
@@ -620,12 +869,13 @@ interface Gantt {
     };
   };
   /**
-   * Subscribe to `schedule` (a recompute succeeded, payload the schedule) or `error`
-   * (payload the error). Returns a function that unsubscribes.
+   * Register an event listener; returns a function that unsubscribes. What each event
+   * carries is {@link GanttEventPayloads}; the listener is declared with the widest of
+   * them, so narrow on the name inside it.
    */
-  on(event: 'schedule' | 'error', fn: (payload: unknown) => void): () => void;
+  on(event: GanttEventName, fn: (payload: GanttEventPayloads[GanttEventName]) => void): () => void;
   /** Remove a listener registered with `on`. */
-  off(event: 'schedule' | 'error', fn: (payload: unknown) => void): void;
+  off(event: GanttEventName, fn: (payload: GanttEventPayloads[GanttEventName]) => void): void;
   /**
    * Render the plan into a container as an SVG timeline (bars, dependency
    * arrows, critical-path highlight, today line, non-working shading,

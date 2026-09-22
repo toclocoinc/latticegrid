@@ -5,7 +5,7 @@ dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it, and Angular has compiled components of its
 own at `@toclocoinc/lattice-grid/angular` — inside this package, not beside it.
 
-Version 1.68.1 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.68.2 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -514,6 +514,31 @@ createUnitType({ system: 'money', unit: '$', placement: 'prefix', decimals: 2 })
 Whatever the display, **the stored value is always a plain number in the
 column's base unit**, so sorting, filtering, grouping, totals and the pivot all
 work on the number and never on the text.
+
+---
+
+## Live demos
+
+Twenty-five public demos run live on GitHub Pages, each an MIT-licensed
+repository with no build step, showing the grid on real open data.
+
+- **[Demo gallery](https://www.latticegrid.dev/demos/)**: every demo, browsable
+  from the site.
+- **[All demo repositories](https://github.com/toclocoinc?q=lattice-grid-demo)**:
+  the source for each one, ready to fork.
+
+A few, chosen for breadth:
+
+- **[Earthquakes](https://toclocoinc.github.io/lattice-grid-demo-earthquakes/)**:
+  a live USGS feed through the Data Router.
+- **[TfL arrivals](https://toclocoinc.github.io/lattice-grid-demo-tfl/)**: a
+  real-time stream with a rolling window.
+- **[Flights over DuckDB](https://toclocoinc.github.io/lattice-grid-demo-flights/)**:
+  a Parquet file queried in the browser.
+- **[FRED economic data](https://toclocoinc.github.io/lattice-grid-demo-fred-umd/)**:
+  every vintage of a series rewound across a whole dashboard.
+- **[Earthquakes in React](https://toclocoinc.github.io/lattice-grid-demo-earthquakes-react/)**:
+  the same feed through the React components.
 
 ---
 

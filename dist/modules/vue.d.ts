@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.1, vue module type declarations
+ * Lattice Grid 1.68.2, vue module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -242,6 +242,10 @@ export interface LatticeVueTabSpec {
   id: string;
   /** The text on the tab button. Defaults to the id. */
   label?: string;
+  /**
+   * Any other prop the host wants to carry on the tab. Passed through untouched, so a
+   * Vue host can key its own state off the same object the grid holds.
+   */
   [key: string]: unknown;
 }
 

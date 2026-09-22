@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.1, charts module
+ * Lattice Grid 1.68.2, charts module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1608,12 +1608,12 @@ Object.defineProperty(__exports,"frameBatched",{enumerable:true,get:function(){r
 Object.defineProperty(__exports,"settleDebounce",{enumerable:true,get:function(){return settleDebounce;}});
 Object.defineProperty(__exports,"whenIdle",{enumerable:true,get:function(){return whenIdle;}});
 Object.defineProperty(__exports,"uid",{enumerable:true,get:function(){return uid;}});
-const STAMPED_VERSION="1.68.1";
+const STAMPED_VERSION="1.68.2";
 async function resolveVersion(){
 if(STAMPED_VERSION!=='0.0.0-source')return STAMPED_VERSION;
 return STAMPED_VERSION;
 }
-const VERSION="1.68.1";
+const VERSION="1.68.2";
 const warned=new Set();
 const WARNED_LIMIT=2000;
 function rememberWarned(key){
@@ -6394,14 +6394,12 @@ const columns=ctx.columns||[];
 if(columns.length<2)return null;
 const stats=ctx.grid&&ctx.grid.statistics;
 if(!stats)return null;
-const spearman=ctx.method==='spearman';
+const method=ctx.method==='spearman'?'spearman'
+:ctx.method==='kendall'?'kendall':'correlation';
 const cells=[];
 for(let row=0;row<columns.length;row++){
 for(let col=0;col<columns.length;col++){
-const r=row===col
-?1
-:(spearman?stats.spearman(columns[row],columns[col])
-:stats.correlation(columns[row],columns[col]));
+const r=row===col?1:stats[method](columns[row],columns[col]);
 cells.push({row,col,a:columns[row],b:columns[col],r});
 }
 }
@@ -10245,6 +10243,7 @@ axis:brush.axis,
 from,
 to,
 });
+let prevented=false;
 const detail=this.emit('brush',{
 mode,
 kind:result.kind,
@@ -10254,8 +10253,9 @@ axis:result.axis,
 column:(result.axis==='y'||result.axis==='y2')
 ?((this.#bound.measure&&this.#bound.measure.col)||null)
 :this.#bound.dimension.col,
+preventDefault(){prevented=true;},
 });
-if(detail.defaultPrevented)return;
+if(prevented||detail.defaultPrevented)return;
 if(mode==='zoom'){
 if(result.range){
 const key=result.axis==='y2'?'y2':(result.axis==='y'?'y':'x');

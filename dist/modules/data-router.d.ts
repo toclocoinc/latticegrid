@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.1, data-router module type declarations
+ * Lattice Grid 1.68.2, data-router module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -134,7 +134,9 @@ interface RouteOptions {
    * or `{ ok: false }` (or reject, or throw) to revert the cell, `{ conflict, row }` to
    * fire `onConflict` and take the winning row, anything else to accept; a promise is
    * awaited with the optimistic value standing. Overrides the router-wide handler. The
-   * context's `route` is the viewer; `source` is always null.
+   * context's `route` is the viewer, and `source` is the `addSource` handle of the feed
+   * the edited row arrived on — the one to persist back to on a fan-in router — or null
+   * when the rows were loaded into the router directly.
    */
   onWrite?: (change: RouterWrite, ctx: { route: unknown; source: unknown }) => unknown;
   /**
@@ -294,6 +296,10 @@ interface RouterRouteMetrics {
    * of a route reports 0, having no interval to measure.
    */
   throughput: number;
+  /**
+   * Any further counter the route's own stage publishes. The four above are the ones
+   * every route reports; a stage may add to them and they arrive here.
+   */
   [key: string]: unknown;
 }
 
@@ -393,6 +399,25 @@ interface RouterPersistOptions {
 }
 
 /**
+ * The events a data router raises.
+ *
+ * One event, and the router raises nothing else: routing itself is reported to
+ * each attached viewer through its own `rows.apply`, not through an event here.
+ * The `metrics` timer runs only while at least one `metrics` listener is
+ * registered, so collection costs nothing until someone asks for it, and stops
+ * when the last listener unsubscribes.
+ */
+type RouterEventName =
+  /** The metrics timer fired: a `metrics()` snapshot, every `metricsInterval` ms (default 1000; `0` disables the timer). */
+  | 'metrics';
+
+/** What a handler receives, per router event. */
+interface RouterEventPayloads {
+  /** The same snapshot `metrics()` returns, taken at the emit; the throughput baseline advances with it. */
+  metrics: RouterMetrics;
+}
+
+/**
  * A data router: one arriving stream, partitioned by a property (or composite
  * predicate), fanned out to a grid per partition. Each grid
  * sees only its slice, updated by keyed diff through the public
@@ -441,8 +466,12 @@ interface DataRouter {
   sources(): string[];
   /** A cheap point-in-time snapshot of the router's runtime (v10); throughput is measured since the previous read. */
   metrics(): RouterMetrics;
-  /** Subscribe to the periodic `metrics` emit (v10) — the only event; the timer runs only while a listener is registered. Returns the unsubscribe. */
-  on(event: 'metrics', handler: (snapshot: RouterMetrics) => void): () => void;
+  /**
+   * Subscribe to the periodic `metrics` emit (v10) — the only event; the timer runs only
+   * while a listener is registered. What it carries is {@link RouterEventPayloads}.
+   * Returns the unsubscribe.
+   */
+  on(event: RouterEventName, handler: (snapshot: RouterEventPayloads[RouterEventName]) => void): () => void;
   /** Mount the live devtools panel into `el` (v10); it re-renders on each `metrics` emit. */
   mountDevtools(el: unknown): RouterDevtoolsPanel;
   /** How many records matched no route since the last `load` or `query`, running for deltas. */
@@ -582,7 +611,8 @@ interface DataRouterOptions {
    * Persist an edit committed in any route attached `{ writable: true }`
    * that names no handler of its own. Return, or resolve, falsely to revert
    * the edit; a route with neither this nor its own handler leaves the edit
-   * in place unpersisted and warns.
+   * in place unpersisted and warns. The context's `source` is the
+   * `addSource` handle of the feed the edited row arrived on, or null.
    */
   onWrite?: (change: RouterWrite, ctx: { route: unknown; source: unknown }) => unknown;
   /**

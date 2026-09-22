@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.1, kpi module type declarations
+ * Lattice Grid 1.68.2, kpi module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -311,10 +311,73 @@ interface KPIEvent {
   /** That tile's id, for a host that only needs to switch on it. */
   id: string;
   /**
+   * The tree node the tile sits in, on a hierarchical panel; absent on a flat one and on
+   * the keyboard route.
+   */
+  node?: KPINodeModel;
+  /**
    * The DOM event behind this one — a click, double-click, context-menu gesture or the
    * Enter/Space keypress that stands in for a click.
    */
   originalEvent?: unknown;
+}
+
+/** The whole panel model, as `change` hands it over. */
+interface KPIModel {
+  /** Every tile model, in configured order. */
+  tiles: KPITileModel[];
+  /** The decorated tree, on a hierarchical panel only. */
+  nodes?: KPINodeModel[];
+}
+
+/** `node:toggle`: a branch of a hierarchical panel was expanded or collapsed. */
+interface KPINodeToggleEvent {
+  /** The key of the node that moved. */
+  key: string;
+  /** True when it was opened, false when it was closed. */
+  expanded: boolean;
+  /** The node, as the panel now holds it; undefined when the key names none. */
+  node?: KPINodeModel;
+}
+
+/** `change`: the panel rebuilt its model. */
+interface KPIChangeEvent {
+  /** The model the panel now holds. */
+  model: KPIModel;
+}
+
+/**
+ * The events a KPI panel raises.
+ *
+ * The panel's own, not the grid's: `grid.on` takes {@link EventName} and knows
+ * nothing about these, and a grid-bound panel follows the grid's events itself
+ * rather than re-publishing them. `on()` warns once on any other name, because
+ * a binding to an event that can never fire is a silent no-op.
+ */
+type KPIEventName =
+  /** A tile was clicked, or Enter or Space was pressed on a focused one. */
+  | 'tile:click'
+  /** A tile was double-clicked. */
+  | 'tile:dblclick'
+  /** A context menu was requested on a tile. */
+  | 'tile:contextmenu'
+  /** A branch of a hierarchical panel was expanded or collapsed, by the host or by a click on its twisty. */
+  | 'node:toggle'
+  /** The panel rebuilt its model — new rows, a changed configuration, or a followed grid event. */
+  | 'change';
+
+/** What a handler receives, per KPI event. */
+interface KPIEventPayloads {
+  /** The tile clicked, its id, its node on a tree panel, and the DOM event. */
+  'tile:click': KPIEvent;
+  /** The tile double-clicked, its id, its node on a tree panel, and the DOM event. */
+  'tile:dblclick': KPIEvent;
+  /** The tile the menu was asked for, its id, its node on a tree panel, and the DOM event. */
+  'tile:contextmenu': KPIEvent;
+  /** Which branch moved and which way. */
+  'node:toggle': KPINodeToggleEvent;
+  /** The rebuilt model. */
+  change: KPIChangeEvent;
 }
 
 /** KPI panel configuration. */
@@ -482,11 +545,12 @@ interface KPI {
   setState(snapshot: object): KPI;
   /**
    * Register an event handler; returns a function that removes it. An unrecognised event
-   * name is warned about once.
+   * name is warned about once. What each event carries is {@link KPIEventPayloads}; the
+   * handler is declared with the widest of them, so narrow on the name inside it.
    */
-  on(name: string, fn: (event: KPIEvent) => void): () => void;
+  on(name: KPIEventName, fn: (event: KPIEventPayloads[KPIEventName]) => void): () => void;
   /** Remove a handler registered with `on`. */
-  off(name: string, fn: (event: KPIEvent) => void): void;
+  off(name: KPIEventName, fn: (event: KPIEventPayloads[KPIEventName]) => void): void;
   /**
    * Drop every listener, stop following the bound grid, stop any clock tile ticking, and
    * empty the element (removing only the class the panel added).

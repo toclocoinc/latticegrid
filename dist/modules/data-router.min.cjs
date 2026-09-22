@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.1, data-router module
+ * Lattice Grid 1.68.2, data-router module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -54,12 +54,12 @@ Object.defineProperty(__exports,"frameBatched",{enumerable:true,get:function(){r
 Object.defineProperty(__exports,"settleDebounce",{enumerable:true,get:function(){return settleDebounce;}});
 Object.defineProperty(__exports,"whenIdle",{enumerable:true,get:function(){return whenIdle;}});
 Object.defineProperty(__exports,"uid",{enumerable:true,get:function(){return uid;}});
-const STAMPED_VERSION="1.68.1";
+const STAMPED_VERSION="1.68.2";
 async function resolveVersion(){
 if(STAMPED_VERSION!=='0.0.0-source')return STAMPED_VERSION;
 return STAMPED_VERSION;
 }
-const VERSION="1.68.1";
+const VERSION="1.68.2";
 const warned=new Set();
 const WARNED_LIMIT=2000;
 function rememberWarned(key){
@@ -2325,6 +2325,11 @@ return;
 metricAdd('writeAccepted',1);
 reenterWrite(obj&&obj.row?obj.row:change.row);
 };
+const sourceOf=(key)=>{
+const id=String(key);
+for(const source of sources.values())if(source.live.has(id))return source.handle;
+return null;
+};
 const onGridEdit=(route,e)=>{
 if(!e||e.key===undefined||e.colId===undefined)return;
 if(revertingCells.has(cellId(e.key,e.colId)))return;
@@ -2348,7 +2353,7 @@ warnOnce(
 return;
 }
 let result;
-try{result=onWrite(change,{route:route.grid,source:null});}
+try{result=onWrite(change,{route:route.grid,source:sourceOf(change.key)});}
 catch{revertCell(route,change);metricAdd('writeRejected',1);return;}
 if(result&&typeof result.then==='function'){
 result.then(

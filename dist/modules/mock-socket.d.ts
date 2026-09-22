@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.1, mock-socket module type declarations
+ * Lattice Grid 1.68.2, mock-socket module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

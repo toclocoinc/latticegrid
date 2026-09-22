@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.1, react module type declarations
+ * Lattice Grid 1.68.2, react module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -202,6 +202,10 @@ export interface LatticeTabSpec {
   label?: string;
   /** A React element, or a function returning one, rendered through a portal. */
   content?: unknown | (() => unknown);
+  /**
+   * Any other prop the host wants to carry on the tab. Passed through untouched, so a
+   * React host can key its own state off the same object the grid holds.
+   */
   [key: string]: unknown;
 }
 

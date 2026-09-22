@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.1, layout module type declarations
+ * Lattice Grid 1.68.2, layout module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -206,6 +206,134 @@ interface LayoutCloseEvent {
   preventDefault?: (reason?: string) => void;
   /** True once a handler has refused the close. */
   defaultPrevented?: boolean;
+}
+
+/**
+ * `window:moved`: a window finished moving.
+ *
+ * The past-tense event, so there is no `preventDefault` on it — the move has
+ * happened, and `beforeWindowMove` ({@link LayoutMoveEvent}) is where it could
+ * have been stopped.
+ */
+interface LayoutWindowMovedEvent {
+  /** Which window moved. */
+  id: string;
+  /** Where it was before the gesture. */
+  from: LayoutPlacement;
+  /** Where it was asked to go. */
+  to: LayoutPlacement;
+  /** Where it actually ended up, which under `compact: 'vertical'` may differ from `to`. */
+  landed: LayoutPlacement;
+  /** Who caused it: `user` for a drag or a keyboard move, `api` for `setWindow`. */
+  origin: 'api' | 'user';
+}
+
+/**
+ * `window:closed`: a window was removed and its payload container handed back.
+ *
+ * The past-tense event: no `preventDefault`, because the window has gone. The
+ * container is **not** destroyed — whatever the host mounted in it is the
+ * host's to tear down.
+ */
+interface LayoutWindowClosedEvent {
+  /** Which window closed. */
+  id: string;
+  /** The id of its content container. */
+  payloadId: string;
+  /** The container itself, handed back so the host can destroy what it mounted. */
+  payload: HTMLElement;
+  /** Who caused it: `user` for the close control, `api` for a call. */
+  origin: 'api' | 'user';
+}
+
+/**
+ * `windowMove:cancelled` and `windowResize:cancelled`: a `before…` handler
+ * refused the gesture. A notification, so it carries no `preventDefault`.
+ */
+interface LayoutMoveCancelledEvent {
+  /** Which window did not move. */
+  id: string;
+  /** Where it is, and stays. */
+  from: LayoutPlacement;
+  /** Where it would have gone. */
+  to: LayoutPlacement;
+  /** Who asked for the gesture that was refused: `user` for a drag or keyboard move, `api` for `setWindow`. */
+  origin: 'api' | 'user';
+  /** The reason given to `preventDefault`, or `'prevented'`. */
+  reason: string;
+}
+
+/**
+ * `windowClose:cancelled`: a `beforeWindowClose` handler refused the close. A
+ * notification, so it carries no `preventDefault`.
+ */
+interface LayoutCloseCancelledEvent {
+  /** Which window stayed open. */
+  id: string;
+  /** The id of its content container. */
+  payloadId: string;
+  /** Who asked for the close that was refused. */
+  origin: 'api' | 'user';
+  /** The reason given to `preventDefault`, or `'prevented'`. */
+  reason: string;
+}
+
+/**
+ * The events a dashboard layout raises.
+ *
+ * The layout's own, not a grid's: `grid.on` takes {@link EventName} and knows
+ * nothing about these. Each has a matching `on…` config callback (`onWindowMoved`,
+ * `onBeforeWindowClose`, …) and both routes fire.
+ *
+ * The three `before…` events are cancellable: call `preventDefault(reason?)` on
+ * the payload, or return a Promise to hold the gesture until it settles; a veto
+ * fires the matching `…:cancelled` carrying the reason. Subscribing to `'*'`
+ * receives every past-tense event and never gates.
+ */
+type LayoutEventName =
+  /** A window finished moving, with where it was asked to go and where it actually landed. */
+  | 'window:moved'
+  /** A window's payload container changed size, measured in CSS pixels — including on the opening frame. */
+  | 'window:resized'
+  /** A window was closed and its payload container handed back. */
+  | 'window:closed'
+  /** The arrangement settled after an add, close, move, resize, minimise, restore or `setLayout`. */
+  | 'layout:changed'
+  /** A window is about to move; cancellable. */
+  | 'beforeWindowMove'
+  /** A window is about to be resized by a drag or a call; cancellable. */
+  | 'beforeWindowResize'
+  /** A window is about to be closed; cancellable. */
+  | 'beforeWindowClose'
+  /** A `beforeWindowMove` handler refused the move. */
+  | 'windowMove:cancelled'
+  /** A `beforeWindowResize` handler refused the resize. */
+  | 'windowResize:cancelled'
+  /** A `beforeWindowClose` handler refused the close. */
+  | 'windowClose:cancelled';
+
+/** What a handler receives, per layout event. */
+interface LayoutEventPayloads {
+  /** Which window moved, from where, to where, and where it landed. */
+  'window:moved': LayoutWindowMovedEvent;
+  /** The measured content box of the window's payload container. */
+  'window:resized': LayoutResizeEvent;
+  /** The window that closed, and the container handed back. */
+  'window:closed': LayoutWindowClosedEvent;
+  /** The arrangement, and what settled it. */
+  'layout:changed': LayoutChangedEvent;
+  /** The move about to be applied, with `preventDefault` to stop it. */
+  beforeWindowMove: LayoutMoveEvent;
+  /** The resize about to be applied, with `preventDefault` to stop it. */
+  beforeWindowResize: LayoutMoveEvent;
+  /** The close about to happen, with `preventDefault` to refuse it. */
+  beforeWindowClose: LayoutCloseEvent;
+  /** The move that was refused, and why. */
+  'windowMove:cancelled': LayoutMoveCancelledEvent;
+  /** The resize that was refused, and why. */
+  'windowResize:cancelled': LayoutMoveCancelledEvent;
+  /** The close that was refused, and why. */
+  'windowClose:cancelled': LayoutCloseCancelledEvent;
 }
 
 /** The payload of `layout:changed`: the whole arrangement, plus what moved it. */
@@ -428,17 +556,15 @@ interface Layout {
   /**
    * Subscribe to a layout event, or to `'*'` for every past-tense one; returns a function
    * that unsubscribes. Only an explicit `before…` subscription can cancel an action — the
-   * `'*'` stream never gates.
+   * `'*'` stream never gates. What each event carries is {@link LayoutEventPayloads}; the
+   * handler is declared with the widest of them, so narrow on the name inside it.
    */
   on(
-    name: 'window:moved' | 'window:resized' | 'window:closed' | 'layout:changed'
-      | 'beforeWindowMove' | 'beforeWindowResize' | 'beforeWindowClose'
-      | 'windowMove:cancelled' | 'windowResize:cancelled' | 'windowClose:cancelled'
-      | '*' | string,
-    fn: (event: any) => unknown,
+    name: LayoutEventName | '*',
+    fn: (event: LayoutEventPayloads[LayoutEventName]) => unknown,
   ): () => void;
   /** Remove a handler registered with `on`. */
-  off(name: string, fn: (event: any) => unknown): void;
+  off(name: LayoutEventName | '*', fn: (event: LayoutEventPayloads[LayoutEventName]) => unknown): void;
   /** Tear the layout down; whatever the host mounted in a payload is the host's to destroy. */
   destroy(): void;
 }

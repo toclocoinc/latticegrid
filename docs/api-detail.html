@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.68.1</p>
+    <p class="rail__sub">Developer guide · v1.68.2</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.68.1</span>
+        <span class="chip">Version 1.68.2</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1492,7 +1492,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.68.1'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.68.2'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -1784,6 +1784,16 @@ dataTypes: {
       the ladder. Rounding is applied before the unit is chosen, so 999,999 bytes to three figures
       is <code>1.00 MB</code> rather than <code>1,000 kB</code>.
     </p>
+
+    <div class="example">
+      <p class="example__label">Rounding before the rung is chosen: significantFigures, executed</p>
+      <pre data-run="js" data-expect="figures 1.00 MB | none 1,000 kB" data-covers="config:significantFigures"><code>const { formatUnit } = await import('../packages/core/src/index.js');
+
+const spec = { system: 'data', unit: 'B', display: 'auto', locale: 'en-GB' };
+return (`figures ${formatUnit(999999, { ...spec, significantFigures: 3 })}`
+  + ` | none ${formatUnit(999999, spec)}`);
+</code></pre>
+    </div>
 
     <p class="lead-in">
       <code>compound: ['ft', 'in']</code> renders one stored number across an ordered subset of the
@@ -8200,6 +8210,29 @@ grid.export.print();</code></pre>
       formatted values, and only the columns they may read.
     </p>
 
+    <div class="example">
+      <p class="example__label">Two options for a file somebody opens in Excel: hidden, bom, executed</p>
+      <pre data-run="js" data-expect="plain Id,Name | wide Id,Name,Cost | bom false then true" data-covers="config:hidden config:bom"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  rows: [{ id: 1, name: 'Ann', cost: 9 }],
+  columns: [{ field: 'id' }, { field: 'name' }, { field: 'cost', layout: { hidden: true } }],
+});
+const plain = grid.export.csv({ rows: 'all' });
+const wide = grid.export.csv({ rows: 'all', hidden: true, bom: true });
+const head = (text) =&gt; text.replace('\uFEFF', '').split('\r\n')[0];
+return (`plain ${head(plain)} | wide ${head(wide)} | bom ${plain.charCodeAt(0) === 0xFEFF} then ${wide.charCodeAt(0) === 0xFEFF}`);
+</code></pre>
+      <p>
+        <code>hidden: true</code> carries the columns the grid is hiding into the file &mdash; the
+        column a reader collapsed is still a column the spreadsheet wants. A column that opted out
+        with <code>export.csv: false</code>, or that the reader may not see, is still excluded.
+        <code>bom: true</code> writes the UTF-8 byte-order mark, which is what stops Excel guessing
+        the encoding and rendering every accented name as mojibake.
+      </p>
+    </div>
+
     <h3>On the server</h3>
     <p class="lead-in">
       A user asks to export half a million rows. You can ship them all to the browser to be
@@ -8256,6 +8289,7 @@ grid.import.apply(preview);</code></pre>
         <thead><tr><th>Name</th><th>What it does</th></tr></thead>
         <tbody>
           <tr><td class="name">autoHeight</td><td class="desc">autoHeight.</td></tr>
+          <tr><td class="name">bom</td><td class="desc">Write the UTF-8 byte-order mark at the head of a CSV export, so Excel detects the encoding instead of guessing at it. Off by default. (optional)</td></tr>
           <tr><td class="name">bucketFn</td><td class="desc">Replace the built-in bucketing entirely. (optional)</td></tr>
           <tr><td class="name">coalesceMs</td><td class="desc">(optional)</td></tr>
           <tr><td class="name">columnGroups</td><td class="desc">Header grouping declared separately from the columns.</td></tr>
@@ -9180,6 +9214,69 @@ return lines.join(' | ');
       </p>
     </div>
 
+    <div class="example">
+      <p class="example__label">A stat tile in full: kind, aggregation, field, baseline, thresholds, bands, sparkline, executed</p>
+      <pre data-run="js" data-expect="cpu 77 warn | delta 27 | spark 41,58,77 | spread 47 warn" data-covers="config:kind config:aggregation config:field config:baseline config:thresholds config:bands config:sparkline"><code>const { createKPI } = await import('../packages/modules/kpi/index.js');
+
+const READINGS = [
+  { id: 1, host: 'a', hour: 1, cpu: 41, up: true },
+  { id: 2, host: 'a', hour: 2, cpu: 58, up: true },
+  { id: 3, host: 'a', hour: 3, cpu: 77, up: true },
+  { id: 4, host: 'b', hour: 1, cpu: 12, up: false },
+];
+const kpi = createKPI(null, {
+  rows: READINGS, rowKey: 'id',
+  tiles: [
+    { kind: 'stat', id: 'cpu', label: 'CPU', aggregation: 'max', field: 'cpu',
+      filter: (row) =&gt; row.up, baseline: 50, delta: 'absolute',
+      thresholds: { warn: 60, critical: 85, direction: 'lowerIsBetter' },
+      sparkline: { x: 'hour', y: 'cpu' } },
+    { kind: 'stat', id: 'spread', label: 'Spread', aggregation: 'avg', field: 'cpu',
+      bands: [{ max: 40, status: 'good' }, { min: 40, max: 60, status: 'warn' },
+        { min: 60, status: 'critical' }] },
+  ],
+});
+const [cpu, spread] = kpi.model.tiles;
+return (`cpu ${cpu.value} ${cpu.status} | delta ${cpu.delta}`
+  + ` | spark ${cpu.sparkline.join(',')} | spread ${spread.value} ${spread.status}`);
+</code></pre>
+      <p>
+        <code>kind: 'stat'</code> is the default and is written here only to sit beside the clock
+        tile below. <code>aggregation</code> and <code>field</code> are the measurement; the
+        <code>filter</code> is what makes the CPU tile read 77 rather than the whole panel's rows;
+        <code>baseline: 50</code> is what the movement line is measured from.
+        <code>thresholds</code> grades against two cut points &mdash; here <code>lowerIsBetter</code>,
+        so 77 is a warning &mdash; while <code>bands</code> is the explicit alternative, a list of
+        half-open <code>[min, max)</code> ranges, first match winning. <code>sparkline</code> plots
+        the tile's own rows in <code>x</code> order.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">A clock tile: kind, seconds, date, executed</p>
+      <pre data-run="js" data-expect="full hh:mm:ss with date | plain hh:mm no date" data-covers="config:seconds config:date"><code>const { createKPI } = await import('../packages/modules/kpi/index.js');
+
+const kpi = createKPI(null, {
+  rows: [], rowKey: 'id', locale: 'en-GB',
+  tiles: [
+    { kind: 'clock', id: 'utc', label: 'UTC', timeZone: 'UTC' },
+    { kind: 'clock', id: 'desk', label: 'Desk', timeZone: 'UTC', seconds: false, date: false },
+  ],
+});
+const shape = (tile) =&gt; `${tile.clock.time.split(':').length === 3 ? 'hh:mm:ss' : 'hh:mm'}`
+  + `${tile.clock.date === null ? ' no date' : ' with date'}`;
+const [full, plain] = kpi.model.tiles;
+return `full ${shape(full)} | plain ${shape(plain)}`;
+</code></pre>
+      <p>
+        A clock tile measures nothing: <code>kind: 'clock'</code> takes a <code>timeZone</code> and a
+        <code>locale</code> and prints the device clock, the date on one line and the time on the
+        next. <code>seconds: false</code> drops the seconds from the time line and
+        <code>date: false</code> drops the date line entirely, which is what a wall of city clocks
+        along the top of a dashboard usually wants.
+      </p>
+    </div>
+
     <h3 id="route-options-examples">Data Router route options, executed</h3>
     <div class="example">
       <p class="example__label">A per-route filter and transform, executed</p>
@@ -9686,7 +9783,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.68.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.68.2 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

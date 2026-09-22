@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.1, gantt module
+ * Lattice Grid 1.68.2, gantt module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -54,12 +54,12 @@ Object.defineProperty(__exports,"frameBatched",{enumerable:true,get:function(){r
 Object.defineProperty(__exports,"settleDebounce",{enumerable:true,get:function(){return settleDebounce;}});
 Object.defineProperty(__exports,"whenIdle",{enumerable:true,get:function(){return whenIdle;}});
 Object.defineProperty(__exports,"uid",{enumerable:true,get:function(){return uid;}});
-const STAMPED_VERSION="1.68.1";
+const STAMPED_VERSION="1.68.2";
 async function resolveVersion(){
 if(STAMPED_VERSION!=='0.0.0-source')return STAMPED_VERSION;
 return STAMPED_VERSION;
 }
-const VERSION="1.68.1";
+const VERSION="1.68.2";
 const warned=new Set();
 const WARNED_LIMIT=2000;
 function rememberWarned(key){
@@ -1621,7 +1621,11 @@ function exportMSPDI(model,opts={}){
 const hoursPerDay=opts.hoursPerDay??8;
 const tasks=Array.isArray(model.tasks)?model.tasks:[];
 const deps=Array.isArray(model.dependencies)?model.dependencies:[];
-const resources=Array.isArray(model.resources)?model.resources:[];
+const resources=Array.isArray(model.resources)
+?model.resources
+:(model.resources&&typeof model.resources==='object'
+?Object.entries(model.resources).map(([name,capacity])=>({id:name,name,capacity}))
+:[]);
 const schedule=model.schedule&&model.schedule.ok?model.schedule:null;
 const uidOf=new Map();
 tasks.forEach((t,i)=>{

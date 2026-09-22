@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.1, ai module type declarations
+ * Lattice Grid 1.68.2, ai module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -215,10 +215,10 @@ interface AIConfig {
   schemaOptions?: object;
   /** Extra context passed through to `ask()`. */
   context?: unknown;
-  /** Called with each ask-your-data result. */
-  onQuery?: (result: AIQueryResult) => void;
-  /** Called with each governed-actor proposal (Play C), before any approval. */
-  onProposal?: (result: AIProposal) => void;
+  /** Called with each ask-your-data result, alongside the `query` event. */
+  onQuery?: (result: AIQueryEvent) => void;
+  /** Called with each governed-actor proposal (Play C), before any approval; alongside the `proposal` event. */
+  onProposal?: (result: AIProposalEvent) => void;
   /**
    * A Kanban board (from `createKanban`) the governed actor writes moves
    * through: an NL card move applies via the board's own `beforeMove` gate, never a kanban-specific write bypass.
@@ -238,10 +238,13 @@ interface AIConfig {
   reconcile?: 'strip' | 'flag';
   /** An element to mount the insights panel into. */
   element?: HTMLElement;
-  /** Called when a narrative is produced. */
-  onNarrative?: (result: AINarrative) => void;
-  /** Called when `ask()` errors; the grid stays usable. */
-  onError?: (error: { error: unknown; target: AITarget }) => void;
+  /** Called when a narrative is produced, alongside the `narrative` event. */
+  onNarrative?: (result: AINarrativeEvent) => void;
+  /**
+   * Called when a run fails — no `ask()` is configured, or `ask()` threw — alongside the
+   * `error` event. The grid stays usable.
+   */
+  onError?: (error: AIErrorEvent) => void;
 }
 
 /** The report from applying an ask-your-data query. */
@@ -361,6 +364,100 @@ interface AIProposalReport {
 }
 
 /**
+ * `narrative`: a narrative run finished and its result is in hand.
+ *
+ * The result {@link AI.explain} resolves to, copied with `type` added by the
+ * module's emitter — the same figures, already reconciled, so a handler that
+ * only wants to paint the text need not await the call itself.
+ */
+interface AINarrativeEvent extends AINarrative {
+  /** Which event this is: `narrative`. */
+  type: string;
+}
+
+/**
+ * `query`: an ask-your-data question resolved into a validated, read-only
+ * query spec.
+ *
+ * The result {@link AI.query} resolves to, copied with `type` added. It fires
+ * whether or not the spec is safe (`ok`) and whether or not `autoApply`
+ * applied it — the apply happens before the event, so `applied` is already
+ * filled in when it did.
+ */
+interface AIQueryEvent extends AIQueryResult {
+  /** Which event this is: `query`. */
+  type: string;
+}
+
+/**
+ * `proposal`: the governed actor produced a reviewable set of edits.
+ *
+ * The result {@link AI.propose} resolves to, copied with `type` added. Nothing
+ * has been written: this is the point at which a host shows the diff and asks
+ * a human.
+ */
+interface AIProposalEvent extends AIProposal {
+  /** Which event this is: `proposal`. */
+  type: string;
+}
+
+/**
+ * `error`: a run failed, and the call that started it is rejecting.
+ *
+ * Raised for a missing `ask()` and for an `ask()` that threw, on all three
+ * runs. The grid is untouched either way. Exactly one of `target`, `question`
+ * and `instruction` is present — whichever run failed.
+ */
+interface AIErrorEvent {
+  /** Which event this is: `error`. */
+  type: string;
+  /** What went wrong: the error `ask()` threw, or the one the module raised for a missing `ask()`. */
+  error: Error;
+  /** The narrative target, when {@link AI.explain} or {@link AI.riskSummary} failed. */
+  target?: AITarget;
+  /** The question, when {@link AI.query} failed. */
+  question?: string;
+  /** The instruction, when {@link AI.propose} failed. */
+  instruction?: string;
+}
+
+/**
+ * The events an AI controller raises.
+ *
+ * The controller's own, not the grid's: `grid.on` takes {@link EventName} and
+ * knows nothing about these. `on()` warns once on any other name, because a
+ * binding to an event that can never fire is a silent no-op. Each event also
+ * has a config callback (`onNarrative`, `onQuery`, `onProposal`, `onError`);
+ * both routes fire.
+ *
+ * None of them is cancellable: each reports a run that has already finished,
+ * and the one point where the AI changes anything — applying a proposal —
+ * goes through the grid's own `beforeEdit` gate (or the board's `beforeMove`),
+ * which is where a host vetoes an AI write.
+ */
+type AIEventName =
+  /** A narrative run finished; the payload is the reconciled result. */
+  | 'narrative'
+  /** A question resolved into a validated read-only query spec, already applied when `autoApply` was on. */
+  | 'query'
+  /** The governed actor produced a reviewable proposal; nothing has been written. */
+  | 'proposal'
+  /** A run failed — no `ask()` is configured, or `ask()` threw — and the call is rejecting. */
+  | 'error';
+
+/** What a handler receives, per AI event. */
+interface AIEventPayloads {
+  /** The reconciled narrative. */
+  narrative: AINarrativeEvent;
+  /** The validated query result. */
+  query: AIQueryEvent;
+  /** The proposed edits, with their before/after diff. */
+  proposal: AIProposalEvent;
+  /** What failed, and which run it was. */
+  error: AIErrorEvent;
+}
+
+/**
  * An AI controller over a live grid. It explains the grid's computed figures
  * (Play A), answers questions with validated read-only query specs (Play B),
  * and PROPOSES governed edits a human approves and the grid's own gate applies
@@ -434,12 +531,13 @@ interface AI {
    */
   actorBar(el?: HTMLElement, opts?: object): AI;
   /**
-   * Subscribe to `narrative`, `query`, `proposal` or `error`; returns a function that
-   * unsubscribes. Any other name is warned about once.
+   * Register an event handler; returns a function that removes it. Any other name is
+   * warned about once. What each event carries is {@link AIEventPayloads}; the handler is
+   * declared with the widest of them, so narrow on the name inside it.
    */
-  on(name: 'narrative' | 'query' | 'proposal' | 'error' | string, fn: (payload: object) => void): () => void;
+  on(name: AIEventName, fn: (payload: AIEventPayloads[AIEventName]) => void): () => void;
   /** Remove a handler registered with `on`. */
-  off(name: string, fn: (payload: object) => void): void;
+  off(name: AIEventName, fn: (payload: AIEventPayloads[AIEventName]) => void): void;
   /**
    * Tear the controller down: empty anything it mounted and remove only the classes it
    * added. The grid is left exactly as it was.

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.68.1, kanban module type declarations
+ * Lattice Grid 1.68.2, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -172,6 +172,10 @@ interface KanbanCardMap {
    * plain.
    */
   accent?: KanbanFieldMap;
+  /**
+   * Any other card slot the board's theme declares, mapped the same way as the named
+   * ones above. `undefined` is the honest value for a slot that is left unmapped.
+   */
   [field: string]: KanbanFieldMap | undefined;
 }
 
@@ -182,7 +186,11 @@ type KanbanReadonly = boolean | {
   cards?: Record<string, boolean>;
 };
 
-/** The payload every board event carries. */
+/**
+ * The payload of the three card pointer events — `card:click`, `card:dblclick`
+ * and `card:contextmenu`. The board's other events carry their own shapes;
+ * {@link KanbanEventPayloads} names one per event.
+ */
 interface KanbanEvent {
   /** The card the event is about. */
   card: KanbanCard;
@@ -533,6 +541,447 @@ interface KanbanMoveEvent {
    * between the neighbours at the drop point. Null when no order property is configured.
    */
   orders: number[] | null;
+  /** Where the move came from: `'user'` for a drag or keyboard move, `'ai'` for an approved AI proposal, `'api'` for `board.move`. */
+  origin: 'user' | 'api' | 'init' | 'ai';
+  /** The swimlane the cards were moved to, when the gesture named one and a swimlane property is configured. */
+  lane?: unknown;
+}
+
+/** The members every cancellable board before-event carries. */
+interface KanbanBeforeEvent {
+  /** The event's own name. */
+  type: string;
+  /** Where the action came from. */
+  origin: 'user' | 'api' | 'init' | 'ai';
+  /** Cancel the pending action; the reason is surfaced on the matching `<action>:cancelled`. */
+  preventDefault(reason?: string): void;
+  /** True once any handler has cancelled it. */
+  readonly defaultPrevented: boolean;
+  /** The first reason given to `preventDefault`, or null. */
+  readonly reason: string | null;
+}
+
+/** `card:edit` and `beforeEdit`: one field of one card. */
+interface KanbanCardEditEvent {
+  /** The card being edited. */
+  card: KanbanCard;
+  /** That card's key. */
+  key: unknown;
+  /** The card-spec name of the field. */
+  field: string;
+  /** The row property the field writes to. */
+  fieldPath: string;
+  /** The value being written. */
+  value: unknown;
+  /** Where the edit came from. */
+  origin: 'user' | 'api' | 'init' | 'ai';
+}
+
+/** `beforeEdit`: an inline card edit is about to be written. */
+interface KanbanBeforeEditEvent extends KanbanBeforeEvent {
+  /** The card being edited. */
+  card: KanbanCard;
+  /** That card's key. */
+  key: unknown;
+  /** The card-spec name of the field. */
+  field: string;
+  /** The row property the field writes to. */
+  fieldPath: string;
+  /** The value that would be written. */
+  value: unknown;
+}
+
+/** `edit:cancelled`: a `beforeEdit` handler refused the write. */
+interface KanbanEditCancelledEvent extends KanbanCardEditEvent {
+  /** The reason given to `preventDefault`, or `'prevented'`. */
+  reason: string;
+}
+
+/** `card:add`: a card was appended to a column. */
+interface KanbanCardAddEvent {
+  /** The column it was added to. */
+  column: string;
+  /** The new card's key — the grid's temporary key on a grid-bound board until the server confirms it. */
+  key: unknown;
+}
+
+/** `beforeAdd`: a card is about to be appended. */
+interface KanbanBeforeAddEvent extends KanbanBeforeEvent {
+  /** The column it would be added to. */
+  column: string;
+  /** The seed values the new row would be built from. */
+  seed: Record<string, unknown>;
+}
+
+/** `add:cancelled`: a `beforeAdd` handler refused the append. */
+interface KanbanAddCancelledEvent {
+  /** The column the card was not added to. */
+  column: string;
+  /** The seed values that were not written. */
+  seed: Record<string, unknown>;
+  /** Where the append came from. */
+  origin: 'user' | 'api' | 'init' | 'ai';
+  /** The reason given to `preventDefault`, or `'prevented'`. */
+  reason: string;
+}
+
+/** `beforeMove`: one card of a move is about to be applied; raised once per card. */
+interface KanbanBeforeMoveEvent extends KanbanBeforeEvent {
+  /** The card being moved. */
+  card: KanbanCard;
+  /** That card's key. */
+  key: unknown;
+  /** The column it is in, or null when it is unplaced. */
+  from: string | null;
+  /** The column it would land in. */
+  to: string;
+  /** The position asked for within that column, or null for the end. */
+  index: number | null;
+}
+
+/** `move:cancelled`: a `beforeMove` handler refused one card of a move. */
+interface KanbanMoveCancelledEvent {
+  /** The one key that did not move. */
+  keys: unknown[];
+  /** That one card. */
+  cards: KanbanCard[];
+  /** The column it is still in. */
+  from: (string | null)[];
+  /** The column it would have landed in. */
+  to: string;
+  /** The position that was asked for, or null. */
+  index: number | null;
+  /** The reason given to `preventDefault`, or `'prevented'`. */
+  reason: string;
+}
+
+/**
+ * `card:reverted`: a move did not stick — the bound grid refused the write, an
+ * `onCardMove` callback returned false, or the server reverted the cell.
+ */
+interface KanbanCardRevertedEvent {
+  /** The keys that went back. */
+  keys: unknown[];
+  /** Those cards. */
+  cards: KanbanCard[];
+  /** Where each came from. */
+  from: (string | null)[];
+  /** The column they are in again, or null when it is not known. */
+  to: string | null;
+  /** The position that had been asked for, or null. */
+  index: number | null;
+  /** The order values that had been computed, or null. */
+  orders: number[] | null;
+  /** Where the move came from, on the two board-side reverts. */
+  origin?: 'user' | 'api' | 'init' | 'ai';
+  /** True on the grid-side revert, which reports it explicitly. */
+  reverted?: boolean;
+  /** Why the grid reverted the cell, on the grid-side revert. */
+  reason?: string;
+}
+
+/** `card:confirmed`: the grid confirmed the column write behind an optimistic move. */
+interface KanbanCardConfirmedEvent {
+  /** The key that was confirmed. */
+  keys: unknown[];
+  /** That card, or an empty array when it has since gone. */
+  cards: KanbanCard[];
+  /** The column it is in, or null when the card has gone. */
+  to: string | null;
+}
+
+/** `selection:changed`: the selected cards changed. */
+interface KanbanSelectionEvent {
+  /** Every selected card key, in selection order. */
+  keys: unknown[];
+}
+
+/** `column:collapse`: a column was collapsed or expanded. */
+interface KanbanColumnCollapseEvent {
+  /** The column that moved. */
+  column: string;
+  /** True when it is now collapsed. */
+  collapsed: boolean;
+}
+
+/** `beforeColumnChange`: a column is about to be collapsed or expanded. */
+interface KanbanBeforeColumnChangeEvent extends KanbanBeforeEvent {
+  /** The column that would move. */
+  column: string;
+  /** True when it would become collapsed. */
+  collapsed: boolean;
+}
+
+/** `columnChange:cancelled`: a `beforeColumnChange` handler refused it. */
+interface KanbanColumnChangeCancelledEvent extends KanbanColumnCollapseEvent {
+  /** Where the change came from. */
+  origin: 'user' | 'api' | 'init' | 'ai';
+  /** The reason given to `preventDefault`, or `'prevented'`. */
+  reason: string;
+}
+
+/** `swimlane:collapse`: a swimlane was collapsed or expanded. */
+interface KanbanSwimlaneCollapseEvent {
+  /** The lane that moved. */
+  swimlane: string;
+  /** True when it is now collapsed. */
+  collapsed: boolean;
+}
+
+/** `column:reorder` and `swimlane:reorder`: the order the board draws them in. */
+interface KanbanOrderEvent {
+  /** The ids in their new order, as the rebuilt model holds them. */
+  order: string[];
+}
+
+/** `beforeColumnReorder` and `beforeLaneReorder`: an order is about to be applied. */
+interface KanbanBeforeOrderEvent extends KanbanBeforeEvent {
+  /** The ids in the order that was asked for. */
+  order: string[];
+}
+
+/** `columnReorder:cancelled` and `laneReorder:cancelled`: a handler refused the order. */
+interface KanbanOrderCancelledEvent extends KanbanOrderEvent {
+  /** Where the reorder came from. */
+  origin: 'user' | 'api' | 'init' | 'ai';
+  /** The reason given to `preventDefault`, or `'prevented'`. */
+  reason: string;
+}
+
+/** `filter:changed`: the quick filter or a named predicate changed. */
+interface KanbanFilterChangedEvent {
+  /** The quick-filter text now in force, or undefined when there is none. */
+  quickFilter?: string;
+  /** True when at least one named predicate is registered. */
+  hasFilter: boolean;
+  /** The names of the registered predicates. */
+  filters: string[];
+}
+
+/** `sprint:changed`: the shown sprint changed. */
+interface KanbanSprintChangedEvent {
+  /** The sprint now shown: a sprint id, `board.BACKLOG`, or undefined for all of them. */
+  sprint: unknown;
+}
+
+/** `epic:changed`: the shown epic changed. */
+interface KanbanEpicChangedEvent {
+  /** The epic now shown, or undefined for all of them. */
+  epic: unknown;
+}
+
+/** `card:expand`: a card's children were opened. */
+interface KanbanCardExpandEvent {
+  /** The card that was expanded. */
+  card: KanbanCard;
+  /** Its child rows, as the children loader returned them. */
+  rows: Record<string, unknown>[];
+  /** How they are being presented. */
+  present: 'drawer' | 'modal' | 'inline';
+}
+
+/** `card:drill`: a card was expanded from inside an already-open detail. */
+interface KanbanCardDrillEvent {
+  /** The card that was expanded. */
+  card: KanbanCard;
+  /** Its child rows. */
+  rows: Record<string, unknown>[];
+  /** How many levels down this is; 1 is the first drill. */
+  depth: number;
+}
+
+/** `drag:start`: a card drag began. */
+interface KanbanDragStartEvent {
+  /** Every key the drag carries — the selection when the dragged card is in it. */
+  keys: unknown[];
+  /** The card under the pointer. */
+  card: KanbanCard;
+  /** The DOM `dragstart` event. */
+  originalEvent: unknown;
+}
+
+/** `drag:end`: a card drag ended, whether or not it dropped on a column. */
+interface KanbanDragEndEvent {
+  /** The keys the drag carried. */
+  keys: unknown[];
+  /** The DOM `drop` event; absent when the browser ended the drag without one. */
+  originalEvent?: unknown;
+}
+
+/** `card:sla`: a card crossed an ageing threshold. */
+interface KanbanSlaEvent {
+  /** The card's key. */
+  key: unknown;
+  /** The card, or null when it is no longer on the board. */
+  card: KanbanCard | null;
+  /** The level it has just reached. */
+  level: 'ok' | 'warn' | 'breach' | null;
+  /** The level it was at before this crossing. */
+  previous: 'ok' | 'warn' | 'breach' | null;
+  /** Its age in ms, or null when unknown. */
+  ageMs: number | null;
+  /** A short human age label (`2d`, `5h`, …). */
+  ageText: string;
+  /** The column it was aged in. */
+  columnId: string | null;
+  /** Its swimlane value, on a board with swimlanes. */
+  lane?: unknown;
+  /** The resolved warn threshold in ms, or null. */
+  warnMs: number | null;
+  /** The resolved breach threshold in ms, or null. */
+  breachMs: number | null;
+  /** The epoch (ms) of the crossing. */
+  at: number;
+}
+
+/**
+ * The events a board raises.
+ *
+ * The board's own, not the grid's: `grid.on` takes {@link EventName} and knows
+ * nothing about these, and a grid-bound board follows the grid's events itself
+ * rather than re-publishing them. `on()` warns once on any other name, because
+ * a binding to an event that can never fire is a silent no-op.
+ *
+ * The `before…` six are cancellable on the same contract the grid core uses: call `preventDefault(reason?)` on the payload, or return
+ * a Promise to hold the action until it settles; a veto fires the matching
+ * `<action>:cancelled` carrying the reason.
+ */
+type KanbanEventName =
+  /** A card was clicked, or Enter was pressed on a focused card. */
+  | 'card:click'
+  /** A card was double-clicked. */
+  | 'card:dblclick'
+  /** A context menu was requested on a card. */
+  | 'card:contextmenu'
+  /** One or more cards were moved to a column, after every `beforeMove` gate passed and the write-back was applied. */
+  | 'card:move'
+  /** A move did not stick: the bound grid refused the write, an `onCardMove` callback returned false, or the server reverted the cell. */
+  | 'card:reverted'
+  /** The bound grid confirmed the column write behind an optimistic move. */
+  | 'card:confirmed'
+  /** The set of selected cards changed. */
+  | 'selection:changed'
+  /** A column was collapsed or expanded. */
+  | 'column:collapse'
+  /** A card was appended to a column. */
+  | 'card:add'
+  /** A card drag began. */
+  | 'drag:start'
+  /** A card drag ended, whether or not it dropped on a column. */
+  | 'drag:end'
+  /** A swimlane was collapsed or expanded. */
+  | 'swimlane:collapse'
+  /** The swimlane order changed. */
+  | 'swimlane:reorder'
+  /** The column order changed. */
+  | 'column:reorder'
+  /** The quick filter or a named card predicate changed. */
+  | 'filter:changed'
+  /** The shown sprint changed. */
+  | 'sprint:changed'
+  /** The shown epic changed. */
+  | 'epic:changed'
+  /** A card's children were opened. */
+  | 'card:expand'
+  /** A card was expanded from inside an already-open detail. */
+  | 'card:drill'
+  /** An inline card edit was written. */
+  | 'card:edit'
+  /** A card crossed an ageing threshold — ok to warn, or ok/warn to breach. */
+  | 'card:sla'
+  /** One card of a move is about to be applied; raised once per card, and cancellable. */
+  | 'beforeMove'
+  /** A card is about to be appended; cancellable. */
+  | 'beforeAdd'
+  /** An inline card edit is about to be written; cancellable. */
+  | 'beforeEdit'
+  /** A swimlane reorder is about to be applied; cancellable. */
+  | 'beforeLaneReorder'
+  /** A column reorder is about to be applied; cancellable. */
+  | 'beforeColumnReorder'
+  /** A column collapse or expand is about to be applied; cancellable. */
+  | 'beforeColumnChange'
+  /** A `beforeMove` handler refused one card; raised once per refused card. */
+  | 'move:cancelled'
+  /** A `beforeAdd` handler refused the append. */
+  | 'add:cancelled'
+  /** A `beforeEdit` handler refused the write. */
+  | 'edit:cancelled'
+  /** A `beforeLaneReorder` handler refused the order. */
+  | 'laneReorder:cancelled'
+  /** A `beforeColumnReorder` handler refused the order. */
+  | 'columnReorder:cancelled'
+  /** A `beforeColumnChange` handler refused the collapse or expand. */
+  | 'columnChange:cancelled';
+
+/** What a handler receives, per board event. */
+interface KanbanEventPayloads {
+  /** The card, its column, its element and the DOM event. */
+  'card:click': KanbanEvent;
+  /** The card, its column, its element and the DOM event. */
+  'card:dblclick': KanbanEvent;
+  /** The card, its column, its element and the DOM event. */
+  'card:contextmenu': KanbanEvent;
+  /** Which cards moved, where from and to, and the order values written. */
+  'card:move': KanbanMoveEvent;
+  /** Which cards went back, and why when the grid said so. */
+  'card:reverted': KanbanCardRevertedEvent;
+  /** The card the grid confirmed, and the column it is in. */
+  'card:confirmed': KanbanCardConfirmedEvent;
+  /** Every selected card key. */
+  'selection:changed': KanbanSelectionEvent;
+  /** The column, and whether it is now collapsed. */
+  'column:collapse': KanbanColumnCollapseEvent;
+  /** The column added to, and the new card's key. */
+  'card:add': KanbanCardAddEvent;
+  /** The keys the drag carries, the card under the pointer, and the DOM event. */
+  'drag:start': KanbanDragStartEvent;
+  /** The keys the drag carried, and the DOM event where there was one. */
+  'drag:end': KanbanDragEndEvent;
+  /** The lane, and whether it is now collapsed. */
+  'swimlane:collapse': KanbanSwimlaneCollapseEvent;
+  /** The lane ids in their new order. */
+  'swimlane:reorder': KanbanOrderEvent;
+  /** The column ids in their new order. */
+  'column:reorder': KanbanOrderEvent;
+  /** The quick-filter text, and the named predicates in force. */
+  'filter:changed': KanbanFilterChangedEvent;
+  /** The sprint now shown. */
+  'sprint:changed': KanbanSprintChangedEvent;
+  /** The epic now shown. */
+  'epic:changed': KanbanEpicChangedEvent;
+  /** The card, its child rows, and how they are presented. */
+  'card:expand': KanbanCardExpandEvent;
+  /** The card, its child rows, and how deep the drill is. */
+  'card:drill': KanbanCardDrillEvent;
+  /** The card, the field, and the value written. */
+  'card:edit': KanbanCardEditEvent;
+  /** The crossing: the level reached, the one before it, and the age behind it. */
+  'card:sla': KanbanSlaEvent;
+  /** The card about to move, with `preventDefault` to stop it. */
+  beforeMove: KanbanBeforeMoveEvent;
+  /** The column and seed about to be appended, with `preventDefault` to stop it. */
+  beforeAdd: KanbanBeforeAddEvent;
+  /** The field about to be written, with `preventDefault` to stop it. */
+  beforeEdit: KanbanBeforeEditEvent;
+  /** The lane order about to be applied, with `preventDefault` to stop it. */
+  beforeLaneReorder: KanbanBeforeOrderEvent;
+  /** The column order about to be applied, with `preventDefault` to stop it. */
+  beforeColumnReorder: KanbanBeforeOrderEvent;
+  /** The collapse about to be applied, with `preventDefault` to stop it. */
+  beforeColumnChange: KanbanBeforeColumnChangeEvent;
+  /** The one card that did not move, and why. */
+  'move:cancelled': KanbanMoveCancelledEvent;
+  /** The card that was not added, and why. */
+  'add:cancelled': KanbanAddCancelledEvent;
+  /** The write that was not made, and why. */
+  'edit:cancelled': KanbanEditCancelledEvent;
+  /** The lane order that was not applied, and why. */
+  'laneReorder:cancelled': KanbanOrderCancelledEvent;
+  /** The column order that was not applied, and why. */
+  'columnReorder:cancelled': KanbanOrderCancelledEvent;
+  /** The collapse that was not applied, and why. */
+  'columnChange:cancelled': KanbanColumnChangeCancelledEvent;
 }
 
 /** The keyed-diff consumer surface a board shares with a grid, so a Data Router routes to it directly. */
@@ -605,11 +1054,13 @@ interface Kanban {
   card(key: unknown): KanbanCard | undefined;
   /**
    * Register an event handler; returns a function that removes it. An unrecognised event
-   * name is warned about once, because it names a binding that could never fire.
+   * name is warned about once, because it names a binding that could never fire. What each
+   * event carries is {@link KanbanEventPayloads}; the handler is declared with the widest
+   * of them, so narrow on the name inside it.
    */
-  on(name: string, fn: (event: KanbanEvent) => void): () => void;
+  on(name: KanbanEventName, fn: (event: KanbanEventPayloads[KanbanEventName]) => void): () => void;
   /** Remove a handler registered with `on`. */
-  off(name: string, fn: (event: KanbanEvent) => void): void;
+  off(name: KanbanEventName, fn: (event: KanbanEventPayloads[KanbanEventName]) => void): void;
   /**
    * Whether editing is blocked — for the whole board, or for the column or card named in
    * the scope.
