@@ -5,7 +5,7 @@ dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it, and Angular has compiled components of its
 own at `@toclocoinc/lattice-grid/angular` — inside this package, not beside it.
 
-Version 1.70.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.71.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -548,6 +548,7 @@ A few, chosen for breadth:
 - **[API reference](docs/api/index.html)**: every namespace, method, config key and event, one page per module.
 - **[The whole reference on one page](docs/API.html)**: the same thing as a single document, for searching.
 - **[Developer guide](docs/api-detail.html)**: what each part does and why, with worked examples.
+- **[Warnings reference](docs/warnings.json)**: every `[lattice]` line the grid can print, by the identifier it de-duplicates on, with what it means and what to change. Data rather than a page, so a console line can be looked up by eye or from a script: `import warnings from '@toclocoinc/lattice-grid/docs/warnings.json' with { type: 'json' }`.
 
 ---
 

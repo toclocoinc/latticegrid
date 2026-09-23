@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Data router API Reference — Lattice Grid 1.70.0</title>
+<title>Data router API Reference — Lattice Grid 1.71.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -413,6 +413,7 @@
         <a href="grid.html">The grid</a>
         <a href="charts.html">The charts module</a>
         <a href="kpi.html">The KPI (stat-tile) view</a>
+        <a href="alarms.html">The alarms module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="tabs.html">The tabbed grid</a>
@@ -438,7 +439,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 13 pages</a></span>
+      <span class="chip"><a href="index.html">All 14 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -1267,6 +1268,7 @@ g.destroy(); router.destroy();
           <tr><td class="name">attachDefault</td><td class="type">(grid: unknown, opts?: <a href="#type-RouteOptions">RouteOptions</a>): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>grid: unknown</code><br><code>opts?: <a href="#type-RouteOptions">RouteOptions</a></code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Attach the "rest" sink for records no explicit route matched. A second call replaces the first.</td></tr>
           <tr><td class="name">subscribe</td><td class="type">(predicate: <a href="types.html#type-RoutePredicate">RoutePredicate</a>, handler: (change: RouterChange) =&gt; void, opts?: <a href="#type-RouteOptions">RouteOptions</a>): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>predicate: <a href="types.html#type-RoutePredicate">RoutePredicate</a></code><br><code>handler: (change: RouterChange) =&gt; void, opts?: <a href="#type-RouteOptions">RouteOptions</a></code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Route a partition slice to any non-grid view (v5): the handler receives the same keyed diff a grid would.</td></tr>
           <tr><td class="name">alert</td><td class="type">(predicate: <a href="types.html#type-RoutePredicate">RoutePredicate</a>, condition: (rows: <a href="types.html#type-RouterRecord">RouterRecord</a>[]) =&gt; unknown, handler: (signal: unknown, rows: <a href="types.html#type-RouterRecord">RouterRecord</a>[]) =&gt; void, opts?: AlertOptions): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>predicate: <a href="types.html#type-RoutePredicate">RoutePredicate</a></code><br><code>condition: (rows: <a href="types.html#type-RouterRecord">RouterRecord</a>[]) =&gt; unknown, handler: (signal: unknown</code><br><code>rows: <a href="types.html#type-RouterRecord">RouterRecord</a>[]) =&gt; void, opts?: AlertOptions</code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Watch a slice and emit on a rising edge of `condition` rather than render (v5). Removed only by `destroy`.</td></tr>
+          <tr><td class="name">monitor</td><td class="type">(predicate: <a href="types.html#type-RoutePredicate">RoutePredicate</a>, evaluate: (rows: <a href="types.html#type-RouterRecord">RouterRecord</a>[]) =&gt; unknown, handler: (value: unknown, rows: <a href="types.html#type-RouterRecord">RouterRecord</a>[]) =&gt; void, opts?: { rowKey?: <a href="types.html#type-RouterKey">RouterKey</a>; filter?: (row: <a href="types.html#type-RouterRecord">RouterRecord</a>) =&gt; boolean }): () =&gt; void</td><td class="desc"><code>predicate: <a href="types.html#type-RoutePredicate">RoutePredicate</a></code><br><code>evaluate: (rows: <a href="types.html#type-RouterRecord">RouterRecord</a>[]) =&gt; unknown, handler: (value: unknown</code><br><code>rows: <a href="types.html#type-RouterRecord">RouterRecord</a>[]) =&gt; void, opts?: { rowKey?: <a href="types.html#type-RouterKey">RouterKey</a>; filter?: (row: <a href="types.html#type-RouterRecord">RouterRecord</a>) =&gt; boolean }</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Watch a slice and report what it MEASURES on every evaluation (v14, BACKLOG-0001434) — a levelled sibling of `alert`, sharing its partition, its `rowKey`/`filter`, its seeding and its independence from a time-travel scrub, and differing only in reporting a value rather than a rising edge. This is the feed `lattice-grid/modules/alarms` runs its level ladder, clear edge and hold timer on. Alone among the routes it returns a **stop function** rather than the router, because an alarm set has to be able to release it on `destroy()`.</td></tr>
           <tr><td class="name">configure</td><td class="type">(spec?: <a href="#type-RouterConfig">RouterConfig</a>): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>spec?: <a href="#type-RouterConfig">RouterConfig</a></code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Take the whole routing graph as one declarative spec (v5); desugars to the calls above and composes with them.</td></tr>
           <tr><td class="name">link</td><td class="type">(source: unknown, target: unknown, relation: <a href="types.html#type-SelectionRelation">SelectionRelation</a>): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>source: unknown</code><br><code>target: unknown</code><br><code>relation: <a href="types.html#type-SelectionRelation">SelectionRelation</a></code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Link a source grid's selection to what a target grid receives (v2, BACKLOG-0000880): the target shows the subset of its partition the `relation` admits, re-pushed through the keyed-diff path. No selection shows the full partition; changes are debounced.</td></tr>
           <tr><td class="name">relate</td><td class="type">(edges: RouterEdge[]): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>edges: RouterEdge[]</code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Declare a relationship graph (v3): multi-hop, several-into-one and mutual edges — the scalable form of `link`.</td></tr>

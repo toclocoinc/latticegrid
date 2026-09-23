@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.70.0, data-router module type declarations
+ * Lattice Grid 1.71.0, data-router module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -436,6 +436,15 @@ interface DataRouter {
   subscribe(predicate: RoutePredicate, handler: (change: RouterChange) => void, opts?: RouteOptions): DataRouter;
   /** Watch a slice and emit on a rising edge of `condition` rather than render (v5). Removed only by `destroy`. */
   alert(predicate: RoutePredicate, condition: (rows: RouterRecord[]) => unknown, handler: (signal: unknown, rows: RouterRecord[]) => void, opts?: AlertOptions): DataRouter;
+  /**
+   * Watch a slice and report what it MEASURES on every evaluation (v14) — a levelled sibling of `alert`, sharing its partition, its
+   * `rowKey`/`filter`, its seeding and its independence from a time-travel scrub, and
+   * differing only in reporting a value rather than a rising edge. This is the feed
+   * `lattice-grid/modules/alarms` runs its level ladder, clear edge and hold timer on.
+   * Alone among the routes it returns a **stop function** rather than the router, because
+   * an alarm set has to be able to release it on `destroy()`.
+   */
+  monitor(predicate: RoutePredicate, evaluate: (rows: RouterRecord[]) => unknown, handler: (value: unknown, rows: RouterRecord[]) => void, opts?: { rowKey?: RouterKey; filter?: (row: RouterRecord) => boolean }): () => void;
   /** Take the whole routing graph as one declarative spec (v5); desugars to the calls above and composes with them. */
   configure(spec?: RouterConfig): DataRouter;
   /**

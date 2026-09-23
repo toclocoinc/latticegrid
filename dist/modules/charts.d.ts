@@ -1,11 +1,12 @@
 /*!
- * Lattice Grid 1.70.0, charts module type declarations
+ * Lattice Grid 1.71.0, charts module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 import type {
   CellRange,
   Chart,
+  ChartSchemeName,
   ChartSpec,
   ChartType,
   Grid,
@@ -17,7 +18,7 @@ import type {
 /** Every type name `createChart` accepts. */
 export const TYPES: readonly ChartType[];
 /** The built-in colour schemes, by name. */
-export const SCHEMES: Readonly<Record<string, readonly string[]>>;
+export const SCHEMES: Readonly<Record<ChartSchemeName, readonly string[]>>;
 export const PALETTE: readonly string[];
 export function createChart(spec: ChartSpec): Chart;
 /**

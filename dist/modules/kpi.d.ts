@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.70.0, kpi module type declarations
+ * Lattice Grid 1.71.0, kpi module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -21,7 +21,7 @@ type KPIFormat =
  */
 /** Which way is good for a KPI threshold: a higher value, or a lower one. */
 export type KpiThresholdDirection = 'higherIsBetter' | 'lowerIsBetter';
-interface KPIThresholds {
+export interface KPIThresholds {
   /**
    * The cut point between good and warning. With the default `higherIsBetter`, a value at
    * or above it is good.
@@ -42,7 +42,7 @@ interface KPIThresholds {
 /** A KPI tile or node's status: good, a warning, or critical — never `unknown`. */
 export type KpiStatus = 'good' | 'warn' | 'critical';
 /** An explicit band: the `status` of the first band whose half-open `[min, max)` contains the value. */
-interface KPIBand {
+export interface KPIBand {
   /** The lower bound, inclusive. Omitted, the band reaches down without limit. */
   min?: number;
   /** The upper bound, exclusive. Omitted, the band reaches up without limit. */
@@ -386,7 +386,9 @@ type KPIEventName =
   /** A branch of a hierarchical panel was expanded or collapsed, by the host or by a click on its twisty. */
   | 'node:toggle'
   /** The panel rebuilt its model — new rows, a changed configuration, or a followed grid event. */
-  | 'change';
+  | 'change'
+  /** A tile's status moved — it crossed a threshold or a band, went silent, or came back. Fired once per tile per transition, including to and from `unknown`, and before the `change` that carries the rebuilt model; a tile whose status did not move is silent, which is what separates it from `change`. */
+  | 'tile:status';
 
 /** What a handler receives, per KPI event. */
 interface KPIEventPayloads {
@@ -400,6 +402,30 @@ interface KPIEventPayloads {
   'node:toggle': KPINodeToggleEvent;
   /** The rebuilt model. */
   change: KPIChangeEvent;
+  /** Which tile moved, where from, where to, and what it now reads. */
+  'tile:status': KPITileStatusEvent;
+}
+
+/**
+ * A tile crossed a threshold.
+ *
+ * The event an alarm system is fed from: one per transition, rather than the whole model
+ * on every refresh. `lattice-grid/modules/alarms` consumes exactly this.
+ */
+interface KPITileStatusEvent {
+  /** The tile's identity — its configured `id`, else its label, else its index. */
+  id: string;
+  /** The status it now reads, or null when the tile declares no thresholds or bands. */
+  status: KpiRollupStatus | null;
+  /**
+   * The status it held before this transition, or null when it had none — the first
+   * reading of a tile, or a tile that has just been added.
+   */
+  previous: KpiRollupStatus | null;
+  /** The tile's value at the transition, or null when it measured nothing. */
+  value: unknown;
+  /** When the transition was observed, as a millisecond timestamp. */
+  at: number;
 }
 
 /** KPI panel configuration. */

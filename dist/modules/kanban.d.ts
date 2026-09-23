@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.70.0, kanban module type declarations
+ * Lattice Grid 1.71.0, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -331,6 +331,82 @@ interface KanbanSla {
   warnings(): KanbanSlaState[];
   /** Stop the tick and drop the board subscriptions. */
   destroy(): void;
+}
+
+/**
+ * Distribution stats over a set of durations, in milliseconds — the shape
+ * {@link KanbanFlow.cycleTime} and {@link KanbanFlow.leadTime} return. `null`
+ * throughout when there is nothing to summarise (`count` is then 0).
+ */
+interface KanbanFlowDurationStats {
+  /** How many durations were summarised. */
+  count: number;
+  /** The mean duration. */
+  mean: number | null;
+  /** The median duration; identical to `p50`. */
+  median: number | null;
+  /** The 50th percentile (R-7). */
+  p50: number | null;
+  /** The 85th percentile (R-7). */
+  p85: number | null;
+  /** The 95th percentile (R-7). */
+  p95: number | null;
+  /** The shortest duration. */
+  min: number | null;
+  /** The longest duration. */
+  max: number | null;
+  /** The sample standard deviation. */
+  stdev: number | null;
+  /** The sum of every duration. */
+  total: number;
+}
+
+/**
+ * The cumulative-flow series {@link KanbanFlow.cfd} returns: at each bucket
+ * boundary, how many cards sat in each column, plus the WIP and done totals.
+ */
+interface KanbanFlowCfd {
+  /** The bucket size actually used, in milliseconds. */
+  bucket: number;
+  /** The board's columns, in display order. */
+  columns: string[];
+  /** One point per bucket boundary. */
+  points: {
+    /** The bucket boundary's timestamp (ms epoch). */
+    at: number;
+    /** Card count per column id at this moment. */
+    counts: Record<string, number>;
+    /** Cards in a WIP column at this moment. */
+    wip: number;
+    /** Cards in a done column at this moment. */
+    done: number;
+    /** Cards in any column at this moment. */
+    total: number;
+  }[];
+}
+
+/**
+ * Flow analytics over a board's transition log: how long a
+ * card takes from start to finish (cycle time), from arrival to finish (lead
+ * time), and how the shape of the board has changed over time (the
+ * cumulative-flow diagram). Reached as {@link Kanban#flow}.
+ */
+interface KanbanFlow {
+  /**
+   * Active-work-time summary: first-done minus first-start, over cards that
+   * finished and passed through a start column.
+   */
+  cycleTime(): KanbanFlowDurationStats;
+  /**
+   * Arrival-to-done-time summary: first-done minus arrival, over cards that
+   * finished.
+   */
+  leadTime(): KanbanFlowDurationStats;
+  /**
+   * The cumulative-flow series a stacked-area chart draws — one band per
+   * column, growing over time.
+   */
+  cfd(opts?: { bucket?: string | number; from?: number; to?: number }): KanbanFlowCfd;
 }
 
 /**
@@ -1049,6 +1125,12 @@ interface Kanban {
   rows: KanbanRows;
   /** The card-aging / SLA monitor, present only when a `sla` config was supplied. */
   sla?: KanbanSla;
+  /**
+   * Flow analytics over the board's transition log: cycle
+   * time, lead time and the cumulative-flow diagram. Built automatically
+   * unless the config says `flow: false`.
+   */
+  flow?: KanbanFlow;
   /** The current columns in display order, each with its cards and aggregates. */
   columns(): KanbanColumn[];
   /** One column by id, or undefined when the board has no such column. */

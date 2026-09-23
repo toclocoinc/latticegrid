@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Kanban API Reference — Lattice Grid 1.70.0</title>
+<title>Kanban API Reference — Lattice Grid 1.71.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -403,6 +403,7 @@
         <a href="charts.html">The charts module</a>
         <a href="data-router.html">The data router</a>
         <a href="kpi.html">The KPI (stat-tile) view</a>
+        <a href="alarms.html">The alarms module</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
@@ -427,7 +428,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 13 pages</a></span>
+      <span class="chip"><a href="index.html">All 14 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -808,6 +809,49 @@ router.destroy();
           <tr><td class="name">breaches</td><td class="type">(): <a href="#type-KanbanSlaState">KanbanSlaState</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-KanbanSlaState">KanbanSlaState</a>[]</code></td><td class="desc">The cards currently at breach level.</td></tr>
           <tr><td class="name">warnings</td><td class="type">(): <a href="#type-KanbanSlaState">KanbanSlaState</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-KanbanSlaState">KanbanSlaState</a>[]</code></td><td class="desc">The cards currently at warn level (not yet breached).</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Stop the tick and drop the board subscriptions.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KanbanFlowDurationStats">KanbanFlowDurationStats</h4>
+    <p class="section-note">Distribution stats over a set of durations, in milliseconds — the shape {@link KanbanFlow.cycleTime} and {@link KanbanFlow.leadTime} return. `null` throughout when there is nothing to summarise (`count` is then 0).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many durations were summarised.</td></tr>
+          <tr><td class="name">mean</td><td class="type">number | null</td><td class="desc">The mean duration.</td></tr>
+          <tr><td class="name">median</td><td class="type">number | null</td><td class="desc">The median duration; identical to `p50`.</td></tr>
+          <tr><td class="name">p50</td><td class="type">number | null</td><td class="desc">The 50th percentile (R-7).</td></tr>
+          <tr><td class="name">p85</td><td class="type">number | null</td><td class="desc">The 85th percentile (R-7).</td></tr>
+          <tr><td class="name">p95</td><td class="type">number | null</td><td class="desc">The 95th percentile (R-7).</td></tr>
+          <tr><td class="name">min</td><td class="type">number | null</td><td class="desc">The shortest duration.</td></tr>
+          <tr><td class="name">max</td><td class="type">number | null</td><td class="desc">The longest duration.</td></tr>
+          <tr><td class="name">stdev</td><td class="type">number | null</td><td class="desc">The sample standard deviation.</td></tr>
+          <tr><td class="name">total</td><td class="type">number</td><td class="desc">The sum of every duration.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KanbanFlowCfd">KanbanFlowCfd</h4>
+    <p class="section-note">The cumulative-flow series {@link KanbanFlow.cfd} returns: at each bucket boundary, how many cards sat in each column, plus the WIP and done totals.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">bucket</td><td class="type">number</td><td class="desc">The bucket size actually used, in milliseconds.</td></tr>
+          <tr><td class="name">columns</td><td class="type">string[]</td><td class="desc">The board's columns, in display order.</td></tr>
+          <tr><td class="name">points</td><td class="type">{ /** The bucket boundary's timestamp (ms epoch). */ at: number; /** Card count per column id at this moment. */ counts: Record&lt;string, number&gt;; /** Cards in a WIP column at this moment. */ wip: number; /** Cards in a done column at this moment. */ done: number; /** Cards in any column at this moment. */ total: number; }[]</td><td class="desc">One point per bucket boundary.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KanbanFlow">KanbanFlow</h4>
+    <p class="section-note">Flow analytics over a board's transition log (BACKLOG-0000951): how long a card takes from start to finish (cycle time), from arrival to finish (lead time), and how the shape of the board has changed over time (the cumulative-flow diagram). Reached as {@link Kanban#flow}.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">cycleTime</td><td class="type">(): <a href="#type-KanbanFlowDurationStats">KanbanFlowDurationStats</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-KanbanFlowDurationStats">KanbanFlowDurationStats</a></code></td><td class="desc">Active-work-time summary: first-done minus first-start, over cards that finished and passed through a start column.</td></tr>
+          <tr><td class="name">leadTime</td><td class="type">(): <a href="#type-KanbanFlowDurationStats">KanbanFlowDurationStats</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-KanbanFlowDurationStats">KanbanFlowDurationStats</a></code></td><td class="desc">Arrival-to-done-time summary: first-done minus arrival, over cards that finished.</td></tr>
+          <tr><td class="name">cfd</td><td class="type">(opts?: { bucket?: string | number; from?: number; to?: number }): <a href="#type-KanbanFlowCfd">KanbanFlowCfd</a></td><td class="desc"><code>opts?: { bucket?: string | number; from?: number; to?: number }</code></td><td class="type"><code><a href="#type-KanbanFlowCfd">KanbanFlowCfd</a></code></td><td class="desc">The cumulative-flow series a stacked-area chart draws — one band per column, growing over time.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1360,6 +1404,7 @@ router.destroy();
           <tr><td class="name">rowKey</td><td class="type">string | ((row: <a href="types.html#type-KanbanRow">KanbanRow</a>) =&gt; string | number)</td><td class="desc">The resolved card identity; see `KanbanConfig.rowKey`. <small>(read-only)</small></td></tr>
           <tr><td class="name">rows</td><td class="type"><a href="#type-KanbanRows">KanbanRows</a></td><td class="desc">The keyed-diff consumer surface, the same shape a grid exposes — this is what makes a board a Data Router target.</td></tr>
           <tr><td class="name">sla</td><td class="type"><a href="#type-KanbanSla">KanbanSla</a></td><td class="desc">The card-aging / SLA monitor, present only when a `sla` config was supplied (BACKLOG-0000960). <small>(optional)</small></td></tr>
+          <tr><td class="name">flow</td><td class="type"><a href="#type-KanbanFlow">KanbanFlow</a></td><td class="desc">Flow analytics over the board's transition log (BACKLOG-0000951): cycle time, lead time and the cumulative-flow diagram. Built automatically unless the config says `flow: false`. <small>(optional)</small></td></tr>
           <tr><td class="name">filters</td><td class="type"><a href="#type-KanbanFilters">KanbanFilters</a></td><td class="desc">Named card predicates, composed with AND (BACKLOG-0001229). See {@link KanbanFilters}.</td></tr>
           <tr><td class="name">BACKLOG</td><td class="type">unknown</td><td class="desc">The sentinel `setSprint` value that selects the backlog (cards with no sprint). <small>(read-only)</small></td></tr>
         </tbody>

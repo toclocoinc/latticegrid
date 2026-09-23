@@ -886,6 +886,8 @@ declare class LatticeKpiComponent<TRow = unknown> extends LatticeViewerBase<KPI>
     readonly tileContextmenu: EventEmitter<any>;
     /** The viewer's `node:toggle` event. */
     readonly nodeToggle: EventEmitter<any>;
+    /** The viewer's `tile:status` event — a tile crossed a threshold (BACKLOG-0001434). */
+    readonly tileStatus: EventEmitter<any>;
     /** The viewer's `change` event. */
     readonly change: EventEmitter<any>;
     /**
@@ -901,7 +903,7 @@ declare class LatticeKpiComponent<TRow = unknown> extends LatticeViewerBase<KPI>
      */
     protected mount(element: HTMLElement, config: Props): KPI;
     static ɵfac: i0.ɵɵFactoryDeclaration<LatticeKpiComponent<any>, never>;
-    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeKpiComponent<any>, "lattice-kpi", never, { "config": { "alias": "config"; "required": false; }; "rows": { "alias": "rows"; "required": false; }; }, { "tileClick": "tile-click"; "tileDblclick": "tile-dblclick"; "tileContextmenu": "tile-contextmenu"; "nodeToggle": "node-toggle"; "change": "change"; }, never, never, true, never>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeKpiComponent<any>, "lattice-kpi", never, { "config": { "alias": "config"; "required": false; }; "rows": { "alias": "rows"; "required": false; }; }, { "tileClick": "tile-click"; "tileDblclick": "tile-dblclick"; "tileContextmenu": "tile-contextmenu"; "nodeToggle": "node-toggle"; "tileStatus": "tile-status"; "change": "change"; }, never, never, true, never>;
 }
 
 /**

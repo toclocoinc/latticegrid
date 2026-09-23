@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.70.0</p>
+    <p class="rail__sub">Developer guide · v1.71.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.70.0</span>
+        <span class="chip">Version 1.71.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1493,7 +1493,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.70.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.71.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -1692,6 +1692,12 @@ grid.rows.refresh({ rows, columns: ['owner'], force: true });
       a Width submenu, and bound to the keyboard with a heading focused: <kbd>Alt</kbd> with a
       left or right arrow resizes, <kbd>Shift</kbd> with one moves the column. Neither operation
       depends on dragging.</p>
+    <p><code>resizePreview: 'deferred'</code> changes what a column-border <em>drag</em> shows while
+      it is in progress: the default, <code>'live'</code>, resizes the column as the pointer moves;
+      <code>'deferred'</code> draws a guide line at the pointer instead and commits the new width
+      only on release. The keyboard resize above is unaffected either way &mdash; there is nothing
+      to defer when a keypress sets the final width directly. Worth setting on a grid wide enough
+      that a live resize repaints more than the drag is worth.</p>
     <p>A pinned region holds the edge of the viewport only while there is something to scroll. Where
       the columns are narrower than the grid: fixed widths, or a <code>flex</code> column that
       has reached its <code>max</code>: nothing scrolls, so the pinned columns sit directly
@@ -1932,6 +1938,25 @@ format: {                                    <span class="cmt">// when the short
 
 format: { decimals: 0, signed: true }        <span class="cmt">// +5, 0, -5</span></code></pre>
     </div>
+    <p class="lead-in">
+      <strong>The shorthand grammar.</strong> A shorthand is <code>style</code>, or
+      <code>style:arg1:arg2</code> — colon-separated, every argument after the style optional. Seven
+      styles are recognised, by their leading word: <code>number:decimals</code>
+      (<code>'number:0'</code> → <code>1,235</code>), <code>percent:decimals</code>
+      (<code>'percent:1'</code> → <code>87.4%</code>), <code>currency:code:decimals</code>
+      (<code>'currency:GBP:2'</code> → <code>£1,234.50</code>; the code defaults to <code>USD</code>
+      and <code>decimals</code> to the currency's own minor unit when omitted),
+      <code>date:pattern</code> (<code>'date:dd MMM yyyy'</code>; everything after the first colon is
+      the pattern, so a time pattern's own colons — <code>'date:HH:mm'</code> — survive intact),
+      <code>relative</code> (no argument: <code>'3 days ago'</code>, re-rendering as the clock moves),
+      <code>boolean:trueLabel/falseLabel/nullLabel</code> (slash-separated, not colon —
+      <code>'boolean:Yes/No'</code> or <code>'boolean:Yes/No/Unknown'</code>), and
+      <code>text:transform:truncate</code> (<code>'text:upper:20'</code>; <code>transform</code> is
+      <code>upper</code>, <code>lower</code> or <code>title</code>). A string that does not start
+      with one of these seven words is tried as an Excel-style mask
+      (<code>'£#,##0.00;(£#,##0.00)'</code>) and then as a bare date pattern
+      (<code>'dd MMM yyyy'</code>) before being rejected.
+    </p>
     <p class="lead-in">
       <code>signed</code> puts a leading <code>+</code> on a positive number, currency or percent
       value. Zero gets no sign either way — it is neither positive nor negative — and a negative
@@ -2680,6 +2705,113 @@ grid.destroy();
 <span class="kw">const</span> visible = ['name', 'region', 'qty'].filter(shown).length;
 grid.destroy();
 <span class="kw">return</span> visible;</code></pre>
+    </div>
+
+    <h3 id="filter-row">filterRow</h3>
+    <p class="lead-in">
+      Filtering came in three shapes and none of them was inline: the column menu's popup, the quick
+      filter over every column, and the structured filter in the tool panel. A user who wants
+      &ldquo;just type in the column&rdquo; had no row to type into. <code>filterRow: true</code>
+      draws one, directly under the headings &mdash; below the column groups, above the pinned rows,
+      in every pinned region.
+    </p>
+    <p class="lead-in">
+      Each cell is the inline form of that column's own filter. A text column gets a box with
+      <code>contains</code> implied and a small picker for the other single-operand operators; a
+      number column implies <code>equals</code>; a date column implies equality too, which on a date
+      means <em>on that day</em> &mdash; the same day-wide half-open range the popup produces, because
+      the row asks the column's own <code>DateFilter</code> for the condition rather than building
+      one. A boolean column gets a tri-state box that cycles any &rarr; true &rarr; false. A set or
+      multi column gets a chip that opens the column's own filter popup, because the value list is a
+      virtualised checkbox list and it belongs in the popup rather than in an 80px cell. So does a
+      condition the row cannot draw inline &mdash; a range, a relative date, two conditions joined:
+      the cell shows a chip naming the operator, and pressing it opens the popup.
+    </p>
+    <p class="lead-in">
+      <strong>There is one filter model and the row writes it.</strong> Typing in the row is what the
+      column menu shows when it is opened, an edit in the menu repaints the row,
+      <code>state.get()</code> round-trips it because the filter tree <em>is</em> the state, and a
+      pushdown source receives exactly the condition the menu would have sent &mdash; there is no
+      second pushdown path. Clearing a cell clears that column's filter and leaves every other
+      column's alone.
+    </p>
+    <p class="lead-in">
+      A column opts out with its own <code>filterRow: false</code>, which leaves that cell empty; so
+      does <code>filter: { enabled: false }</code>, because there is nothing to type into. The
+      grid-level key is what decides whether there is a row at all &mdash; a row drawn for one column
+      and blank for the rest is not a thing to offer. <code>headerControls: 'none'</code> and
+      <code>showColumnFunctions: false</code> do <strong>not</strong> take the row away: those govern
+      the chrome a heading carries, and the filter row is data entry.
+    </p>
+    <p class="lead-in">
+      The row is one tab stop with a roving <code>tabindex</code>; left and right arrows move between
+      cells, and inside a text box they only leave the cell once the caret is already at that end, so
+      an arrow press is never stolen from the text the user is editing. Escape puts the cell back to
+      what <code>grid.filters</code> holds. Every control names the column it filters
+      (&ldquo;Filter&nbsp;Region&rdquo;), and the row itself carries <code>role="row"</code> and is
+      counted in <code>aria-rowindex</code>, so the body rows are numbered past it.
+    </p>
+    <p class="lead-in">
+      It costs nothing on the scroll path. The row is appended inside the same three header region
+      containers the headings live in, so the compositor transform that carries the header sideways
+      carries the filter cells with it: measured on a 1,000,000-row, 42-column grid, a scrolled frame
+      cost 16.55&nbsp;ms with the row and 16.41&nbsp;ms without it, and over sixty scrolled frames the
+      worst gap between a heading and its own filter cell was 0&nbsp;px. There is no debounce and none
+      is needed: one keystroke's filter over a million rows settles in about 59&nbsp;ms, well inside
+      the gap between two keystrokes, so nothing queues behind the caret.
+    </p>
+    <div class="example">
+      <p class="example__label">A filter row, with one column opted out, typed into and read back</p>
+      <pre data-run="js" data-expect="kinds condition,set,condition,none | typed 2 rows | menu sees alp | cleared 4 rows" data-covers="config:filterRow"><code><span class="kw">const</span> { createTestDom, flushFrames, TestEvent } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createGrid } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+<span class="kw">const</span> { branchFor } = <span class="kw">await</span> import('../packages/dom/src/filtermenu.js');
+<span class="kw">const</span> { root, document: doc } = createTestDom({ width: 800, height: 300 });
+
+<span class="kw">const</span> grid = createGrid(root, {
+  filterRow: <span class="kw">true</span>,                                  <span class="cmt">// the row itself</span>
+  columns: [
+    { field: 'name' },                                <span class="cmt">// text: a box, "contains" implied</span>
+    { field: 'region', filter: { type: 'set' } },     <span class="cmt">// set: a chip opening the popup</span>
+    { field: 'qty', type: 'number' },                 <span class="cmt">// number: a box, "equals" implied</span>
+    { field: 'note', filterRow: <span class="kw">false</span> },              <span class="cmt">// opted out: an empty cell</span>
+  ],
+  rows: [
+    { name: 'alpha', region: 'EU', qty: 1, note: 'a' },
+    { name: 'bravo', region: 'US', qty: 2, note: 'b' },
+    { name: 'alps', region: 'EU', qty: 3, note: 'c' },
+    { name: 'delta', region: 'US', qty: 4, note: 'd' },
+  ],
+  rowKey: 'name',
+});
+flushFrames();
+
+<span class="kw">const</span> cell = (id) =&gt; root.querySelectorAll('.lat-filter-cell')
+  .find((c) =&gt; c.getAttribute('data-col') === id);
+<span class="kw">const</span> kinds = ['name', 'region', 'qty', 'note'].map((id) =&gt; cell(id).getAttribute('data-kind'));
+
+<span class="cmt">// Type into the name column, the way a user does.</span>
+<span class="kw">const</span> box = cell('name').querySelector('.lat-filter-row-input');
+box.value = 'alp';
+box.dispatchEvent(<span class="kw">new</span> TestEvent('input', { bubbles: <span class="kw">true</span> }));
+flushFrames();
+<span class="kw">const</span> typed = grid.rows.count();
+
+<span class="cmt">// The column menu opens on the same model, so it shows what was typed.</span>
+grid.emit('column:filter:open', { colId: 'name' }, 'user');
+<span class="kw">const</span> popup = doc.body.querySelectorAll('.lat-filter-popup')[0];
+<span class="kw">const</span> seen = popup.querySelectorAll('input')
+  .find((i) =&gt; String(i.className).includes('__value')).value;
+
+<span class="cmt">// Emptying the cell clears that column's branch and nothing else.</span>
+box.value = '';
+box.dispatchEvent(<span class="kw">new</span> TestEvent('input', { bubbles: <span class="kw">true</span> }));
+flushFrames();
+<span class="kw">const</span> cleared = grid.rows.count();
+<span class="kw">const</span> gone = branchFor(grid.filters.get(), 'name') === <span class="kw">null</span>;
+grid.destroy();
+
+<span class="kw">return</span> `kinds ${kinds.join(',')} | typed ${typed} rows | menu sees ${seen} | `
+  + `cleared ${cleared} rows${gone ? '' : ' (branch survived!)'}`;</code></pre>
     </div>
 
     <h3 id="show-total-in-header">showTotalInHeader</h3>
@@ -5623,6 +5755,30 @@ grid.selection.extendRange(34, 'cap');  <span class="cmt">// grows the block jus
       <code>lat-row--selected</code>, which the theme styles.
     </p>
     <div class="example">
+      <p class="example__label">Sizing and pinning the checkbox column, and the resize-drag preview</p>
+      <pre data-run="js" data-expect="deferred | 60 | end" data-covers="config:GridConfig.resizePreview config:GridConfig.selectionColumnWidth config:GridConfig.selectionColumnPin"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="cmt">// selectionColumnWidth/selectionColumnPin are grid-level configuration keys,</span>
+<span class="cmt">// not part of the `selection` block, because they size and place the</span>
+<span class="cmt">// generated column rather than choosing what it does. resizePreview is a</span>
+<span class="cmt">// renderer concern (what a column-border drag shows while it is in</span>
+<span class="cmt">// progress); the config key itself is core state, readable without a DOM.</span>
+<span class="kw">const</span> grid = createHeadlessGrid({
+  columns: [{ field: 'id' }],
+  rows: [{ id: 1 }],
+  resizePreview: <span class="str">'deferred'</span>,             <span class="cmt">// default 'live'</span>
+  selection: { checkbox: <span class="kw">true</span> },
+  selectionColumnWidth: <span class="kw">60</span>,               <span class="cmt">// default 44</span>
+  selectionColumnPin: <span class="str">'end'</span>,             <span class="cmt">// default 'start'</span>
+});
+<span class="kw">return</span> `${grid.get('resizePreview')} | ${grid.get('selectionColumnWidth')} | ${grid.get('selectionColumnPin')}`;</code></pre>
+    </div>
+    <p class="lead-in">
+      All three are live: <code>grid.set('resizePreview', …)</code>/<code>grid.set
+      ('selectionColumnWidth', …)</code>/<code>grid.set('selectionColumnPin', …)</code> change the
+      drag preview, or resize/re-pin the column, immediately.
+    </p>
+    <div class="example">
       <p class="example__label">A row with its own click action</p>
       <pre><code>selection: { mode: 'multiple', checkbox: <span class="kw">true</span>, checkboxOnly: <span class="kw">true</span> }</code></pre>
     </div>
@@ -5651,6 +5807,63 @@ grid.selection.extendRange(34, 'cap');  <span class="cmt">// grows the block jus
       unchanged (BACKLOG-0001233) — so the checkbox column never builds a two-key array to hand
       it; it sets the one key it just toggled.
     </p>
+
+    <h3 id="row-numbers">The row-number column</h3>
+    <div class="example">
+      <p class="example__label">A running position, pinned ahead of the checkbox</p>
+      <pre><code>rowNumbers: <span class="kw">true</span></code></pre>
+    </div>
+    <p class="lead-in">
+      <code>rowNumbers: true</code> adds a column showing each row's 1-based position among the
+      rows currently visible — after sort, filter and grouping — pinned left ahead of the
+      selection checkbox column when one is configured. It is generated the same way the
+      checkbox is: it does not appear in <code>columns.visible()</code>, in <code>columns.state()</code>
+      or a saved view, and it is never editable, sortable, filterable, groupable or movable.
+      A group heading, a group footer, a grand total and a master's open detail row are none
+      of them numbered — each is a summary or an expansion, not a row of its own — and the
+      leaves around them continue the count with no gap or jump. A <code>config.tree</code>
+      branch is different and does take a number: it is a real position in the hierarchy you
+      configured, the same as a leaf, not a summary derived over rows shown elsewhere.
+      Pinned-top rows are numbered first, ahead of the scrolling body.
+    </p>
+    <div class="example">
+      <p class="example__label">A fixed width, a different start, and a header title</p>
+      <pre><code>rowNumbers: { width: 48, start: 0, title: <span class="str">'#'</span> }</code></pre>
+    </div>
+    <p class="lead-in">
+      An object fixes the column's width instead of auto-fitting it to the largest number,
+      moves where the count starts (<code>0</code> numbers from zero rather than one), and
+      gives the header a title, which is empty by default. Excluded from CSV, Excel and
+      clipboard export by default, the same as the checkbox column; ask for it explicitly with
+      <code>grid.export.csv({ rowNumbers: <span class="kw">true</span> })</code> (and the matching option on
+      <code>grid.export.excel()</code> and <code>grid.export.clipboard()</code>).
+    </p>
+    <div class="example">
+      <p class="example__label">Renumbered after a sort; excluded from export until asked for</p>
+      <pre data-run="js" data-expect="1 2 3 | none" data-covers="config:GridConfig.rowNumbers config:CsvExportOptions.rowNumbers config:ClipboardOptions.rowNumbers"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'region' }],
+  rows: [
+    { id: '1', region: 'East' },
+    { id: '2', region: 'North' },
+    { id: '3', region: 'South' },
+  ],
+  rowNumbers: <span class="kw">true</span>,
+});
+
+<span class="cmt">// Sorted the numbers still read 1, 2, 3: the position, not the row, is what</span>
+<span class="cmt">// is numbered.</span>
+grid.sort.set([{ col: 'region', dir: 'desc' }]);
+<span class="kw">const</span> numbered = grid.export.csv({ rowNumbers: <span class="kw">true</span>, headers: <span class="kw">false</span> })
+  .trim().split('\r\n').map((line) => line.split(',')[0]).join(' ');
+
+<span class="cmt">// Left out of an ordinary export, the same as the selection checkbox column.</span>
+<span class="kw">const</span> plain = grid.export.csv({ headers: <span class="kw">false</span> }).includes('1,') ? 'has-number' : 'none';
+grid.destroy();
+<span class="kw">return</span> `${numbered} | ${plain}`;</code></pre>
+    </div>
 
     <div class="why">
       <p><strong>Ctrl+Shift+Arrow is the keyboard form of ctrl-dragging.</strong> The first press
@@ -8478,6 +8691,15 @@ grid.import.apply(preview);</code></pre>
         </tbody>
       </table>
     </div>
+    <p class="lead-in">
+      <strong>Alarms.</strong> <code>createAlarms</code> (<code>modules/alarms</code>) is the opt-in
+      module that turns data which is already graded into <code>alarm:raised</code> and
+      <code>alarm:cleared</code> events: attach a KPI panel, a grid's columns or a router route, set
+      a <code>holdMs</code> hold-down so a flapping value cannot page anyone, and read
+      <code>active()</code> and <code>pending()</code> for the current state. See
+      <a href="API.html#alarms">the alarms module</a>.
+    </p>
+
     <h3>Grid methods</h3>
     <div class="table-wrap">
       <table>
@@ -8547,6 +8769,13 @@ grid.import.apply(preview);</code></pre>
           <tr><td class="name">onProposal</td><td class="desc">AI (<code>AIConfig</code>). Called with each governed-actor proposal, before any approval.</td></tr>
           <tr><td class="name">onQuery</td><td class="desc">AI (<code>AIConfig</code>). Called with each ask-your-data result.</td></tr>
           <tr><td class="name">schemaOptions</td><td class="desc">AI (<code>AIConfig</code>). Budgets passed to the schema builder that describes your data to the model for ask-your-data.</td></tr>
+          <tr><td class="name">holdMs</td><td class="desc">Alarms (<code>AlarmsConfig</code>, <code>AlarmsAttachOptions</code>, <code>AlarmsColumnOptions</code>). The hold-down before a changed level is believed. A new level must persist this long before its transition is emitted, and a crossing back inside the window discards the pending transition rather than delaying it &mdash; so a value flapping across a cut point emits nothing and a sustained breach emits once. Symmetric: a clear is held exactly as a raise is. Set on the set, overridden per attach, overridden again per column. Default <code>0</code>, which emits on every settled crossing.</td></tr>
+          <tr><td class="name">clock</td><td class="desc">Alarms (<code>AlarmsConfig</code>). The clock the hold timer runs on &mdash; <code>now</code>, <code>setTimeout</code>, <code>clearTimeout</code>. Injected so a test can drive a thousand crossings through a <code>holdMs</code> window without sleeping for it; the real clock otherwise.</td></tr>
+          <tr><td class="name">sourceId</td><td class="desc">Alarms (<code>AlarmsAttachOptions</code>). What this source is called in every alarm's <code>id</code>. Defaults to <code>kpi#1</code>, <code>grid#2</code>, &hellip; in attach order, so naming it yourself is what keeps the ids stable across a reordering.</td></tr>
+          <tr><td class="name">columns</td><td class="desc">Alarms (<code>AlarmsAttachOptions</code>). Which columns of an attached grid are graded, keyed by column id, each taking the KPI tile's own <code>thresholds</code> or <code>bands</code>. An undeclared column raises nothing.</td></tr>
+          <tr><td class="name">when</td><td class="desc">Alarms (<code>AlarmsColumnOptions</code>). An extra condition a cell must satisfy before it is graded at all, in the shape a conditional-formatting rule takes and evaluated by the same code &mdash; so, like a formatting rule, it tests that cell&rsquo;s own value. A cell that fails it raises nothing and clears whatever it had: the way to keep an implausible reading from a broken agent off the on-call rota.</td></tr>
+          <tr><td class="name">value</td><td class="desc">Alarms (<code>AlarmsAttachOptions</code>), routers only. What the route's slice measures, as <code>(rows) =&gt; number</code>. Defaults to the number of rows in the slice.</td></tr>
+          <tr><td class="name">label</td><td class="desc">Alarms (<code>AlarmsAttachOptions</code>), routers only. The route's name, which becomes the alarm's <code>key</code>. Defaults to the partition value.</td></tr>
         </tbody>
       </table>
     </div>
@@ -9946,7 +10175,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.70.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.71.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

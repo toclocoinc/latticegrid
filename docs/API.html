@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.70.0</p>
+    <p class="rail__sub">API reference · v1.71.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -394,6 +394,7 @@
         <span class="rail__label">Columns</span>
         <a href="#column">Column definition</a>
         <a href="#column-specs">Column sub-specs</a>
+        <a href="#merged-cells">Merged cells</a>
       </div>
       <div class="rail__group">
         <span class="rail__label">Methods</span>
@@ -505,6 +506,7 @@
         <a class="rail__sub-link" href="#type-RowFormApi">RowFormApi</a>
         <a class="rail__sub-link" href="#type-IconRegistryApi">IconRegistryApi</a>
         <a href="#ref-config">Configuration</a>
+        <a class="rail__sub-link" href="#type-Column">Column</a>
         <a href="#ref-events">Events</a>
         <a href="#ref-module-charts">The charts module</a>
         <a class="rail__sub-link" href="#type-Chart">Chart</a>
@@ -512,6 +514,8 @@
         <a class="rail__sub-link" href="#type-DataRouter">DataRouter</a>
         <a href="#ref-module-kpi">The KPI module</a>
         <a class="rail__sub-link" href="#type-KPI">KPI</a>
+        <a href="#ref-module-alarms">The alarms module</a>
+        <a class="rail__sub-link" href="#type-Alarms">Alarms</a>
         <a href="#ref-module-kanban">The kanban module</a>
         <a class="rail__sub-link" href="#type-Kanban">Kanban</a>
         <a href="#ref-module-gantt">The gantt module</a>
@@ -549,7 +553,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.70.0</span>
+      <span class="chip">Version 1.71.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -706,7 +710,7 @@
       </table>
     </div>
 
-    <pre data-run="js" data-expect="8 components, onCardMove, default, rows 2, events 5/6" data-covers="export:createLatticeReact export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeGantt export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/react/index.js');
+    <pre data-run="js" data-expect="8 components, onCardMove, default, rows 2, events 6/6" data-covers="export:createLatticeReact export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeGantt export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/react/index.js');
 
 <span class="cmt">// A stand-in for React and react-dom. The adapter never imports either, so a</span>
 <span class="cmt">// factory only needs the handful of names it destructures — which is exactly</span>
@@ -1432,6 +1436,7 @@ defaults(<span class="kw">null</span>);                <span class="cmt">// clea
           <tr><td class="sig">row-height</td><td class="type">rowHeight</td><td class="desc">Number.</td></tr>
           <tr><td class="sig">header-height</td><td class="type">headerHeight</td><td class="desc">Number.</td></tr>
           <tr><td class="sig">auto-height</td><td class="type">autoHeight</td><td class="desc">Boolean attribute.</td></tr>
+          <tr><td class="sig">filter-row</td><td class="type">filterRow</td><td class="desc">Boolean attribute. Draws the inline filter row under the headings.</td></tr>
           <tr><td class="sig">selection</td><td class="type">selection</td><td class="desc"><code>none</code>, <code>single</code> or <code>multiple</code>.</td></tr>
           <tr><td class="sig">rows</td><td class="type">rows</td><td class="desc">JSON. Prefer the property.</td></tr>
           <tr><td class="sig">columns</td><td class="type">columns</td><td class="desc">JSON. Prefer the property.</td></tr>
@@ -1890,6 +1895,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">export</td><td class="type"><a href="#type-ColumnExportSpec">ColumnExportSpec</a></td><td class="desc"><code>{ lookup: 'label' | 'value' | 'columns', csv, excel }</code>.</td></tr>
           <tr><td class="name">allowGroup / allowPivot / allowTotal</td><td class="type">boolean</td><td class="desc">Whether the tool panel offers the column for that zone.</td></tr>
           <tr><td class="name">nullable</td><td class="type">boolean</td><td class="desc">Affects storage choice and null ordering.</td></tr>
+          <tr><td class="name">rowSpan / colSpan</td><td class="type">(p) =&gt; number</td><td class="desc">Merge this column's cell down over the rows beneath it, or across the columns to its right. <code>1</code> or less is no merge. See <a href="#merged-cells">Merged cells</a>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1959,6 +1965,127 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">header</td><td class="desc"><code>template</code>, <code>render</code>, <code>props</code>, <code>class</code>, <code>tooltip</code>, <code>align</code>. <code>render</code> draws a custom heading and may be a <strong>function</strong> or a <strong>component</strong> (a class with a <code>render</code> method); the two forms are interchangeable and each may either append to the passed heading element itself (returning nothing) or <em>return</em> an <code>Element</code> (attached for you) or a <code>string</code> (used as the heading text). <code>class</code> adds a class to the heading cell; <code>template</code> is not read.</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <h2 id="merged-cells">Merged cells</h2>
+    <p class="lead-in">
+      <code>rowSpan(p)</code> and <code>colSpan(p)</code> on a column say how many rows or columns
+      <em>this</em> cell covers (BACKLOG-0001438). The grid paints the cell once, at its origin,
+      sized across the area it covers; the cells underneath it are not painted at all. Return
+      <code>1</code> &mdash; or nothing &mdash; for no merge, which is the default and costs nothing:
+      a grid where no column declares either callback never runs the merge pass.
+    </p>
+    <p class="lead-in">
+      The parameter is the same <a href="#type-CellParams">CellParams</a> bag a formatter or a cell
+      renderer gets, so <code>p.index</code> is the display row, <code>p.data</code> the record and
+      <code>p.value</code> the cell's value.
+    </p>
+    <p class="lead-in">
+      <strong>Where a merge stops.</strong> A column merge is clipped at a pinned-region boundary
+      &mdash; the start, centre and end regions scroll independently, so one cell cannot straddle
+      two of them &mdash; and at the last column. A row merge is clipped at a group heading, at an
+      expanded detail panel, and at the last row. Nothing is refused; the merge is drawn as far as it
+      can honestly reach.
+    </p>
+    <p class="lead-in">
+      <strong>A merge is one cell everywhere else, too.</strong> The origin carries
+      <code>aria-rowspan</code> and <code>aria-colspan</code>. An arrow key into a merged cell lands
+      on its origin and an arrow out leaves from its far edge. A range that is drawn on a merged cell
+      takes the whole of it. Editing edits the origin. The fill handle refuses to start on one: there
+      is no single source value for a block, and nowhere to write the cells it covers. CSV, the
+      clipboard and Excel write the value at the origin and blanks in the covered cells &mdash; and
+      Excel writes a real <code>&lt;mergeCells&gt;</code> range, so the file opens merged.
+    </p>
+    <p class="lead-in">
+      <strong>A merge follows the rows, so keep it meaningful.</strong> The callbacks are evaluated
+      on every render against the rows as they are <em>then</em> ordered. Sort or filter the grid so
+      that the rows a merge covered are no longer adjacent and the merge changes with them &mdash;
+      which is correct, and is why the usual pattern merges only on the column the grid is sorted or
+      grouped by. Nothing auto-merges equal neighbours for you; the recipe for that is two lines and
+      is below, because the grid cannot know whether two equal values in a re-sorted view are still
+      the same thing.
+    </p>
+    <p class="section-note">
+      The renderer looks back 50 rows above the viewport to find a merge whose origin has scrolled off
+      the top, so a merge taller than that is reported once through <code>warnOnce</code> and drawn
+      from the first row in range. A merge that spans a region boundary is clipped, not refused, and a
+      callback that throws or returns something that is not a number is treated as no merge.
+    </p>
+
+    <div class="example">
+      <p class="example__label">A reporting grid: a category cell spanning its rows, and a full-width note</p>
+      <pre data-run="js" data-expect="cat 0 spans 3; note 3 spans 3 cols; North,a,1,ok|,b,2,ok|,c,3,ok|South,note,," data-covers="config:GridConfig.columns config:GridConfig.rowKey method:export"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { buildSpanMap } = <span class="kw">await</span> import('../packages/core/src/model/spans.js');
+
+<span class="kw">const</span> data = [
+  { id: <span class="num">1</span>, cat: <span class="str">'North'</span>, item: <span class="str">'a'</span>, n: <span class="num">1</span>, flag: <span class="str">'ok'</span> },
+  { id: <span class="num">2</span>, cat: <span class="str">'North'</span>, item: <span class="str">'b'</span>, n: <span class="num">2</span>, flag: <span class="str">'ok'</span> },
+  { id: <span class="num">3</span>, cat: <span class="str">'North'</span>, item: <span class="str">'c'</span>, n: <span class="num">3</span>, flag: <span class="str">'ok'</span> },
+  { id: <span class="num">4</span>, cat: <span class="str">'South'</span>, item: <span class="str">'note'</span>, n: <span class="num">0</span>, flag: <span class="str">''</span> },
+];
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: <span class="str">'id'</span>,
+  rows: data,
+  columns: [
+    <span class="cmt">// The category cell covers its three rows: painted once, at the top of the run.</span>
+    { field: <span class="str">'cat'</span>, rowSpan: (p) =&gt; (p.index === <span class="num">0</span> ? <span class="num">3</span> : <span class="num">1</span>) },
+    <span class="cmt">// A full-width note: one cell across every column to its right.</span>
+    { field: <span class="str">'item'</span>, colSpan: (p) =&gt; (p.data.item === <span class="str">'note'</span> ? <span class="num">3</span> : <span class="num">1</span>) },
+    { field: <span class="str">'n'</span> },
+    { field: <span class="str">'flag'</span> },
+  ],
+});
+
+<span class="cmt">// The same map the renderer and every export drive.</span>
+<span class="kw">const</span> rows = [];
+grid.rows.forEach((row) =&gt; rows.push(row));
+<span class="kw">const</span> map = buildSpanMap({
+  from: <span class="num">0</span>,
+  to: rows.length - <span class="num">1</span>,
+  rowCount: rows.length,
+  columns: grid.columns.visible(),
+  rowAt: (i) =&gt; rows[i],
+  params: (row, column, index) =&gt; ({ data: row.data, row, column, colId: column.id, index }),
+});
+<span class="kw">const</span> cat = map.origins.get(<span class="str">'0:0'</span>);
+<span class="kw">const</span> note = map.origins.get(<span class="str">'3:1'</span>);
+
+<span class="cmt">// CSV writes the value once, at the origin, and blanks in the covered cells.</span>
+<span class="kw">const</span> csv = grid.export.csv({ headers: <span class="kw">false</span>, lineEnding: <span class="str">'|'</span> }).replace(/\|$/, <span class="str">''</span>);
+grid.destroy();
+<span class="kw">return</span> `cat 0 spans ${cat.rows}; note 3 spans ${note.cols} cols; ${csv}`;</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Auto-merging equal adjacent values &mdash; the two-line recipe</p>
+      <pre data-run="js" data-expect="3,1,1,1" data-covers="config:GridConfig.columns config:GridConfig.rowKey"><code><span class="cmt">// The grid does not do this for you on purpose: after a re-sort, two equal</span>
+<span class="cmt">// values next to each other are not necessarily the same thing. When they are,</span>
+<span class="cmt">// this is the whole of it — look up, and if the row above shares the value,</span>
+<span class="cmt">// you are not the origin; if it does not, count down while the value holds.</span>
+<span class="kw">const</span> runSpan = (field) =&gt; (p) =&gt; {
+  <span class="kw">const</span> at = (i) =&gt; p.grid.rows.get(i)?.data?.[field];
+  <span class="kw">if</span> (at(p.index - <span class="num">1</span>) === p.data[field]) <span class="kw">return</span> <span class="num">1</span>;
+  <span class="kw">let</span> n = <span class="num">1</span>;
+  <span class="kw">while</span> (at(p.index + n) === p.data[field]) n++;
+  <span class="kw">return</span> n;
+};
+
+<span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: <span class="str">'id'</span>,
+  rows: [
+    { id: <span class="num">1</span>, cat: <span class="str">'North'</span> }, { id: <span class="num">2</span>, cat: <span class="str">'North'</span> },
+    { id: <span class="num">3</span>, cat: <span class="str">'North'</span> }, { id: <span class="num">4</span>, cat: <span class="str">'South'</span> },
+  ],
+  columns: [{ field: <span class="str">'cat'</span>, rowSpan: runSpan(<span class="str">'cat'</span>) }],
+});
+<span class="kw">const</span> span = grid.columns.get(<span class="str">'cat'</span>).rowSpan;
+<span class="kw">const</span> rows = [];
+grid.rows.forEach((row) =&gt; rows.push(row));
+<span class="kw">const</span> spans = rows.map((row, index) =&gt; span({ grid, data: row.data, index }));
+grid.destroy();
+<span class="kw">return</span> spans.join(<span class="str">','</span>);</code></pre>
     </div>
 
     <h2 id="cell-tooltips">Rich cell tooltips</h2>
@@ -2053,7 +2180,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.70.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.71.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -2507,6 +2634,12 @@ expect(written).toBeLessThan(200);</code></pre>
         </tbody>
       </table>
     </div>
+    <h3>The warnings reference</h3>
+    <p>Every developer-facing line the grid prints to the console — each one prefixed <code>[lattice]</code> — is de-duplicated on a key, and that key is the identifier to quote. The package ships the whole list as data: <code>docs/warnings.json</code>, inside <code>@toclocoinc/lattice-grid</code> and in the public repository, with one entry per key giving the message template, the module it comes from, what happened and what the grid did about it, and what to change. A <code>*</code> in an identifier stands for a value filled in at run time — a column id, a chart id, an event name — so <code>icon:*</code> is one entry covering every column the icon renderer refuses.</p>
+    <pre><code><span class="cmt">// look up the line you are reading in the console</span>
+const { warnings } = await import('@toclocoinc/lattice-grid/docs/warnings.json', { with: { type: 'json' } });
+const entry = warnings.find((w) =&gt; w.id === 'rowKey.missing');
+console.log(entry.meaning, entry.fix);</code></pre>
     <h3>The devtools panel</h3>
     <p>An optional module. It imports nothing (the grid is handed to it) so deployments that never load it pay nothing.</p>
     <pre><code>import { createGrid } from '@toclocoinc/lattice-grid';
@@ -7487,6 +7620,151 @@ kpi.rows.apply({ add: [{ id: 'e1', severity: 3 }, { id: 'e2', severity: 2 }] });
 
 <span class="kw">return</span> [empty, measured, realZero].join(' | ');</code></pre>
 
+    <h2 id="alarms">The alarms module</h2>
+    <p><code>modules/alarms</code> turns data that is <em>already graded</em> into events an alarm system can consume. A KPI tile paints <code>good</code>/<code>warn</code>/<code>critical</code> from its thresholds and a conditional-formatting rule colours a cell &mdash; but nothing told the host that the breach <strong>began</strong> or <strong>ended</strong>. The operator saw red; the on-call rota, the ticketing system and the alarm grid on the same wall did not. This is the missing event, and nothing else: it owns no UI, touches no DOM, and adds no code to grid core. It is an opt-in bundle that adds no weight to a page that does not load it.</p>
+    <p><strong>It is not a second alert engine.</strong> The <a href="#datarouter">data router</a>'s <code>alert()</code> has watched a slice and fired on a rising edge since v5, and the board's SLA module reuses it rather than growing its own. An alarm needs three things that route cannot give: a <strong>level</strong> (an alert is boolean), a <strong>clear</strong> (an alert re-arms silently), and <strong>per-key identity</strong> (an alert's condition is slice-wide, so two rows breaching at once fire it once). So the router gained a sibling route, <code>monitor()</code>, that shares every one of <code>alert()</code>'s internals &mdash; the partition, the row key, the seeding, and its independence from a time-travel scrub &mdash; and reports what the slice <em>measures</em> instead of a rising edge. The level ladder, the clear edge and the hold timer live in this module, once, shared by all three kinds of source.</p>
+    <pre><code>import { createAlarms } from '@toclocoinc/lattice-grid/modules/alarms';
+
+const alarms = createAlarms({ holdMs: 30000 });      <span class="cmt">// the default hold for every source</span>
+
+alarms.attach(kpi);                                  <span class="cmt">// every tile that grades itself</span>
+alarms.attach(grid, { columns: { cpu: { thresholds: { warn: 80, critical: 95, direction: 'lowerIsBetter' } } } });
+alarms.attach(router, 'orders', { label: 'backlog', value: (rows) =&gt; rows.length,
+  thresholds: { warn: 100, critical: 500, direction: 'lowerIsBetter' } });
+
+alarms.on('alarm:raised', (a) =&gt; page(a.id, a.level, a.key, a.value));
+alarms.on('alarm:cleared', (a) =&gt; resolve(a.id));
+alarms.publish(router, 'alarms');                    <span class="cmt">// and feed the wall's own alarm grid</span></code></pre>
+    <p><strong>The transition contract.</strong> An alarm's identity is <code>(source, key, level)</code>, so moving between two alarm levels is <em>two</em> events, in this order: <code>good</code>&nbsp;&rarr;&nbsp;<code>critical</code> raises <code>critical</code>; <code>critical</code>&nbsp;&rarr;&nbsp;<code>warn</code> <strong>clears <code>critical</code> and then raises <code>warn</code></strong>; <code>warn</code>&nbsp;&rarr;&nbsp;<code>good</code> clears <code>warn</code>. The clear always precedes the raise, because an alarm system that sees the raise first has two alarms open on one key for the width of a callback. A source that goes <code>unknown</code> &mdash; a KPI panel whose feed went quiet, which is the <a href="#kpi">KPI module's own signal</a> for &ldquo;measured nothing&rdquo; &mdash; <strong>clears whatever was open and raises nothing</strong>: a dead feed is not a breach. A source's first known level raises if it is <code>warn</code> or <code>critical</code>, carrying <code>previous: null</code>, so <code>active()</code> is truthful from the moment you attach rather than only after something moves.</p>
+    <p><strong>Every alarm has a documented id.</strong> <code>&lt;source&gt;:&lt;sourceId&gt;:&lt;key&gt;:&lt;level&gt;</code> &mdash; for example <code>grid:grid#1:row-7/cpu:critical</code>. It is public API from the moment <code>active()</code> ships, because a host keys its own incident records by it. <code>source</code> is <code>kpi</code>, <code>grid</code> or <code>router</code>; <code>sourceId</code> is what you named the source at attach, defaulting to <code>kpi#1</code>, <code>grid#2</code>, &hellip; in attach order; <code>key</code> is a KPI tile's id, a grid cell as <code>&lt;rowKey&gt;/&lt;column&gt;</code>, or a router route's <code>label</code>. Name the source yourself and the ids survive a reordering.</p>
+    <p><strong>The hold timer is a hold-down, not a rate limit.</strong> <code>holdMs</code> is the owner's &ldquo;a timer value to prevent emitting thousands of alarms if a threshold is crossed and cleared many times per second&rdquo;. A new level must <em>persist</em> for <code>holdMs</code> before its transition is emitted, and a crossing back inside the window <strong>discards</strong> the pending transition &mdash; nothing is emitted late. A value flapping across a cut point a thousand times in two seconds with <code>holdMs: 500</code> therefore emits <em>nothing</em>, and a breach that then settles emits exactly one raise. It is symmetric: a clear is held exactly as a raise is, so a breach that blinks off for a moment does not close and reopen the ticket. The window is fixed from the first observation and does not extend, which is the same shape <code>alert()</code>'s <code>debounce</code> already had. <code>holdMs</code> is set on the set, overridden per attach, and overridden again per column; <code>pending()</code> lists what is being held and <code>active()</code> lists what is open.</p>
+    <p><strong>A grid's thresholds are the KPI tile's thresholds.</strong> Per column on the attach call, in exactly the shape a tile takes &mdash; two cut points and a <code>direction</code>, or an explicit <code>bands</code> list &mdash; evaluated per cell, so the alarm key is the row and the column. An undeclared column raises nothing. An optional <code>when</code> narrows it further, in the same shape a <a href="#rules">conditional-formatting</a> rule takes and evaluated by the same code &mdash; so, like a formatting rule, it tests <em>that cell's own value</em>: a cell that fails it is not graded at all and clears whatever it had, which is how you keep an implausible reading from a broken agent off the on-call rota. A row that leaves the grid &mdash; deleted, or aged out of a rolling window &mdash; clears its cell alarms, because a row that is gone cannot still be breaching.</p>
+    <div class="example">
+      <p class="example__label">Grid cells, the transition pair, and the hold that swallows a flap</p>
+      <pre data-run="js" data-expect="raised critical | cleared critical, raised warn | flaps 0 | settled 1" data-covers="export:createAlarms config:AlarmsConfig.holdMs config:AlarmsConfig.clock config:AlarmsAttachOptions.columns config:AlarmsAttachOptions.sourceId config:AlarmsAttachOptions.holdMs config:AlarmsColumnOptions.thresholds config:AlarmsColumnOptions.bands config:AlarmsColumnOptions.when config:AlarmsColumnOptions.holdMs"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createAlarms } = <span class="kw">await</span> import('../packages/modules/alarms/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'cpu', type: 'number' }, { field: 'state' }],
+  rows: [{ id: 'web-1', cpu: 12, state: 'live' }],
+});
+
+<span class="cmt">// A hand-wound clock, so a hold can be proved without sleeping for it.</span>
+<span class="kw">let</span> t = 0; <span class="kw">let</span> handle = 0; <span class="kw">const</span> timers = new Map();
+<span class="kw">const</span> clock = {
+  now: () =&gt; t,
+  setTimeout: (fn, ms) =&gt; { handle += 1; timers.set(handle, { at: t + ms, fn }); <span class="kw">return</span> handle; },
+  clearTimeout: (h) =&gt; timers.delete(h),
+};
+<span class="kw">const</span> advance = (ms) =&gt; {
+  <span class="kw">const</span> end = t + ms;
+  <span class="kw">for</span> (;;) {
+    <span class="kw">let</span> next = null;
+    <span class="kw">for</span> (<span class="kw">const</span> [h, e] of timers) <span class="kw">if</span> (e.at &lt;= end &amp;&amp; (next === null || e.at &lt; timers.get(next).at)) next = h;
+    <span class="kw">if</span> (next === null) break;
+    <span class="kw">const</span> e = timers.get(next); timers.delete(next); t = e.at; e.fn();
+  }
+  t = end;
+};
+
+<span class="cmt">// No hold at all: every settled crossing is emitted.</span>
+<span class="kw">const</span> prompt = createAlarms({ holdMs: 0, clock });
+<span class="kw">const</span> log = [];
+prompt.on('alarm:raised', (a) =&gt; log.push(`raised ${a.level}`));
+prompt.on('alarm:cleared', (a) =&gt; log.push(`cleared ${a.level}`));
+prompt.attach(grid, {
+  sourceId: 'hosts',
+  holdMs: 0,
+  columns: {
+    cpu: {
+      <span class="cmt">// The KPI tile's own shape. `bands` is the alternative to `thresholds`.</span>
+      thresholds: { warn: 80, critical: 95, direction: 'lowerIsBetter' },
+      bands: undefined,
+      <span class="cmt">// `when` tests the cell's own value, as a formatting rule does: a</span>
+      <span class="cmt">// reading of 999 is a broken agent, not a host at 999%.</span>
+      when: { op: 'lt', value: 200 },
+      holdMs: 0,
+    },
+  },
+});
+
+grid.rows.apply({ update: [{ id: 'web-1', cpu: 99, state: 'live' }] });
+<span class="kw">const</span> first = log.join(', ');                      <span class="cmt">// raised critical</span>
+log.length = 0;
+grid.rows.apply({ update: [{ id: 'web-1', cpu: 85, state: 'live' }] });
+<span class="kw">const</span> pair = log.join(', ');                       <span class="cmt">// the clear comes first</span>
+prompt.destroy();
+
+<span class="cmt">// The same feed, held down for half a second.</span>
+<span class="kw">const</span> held = createAlarms({ holdMs: 500, clock });
+<span class="kw">let</span> raises = 0;
+held.on('alarm:raised', () =&gt; { raises += 1; });
+held.attach(grid, { sourceId: 'hosts', columns: { cpu: { thresholds: { warn: 80, critical: 95, direction: 'lowerIsBetter' } } } });
+<span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; 1000; i += 1) {
+  grid.rows.apply({ update: [{ id: 'web-1', cpu: i % 2 === 0 ? 99 : 12, state: 'live' }] });
+  advance(2);                                     <span class="cmt">// 1,000 crossings in 2 s</span>
+}
+<span class="kw">const</span> flaps = raises;                              <span class="cmt">// 0 — none of them lasted 500 ms</span>
+grid.rows.apply({ update: [{ id: 'web-1', cpu: 99, state: 'live' }] });
+advance(600);
+<span class="kw">const</span> settled = raises;                            <span class="cmt">// 1 — this one did</span>
+held.destroy();
+grid.destroy();
+
+<span class="kw">return</span> `${first} | ${pair} | flaps ${flaps} | settled ${settled}`;</code></pre>
+    </div>
+    <p><strong>A router route is a levelled alert.</strong> <code>attach(router, when, { value, thresholds })</code> takes the partition value or predicate exactly as <code>router.attach</code> does; <code>value</code> is what the slice measures (the row count unless you say otherwise) and <code>label</code> names the route, becoming the alarm's <code>key</code>. Because it rides <code>monitor()</code>, it keeps watching the <em>live</em> stream while the grids on the page are parked in the past by a time-travel scrub &mdash; the same property <code>alert()</code> has and a routed view does not.</p>
+    <p><strong>Feeding the wall's own alarm grid.</strong> <code>publish(router, kind)</code> pushes every raise and every clear into a router feed as keyed rows, through <code>addSource()</code> &mdash; the router's ordinary public feed path, so buffering and time travel treat them as they treat any other feed. Each emission is its <em>own</em> row, so the raise and its later clear both stay on the wall rather than one overwriting the other; each carries <code>kind</code>, <code>state</code> (<code>'raised'</code> or <code>'cleared'</code>) and <code>alarmId</code> beside the alarm's own fields. Route them with a router keyed on <code>kind</code>, or with a predicate on it.</p>
+    <div class="example">
+      <p class="example__label">A router route, and the alarm grid it feeds</p>
+      <pre data-run="js" data-expect="warn 3 backlog | cleared warn, raised critical | wall raised critical, cleared critical" data-covers="config:AlarmsAttachOptions.value config:AlarmsAttachOptions.label config:AlarmsAttachOptions.thresholds config:AlarmsAttachOptions.bands"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+<span class="kw">const</span> { createAlarms } = <span class="kw">await</span> import('../packages/modules/alarms/index.js');
+
+<span class="kw">const</span> router = createDataRouter({ rowKey: 'id', key: 'kind' });
+<span class="kw">const</span> alarms = createAlarms();
+<span class="kw">const</span> log = [];
+alarms.on('alarm:raised', (a) =&gt; log.push(`raised ${a.level}`));
+alarms.on('alarm:cleared', (a) =&gt; log.push(`cleared ${a.level}`));
+
+alarms.attach(router, 'orders', {
+  label: 'backlog',                               <span class="cmt">// becomes the alarm key</span>
+  value: (rows) =&gt; rows.length,                   <span class="cmt">// what the slice measures</span>
+  thresholds: { warn: 2, critical: 4, direction: 'lowerIsBetter' },
+  bands: undefined,                               <span class="cmt">// the alternative to thresholds</span>
+});
+
+router.load([{ id: 1, kind: 'orders' }, { id: 2, kind: 'orders' }, { id: 3, kind: 'orders' }]);
+<span class="kw">const</span> open = alarms.active()[0];
+<span class="kw">const</span> first = `${open.level} ${open.value} ${open.key}`;
+log.length = 0;
+router.push([{ op: 'upsert', row: { id: 4, kind: 'orders' } }, { op: 'upsert', row: { id: 5, kind: 'orders' } }]);
+<span class="kw">const</span> pair = log.join(', ');                       <span class="cmt">// clear the warn, then raise the critical</span>
+
+<span class="cmt">// The wall's alarm grid, fed by the router.</span>
+<span class="kw">const</span> wall = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'state' }, { field: 'level' }],
+  rows: [],
+});
+router.attach(wall, 'alarms');
+<span class="kw">const</span> cell = createAlarms();
+cell.publish(router, 'alarms');
+<span class="kw">const</span> host = createHeadlessGrid({
+  rowKey: 'id', columns: [{ field: 'id' }, { field: 'cpu', type: 'number' }], rows: [{ id: 'db-1', cpu: 10 }],
+});
+cell.attach(host, { columns: { cpu: { thresholds: { warn: 80, critical: 95, direction: 'lowerIsBetter' } } } });
+host.rows.apply({ update: [{ id: 'db-1', cpu: 99 }] });
+host.rows.apply({ update: [{ id: 'db-1', cpu: 4 }] });
+<span class="kw">const</span> shown = [];
+wall.rows.forEachAll((row) =&gt; shown.push(`${row.data.state} ${row.data.level}`));
+
+cell.destroy(); alarms.destroy(); router.destroy(); wall.destroy(); host.destroy();
+<span class="kw">return</span> `${first} | ${pair} | wall ${shown.join(', ')}`;</code></pre>
+    </div>
+    <p><strong>From a framework.</strong> An alarm set attaches to <em>instances</em>, and every adapter already hands the host the instance it built &mdash; so <code>createAlarms</code> needs no wrapper anywhere. In <strong>React</strong>, read <code>ref.current.instance</code> off a viewer (or <code>ref.current.grid</code> off <code>&lt;LatticeGrid&gt;</code>) and call <code>attach</code> in an effect; the router comes straight out of <code>useLatticeRouter()</code>. In <strong>Vue</strong>, a template ref exposes <code>instance()</code> on a viewer and <code>grid()</code> on the grid, and the router provider exposes <code>router</code>. In <strong>Svelte</strong>, each component exports <code>instance()</code> (or <code>grid()</code>), and <code>Router.svelte</code> exports <code>router()</code>. In <strong>Angular</strong>, a template reference variable gives you the component's <code>instance</code> or <code>grid</code> getter, and <code>LatticeRouter</code> is injectable with a <code>router</code> getter. As a <strong>web component</strong>, every element exposes <code>el.instance</code> (and <code>el.grid</code> / <code>el.router</code>), and the <code>ready</code> event carries the instance in its <code>detail</code>. Build the alarm set once, attach on mount, and call <code>destroy()</code> when the host unmounts.</p>
+
     <h2 id="ai-narrative">The AI narrative / insights layer</h2>
     <p><code>modules/ai</code> is an opt-in layer that produces a short, plain-language <strong>narrative</strong> of the grid's <em>computed</em> figures &mdash; a per-KPI / per-chart / per-column &ldquo;Explain&rdquo;, or an insights panel over the current (filtered) view. It is a separate bundle that adds no weight to a page that does not load it, changes nothing in grid core, and pulls in no dependency. <strong>The grid makes no AI call of its own:</strong> <code>createAI</code> never imports a provider SDK, never reads a key, and never makes a network request. It calls one async callback you supply, <code>ask()</code> &mdash; your model, your key, your privacy decision &mdash; exactly the philosophy of the data adapters, where auth and transport are always the caller's.</p>
     <pre><code>import { createAI } from '@toclocoinc/lattice-grid/modules/ai';
@@ -10539,6 +10817,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">tree</td><td class="type"><a href="#type-TreeConfig">TreeConfig</a></td><td class="desc">Hierarchical rows: where the parent link or the path lives. <small>(optional)</small></td></tr>
           <tr><td class="name">detail</td><td class="type"><a href="#type-DetailConfig">DetailConfig</a></td><td class="desc">The expandable panel beneath a row. <small>(optional)</small></td></tr>
           <tr><td class="name">selection</td><td class="type"><a href="#type-SelectionConfig">SelectionConfig</a> | 'single' | 'multiple' | 'none'</td><td class="desc">What the user may select, and how selection behaves across groups. The `'none'` shorthand is `{ mode: 'none' }` and behaves identically: no row selection, and no cell ranges or fill handle either. <small>(optional)</small></td></tr>
+          <tr><td class="name">selectionColumnWidth</td><td class="type">number</td><td class="desc">Width of the generated `selection.checkbox` column, in pixels. Default 44 — a checkbox, its focus ring and the cell padding, and no room for anything else, so a width is only worth setting for a denser or larger checkbox theme. <small>(optional)</small></td></tr>
+          <tr><td class="name">selectionColumnPin</td><td class="type"><a href="#type-Edge">Edge</a> <small class="literals">'start' | 'end'</small></td><td class="desc">Which edge the generated `selection.checkbox` column pins to. Default `'start'` — leading the group column, ahead of everything the reader scrolls past, so a selection control never has to be scrolled back to. <small>(optional)</small></td></tr>
           <tr><td class="name">edit</td><td class="type"><a href="#type-EditConfig">EditConfig</a> | boolean</td><td class="desc">Editing, and how a change is committed and validated. <small>(optional)</small></td></tr>
           <tr><td class="name">pagination</td><td class="type"><a href="#type-PaginationConfig">PaginationConfig</a> | boolean</td><td class="desc">Page the rows rather than scrolling them. <small>(optional)</small></td></tr>
           <tr><td class="name">locale</td><td class="type">string</td><td class="desc">The BCP-47 locale everything the grid formats and collates uses — numbers, dates, text ordering, and the message catalogue. Falls back to the page's own `&lt;html lang&gt;` and then to `en-GB`. <small>(optional)</small></td></tr>
@@ -10565,6 +10845,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">rowForm</td><td class="type">boolean | { mode?: <a href="#type-RowFormMode">RowFormMode</a>; load?: (p: { row: <a href="#type-Row">Row</a>; data: unknown; key: string; grid: <a href="#type-Grid">Grid</a> }) =&gt; unknown | Promise&lt;unknown&gt;; fields?: (string | { field: string; label?: string; /** Which editor to build, by registry name or constructor. Defaults to the column's, then the type's. */ editor?: string | (new () =&gt; object); type?: <a href="#type-TypeName">TypeName</a>; props?: object; lookup?: <a href="#type-LookupSpec">LookupSpec</a>; })[]; title?: string | ((p: { row: <a href="#type-Row">Row</a>; data: unknown }) =&gt; string); width?: string; trigger?: false; /** How long to wait for `load`, in milliseconds. 2000 by default; `false` waits indefinitely. */ timeout?: number | false; /** * An element of your own to build the form in, instead of over the grid. * An element, a CSS selector or a function returning either; a selector is * resolved when the form opens, not when the grid is configured. A form in * your own container fills it, is a region rather than a modal dialog, and * does not trap Tab. */ container?: HTMLElement | string | (() =&gt; HTMLElement | string | null); }</td><td class="desc">Open a row on a form — a drawer or a centred dialog with one control per field, a Save and a Cancel — on a double-click or through `grid.form.open()`. By default the fields are the grid's own columns, edited with the same editors the cells use; supply `load` to show a fuller record than the grid displays, in which case you must also say which fields and in what order. The panel opens immediately with a loading state and offers a retry on failure or on a load that never answers, rather than closing. Save applies the changed fields that map to columns and announces the rest — persisting the record is yours. <small>(optional)</small></td></tr>
           <tr><td class="name">showColumnFunctions</td><td class="type">boolean</td><td class="desc">Draw the sort, filter and menu controls in the column headings. `true` by default. `false` leaves each heading as its label alone, which is what a dense grid wants: three affordances take roughly fifty pixels, and on an eighty-pixel column that leaves the heading nothing and the label disappears entirely. Only the furniture goes. Sorting, filtering and the column menu are still reachable through the API, the keyboard and the tool panel. <small>(optional)</small></td></tr>
           <tr><td class="name">headerControls</td><td class="type"><a href="#type-HeaderControlsVisibility">HeaderControlsVisibility</a> <small class="literals">'hover' | 'always' | 'hidden' | 'none'</small></td><td class="desc">When the per-column header controls — the sort arrow, the filter funnel and the menu button — are shown, as a default for every column (BACKLOG-0000982). - `'hover'` (the default) reveals them when the heading is hovered or a keyboard user focuses into it, which is the historical behaviour: a wide header does not read as a row of identical icons. - `'always'` keeps them visible unconditionally, for a grid where the controls are the point and the discoverability of hover is not wanted. - `'hidden'` draws none of them, for a clean read-only heading; they leave the tab order with the elements that carried them. An active filter and a live sort are still reflected by the heading's state attributes, but no control furniture is built. A column that is actually sorted still shows a read-only sort arrow and multi-sort order number. - `'none'` (BACKLOG-0001423) is `'hidden'` with that last exception removed: the heading shows only its title, whatever the grid's state — no controls, no hover affordance, and no sort/filter/group badge even when the column is sorted, filtered or grouped programmatically or via a saved view. The column's own `aria-sort` still reports the truth; only the visual badge is gone. For a dashboard heading that must never change its own appearance, however the grid around it is driven. A column's own `headerControls` overrides this default for that column. Distinct from `showColumnFunctions: false`, which also drops the furniture but keeps sorting, filtering and the menu reachable from the keyboard; `'hidden'` and `'none'` are the read-only choices that remove them outright. <small>(optional)</small></td></tr>
+          <tr><td class="name">filterRow</td><td class="type">boolean</td><td class="desc">Draw a filter row directly under the column headings (BACKLOG-0001436). One inline filter cell per column, below the column groups and above the pinned rows, in every pinned region. Each cell is the inline form of that column's own filter: a box with the operator implied — contains for text, equals for a number, and for a date equals means "on that day" — plus a small picker for the other single-operand operators; a tri-state box for a boolean; and a chip that opens the column's own filter popup for a set or multi column, whose value list belongs in the popup. It writes the one filter model, `grid.filters`, through the same path the column menu writes: the menu shows what was typed in the row and the row shows what was set in the menu, `state.get()` round-trips it because the filter tree *is* the state, and a pushdown source receives exactly the condition the menu would have sent. Unaffected by `headerControls: 'none'` and by `showColumnFunctions: false`. Those govern the chrome a heading carries; the filter row is data entry, and this key is the only thing that decides whether it is drawn. A column opts itself out with its own `filterRow: false`. <small>(optional)</small></td></tr>
           <tr><td class="name">rowHeight</td><td class="type">number | ((row: <a href="#type-Row">Row</a>) =&gt; number)</td><td class="desc">Row height in pixels, or a function of the row. A function makes the grid measure rather than assume, which costs a pass over what is on screen: worth it for wrapped text, wasteful for a uniform grid. <small>(optional)</small></td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">A caption for the grid, drawn above the column headings. Inside the grid rather than an element the host places above it: a title outside does not scroll with the grid, is not in the region a screen reader announces, and is left behind by image capture and print. <small>(optional)</small></td></tr>
           <tr><td class="name">showHeader</td><td class="type">boolean</td><td class="desc">Draw the column headings at all. `true` by default. `false` removes the row, and removes it from the accessibility tree rather than only from view, a heading a screen reader still announces is invisible, not hidden. What a small dashboard tile wants when its `title` already says what the panel is. Distinct from `showColumnFunctions`, which keeps the headings and drops only the sort, filter and menu controls inside them. <small>(optional)</small></td></tr>
@@ -10602,6 +10883,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">import</td><td class="type">boolean | <a href="#type-ImportSettings">ImportSettings</a></td><td class="desc">Bringing rows in from a file, the clipboard or a drop (§14, the mirror of export). `true` adds a "Import rows from CSV…" item to the cell menu, makes the grid a drop target for `.csv`/`.tsv` files, and reads a pasted spreadsheet block, each opening a preview the user confirms. An object tunes the affordances. Off by default; the `grid.import` API is always present. Import is a client-side data operation, so it applies to a memory grid. <small>(optional)</small></td></tr>
           <tr><td class="name">rowDelete</td><td class="type">boolean</td><td class="desc">Enable the built-in row-delete gesture (§18.4, BACKLOG-0000968) — the Delete/Backspace key on selected rows and a "Delete row" cell-menu item — and the `grid.edit.deleteRows` API. Off by default, because deleting data on a keystroke is destructive and opt-in. Every deletion flows through the cancellable `beforeDelete` event, so a handler can confirm or veto it, on a memory-source grid as well as a remote one. <small>(optional)</small></td></tr>
           <tr><td class="name">columnMenu</td><td class="type">boolean | ((p: <a href="#type-ColumnMenuParams">ColumnMenuParams</a>, defaults: <a href="#type-MenuItem">MenuItem</a>[]) =&gt; <a href="#type-MenuItem">MenuItem</a>[] | void)</td><td class="desc">The header's 3-dot menu, and the right-click menu on a column heading. `false` suppresses both. A function supplies custom items, receiving the grid's own so it can add to them rather than reproduce them. Default true. <small>(optional)</small></td></tr>
+          <tr><td class="name">resizePreview</td><td class="type">'live' | 'deferred'</td><td class="desc">How a column-resize drag previews its result. `'live'` (the default) resizes the column as the pointer moves; `'deferred'` draws a guide line at the pointer instead and commits the new width only on release — the cheaper choice on a grid wide enough that a live resize repaints more than the drag is worth. <small>(optional)</small></td></tr>
           <tr><td class="name">rangeChart</td><td class="type">| boolean | ((grid: <a href="#type-Grid">Grid</a>, range: <a href="#type-CellRange">CellRange</a>) =&gt; void) | { onChart?: (grid: <a href="#type-Grid">Grid</a>, range: <a href="#type-CellRange">CellRange</a>) =&gt; void }</td><td class="desc">Chart a selected cell range — the spreadsheet "chart this selection" gesture. Off by default, so a grid opts in. The DOM layer draws no charts itself — the charts module is optional and loaded by the host — so this is where the host wires the two together: a function, or an object carrying `onChart`, is called with the grid and the selected range when the reader chooses "Chart selection" from the cell menu. The handler typically calls `chartRange` from `lattice-grid/modules/charts`. `true` offers the item and emits nothing extra; supply a handler to have it actually draw. <small>(optional)</small></td></tr>
           <tr><td class="name">shortcuts</td><td class="type">boolean</td><td class="desc">The `?` keyboard shortcut overlay. `false` suppresses it, for a host that wants `?` for itself. Default true. <small>(optional)</small></td></tr>
           <tr><td class="name">find</td><td class="type">boolean | <a href="#type-FindConfig">FindConfig</a></td><td class="desc">The in-grid find bar (BACKLOG-0001018): Ctrl+F / Cmd+F with focus in the grid opens it; typing highlights every matching cell in place without filtering a row away; Enter and Shift+Enter step through the matches. `false` removes the bar and its shortcut; the `grid.find` API still works. Default true. <small>(optional)</small></td></tr>
@@ -10613,6 +10895,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">formatting</td><td class="type">Record&lt;string, <a href="#type-FormattingRule">FormattingRule</a>[]&gt;</td><td class="desc">Conditional formatting rules the grid holds as runtime state, keyed by column id or `'*'` for every column (spec 8.12). Seeds `grid.formatting`, which an end user can then change; the rules travel in saved views and undo like any other change. Config-time `cell.style` is unaffected. <small>(optional)</small></td></tr>
           <tr><td class="name">rowClass</td><td class="type">string | string[] | ((p: <a href="#type-RowStyleParams">RowStyleParams</a>) =&gt; string | string[])</td><td class="desc">A class, or classes, for every row. Re-evaluated on each repaint. <small>(optional)</small></td></tr>
           <tr><td class="name">rowStyle</td><td class="type">CellStyle | ((p: <a href="#type-RowStyleParams">RowStyleParams</a>) =&gt; CellStyle)</td><td class="desc">Inline styles for every row. Camel-case or hyphenated property names. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowNumbers</td><td class="type">boolean | { /** A fixed column width in pixels. Unset auto-fits the largest number. */ width?: number; /** The number given to the first row. Default `1`; `0` numbers from zero. */ start?: number; /** Header text. Empty by default. */ title?: string; }</td><td class="desc">A synthetic row-number column, pinned left before the selection checkbox column when one is configured (BACKLOG-0001437) — the same generated-column mechanism the checkbox uses, not a second one. The number is the row's 1-based position among the visible rows, after sort, filter and grouping: a group heading is not numbered and its leaves continue the count across it, and pinned-top rows are numbered first. Read-only; not sortable, filterable, groupable or movable; excluded from a saved view's column state and from `columns.state()`; excluded from CSV/Excel/clipboard export unless the export call opts in with `{ rowNumbers: true }`. `true` for the defaults. An object fixes the width (unset auto-fits the largest number), moves where numbering starts, or gives the header a title (empty by default). <small>(optional)</small></td></tr>
           <tr><td class="name">toolPanel</td><td class="type">boolean | { /** Built-in names: `columns`, `filters`, `views`, `quick`, `formatting`. */ panels?: <a href="#type-ToolPanelName">ToolPanelName</a>[]; openPanel?: string; /** Which edge to dock against. `left` is the icon rail; default `right`. */ side?: <a href="#type-ToolPanelSide">ToolPanelSide</a>; /** Icon-only tabs. Defaults to true for `side: 'left'`, false otherwise. */ icons?: boolean; /** * Rail action buttons: `undo`, `redo`, `export`, `restore`. Defaults to all * four on the left rail and none on the right; `false` drops them. */ /** * Which action buttons the rail offers, in order. `false` drops them. * * The built-in names are `undo`, `redo`, `pause`, `restore`, `maximise`, * `export`, `excel`, `clipboard` and `print`, plus `'-'` for a divider. * A {@link <a href="#type-RailAction">RailAction</a>} object places one of your own among them. */ actions?: false | (<a href="#type-RailActionName">RailActionName</a> | '-' | <a href="#type-RailAction">RailAction</a>)[]; /** File name for the export action, without the extension. */ exportName?: string; /** * Put the native annotation tools — pen, arrow, rectangle, highlighter — on * the rail. Each is a real toggle button that shows pressed while it is the * tool in use and turns off when pressed again. Three states, not two: * `true` opts in and keeps the tools on the rail always, presentation or * not; `false` opts OUT and the tools are never added, not even for a * presentation; omitted keeps the default, where the tools are off until a * presentation starts, appear for its duration, and leave when it ends. */ annotate?: boolean; }</td><td class="desc">Dock the side panels against the grid: columns, filters, views, quick search and formatting. The columns panel is where row grouping, values and pivot are assembled by drag, which is why it carries three drop zones as well as the visibility list — a column opts out of each with `allowGroup`, `allowPivot` and `allowTotal`. <small>(optional)</small></td></tr>
           <tr><td class="name">groupPanel</td><td class="type">boolean | { /** Placeholder shown while nothing is grouped. */ hint?: string; }</td><td class="desc">A drag-and-drop group-by strip above the column header — the pattern AG Grid calls the row-group panel. Drag a column heading into it to group by that column; the active groups show as removable, reorderable chips, and reordering the chips changes the nesting order. It is keyboard-operable (arrows navigate, Shift+arrow reorders, Delete ungroups, and an add control groups any column), and every change is announced through the live region, which is why it also addresses the drag-only complaint (BACKLOG-0000429). Off by default and non-breaking, matching `toolPanel`. It drives the same grouping model as `grid.columns.group()`; it reimplements nothing. <small>(optional)</small></td></tr>
           <tr><td class="name">kpis</td><td class="type">Array&lt;Omit&lt;<a href="#type-StatConfig">StatConfig</a>, 'grid' | 'container'&gt;&gt;</td><td class="desc">A built-in KPI/stat strip: a labelled band of {@link createStat} tiles the grid places for you, above the column header. Each entry is a stat spec — the same fields {@link StatConfig} takes, minus `grid` and `container`, which the grid supplies — so a strip tile and a hand-placed one are the same object. The tiles follow the grid's filters, recomputing on every change exactly as a stand-alone stat does. Off by default and non-breaking, matching `groupPanel`: no `kpis` means no band and no cost. It reuses `createStat` and reimplements no compute. <small>(optional)</small></td></tr>
@@ -10636,6 +10919,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       </table>
     </div>
     <h4 id="type-Column">Column</h4>
+    <h5 id="type-Column-properties">Properties</h5>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
@@ -10668,6 +10952,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">contextMenu</td><td class="type">boolean | <a href="#type-MenuItem">MenuItem</a>[] | ((p: <a href="#type-CellMenuParams">CellMenuParams</a>, defaults: <a href="#type-MenuItem">MenuItem</a>[]) =&gt; <a href="#type-MenuItem">MenuItem</a>[] | void)</td><td class="desc">The cell right-click menu for this column alone (BACKLOG-0001068), in the same shapes the grid-level `contextMenu` takes plus a bare array for the common "just these items here" case. Declared where the column is declared rather than as another branch inside one grid-level callback: the menu logic for a column belongs beside the column it belongs to. It does not replace the grid-level menu — the three levels compose as a chain, built-in defaults then grid-level then this one, each handed the previous result as its `defaults`, so a column adding one item does not have to restate Paste, Clear and Fill down. `false` suppresses the menu on this column and leaves every other column alone: what a sensitive or read-only column wants. The more specific level wins, so a column may also declare a menu on a grid whose `contextMenu` is `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">headerControls</td><td class="type"><a href="#type-HeaderControlsVisibility">HeaderControlsVisibility</a> <small class="literals">'hover' | 'always' | 'hidden' | 'none'</small></td><td class="desc">When this column's header controls — its sort arrow, filter funnel and menu button — are shown, overriding the grid-level `headerControls` default for this column alone (BACKLOG-0000982). `'hover'` reveals them on hover or focus, `'always'` keeps them visible, `'hidden'` draws none of them and leaves them out of the tab order, but still shows a read-only sort badge when the column actually is sorted. `'none'` (BACKLOG-0001423) goes further: the heading shows its title and nothing else whatever the grid's state — no controls, and not even `'hidden'`'s read-only sort badge; the column's `aria-sort` still reports the truth, only the visual is gone. Omitted, the column follows the grid default, which is itself `'hover'`. <small>(optional)</small></td></tr>
           <tr><td class="name">verticalAlign</td><td class="type"><a href="#type-VAlign">VAlign</a> <small class="literals">'top' | 'middle' | 'bottom'</small></td><td class="desc">Vertical alignment of this column's cell content within the row (BACKLOG-0000989). Overrides the grid-level `verticalAlign` for this column alone; `top`, `middle` or `bottom`. Also accepted as `cell.verticalAlign`, the way `align` is. Omitted, the column follows the grid default. <small>(optional)</small></td></tr>
+          <tr><td class="name">filterRow</td><td class="type">boolean</td><td class="desc">Whether this column takes part in the filter row (BACKLOG-0001436). Opt-out only: `false` leaves this column's filter cell empty when the grid draws the row, which is what a free-text notes column or a column the user is not meant to narrow on wants. It cannot bring the row into existence on its own — a row drawn for one column and blank for the rest is not something any host asked for — so the grid-level `filterRow` is what decides whether there is a row at all. A column whose `filter.enabled` is `false` has no cell either way; there is nothing to type into. <small>(optional)</small></td></tr>
           <tr><td class="name">showWhen</td><td class="type"><a href="#type-ShowWhen">ShowWhen</a> <small class="literals">'open' | 'closed' | 'always'</small></td><td class="desc">When this leaf column is shown, the same union `ColumnGroup` declares (BACKLOG-0001279). A leaf reads its own `showWhen` exactly as a group reads its own — `open`/`closed` tie the leaf to an ancestor group's collapsed state, `always` (the default) shows it regardless — so tying a leaf's visibility to a group's open/closed state does not require wrapping it in a `ColumnGroup` of its own just to hold this setting; a wrapper is for grouping columns, not for this. <small>(optional)</small></td></tr>
           <tr><td class="name">export</td><td class="type"><a href="#type-ColumnExportSpec">ColumnExportSpec</a></td><td class="desc">How the column leaves the grid, where that differs from how it is shown. <small>(optional)</small></td></tr>
           <tr><td class="name">allowGroup</td><td class="type">boolean</td><td class="desc">Whether the user may group by this column from the interface. <small>(optional)</small></td></tr>
@@ -10677,6 +10962,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h5 id="type-Column-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">rowSpan</td><td class="type">(p: <a href="#type-CellParams">CellParams</a>) =&gt; number</td><td class="desc"><code>p: <a href="#type-CellParams">CellParams</a></code></td><td class="type"><code>=&gt; number</code></td><td class="desc">Merge this column's cell down over the rows beneath it (BACKLOG-0001438). Called with the same `CellParams` bag a renderer or a formatter gets, and returns how many rows the cell covers. `1` — or anything less, or nothing — is no merge, which is the default and costs nothing: a grid in which no column declares `rowSpan` or `colSpan` never runs the merge pass at all. The cell is painted once, at its origin, across the rows it covers; the cells it covers are not painted. A merge stops at a group heading, at a detail panel and at the last row, so a heading is never swallowed. The origin carries `aria-rowspan`, keyboard navigation treats the whole block as one cell, a range that touches any part of it takes all of it, and CSV/clipboard/Excel write the value at the origin and blanks in the rest (Excel writes a real merged range). The span is recomputed on every render, so it follows the rows: sort or filter the grid so that the rows a merge covered are no longer adjacent and the merge changes with them. Keeping merges meaningful — usually by merging only on the column the grid is sorted or grouped by — is the host's part of the bargain. A merge whose origin scrolls more than 50 rows above the viewport cannot be found by the renderer's bounded look-back; it is reported once and drawn from the first row in range. <small>(optional)</small></td></tr>
+          <tr><td class="name">colSpan</td><td class="type">(p: <a href="#type-CellParams">CellParams</a>) =&gt; number</td><td class="desc"><code>p: <a href="#type-CellParams">CellParams</a></code></td><td class="type"><code>=&gt; number</code></td><td class="desc">Merge this column's cell across the columns to its right (BACKLOG-0001438). Called with the same `CellParams` bag as {@link Column.rowSpan}, and returns how many columns the cell covers. `1` or less is no merge. The merge is clipped at a pinned-region boundary — the start, centre and end regions scroll independently, so a cell cannot straddle them — and at the last column. Everything else matches `rowSpan`: the origin carries `aria-colspan`, the covered cells are not painted, and the exports write the value once. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-Column-events">Events</h5>
+    <p class="section-note">No events.</p>
     <h4 id="type-ColumnGroup">ColumnGroup</h4>
     <div class="table-wrap">
       <table>
@@ -11678,6 +11975,25 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-CellParams">CellParams</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">text</td><td class="type">string</td><td class="desc">The display text: the value after the column's format and any lookup label — exactly what the cell shows.</td></tr>
+          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The row's display index, counting the grid's own rows: group headings, footers and totals included.</td></tr>
+          <tr><td class="name">props</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Whatever the column's `cell.props` holds, passed through so one renderer can be configured per column. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">t</td><td class="type">(key: string, vars?: Record&lt;string, unknown&gt;) =&gt; string</td><td class="desc"><code>key: string</code><br><code>vars?: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">Format a message from the grid's catalogue, for a renderer that wants its own accessible names and labels localised rather than hard-coded (§17, WCAG 4.1.2). The built-in renderers use this; a custom renderer may too. Optional: absent when a renderer is exercised without a grid to ask. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ColumnExportSpec">ColumnExportSpec</h4>
     <div class="table-wrap">
       <table>
@@ -11872,25 +12188,6 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">fn</td><td class="type">'datasetVsDataset'</td><td class="desc">Selects the dataset-comparison producer: one row per compared column, against a second grid. It replaces the pipeline.</td></tr>
           <tr><td class="name">with</td><td class="type"><a href="#type-Grid">Grid</a></td><td class="desc">The second grid to compare this one against.</td></tr>
           <tr><td class="name">columns</td><td class="type">string[]</td><td class="desc">Restrict the comparison to these columns. All shared columns by default. <small>(optional)</small></td></tr>
-        </tbody>
-      </table>
-    </div>
-    <h4 id="type-CellParams">CellParams</h4>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="name">text</td><td class="type">string</td><td class="desc">The display text: the value after the column's format and any lookup label — exactly what the cell shows.</td></tr>
-          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The row's display index, counting the grid's own rows: group headings, footers and totals included.</td></tr>
-          <tr><td class="name">props</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Whatever the column's `cell.props` holds, passed through so one renderer can be configured per column. <small>(optional)</small></td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="name">t</td><td class="type">(key: string, vars?: Record&lt;string, unknown&gt;) =&gt; string</td><td class="desc"><code>key: string</code><br><code>vars?: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">Format a message from the grid's catalogue, for a renderer that wants its own accessible names and labels localised rather than hard-coded (§17, WCAG 4.1.2). The built-in renderers use this; a custom renderer may too. Optional: absent when a renderer is exercised without a grid to ask. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -14419,7 +14716,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">start</td><td class="type">string</td><td class="desc">The start-date column, for a gantt chart. <small>(optional)</small></td></tr>
           <tr><td class="name">end</td><td class="type">string</td><td class="desc">The end-date column, for a gantt chart. <small>(optional)</small></td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">A heading above the plot, drawn in the figure's caption alongside any `subtitle`. <small>(optional)</small></td></tr>
-          <tr><td class="name">scheme</td><td class="type">string | string[]</td><td class="desc">A named scheme, or an array of colours. <small>(optional)</small></td></tr>
+          <tr><td class="name">scheme</td><td class="type"><a href="#type-ChartSchemeName">ChartSchemeName</a> | string | string[]</td><td class="desc">A named scheme, or an array of colours. The built-in names are {@link ChartSchemeName} (`'default'`, `'bright'`, `'earth'`, `'mono'`); a name registered with `registerScheme` is a plain string alongside them. <small>(optional)</small></td></tr>
           <tr><td class="name">legend</td><td class="type">boolean | { position?: 'top' | 'bottom' | 'left' | 'right'; isolate?: boolean }</td><td class="desc">Show the series legend. The object form places it, and `isolate` lets a click on a legend entry show that series alone. <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">boolean | <a href="#type-ChartLabels">ChartLabels</a></td><td class="desc">Print the value beside each mark. `true` takes the defaults; the object form sets the position, the format and the minimum gap. Only the chart types that support labels honour it. <small>(optional)</small></td></tr>
           <tr><td class="name">axis</td><td class="type">{ x?: string | <a href="#type-ChartAxis">ChartAxis</a>; y?: string | <a href="#type-ChartAxis">ChartAxis</a>; y2?: string | <a href="#type-ChartAxis">ChartAxis</a>; right?: string | <a href="#type-ChartAxis">ChartAxis</a>; }</td><td class="desc">Per-axis configuration. Each side is a title string or an object of `{ title, min, max, ticks, format, grid, labels }`. `y2` (or `right`) configures the second measure axis of a dual-axis or combo chart (BACKLOG-0000743); a dual-axis chart labels both axes by default so it cannot silently mislead. <small>(optional)</small></td></tr>
@@ -14707,6 +15004,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">attachDefault</td><td class="type">(grid: unknown, opts?: <a href="#type-RouteOptions">RouteOptions</a>): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>grid: unknown</code><br><code>opts?: <a href="#type-RouteOptions">RouteOptions</a></code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Attach the "rest" sink for records no explicit route matched. A second call replaces the first.</td></tr>
           <tr><td class="name">subscribe</td><td class="type">(predicate: <a href="#type-RoutePredicate">RoutePredicate</a>, handler: (change: RouterChange) =&gt; void, opts?: <a href="#type-RouteOptions">RouteOptions</a>): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>predicate: <a href="#type-RoutePredicate">RoutePredicate</a></code><br><code>handler: (change: RouterChange) =&gt; void, opts?: <a href="#type-RouteOptions">RouteOptions</a></code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Route a partition slice to any non-grid view (v5): the handler receives the same keyed diff a grid would.</td></tr>
           <tr><td class="name">alert</td><td class="type">(predicate: <a href="#type-RoutePredicate">RoutePredicate</a>, condition: (rows: <a href="#type-RouterRecord">RouterRecord</a>[]) =&gt; unknown, handler: (signal: unknown, rows: <a href="#type-RouterRecord">RouterRecord</a>[]) =&gt; void, opts?: AlertOptions): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>predicate: <a href="#type-RoutePredicate">RoutePredicate</a></code><br><code>condition: (rows: <a href="#type-RouterRecord">RouterRecord</a>[]) =&gt; unknown, handler: (signal: unknown</code><br><code>rows: <a href="#type-RouterRecord">RouterRecord</a>[]) =&gt; void, opts?: AlertOptions</code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Watch a slice and emit on a rising edge of `condition` rather than render (v5). Removed only by `destroy`.</td></tr>
+          <tr><td class="name">monitor</td><td class="type">(predicate: <a href="#type-RoutePredicate">RoutePredicate</a>, evaluate: (rows: <a href="#type-RouterRecord">RouterRecord</a>[]) =&gt; unknown, handler: (value: unknown, rows: <a href="#type-RouterRecord">RouterRecord</a>[]) =&gt; void, opts?: { rowKey?: <a href="#type-RouterKey">RouterKey</a>; filter?: (row: <a href="#type-RouterRecord">RouterRecord</a>) =&gt; boolean }): () =&gt; void</td><td class="desc"><code>predicate: <a href="#type-RoutePredicate">RoutePredicate</a></code><br><code>evaluate: (rows: <a href="#type-RouterRecord">RouterRecord</a>[]) =&gt; unknown, handler: (value: unknown</code><br><code>rows: <a href="#type-RouterRecord">RouterRecord</a>[]) =&gt; void, opts?: { rowKey?: <a href="#type-RouterKey">RouterKey</a>; filter?: (row: <a href="#type-RouterRecord">RouterRecord</a>) =&gt; boolean }</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Watch a slice and report what it MEASURES on every evaluation (v14, BACKLOG-0001434) — a levelled sibling of `alert`, sharing its partition, its `rowKey`/`filter`, its seeding and its independence from a time-travel scrub, and differing only in reporting a value rather than a rising edge. This is the feed `lattice-grid/modules/alarms` runs its level ladder, clear edge and hold timer on. Alone among the routes it returns a **stop function** rather than the router, because an alarm set has to be able to release it on `destroy()`.</td></tr>
           <tr><td class="name">configure</td><td class="type">(spec?: <a href="#type-RouterConfig">RouterConfig</a>): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>spec?: <a href="#type-RouterConfig">RouterConfig</a></code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Take the whole routing graph as one declarative spec (v5); desugars to the calls above and composes with them.</td></tr>
           <tr><td class="name">link</td><td class="type">(source: unknown, target: unknown, relation: <a href="#type-SelectionRelation">SelectionRelation</a>): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>source: unknown</code><br><code>target: unknown</code><br><code>relation: <a href="#type-SelectionRelation">SelectionRelation</a></code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Link a source grid's selection to what a target grid receives (v2, BACKLOG-0000880): the target shows the subset of its partition the `relation` admits, re-pushed through the keyed-diff path. No selection shows the full partition; changes are debounced.</td></tr>
           <tr><td class="name">relate</td><td class="type">(edges: RouterEdge[]): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>edges: RouterEdge[]</code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Declare a relationship graph (v3): multi-hop, several-into-one and mutual edges — the scalable form of `link`.</td></tr>
@@ -14991,6 +15289,21 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">tile:contextmenu</td><td class="type"><a href="#type-KPIEvent">KPIEvent</a></td><td class="desc">The tile the menu was asked for, its id, its node on a tree panel, and the DOM event.</td></tr>
           <tr><td class="name">node:toggle</td><td class="type"><a href="#type-KPINodeToggleEvent">KPINodeToggleEvent</a></td><td class="desc">Which branch moved and which way.</td></tr>
           <tr><td class="name">change</td><td class="type"><a href="#type-KPIChangeEvent">KPIChangeEvent</a></td><td class="desc">The rebuilt model.</td></tr>
+          <tr><td class="name">tile:status</td><td class="type"><a href="#type-KPITileStatusEvent">KPITileStatusEvent</a></td><td class="desc">Which tile moved, where from, where to, and what it now reads.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KPITileStatusEvent">KPITileStatusEvent</h4>
+    <p class="section-note">A tile crossed a threshold (BACKLOG-0001434). The event an alarm system is fed from: one per transition, rather than the whole model on every refresh. `lattice-grid/modules/alarms` consumes exactly this.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The tile's identity — its configured `id`, else its label, else its index.</td></tr>
+          <tr><td class="name">status</td><td class="type"><a href="#type-KpiRollupStatus">KpiRollupStatus</a> | null</td><td class="desc">The status it now reads, or null when the tile declares no thresholds or bands.</td></tr>
+          <tr><td class="name">previous</td><td class="type"><a href="#type-KpiRollupStatus">KpiRollupStatus</a> | null</td><td class="desc">The status it held before this transition, or null when it had none — the first reading of a tile, or a tile that has just been added.</td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The tile's value at the transition, or null when it measured nothing.</td></tr>
+          <tr><td class="name">at</td><td class="type">number</td><td class="desc">When the transition was observed, as a millisecond timestamp.</td></tr>
         </tbody>
       </table>
     </div>
@@ -15095,6 +15408,144 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">tile:contextmenu</td><td class="desc">A context menu was requested on a tile.</td><td class="type"><a href="#type-KPIEvent">KPIEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">node:toggle</td><td class="desc">A branch of a hierarchical panel was expanded or collapsed, by the host or by a click on its twisty.</td><td class="type"><a href="#type-KPINodeToggleEvent">KPINodeToggleEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">change</td><td class="desc">The panel rebuilt its model — new rows, a changed configuration, or a followed grid event.</td><td class="type"><a href="#type-KPIChangeEvent">KPIChangeEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">tile:status</td><td class="desc">A tile's status moved — it crossed a threshold or a band, went silent, or came back. Fired once per tile per transition, including to and from `unknown`, and before the `change` that carries the rebuilt model; a tile whose status did not move is silent, which is what separates it from `change`.</td><td class="type"><a href="#type-KPITileStatusEvent">KPITileStatusEvent</a></td><td class="desc">no</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="ref-module-alarms">The alarms module</h3>
+    <h4 id="type-AlarmsEventPayloads">AlarmsEventPayloads</h4>
+    <p class="section-note">What a handler receives, per alarm event.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">alarm:raised</td><td class="type"><a href="#type-AlarmEvent">AlarmEvent</a></td><td class="desc">The alarm that opened.</td></tr>
+          <tr><td class="name">alarm:cleared</td><td class="type"><a href="#type-AlarmEvent">AlarmEvent</a></td><td class="desc">The alarm that closed.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-AlarmEvent">AlarmEvent</h4>
+    <p class="section-note">One alarm, as `alarm:raised` and `alarm:cleared` carry it and as {@link Alarms.active} lists it.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The alarm's stable identity, `&lt;source&gt;:&lt;sourceId&gt;:&lt;key&gt;:&lt;level&gt;` — for example `grid:grid#1:row-7/cpu:critical`. **This format is public API**: a host keys its own ticket or incident records by it, so it is documented rather than left to change.</td></tr>
+          <tr><td class="name">source</td><td class="type"><a href="#type-AlarmSource">AlarmSource</a> <small class="literals">'kpi' | 'grid' | 'router'</small></td><td class="desc">Which kind of source raised it.</td></tr>
+          <tr><td class="name">sourceId</td><td class="type">string</td><td class="desc">Which source of that kind: the `sourceId` given at attach, else `kpi#1`, `grid#2`, …</td></tr>
+          <tr><td class="name">key</td><td class="type">string</td><td class="desc">What inside the source is alarming: a KPI tile's id, a grid cell as `&lt;rowKey&gt;/&lt;column&gt;` (the row key JSON-encoded when it is not a string), or a router route's `label`.</td></tr>
+          <tr><td class="name">level</td><td class="type"><a href="#type-AlarmLevel">AlarmLevel</a></td><td class="desc">The level this event is about — the one raised, or the one cleared.</td></tr>
+          <tr><td class="name">previous</td><td class="type"><a href="#type-KpiRollupStatus">KpiRollupStatus</a> | null</td><td class="desc">The level the source held before this transition, or null when it held none — the first reading of a source. On a clear it is the level being cleared, because that is what the source held.</td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The reading at the transition.</td></tr>
+          <tr><td class="name">threshold</td><td class="type"><a href="#type-KPIThresholds">KPIThresholds</a> | null</td><td class="desc">The cut points it was graded against, or null when it was graded by `bands`.</td></tr>
+          <tr><td class="name">band</td><td class="type"><a href="#type-KPIBand">KPIBand</a>[] | null</td><td class="desc">The bands it was graded against, or null when it was graded by `thresholds`.</td></tr>
+          <tr><td class="name">at</td><td class="type">number</td><td class="desc">When the transition was emitted, as a millisecond timestamp from the set's clock.</td></tr>
+          <tr><td class="name">holdMs</td><td class="type">number</td><td class="desc">The hold this transition had to survive before it was believed.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-PendingAlarm">PendingAlarm</h4>
+    <p class="section-note">A transition that has been observed but not yet held long enough to be believed.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The id the alarm will carry if the level survives its hold.</td></tr>
+          <tr><td class="name">source</td><td class="type"><a href="#type-AlarmSource">AlarmSource</a> <small class="literals">'kpi' | 'grid' | 'router'</small></td><td class="desc">Which kind of source is holding it.</td></tr>
+          <tr><td class="name">sourceId</td><td class="type">string</td><td class="desc">Which source of that kind.</td></tr>
+          <tr><td class="name">key</td><td class="type">string</td><td class="desc">What inside the source is holding.</td></tr>
+          <tr><td class="name">level</td><td class="type"><a href="#type-KpiRollupStatus">KpiRollupStatus</a> | null</td><td class="desc">The level being held.</td></tr>
+          <tr><td class="name">previous</td><td class="type"><a href="#type-KpiRollupStatus">KpiRollupStatus</a> | null</td><td class="desc">The level still in force until the hold elapses.</td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The reading that started the hold.</td></tr>
+          <tr><td class="name">at</td><td class="type">number</td><td class="desc">When the hold started, as a millisecond timestamp.</td></tr>
+          <tr><td class="name">holdMs</td><td class="type">number</td><td class="desc">How long the level must persist.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-AlarmsClock">AlarmsClock</h4>
+    <p class="section-note">The clock the hold timer runs on, injected so a test can drive a thousand crossings through a `holdMs` window without sleeping for it.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">now</td><td class="type">(): number</td><td class="desc">&mdash;</td><td class="type"><code>number</code></td><td class="desc">The current time, in milliseconds.</td></tr>
+          <tr><td class="name">setTimeout</td><td class="type">(fn: () =&gt; void, ms: number): unknown</td><td class="desc"><code>fn: () =&gt; void, ms: number</code></td><td class="type"><code>unknown</code></td><td class="desc">Schedule a hold; returns whatever handle `clearTimeout` will be given.</td></tr>
+          <tr><td class="name">clearTimeout</td><td class="type">(handle: unknown): void</td><td class="desc"><code>handle: unknown</code></td><td class="type"><code>void</code></td><td class="desc">Cancel a hold.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-AlarmsConfig">AlarmsConfig</h4>
+    <p class="section-note">An alarm set's configuration.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">holdMs</td><td class="type">number</td><td class="desc">The default hold, in milliseconds, for every source attached to this set. A new level must persist this long before its transition is emitted, and a crossing back inside the window discards the pending transition entirely. `0` (the default) emits on every settled crossing. A hold-down, not a rate limit: a sustained breach emits once. <small>(optional)</small></td></tr>
+          <tr><td class="name">clock</td><td class="type"><a href="#type-AlarmsClock">AlarmsClock</a></td><td class="desc">The clock the hold timer runs on; the real one unless a test supplies its own. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-AlarmsColumnOptions">AlarmsColumnOptions</h4>
+    <p class="section-note">One watched column of an attached grid.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">thresholds</td><td class="type"><a href="#type-KPIThresholds">KPIThresholds</a></td><td class="desc">The cut points the cell is graded against — the KPI tile's own shape. <small>(optional)</small></td></tr>
+          <tr><td class="name">bands</td><td class="type"><a href="#type-KPIBand">KPIBand</a>[]</td><td class="desc">Explicit bands, as an alternative to `thresholds`; the first matching band wins. <small>(optional)</small></td></tr>
+          <tr><td class="name">when</td><td class="type"><a href="#type-FormattingCondition">FormattingCondition</a></td><td class="desc">An extra condition the cell must satisfy before it is graded at all, in the same shape a conditional-formatting rule takes and evaluated by the same code. A cell that fails it raises nothing and clears whatever it had. <small>(optional)</small></td></tr>
+          <tr><td class="name">holdMs</td><td class="type">number</td><td class="desc">This column's own hold, overriding the attach's and the set's. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-AlarmsAttachOptions">AlarmsAttachOptions</h4>
+    <p class="section-note">What one `attach` call takes. Which keys apply depends on the kind of source.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">sourceId</td><td class="type">string</td><td class="desc">This source's id, as it appears in every alarm's `sourceId` and `id`. Defaults to `kpi#1`, `grid#2`, … in attach order; give it a name and the ids stay stable across a reordering. <small>(optional)</small></td></tr>
+          <tr><td class="name">holdMs</td><td class="type">number</td><td class="desc">This source's hold, overriding the set's `holdMs`. <small>(optional)</small></td></tr>
+          <tr><td class="name">columns</td><td class="type">Record&lt;string, <a href="#type-AlarmsColumnOptions">AlarmsColumnOptions</a>&gt;</td><td class="desc">**Grids only.** The columns to watch, keyed by column id; an undeclared column raises nothing. <small>(optional)</small></td></tr>
+          <tr><td class="name">thresholds</td><td class="type"><a href="#type-KPIThresholds">KPIThresholds</a></td><td class="desc">**Routers only.** The cut points the route's value is graded against. <small>(optional)</small></td></tr>
+          <tr><td class="name">bands</td><td class="type"><a href="#type-KPIBand">KPIBand</a>[]</td><td class="desc">**Routers only.** Explicit bands, as an alternative to `thresholds`. <small>(optional)</small></td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">**Routers only.** The route's name, used as the alarm `key`; defaults to the partition value. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">value</td><td class="type">(rows: unknown[]) =&gt; unknown</td><td class="desc"><code>rows: unknown[]</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">**Routers only.** What the slice measures; defaults to the number of rows in it. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-Alarms">Alarms</h4>
+    <p class="section-note">A set of levelled alarms over data that is already graded. It owns no UI and touches no DOM: it observes KPI tiles, grid cells and router routes, holds a changed level for `holdMs` before believing it, and emits `alarm:raised` / `alarm:cleared`. An alarm's identity is `(source, key, level)`, so moving between two alarm levels CLEARS the level being left before it RAISES the level being entered.</p>
+    <h5 id="type-Alarms-properties">Properties</h5>
+    <p class="section-note">No properties.</p>
+    <h5 id="type-Alarms-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">attach</td><td class="type">(source: unknown, whenOrOpts?: unknown, opts?: <a href="#type-AlarmsAttachOptions">AlarmsAttachOptions</a>): <a href="#type-Alarms">Alarms</a></td><td class="desc"><code>source: unknown</code><br><code>whenOrOpts?: unknown</code><br><code>opts?: <a href="#type-AlarmsAttachOptions">AlarmsAttachOptions</a></code></td><td class="type"><code><a href="#type-Alarms">Alarms</a></code></td><td class="desc">Attach a source. A KPI panel grades every tile that declares thresholds or bands; a grid grades the cells of the columns named in `columns`; a router grades what its route measures. A router takes the partition value or predicate as the second argument, exactly as `router.attach` does.</td></tr>
+          <tr><td class="name">on</td><td class="type">(name: <a href="#type-AlarmsEventName">AlarmsEventName</a>, fn: (event: <a href="#type-AlarmsEventPayloads">AlarmsEventPayloads</a>[<a href="#type-AlarmsEventName">AlarmsEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>name: <a href="#type-AlarmsEventName">AlarmsEventName</a></code><br><code>fn: (event: <a href="#type-AlarmsEventPayloads">AlarmsEventPayloads</a>[<a href="#type-AlarmsEventName">AlarmsEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Subscribe to `alarm:raised` or `alarm:cleared`; any other name is warned about once.</td></tr>
+          <tr><td class="name">active</td><td class="type">(): <a href="#type-AlarmEvent">AlarmEvent</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-AlarmEvent">AlarmEvent</a>[]</code></td><td class="desc">Every alarm currently open, as the payloads that raised them. Truthful from attach.</td></tr>
+          <tr><td class="name">pending</td><td class="type">(): <a href="#type-PendingAlarm">PendingAlarm</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-PendingAlarm">PendingAlarm</a>[]</code></td><td class="desc">Every transition being held — observed, but not yet believed.</td></tr>
+          <tr><td class="name">publish</td><td class="type">(router: unknown, kind?: string): <a href="#type-Alarms">Alarms</a></td><td class="desc"><code>router: unknown</code><br><code>kind?: string</code></td><td class="type"><code><a href="#type-Alarms">Alarms</a></code></td><td class="desc">Publish raised and cleared alarms into a router feed as keyed rows, so a NOC alarm grid shows them live. Each emission is its own row — a raise and its later clear are two rows, not one overwritten — and every row carries `kind`, `state` (`'raised'`/`'cleared'`) and `alarmId` beside the alarm's own fields. Route them with a router keyed on `kind`, or with a predicate on it.</td></tr>
+          <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Release every listener, every hold timer and every source.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-Alarms-events">Events</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Event</th><th>When</th><th>Payload</th><th>Cancellable</th></tr></thead>
+        <tbody>
+          <tr><td class="name">alarm:raised</td><td class="desc">A level became true and stayed true for its `holdMs` — the alarm is now open. Within a transition between two alarm levels this fires after the clear of the level being left.</td><td class="type"><a href="#type-AlarmEvent">AlarmEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">alarm:cleared</td><td class="desc">An open alarm is no longer true: the level moved, the source went silent, or the row it was measured on left the grid. Within a transition between two alarm levels this fires before the raise of the level being entered.</td><td class="type"><a href="#type-AlarmEvent">AlarmEvent</a></td><td class="desc">no</td></tr>
         </tbody>
       </table>
     </div>
@@ -15258,6 +15709,49 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">breaches</td><td class="type">(): <a href="#type-KanbanSlaState">KanbanSlaState</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-KanbanSlaState">KanbanSlaState</a>[]</code></td><td class="desc">The cards currently at breach level.</td></tr>
           <tr><td class="name">warnings</td><td class="type">(): <a href="#type-KanbanSlaState">KanbanSlaState</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-KanbanSlaState">KanbanSlaState</a>[]</code></td><td class="desc">The cards currently at warn level (not yet breached).</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Stop the tick and drop the board subscriptions.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KanbanFlowDurationStats">KanbanFlowDurationStats</h4>
+    <p class="section-note">Distribution stats over a set of durations, in milliseconds — the shape {@link KanbanFlow.cycleTime} and {@link KanbanFlow.leadTime} return. `null` throughout when there is nothing to summarise (`count` is then 0).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many durations were summarised.</td></tr>
+          <tr><td class="name">mean</td><td class="type">number | null</td><td class="desc">The mean duration.</td></tr>
+          <tr><td class="name">median</td><td class="type">number | null</td><td class="desc">The median duration; identical to `p50`.</td></tr>
+          <tr><td class="name">p50</td><td class="type">number | null</td><td class="desc">The 50th percentile (R-7).</td></tr>
+          <tr><td class="name">p85</td><td class="type">number | null</td><td class="desc">The 85th percentile (R-7).</td></tr>
+          <tr><td class="name">p95</td><td class="type">number | null</td><td class="desc">The 95th percentile (R-7).</td></tr>
+          <tr><td class="name">min</td><td class="type">number | null</td><td class="desc">The shortest duration.</td></tr>
+          <tr><td class="name">max</td><td class="type">number | null</td><td class="desc">The longest duration.</td></tr>
+          <tr><td class="name">stdev</td><td class="type">number | null</td><td class="desc">The sample standard deviation.</td></tr>
+          <tr><td class="name">total</td><td class="type">number</td><td class="desc">The sum of every duration.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KanbanFlowCfd">KanbanFlowCfd</h4>
+    <p class="section-note">The cumulative-flow series {@link KanbanFlow.cfd} returns: at each bucket boundary, how many cards sat in each column, plus the WIP and done totals.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">bucket</td><td class="type">number</td><td class="desc">The bucket size actually used, in milliseconds.</td></tr>
+          <tr><td class="name">columns</td><td class="type">string[]</td><td class="desc">The board's columns, in display order.</td></tr>
+          <tr><td class="name">points</td><td class="type">{ /** The bucket boundary's timestamp (ms epoch). */ at: number; /** Card count per column id at this moment. */ counts: Record&lt;string, number&gt;; /** Cards in a WIP column at this moment. */ wip: number; /** Cards in a done column at this moment. */ done: number; /** Cards in any column at this moment. */ total: number; }[]</td><td class="desc">One point per bucket boundary.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KanbanFlow">KanbanFlow</h4>
+    <p class="section-note">Flow analytics over a board's transition log (BACKLOG-0000951): how long a card takes from start to finish (cycle time), from arrival to finish (lead time), and how the shape of the board has changed over time (the cumulative-flow diagram). Reached as {@link Kanban#flow}.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">cycleTime</td><td class="type">(): <a href="#type-KanbanFlowDurationStats">KanbanFlowDurationStats</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-KanbanFlowDurationStats">KanbanFlowDurationStats</a></code></td><td class="desc">Active-work-time summary: first-done minus first-start, over cards that finished and passed through a start column.</td></tr>
+          <tr><td class="name">leadTime</td><td class="type">(): <a href="#type-KanbanFlowDurationStats">KanbanFlowDurationStats</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-KanbanFlowDurationStats">KanbanFlowDurationStats</a></code></td><td class="desc">Arrival-to-done-time summary: first-done minus arrival, over cards that finished.</td></tr>
+          <tr><td class="name">cfd</td><td class="type">(opts?: { bucket?: string | number; from?: number; to?: number }): <a href="#type-KanbanFlowCfd">KanbanFlowCfd</a></td><td class="desc"><code>opts?: { bucket?: string | number; from?: number; to?: number }</code></td><td class="type"><code><a href="#type-KanbanFlowCfd">KanbanFlowCfd</a></code></td><td class="desc">The cumulative-flow series a stacked-area chart draws — one band per column, growing over time.</td></tr>
         </tbody>
       </table>
     </div>
@@ -15810,6 +16304,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">rowKey</td><td class="type">string | ((row: <a href="#type-KanbanRow">KanbanRow</a>) =&gt; string | number)</td><td class="desc">The resolved card identity; see `KanbanConfig.rowKey`. <small>(read-only)</small></td></tr>
           <tr><td class="name">rows</td><td class="type"><a href="#type-KanbanRows">KanbanRows</a></td><td class="desc">The keyed-diff consumer surface, the same shape a grid exposes — this is what makes a board a Data Router target.</td></tr>
           <tr><td class="name">sla</td><td class="type"><a href="#type-KanbanSla">KanbanSla</a></td><td class="desc">The card-aging / SLA monitor, present only when a `sla` config was supplied (BACKLOG-0000960). <small>(optional)</small></td></tr>
+          <tr><td class="name">flow</td><td class="type"><a href="#type-KanbanFlow">KanbanFlow</a></td><td class="desc">Flow analytics over the board's transition log (BACKLOG-0000951): cycle time, lead time and the cumulative-flow diagram. Built automatically unless the config says `flow: false`. <small>(optional)</small></td></tr>
           <tr><td class="name">filters</td><td class="type"><a href="#type-KanbanFilters">KanbanFilters</a></td><td class="desc">Named card predicates, composed with AND (BACKLOG-0001229). See {@link KanbanFilters}.</td></tr>
           <tr><td class="name">BACKLOG</td><td class="type">unknown</td><td class="desc">The sentinel `setSprint` value that selects the backlog (cards with no sprint). <small>(read-only)</small></td></tr>
         </tbody>
@@ -17895,6 +18390,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">headers</td><td class="type">boolean</td><td class="desc">Put a row of column titles above the copied cells. <small>(optional)</small></td></tr>
           <tr><td class="name">rows</td><td class="type"><a href="#type-ExportRowsScope">ExportRowsScope</a> <small class="literals">'visible' | 'all' | 'selected' | 'range'</small></td><td class="desc">What to copy: `'visible'`, `'all'`, `'selected'` rows, or `'range'` for the selected cell rectangle. <small>(optional)</small></td></tr>
           <tr><td class="name">sanitise</td><td class="type">boolean</td><td class="desc">Apply the CSV/Excel formula-injection guard to copied cells: prefix a field beginning with `=`, `+`, `-`, `@`, a tab or a CR with an apostrophe so a spreadsheet treats it as text. **Off by default** (unlike CSV/Excel export, which default it on), because the clipboard most often round-trips back into a grid or cell range where the apostrophe would corrupt the value. Turn it on when your users paste the clipboard into Excel or Google Sheets. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowNumbers</td><td class="type">boolean</td><td class="desc">Include the `rowNumbers` column (BACKLOG-0001437), the same opt-in CSV and Excel export use. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -17998,6 +18494,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">headers</td><td class="type">boolean</td><td class="desc">Write a header row of column titles. On by default. <small>(optional)</small></td></tr>
           <tr><td class="name">columns</td><td class="type">string[]</td><td class="desc">Which columns to export, by id and in this order. Columns the grid hides, or that opted out with `export.csv: false`, are still excluded. <small>(optional)</small></td></tr>
           <tr><td class="name">hidden</td><td class="type">boolean</td><td class="desc">Include the columns the grid hides, rather than only the visible ones. Off by default. Columns that opted out with `export.csv: false` are still excluded. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowNumbers</td><td class="type">boolean</td><td class="desc">Include the `rowNumbers` column (BACKLOG-0001437). Off by default, like `export: { csv: false, excel: false }` on every generated column — a position marker is not data the caller asked to export until this flag says otherwise. <small>(optional)</small></td></tr>
           <tr><td class="name">rows</td><td class="type">Extract&lt;<a href="#type-ExportRowsScope">ExportRowsScope</a>, 'visible' | 'all' | 'selected'&gt;</td><td class="desc">Which rows to export: `'visible'` (the default — what the filters and sort leave), `'all'`, or `'selected'`. <small>(optional)</small></td></tr>
           <tr><td class="name">sanitise</td><td class="type">boolean | { enabled?: boolean; prefix?: string; characters?: string; keepNumbers?: boolean; }</td><td class="desc">The formula-injection guard, **on by default**: a field beginning with `=`, `+`, `-`, `@`, a tab or a CR is prefixed with an apostrophe, because a spreadsheet would otherwise execute it when the file is opened. `false` turns it off; an object tunes it — `characters` to widen or narrow the set, `prefix` to change the escape, `keepNumbers: true` to leave a field that is entirely a number alone (so a negative currency stays numeric). <small>(optional)</small></td></tr>
           <tr><td class="name">bom</td><td class="type">boolean</td><td class="desc">Emit a UTF-8 byte-order mark, so Excel detects the encoding instead of guessing at it. Off by default. <small>(optional)</small></td></tr>
@@ -19044,6 +19541,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">What to do with an ungrounded figure in an AI narrative: drop it, or flag it in place.</p>
     <p class="type-def"><code>type AIReconcileMode = 'strip' | 'flag'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/ai</code>.</small></p>
+    <h4 id="type-AlarmLevel">AlarmLevel</h4>
+    <p class="section-note">An alarm's level. The KPI panel's own vocabulary, deliberately — `good | warn | critical` — rather than a fifth spelling of red/amber/green beside the four that already exist. Only `warn` and `critical` ARE alarms: `good` is the healthy level and clears whatever was raised.</p>
+    <p class="type-def"><code>type AlarmLevel = <a href="#type-KpiStatus">KpiStatus</a></code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/alarms</code>.</small></p>
+    <h4 id="type-AlarmsEventName">AlarmsEventName</h4>
+    <p class="section-note">The events an alarm set emits.</p>
+    <p class="type-def"><code>type AlarmsEventName = 'alarm:raised' | 'alarm:cleared'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/alarms</code>.</small></p>
+    <h4 id="type-AlarmSource">AlarmSource</h4>
+    <p class="section-note">Which of the three kinds of source an alarm came from.</p>
+    <p class="type-def"><code>type AlarmSource = 'kpi' | 'grid' | 'router'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/alarms</code>.</small></p>
     <h4 id="type-Align">Align</h4>
     <p class="section-note">Cell and header alignment. `left` and `right` are accepted and normalised to `start` and `end`. `start`/`end` follow the writing direction, so they mirror in a right-to-left grid while `left`/`right` stay physical. `centre` is accepted alongside `center`.</p>
     <p class="type-def"><code>type Align = 'start' | 'center' | 'end' | 'left' | 'right' | 'centre'</code></p>
@@ -19091,6 +19600,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h4 id="type-ChartScale">ChartScale</h4>
     <p class="section-note">How a chart axis's scale is chosen, rather than taken from the column's type.</p>
     <p class="type-def"><code>type ChartScale = 'auto' | 'linear' | 'time' | 'band' | 'category'</code></p>
+    <h4 id="type-ChartSchemeName">ChartSchemeName</h4>
+    <p class="section-note">A built-in colour scheme's name, as `scheme: '…'` or `registerScheme`'s first argument names one of `SCHEMES` — `'default'` (Okabe–Ito, checked against the common colour-vision deficiencies), `'bright'`, `'earth'` and `'mono'` (checked to survive a greyscale print). A host's own `registerScheme` name is a plain `string` alongside these, so `scheme` also accepts one it is not enumerable here.</p>
+    <p class="type-def"><code>type ChartSchemeName = 'default' | 'bright' | 'earth' | 'mono'</code></p>
     <h4 id="type-ChartTrendMethod">ChartTrendMethod</h4>
     <p class="section-note">A trend or forecast overlay method (BACKLOG-0000952). Each name has aliases: `linear` (also `lr`, `ols`, `regression`); `movingAverage` (also `ma`, `sma`, `rolling`); `exponential` (also `ewma`, `ses`, `holt`, `smoothing`).</p>
     <p class="type-def"><code>type ChartTrendMethod = 'linear' | 'movingAverage' | 'exponential' | 'lr' | 'ols' | 'regression' | 'ma' | 'sma' | 'rolling' | 'ewma' | 'ses' | 'holt' | 'smoothing'</code></p>
@@ -19383,7 +19895,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kpi</code>.</small></p>
     <h4 id="type-KPIEventName">KPIEventName</h4>
     <p class="section-note">The events a KPI panel raises. The panel's own, not the grid's: `grid.on` takes {@link EventName} and knows nothing about these, and a grid-bound panel follows the grid's events itself rather than re-publishing them. `on()` warns once on any other name, because a binding to an event that can never fire is a silent no-op.</p>
-    <p class="type-def"><code>type KPIEventName = 'tile:click' | 'tile:dblclick' | 'tile:contextmenu' | 'node:toggle' | 'change'</code></p>
+    <p class="type-def"><code>type KPIEventName = 'tile:click' | 'tile:dblclick' | 'tile:contextmenu' | 'node:toggle' | 'change' | 'tile:status'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kpi</code>.</small></p>
     <h4 id="type-KPIFormat">KPIFormat</h4>
     <p class="section-note">Number formatting for a tile value. `percent` treats the value as a ratio (0.42 → 42%).</p>
@@ -19801,7 +20313,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.70.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.71.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

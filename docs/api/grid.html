@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.70.0</title>
+<title>Grid API Reference — Lattice Grid 1.71.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -391,6 +391,7 @@
         <a href="#config">Configuration properties</a>
         <a href="#column">Column definition</a>
         <a href="#column-specs">Column sub-specs</a>
+        <a href="#merged-cells">Merged cells</a>
         <a href="#cell-tooltips">Rich cell tooltips</a>
         <a href="#grid-methods">Grid methods</a>
         <a href="#rows">grid.rows</a>
@@ -522,6 +523,7 @@
         <a class="rail__sub-link" href="#type-MaximiseApi">MaximiseApi</a>
         <a class="rail__sub-link" href="#type-RowFormApi">RowFormApi</a>
         <a class="rail__sub-link" href="#type-IconRegistryApi">IconRegistryApi</a>
+        <a class="rail__sub-link" href="#type-Column">Column</a>
       </div>
       <div class="rail__group">
         <span class="rail__label">Pages</span>
@@ -529,6 +531,7 @@
         <a href="charts.html">The charts module</a>
         <a href="data-router.html">The data router</a>
         <a href="kpi.html">The KPI (stat-tile) view</a>
+        <a href="alarms.html">The alarms module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="tabs.html">The tabbed grid</a>
@@ -554,7 +557,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 13 pages</a></span>
+      <span class="chip"><a href="index.html">All 14 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -831,6 +834,7 @@
           <tr><td class="name">export</td><td class="type"><a href="#type-ColumnExportSpec">ColumnExportSpec</a></td><td class="desc"><code>{ lookup: 'label' | 'value' | 'columns', csv, excel }</code>.</td></tr>
           <tr><td class="name">allowGroup / allowPivot / allowTotal</td><td class="type">boolean</td><td class="desc">Whether the tool panel offers the column for that zone.</td></tr>
           <tr><td class="name">nullable</td><td class="type">boolean</td><td class="desc">Affects storage choice and null ordering.</td></tr>
+          <tr><td class="name">rowSpan / colSpan</td><td class="type">(p) =&gt; number</td><td class="desc">Merge this column's cell down over the rows beneath it, or across the columns to its right. <code>1</code> or less is no merge. See <a href="#merged-cells">Merged cells</a>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -899,6 +903,126 @@
           <tr><td class="name">header</td><td class="desc"><code>template</code>, <code>render</code>, <code>props</code>, <code>class</code>, <code>tooltip</code>, <code>align</code>. <code>render</code> draws a custom heading and may be a <strong>function</strong> or a <strong>component</strong> (a class with a <code>render</code> method); the two forms are interchangeable and each may either append to the passed heading element itself (returning nothing) or <em>return</em> an <code>Element</code> (attached for you) or a <code>string</code> (used as the heading text). <code>class</code> adds a class to the heading cell; <code>template</code> is not read.</td></tr>
         </tbody>
       </table>
+    </div>
+    <h2 id="merged-cells">Merged cells</h2>
+    <p class="lead-in">
+      <code>rowSpan(p)</code> and <code>colSpan(p)</code> on a column say how many rows or columns
+      <em>this</em> cell covers (BACKLOG-0001438). The grid paints the cell once, at its origin,
+      sized across the area it covers; the cells underneath it are not painted at all. Return
+      <code>1</code> &mdash; or nothing &mdash; for no merge, which is the default and costs nothing:
+      a grid where no column declares either callback never runs the merge pass.
+    </p>
+    <p class="lead-in">
+      The parameter is the same <a href="#type-CellParams">CellParams</a> bag a formatter or a cell
+      renderer gets, so <code>p.index</code> is the display row, <code>p.data</code> the record and
+      <code>p.value</code> the cell's value.
+    </p>
+    <p class="lead-in">
+      <strong>Where a merge stops.</strong> A column merge is clipped at a pinned-region boundary
+      &mdash; the start, centre and end regions scroll independently, so one cell cannot straddle
+      two of them &mdash; and at the last column. A row merge is clipped at a group heading, at an
+      expanded detail panel, and at the last row. Nothing is refused; the merge is drawn as far as it
+      can honestly reach.
+    </p>
+    <p class="lead-in">
+      <strong>A merge is one cell everywhere else, too.</strong> The origin carries
+      <code>aria-rowspan</code> and <code>aria-colspan</code>. An arrow key into a merged cell lands
+      on its origin and an arrow out leaves from its far edge. A range that is drawn on a merged cell
+      takes the whole of it. Editing edits the origin. The fill handle refuses to start on one: there
+      is no single source value for a block, and nowhere to write the cells it covers. CSV, the
+      clipboard and Excel write the value at the origin and blanks in the covered cells &mdash; and
+      Excel writes a real <code>&lt;mergeCells&gt;</code> range, so the file opens merged.
+    </p>
+    <p class="lead-in">
+      <strong>A merge follows the rows, so keep it meaningful.</strong> The callbacks are evaluated
+      on every render against the rows as they are <em>then</em> ordered. Sort or filter the grid so
+      that the rows a merge covered are no longer adjacent and the merge changes with them &mdash;
+      which is correct, and is why the usual pattern merges only on the column the grid is sorted or
+      grouped by. Nothing auto-merges equal neighbours for you; the recipe for that is two lines and
+      is below, because the grid cannot know whether two equal values in a re-sorted view are still
+      the same thing.
+    </p>
+    <p class="section-note">
+      The renderer looks back 50 rows above the viewport to find a merge whose origin has scrolled off
+      the top, so a merge taller than that is reported once through <code>warnOnce</code> and drawn
+      from the first row in range. A merge that spans a region boundary is clipped, not refused, and a
+      callback that throws or returns something that is not a number is treated as no merge.
+    </p>
+
+    <div class="example">
+      <p class="example__label">A reporting grid: a category cell spanning its rows, and a full-width note</p>
+      <pre data-run="js" data-expect="cat 0 spans 3; note 3 spans 3 cols; North,a,1,ok|,b,2,ok|,c,3,ok|South,note,," data-covers="config:GridConfig.columns config:GridConfig.rowKey method:export"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { buildSpanMap } = <span class="kw">await</span> import('../packages/core/src/model/spans.js');
+
+<span class="kw">const</span> data = [
+  { id: <span class="num">1</span>, cat: <span class="str">'North'</span>, item: <span class="str">'a'</span>, n: <span class="num">1</span>, flag: <span class="str">'ok'</span> },
+  { id: <span class="num">2</span>, cat: <span class="str">'North'</span>, item: <span class="str">'b'</span>, n: <span class="num">2</span>, flag: <span class="str">'ok'</span> },
+  { id: <span class="num">3</span>, cat: <span class="str">'North'</span>, item: <span class="str">'c'</span>, n: <span class="num">3</span>, flag: <span class="str">'ok'</span> },
+  { id: <span class="num">4</span>, cat: <span class="str">'South'</span>, item: <span class="str">'note'</span>, n: <span class="num">0</span>, flag: <span class="str">''</span> },
+];
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: <span class="str">'id'</span>,
+  rows: data,
+  columns: [
+    <span class="cmt">// The category cell covers its three rows: painted once, at the top of the run.</span>
+    { field: <span class="str">'cat'</span>, rowSpan: (p) =&gt; (p.index === <span class="num">0</span> ? <span class="num">3</span> : <span class="num">1</span>) },
+    <span class="cmt">// A full-width note: one cell across every column to its right.</span>
+    { field: <span class="str">'item'</span>, colSpan: (p) =&gt; (p.data.item === <span class="str">'note'</span> ? <span class="num">3</span> : <span class="num">1</span>) },
+    { field: <span class="str">'n'</span> },
+    { field: <span class="str">'flag'</span> },
+  ],
+});
+
+<span class="cmt">// The same map the renderer and every export drive.</span>
+<span class="kw">const</span> rows = [];
+grid.rows.forEach((row) =&gt; rows.push(row));
+<span class="kw">const</span> map = buildSpanMap({
+  from: <span class="num">0</span>,
+  to: rows.length - <span class="num">1</span>,
+  rowCount: rows.length,
+  columns: grid.columns.visible(),
+  rowAt: (i) =&gt; rows[i],
+  params: (row, column, index) =&gt; ({ data: row.data, row, column, colId: column.id, index }),
+});
+<span class="kw">const</span> cat = map.origins.get(<span class="str">'0:0'</span>);
+<span class="kw">const</span> note = map.origins.get(<span class="str">'3:1'</span>);
+
+<span class="cmt">// CSV writes the value once, at the origin, and blanks in the covered cells.</span>
+<span class="kw">const</span> csv = grid.export.csv({ headers: <span class="kw">false</span>, lineEnding: <span class="str">'|'</span> }).replace(/\|$/, <span class="str">''</span>);
+grid.destroy();
+<span class="kw">return</span> `cat 0 spans ${cat.rows}; note 3 spans ${note.cols} cols; ${csv}`;</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Auto-merging equal adjacent values &mdash; the two-line recipe</p>
+      <pre data-run="js" data-expect="3,1,1,1" data-covers="config:GridConfig.columns config:GridConfig.rowKey"><code><span class="cmt">// The grid does not do this for you on purpose: after a re-sort, two equal</span>
+<span class="cmt">// values next to each other are not necessarily the same thing. When they are,</span>
+<span class="cmt">// this is the whole of it — look up, and if the row above shares the value,</span>
+<span class="cmt">// you are not the origin; if it does not, count down while the value holds.</span>
+<span class="kw">const</span> runSpan = (field) =&gt; (p) =&gt; {
+  <span class="kw">const</span> at = (i) =&gt; p.grid.rows.get(i)?.data?.[field];
+  <span class="kw">if</span> (at(p.index - <span class="num">1</span>) === p.data[field]) <span class="kw">return</span> <span class="num">1</span>;
+  <span class="kw">let</span> n = <span class="num">1</span>;
+  <span class="kw">while</span> (at(p.index + n) === p.data[field]) n++;
+  <span class="kw">return</span> n;
+};
+
+<span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: <span class="str">'id'</span>,
+  rows: [
+    { id: <span class="num">1</span>, cat: <span class="str">'North'</span> }, { id: <span class="num">2</span>, cat: <span class="str">'North'</span> },
+    { id: <span class="num">3</span>, cat: <span class="str">'North'</span> }, { id: <span class="num">4</span>, cat: <span class="str">'South'</span> },
+  ],
+  columns: [{ field: <span class="str">'cat'</span>, rowSpan: runSpan(<span class="str">'cat'</span>) }],
+});
+<span class="kw">const</span> span = grid.columns.get(<span class="str">'cat'</span>).rowSpan;
+<span class="kw">const</span> rows = [];
+grid.rows.forEach((row) =&gt; rows.push(row));
+<span class="kw">const</span> spans = rows.map((row, index) =&gt; span({ grid, data: row.data, index }));
+grid.destroy();
+<span class="kw">return</span> spans.join(<span class="str">','</span>);</code></pre>
     </div>
     <h2 id="cell-tooltips">Rich cell tooltips</h2>
     <p class="lead-in">
@@ -991,7 +1115,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.70.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.71.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -1431,6 +1555,12 @@ expect(written).toBeLessThan(200);</code></pre>
         </tbody>
       </table>
     </div>
+    <h3>The warnings reference</h3>
+    <p>Every developer-facing line the grid prints to the console — each one prefixed <code>[lattice]</code> — is de-duplicated on a key, and that key is the identifier to quote. The package ships the whole list as data: <code>docs/warnings.json</code>, inside <code>@toclocoinc/lattice-grid</code> and in the public repository, with one entry per key giving the message template, the module it comes from, what happened and what the grid did about it, and what to change. A <code>*</code> in an identifier stands for a value filled in at run time — a column id, a chart id, an event name — so <code>icon:*</code> is one entry covering every column the icon renderer refuses.</p>
+    <pre><code><span class="cmt">// look up the line you are reading in the console</span>
+const { warnings } = await import('@toclocoinc/lattice-grid/docs/warnings.json', { with: { type: 'json' } });
+const entry = warnings.find((w) =&gt; w.id === 'rowKey.missing');
+console.log(entry.meaning, entry.fix);</code></pre>
     <h3>The devtools panel</h3>
     <p>An optional module. It imports nothing (the grid is handed to it) so deployments that never load it pay nothing.</p>
     <pre><code>import { createGrid } from '@toclocoinc/lattice-grid';
@@ -7239,6 +7369,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">tree</td><td class="type"><a href="#type-TreeConfig">TreeConfig</a></td><td class="desc">Hierarchical rows: where the parent link or the path lives. <small>(optional)</small></td></tr>
           <tr><td class="name">detail</td><td class="type"><a href="#type-DetailConfig">DetailConfig</a></td><td class="desc">The expandable panel beneath a row. <small>(optional)</small></td></tr>
           <tr><td class="name">selection</td><td class="type"><a href="#type-SelectionConfig">SelectionConfig</a> | 'single' | 'multiple' | 'none'</td><td class="desc">What the user may select, and how selection behaves across groups. The `'none'` shorthand is `{ mode: 'none' }` and behaves identically: no row selection, and no cell ranges or fill handle either. <small>(optional)</small></td></tr>
+          <tr><td class="name">selectionColumnWidth</td><td class="type">number</td><td class="desc">Width of the generated `selection.checkbox` column, in pixels. Default 44 — a checkbox, its focus ring and the cell padding, and no room for anything else, so a width is only worth setting for a denser or larger checkbox theme. <small>(optional)</small></td></tr>
+          <tr><td class="name">selectionColumnPin</td><td class="type"><a href="types.html#type-Edge">Edge</a> <small class="literals">'start' | 'end'</small></td><td class="desc">Which edge the generated `selection.checkbox` column pins to. Default `'start'` — leading the group column, ahead of everything the reader scrolls past, so a selection control never has to be scrolled back to. <small>(optional)</small></td></tr>
           <tr><td class="name">edit</td><td class="type"><a href="#type-EditConfig">EditConfig</a> | boolean</td><td class="desc">Editing, and how a change is committed and validated. <small>(optional)</small></td></tr>
           <tr><td class="name">pagination</td><td class="type"><a href="#type-PaginationConfig">PaginationConfig</a> | boolean</td><td class="desc">Page the rows rather than scrolling them. <small>(optional)</small></td></tr>
           <tr><td class="name">locale</td><td class="type">string</td><td class="desc">The BCP-47 locale everything the grid formats and collates uses — numbers, dates, text ordering, and the message catalogue. Falls back to the page's own `&lt;html lang&gt;` and then to `en-GB`. <small>(optional)</small></td></tr>
@@ -7265,6 +7397,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">rowForm</td><td class="type">boolean | { mode?: <a href="types.html#type-RowFormMode">RowFormMode</a>; load?: (p: { row: <a href="#type-Row">Row</a>; data: unknown; key: string; grid: <a href="#type-Grid">Grid</a> }) =&gt; unknown | Promise&lt;unknown&gt;; fields?: (string | { field: string; label?: string; /** Which editor to build, by registry name or constructor. Defaults to the column's, then the type's. */ editor?: string | (new () =&gt; object); type?: <a href="types.html#type-TypeName">TypeName</a>; props?: object; lookup?: <a href="#type-LookupSpec">LookupSpec</a>; })[]; title?: string | ((p: { row: <a href="#type-Row">Row</a>; data: unknown }) =&gt; string); width?: string; trigger?: false; /** How long to wait for `load`, in milliseconds. 2000 by default; `false` waits indefinitely. */ timeout?: number | false; /** * An element of your own to build the form in, instead of over the grid. * An element, a CSS selector or a function returning either; a selector is * resolved when the form opens, not when the grid is configured. A form in * your own container fills it, is a region rather than a modal dialog, and * does not trap Tab. */ container?: HTMLElement | string | (() =&gt; HTMLElement | string | null); }</td><td class="desc">Open a row on a form — a drawer or a centred dialog with one control per field, a Save and a Cancel — on a double-click or through `grid.form.open()`. By default the fields are the grid's own columns, edited with the same editors the cells use; supply `load` to show a fuller record than the grid displays, in which case you must also say which fields and in what order. The panel opens immediately with a loading state and offers a retry on failure or on a load that never answers, rather than closing. Save applies the changed fields that map to columns and announces the rest — persisting the record is yours. <small>(optional)</small></td></tr>
           <tr><td class="name">showColumnFunctions</td><td class="type">boolean</td><td class="desc">Draw the sort, filter and menu controls in the column headings. `true` by default. `false` leaves each heading as its label alone, which is what a dense grid wants: three affordances take roughly fifty pixels, and on an eighty-pixel column that leaves the heading nothing and the label disappears entirely. Only the furniture goes. Sorting, filtering and the column menu are still reachable through the API, the keyboard and the tool panel. <small>(optional)</small></td></tr>
           <tr><td class="name">headerControls</td><td class="type"><a href="types.html#type-HeaderControlsVisibility">HeaderControlsVisibility</a> <small class="literals">'hover' | 'always' | 'hidden' | 'none'</small></td><td class="desc">When the per-column header controls — the sort arrow, the filter funnel and the menu button — are shown, as a default for every column (BACKLOG-0000982). - `'hover'` (the default) reveals them when the heading is hovered or a keyboard user focuses into it, which is the historical behaviour: a wide header does not read as a row of identical icons. - `'always'` keeps them visible unconditionally, for a grid where the controls are the point and the discoverability of hover is not wanted. - `'hidden'` draws none of them, for a clean read-only heading; they leave the tab order with the elements that carried them. An active filter and a live sort are still reflected by the heading's state attributes, but no control furniture is built. A column that is actually sorted still shows a read-only sort arrow and multi-sort order number. - `'none'` (BACKLOG-0001423) is `'hidden'` with that last exception removed: the heading shows only its title, whatever the grid's state — no controls, no hover affordance, and no sort/filter/group badge even when the column is sorted, filtered or grouped programmatically or via a saved view. The column's own `aria-sort` still reports the truth; only the visual badge is gone. For a dashboard heading that must never change its own appearance, however the grid around it is driven. A column's own `headerControls` overrides this default for that column. Distinct from `showColumnFunctions: false`, which also drops the furniture but keeps sorting, filtering and the menu reachable from the keyboard; `'hidden'` and `'none'` are the read-only choices that remove them outright. <small>(optional)</small></td></tr>
+          <tr><td class="name">filterRow</td><td class="type">boolean</td><td class="desc">Draw a filter row directly under the column headings (BACKLOG-0001436). One inline filter cell per column, below the column groups and above the pinned rows, in every pinned region. Each cell is the inline form of that column's own filter: a box with the operator implied — contains for text, equals for a number, and for a date equals means "on that day" — plus a small picker for the other single-operand operators; a tri-state box for a boolean; and a chip that opens the column's own filter popup for a set or multi column, whose value list belongs in the popup. It writes the one filter model, `grid.filters`, through the same path the column menu writes: the menu shows what was typed in the row and the row shows what was set in the menu, `state.get()` round-trips it because the filter tree *is* the state, and a pushdown source receives exactly the condition the menu would have sent. Unaffected by `headerControls: 'none'` and by `showColumnFunctions: false`. Those govern the chrome a heading carries; the filter row is data entry, and this key is the only thing that decides whether it is drawn. A column opts itself out with its own `filterRow: false`. <small>(optional)</small></td></tr>
           <tr><td class="name">rowHeight</td><td class="type">number | ((row: <a href="#type-Row">Row</a>) =&gt; number)</td><td class="desc">Row height in pixels, or a function of the row. A function makes the grid measure rather than assume, which costs a pass over what is on screen: worth it for wrapped text, wasteful for a uniform grid. <small>(optional)</small></td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">A caption for the grid, drawn above the column headings. Inside the grid rather than an element the host places above it: a title outside does not scroll with the grid, is not in the region a screen reader announces, and is left behind by image capture and print. <small>(optional)</small></td></tr>
           <tr><td class="name">showHeader</td><td class="type">boolean</td><td class="desc">Draw the column headings at all. `true` by default. `false` removes the row, and removes it from the accessibility tree rather than only from view, a heading a screen reader still announces is invisible, not hidden. What a small dashboard tile wants when its `title` already says what the panel is. Distinct from `showColumnFunctions`, which keeps the headings and drops only the sort, filter and menu controls inside them. <small>(optional)</small></td></tr>
@@ -7302,6 +7435,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">import</td><td class="type">boolean | <a href="#type-ImportSettings">ImportSettings</a></td><td class="desc">Bringing rows in from a file, the clipboard or a drop (§14, the mirror of export). `true` adds a "Import rows from CSV…" item to the cell menu, makes the grid a drop target for `.csv`/`.tsv` files, and reads a pasted spreadsheet block, each opening a preview the user confirms. An object tunes the affordances. Off by default; the `grid.import` API is always present. Import is a client-side data operation, so it applies to a memory grid. <small>(optional)</small></td></tr>
           <tr><td class="name">rowDelete</td><td class="type">boolean</td><td class="desc">Enable the built-in row-delete gesture (§18.4, BACKLOG-0000968) — the Delete/Backspace key on selected rows and a "Delete row" cell-menu item — and the `grid.edit.deleteRows` API. Off by default, because deleting data on a keystroke is destructive and opt-in. Every deletion flows through the cancellable `beforeDelete` event, so a handler can confirm or veto it, on a memory-source grid as well as a remote one. <small>(optional)</small></td></tr>
           <tr><td class="name">columnMenu</td><td class="type">boolean | ((p: <a href="#type-ColumnMenuParams">ColumnMenuParams</a>, defaults: <a href="#type-MenuItem">MenuItem</a>[]) =&gt; <a href="#type-MenuItem">MenuItem</a>[] | void)</td><td class="desc">The header's 3-dot menu, and the right-click menu on a column heading. `false` suppresses both. A function supplies custom items, receiving the grid's own so it can add to them rather than reproduce them. Default true. <small>(optional)</small></td></tr>
+          <tr><td class="name">resizePreview</td><td class="type">'live' | 'deferred'</td><td class="desc">How a column-resize drag previews its result. `'live'` (the default) resizes the column as the pointer moves; `'deferred'` draws a guide line at the pointer instead and commits the new width only on release — the cheaper choice on a grid wide enough that a live resize repaints more than the drag is worth. <small>(optional)</small></td></tr>
           <tr><td class="name">rangeChart</td><td class="type">| boolean | ((grid: <a href="#type-Grid">Grid</a>, range: <a href="#type-CellRange">CellRange</a>) =&gt; void) | { onChart?: (grid: <a href="#type-Grid">Grid</a>, range: <a href="#type-CellRange">CellRange</a>) =&gt; void }</td><td class="desc">Chart a selected cell range — the spreadsheet "chart this selection" gesture. Off by default, so a grid opts in. The DOM layer draws no charts itself — the charts module is optional and loaded by the host — so this is where the host wires the two together: a function, or an object carrying `onChart`, is called with the grid and the selected range when the reader chooses "Chart selection" from the cell menu. The handler typically calls `chartRange` from `lattice-grid/modules/charts`. `true` offers the item and emits nothing extra; supply a handler to have it actually draw. <small>(optional)</small></td></tr>
           <tr><td class="name">shortcuts</td><td class="type">boolean</td><td class="desc">The `?` keyboard shortcut overlay. `false` suppresses it, for a host that wants `?` for itself. Default true. <small>(optional)</small></td></tr>
           <tr><td class="name">find</td><td class="type">boolean | <a href="#type-FindConfig">FindConfig</a></td><td class="desc">The in-grid find bar (BACKLOG-0001018): Ctrl+F / Cmd+F with focus in the grid opens it; typing highlights every matching cell in place without filtering a row away; Enter and Shift+Enter step through the matches. `false` removes the bar and its shortcut; the `grid.find` API still works. Default true. <small>(optional)</small></td></tr>
@@ -7313,6 +7447,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">formatting</td><td class="type">Record&lt;string, <a href="#type-FormattingRule">FormattingRule</a>[]&gt;</td><td class="desc">Conditional formatting rules the grid holds as runtime state, keyed by column id or `'*'` for every column (spec 8.12). Seeds `grid.formatting`, which an end user can then change; the rules travel in saved views and undo like any other change. Config-time `cell.style` is unaffected. <small>(optional)</small></td></tr>
           <tr><td class="name">rowClass</td><td class="type">string | string[] | ((p: <a href="#type-RowStyleParams">RowStyleParams</a>) =&gt; string | string[])</td><td class="desc">A class, or classes, for every row. Re-evaluated on each repaint. <small>(optional)</small></td></tr>
           <tr><td class="name">rowStyle</td><td class="type">CellStyle | ((p: <a href="#type-RowStyleParams">RowStyleParams</a>) =&gt; CellStyle)</td><td class="desc">Inline styles for every row. Camel-case or hyphenated property names. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowNumbers</td><td class="type">boolean | { /** A fixed column width in pixels. Unset auto-fits the largest number. */ width?: number; /** The number given to the first row. Default `1`; `0` numbers from zero. */ start?: number; /** Header text. Empty by default. */ title?: string; }</td><td class="desc">A synthetic row-number column, pinned left before the selection checkbox column when one is configured (BACKLOG-0001437) — the same generated-column mechanism the checkbox uses, not a second one. The number is the row's 1-based position among the visible rows, after sort, filter and grouping: a group heading is not numbered and its leaves continue the count across it, and pinned-top rows are numbered first. Read-only; not sortable, filterable, groupable or movable; excluded from a saved view's column state and from `columns.state()`; excluded from CSV/Excel/clipboard export unless the export call opts in with `{ rowNumbers: true }`. `true` for the defaults. An object fixes the width (unset auto-fits the largest number), moves where numbering starts, or gives the header a title (empty by default). <small>(optional)</small></td></tr>
           <tr><td class="name">toolPanel</td><td class="type">boolean | { /** Built-in names: `columns`, `filters`, `views`, `quick`, `formatting`. */ panels?: <a href="types.html#type-ToolPanelName">ToolPanelName</a>[]; openPanel?: string; /** Which edge to dock against. `left` is the icon rail; default `right`. */ side?: <a href="types.html#type-ToolPanelSide">ToolPanelSide</a>; /** Icon-only tabs. Defaults to true for `side: 'left'`, false otherwise. */ icons?: boolean; /** * Rail action buttons: `undo`, `redo`, `export`, `restore`. Defaults to all * four on the left rail and none on the right; `false` drops them. */ /** * Which action buttons the rail offers, in order. `false` drops them. * * The built-in names are `undo`, `redo`, `pause`, `restore`, `maximise`, * `export`, `excel`, `clipboard` and `print`, plus `'-'` for a divider. * A {@link <a href="#type-RailAction">RailAction</a>} object places one of your own among them. */ actions?: false | (<a href="types.html#type-RailActionName">RailActionName</a> | '-' | <a href="#type-RailAction">RailAction</a>)[]; /** File name for the export action, without the extension. */ exportName?: string; /** * Put the native annotation tools — pen, arrow, rectangle, highlighter — on * the rail. Each is a real toggle button that shows pressed while it is the * tool in use and turns off when pressed again. Three states, not two: * `true` opts in and keeps the tools on the rail always, presentation or * not; `false` opts OUT and the tools are never added, not even for a * presentation; omitted keeps the default, where the tools are off until a * presentation starts, appear for its duration, and leave when it ends. */ annotate?: boolean; }</td><td class="desc">Dock the side panels against the grid: columns, filters, views, quick search and formatting. The columns panel is where row grouping, values and pivot are assembled by drag, which is why it carries three drop zones as well as the visibility list — a column opts out of each with `allowGroup`, `allowPivot` and `allowTotal`. <small>(optional)</small></td></tr>
           <tr><td class="name">groupPanel</td><td class="type">boolean | { /** Placeholder shown while nothing is grouped. */ hint?: string; }</td><td class="desc">A drag-and-drop group-by strip above the column header — the pattern AG Grid calls the row-group panel. Drag a column heading into it to group by that column; the active groups show as removable, reorderable chips, and reordering the chips changes the nesting order. It is keyboard-operable (arrows navigate, Shift+arrow reorders, Delete ungroups, and an add control groups any column), and every change is announced through the live region, which is why it also addresses the drag-only complaint (BACKLOG-0000429). Off by default and non-breaking, matching `toolPanel`. It drives the same grouping model as `grid.columns.group()`; it reimplements nothing. <small>(optional)</small></td></tr>
           <tr><td class="name">kpis</td><td class="type">Array&lt;Omit&lt;<a href="#type-StatConfig">StatConfig</a>, 'grid' | 'container'&gt;&gt;</td><td class="desc">A built-in KPI/stat strip: a labelled band of {@link createStat} tiles the grid places for you, above the column header. Each entry is a stat spec — the same fields {@link StatConfig} takes, minus `grid` and `container`, which the grid supplies — so a strip tile and a hand-placed one are the same object. The tiles follow the grid's filters, recomputing on every change exactly as a stand-alone stat does. Off by default and non-breaking, matching `groupPanel`: no `kpis` means no band and no cost. It reuses `createStat` and reimplements no compute. <small>(optional)</small></td></tr>
@@ -7336,6 +7471,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       </table>
     </div>
     <h4 id="type-Column">Column</h4>
+    <h5 id="type-Column-properties">Properties</h5>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
@@ -7368,6 +7504,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">contextMenu</td><td class="type">boolean | <a href="#type-MenuItem">MenuItem</a>[] | ((p: <a href="#type-CellMenuParams">CellMenuParams</a>, defaults: <a href="#type-MenuItem">MenuItem</a>[]) =&gt; <a href="#type-MenuItem">MenuItem</a>[] | void)</td><td class="desc">The cell right-click menu for this column alone (BACKLOG-0001068), in the same shapes the grid-level `contextMenu` takes plus a bare array for the common "just these items here" case. Declared where the column is declared rather than as another branch inside one grid-level callback: the menu logic for a column belongs beside the column it belongs to. It does not replace the grid-level menu — the three levels compose as a chain, built-in defaults then grid-level then this one, each handed the previous result as its `defaults`, so a column adding one item does not have to restate Paste, Clear and Fill down. `false` suppresses the menu on this column and leaves every other column alone: what a sensitive or read-only column wants. The more specific level wins, so a column may also declare a menu on a grid whose `contextMenu` is `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">headerControls</td><td class="type"><a href="types.html#type-HeaderControlsVisibility">HeaderControlsVisibility</a> <small class="literals">'hover' | 'always' | 'hidden' | 'none'</small></td><td class="desc">When this column's header controls — its sort arrow, filter funnel and menu button — are shown, overriding the grid-level `headerControls` default for this column alone (BACKLOG-0000982). `'hover'` reveals them on hover or focus, `'always'` keeps them visible, `'hidden'` draws none of them and leaves them out of the tab order, but still shows a read-only sort badge when the column actually is sorted. `'none'` (BACKLOG-0001423) goes further: the heading shows its title and nothing else whatever the grid's state — no controls, and not even `'hidden'`'s read-only sort badge; the column's `aria-sort` still reports the truth, only the visual is gone. Omitted, the column follows the grid default, which is itself `'hover'`. <small>(optional)</small></td></tr>
           <tr><td class="name">verticalAlign</td><td class="type"><a href="types.html#type-VAlign">VAlign</a> <small class="literals">'top' | 'middle' | 'bottom'</small></td><td class="desc">Vertical alignment of this column's cell content within the row (BACKLOG-0000989). Overrides the grid-level `verticalAlign` for this column alone; `top`, `middle` or `bottom`. Also accepted as `cell.verticalAlign`, the way `align` is. Omitted, the column follows the grid default. <small>(optional)</small></td></tr>
+          <tr><td class="name">filterRow</td><td class="type">boolean</td><td class="desc">Whether this column takes part in the filter row (BACKLOG-0001436). Opt-out only: `false` leaves this column's filter cell empty when the grid draws the row, which is what a free-text notes column or a column the user is not meant to narrow on wants. It cannot bring the row into existence on its own — a row drawn for one column and blank for the rest is not something any host asked for — so the grid-level `filterRow` is what decides whether there is a row at all. A column whose `filter.enabled` is `false` has no cell either way; there is nothing to type into. <small>(optional)</small></td></tr>
           <tr><td class="name">showWhen</td><td class="type"><a href="types.html#type-ShowWhen">ShowWhen</a> <small class="literals">'open' | 'closed' | 'always'</small></td><td class="desc">When this leaf column is shown, the same union `ColumnGroup` declares (BACKLOG-0001279). A leaf reads its own `showWhen` exactly as a group reads its own — `open`/`closed` tie the leaf to an ancestor group's collapsed state, `always` (the default) shows it regardless — so tying a leaf's visibility to a group's open/closed state does not require wrapping it in a `ColumnGroup` of its own just to hold this setting; a wrapper is for grouping columns, not for this. <small>(optional)</small></td></tr>
           <tr><td class="name">export</td><td class="type"><a href="#type-ColumnExportSpec">ColumnExportSpec</a></td><td class="desc">How the column leaves the grid, where that differs from how it is shown. <small>(optional)</small></td></tr>
           <tr><td class="name">allowGroup</td><td class="type">boolean</td><td class="desc">Whether the user may group by this column from the interface. <small>(optional)</small></td></tr>
@@ -7377,6 +7514,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h5 id="type-Column-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">rowSpan</td><td class="type">(p: <a href="#type-CellParams">CellParams</a>) =&gt; number</td><td class="desc"><code>p: <a href="#type-CellParams">CellParams</a></code></td><td class="type"><code>=&gt; number</code></td><td class="desc">Merge this column's cell down over the rows beneath it (BACKLOG-0001438). Called with the same `CellParams` bag a renderer or a formatter gets, and returns how many rows the cell covers. `1` — or anything less, or nothing — is no merge, which is the default and costs nothing: a grid in which no column declares `rowSpan` or `colSpan` never runs the merge pass at all. The cell is painted once, at its origin, across the rows it covers; the cells it covers are not painted. A merge stops at a group heading, at a detail panel and at the last row, so a heading is never swallowed. The origin carries `aria-rowspan`, keyboard navigation treats the whole block as one cell, a range that touches any part of it takes all of it, and CSV/clipboard/Excel write the value at the origin and blanks in the rest (Excel writes a real merged range). The span is recomputed on every render, so it follows the rows: sort or filter the grid so that the rows a merge covered are no longer adjacent and the merge changes with them. Keeping merges meaningful — usually by merging only on the column the grid is sorted or grouped by — is the host's part of the bargain. A merge whose origin scrolls more than 50 rows above the viewport cannot be found by the renderer's bounded look-back; it is reported once and drawn from the first row in range. <small>(optional)</small></td></tr>
+          <tr><td class="name">colSpan</td><td class="type">(p: <a href="#type-CellParams">CellParams</a>) =&gt; number</td><td class="desc"><code>p: <a href="#type-CellParams">CellParams</a></code></td><td class="type"><code>=&gt; number</code></td><td class="desc">Merge this column's cell across the columns to its right (BACKLOG-0001438). Called with the same `CellParams` bag as {@link Column.rowSpan}, and returns how many columns the cell covers. `1` or less is no merge. The merge is clipped at a pinned-region boundary — the start, centre and end regions scroll independently, so a cell cannot straddle them — and at the last column. Everything else matches `rowSpan`: the origin carries `aria-colspan`, the covered cells are not painted, and the exports write the value once. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-Column-events">Events</h5>
+    <p class="section-note">No events.</p>
     <h4 id="type-ColumnGroup">ColumnGroup</h4>
     <div class="table-wrap">
       <table>
@@ -8378,6 +8527,25 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-CellParams">CellParams</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">text</td><td class="type">string</td><td class="desc">The display text: the value after the column's format and any lookup label — exactly what the cell shows.</td></tr>
+          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The row's display index, counting the grid's own rows: group headings, footers and totals included.</td></tr>
+          <tr><td class="name">props</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Whatever the column's `cell.props` holds, passed through so one renderer can be configured per column. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">t</td><td class="type">(key: string, vars?: Record&lt;string, unknown&gt;) =&gt; string</td><td class="desc"><code>key: string</code><br><code>vars?: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">Format a message from the grid's catalogue, for a renderer that wants its own accessible names and labels localised rather than hard-coded (§17, WCAG 4.1.2). The built-in renderers use this; a custom renderer may too. Optional: absent when a renderer is exercised without a grid to ask. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ColumnExportSpec">ColumnExportSpec</h4>
     <div class="table-wrap">
       <table>
@@ -8572,25 +8740,6 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">fn</td><td class="type">'datasetVsDataset'</td><td class="desc">Selects the dataset-comparison producer: one row per compared column, against a second grid. It replaces the pipeline.</td></tr>
           <tr><td class="name">with</td><td class="type"><a href="#type-Grid">Grid</a></td><td class="desc">The second grid to compare this one against.</td></tr>
           <tr><td class="name">columns</td><td class="type">string[]</td><td class="desc">Restrict the comparison to these columns. All shared columns by default. <small>(optional)</small></td></tr>
-        </tbody>
-      </table>
-    </div>
-    <h4 id="type-CellParams">CellParams</h4>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="name">text</td><td class="type">string</td><td class="desc">The display text: the value after the column's format and any lookup label — exactly what the cell shows.</td></tr>
-          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The row's display index, counting the grid's own rows: group headings, footers and totals included.</td></tr>
-          <tr><td class="name">props</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Whatever the column's `cell.props` holds, passed through so one renderer can be configured per column. <small>(optional)</small></td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="name">t</td><td class="type">(key: string, vars?: Record&lt;string, unknown&gt;) =&gt; string</td><td class="desc"><code>key: string</code><br><code>vars?: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">Format a message from the grid's catalogue, for a renderer that wants its own accessible names and labels localised rather than hard-coded (§17, WCAG 4.1.2). The built-in renderers use this; a custom renderer may too. Optional: absent when a renderer is exercised without a grid to ask. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>

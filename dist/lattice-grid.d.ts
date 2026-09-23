@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.70.0, type declarations
+ * Lattice Grid 1.71.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -2035,6 +2035,60 @@ export interface Column {
    */
   verticalAlign?: VAlign;
   /**
+   * Merge this column's cell down over the rows beneath it.
+   *
+   * Called with the same `CellParams` bag a renderer or a formatter gets, and
+   * returns how many rows the cell covers. `1` — or anything less, or nothing —
+   * is no merge, which is the default and costs nothing: a grid in which no
+   * column declares `rowSpan` or `colSpan` never runs the merge pass at all.
+   *
+   * The cell is painted once, at its origin, across the rows it covers; the
+   * cells it covers are not painted. A merge stops at a group heading, at a
+   * detail panel and at the last row, so a heading is never swallowed. The
+   * origin carries `aria-rowspan`, keyboard navigation treats the whole block
+   * as one cell, a range that touches any part of it takes all of it, and
+   * CSV/clipboard/Excel write the value at the origin and blanks in the rest
+   * (Excel writes a real merged range).
+   *
+   * The span is recomputed on every render, so it follows the rows: sort or
+   * filter the grid so that the rows a merge covered are no longer adjacent and
+   * the merge changes with them. Keeping merges meaningful — usually by merging
+   * only on the column the grid is sorted or grouped by — is the host's part of
+   * the bargain.
+   *
+   * A merge whose origin scrolls more than 50 rows above the viewport cannot be
+   * found by the renderer's bounded look-back; it is reported once and drawn
+   * from the first row in range.
+   */
+  rowSpan?: (p: CellParams) => number;
+  /**
+   * Merge this column's cell across the columns to its right.
+   *
+   * Called with the same `CellParams` bag as {@link Column.rowSpan}, and returns
+   * how many columns the cell covers. `1` or less is no merge.
+   *
+   * The merge is clipped at a pinned-region boundary — the start, centre and
+   * end regions scroll independently, so a cell cannot straddle them — and at
+   * the last column. Everything else matches `rowSpan`: the origin carries
+   * `aria-colspan`, the covered cells are not painted, and the exports write the
+   * value once.
+   */
+  colSpan?: (p: CellParams) => number;
+  /**
+   * Whether this column takes part in the filter row.
+   *
+   * Opt-out only: `false` leaves this column's filter cell empty when the grid
+   * draws the row, which is what a free-text notes column or a column the user
+   * is not meant to narrow on wants. It cannot bring the row into existence on
+   * its own — a row drawn for one column and blank for the rest is not
+   * something any host asked for — so the grid-level `filterRow` is what
+   * decides whether there is a row at all.
+   *
+   * A column whose `filter.enabled` is `false` has no cell either way; there is
+   * nothing to type into.
+   */
+  filterRow?: boolean;
+  /**
    * When this leaf column is shown, the same union `ColumnGroup` declares. A leaf reads its own `showWhen` exactly as a group
    * reads its own — `open`/`closed` tie the leaf to an ancestor group's
    * collapsed state, `always` (the default) shows it regardless — so tying a
@@ -3640,6 +3694,19 @@ export interface GridConfig {
    * row selection, and no cell ranges or fill handle either.
    */
   selection?: SelectionConfig | 'single' | 'multiple' | 'none';
+  /**
+   * Width of the generated `selection.checkbox` column, in pixels. Default 44
+   * — a checkbox, its focus ring and the cell padding, and no room for
+   * anything else, so a width is only worth setting for a denser or larger
+   * checkbox theme.
+   */
+  selectionColumnWidth?: number;
+  /**
+   * Which edge the generated `selection.checkbox` column pins to. Default
+   * `'start'` — leading the group column, ahead of everything the reader
+   * scrolls past, so a selection control never has to be scrolled back to.
+   */
+  selectionColumnPin?: Edge;
   /** Editing, and how a change is committed and validated. */
   edit?: EditConfig | boolean;
   /** Page the rows rather than scrolling them. */
@@ -4072,6 +4139,29 @@ export interface GridConfig {
    */
   headerControls?: HeaderControlsVisibility;
   /**
+   * Draw a filter row directly under the column headings.
+   *
+   * One inline filter cell per column, below the column groups and above the
+   * pinned rows, in every pinned region. Each cell is the inline form of that
+   * column's own filter: a box with the operator implied — contains for text,
+   * equals for a number, and for a date equals means "on that day" — plus a
+   * small picker for the other single-operand operators; a tri-state box for a
+   * boolean; and a chip that opens the column's own filter popup for a set or
+   * multi column, whose value list belongs in the popup.
+   *
+   * It writes the one filter model, `grid.filters`, through the same path the
+   * column menu writes: the menu shows what was typed in the row and the row
+   * shows what was set in the menu, `state.get()` round-trips it because the
+   * filter tree *is* the state, and a pushdown source receives exactly the
+   * condition the menu would have sent.
+   *
+   * Unaffected by `headerControls: 'none'` and by `showColumnFunctions: false`.
+   * Those govern the chrome a heading carries; the filter row is data entry,
+   * and this key is the only thing that decides whether it is drawn. A column
+   * opts itself out with its own `filterRow: false`.
+   */
+  filterRow?: boolean;
+  /**
    * Row height in pixels, or a function of the row. A function makes the
    * grid measure rather than assume, which costs a pass over what is on
    * screen: worth it for wrapped text, wasteful for a uniform grid.
@@ -4333,6 +4423,15 @@ export interface GridConfig {
   columnMenu?: boolean | ((p: ColumnMenuParams, defaults: MenuItem[]) => MenuItem[] | void);
 
   /**
+   * How a column-resize drag previews its result. `'live'` (the default)
+   * resizes the column as the pointer moves; `'deferred'` draws a guide line
+   * at the pointer instead and commits the new width only on release — the
+   * cheaper choice on a grid wide enough that a live resize repaints more
+   * than the drag is worth.
+   */
+  resizePreview?: 'live' | 'deferred';
+
+  /**
    * Chart a selected cell range — the spreadsheet "chart this selection"
    * gesture. Off by default, so a grid opts in.
    *
@@ -4449,6 +4548,29 @@ export interface GridConfig {
   rowClass?: string | string[] | ((p: RowStyleParams) => string | string[]);
   /** Inline styles for every row. Camel-case or hyphenated property names. */
   rowStyle?: CellStyle | ((p: RowStyleParams) => CellStyle);
+  /**
+   * A synthetic row-number column, pinned left before the selection checkbox
+   * column when one is configured — the same generated-column
+   * mechanism the checkbox uses, not a second one. The number is the row's
+   * 1-based position among the visible rows, after sort, filter and grouping:
+   * a group heading is not numbered and its leaves continue the count across
+   * it, and pinned-top rows are numbered first. Read-only; not sortable,
+   * filterable, groupable or movable; excluded from a saved view's column
+   * state and from `columns.state()`; excluded from CSV/Excel/clipboard export
+   * unless the export call opts in with `{ rowNumbers: true }`.
+   *
+   * `true` for the defaults. An object fixes the width (unset auto-fits the
+   * largest number), moves where numbering starts, or gives the header a
+   * title (empty by default).
+   */
+  rowNumbers?: boolean | {
+    /** A fixed column width in pixels. Unset auto-fits the largest number. */
+    width?: number;
+    /** The number given to the first row. Default `1`; `0` numbers from zero. */
+    start?: number;
+    /** Header text. Empty by default. */
+    title?: string;
+  };
   /**
    * Dock the side panels against the grid: columns, filters, views, quick
    * search and formatting. The columns panel is where row grouping, values and
@@ -7598,6 +7720,13 @@ export interface CsvExportOptions {
    */
   hidden?: boolean;
   /**
+   * Include the `rowNumbers` column. Off by default, like
+   * `export: { csv: false, excel: false }` on every generated column — a
+   * position marker is not data the caller asked to export until this flag
+   * says otherwise.
+   */
+  rowNumbers?: boolean;
+  /**
    * Which rows to export: `'visible'` (the default — what the filters and sort
    * leave), `'all'`, or `'selected'`.
    */
@@ -7727,6 +7856,11 @@ export interface ClipboardOptions {
    * on when your users paste the clipboard into Excel or Google Sheets.
    */
   sanitise?: boolean;
+  /**
+   * Include the `rowNumbers` column, the same opt-in CSV
+   * and Excel export use.
+   */
+  rowNumbers?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -11466,6 +11600,42 @@ declare global {
    */
   // eslint-disable-next-line no-var -- an ambient global is only a global as a var
   var LatticeGrid: LatticeGridGlobal;
+
+  /**
+   * Loading a module from a plain `<script src>` (§20).
+   *
+   * `tools/build.js`'s `UMD_MODULES` decides, per module, whether its script
+   * merges onto `window.LatticeGrid` (the core-sharing modules — charts,
+   * devtools, dhtmlx-compat, the web component, and every chart extension) or
+   * takes a global of its own. The four below are the ones that take their
+   * own and were still untyped: a page loading `kpi.umd.js` and writing
+   * `LatticeGridKPI.createKPI(...)` had no completion and no error under
+   * `noImplicitAny`, same as `LatticeGrid` itself was before.
+   * Every framework adapter (React, Vue, Svelte, Angular), `htmx`, `ai`,
+   * `tabs` and `layout` also take their own global and remain untyped here —
+   * a follow-up card's scope, not this one's.
+   *
+   * Each is `typeof import('lattice-grid/modules/…')`, so a member added to
+   * that module's own ambient declaration is picked up here without the
+   * global's shape being maintained twice.
+   */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridKPI: typeof import('lattice-grid/modules/kpi');
+  /** The Data Router module's script-tag global. */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridDataRouter: typeof import('lattice-grid/modules/data-router');
+  /** The mock WebSocket module's script-tag global. */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridMockSocket: typeof import('lattice-grid/modules/mock-socket');
+  /** The Gantt module's script-tag global. */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridGantt: typeof import('lattice-grid/modules/gantt');
+  /** The Kanban / board module's script-tag global. */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridKanban: typeof import('lattice-grid/modules/kanban');
+  /** The alarms module's script-tag global. */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridAlarms: typeof import('lattice-grid/modules/alarms');
 }
 
 /** The default British English catalogue. */
@@ -11553,6 +11723,16 @@ export type ChartType =
   | 'pie' | 'donut' | 'sunburst' | 'treemap'
   | 'radar' | 'gauge' | 'funnel' | 'candlestick' | 'geomap'
   | 'sankey' | 'chord' | 'network' | 'stream' | 'marimekko' | 'violin' | 'gantt';
+
+/**
+ * A built-in colour scheme's name, as `scheme: '…'` or `registerScheme`'s
+ * first argument names one of `SCHEMES` — `'default'` (Okabe–Ito, checked
+ * against the common colour-vision deficiencies), `'bright'`, `'earth'` and
+ * `'mono'` (checked to survive a greyscale print). A host's own
+ * `registerScheme` name is a plain `string` alongside these, so `scheme` also
+ * accepts one it is not enumerable here.
+ */
+export type ChartSchemeName = 'default' | 'bright' | 'earth' | 'mono';
 
 /** A measure a chart reduces, when the chart is not given a bare `y`. */
 /** The mark a combo chart's measure draws with. */
@@ -11897,8 +12077,12 @@ export interface ChartSpec {
   end?: string;
   /** A heading above the plot, drawn in the figure's caption alongside any `subtitle`. */
   title?: string;
-  /** A named scheme, or an array of colours. */
-  scheme?: string | string[];
+  /**
+   * A named scheme, or an array of colours. The built-in names are
+   * {@link ChartSchemeName} (`'default'`, `'bright'`, `'earth'`, `'mono'`);
+   * a name registered with `registerScheme` is a plain string alongside them.
+   */
+  scheme?: ChartSchemeName | string | string[];
   /**
    * Show the series legend. The object form places it, and `isolate` lets a click on a
    * legend entry show that series alone.

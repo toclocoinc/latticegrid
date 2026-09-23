@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>KPI API Reference — Lattice Grid 1.70.0</title>
+<title>KPI API Reference — Lattice Grid 1.71.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -403,6 +403,7 @@
         <a href="grid.html">The grid</a>
         <a href="charts.html">The charts module</a>
         <a href="data-router.html">The data router</a>
+        <a href="alarms.html">The alarms module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="tabs.html">The tabbed grid</a>
@@ -428,7 +429,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 13 pages</a></span>
+      <span class="chip"><a href="index.html">All 14 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -850,6 +851,21 @@ kpi.rows.apply({ add: [{ id: 'e1', severity: 3 }, { id: 'e2', severity: 2 }] });
           <tr><td class="name">tile:contextmenu</td><td class="type"><a href="#type-KPIEvent">KPIEvent</a></td><td class="desc">The tile the menu was asked for, its id, its node on a tree panel, and the DOM event.</td></tr>
           <tr><td class="name">node:toggle</td><td class="type"><a href="#type-KPINodeToggleEvent">KPINodeToggleEvent</a></td><td class="desc">Which branch moved and which way.</td></tr>
           <tr><td class="name">change</td><td class="type"><a href="#type-KPIChangeEvent">KPIChangeEvent</a></td><td class="desc">The rebuilt model.</td></tr>
+          <tr><td class="name">tile:status</td><td class="type"><a href="#type-KPITileStatusEvent">KPITileStatusEvent</a></td><td class="desc">Which tile moved, where from, where to, and what it now reads.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KPITileStatusEvent">KPITileStatusEvent</h4>
+    <p class="section-note">A tile crossed a threshold (BACKLOG-0001434). The event an alarm system is fed from: one per transition, rather than the whole model on every refresh. `lattice-grid/modules/alarms` consumes exactly this.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The tile's identity — its configured `id`, else its label, else its index.</td></tr>
+          <tr><td class="name">status</td><td class="type"><a href="types.html#type-KpiRollupStatus">KpiRollupStatus</a> | null</td><td class="desc">The status it now reads, or null when the tile declares no thresholds or bands.</td></tr>
+          <tr><td class="name">previous</td><td class="type"><a href="types.html#type-KpiRollupStatus">KpiRollupStatus</a> | null</td><td class="desc">The status it held before this transition, or null when it had none — the first reading of a tile, or a tile that has just been added.</td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The tile's value at the transition, or null when it measured nothing.</td></tr>
+          <tr><td class="name">at</td><td class="type">number</td><td class="desc">When the transition was observed, as a millisecond timestamp.</td></tr>
         </tbody>
       </table>
     </div>
@@ -954,6 +970,7 @@ kpi.rows.apply({ add: [{ id: 'e1', severity: 3 }, { id: 'e2', severity: 2 }] });
           <tr><td class="name">tile:contextmenu</td><td class="desc">A context menu was requested on a tile.</td><td class="type"><a href="#type-KPIEvent">KPIEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">node:toggle</td><td class="desc">A branch of a hierarchical panel was expanded or collapsed, by the host or by a click on its twisty.</td><td class="type"><a href="#type-KPINodeToggleEvent">KPINodeToggleEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">change</td><td class="desc">The panel rebuilt its model — new rows, a changed configuration, or a followed grid event.</td><td class="type"><a href="#type-KPIChangeEvent">KPIChangeEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">tile:status</td><td class="desc">A tile's status moved — it crossed a threshold or a band, went silent, or came back. Fired once per tile per transition, including to and from `unknown`, and before the `change` that carries the rebuilt model; a tile whose status did not move is silent, which is what separates it from `change`.</td><td class="type"><a href="#type-KPITileStatusEvent">KPITileStatusEvent</a></td><td class="desc">no</td></tr>
         </tbody>
       </table>
     </div>

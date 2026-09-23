@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.70.0</title>
+<title>Types API Reference — Lattice Grid 1.71.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -396,6 +396,7 @@
         <a href="charts.html">The charts module</a>
         <a href="data-router.html">The data router</a>
         <a href="kpi.html">The KPI (stat-tile) view</a>
+        <a href="alarms.html">The alarms module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="tabs.html">The tabbed grid</a>
@@ -420,7 +421,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 13 pages</a></span>
+      <span class="chip"><a href="index.html">All 14 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -854,6 +855,7 @@
           <tr><td class="name">headers</td><td class="type">boolean</td><td class="desc">Put a row of column titles above the copied cells. <small>(optional)</small></td></tr>
           <tr><td class="name">rows</td><td class="type"><a href="#type-ExportRowsScope">ExportRowsScope</a> <small class="literals">'visible' | 'all' | 'selected' | 'range'</small></td><td class="desc">What to copy: `'visible'`, `'all'`, `'selected'` rows, or `'range'` for the selected cell rectangle. <small>(optional)</small></td></tr>
           <tr><td class="name">sanitise</td><td class="type">boolean</td><td class="desc">Apply the CSV/Excel formula-injection guard to copied cells: prefix a field beginning with `=`, `+`, `-`, `@`, a tab or a CR with an apostrophe so a spreadsheet treats it as text. **Off by default** (unlike CSV/Excel export, which default it on), because the clipboard most often round-trips back into a grid or cell range where the apostrophe would corrupt the value. Turn it on when your users paste the clipboard into Excel or Google Sheets. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowNumbers</td><td class="type">boolean</td><td class="desc">Include the `rowNumbers` column (BACKLOG-0001437), the same opt-in CSV and Excel export use. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -957,6 +959,7 @@
           <tr><td class="name">headers</td><td class="type">boolean</td><td class="desc">Write a header row of column titles. On by default. <small>(optional)</small></td></tr>
           <tr><td class="name">columns</td><td class="type">string[]</td><td class="desc">Which columns to export, by id and in this order. Columns the grid hides, or that opted out with `export.csv: false`, are still excluded. <small>(optional)</small></td></tr>
           <tr><td class="name">hidden</td><td class="type">boolean</td><td class="desc">Include the columns the grid hides, rather than only the visible ones. Off by default. Columns that opted out with `export.csv: false` are still excluded. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowNumbers</td><td class="type">boolean</td><td class="desc">Include the `rowNumbers` column (BACKLOG-0001437). Off by default, like `export: { csv: false, excel: false }` on every generated column — a position marker is not data the caller asked to export until this flag says otherwise. <small>(optional)</small></td></tr>
           <tr><td class="name">rows</td><td class="type">Extract&lt;<a href="#type-ExportRowsScope">ExportRowsScope</a>, 'visible' | 'all' | 'selected'&gt;</td><td class="desc">Which rows to export: `'visible'` (the default — what the filters and sort leave), `'all'`, or `'selected'`. <small>(optional)</small></td></tr>
           <tr><td class="name">sanitise</td><td class="type">boolean | { enabled?: boolean; prefix?: string; characters?: string; keepNumbers?: boolean; }</td><td class="desc">The formula-injection guard, **on by default**: a field beginning with `=`, `+`, `-`, `@`, a tab or a CR is prefixed with an apostrophe, because a spreadsheet would otherwise execute it when the file is opened. `false` turns it off; an object tunes it — `characters` to widen or narrow the set, `prefix` to change the escape, `keepNumbers: true` to leave a field that is entirely a number alone (so a negative currency stays numeric). <small>(optional)</small></td></tr>
           <tr><td class="name">bom</td><td class="type">boolean</td><td class="desc">Emit a UTF-8 byte-order mark, so Excel detects the encoding instead of guessing at it. Off by default. <small>(optional)</small></td></tr>
@@ -2003,6 +2006,18 @@
     <p class="section-note">What to do with an ungrounded figure in an AI narrative: drop it, or flag it in place.</p>
     <p class="type-def"><code>type AIReconcileMode = 'strip' | 'flag'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/ai</code>.</small></p>
+    <h4 id="type-AlarmLevel">AlarmLevel</h4>
+    <p class="section-note">An alarm's level. The KPI panel's own vocabulary, deliberately — `good | warn | critical` — rather than a fifth spelling of red/amber/green beside the four that already exist. Only `warn` and `critical` ARE alarms: `good` is the healthy level and clears whatever was raised.</p>
+    <p class="type-def"><code>type AlarmLevel = <a href="#type-KpiStatus">KpiStatus</a></code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/alarms</code>.</small></p>
+    <h4 id="type-AlarmsEventName">AlarmsEventName</h4>
+    <p class="section-note">The events an alarm set emits.</p>
+    <p class="type-def"><code>type AlarmsEventName = 'alarm:raised' | 'alarm:cleared'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/alarms</code>.</small></p>
+    <h4 id="type-AlarmSource">AlarmSource</h4>
+    <p class="section-note">Which of the three kinds of source an alarm came from.</p>
+    <p class="type-def"><code>type AlarmSource = 'kpi' | 'grid' | 'router'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/alarms</code>.</small></p>
     <h4 id="type-Align">Align</h4>
     <p class="section-note">Cell and header alignment. `left` and `right` are accepted and normalised to `start` and `end`. `start`/`end` follow the writing direction, so they mirror in a right-to-left grid while `left`/`right` stay physical. `centre` is accepted alongside `center`.</p>
     <p class="type-def"><code>type Align = 'start' | 'center' | 'end' | 'left' | 'right' | 'centre'</code></p>
@@ -2050,6 +2065,9 @@
     <h4 id="type-ChartScale">ChartScale</h4>
     <p class="section-note">How a chart axis's scale is chosen, rather than taken from the column's type.</p>
     <p class="type-def"><code>type ChartScale = 'auto' | 'linear' | 'time' | 'band' | 'category'</code></p>
+    <h4 id="type-ChartSchemeName">ChartSchemeName</h4>
+    <p class="section-note">A built-in colour scheme's name, as `scheme: '…'` or `registerScheme`'s first argument names one of `SCHEMES` — `'default'` (Okabe–Ito, checked against the common colour-vision deficiencies), `'bright'`, `'earth'` and `'mono'` (checked to survive a greyscale print). A host's own `registerScheme` name is a plain `string` alongside these, so `scheme` also accepts one it is not enumerable here.</p>
+    <p class="type-def"><code>type ChartSchemeName = 'default' | 'bright' | 'earth' | 'mono'</code></p>
     <h4 id="type-ChartTrendMethod">ChartTrendMethod</h4>
     <p class="section-note">A trend or forecast overlay method (BACKLOG-0000952). Each name has aliases: `linear` (also `lr`, `ols`, `regression`); `movingAverage` (also `ma`, `sma`, `rolling`); `exponential` (also `ewma`, `ses`, `holt`, `smoothing`).</p>
     <p class="type-def"><code>type ChartTrendMethod = 'linear' | 'movingAverage' | 'exponential' | 'lr' | 'ols' | 'regression' | 'ma' | 'sma' | 'rolling' | 'ewma' | 'ses' | 'holt' | 'smoothing'</code></p>
@@ -2342,7 +2360,7 @@
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kpi</code>.</small></p>
     <h4 id="type-KPIEventName">KPIEventName</h4>
     <p class="section-note">The events a KPI panel raises. The panel's own, not the grid's: `grid.on` takes {@link EventName} and knows nothing about these, and a grid-bound panel follows the grid's events itself rather than re-publishing them. `on()` warns once on any other name, because a binding to an event that can never fire is a silent no-op.</p>
-    <p class="type-def"><code>type KPIEventName = 'tile:click' | 'tile:dblclick' | 'tile:contextmenu' | 'node:toggle' | 'change'</code></p>
+    <p class="type-def"><code>type KPIEventName = 'tile:click' | 'tile:dblclick' | 'tile:contextmenu' | 'node:toggle' | 'change' | 'tile:status'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kpi</code>.</small></p>
     <h4 id="type-KPIFormat">KPIFormat</h4>
     <p class="section-note">Number formatting for a tile value. `percent` treats the value as a ratio (0.42 → 42%).</p>

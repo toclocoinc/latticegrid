@@ -772,6 +772,8 @@ function uid(prefix = 'l') {
 const VIEWER_EVENTS$1 = Object.freeze({
     kpi: Object.freeze([
         'tile:click', 'tile:dblclick', 'tile:contextmenu', 'node:toggle', 'change',
+
+        'tile:status',
     ]),
     kanban: Object.freeze([
         'card:click', 'card:dblclick', 'card:contextmenu',
@@ -2256,6 +2258,8 @@ class LatticeKpiComponent extends LatticeViewerBase {
 
         this.nodeToggle = new EventEmitter();
 
+        this.tileStatus = new EventEmitter();
+
         this.change = new EventEmitter();
     }
 
@@ -2268,7 +2272,7 @@ class LatticeKpiComponent extends LatticeViewerBase {
         return createKPI(element, config);
     }
     static { this.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeKpiComponent, deps: null, target: i0.ɵɵFactoryTarget.Component }); }
-    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeKpiComponent, isStandalone: true, selector: "lattice-kpi", inputs: { config: "config", rows: "rows" }, outputs: { tileClick: "tile-click", tileDblclick: "tile-dblclick", tileContextmenu: "tile-contextmenu", nodeToggle: "node-toggle", change: "change" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
+    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeKpiComponent, isStandalone: true, selector: "lattice-kpi", inputs: { config: "config", rows: "rows" }, outputs: { tileClick: "tile-click", tileDblclick: "tile-dblclick", tileContextmenu: "tile-contextmenu", nodeToggle: "node-toggle", tileStatus: "tile-status", change: "change" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
 }
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeKpiComponent, decorators: [{
             type: Component,
@@ -2289,6 +2293,9 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
             }], nodeToggle: [{
                 type: Output,
                 args: ['node-toggle']
+            }], tileStatus: [{
+                type: Output,
+                args: ['tile-status']
             }], change: [{
                 type: Output
             }] } });
