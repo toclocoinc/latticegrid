@@ -1,9 +1,12 @@
 /*!
- * Lattice Grid 1.69.0, tabs module type declarations
+ * Lattice Grid 1.70.0, tabs module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 import type {
+  DerivedRefresh,
+  FollowScope,
+  ViewerOrigin,
   createGrid,
   createHeadlessGrid,
 } from '../lattice-grid.js';
@@ -15,6 +18,8 @@ import type {
  * The derivation keys are the ones `packages/core/src/source/derive.js`
  * already understands; this module invents none of its own.
  */
+/** A tab's count-badge tone, declared by the host rather than derived from a threshold. */
+export type BadgeTone = 'good' | 'warn' | 'bad' | 'unknown';
 interface TabDescriptor {
   /** A stable, unique id. Required. */
   id: string;
@@ -50,11 +55,11 @@ interface TabDescriptor {
   /** Array-field unnesting forwarded to the derived source. */
   unnest?: unknown;
   /** `'live' | 'idle' | 'manual' | number` forwarded to the derived source. */
-  refresh?: 'live' | 'idle' | 'manual' | number;
+  refresh?: DerivedRefresh | number;
   /** Cross-filter wiring forwarded to the derived source. */
   crossFilter?: unknown;
   /** Which slice of the parent's rows to derive from: `'filtered' | 'all' | 'selected' | 'grouped'`. */
-  follow?: 'filtered' | 'all' | 'selected' | 'grouped';
+  follow?: FollowScope;
   /** Row limit forwarded to the derived source. */
   limit?: number;
   /** Sort forwarded to the derived source. */
@@ -68,7 +73,7 @@ interface TabDescriptor {
   /** A count badge. `true` shows this tab's own live row count and follows it; a number or string is static; a function is given the live count and returns what to show (`null` hides it). Off when absent. */
   badge?: true | number | string | ((count: number | null, tab: { id: string; label: string; from: string | null }) => unknown);
   /** The badge's tone, declared by the host rather than derived from a threshold: `'good' | 'warn' | 'bad' | 'unknown'`, or a function of the live count returning one. */
-  badgeTone?: 'good' | 'warn' | 'bad' | 'unknown' | ((count: number | null, tab: { id: string; label: string; from: string | null }) => 'good' | 'warn' | 'bad' | 'unknown' | null);
+  badgeTone?: BadgeTone | ((count: number | null, tab: { id: string; label: string; from: string | null }) => BadgeTone | null);
 }
 
 /**
@@ -93,7 +98,7 @@ interface TabChangeEvent {
    * `activate()`. The opening tab is activated silently, so it raises no
    * `beforeTabChange` at all.
    */
-  origin: 'api' | 'user';
+  origin: ViewerOrigin;
   /** The reason given to `preventDefault`, or null while nothing has refused the switch. */
   reason: string | null;
   /** True once a handler has refused the switch. */
@@ -131,7 +136,7 @@ interface TabChangeCancelledEvent {
   /** The tab that is still active, or null when none was. */
   previousId: string | null;
   /** Who asked for the switch that was refused. */
-  origin: 'api' | 'user';
+  origin: ViewerOrigin;
   /** The reason given to `preventDefault`, or `'prevented'` when none was. */
   reason: string;
 }

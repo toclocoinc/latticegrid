@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.69.0, kpi module type declarations
+ * Lattice Grid 1.70.0, kpi module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -19,6 +19,8 @@ type KPIFormat =
  * default) makes a value at/above `warn` good, at/above `critical` a warning,
  * below it critical; `lowerIsBetter` mirrors it. Colour is a host concern.
  */
+/** Which way is good for a KPI threshold: a higher value, or a lower one. */
+export type KpiThresholdDirection = 'higherIsBetter' | 'lowerIsBetter';
 interface KPIThresholds {
   /**
    * The cut point between good and warning. With the default `higherIsBetter`, a value at
@@ -34,9 +36,11 @@ interface KPIThresholds {
    * Which way is good. `higherIsBetter` (the default) grades upwards from the cut points;
    * `lowerIsBetter` mirrors them, so a small value is the healthy one.
    */
-  direction?: 'higherIsBetter' | 'lowerIsBetter';
+  direction?: KpiThresholdDirection;
 }
 
+/** A KPI tile or node's status: good, a warning, or critical — never `unknown`. */
+export type KpiStatus = 'good' | 'warn' | 'critical';
 /** An explicit band: the `status` of the first band whose half-open `[min, max)` contains the value. */
 interface KPIBand {
   /** The lower bound, inclusive. Omitted, the band reaches down without limit. */
@@ -47,7 +51,7 @@ interface KPIBand {
    * The status a value inside this band reports. The first matching band in the list
    * wins, so order them from the narrowest.
    */
-  status: 'good' | 'warn' | 'critical';
+  status: KpiStatus;
 }
 
 /** An optional sparkline series: the `y` field plotted in order of the `x` field (or insertion). */
@@ -65,6 +69,8 @@ interface KPISparkline {
 }
 
 /** An aggregate stat tile: the routed rows reduced to one number, with optional filter, format, threshold and trend. */
+/** What a movement line prints: the difference alone, the percentage alone, or both. */
+export type DeltaMode = 'absolute' | 'relative' | 'both';
 interface KPIStatTile {
   /** Absent, or `'stat'`: the default tile kind. */
   kind?: 'stat';
@@ -94,7 +100,7 @@ interface KPIStatTile {
    * it. The arrow and its colour follow the sign of the difference either
    * way.
    */
-  delta?: 'absolute' | 'relative' | 'both';
+  delta?: DeltaMode;
   /** Threshold bands, either two cut points or an explicit band list. */
   thresholds?: KPIThresholds;
   /** Explicit status bands (an alternative to `thresholds`). */
@@ -186,6 +192,8 @@ interface KPITreeConfig {
  * warning underneath it — and is surfaced as `unknown`, a count of the
  * descendants that measured nothing, so neither can pass unnoticed.
  */
+/** A KPI tile or node's status including the "measured nothing" state. */
+export type KpiRollupStatus = 'good' | 'warn' | 'critical' | 'unknown';
 interface KPINodeModel {
   /** The node's stable identity: the tile id, or the path of a synthesised level. */
   key: string;
@@ -224,15 +232,17 @@ interface KPINodeModel {
   /** The node's reading as text, formatted by its tile. Null on a synthesised level. */
   formatted: string | null;
   /** The node's own status. */
-  status: 'good' | 'warn' | 'critical' | 'unknown' | null;
+  status: KpiRollupStatus | null;
   /** The worst status at or below the node. Never `unknown`. */
-  rollup: 'good' | 'warn' | 'critical' | null;
+  rollup: KpiStatus | null;
   /** How many tiles at or below the node measured nothing. */
   unknown: number;
   /** How many tiles are at or below the node. */
   items: number;
 }
 
+/** Which kind of tile a computed KPI tile is: an aggregate stat, or a clock. */
+export type KpiTileKind = 'stat' | 'clock';
 /** A computed tile, as it appears in the model. */
 interface KPITileModel {
   /** The tile's identity — its configured `id`, else its label, else its index. */
@@ -240,7 +250,7 @@ interface KPITileModel {
   /** The tile's accessible name, as configured. */
   label: string;
   /** `'stat'` for an aggregate tile, `'clock'` for a clock tile. */
-  kind: 'stat' | 'clock';
+  kind: KpiTileKind;
   /**
    * How the value was reduced: `sum`, `avg`, `min`, `max`, `count`, `countDistinct` or
    * `custom`.
@@ -264,13 +274,25 @@ interface KPITileModel {
    * operation (`sum` and `count` return 0), and 0 is a number a threshold
    * grades, so without it an empty panel would report as a healthy one.
    *
-   * Two things make a tile `unknown`: the panel holds no rows at all, or the
+   * Three things make a tile `unknown`: the panel holds no rows at all; the
    * tile's `field` names no column on the bound grid, so it never read a cell
-   * to reduce over. A tile whose `filter` matches none of the rows the panel
-   * *does* hold is neither — it has measured a real zero and is banded
-   * normally. `null` means the tile has no thresholds or bands configured.
+   * to reduce over; or the panel declares a `maxAge` and its feed has been
+   * silent for longer than that, so every row it could reduce over is older
+   * than the panel was told to trust (`stale` says which of the last two
+   * this is). A tile whose `filter` matches none of the rows the panel *does*
+   * hold, while its feed is fresh, is none of them — it has measured a real
+   * zero and is banded normally. `null` means the tile has no thresholds or
+   * bands configured.
    */
-  status: 'good' | 'warn' | 'critical' | 'unknown' | null;
+  status: KpiRollupStatus | null;
+  /**
+   * Whether this tile's `unknown` is a **silence** rather than an emptiness:
+   * the panel holds rows, and none of them is inside the `maxAge` window it
+   * declared. False on every tile of a panel that declares no `maxAge`, on an
+   * empty panel (where "nothing has arrived" is the truthful reading), and
+   * always on a clock tile.
+   */
+  stale: boolean;
   /**
    * The tile's target, as configured. It also extends the meter's scale when it falls
    * outside the bands. Undefined on a clock tile.
@@ -291,7 +313,7 @@ interface KPITileModel {
    */
   deltaFormatted?: string;
   /** What the movement line prints; see `KPIStatTile.delta`. Always present once `baseline` is. */
-  deltaMode?: 'absolute' | 'relative' | 'both';
+  deltaMode?: DeltaMode;
   /**
    * How many of the panel's rows this tile's filter admitted — its own membership, which
    * may be 0 while the panel holds rows. Always 0 on a clock tile.
@@ -423,6 +445,35 @@ interface KPIConfig {
    * aggregation returned nothing. Defaults to an em dash.
    */
   nullText?: string;
+  /**
+   * How long, in milliseconds, the panel keeps grading what it holds after
+   * its feed last spoke. Past it, with nothing recent, every stat tile
+   * reports `unknown` with a null value whatever its own membership, so a
+   * silent feed cannot read as a healthy zero under `lowerIsBetter` cut
+   * points (or as an alarm under `higherIsBetter` ones); each tile carries
+   * `stale: true` and the panel captions it "No recent data". Grading
+   * resumes the moment the feed speaks again.
+   *
+   * The same word, and the same meaning, `SourceConfig.maxAge` carries for a
+   * rolling window. Unset, the panel judges no freshness at all: an empty
+   * panel still reports `unknown`, and everything else is graded however old
+   * it is.
+   */
+  maxAge?: number;
+  /**
+   * Which clock `maxAge` reads: a column id (or dotted path), or a function
+   * of the row, naming the data's own time — on a grid-bound panel it is
+   * projected onto the rows for you. Omitted, `maxAge` measures **arrival**
+   * instead: when rows last reached this panel, through `rows.apply`,
+   * `setRows`, or the bound grid announcing that its own rows changed. A
+   * filter, a sort, an expansion and a `refresh()` are not arrivals, so a
+   * live feed whose rows are all filtered out of view reports the empty
+   * panel's `unknown` rather than a silence.
+   *
+   * The same option, with the same two meanings, `SourceConfig.ageBy` has.
+   * Without `maxAge` it reads nothing and says so once.
+   */
+  ageBy?: string | ((row: KPIRow) => unknown);
   /**
    * The default locale a clock tile formats in when the tile itself declares
    * none; falls back to the browser's default. No effect

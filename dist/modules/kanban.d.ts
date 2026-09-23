@@ -1,8 +1,12 @@
 /*!
- * Lattice Grid 1.69.0, kanban module type declarations
+ * Lattice Grid 1.70.0, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
+import type {
+  EventOrigin,
+} from '../lattice-grid.js';
+
 /** A row backing a card: any object. Its column comes from `columnProperty` and its identity from `rowKey`. */
 type KanbanRow = Record<string, unknown>;
 
@@ -223,6 +227,10 @@ type KanbanSlaThreshold = number | {
   ms?: number; milliseconds?: number;
 };
 
+/** Where a card's ageing clock starts: in its current column, or since it arrived on the board. */
+export type SlaAgeingBasis = 'column' | 'board';
+/** Whether a card's age chip shows always, or only once it reaches warn or breach. */
+export type SlaAgeChipVisibility = 'always' | 'threshold';
 /**
  * Card-aging / SLA configuration. A card is measured against a
  * `warn` and a `breach` threshold; the view puts an age chip on aged cards and a
@@ -245,7 +253,7 @@ interface KanbanSlaConfig {
    * card's current column; `'board'` measures age since the card arrived/was
    * created.
    */
-  basis?: 'column' | 'board';
+  basis?: SlaAgeingBasis;
   /** A row property holding the wall-clock time the card entered its column. */
   enteredProperty?: string;
   /** A row property holding the wall-clock time the card was created. */
@@ -255,7 +263,7 @@ interface KanbanSlaConfig {
   /** Whether the flow transition log drives the ageing basis when present (default true). */
   useTransitionLog?: boolean;
   /** Show the age chip on every aged card (`'always'`), or only on warn/breach (`'threshold'`, default). */
-  showAge?: 'always' | 'threshold';
+  showAge?: SlaAgeChipVisibility;
   /** A wall-clock epoch clock, injectable for deterministic tests (default `Date.now`). */
   now?: () => number;
   /** A re-check interval in ms so a card breaching by sitting still still lights up (0 = off). */
@@ -266,6 +274,8 @@ interface KanbanSlaConfig {
   onBreach?: (level: 'warn' | 'breach', rows: KanbanRow[]) => void;
 }
 
+/** An SLA threshold classification: on time, past the warn threshold, or past the breach one. */
+export type ThresholdLevel = 'ok' | 'warn' | 'breach';
 /** The computed SLA state of one card. */
 interface KanbanSlaState {
   /** The card this ageing state belongs to. */
@@ -291,7 +301,7 @@ interface KanbanSlaState {
   /** The resolved breach threshold in ms, or null. */
   breachMs: number | null;
   /** The classified level, or null when the card cannot be aged. */
-  level: 'ok' | 'warn' | 'breach' | null;
+  level: ThresholdLevel | null;
   /** True when `level` is `'breach'`. */
   breached: boolean;
 }
@@ -490,6 +500,8 @@ interface KanbanConfig {
  * `load(card)` result. Recursion falls out: a nested board can pop its own
  * children.
  */
+/** Where a card's pop-out child view appears. */
+export type Presentation = 'drawer' | 'modal' | 'inline';
 interface KanbanChildren {
   /** Parent-id property linking child rows to a card within the same dataset. */
   property?: string;
@@ -498,7 +510,7 @@ interface KanbanChildren {
   /** Whether a card can be expanded, overriding the property/load inference. */
   hasChildren?: (card: KanbanCard) => boolean;
   /** Where the pop-out appears (default `drawer`). */
-  present?: 'drawer' | 'modal' | 'inline';
+  present?: Presentation;
   /** The grid factory (a `createGrid`) that builds the child grid. */
   factory?: (container: HTMLElement, options: object) => { destroy?: () => void };
   /** Make the child a nested board (recursive) instead of a grid. */
@@ -542,7 +554,7 @@ interface KanbanMoveEvent {
    */
   orders: number[] | null;
   /** Where the move came from: `'user'` for a drag or keyboard move, `'ai'` for an approved AI proposal, `'api'` for `board.move`. */
-  origin: 'user' | 'api' | 'init' | 'ai';
+  origin: EventOrigin;
   /** The swimlane the cards were moved to, when the gesture named one and a swimlane property is configured. */
   lane?: unknown;
 }
@@ -552,7 +564,7 @@ interface KanbanBeforeEvent {
   /** The event's own name. */
   type: string;
   /** Where the action came from. */
-  origin: 'user' | 'api' | 'init' | 'ai';
+  origin: EventOrigin;
   /** Cancel the pending action; the reason is surfaced on the matching `<action>:cancelled`. */
   preventDefault(reason?: string): void;
   /** True once any handler has cancelled it. */
@@ -574,7 +586,7 @@ interface KanbanCardEditEvent {
   /** The value being written. */
   value: unknown;
   /** Where the edit came from. */
-  origin: 'user' | 'api' | 'init' | 'ai';
+  origin: EventOrigin;
 }
 
 /** `beforeEdit`: an inline card edit is about to be written. */
@@ -620,7 +632,7 @@ interface KanbanAddCancelledEvent {
   /** The seed values that were not written. */
   seed: Record<string, unknown>;
   /** Where the append came from. */
-  origin: 'user' | 'api' | 'init' | 'ai';
+  origin: EventOrigin;
   /** The reason given to `preventDefault`, or `'prevented'`. */
   reason: string;
 }
@@ -673,7 +685,7 @@ interface KanbanCardRevertedEvent {
   /** The order values that had been computed, or null. */
   orders: number[] | null;
   /** Where the move came from, on the two board-side reverts. */
-  origin?: 'user' | 'api' | 'init' | 'ai';
+  origin?: EventOrigin;
   /** True on the grid-side revert, which reports it explicitly. */
   reverted?: boolean;
   /** Why the grid reverted the cell, on the grid-side revert. */
@@ -715,7 +727,7 @@ interface KanbanBeforeColumnChangeEvent extends KanbanBeforeEvent {
 /** `columnChange:cancelled`: a `beforeColumnChange` handler refused it. */
 interface KanbanColumnChangeCancelledEvent extends KanbanColumnCollapseEvent {
   /** Where the change came from. */
-  origin: 'user' | 'api' | 'init' | 'ai';
+  origin: EventOrigin;
   /** The reason given to `preventDefault`, or `'prevented'`. */
   reason: string;
 }
@@ -743,7 +755,7 @@ interface KanbanBeforeOrderEvent extends KanbanBeforeEvent {
 /** `columnReorder:cancelled` and `laneReorder:cancelled`: a handler refused the order. */
 interface KanbanOrderCancelledEvent extends KanbanOrderEvent {
   /** Where the reorder came from. */
-  origin: 'user' | 'api' | 'init' | 'ai';
+  origin: EventOrigin;
   /** The reason given to `preventDefault`, or `'prevented'`. */
   reason: string;
 }
@@ -777,7 +789,7 @@ interface KanbanCardExpandEvent {
   /** Its child rows, as the children loader returned them. */
   rows: Record<string, unknown>[];
   /** How they are being presented. */
-  present: 'drawer' | 'modal' | 'inline';
+  present: Presentation;
 }
 
 /** `card:drill`: a card was expanded from inside an already-open detail. */
@@ -815,9 +827,9 @@ interface KanbanSlaEvent {
   /** The card, or null when it is no longer on the board. */
   card: KanbanCard | null;
   /** The level it has just reached. */
-  level: 'ok' | 'warn' | 'breach' | null;
+  level: ThresholdLevel | null;
   /** The level it was at before this crossing. */
-  previous: 'ok' | 'warn' | 'breach' | null;
+  previous: ThresholdLevel | null;
   /** Its age in ms, or null when unknown. */
   ageMs: number | null;
   /** A short human age label (`2d`, `5h`, …). */

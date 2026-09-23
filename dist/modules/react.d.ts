@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.69.0, react module type declarations
+ * Lattice Grid 1.70.0, react module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -12,6 +12,7 @@ import type {
   Row,
   RowChange,
   SortEntry,
+  ViewerKind,
   createGrid,
 } from '../lattice-grid.js';
 
@@ -28,6 +29,11 @@ export type PascalJoin<E extends string> =
   E extends `${infer Head}:${infer Tail}`
     ? `${Capitalize<Head>}${PascalJoin<Tail>}`
     : Capitalize<E>;
+/**
+ * The React prop name for one grid event: `'rows:changed'` is
+ * `onRowsChanged`. The pair with {@link PascalJoin} is what lets an editor
+ * complete the props of `<LatticeGrid>` from the event union itself.
+ */
 export type HandlerProp<E extends string> = `on${PascalJoin<E>}`;
 
 /** Every grid event as a React callback prop, each receiving the `GridEvent`. */
@@ -231,7 +237,7 @@ export type LatticeTabsProps = Record<string, unknown> & {
  */
 export function createLatticeViewer(options: {
   React: unknown;
-  viewer: 'kpi' | 'kanban' | 'tabs' | 'chart' | 'gantt' | 'layout' | 'router';
+  viewer: ViewerKind;
   mount: (el: unknown, config: Record<string, unknown>) => unknown;
   name?: string;
   requires?: string[];

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.69.0, vue module type declarations
+ * Lattice Grid 1.70.0, vue module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -12,6 +12,7 @@ import type {
   Row,
   RowChange,
   SortEntry,
+  ViewerKind,
   createGrid,
 } from '../lattice-grid.js';
 
@@ -270,7 +271,7 @@ export type LatticeVueTabsProps = Record<string, unknown> & LatticeVueHostProps 
  */
 export function createLatticeViewer(options: {
   vue: unknown;
-  viewer: 'kpi' | 'kanban' | 'tabs' | 'chart' | 'gantt' | 'layout' | 'router';
+  viewer: ViewerKind;
   mount: (el: unknown, config: Record<string, unknown>) => unknown;
   name?: string;
   requires?: string[];

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.69.0, mock-socket module type declarations
+ * Lattice Grid 1.70.0, mock-socket module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -14,13 +14,15 @@ interface FeedChange { op: 'upsert' | 'delete'; row: FeedRow }
  * carries the changes since. The reader parses `event.data` and switches on
  * `kind`, exactly as against a real feed that framed its messages the same way.
  */
+/** Whether a feed message is the opening snapshot, or a delta of changes since. */
+export type FeedMessageKind = 'snapshot' | 'delta';
 interface FeedMessage {
   /**
    * Whether this message opens the feed with a full set of rows
    * (`'snapshot'`, which the feed yields first) or carries changes to apply
    * to what is already there (`'delta'`, every message after it).
    */
-  kind: 'snapshot' | 'delta';
+  kind: FeedMessageKind;
   /** Present on a snapshot: the full opening set of rows. */
   rows?: FeedRow[];
   /** Present on a delta: the changes to apply. */

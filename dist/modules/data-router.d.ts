@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.69.0, data-router module type declarations
+ * Lattice Grid 1.70.0, data-router module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -215,6 +215,8 @@ interface RouterConfig {
  * what to do while the lookup row has not arrived: `hold` the row back,
  * `passthrough` it unjoined, or fill the fields with `null`.
  */
+/** What a fan-in lookup join does with a row while its lookup has not arrived. */
+export type RouterJoinMissing = 'hold' | 'passthrough' | 'null';
 interface RouterJoin {
   /** The id of the registered source holding the lookup rows. */
   from: string;
@@ -247,7 +249,7 @@ interface RouterJoin {
    * with null. Defaults to `passthrough`, which an unrecognised value also falls back to,
    * with a warning.
    */
-  missing?: 'hold' | 'passthrough' | 'null';
+  missing?: RouterJoinMissing;
 }
 
 /**

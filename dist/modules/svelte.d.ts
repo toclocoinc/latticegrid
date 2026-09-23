@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.69.0, svelte module type declarations
+ * Lattice Grid 1.70.0, svelte module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -9,6 +9,7 @@ import type {
   GridConfig,
   GridEvent,
   Row,
+  ViewerKind,
   createGrid,
 } from '../lattice-grid.js';
 
@@ -174,7 +175,7 @@ export function bindGrid(opts: {
  * changed props into it, and rebuilds it onto a different grid.
  */
 export function bindViewer(opts: {
-  viewer: 'kpi' | 'chart' | 'kanban' | 'gantt' | 'layout';
+  viewer: ViewerKind;
   factory: (...args: never[]) => unknown;
   element: unknown;
   registry?: LatticeSvelteGridRegistry | null;

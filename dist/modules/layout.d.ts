@@ -1,9 +1,11 @@
 /*!
- * Lattice Grid 1.69.0, layout module type declarations
+ * Lattice Grid 1.70.0, layout module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 import type {
+  EventOrigin,
+  ViewerOrigin,
   version,
 } from '../lattice-grid.js';
 
@@ -134,7 +136,7 @@ interface LayoutMoveEvent {
    * Who caused it: `user` for a drag, `api` for a call, `init` for the opening
    * arrangement. Defaults to `user`.
    */
-  origin?: 'api' | 'user' | 'init';
+  origin?: Extract<EventOrigin, 'api' | 'user' | 'init'>;
   /**
    * Why it was cancelled — whatever was passed to `preventDefault`, `prevented` when
    * nothing was, or `error` when a handler threw. Null while nothing has cancelled it.
@@ -193,7 +195,7 @@ interface LayoutCloseEvent {
   /** The payload container, handed back so the host can destroy what it mounted. */
   payload?: HTMLElement;
   /** Who caused it: `user` for the close control, `api` for a call. Defaults to `user`. */
-  origin?: 'api' | 'user';
+  origin?: ViewerOrigin;
   /**
    * Why the close was refused — the reason given to `preventDefault`, `prevented` when
    * none was, or `error` when a handler threw.
@@ -225,7 +227,7 @@ interface LayoutWindowMovedEvent {
   /** Where it actually ended up, which under `compact: 'vertical'` may differ from `to`. */
   landed: LayoutPlacement;
   /** Who caused it: `user` for a drag or a keyboard move, `api` for `setWindow`. */
-  origin: 'api' | 'user';
+  origin: ViewerOrigin;
 }
 
 /**
@@ -243,7 +245,7 @@ interface LayoutWindowClosedEvent {
   /** The container itself, handed back so the host can destroy what it mounted. */
   payload: HTMLElement;
   /** Who caused it: `user` for the close control, `api` for a call. */
-  origin: 'api' | 'user';
+  origin: ViewerOrigin;
 }
 
 /**
@@ -258,7 +260,7 @@ interface LayoutMoveCancelledEvent {
   /** Where it would have gone. */
   to: LayoutPlacement;
   /** Who asked for the gesture that was refused: `user` for a drag or keyboard move, `api` for `setWindow`. */
-  origin: 'api' | 'user';
+  origin: ViewerOrigin;
   /** The reason given to `preventDefault`, or `'prevented'`. */
   reason: string;
 }
@@ -273,7 +275,7 @@ interface LayoutCloseCancelledEvent {
   /** The id of its content container. */
   payloadId: string;
   /** Who asked for the close that was refused. */
-  origin: 'api' | 'user';
+  origin: ViewerOrigin;
   /** The reason given to `preventDefault`, or `'prevented'`. */
   reason: string;
 }
@@ -345,6 +347,10 @@ interface LayoutChangedEvent extends LayoutSnapshot {
   cause: string;
 }
 
+/** Whether a layout axis clips its content at the edge or scrolls past it. */
+export type LayoutOverflow = 'static' | 'scroll';
+/** Which way displaced windows are pushed, and floated, when the arrangement compacts. */
+export type LayoutCompaction = 'vertical' | 'horizontal' | 'none';
 /** Dashboard layout configuration. */
 interface LayoutConfig {
   /** Cell columns across the mounted element (default 12). */
@@ -352,9 +358,9 @@ interface LayoutConfig {
   /** Cell rows down the mounted element (default 6). */
   rows?: number;
   /** Horizontal overflow (default `'static'`). */
-  overflowX?: 'static' | 'scroll';
+  overflowX?: LayoutOverflow;
   /** Vertical overflow (default `'static'`). */
-  overflowY?: 'static' | 'scroll';
+  overflowY?: LayoutOverflow;
   /** Fixed column track size, used only when `overflowX` is `'scroll'` (default `'240px'`). */
   columnWidth?: number | string;
   /** Fixed row track size, used only when `overflowY` is `'scroll'` (default `'160px'`). */
@@ -371,7 +377,7 @@ interface LayoutConfig {
    * leaves every placement exactly where it was put. An unrecognised value
    * warns once, naming what it got, and falls back to `'vertical'`.
    */
-  compact?: 'vertical' | 'horizontal' | 'none';
+  compact?: LayoutCompaction;
   /**
    * The default `movable` for every window that does not declare its own
    * (default `false`). This states a default, so `false` takes nothing away

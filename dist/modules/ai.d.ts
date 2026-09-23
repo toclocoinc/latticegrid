@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.69.0, ai module type declarations
+ * Lattice Grid 1.70.0, ai module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -55,13 +55,15 @@ interface AIFact {
  * narrate figures the caller passes through in `facts`; `risk` assembles a
  * project RISK SUMMARY from the separate Gantt / Kanban modules' public outputs.
  */
+/** What an AI narrative targets. */
+export type AIBriefKind = 'view' | 'column' | 'forecast' | 'kpi' | 'chart' | 'risk';
 interface AITarget {
   /**
    * What to narrate. Defaults to `view` — the current filtered view — with `column` and
    * `forecast` narrating one column, `kpi` and `chart` narrating figures you pass in
    * `facts`, and `risk` assembling a project summary from a Gantt and a board.
    */
-  kind?: 'view' | 'column' | 'forecast' | 'kpi' | 'chart' | 'risk';
+  kind?: AIBriefKind;
   /**
    * Which column to narrate, for `column` and `forecast`. A redacted column grounds
    * nothing: the packet comes back empty and flagged as redacted rather than quietly
@@ -159,6 +161,8 @@ interface AIRiskFacts {
   };
 }
 
+/** Which path an AI narrative ran through: tool calls, or an upfront facts packet. */
+export type AINarrativeMode = 'tools' | 'packet';
 /** The result of a narrative: reconciled prose plus what grounded and what did not. */
 interface AINarrative {
   /** The narrative, with every ungrounded figure stripped (or flagged). */
@@ -183,9 +187,11 @@ interface AINarrative {
    * Which path ran: `tools` when the model was given read-only tools to call, `packet`
    * when it was handed the facts up front.
    */
-  mode: 'tools' | 'packet';
+  mode: AINarrativeMode;
 }
 
+/** What to do with an ungrounded figure in an AI narrative: drop it, or flag it in place. */
+export type AIReconcileMode = 'strip' | 'flag';
 /** AI module configuration. */
 interface AIConfig {
   /** The host's model callback. Falls back to the grid's `ai.ask` when omitted. */
@@ -235,7 +241,7 @@ interface AIConfig {
   /** Column cap for a view summary. */
   maxColumns?: number;
   /** What to do with an ungrounded figure: `'strip'` (default) or `'flag'`. */
-  reconcile?: 'strip' | 'flag';
+  reconcile?: AIReconcileMode;
   /** An element to mount the insights panel into. */
   element?: HTMLElement;
   /** Called when a narrative is produced, alongside the `narrative` event. */
@@ -318,13 +324,15 @@ interface AIDiffEntry {
  * edits, VALIDATED and resolved against the current view — never written until
  * a human approves. `apply()` writes ONLY through the grid's own gate.
  */
+/** An AI proposal's row scope: the filtered view, or an opted-in widen to all rows. */
+export type AIProposalScope = 'view' | 'all';
 interface AIProposal {
   /** True when there is at least one applicable change and nothing needs a pick first. */
   ok: boolean;
   /** The user's instruction. */
   instruction: string;
   /** `'view'` (the filtered set, the default) or `'all'` (an opted-in widen). */
-  scope: 'view' | 'all';
+  scope: AIProposalScope;
   /** How many rows the scope covers. */
   scopeCount: number;
   /** The scope in words, always stated in the confirm/diff. */

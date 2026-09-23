@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.69.0</p>
+    <p class="rail__sub">Developer guide · v1.70.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.69.0</span>
+        <span class="chip">Version 1.70.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1493,7 +1493,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.69.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.70.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -2633,9 +2633,11 @@ grid.destroy();
       The per-column header controls &mdash; the sort arrow, the filter funnel and the menu button
       &mdash; appear on hover by default, which keeps a wide header from reading as a row of identical
       icons. <code>headerControls</code> makes that a mode: <code>'hover'</code> (the default,
-      unchanged), <code>'always'</code> to keep them visible, and <code>'hidden'</code> for a clean
-      read-only heading that draws none of them and leaves them out of the tab order. It is a
-      grid-level default; a column's own <code>headerControls</code> overrides it for that column.
+      unchanged), <code>'always'</code> to keep them visible, <code>'hidden'</code> for a clean
+      read-only heading that draws none of them and leaves them out of the tab order, and
+      <code>'none'</code> (BACKLOG-0001423) for a heading that shows its title and nothing else,
+      whatever the grid's state. It is a grid-level default; a column's own <code>headerControls</code>
+      overrides it for that column.
     </p>
     <p class="lead-in">
       Each leaf heading carries the resolved mode as <code>data-controls</code>, and the theme keys
@@ -2644,6 +2646,15 @@ grid.destroy();
       <code>showColumnFunctions: false</code>, which also drops the furniture but keeps sorting,
       filtering and the menu reachable from the keyboard; <code>'hidden'</code> is the read-only
       choice that takes them away outright (BACKLOG-0000982).
+    </p>
+    <p class="lead-in">
+      <code>'hidden'</code> still shows one thing: a read-only sort arrow and multi-sort order number
+      on a column that is actually sorted, so a read-only grid is not silent about its own order
+      (BACKLOG-0000992). <code>'none'</code> removes that too &mdash; no sort badge, no filter badge,
+      no group badge, ever, even when the column is sorted, filtered or grouped programmatically or
+      from a saved view. <code>aria-sort</code> keeps reporting the true state either way; only the
+      visual badge is gone under <code>'none'</code>. It is for a heading that must read the same no
+      matter what else happens to the grid around it &mdash; a fixed dashboard title, say.
     </p>
     <div class="example">
       <p class="example__label">A grid that hides its controls by default, with one column that keeps them</p>
@@ -3846,6 +3857,103 @@ createGrid(el, {
       full before DuckDB ever opens it, so there is nothing left to range-read. There is no
       <code>force_download</code> option — it does not exist in DuckDB-Wasm; registering a buffer
       is the way to force a whole download.</p>
+    </div>
+
+    <h3 id="duckdb-count-cost-guide">What a filtered count costs, and how to make it cost less</h3>
+    <p class="lead-in">
+      A grid needs two things from the engine: a page of rows and the size of the set they came
+      from. On a remote Parquet file those two have wildly different prices, and the second one is
+      the one that decides how your grid feels.
+    </p>
+    <div class="why">
+      <p>Measured on a 10&nbsp;million-row Parquet file served over HTTP range requests, in Chrome
+      (BACKLOG-0001078):</p>
+      <ul>
+        <li>A page of 100 rows: about <strong>0.1&nbsp;s</strong>.</li>
+        <li><code>count(*)</code> with <strong>no</strong> filter: about <strong>25&nbsp;ms</strong>
+        and no data read at all — Parquet keeps the row count in its footer and DuckDB answers from
+        there.</li>
+        <li><code>count(*)</code> with a filter: about <strong>1.3&nbsp;s</strong> and about
+        <strong>28&nbsp;MB</strong> read. The predicate has to be evaluated, so the predicate's
+        columns have to be read.</li>
+      </ul>
+      <p>A filtered count is <em>cheaper</em> than fetching the rows to count them yourself. It is
+      not cheap. Anyone who tells you a filtered count over a remote file is free is quoting the
+      unfiltered number.</p>
+    </div>
+    <p>Three things you control, in the order they pay off:</p>
+    <div class="example">
+      <p class="example__label">Cluster the file on what you filter</p>
+      <pre><code><span class="cmt">-- when you write the Parquet, sort by the columns your users filter most</span>
+COPY (<span class="kw">SELECT</span> * <span class="kw">FROM</span> events <span class="kw">ORDER BY</span> country, risk_score)
+  <span class="kw">TO</span> <span class="str">'events.parquet'</span> (FORMAT PARQUET, ROW_GROUP_SIZE 1000000);</code></pre>
+    </div>
+    <div class="why">
+      <p><strong>Sort (cluster) the file on the columns you filter most.</strong> Row-group
+      statistics can only prune a group when the values in it are narrow, and that is what sorting
+      makes them. On the same 10M-row file and the same filter, a file sorted on the filtered column
+      pruned <strong>87&times;</strong> more of the read than the unsorted one — the count went from
+      reading tens of megabytes to reading a fraction of the file. This is the one change worth
+      making first, and it costs you nothing at query time.</p>
+      <p><strong>Write large row groups.</strong> <code>ROW_GROUP_SIZE 1000000</code> roughly halved
+      the cost of a filtered count that could <em>not</em> be pruned, because a row group is the
+      unit of both the statistics and the read. Tiny row groups mean many range requests and much
+      more metadata.</p>
+      <p><strong>Turn the count off when nobody reads it.</strong>
+      <code>duckdbAdapter({ connection, from, count: false })</code> issues no count statement at
+      all. The grid scrolls open-ended — it discovers the end as you reach it — and the status bar
+      shows what it knows rather than a total. On a dashboard where nobody has ever asked "how many
+      rows match?", that is the whole 1.3&nbsp;s back.</p>
+    </div>
+    <h4 id="deferred-total-guide">The total now arrives after the rows</h4>
+    <p>
+      When the count <em>is</em> on, <code>duckdbAdapter</code> no longer makes the rows wait for
+      it: a filtered query delivers the page as soon as it settles and the exact total a moment
+      later, and <code>source:total</code> fires when it lands. While it is still counting,
+      <code>grid.rows.totalPending()</code> is <code>true</code>,
+      <code>grid.rows.totalCount()</code> is <code>null</code>, and the status bar and pager say
+      they are counting rather than showing you the rows fetched so far. Nothing is ever estimated,
+      and the count still runs and still reads the same bytes — it just stops standing in front of
+      the rows. An unfiltered count is answered in milliseconds, so it still arrives with the rows,
+      exactly as before.
+    </p>
+    <div class="example">
+      <p class="example__label">Rows first, the exact total when it lands</p>
+      <pre data-run="js" data-expect="north / true / null | 1204 / false / 1204" data-covers="event:source:total"><code><span class="kw">const</span> { createHeadlessGrid, createPushdownSource } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="cmt">// Stands in for duckdbAdapter over a large remote Parquet file: the page is</span>
+<span class="cmt">// ready at once, the filtered count(*) takes a second and a bit longer.</span>
+<span class="kw">let</span> finishCount;
+<span class="kw">const</span> adapter = {
+  name: <span class="str">'slow-count'</span>,
+  capabilities: { filter: <span class="str">'tree'</span>, operators: [<span class="str">'eq'</span>], range: <span class="kw">true</span>, total: <span class="kw">true</span> },
+  execute: <span class="kw">async</span> () =&gt; ({
+    rows: [{ id: 1, region: <span class="str">'north'</span> }],
+    pendingTotal: <span class="kw">new</span> Promise((resolve) =&gt; { finishCount = resolve; }),
+  }),
+};
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: <span class="str">'id'</span>,
+  columns: [{ id: <span class="str">'id'</span>, field: <span class="str">'id'</span> }, { id: <span class="str">'region'</span>, field: <span class="str">'region'</span> }],
+  source: createPushdownSource({ adapter, pageSize: 1 }),
+});
+grid.filters.set({ region: { op: <span class="str">'eq'</span>, value: <span class="str">'north'</span> } });
+grid.rendererHost().hint(0, 1);   <span class="cmt">// the renderer does this for you; a headless grid has to ask</span>
+<span class="kw">await</span> <span class="kw">new</span> Promise((r) =&gt; setTimeout(r, 20));
+
+<span class="cmt">// The rows are here and the total is not — and the grid says which of the</span>
+<span class="cmt">// two kinds of "no total" this is.</span>
+<span class="kw">const</span> before = `${grid.rows.get(0).data.region} / ${grid.rows.totalPending()} / ${grid.rows.totalCount()}`;
+
+<span class="kw">let</span> announced = <span class="kw">null</span>;
+grid.on(<span class="str">'source:total'</span>, (e) =&gt; { announced = e.total; });
+finishCount(1204);                <span class="cmt">// the engine's count(*) comes back</span>
+<span class="kw">await</span> <span class="kw">new</span> Promise((r) =&gt; setTimeout(r, 20));
+
+<span class="kw">const</span> after = `${announced} / ${grid.rows.totalPending()} / ${grid.rows.totalCount()}`;
+grid.destroy();
+<span class="kw">return</span> `${before} | ${after}`;</code></pre>
     </div>
 
     <h3 id="fulldataset">Whole-dataset statistics over a remote source</h3>
@@ -9146,7 +9254,7 @@ return (`p1-jobs ${kpi.value('p1')} | click ${clicks.join(',')} | dbl ${dbl.join
 
     <div class="example">
       <p class="example__label">A host catalogue and an unmeasured tile: messages, nullText, executed</p>
-      <pre data-run="js" data-expect="compute, 2 items, schlimmster Status kritisch | disk-formatted n/a | disk-status null" data-covers="config:messages config:nullText"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+      <pre data-run="js" data-expect="compute, 2 items, schlimmster Status kritisch, 1 unknown | disk-formatted n/a | disk-status null" data-covers="config:messages config:nullText"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
 const { createKPI } = await import('../packages/modules/kpi/index.js');
 
 const dom = createTestDom({});
@@ -9176,7 +9284,10 @@ return (`${el.querySelectorAll('.lat-kpi__node')[0].getAttribute('aria-label')} 
       <p>
         <code>messages</code> translates the node's accessible name (falling back to English for a key
         the host catalogue omits); <code>nullText</code> is what the unmeasured <code>disk</code> tile
-        renders instead of a fabricated zero.
+        renders instead of a fabricated zero. The heading counts that tile among the ones it could
+        not grade &mdash; <code>1 unknown</code>, beside the worst status it did grade &mdash;
+        because a leaf with no reading is one of the two things a parent has to report, and a
+        heading that named only the severity would be telling a reader the other leaf agreed.
       </p>
     </div>
 
@@ -9250,6 +9361,57 @@ return (`cpu ${cpu.value} ${cpu.status} | delta ${cpu.delta}`
         so 77 is a warning &mdash; while <code>bands</code> is the explicit alternative, a list of
         half-open <code>[min, max)</code> ranges, first match winning. <code>sparkline</code> plots
         the tile's own rows in <code>x</code> order.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">A feed that went quiet: maxAge, ageBy, executed</p>
+      <pre data-run="js" data-expect="quiet unknown no-number stale | live good 0" data-covers="config:maxAge config:ageBy"><code>const { createKPI } = await import('../packages/modules/kpi/index.js');
+
+const hosts = (at) =&gt; Array.from({ length: 200 }, (_, i) =&gt; (
+  { id: 'h' + i, sev: 3, observedAt: at }));
+const panel = (at) =&gt; createKPI(null, {
+  rows: hosts(at), rowKey: 'id',
+  maxAge: 60000, ageBy: 'observedAt',
+  tiles: [{ id: 'sev1', label: 'Sev-1', aggregation: 'count', filter: (r) =&gt; r.sev === 1,
+    thresholds: { warn: 1, critical: 5, direction: 'lowerIsBetter' } }],
+});
+const quiet = panel(Date.now() - 6 * 60 * 60 * 1000);
+const live = panel(Date.now());
+const read = (kpi) =&gt; {
+  const tile = kpi.tile('sev1');
+  return `${tile.status} ${tile.value === null ? 'no-number' : tile.value}${tile.stale ? ' stale' : ''}`;
+};
+const out = `quiet ${read(quiet)} | live ${read(live)}`;
+quiet.destroy();
+live.destroy();
+return out;
+</code></pre>
+      <p>
+        Both panels hold the same 200 rows and the same tile, and that tile's filter matches
+        none of them &mdash; a count of zero either way. They differ in one thing: when the rows
+        arrived. <code>maxAge</code> (milliseconds) is how long the panel keeps grading what it
+        holds after its feed last spoke, and <code>ageBy</code> names the clock that is measured
+        on &mdash; the same two options, with the same two meanings, a source's rolling window
+        takes. Inside the window the zero is graded, and &ldquo;no Sev-1 incidents out of 200
+        healthy hosts&rdquo; reads <code>good</code>, which is the news it is. Past it the panel
+        stops grading: every stat tile reports <code>unknown</code> with no number and
+        <code>stale: true</code>, and the tile captions itself &ldquo;No recent data&rdquo;, so a
+        feed that died six hours ago cannot read as a healthy zero under <code>lowerIsBetter</code>
+        cut points or as an alarm under <code>higherIsBetter</code> ones.
+      </p>
+      <p>
+        Omit <code>ageBy</code> and <code>maxAge</code> measures <strong>arrival</strong> instead
+        &mdash; when rows last reached the panel, through <code>rows.apply</code>,
+        <code>setRows</code> or the bound grid announcing that its own rows changed &mdash; which
+        is what a feed with no timestamp column has to be judged on. A filter, a sort, an
+        expansion and a <code>refresh()</code> are not arrivals, so a live feed whose rows are all
+        filtered out of the grid beneath the panel reports the empty panel's <code>unknown</code>
+        (&ldquo;No data&rdquo;, <code>stale: false</code>) rather than a silence, and an empty
+        panel never goes stale. Declare no <code>maxAge</code> and the panel judges no freshness
+        at all: nobody has said what recent means, so everything it holds is graded however old it
+        is. A panel with a window checks itself on a low-frequency timer, because a silence is
+        the absence of events and nothing else would notice one.
       </p>
     </div>
 
@@ -9784,7 +9946,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.69.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.70.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

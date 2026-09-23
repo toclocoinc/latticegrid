@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.69.0, gantt module type declarations
+ * Lattice Grid 1.70.0, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -14,6 +14,11 @@ export type GanttConstraintType =
 export type GanttCalendar =
   | 'weekends'
   | { workdays?: number[]; holidays?: Array<string | number | Date> };
+
+/** What a Gantt bar's own label shows: the task name, its percent, its dates, or nothing. */
+export type GanttBarLabel = 'name' | 'percent' | 'dates' | 'none';
+/** The Gantt timeline's zoom: a named level, or raw pixels-per-day. */
+export type GanttZoom = 'day' | 'week' | 'month' | 'quarter';
 
 /**
  * A task in a Gantt plan. Give a `duration` or a `start`+`end` (a day-number,
@@ -916,13 +921,13 @@ interface Gantt {
      */
     projectEpoch?: number | string | Date | null;
     nonWorking?: 'weekends' | ((day: number) => boolean);
-    label?: 'name' | 'percent' | 'dates' | 'none' | ((task: GanttScheduledTask) => string);
+    label?: GanttBarLabel | ((task: GanttScheduledTask) => string);
     /** Whether bars can be dragged to move/resize (default true). */
     editable?: boolean;
     /** Pixels from a bar's right edge that begin a resize rather than a move. */
     resizeZone?: number;
     /** Time-scale zoom: a level, or raw pixels-per-day. Omit to fit the width. */
-    zoom?: 'day' | 'week' | 'month' | 'quarter' | number;
+    zoom?: GanttZoom | number;
     /** Scroll so the today line is in view after drawing. */
     scrollToToday?: boolean;
     /** Show a hover tooltip (dates/duration/%/slack); default true. */
@@ -967,14 +972,14 @@ interface Gantt {
     headerHeight?: number;
     gridWidth?: number;
     indent?: number;
-    zoom?: 'day' | 'week' | 'month' | 'quarter' | number;
+    zoom?: GanttZoom | number;
     today?: number;
     nonWorking?: 'weekends' | ((day: number) => boolean);
     calendar?: GanttCalendar | null;
     showArrows?: boolean;
     showProgress?: boolean;
     showBaseline?: boolean;
-    barLabel?: 'name' | 'percent' | 'dates' | 'none' | ((task: GanttScheduledTask) => string);
+    barLabel?: GanttBarLabel | ((task: GanttScheduledTask) => string);
     /**
      * Surface earned-value metrics in `kind: 'evm'` columns.
      * `true` computes EVM at the today line (or the project finish); an object

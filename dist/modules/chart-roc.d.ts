@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.69.0, chart-roc module type declarations
+ * Lattice Grid 1.70.0, chart-roc module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
