@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.71.0, vue module type declarations
+ * Lattice Grid 1.71.1, vue module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

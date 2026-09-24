@@ -9,6 +9,18 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.71.1] - 2026-09-24
+
+### Added
+
+- A single-series `bar` or `horizontalBar` drew every mark in the scheme colour even when the value column already carried conditional-formatting rules, so a NOC panel and the topology it summarised disagreed about what a number meant (BACKLOG-0001451). A `bar`/`horizontalBar` with no `series` key now fills each mark from the y column's own rules — the same `styleFor` a cell, a network link and a marker map already answer to — and the legend names the rules that fired instead of the one, unnamed series. Without a rule on the column, or with `series` set, the scheme applies exactly as before.
+  - `horizontalBar` accepted `labels: true` and then warned it draws no data labels; it now draws one label per bar, at the bar's end, falling inside the bar rather than off the plot's right edge when the label would otherwise overflow — the same rescue a tall vertical bar already gets from the top of the plot.
+
+### Fixed
+
+- A script-tag page could not load a geometry pack: the five packs under `modules/geo-*` shipped ESM only, so a plain `<script src>` page could draw every built-in chart type and every extension chart type but could not get a world, US, UK or European outline beside them without a bundler (BACKLOG-0001450). Each pack now also ships as UMD and CJS, on its own global (`LatticeGridGeoWorld110m`, `LatticeGridGeoWorld50m`, `LatticeGridGeoEuropeNuts`, `LatticeGridGeoUk`, `LatticeGridGeoUsStates`), carrying `.pack` and `.default` — never merged into `LatticeGrid`, since all five export the same two names and a second pack loaded the same way would otherwise overwrite the first's `pack` on a shared object.
+  - `tools/check.js` gained a format-parity gate: every optional module directory now has to ship both a UMD and a CJS artefact, named by module and by missing format when one does not, so the next module that ships ESM-only fails the build rather than needing its own card to notice.
+
 ## [1.71.0] - 2026-09-23
 
 ### Added

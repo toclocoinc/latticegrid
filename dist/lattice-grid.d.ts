@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.71.0, type declarations
+ * Lattice Grid 1.71.1, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -11636,6 +11636,28 @@ declare global {
   /** The alarms module's script-tag global. */
   // eslint-disable-next-line no-var -- an ambient global is only a global as a var
   var LatticeGridAlarms: typeof import('lattice-grid/modules/alarms');
+  /**
+   * The five geometry packs' script-tag globals. Each is
+   * data-only and takes its own global rather than merging into
+   * `LatticeGrid`: all five export the same two names (`pack`, `default`), so
+   * a page loading more than one — say `geo-uk` beside `geo-europe-nuts` —
+   * reaches `LatticeGridGeoUk.pack` and `LatticeGridGeoEuropeNuts.pack`
+   * rather than the second overwriting the first on a shared object.
+   */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridGeoWorld110m: typeof import('lattice-grid/modules/geo-world-110m');
+  /** The 1:50m world geometry pack's script-tag global. */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridGeoWorld50m: typeof import('lattice-grid/modules/geo-world-50m');
+  /** The Europe NUTS geometry pack's script-tag global. */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridGeoEuropeNuts: typeof import('lattice-grid/modules/geo-europe-nuts');
+  /** The UK geometry pack's script-tag global. */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridGeoUk: typeof import('lattice-grid/modules/geo-uk');
+  /** The US states geometry pack's script-tag global. */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridGeoUsStates: typeof import('lattice-grid/modules/geo-us-states');
 }
 
 /** The default British English catalogue. */

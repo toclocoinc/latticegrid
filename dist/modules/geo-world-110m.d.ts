@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.71.0, geo-world-110m module type declarations
+ * Lattice Grid 1.71.1, geo-world-110m module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

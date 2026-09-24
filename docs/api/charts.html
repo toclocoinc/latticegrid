@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Charts API Reference — Lattice Grid 1.71.0</title>
+<title>Charts API Reference — Lattice Grid 1.71.1</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -480,7 +480,7 @@ const chart = createChart({
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">Drawn above the plot.</td></tr>
           <tr><td class="name">scheme</td><td class="type">string | string[]</td><td class="desc">A named scheme or your own colours. <code>schemeNames()</code> lists the built-in ones, including a colour-blind-safe palette.</td></tr>
           <tr><td class="name">legend</td><td class="type">boolean | object</td><td class="desc"><code>position</code>, and <code>isolate</code> so a click shows only that series, which is what a reader with eight series wants, and what plain toggling makes them do in seven clicks.</td></tr>
-          <tr><td class="name">labels</td><td class="type">boolean | object</td><td class="desc">Values beside each mark. <code>position</code>, <code>format</code>, <code>minGap</code>. A label that would overlap one already placed is dropped rather than drawn over it.</td></tr>
+          <tr><td class="name">labels</td><td class="type">boolean | object</td><td class="desc">Values beside each mark. <code>position</code>, <code>format</code>, <code>minGap</code>. A label that would overlap one already placed is dropped rather than drawn over it. <code>horizontalBar</code> draws them exactly as <code>bar</code> does: the figure sits past the end of the bar and, where that would spill past the plot's right edge, inside the bar instead (BACKLOG-0001451).</td></tr>
           <tr><td class="name">axis</td><td class="type">object</td><td class="desc">Titles, tick density and formatting per axis.</td></tr>
           <tr><td class="name">reference</td><td class="type">object[]</td><td class="desc">Horizontal lines: <code>{value, label}</code>.</td></tr>
           <tr><td class="name">multiples</td><td class="type">string</td><td class="desc">One chart per distinct value of this column, on a shared scale.</td></tr>
@@ -589,6 +589,16 @@ grid.destroy();
       room is estimated from five digits instead, because the numbers on it are not known until
       after the plot has been laid out. <code>margin: { left }</code> is added to whatever the
       labels need rather than competing with it.
+    </p>
+    <p class="section-note">
+      <strong>A rule on the column colours the bar</strong> (BACKLOG-0001451). A single-series
+      <code>bar</code> or <code>horizontalBar</code> &mdash; no <code>series</code> key &mdash;
+      takes each mark's fill from the <code>y</code> column's own conditional-formatting rules,
+      the same <code>styleFor</code> a cell and a <a href="#network-map">network link</a> already
+      answer to, and the legend names the rules that fired instead of the one, unnamed series.
+      Without a rule on the column, or with <code>series</code> set, the bars keep the scheme
+      exactly as before &mdash; a rule and a series both mean &ldquo;colour by something&rdquo;,
+      and only one is read at a time.
     </p>
 
     <h3>The chart</h3>
@@ -742,15 +752,29 @@ createGrid(el, {
 
 createChart({ grid, container: '#map', type: 'geomap', code: 'iso', y: 'revenue',
   shapes: pack });                       <span class="cmt">// Equal Earth, fitted to the pack</span></code></pre>
+    <p><strong>No bundler? Every pack also ships UMD/CJS</strong> (BACKLOG-0001450), exactly as
+    <code>chart-markermap</code> and the other extension chart types do: a plain <code>&lt;script
+    src&gt;</code> page reaches the pack from its own global rather than an <code>import</code>. Each
+    pack takes its own global — never merged into <code>LatticeGrid</code> — because all five export the
+    same two names (<code>pack</code>, <code>default</code>), and a page loading more than one would have
+    the second overwrite the first on a shared object.</p>
+    <pre><code>&lt;script src="lattice-grid.min.js"&gt;&lt;/script&gt;
+&lt;script src="modules/charts.min.js"&gt;&lt;/script&gt;
+&lt;script src="modules/chart-markermap.min.js"&gt;&lt;/script&gt;
+&lt;script src="modules/geo-world-110m.min.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  LatticeGrid.createChart({ grid, container: '#map', type: 'markermap', lon: 'lng', lat: 'lat',
+    shapes: LatticeGridGeoWorld110m.pack });
+&lt;/script&gt;</code></pre>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Module</th><th>Regions</th><th>Source and licence</th><th>Size (gzipped)</th><th>Attribution required</th></tr></thead>
+        <thead><tr><th>Module</th><th>Script-tag global</th><th>Regions</th><th>Source and licence</th><th>Size (gzipped)</th><th>Attribution required</th></tr></thead>
         <tbody>
-          <tr><td class="sig">modules/geo-world-110m</td><td>177 countries</td><td>Natural Earth 1:110m Admin 0, via world-atlas — public domain</td><td>39&nbsp;KB</td><td>None</td></tr>
-          <tr><td class="sig">modules/geo-world-50m</td><td>241 countries</td><td>Natural Earth 1:50m Admin 0, via world-atlas — public domain</td><td>225&nbsp;KB</td><td>None</td></tr>
-          <tr><td class="sig">modules/geo-us-states</td><td>50 states + DC</td><td>US Census cartographic boundaries, via us-atlas — public domain</td><td>36&nbsp;KB</td><td>None</td></tr>
-          <tr><td class="sig">modules/geo-europe-nuts</td><td>NUTS 0–2</td><td>Eurostat GISCO NUTS 2021 1:20m — free re-use with attribution</td><td>95&nbsp;KB</td><td><code>© EuroGeographics for the administrative boundaries</code></td></tr>
-          <tr><td class="sig">modules/geo-uk</td><td>9 regions, 361 local authorities, 650 constituencies</td><td>ONS Open Geography, generalised clipped — Open Government Licence v3.0</td><td>292&nbsp;KB</td><td><code>Contains OS data © Crown copyright and database right 2026; Source: Office for National Statistics licensed under the Open Government Licence v.3.0</code></td></tr>
+          <tr><td class="sig">modules/geo-world-110m</td><td class="sig">LatticeGridGeoWorld110m</td><td>177 countries</td><td>Natural Earth 1:110m Admin 0, via world-atlas — public domain</td><td>39&nbsp;KB</td><td>None</td></tr>
+          <tr><td class="sig">modules/geo-world-50m</td><td class="sig">LatticeGridGeoWorld50m</td><td>241 countries</td><td>Natural Earth 1:50m Admin 0, via world-atlas — public domain</td><td>225&nbsp;KB</td><td>None</td></tr>
+          <tr><td class="sig">modules/geo-us-states</td><td class="sig">LatticeGridGeoUsStates</td><td>50 states + DC</td><td>US Census cartographic boundaries, via us-atlas — public domain</td><td>36&nbsp;KB</td><td>None</td></tr>
+          <tr><td class="sig">modules/geo-europe-nuts</td><td class="sig">LatticeGridGeoEuropeNuts</td><td>NUTS 0–2</td><td>Eurostat GISCO NUTS 2021 1:20m — free re-use with attribution</td><td>95&nbsp;KB</td><td><code>© EuroGeographics for the administrative boundaries</code></td></tr>
+          <tr><td class="sig">modules/geo-uk</td><td class="sig">LatticeGridGeoUk</td><td>9 regions, 361 local authorities, 650 constituencies</td><td>ONS Open Geography, generalised clipped — Open Government Licence v3.0</td><td>292&nbsp;KB</td><td><code>Contains OS data © Crown copyright and database right 2026; Source: Office for National Statistics licensed under the Open Government Licence v.3.0</code></td></tr>
         </tbody>
       </table>
     </div>
