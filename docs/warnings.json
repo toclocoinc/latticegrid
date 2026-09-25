@@ -1,5 +1,5 @@
 {
-  "version": "1.71.1",
+  "version": "1.71.3",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 474,
+  "count": 475,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -4975,6 +4975,17 @@
       "fix": "Pass the router instance (`createRouter()`'s return, or the one an adapter exposes) and, optionally, the partition kind to publish under.",
       "snippet": "alarms.publish(router, 'alarms');\nrouter.attach(alarmGrid, 'alarms');",
       "docs": "api/alarms.html#ref-alarms-reference"
+    },
+    {
+      "id": "chart:scheme:array-and-map",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.71.2",
+      "message": "chart \"scheme\" was given as a name map together with a \"palette\" array; the two do not combine. Colours came from the map and the array was ignored. Pass one or the other.",
+      "meaning": "A `scheme` name map and an array `palette` are two different ways of choosing a chart's colours, and only one can be read. Given both, the map is treated as the caller's intent and the array is dropped, because a map names an explicit colour per category or series while an array only orders them — the more specific instruction wins.",
+      "fix": "Pass either a `scheme` name map (`{ [name]: colour }`) or a `palette` array, not both.",
+      "snippet": "createChart({ grid, container, type: 'donut', x: 'status', y: 'count', scheme: { Operational: 'green', Offline: 'red' } });",
+      "docs": "api/charts.html#chartsmodule"
     }
   ]
 }

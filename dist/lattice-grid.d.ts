@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.71.1, type declarations
+ * Lattice Grid 1.71.3, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -12100,16 +12100,40 @@ export interface ChartSpec {
   /** A heading above the plot, drawn in the figure's caption alongside any `subtitle`. */
   title?: string;
   /**
-   * A named scheme, or an array of colours. The built-in names are
-   * {@link ChartSchemeName} (`'default'`, `'bright'`, `'earth'`, `'mono'`);
-   * a name registered with `registerScheme` is a plain string alongside them.
+   * A named scheme, an array of colours, or a `{ [name]: colour }` map. The built-in names are {@link ChartSchemeName}
+   * (`'default'`, `'bright'`, `'earth'`, `'mono'`); a name registered with
+   * `registerScheme` is a plain string alongside them.
+   *
+   * The map is the form that survives a filter: a pie or donut keys it on the
+   * category (`x`) value, a chart with a `series` column keys it on the
+   * series value, and a single-series bar or column — no `series` — keys it
+   * on the `x` category instead. A name absent from the map falls back to the
+   * ordered scheme by its position among the *other unmapped* names, so
+   * `{ Operational: 'green' }` keeps every other category exactly as it was
+   * whichever ones a filter removes — an ordered array reassigns every colour
+   * after the gap. A map and an array `palette` do not combine; given both,
+   * the map wins and the array is ignored, once, with a warning.
    */
-  scheme?: ChartSchemeName | string | string[];
+  scheme?: ChartSchemeName | string | string[] | Record<string, string>;
   /**
    * Show the series legend. The object form places it, and `isolate` lets a click on a
-   * legend entry show that series alone.
+   * legend entry show that series alone. `values: true` appends each entry's own total —
+   * a category's for pie and donut, a series' for a series legend — formatted by the
+   * measure column, after the name and a thin space.
    */
-  legend?: boolean | { position?: 'top' | 'bottom' | 'left' | 'right'; isolate?: boolean };
+  legend?: boolean | {
+    position?: 'top' | 'bottom' | 'left' | 'right'; isolate?: boolean; values?: boolean;
+  };
+  /**
+   * The figure a donut draws in its own hole; ignored by
+   * every other type, which has no hole to draw into. `value: 'total'` sums
+   * the slices actually drawn — a legend click that hides a category moves
+   * the figure with them — formatted by the measure column; a number is a
+   * caller's own figure, formatted the same way; a string is written through
+   * unchanged. `label` is a second line beneath it. Both are sized to fit the
+   * hole and are never drawn past its edge.
+   */
+  centre?: { value: 'total' | number | string; label?: string };
   /**
    * Print the value beside each mark. `true` takes the defaults; the object form sets the
    * position, the format and the minimum gap. Only the chart types that support labels

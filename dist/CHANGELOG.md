@@ -9,6 +9,14 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.71.3] - 2026-09-25
+
+### Added
+
+- A `scheme` array coloured slices and series by position, so a category or series a filter removed shifted every colour after it — a sites-by-status donut and a severity-stacked bar could not hold "Operational" green and "Offline" red once one status disappeared for a quarter (BACKLOG-0001453). `scheme` now also accepts a `{ name: colour }` map: it keys on the category for `pie`/`donut`/`sunburst`, on the series value for any cartesian type with `series`, and on the `x` category for a single-series `bar`/`horizontalBar`. A name absent from the map falls back to the ordered scheme by its position among the other unmapped names only, so an explicit assignment is never disturbed by a name the map does not mention. A map and an array `palette` do not combine — the map wins, once, with a warning (`chart:scheme:array-and-map`).
+  - `legend: { values: true }` appends each entry's own total after its name and a thin space — a category's for `pie`/`donut`, a series' for a series legend — formatted by the measure column.
+  - A `donut` now takes `centre: { value: 'total' | number | string, label? }`, drawn in the hole: `'total'` sums the slices actually drawn, a number is formatted the same way, a string is written through unchanged; both the value and an optional label are sized to fit the hole and never drawn past its edge.
+
 ## [1.71.1] - 2026-09-24
 
 ### Added

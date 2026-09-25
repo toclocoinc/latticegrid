@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Charts API Reference — Lattice Grid 1.71.1</title>
+<title>Charts API Reference — Lattice Grid 1.71.3</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -478,8 +478,9 @@ const chart = createChart({
           <tr><td class="name">series</td><td class="type">string</td><td class="desc">Splits the measure into one series per distinct value.</td></tr>
           <tr><td class="name">measures</td><td class="type">object[]</td><td class="desc"><code>{col, fn, type, axis}</code>: several measures at once, each reduced by an aggregation. <code>fn</code> is one of <code>sum</code>, <code>avg</code> (alias <code>mean</code>), <code>min</code>, <code>max</code>, <code>count</code>, <code>countValues</code>, <code>first</code>, <code>last</code>; it defaults to <code>sum</code>. An <code>fn</code> that is none of these is a mistake, not a silent <code>sum</code>: it warns once, naming the value and the supported set, and falls back to <code>sum</code> so the chart still draws.</td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">Drawn above the plot.</td></tr>
-          <tr><td class="name">scheme</td><td class="type">string | string[]</td><td class="desc">A named scheme or your own colours. <code>schemeNames()</code> lists the built-in ones, including a colour-blind-safe palette.</td></tr>
-          <tr><td class="name">legend</td><td class="type">boolean | object</td><td class="desc"><code>position</code>, and <code>isolate</code> so a click shows only that series, which is what a reader with eight series wants, and what plain toggling makes them do in seven clicks.</td></tr>
+          <tr><td class="name">scheme</td><td class="type">string | string[] | object</td><td class="desc">A named scheme, your own ordered colours, or a <code>{ name: colour }</code> map (BACKLOG-0001453). <code>schemeNames()</code> lists the built-in ones, including a colour-blind-safe palette. The map is what survives a filter: a pie or donut keys it on the category, a chart with <code>series</code> keys it on the series value, and a single-series bar or column keys it on the <code>x</code> category instead. A name the map does not mention falls back to the ordered scheme by its position among the other unmapped names, so <code>{ Operational: 'green', Offline: 'red' }</code> keeps "Operational" exactly as green whichever categories a filter leaves. A map and a <code>palette</code> array do not combine — the map wins, and the array is ignored once, with a warning.</td></tr>
+          <tr><td class="name">legend</td><td class="type">boolean | object</td><td class="desc"><code>position</code>, <code>isolate</code> so a click shows only that series (what plain toggling makes a reader with eight series do in seven clicks), and <code>values: true</code>, which appends each entry's own total after its name and a thin space — a category's for pie and donut, a series' for a series legend — formatted by the measure column (BACKLOG-0001453).</td></tr>
+          <tr><td class="name">centre</td><td class="type">object</td><td class="desc">A donut's own figure, drawn in its hole (BACKLOG-0001453); every other type ignores it, having no hole. <code>{ value: 'total' | number | string, label? }</code> — <code>'total'</code> sums the slices actually drawn, so hiding a category from the legend moves the figure with them; a number is formatted the same way; a string is written through unchanged. <code>label</code> is a second line beneath it. Both are sized to fit the hole and never drawn past its edge.</td></tr>
           <tr><td class="name">labels</td><td class="type">boolean | object</td><td class="desc">Values beside each mark. <code>position</code>, <code>format</code>, <code>minGap</code>. A label that would overlap one already placed is dropped rather than drawn over it. <code>horizontalBar</code> draws them exactly as <code>bar</code> does: the figure sits past the end of the bar and, where that would spill past the plot's right edge, inside the bar instead (BACKLOG-0001451).</td></tr>
           <tr><td class="name">axis</td><td class="type">object</td><td class="desc">Titles, tick density and formatting per axis.</td></tr>
           <tr><td class="name">reference</td><td class="type">object[]</td><td class="desc">Horizontal lines: <code>{value, label}</code>.</td></tr>
@@ -599,6 +600,38 @@ grid.destroy();
       Without a rule on the column, or with <code>series</code> set, the bars keep the scheme
       exactly as before &mdash; a rule and a series both mean &ldquo;colour by something&rdquo;,
       and only one is read at a time.
+    </p>
+    <p class="section-note">
+      <strong>A <code>scheme</code> can colour by name instead of by position</strong>
+      (BACKLOG-0001453). <code>scheme: { Operational: 'green', Degraded: 'amber', Offline: 'red' }</code>
+      keys on the category for a <code>pie</code>, <code>donut</code> or <code>sunburst</code>; on
+      the series value for any cartesian type with a <code>series</code> column; and on the
+      <code>x</code> category for a single-series <code>bar</code> or <code>horizontalBar</code>
+      &mdash; the same "no <code>series</code>" case the rule colour above reads, and a rule still
+      outranks the map where both apply. The point of the map is what an ordered array cannot do: a
+      category a filter removes never shifts the colour of the ones that stay, because each name's
+      colour comes from the map rather than from where it happens to sort. A name the map does not
+      mention falls back to the ordered scheme by its position among the <em>other unmapped</em>
+      names only. A map and an array <code>palette</code> are two ways of choosing the same thing
+      and do not combine &mdash; given both, the map wins and the array is ignored, once, with a
+      warning (<code>chart:scheme:array-and-map</code>).
+    </p>
+    <p class="section-note">
+      <strong><code>legend: { values: true }</code> writes the number beside the name</strong>
+      (BACKLOG-0001453). Each entry gets its own total appended after a thin space &mdash; the
+      category's for a <code>pie</code> or <code>donut</code>, the series' for a series legend
+      &mdash; formatted by the measure column exactly as a cell in that column would be, so a
+      legend reading "Operational&nbsp;42" and a filtered grid never disagree about what 42 means.
+    </p>
+    <p class="section-note">
+      <strong>A donut can carry a figure in its own hole</strong> (BACKLOG-0001453):
+      <code>centre: { value: 'total', label: 'sites' }</code>. <code>'total'</code> sums the slices
+      actually drawn, so hiding a category from the legend moves the figure with the slices rather
+      than leaving it stale; a number is a caller's own figure, formatted the same way; a string is
+      written through unchanged, for a centre naming something a sum cannot. <code>label</code> is a
+      second line beneath the value. Both are sized to the hole a donut cuts &mdash; never a pie's,
+      which has none &mdash; and are shrunk together, proportionally, and truncated rather than
+      drawn past its edge.
     </p>
 
     <h3>The chart</h3>
@@ -1155,8 +1188,9 @@ chart.destroy();
           <tr><td class="name">start</td><td class="type">string</td><td class="desc">The start-date column, for a gantt chart. <small>(optional)</small></td></tr>
           <tr><td class="name">end</td><td class="type">string</td><td class="desc">The end-date column, for a gantt chart. <small>(optional)</small></td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">A heading above the plot, drawn in the figure's caption alongside any `subtitle`. <small>(optional)</small></td></tr>
-          <tr><td class="name">scheme</td><td class="type"><a href="types.html#type-ChartSchemeName">ChartSchemeName</a> | string | string[]</td><td class="desc">A named scheme, or an array of colours. The built-in names are {@link ChartSchemeName} (`'default'`, `'bright'`, `'earth'`, `'mono'`); a name registered with `registerScheme` is a plain string alongside them. <small>(optional)</small></td></tr>
-          <tr><td class="name">legend</td><td class="type">boolean | { position?: 'top' | 'bottom' | 'left' | 'right'; isolate?: boolean }</td><td class="desc">Show the series legend. The object form places it, and `isolate` lets a click on a legend entry show that series alone. <small>(optional)</small></td></tr>
+          <tr><td class="name">scheme</td><td class="type"><a href="types.html#type-ChartSchemeName">ChartSchemeName</a> | string | string[] | Record&lt;string, string&gt;</td><td class="desc">A named scheme, an array of colours, or a `{ [name]: colour }` map (BACKLOG-0001453). The built-in names are {@link ChartSchemeName} (`'default'`, `'bright'`, `'earth'`, `'mono'`); a name registered with `registerScheme` is a plain string alongside them. The map is the form that survives a filter: a pie or donut keys it on the category (`x`) value, a chart with a `series` column keys it on the series value, and a single-series bar or column — no `series` — keys it on the `x` category instead. A name absent from the map falls back to the ordered scheme by its position among the *other unmapped* names, so `{ Operational: 'green' }` keeps every other category exactly as it was whichever ones a filter removes — an ordered array reassigns every colour after the gap. A map and an array `palette` do not combine; given both, the map wins and the array is ignored, once, with a warning. <small>(optional)</small></td></tr>
+          <tr><td class="name">legend</td><td class="type">boolean | { position?: 'top' | 'bottom' | 'left' | 'right'; isolate?: boolean; values?: boolean; }</td><td class="desc">Show the series legend. The object form places it, and `isolate` lets a click on a legend entry show that series alone. `values: true` appends each entry's own total — a category's for pie and donut, a series' for a series legend — formatted by the measure column, after the name and a thin space (BACKLOG-0001453). <small>(optional)</small></td></tr>
+          <tr><td class="name">centre</td><td class="type">{ value: 'total' | number | string; label?: string }</td><td class="desc">The figure a donut draws in its own hole (BACKLOG-0001453); ignored by every other type, which has no hole to draw into. `value: 'total'` sums the slices actually drawn — a legend click that hides a category moves the figure with them — formatted by the measure column; a number is a caller's own figure, formatted the same way; a string is written through unchanged. `label` is a second line beneath it. Both are sized to fit the hole and are never drawn past its edge. <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">boolean | <a href="types.html#type-ChartLabels">ChartLabels</a></td><td class="desc">Print the value beside each mark. `true` takes the defaults; the object form sets the position, the format and the minimum gap. Only the chart types that support labels honour it. <small>(optional)</small></td></tr>
           <tr><td class="name">axis</td><td class="type">{ x?: string | <a href="types.html#type-ChartAxis">ChartAxis</a>; y?: string | <a href="types.html#type-ChartAxis">ChartAxis</a>; y2?: string | <a href="types.html#type-ChartAxis">ChartAxis</a>; right?: string | <a href="types.html#type-ChartAxis">ChartAxis</a>; }</td><td class="desc">Per-axis configuration. Each side is a title string or an object of `{ title, min, max, ticks, format, grid, labels }`. `y2` (or `right`) configures the second measure axis of a dual-axis or combo chart (BACKLOG-0000743); a dual-axis chart labels both axes by default so it cannot silently mislead. <small>(optional)</small></td></tr>
           <tr><td class="name">brush</td><td class="type">boolean | 'filter' | 'zoom' | 'select' | { mode: 'filter' | 'zoom' | 'select'; axis?: 'x' | 'y' | 'y2' }</td><td class="desc">Dragging across the plot. `true` or `'filter'` writes a range condition into the grid; `'zoom'` changes only this chart's own domain; `'select'` selects the rows under the drag. The object form names which axis the drag acts on — `axis: 'y'` or `'y2'` brushes a value axis, which on a dual-axis chart must say which one it means (BACKLOG-0000743). <small>(optional)</small></td></tr>

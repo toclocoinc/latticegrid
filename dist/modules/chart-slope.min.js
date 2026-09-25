@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.71.1, chart-slope module
+ * Lattice Grid 1.71.3, chart-slope module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
