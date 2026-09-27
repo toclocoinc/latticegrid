@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.71.3, alarms module type declarations
+ * Lattice Grid 1.72.0, alarms module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -20,20 +20,20 @@ import type { KPIBand, KPIThresholds, KpiRollupStatus, KpiStatus } from './kpi.j
  * the four that already exist. Only `warn` and `critical` ARE alarms: `good`
  * is the healthy level and clears whatever was raised.
  */
-type AlarmLevel = KpiStatus;
+export type AlarmLevel = KpiStatus;
 
 /** Which of the three kinds of source an alarm came from. */
-type AlarmSource = 'kpi' | 'grid' | 'router';
+export type AlarmSource = 'kpi' | 'grid' | 'router';
 
 /** The events an alarm set emits. */
-type AlarmsEventName =
+export type AlarmsEventName =
   /** A level became true and stayed true for its `holdMs` — the alarm is now open. Within a transition between two alarm levels this fires after the clear of the level being left. */
   | 'alarm:raised'
   /** An open alarm is no longer true: the level moved, the source went silent, or the row it was measured on left the grid. Within a transition between two alarm levels this fires before the raise of the level being entered. */
   | 'alarm:cleared';
 
 /** What a handler receives, per alarm event. */
-interface AlarmsEventPayloads {
+export interface AlarmsEventPayloads {
   /** The alarm that opened. */
   'alarm:raised': AlarmEvent;
   /** The alarm that closed. */
@@ -44,7 +44,7 @@ interface AlarmsEventPayloads {
  * One alarm, as `alarm:raised` and `alarm:cleared` carry it and as
  * {@link Alarms.active} lists it.
  */
-interface AlarmEvent {
+export interface AlarmEvent {
   /**
    * The alarm's stable identity, `<source>:<sourceId>:<key>:<level>` — for example
    * `grid:grid#1:row-7/cpu:critical`. **This format is public API**: a host keys its own
@@ -82,7 +82,7 @@ interface AlarmEvent {
 }
 
 /** A transition that has been observed but not yet held long enough to be believed. */
-interface PendingAlarm {
+export interface PendingAlarm {
   /** The id the alarm will carry if the level survives its hold. */
   id: string;
   /** Which kind of source is holding it. */
@@ -107,7 +107,7 @@ interface PendingAlarm {
  * The clock the hold timer runs on, injected so a test can drive a thousand
  * crossings through a `holdMs` window without sleeping for it.
  */
-interface AlarmsClock {
+export interface AlarmsClock {
   /** The current time, in milliseconds. */
   now(): number;
   /** Schedule a hold; returns whatever handle `clearTimeout` will be given. */
@@ -117,7 +117,7 @@ interface AlarmsClock {
 }
 
 /** An alarm set's configuration. */
-interface AlarmsConfig {
+export interface AlarmsConfig {
   /**
    * The default hold, in milliseconds, for every source attached to this set. A new level
    * must persist this long before its transition is emitted, and a crossing back inside
@@ -130,7 +130,7 @@ interface AlarmsConfig {
 }
 
 /** One watched column of an attached grid. */
-interface AlarmsColumnOptions {
+export interface AlarmsColumnOptions {
   /** The cut points the cell is graded against — the KPI tile's own shape. */
   thresholds?: KPIThresholds;
   /** Explicit bands, as an alternative to `thresholds`; the first matching band wins. */
@@ -146,7 +146,7 @@ interface AlarmsColumnOptions {
 }
 
 /** What one `attach` call takes. Which keys apply depends on the kind of source. */
-interface AlarmsAttachOptions {
+export interface AlarmsAttachOptions {
   /**
    * This source's id, as it appears in every alarm's `sourceId` and `id`. Defaults to
    * `kpi#1`, `grid#2`, … in attach order; give it a name and the ids stay stable across
@@ -176,7 +176,7 @@ interface AlarmsAttachOptions {
  * `(source, key, level)`, so moving between two alarm levels CLEARS the level
  * being left before it RAISES the level being entered.
  */
-interface Alarms {
+export interface Alarms {
   /**
    * Attach a source. A KPI panel grades every tile that declares thresholds or bands; a
    * grid grades the cells of the columns named in `columns`; a router grades what its

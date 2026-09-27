@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.71.3, data-router module type declarations
+ * Lattice Grid 1.72.0, data-router module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -15,10 +15,10 @@ type RouterRecord = Record<string, unknown>;
  * core-grid-only: a route (or an alert, or a group) keys its own partition
  * by one value, so there is nothing for an array to join into here.
  */
-type RouterKey = string | ((row: RouterRecord) => string | number);
+export type RouterKey = string | ((row: RouterRecord) => string | number);
 
 /** A per-route diff summary returned by `load`. */
-interface RouteDiff { added: number; updated: number; removed: number }
+export interface RouteDiff { added: number; updated: number; removed: number }
 
 /**
  * What a route matches: a partition VALUE (the record is routed when
@@ -26,20 +26,20 @@ interface RouteDiff { added: number; updated: number; removed: number }
  * Declared as `unknown` because any value can be a partition key; the
  * function form is the only one TypeScript can check.
  */
-type RoutePredicate = unknown;
+export type RoutePredicate = unknown;
 
 /** A route's `sort`: a comparator, or a key and direction (`'asc'` unless `'desc'`). */
-type RouteSort = ((a: RouterRecord, b: RouterRecord) => number) | { key: string; dir?: 'asc' | 'desc' };
+export type RouteSort = ((a: RouterRecord, b: RouterRecord) => number) | { key: string; dir?: 'asc' | 'desc' };
 
 /**
  * One incremental change: `upsert` adds or updates the row by `rowKey`,
  * `delete` removes it. `seq` versions the delta when the row itself carries
  * no version field (the router's `seq` option names one that does).
  */
-interface RouterDelta { op: 'upsert' | 'delete'; row: RouterRecord; seq?: number }
+export interface RouterDelta { op: 'upsert' | 'delete'; row: RouterRecord; seq?: number }
 
 /** The change a `subscribe` handler receives: the same keyed diff a grid gets. */
-interface RouterChange { add: RouterRecord[]; update: RouterRecord[]; remove: string[] }
+export interface RouterChange { add: RouterRecord[]; update: RouterRecord[]; remove: string[] }
 
 /**
  * A filter-wire condition for a route's `where` (v7): `{ col, op, value }`,
@@ -52,7 +52,7 @@ type RouteWhere = Record<string, unknown>;
  * each `aggregate` a named reducer over the group's rows or a `{ op, field }`
  * shorthand (`sum`, `avg`, `min`, `max`, `count`).
  */
-interface RouteRollup {
+export interface RouteRollup {
   /**
    * What identifies a group: a property name, a `fn(row)`, or a list of either for a
    * composite. Named properties are carried onto the summary row.
@@ -72,7 +72,7 @@ interface RouteRollup {
  * N changes have accrued; `maxLag` is the backlog depth at or below which
  * changes pass straight through and the limits stay off. All optional.
  */
-interface RouteBackpressure { maxHz?: number; minInterval?: number; sample?: number; maxLag?: number }
+export interface RouteBackpressure { maxHz?: number; minInterval?: number; sample?: number; maxLag?: number }
 
 /** A write captured off a writable route's grid, handed to `onWrite`. */
 type RouterWrite = Record<string, unknown>;
@@ -89,7 +89,7 @@ type RouterWrite = Record<string, unknown>;
  * the route in metrics and the devtools panel; `backpressure` throttles its
  * refresh under load (v13).
  */
-interface RouteOptions {
+export interface RouteOptions {
   /**
    * What identifies a row on this route — a field name or a `fn(row)` — overriding the
    * router's own `rowKey`.
@@ -158,7 +158,7 @@ interface RouteOptions {
 }
 
 /** Per-alert options (v5): `filter` narrows the slice; `debounce` (ms) coalesces a burst into one emit. */
-interface AlertOptions { rowKey?: RouterKey; filter?: (row: RouterRecord) => boolean; debounce?: number }
+export interface AlertOptions { rowKey?: RouterKey; filter?: (row: RouterRecord) => boolean; debounce?: number }
 
 /**
  * A cross-grid selection relation (v2): a key map (target
@@ -166,7 +166,7 @@ interface AlertOptions { rowKey?: RouterKey; filter?: (row: RouterRecord) => boo
  * IN set), or a function handed the selected source rows that returns a
  * target-row predicate.
  */
-type SelectionRelation =
+export type SelectionRelation =
   | { from: string; to: string }
   | ((selected: RouterRecord[]) => ((row: RouterRecord) => boolean));
 
@@ -175,14 +175,14 @@ type SelectionRelation =
  * filters the target. `on` (or `relation`) is the relation; `mutual` makes
  * the edge work in both directions.
  */
-interface RouterEdge { from: unknown; to: unknown; on?: SelectionRelation; relation?: SelectionRelation; mutual?: boolean }
+export interface RouterEdge { from: unknown; to: unknown; on?: SelectionRelation; relation?: SelectionRelation; mutual?: boolean }
 
 /**
  * A declarative routing graph (v5): the same routes, links,
  * relationship edges and buffer the imperative calls would make, as one data
  * spec. Desugars to those calls and composes with them.
  */
-interface RouterConfig {
+export interface RouterConfig {
   /**
    * The routes to open, each `{ grid, when, ...routeOptions }`, or `{ default: grid }`,
    * or `{ subscribe: handler, when }`, or `{ alert: handler, when, condition }`. `when`
@@ -217,7 +217,7 @@ interface RouterConfig {
  */
 /** What a fan-in lookup join does with a row while its lookup has not arrived. */
 export type RouterJoinMissing = 'hold' | 'passthrough' | 'null';
-interface RouterJoin {
+export interface RouterJoin {
   /** The id of the registered source holding the lookup rows. */
   from: string;
   /**
@@ -258,7 +258,7 @@ interface RouterJoin {
  * the source id) so feeds with colliding ids do not clobber one another;
  * `join` enriches rows from another registered source (v11).
  */
-interface RouterSourceOptions { id?: string; map?: (row: RouterRecord) => RouterRecord; key?: unknown; join?: RouterJoin }
+export interface RouterSourceOptions { id?: string; map?: (row: RouterRecord) => RouterRecord; key?: unknown; join?: RouterJoin }
 
 /**
  * The handle `addSource` returns for one feed (v9). Its `load` is a
@@ -267,7 +267,7 @@ interface RouterSourceOptions { id?: string; map?: (row: RouterRecord) => Router
  * ordinary and batched paths; `remove` deletes exactly the rows it holds and
  * unregisters it, returning the router.
  */
-interface RouterSourceHandle {
+export interface RouterSourceHandle {
   /** The source id. */
   readonly id: string;
   /** How many rows this source currently holds live. */
@@ -283,7 +283,7 @@ interface RouterSourceHandle {
 }
 
 /** One route's figures in a `metrics()` snapshot (v10). */
-interface RouterRouteMetrics {
+export interface RouterRouteMetrics {
   /** The route's `label`, or `default` for the default route, or null when it has neither. */
   label: string | null;
   /** How many rows the route's partition holds, before its filter, links and rollup. */
@@ -306,14 +306,14 @@ interface RouterRouteMetrics {
 }
 
 /** One source's figures in a `metrics()` snapshot (v10). */
-interface RouterSourceMetrics { id: string; rows: number; throughput: number; [key: string]: unknown }
+export interface RouterSourceMetrics { id: string; rows: number; throughput: number; [key: string]: unknown }
 
 /**
  * A `metrics()` snapshot (v10): per-route and per-source counts and
  * throughput (rows/sec since the previous read), and the global unrouted,
  * dropped (duplicate), buffered and lag figures.
  */
-interface RouterMetrics {
+export interface RouterMetrics {
   /** One entry per route, in attach order, the default route last. */
   routes: RouterRouteMetrics[];
   /** One entry per registered fan-in source. */
@@ -348,17 +348,17 @@ interface RouterMetrics {
  * whether the filter reached the engine; `residual` is what was finished
  * client-side.
  */
-interface RouterQueryPlanEntry { route?: unknown; base?: boolean; pushedFilter: boolean; residual: unknown }
+export interface RouterQueryPlanEntry { route?: unknown; base?: boolean; pushedFilter: boolean; residual: unknown }
 
 /** The controller `mountDevtools` returns: `refresh` re-renders now, `destroy` unsubscribes and removes the panel. */
-interface RouterDevtoolsPanel { refresh(): void; destroy(): void }
+export interface RouterDevtoolsPanel { refresh(): void; destroy(): void }
 
 /**
  * A pushdown adapter `query()` can source the router from (v7): anything
  * with an `execute(query, request)` returning rows, and optional
  * `capabilities` the planner consults to decide what it may push down.
  */
-interface RouterQueryAdapter {
+export interface RouterQueryAdapter {
   /**
    * What the engine can evaluate, as the pushdown capability model reads it; the planner
    * consults it to decide how much of a filter to push down. Omitted, the conservative
@@ -378,7 +378,7 @@ interface RouterQueryAdapter {
  * (ms) coalesces writes, `storage` is a `{ get, set }` pair of your own, or
  * `indexedDB` / `dbName` / `storeName` select the browser store.
  */
-interface RouterPersistOptions {
+export interface RouterPersistOptions {
   /** The record the snapshot is written under. Defaults to `lattice-router`. */
   key?: string;
   /**
@@ -409,12 +409,12 @@ interface RouterPersistOptions {
  * registered, so collection costs nothing until someone asks for it, and stops
  * when the last listener unsubscribes.
  */
-type RouterEventName =
+export type RouterEventName =
   /** The metrics timer fired: a `metrics()` snapshot, every `metricsInterval` ms (default 1000; `0` disables the timer). */
   | 'metrics';
 
 /** What a handler receives, per router event. */
-interface RouterEventPayloads {
+export interface RouterEventPayloads {
   /** The same snapshot `metrics()` returns, taken at the emit; the throughput baseline advances with it. */
   metrics: RouterMetrics;
 }
@@ -427,7 +427,7 @@ interface RouterEventPayloads {
  * grids. Snapshots apply keyed diffs (unchanged rows never repaint); deltas add,
  * update or remove in place by `rowKey`, preserving selection and scroll.
  */
-interface DataRouter {
+export interface DataRouter {
   /** Attach a grid behind a predicate; `opts` may reshape, filter, sort, summarise or throttle the route. */
   attach(grid: unknown, predicate: RoutePredicate, opts?: RouteOptions): DataRouter;
   /** Attach the "rest" sink for records no explicit route matched. A second call replaces the first. */
@@ -549,7 +549,7 @@ interface DataRouter {
  * `metricsInterval` is the ms between `metrics` emits (default 1000; `0`
  * disables the timer) (v10).
  */
-interface DataRouterOptions {
+export interface DataRouterOptions {
   /**
    * How a record says which partition it belongs to: a property name, or a
    * function of the record. This is the one thing the router needs to route.

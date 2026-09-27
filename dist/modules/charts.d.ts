@@ -1,11 +1,12 @@
 /*!
- * Lattice Grid 1.71.3, charts module type declarations
+ * Lattice Grid 1.72.0, charts module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 import type {
   CellRange,
   Chart,
+  ChartScheme,
   ChartSchemeName,
   ChartSpec,
   ChartType,
@@ -18,7 +19,7 @@ import type {
 /** Every type name `createChart` accepts. */
 export const TYPES: readonly ChartType[];
 /** The built-in colour schemes, by name. */
-export const SCHEMES: Readonly<Record<ChartSchemeName, readonly string[]>>;
+export const SCHEMES: Readonly<Record<ChartSchemeName, ChartScheme>>;
 export const PALETTE: readonly string[];
 export function createChart(spec: ChartSpec): Chart;
 /**
@@ -91,10 +92,20 @@ export function regressionPlots(
     }
   >;
 };
-export function registerScheme(name: string, colours: readonly string[]): void;
+/**
+ * Register a scheme under a name — an ordered palette, or a full
+ * {@link ChartScheme} object naming any of `series`, `sequential`,
+ * `diverging`, `positive`, `negative`. Partial: whatever a
+ * `ChartScheme` leaves out falls back to the default scheme.
+ */
+export function registerScheme(name: string, scheme: readonly string[] | ChartScheme): void;
 export function resolveScheme(spec?: object): object;
 export function schemeNames(): string[];
-export function setDefaultScheme(name: string): void;
+/**
+ * Choose the scheme charts use when they name none: a registered name, or a
+ * scheme given directly.
+ */
+export function setDefaultScheme(scheme: string | ChartScheme): void;
 /**
  * The definition an extension chart type registers. `draw`
  * receives the base drawing context — `plot`, `bound`, `groups`, `scheme`,
@@ -105,7 +116,7 @@ export function setDefaultScheme(name: string): void;
  * binder); `freeform` lays the chart out without axis gutters; `labelled`
  * declares that `labels` applies.
  */
-interface ChartTypeDefinition {
+export interface ChartTypeDefinition {
   /**
    * Draws the type. It is handed the same context a built-in drawer gets — the plot
    * rectangle, the bound data, the SVG groups, the scheme, the typography and the spec —

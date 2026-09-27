@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.71.3, gantt module type declarations
+ * Lattice Grid 1.72.0, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -191,7 +191,7 @@ export interface GanttDependency {
 }
 
 /** The computed CPM values for one task (a leaf is scheduled, a summary derived). */
-interface GanttScheduledTask {
+export interface GanttScheduledTask {
   /** The task's id, as a string. */
   id: string;
   /** The task's name, defaulting to its id. */
@@ -261,7 +261,7 @@ interface GanttScheduledTask {
 }
 
 /** An unhonourable scheduling constraint, reported rather than obeyed. */
-interface GanttConflict {
+export interface GanttConflict {
   /** The task whose constraint could not be honoured. */
   id: string;
   /** The constraint that was refused, as its normalised code (`MSO` or `MFO`). */
@@ -276,7 +276,7 @@ interface GanttConflict {
 }
 
 /** A CPM schedule result: per-task dates/float and the critical path, or an error. */
-interface GanttSchedule {
+export interface GanttSchedule {
   /**
    * Whether the schedule computed. False leaves every other field absent except `error`,
    * and the controller keeps its previous schedule.
@@ -318,7 +318,7 @@ interface GanttSchedule {
 }
 
 /** One contiguous load segment for a resource: how many units are booked over a span. */
-interface GanttResourceSegment {
+export interface GanttResourceSegment {
   /** The day the segment begins (inclusive), as a calendar day-number. */
   start: number;
   /**
@@ -336,7 +336,7 @@ interface GanttResourceSegment {
 }
 
 /** A resource booked beyond its capacity across concurrent tasks. */
-interface GanttOverAllocation {
+export interface GanttOverAllocation {
   /** The over-booked resource's name. */
   resource: string;
   /**
@@ -358,7 +358,7 @@ interface GanttOverAllocation {
 }
 
 /** The per-resource load and the over-allocations across a schedule. */
-interface GanttResourceLoad {
+export interface GanttResourceLoad {
   /**
    * Whether the load could be computed. False — with empty lists — when there is no
    * successful schedule to read.
@@ -380,7 +380,7 @@ interface GanttResourceLoad {
 }
 
 /** The result of resource leveling: the shifted tasks and what moved. */
-interface GanttLevelResult {
+export interface GanttLevelResult {
   /**
    * Whether leveling ran. False only when the plan would not schedule, in which case
    * `error` says why.
@@ -410,7 +410,7 @@ interface GanttLevelResult {
 }
 
 /** A placement violation flagged by `findViolations`. */
-interface GanttViolation {
+export interface GanttViolation {
   /** The task placed earlier than its predecessors allow. */
   id: string;
   /** Where the plan puts the task — the `start` on the raw task, as a day-number. */
@@ -448,7 +448,7 @@ export function toISODate(day: number): string | null;
  * The project total is exactly this and no more, so it has its own type
  * rather than claiming to be a row with five fields it has never carried.
  */
-interface GanttEarnedValueTotals {
+export interface GanttEarnedValueTotals {
   /** Whether a baseline (not the fallback scheduled window) drove PV. */
   hasBaseline: boolean;
   /** Whether any actual cost fed AC (else AC/CV/CPI are null). */
@@ -472,7 +472,7 @@ interface GanttEarnedValueTotals {
 }
 
 /** One task's earned-value figures. */
-interface GanttEarnedValueRow extends GanttEarnedValueTotals {
+export interface GanttEarnedValueRow extends GanttEarnedValueTotals {
   /** The task the row is for. */
   id: string;
   /** The task's name. */
@@ -489,7 +489,7 @@ interface GanttEarnedValueRow extends GanttEarnedValueTotals {
 }
 
 /** The earned-value result at a status date. */
-interface GanttEarnedValue {
+export interface GanttEarnedValue {
   /**
    * Whether the metrics could be computed. False when there is no successful schedule to
    * measure against.
@@ -529,7 +529,7 @@ export function computeEarnedValue(
  * The payload of the `error` event — the very object the failed
  * {@link GanttSchedule} carries, handed straight to the handler.
  */
-interface GanttScheduleError {
+export interface GanttScheduleError {
   /**
    * What was wrong: `cycle`, `duplicate-id`, `bad-duration`, `unknown-task`,
    * `unknown-parent`, `parent-cycle`, `self-dependency`, `bad-link-type` or
@@ -563,7 +563,7 @@ interface GanttScheduleError {
  * Only the user-initiated paths are gated. The live/router `rows.apply` path is
  * remote truth and raises none of these.
  */
-interface GanttBeforeEvent {
+export interface GanttBeforeEvent {
   /** Which event this is — `beforeTaskMove`, `beforeTaskDelete` and the rest. */
   type: string;
   /** True once a handler has refused the action. */
@@ -583,7 +583,7 @@ interface GanttBeforeEvent {
  * classifies the patch and names the event, so which of the five fires says
  * what kind of edit it is and the context below says what the edit is.
  */
-interface GanttTaskEditEvent extends GanttBeforeEvent {
+export interface GanttTaskEditEvent extends GanttBeforeEvent {
   /** The task being edited, by id. */
   id: string;
   /** The task as it stands before the edit, as a shallow copy. */
@@ -610,7 +610,7 @@ interface GanttTaskEditEvent extends GanttBeforeEvent {
  * `milestoneMove:cancelled`. The same context the before-event carried, plus
  * the reason; a notification, so it carries no `preventDefault`.
  */
-interface GanttTaskEditCancelledEvent {
+export interface GanttTaskEditCancelledEvent {
   /** The task that was not edited. */
   id: string;
   /** The task, unchanged. */
@@ -637,7 +637,7 @@ interface GanttTaskEditCancelledEvent {
  * Links about to be created: the payload of `beforeDependencyCreate`. A pure
  * removal or reorder adds no link and is not gated at all.
  */
-interface GanttDependencyCreateEvent extends GanttBeforeEvent {
+export interface GanttDependencyCreateEvent extends GanttBeforeEvent {
   /** Only the links this call adds, normalised. */
   added: GanttDependency[];
   /** The whole list the call would leave behind. */
@@ -650,7 +650,7 @@ interface GanttDependencyCreateEvent extends GanttBeforeEvent {
  * Links that were not created: the payload of `dependencyCreate:cancelled`. A
  * notification, so it carries no `preventDefault`.
  */
-interface GanttDependencyCreateCancelledEvent {
+export interface GanttDependencyCreateCancelledEvent {
   /** The links that were not added. */
   added: GanttDependency[];
   /** The list that was not adopted; the controller kept the one it had. */
@@ -662,7 +662,7 @@ interface GanttDependencyCreateCancelledEvent {
 }
 
 /** A task about to be deleted, with its incident links: the payload of `beforeTaskDelete`. */
-interface GanttTaskDeleteEvent extends GanttBeforeEvent {
+export interface GanttTaskDeleteEvent extends GanttBeforeEvent {
   /** The task being deleted, by id. */
   id: string;
   /** The task itself, as a shallow copy — the only chance a handler has to read it. */
@@ -675,7 +675,7 @@ interface GanttTaskDeleteEvent extends GanttBeforeEvent {
  * A task that was not deleted: the payload of `taskDelete:cancelled`. A
  * notification, so it carries no `preventDefault`.
  */
-interface GanttTaskDeleteCancelledEvent {
+export interface GanttTaskDeleteCancelledEvent {
   /** The task that stayed. */
   id: string;
   /** The task itself. */
@@ -699,7 +699,7 @@ interface GanttTaskDeleteCancelledEvent {
  * carrying the same context plus the reason. `schedule` and `error` are the
  * recompute's own pair and are raised on every recompute, whatever caused it.
  */
-type GanttEventName =
+export type GanttEventName =
   /** A recompute succeeded; the payload is the new schedule, resource load and over-allocations included. */
   | 'schedule'
   /** A recompute failed; the previous schedule is kept and the payload says what was wrong. */
@@ -734,7 +734,7 @@ type GanttEventName =
   | 'taskDelete:cancelled';
 
 /** What a handler receives, per Gantt event. */
-interface GanttEventPayloads {
+export interface GanttEventPayloads {
   /** The recomputed schedule, exactly as `gantt.schedule` now reads. */
   schedule: GanttSchedule;
   /** Why the recompute failed. */
@@ -770,7 +770,7 @@ interface GanttEventPayloads {
 }
 
 /** A headless Gantt controller: holds the model, recomputes on edits, emits changes. */
-interface Gantt {
+export interface Gantt {
   /**
    * The current tasks, as fresh shallow copies — mutating them changes nothing; call
    * `applyEdit` or `setTasks`.
@@ -1148,7 +1148,7 @@ export function createGantt(opts?: {
 export default createGantt;
 
 /** The model {@link importMSPDI} returns and {@link exportMSPDI} takes. */
-interface GanttMSPDIModel {
+export interface GanttMSPDIModel {
   /**
    * The plan's tasks, written out with their outline level, summary and milestone flags,
    * constraints, baseline and progress.

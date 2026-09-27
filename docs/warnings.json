@@ -1,5 +1,5 @@
 {
-  "version": "1.71.3",
+  "version": "1.72.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 475,
+  "count": 486,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -146,6 +146,136 @@
       "fix": "Use `{ kind: 'time', span }` to roll the axis, or cap the rows at the source with `maxRows` if you wanted the last N readings.",
       "snippet": "createChart({ grid, container, axis: { x: { window: { kind: 'time', span: 300000 } } } });",
       "docs": "api/charts.html#chartsmodule"
+    },
+    {
+      "id": "chart.axis.window.now",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "axis.x.window.now did not return a time, so the rolling window is measured from this device's clock instead. It must return epoch milliseconds — the same number Date.now() returns — because that is what the x values are compared against.",
+      "meaning": "A rolling `axis.x.window` named its own clock with `now`, and calling it did not produce a finite number. The window fell back to `Date.now()`, so a replay pane is measured against the wall clock and its recorded readings will look too old to draw.",
+      "fix": "Return epoch milliseconds from `now` — `() => replay.clock` where `replay.clock` is a number, not a `Date`, a string or `undefined`.",
+      "snippet": "createChart({ grid, container, axis: { x: { window: { kind: 'time', span: 300000, now: () => replayClockMs } } } });",
+      "docs": "api/charts.html#chartsmodule"
+    },
+    {
+      "id": "chart.axis.x.domain.inverted",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "axis.x.min ({min}) is not below axis.x.max ({max}), which is a mirrored axis rather than a narrow one, so both were ignored and the x domain was taken from the data. On a time axis both are epoch milliseconds.",
+      "meaning": "Both ends of a continuous x axis were pinned, and `min` was not below `max`. Drawing that domain would run the axis backwards, so both pins were dropped and the axis took its extent from the data instead.",
+      "fix": "Order the pair, and check the units: a time axis is pinned in epoch milliseconds, so `new Date(...)` has to be `.getTime()`.",
+      "snippet": "createChart({ grid, container, axis: { x: { min: from.getTime(), max: to.getTime() } } });",
+      "docs": "api/charts.html#chartsmodule"
+    },
+    {
+      "id": "chart.axis.x.domain.beyond",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "axis.x.{min|max} is outside the x values entirely, so the plot is empty. The pin was kept and the other edge moved to hold the axis width; check the units (a time axis is pinned in epoch milliseconds).",
+      "meaning": "One end of a continuous x axis was pinned past every reading, so nothing falls inside the domain. The pin was honoured — it is the caller's stated window — and the unpinned end was carried out by the width the data would have had, so the axis is still readable and the empty plot is visible.",
+      "fix": "Pin inside the data's range, or check the units: a time axis is pinned in epoch milliseconds, not seconds and not a `Date`.",
+      "snippet": "createChart({ grid, container, axis: { x: { min: Date.now() - 1800000 } } });",
+      "docs": "api/charts.html#chartsmodule"
+    },
+    {
+      "id": "chart:annotate:tools:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "chart annotate.tools names {count} tool(s) this chart does not have: {names}. The tools are {tools}.",
+      "meaning": "A chart's `annotate.tools` listed one or more names that are not drawing tools, so those entries select nothing. The rail is still built from whichever names were recognised, which is why a mistyped tool shows as a missing button rather than as an error.",
+      "fix": "Use the tool names as declared: select, trendLine, horizontalLine, verticalLine, channel, fibonacci, arrow, text, callout, note, delete. Omit `tools` entirely for the whole rail.",
+      "snippet": "createChart({ grid, container, type: 'line', annotate: { tools: ['select', 'trendLine', 'delete'] } });",
+      "docs": "api/charts.html#chart-annotate"
+    },
+    {
+      "id": "chart:annotate:kind:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "a drawn chart annotation of kind {kind} was not restored: the kinds are {kinds}.",
+      "meaning": "A state handed to `chart.setState()` held a drawing whose `kind` this version does not draw — a typo, or a state saved by a later version. It was dropped rather than half-restored, because a drawing the chart cannot place is invisible and an invisible drawing that `state()` still counts is worse than one that was never restored.",
+      "fix": "Use one of the declared kinds: trendLine, horizontalLine, verticalLine, channel, fibonacci, arrow, text, callout, note.",
+      "docs": "api/charts.html#chart-annotate"
+    },
+    {
+      "id": "chart:annotate:anchors:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "a drawn chart annotation of kind {kind} was not restored: it needs {needed} data anchor(s) and carried {given}.",
+      "meaning": "A drawing in a state handed to `chart.setState()` had fewer data anchors than its kind is defined by — a trend line with one end, a channel with no offset. Inventing the missing anchor would put a line on the chart nobody drew, so the drawing was dropped.",
+      "fix": "Give each drawing the anchors its kind needs: one for horizontalLine, verticalLine, text and note; two for trendLine, arrow, fibonacci and callout; three for channel. Each anchor is `{ x, y }` in the chart's own data coordinates.",
+      "snippet": "chart.setState({ annotations: [{ kind: 'trendLine', anchors: [{ x: 1, y: 15 }, { x: 4, y: 30 }] }] });",
+      "docs": "api/charts.html#chart-annotate"
+    },
+    {
+      "id": "chart:*:annotate:type:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "\"annotate\" adds a drawing rail to a chart with two readable axes and {type} has none, so no rail was added. The types that take one are {types}.",
+      "meaning": "A drawing rail was asked for on a chart type that has no readable pair of axes to anchor a drawing against — a pie, a treemap, a map, a Sankey. Every drawing is anchored in data coordinates, and those types have no x and y to invert a pointer through, so the option was refused rather than accepted and silently ignored.",
+      "fix": "Ask for the rail on a cartesian type — line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter or bubble — or on combo or candlestick.",
+      "docs": "api/charts.html#chart-annotate"
+    },
+    {
+      "id": "chart:zoom:axes:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "chart zoom.axes is {value}, which is not an axis this chart can zoom; it was ignored and x was used. The values are {values}.",
+      "meaning": "A chart's `zoom.axes` named something other than x, y or xy, so it could not say which axes the zoom acts on. The zoom was still added, acting on the x axis, rather than being dropped entirely.",
+      "fix": "Use `axes: 'x'` (the default), `'y'` for the measure axis alone, or `'xy'` for both.",
+      "snippet": "createChart({ grid, container, type: 'line', zoom: { axes: 'xy' } });",
+      "docs": "api/charts.html#chart-zoom"
+    },
+    {
+      "id": "chart:zoom:buttons:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "chart zoom.buttons is {value}, which is not a way to show the zoom toolbar; it was ignored and hover was used. The values are {values}.",
+      "meaning": "A chart's `zoom.buttons` named something other than hover, always or none, so it could not say when the toolbar appears. The toolbar was built with the default behaviour rather than left out, which would have read as the whole option being broken.",
+      "fix": "Use `buttons: 'hover'` (the default), `'always'` to pin the strip open, or `'none'` to keep the zoom and drive it from your own controls.",
+      "snippet": "createChart({ grid, container, type: 'line', zoom: { buttons: 'always' } });",
+      "docs": "api/charts.html#chart-zoom"
+    },
+    {
+      "id": "chart:*:zoom:type:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "\"zoom\" narrows a chart's own axes and {type} has none to narrow, so no zoom was added. The types that take one are {types}.",
+      "meaning": "`zoom` was set on a chart type that has no pair of continuous axes to narrow — a pie, a treemap, a Sankey, a geomap. No controls were added, and the option was reported rather than accepted in silence, because a caller who sets an option and sees nothing cannot tell a broken option from a broken chart.",
+      "fix": "Set `zoom` on a cartesian type: line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble, candlestick or combo. A geomap carries its own pan and zoom already.",
+      "snippet": "createChart({ grid, container, type: 'line', x: 'day', y: 'price', zoom: true });",
+      "docs": "api/charts.html#chart-zoom"
+    },
+    {
+      "id": "chart:zoom:range",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "a chart zoom range named a value this chart's axis does not have, so the zoom was left alone. An x range on a category axis names two categories; on a continuous or time axis it is two readings, and a measure range is two values.",
+      "meaning": "A range handed to `chart.zoom.set()` or restored through `chart.setState()` could not be read against the axis it names — a category the chart does not have, or a value that is not a number or a date. The view was left where it was rather than moved to a coordinate nobody asked for.",
+      "fix": "On a category axis pass two of the chart's own categories; on a continuous or time axis pass two readings (a number, a Date or an ISO string). A range read back out of `chart.state()` always restores.",
+      "snippet": "chart.zoom.set(['north', 'south']);",
+      "docs": "api/charts.html#chart-zoom"
+    },
+    {
+      "id": "chart:*:zoom:off",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "chart.zoom.set() was called on a chart with no zoom, so nothing moved. Set `zoom: true` on a cartesian chart (or `zoom: { buttons: \"none\" }` to drive it from your own controls) before setting a range.",
+      "meaning": "A host asked a chart to show a range, but the chart has no zoom: either `zoom` was never set, or the type it was set on has no axis to narrow. Nothing moved, and it was said rather than returning quietly, because a host driving the chart from its own toolbar would otherwise see buttons that do nothing.",
+      "fix": "Set `zoom: true` on the chart, or `zoom: { buttons: 'none' }` when the host draws the controls itself.",
+      "snippet": "createChart({ grid, container, type: 'line', zoom: { buttons: 'none' } }).zoom.set([4, 10]);",
+      "docs": "api/charts.html#chart-zoom"
     },
     {
       "id": "chart:*:empty",
@@ -882,8 +1012,8 @@
       "module": "core",
       "severity": "warn",
       "since": "1.0.1",
-      "message": "filter references unknown column \"{col}\"; the condition passes every row",
-      "meaning": "A condition names a column that has no data handle — it is not a column of this grid, or it is not loaded. There is nothing to test, so the condition passes every row and the filter does not narrow anything.",
+      "message": "filter references unknown column \"{col}\"; the condition is refused rather than matching every row",
+      "meaning": "A condition names a column that has no data handle — it is not a column of this grid, or it is not loaded. There is nothing to test, so the condition is refused (BACKLOG-0001447): it matches no rows rather than admitting every row, so a bad condition can never widen what the caller sees. `filters.set` and `state.apply` already drop a condition naming a column the grid does not declare before it reaches this point; this is the kernel's own fail-closed default for a direct or headless call.",
       "fix": "Check the column id in the condition. A saved filter restored against a different column set is the usual cause.",
       "docs": "api/grid.html#filters"
     },
@@ -1452,8 +1582,8 @@
       "module": "core",
       "severity": "warn",
       "since": "1.0.1",
-      "message": "unknown filter operator \"{op}\"; the condition passes every row",
-      "meaning": "The filter kernel was given an operator it does not implement. The condition is compiled to a predicate that admits every row, so the filter has no effect — it does not hide anything, and it does not hide everything.",
+      "message": "unknown filter operator \"{op}\"; the condition is refused rather than matching every row",
+      "meaning": "The filter kernel was given an operator it does not implement. The condition is compiled to a predicate that matches nothing (BACKLOG-0001447), not one that admits every row — a bad operator can only narrow a result, never widen it. `filters.set` and `state.apply` already drop a condition whose operator is outside the closed §9.3 enum before it reaches this point (see `filter:op:*:*`); this is the kernel's own fail-closed default for a direct or headless call.",
       "fix": "Use one of the documented operators. A condition built by hand, or restored from an older saved view, is the usual source.",
       "docs": "api/grid.html#operators"
     },
@@ -2453,6 +2583,39 @@
       "meaning": "A running total is computed along the current order, so sorting by it would define the order in terms of itself — a question with no fixed point. The entry is dropped, the way an unknown column is, and the rest of the sort applies.",
       "fix": "Sort by the column the running total runs over, or by its `orderBy` column.",
       "docs": "api/grid.html#windowed-aggregates"
+    },
+    {
+      "id": "source.splunk.auth",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "Splunk refused the token; supply a valid token through `headers` (or a `fetch` wrapper that sets Authorization per request). The adapter holds no credential of its own, so there is nothing for it to retry with.",
+      "meaning": "Splunk answered a search request with 401 or 403. The call is thrown as well as named, so the grid surfaces an error rather than an empty result: a refused token that looked like \"no matching events\" would be the worst possible silence.",
+      "fix": "Put a valid bearer token or session key in `headers`, or supply a `fetch` that sets `Authorization` per request when the token expires. The adapter never stores or refreshes a credential.",
+      "snippet": "splunkAdapter({ url, search, headers: { Authorization: `Bearer ${token}` } });",
+      "docs": "api/grid.html#splunk-options"
+    },
+    {
+      "id": "source.splunk.casesensitive",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "a filter asked for a case-sensitive comparison and Splunk's search matching is case-insensitive, so it was pushed without the case constraint and the rows may include case variants the same filter excludes in the grid. Drop `caseSensitive` to make the two agree, or filter that column in the grid.",
+      "meaning": "A condition carried `caseSensitive: true`, and the SPL `search` form the adapter pushes matches values case-insensitively. The filter is still pushed — refusing it outright would be worse — but it may match rows the same condition excludes in the browser, so the difference is named rather than left to be discovered.",
+      "fix": "Drop `caseSensitive` from the condition so the grid and Splunk agree, or leave that column's filter to the grid.",
+      "snippet": "grid.filters.set({ col: 'host', op: 'eq', value: 'FW1' });",
+      "docs": "api/grid.html#splunk-options"
+    },
+    {
+      "id": "source.splunk.truncated",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "Splunk truncated this search at {count} results, so the grid's total is the truncated count and not the number of events that matched. Narrow the search, raise `maxresultrows` in the instance's limits.conf, or read the result in `mode: \"export\"`.",
+      "meaning": "The search job reported a ceiling: it reached the instance's `maxresultrows`, was auto-finalized, or said so in one of its messages. The count Splunk returned is used as the total because it is the only number there is, and it is smaller than the number of events that matched — so every \"showing X of Y\" reads low until the search is narrowed.",
+      "fix": "Narrow the search or the time window, raise `maxresultrows` in the instance's limits.conf, or read the whole result with `mode: 'export'`. Setting `maxResultRows` to your instance's ceiling lets the adapter spot a truncation Splunk did not announce.",
+      "snippet": "splunkAdapter({ url, search, maxResultRows: 500000 });",
+      "docs": "api/grid.html#splunk-options"
     },
     {
       "id": "source.stream.columnize",
@@ -4059,27 +4222,6 @@
       "docs": "api/gantt.html#plan"
     },
     {
-      "id": "gantt.beforeReject:*",
-      "module": "gantt",
-      "severity": "warn",
-      "since": "1.36.0",
-      "message": "gantt: a '{event}' before-handler rejected; the action was cancelled.",
-      "meaning": "An asynchronous before-handler returned a promise that rejected. The controller waits for every deferred handler and treats a rejection as a veto: the action was cancelled and the reason reported.",
-      "fix": "The rejection reason is attached to the console line. Resolve `false` to veto; resolve anything else to allow.",
-      "docs": "api/gantt.html#ganttmodule"
-    },
-    {
-      "id": "gantt.beforeThrow:*",
-      "module": "gantt",
-      "severity": "warn",
-      "since": "1.36.0",
-      "message": "gantt: a '{event}' before-handler threw; the action was cancelled.",
-      "meaning": "A before-handler on the gantt controller threw. A throw is treated as a veto, so the edit, delete or dependency change did not happen, and the cancellation event fired with the reason. It is reported so that a cancel nobody asked for is not mistaken for a broken controller.",
-      "fix": "The error is attached to the console line. Return `false` (or call `preventDefault()`) to veto deliberately.",
-      "snippet": "gantt.on('beforeTaskEdit', (e) => { if (locked(e.task)) e.preventDefault('locked'); });",
-      "docs": "api/gantt.html#ganttmodule"
-    },
-    {
       "id": "gantt.projectEpoch:*",
       "module": "gantt",
       "severity": "warn",
@@ -4165,28 +4307,6 @@
       "fix": "Apply the diff to the grid and the board follows it, or create the board without `grid` if it is to be driven directly.",
       "snippet": "grid.rows.apply({ add, update, remove });   // the board follows",
       "docs": "api/kanban.html#kanban-live-example"
-    },
-    {
-      "id": "kanban:beforeReject:*",
-      "module": "kanban",
-      "severity": "warn",
-      "since": "1.36.0",
-      "message": "a '{event}' before-handler rejected; the action was cancelled.",
-      "meaning": "An asynchronous before-handler returned a promise that rejected. The board waits for every deferred handler and treats a rejection as a veto, so the action was cancelled and the reason reported.",
-      "fix": "The rejection reason is attached to the console line. Resolve `false` to veto; resolve anything else to allow.",
-      "snippet": "board.on('beforeMove', async (e) => (await mayMove(e)) !== false);",
-      "docs": "api/kanban.html#kanban-move-example"
-    },
-    {
-      "id": "kanban:beforeThrow:*",
-      "module": "kanban",
-      "severity": "warn",
-      "since": "1.36.0",
-      "message": "a '{event}' before-handler threw; the action was cancelled.",
-      "meaning": "A `before…` handler on the board threw. A before-handler decides whether the action happens, so a throw is treated as a veto and the move, add or edit was cancelled. It is reported rather than swallowed because a cancel nobody asked for is indistinguishable from a broken board.",
-      "fix": "The error is attached to the console line. Return `false` to veto deliberately; fix the handler if the throw was not intended.",
-      "snippet": "board.on('beforeMove', ({ to }) => allowed(to));",
-      "docs": "api/kanban.html#kanban-move-example"
     },
     {
       "id": "kanban:children-factory",

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.71.3, layout module type declarations
+ * Lattice Grid 1.72.0, layout module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -16,7 +16,7 @@ import type {
  * rolling-statistics window (`{ kind: 'count'|'time'|'session', span, size }`)
  * and reusing it would put `kind: 'session'` next to a dashboard pane.
  */
-interface LayoutWindow {
+export interface LayoutWindow {
   /** A stable, unique id. Required. */
   id: string;
   /** The 1-based column the window starts in. Auto-placed when omitted. */
@@ -71,7 +71,7 @@ interface LayoutWindow {
  * opt out; `false` is an active lock. Reporting `undefined` as `false` would
  * read correctly and round-trip wrongly, so it is reported as it is.
  */
-interface LayoutInteractive {
+export interface LayoutInteractive {
   /**
    * Whether dragging a window to another cell is currently allowed for the layout as a
    * whole. Undefined means nothing has been locked or unlocked, so each window's own flag
@@ -91,7 +91,7 @@ interface LayoutInteractive {
 }
 
 /** The plain, JSON-safe arrangement `getLayout()` returns and `setLayout()` takes. */
-interface LayoutSnapshot {
+export interface LayoutSnapshot {
   /**
    * How many cell columns the layout had when the snapshot was taken. Informational on
    * the way back in: `setLayout` reads only `windows`, and clamps each placement to the
@@ -108,7 +108,7 @@ interface LayoutSnapshot {
 }
 
 /** A cell placement, as carried on the move and resize events. */
-interface LayoutPlacement {
+export interface LayoutPlacement {
   /** The window's left-hand column, counted from 1. */
   xPos: number;
   /** The window's top row, counted from 1. */
@@ -120,7 +120,7 @@ interface LayoutPlacement {
 }
 
 /** The payload of `window:moved`, `beforeWindowMove`, `beforeWindowResize`. */
-interface LayoutMoveEvent {
+export interface LayoutMoveEvent {
   /** Which window moved or was asked to move. */
   id: string;
   /**
@@ -156,7 +156,7 @@ interface LayoutMoveEvent {
  * payload container, not a cell count. Emitted when the container genuinely
  * changes size, including on the opening frame; never with a zero box.
  */
-interface LayoutResizeEvent {
+export interface LayoutResizeEvent {
   /** Which window changed size. */
   id: string;
   /**
@@ -184,7 +184,7 @@ interface LayoutResizeEvent {
 }
 
 /** The payload of `window:closed` and `beforeWindowClose`. */
-interface LayoutCloseEvent {
+export interface LayoutCloseEvent {
   /** Which window was closed, or is about to be. */
   id: string;
   /**
@@ -217,7 +217,7 @@ interface LayoutCloseEvent {
  * happened, and `beforeWindowMove` ({@link LayoutMoveEvent}) is where it could
  * have been stopped.
  */
-interface LayoutWindowMovedEvent {
+export interface LayoutWindowMovedEvent {
   /** Which window moved. */
   id: string;
   /** Where it was before the gesture. */
@@ -237,7 +237,7 @@ interface LayoutWindowMovedEvent {
  * container is **not** destroyed — whatever the host mounted in it is the
  * host's to tear down.
  */
-interface LayoutWindowClosedEvent {
+export interface LayoutWindowClosedEvent {
   /** Which window closed. */
   id: string;
   /** The id of its content container. */
@@ -252,7 +252,7 @@ interface LayoutWindowClosedEvent {
  * `windowMove:cancelled` and `windowResize:cancelled`: a `before…` handler
  * refused the gesture. A notification, so it carries no `preventDefault`.
  */
-interface LayoutMoveCancelledEvent {
+export interface LayoutMoveCancelledEvent {
   /** Which window did not move. */
   id: string;
   /** Where it is, and stays. */
@@ -269,7 +269,7 @@ interface LayoutMoveCancelledEvent {
  * `windowClose:cancelled`: a `beforeWindowClose` handler refused the close. A
  * notification, so it carries no `preventDefault`.
  */
-interface LayoutCloseCancelledEvent {
+export interface LayoutCloseCancelledEvent {
   /** Which window stayed open. */
   id: string;
   /** The id of its content container. */
@@ -292,7 +292,7 @@ interface LayoutCloseCancelledEvent {
  * fires the matching `…:cancelled` carrying the reason. Subscribing to `'*'`
  * receives every past-tense event and never gates.
  */
-type LayoutEventName =
+export type LayoutEventName =
   /** A window finished moving, with where it was asked to go and where it actually landed. */
   | 'window:moved'
   /** A window's payload container changed size, measured in CSS pixels — including on the opening frame. */
@@ -315,7 +315,7 @@ type LayoutEventName =
   | 'windowClose:cancelled';
 
 /** What a handler receives, per layout event. */
-interface LayoutEventPayloads {
+export interface LayoutEventPayloads {
   /** Which window moved, from where, to where, and where it landed. */
   'window:moved': LayoutWindowMovedEvent;
   /** The measured content box of the window's payload container. */
@@ -339,7 +339,7 @@ interface LayoutEventPayloads {
 }
 
 /** The payload of `layout:changed`: the whole arrangement, plus what moved it. */
-interface LayoutChangedEvent extends LayoutSnapshot {
+export interface LayoutChangedEvent extends LayoutSnapshot {
   /**
    * What moved the arrangement: `move`, `resize`, `close`, `add`, `minimise`, `restore`,
    * `setLayout` or `init`.
@@ -352,7 +352,7 @@ export type LayoutOverflow = 'static' | 'scroll';
 /** Which way displaced windows are pushed, and floated, when the arrangement compacts. */
 export type LayoutCompaction = 'vertical' | 'horizontal' | 'none';
 /** Dashboard layout configuration. */
-interface LayoutConfig {
+export interface LayoutConfig {
   /** Cell columns across the mounted element (default 12). */
   columns?: number;
   /** Cell rows down the mounted element (default 6). */
@@ -458,7 +458,7 @@ interface LayoutConfig {
  * was resized by emitting `window:resized`; it never calls into one, because it
  * cannot know what one is.
  */
-interface Layout {
+export interface Layout {
   /**
    * The element the layout was mounted on. It carries the layout's host class, which is
    * also how a second `createLayout` on the same element is refused.

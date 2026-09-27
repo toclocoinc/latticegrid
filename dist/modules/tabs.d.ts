@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.71.3, tabs module type declarations
+ * Lattice Grid 1.72.0, tabs module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -20,7 +20,7 @@ import type {
  */
 /** A tab's count-badge tone, declared by the host rather than derived from a threshold. */
 export type BadgeTone = 'good' | 'warn' | 'bad' | 'unknown';
-interface TabDescriptor {
+export interface TabDescriptor {
   /** A stable, unique id. Required. */
   id: string;
   /** The tab button's text. Defaults to `id`. */
@@ -86,7 +86,7 @@ interface TabDescriptor {
  * or by returning a Promise that resolves `false`; the active tab then does not
  * change and `tabChange:cancelled` fires carrying the reason.
  */
-interface TabChangeEvent {
+export interface TabChangeEvent {
   /** Which event this is: `beforeTabChange`. */
   type: string;
   /** The tab being switched to. */
@@ -112,7 +112,7 @@ interface TabChangeEvent {
  * materialised on first activation, the badges refreshed and `aria-selected`
  * moved. A notification, so it carries no `preventDefault`.
  */
-interface TabChangedEvent {
+export interface TabChangedEvent {
   /** Which event this is: `tab:changed`. */
   type: string;
   /** The tab now active. */
@@ -128,7 +128,7 @@ interface TabChangedEvent {
  * `tabChange:cancelled`: a `beforeTabChange` handler refused the switch, so the
  * active tab did not change. A notification, so it carries no `preventDefault`.
  */
-interface TabChangeCancelledEvent {
+export interface TabChangeCancelledEvent {
   /** Which event this is: `tabChange:cancelled`. */
   type: string;
   /** The tab that was not switched to. */
@@ -155,7 +155,7 @@ interface TabChangeCancelledEvent {
  * anything moves. `tab:changed` and `tabChange:cancelled` report a decision
  * already taken and carry no `preventDefault`.
  */
-type TabsEventName =
+export type TabsEventName =
   /** A switch is about to be applied; cancellable. */
   | 'beforeTabChange'
   /** The active tab changed: its panel is showing and its grid is mounted. */
@@ -164,7 +164,7 @@ type TabsEventName =
   | 'tabChange:cancelled';
 
 /** What a handler receives, per tabs event. */
-interface TabsEventPayloads {
+export interface TabsEventPayloads {
   /** The switch about to happen, with `preventDefault` to refuse it. */
   beforeTabChange: TabChangeEvent;
   /** The tab now active, and the one it replaced. */
@@ -174,7 +174,7 @@ interface TabsEventPayloads {
 }
 
 /** Tabbed-grid configuration. */
-interface TabsConfig {
+export interface TabsConfig {
   /** The grid factory to mount each tab with, e.g. `import { createGrid } from '../lattice-grid.js'`. Required. */
   createGrid: (el: HTMLElement, config: object) => unknown;
   /** The headless grid factory, injected the same way and for the same reason. Optional, and only needed for badges: with it, a tab that has never been activated still carries a live count, computed with no DOM. Without it, such a tab shows no badge until its first activation. */
@@ -207,7 +207,7 @@ interface TabsConfig {
  * regions, each hosting its own, independently-configured grid instance. A tab's grid mounts on first activation and is kept
  * alive, hidden, until `destroy()`.
  */
-interface Tabs {
+export interface Tabs {
   /** The element the strip was mounted on. */
   readonly el: HTMLElement;
   /** The currently active tab id. */

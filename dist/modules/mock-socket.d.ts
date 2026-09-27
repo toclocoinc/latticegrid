@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.71.3, mock-socket module type declarations
+ * Lattice Grid 1.72.0, mock-socket module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -7,7 +7,7 @@
 type FeedRow = Record<string, unknown>;
 
 /** One change in a delta batch, in the shape the data router applies. */
-interface FeedChange { op: 'upsert' | 'delete'; row: FeedRow }
+export interface FeedChange { op: 'upsert' | 'delete'; row: FeedRow }
 
 /**
  * A message on the wire. A snapshot carries the full opening set; a delta
@@ -16,7 +16,7 @@ interface FeedChange { op: 'upsert' | 'delete'; row: FeedRow }
  */
 /** Whether a feed message is the opening snapshot, or a delta of changes since. */
 export type FeedMessageKind = 'snapshot' | 'delta';
-interface FeedMessage {
+export interface FeedMessage {
   /**
    * Whether this message opens the feed with a full set of rows
    * (`'snapshot'`, which the feed yields first) or carries changes to apply
@@ -30,7 +30,7 @@ interface FeedMessage {
 }
 
 /** A feed: any iterator that yields a snapshot first, then deltas forever. */
-type Feed = Iterator<FeedMessage>;
+export type Feed = Iterator<FeedMessage>;
 
 /**
  * A serverless stand-in for a live `WebSocket`. It presents the same surface

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.71.3, ai module type declarations
+ * Lattice Grid 1.72.0, ai module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -10,7 +10,7 @@
  * chat provider (`{ text }`), a completion (a bare string), a tool-calling turn
  * (`{ toolCalls }`), or a structured provider (`{ structured }`).
  */
-type AIAsk = (payload: {
+export type AIAsk = (payload: {
   /** The narrate-only system instruction. */
   system: string;
   /** The single user message: the facts block and the ask. */
@@ -31,7 +31,7 @@ type AIAsk = (payload: {
 >;
 
 /** A single computed figure a narrative is grounded on. */
-interface AIFact {
+export interface AIFact {
   /** A stable identifier for the figure, so a caller can find it again in the packet. */
   id: string;
   /** What the figure is, in words — the column's resolved title where it has one. */
@@ -57,7 +57,7 @@ interface AIFact {
  */
 /** What an AI narrative targets. */
 export type AIBriefKind = 'view' | 'column' | 'forecast' | 'kpi' | 'chart' | 'risk';
-interface AITarget {
+export interface AITarget {
   /**
    * What to narrate. Defaults to `view` — the current filtered view — with `column` and
    * `forecast` narrating one column, `kpi` and `chart` narrating figures you pass in
@@ -112,7 +112,7 @@ interface AITarget {
 }
 
 /** The facts packet a narrative grounds on. */
-interface AIFactsPacket {
+export interface AIFactsPacket {
   /** The target the packet was built for, as given. */
   target: AITarget;
   /**
@@ -142,7 +142,7 @@ interface AIFactsPacket {
  * from {@link buildRiskFacts}: the facts plus which module sources resolved and
  * which opt-in exposures (task names, cost) were honoured.
  */
-interface AIRiskFacts {
+export interface AIRiskFacts {
   /**
    * The risk figures the summary grounds on — schedule and earned-value indices, float,
    * SLA breaches — and, when task names are allowed, the at-risk tasks as context facts
@@ -164,7 +164,7 @@ interface AIRiskFacts {
 /** Which path an AI narrative ran through: tool calls, or an upfront facts packet. */
 export type AINarrativeMode = 'tools' | 'packet';
 /** The result of a narrative: reconciled prose plus what grounded and what did not. */
-interface AINarrative {
+export interface AINarrative {
   /** The narrative, with every ungrounded figure stripped (or flagged). */
   text: string;
   /**
@@ -193,7 +193,7 @@ interface AINarrative {
 /** What to do with an ungrounded figure in an AI narrative: drop it, or flag it in place. */
 export type AIReconcileMode = 'strip' | 'flag';
 /** AI module configuration. */
-interface AIConfig {
+export interface AIConfig {
   /** The host's model callback. Falls back to the grid's `ai.ask` when omitted. */
   ask?: AIAsk;
   /**
@@ -254,7 +254,7 @@ interface AIConfig {
 }
 
 /** The report from applying an ask-your-data query. */
-interface AIApplyReport {
+export interface AIApplyReport {
   /**
    * Whether the query was applied. False when the read-only gate refused the plan, and
    * when the grid could not apply it.
@@ -274,7 +274,7 @@ interface AIApplyReport {
  * The result of an ask-your-data question: a validated,
  * READ-ONLY query spec — never rows — that the host reviews before applying.
  */
-interface AIQueryResult {
+export interface AIQueryResult {
   /** True when the spec is safe to apply: at least one read, nothing unsafe. */
   ok: boolean;
   /** The user's question. */
@@ -300,7 +300,7 @@ interface AIQueryResult {
 }
 
 /** One before/after change in a governed-actor proposal. */
-interface AIDiffEntry {
+export interface AIDiffEntry {
   /** The target row key. */
   key: string;
   /** A human label identifying the row (a name-like column, else the key). */
@@ -326,7 +326,7 @@ interface AIDiffEntry {
  */
 /** An AI proposal's row scope: the filtered view, or an opted-in widen to all rows. */
 export type AIProposalScope = 'view' | 'all';
-interface AIProposal {
+export interface AIProposal {
   /** True when there is at least one applicable change and nothing needs a pick first. */
   ok: boolean;
   /** The user's instruction. */
@@ -358,7 +358,7 @@ interface AIProposal {
 }
 
 /** The report from applying a governed-actor proposal. */
-interface AIProposalReport {
+export interface AIProposalReport {
   /** True when at least one edit landed. */
   ok: boolean;
   /** How many edits landed through the gate. */
@@ -378,7 +378,7 @@ interface AIProposalReport {
  * module's emitter — the same figures, already reconciled, so a handler that
  * only wants to paint the text need not await the call itself.
  */
-interface AINarrativeEvent extends AINarrative {
+export interface AINarrativeEvent extends AINarrative {
   /** Which event this is: `narrative`. */
   type: string;
 }
@@ -392,7 +392,7 @@ interface AINarrativeEvent extends AINarrative {
  * applied it — the apply happens before the event, so `applied` is already
  * filled in when it did.
  */
-interface AIQueryEvent extends AIQueryResult {
+export interface AIQueryEvent extends AIQueryResult {
   /** Which event this is: `query`. */
   type: string;
 }
@@ -404,7 +404,7 @@ interface AIQueryEvent extends AIQueryResult {
  * has been written: this is the point at which a host shows the diff and asks
  * a human.
  */
-interface AIProposalEvent extends AIProposal {
+export interface AIProposalEvent extends AIProposal {
   /** Which event this is: `proposal`. */
   type: string;
 }
@@ -416,7 +416,7 @@ interface AIProposalEvent extends AIProposal {
  * runs. The grid is untouched either way. Exactly one of `target`, `question`
  * and `instruction` is present — whichever run failed.
  */
-interface AIErrorEvent {
+export interface AIErrorEvent {
   /** Which event this is: `error`. */
   type: string;
   /** What went wrong: the error `ask()` threw, or the one the module raised for a missing `ask()`. */
@@ -443,7 +443,7 @@ interface AIErrorEvent {
  * goes through the grid's own `beforeEdit` gate (or the board's `beforeMove`),
  * which is where a host vetoes an AI write.
  */
-type AIEventName =
+export type AIEventName =
   /** A narrative run finished; the payload is the reconciled result. */
   | 'narrative'
   /** A question resolved into a validated read-only query spec, already applied when `autoApply` was on. */
@@ -454,7 +454,7 @@ type AIEventName =
   | 'error';
 
 /** What a handler receives, per AI event. */
-interface AIEventPayloads {
+export interface AIEventPayloads {
   /** The reconciled narrative. */
   narrative: AINarrativeEvent;
   /** The validated query result. */
@@ -472,7 +472,7 @@ interface AIEventPayloads {
  * (Play C). `grid.ai` (in core) is the complementary intent/plan skill layer
  * this consumes.
  */
-interface AI {
+export interface AI {
   /** The mounted insights panel element, or null. */
   readonly el: HTMLElement | null;
   /** Whether a usable `ask()` is configured. */

@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.71.3</p>
+    <p class="rail__sub">Developer guide · v1.72.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.71.3</span>
+        <span class="chip">Version 1.72.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1493,7 +1493,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.71.3'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.72.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -3819,7 +3819,7 @@ createGrid(el, {
 });</code></pre>
     </div>
     <p>
-      Five adapters ship. <code>odataAdapter</code> writes <code>$filter</code>,
+      Six adapters ship. <code>odataAdapter</code> writes <code>$filter</code>,
       <code>$orderby</code>, <code>$top</code> and <code>$skip</code>, and follows
       <code>@odata.nextLink</code> when the server pages on its own terms.
       <code>restAdapter</code> covers an ordinary JSON endpoint whose parameter names are yours to
@@ -3831,6 +3831,13 @@ createGrid(el, {
       <code>data</code> back into rows and total, with defaults for an offset/limit list and a
       Relay cursor connection. The default pushes only the window and the total, so anything the
       schema cannot answer stays with the grid.
+      <code>splunkAdapter</code> speaks Splunk&rsquo;s search REST API: it dispatches a search job for
+      the base SPL you give it, turns the grid&rsquo;s filter into an SPL <code>search</code> expression
+      with every value quoted and escaped, pages through <code>/results</code>, takes the match count
+      from the job, and cancels the job the moment the grid asks something else. A filter on the time
+      column becomes the job&rsquo;s own <code>earliest_time</code>/<code>latest_time</code> window where
+      Splunk&rsquo;s boundaries map onto the operator exactly. Your token travels in
+      <code>headers</code> or in a <code>fetch</code> wrapper; the grid stores no credential.
     </p>
 
     <h3>Declaring what an engine can do</h3>
@@ -6582,6 +6589,10 @@ const providerFor = (id) =&gt; ({
       empty is a fact about the data, and a chart that quietly showed the thousand would be lying
       about the shape. <code>NaN</code> joins them rather than forming its own bucket: it is the
       same answer to the same question.</p>
+      <p><strong>A dataset above <code>rowCeiling</code> is refused before anything is counted.</strong>
+      Cardinality is a property of the values; row count is a property of the set, and a very large
+      set can suppress every histogram regardless of how few distinct values each column holds &mdash;
+      cheaply, because the check runs before a single row is touched.</p>
       <p><strong>Live streams suppress the charts.</strong> Constantly shifting distributions are
       unreadable, recounting on every batch is wasteful, and a filter control whose buckets move
       under the pointer is actively hostile. Filters already made stay applied, because they are
@@ -7937,6 +7948,104 @@ createGrid(el, {
       uses: the grid is handed to the charts module, never imported by it.</p>
     </div>
 
+    <h3 id="chart-drawing">Letting a reader draw on a chart</h3>
+    <p class="lead-in">
+      A chart's <code>annotations</code> state a standard the author of the dashboard chose — a
+      target, a spec limit, a mean. <code>annotate</code> is the other half: it gives whoever is
+      <strong>reading</strong> the chart a rail of tools to state an observation on it. Trend line,
+      horizontal and vertical levels, parallel channel, Fibonacci retracement, arrow, text, callout,
+      note, select/move and delete, on any cartesian type (and on combo and candlestick).
+    </p>
+    <p>
+      <code>annotate: true</code> is the whole rail on the left. The object form narrows it:
+      <code>tools</code> picks which buttons appear, always in the canonical rail order so two
+      charts never read differently; <code>rail</code> is <code>'left'</code>, <code>'top'</code> or
+      <code>'none'</code> (the drawing tools and the pointer behaviour without the strip, for a host
+      driving them from its own toolbar); and <code>readOnly</code> paints what is in the state and
+      refuses every change — including building the rail, because a strip of buttons that do nothing
+      is worse than no strip at all. An individual drawing may carry <code>readOnly</code> of its
+      own, so a published annotation can be looked at and not moved.
+    </p>
+    <div class="example">
+      <p class="example__label">A rail for a reader, and the same drawings read-only elsewhere</p>
+      <pre><code><span class="kw">const</span> chart = createChart({
+  grid, container: '#plot', type: 'line', x: 'day', y: 'price',
+  annotate: { tools: ['select', 'trendLine', 'fibonacci', 'delete'], rail: 'left' },
+});
+chart.on('annotation:added', ({ item }) =&gt; save(item));
+
+<span class="cmt">// The same drawings on the wallboard beside it, which nobody may change.</span>
+board.setState(chart.state());        <span class="cmt">// plain JSON; survives JSON.stringify</span>
+board.update({ annotate: { readOnly: <span class="kw">true</span> } });</code></pre>
+    </div>
+    <div class="why">
+      <p><strong>Why the anchors are readings and never pixels.</strong> A drawing stored in pixels
+      slides off the reading it was made about the first time anything changes the plot — a resize, a
+      rolling window advancing, a zoom, a theme that changes a font and the axis gutter with it. So
+      an anchor is <code>{ x, y }</code> in the chart's own data space and the pixels are recomputed
+      from the live scales on every draw. On a category axis the pointer resolves to the nearest
+      band, so a line lands on the category the reader was pointing at; on a horizontal bar the
+      projection follows the swapped axes, so the same drag anchors to the same readings either way
+      round.</p>
+    </div>
+
+    <h3 id="chart-measure">Measurers: a span with a readout</h3>
+    <p class="lead-in">
+      <code>measure-x</code>, <code>measure-y</code> and <code>measure-xy</code> (BACKLOG-0001475) are
+      three more tools on the same rail, usable on their own with
+      <code>annotate: { tools: ['measure-x', 'measure-y', 'measure-xy'] }</code>. Each is a drawn item
+      like any other — anchored in data, with handles, movable, deletable, in <code>chart.state()</code>
+      — that also carries a <strong>readout</strong>: <code>measure-x</code> a bar or point count and the
+      elapsed time between its two x anchors, <code>measure-y</code> the signed change and percentage
+      between its two y anchors, and <code>measure-xy</code>'s rectangle both at once. On a candlestick
+      the count is the candle count; on every other cartesian type it is the point count. The readout is
+      never stored on the item — it is recomputed from the chart's <em>currently</em> bound data on every
+      draw, so it can never read a span of bars the chart no longer has — but it rides along on the
+      <code>annotation:added</code>, <code>annotation:changed</code> and <code>annotation:removed</code>
+      events as a <code>readout</code> field, so a host can show it in its own panel rather than reading
+      the chart's own painted label.
+    </p>
+    <p>
+      A volume figure joins the <code>measure-x</code>/<code>measure-xy</code> readout when one can be
+      found: name the column explicitly with <code>annotate: { measure: { volume: 'vol' } }</code>, or,
+      on a candlestick bound with a fifth measure beyond open, high, low and close, it is read as the
+      volume column with nothing to configure at all.
+    </p>
+    <div class="example">
+      <p class="example__label">A price chart with the three measurers on their own</p>
+      <pre><code><span class="kw">const</span> chart = createChart({
+  grid, container: '#candles', type: <span class="str">'candlestick'</span>, x: <span class="str">'at'</span>,
+  measures: [
+    { col: <span class="str">'open'</span>, fn: <span class="str">'last'</span> }, { col: <span class="str">'high'</span>, fn: <span class="str">'max'</span> },
+    { col: <span class="str">'low'</span>, fn: <span class="str">'min'</span> }, { col: <span class="str">'close'</span>, fn: <span class="str">'last'</span> }, { col: <span class="str">'vol'</span> },
+  ],
+  annotate: { tools: [<span class="str">'measure-x'</span>, <span class="str">'measure-y'</span>, <span class="str">'measure-xy'</span>] },
+});
+chart.on(<span class="str">'annotation:added'</span>, ({ item, readout }) =&gt; {
+  <span class="cmt">// readout: { count: 8, countUnit: 'bars', elapsedMs: …, elapsed: { unit: 'hours', count: 7 }, volume: 1240 }</span>
+  panel.show(readout);
+});</code></pre>
+    </div>
+    <div class="example">
+      <p class="example__label">The readout's own arithmetic, run on its own</p>
+      <pre data-run="js" data-expect="8 bars, 7 hours" data-covers="config:ChartAnnotateOptions.measure"><code><span class="kw">const</span> { measureReadout } = <span class="kw">await</span> import('../packages/modules/charts/annotate-measure.js');
+<span class="kw">const</span> categories = Array.from({ length: 8 }, (unused, i) =&gt; <span class="kw">new</span> Date(Date.UTC(2026, 0, 1, i)).toISOString());
+<span class="kw">const</span> readout = measureReadout(
+  <span class="str">'measure-x'</span>,
+  [{ x: categories[0], y: 0 }, { x: categories[7], y: 0 }],
+  { categories, band: <span class="kw">true</span>, timeAxis: <span class="kw">true</span>, candles: <span class="kw">true</span>, volumeSeries: <span class="kw">null</span> },
+);
+<span class="kw">return</span> `${readout.count} ${readout.countUnit}, ${readout.elapsed.count} ${readout.elapsed.unit}`;</code></pre>
+    </div>
+    <div class="why">
+      <p><strong>Why the readout is never stored on the item.</strong> An item is its anchors, so a
+      state saved a week ago and restored today still parses; a bar count written in at draw time would
+      read the span as it was then, and a candle a rolling window has since dropped, or a filter has
+      since hidden, would leave a stale figure sitting beside data that no longer backs it. So the
+      readout is arithmetic over the anchors and whatever the chart is bound to right now — the same
+      discipline the anchors themselves follow against pixels.</p>
+    </div>
+
     <div class="example">
       <p class="example__label">A button of your own on the rail</p>
       <pre><code>createGrid(el, {
@@ -8555,6 +8664,20 @@ return (`plain ${head(plain)} | wide ${head(wide)} | bom ${plain.charCodeAt(0) =
       </p>
     </div>
 
+    <p class="lead-in">
+      A few more <code>grid.export.excel(&hellip;)</code> options shape the workbook itself rather
+      than the data in it. <code>hiddenColumns: 'hidden'</code> writes a column the grid is hiding
+      as Excel-hidden (<code>&lt;col hidden="1"/&gt;</code>) instead of dropping it, so the
+      structure round-trips even though the reader cannot see it; the default omits it entirely.
+      <code>autoFilter</code> (on by default) draws Excel's own column filter dropdowns over the
+      header row; <code>freezePanes</code> (also on by default) splits the view so the header rows
+      and pinned columns stay in place while the rest scrolls, matching what the pinned columns do
+      on screen. <code>variantFills: true</code> carries a <code>cellFill</code> callback's colour
+      into the workbook as a solid cell fill &mdash; off by default, so a fill function on the
+      export context costs nothing unless it is asked for. A long export can report its own
+      progress through <code>onProgress</code>, called with the fraction written so far.
+    </p>
+
     <h3>On the server</h3>
     <p class="lead-in">
       A user asks to export half a million rows. You can ship them all to the browser to be
@@ -8776,6 +8899,54 @@ grid.import.apply(preview);</code></pre>
           <tr><td class="name">when</td><td class="desc">Alarms (<code>AlarmsColumnOptions</code>). An extra condition a cell must satisfy before it is graded at all, in the shape a conditional-formatting rule takes and evaluated by the same code &mdash; so, like a formatting rule, it tests that cell&rsquo;s own value. A cell that fails it raises nothing and clears whatever it had: the way to keep an implausible reading from a broken agent off the on-call rota.</td></tr>
           <tr><td class="name">value</td><td class="desc">Alarms (<code>AlarmsAttachOptions</code>), routers only. What the route's slice measures, as <code>(rows) =&gt; number</code>. Defaults to the number of rows in the slice.</td></tr>
           <tr><td class="name">label</td><td class="desc">Alarms (<code>AlarmsAttachOptions</code>), routers only. The route's name, which becomes the alarm's <code>key</code>. Defaults to the partition value.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>Module instance methods</h3>
+    <p class="lead-in">
+      Each optional module's factory returns an object with its own methods, distinct from
+      <code>Grid</code>'s. The frequently reached-for ones are shown in their own examples through
+      this guide; these are the rest, so that nothing on the returned object is undocumented here.
+      Each is a method on the value <code>createKanban</code>/<code>createGantt</code>/&hellip;
+      returns, not a config key.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td class="name">setColumns</td><td class="desc">Kanban. Replace the board's configured column set. Keeps card placement and interaction state (collapsed columns, column order, quick filter, selection) for every column id that survives.</td></tr>
+          <tr><td class="name">collapseColumn</td><td class="desc">Kanban. Collapse, expand or toggle a column (emits <code>column:collapse</code>).</td></tr>
+          <tr><td class="name">collapseLane</td><td class="desc">Kanban. Collapse, expand or toggle a swimlane (emits <code>swimlane:collapse</code>).</td></tr>
+          <tr><td class="name">reorderColumns</td><td class="desc">Kanban. Reorder the columns to the given id order (emits <code>column:reorder</code>).</td></tr>
+          <tr><td class="name">reorderLanes</td><td class="desc">Kanban. Reorder the swimlanes to the given id order (emits <code>swimlane:reorder</code>).</td></tr>
+          <tr><td class="name">moveColumn</td><td class="desc">Kanban. Move one column before another (or to the end); emits <code>column:reorder</code>.</td></tr>
+          <tr><td class="name">moveLane</td><td class="desc">Kanban. Move one swimlane before another (or to the end); emits <code>swimlane:reorder</code>.</td></tr>
+          <tr><td class="name">clearSelection</td><td class="desc">Kanban. Clear the selection.</td></tr>
+          <tr><td class="name">isSelected</td><td class="desc">Kanban. Whether a card is selected.</td></tr>
+          <tr><td class="name">closeDetail</td><td class="desc">Kanban. Close any open card pop-out.</td></tr>
+          <tr><td class="name">isFieldEditable</td><td class="desc">Kanban. Whether a mapped card field is opted into inline edit and writable.</td></tr>
+          <tr><td class="name">epics</td><td class="desc">Kanban. The distinct epic values.</td></tr>
+          <tr><td class="name">sprintDefs</td><td class="desc">Kanban. The sprint dataset as <code>{ id, title }</code> descriptors &mdash; the configured list plus any data-only sprint.</td></tr>
+          <tr><td class="name">setTasks</td><td class="desc">Gantt. Replace the whole task list (copied in) and recompute, returning the new schedule. Ignored with a warning after <code>destroy()</code>.</td></tr>
+          <tr><td class="name">setDependencies</td><td class="desc">Gantt. Replace the link list and recompute. Adding a link is gated on <code>beforeDependencyCreate</code>, so this returns <code>undefined</code> on a veto, or a promise when a handler defers; a pure removal or reorder applies straight away.</td></tr>
+          <tr><td class="name">captureBaseline</td><td class="desc">Gantt. Capture a baseline (planned) snapshot of the current schedule as host data. Store it and feed it back as <code>baselineStart</code>/<code>baselineEnd</code> task fields to get variance and ghost bars.</td></tr>
+          <tr><td class="name">earnedValue</td><td class="desc">Gantt. PV/EV/AC and the derived SV/CV/SPI/CPI per task, rolled up to summaries and the project (BACKLOG-0000958).</td></tr>
+          <tr><td class="name">resources</td><td class="desc">Gantt. Compute the resource load and over-allocations on demand, optionally overriding the capacities for this call (BACKLOG-0000948).</td></tr>
+          <tr><td class="name">mountSplit</td><td class="desc">Gantt. Mount the resource-load split view beneath the plan; display-only, it reports hours rather than accepting them (BACKLOG-0001281).</td></tr>
+          <tr><td class="name">toCSV</td><td class="desc">Gantt and charts. On a Gantt, export the scheduled tasks as CSV (<code>{ dates: true }</code> writes ISO dates). On a chart, the numbers it is drawing as CSV &mdash; one column per series, one row per category.</td></tr>
+          <tr><td class="name">toMSPDI</td><td class="desc">Gantt. Export the current plan as Microsoft Project (MSPDI) XML: tasks, dependencies, constraints, baseline, resources and assignments, plus the working-time calendar (BACKLOG-0000950).</td></tr>
+          <tr><td class="name">visibleNodes</td><td class="desc">KPI. The nodes on screen for a tree strip: the roots, plus the children of every open branch.</td></tr>
+          <tr><td class="name">activate</td><td class="desc">Tabs. Switch the active tab, gated by <code>beforeTabChange</code>. Returns (or resolves to) whether the switch happened.</td></tr>
+          <tr><td class="name">isMounted</td><td class="desc">Tabs. Whether a tab's grid has been created yet.</td></tr>
+          <tr><td class="name">ascend</td><td class="desc">Charts. Go up one level, on a drillable hierarchy.</td></tr>
+          <tr><td class="name">toSVG</td><td class="desc">Charts. The chart as standalone SVG markup, empty string before the first draw.</td></tr>
+          <tr><td class="name">toPNG</td><td class="desc">Charts. Rasterise the chart through the browser; resolves to <code>null</code> where there is no canvas or <code>Image</code>.</td></tr>
+          <tr><td class="name">applyQuery</td><td class="desc">AI. Apply a reviewed ask-your-data query result &mdash; the confirm path &mdash; re-gated at the same seam the initial query was.</td></tr>
+          <tr><td class="name">attachExplain</td><td class="desc">AI. Build an "Explain" button bound to a target (a KPI tile, a stat, a chart).</td></tr>
+          <tr><td class="name">riskSummary</td><td class="desc">AI. A risk narrative over the module sources you name (<code>gantt</code>, <code>board</code>/<code>sla</code>, or precomputed outputs), reconciled the same way <code>explain()</code> is.</td></tr>
+          <tr><td class="name">flushBackpressure</td><td class="desc">Data Router. Refresh every backpressured route to the latest state now; a no-op with nothing pending.</td></tr>
+          <tr><td class="name">flushPersist</td><td class="desc">Data Router. Flush any pending durable write now; resolves once it has settled.</td></tr>
+          <tr><td class="name">removeEventListener</td><td class="desc">Mock socket (<code>MockWebSocket</code>). Remove a handler registered with <code>addEventListener</code>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -9292,7 +9463,7 @@ return (`closed ${okClose}/${vetoedClose} | ids ${closed.join(',')} | cancelled 
 
     <div class="example">
       <p class="example__label">The insights panel: element, tools, enable, maxColumns, reconcile, onNarrative, executed</p>
-      <pre data-run="js" data-expect="There are 2 rows. Confidence 900%. | narrated 1 | flagged 900% | panel true | facts 12/34" data-covers="config:ask config:element config:tools config:enable config:maxColumns config:reconcile config:onNarrative"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+      <pre data-run="js" data-expect="There are 2 rows. Confidence 900%. | narrated 1 | flagged 900% | panel true | facts 12/34" data-covers="config:ask config:element config:AIConfig.tools config:enable config:maxColumns config:reconcile config:onNarrative"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
 const { createHeadlessGrid } = await import('../packages/core/src/index.js');
 const { createAI } = await import('../packages/modules/ai/index.js');
 const dom = createTestDom({});
@@ -10175,7 +10346,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.71.3 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.72.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.71.3</title>
+<title>Grid API Reference — Lattice Grid 1.72.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -1115,7 +1115,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.71.3'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.72.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -3383,6 +3383,7 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">duckdbAdapter</td><td class="desc">A DuckDB connection</td><td class="desc">Writes SQL and takes the whole query: filter tree, multi-column sort, paging and <a href="#duckdb-grouping">grouping</a> — a grouped grid is answered by <code>GROUP BY</code>, one level at a time, with the group counts, the subtotals, the matching count and the grand total all computed in the engine. <code>from</code> is any FROM expression, so <code>read_parquet('s3://bucket/*.parquet')</code> is as valid as a table name. The engine is yours to create and install; this imports nothing, so the bundle is unchanged whether you use it or not.</td></tr>
           <tr><td class="name">dfqlAdapter</td><td class="desc">DemandFlow entities</td><td class="desc">Speaks <code>POST /v1/query</code>. Sends the entity, the key attribute and the prefix to match, a field projection and one field-and-term filter, matched as a case-insensitive substring. It cannot sort or page, so the grid does both, and every request carries a <code>countOnly</code> line because <code>limit</code> caps rows <em>scanned</em> rather than matched: a filtered query returns an arbitrary subset, and the count is the only thing that reveals it.</td></tr>
           <tr><td class="name">graphqlAdapter</td><td class="desc">Any GraphQL endpoint</td><td class="desc">Configured, not zero-config: GraphQL has no fixed query semantics, so you pass <code>buildQuery</code> to turn the plan into a <code>{ query, variables }</code> operation and <code>parseResponse</code> to read <code>data</code> back into rows and total. Defaults cover an offset/limit list with <code>totalCount</code> and a Relay cursor connection (<code>first</code>/<code>after</code> with <code>pageInfo</code>). The default pushes only the window and the total; declare <code>operators</code> or <code>capabilities</code> for filter/sort only alongside a <code>buildQuery</code> that emits them. A cursor connection is forward-only, so a deep window costs round trips proportional to its offset.</td></tr>
+          <tr><td class="name">splunkAdapter</td><td class="desc">Splunk Enterprise 9 and Splunk Cloud</td><td class="desc">Speaks the search REST API v2: dispatches a search job, reads a window from <code>/results</code>, and cancels the job when the grid asks something else. The filter tree becomes an SPL <code>search</code> expression with every value quoted and escaped, a multi-column sort becomes <code>| sort 0</code>, and a time filter becomes the job's own <code>earliest_time</code>/<code>latest_time</code> where Splunk's boundaries map onto the operator exactly. <code>| stats</code> grouping is not pushed and there is no write-back; the grid never holds the token. See <a href="#splunk-options">its options</a>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -3791,6 +3792,140 @@ createGrid(host, { source, columns: [...] });</code></pre>
         </tbody>
       </table>
     </div>
+
+    <h5 id="splunk-options"><code>splunkAdapter</code></h5>
+    <p class="section-note">
+      <strong>Splunk’s index format is closed, so the adapter speaks the search API.</strong> There
+      is no file to read and no bucket to open: <code>splunkAdapter</code> dispatches a search job
+      with <code>POST /services/search/v2/jobs</code>, watches it, reads a window of its results with
+      <code>offset</code> and <code>count</code>, and takes the match count from the job’s own
+      <code>resultCount</code>. Paging reuses the job rather than dispatching a second search, and the
+      moment the grid asks a different question — a new filter, a new sort — the job it walked away
+      from is <code>DELETE</code>d rather than left to expire. An aborted request cancels its job too.
+    </p>
+    <p class="section-note">
+      <strong>What pushes down.</strong> The filter tree becomes one SPL <code>search</code>
+      expression: <code>=</code> for <code>eq</code>, <code>NOT field=x</code> for <code>ne</code>
+      (Splunk’s <code>!=</code> drops events that do not carry the field at all, and the grid’s
+      <code>ne</code> keeps them), <code>&lt;</code>/<code>&lt;=</code>/<code>&gt;</code>/<code>&gt;=</code>
+      for the comparisons, wildcards for <code>contains</code>/<code>startsWith</code>/<code>endsWith</code>,
+      an <code>OR</code> of equalities for <code>in</code>, <code>field=*</code> and its negation for
+      <code>notBlank</code>/<code>blank</code>, and <code>AND</code>/<code>OR</code>/<code>NOT</code>
+      for the groups. A multi-column sort becomes <code>| sort 0 …</code> — the explicit
+      <code>0</code> matters, because <code>| sort</code> keeps only the first 10,000 rows otherwise
+      and a silently truncated result is the one thing a sorted grid must never be handed. Everything
+      else stays with the grid through the ordinary residual path: <code>| stats</code> grouping is
+      not pushed, and neither is the quick filter, because an SPL bare term matches whole tokens
+      against the index and the grid’s quick filter is a substring match — a different question with
+      a different answer.
+    </p>
+    <p class="section-note">
+      <strong>A time filter becomes the job’s window where that is exact.</strong>
+      <code>earliest_time</code> is inclusive and <code>latest_time</code> is exclusive, so
+      <code>&gt;=</code> and <code>&lt;</code> on the <code>timeColumn</code> leave the expression and
+      become the window, which is the difference between Splunk seeking to a time range and Splunk
+      reading everything to discard most of it. <code>&gt;</code> and <code>&lt;=</code> do not map
+      onto those boundaries, and a time bound inside an <code>or</code> would narrow the other branch
+      too, so both stay in the expression as an exact numeric comparison on the field. Where you have
+      set <code>earliest</code>/<code>latest</code> yourself, the window is the narrower of the two
+      when both are absolute instants, and yours plus an expression clause when yours is a relative
+      token only Splunk can resolve — either way the result is your window intersected with the
+      grid’s filter, never wider than both.
+    </p>
+    <p class="section-note">
+      <strong>No value is interpolated.</strong> Strings are double-quoted with <code>\</code>,
+      <code>&quot;</code> and <code>*</code> escaped — the asterisk because an unescaped one inside a
+      quoted SPL value is a <em>wildcard</em>, so a user who typed <code>foo*bar</code> into a filter
+      box would otherwise silently match far more than they asked for. The wildcards
+      <code>contains</code> needs are added outside the escaped text, so ours are wildcards and yours
+      are literal. Numbers are written only when finite, times only after they parse as a real
+      instant, and a field name is validated against
+      <code>^[A-Za-z_][A-Za-z0-9_.:-]*$</code> and refused by name otherwise — an identifier is the
+      one part of an expression that cannot be quoted away.
+    </p>
+    <p class="section-note">
+      <strong>The grid never holds your credential.</strong> A fixed token or session key goes in
+      <code>headers</code> (<code>Authorization: Bearer …</code>, or
+      <code>Authorization: Splunk &lt;sessionKey&gt;</code>); a token that expires goes in a
+      <code>fetch</code> wrapper, which is the only thing called afresh per request. The adapter
+      stores nothing, prompts for nothing and refreshes nothing, so there is nothing in it for a
+      credential to leak from — and a 401 or 403 is reported as a refused token naming that fix,
+      rather than as an empty result. See <a href="#adapter-auth">authenticating</a>.
+    </p>
+    <p class="section-note">
+      <strong>The limits worth knowing.</strong> A search job is capped by the instance’s
+      <code>limits.conf</code> <code>maxresultrows</code> (500,000 by default): past it Splunk
+      truncates, and a truncated count presented as a total would make every “showing X of Y” wrong,
+      so tell the adapter your ceiling with <code>maxResultRows</code> and it says so once instead. A
+      job also has a TTL (600 seconds by default) after which its results are gone; the adapter
+      re-dispatches rather than failing when a held job has expired. A case-sensitive condition is
+      pushed without its case constraint, because Splunk’s search matching is case-insensitive, and
+      that too is said once rather than left to be discovered.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="name">url</td><td class="type">string</td><td class="type">—</td><td class="desc">The management endpoint of the instance, e.g. <code>https://splunk.example.com:8089</code> — not Splunk Web (8000). Required; a missing one is refused by name.</td></tr>
+          <tr><td class="name">search</td><td class="type">string</td><td class="type">—</td><td class="desc">The base SPL the grid filters inside, e.g. <code>index=security sourcetype=fw</code>. A <code>search</code> prefix is added when your text has none; a base that pipes, or starts with a generating command such as <code>| tstats</code>, receives the grid’s filter as its own <code>| search</code> stage. Required.</td></tr>
+          <tr><td class="name">earliest</td><td class="type">string | number | Date</td><td class="type">— (the instance default)</td><td class="desc">The default start of the window, in any form Splunk accepts: a relative token (<code>-24h</code>, <code>@d</code>), an ISO-8601 instant, epoch seconds or a <code>Date</code>. A grid time filter narrows it and never widens it.</td></tr>
+          <tr><td class="name">latest</td><td class="type">string | number | Date</td><td class="type">— (now)</td><td class="desc">The default end of the window, in the same forms as <code>earliest</code>.</td></tr>
+          <tr><td class="name">fields</td><td class="type">string[]</td><td class="type">— (every field)</td><td class="desc">The fields Splunk returns, emitted as <code>| fields</code>. Fewer fields is less work for the search head and less JSON on the wire; include the time column if the grid sorts on it. Each name is validated when the adapter is built, so a typo is a configuration error you see immediately.</td></tr>
+          <tr><td class="name">app</td><td class="type">string</td><td class="type">— (the user’s namespace)</td><td class="desc">The app whose namespace the search runs in, addressed as <code>/servicesNS/&lt;owner&gt;/&lt;app&gt;</code>. Given without <code>owner</code>, the owner is <code>-</code>.</td></tr>
+          <tr><td class="name">owner</td><td class="type">string</td><td class="type"><code>-</code> when <code>app</code> is set</td><td class="desc">The namespace owner, used with <code>app</code>; <code>nobody</code> for a knowledge object shared across users.</td></tr>
+          <tr><td class="name">fetch</td><td class="type">typeof fetch</td><td class="type">the global <code>fetch</code></td><td class="desc">Your own fetch: where a token that expires is refreshed, since it is called afresh per request. The adapter bundles no HTTP client.</td></tr>
+          <tr><td class="name">headers</td><td class="type">Record&lt;string, string&gt;</td><td class="type">{}</td><td class="desc">Sent on every request. Where a fixed bearer token or session key goes. The adapter holds no credential of its own.</td></tr>
+          <tr><td class="name">mode</td><td class="type">'blocking' | 'export'</td><td class="type"><code>blocking</code></td><td class="desc"><code>blocking</code> dispatches a search job (<code>exec_mode=blocking</code>) and reads windows from <code>/results</code>, so the grid pages in the engine and gets a match count. <code>export</code> posts to the streaming export endpoint and reads it to the end: that endpoint has no offset and no count, so <code>capabilities.range</code> and <code>capabilities.total</code> are both declared <code>false</code> and the grid pages what it holds. Use it for a long search whose rows you want as they are produced.</td></tr>
+          <tr><td class="name">timeColumn</td><td class="type">string</td><td class="type"><code>_time</code></td><td class="desc">The field a time filter maps onto the job window through. Splunk’s own is <code>_time</code>; name yours if the grid’s time column is a different field.</td></tr>
+          <tr><td class="name">pollIntervalMs</td><td class="type">number</td><td class="type">250</td><td class="desc">Milliseconds between two <code>dispatchState</code> reads of a job that is still running.</td></tr>
+          <tr><td class="name">pollTimeoutMs</td><td class="type">number</td><td class="type">60000</td><td class="desc">Milliseconds to wait for a job to finish before giving up by name. A job the grid gave up on is cancelled rather than left running.</td></tr>
+          <tr><td class="name">maxResultRows</td><td class="type">number</td><td class="type">—</td><td class="desc">Your instance’s <code>limits.conf</code> <code>maxresultrows</code>. Given, a result that reaches it is reported as truncated instead of being presented as the whole — Splunk does not always say so itself.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note">
+      <strong>An executed example.</strong> The block below runs against
+      <code>test/fixtures/splunk-mock.js</code>, the repository’s own test double for the search REST
+      API: it speaks the four endpoints and records what was sent, so the example proves the SPL and
+      the paging without a live instance and without a credential anywhere. Swap
+      <code>createSplunkMock(…).fetch</code> for your own <code>fetch</code> (or leave it out) and the
+      same call runs against Splunk.
+    </p>
+    <pre data-run="js" data-expect="SPL as documented, 2 of 4 events" data-covers="export:splunkAdapter"><code><span class="kw">const</span> { splunkAdapter } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createSplunkMock } = <span class="kw">await</span> import('../test/fixtures/splunk-mock.js');
+
+<span class="cmt">// A mock Splunk: four firewall events, no network, no credential.</span>
+<span class="kw">const</span> splunk = createSplunkMock({ events: [
+  { _time: 1758844800, host: <span class="str">'fw1'</span>, status: 403, uri: <span class="str">'/admin/login'</span> },
+  { _time: 1758844860, host: <span class="str">'fw2'</span>, status: 404, uri: <span class="str">'/admin.php'</span> },
+  { _time: 1758844920, host: <span class="str">'fw1'</span>, status: 500, uri: <span class="str">'/admin/api'</span> },
+  { _time: 1758844980, host: <span class="str">'fw3'</span>, status: 403, uri: <span class="str">'/wp-admin'</span> },
+] });
+
+<span class="kw">const</span> adapter = splunkAdapter({
+  url: <span class="str">'https://splunk.example.com:8089'</span>,
+  search: <span class="str">'index=security sourcetype=fw'</span>,
+  earliest: <span class="str">'-24h'</span>,
+  <span class="cmt">// Your token, your header. The adapter stores nothing.</span>
+  headers: { Authorization: <span class="str">'Bearer your-token-here'</span> },
+  fetch: splunk.fetch,
+});
+
+<span class="cmt">// What the grid's filter and sort become, before anything is dispatched.</span>
+<span class="kw">const</span> query = {
+  filters: { op: <span class="str">'and'</span>, conditions: [
+    { col: <span class="str">'status'</span>, op: <span class="str">'gte'</span>, value: 400 },
+    { col: <span class="str">'uri'</span>, op: <span class="str">'contains'</span>, value: <span class="str">'admin'</span> },
+  ] },
+  sort: [{ col: <span class="str">'_time'</span>, dir: <span class="str">'desc'</span> }],
+  range: { start: 0, end: 2 },
+};
+<span class="kw">const</span> { search } = adapter.searchFor(query);
+<span class="kw">const</span> expected = <span class="str">'search index=security sourcetype=fw (status&gt;=400 AND uri="*admin*") | sort 0 -_time'</span>;
+
+<span class="cmt">// One window of the result, and the job's own match count.</span>
+<span class="kw">const</span> page = <span class="kw">await</span> adapter.execute(query, {});
+<span class="kw">return</span> `${search === expected ? <span class="str">'SPL as documented'</span> : search}, ${page.rows.length} of ${page.total} events`;</code></pre>
 
     <h4 id="adapter-auth">Authenticating a remote adapter</h4>
     <p class="section-note">

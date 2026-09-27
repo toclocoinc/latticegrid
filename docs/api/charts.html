@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Charts API Reference — Lattice Grid 1.71.3</title>
+<title>Charts API Reference — Lattice Grid 1.72.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -393,6 +393,8 @@
         <a class="rail__sub-link" href="#network-map">Network diagrams &mdash; icon nodes, links coloured by their value</a>
         <a class="rail__sub-link" href="#chart-extension-types">Extension chart types — pay only for what you draw</a>
         <a class="rail__sub-link" href="#chart-markermap">Map markers &mdash; a figure per location, coloured by its own rule</a>
+        <a class="rail__sub-link" href="#chart-annotate">Drawing on a chart &mdash; a tool rail anchored in the data</a>
+        <a class="rail__sub-link" href="#chart-zoom">Zooming a chart &mdash; five controls, the wheel, and a rolling window</a>
         <a href="#ref-charts-reference">Type reference</a>
         <a class="rail__sub-link" href="#type-Chart">Chart</a>
       </div>
@@ -480,6 +482,7 @@ const chart = createChart({
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">Drawn above the plot.</td></tr>
           <tr><td class="name">scheme</td><td class="type">string | string[] | object</td><td class="desc">A named scheme, your own ordered colours, or a <code>{ name: colour }</code> map (BACKLOG-0001453). <code>schemeNames()</code> lists the built-in ones, including a colour-blind-safe palette. The map is what survives a filter: a pie or donut keys it on the category, a chart with <code>series</code> keys it on the series value, and a single-series bar or column keys it on the <code>x</code> category instead. A name the map does not mention falls back to the ordered scheme by its position among the other unmapped names, so <code>{ Operational: 'green', Offline: 'red' }</code> keeps "Operational" exactly as green whichever categories a filter leaves. A map and a <code>palette</code> array do not combine — the map wins, and the array is ignored once, with a warning.</td></tr>
           <tr><td class="name">legend</td><td class="type">boolean | object</td><td class="desc"><code>position</code>, <code>isolate</code> so a click shows only that series (what plain toggling makes a reader with eight series do in seven clicks), and <code>values: true</code>, which appends each entry's own total after its name and a thin space — a category's for pie and donut, a series' for a series legend — formatted by the measure column (BACKLOG-0001453).</td></tr>
+          <tr><td class="name">emphasis / seriesStyle</td><td class="type">string[] / object</td><td class="desc">Weight, not just hue, for one series among many on a <code>line</code>, <code>area</code> or the line half of a <code>combo</code>/<code>pareto</code> (BACKLOG-0001472) — an equal-weighted index drawn thicker than the 24 tickers it averages, say. <code>emphasis: ['Index']</code> names series by the same value <code>scheme</code>'s map keys on: those draw with a heavier stroke, full opacity and on top; every other series draws thinner and muted. <code>seriesStyle: { Index: { width: 4, dash: [6, 3] } }</code> sets a series' own stroke width and/or dash pattern directly and wins over <code>emphasis</code> for the same name. The fixed emphasis/mute pair is themeable through <code>--lattice-chart-emphasis-width</code> and <code>--lattice-chart-muted-opacity</code>.</td></tr>
           <tr><td class="name">centre</td><td class="type">object</td><td class="desc">A donut's own figure, drawn in its hole (BACKLOG-0001453); every other type ignores it, having no hole. <code>{ value: 'total' | number | string, label? }</code> — <code>'total'</code> sums the slices actually drawn, so hiding a category from the legend moves the figure with them; a number is formatted the same way; a string is written through unchanged. <code>label</code> is a second line beneath it. Both are sized to fit the hole and never drawn past its edge.</td></tr>
           <tr><td class="name">labels</td><td class="type">boolean | object</td><td class="desc">Values beside each mark. <code>position</code>, <code>format</code>, <code>minGap</code>. A label that would overlap one already placed is dropped rather than drawn over it. <code>horizontalBar</code> draws them exactly as <code>bar</code> does: the figure sits past the end of the bar and, where that would spill past the plot's right edge, inside the bar instead (BACKLOG-0001451).</td></tr>
           <tr><td class="name">axis</td><td class="type">object</td><td class="desc">Titles, tick density and formatting per axis.</td></tr>
@@ -575,6 +578,70 @@ grid.destroy();
       draws: a line, area or step on one is drawn through the band centres, and its labels are
       thinned to the pitch the font can be read at rather than one per row
       (<code>axis.x.every</code> overrides the count).
+    </p>
+    <p class="section-note">
+      <strong>A <code>candlestick</code> or a <code>bar</code> bands its x by default, and sits on
+      the values themselves when you ask it to</strong> (BACKLOG-0001481). These two are the marks
+      with a <em>width</em>, and a width has to come from somewhere: a band scale supplies one, and
+      a continuous axis has nothing to offer but the interval between the readings, which moves as
+      the data moves. So both stay banded whatever their column's type until
+      <code>axis: { x: { scale: 'time' } }</code> (or <code>'linear'</code>) says otherwise. On a
+      continuous axis each candle or bar is drawn <strong>centred on its own x value</strong>, one
+      sampling interval wide &mdash; the <em>median</em> gap between consecutive x values, so an
+      overnight or weekend hole does not widen every mark, less the type's usual padding.
+      <code>axis.x.barWidth</code> pins the width instead, in the axis's own units (milliseconds on
+      a time axis) rather than in pixels, because a pixel width would cover a different span of
+      time every time the domain moved.
+    </p>
+    <p class="section-note">
+      <strong>Why it matters for a live pane.</strong> On a band scale the readings are spaced
+      evenly whatever their values, so a rolling <code>axis.x.window</code> can only move the
+      picture a whole slot at a time, when a period closes &mdash; which is what a trading terminal
+      shows as a pane that repaints in place and never scrolls. On a continuous axis the domain
+      ends at the wall clock, so between two candles every mark slides left by the same fraction of
+      a slot and the pane pans smoothly. Two more things follow from placing a mark at its value: a
+      <code>candlestick</code> price pane and a <code>bar</code> volume pane given the same
+      <code>x</code>, <code>scale</code> and <code>window</code> line up column for column, because
+      both put the same instant at the same pixel; and an interval with no reading leaves a
+      <strong>gap</strong> rather than closing up, which is the honest picture of a halt, a holiday
+      or a dropped message. The marks at each end of the domain are held inside the plot, so the
+      oldest and newest are drawn as part-marks rather than painted over the axis gutter.
+    </p>
+    <p class="section-note">
+      <strong><code>axis: { y: { position: 'right' } }</code> puts the measure axis on the right
+      instead</strong> (BACKLOG-0001477) &mdash; the layout an AG-style price pane uses. It moves
+      the axis line, its ticks and labels, and the plot's gutter with them, on any non-horizontal
+      cartesian type and on <code>candlestick</code> (a horizontal bar's <code>y</code> is its
+      category axis and has no measure side to move). On a dual-axis chart, setting it on
+      <code>y</code> swaps <code>y2</code> to the opposite edge, since the two can never share one
+      side.
+    </p>
+    <p class="section-note">
+      <strong>A continuous x axis takes the domain you give it</strong> (BACKLOG-0001483).
+      <code>axis.x.min</code> and <code>axis.x.max</code> fix the visible domain exactly, on a time
+      or linear x as they always have on <code>y</code> and <code>y2</code>, for every cartesian
+      type &mdash; <code>line</code>, <code>area</code>, <code>step</code>, <code>scatter</code>,
+      <code>combo</code>, and <code>bar</code> or <code>candlestick</code> once
+      <code>axis.x.scale</code> has put them on one. On a time axis both are <strong>epoch
+      milliseconds</strong>. Readings outside the pinned domain are <strong>clipped by the plot,
+      not dropped from the data</strong>, so the tooltip, the hit test and the accessible table
+      still describe every row the chart was given; a pair that does not increase is refused with
+      one warning rather than drawing the axis backwards. This is the same domain the reader's own
+      <code>brush: 'zoom'</code> writes and the same one a <code>zoom</code> narrows inside, so a
+      pinned domain is the zoom's maximum extent rather than a rival to it.
+    </p>
+    <p class="section-note">
+      <strong>A replay pane brings its own clock.</strong> A rolling
+      <code>axis: { x: { window: { kind: 'time', span } } }</code> ends at
+      <code>Date.now()</code>, which is right for a live feed and wrong for a recording: every
+      reading in a session captured yesterday is older than the window, so the chart correctly
+      draws nothing and says so. Name the pane's clock with
+      <code>window: { kind: 'time', span, now: () =&gt; clockMs }</code> &mdash; the same
+      <code>now</code> the <code>Window</code> class takes &mdash; and the window rolls against it
+      instead, including the &ldquo;the newest value is N s old&rdquo; check. It is read on every
+      draw, so a replay that advances its clock and calls <code>chart.update({ axis })</code> per
+      tick scrolls exactly as a live feed does. A <code>now</code> that does not return epoch
+      milliseconds falls back to the wall clock and warns once.
     </p>
     <p class="section-note">
       <strong>The margin a chart leaves for its labels is measured from the labels</strong>
@@ -1101,6 +1168,164 @@ walk(chart.element);
 <span class="kw">const</span> bound = markermap.bindMarkerMap(grid, { lon: 'lng', lat: 'lat', label: 'site', value: 'avail' });
 chart.destroy();
 <span class="kw">return</span> `${fills.join(' ')} | ${labels.join(' / ')} | unplaced ${bound.unplaced}`;</code></pre>
+
+    <h3 id="chart-annotate">Drawing on a chart &mdash; a tool rail anchored in the data</h3>
+    <p>The declarative <code>annotations</code> above are written by whoever built the dashboard and state a <em>standard</em> the data is judged against. <code>annotate</code> is the other half: it gives whoever is <strong>reading</strong> the chart a tool rail to state an <em>observation</em> on it &mdash; this trend, this level, this retracement, this note. Set <code>annotate: true</code> for the whole rail on the left, or an object to narrow it: <code>tools</code> picks which buttons appear (always in rail order, so two charts never read differently), <code>rail</code> is <code>left</code>, <code>top</code> or <code>none</code> (the tools and the pointer behaviour without the strip, for a host driving them from its own toolbar), and <code>readOnly</code> paints what is in the state and refuses every change &mdash; including the rail, because a strip of buttons that do nothing is worse than no strip.</p>
+    <p>Eleven tools: <strong>select/move</strong>, <strong>trend line</strong> (two points), <strong>horizontal line</strong> and <strong>vertical line</strong> (one value, labelled with it), <strong>parallel channel</strong> (two parallel lines and a fill), <strong>Fibonacci retracement</strong> (0, 23.6, 38.2, 50, 61.8, 78.6 and 100&nbsp;% between two points, each level labelled with its own value), <strong>arrow</strong>, <strong>text</strong>, <strong>callout</strong> (a label with a leader to a reading), <strong>note</strong> (a pin), and <strong>delete</strong>. Available on the cartesian types &mdash; line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble &mdash; and on combo and candlestick; asking for it on any other type warns and draws no rail rather than silently doing nothing.</p>
+    <div class="note"><p><strong>Every drawing is anchored in the chart&rsquo;s own data coordinates, never in pixels.</strong> An anchor is <code>{ x, y }</code> where <code>x</code> is a category, a number or a date exactly as the x scale reads one and <code>y</code> is a measure reading, and the pixels are recomputed from the live scales on every draw. So a line drawn across a spike stays across that spike when the container resizes, when a rolling window advances, when the grid is filtered and when the theme changes. On a category axis the pointer resolves to the nearest band &mdash; the category the reader was pointing at &mdash; and on a horizontal bar the projection follows the swapped axes, so the same drag anchors to the same readings either way round.</p></div>
+    <p>Everything drawn lives in <code>chart.state()</code> as plain JSON and comes back through <code>chart.setState()</code> as the same drawings; restoring is silent, because reloading a saved view is not an edit anybody made. Each change is reported as <code>annotation:added</code>, <code>annotation:changed</code> or <code>annotation:removed</code> with the item, subscribed through <code>chart.on(&hellip;)</code>. An individual item may carry <code>readOnly: true</code>, which lets a reader select it and see what it is without being able to move, edit or delete it. Keyboard: the rail is one tab stop with the arrows, Home and End moving within it, every button carries its accessible name from the message catalogue, Escape cancels the tool in use and Delete removes the selection.</p>
+    <pre><code>chart.setState({
+  annotations: [
+    { kind: 'trendLine', anchors: [{ x: '2024-01-02', y: 118 }, { x: '2024-03-08', y: 154 }] },
+    { kind: 'horizontalLine', anchors: [{ x: 0, y: 140 }] },          <span class="cmt">// a level; the label is its value</span>
+    { kind: 'callout', text: 'gap up', readOnly: true,
+      anchors: [{ x: '2024-02-19', y: 133 }, { x: '2024-02-26', y: 160 }] },
+  ],
+});
+chart.on('annotation:added', ({ item }) =&gt; save(item));  <span class="cmt">// item.kind, item.anchors, item.text</span></code></pre>
+    <pre data-run="js" data-expect="tools 4; trendLine day 2.5-16.2; M 120 300 L 520 120 then M 159.4 300 L 778.62 120; anchors kept true; reported trendLine; read-only 1 drawn and no rail" data-covers="export:createChart config:ChartAnnotateOptions.tools config:ChartAnnotateOptions.rail config:ChartAnnotateOptions.readOnly"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 640, height: 400 });
+const panel = document.createElement('div');
+panel.rect = { width: 640, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'day',
+  columns: [{ field: 'day', type: 'number' }, { field: 'price', type: 'number' }],
+  rows: Array.from({ length: 20 }, (v, i) =&gt; ({ day: i, price: 100 + i * 4 + (i % 3) * 6 })),
+});
+
+const reported = [];
+const chart = createChart({
+  grid, container: panel, type: 'line', x: 'day', y: 'price',
+  annotate: { tools: ['select', 'trendLine', 'fibonacci', 'delete'], rail: 'left' },
+});
+chart.on('annotation:added', (e) =&gt; reported.push(e.item.kind));
+
+const plot = panel.querySelector('.lat-chartview__plot');
+plot.rect = { left: 0, top: 0, width: 640, height: 400 };
+
+// Press the trend-line tool and drag across the plot, exactly as a reader does.
+const rail = panel.querySelector('.lat-chartview__annotate-rail');
+const trend = [...rail.children].find((b) =&gt; b.getAttribute('data-tool') === 'trendLine');
+trend.dispatchEvent(new TestEvent('click'));
+for (const [type, x, y] of [['pointerdown', 120, 300], ['pointermove', 520, 120], ['pointerup', 520, 120]]) {
+  plot.dispatchEvent(new TestEvent(type, { clientX: x, clientY: y }));
+}
+
+// The drawing is anchored in DATA, so the same readings survive a resize.
+const saved = JSON.parse(JSON.stringify(chart.state()));
+const [a, b] = saved.annotations[0].anchors;
+const before = panel.querySelector('.lat-chartview__drawn-line').getAttribute('d');
+panel.rect = { width: 960, height: 400, top: 0, left: 0 };
+plot.rect = { left: 0, top: 0, width: 960, height: 400 };
+chart.draw();
+const after = panel.querySelector('.lat-chartview__drawn-line').getAttribute('d');
+const kept = JSON.stringify(chart.state()) === JSON.stringify(saved);
+
+// The same drawings on a second chart that nobody may change.
+const board = document.createElement('div');
+board.rect = { width: 480, height: 300, top: 0, left: 0 };
+root.appendChild(board);
+const locked = createChart({
+  grid, container: board, type: 'line', x: 'day', y: 'price', annotate: { readOnly: true },
+});
+locked.setState(saved);
+const shown = board.querySelectorAll('.lat-chartview__drawn-line').length;
+const rails = board.querySelector('.lat-chartview__annotate-rail') ? 'a rail' : 'no rail';
+
+chart.destroy();
+locked.destroy();
+return `tools ${rail.children.length}; ${saved.annotations[0].kind} day ${a.x.toFixed(1)}-${b.x.toFixed(1)}; `
+  + `${before} then ${after}; anchors kept ${kept}; reported ${reported.join(',')}; `
+  + `read-only ${shown} drawn and ${rails}`;</code></pre>
+
+    <h3 id="chart-zoom">Zooming a chart &mdash; five controls, the wheel, and a rolling window</h3>
+    <p><code>brush: 'zoom'</code> lets a reader drag a range out of a chart. It then leaves them there: no controls, no wheel, no pan, and no way back but a full reset. <code>zoom</code> is the whole interaction instead. <code>zoom: true</code> is the defaults; the object form narrows them: <code>axes</code> is <code>x</code> (the default), <code>y</code> or <code>xy</code>; <code>buttons</code> is <code>hover</code> (the default), <code>always</code> or <code>none</code>; <code>wheel</code> and <code>pan</code> switch those two gestures off; <code>step</code> is how much of the visible span one press of a control is worth (0.25 by default, so zoom in shows three quarters of what was shown and a pan moves by a quarter of it); and <code>min</code> is the narrowest the view may go, as a share of the full extent.</p>
+    <p>Five buttons &mdash; <strong>zoom in</strong>, <strong>zoom out</strong>, <strong>pan left</strong>, <strong>pan right</strong>, <strong>reset</strong> &mdash; fade in at the bottom edge of the plot on hover <em>and on keyboard focus</em>. The wheel zooms about the pointer, so the reading under it stays under it; dragging a zoomed plot pans it; <code>+</code> and <code>-</code> zoom while the chart itself is focused; and a double-click resets. A configured <code>brush</code> keeps the drag &mdash; brushing is an explicit opt-in and panning is the resting gesture &mdash; so adding <code>zoom</code> to a chart that already brushes takes nothing away. Available on the cartesian types &mdash; line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble, candlestick &mdash; and on combo; asking for it on any other type warns and adds no controls rather than silently doing nothing.</p>
+    <div class="note"><p><strong>A zoom composes with a rolling <code>axis.x.window</code>: the window is the maximum extent and the zoom is a range inside it.</strong> A view sitting at the newest end keeps the newest reading at the right edge as rows arrive and the window advances &mdash; which is what somebody watching a live feed wants &mdash; and a view the reader has <em>panned back from</em> stays exactly where they left it rather than being dragged forward. On a category axis the zoom counts categories, because the gaps between two bands are not values; the range is then stated as two of the chart&rsquo;s own categories.</p></div>
+    <p>The view lives in <code>chart.state()</code> beside the drawings, as plain JSON that survives <code>JSON.stringify</code>, and comes back through <code>chart.setState()</code> &mdash; silently, because reloading a saved view is not a zoom anybody performed. Every move is reported as <code>zoom</code> with the range now drawn and what moved it (<code>button</code>, <code>wheel</code>, <code>key</code>, <code>pan</code>, <code>reset</code> or <code>api</code>), and <code>chart.zoom.set(range)</code> and <code>chart.zoom.reset()</code> drive the same view from a host&rsquo;s own toolbar. Every control is a real button carrying its accessible name from the message catalogue, the strip is one tab stop with the arrows moving within it, and a control that cannot act &mdash; pan on an un-zoomed chart, zoom in at <code>min</code> &mdash; is <code>disabled</code> rather than silently dead.</p>
+    <pre><code>createChart({
+  grid, container, type: 'candlestick', x: 'at', measures: ['open', 'high', 'low', 'close'],
+  axis: { x: { window: { kind: 'time', span: 300000 } } },  <span class="cmt">// five minutes is the most you can see</span>
+  zoom: { axes: 'xy', buttons: 'hover', step: 0.2 },        <span class="cmt">// ...and the zoom narrows that</span>
+});
+
+chart.on('zoom', ({ x, y, reason }) =&gt; save({ x, y }));     <span class="cmt">// reason: button | wheel | key | pan | reset | api</span>
+chart.zoom.set([start, end]);                               <span class="cmt">// or { x: [...], y: [...] }</span>
+chart.zoom.reset();</code></pre>
+    <pre data-run="js" data-expect="axis 0..20 then 5..15 then 0..15; day 5 at 0.26 of the plot; moves button,button,reset,wheel; restored true silently true" data-covers="export:createChart config:ChartZoomOptions.axes config:ChartZoomOptions.buttons config:ChartZoomOptions.wheel config:ChartZoomOptions.pan config:ChartZoomOptions.step config:ChartZoomOptions.min"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 640, height: 400 });
+const panel = document.createElement('div');
+panel.rect = { width: 640, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'day',
+  columns: [{ field: 'day', type: 'number' }, { field: 'price', type: 'number', total: 'sum' }],
+  rows: Array.from({ length: 21 }, (v, i) =&gt; ({ day: i, price: 100 + i * 4 })),
+});
+
+const moves = [];
+const chart = createChart({
+  grid, container: panel, type: 'line', x: 'day', y: 'price',
+  zoom: { axes: 'x', buttons: 'always', wheel: true, pan: true, step: 0.25, min: 0.05 },
+});
+chart.on('zoom', (e) =&gt; moves.push(e.reason));
+
+const plot = panel.querySelector('.lat-chartview__plot');
+plot.rect = { left: 0, top: 0, width: 640, height: 400 };
+
+// The x axis's own tick labels, read back off the SVG: what is drawn, not what
+// the state says is drawn.
+const axis = () =&gt; {
+  const ticks = [...plot.querySelectorAll('text')]
+    .filter((n) =&gt; String(n.getAttribute('class') || '').includes('lat-chartview__tick'))
+    .map((n) =&gt; ({ text: n.textContent, x: Number(n.getAttribute('x')), y: Number(n.getAttribute('y')) }));
+  const baseline = Math.max(...ticks.map((t) =&gt; t.y));
+  const row = ticks.filter((t) =&gt; t.y === baseline).sort((a, b) =&gt; a.x - b.x);
+  return `${row[0].text}..${row[row.length - 1].text}`;
+};
+const full = axis();
+
+// Press the zoom-in button, exactly as a reader does.
+const bar = panel.querySelector('.lat-chartview__zoom-bar');
+const press = (name) =&gt; [...bar.children]
+  .find((b) =&gt; b.getAttribute('data-zoom') === name)
+  .dispatchEvent(new TestEvent('click'));
+press('in');
+const closer = axis();
+press('left');
+const panned = axis();
+
+// A wheel notch a quarter of the way across magnifies about that reading.
+press('reset');
+plot.dispatchEvent(new TestEvent('wheel', { deltaY: -120, clientX: 185, clientY: 200 }));
+const [from, to] = chart.state().zoom.x.range;
+const share = ((5 - from) / (to - from)).toFixed(2);
+
+// The view is plain JSON, and it restores into a second chart of the same data.
+const saved = JSON.parse(JSON.stringify(chart.state()));
+const board = document.createElement('div');
+board.rect = { width: 640, height: 400, top: 0, left: 0 };
+root.appendChild(board);
+const copy = createChart({ grid, container: board, type: 'line', x: 'day', y: 'price', zoom: true });
+const seen = [];
+copy.on('zoom', (e) =&gt; seen.push(e.reason));
+copy.setState(saved);
+copy.draw();
+const same = JSON.stringify(copy.state().zoom) === JSON.stringify(saved.zoom);
+
+chart.destroy();
+copy.destroy();
+return `axis ${full} then ${closer} then ${panned}; day 5 at ${share} of the plot; `
+  + `moves ${moves.join(',')}; restored ${same} silently ${seen.length === 0}`;</code></pre>
     <h2 id="ref-charts-reference">Type reference</h2>
     <p class="section-note">Generated from the type declarations, so it always matches the release. Each surface lists its properties, its methods and the events it raises as three tables; an option or value type lists its members once.</p>
     <h3 id="ref-module-charts">The charts module</h3>
@@ -1132,6 +1357,7 @@ chart.destroy();
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">element</td><td class="type">HTMLElement</td><td class="desc">The chart's root element — the wrapper the chart built inside the container, which holds the heading, the SVG, the legend and the accessible table. The `&lt;svg&gt;` is a descendant of it, not this element. <small>(read-only)</small></td></tr>
+          <tr><td class="name">zoom</td><td class="type"><a href="types.html#type-ChartZoomApi">ChartZoomApi</a></td><td class="desc">Drive the chart's zoom from a host's own controls: `set` shows a range and `reset` shows everything again, each raising `zoom` and returning whether the view moved (BACKLOG-0001473). Calling either on a chart with no `zoom` warns rather than silently doing nothing. <small>(read-only)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -1149,6 +1375,8 @@ chart.destroy();
           <tr><td class="name">toSVG</td><td class="type">(opts?: object): string</td><td class="desc"><code>opts?: object</code></td><td class="type"><code>string</code></td><td class="desc">The chart as standalone SVG markup, empty string before the first draw. Pass `{ inlineStyles: true }` to copy the computed styles onto a clone, which is what an SVG loaded as an image needs to look like the chart on screen.</td></tr>
           <tr><td class="name">toPNG</td><td class="type">(opts?: { scale?: number; background?: string }): Promise&lt;Blob | null&gt;</td><td class="desc"><code>opts?: { scale?: number; background?: string }</code></td><td class="type"><code>Promise&lt;Blob | null&gt;</code></td><td class="desc">Rasterise the chart through the browser, so the picture is the one it drew. Styles are inlined first, and a white background is painted unless `background` says otherwise; `scale` defaults to the device pixel ratio. Resolves to null where there is no canvas or `Image`.</td></tr>
           <tr><td class="name">toCSV</td><td class="type">(): string</td><td class="desc">&mdash;</td><td class="type"><code>string</code></td><td class="desc">The numbers the chart is drawing, as CSV: one column per series, one row per category (or label and total, for a hierarchy). Empty string before the first draw.</td></tr>
+          <tr><td class="name">state</td><td class="type">(): <a href="types.html#type-ChartState">ChartState</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="types.html#type-ChartState">ChartState</a></code></td><td class="desc">The chart's own view state: everything a reader has drawn on it, as plain JSON that survives `JSON.stringify` and comes back through {@link Chart.setState} as the same drawings (BACKLOG-0001474).</td></tr>
+          <tr><td class="name">setState</td><td class="type">(state: <a href="types.html#type-ChartState">ChartState</a> | <a href="types.html#type-ChartAnnotationItem">ChartAnnotationItem</a>[]): void</td><td class="desc"><code>state: <a href="types.html#type-ChartState">ChartState</a> | <a href="types.html#type-ChartAnnotationItem">ChartAnnotationItem</a>[]</code></td><td class="type"><code>void</code></td><td class="desc">Restore a state produced by {@link Chart.state}. Silent — reloading a saved view is not an edit, so it raises no `annotation:added`. A chart that has not drawn yet holds the drawings until it has.</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Stop following the grid, disconnect the resize observer, stop any rolling-window timer, remove the chart's element and drop every listener. Calling it twice is harmless.</td></tr>
         </tbody>
       </table>
@@ -1166,6 +1394,10 @@ chart.destroy();
           <tr><td class="name">drill</td><td class="desc">The chart descended into a hierarchy, or `ascend()` came back up.</td><td class="type"><a href="types.html#type-ChartDrillEvent">ChartDrillEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">brush</td><td class="desc">A range was dragged out on an axis, before the chart zooms or filters on it; cancellable.</td><td class="type"><a href="types.html#type-ChartBrushEvent">ChartBrushEvent</a></td><td class="desc">yes</td></tr>
           <tr><td class="name">legend</td><td class="desc">A legend entry was clicked and the hidden set changed.</td><td class="type"><a href="types.html#type-ChartLegendEvent">ChartLegendEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">annotation:added</td><td class="desc">A reader finished drawing an annotation on the chart, or restored none.</td><td class="type"><a href="types.html#type-ChartAnnotationEvent">ChartAnnotationEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">annotation:changed</td><td class="desc">A drawn annotation was moved, re-anchored or its text edited.</td><td class="type"><a href="types.html#type-ChartAnnotationEvent">ChartAnnotationEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">annotation:removed</td><td class="desc">A drawn annotation was deleted.</td><td class="type"><a href="types.html#type-ChartAnnotationEvent">ChartAnnotationEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">zoom</td><td class="desc">The visible range changed: a control, the wheel, a key, a pan, a reset or the host API.</td><td class="type"><a href="types.html#type-ChartZoomEvent">ChartZoomEvent</a></td><td class="desc">no</td></tr>
         </tbody>
       </table>
     </div>
@@ -1188,8 +1420,11 @@ chart.destroy();
           <tr><td class="name">start</td><td class="type">string</td><td class="desc">The start-date column, for a gantt chart. <small>(optional)</small></td></tr>
           <tr><td class="name">end</td><td class="type">string</td><td class="desc">The end-date column, for a gantt chart. <small>(optional)</small></td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">A heading above the plot, drawn in the figure's caption alongside any `subtitle`. <small>(optional)</small></td></tr>
-          <tr><td class="name">scheme</td><td class="type"><a href="types.html#type-ChartSchemeName">ChartSchemeName</a> | string | string[] | Record&lt;string, string&gt;</td><td class="desc">A named scheme, an array of colours, or a `{ [name]: colour }` map (BACKLOG-0001453). The built-in names are {@link ChartSchemeName} (`'default'`, `'bright'`, `'earth'`, `'mono'`); a name registered with `registerScheme` is a plain string alongside them. The map is the form that survives a filter: a pie or donut keys it on the category (`x`) value, a chart with a `series` column keys it on the series value, and a single-series bar or column — no `series` — keys it on the `x` category instead. A name absent from the map falls back to the ordered scheme by its position among the *other unmapped* names, so `{ Operational: 'green' }` keeps every other category exactly as it was whichever ones a filter removes — an ordered array reassigns every colour after the gap. A map and an array `palette` do not combine; given both, the map wins and the array is ignored, once, with a warning. <small>(optional)</small></td></tr>
-          <tr><td class="name">legend</td><td class="type">boolean | { position?: 'top' | 'bottom' | 'left' | 'right'; isolate?: boolean; values?: boolean; }</td><td class="desc">Show the series legend. The object form places it, and `isolate` lets a click on a legend entry show that series alone. `values: true` appends each entry's own total — a category's for pie and donut, a series' for a series legend — formatted by the measure column, after the name and a thin space (BACKLOG-0001453). <small>(optional)</small></td></tr>
+          <tr><td class="name">scheme</td><td class="type"><a href="types.html#type-ChartSchemeName">ChartSchemeName</a> | string | string[] | Record&lt;string, string&gt; | <a href="#type-ChartScheme">ChartScheme</a></td><td class="desc">A named scheme, an array of colours, a `{ [name]: colour }` map (BACKLOG-0001453), or a full {@link ChartScheme} object (BACKLOG-0001471) — the shape every built-in scheme already is, so a host can override the ramps and semantic colours alongside the palette in one value. The built-in names are {@link ChartSchemeName} (`'default'`, `'bright'`, `'earth'`, `'mono'`); a name registered with `registerScheme` is a plain string alongside them. The map is the form that survives a filter: a pie or donut keys it on the category (`x`) value, a chart with a `series` column keys it on the series value, and a single-series bar or column — no `series` — keys it on the `x` category instead. A name absent from the map falls back to the ordered scheme by its position among the *other unmapped* names, so `{ Operational: 'green' }` keeps every other category exactly as it was whichever ones a filter removes — an ordered array reassigns every colour after the gap. A map and an array `palette` do not combine; given both, the map wins and the array is ignored, once, with a warning. A {@link ChartScheme} object and a map are told apart by content: an object naming at least one of `series`/`sequential`/`diverging`/`positive`/`negative` is a scheme override, not a map of category names to colours. <small>(optional)</small></td></tr>
+          <tr><td class="name">ramp</td><td class="type">[string, string] | string[]</td><td class="desc">A shorthand that overrides only the resolved scheme's sequential ramp — the colour a heatmap, calendar, hexbin or hexmap's magnitude comes from — leaving the palette, the diverging ramp and the semantic colours as the scheme (named or default) already set them (BACKLOG-0001471). Two colours, low value then high; a longer array is read by its first and last stop. <small>(optional)</small></td></tr>
+          <tr><td class="name">emphasis</td><td class="type">string[]</td><td class="desc">Draw these series (by their own value, the same name `scheme`'s map keys on) with a heavier stroke, full opacity and on top of the rest; every other series draws thinner and muted (BACKLOG-0001472). Applies to `line`, `area` and the line half of `combo`/`pareto`. The fixed style pair is themeable through `--lattice-chart-emphasis-width` and `--lattice-chart-muted-opacity`. An entry in {@link ChartSpec.seriesStyle} for the same name wins over this. <small>(optional)</small></td></tr>
+          <tr><td class="name">seriesStyle</td><td class="type">Record&lt;string, { width?: number; dash?: number[] }&gt;</td><td class="desc">An explicit stroke width and/or dash pattern for a named series (BACKLOG-0001472), keyed the same way {@link ChartSpec.emphasis} is. Wins over `emphasis` for a series named in both. Applies to `line`, `area` and the line half of `combo`/`pareto`. <small>(optional)</small></td></tr>
+          <tr><td class="name">legend</td><td class="type">boolean | { position?: 'top' | 'bottom' | 'left' | 'right'; isolate?: boolean; values?: boolean; title?: string; }</td><td class="desc">Show the series legend. The object form places it, and `isolate` lets a click on a legend entry show that series alone. `values: true` appends each entry's own total — a category's for pie and donut, a series' for a series legend — formatted by the measure column, after the name and a thin space (BACKLOG-0001453). `title` labels a continuous colour-ramp legend (heatmap, calendar, hexbin, hexmap); ignored by a series legend, which names each series instead. <small>(optional)</small></td></tr>
           <tr><td class="name">centre</td><td class="type">{ value: 'total' | number | string; label?: string }</td><td class="desc">The figure a donut draws in its own hole (BACKLOG-0001453); ignored by every other type, which has no hole to draw into. `value: 'total'` sums the slices actually drawn — a legend click that hides a category moves the figure with them — formatted by the measure column; a number is a caller's own figure, formatted the same way; a string is written through unchanged. `label` is a second line beneath it. Both are sized to fit the hole and are never drawn past its edge. <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">boolean | <a href="types.html#type-ChartLabels">ChartLabels</a></td><td class="desc">Print the value beside each mark. `true` takes the defaults; the object form sets the position, the format and the minimum gap. Only the chart types that support labels honour it. <small>(optional)</small></td></tr>
           <tr><td class="name">axis</td><td class="type">{ x?: string | <a href="types.html#type-ChartAxis">ChartAxis</a>; y?: string | <a href="types.html#type-ChartAxis">ChartAxis</a>; y2?: string | <a href="types.html#type-ChartAxis">ChartAxis</a>; right?: string | <a href="types.html#type-ChartAxis">ChartAxis</a>; }</td><td class="desc">Per-axis configuration. Each side is a title string or an object of `{ title, min, max, ticks, format, grid, labels }`. `y2` (or `right`) configures the second measure axis of a dual-axis or combo chart (BACKLOG-0000743); a dual-axis chart labels both axes by default so it cannot silently mislead. <small>(optional)</small></td></tr>
@@ -1203,6 +1438,8 @@ chart.destroy();
           <tr><td class="name">error</td><td class="type">boolean | { of?: string; confidence?: number }</td><td class="desc">Whiskers showing the uncertainty in each mark. `true` computes a confidence interval from the readings behind the mark; `of` takes a symmetric margin from another column instead. <small>(optional)</small></td></tr>
           <tr><td class="name">reference</td><td class="type">{ value: number; label?: string; axis?: 'left' | 'right' }[]</td><td class="desc">Horizontal reference lines. On a dual-axis bar or line chart (see {@link ChartMeasure.axis}) a line naming `axis: 'right'` is placed on the right-hand scale, so it means what the right axis says rather than landing at the same number on the scale it does not belong to. <small>(optional)</small></td></tr>
           <tr><td class="name">annotations</td><td class="type"><a href="types.html#type-ChartAnnotation">ChartAnnotation</a>[]</td><td class="desc">The declarative annotation layer: reference and target lines, shaded bands and callouts, each naming the axis it reads and each described into the accessible table as a sentence. A value may be a constant or `compute`d from the data it annotates, so it follows the chart as the grid is filtered. <small>(optional)</small></td></tr>
+          <tr><td class="name">annotate</td><td class="type">boolean | <a href="types.html#type-ChartAnnotateOptions">ChartAnnotateOptions</a></td><td class="desc">Add a drawing rail to a cartesian chart, so a reader can mark it up (BACKLOG-0001474): trend lines, horizontal and vertical levels, parallel channels, Fibonacci retracements, arrows, text, callouts and notes. `true` is the whole rail on the left; the object form narrows the tools, moves or hides the strip, or makes the chart read-only. Every drawing is anchored in data, lives in {@link Chart.state}, and is reported by `annotation:added`, `annotation:changed` and `annotation:removed`. Accepted on the cartesian types (line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble) and on combo and candlestick; any other type warns and draws no rail. <small>(optional)</small></td></tr>
+          <tr><td class="name">zoom</td><td class="type">boolean | <a href="types.html#type-ChartZoomOptions">ChartZoomOptions</a></td><td class="desc">Let a reader look closer (BACKLOG-0001473). `true` is the whole thing with its defaults: a toolbar of five buttons — zoom in, zoom out, pan left, pan right, reset — fading in at the bottom edge of the plot on hover and on keyboard focus, the wheel zooming about the pointer, a drag panning the visible range, `+` and `-` while the chart is focused, and a double-click resetting. The object form narrows all of that. The view composes with a rolling `axis.x.window`: the window is the maximum extent, the zoom is a range inside it, and a view at the newest end keeps the newest reading at the right edge as rows arrive. It lives in {@link Chart.state}, is reported by `zoom`, and is drivable through {@link Chart.zoom}. Accepted on the cartesian types (line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble, candlestick) and on combo; any other type warns and adds no controls. <small>(optional)</small></td></tr>
           <tr><td class="name">buckets</td><td class="type">number</td><td class="desc">Bins for a histogram; the default is twelve. <small>(optional)</small></td></tr>
           <tr><td class="name">diverging</td><td class="type">boolean</td><td class="desc">A diverging colour ramp, for heatmap and geomap. <small>(optional)</small></td></tr>
           <tr><td class="name">shapes</td><td class="type">unknown</td><td class="desc">Country outlines, for a geomap drawing countries rather than continents. Either GeoJSON, an object of code to SVG path data, or a geometry {@link GeoPack} imported from an optional `modules/geo-*` package (BACKLOG-0001321) — as the pack itself, or as `{ pack: id }` once its module has been imported and registered. <small>(optional)</small></td></tr>
@@ -1286,6 +1523,20 @@ chart.destroy();
           <tr><td class="name">p</td><td class="type">number</td><td class="desc">Two-sided Student-t p-value; a number with a documented method, not a verdict.</td></tr>
           <tr><td class="name">lower</td><td class="type">number | null</td><td class="desc">The Wald confidence interval at the model's confidence level (BACKLOG-0000872) — the whiskers a coefficient forest plot draws. Null when there is no residual degree of freedom to form a critical value.</td></tr>
           <tr><td class="name">upper</td><td class="type">number | null</td><td class="desc">The top of the Wald interval, null on the same terms as `lower`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartScheme">ChartScheme</h4>
+    <p class="section-note">A full colour scheme, the object every built-in `SCHEMES` entry is and the shape `registerScheme` and `setDefaultScheme` store whatever they are given as (BACKLOG-0001471): a categorical palette plus the two magnitude ramps and the two semantic colours. Declaring it is what was missing — a TypeScript host could not write `{ series, sequential }` for `scheme` or `registerScheme` although the runtime already accepted and used exactly that shape.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">series</td><td class="type">string[]</td><td class="desc">The categorical palette, one colour per series.</td></tr>
+          <tr><td class="name">sequential</td><td class="type">[string, string] | string[]</td><td class="desc">The sequential ramp's ends, low value then high — a heatmap, calendar, hexbin or hexmap's magnitude colour. <small>(optional)</small></td></tr>
+          <tr><td class="name">diverging</td><td class="type">[string, string, string]</td><td class="desc">The diverging ramp's three stops: low, the neutral midpoint, high. <small>(optional)</small></td></tr>
+          <tr><td class="name">positive</td><td class="type">string</td><td class="desc">The colour for a positive or gain reading (a waterfall, a candlestick). <small>(optional)</small></td></tr>
+          <tr><td class="name">negative</td><td class="type">string</td><td class="desc">The colour for a negative or loss reading. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>

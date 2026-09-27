@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.71.3, kpi module type declarations
+ * Lattice Grid 1.72.0, kpi module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -7,10 +7,10 @@
 type KPIRow = Record<string, unknown>;
 
 /** The aggregation kinds a tile can compute. `custom` is a host reducer over the rows. */
-type KPIAggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'countDistinct' | 'custom';
+export type KPIAggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'countDistinct' | 'custom';
 
 /** Number formatting for a tile value. `percent` treats the value as a ratio (0.42 → 42%). */
-type KPIFormat =
+export type KPIFormat =
   | 'number' | 'currency' | 'percent' | 'compact'
   | { type?: 'number' | 'currency' | 'percent' | 'compact'; decimals?: number; currency?: string; locale?: string };
 
@@ -55,7 +55,7 @@ export interface KPIBand {
 }
 
 /** An optional sparkline series: the `y` field plotted in order of the `x` field (or insertion). */
-interface KPISparkline {
+export interface KPISparkline {
   /**
    * The field the points are ordered by. Omitted, the rows are plotted in the order the
    * panel holds them.
@@ -71,7 +71,7 @@ interface KPISparkline {
 /** An aggregate stat tile: the routed rows reduced to one number, with optional filter, format, threshold and trend. */
 /** What a movement line prints: the difference alone, the percentage alone, or both. */
 export type DeltaMode = 'absolute' | 'relative' | 'both';
-interface KPIStatTile {
+export interface KPIStatTile {
   /** Absent, or `'stat'`: the default tile kind. */
   kind?: 'stat';
   /** A stable identity for the tile (defaults to the label, then the index). */
@@ -118,7 +118,7 @@ interface KPIStatTile {
  * configuration warning by name and ignored, because a tile that measures
  * nothing has nothing for them to apply to.
  */
-interface KPIClockTile {
+export interface KPIClockTile {
   /** Discriminates a clock tile from an aggregate stat tile. */
   kind: 'clock';
   /** A stable identity for the tile (defaults to the label, then the index). */
@@ -146,7 +146,7 @@ interface KPIClockTile {
 }
 
 /** One tile: a `kind`-discriminated aggregate stat tile (the default) or a clock tile. */
-type KPITile = KPIStatTile | KPIClockTile;
+export type KPITile = KPIStatTile | KPIClockTile;
 
 /**
  * The hierarchy a KPI panel arranges its tiles into: a rail
@@ -166,7 +166,7 @@ type KPITile = KPIStatTile | KPIClockTile;
  * A tile's `field` is never a source: a dot there already means a nested
  * object property.
  */
-interface KPITreeConfig {
+export interface KPITreeConfig {
   /** The tile's own place in the hierarchy, its own segment last. */
   path?: (tile: KPITile) => (string | number)[];
   /** The id of the tile this one sits under, or a reader for it. */
@@ -194,7 +194,7 @@ interface KPITreeConfig {
  */
 /** A KPI tile or node's status including the "measured nothing" state. */
 export type KpiRollupStatus = 'good' | 'warn' | 'critical' | 'unknown';
-interface KPINodeModel {
+export interface KPINodeModel {
   /** The node's stable identity: the tile id, or the path of a synthesised level. */
   key: string;
   /** The tile id, or null on a synthesised level. */
@@ -244,7 +244,7 @@ interface KPINodeModel {
 /** Which kind of tile a computed KPI tile is: an aggregate stat, or a clock. */
 export type KpiTileKind = 'stat' | 'clock';
 /** A computed tile, as it appears in the model. */
-interface KPITileModel {
+export interface KPITileModel {
   /** The tile's identity — its configured `id`, else its label, else its index. */
   id: string;
   /** The tile's accessible name, as configured. */
@@ -327,7 +327,7 @@ interface KPITileModel {
 }
 
 /** The payload every tile event carries. */
-interface KPIEvent {
+export interface KPIEvent {
   /** The tile model the event is about. */
   tile: KPITileModel;
   /** That tile's id, for a host that only needs to switch on it. */
@@ -345,7 +345,7 @@ interface KPIEvent {
 }
 
 /** The whole panel model, as `change` hands it over. */
-interface KPIModel {
+export interface KPIModel {
   /** Every tile model, in configured order. */
   tiles: KPITileModel[];
   /** The decorated tree, on a hierarchical panel only. */
@@ -353,7 +353,7 @@ interface KPIModel {
 }
 
 /** `node:toggle`: a branch of a hierarchical panel was expanded or collapsed. */
-interface KPINodeToggleEvent {
+export interface KPINodeToggleEvent {
   /** The key of the node that moved. */
   key: string;
   /** True when it was opened, false when it was closed. */
@@ -363,7 +363,7 @@ interface KPINodeToggleEvent {
 }
 
 /** `change`: the panel rebuilt its model. */
-interface KPIChangeEvent {
+export interface KPIChangeEvent {
   /** The model the panel now holds. */
   model: KPIModel;
 }
@@ -376,7 +376,7 @@ interface KPIChangeEvent {
  * rather than re-publishing them. `on()` warns once on any other name, because
  * a binding to an event that can never fire is a silent no-op.
  */
-type KPIEventName =
+export type KPIEventName =
   /** A tile was clicked, or Enter or Space was pressed on a focused one. */
   | 'tile:click'
   /** A tile was double-clicked. */
@@ -391,7 +391,7 @@ type KPIEventName =
   | 'tile:status';
 
 /** What a handler receives, per KPI event. */
-interface KPIEventPayloads {
+export interface KPIEventPayloads {
   /** The tile clicked, its id, its node on a tree panel, and the DOM event. */
   'tile:click': KPIEvent;
   /** The tile double-clicked, its id, its node on a tree panel, and the DOM event. */
@@ -412,7 +412,7 @@ interface KPIEventPayloads {
  * The event an alarm system is fed from: one per transition, rather than the whole model
  * on every refresh. `lattice-grid/modules/alarms` consumes exactly this.
  */
-interface KPITileStatusEvent {
+export interface KPITileStatusEvent {
   /** The tile's identity — its configured `id`, else its label, else its index. */
   id: string;
   /** The status it now reads, or null when the tile declares no thresholds or bands. */
@@ -429,7 +429,7 @@ interface KPITileStatusEvent {
 }
 
 /** KPI panel configuration. */
-interface KPIConfig {
+export interface KPIConfig {
   /**
    * The rows the tiles reduce over. Use this or `grid`; passing both leaves the panel on
    * the array.
@@ -541,7 +541,7 @@ interface KPIConfig {
 }
 
 /** The keyed-diff consumer surface a KPI panel shares with a grid, so a Data Router routes to it directly. */
-interface KPIRows {
+export interface KPIRows {
   /**
    * Apply a keyed diff: `add` and `update` upsert a row by its key, `remove` drops one.
    * Only the rows in the diff touch each tile's running total, so a live feed costs
@@ -563,7 +563,7 @@ interface KPIRows {
  * exposes, so `dataRouter.attach(value, kpi)` drives it like any other viewer,
  * updating each tile incrementally from the routed delta.
  */
-interface KPI {
+export interface KPI {
   /** The element the panel renders into, or null for a headless panel. */
   readonly el: unknown | null;
   /** The resolved row identity; see `KPIConfig.rowKey`. */

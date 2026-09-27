@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.71.3</title>
+<title>Types API Reference — Lattice Grid 1.72.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -593,6 +593,29 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-ChartAnnotateMeasure">ChartAnnotateMeasure</h4>
+    <p class="section-note">Where a `measure-x` or `measure-xy` readout's volume figure comes from (BACKLOG-0001475).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">volume</td><td class="type">string</td><td class="desc">The column to sum between a measurer's two x anchors. Left unset, a candlestick with a fifth bound measure beyond open, high, low and close is read as the volume column; any other chart shows no volume line. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartAnnotateOptions">ChartAnnotateOptions</h4>
+    <p class="section-note">The drawing rail's settings, when `annotate` is an object rather than `true`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">tools</td><td class="type"><a href="#type-ChartAnnotationToolName">ChartAnnotationToolName</a>[]</td><td class="desc">Which tools the rail offers; the default is all of them, in rail order. <small>(optional)</small></td></tr>
+          <tr><td class="name">rail</td><td class="type"><a href="#type-ChartAnnotateRail">ChartAnnotateRail</a> <small class="literals">'left' | 'top' | 'none'</small></td><td class="desc">Where the rail sits; `none` keeps the drawings and the pointer tools without the strip. <small>(optional)</small></td></tr>
+          <tr><td class="name">readOnly</td><td class="type">boolean</td><td class="desc">Draw what is in the state and refuse every change, including the rail itself. <small>(optional)</small></td></tr>
+          <tr><td class="name">measure</td><td class="type"><a href="#type-ChartAnnotateMeasure">ChartAnnotateMeasure</a></td><td class="desc">How a measurer's volume figure is found (BACKLOG-0001475). <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ChartAnnotation">ChartAnnotation</h4>
     <div class="table-wrap">
       <table>
@@ -617,6 +640,59 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-ChartAnnotationAnchor">ChartAnnotationAnchor</h4>
+    <p class="section-note">One point of a drawn chart annotation, in the chart's own data coordinates.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">x</td><td class="type">string | number | Date</td><td class="desc">The x reading: a category exactly as the band scale holds it, a number on a continuous axis, or a `Date`/ISO string on a time axis.</td></tr>
+          <tr><td class="name">y</td><td class="type">number</td><td class="desc">The y reading, on the measure axis.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartAnnotationEvent">ChartAnnotationEvent</h4>
+    <p class="section-note">What an `annotation:added`, `annotation:changed` or `annotation:removed` handler receives.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">item</td><td class="type"><a href="#type-ChartAnnotationItem">ChartAnnotationItem</a></td><td class="desc">The drawing that was added, changed or removed, as plain JSON.</td></tr>
+          <tr><td class="name">readout</td><td class="type"><a href="#type-ChartAnnotationReadout">ChartAnnotationReadout</a></td><td class="desc">A measurer's computed readout (BACKLOG-0001475); absent for every other kind. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartAnnotationItem">ChartAnnotationItem</h4>
+    <p class="section-note">A drawing a reader made on a chart, anchored in data rather than in pixels.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">Unique within the process; assigned when the drawing is made or restored.</td></tr>
+          <tr><td class="name">kind</td><td class="type"><a href="#type-ChartAnnotationItemKind">ChartAnnotationItemKind</a></td><td class="desc">Which shape this is.</td></tr>
+          <tr><td class="name">anchors</td><td class="type"><a href="#type-ChartAnnotationAnchor">ChartAnnotationAnchor</a>[]</td><td class="desc">The data points the shape is built from: one for a horizontal line, a vertical line, a text label or a note; two for a trend line, an arrow, a callout (the reading, then the box), a retracement, or a measurer (BACKLOG-0001475 — the span's two ends, or a rectangle's two opposite corners for `measure-xy`); three for a parallel channel (the base line, then the offset of the parallel one). An item with fewer than its kind needs is refused with a warning rather than half-drawn.</td></tr>
+          <tr><td class="name">text</td><td class="type">string</td><td class="desc">The label, for `text`, `callout` and `note`. <small>(optional)</small></td></tr>
+          <tr><td class="name">colour</td><td class="type">string</td><td class="desc">A CSS colour overriding the themed default. <small>(optional)</small></td></tr>
+          <tr><td class="name">readOnly</td><td class="type">boolean</td><td class="desc">When true this one drawing cannot be moved, edited or deleted. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartAnnotationReadout">ChartAnnotationReadout</h4>
+    <p class="section-note">What a `measure-x`, `measure-y` or `measure-xy` item's readout carries (BACKLOG-0001475). Every field is omitted, not `null`, when it does not apply to the kind or could not be computed — `measure-y` never carries `count`, and neither half is present before anything is bound.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many bars (a candlestick) or points (every other type) the x span covers. <small>(optional)</small></td></tr>
+          <tr><td class="name">countUnit</td><td class="type">'bars' | 'points'</td><td class="desc">Which `count` is: `'bars'` on a candlestick, `'points'` on every other type. <small>(optional)</small></td></tr>
+          <tr><td class="name">elapsedMs</td><td class="type">number</td><td class="desc">The elapsed time between the two x anchors, in milliseconds; time axes only. <small>(optional)</small></td></tr>
+          <tr><td class="name">elapsed</td><td class="type">{ unit: string; count: number }</td><td class="desc">`elapsedMs` in its natural unit, e.g. `{ unit: 'minutes', count: 18 }`. <small>(optional)</small></td></tr>
+          <tr><td class="name">volume</td><td class="type">number</td><td class="desc">The sum of the volume column (see {@link ChartAnnotateMeasure}) across the x span. <small>(optional)</small></td></tr>
+          <tr><td class="name">change</td><td class="type">number</td><td class="desc">The signed change between the two y anchors. <small>(optional)</small></td></tr>
+          <tr><td class="name">changePercent</td><td class="type">number | null</td><td class="desc">The signed percentage change between the two y anchors; `null` when the first is zero. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ChartAxis">ChartAxis</h4>
     <p class="section-note">One axis's configuration. A bare string is the title.</p>
     <div class="table-wrap">
@@ -624,16 +700,29 @@
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">The axis title. A bare string in place of this whole object is taken as the title. `axis.y.title` names whatever the y values are and `axis.x.title` whatever the x values are; each is drawn beside the axis that actually carries those values, so on a type that swaps sides (`horizontalBar`) the two titles swap with it. <small>(optional)</small></td></tr>
-          <tr><td class="name">min</td><td class="type">number</td><td class="desc">Fix the axis rather than taking its extent from the data. <small>(optional)</small></td></tr>
-          <tr><td class="name">max</td><td class="type">number</td><td class="desc">Fix the top of the axis rather than taking it from the data. <small>(optional)</small></td></tr>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc">Fix the low end of the axis rather than taking its extent from the data. Honoured on `y` and `y2`, and on `x` whenever the x axis is **continuous** — a time or linear axis, which is every cartesian type bound to a date or numeric column, plus a `bar` or `candlestick` that named `scale` (see BACKLOG-0001483). A banded x has no numeric domain to pin, so it ignores both; pin the rows instead, with a filter. On a time axis it is epoch milliseconds — the same number `Date.now()` returns — because that is what the axis's values are compared against. Readings outside the pinned domain are **clipped by the plot, not dropped**: the tooltip, the hit test and the accessible table still describe every row the chart was given. A pair that does not increase (`min &gt;= max`) is a mirrored axis rather than a narrow one, so it is refused with one warning and the data's own extent is drawn. This is also what the reader's `brush: 'zoom'` writes, so a pinned domain and a dragged one are the same mechanism, and a `zoom` narrows *inside* a pinned domain rather than against it. <small>(optional)</small></td></tr>
+          <tr><td class="name">max</td><td class="type">number</td><td class="desc">Fix the high end of the axis rather than taking it from the data; see `min`. <small>(optional)</small></td></tr>
           <tr><td class="name">ticks</td><td class="type">number | unknown[]</td><td class="desc">A tick count, or the exact values to tick. <small>(optional)</small></td></tr>
           <tr><td class="name">format</td><td class="type">string | ((value: unknown) =&gt; string)</td><td class="desc">A format mask, or a function of the value. <small>(optional)</small></td></tr>
           <tr><td class="name">grid</td><td class="type">boolean</td><td class="desc">Draw the gridlines this axis owns. Default true for the measure axis. <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">boolean</td><td class="desc">Draw the tick labels. <small>(optional)</small></td></tr>
-          <tr><td class="name">scale</td><td class="type"><a href="#type-ChartScale">ChartScale</a> <small class="literals">'auto' | 'linear' | 'time' | 'band' | 'category'</small></td><td class="desc">Pin the x axis's scale rather than taking it from the column's type (BACKLOG-0001344). The default, `'auto'`, is the rule stated in the charts section: a temporal column type (`date`, `datetime`, `timestamp`, `dateString`) draws a time axis, a numeric one draws a linear axis whatever its distinct count, and everything else draws bands. `'band'` is how a numeric code column — a quarter, a rating, a star count — asks for its bands back; `'linear'` and `'time'` put a column the grid types as text onto a continuous axis. Only the x axis reads it. <small>(optional)</small></td></tr>
+          <tr><td class="name">scale</td><td class="type"><a href="#type-ChartScale">ChartScale</a> <small class="literals">'auto' | 'linear' | 'time' | 'band' | 'category'</small></td><td class="desc">Pin the x axis's scale rather than taking it from the column's type (BACKLOG-0001344). The default, `'auto'`, is the rule stated in the charts section: a temporal column type (`date`, `datetime`, `timestamp`, `dateString`) draws a time axis, a numeric one draws a linear axis whatever its distinct count, and everything else draws bands. `'band'` is how a numeric code column — a quarter, a rating, a star count — asks for its bands back; `'linear'` and `'time'` put a column the grid types as text onto a continuous axis. Only the x axis reads it. Every cartesian type honours it. `bar` and `candlestick` are the two that band by default whatever their column's type, because a mark with a width has to take that width from somewhere and a continuous axis has only the data's own interval to offer (BACKLOG-0001481); naming `'time'` or `'linear'` here is how a caller asks for that trade. Each mark is then drawn centred on its x value, one interval wide (see `barWidth`), so a rolling `window` pans the plot smoothly as the clock advances instead of stepping one slot per reading, a missing reading leaves a gap instead of closing up, and a price pane and a volume pane sharing an `x` line up by value. <small>(optional)</small></td></tr>
+          <tr><td class="name">barWidth</td><td class="type">number</td><td class="desc">How wide one `bar` or `candlestick` is drawn on a **continuous** x axis, in the axis's own units — milliseconds on a time axis (BACKLOG-0001481). Given in x units rather than pixels because a width in pixels would cover a different span of time every time the domain moved. The default is the median gap between consecutive x values, less the type's usual padding, so the marks sit at the sampling interval; the median rather than the mean so an overnight or weekend hole does not widen every mark. An explicit width is taken exactly as given. Ignored on a banded axis, where the band decides. <small>(optional)</small></td></tr>
           <tr><td class="name">every</td><td class="type">number</td><td class="desc">Show every nth category label, on a crowded category axis. <small>(optional)</small></td></tr>
           <tr><td class="name">rotate</td><td class="type">boolean | 'auto'</td><td class="desc">Force the category labels' rotation rather than deciding it. <small>(optional)</small></td></tr>
-          <tr><td class="name">window</td><td class="type">Pick&lt;<a href="#type-WindowSpec">WindowSpec</a>, 'kind' | 'span'&gt;</td><td class="desc">A rolling window for the axis domain (BACKLOG-0001036), in the shipped `WindowSpec` vocabulary that rolling statistics already use. Only `{ kind: 'time', span }` applies to an axis: the domain becomes the last `span` milliseconds ending **now**, so the chart keeps scrolling left while the feed is silent — the thing a count window cannot do, because with no rows arriving nothing changes. Advanced on a low-frequency clock (a quarter of the window, between 50 ms and 1 s), never per frame, and stopped when the chart is destroyed or its document is hidden. Needs a continuous x axis carrying wall-clock times; `{ kind: 'count' }` is the source's `maxRows` and is refused here rather than given a second meaning. <small>(optional)</small></td></tr>
+          <tr><td class="name">position</td><td class="type"><a href="#type-Side">Side</a> <small class="literals">'left' | 'right'</small></td><td class="desc">Which edge the measure axis draws on (BACKLOG-0001477). Only `axis.y` and `axis.y2` read it, and only on a non-horizontal cartesian type or a `candlestick` — an AG-style price pane puts its scale on the right. The default is `'left'`. On a dual-axis chart, setting it on `y` swaps `y2` to the opposite edge, since the two can never share one side. <small>(optional)</small></td></tr>
+          <tr><td class="name">window</td><td class="type">Pick&lt;<a href="#type-WindowSpec">WindowSpec</a>, 'kind' | 'span'&gt; &amp; { /** * The clock the window ends at, in epoch milliseconds; `Date.now` by * default (BACKLOG-0001483). The same `now` the `Window` class has taken * since its first release (BACKLOG-0000654). * * For a live feed the default is right. For a **replay** — a recorded * session, an incident being stepped through, a scrubber over yesterday's * telemetry — the wall clock is wrong by however long ago the recording was * made, so every reading is older than the window and the chart correctly * draws nothing. Name the pane's own clock here and the window rolls * against it instead, including the "the newest value is N s old" check. * Read on every draw, so a replay that advances its clock and calls * `chart.update({ axis })` scrolls. */ now?: () =&gt; number; }</td><td class="desc">A rolling window for the axis domain (BACKLOG-0001036), in the shipped `WindowSpec` vocabulary that rolling statistics already use. Only `{ kind: 'time', span }` applies to an axis: the domain becomes the last `span` milliseconds ending **now**, so the chart keeps scrolling left while the feed is silent — the thing a count window cannot do, because with no rows arriving nothing changes. Advanced on a low-frequency clock (a quarter of the window, between 50 ms and 1 s), never per frame, and stopped when the chart is destroyed or its document is hidden. Needs a continuous x axis carrying wall-clock times; `{ kind: 'count' }` is the source's `maxRows` and is refused here rather than given a second meaning. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartAxisZoomState">ChartAxisZoomState</h4>
+    <p class="section-note">One axis's zoom, as it is stored and restored.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">range</td><td class="type"><a href="#type-ChartZoomRange">ChartZoomRange</a></td><td class="desc">The visible range.</td></tr>
+          <tr><td class="name">pinned</td><td class="type">boolean</td><td class="desc">Whether the view is hanging off the newest end. A pinned view keeps the newest reading at the right edge as a rolling `axis.x.window` advances and as rows arrive; an unpinned one stays where the reader panned it.</td></tr>
         </tbody>
       </table>
     </div>
@@ -741,7 +830,7 @@
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">type</td><td class="type"><a href="#type-ChartEventName">ChartEventName</a> <small class="literals">'click' | 'hover' | 'leave' | 'focus' | 'draw' | 'drill' | 'brush' | 'legend'</small></td><td class="desc">Which event this is: `click`, `hover`, `leave`, `focus`, `draw`, `drill`, `brush` or `legend`.</td></tr>
+          <tr><td class="name">type</td><td class="type"><a href="#type-ChartEventName">ChartEventName</a></td><td class="desc">Which event this is: `click`, `hover`, `leave`, `focus`, `draw`, `drill`, `brush` or `legend`.</td></tr>
           <tr><td class="name">chart</td><td class="type"><a href="charts.html#type-Chart">Chart</a></td><td class="desc">The chart that raised it.</td></tr>
           <tr><td class="name">grid</td><td class="type"><a href="grid.html#type-Grid">Grid</a></td><td class="desc">The grid the chart draws, as given in the spec.</td></tr>
         </tbody>
@@ -761,6 +850,10 @@
           <tr><td class="name">drill</td><td class="type"><a href="#type-ChartDrillEvent">ChartDrillEvent</a></td><td class="desc">The new drill path.</td></tr>
           <tr><td class="name">brush</td><td class="type"><a href="#type-ChartBrushEvent">ChartBrushEvent</a></td><td class="desc">The range dragged out, and the column it names, with `preventDefault` to take the brush over.</td></tr>
           <tr><td class="name">legend</td><td class="type"><a href="#type-ChartLegendEvent">ChartLegendEvent</a></td><td class="desc">The legend entry clicked, and every hidden series after it.</td></tr>
+          <tr><td class="name">annotation:added</td><td class="type"><a href="#type-ChartAnnotationEvent">ChartAnnotationEvent</a></td><td class="desc">The drawing that was just made.</td></tr>
+          <tr><td class="name">annotation:changed</td><td class="type"><a href="#type-ChartAnnotationEvent">ChartAnnotationEvent</a></td><td class="desc">The drawing that was just moved or re-lettered.</td></tr>
+          <tr><td class="name">annotation:removed</td><td class="type"><a href="#type-ChartAnnotationEvent">ChartAnnotationEvent</a></td><td class="desc">The drawing that was just deleted.</td></tr>
+          <tr><td class="name">zoom</td><td class="type"><a href="#type-ChartZoomEvent">ChartZoomEvent</a></td><td class="desc">The range now drawn, and what moved it.</td></tr>
         </tbody>
       </table>
     </div>
@@ -828,6 +921,17 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-ChartState">ChartState</h4>
+    <p class="section-note">What a chart's own view state holds: the drawings on it, and the zoom.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">annotations</td><td class="type"><a href="#type-ChartAnnotationItem">ChartAnnotationItem</a>[]</td><td class="desc">Everything drawn on the chart, in paint order. <small>(optional)</small></td></tr>
+          <tr><td class="name">zoom</td><td class="type"><a href="#type-ChartZoomState">ChartZoomState</a></td><td class="desc">The visible range per axis; absent when the chart is showing everything. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ChartTrend">ChartTrend</h4>
     <p class="section-note">One trend or forecast overlay (BACKLOG-0000952).</p>
     <div class="table-wrap">
@@ -844,6 +948,55 @@
           <tr><td class="name">band</td><td class="type">boolean | 'prediction' | 'confidence'</td><td class="desc">The uncertainty band shaded around a linear `forecast` (BACKLOG-0000975). The Student-t `prediction` band (a future observation) by default; `confidence` shades the narrower mean-response band; `false` opts out and leaves the bare dashed line. Ignored where there is no linear forecast to put a band on. <small>(optional)</small></td></tr>
           <tr><td class="name">confidence</td><td class="type">number</td><td class="desc">The forecast band's confidence level in `(0, 1)`; 0.95 by default. <small>(optional)</small></td></tr>
           <tr><td class="name">label</td><td class="type">boolean</td><td class="desc">`false` suppresses the R² label on a linear trend. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartZoomApi">ChartZoomApi</h4>
+    <p class="section-note">The host's handle on a chart's zoom.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">set</td><td class="type">(range: <a href="#type-ChartZoomRange">ChartZoomRange</a> | { x?: <a href="#type-ChartZoomRange">ChartZoomRange</a> | <a href="#type-ChartAxisZoomState">ChartAxisZoomState</a>; y?: <a href="#type-ChartZoomRange">ChartZoomRange</a> | <a href="#type-ChartAxisZoomState">ChartAxisZoomState</a> }): boolean</td><td class="desc"><code>range: <a href="#type-ChartZoomRange">ChartZoomRange</a> | { x?: <a href="#type-ChartZoomRange">ChartZoomRange</a> | <a href="#type-ChartAxisZoomState">ChartAxisZoomState</a>; y?: <a href="#type-ChartZoomRange">ChartZoomRange</a> | <a href="#type-ChartAxisZoomState">ChartAxisZoomState</a> }</code></td><td class="type"><code>boolean</code></td><td class="desc">Show this range. An array is the x axis; `{ x, y }` names either or both, each as a bare range or as `{ range, pinned }`. Returns whether the view changed. A range naming a value the axis does not have warns and is ignored.</td></tr>
+          <tr><td class="name">reset</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">Show everything again, on every axis; returns whether anything was zoomed.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartZoomEvent">ChartZoomEvent</h4>
+    <p class="section-note">What a `zoom` handler receives.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">x</td><td class="type"><a href="#type-ChartZoomRange">ChartZoomRange</a> | null</td><td class="desc">The x range now drawn, in the axis's own units; the full extent when nothing is zoomed.</td></tr>
+          <tr><td class="name">y</td><td class="type"><a href="#type-ChartZoomRange">ChartZoomRange</a> | null</td><td class="desc">The measure range now drawn, present only when `zoom.axes` includes the y axis. <small>(optional)</small></td></tr>
+          <tr><td class="name">reason</td><td class="type"><a href="#type-ChartZoomReason">ChartZoomReason</a> <small class="literals">'button' | 'wheel' | 'key' | 'pan' | 'reset' | 'api'</small></td><td class="desc">What moved it.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartZoomOptions">ChartZoomOptions</h4>
+    <p class="section-note">The zoom's settings, when `zoom` is an object rather than `true`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">axes</td><td class="type"><a href="#type-ChartZoomAxes">ChartZoomAxes</a> <small class="literals">'x' | 'y' | 'xy'</small></td><td class="desc">Which axes zoom; the default is `x`. <small>(optional)</small></td></tr>
+          <tr><td class="name">buttons</td><td class="type"><a href="#type-ChartZoomButtons">ChartZoomButtons</a> <small class="literals">'hover' | 'always' | 'none'</small></td><td class="desc">When the toolbar is shown; the default is `hover`. <small>(optional)</small></td></tr>
+          <tr><td class="name">wheel</td><td class="type">boolean</td><td class="desc">Whether the wheel zooms about the pointer; on by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">pan</td><td class="type">boolean</td><td class="desc">Whether dragging a zoomed plot pans it; on by default. A configured `brush` wins the drag. <small>(optional)</small></td></tr>
+          <tr><td class="name">step</td><td class="type">number</td><td class="desc">How much of the visible span one press of a control is worth, between 0 and 1; the default is 0.25, so zoom in shows three quarters of what was shown and a pan moves by a quarter of it. <small>(optional)</small></td></tr>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc">The narrowest the view may go, as a share of the full extent; the default is 0.01. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartZoomState">ChartZoomState</h4>
+    <p class="section-note">A chart's zoom, per axis; an axis showing everything is absent.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">x</td><td class="type"><a href="#type-ChartAxisZoomState">ChartAxisZoomState</a></td><td class="desc">The x axis's visible range. <small>(optional)</small></td></tr>
+          <tr><td class="name">y</td><td class="type"><a href="#type-ChartAxisZoomState">ChartAxisZoomState</a></td><td class="desc">The measure axis's visible range, when `axes` includes it. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -2041,21 +2194,30 @@
     <p class="section-note">An event name as the callback prop a Svelte 5 component takes: `'cell:changed'` becomes `'CellChanged'`, so the prop is `onCellChanged`. Svelte 5 removed component events — `createEventDispatcher` is deprecated and `on:` no longer applies to a component — so an instance event reaches a host as a callback prop. The all-lowercase spelling (`oncellchanged`) is accepted at runtime too, for hosts that prefer Svelte's DOM attribute style; only the canonical one is typed, because a union of both would make every misspelling type-check.</p>
     <p class="type-def"><code>type CamelJoin&lt;E extends string&gt; = E extends `${infer Head}:${infer Tail}` ? `${Capitalize&lt;Head&gt;}${<a href="#type-CamelJoin">CamelJoin</a>&lt;Tail&gt;}` : Capitalize&lt;E&gt;</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/svelte</code>.</small></p>
+    <h4 id="type-ChartAnnotateRail">ChartAnnotateRail</h4>
+    <p class="section-note">Where a chart's drawing rail sits, or `none` for the tools without the strip.</p>
+    <p class="type-def"><code>type ChartAnnotateRail = 'left' | 'top' | 'none'</code></p>
     <h4 id="type-ChartAnnotationCompute">ChartAnnotationCompute</h4>
     <p class="section-note">A named reduction a chart annotation's `compute` derives its position from.</p>
     <p class="type-def"><code>type ChartAnnotationCompute = 'mean' | 'avg' | 'median' | 'min' | 'max'</code></p>
+    <h4 id="type-ChartAnnotationItemKind">ChartAnnotationItemKind</h4>
+    <p class="section-note">What a drawn chart annotation is; the drawing tools, less `select` and `delete`.</p>
+    <p class="type-def"><code>type ChartAnnotationItemKind = 'trendLine' | 'horizontalLine' | 'verticalLine' | 'channel' | 'fibonacci' | 'arrow' | 'measure-x' | 'measure-y' | 'measure-xy' | 'text' | 'callout' | 'note'</code></p>
     <h4 id="type-ChartAnnotationKind">ChartAnnotationKind</h4>
     <p class="section-note">What kind of chart annotation this is.</p>
     <p class="type-def"><code>type ChartAnnotationKind = 'line' | 'target' | 'band' | 'callout' | 'event'</code></p>
     <h4 id="type-ChartAnnotationOrient">ChartAnnotationOrient</h4>
     <p class="section-note">Whether a chart annotation is forced horizontal or vertical.</p>
     <p class="type-def"><code>type ChartAnnotationOrient = 'horizontal' | 'vertical'</code></p>
+    <h4 id="type-ChartAnnotationToolName">ChartAnnotationToolName</h4>
+    <p class="section-note">A tool on a chart's drawing rail.</p>
+    <p class="type-def"><code>type ChartAnnotationToolName = 'select' | 'trendLine' | 'horizontalLine' | 'verticalLine' | 'channel' | 'fibonacci' | 'arrow' | 'measure-x' | 'measure-y' | 'measure-xy' | 'text' | 'callout' | 'note' | 'delete'</code></p>
     <h4 id="type-ChartAxisSide">ChartAxisSide</h4>
     <p class="section-note">Which measure axis a chart annotation reads: left, right, or the secondary y2.</p>
     <p class="type-def"><code>type ChartAxisSide = 'left' | 'right' | 'y2'</code></p>
     <h4 id="type-ChartEventName">ChartEventName</h4>
     <p class="section-note">The events a chart raises. A chart's own, not the grid's: `grid.on` takes {@link EventName} and knows nothing about these. There is no `point:click`, `point:hover` or `series:toggle`; the events are the flat names below, and `click` is the one most callers want — it is how a click on a mark becomes a filter on the grid. Every payload carries `type`, `chart` and `grid` ({@link ChartEvent}); what else arrives is {@link ChartEventPayloads}. A handler that throws is reported to the console and the rest still run. Each event also fires the matching `on&lt;Event&gt;` in the spec (`onClick`, `onDraw`, …) before the subscribers. `click` and `brush` are the two events the chart acts on, and both carry a `preventDefault` a handler can call to take the action over; the rest are notifications.</p>
-    <p class="type-def"><code>type ChartEventName = 'click' | 'hover' | 'leave' | 'focus' | 'draw' | 'drill' | 'brush' | 'legend'</code></p>
+    <p class="type-def"><code>type ChartEventName = 'click' | 'hover' | 'leave' | 'focus' | 'draw' | 'drill' | 'brush' | 'legend' | 'annotation:added' | 'annotation:changed' | 'annotation:removed' | 'zoom'</code></p>
     <h4 id="type-ChartLabelPosition">ChartLabelPosition</h4>
     <p class="section-note">Where a chart data label sits relative to its mark.</p>
     <p class="type-def"><code>type ChartLabelPosition = 'outside' | 'inside' | 'auto'</code></p>
@@ -2074,6 +2236,18 @@
     <h4 id="type-ChartType">ChartType</h4>
     <p class="section-note">One of the thirty chart types `createChart` accepts.</p>
     <p class="type-def"><code>type ChartType = 'line' | 'step' | 'area' | 'rangeArea' | 'bar' | 'horizontalBar' | 'waterfall' | 'scatter' | 'bubble' | 'forest' | 'combo' | 'pareto' | 'histogram' | 'boxplot' | 'heatmap' | 'qq' | 'ecdf' | 'lorenz' | 'correlogram' | 'control' | 'capability' | 'movingRange' | 'pie' | 'donut' | 'sunburst' | 'treemap' | 'radar' | 'gauge' | 'funnel' | 'candlestick' | 'geomap' | 'sankey' | 'chord' | 'network' | 'stream' | 'marimekko' | 'violin' | 'gantt'</code></p>
+    <h4 id="type-ChartZoomAxes">ChartZoomAxes</h4>
+    <p class="section-note">Which axes a zoom acts on; the default is the x axis alone.</p>
+    <p class="type-def"><code>type ChartZoomAxes = 'x' | 'y' | 'xy'</code></p>
+    <h4 id="type-ChartZoomButtons">ChartZoomButtons</h4>
+    <p class="section-note">When the zoom toolbar is shown: on hover and keyboard focus, always, or never.</p>
+    <p class="type-def"><code>type ChartZoomButtons = 'hover' | 'always' | 'none'</code></p>
+    <h4 id="type-ChartZoomRange">ChartZoomRange</h4>
+    <p class="section-note">A visible range, as two ends in the axis's own units: two categories on a band axis, two readings on a continuous one, and epoch milliseconds on a time axis — which is what survives `JSON.stringify` and comes back the same.</p>
+    <p class="type-def"><code>type ChartZoomRange = [string | number, string | number]</code></p>
+    <h4 id="type-ChartZoomReason">ChartZoomReason</h4>
+    <p class="section-note">What moved a zoom, as reported by the `zoom` event.</p>
+    <p class="type-def"><code>type ChartZoomReason = 'button' | 'wheel' | 'key' | 'pan' | 'reset' | 'api'</code></p>
     <h4 id="type-ColumnExportLookup">ColumnExportLookup</h4>
     <p class="section-note">How a lookup column leaves in an export: its label, its stored value, or both.</p>
     <p class="type-def"><code>type ColumnExportLookup = 'label' | 'value' | 'columns'</code></p>

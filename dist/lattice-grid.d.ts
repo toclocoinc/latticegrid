@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.71.3, type declarations
+ * Lattice Grid 1.72.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -11446,6 +11446,99 @@ export function graphqlAdapter(options: {
   parseResponse(data: object): { rows: unknown[]; total: number };
 };
 
+/**
+ * An adapter for Splunk Enterprise 9 and Splunk Cloud through the search REST
+ * API v2.
+ *
+ * Splunk's index format is closed, so the supported surface is the search API:
+ * the adapter dispatches a search job, reads a window of its results, and
+ * cancels the job when the grid asks a different question. The grid's filter
+ * tree becomes an SPL `search` expression with every value quoted and escaped,
+ * a multi-column sort becomes `| sort 0`, and a filter on the time column
+ * becomes the job's own `earliest_time`/`latest_time` window where Splunk's
+ * inclusive/exclusive boundaries map onto the operator exactly.
+ *
+ * **The adapter never holds a credential.** A bearer token or session key
+ * travels in `headers`, or is minted per request by a `fetch` wrapper; nothing
+ * is stored, prompted for or refreshed. Grouping (`| stats`) is not pushed and
+ * there is no write-back.
+ */
+export function splunkAdapter(options: {
+  /**
+   * The management endpoint of the instance, for example
+   * `https://splunk.example.com:8089` — not Splunk Web. Required.
+   */
+  url: string;
+  /**
+   * The base SPL the grid filters inside, for example
+   * `index=security sourcetype=fw`. A `search` prefix is added when the text
+   * does not have one; a base that pipes, or starts with a generating command
+   * such as `| tstats`, receives the grid's filter as its own `| search` stage.
+   * Required.
+   */
+  search: string;
+  /**
+   * The default start of the search window, in any form Splunk accepts: a
+   * relative token (`-24h`, `@d`), an ISO-8601 instant, epoch seconds or a
+   * `Date`. A grid filter on the time column narrows this and never widens it.
+   */
+  earliest?: string | number | Date;
+  /** The default end of the search window, in the same forms as `earliest`. */
+  latest?: string | number | Date;
+  /**
+   * The fields Splunk should return, emitted as `| fields`. Fewer fields is
+   * less work for the search head and less JSON on the wire; include the time
+   * column if the grid sorts on it.
+   */
+  fields?: string[];
+  /**
+   * The Splunk app whose namespace the search runs in, addressed as
+   * `/servicesNS/<owner>/<app>`. Defaults to the authenticated user's own
+   * namespace; giving one without `owner` uses `-`.
+   */
+  app?: string;
+  /** The namespace owner, used with `app`. `-` (any) when only `app` is given. */
+  owner?: string;
+  /**
+   * The `fetch` every request is made with. This is where a token that expires
+   * is refreshed, since it is called afresh per request.
+   */
+  fetch?: typeof fetch;
+  /**
+   * Headers sent on every request — where a fixed bearer token or session key
+   * goes (`Authorization: Bearer …`, or `Authorization: Splunk <sessionKey>`).
+   */
+  headers?: Record<string, string>;
+  /**
+   * `'blocking'` (the default) dispatches a search job with
+   * `exec_mode=blocking` and reads windows from `/results`, so the grid pages in
+   * the engine and gets a match count. `'export'` posts to the streaming export
+   * endpoint and reads it to the end: no offset and no count exist there, so
+   * `capabilities.range` and `capabilities.total` are both declared `false` and
+   * the grid pages what it holds.
+   */
+  mode?: 'blocking' | 'export';
+  /**
+   * The field a time filter maps onto the job window through. `_time` by
+   * default, which is Splunk's own.
+   */
+  timeColumn?: string;
+  /** Milliseconds between two `dispatchState` reads of a job still running. 250 by default. */
+  pollIntervalMs?: number;
+  /**
+   * Milliseconds to wait for a job to finish before giving up by name and
+   * cancelling it. 60,000 by default.
+   */
+  pollTimeoutMs?: number;
+  /**
+   * The instance's `limits.conf` `maxresultrows` ceiling. Given, a result that
+   * reaches it is reported as truncated rather than presented as the whole.
+   */
+  maxResultRows?: number;
+}): PushdownAdapter & {
+  searchFor(query: RemoteRequest): { search: string; earliest?: string | number; latest?: string | number };
+};
+
 export function createGrid(element: HTMLElement, config?: GridConfig): Grid;
 export function createHeadlessGrid(config?: GridConfig): Grid;
 
@@ -11756,6 +11849,27 @@ export type ChartType =
  */
 export type ChartSchemeName = 'default' | 'bright' | 'earth' | 'mono';
 
+/**
+ * A full colour scheme, the object every built-in `SCHEMES` entry is and the
+ * shape `registerScheme` and `setDefaultScheme` store whatever they are given
+ * as: a categorical palette plus the two magnitude ramps and
+ * the two semantic colours. Declaring it is what was missing — a TypeScript
+ * host could not write `{ series, sequential }` for `scheme` or `registerScheme`
+ * although the runtime already accepted and used exactly that shape.
+ */
+export interface ChartScheme {
+  /** The categorical palette, one colour per series. */
+  series: string[];
+  /** The sequential ramp's ends, low value then high — a heatmap, calendar, hexbin or hexmap's magnitude colour. */
+  sequential?: [string, string] | string[];
+  /** The diverging ramp's three stops: low, the neutral midpoint, high. */
+  diverging?: [string, string, string];
+  /** The colour for a positive or gain reading (a waterfall, a candlestick). */
+  positive?: string;
+  /** The colour for a negative or loss reading. */
+  negative?: string;
+}
+
 /** A measure a chart reduces, when the chart is not given a bare `y`. */
 /** The mark a combo chart's measure draws with. */
 export type ChartMeasureType = 'bar' | 'line' | 'area';
@@ -11791,9 +11905,28 @@ export interface ChartAxis {
    * two titles swap with it.
    */
   title?: string;
-  /** Fix the axis rather than taking its extent from the data. */
+  /**
+   * Fix the low end of the axis rather than taking its extent from the data.
+   *
+   * Honoured on `y` and `y2`, and on `x` whenever the x axis is **continuous** —
+   * a time or linear axis, which is every cartesian type bound to a date or
+   * numeric column, plus a `bar` or `candlestick` that named `scale`. A banded x has no numeric domain to pin, so it ignores
+   * both; pin the rows instead, with a filter.
+   *
+   * On a time axis it is epoch milliseconds — the same number `Date.now()`
+   * returns — because that is what the axis's values are compared against.
+   * Readings outside the pinned domain are **clipped by the plot, not dropped**:
+   * the tooltip, the hit test and the accessible table still describe every row
+   * the chart was given. A pair that does not increase (`min >= max`) is a
+   * mirrored axis rather than a narrow one, so it is refused with one warning
+   * and the data's own extent is drawn.
+   *
+   * This is also what the reader's `brush: 'zoom'` writes, so a pinned domain
+   * and a dragged one are the same mechanism, and a `zoom` narrows *inside* a
+   * pinned domain rather than against it.
+   */
   min?: number;
-  /** Fix the top of the axis rather than taking it from the data. */
+  /** Fix the high end of the axis rather than taking it from the data; see `min`. */
   max?: number;
   /** A tick count, or the exact values to tick. */
   ticks?: number | unknown[];
@@ -11811,12 +11944,43 @@ export interface ChartAxis {
    * numeric code column — a quarter, a rating, a star count — asks for its
    * bands back; `'linear'` and `'time'` put a column the grid types as text
    * onto a continuous axis. Only the x axis reads it.
+   *
+   * Every cartesian type honours it. `bar` and `candlestick` are the two that
+   * band by default whatever their column's type, because a mark with a width
+   * has to take that width from somewhere and a continuous axis has only the
+   * data's own interval to offer; naming `'time'` or
+   * `'linear'` here is how a caller asks for that trade. Each mark is then
+   * drawn centred on its x value, one interval wide (see `barWidth`), so a
+   * rolling `window` pans the plot smoothly as the clock advances instead of
+   * stepping one slot per reading, a missing reading leaves a gap instead of
+   * closing up, and a price pane and a volume pane sharing an `x` line up by
+   * value.
    */
   scale?: ChartScale;
+  /**
+   * How wide one `bar` or `candlestick` is drawn on a **continuous** x axis, in
+   * the axis's own units — milliseconds on a time axis.
+   *
+   * Given in x units rather than pixels because a width in pixels would cover a
+   * different span of time every time the domain moved. The default is the
+   * median gap between consecutive x values, less the type's usual padding, so
+   * the marks sit at the sampling interval; the median rather than the mean so
+   * an overnight or weekend hole does not widen every mark. An explicit width
+   * is taken exactly as given. Ignored on a banded axis, where the band decides.
+   */
+  barWidth?: number;
   /** Show every nth category label, on a crowded category axis. */
   every?: number;
   /** Force the category labels' rotation rather than deciding it. */
   rotate?: boolean | 'auto';
+  /**
+   * Which edge the measure axis draws on. Only `axis.y` and
+   * `axis.y2` read it, and only on a non-horizontal cartesian type or a
+   * `candlestick` — an AG-style price pane puts its scale on the right. The
+   * default is `'left'`. On a dual-axis chart, setting it on `y` swaps `y2` to
+   * the opposite edge, since the two can never share one side.
+   */
+  position?: Side;
   /**
    * A rolling window for the axis domain, in the shipped
    * `WindowSpec` vocabulary that rolling statistics already use. Only
@@ -11829,7 +11993,23 @@ export interface ChartAxis {
    * carrying wall-clock times; `{ kind: 'count' }` is the source's `maxRows` and
    * is refused here rather than given a second meaning.
    */
-  window?: Pick<WindowSpec, 'kind' | 'span'>;
+  window?: Pick<WindowSpec, 'kind' | 'span'> & {
+    /**
+     * The clock the window ends at, in epoch milliseconds; `Date.now` by
+     * default. The same `now` the `Window` class has taken
+     * since its first release.
+     *
+     * For a live feed the default is right. For a **replay** — a recorded
+     * session, an incident being stepped through, a scrubber over yesterday's
+     * telemetry — the wall clock is wrong by however long ago the recording was
+     * made, so every reading is older than the window and the chart correctly
+     * draws nothing. Name the pane's own clock here and the window rolls
+     * against it instead, including the "the newest value is N s old" check.
+     * Read on every draw, so a replay that advances its clock and calls
+     * `chart.update({ axis })` scrolls.
+     */
+    now?: () => number;
+  };
 }
 
 /**
@@ -11912,6 +12092,205 @@ export type ChartAnnotationCompute = 'mean' | 'avg' | 'median' | 'min' | 'max';
 export type ChartAnnotationOrient = 'horizontal' | 'vertical';
 /** Which measure axis a chart annotation reads: left, right, or the secondary y2. */
 export type ChartAxisSide = 'left' | 'right' | 'y2';
+
+/**
+ * Drawing on a chart, rather than declaring on one.
+ *
+ * {@link ChartAnnotation} is written by whoever built the dashboard and states a
+ * standard the data is judged against. A {@link ChartAnnotationItem} is drawn by
+ * whoever is *reading* the chart, with the pointer or the keyboard, and states
+ * an observation: this trend, this level, this retracement, this note.
+ *
+ * Every item is anchored in the chart's own **data** coordinates, never in
+ * pixels, so a drawing survives a resize, a zoom, a rolling window advancing
+ * and a change of theme — it is recomputed from the live scales on every draw.
+ * Items live in `chart.state()`, restore through `chart.setState()`, serialise
+ * as plain JSON, and are reported as they change by `annotation:added`,
+ * `annotation:changed` and `annotation:removed`.
+ */
+/** A tool on a chart's drawing rail. */
+export type ChartAnnotationToolName =
+  | 'select' | 'trendLine' | 'horizontalLine' | 'verticalLine'
+  | 'channel' | 'fibonacci' | 'arrow'
+  | 'measure-x' | 'measure-y' | 'measure-xy'
+  | 'text' | 'callout' | 'note' | 'delete';
+/** What a drawn chart annotation is; the drawing tools, less `select` and `delete`. */
+export type ChartAnnotationItemKind =
+  | 'trendLine' | 'horizontalLine' | 'verticalLine'
+  | 'channel' | 'fibonacci' | 'arrow'
+  | 'measure-x' | 'measure-y' | 'measure-xy'
+  | 'text' | 'callout' | 'note';
+/** Where a chart's drawing rail sits, or `none` for the tools without the strip. */
+export type ChartAnnotateRail = 'left' | 'top' | 'none';
+/** One point of a drawn chart annotation, in the chart's own data coordinates. */
+export interface ChartAnnotationAnchor {
+  /**
+   * The x reading: a category exactly as the band scale holds it, a number on a
+   * continuous axis, or a `Date`/ISO string on a time axis.
+   */
+  x: string | number | Date;
+  /** The y reading, on the measure axis. */
+  y: number;
+}
+/** A drawing a reader made on a chart, anchored in data rather than in pixels. */
+export interface ChartAnnotationItem {
+  /** Unique within the process; assigned when the drawing is made or restored. */
+  id: string;
+  /** Which shape this is. */
+  kind: ChartAnnotationItemKind;
+  /**
+   * The data points the shape is built from: one for a horizontal line, a
+   * vertical line, a text label or a note; two for a trend line, an arrow, a
+   * callout (the reading, then the box), a retracement, or a measurer
+   * (or a rectangle's two opposite
+   * corners for `measure-xy`); three for a parallel channel (the base line,
+   * then the offset of the parallel one). An item with fewer than its kind
+   * needs is refused with a warning rather than half-drawn.
+   */
+  anchors: ChartAnnotationAnchor[];
+  /** The label, for `text`, `callout` and `note`. */
+  text?: string;
+  /** A CSS colour overriding the themed default. */
+  colour?: string;
+  /** When true this one drawing cannot be moved, edited or deleted. */
+  readOnly?: boolean;
+}
+/**
+ * Where a `measure-x` or `measure-xy` readout's volume figure comes from.
+ */
+export interface ChartAnnotateMeasure {
+  /**
+   * The column to sum between a measurer's two x anchors. Left unset, a
+   * candlestick with a fifth bound measure beyond open, high, low and close
+   * is read as the volume column; any other chart shows no volume line.
+   */
+  volume?: string;
+}
+/** The drawing rail's settings, when `annotate` is an object rather than `true`. */
+export interface ChartAnnotateOptions {
+  /** Which tools the rail offers; the default is all of them, in rail order. */
+  tools?: ChartAnnotationToolName[];
+  /** Where the rail sits; `none` keeps the drawings and the pointer tools without the strip. */
+  rail?: ChartAnnotateRail;
+  /** Draw what is in the state and refuse every change, including the rail itself. */
+  readOnly?: boolean;
+  /** How a measurer's volume figure is found. */
+  measure?: ChartAnnotateMeasure;
+}
+/**
+ * Zooming a cartesian chart.
+ *
+ * `brush: "zoom"` drags a range out of a chart and leaves the reader there.
+ * `zoom` is the whole interaction instead: a toolbar of five real buttons at
+ * the bottom edge of the plot, the wheel, a drag to pan, `+`/`-` on the
+ * keyboard and a double-click to reset — with the view living in
+ * {@link Chart.state}, reported by the `zoom` event, and drivable from a host
+ * through {@link Chart.zoom}.
+ */
+/** Which axes a zoom acts on; the default is the x axis alone. */
+export type ChartZoomAxes = 'x' | 'y' | 'xy';
+/** When the zoom toolbar is shown: on hover and keyboard focus, always, or never. */
+export type ChartZoomButtons = 'hover' | 'always' | 'none';
+/** What moved a zoom, as reported by the `zoom` event. */
+export type ChartZoomReason = 'button' | 'wheel' | 'key' | 'pan' | 'reset' | 'api';
+/**
+ * A visible range, as two ends in the axis's own units: two categories on a
+ * band axis, two readings on a continuous one, and epoch milliseconds on a time
+ * axis — which is what survives `JSON.stringify` and comes back the same.
+ */
+export type ChartZoomRange = [string | number, string | number];
+/** One axis's zoom, as it is stored and restored. */
+export interface ChartAxisZoomState {
+  /** The visible range. */
+  range: ChartZoomRange;
+  /**
+   * Whether the view is hanging off the newest end. A pinned view keeps the
+   * newest reading at the right edge as a rolling `axis.x.window` advances and
+   * as rows arrive; an unpinned one stays where the reader panned it.
+   */
+  pinned: boolean;
+}
+/** A chart's zoom, per axis; an axis showing everything is absent. */
+export interface ChartZoomState {
+  /** The x axis's visible range. */
+  x?: ChartAxisZoomState;
+  /** The measure axis's visible range, when `axes` includes it. */
+  y?: ChartAxisZoomState;
+}
+/** The zoom's settings, when `zoom` is an object rather than `true`. */
+export interface ChartZoomOptions {
+  /** Which axes zoom; the default is `x`. */
+  axes?: ChartZoomAxes;
+  /** When the toolbar is shown; the default is `hover`. */
+  buttons?: ChartZoomButtons;
+  /** Whether the wheel zooms about the pointer; on by default. */
+  wheel?: boolean;
+  /** Whether dragging a zoomed plot pans it; on by default. A configured `brush` wins the drag. */
+  pan?: boolean;
+  /**
+   * How much of the visible span one press of a control is worth, between 0 and
+   * 1; the default is 0.25, so zoom in shows three quarters of what was shown
+   * and a pan moves by a quarter of it.
+   */
+  step?: number;
+  /** The narrowest the view may go, as a share of the full extent; the default is 0.01. */
+  min?: number;
+}
+/** The host's handle on a chart's zoom. */
+export interface ChartZoomApi {
+  /**
+   * Show this range. An array is the x axis; `{ x, y }` names either or both,
+   * each as a bare range or as `{ range, pinned }`. Returns whether the view
+   * changed. A range naming a value the axis does not have warns and is ignored.
+   */
+  set(range: ChartZoomRange | { x?: ChartZoomRange | ChartAxisZoomState; y?: ChartZoomRange | ChartAxisZoomState }): boolean;
+  /** Show everything again, on every axis; returns whether anything was zoomed. */
+  reset(): boolean;
+}
+/** What a chart's own view state holds: the drawings on it, and the zoom. */
+export interface ChartState {
+  /** Everything drawn on the chart, in paint order. */
+  annotations?: ChartAnnotationItem[];
+  /** The visible range per axis; absent when the chart is showing everything. */
+  zoom?: ChartZoomState;
+}
+/** What a `zoom` handler receives. */
+export interface ChartZoomEvent extends ChartEvent {
+  /** The x range now drawn, in the axis's own units; the full extent when nothing is zoomed. */
+  x: ChartZoomRange | null;
+  /** The measure range now drawn, present only when `zoom.axes` includes the y axis. */
+  y?: ChartZoomRange | null;
+  /** What moved it. */
+  reason: ChartZoomReason;
+}
+/**
+ * What a `measure-x`, `measure-y` or `measure-xy` item's readout carries. Every field is omitted, not `null`, when it does not
+ * apply to the kind or could not be computed — `measure-y` never carries
+ * `count`, and neither half is present before anything is bound.
+ */
+export interface ChartAnnotationReadout {
+  /** How many bars (a candlestick) or points (every other type) the x span covers. */
+  count?: number;
+  /** Which `count` is: `'bars'` on a candlestick, `'points'` on every other type. */
+  countUnit?: 'bars' | 'points';
+  /** The elapsed time between the two x anchors, in milliseconds; time axes only. */
+  elapsedMs?: number;
+  /** `elapsedMs` in its natural unit, e.g. `{ unit: 'minutes', count: 18 }`. */
+  elapsed?: { unit: string; count: number };
+  /** The sum of the volume column (see {@link ChartAnnotateMeasure}) across the x span. */
+  volume?: number;
+  /** The signed change between the two y anchors. */
+  change?: number;
+  /** The signed percentage change between the two y anchors; `null` when the first is zero. */
+  changePercent?: number | null;
+}
+/** What an `annotation:added`, `annotation:changed` or `annotation:removed` handler receives. */
+export interface ChartAnnotationEvent extends ChartEvent {
+  /** The drawing that was added, changed or removed, as plain JSON. */
+  item: ChartAnnotationItem;
+  /** A measurer's computed readout; absent for every other kind. */
+  readout?: ChartAnnotationReadout;
+}
 export interface ChartAnnotation {
   /**
    * The default is a reference line. `event` is a labelled vertical marker with
@@ -12100,9 +12479,12 @@ export interface ChartSpec {
   /** A heading above the plot, drawn in the figure's caption alongside any `subtitle`. */
   title?: string;
   /**
-   * A named scheme, an array of colours, or a `{ [name]: colour }` map. The built-in names are {@link ChartSchemeName}
-   * (`'default'`, `'bright'`, `'earth'`, `'mono'`); a name registered with
-   * `registerScheme` is a plain string alongside them.
+   * A named scheme, an array of colours, a `{ [name]: colour }` map, or a full {@link ChartScheme} object
+   * — the shape every built-in scheme already is, so a host can override the
+   * ramps and semantic colours alongside the palette in one value. The
+   * built-in names are {@link ChartSchemeName} (`'default'`, `'bright'`,
+   * `'earth'`, `'mono'`); a name registered with `registerScheme` is a plain
+   * string alongside them.
    *
    * The map is the form that survives a filter: a pie or donut keys it on the
    * category (`x`) value, a chart with a `series` column keys it on the
@@ -12112,17 +12494,47 @@ export interface ChartSpec {
    * `{ Operational: 'green' }` keeps every other category exactly as it was
    * whichever ones a filter removes — an ordered array reassigns every colour
    * after the gap. A map and an array `palette` do not combine; given both,
-   * the map wins and the array is ignored, once, with a warning.
+   * the map wins and the array is ignored, once, with a warning. A
+   * {@link ChartScheme} object and a map are told apart by content: an object
+   * naming at least one of `series`/`sequential`/`diverging`/`positive`/`negative`
+   * is a scheme override, not a map of category names to colours.
    */
-  scheme?: ChartSchemeName | string | string[] | Record<string, string>;
+  scheme?: ChartSchemeName | string | string[] | Record<string, string> | ChartScheme;
+  /**
+   * A shorthand that overrides only the resolved scheme's sequential ramp —
+   * the colour a heatmap, calendar, hexbin or hexmap's magnitude comes from —
+   * leaving the palette, the diverging ramp and the semantic colours as the
+   * scheme (named or default) already set them. Two colours,
+   * low value then high; a longer array is read by its first and last stop.
+   */
+  ramp?: [string, string] | string[];
+  /**
+   * Draw these series (by their own value, the same name `scheme`'s map keys
+   * on) with a heavier stroke, full opacity and on top of the rest; every
+   * other series draws thinner and muted. Applies to
+   * `line`, `area` and the line half of `combo`/`pareto`. The fixed style
+   * pair is themeable through `--lattice-chart-emphasis-width` and
+   * `--lattice-chart-muted-opacity`. An entry in {@link ChartSpec.seriesStyle}
+   * for the same name wins over this.
+   */
+  emphasis?: string[];
+  /**
+   * An explicit stroke width and/or dash pattern for a named series, keyed the same way {@link ChartSpec.emphasis} is. Wins
+   * over `emphasis` for a series named in both. Applies to `line`, `area` and
+   * the line half of `combo`/`pareto`.
+   */
+  seriesStyle?: Record<string, { width?: number; dash?: number[] }>;
   /**
    * Show the series legend. The object form places it, and `isolate` lets a click on a
    * legend entry show that series alone. `values: true` appends each entry's own total —
    * a category's for pie and donut, a series' for a series legend — formatted by the
-   * measure column, after the name and a thin space.
+   * measure column, after the name and a thin space. `title` labels a
+   * continuous colour-ramp legend (heatmap, calendar, hexbin, hexmap); ignored by a
+   * series legend, which names each series instead.
    */
   legend?: boolean | {
     position?: 'top' | 'bottom' | 'left' | 'right'; isolate?: boolean; values?: boolean;
+    title?: string;
   };
   /**
    * The figure a donut draws in its own hole; ignored by
@@ -12244,6 +12656,34 @@ export interface ChartSpec {
    * the data it annotates, so it follows the chart as the grid is filtered.
    */
   annotations?: ChartAnnotation[];
+  /**
+   * Add a drawing rail to a cartesian chart, so a reader can mark it up: trend lines, horizontal and vertical levels, parallel
+   * channels, Fibonacci retracements, arrows, text, callouts and notes. `true`
+   * is the whole rail on the left; the object form narrows the tools, moves or
+   * hides the strip, or makes the chart read-only. Every drawing is anchored in
+   * data, lives in {@link Chart.state}, and is reported by `annotation:added`,
+   * `annotation:changed` and `annotation:removed`. Accepted on the cartesian
+   * types (line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter,
+   * bubble) and on combo and candlestick; any other type warns and draws no
+   * rail.
+   */
+  annotate?: boolean | ChartAnnotateOptions;
+  /**
+   * Let a reader look closer. `true` is the whole thing with
+   * its defaults: a toolbar of five buttons — zoom in, zoom out, pan left, pan
+   * right, reset — fading in at the bottom edge of the plot on hover and on
+   * keyboard focus, the wheel zooming about the pointer, a drag panning the
+   * visible range, `+` and `-` while the chart is focused, and a double-click
+   * resetting. The object form narrows all of that. The view composes with a
+   * rolling `axis.x.window`: the window is the maximum extent, the zoom is a
+   * range inside it, and a view at the newest end keeps the newest reading at
+   * the right edge as rows arrive. It lives in {@link Chart.state}, is reported
+   * by `zoom`, and is drivable through {@link Chart.zoom}. Accepted on the
+   * cartesian types (line, step, area, rangeArea, bar, horizontalBar,
+   * waterfall, scatter, bubble, candlestick) and on combo; any other type warns
+   * and adds no controls.
+   */
+  zoom?: boolean | ChartZoomOptions;
   /** Bins for a histogram; the default is twelve. */
   buckets?: number;
   /** A diverging colour ramp, for heatmap and geomap. */
@@ -12647,7 +13087,15 @@ export type ChartEventName =
   /** A range was dragged out on an axis, before the chart zooms or filters on it; cancellable. */
   | 'brush'
   /** A legend entry was clicked and the hidden set changed. */
-  | 'legend';
+  | 'legend'
+  /** A reader finished drawing an annotation on the chart, or restored none. */
+  | 'annotation:added'
+  /** A drawn annotation was moved, re-anchored or its text edited. */
+  | 'annotation:changed'
+  /** A drawn annotation was deleted. */
+  | 'annotation:removed'
+  /** The visible range changed: a control, the wheel, a key, a pan, a reset or the host API. */
+  | 'zoom';
 
 /** What a handler receives, per chart event. */
 export interface ChartEventPayloads {
@@ -12667,6 +13115,14 @@ export interface ChartEventPayloads {
   brush: ChartBrushEvent;
   /** The legend entry clicked, and every hidden series after it. */
   legend: ChartLegendEvent;
+  /** The drawing that was just made. */
+  'annotation:added': ChartAnnotationEvent;
+  /** The drawing that was just moved or re-lettered. */
+  'annotation:changed': ChartAnnotationEvent;
+  /** The drawing that was just deleted. */
+  'annotation:removed': ChartAnnotationEvent;
+  /** The range now drawn, and what moved it. */
+  zoom: ChartZoomEvent;
 }
 
 /** A live chart. */
@@ -12716,6 +13172,25 @@ export interface Chart {
    * (or label and total, for a hierarchy). Empty string before the first draw.
    */
   toCSV(): string;
+  /**
+   * The chart's own view state: everything a reader has drawn on it, as plain JSON that
+   * survives `JSON.stringify` and comes back through {@link Chart.setState} as the same
+   * drawings.
+   */
+  state(): ChartState;
+  /**
+   * Restore a state produced by {@link Chart.state}. Silent — reloading a saved view is not
+   * an edit, so it raises no `annotation:added`. A chart that has not drawn yet holds the
+   * drawings until it has.
+   */
+  setState(state: ChartState | ChartAnnotationItem[]): void;
+  /**
+   * Drive the chart's zoom from a host's own controls: `set` shows a range and
+   * `reset` shows everything again, each raising `zoom` and returning whether
+   * the view moved. Calling either on a chart with no `zoom`
+   * warns rather than silently doing nothing.
+   */
+  readonly zoom: ChartZoomApi;
   /**
    * Stop following the grid, disconnect the resize observer, stop any rolling-window timer,
    * remove the chart's element and drop every listener. Calling it twice is harmless.

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.71.3, kanban module type declarations
+ * Lattice Grid 1.72.0, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -17,7 +17,7 @@ type KanbanRow = Record<string, unknown>;
  * `swimlane`/`sprint`/`epic`/`order` are read from their configured properties
  * and carried for the later cycles that render them.
  */
-interface KanbanCard {
+export interface KanbanCard {
   /** The card's identity, from the board's `rowKey`. */
   key: unknown;
   /**
@@ -69,7 +69,7 @@ interface KanbanCard {
 }
 
 /** A column with its cards and aggregates. `over` is true when `count` exceeds `wipLimit`. */
-interface KanbanColumn {
+export interface KanbanColumn {
   /**
    * The column's identity — a configured column's `id`, or the stringified group value a
    * data-driven column came from.
@@ -109,7 +109,7 @@ interface KanbanColumn {
 }
 
 /** A column definition: an id string, or an object configuring one column. */
-type KanbanColumnDef = string | {
+export type KanbanColumnDef = string | {
   id: string;
   title?: string;
   color?: string;
@@ -128,7 +128,7 @@ type KanbanColumnDef = string | {
 };
 
 /** A card field editor handle returned by a host editor factory. */
-interface KanbanEditor {
+export interface KanbanEditor {
   /** The editor's element. The board appends it to the card being edited. */
   el: HTMLElement;
   /**
@@ -144,14 +144,14 @@ interface KanbanEditor {
 }
 
 /** A card field mapping: a property path, a function, or an object opting into inline edit. */
-type KanbanFieldMap = string | ((row: KanbanRow) => unknown) | {
+export type KanbanFieldMap = string | ((row: KanbanRow) => unknown) | {
   field: string;
   edit?: boolean;
   editor?: (ctx: { card: KanbanCard; field: string; value: string; commit: (value: unknown) => void; cancel: () => void }) => KanbanEditor;
 };
 
 /** The field-to-property mapping that drives the card template. */
-interface KanbanCardMap {
+export interface KanbanCardMap {
   /** The card's headline text. */
   title?: KanbanFieldMap;
   /** A second line under the title. */
@@ -184,7 +184,7 @@ interface KanbanCardMap {
 }
 
 /** Granular readonly: the whole board, or selectively by column id and card key. */
-type KanbanReadonly = boolean | {
+export type KanbanReadonly = boolean | {
   board?: boolean;
   columns?: Record<string, boolean>;
   cards?: Record<string, boolean>;
@@ -195,7 +195,7 @@ type KanbanReadonly = boolean | {
  * and `card:contextmenu`. The board's other events carry their own shapes;
  * {@link KanbanEventPayloads} names one per event.
  */
-interface KanbanEvent {
+export interface KanbanEvent {
   /** The card the event is about. */
   card: KanbanCard;
   /** The id of the column the card is in, or null when it is unplaced. */
@@ -218,7 +218,7 @@ interface KanbanEvent {
  * (`{ days: 3, hours: 12 }` → 3.5 days). A negative or non-finite value means
  * "no threshold at this level".
  */
-type KanbanSlaThreshold = number | {
+export type KanbanSlaThreshold = number | {
   weeks?: number; week?: number; w?: number;
   days?: number; day?: number; d?: number;
   hours?: number; hour?: number; h?: number;
@@ -239,7 +239,7 @@ export type SlaAgeChipVisibility = 'always' | 'threshold';
  * Data Router alert handler's). Thresholds resolve most-specific-first:
  * lane → column → global. Reached at runtime as {@link Kanban#sla}.
  */
-interface KanbanSlaConfig {
+export interface KanbanSlaConfig {
   /** The global warn threshold. */
   warn?: KanbanSlaThreshold;
   /** The global breach threshold. */
@@ -277,7 +277,7 @@ interface KanbanSlaConfig {
 /** An SLA threshold classification: on time, past the warn threshold, or past the breach one. */
 export type ThresholdLevel = 'ok' | 'warn' | 'breach';
 /** The computed SLA state of one card. */
-interface KanbanSlaState {
+export interface KanbanSlaState {
   /** The card this ageing state belongs to. */
   key: unknown;
   /**
@@ -312,7 +312,7 @@ interface KanbanSlaState {
  * ageing state from the board's card model and the flow transition log, and the
  * view paints it.
  */
-interface KanbanSla {
+export interface KanbanSla {
   /** The normalised SLA config (read-only). */
   readonly config: object;
   /** Recompute every card's SLA state without emitting anything. */
@@ -338,7 +338,7 @@ interface KanbanSla {
  * {@link KanbanFlow.cycleTime} and {@link KanbanFlow.leadTime} return. `null`
  * throughout when there is nothing to summarise (`count` is then 0).
  */
-interface KanbanFlowDurationStats {
+export interface KanbanFlowDurationStats {
   /** How many durations were summarised. */
   count: number;
   /** The mean duration. */
@@ -365,7 +365,7 @@ interface KanbanFlowDurationStats {
  * The cumulative-flow series {@link KanbanFlow.cfd} returns: at each bucket
  * boundary, how many cards sat in each column, plus the WIP and done totals.
  */
-interface KanbanFlowCfd {
+export interface KanbanFlowCfd {
   /** The bucket size actually used, in milliseconds. */
   bucket: number;
   /** The board's columns, in display order. */
@@ -391,7 +391,7 @@ interface KanbanFlowCfd {
  * time), and how the shape of the board has changed over time (the
  * cumulative-flow diagram). Reached as {@link Kanban#flow}.
  */
-interface KanbanFlow {
+export interface KanbanFlow {
   /**
    * Active-work-time summary: first-done minus first-start, over cards that
    * finished and passed through a start column.
@@ -414,7 +414,7 @@ interface KanbanFlow {
  * board maps DemandFlow (a status field, `points`, `sprint`, `epic`, a
  * swimlane property) and any customer schema without code change.
  */
-interface KanbanConfig {
+export interface KanbanConfig {
   /** The source rows, one per card. Use this or `grid`, not both — `rows` wins. */
   rows?: KanbanRow[];
   /**
@@ -578,7 +578,7 @@ interface KanbanConfig {
  */
 /** Where a card's pop-out child view appears. */
 export type Presentation = 'drawer' | 'modal' | 'inline';
-interface KanbanChildren {
+export interface KanbanChildren {
   /** Parent-id property linking child rows to a card within the same dataset. */
   property?: string;
   /** Per-card child rows, sync or async — an alternative (or addition) to `property`. */
@@ -600,7 +600,7 @@ interface KanbanChildren {
 }
 
 /** One context-menu item. `action` receives the card, the selected cards, and the board. */
-interface KanbanMenuItem {
+export interface KanbanMenuItem {
   /** The item's text in the menu. */
   label: string;
   /**
@@ -613,7 +613,7 @@ interface KanbanMenuItem {
 }
 
 /** The payload of a `card:move` (and `card:reverted`) event. */
-interface KanbanMoveEvent {
+export interface KanbanMoveEvent {
   /** The keys of the cards that actually moved — the ones no `beforeMove` veto refused. */
   keys: unknown[];
   /** The moved cards, in the same order as `keys`. */
@@ -636,7 +636,7 @@ interface KanbanMoveEvent {
 }
 
 /** The members every cancellable board before-event carries. */
-interface KanbanBeforeEvent {
+export interface KanbanBeforeEvent {
   /** The event's own name. */
   type: string;
   /** Where the action came from. */
@@ -650,7 +650,7 @@ interface KanbanBeforeEvent {
 }
 
 /** `card:edit` and `beforeEdit`: one field of one card. */
-interface KanbanCardEditEvent {
+export interface KanbanCardEditEvent {
   /** The card being edited. */
   card: KanbanCard;
   /** That card's key. */
@@ -666,7 +666,7 @@ interface KanbanCardEditEvent {
 }
 
 /** `beforeEdit`: an inline card edit is about to be written. */
-interface KanbanBeforeEditEvent extends KanbanBeforeEvent {
+export interface KanbanBeforeEditEvent extends KanbanBeforeEvent {
   /** The card being edited. */
   card: KanbanCard;
   /** That card's key. */
@@ -680,13 +680,13 @@ interface KanbanBeforeEditEvent extends KanbanBeforeEvent {
 }
 
 /** `edit:cancelled`: a `beforeEdit` handler refused the write. */
-interface KanbanEditCancelledEvent extends KanbanCardEditEvent {
+export interface KanbanEditCancelledEvent extends KanbanCardEditEvent {
   /** The reason given to `preventDefault`, or `'prevented'`. */
   reason: string;
 }
 
 /** `card:add`: a card was appended to a column. */
-interface KanbanCardAddEvent {
+export interface KanbanCardAddEvent {
   /** The column it was added to. */
   column: string;
   /** The new card's key — the grid's temporary key on a grid-bound board until the server confirms it. */
@@ -694,7 +694,7 @@ interface KanbanCardAddEvent {
 }
 
 /** `beforeAdd`: a card is about to be appended. */
-interface KanbanBeforeAddEvent extends KanbanBeforeEvent {
+export interface KanbanBeforeAddEvent extends KanbanBeforeEvent {
   /** The column it would be added to. */
   column: string;
   /** The seed values the new row would be built from. */
@@ -702,7 +702,7 @@ interface KanbanBeforeAddEvent extends KanbanBeforeEvent {
 }
 
 /** `add:cancelled`: a `beforeAdd` handler refused the append. */
-interface KanbanAddCancelledEvent {
+export interface KanbanAddCancelledEvent {
   /** The column the card was not added to. */
   column: string;
   /** The seed values that were not written. */
@@ -714,7 +714,7 @@ interface KanbanAddCancelledEvent {
 }
 
 /** `beforeMove`: one card of a move is about to be applied; raised once per card. */
-interface KanbanBeforeMoveEvent extends KanbanBeforeEvent {
+export interface KanbanBeforeMoveEvent extends KanbanBeforeEvent {
   /** The card being moved. */
   card: KanbanCard;
   /** That card's key. */
@@ -728,7 +728,7 @@ interface KanbanBeforeMoveEvent extends KanbanBeforeEvent {
 }
 
 /** `move:cancelled`: a `beforeMove` handler refused one card of a move. */
-interface KanbanMoveCancelledEvent {
+export interface KanbanMoveCancelledEvent {
   /** The one key that did not move. */
   keys: unknown[];
   /** That one card. */
@@ -747,7 +747,7 @@ interface KanbanMoveCancelledEvent {
  * `card:reverted`: a move did not stick — the bound grid refused the write, an
  * `onCardMove` callback returned false, or the server reverted the cell.
  */
-interface KanbanCardRevertedEvent {
+export interface KanbanCardRevertedEvent {
   /** The keys that went back. */
   keys: unknown[];
   /** Those cards. */
@@ -769,7 +769,7 @@ interface KanbanCardRevertedEvent {
 }
 
 /** `card:confirmed`: the grid confirmed the column write behind an optimistic move. */
-interface KanbanCardConfirmedEvent {
+export interface KanbanCardConfirmedEvent {
   /** The key that was confirmed. */
   keys: unknown[];
   /** That card, or an empty array when it has since gone. */
@@ -779,13 +779,13 @@ interface KanbanCardConfirmedEvent {
 }
 
 /** `selection:changed`: the selected cards changed. */
-interface KanbanSelectionEvent {
+export interface KanbanSelectionEvent {
   /** Every selected card key, in selection order. */
   keys: unknown[];
 }
 
 /** `column:collapse`: a column was collapsed or expanded. */
-interface KanbanColumnCollapseEvent {
+export interface KanbanColumnCollapseEvent {
   /** The column that moved. */
   column: string;
   /** True when it is now collapsed. */
@@ -793,7 +793,7 @@ interface KanbanColumnCollapseEvent {
 }
 
 /** `beforeColumnChange`: a column is about to be collapsed or expanded. */
-interface KanbanBeforeColumnChangeEvent extends KanbanBeforeEvent {
+export interface KanbanBeforeColumnChangeEvent extends KanbanBeforeEvent {
   /** The column that would move. */
   column: string;
   /** True when it would become collapsed. */
@@ -801,7 +801,7 @@ interface KanbanBeforeColumnChangeEvent extends KanbanBeforeEvent {
 }
 
 /** `columnChange:cancelled`: a `beforeColumnChange` handler refused it. */
-interface KanbanColumnChangeCancelledEvent extends KanbanColumnCollapseEvent {
+export interface KanbanColumnChangeCancelledEvent extends KanbanColumnCollapseEvent {
   /** Where the change came from. */
   origin: EventOrigin;
   /** The reason given to `preventDefault`, or `'prevented'`. */
@@ -809,7 +809,7 @@ interface KanbanColumnChangeCancelledEvent extends KanbanColumnCollapseEvent {
 }
 
 /** `swimlane:collapse`: a swimlane was collapsed or expanded. */
-interface KanbanSwimlaneCollapseEvent {
+export interface KanbanSwimlaneCollapseEvent {
   /** The lane that moved. */
   swimlane: string;
   /** True when it is now collapsed. */
@@ -817,19 +817,19 @@ interface KanbanSwimlaneCollapseEvent {
 }
 
 /** `column:reorder` and `swimlane:reorder`: the order the board draws them in. */
-interface KanbanOrderEvent {
+export interface KanbanOrderEvent {
   /** The ids in their new order, as the rebuilt model holds them. */
   order: string[];
 }
 
 /** `beforeColumnReorder` and `beforeLaneReorder`: an order is about to be applied. */
-interface KanbanBeforeOrderEvent extends KanbanBeforeEvent {
+export interface KanbanBeforeOrderEvent extends KanbanBeforeEvent {
   /** The ids in the order that was asked for. */
   order: string[];
 }
 
 /** `columnReorder:cancelled` and `laneReorder:cancelled`: a handler refused the order. */
-interface KanbanOrderCancelledEvent extends KanbanOrderEvent {
+export interface KanbanOrderCancelledEvent extends KanbanOrderEvent {
   /** Where the reorder came from. */
   origin: EventOrigin;
   /** The reason given to `preventDefault`, or `'prevented'`. */
@@ -837,7 +837,7 @@ interface KanbanOrderCancelledEvent extends KanbanOrderEvent {
 }
 
 /** `filter:changed`: the quick filter or a named predicate changed. */
-interface KanbanFilterChangedEvent {
+export interface KanbanFilterChangedEvent {
   /** The quick-filter text now in force, or undefined when there is none. */
   quickFilter?: string;
   /** True when at least one named predicate is registered. */
@@ -847,19 +847,19 @@ interface KanbanFilterChangedEvent {
 }
 
 /** `sprint:changed`: the shown sprint changed. */
-interface KanbanSprintChangedEvent {
+export interface KanbanSprintChangedEvent {
   /** The sprint now shown: a sprint id, `board.BACKLOG`, or undefined for all of them. */
   sprint: unknown;
 }
 
 /** `epic:changed`: the shown epic changed. */
-interface KanbanEpicChangedEvent {
+export interface KanbanEpicChangedEvent {
   /** The epic now shown, or undefined for all of them. */
   epic: unknown;
 }
 
 /** `card:expand`: a card's children were opened. */
-interface KanbanCardExpandEvent {
+export interface KanbanCardExpandEvent {
   /** The card that was expanded. */
   card: KanbanCard;
   /** Its child rows, as the children loader returned them. */
@@ -869,7 +869,7 @@ interface KanbanCardExpandEvent {
 }
 
 /** `card:drill`: a card was expanded from inside an already-open detail. */
-interface KanbanCardDrillEvent {
+export interface KanbanCardDrillEvent {
   /** The card that was expanded. */
   card: KanbanCard;
   /** Its child rows. */
@@ -879,7 +879,7 @@ interface KanbanCardDrillEvent {
 }
 
 /** `drag:start`: a card drag began. */
-interface KanbanDragStartEvent {
+export interface KanbanDragStartEvent {
   /** Every key the drag carries — the selection when the dragged card is in it. */
   keys: unknown[];
   /** The card under the pointer. */
@@ -889,7 +889,7 @@ interface KanbanDragStartEvent {
 }
 
 /** `drag:end`: a card drag ended, whether or not it dropped on a column. */
-interface KanbanDragEndEvent {
+export interface KanbanDragEndEvent {
   /** The keys the drag carried. */
   keys: unknown[];
   /** The DOM `drop` event; absent when the browser ended the drag without one. */
@@ -897,7 +897,7 @@ interface KanbanDragEndEvent {
 }
 
 /** `card:sla`: a card crossed an ageing threshold. */
-interface KanbanSlaEvent {
+export interface KanbanSlaEvent {
   /** The card's key. */
   key: unknown;
   /** The card, or null when it is no longer on the board. */
@@ -934,7 +934,7 @@ interface KanbanSlaEvent {
  * a Promise to hold the action until it settles; a veto fires the matching
  * `<action>:cancelled` carrying the reason.
  */
-type KanbanEventName =
+export type KanbanEventName =
   /** A card was clicked, or Enter was pressed on a focused card. */
   | 'card:click'
   /** A card was double-clicked. */
@@ -1003,7 +1003,7 @@ type KanbanEventName =
   | 'columnChange:cancelled';
 
 /** What a handler receives, per board event. */
-interface KanbanEventPayloads {
+export interface KanbanEventPayloads {
   /** The card, its column, its element and the DOM event. */
   'card:click': KanbanEvent;
   /** The card, its column, its element and the DOM event. */
@@ -1073,7 +1073,7 @@ interface KanbanEventPayloads {
 }
 
 /** The keyed-diff consumer surface a board shares with a grid, so a Data Router routes to it directly. */
-interface KanbanRows {
+export interface KanbanRows {
   /**
    * Apply a keyed diff: `add` replaces whatever row each key names, `update` merges its
    * fields into the stored row (so a patch need only carry what changed), `remove` drops
@@ -1094,7 +1094,7 @@ interface KanbanRows {
  * without touching the others. `setFilter(fn)` is unchanged sugar for
  * `where(DEFAULT, fn)` / `where(DEFAULT, null)`.
  */
-interface KanbanFilters {
+export interface KanbanFilters {
   /** The reserved name `board.setFilter` registers/removes under. */
   readonly DEFAULT: string;
   /** The registered names, in registration order. */
@@ -1113,7 +1113,7 @@ interface KanbanFilters {
  * exposes, so `dataRouter.attach(value, board)` drives it like any other
  * viewer.
  */
-interface Kanban {
+export interface Kanban {
   /** The element the board renders into, or null for a headless board. */
   readonly el: unknown | null;
   /** The resolved card identity; see `KanbanConfig.rowKey`. */
