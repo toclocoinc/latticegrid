@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.72.0</p>
+    <p class="rail__sub">Developer guide · v1.73.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.72.0</span>
+        <span class="chip">Version 1.73.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1493,7 +1493,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.72.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.73.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -1730,6 +1730,7 @@ grid.rows.refresh({ rows, columns: ['owner'], force: true });
           <tr><td class="name">Temperature</td><td class="desc"><code>celsius</code>, <code>fahrenheit</code>, <code>kelvin</code></td></tr>
           <tr><td class="name">Currency</td><td class="desc"><code>currency</code>, <code>usd</code>, <code>eur</code>, <code>gbp</code>, <code>jpy</code></td></tr>
           <tr><td class="name">Structured</td><td class="desc"><code>json</code>, <code>colour</code>, <code>rating</code>, <code>percent</code></td></tr>
+          <tr><td class="name">Geometry</td><td class="desc"><code>geometry</code>, with <code>modules/geometry</code> &mdash; see <a href="#geometry-type">the geometry module</a></td></tr>
         </tbody>
       </table>
     </div>
@@ -2455,7 +2456,9 @@ grid.filters.quick('');          <span class="cmt">// clear</span></code></pre>
       Operators are per family: text has <code>contains</code>, <code>startsWith</code>,
       <code>matches</code>; numbers and dates have <code>between</code>, <code>gt</code>,
       <code>lte</code>; multi-value columns have <code>containsAny</code>,
-      <code>containsAll</code>, <code>containsNone</code>. <code>blank</code> and
+      <code>containsAll</code>, <code>containsNone</code>; a <code>geometry</code> column has
+      <code>withinBbox</code>, <code>withinPolygon</code>, <code>intersects</code> and
+      <code>withinDistance</code> (with <a href="#geometry-type">the geometry module</a>). <code>blank</code> and
       <code>notBlank</code> work everywhere.
     </p>
 
@@ -4095,6 +4098,211 @@ grid.destroy();
 <span class="kw">return</span> `${before} | ${after}`;</code></pre>
     </div>
 
+    <h3 id="duckdb-spatial-guide">Spatial pushdown</h3>
+    <p class="lead-in">
+      <code>duckdbAdapter({ connection, from, spatial: true })</code> hands the
+      <a href="#geometry-type">geometry</a> column's work to DuckDB's spatial extension: the four
+      spatial filters, sorting by location, and binning into grid cells for
+      <code>source.aggregate()</code>. On first use it runs <code>INSTALL spatial; LOAD spatial;</code>
+      once per connection, in the connection's statement queue, then finds the geometry columns &mdash;
+      any DuckDB types <code>GEOMETRY</code>, any a GeoParquet file's <code>geo</code> metadata names, and
+      <code>spatial: { column }</code>. Rows arrive as GeoJSON (<code>ST_AsGeoJSON</code>), which a
+      <code>type: 'geometry'</code> column reads. The operators belong to the
+      <a href="#geometry-type">geometry module</a>: without
+      <code>import '@toclocoinc/lattice-grid/modules/geometry'</code> the grid refuses a spatial
+      condition by name, and the adapter neither declares nor pushes one
+      (<code>source.duckdb.spatial.module.&lt;op&gt;</code>).
+    </p>
+    <div class="example">
+      <p class="example__label">The statements a GeoParquet file of sites becomes, executed</p>
+      <pre data-run="js" data-expect="first use: INSTALL spatial; LOAD spatial | withinBbox: ST_CoveredBy, ST_MakeEnvelope bound to -1.8904,51,0,53 | sort: ST_Y, ST_Centroid, ST_X, ST_Centroid | pushed: yes | British grid: ST_Transform" data-covers="option:duckdbAdapter.spatial config:DuckDbSpatialOptions.column config:DuckDbSpatialOptions.crs"><code><span class="kw">const</span> { duckdbAdapter, createPushdownSource, createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">await</span> import('../packages/modules/geometry/index.js');   <span class="cmt">// the geometry type, and with it the spatial operators</span>
+
+<span class="cmt">// Stands in for a DuckDB-Wasm connection over sites.parquet (ten points, three</span>
+<span class="cmt">// polygons): it answers DESCRIBE the way DuckDB did once spatial was loaded, and</span>
+<span class="cmt">// records every statement it is sent.</span>
+<span class="kw">const</span> sent = [];
+<span class="kw">const</span> connection = {
+  query: <span class="kw">async</span> (sql) =&gt; {
+    sent.push({ sql, params: [] });
+    <span class="kw">return</span> sql.startsWith(<span class="str">'DESCRIBE'</span>)
+      ? [{ column_name: <span class="str">'id'</span>, column_type: <span class="str">'BIGINT'</span> }, { column_name: <span class="str">'geometry'</span>, column_type: <span class="str">'GEOMETRY'</span> }]
+      : [];
+  },
+  prepare: <span class="kw">async</span> (sql) =&gt; ({ query: <span class="kw">async</span> (...params) =&gt; { sent.push({ sql, params }); <span class="kw">return</span> []; }, close: <span class="kw">async</span> () =&gt; {} }),
+};
+
+<span class="kw">const</span> adapter = duckdbAdapter({ connection, from: <span class="str">"read_parquet('sites.parquet')"</span>, spatial: <span class="kw">true</span> });
+<span class="kw">const</span> source = createPushdownSource({ adapter });
+<span class="kw">const</span> grid = createHeadlessGrid({ rowKey: <span class="str">'id'</span>, source,
+  columns: [{ field: <span class="str">'id'</span> }, { field: <span class="str">'geometry'</span>, type: <span class="str">'geometry'</span> }] });
+<span class="kw">await</span> source.fetch({
+  filters: { col: <span class="str">'geometry'</span>, op: <span class="str">'withinBbox'</span>, value: [-1.8904, 51, 0, 53] },
+  sort: [{ col: <span class="str">'geometry'</span>, dir: <span class="str">'asc'</span> }],
+  range: { start: 0, end: 50 },
+});
+<span class="kw">const</span> page = sent.find((s) =&gt; s.sql.includes(<span class="str">'ORDER BY'</span>));
+<span class="kw">const</span> [where, order] = page.sql.split(<span class="str">' WHERE '</span>)[1].split(<span class="str">' ORDER BY '</span>);
+<span class="kw">const</span> fns = (text) =&gt; text.match(<span class="str">/ST_\w+/g</span>).join(<span class="str">', '</span>);
+
+<span class="cmt">// A table stored in British National Grid metres, named explicitly.</span>
+<span class="kw">const</span> bng = duckdbAdapter({ connection, from: <span class="str">'depots'</span>, spatial: { column: <span class="str">'geometry'</span>, crs: 27700 } });
+<span class="kw">await</span> bng.ready();
+grid.destroy();
+
+<span class="kw">return</span> [
+  `first use: ${sent[0].sql}; ${sent[1].sql}`,
+  `withinBbox: ${fns(where)} bound to ${page.params}`,
+  `sort: ${fns(order)}`,
+  `pushed: ${source.lastPlan().unpushed.length === 0 ? <span class="str">'yes'</span> : <span class="str">'no'</span>}`,
+  `British grid: ${fns(bng.sqlFor({ filters: <span class="kw">null</span>, sort: [], range: <span class="kw">null</span> }).sql).split(<span class="str">', '</span>)[1]}`,
+].join(<span class="str">' | '</span>);</code></pre>
+    </div>
+    <p>
+      Run against the real engine on that file (<code>test/duckdb-spatial-browser.test.js</code>:
+      DuckDB-Wasm 1.29.0 in Chrome, the file written by DuckDB and served over HTTP), the box returns
+      London, Birmingham and Oxford &mdash; Birmingham sits exactly on its west edge &mdash; and every
+      operator returns the same rows as the grid's own in-memory operator over the same data.
+    </p>
+    <div class="why">
+      <p><strong>What each operator becomes.</strong> Each keeps its in-memory meaning, so the answer
+      does not change with who evaluates it. <code>withinBbox</code> is
+      <code>ST_CoveredBy(geom, ST_MakeEnvelope(?, ?, ?, ?))</code> &mdash; edges count as inside, which
+      <code>ST_Within</code> would not. <code>withinPolygon</code> is <code>ST_Within</code> of the
+      centroid (of every point, for a MultiPoint), not of the whole shape. <code>intersects</code> is
+      <code>ST_Intersects</code>. <code>withinDistance</code> is the haversine distance from the
+      centroid on the same sphere, written out in SQL: the extension's
+      <code>ST_DWithin_Spheroid</code> returned a non-boolean on DuckDB-Wasm 1.29.0, takes latitude
+      first, and measures on the ellipsoid, up to 0.5% away from the in-memory answer. Every operand
+      is a bound parameter &mdash; GeoJSON to <code>ST_GeomFromGeoJSON(?)</code>, WKT to
+      <code>ST_GeomFromText(?)</code>, WKB to <code>ST_GeomFromHEXWKB(?)</code> &mdash; and an operand
+      that cannot be read matches no row and says so once.</p>
+      <p><strong>Columns and coordinates.</strong> DuckDB's Parquet reader turns a GeoParquet column
+      into <code>GEOMETRY</code> by itself once the extension is loaded; a WKB <code>BLOB</code> named by
+      <code>column</code> is read through <code>ST_GeomFromWKB</code>. When the file's metadata
+      declares another CRS, or <code>crs</code> names one (<code>'EPSG:27700'</code> or
+      <code>27700</code>; it wins over the file), every read goes through
+      <code>ST_Transform(geom, crs, 'EPSG:4326', always_xy := true)</code>, so filters, sorting and the
+      rows themselves are in longitude/latitude.</p>
+      <p><strong>Sorting, grouping, buckets.</strong> A geometry column sorts by centroid latitude,
+      then longitude. Grouping the grid by one is refused by name: a shape is not a category.
+      <code>source.aggregate()</code> takes <code>{ col, bucket: 'grid', size }</code> as a
+      <code>groupBy</code> key &mdash; the centroid binned into cells <code>size</code> degrees square &mdash;
+      and hands each cell back as <code>[x, y]</code>, covering longitudes
+      <code>[x·size, (x+1)·size)</code> and latitudes <code>[y·size, (y+1)·size)</code>.</p>
+      <p><strong>When the extension does not load</strong>, <code>source.duckdb.spatial.load</code> warns
+      once, the spatial operators and buckets leave the adapter's capabilities, and the pushdown source
+      &mdash; which waits for the adapter's first use before planning &mdash; leaves the operators to the
+      grid. Pass <code>compute</code> to <code>createPushdownSource</code> so they are applied; geometry
+      then arrives as the stored WKB, which the column reads just the same, and sorting by it is refused
+      rather than ordered by its bytes.</p>
+      <p><strong>What loading costs (measured 2026-09-27, headless Chrome, DuckDB-Wasm 1.29.0 = DuckDB
+      1.1.1).</strong> <code>selectBundle</code> picks the <code>eh</code> build on a page that is not
+      cross-origin isolated, and the extension then comes from
+      <code>extensions.duckdb.org/v1.1.1/wasm_eh/spatial.duckdb_extension.wasm</code>: 22.8&nbsp;MB
+      (about 5.9&nbsp;MB zstd on the wire), served with <code>Access-Control-Allow-Origin: *</code>, so no
+      proxy and no COOP/COEP headers are needed. <code>INSTALL</code> does nothing on Wasm (7&nbsp;ms);
+      <code>LOAD</code> took 0.88&ndash;1.07&nbsp;s, and the first query over the 13-row fixture that
+      returned GeoJSON about 1&nbsp;s more. The <code>mvp</code> and <code>threads</code> builds have their
+      own files of the same size. Re-measure against the build you ship.</p>
+    </div>
+
+    <h3 id="viewport-filter-guide">The map viewport is a filter</h3>
+    <p class="lead-in">
+      <code>viewportFilter: true | { column?, debounce? }</code> on <code>markermap</code>,
+      <code>bubblemap</code> and <code>choropleth</code>: whenever the reader pans or zooms the map
+      &mdash; a drag, the wheel or the keyboard &mdash; the chart writes ONE condition to its own grid
+      through <code>filters.set</code>, debounced (150&nbsp;ms by default), replacing only its own
+      previous condition and leaving every other filter on the tree untouched. A map placed by a
+      <a href="#geometry-type">geometry</a> column writes a single <code>withinBbox</code>; a map placed
+      by <code>lon</code>/<code>lat</code> writes a pair of <code>between</code> conditions, one per
+      column. Because it is an ordinary filter, every other viewer over the same grid &mdash; another
+      chart, a KPI, the table itself &mdash; narrows with the map, and a <a href="#geometry-type">pushdown
+      source</a> does the narrowing in the engine rather than in the browser.
+    </p>
+    <div class="example">
+      <p class="example__label">A map, a bar chart and a row-count reading over one grid, narrowed by one pan</p>
+      <pre data-run="js" data-expect="rows 3 bars 3 | rows 1 bars 1 | on boundary" data-covers="config:ChartViewportFilterOptions.debounce config:ChartViewportFilterOptions.column"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">await</span> import('../packages/modules/geometry/index.js');
+<span class="kw">await</span> import('../packages/modules/chart-markermap/index.js');
+<span class="kw">const</span> { createChart } = <span class="kw">await</span> import('../packages/modules/charts/index.js');
+<span class="kw">const</span> { NS } = <span class="kw">await</span> import('../packages/modules/charts/styles.js');
+<span class="kw">const</span> { createTestDom, flushFrames, TestEvent } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+
+<span class="kw">const</span> dom = createTestDom({ width: 600, height: 400 });
+<span class="kw">const</span> mapEl = dom.document.createElement(<span class="str">'div'</span>);
+mapEl.rect = { width: 600, height: 400, top: 0, left: 0 };
+dom.root.appendChild(mapEl);
+<span class="kw">const</span> barsEl = dom.document.createElement(<span class="str">'div'</span>);
+barsEl.rect = { width: 600, height: 400, top: 0, left: 0 };
+dom.root.appendChild(barsEl);
+
+<span class="cmt">// Two geometry columns: `place`, which the map is drawn from, and</span>
+<span class="cmt">// `boundary`, a shared column other viewers already filter by.</span>
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: <span class="str">'id'</span>,
+  columns: [
+    { field: <span class="str">'name'</span>, type: <span class="str">'text'</span> },
+    { field: <span class="str">'place'</span>, type: <span class="str">'geometry'</span> },
+    { field: <span class="str">'boundary'</span>, type: <span class="str">'geometry'</span> },
+    { field: <span class="str">'load'</span>, type: <span class="str">'number'</span> },
+  ],
+  rows: [
+    { id: <span class="str">'p1'</span>, name: <span class="str">'West'</span>, place: <span class="str">'POINT (-10 -10)'</span>, boundary: <span class="str">'POINT (-10 -10)'</span>, load: 10 },
+    { id: <span class="str">'p2'</span>, name: <span class="str">'East'</span>, place: <span class="str">'POINT (10 10)'</span>, boundary: <span class="str">'POINT (10 10)'</span>, load: 40 },
+    { id: <span class="str">'p3'</span>, name: <span class="str">'Mid'</span>, place: <span class="str">'POINT (0 0)'</span>, boundary: <span class="str">'POINT (0 0)'</span>, load: 20 },
+  ],
+});
+
+<span class="cmt">// The map places rows by `place`; `column` writes its condition to</span>
+<span class="cmt">// `boundary` instead &mdash; the column the rest of this host filters by.</span>
+<span class="cmt">// The bar chart and the row count know nothing about either: they are</span>
+<span class="cmt">// just two more readers of the same grid.</span>
+<span class="kw">const</span> map = createChart({ grid, container: mapEl, type: <span class="str">'markermap'</span>, geometry: <span class="str">'place'</span>, value: <span class="str">'load'</span>,
+  viewportFilter: { debounce: 5, column: <span class="str">'boundary'</span> } });
+<span class="kw">const</span> bars = createChart({ grid, container: barsEl, type: <span class="str">'bar'</span>, x: <span class="str">'name'</span>, y: <span class="str">'load'</span> });
+<span class="kw">const</span> plot = mapEl.querySelector(`.${NS}__plot`);
+plot.rect = { left: 0, top: 0, width: 600, height: 400 };
+flushFrames();
+
+<span class="kw">const</span> before = `rows ${grid.rows.count()} bars ${bars.data().categories.length}`;
+
+<span class="cmt">// A wheel zoom, on the map only.</span>
+plot.dispatchEvent(<span class="kw">new</span> TestEvent(<span class="str">'wheel'</span>, { deltaY: -1200 }));
+flushFrames();
+<span class="kw">await new</span> Promise((r) =&gt; { setTimeout(r, 20); });   <span class="cmt">// past the debounce</span>
+flushFrames();                                        <span class="cmt">// the write's own filter:changed</span>
+
+<span class="kw">const</span> after = `rows ${grid.rows.count()} bars ${bars.data().categories.length}`;
+<span class="kw">const</span> on = grid.filters.get().col;   <span class="cmt">// the condition landed on `boundary`, not `place`</span>
+grid.destroy();
+<span class="kw">return</span> `${before} | ${after} | on ${on}`;</code></pre>
+    </div>
+    <div class="why">
+      <p><strong>One condition, replaced, not stacked.</strong> A second pan replaces the first
+      viewport condition and leaves any other filter on the tree exactly where it was &mdash;
+      <code>grid.filters.get()</code> after a pan on a grid that already carries an unrelated
+      filter shows both, an <code>and</code> of the unrelated one and the new box, never two boxes.
+      A "reset view" and destroying the chart both remove the condition; a map with nothing to pan
+      &mdash; no <code>shapes</code> and no <code>geometry</code> column, so it never leaves its own
+      identity view &mdash; never writes one.</p>
+      <p><strong>Two-way.</strong> A matching condition set on the grid from outside &mdash; a saved
+      view, a host, a sibling panel filtering the same column &mdash; pans and zooms the map to it
+      instead of being overwritten, and is not written straight back: the box the map ends up
+      showing may differ from the one it was handed when the plot's own aspect does not match the
+      box's (the same letterboxing <code>fitted</code> already gives a pack that does not fill its
+      panel), but once settled nothing writes again until the reader, or another `filters.set`,
+      moves the view again.</p>
+      <p><strong>What <code>withinBbox</code> actually tests</strong> is that the row's own bounding
+      box is entirely inside the given box, edges included (<code>ST_CoveredBy</code> under DuckDB) &mdash;
+      not, as a first reading of "the map's own condition should not drop a feature at the edge"
+      suggests, the row's centroid. A polygon whose shape straddles the viewport edge is therefore
+      excluded once its condition narrows its own grid, the same as a point outside the box is; a
+      centroid test would have kept it. This is stated here rather than changed, because the
+      operator's own rule (<a href="#geometry-type">the geometry module</a>) is not this feature's to
+      redefine.</p>
+    </div>
+
     <h3 id="fulldataset">Whole-dataset statistics over a remote source</h3>
     <p class="lead-in">
       A windowed source reduces a total or statistic over the rows it has loaded, not the whole
@@ -4225,12 +4433,13 @@ grid.filters.where('visibleToMe', (row) =&gt; row.owner === me);</code></pre>
       engine cannot express the grid's midpoint convention. The published table of every stat, its
       class and its SQL is generated from one map (<code>STAT_PUSHDOWN</code>) so it cannot drift.</p>
       <p><strong>No mixed provenance.</strong> An engine figure and a client figure never appear in
-      one result set. Aggregates are pushed only when the filter is <em>fully</em> pushed; a residual
-      filter the engine could not apply forces every aggregate client-side, because an engine number
-      computed over a superset beside a client number over the real set would be wrong-but-plausible.
-      <code>source.lastPlan().aggregates</code> reports, per stat, whether the engine or the grid
-      computed it and the class it was assigned — inspection during the build, not a per-figure
-      runtime marker.</p>
+      one result set. Aggregates are pushed only when the filter <em>and</em> the quick search are
+      both <em>fully</em> pushed; a residual filter the engine could not apply, or a quick search its
+      <code>capabilities.quick</code> refuses, forces every aggregate client-side, because an engine
+      number computed over a superset beside a client number over the real set would be
+      wrong-but-plausible. <code>source.lastPlan().aggregates</code> reports, per stat, whether the
+      engine or the grid computed it and the class it was assigned — inspection during the build, not
+      a per-figure runtime marker.</p>
     </div>
 
     <h2 id="derived">Grids built from other grids</h2>
@@ -8951,6 +9160,89 @@ grid.import.apply(preview);</code></pre>
       </table>
     </div>
 
+    <h3 id="geometry-type">The geometry module</h3>
+    <pre><code><span class="kw">import</span> <span class="str">'@toclocoinc/lattice-grid/modules/geometry'</span>;</code></pre>
+    <p class="lead-in">
+      Importing <code>modules/geometry</code> registers the <code>geometry</code> column type; without
+      it, <code>type: 'geometry'</code> warns <code>type:geometry</code>, naming the import, and the
+      column is plain text. <code>type: 'geometry'</code> holds a point, a line or a shape as a value. It reads the three
+      forms geometry arrives in &mdash; WKB (a <code>Uint8Array</code> or <code>ArrayBuffer</code>, or
+      the same bytes as hex or base64 text), WKT (<code>POINT (…)</code>, <code>LINESTRING</code>,
+      <code>POLYGON</code>, the <code>MULTI*</code> kinds and <code>GEOMETRYCOLLECTION</code>) and
+      GeoJSON (an object or its JSON text; a <code>Feature</code> gives its geometry) &mdash; and
+      stores one GeoJSON geometry per cell, so everything downstream sees one shape.
+    </p>
+    <div class="example">
+      <p class="example__label">Five cities and two areas, filtered, sorted, shown and exported, executed</p>
+      <pre data-run="js" data-expect="near London: London, Birmingham, South East | in the box, south first: Iberia, Madrid, Paris | Polygon, 4 vertices, 30,116.3 km² | Madrid,POINT (-3.7038 40.4168)" data-covers="export:geometryModule method:filters method:sort"><code><span class="kw">const</span> { geometryModule } = <span class="kw">await</span> import('../packages/modules/geometry/index.js');  <span class="cmt">// registers the type</span>
+<span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="cmt">// Five cities and two areas, in all three of the forms geometry arrives in.</span>
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: <span class="str">'id'</span>,
+  columns: [{ field: <span class="str">'id'</span> }, { field: <span class="str">'site'</span>, type: <span class="str">'geometry'</span> }],
+  rows: [
+    { id: <span class="str">'London'</span>, site: { type: <span class="str">'Point'</span>, coordinates: [-0.1278, 51.5074] } },
+    { id: <span class="str">'Paris'</span>, site: <span class="str">'POINT (2.3522 48.8566)'</span> },
+    { id: <span class="str">'Birmingham'</span>, site: <span class="str">'POINT (-1.8904 52.4862)'</span> },
+    { id: <span class="str">'Edinburgh'</span>, site: <span class="str">'POINT (-3.1883 55.9533)'</span> },
+    { id: <span class="str">'Madrid'</span>, site: <span class="str">'0101000000fe65f7e461a10dc0857cd0b359354440'</span> }, <span class="cmt">// WKB, as hex</span>
+    { id: <span class="str">'South East'</span>, site: <span class="str">'POLYGON ((-1.5 50.7, 1.5 50.7, 1.5 52, -1.5 52, -1.5 50.7))'</span> },
+    { id: <span class="str">'Iberia'</span>, site: { type: <span class="str">'Feature'</span>, geometry: { type: <span class="str">'Polygon'</span>,
+      coordinates: [[[-9.5, 36], [3.3, 36], [3.3, 43.8], [-9.5, 43.8], [-9.5, 36]]] } } },
+  ],
+});
+<span class="kw">const</span> ids = () =&gt; Array.from({ length: grid.rows.count() }, (_, i) =&gt; grid.rows.get(i).key).join(<span class="str">', '</span>);
+
+grid.filters.set({ col: <span class="str">'site'</span>, op: <span class="str">'withinDistance'</span>,
+  value: { lon: -0.1278, lat: 51.5074, metres: 200000 } });
+<span class="kw">const</span> near = ids();                       <span class="cmt">// by great-circle distance from each centroid</span>
+
+grid.filters.set({ col: <span class="str">'site'</span>, op: <span class="str">'withinBbox'</span>, value: [-10, 35, 4, 50] });
+grid.sort.set([{ col: <span class="str">'site'</span>, dir: <span class="str">'asc'</span> }]);   <span class="cmt">// centroid latitude, then longitude</span>
+<span class="kw">const</span> south = ids();
+
+<span class="kw">const</span> text = grid.rows.text(<span class="str">'South East'</span>, <span class="str">'site'</span>);   <span class="cmt">// what the cell shows</span>
+<span class="kw">const</span> csv = grid.export.csv({ lineEnding: <span class="str">'\n'</span> }).split(<span class="str">'\n'</span>)[2];  <span class="cmt">// CSV writes WKT, whatever the input was</span>
+<span class="kw">if</span> (geometryModule.name !== <span class="str">'geometry'</span>) <span class="kw">throw</span> <span class="kw">new</span> Error(<span class="str">'not registered'</span>);
+<span class="kw">return</span> `near London: ${near} | in the box, south first: ${south} | ${text} | ${csv}`;</code></pre>
+    </div>
+    <div class="why">
+      <p><strong>Coordinates are longitude, then latitude</strong>, in degrees &mdash; the GeoJSON and
+      WKT <code>x y</code> order. A Z or M ordinate is dropped on ingest: every measure here is on
+      the surface. <code>POINT EMPTY</code>, and a <code>Feature</code> whose geometry is
+      <code>null</code>, is no geometry and leaves the cell blank without a warning.</p>
+      <p><strong>Rejected input never becomes state.</strong> A value that is none of the three forms
+      &mdash; free text, WKB that runs out of bytes, a ring with two corners, a
+      <code>FeatureCollection</code> (many rows, not one value) &mdash; stores nothing, and
+      <code>geometry:refused:&lt;column&gt;</code> warns once with the reason. An edit or paste that
+      does not read is refused and the cell keeps its value.</p>
+      <p><strong>What the cell shows.</strong> A summary by kind: <code>Point 51.5074°N 0.1278°W</code>,
+      <code>LineString, 12 points, 3.4 km</code>, <code>Polygon, 14 vertices, 2.31 km²</code>,
+      <code>MultiPolygon, 3 parts, 40 vertices, 12.5 km²</code>, numbers in the grid's locale.
+      <code>format: { pattern: 'wkt' }</code> shows the WKT and <code>'geojson'</code> the GeoJSON.
+      The quick filter searches what the cell shows. CSV, Excel and the clipboard always write WKT,
+      which a GIS tool reads back and a paste turns into the same geometry.</p>
+      <p><strong>Sorting and grouping.</strong> A geometry has no natural order, so the column sorts
+      by its centroid's latitude, then longitude &mdash; south to north, then west to east &mdash;
+      with blanks last. Grouping buckets by kind: every <code>Polygon</code> together.</p>
+      <p><strong>For maps and charts.</strong> A viewer reads a cell's measures through
+      <code>column.dataType.geometry(value)</code>: <code>kind</code>, <code>bbox</code>
+      (<code>[minLon, minLat, maxLon, maxLat]</code>), <code>centroid</code> (<code>[lon, lat]</code>),
+      <code>length</code> in metres and <code>area</code> in square metres. Lengths and areas are on
+      a sphere of the mean Earth radius, within about 0.5% of the WGS84 ellipsoid; the centroid is
+      planar in degrees, which is what a database's <code>ST_Centroid</code> gives on a geometry
+      column.</p>
+      <p><strong>Filtering.</strong> A geometry column answers <code>withinBbox</code>,
+      <code>withinPolygon</code>, <code>intersects</code> and <code>withinDistance</code> (plus
+      <code>blank</code> and <code>notBlank</code>), evaluated in memory, so they work over any
+      source that does not push them down; the column menu and the tool panel offer them with a box
+      that says what to type. Anything else on the column is refused by name, as is a box that
+      crosses the antimeridian &mdash; split it into two <code>withinBbox</code> conditions joined by
+      <code>or</code>. The <a href="API.html#geometry-operators">reference</a> gives each operator's
+      exact rule.</p>
+    </div>
+
     <h3 id="kanban-config-examples">Kanban config keys, executed</h3>
     <p class="lead-in">
       The table above names each Kanban config key on its own line; these six examples run the
@@ -8960,7 +9252,7 @@ grid.import.apply(preview);</code></pre>
 
     <div class="example">
       <p class="example__label">Board structure: grouping, order and a done set, executed</p>
-      <pre data-run="js" data-expect="done,todo | 2,1 | points 5 | done 5" data-covers="config:columnProperty config:columnOrder config:pointsProperty config:orderProperty config:doneColumns"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+      <pre data-run="js" data-expect="done,todo | 2,1 | points 5 | done 5" data-covers="config:columnProperty config:columnOrder config:pointsProperty config:orderProperty config:doneColumns method:kanban.columns method:kanban.column method:kanban.rollup method:kanban.points"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
 const rows = [
   { id: 1, status: 'todo', epic: 'E1', points: 3, order: 20 },
   { id: 2, status: 'todo', epic: 'E1', points: 2, order: 10 },
@@ -8993,7 +9285,7 @@ return (`${ids.join(',')} | ${todoOrder.join(',')} | points ${b.points('todo')} 
 
     <div class="example">
       <p class="example__label">Sprint, epic and swimlane selection, executed</p>
-      <pre data-run="js" data-expect="1 | lanes Zed,Ann | empty 0 | sprints S1,S2" data-covers="config:sprintProperty config:sprint config:sprints config:epicProperty config:epic config:swimlaneProperty config:swimlanes config:lanes config:laneOrder"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+      <pre data-run="js" data-expect="1 | lanes Zed,Ann | empty 0 | sprints S1,S2" data-covers="config:sprintProperty config:sprint config:sprints config:epicProperty config:epic config:swimlaneProperty config:swimlanes config:lanes config:laneOrder method:kanban.sprints"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
 const rows = [
   { id: 1, status: 'todo', sprint: 'S1', epic: 'E1', assignee: 'Ann' },
   { id: 2, status: 'todo', sprint: 'S2', epic: 'E1', assignee: 'Bob' },
@@ -9027,7 +9319,7 @@ return (`${visible.join(',')} | lanes ${laneIds.join(',')} | empty ${emptyLane ?
 
     <div class="example">
       <p class="example__label">Card mapping, quick filter and readonly, executed</p>
-      <pre data-run="js" data-expect="OAuth flow | readonly true" data-covers="config:card config:quickFilter config:readonly"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+      <pre data-run="js" data-expect="OAuth flow | readonly true" data-covers="config:card config:quickFilter config:readonly method:kanban.readonly"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
 const rows = [
   { id: 1, status: 'todo', title: 'Login form' },
   { id: 2, status: 'todo', title: 'OAuth flow' },
@@ -9053,7 +9345,7 @@ return (`${visibleTitles.join(',')} | readonly ${isReadonly}`);
 
     <div class="example">
       <p class="example__label">Accessible name, localised labels and selection, executed</p>
-      <pre data-run="js" data-expect="Sprint board | selectable-click 0 | grab 'Grabbed, A, Todo, 1/1' | empty 'No cards' | points true" data-covers="config:ariaLabel config:selectable config:labels config:emptyText config:showPoints"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+      <pre data-run="js" data-expect="Sprint board | selectable-click 0 | grab 'Grabbed, A, Todo, 1/1' | empty 'No cards' | points true" data-covers="config:ariaLabel config:selectable config:labels config:emptyText config:showPoints method:kanban.selection"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
 const { createKanban } = await import('../packages/modules/kanban/index.js');
 const dom = createTestDom({});
 const el = dom.document.createElement('div');
@@ -9095,7 +9387,7 @@ return (`${ariaLabel} | selectable-click ${selectedAfterClick} | grab '${liveTex
 
     <div class="example">
       <p class="example__label">Add-card, edit and move lifecycle, plus WIP enforcement, executed</p>
-      <pre data-run="js" data-expect="created Created by onAddCard | edited Renamed | wip-moved 0 | veto-moved 0 | reverted true | events click:a,dbl:a,ctx:a" data-covers="config:addCard config:onAddCard config:onCardEdit config:onBeforeMove config:onCardMove config:onCardClick config:onCardDblClick config:onCardContextMenu config:enforceWip"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+      <pre data-run="js" data-expect="created Created by onAddCard | edited Renamed | wip-moved 0 | veto-moved 0 | reverted true | events click:a,dbl:a,ctx:a" data-covers="config:addCard config:onAddCard config:onCardEdit config:onBeforeMove config:onCardMove config:onCardClick config:onCardDblClick config:onCardContextMenu config:enforceWip method:kanban.addCard method:kanban.card method:kanban.applyEdit method:kanban.move"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
 const seen = [];
 const b = createKanban(null, {
   rows: [{ id: 'a', status: 'todo' }, { id: 'b', status: 'doing' }],
@@ -9149,7 +9441,7 @@ return ([
 
     <div class="example">
       <p class="example__label">Card aging / SLA: basis, thresholds, callbacks and the tick, executed</p>
-      <pre data-run="js" data-expect="basis-column ok | basis-board breach | ignore-default null | ignore-false breach | hits warn:warn:w,breach:breach:br | age 3d | tick-fired true" data-covers="config:sla config:basis config:createdProperty config:enteredProperty config:ignoreDone config:now config:warn config:breach config:onWarn config:onBreach config:showAge config:useTransitionLog config:tick"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+      <pre data-run="js" data-expect="basis-column ok | basis-board breach | ignore-default null | ignore-false breach | hits warn:warn:w,breach:breach:br | age 3d | tick-fired true" data-covers="config:sla config:basis config:createdProperty config:enteredProperty config:ignoreDone config:now config:warn config:breach config:onWarn config:onBreach config:showAge config:useTransitionLog config:tick method:kanban.on"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
 const E = 1_700_000_000_000;
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -9245,7 +9537,7 @@ return ([
 
     <div class="example">
       <p class="example__label">Custom card body, virtualization and a child pop-out, executed</p>
-      <pre data-run="js" data-expect="virtual true | rendered true | custom true | expand-epic true | expand-leaf false" data-covers="config:cardRenderer config:virtualize config:children"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+      <pre data-run="js" data-expect="virtual true | rendered true | custom true | expand-epic true | expand-leaf false" data-covers="config:cardRenderer config:virtualize config:children method:kanban.canExpand"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
 const { createKanban } = await import('../packages/modules/kanban/index.js');
 
 const dom = createTestDom({});
@@ -9286,6 +9578,197 @@ return ([
         <code>cardRenderer</code> owns the whole card body, replacing the default template; and
         <code>children: { property: 'parent' }</code> is what makes the epic card expandable
         (<code>canExpand</code> true) while a plain story is not.
+      </p>
+    </div>
+
+    <h3 id="kanban-method-examples">Kanban board methods, executed</h3>
+    <p class="lead-in">
+      The methods table above names each board method on its own line; these five examples run a
+      headless (or test-DOM) board and show what each method actually does, grouped by the workflow
+      a host uses them for.
+    </p>
+
+    <div class="example">
+      <p class="example__label">Column and lane interaction: collapse, reorder and single-move, executed</p>
+      <pre data-run="js" data-expect="collapsed true,true | reorder done,doing,todo | moveColumn todo,done,doing | laneReorder Cy,Bob,Ann | moveLane Ann,Cy,Bob" data-covers="method:kanban.collapseColumn method:kanban.collapseLane method:kanban.reorderColumns method:kanban.moveColumn method:kanban.reorderLanes method:kanban.moveLane"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+const rows = [
+  { id: 1, status: 'todo', assignee: 'Ann' },
+  { id: 2, status: 'doing', assignee: 'Bob' },
+  { id: 3, status: 'done', assignee: 'Cy' },
+];
+const b = createKanban(null, {
+  rows, rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'doing' }, { id: 'done' }],
+  swimlaneProperty: 'assignee', swimlanes: true,
+});
+b.collapseColumn('doing');
+const doingCollapsed = b.column('doing').collapsed;
+b.collapseLane('Bob');
+const bobCollapsed = b.model.lanes.find((l) =&gt; l.id === 'Bob').collapsed;
+b.reorderColumns(['done', 'doing', 'todo']);
+const afterReorder = b.columns().map((c) =&gt; c.id).join(',');
+b.moveColumn('todo', 'done'); // sit todo just before done
+const afterMoveColumn = b.columns().map((c) =&gt; c.id).join(',');
+b.reorderLanes(['Cy', 'Bob', 'Ann']);
+const afterLaneReorder = b.model.lanes.map((l) =&gt; l.id).join(',');
+b.moveLane('Ann', 'Cy'); // sit Ann just before Cy
+const afterMoveLane = b.model.lanes.map((l) =&gt; l.id).join(',');
+return (`collapsed ${doingCollapsed},${bobCollapsed} | reorder ${afterReorder} | moveColumn ${afterMoveColumn} | laneReorder ${afterLaneReorder} | moveLane ${afterMoveLane}`);
+</code></pre>
+      <p>
+        <code>collapseColumn</code>/<code>collapseLane</code> toggle without an id argument and force a
+        state with one; <code>reorderColumns</code>/<code>reorderLanes</code> take the whole desired
+        order, while <code>moveColumn</code>/<code>moveLane</code> move a single id to sit before
+        another (or the end, with <code>null</code>) — the primitive a header drag calls underneath a
+        full reorder.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Selection and search: select, filter and facets, executed</p>
+      <pre data-run="js" data-expect="selected true | cleared 0 | filter a,b | quick b | facets todo:2,doing:1" data-covers="method:kanban.select method:kanban.isSelected method:kanban.clearSelection method:kanban.setFilter method:kanban.setQuickFilter method:kanban.facets"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+const rows = [
+  { id: 'a', status: 'todo', points: 3, title: 'Login form' },
+  { id: 'b', status: 'todo', points: 5, title: 'OAuth flow' },
+  { id: 'c', status: 'doing', points: 2, title: 'Reset flow' },
+];
+const b = createKanban(null, {
+  rows, rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'doing' }], card: { title: 'title' },
+});
+b.select(['a', 'b'], 'set');
+const aSelected = b.isSelected('a');
+b.clearSelection();
+const afterClear = b.selection().length;
+b.setFilter((row) =&gt; row.points &gt;= 3);
+const afterFilter = [...b.model.cardsByKey.keys()].sort().join(',');
+b.setQuickFilter('oauth');
+const afterQuick = [...b.model.cardsByKey.keys()].join(',');
+b.setFilter(null); b.setQuickFilter('');
+const facetCounts = b.facets('status').map((f) =&gt; `${f.value}:${f.count}`).join(',');
+return (`selected ${aSelected} | cleared ${afterClear} | filter ${afterFilter} | quick ${afterQuick} | facets ${facetCounts}`);
+</code></pre>
+      <p>
+        <code>select</code> replaces the set (mode <code>'set'</code>); <code>isSelected</code> reads it
+        back; <code>clearSelection</code> empties it. <code>setFilter</code> narrows to the points-3+
+        cards, and <code>setQuickFilter</code> narrows that further by text — the two compose, which is
+        why only card <code>b</code> survives both. <code>facets</code> reads every row (not just the
+        shown ones) for a distinct-value/count breakdown, over <code>status</code> here.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Sprint, epic and backlog navigation, executed</p>
+      <pre data-run="js" data-expect="sprint 1,2 | backlog 4 | epic 1,2,4 | epics E1,E2 | rollup 3,10 | defs Sprint 1,Sprint 2" data-covers="method:kanban.setSprint method:kanban.showBacklog method:kanban.setEpic method:kanban.epics method:kanban.epicRollup method:kanban.sprintDefs"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+const rows = [
+  { id: 1, status: 'todo', sprint: 'S1', epic: 'E1', points: 3 },
+  { id: 2, status: 'doing', sprint: 'S1', epic: 'E1', points: 5 },
+  { id: 3, status: 'done', sprint: 'S2', epic: 'E2', points: 8 },
+  { id: 4, status: 'todo', sprint: null, epic: 'E1', points: 2 }, // backlog: no sprint
+];
+const b = createKanban(null, {
+  rows, rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'doing' }, { id: 'done', done: true }],
+  sprintProperty: 'sprint', epicProperty: 'epic', pointsProperty: 'points',
+  sprints: [{ id: 'S1', title: 'Sprint 1' }, { id: 'S2', title: 'Sprint 2' }],
+});
+b.setSprint('S1');
+const inSprint = [...b.model.cardsByKey.keys()].sort().join(',');
+b.showBacklog();
+const inBacklog = [...b.model.cardsByKey.keys()].join(',');
+b.setSprint(undefined);
+b.setEpic('E1');
+const inEpic = [...b.model.cardsByKey.keys()].sort().join(',');
+const epicList = b.epics().join(',');
+const rollup = b.epicRollup().find((r) =&gt; r.value === 'E1');
+const defs = b.sprintDefs().map((d) =&gt; d.title).join(',');
+return (`sprint ${inSprint} | backlog ${inBacklog} | epic ${inEpic} | epics ${epicList} | rollup ${rollup.count},${rollup.points} | defs ${defs}`);
+</code></pre>
+      <p>
+        <code>setSprint</code> narrows to one sprint; <code>showBacklog</code> (sugar for
+        <code>setSprint(board.BACKLOG)</code>) shows only the card with no sprint; <code>setEpic</code>
+        narrows by epic instead. <code>epics</code> lists the distinct epic values (facet sugar);
+        <code>epicRollup</code> gives per-epic count/points; <code>sprintDefs</code> gives the
+        configured sprint dataset as display titles, in order.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Board lifecycle: columns, rows, status and events, executed</p>
+      <pre data-run="js" data-expect="count 1 | cards 2 | setColumns todo,doing,done | refresh 3,4 | loading true | error Oops | state true | off 0 | destroy 0" data-covers="method:kanban.count method:kanban.cards method:kanban.setColumns method:kanban.setRows method:kanban.refresh method:kanban.setLoading method:kanban.setError method:kanban.getState method:kanban.setState method:kanban.off method:kanban.destroy"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+const rows = [{ id: 1, status: 'todo' }, { id: 2, status: 'doing' }];
+const b = createKanban(null, {
+  rows, rowKey: 'id', columnProperty: 'status', columns: [{ id: 'todo' }, { id: 'doing' }],
+});
+const countTodo = b.count('todo');
+const cardsCount = b.cards().length;
+b.setColumns([{ id: 'todo' }, { id: 'doing' }, { id: 'done' }]);
+const columnsAfter = b.columns().map((c) =&gt; c.id).join(',');
+const arr = [{ id: 3, status: 'done' }];
+b.setRows(arr); // back to a configured array (rather than a routed rows.apply feed)
+arr.push({ id: 4, status: 'todo' }); // mutate the array in place
+b.refresh(); // re-reads config.rows, so the pushed row shows up
+const afterRefresh = b.cards().map((c) =&gt; c.key).sort().join(',');
+b.setLoading(true);
+const loadingState = b.status.loading;
+b.setError('Oops');
+const errorState = b.status.error;
+b.collapseColumn('done');
+const snap = b.getState();
+const b2 = createKanban(null, {
+  rows: [{ id: 3, status: 'done' }], rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'doing' }, { id: 'done' }],
+});
+b2.setState(snap);
+const restoredCollapsed = b2.column('done').collapsed;
+let handlerCalls = 0;
+const h = () =&gt; { handlerCalls += 1; };
+b.on('card:add', h);
+b.off('card:add', h); // unsubscribed before the next card:add
+b.addCard('todo');
+b.destroy();
+const afterDestroy = b.model.columns.length;
+return (`count ${countTodo} | cards ${cardsCount} | setColumns ${columnsAfter} | refresh ${afterRefresh} | loading ${loadingState} | error ${errorState} | state ${restoredCollapsed} | off ${handlerCalls} | destroy ${afterDestroy}`);
+</code></pre>
+      <p>
+        <code>setColumns</code> replaces the column set in place; <code>setRows</code> points a
+        standalone board back at a plain array, and <code>refresh</code> re-reads it (the pushed row
+        appears with no further call); <code>setLoading</code>/<code>setError</code> set the host-visible
+        status; <code>getState</code>/<code>setState</code> round-trip the collapsed set onto a second
+        board; <code>off</code> — called before the triggering <code>addCard</code> — is why the handler
+        never runs; and <code>destroy</code> empties the model.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Card pop-out and inline edit, executed</p>
+      <pre data-run="js" data-expect="editable true | opened true | editing true" data-covers="method:kanban.isFieldEditable method:kanban.expand method:kanban.closeDetail method:kanban.editCard"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createKanban } = await import('../packages/modules/kanban/index.js');
+const dom = createTestDom({});
+const el = dom.document.createElement('div');
+dom.root.appendChild(el);
+const rows = [
+  { id: 'e1', status: 'todo', title: 'Epic', parent: null },
+  { id: 's1', status: 'todo', title: 'Story', parent: 'e1' },
+];
+const b = createKanban(el, {
+  rows, rowKey: 'id', columnProperty: 'status', columns: [{ id: 'todo' }],
+  card: { title: { field: 'title', edit: true } },
+  children: { property: 'parent', render: () =&gt; {} },
+});
+const editable = b.isFieldEditable('title');
+const detail = await b.expand('e1');
+const opened = !!detail;
+b.closeDetail();
+const handle = b.editCard('e1', 'title');
+const editing = !!handle;
+return (`editable ${editable} | opened ${opened} | editing ${editing}`);
+</code></pre>
+      <p>
+        <code>isFieldEditable</code> is true only for a card field mapped with <code>edit: true</code>;
+        <code>expand</code> opens the epic's child pop-out (here via a custom <code>children.render</code>,
+        so no grid factory is needed) and <code>closeDetail</code> closes it; <code>editCard</code> then
+        starts inline edit on the same field, independent of the pop-out.
       </p>
     </div>
 
@@ -10094,6 +10577,11 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
         <thead><tr><th>Event</th><th>Fires when</th></tr></thead>
         <tbody>
           <tr><td class="name">detail:toggled</td><td class="desc">A master-detail row opened or closed.</td></tr>
+          <tr><td class="name">detail:cell:edit:start</td><td class="desc">A nested (master-detail) grid's cell editor opened; re-emitted on the master with the master row's key.</td></tr>
+          <tr><td class="name">detail:cell:edit:end</td><td class="desc">A nested grid's cell editor closed; re-emitted on the master the same way.</td></tr>
+          <tr><td class="name">detail:row:edit:start</td><td class="desc">A nested grid's row editor opened; re-emitted on the master the same way.</td></tr>
+          <tr><td class="name">detail:row:edit:end</td><td class="desc">A nested grid's row editor closed; re-emitted on the master the same way.</td></tr>
+          <tr><td class="name">detail:cell:changed</td><td class="desc">A nested grid's cell value was written; re-emitted on the master with the dot path into its own record.</td></tr>
           <tr><td class="name">group:toggled</td><td class="desc">A group row opened or closed.</td></tr>
           <tr><td class="name">history:applied</td><td class="desc">An action was undone or redone. Distinct from history:changed, which also fires when a new action is pushed onto the stacks and so cannot tell you anything was reversed.</td></tr>
           <tr><td class="name">history:changed</td><td class="desc">Emitted after the entry is pushed, so a toolbar reading it names the right action. Repainting from sort:changed instead reads the timeline one action behind.</td></tr>
@@ -10346,7 +10834,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.72.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.73.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Charts API Reference — Lattice Grid 1.72.0</title>
+<title>Charts API Reference — Lattice Grid 1.73.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -393,6 +393,7 @@
         <a class="rail__sub-link" href="#network-map">Network diagrams &mdash; icon nodes, links coloured by their value</a>
         <a class="rail__sub-link" href="#chart-extension-types">Extension chart types — pay only for what you draw</a>
         <a class="rail__sub-link" href="#chart-markermap">Map markers &mdash; a figure per location, coloured by its own rule</a>
+        <a class="rail__sub-link" href="#chart-geometry-maps">Maps from a geometry column</a>
         <a class="rail__sub-link" href="#chart-annotate">Drawing on a chart &mdash; a tool rail anchored in the data</a>
         <a class="rail__sub-link" href="#chart-zoom">Zooming a chart &mdash; five controls, the wheel, and a rolling window</a>
         <a href="#ref-charts-reference">Type reference</a>
@@ -405,6 +406,7 @@
         <a href="data-router.html">The data router</a>
         <a href="kpi.html">The KPI (stat-tile) view</a>
         <a href="alarms.html">The alarms module</a>
+        <a href="geometry.html">The geometry module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="tabs.html">The tabbed grid</a>
@@ -430,7 +432,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 14 pages</a></span>
+      <span class="chip"><a href="index.html">All 15 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -447,6 +449,27 @@ const chart = createChart({
   y: 'revenue',               <span class="cmt">// the measure column</span>
 });</code></pre>
     <p><strong>A chart reads the grid's filtered rows.</strong> Filter, sort or edit the grid and every chart bound to it redraws on the next frame: there is nothing to subscribe to and nothing to keep in step. A chart of rows the user cannot see would be describing a different data set.</p>
+    <p><strong>Over a paged pushdown source, a chart aggregates through the engine, not the loaded window (GEO-5).</strong> The grouped types — <code>line</code>, <code>step</code>, <code>area</code>, <code>bar</code>, <code>horizontalBar</code>, <code>waterfall</code>, <code>combo</code>, <code>pareto</code>, <code>heatmap</code>, <code>radar</code>, <code>funnel</code>, <code>stream</code>, <code>marimekko</code> — ask <a href="grid.html#pushdown"><code>source.aggregate()</code></a> whenever the grid's source declares the <a href="grid.html#pushdown">pushdown <code>group</code> capability</a> and the grid holds fewer rows than match: <code>x</code> and <code>series</code> become the <code>GROUP BY</code>, the measures its aggregates, and the grid's filter and quick search apply, so a bar totals the whole hundred-thousand-row relation rather than the hundred rows fetched so far. <code>spec.aggregate</code> (<code>'auto'</code> by default) forces <code>'engine'</code> or <code>'client'</code>; a forced <code>'engine'</code> the source cannot serve is refused by name, never silently swapped. While a request is in flight the chart keeps its last drawing rather than going blank, and a burst of filter changes aborts the superseded request and coalesces to the one query the grid ends up on. A chart is never a mixture of the two — if any one measure would be computed client-side, every measure is — and <code>chart.provenance()</code> reports which happened, per measure, in the same engine/client shape <code>source.aggregate()</code> itself reports; the accessible summary says so too.</p>
+    <pre data-run="js" data-expect="client | false | client | the grid's source has no aggregate() — it is not a pushdown source" data-covers="method:charts.provenance"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid } = await import('../packages/dom/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 400, height: 300 });
+const grid = createGrid(root, {
+  rowKey: 'id',
+  columns: [{ field: 'region' }, { field: 'revenue', type: 'number' }],
+  rows: [{ id: 1, region: 'North', revenue: 10 }, { id: 2, region: 'South', revenue: 20 }],
+});
+
+const container = document.createElement('div');
+container.rect = { width: 400, height: 300, top: 0, left: 0 };
+root.appendChild(container);
+
+// A plain in-memory grid has no source.aggregate() to ask, so the chart reads
+// the loaded rows exactly as it always has — provenance says client, and why.
+const chart = createChart({ grid, container, type: 'bar', x: 'region', y: 'revenue' });
+const p = chart.provenance();
+return [p.source, p.pending, p.measures[0].computed, p.reason].join(' | ');</code></pre>
 
     <h3>The types</h3>
     <div class="table-wrap">
@@ -1169,6 +1192,78 @@ walk(chart.element);
 chart.destroy();
 <span class="kw">return</span> `${fills.join(' ')} | ${labels.join(' / ')} | unplaced ${bound.unplaced}`;</code></pre>
 
+    <h3 id="chart-geometry-maps">Maps from a geometry column</h3>
+    <p><code>markermap</code>, <code>bubblemap</code> and a third type, <code>choropleth</code> (<code>modules/chart-choropleth</code>), can all place a row from one <a href="geometry.html#geometry"><code>geometry</code></a> column instead of a <code>lon</code>/<code>lat</code> pair: <code>geometry: '&lt;col&gt;'</code>. Giving both is refused by name and draws nothing &mdash; a row is placed by one or the other. A <strong>Point</strong> is placed at its own coordinates; a LineString, a Polygon or any Multi* kind is placed at its <strong>centroid</strong> (planar, in degrees, the same reading <code>ST_Centroid</code> gives). A cell the column refused at ingest, or whose bounding box leaves the globe, is <em>counted</em> &mdash; in <code>chart.data().unplaced</code>, in the note the map draws under itself and in the accessible table &mdash; never drawn at 0,0.</p>
+    <p><code>choropleth</code> is the one of the three that needs no geometry pack at all: it draws each row's own Polygon/MultiPolygon straight from the column, filled by <code>y</code> through the chart's ramp (the same <code>ramp</code>/legend every ramp-coloured type uses); <code>shapes</code> is an optional pack drawn underneath as a backdrop. A Point row on a <code>choropleth</code> draws as a marker instead, filled the same way &mdash; which is what lets one dataset mix point sites and polygon territories on one map, as the example below does. A shape with many vertices is simplified for drawing, at the projection's pixel tolerance, by a hand-written Douglas&ndash;Peucker; the simplified ring exists only in the drawing &mdash; the cell, the export and the filters all keep every vertex. All three types honour the grid's filters (a filtered-out row disappears), pan and zoom (BACKLOG-0001473), and take the drawing rail (BACKLOG-0001474) anchored in longitude and latitude &mdash; over <code>mercator</code> or <code>equirectangular</code>, the two projections with a written inverse; any other projection refuses the rail by name rather than build one that cannot place a drag.</p>
+    <pre data-run="js" data-expect="10 points, 3 polygons | unplaced 0 | fns true true" data-covers="export:drawChoropleth export:bindChoropleth"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { document, root } = createTestDom({ width: 700, height: 460 });
+<span class="kw">const</span> panel = document.createElement('div');
+panel.rect = { width: 700, height: 460, top: 0, left: 0 };
+root.appendChild(panel);
+
+<span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="cmt">// The geometry column type, then the base charts module, then the extension.</span>
+<span class="kw">await</span> import('../packages/modules/geometry/index.js');
+<span class="kw">const</span> { createChart } = <span class="kw">await</span> import('../packages/modules/charts/index.js');
+<span class="cmt">// Importing the module registers `choropleth`; its drawer is drawChoropleth</span>
+<span class="cmt">// and its binder, for a host that wants the placed rows itself, bindChoropleth.</span>
+<span class="kw">const</span> choropleth = <span class="kw">await</span> import('../packages/modules/chart-choropleth/index.js');
+
+<span class="cmt">// A square GeoJSON Polygon literal, one sales territory.</span>
+<span class="kw">function</span> zone(x, y, s, id, sales) {
+  <span class="kw">return</span> {
+    id, name: id.toUpperCase(), sales,
+    site: { type: 'Polygon', coordinates: [[[x, y], [x + s, y], [x + s, y + s], [x, y + s], [x, y]]] },
+  };
+}
+<span class="cmt">// Ten point rows &mdash; sites &mdash; and three polygon rows &mdash; territories &mdash;</span>
+<span class="cmt">// in the SAME geometry column: a choropleth draws a Point as a marker and</span>
+<span class="cmt">// anything with area as its own shape, both filled on the one ramp.</span>
+<span class="kw">const</span> rows = [];
+<span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; 10; i++) {
+  rows.push({
+    id: `p${i}`, name: `Site ${i}`, sales: 5 + i,
+    site: { type: 'Point', coordinates: [i, i] },
+  });
+}
+rows.push(zone(0, 20, 3, 'zoneA', 12), zone(4, 20, 3, 'zoneB', 28), zone(8, 20, 3, 'zoneC', 44));
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'name', type: 'text' },
+    { field: 'site', type: 'geometry' },
+    { field: 'sales', type: 'number' },
+  ],
+  rows,
+});
+
+<span class="kw">const</span> chart = createChart({
+  grid, container: panel, type: 'choropleth', geometry: 'site', y: 'sales', label: 'name',
+});
+
+<span class="cmt">// What was painted: a marker per Point row, a shape per polygon row.</span>
+<span class="kw">const</span> points = [];
+<span class="kw">const</span> features = [];
+<span class="kw">const</span> walk = (node) =&gt; {
+  <span class="kw">for</span> (<span class="kw">const</span> child <span class="kw">of</span> node.children || []) {
+    <span class="kw">const</span> cls = String(child.getAttribute('class') || '');
+    <span class="kw">if</span> (cls.includes('choropleth-point')) points.push(child.getAttribute('data-row'));
+    <span class="kw">if</span> (cls.includes('choropleth-feature')) features.push(child.getAttribute('data-row'));
+    walk(child);
+  }
+};
+walk(chart.element);
+<span class="kw">const</span> unplaced = chart.data().unplaced;
+<span class="cmt">// The binder is public too, and agrees with what was drawn.</span>
+<span class="kw">const</span> bound = choropleth.bindChoropleth(grid, { geometry: 'site', y: 'sales', label: 'name' });
+<span class="kw">const</span> fns = [typeof choropleth.drawChoropleth, typeof choropleth.bindChoropleth];
+chart.destroy();
+<span class="kw">return</span> `${points.length} points, ${features.length} polygons | unplaced ${unplaced} | fns ${fns[0] === 'function'} ${fns[1] === 'function' && bound.features.length === 13}`;</code></pre>
+
+    <h4 id="chart-map-viewport">A map over a paged relation asks the engine for its view, and caps what it draws (GEO-6)</h4>
+    <p><strong>Over a paged pushdown source, a map draws the rows in its view, not the grid's page.</strong> A <code>markermap</code>, <code>bubblemap</code> or <code>choropleth</code> beside a grid holding 200 rows of 35,000 draws the 35,000 &mdash; or as many as are in view &mdash; not the 200. When the grid holds fewer rows than match, the map asks the source itself: a count through <a href="grid.html#pushdown"><code>source.aggregate()</code></a>, then the rows through the adapter's own <code>execute</code> &mdash; the grid's filter and quick search applied, no range window, capped at <code>spec.viewportCap</code> rows (default 20,000) &mdash; and, once the reader has panned or zoomed, a condition for the box on screen: a <code>withinBbox</code> on a <code>geometry</code> column (pushed as <code>ST_CoveredBy</code> by a spatial <code>duckdbAdapter</code>), or a <code>between</code> pair on <code>lon</code>/<code>lat</code>. The fetched rows are the map's own: nothing is injected into the grid, which keeps its page. A pan or a zoom asks again, aborting the request it supersedes, and the map keeps drawing its last answer under the new view until the next one lands. <code>spec.aggregate</code> governs this exactly as it governs a grouped chart: <code>'auto'</code> asks only when the grid holds a window, <code>'engine'</code> asks whenever the source can and is refused by name when it cannot, <code>'client'</code> never asks. A projection without an invertible pair of scales (<code>equalEarth</code>, <code>robinson</code>, the conics) cannot name its box, so the map asks for the whole filtered relation, still capped.</p>
+    <p><strong>Past the cap, density rather than a random subset.</strong> When more rows than <code>viewportCap</code> fall inside the view, a marker or bubble map draws square density cells, each filled by its count through the chart's ramp with a ramp legend: over a paged source the engine counts them (GEO-2's spatial <code>buckets</code>, <code>{ col, bucket: 'grid', size }</code>, so a <code>geometry</code> column), and over rows the browser already holds the chart counts the same cells itself &mdash; 35,000 opaque bubbles at world scale are a blob whichever side counted them. The cell size follows the box the map is about to draw &mdash; the view, else a box the grid's filters hold on the map's column, else the data's own extent &mdash; so that box's longer side is 24 to 47 cells across (a power of two of degrees; a box is never binned at the world's size once one is known), and zooming in until the view holds no more than the cap returns to the rows. When the box the map draws changes by more than <strong>2&times;</strong> in either axis, narrower or wider, the map refits its projection to the new box before drawing, so a few streets' points spread across the plot rather than bunching in the middle of a city's frame: a box set on the map from outside (a <code>withinBbox</code> through <code>grid.filters.set()</code> with <code>viewportFilter</code> on), or, at the initial view, the extent of the rows the grid's filters now keep (which also refits when it moves off the frame). A smaller change, and every pan, keeps the frame and moves the map under it. &ldquo;Reset view&rdquo; returns to the fit of the data. A <code>choropleth</code> has no honest density form, and an engine map that cannot bin (a <code>lon</code>/<code>lat</code> map, or an adapter without the <code>grid</code> bucket) has none either: past the cap each is refused by name (<code>chart:viewportCap:over:*</code>) and draws none of its rows, with the reason under the map. <code>chart.provenance().viewport</code> reports the rows drawn, how many matched the view, the cap, whether it was binned and how many cells, why nothing was drawn, the box, and whether the engine or the browser counted; the accessible summary says which, for example &ldquo;12,480 points in this view, fetched from the data engine&rdquo;.</p>
     <h3 id="chart-annotate">Drawing on a chart &mdash; a tool rail anchored in the data</h3>
     <p>The declarative <code>annotations</code> above are written by whoever built the dashboard and state a <em>standard</em> the data is judged against. <code>annotate</code> is the other half: it gives whoever is <strong>reading</strong> the chart a tool rail to state an <em>observation</em> on it &mdash; this trend, this level, this retracement, this note. Set <code>annotate: true</code> for the whole rail on the left, or an object to narrow it: <code>tools</code> picks which buttons appear (always in rail order, so two charts never read differently), <code>rail</code> is <code>left</code>, <code>top</code> or <code>none</code> (the tools and the pointer behaviour without the strip, for a host driving them from its own toolbar), and <code>readOnly</code> paints what is in the state and refuses every change &mdash; including the rail, because a strip of buttons that do nothing is worse than no strip.</p>
     <p>Eleven tools: <strong>select/move</strong>, <strong>trend line</strong> (two points), <strong>horizontal line</strong> and <strong>vertical line</strong> (one value, labelled with it), <strong>parallel channel</strong> (two parallel lines and a fill), <strong>Fibonacci retracement</strong> (0, 23.6, 38.2, 50, 61.8, 78.6 and 100&nbsp;% between two points, each level labelled with its own value), <strong>arrow</strong>, <strong>text</strong>, <strong>callout</strong> (a label with a leader to a reading), <strong>note</strong> (a pin), and <strong>delete</strong>. Available on the cartesian types &mdash; line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble &mdash; and on combo and candlestick; asking for it on any other type warns and draws no rail rather than silently doing nothing.</p>
@@ -1350,7 +1445,6 @@ return `axis ${full} then ${closer} then ${panned}; day 5 at ${share} of the plo
       </table>
     </div>
     <h4 id="type-Chart">Chart</h4>
-    <p class="section-note">A live chart.</p>
     <h5 id="type-Chart-properties">Properties</h5>
     <div class="table-wrap">
       <table>
@@ -1369,6 +1463,7 @@ return `axis ${full} then ${closer} then ${panned}; day 5 at ${share} of the plo
           <tr><td class="name">draw</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Redraw now.</td></tr>
           <tr><td class="name">update</td><td class="type">(spec: Partial&lt;<a href="#type-ChartSpec">ChartSpec</a>&gt;): void</td><td class="desc"><code>spec: Partial&lt;<a href="#type-ChartSpec">ChartSpec</a>&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Change the spec and redraw; unnamed keys keep their values.</td></tr>
           <tr><td class="name">data</td><td class="type">(): object | null</td><td class="desc">&mdash;</td><td class="type"><code>object | null</code></td><td class="desc">The data the chart last bound.</td></tr>
+          <tr><td class="name">provenance</td><td class="type">(): <a href="types.html#type-ChartProvenance">ChartProvenance</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="types.html#type-ChartProvenance">ChartProvenance</a></code></td><td class="desc">How the figures the chart is drawing were computed (GEO-5): by a pushdown source's engine over the whole matching relation, or from the rows the grid has loaded — never a mixture — with the reason for a client chart and each measure's split in the shape `source.aggregate()` reports it. See {@link ChartSpec.aggregate}.</td></tr>
           <tr><td class="name">ascend</td><td class="type">(levels?: number): void</td><td class="desc"><code>levels?: number</code></td><td class="type"><code>void</code></td><td class="desc">Go up one level, on a drillable hierarchy.</td></tr>
           <tr><td class="name">on</td><td class="type">(event: <a href="types.html#type-ChartEventName">ChartEventName</a>, handler: (payload: <a href="types.html#type-ChartEventPayloads">ChartEventPayloads</a>[<a href="types.html#type-ChartEventName">ChartEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>event: <a href="types.html#type-ChartEventName">ChartEventName</a></code><br><code>handler: (payload: <a href="types.html#type-ChartEventPayloads">ChartEventPayloads</a>[<a href="types.html#type-ChartEventName">ChartEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Register an event handler; returns a function that unsubscribes. A handler that throws is reported to the console and the rest still run. What each event carries is {@link ChartEventPayloads}; the handler is declared with the widest of them, so narrow on the name inside it.</td></tr>
           <tr><td class="name">emit</td><td class="type">(event: <a href="types.html#type-ChartEventName">ChartEventName</a>, payload?: object): object</td><td class="desc"><code>event: <a href="types.html#type-ChartEventName">ChartEventName</a></code><br><code>payload?: object</code></td><td class="type"><code>object</code></td><td class="desc">Fire an event at the subscribers and at the matching `on&lt;Event&gt;` in the spec, and return the payload the handlers saw — which is how a caller reads back what a handler changed.</td></tr>
@@ -1413,6 +1508,7 @@ return `axis ${full} then ${closer} then ${panned}; day 5 at ${share} of the plo
           <tr><td class="name">y</td><td class="type">string</td><td class="desc">The measure column, for the types that take one. <small>(optional)</small></td></tr>
           <tr><td class="name">series</td><td class="type">string</td><td class="desc">Splits the measure into one series per distinct value. <small>(optional)</small></td></tr>
           <tr><td class="name">rows</td><td class="type">object[] | ((grid: <a href="grid.html#type-Grid">Grid</a>) =&gt; object[])</td><td class="desc">The exact rows to chart, overriding the grid's own walk — an array, or a function returning one at draw time. `chartRange` uses it to bind a chart to the band of rows a selected range covers rather than the whole grid. <small>(optional)</small></td></tr>
+          <tr><td class="name">aggregate</td><td class="type">'auto' | 'engine' | 'client'</td><td class="desc">Where the chart's aggregate is computed (GEO-5). `'auto'`, the default, asks the grid's pushdown source — `source.aggregate()`, with x (and `series`) as the `GROUP BY` and the measures as its aggregates, the grid's filter and quick search applied — when the source's adapter declares the `group` capability and the grid holds only a window of the matching rows; otherwise it reduces the loaded rows, as a chart always has. `'engine'` asks the source whenever it can, and is refused by name (a `[lattice]` warning and `provenance().refused`) when it cannot; `'client'` always reduces the loaded rows. One chart is never a mixture: if any measure would be computed client-side, every one is. Applies to the grouped types (`line`, `step`, `area`, `bar`, `horizontalBar`, `waterfall`, `combo`, `pareto`, `heatmap`, `radar`, `funnel`, `stream`, `marimekko`); the source's `aggregates` config must route the reductions to the engine. {@link Chart.provenance} reports which happened and why. <small>(optional)</small></td></tr>
           <tr><td class="name">measures</td><td class="type"><a href="types.html#type-ChartMeasure">ChartMeasure</a>[]</td><td class="desc">Several measures at once, for combo and candlestick. <small>(optional)</small></td></tr>
           <tr><td class="name">source</td><td class="type">string</td><td class="desc">Endpoints, for sankey, chord and network. <small>(optional)</small></td></tr>
           <tr><td class="name">target</td><td class="type">string</td><td class="desc">The column naming the link's destination, beside `source`. <small>(optional)</small></td></tr>
@@ -1444,8 +1540,11 @@ return `axis ${full} then ${closer} then ${panned}; day 5 at ${share} of the plo
           <tr><td class="name">diverging</td><td class="type">boolean</td><td class="desc">A diverging colour ramp, for heatmap and geomap. <small>(optional)</small></td></tr>
           <tr><td class="name">shapes</td><td class="type">unknown</td><td class="desc">Country outlines, for a geomap drawing countries rather than continents. Either GeoJSON, an object of code to SVG path data, or a geometry {@link GeoPack} imported from an optional `modules/geo-*` package (BACKLOG-0001321) — as the pack itself, or as `{ pack: id }` once its module has been imported and registered. <small>(optional)</small></td></tr>
           <tr><td class="name">codeProperty</td><td class="type">string</td><td class="desc">Which GeoJSON feature property carries the region code that the rows are matched against. Defaults to `iso_a2`. Unused when `shapes` is a map of code to path data. <small>(optional)</small></td></tr>
-          <tr><td class="name">lon</td><td class="type">string</td><td class="desc">The longitude column, for the types that place a row by where it is rather than by a code: `markermap`, `bubblemap` and `hexmap`. Degrees east, -180 to 180; a row outside that, or with no reading, is left off the map and counted. <small>(optional)</small></td></tr>
+          <tr><td class="name">lon</td><td class="type">string</td><td class="desc">The longitude column, for the types that place a row by where it is rather than by a code: `markermap`, `bubblemap`, `hexmap` and `choropleth`. Degrees east, -180 to 180; a row outside that, or with no reading, is left off the map and counted. Given together with {@link ChartSpec.geometry}, both are refused by name — a row is placed by one or the other. <small>(optional)</small></td></tr>
           <tr><td class="name">lat</td><td class="type">string</td><td class="desc">The latitude column, beside {@link ChartSpec.lon}. Degrees north, -90 to 90, on the same terms. <small>(optional)</small></td></tr>
+          <tr><td class="name">geometry</td><td class="type">string</td><td class="desc">A `geometry` column (the opt-in `modules/geometry`, GEO-3) to place each row from, instead of {@link ChartSpec.lon}/{@link ChartSpec.lat} — on `markermap`, `bubblemap` and `choropleth`. A Point row is a marker (or a `choropleth` feature) at its own coordinates; a LineString, Polygon or Multi* row is placed at its planar centroid, in degrees, the same one the column's own type reports. `choropleth` draws each Polygon/MultiPolygon row as its own shape, filled by {@link ChartSpec.y} through the chart's ramp; a Point row on a `choropleth` draws as a marker instead, filled the same way. A cell the column refused at ingest, or whose bounding box leaves the globe, is counted rather than drawn at the origin. Given together with `lon`/`lat`, both are refused by name. <small>(optional)</small></td></tr>
+          <tr><td class="name">viewportFilter</td><td class="type">boolean | <a href="types.html#type-ChartViewportFilterOptions">ChartViewportFilterOptions</a></td><td class="desc">Turn a map's own pan and zoom into a filter on its grid (BACKLOG-0000004, GEO-4): whenever the reader pans or zooms `markermap`, `bubblemap` or `choropleth` (a drag, the wheel, or the keyboard — the same gestures {@link ChartSpec.geometry}/`shapes` already draw a pack through), the chart writes ONE condition to `grid.filters` for the box now on screen, replacing the previous one rather than stacking it, so every other viewer over the same grid — another chart, a KPI, the table — narrows with the map, and a pushdown source does the narrowing in the engine. A `geometry`-column map writes a single `withinBbox`; a `lon`/`lat` map writes a pair of `between` conditions, one per column, joined by `and`. `true` is the whole feature at its default 150 ms debounce, on the column the map already places rows from; the object form narrows either. Two-way: a matching condition set from outside — a saved view, a host, a sibling panel on the same column — pans and zooms the map to it instead of being overwritten. "Reset view" and destroying the chart both remove the condition; a map with nothing to pan (no `shapes` and no `geometry` column) never writes one. Ignored on any other type. <small>(optional)</small></td></tr>
+          <tr><td class="name">viewportCap</td><td class="type">number</td><td class="desc">The most rows a `markermap`, `bubblemap` or `choropleth` draws for one view (GEO-6); default 20,000. Over a grid on a paged pushdown source that holds only a window of its rows, the map asks the source's engine for the rows inside its current view — the grid's filters and quick search, plus a `withinBbox` on a `geometry` column or a `between` pair on `lon`/`lat` for the box once the reader has panned or zoomed — through the adapter's `execute`, capped at this many rows, instead of drawing the grid's page; the grid keeps its page and the map its own set, a pan or zoom asks again (aborting the request it supersedes), and the last drawing stays up until the answer lands. {@link ChartSpec.aggregate} governs this as it governs a grouped chart. When more rows than the cap fall inside the view — from the engine, or from rows the browser holds — a marker or bubble map draws square density cells instead, counted by the engine (GEO-2's spatial `buckets`, `geometry` columns only) or in the browser, at a size derived from the zoom; zooming in until the view holds no more than the cap returns to the rows. A `choropleth`, and an engine map that cannot bin (a `lon`/`lat` map, or an adapter without the `grid` bucket), is refused by name past the cap and draws none of its rows. {@link Chart.provenance} reports it as `viewport`, and the accessible summary says which happened. <small>(optional)</small></td></tr>
           <tr><td class="name">value</td><td class="type">string</td><td class="desc">The measure a `markermap` writes beside each dot and colours it by. Its text is the column's own formatted cell text and its colour is whatever the column's conditional-formatting rules give that value, so a map and the table beside it say the same thing about the same number. <small>(optional)</small></td></tr>
           <tr><td class="name">layer</td><td class="type">string</td><td class="desc">Which layer of a multi-layer geometry pack to draw — the UK pack, for instance, ships `regions`, `local-authorities` and `constituencies` together (BACKLOG-0001321). Ignored for a single-layer pack. <small>(optional)</small></td></tr>
           <tr><td class="name">projection</td><td class="type"><a href="types.html#type-MapProjection">MapProjection</a> | ((lon: number, lat: number) =&gt; [number, number])</td><td class="desc">The map projection a geomap draws through (BACKLOG-0001321): `'equalEarth'` (the default for a world), `'robinson'`, `'mercator'`, `'equirectangular'`, `'albers'`, `'transverseMercator'`, or a projection function of the caller's own `(lon: number, lat: number) =&gt; [number, number]`. Left unset, a geometry pack draws through the projection it declares. <small>(optional)</small></td></tr>

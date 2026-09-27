@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.72.0</p>
+    <p class="rail__sub">API reference · v1.73.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -553,7 +553,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.72.0</span>
+      <span class="chip">Version 1.73.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -2180,7 +2180,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.72.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.73.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -4592,9 +4592,44 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">writable</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Allow write-back against a plain writable table. Off keeps the source read-only, so a <code>from</code> that is a view or an expression can never be mutated by accident. Enables <code>update</code>, <code>delete</code> and <code>append</code>.</td></tr>
           <tr><td class="name">keyField</td><td class="type">string</td><td class="type"><code>id</code></td><td class="desc">The key column an update and a delete target in their <code>WHERE</code>, and that an add-row is rekeyed by. Write-back is refused unless this names a real column, because an <code>UPDATE</code>/<code>DELETE</code> without a unique key could touch more than one row.</td></tr>
           <tr><td class="name">returning</td><td class="type">'row' | 'none'</td><td class="type"><code>row</code></td><td class="desc">The reconcile contract for a successful write. <code>row</code> appends <code>RETURNING *</code> and reconciles server truth (computed columns, triggers); <code>none</code> keeps the optimistic value. An add-row always <code>RETURNING</code>s at least the key column regardless, since it needs that key to rekey the temp row.</td></tr>
+          <tr><td class="name">spatial</td><td class="type">boolean | <a href="#type-DuckDbSpatialOptions">DuckDbSpatialOptions</a></td><td class="type">false</td><td class="desc">Push the <code>geometry</code> column's work into DuckDB's spatial extension: the four spatial filters, sorting by location, and grid buckets in <code>source.aggregate()</code>, with geometry projected as GeoJSON. <code>{ column }</code> names a WKB <code>BLOB</code> or <code>GEOMETRY</code> column the schema and the file do not; <code>{ crs }</code> (<code>'EPSG:27700'</code> or <code>27700</code>) is the system stored coordinates are in when it is not longitude/latitude. See <a href="#duckdb-spatial">spatial pushdown</a>.</td></tr>
         </tbody>
       </table>
     </div>
+
+    <p class="section-note" id="duckdb-spatial">
+      <strong>Spatial pushdown (<code>spatial</code>).</strong> On first use the adapter runs
+      <code>INSTALL spatial; LOAD spatial;</code> once per connection, inside the connection's statement
+      queue, then reads the schema and, for a <code>read_parquet('…')</code> FROM, the GeoParquet
+      <code>geo</code> metadata. A column is geometry when DuckDB types it <code>GEOMETRY</code> (its
+      Parquet reader converts a GeoParquet column itself once the extension is loaded), when the
+      metadata names it, or when <code>column</code> does; a <code>BLOB</code> is read through
+      <code>ST_GeomFromWKB</code>, and a column in another CRS (the file's declaration, or
+      <code>crs</code>, which wins) through <code>ST_Transform(geom, crs, 'EPSG:4326', always_xy :=
+      true)</code>. Geometry is selected as <code>ST_AsGeoJSON(geom)</code>. The operators keep their
+      <a href="#geometry-operators">in-memory meaning</a>: <code>withinBbox</code> →
+      <code>ST_CoveredBy(geom, ST_MakeEnvelope(?, ?, ?, ?))</code>; <code>withinPolygon</code> →
+      <code>ST_Within</code> of the centroid (of the geometry itself for a MultiPoint);
+      <code>intersects</code> → <code>ST_Intersects</code> (a four-number operand is an envelope);
+      <code>withinDistance</code> → the haversine distance from the centroid on the 6,371,008.8&nbsp;m
+      sphere, in SQL. Operands are bound, never interpolated: GeoJSON to
+      <code>ST_GeomFromGeoJSON(?)</code>, WKT to <code>ST_GeomFromText(?)</code>, WKB bytes or hex to
+      <code>ST_GeomFromHEXWKB(?)</code>; one that cannot be read compiles to <code>FALSE</code> and
+      <code>source.duckdb.spatial.operand.&lt;op&gt;</code> says why. A geometry column sorts by
+      <code>ST_Y(ST_Centroid(geom))</code>, then <code>ST_X</code>; grouping by one is refused by name;
+      a <a href="#type-SpatialBucket">SpatialBucket</a> <code>{ col, bucket: 'grid', size }</code> in
+      <code>source.aggregate()</code>'s <code>groupBy</code> pushes as
+      <code>floor(ST_X(ST_Centroid(geom)) / size)</code> and the same for <code>ST_Y</code>, one
+      <code>ROLLUP</code> unit, the key back as <code>[x, y]</code>. The adapter declares the operators
+      in <code>capabilities.operators</code> and the bucket kind in <code>capabilities.buckets</code>,
+      and exposes <code>ready()</code>, which <code>createPushdownSource</code> awaits before its first
+      plan. The operators are declared only while the type layer has them &mdash; the
+      <code>modules/geometry</code> module is loaded and a grid has resolved the type; without it a
+      condition handed to the adapter compiles to <code>FALSE</code> and
+      <code>source.duckdb.spatial.module.&lt;op&gt;</code> names the missing import. If the extension does not load, <code>source.duckdb.spatial.load</code> warns once, both
+      are withdrawn, and the operators are left to the grid (pass <code>compute</code> to
+      <code>createPushdownSource</code> to apply them), with geometry arriving as its stored WKB.
+    </p>
 
     <p class="section-note" id="duckdb-total">
       <strong>How the total is counted, and what it costs.</strong> The grid needs the size of the
@@ -4822,6 +4857,31 @@ createGrid(host, { source, columns: [...] });</code></pre>
       empty string are both <code>''</code>. The engine's answer is the right one; the two are
       otherwise identical group for group, count for count and subtotal for subtotal, which the
       parity suite asserts at every level.
+    </p>
+    <p class="section-note">
+      <strong>A chart over a paged relation reads through <code>source.aggregate()</code>, not the
+      loaded window (GEO-5).</strong> A bar chart drawn from a grid holding the first hundred rows of
+      a hundred thousand cannot sum those hundred and call it the total — that is a confident, wrong
+      picture. <a href="#chartsmodule">The charts module</a>'s grouped types (a bar, a line, a
+      heatmap and the rest of <a href="#chartsmodule">the aggregate types</a>) ask the same
+      <code>group</code> capability this section describes: <code>x</code> (and <code>series</code>)
+      become the <code>groupBy</code>, each measure an aggregate in the request, and the grid's
+      filter and quick search are pushed exactly as they are for a grouped row above — refused
+      wholesale, never partially, on the same conditions: an unpushed filter or quick search, a
+      grouping key that is not a plain column, or a statistic the source's own <code>aggregates</code>
+      config keeps in the browser. The one difference from a group row is the trigger: a chart asks
+      only when the grid holds fewer rows than match, so a fully-loaded memory grid never pays for a
+      request whose answer it already has.
+    </p>
+    <p class="section-note">
+      <strong>Maps and KPI tiles ask the same way (GEO-6).</strong> A <a href="#chart-map-viewport">map</a>
+      over a paged pushdown source counts the rows inside its view with an ungrouped
+      <code>source.aggregate()</code>, fetches them through the adapter's <code>execute</code> capped at
+      its <code>viewportCap</code>, and past the cap groups by a spatial <code>buckets</code> key for density
+      cells; a <a href="#kpi-engine">KPI tile</a>'s <code>sum</code>, <code>avg</code>, <code>min</code> or
+      <code>max</code> is one ungrouped aggregate. The refusals are the chart's: an unpushed filter or quick
+      search, a <code>where</code> predicate, or a statistic the <code>aggregates</code> config keeps in the
+      browser sends the viewer back to the loaded rows, said by name.
     </p>
 
     <h5 id="dfql-options"><code>dfqlAdapter</code></h5>
@@ -5366,8 +5426,9 @@ app.get('/api/orders', async (req, res) =&gt; {
     </div>
     <p class="section-note">
       <strong>No mixed provenance.</strong> An engine number and a client number never appear in one
-      result set. Aggregates are pushed only when the filter is <em>fully</em> pushed; a residual
-      filter the engine could not apply forces <em>every</em> aggregate client-side, because an
+      result set. Aggregates are pushed only when the filter <em>and</em> the quick search are both
+      <em>fully</em> pushed; a residual filter the engine could not apply, or a quick search its
+      <code>capabilities.quick</code> refuses, forces <em>every</em> aggregate client-side, because an
       engine figure computed over a superset beside a client figure over the real set would be
       wrong-but-plausible. <code>lastPlan().aggregates</code> reports, per statistic, whether the
       engine or the client computed it and the class it was assigned — build-time inspection, not a
@@ -5918,6 +5979,27 @@ const chart = createChart({
   y: 'revenue',               <span class="cmt">// the measure column</span>
 });</code></pre>
     <p><strong>A chart reads the grid's filtered rows.</strong> Filter, sort or edit the grid and every chart bound to it redraws on the next frame: there is nothing to subscribe to and nothing to keep in step. A chart of rows the user cannot see would be describing a different data set.</p>
+    <p><strong>Over a paged pushdown source, a chart aggregates through the engine, not the loaded window (GEO-5).</strong> The grouped types — <code>line</code>, <code>step</code>, <code>area</code>, <code>bar</code>, <code>horizontalBar</code>, <code>waterfall</code>, <code>combo</code>, <code>pareto</code>, <code>heatmap</code>, <code>radar</code>, <code>funnel</code>, <code>stream</code>, <code>marimekko</code> — ask <a href="#pushdown"><code>source.aggregate()</code></a> whenever the grid's source declares the <a href="#pushdown">pushdown <code>group</code> capability</a> and the grid holds fewer rows than match: <code>x</code> and <code>series</code> become the <code>GROUP BY</code>, the measures its aggregates, and the grid's filter and quick search apply, so a bar totals the whole hundred-thousand-row relation rather than the hundred rows fetched so far. <code>spec.aggregate</code> (<code>'auto'</code> by default) forces <code>'engine'</code> or <code>'client'</code>; a forced <code>'engine'</code> the source cannot serve is refused by name, never silently swapped. While a request is in flight the chart keeps its last drawing rather than going blank, and a burst of filter changes aborts the superseded request and coalesces to the one query the grid ends up on. A chart is never a mixture of the two — if any one measure would be computed client-side, every measure is — and <code>chart.provenance()</code> reports which happened, per measure, in the same engine/client shape <code>source.aggregate()</code> itself reports; the accessible summary says so too.</p>
+    <pre data-run="js" data-expect="client | false | client | the grid's source has no aggregate() — it is not a pushdown source" data-covers="method:charts.provenance"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid } = await import('../packages/dom/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 400, height: 300 });
+const grid = createGrid(root, {
+  rowKey: 'id',
+  columns: [{ field: 'region' }, { field: 'revenue', type: 'number' }],
+  rows: [{ id: 1, region: 'North', revenue: 10 }, { id: 2, region: 'South', revenue: 20 }],
+});
+
+const container = document.createElement('div');
+container.rect = { width: 400, height: 300, top: 0, left: 0 };
+root.appendChild(container);
+
+// A plain in-memory grid has no source.aggregate() to ask, so the chart reads
+// the loaded rows exactly as it always has — provenance says client, and why.
+const chart = createChart({ grid, container, type: 'bar', x: 'region', y: 'revenue' });
+const p = chart.provenance();
+return [p.source, p.pending, p.measures[0].computed, p.reason].join(' | ');</code></pre>
 
     <h3>The types</h3>
     <div class="table-wrap">
@@ -6640,6 +6722,78 @@ walk(chart.element);
 chart.destroy();
 <span class="kw">return</span> `${fills.join(' ')} | ${labels.join(' / ')} | unplaced ${bound.unplaced}`;</code></pre>
 
+    <h3 id="chart-geometry-maps">Maps from a geometry column</h3>
+    <p><code>markermap</code>, <code>bubblemap</code> and a third type, <code>choropleth</code> (<code>modules/chart-choropleth</code>), can all place a row from one <a href="#geometry"><code>geometry</code></a> column instead of a <code>lon</code>/<code>lat</code> pair: <code>geometry: '&lt;col&gt;'</code>. Giving both is refused by name and draws nothing &mdash; a row is placed by one or the other. A <strong>Point</strong> is placed at its own coordinates; a LineString, a Polygon or any Multi* kind is placed at its <strong>centroid</strong> (planar, in degrees, the same reading <code>ST_Centroid</code> gives). A cell the column refused at ingest, or whose bounding box leaves the globe, is <em>counted</em> &mdash; in <code>chart.data().unplaced</code>, in the note the map draws under itself and in the accessible table &mdash; never drawn at 0,0.</p>
+    <p><code>choropleth</code> is the one of the three that needs no geometry pack at all: it draws each row's own Polygon/MultiPolygon straight from the column, filled by <code>y</code> through the chart's ramp (the same <code>ramp</code>/legend every ramp-coloured type uses); <code>shapes</code> is an optional pack drawn underneath as a backdrop. A Point row on a <code>choropleth</code> draws as a marker instead, filled the same way &mdash; which is what lets one dataset mix point sites and polygon territories on one map, as the example below does. A shape with many vertices is simplified for drawing, at the projection's pixel tolerance, by a hand-written Douglas&ndash;Peucker; the simplified ring exists only in the drawing &mdash; the cell, the export and the filters all keep every vertex. All three types honour the grid's filters (a filtered-out row disappears), pan and zoom (BACKLOG-0001473), and take the drawing rail (BACKLOG-0001474) anchored in longitude and latitude &mdash; over <code>mercator</code> or <code>equirectangular</code>, the two projections with a written inverse; any other projection refuses the rail by name rather than build one that cannot place a drag.</p>
+    <pre data-run="js" data-expect="10 points, 3 polygons | unplaced 0 | fns true true" data-covers="export:drawChoropleth export:bindChoropleth"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { document, root } = createTestDom({ width: 700, height: 460 });
+<span class="kw">const</span> panel = document.createElement('div');
+panel.rect = { width: 700, height: 460, top: 0, left: 0 };
+root.appendChild(panel);
+
+<span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="cmt">// The geometry column type, then the base charts module, then the extension.</span>
+<span class="kw">await</span> import('../packages/modules/geometry/index.js');
+<span class="kw">const</span> { createChart } = <span class="kw">await</span> import('../packages/modules/charts/index.js');
+<span class="cmt">// Importing the module registers `choropleth`; its drawer is drawChoropleth</span>
+<span class="cmt">// and its binder, for a host that wants the placed rows itself, bindChoropleth.</span>
+<span class="kw">const</span> choropleth = <span class="kw">await</span> import('../packages/modules/chart-choropleth/index.js');
+
+<span class="cmt">// A square GeoJSON Polygon literal, one sales territory.</span>
+<span class="kw">function</span> zone(x, y, s, id, sales) {
+  <span class="kw">return</span> {
+    id, name: id.toUpperCase(), sales,
+    site: { type: 'Polygon', coordinates: [[[x, y], [x + s, y], [x + s, y + s], [x, y + s], [x, y]]] },
+  };
+}
+<span class="cmt">// Ten point rows &mdash; sites &mdash; and three polygon rows &mdash; territories &mdash;</span>
+<span class="cmt">// in the SAME geometry column: a choropleth draws a Point as a marker and</span>
+<span class="cmt">// anything with area as its own shape, both filled on the one ramp.</span>
+<span class="kw">const</span> rows = [];
+<span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; 10; i++) {
+  rows.push({
+    id: `p${i}`, name: `Site ${i}`, sales: 5 + i,
+    site: { type: 'Point', coordinates: [i, i] },
+  });
+}
+rows.push(zone(0, 20, 3, 'zoneA', 12), zone(4, 20, 3, 'zoneB', 28), zone(8, 20, 3, 'zoneC', 44));
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'name', type: 'text' },
+    { field: 'site', type: 'geometry' },
+    { field: 'sales', type: 'number' },
+  ],
+  rows,
+});
+
+<span class="kw">const</span> chart = createChart({
+  grid, container: panel, type: 'choropleth', geometry: 'site', y: 'sales', label: 'name',
+});
+
+<span class="cmt">// What was painted: a marker per Point row, a shape per polygon row.</span>
+<span class="kw">const</span> points = [];
+<span class="kw">const</span> features = [];
+<span class="kw">const</span> walk = (node) =&gt; {
+  <span class="kw">for</span> (<span class="kw">const</span> child <span class="kw">of</span> node.children || []) {
+    <span class="kw">const</span> cls = String(child.getAttribute('class') || '');
+    <span class="kw">if</span> (cls.includes('choropleth-point')) points.push(child.getAttribute('data-row'));
+    <span class="kw">if</span> (cls.includes('choropleth-feature')) features.push(child.getAttribute('data-row'));
+    walk(child);
+  }
+};
+walk(chart.element);
+<span class="kw">const</span> unplaced = chart.data().unplaced;
+<span class="cmt">// The binder is public too, and agrees with what was drawn.</span>
+<span class="kw">const</span> bound = choropleth.bindChoropleth(grid, { geometry: 'site', y: 'sales', label: 'name' });
+<span class="kw">const</span> fns = [typeof choropleth.drawChoropleth, typeof choropleth.bindChoropleth];
+chart.destroy();
+<span class="kw">return</span> `${points.length} points, ${features.length} polygons | unplaced ${unplaced} | fns ${fns[0] === 'function'} ${fns[1] === 'function' && bound.features.length === 13}`;</code></pre>
+
+    <h4 id="chart-map-viewport">A map over a paged relation asks the engine for its view, and caps what it draws (GEO-6)</h4>
+    <p><strong>Over a paged pushdown source, a map draws the rows in its view, not the grid's page.</strong> A <code>markermap</code>, <code>bubblemap</code> or <code>choropleth</code> beside a grid holding 200 rows of 35,000 draws the 35,000 &mdash; or as many as are in view &mdash; not the 200. When the grid holds fewer rows than match, the map asks the source itself: a count through <a href="#pushdown"><code>source.aggregate()</code></a>, then the rows through the adapter's own <code>execute</code> &mdash; the grid's filter and quick search applied, no range window, capped at <code>spec.viewportCap</code> rows (default 20,000) &mdash; and, once the reader has panned or zoomed, a condition for the box on screen: a <code>withinBbox</code> on a <code>geometry</code> column (pushed as <code>ST_CoveredBy</code> by a spatial <code>duckdbAdapter</code>), or a <code>between</code> pair on <code>lon</code>/<code>lat</code>. The fetched rows are the map's own: nothing is injected into the grid, which keeps its page. A pan or a zoom asks again, aborting the request it supersedes, and the map keeps drawing its last answer under the new view until the next one lands. <code>spec.aggregate</code> governs this exactly as it governs a grouped chart: <code>'auto'</code> asks only when the grid holds a window, <code>'engine'</code> asks whenever the source can and is refused by name when it cannot, <code>'client'</code> never asks. A projection without an invertible pair of scales (<code>equalEarth</code>, <code>robinson</code>, the conics) cannot name its box, so the map asks for the whole filtered relation, still capped.</p>
+    <p><strong>Past the cap, density rather than a random subset.</strong> When more rows than <code>viewportCap</code> fall inside the view, a marker or bubble map draws square density cells, each filled by its count through the chart's ramp with a ramp legend: over a paged source the engine counts them (GEO-2's spatial <code>buckets</code>, <code>{ col, bucket: 'grid', size }</code>, so a <code>geometry</code> column), and over rows the browser already holds the chart counts the same cells itself &mdash; 35,000 opaque bubbles at world scale are a blob whichever side counted them. The cell size follows the box the map is about to draw &mdash; the view, else a box the grid's filters hold on the map's column, else the data's own extent &mdash; so that box's longer side is 24 to 47 cells across (a power of two of degrees; a box is never binned at the world's size once one is known), and zooming in until the view holds no more than the cap returns to the rows. When the box the map draws changes by more than <strong>2&times;</strong> in either axis, narrower or wider, the map refits its projection to the new box before drawing, so a few streets' points spread across the plot rather than bunching in the middle of a city's frame: a box set on the map from outside (a <code>withinBbox</code> through <code>grid.filters.set()</code> with <code>viewportFilter</code> on), or, at the initial view, the extent of the rows the grid's filters now keep (which also refits when it moves off the frame). A smaller change, and every pan, keeps the frame and moves the map under it. &ldquo;Reset view&rdquo; returns to the fit of the data. A <code>choropleth</code> has no honest density form, and an engine map that cannot bin (a <code>lon</code>/<code>lat</code> map, or an adapter without the <code>grid</code> bucket) has none either: past the cap each is refused by name (<code>chart:viewportCap:over:*</code>) and draws none of its rows, with the reason under the map. <code>chart.provenance().viewport</code> reports the rows drawn, how many matched the view, the cap, whether it was binned and how many cells, why nothing was drawn, the box, and whether the engine or the browser counted; the accessible summary says which, for example &ldquo;12,480 points in this view, fetched from the data engine&rdquo;.</p>
     <h3 id="chart-annotate">Drawing on a chart &mdash; a tool rail anchored in the data</h3>
     <p>The declarative <code>annotations</code> above are written by whoever built the dashboard and state a <em>standard</em> the data is judged against. <code>annotate</code> is the other half: it gives whoever is <strong>reading</strong> the chart a tool rail to state an <em>observation</em> on it &mdash; this trend, this level, this retracement, this note. Set <code>annotate: true</code> for the whole rail on the left, or an object to narrow it: <code>tools</code> picks which buttons appear (always in rail order, so two charts never read differently), <code>rail</code> is <code>left</code>, <code>top</code> or <code>none</code> (the tools and the pointer behaviour without the strip, for a host driving them from its own toolbar), and <code>readOnly</code> paints what is in the state and refuses every change &mdash; including the rail, because a strip of buttons that do nothing is worse than no strip.</p>
     <p>Eleven tools: <strong>select/move</strong>, <strong>trend line</strong> (two points), <strong>horizontal line</strong> and <strong>vertical line</strong> (one value, labelled with it), <strong>parallel channel</strong> (two parallel lines and a fill), <strong>Fibonacci retracement</strong> (0, 23.6, 38.2, 50, 61.8, 78.6 and 100&nbsp;% between two points, each level labelled with its own value), <strong>arrow</strong>, <strong>text</strong>, <strong>callout</strong> (a label with a leader to a reading), <strong>note</strong> (a pin), and <strong>delete</strong>. Available on the cartesian types &mdash; line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble &mdash; and on combo and candlestick; asking for it on any other type warns and draws no rail rather than silently doing nothing.</p>
@@ -6879,7 +7033,7 @@ router.load(snapshot);                        <span class="cmt">// every viewer 
     <p class="section-note">A customers grid and an orders grid off one feed; selecting customers filters the orders
     grid to their regions through the keyed-diff path, and deselecting restores the full set. Run headless
     on every build.</p>
-    <pre data-run="js" data-expect="3 | 2 | 3 | 3" data-covers="export:createDataRouter config:key config:selectionDebounce"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="3 | 2 | 3 | 3" data-covers="export:createDataRouter config:key config:selectionDebounce method:data-router.link"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'region', field: 'region', type: 'text' }];
@@ -6972,7 +7126,7 @@ chart.destroy(); router.destroy();
 <span class="kw">return</span> [groups, top, emeaTotal].join(' | ');</code></pre>
 
     <p><strong>The relationship graph (v3, BACKLOG-0000887).</strong> <code>relate([...])</code> is the scalable form of v2's pairwise <code>link()</code>. Each edge is <code>{ from, to, on }</code>, where <code>on</code> is a key map <code>{ from, to }</code> or a function <code>fn(sourceRows) =&gt; (row) =&gt; boolean</code>. The router resolves the whole graph on any selection change, so it handles <strong>multi-hop</strong> chains (A&rarr;B&rarr;C: a selection in A narrows B and, through B's resulting rows, C &mdash; with no selection in B), <strong>several sources into one target</strong> (their filters AND together), and <strong>mutual</strong> edges (<code>mutual: true</code> &mdash; selecting in either linked view narrows the other; requires a key-map <code>on</code>). A node's effective set is its own selection when it has one, otherwise the rows its incoming edges leave &mdash; that is what carries a selection transitively down a chain. Additive to <code>link()</code>; the two compose.</p>
-    <pre data-run="js" data-expect="o1,o3 | l1,l3,l4" data-covers="export:createDataRouter config:relate"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="o1,o3 | l1,l3,l4" data-covers="export:createDataRouter config:relate method:data-router.relate"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'region', field: 'region', type: 'text' }, { id: 'orderId', field: 'orderId', type: 'text' }];
@@ -6997,7 +7151,7 @@ customers.destroy(); orders.destroy(); lines.destroy(); router.destroy();
 <span class="kw">return</span> out.join(' | ');</code></pre>
 
     <p><strong>Stream hygiene (v3, BACKLOG-0000887).</strong> A production feed arrives out of order, gets replayed, and comes faster than a grid should repaint. Configure a <code>seq</code> (a version field or <code>fn(row)</code>) and the router orders each batch by it and <strong>drops</strong> any delta not newer than the one it already applied for that record (counted in <code>router.dropped</code>) &mdash; an out-of-order or replayed feed converges to the newest state. <code>push(delta)</code> with a <code>batch</code> interval or <code>coalesce: true</code> buffers a high-frequency feed and coalesces rapid updates to one key into a single apply (flush a deterministic point with <code>flushStream()</code>). When the host's own connection drops and it reconnects, resume precisely: <code>load</code> a fresh snapshot (a keyed diff that preserves grid state) and replay from <code>lastSeq()</code>/<code>checkpoint()</code> &mdash; the deltas the router already saw are dropped by the same gate. The router does not detect or recover from the drop itself; see <a href="#datarouter-websocket-example">a live WebSocket feed</a> for the worked reconnect example. <code>seenThrough(mark)</code> primes the checkpoint from a persisted one.</p>
-    <pre data-run="js" data-expect="30 | 1 | 4" data-covers="export:createDataRouter config:seq config:dedupe"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="30 | 1 | 4" data-covers="export:createDataRouter config:seq config:dedupe method:data-router.lastSeq"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }, { id: 'n', field: 'n', type: 'number' }] });
@@ -7078,7 +7232,7 @@ g.destroy(); router.destroy();
     <p class="section-note">A single snapshot fanned to an orders grid, an invoices grid and a "rest" sink, then a
     delta that changes a row's partition &mdash; proving the fan-out, the sink, and that a moved row
     leaves its old grid and joins the new one rather than being duplicated. Run headless on every build.</p>
-    <pre data-run="js" data-expect="2,1,1 | 1/2 | 0" data-covers="export:createDataRouter"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="2,1,1 | 1/2 | 0" data-covers="export:createDataRouter method:data-router.attach method:data-router.attachDefault method:data-router.load method:data-router.apply method:data-router.destroy"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'amt', field: 'amt', type: 'number' }];
@@ -7113,7 +7267,7 @@ orders.destroy(); invoices.destroy(); rest.destroy(); router.destroy();
     <h3 id="datarouter-v4-example">Scrub and return to live, executed</h3>
     <p class="section-note">A versioned feed buffered into a bounded ring; the view scrubs to a past seq, reads the
     reconstructed value, then returns to the live head. Run headless on every build.</p>
-    <pre data-run="js" data-expect="30 | 10 | true | 30" data-covers="export:createDataRouter config:buffer config:seq"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="30 | 10 | true | 30" data-covers="export:createDataRouter config:buffer config:seq method:data-router.buffer method:data-router.scrubTo method:data-router.live"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }, { id: 'n', field: 'n', type: 'number' }] });
@@ -7139,7 +7293,7 @@ g.destroy(); router.destroy();
     <h3 id="datarouter-v7-example">Query-slice routing, executed</h3>
     <p class="section-note">Two routes over one query, each with its own <code>where</code>; a capability-free adapter pushes
     nothing, so each residual is finished client-side, and the plan records the split. Run headless on every build.</p>
-    <pre data-run="js" data-expect="2 | 1 | 2" data-covers="export:createDataRouter"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="2 | 1 | 2" data-covers="export:createDataRouter method:data-router.query method:data-router.lastQueryPlan"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'amt', field: 'amt', type: 'number' }];
@@ -7174,7 +7328,7 @@ big.destroy(); small.destroy(); router.destroy();
     <h3 id="datarouter-v9-example">Fan-in from two feeds, executed</h3>
     <p class="section-note">Two feeds with a colliding raw id, namespaced per source so they merge without clobbering;
     removing one feed drops exactly its rows. Run headless on every build.</p>
-    <pre data-run="js" data-expect="3 | crm,erp | 2 | 2" data-covers="export:createDataRouter config:id config:key config:load config:size config:remove"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="3 | crm,erp | 2 | 2" data-covers="export:createDataRouter config:id config:key config:load config:size config:remove method:data-router.addSource method:data-router.sources"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'n', field: 'n', type: 'number' }];
@@ -7229,7 +7383,7 @@ g.destroy(); router.destroy();
     <h3 id="datarouter-v10-example">A metrics snapshot, executed</h3>
     <p class="section-note">A snapshot fanned to a route and a sink; the metrics read reports the route's row count and the
     unrouted total, and <code>on('metrics')</code> returns an unsubscribe. Run headless on every build.</p>
-    <pre data-run="js" data-expect="2 | 1 | function" data-covers="export:createDataRouter config:metricsInterval"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="2 | 1 | function" data-covers="export:createDataRouter config:metricsInterval method:data-router.metrics method:data-router.on"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }];
@@ -7272,7 +7426,7 @@ g1.destroy(); g2.destroy(); router.destroy();
 <span class="kw">return</span> out.join(' | ');</code></pre>
     <h3 id="datarouter-coalesce-example">Coalesce a burst into one repaint, executed</h3>
     <p class="section-note">A high-frequency feed goes through <code>push</code>; with <code>coalesce</code> (or a <code>batch</code> interval) rapid updates to one key fold into a single <code>apply</code>, and <code>flushStream</code> gives a deterministic point. Run headless on every build.</p>
-    <pre data-run="js" data-expect="0 | 1 | 3" data-covers="export:createDataRouter config:push config:coalesce config:batch"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="0 | 1 | 3" data-covers="export:createDataRouter config:push config:coalesce config:batch method:data-router.push method:data-router.flushStream"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="cmt">// A hand-rolled viewer, grid-shaped: the router accepts anything with rows.apply.</span>
@@ -7309,7 +7463,7 @@ g.destroy(); router.destroy();
 <span class="kw">return</span> out.join(' | ');</code></pre>
     <h3 id="datarouter-configure-example">The routing graph as one declarative spec, executed</h3>
     <p class="section-note">The same routes and links the imperative calls would make, as data: <code>routes</code> attach a grid <code>when</code> a value matches, <code>links</code> filter one grid by another&rsquo;s selection. Run headless on every build.</p>
-    <pre data-run="js" data-expect="2 | 1" data-covers="export:createDataRouter config:routes config:links"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="2 | 1" data-covers="export:createDataRouter config:routes config:links method:data-router.configure method:data-router.flush"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'region', field: 'region' }];
@@ -7333,7 +7487,7 @@ customers.destroy(); orders.destroy(); router.destroy();
 <span class="kw">return</span> [all, linked].join(' | ');</code></pre>
     <h3 id="datarouter-persist-example">Durable resume through a store of your own, executed</h3>
     <p class="section-note">The router snapshots to IndexedDB by default &mdash; <code>dbName</code> and <code>storeName</code> say where, and <code>indexedDB</code> lets you hand it a factory (here a tiny fake, so the example is deterministic) &mdash; or to any <code>storage</code> with async <code>get</code>/<code>set</code>. A second router over the same store <code>restore</code>s what the first one wrote. Run headless on every build.</p>
-    <pre data-run="js" data-expect="demo | router | true | 2 | true | 1" data-covers="export:createDataRouter config:storage config:indexedDB config:dbName config:storeName"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="demo | router | true | 2 | true | 1" data-covers="export:createDataRouter config:storage config:indexedDB config:dbName config:storeName method:data-router.persist method:data-router.restore method:data-router.flushPersist"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="cmt">// A fake IDBFactory: one database, one object store, put/get in a transaction.</span>
@@ -7391,7 +7545,7 @@ ga.destroy(); gb.destroy(); a.destroy(); b.destroy(); c.destroy();
 <span class="kw">return</span> out.join(' | ');</code></pre>
     <h3 id="datarouter-backpressure-example">Throttle one viewer under load, executed</h3>
     <p class="section-note">A <code>backpressure</code> policy on one route caps how often <em>that</em> viewer is refreshed without slowing the store or any sibling; a burst inside the window is held to one leading refresh, and <code>flushBackpressure</code> lands the coalesced latest state. Run headless on every build.</p>
-    <pre data-run="js" data-expect="1 | 2 | 9 | 3" data-covers="export:createDataRouter config:backpressure"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="1 | 2 | 9 | 3" data-covers="export:createDataRouter config:backpressure method:data-router.subscribe method:data-router.flushBackpressure"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">let</span> clock = 0;
@@ -7432,6 +7586,164 @@ router.live();
 <span class="kw">const</span> now = g.rows.count();                // 3
 g.destroy(); router.destroy();
 <span class="kw">return</span> [then, now].join(' | ');</code></pre>
+
+    <h3 id="datarouter-alert-example">Fire once on a rising edge, and re-arm, executed</h3>
+    <p class="section-note">An alert watches a partition slice and EMITS rather than renders: <code>condition(rows)</code> is evaluated on every load and delta, the handler fires once when it first becomes truthy, staying quiet while it holds and re-arming when it clears. Run headless on every build.</p>
+    <pre data-run="js" data-expect="1 | 1 | 2" data-covers="export:createDataRouter method:data-router.alert"><code><span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> fired = [];
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id' });
+router.alert('order',
+  (rows) =&gt; rows.find((r) =&gt; r.amt &gt; 100) || <span class="kw">false</span>,   <span class="cmt">// condition(rows): the signal, or falsy</span>
+  () =&gt; { fired.push(1); });                            <span class="cmt">// handler(signal, rows): fires on the rising edge</span>
+
+router.load([{ id: 'o1', type: 'order', amt: 10 }]);
+router.apply([{ op: 'upsert', row: { id: 'o1', type: 'order', amt: 150 } }]); <span class="cmt">// crosses</span>
+<span class="kw">const</span> crossed = fired.length;                        <span class="cmt">// 1</span>
+router.apply([{ op: 'upsert', row: { id: 'o1', type: 'order', amt: 200 } }]); <span class="cmt">// stays above: no refire</span>
+<span class="kw">const</span> stillOne = fired.length;                       <span class="cmt">// 1</span>
+router.apply([{ op: 'upsert', row: { id: 'o1', type: 'order', amt: 10 } }]);  <span class="cmt">// falls below: re-arms</span>
+router.apply([{ op: 'upsert', row: { id: 'o1', type: 'order', amt: 150 } }]); <span class="cmt">// crosses again</span>
+<span class="kw">const</span> refired = fired.length;                       <span class="cmt">// 2</span>
+
+router.destroy();
+<span class="kw">return</span> [crossed, stillOne, refired].join(' | ');</code></pre>
+
+    <h3 id="datarouter-monitor-example">Watch a slice and report every measurement, executed</h3>
+    <p class="section-note"><code>monitor</code> (v14, BACKLOG-0001434) is a levelled sibling of <code>alert</code>: <code>evaluate(rows)</code> runs and reports on <strong>every</strong> load and delta, not only on a rising edge, which is the feed the alarms module runs its level ladder on. It returns a stop function rather than the router. Run headless on every build.</p>
+    <pre data-run="js" data-expect="0 | 10 | 30 | 35" data-covers="export:createDataRouter method:data-router.monitor"><code><span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> readings = [];
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id' });
+<span class="kw">const</span> stop = router.monitor('order',
+  (rows) =&gt; rows.reduce((sum, r) =&gt; sum + r.amt, 0),    <span class="cmt">// evaluate(rows): what to report</span>
+  (value) =&gt; readings.push(value));                      <span class="cmt">// handler(value, rows): every evaluation</span>
+
+<span class="cmt">// Seeded immediately (0, over an empty world), then re-evaluated on load and each delta.</span>
+router.load([{ id: 'o1', type: 'order', amt: 10 }]);
+router.apply([{ op: 'upsert', row: { id: 'o2', type: 'order', amt: 20 } }]);
+router.apply([{ op: 'upsert', row: { id: 'o1', type: 'order', amt: 15 } }]);
+stop();                                                   <span class="cmt">// release the monitor and its partition</span>
+router.apply([{ op: 'upsert', row: { id: 'o3', type: 'order', amt: 999 } }]); <span class="cmt">// no further reading</span>
+
+router.destroy();
+<span class="kw">return</span> readings.join(' | ');</code></pre>
+
+    <h3 id="datarouter-detach-example">Detach a grid; the host still owns it, executed</h3>
+    <p class="section-note"><code>detach(grid)</code> stops routing to a grid and forgets its slice, but never touches the grid itself — the host still owns and destroys it. Run headless on every build.</p>
+    <pre data-run="js" data-expect="1 | 1 | true" data-covers="export:createDataRouter method:data-router.detach"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }];
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id' });
+router.attach(g, 'order');
+router.load([{ id: 'o1', type: 'order' }]);
+<span class="kw">const</span> before = g.rows.count();          <span class="cmt">// 1</span>
+router.detach(g);                       <span class="cmt">// stop routing to g; the router forgets its slice</span>
+router.apply([{ op: 'upsert', row: { id: 'o2', type: 'order' } }]);
+<span class="kw">const</span> after = g.rows.count();           <span class="cmt">// still 1: the delta never reached the detached grid</span>
+<span class="kw">const</span> stillUsable = <span class="kw">typeof</span> g.rows.count === 'function'; <span class="cmt">// detach never destroys the grid</span>
+
+g.destroy(); router.destroy();
+<span class="kw">return</span> [before, after, stillUsable].join(' | ');</code></pre>
+
+    <h3 id="datarouter-removesource-example">Drop a fan-in source by id directly, executed</h3>
+    <p class="section-note"><code>removeSource(ref)</code> takes either a source id or the handle <code>addSource</code> returned; this executed example drops one by its id directly, the way a host that only kept the id (not the handle) would. Run headless on every build.</p>
+    <pre data-run="js" data-expect="2 | 1" data-covers="export:createDataRouter method:data-router.removeSource"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }];
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id' });
+router.attach(g, 'order');
+router.addSource('crm', { key: <span class="kw">true</span> }).load([{ id: '1', type: 'order' }]);
+router.addSource('erp', { key: <span class="kw">true</span> }).load([{ id: '1', type: 'order' }]); <span class="cmt">// colliding raw id, namespaced</span>
+<span class="kw">const</span> merged = g.rows.count();          <span class="cmt">// 2: both feeds' rows, kept apart by source id</span>
+router.removeSource('erp');             <span class="cmt">// drop a feed by id, without going through its handle</span>
+<span class="kw">const</span> after = g.rows.count();           <span class="cmt">// 1</span>
+
+g.destroy(); router.destroy();
+<span class="kw">return</span> [merged, after].join(' | ');</code></pre>
+
+    <h3 id="datarouter-checkpoint-example">Persist and prime the resume checkpoint, executed</h3>
+    <p class="section-note"><code>checkpoint()</code> is a copy of the per-record resume point a host can persist; <code>seenThrough(mark)</code> primes a fresh router from it, so a delta at or below what was already seen is dropped by the ordinary <code>seq</code> gate rather than reapplied. Run headless on every build.</p>
+    <pre data-run="js" data-expect="3 | dropped | 9" data-covers="export:createDataRouter method:data-router.checkpoint method:data-router.seenThrough"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'n', field: 'n', type: 'number' }];
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ rowKey: 'id', seq: 'v', dedupe: <span class="kw">true</span> });
+router.attach(g, () =&gt; <span class="kw">true</span>);
+router.apply([{ op: 'upsert', row: { id: 'a', n: 1, v: 3 } }]);
+
+<span class="kw">const</span> mark = router.checkpoint();       <span class="cmt">// per-record resume point: Map&lt;rowKey, seq&gt;</span>
+<span class="kw">const</span> persisted = mark.get('a');        <span class="cmt">// 3 -- what a host writes to storage before a reload</span>
+
+<span class="cmt">// "After the reload": a fresh router primed from the persisted checkpoint.</span>
+<span class="kw">const</span> g2 = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router2 = createDataRouter({ rowKey: 'id', seq: 'v', dedupe: <span class="kw">true</span> });
+router2.attach(g2, () =&gt; <span class="kw">true</span>);
+router2.seenThrough(mark);              <span class="cmt">// primes the checkpoint, so an early replay is dropped</span>
+router2.apply([{ op: 'upsert', row: { id: 'a', n: 1, v: 2 } }]);   <span class="cmt">// replayed, below the checkpoint</span>
+<span class="kw">const</span> belowDropped = g2.rows.count() === 0 ? 'dropped' : 'leaked';
+router2.apply([{ op: 'upsert', row: { id: 'a', n: 9, v: 4 } }]);   <span class="cmt">// genuinely new</span>
+<span class="kw">const</span> above = g2.rows.value('a', 'n');
+
+g.destroy(); router.destroy(); g2.destroy(); router2.destroy();
+<span class="kw">return</span> [persisted, belowDropped, above].join(' | ');</code></pre>
+
+    <h3 id="datarouter-replay-pause-example">Walk an incident with pause and resume, executed</h3>
+    <p class="section-note"><code>pause()</code> freezes an in-flight <code>replay</code> at its current step; <code>resume()</code> continues it from exactly there. Run headless on every build.</p>
+    <pre data-run="js" data-expect="1 | 1 | 4" data-covers="export:createDataRouter method:data-router.replay method:data-router.pause method:data-router.resume"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'n', field: 'n', type: 'number' }];
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ rowKey: 'id', seq: 'v' });
+router.attach(g, () =&gt; <span class="kw">true</span>);
+router.buffer({ max: 100 });
+router.load([{ id: 'a', n: 0, v: 0 }]);
+<span class="kw">for</span> (<span class="kw">let</span> i = 1; i &lt;= 4; i++) router.apply([{ op: 'upsert', row: { id: 'a', n: i, v: i } }]);
+
+<span class="kw">const</span> p = router.replay(1, 4, { speed: 5 });   <span class="cmt">// walk v1..v4, one step every 5ms</span>
+router.pause();                                 <span class="cmt">// synchronously, before the first step timer fires</span>
+<span class="kw">const</span> paused = g.rows.value('a', 'n');          <span class="cmt">// 1: parked at the range start</span>
+<span class="kw">await</span> <span class="kw">new</span> Promise((r) =&gt; setTimeout(r, 20));
+<span class="kw">const</span> stillPaused = g.rows.value('a', 'n');     <span class="cmt">// 1: still frozen while paused</span>
+
+router.resume();                                <span class="cmt">// continue from where it stopped</span>
+<span class="kw">await</span> p;
+<span class="kw">const</span> done = g.rows.value('a', 'n');            <span class="cmt">// 4: resume ran the rest of the range</span>
+
+g.destroy(); router.destroy();
+<span class="kw">return</span> [paused, stillPaused, done].join(' | ');</code></pre>
+
+    <h3 id="datarouter-devtools-example">Mount the live devtools panel, executed</h3>
+    <p class="section-note"><code>mountDevtools(el)</code> is opt-in and DOM-touching (kept out of the DOM-free <code>index.js</code>, in the module's own <code>devtools.js</code>); it renders <code>metrics()</code> into <code>el</code>, and the controller's <code>refresh()</code>/<code>destroy()</code> are deterministic for a test. Reaches for the same in-tree DOM test double the suite runs headlessly against. Run headless on every build.</p>
+    <pre data-run="js" data-expect="1 | 1 | 0" data-covers="export:createDataRouter method:data-router.mountDevtools"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { document } = createTestDom();
+<span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }] });
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id', metricsInterval: 0 });
+router.attach(g, 'order');
+router.load([{ id: 'o1', type: 'order' }]);
+
+<span class="kw">const</span> el = document.createElement('div');
+<span class="kw">const</span> panel = router.mountDevtools(el);        <span class="cmt">// renders metrics() into el; off unless called</span>
+<span class="kw">const</span> mountedRows = el.children.length;        <span class="cmt">// 1: the panel root</span>
+
+router.load([{ id: 'o1', type: 'order' }, { id: 'o2', type: 'order' }]);
+panel.refresh();                                <span class="cmt">// force an immediate re-render, deterministic for tests</span>
+<span class="kw">const</span> stillMounted = el.children.length;        <span class="cmt">// still 1: refresh replaces the panel's own content</span>
+
+panel.destroy();                                <span class="cmt">// unsubscribes and removes the panel from the DOM</span>
+<span class="kw">const</span> afterDestroy = el.children.length;        <span class="cmt">// 0</span>
+
+g.destroy(); router.destroy();
+<span class="kw">return</span> [mountedRows, stillMounted, afterDestroy].join(' | ');</code></pre>
     <h2 id="ganttmodule">The Gantt module</h2>
     <p><code>modules/gantt</code> is a separate, opt-in project-planning module &mdash; its own bundle, imported only when you want it, changing nothing in the grid core. It turns a task list into a real schedule: a <strong>CPM (Critical Path Method) engine</strong> computes each task's early/late start and finish, its slack (total float), and the zero-float <strong>critical path</strong>, recomputing on every edit. <code>computeSchedule(tasks, deps)</code> is the pure engine; <code>createGantt(opts)</code> is a controller that holds the model, recomputes on <code>setTasks</code>/<code>setDependencies</code>/<code>applyEdit</code>, and emits <code>schedule</code> (or <code>error</code>). Dependencies are the four standard link types &mdash; <code>LINK_TYPES</code> is <code>['FS','SS','FF','SF']</code> &mdash; each with optional lag/lead. A <strong>milestone</strong> is a zero-duration task scheduled as a point; a <strong>summary</strong> task (any task named as another's <code>parent</code>) is derived from its children (start = earliest child, end = latest child, duration-weighted progress) and is not scheduled itself. Bad input never throws or loops: a dependency cycle is refused and reported with a code from <code>SCHEDULE_ERROR</code>, and <code>findViolations</code> flags any task placed earlier than its predecessors allow. <code>toISODate</code> converts an engine day-number back to a calendar date for display.</p>
     <p><strong>Feed it the rows you already have.</strong> <code>fields</code> names your own task properties for the scheduler &mdash; <code>{ id: 'taskId', start: 'startDate', name: 'jobName', duration: 'dur' }</code>, each a field name or a reader <code>(row) =&gt; value</code> &mdash; so a task list arrives as it is rather than being renamed first. The vocabulary is <code>id</code>, <code>name</code>, <code>start</code>, <code>end</code>, <code>duration</code>, <code>milestone</code>, <code>percentComplete</code>, <code>parent</code>, <code>baselineStart</code>, <code>baselineEnd</code>, <code>constraint</code> and <code>constraintDate</code>; anything you leave unmapped reads its canonical name, so an existing plan is unaffected. <code>rowKey</code> reaches the scheduler too, so a row carrying <code>taskId</code> and no <code>id</code> is identified by it &mdash; a task's own <code>id</code> still wins where it has one. It is a <strong>read</strong> mapping: <code>applyEdit</code> and <code>level()</code> write the canonical property, so each says so plainly rather than writing to a field the schedule is not read from, and <code>assignee</code>/<code>cost</code>/<code>actualCost</code> belong to the resource and earned-value layers rather than to this list.</p>
@@ -7851,7 +8163,8 @@ const kpi = createKPI(document.querySelector('#kpis'), {
     <p><strong>A measured zero is still a measurement.</strong> A tile whose <code>filter</code> matches none of the rows the panel <em>does</em> hold is a different thing: while the feed is fresh, no open incidents is genuinely good, so it reads <code>0</code> and is graded on its thresholds exactly as before.</p>
     <p><strong>A feed that went quiet is the other way to have nothing to report, and it is a question about time.</strong> A feed that stopped six hours ago still has its rows, all old, and every tile over them still computes a number: a Sev-1 <code>count</code> of 0 over rows that died yesterday and one over rows that arrived a second ago are the same zero, and under <code>lowerIsBetter</code> cut points both paint green. Tell the panel how fresh its data has to be and it tells them apart: <code>createKPI(el, { maxAge: 60000, ageBy: 'observedAt', &hellip; })</code>. <code>maxAge</code> (milliseconds) is how long the panel keeps grading what it holds after its feed last spoke; <code>ageBy</code> names the clock that is measured on &mdash; a column, a dotted path or a function of the row &mdash; and carries exactly the meanings the <a href="#sources">rolling time window</a> gives the same two options. Past the window with nothing recent, every stat tile reports <code>unknown</code> with a null value whatever its own membership, each carries <code>stale: true</code>, and the tile captions itself &ldquo;No recent data&rdquo; (message key <code>kpi.status.stale</code>) with the same dashed edge and accessible-name treatment the empty panel's &ldquo;No data&rdquo; has. Grading resumes when the feed speaks.</p>
     <p><strong>Three properties of that window worth knowing before you set one.</strong> It is <strong>opt-in</strong>: a panel that declares no <code>maxAge</code> judges no freshness at all, because nobody has said what recent means. Omitting <code>ageBy</code> measures <strong>arrival</strong> instead &mdash; when rows last reached the panel, through <code>rows.apply</code>, <code>setRows</code>, or the bound grid announcing that its own rows changed &mdash; which is what a feed with no timestamp column has to be judged on; a filter, a sort, an expansion, a <code>refresh()</code> and a rolling window's eviction are not arrivals, so a live feed whose rows are all filtered out of the grid beneath the panel reports the empty panel's <code>unknown</code> (<code>stale: false</code>) rather than a silence, and an empty panel never goes stale. And the panel <strong>checks itself</strong> on a low-frequency timer while a window is declared, because a silence is the absence of events and nothing else on the panel would notice one; <code>destroy()</code> stops it. An <code>ageBy</code> that no row answers to grades as usual and names itself once rather than blanking the panel.</p>
-    <p id="kpi-follows-grid"><strong>A grid-bound panel follows the grid.</strong> A panel given <code>grid</code> reads the grid's rows when it is built <em>and every time what the grid shows changes</em>: after a filter, a sort, a cell edit (<code>edit.setCells</code> or the keyboard), <code>rows.apply</code> or <code>rows.load</code> on the grid, and the grid's pipeline settle after an off-thread sort, the panel agrees with the grid beneath it without the host calling <code>refresh()</code>. It used to read the grid once, at bind, so a KPI rail beside a filtered grid kept showing the unfiltered numbers until the host wired <code>refresh()</code> to the grid's events themselves. The panel now subscribes to the same grid events a <code>createStat</code> tile follows, gated on the same pipeline-settle test, so a <code>model:changed</code> for an expand, a collapse or a page turn re-reads nothing. <strong>One re-read per change, not one per event:</strong> the grid announces one change several ways (<code>rows.apply</code> fires six events; an edit fires one <code>cell:changed</code> per cell), so the re-read is queued on a microtask and every event of one synchronous turn collapses into one read of the grid &mdash; read the panel after the turn ends (after an <code>await</code>, or in its <code>change</code> event), or call <code>refresh()</code> for the numbers now, which re-reads in the same turn and replaces the queued follow rather than doubling it. On a sorted grid past the worker threshold a filter change is two re-reads (one at the end of the turn, one when the settle lands); on a synchronous grid it is one. The grid is the truth, so <code>rows.apply</code> and <code>setRows</code> on a bound panel are still refused, and <code>destroy()</code> stops following. <strong>Want a snapshot instead?</strong> Do not pass <code>grid</code> as the source: pass the rows (<code>rows: snapshot</code>), with <code>grid</code> alongside if the panel should still adopt the grid's type and density &mdash; a panel given both reads <code>rows</code> and follows nothing.</p>
+    <p id="kpi-follows-grid"><strong>A grid-bound panel follows the grid.</strong> A panel given <code>grid</code> reads the grid's rows when it is built <em>and every time what the grid shows changes</em>: after a filter, a sort, a cell edit (<code>edit.setCells</code> or the keyboard), <code>rows.apply</code> or <code>rows.load</code> on the grid, and the grid's pipeline settle after an off-thread sort, the panel agrees with the grid beneath it without the host calling <code>refresh()</code>. It used to read the grid once, at bind, so a KPI rail beside a filtered grid kept showing the unfiltered numbers until the host wired <code>refresh()</code> to the grid's events themselves. The panel now subscribes to the same grid events a <code>createStat</code> tile follows, gated on the same pipeline-settle test, so a <code>model:changed</code> for an expand, a collapse or a page turn re-reads nothing &mdash; except on a grid whose rows are fetched (a paged or remote source), where a page or the exact total landing is followed too, so a panel built before the first page arrives shows it without a <code>refresh()</code> (GEO-6). <strong>One re-read per change, not one per event:</strong> the grid announces one change several ways (<code>rows.apply</code> fires six events; an edit fires one <code>cell:changed</code> per cell), so the re-read is queued on a microtask and every event of one synchronous turn collapses into one read of the grid &mdash; read the panel after the turn ends (after an <code>await</code>, or in its <code>change</code> event), or call <code>refresh()</code> for the numbers now, which re-reads in the same turn and replaces the queued follow rather than doubling it. On a sorted grid past the worker threshold a filter change is two re-reads (one at the end of the turn, one when the settle lands); on a synchronous grid it is one. The grid is the truth, so <code>rows.apply</code> and <code>setRows</code> on a bound panel are still refused, and <code>destroy()</code> stops following. <strong>Want a snapshot instead?</strong> Do not pass <code>grid</code> as the source: pass the rows (<code>rows: snapshot</code>), with <code>grid</code> alongside if the panel should still adopt the grid's type and density &mdash; a panel given both reads <code>rows</code> and follows nothing.</p>
+    <p id="kpi-engine"><strong>Over a paged pushdown source, a sum is the relation's sum (GEO-6).</strong> A grid-bound panel beside a grid holding one page of a large relation totals the relation, not the page. A <code>sum</code>, <code>avg</code>, <code>min</code> or <code>max</code> tile asks the grid's <a href="#pushdown"><code>source.aggregate()</code></a> whenever the grid holds fewer rows than match &mdash; one request for every such tile on the panel, the grid's filter and quick search applied &mdash; and reads the engine's figure over every matching row. The tile model says so (<code>computed: 'engine'</code>), and so does the tile's accessible name. While a new question is in flight the tile keeps its last engine figure, never the page's. <code>count</code> already counts every matching row and stays the panel's own. A tile the engine cannot answer &mdash; a <code>filter</code> function, a custom reducer, a field that is not a plain column, a source whose <code>aggregates</code> config keeps the statistic in the browser &mdash; keeps reducing the page, and a <code>[lattice]</code> warning (<code>kpi:engine-page:*</code>) names the tile and the reason.</p>
     <p><strong>A grid-bound filter reads the columns you project, and says so when it cannot.</strong> A panel bound to a <code>grid</code> does not see whole grid rows: it materialises a <em>projection</em> of each row through the grid&rsquo;s own value pipeline, carrying the row key plus the fields the tiles declare. That is what keeps a refresh over a large grid cheap &mdash; and it used to mean a <code>filter</code> reading any <em>other</em> column saw <code>undefined</code>, matched nothing, and reported a confident <code>0</code> beside a grid full of rows that matched. Declare the extra columns with <code>fields</code>:</p>
     <pre><code>createKPI(el, {
   grid,
@@ -8179,6 +8492,44 @@ cell.destroy(); alarms.destroy(); router.destroy(); wall.destroy(); host.destroy
 <span class="kw">return</span> `${first} | ${pair} | wall ${shown.join(', ')}`;</code></pre>
     </div>
     <p><strong>From a framework.</strong> An alarm set attaches to <em>instances</em>, and every adapter already hands the host the instance it built &mdash; so <code>createAlarms</code> needs no wrapper anywhere. In <strong>React</strong>, read <code>ref.current.instance</code> off a viewer (or <code>ref.current.grid</code> off <code>&lt;LatticeGrid&gt;</code>) and call <code>attach</code> in an effect; the router comes straight out of <code>useLatticeRouter()</code>. In <strong>Vue</strong>, a template ref exposes <code>instance()</code> on a viewer and <code>grid()</code> on the grid, and the router provider exposes <code>router</code>. In <strong>Svelte</strong>, each component exports <code>instance()</code> (or <code>grid()</code>), and <code>Router.svelte</code> exports <code>router()</code>. In <strong>Angular</strong>, a template reference variable gives you the component's <code>instance</code> or <code>grid</code> getter, and <code>LatticeRouter</code> is injectable with a <code>router</code> getter. As a <strong>web component</strong>, every element exposes <code>el.instance</code> (and <code>el.grid</code> / <code>el.router</code>), and the <code>ready</code> event carries the instance in its <code>detail</code>. Build the alarm set once, attach on mount, and call <code>destroy()</code> when the host unmounts.</p>
+
+    <h2 id="geometry">The geometry module</h2>
+    <pre><code><span class="kw">import</span> <span class="str">'@toclocoinc/lattice-grid/modules/geometry'</span>;</code></pre>
+    <p class="section-note">
+      Importing the module registers the <code>geometry</code> data type with the page's registry
+      (<code>geometryModule</code> is the module object, for a grid built on a registry of its own).
+      Without it, <code>type: 'geometry'</code> warns <code>type:geometry</code>, naming this import,
+      and the column is plain text.
+    </p>
+
+    <h3 id="geometry-operators">Spatial operators: <code>geometry</code> columns</h3>
+    <p class="section-note">
+      A column declared <code>type: 'geometry'</code> holds one GeoJSON geometry per cell, read on
+      ingest from WKB (bytes, hex or base64), WKT or GeoJSON, and answers four operators of its own.
+      They are evaluated in memory, so they work over any source that does not push them down.
+    </p>
+
+    <pre><code>grid.filters.set({ col: <span class="kw">'site'</span>, op: <span class="kw">'withinBbox'</span>, value: [-4, 50, 2, 56] });
+grid.filters.set({ col: <span class="kw">'site'</span>, op: <span class="kw">'withinPolygon'</span>, value: <span class="kw">'POLYGON ((…))'</span> });
+grid.filters.set({ col: <span class="kw">'site'</span>, op: <span class="kw">'intersects'</span>, value: { type: <span class="kw">'LineString'</span>, coordinates: [[-10, 41], [5, 41]] } });
+grid.filters.set({ col: <span class="kw">'site'</span>, op: <span class="kw">'withinDistance'</span>, value: { lon: -0.1278, lat: 51.5074, metres: 5000 } });</code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Operator</th><th>Operand</th><th>A row matches when</th></tr></thead>
+        <tbody>
+          <tr><td class="name"><code>withinBbox</code></td><td class="desc"><code>[minLon, minLat, maxLon, maxLat]</code></td><td class="desc">the whole geometry lies inside the box, edges included</td></tr>
+          <tr><td class="name"><code>withinPolygon</code></td><td class="desc">a Polygon or MultiPolygon, as GeoJSON or WKT</td><td class="desc">every point of a Point or MultiPoint is inside it (holes excluded); any other geometry is tested by its centroid</td></tr>
+          <tr><td class="name"><code>intersects</code></td><td class="desc">any geometry, or a bbox array</td><td class="desc">the two share a point: a bounding-box test, then an edge test with edges straight in longitude/latitude rather than along great circles</td></tr>
+          <tr><td class="name"><code>withinDistance</code></td><td class="desc"><code>{ lon, lat, metres }</code></td><td class="desc">the geometry's centroid is within that many metres, by great-circle (haversine) distance</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <p><strong>Refused, not guessed.</strong> A geometry column accepts these four and <code>blank</code>/<code>notBlank</code>; any other operator on it, a spatial operator on any other column, and an operand that cannot be read are refused by <code>filters.set()</code> and <code>state.apply()</code> with a <code>[lattice]</code> warning. A value that is not a geometry is refused on ingest the same way: the cell is blank and <code>geometry:refused:&lt;column&gt;</code> names why.</p>
+      <p><strong>The antimeridian is not handled.</strong> A box whose west edge is east of its east edge is refused; split it into two <code>withinBbox</code> conditions joined by <code>or</code>. Distances and areas are on a sphere of the mean Earth radius, within about 0.5% of the WGS84 ellipsoid; the centroid is planar in degrees, as <code>ST_Centroid</code> on a geometry column is.</p>
+    </div>
 
     <h2 id="ai-narrative">The AI narrative / insights layer</h2>
     <p><code>modules/ai</code> is an opt-in layer that produces a short, plain-language <strong>narrative</strong> of the grid's <em>computed</em> figures &mdash; a per-KPI / per-chart / per-column &ldquo;Explain&rdquo;, or an insights panel over the current (filtered) view. It is a separate bundle that adds no weight to a page that does not load it, changes nothing in grid core, and pulls in no dependency. <strong>The grid makes no AI call of its own:</strong> <code>createAI</code> never imports a provider SDK, never reads a key, and never makes a network request. It calls one async callback you supply, <code>ask()</code> &mdash; your model, your key, your privacy decision &mdash; exactly the philosophy of the data adapters, where auth and transport are always the caller's.</p>
@@ -8920,6 +9271,7 @@ createGrid(el, {
           <tr><td class="name">Text</td><td class="desc"><code>contains</code>, <code>notContains</code>, <code>startsWith</code>, <code>endsWith</code>, <code>matches</code></td></tr>
           <tr><td class="name">Blankness</td><td class="desc"><code>blank</code>, <code>notBlank</code></td></tr>
           <tr><td class="name">Multi-value</td><td class="desc"><code>containsAny</code>, <code>containsAll</code>, <code>containsNone</code>, for cells holding an array of ids</td></tr>
+          <tr><td class="name">Spatial</td><td class="desc"><code>withinBbox</code>, <code>withinPolygon</code>, <code>intersects</code>, <code>withinDistance</code>, on a <code>geometry</code> column only, with the <a href="#geometry">geometry module</a></td></tr>
           <tr><td class="name">Grouping</td><td class="desc"><code>and</code>, <code>or</code>, <code>not</code></td></tr>
         </tbody>
       </table>
@@ -9503,7 +9855,7 @@ grid.destroy();
     <p class="section-note">Each documented event is subscribed to and unsubscribed on every build. A consumer
     wiring a handler to a renamed event gets silence, which is indistinguishable from an event that
     has not fired yet — so the name is checked rather than left to be discovered.</p>
-    <pre data-run="js" data-expect="116" data-covers="event:cell:mouseover event:cell:mouseout event:cell:mousedown event:cell:mouseup event:rowDrag:started event:rowDrag:moved event:rowDrag:left event:rowDrag:ended event:find:changed event:cell:changed event:cell:clicked event:cell:confirmed event:cell:conflict event:cell:contextmenu event:cell:dblclicked event:cell:edit:end event:cell:edit:start event:cell:pending event:cell:reverted event:clipboard:copy event:column:filter:open event:column:profile:open event:column:grouped event:column:menu:open event:column:pivoted event:column:resized event:columns:changed event:columns:tagged event:comment:added event:comment:deleted event:comment:edited event:comment:failed event:comment:indexLoaded event:comment:resolved event:comment:threadClosed event:comment:threadOpened event:comment:unresolved event:destroy event:detail:toggled event:diff:changed event:diff:swapped event:export:progress event:facet:computed event:facet:expanded event:facet:failed event:facet:filtered event:form:closed event:form:error event:form:opened event:form:saved event:formatting:changed event:group:toggled event:header:contextmenu event:highlight:changed event:history:applied event:history:changed event:licence:changed event:page:changed event:permissions:changed event:presence:failed event:presence:joined event:presence:left event:presence:lockRefused event:presence:published event:presence:updated event:presentation:captured event:presentation:changed event:presentation:ended event:presentation:scale event:presentation:spotlight event:presentation:started event:presentation:view event:range:changed event:ready event:redaction:changed event:render:done event:render:first event:row:clicked event:row:copied event:row:dblclicked event:row:edit:end event:row:edit:start event:row:moved event:row:received event:row:sent event:rows:deferred event:rows:paused event:rows:queued event:rows:resumed event:scroll event:scroll:end event:selection:changed event:size:changed event:source:error event:stream:chunk event:stream:end event:stream:evicted event:timeline:attached event:timeline:detached event:timeline:seek event:timeline:seeking event:toolpanel:focus event:tree:loadAborted event:tree:loadFailed event:tree:loaded event:tree:loading event:view:applied event:view:default event:view:removed event:view:renamed event:view:saved event:views:changed event:row:pending event:row:confirmed event:row:reverted event:row:conflict"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="121" data-covers="event:cell:mouseover event:cell:mouseout event:cell:mousedown event:cell:mouseup event:rowDrag:started event:rowDrag:moved event:rowDrag:left event:rowDrag:ended event:find:changed event:cell:changed event:cell:clicked event:cell:confirmed event:cell:conflict event:cell:contextmenu event:cell:dblclicked event:cell:edit:end event:cell:edit:start event:cell:pending event:cell:reverted event:clipboard:copy event:column:filter:open event:column:profile:open event:column:grouped event:column:menu:open event:column:pivoted event:column:resized event:columns:changed event:columns:tagged event:comment:added event:comment:deleted event:comment:edited event:comment:failed event:comment:indexLoaded event:comment:resolved event:comment:threadClosed event:comment:threadOpened event:comment:unresolved event:destroy event:detail:toggled event:detail:cell:edit:start event:detail:cell:edit:end event:detail:row:edit:start event:detail:row:edit:end event:detail:cell:changed event:diff:changed event:diff:swapped event:export:progress event:facet:computed event:facet:expanded event:facet:failed event:facet:filtered event:form:closed event:form:error event:form:opened event:form:saved event:formatting:changed event:group:toggled event:header:contextmenu event:highlight:changed event:history:applied event:history:changed event:licence:changed event:page:changed event:permissions:changed event:presence:failed event:presence:joined event:presence:left event:presence:lockRefused event:presence:published event:presence:updated event:presentation:captured event:presentation:changed event:presentation:ended event:presentation:scale event:presentation:spotlight event:presentation:started event:presentation:view event:range:changed event:ready event:redaction:changed event:render:done event:render:first event:row:clicked event:row:copied event:row:dblclicked event:row:edit:end event:row:edit:start event:row:moved event:row:received event:row:sent event:rows:deferred event:rows:paused event:rows:queued event:rows:resumed event:scroll event:scroll:end event:selection:changed event:size:changed event:source:error event:stream:chunk event:stream:end event:stream:evicted event:timeline:attached event:timeline:detached event:timeline:seek event:timeline:seeking event:toolpanel:focus event:tree:loadAborted event:tree:loadFailed event:tree:loaded event:tree:loading event:view:applied event:view:default event:view:removed event:view:renamed event:view:saved event:views:changed event:row:pending event:row:confirmed event:row:reverted event:row:conflict"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 
 <span class="cmt">// Every documented event name, checked against the bus that would carry it.</span>
 <span class="cmt">// Subscribing to a name the grid does not know is the failure this catches:</span>
@@ -9518,6 +9870,8 @@ grid.destroy();
   'columns:tagged', 'comment:added', 'comment:deleted', 'comment:edited',
   'comment:failed', 'comment:indexLoaded', 'comment:resolved', 'comment:threadClosed',
   'comment:threadOpened', 'comment:unresolved', 'destroy', 'detail:toggled',
+  'detail:cell:edit:start', 'detail:cell:edit:end', 'detail:row:edit:start',
+  'detail:row:edit:end', 'detail:cell:changed',
   'diff:changed', 'diff:swapped', 'export:progress', 'facet:computed',
   'facet:expanded', 'facet:failed', 'facet:filtered', 'form:closed',
   'form:error', 'form:opened', 'form:saved', 'formatting:changed',
@@ -10898,6 +11252,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Event</th><th>When</th><th>Payload</th><th>Cancellable</th></tr></thead>
         <tbody>
           <tr><td class="name">detail:toggled</td><td class="desc">A master-detail region was opened or closed.</td><td class="type"><a href="#type-DetailToggledEvent">DetailToggledEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">detail:cell:edit:start</td><td class="desc">A nested (master-detail) grid's cell editor opened; re-emitted on the master, tagged with which detail region it came from (§13).</td><td class="type">DetailCellEditStartEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">detail:cell:edit:end</td><td class="desc">A nested grid's cell editor closed, committed or cancelled; re-emitted on the master the same way.</td><td class="type">DetailCellEditEndEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">detail:row:edit:start</td><td class="desc">A nested grid's row editor opened; re-emitted on the master the same way.</td><td class="type">DetailRowEditStartEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">detail:row:edit:end</td><td class="desc">A nested grid's row editor closed, committed or cancelled; re-emitted on the master the same way.</td><td class="type">DetailRowEditEndEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">detail:cell:changed</td><td class="desc">A nested grid's cell value was written; re-emitted on the master with the dot path into its own record, when the detail rows belong to it.</td><td class="type">DetailCellChangedEvent</td><td class="desc">&mdash;</td></tr>
         </tbody>
       </table>
     </div>
@@ -11536,6 +11895,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">storage</td><td class="type"><a href="#type-DataTypeStorage">DataTypeStorage</a> <small class="literals">'float64' | 'int32' | 'bitset' | 'dictionary' | 'object'</small></td><td class="desc">How the column store holds these values in bulk: a typed array, a bitset, a dictionary of codes, or plain objects. `'object'` when unset. <small>(optional)</small></td></tr>
           <tr><td class="name">totals</td><td class="type">{ /** * The aggregates that mean something. A column of this type configured * with any other fails at construction rather than rendering a confident * wrong number. */ supported?: <a href="#type-TotalName">TotalName</a>[]; /** * The type's own reduction for an aggregate, replacing the built-in * arithmetic. Receives the values index-aligned with their rows, and a * context carrying `column` and `valueAt(colId, i)` for reading another * column of the same row. */ implement?: Record&lt;string, <a href="#type-TotalFn">TotalFn</a>&gt;; }</td><td class="desc">Which aggregates are meaningful for this type, and how. Omit it and every aggregate is allowed, which is what every type that shipped before this does. <small>(optional)</small></td></tr>
           <tr><td class="name">excel</td><td class="type">string</td><td class="desc">The Excel number format an export writes for this type, when the column's own formatter supplies none. `'General'` when neither does. <small>(optional)</small></td></tr>
+          <tr><td class="name">operators</td><td class="type">Record&lt;string, <a href="#type-DataTypeOperator">DataTypeOperator</a>&gt;</td><td class="desc">Filter operators this type brings beyond the §9.3 set, by name. A column of the type accepts these and `blank`/`notBlank` only, and they are refused on any other column. `compile` turns a condition's operand into a predicate over one cell; `check` names what is wrong with an operand, so `filters.set()` refuses it rather than installing a filter that matches nothing. The `geometry` type declares its four spatial operators here. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -11548,6 +11908,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">parse</td><td class="type">(p: ParseParams) =&gt; unknown</td><td class="desc"><code>p: ParseParams</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">Read the formatted form back into a value — what a paste and a text editor go through. It is a *text* parser: the grid does not put an already-typed editor value through it. <small>(optional)</small></td></tr>
           <tr><td class="name">toClipboard</td><td class="type">(v: unknown) =&gt; string</td><td class="desc"><code>v: unknown</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">Turn a value of this type into the text a copy puts on the clipboard. First in that chain, ahead of the grid-wide hook and the plain display text. <small>(optional)</small></td></tr>
           <tr><td class="name">fromClipboard</td><td class="type">(s: string) =&gt; unknown</td><td class="desc"><code>s: string</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">Read pasted text back into a value of this type. First in that chain, ahead of the grid-wide hook and taking the text unchanged. <small>(optional)</small></td></tr>
+          <tr><td class="name">geometry</td><td class="type">(value: unknown) =&gt; <a href="#type-GeometryInfo">GeometryInfo</a> | null</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>=&gt; <a href="#type-GeometryInfo">GeometryInfo</a> | null</code></td><td class="desc">The measures of a geometry value — its kind, bounding box, centroid, length and area — or `null` for an empty cell. Declared by the `geometry` type; a viewer (a map, a chart) reads a cell's shape through `column.dataType.geometry(value)` rather than parsing it itself. Accepts the stored GeoJSON and anything the type would accept on ingest. <small>(optional)</small></td></tr>
+          <tr><td class="name">exportText</td><td class="type">(value: unknown) =&gt; string</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">The text CSV and a text Excel cell write for a value of this type, in place of the display text. A geometry cell shows a summary and exports WKT. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -12218,6 +12580,15 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-GeometryFormat">GeometryFormat</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">pattern</td><td class="type"><a href="#type-GeometryFormatPattern">GeometryFormatPattern</a> <small class="literals">'summary' | 'wkt' | 'geojson'</small></td><td class="desc">The display form: `'summary'`, `'wkt'` or `'geojson'`. Any other value warns once by column and shows the summary. Export and the clipboard write WKT whatever this says. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ColumnValueSpec">ColumnValueSpec</h4>
     <div class="table-wrap">
       <table>
@@ -12473,7 +12844,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">col</td><td class="type">string</td><td class="desc">The id of the column this condition reads.</td></tr>
           <tr><td class="name">type</td><td class="type"><a href="#type-TypeName">TypeName</a> <small class="literals">'text' | 'number' | 'boolean' | 'date' | 'dateString' | 'object' | 'lookup' | 'image'</small></td><td class="desc">The column's type, which decides how both sides are normalised before comparison — a `date` or `dateString` condition brings the value and the operand to the same calendar day first, so a `Date`, an epoch number and an ISO string all line up. <small>(optional)</small></td></tr>
           <tr><td class="name">op</td><td class="type"><a href="#type-Operator">Operator</a></td><td class="desc">The comparison to make: `eq`, `contains`, `between`, `in`, `blank` and the rest, each with an exact negation (`ne`, `notContains`, `notBetween`, `notIn`, `notBlank`).</td></tr>
-          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The operand: a single value, a pair for `between`, or a list for `in`. Left out by the operators that need none. <small>(optional)</small></td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The operand: a single value, a pair for `between`, or a list for `in`. Left out by the operators that need none. A spatial operator takes a {@link SpatialBbox}, a geometry (GeoJSON, WKT or WKB) or a {@link SpatialDistance}. <small>(optional)</small></td></tr>
           <tr><td class="name">bounds</td><td class="type"><a href="#type-IntervalBounds">IntervalBounds</a> <small class="literals">'[]' | '[)' | '(]' | '()'</small></td><td class="desc">Which ends of a `between` range are inclusive, written in interval notation. `'[]'` — both ends — by default; `'[)'` is the half-open form a date range usually wants. <small>(optional)</small></td></tr>
           <tr><td class="name">caseSensitive</td><td class="type">boolean</td><td class="desc">Compare text exactly as written. Off by default, so text matching, set membership and regular expressions all ignore case. <small>(optional)</small></td></tr>
           <tr><td class="name">meta</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Extra information carried alongside the condition for whoever executes it — the relative date token a range was built from, so a saved `last 7 days` filter is re-derived rather than frozen to the day it was written. <small>(optional)</small></td></tr>
@@ -12603,6 +12974,31 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">fn</td><td class="type">'datasetVsDataset'</td><td class="desc">Selects the dataset-comparison producer: one row per compared column, against a second grid. It replaces the pipeline.</td></tr>
           <tr><td class="name">with</td><td class="type"><a href="#type-Grid">Grid</a></td><td class="desc">The second grid to compare this one against.</td></tr>
           <tr><td class="name">columns</td><td class="type">string[]</td><td class="desc">Restrict the comparison to these columns. All shared columns by default. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-GeometryInfo">GeometryInfo</h4>
+    <p class="section-note">What a viewer reads from a geometry cell, through `DataType.geometry`. Lengths and areas are on a sphere of the mean Earth radius (6,371,008.8 m): within about 0.5% of the WGS84 ellipsoid. The centroid is planar in longitude/latitude degrees, as a database's `ST_Centroid` on a geometry column is.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">kind</td><td class="type"><a href="#type-GeometryKind">GeometryKind</a> <small class="literals">'Point' | 'LineString' | 'Polygon' | 'MultiPoint' | 'MultiLineString' | 'MultiPolygon' | 'GeometryCollection'</small></td><td class="desc">The geometry kind.</td></tr>
+          <tr><td class="name">bbox</td><td class="type">[number, number, number, number]</td><td class="desc">`[minLon, minLat, maxLon, maxLat]` over every position.</td></tr>
+          <tr><td class="name">centroid</td><td class="type">[number, number]</td><td class="desc">`[lon, lat]`: the area-weighted centre of a polygon, the length-weighted centre of a line, the mean of points. A collection uses its highest-dimension members.</td></tr>
+          <tr><td class="name">length</td><td class="type">number</td><td class="desc">Metres: a line's length, a polygon's perimeter (holes included), 0 for points.</td></tr>
+          <tr><td class="name">area</td><td class="type">number</td><td class="desc">Square metres: a polygon's area with its holes removed; 0 otherwise.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DataTypeOperator">DataTypeOperator</h4>
+    <p class="section-note">A filter operator a data type declares (see `DataType.operators`).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">compile</td><td class="type">(value: unknown): (cell: unknown) =&gt; boolean</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>(cell: unknown) =&gt; boolean</code></td><td class="desc">Turn a condition's operand into a predicate over one cell's value.</td></tr>
+          <tr><td class="name">check</td><td class="type">(value: unknown): string | null</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>string | null</code></td><td class="desc">Why an operand cannot be used, or `null` when it can. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -13132,6 +13528,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">scroll:end</td><td class="desc">Selection and view</td><td class="desc">Scrolling settled: the last of a scroll gesture's frames has been drawn.</td><td class="type"><a href="#type-ScrollEvent">ScrollEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">size:changed</td><td class="desc">Selection and view</td><td class="desc">The host element's box changed size, as reported by the `ResizeObserver` the grid watches it with.</td><td class="type">no payload</td><td class="desc">no</td></tr>
           <tr><td class="name">detail:toggled</td><td class="desc">Selection and view</td><td class="desc">A master-detail region was opened or closed.</td><td class="type"><a href="#type-DetailToggledEvent">DetailToggledEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">detail:cell:edit:start</td><td class="desc">Selection and view</td><td class="desc">A nested (master-detail) grid's cell editor opened; re-emitted on the master, tagged with which detail region it came from (§13).</td><td class="type">DetailCellEditStartEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">detail:cell:edit:end</td><td class="desc">Selection and view</td><td class="desc">A nested grid's cell editor closed, committed or cancelled; re-emitted on the master the same way.</td><td class="type">DetailCellEditEndEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">detail:row:edit:start</td><td class="desc">Selection and view</td><td class="desc">A nested grid's row editor opened; re-emitted on the master the same way.</td><td class="type">DetailRowEditStartEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">detail:row:edit:end</td><td class="desc">Selection and view</td><td class="desc">A nested grid's row editor closed, committed or cancelled; re-emitted on the master the same way.</td><td class="type">DetailRowEditEndEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">detail:cell:changed</td><td class="desc">Selection and view</td><td class="desc">A nested grid's cell value was written; re-emitted on the master with the dot path into its own record, when the detail rows belong to it.</td><td class="type">DetailCellChangedEvent</td><td class="desc">&mdash;</td></tr>
           <tr><td class="name">toolpanel:focus</td><td class="desc">Selection and view</td><td class="desc">The keyboard asked for focus to move to the tool panel (Ctrl+Alt+P).</td><td class="type">no payload</td><td class="desc">no</td></tr>
           <tr><td class="name">highlight:changed</td><td class="desc">Selection and view</td><td class="desc">The set of host-declared highlights changed.</td><td class="type"><a href="#type-HighlightChangedEvent">HighlightChangedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">find:changed</td><td class="desc">Selection and view</td><td class="desc">The find bar's query, open state or match count changed (BACKLOG-0001018).</td><td class="type"><a href="#type-FindChangedEvent">FindChangedEvent</a></td><td class="desc">no</td></tr>
@@ -13939,6 +14340,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">scroll:end</td><td class="type"><a href="#type-ScrollEvent">ScrollEvent</a></td><td class="desc">The viewport's offset once the gesture settled.</td></tr>
           <tr><td class="name">size:changed</td><td class="type">void</td><td class="desc">Nothing: the new size is read off the element, which the handler already has.</td></tr>
           <tr><td class="name">detail:toggled</td><td class="type"><a href="#type-DetailToggledEvent">DetailToggledEvent</a></td><td class="desc">Which detail regions are open, and which one is mounted.</td></tr>
+          <tr><td class="name">detail:cell:edit:start</td><td class="type">DetailCellEditStartEvent</td><td class="desc">The nested grid's own cell-edit-start payload, plus which master row it came from.</td></tr>
+          <tr><td class="name">detail:cell:edit:end</td><td class="type">DetailCellEditEndEvent</td><td class="desc">The nested grid's own cell-edit-end payload, plus which master row it came from.</td></tr>
+          <tr><td class="name">detail:row:edit:start</td><td class="type">DetailRowEditStartEvent</td><td class="desc">The nested grid's own row-edit-start payload, plus which master row it came from.</td></tr>
+          <tr><td class="name">detail:row:edit:end</td><td class="type">DetailRowEditEndEvent</td><td class="desc">The nested grid's own row-edit-end payload, plus which master row it came from.</td></tr>
+          <tr><td class="name">detail:cell:changed</td><td class="type">DetailCellChangedEvent</td><td class="desc">The nested grid's own cell-changed payload, plus which master row it came from and where it lands on that row's record.</td></tr>
           <tr><td class="name">toolpanel:focus</td><td class="type">void</td><td class="desc">Nothing: it is a request to move focus, not a report about state.</td></tr>
           <tr><td class="name">highlight:changed</td><td class="type"><a href="#type-HighlightChangedEvent">HighlightChangedEvent</a></td><td class="desc">Every highlight now in force.</td></tr>
           <tr><td class="name">find:changed</td><td class="type"><a href="#type-FindChangedEvent">FindChangedEvent</a></td><td class="desc">The query, whether the bar is open, and the match count.</td></tr>
@@ -15068,7 +15474,6 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       </table>
     </div>
     <h4 id="type-Chart">Chart</h4>
-    <p class="section-note">A live chart.</p>
     <h5 id="type-Chart-properties">Properties</h5>
     <div class="table-wrap">
       <table>
@@ -15087,6 +15492,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">draw</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Redraw now.</td></tr>
           <tr><td class="name">update</td><td class="type">(spec: Partial&lt;<a href="#type-ChartSpec">ChartSpec</a>&gt;): void</td><td class="desc"><code>spec: Partial&lt;<a href="#type-ChartSpec">ChartSpec</a>&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Change the spec and redraw; unnamed keys keep their values.</td></tr>
           <tr><td class="name">data</td><td class="type">(): object | null</td><td class="desc">&mdash;</td><td class="type"><code>object | null</code></td><td class="desc">The data the chart last bound.</td></tr>
+          <tr><td class="name">provenance</td><td class="type">(): <a href="#type-ChartProvenance">ChartProvenance</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-ChartProvenance">ChartProvenance</a></code></td><td class="desc">How the figures the chart is drawing were computed (GEO-5): by a pushdown source's engine over the whole matching relation, or from the rows the grid has loaded — never a mixture — with the reason for a client chart and each measure's split in the shape `source.aggregate()` reports it. See {@link ChartSpec.aggregate}.</td></tr>
           <tr><td class="name">ascend</td><td class="type">(levels?: number): void</td><td class="desc"><code>levels?: number</code></td><td class="type"><code>void</code></td><td class="desc">Go up one level, on a drillable hierarchy.</td></tr>
           <tr><td class="name">on</td><td class="type">(event: <a href="#type-ChartEventName">ChartEventName</a>, handler: (payload: <a href="#type-ChartEventPayloads">ChartEventPayloads</a>[<a href="#type-ChartEventName">ChartEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>event: <a href="#type-ChartEventName">ChartEventName</a></code><br><code>handler: (payload: <a href="#type-ChartEventPayloads">ChartEventPayloads</a>[<a href="#type-ChartEventName">ChartEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Register an event handler; returns a function that unsubscribes. A handler that throws is reported to the console and the rest still run. What each event carries is {@link ChartEventPayloads}; the handler is declared with the widest of them, so narrow on the name inside it.</td></tr>
           <tr><td class="name">emit</td><td class="type">(event: <a href="#type-ChartEventName">ChartEventName</a>, payload?: object): object</td><td class="desc"><code>event: <a href="#type-ChartEventName">ChartEventName</a></code><br><code>payload?: object</code></td><td class="type"><code>object</code></td><td class="desc">Fire an event at the subscribers and at the matching `on&lt;Event&gt;` in the spec, and return the payload the handlers saw — which is how a caller reads back what a handler changed.</td></tr>
@@ -15131,6 +15537,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">y</td><td class="type">string</td><td class="desc">The measure column, for the types that take one. <small>(optional)</small></td></tr>
           <tr><td class="name">series</td><td class="type">string</td><td class="desc">Splits the measure into one series per distinct value. <small>(optional)</small></td></tr>
           <tr><td class="name">rows</td><td class="type">object[] | ((grid: <a href="#type-Grid">Grid</a>) =&gt; object[])</td><td class="desc">The exact rows to chart, overriding the grid's own walk — an array, or a function returning one at draw time. `chartRange` uses it to bind a chart to the band of rows a selected range covers rather than the whole grid. <small>(optional)</small></td></tr>
+          <tr><td class="name">aggregate</td><td class="type">'auto' | 'engine' | 'client'</td><td class="desc">Where the chart's aggregate is computed (GEO-5). `'auto'`, the default, asks the grid's pushdown source — `source.aggregate()`, with x (and `series`) as the `GROUP BY` and the measures as its aggregates, the grid's filter and quick search applied — when the source's adapter declares the `group` capability and the grid holds only a window of the matching rows; otherwise it reduces the loaded rows, as a chart always has. `'engine'` asks the source whenever it can, and is refused by name (a `[lattice]` warning and `provenance().refused`) when it cannot; `'client'` always reduces the loaded rows. One chart is never a mixture: if any measure would be computed client-side, every one is. Applies to the grouped types (`line`, `step`, `area`, `bar`, `horizontalBar`, `waterfall`, `combo`, `pareto`, `heatmap`, `radar`, `funnel`, `stream`, `marimekko`); the source's `aggregates` config must route the reductions to the engine. {@link Chart.provenance} reports which happened and why. <small>(optional)</small></td></tr>
           <tr><td class="name">measures</td><td class="type"><a href="#type-ChartMeasure">ChartMeasure</a>[]</td><td class="desc">Several measures at once, for combo and candlestick. <small>(optional)</small></td></tr>
           <tr><td class="name">source</td><td class="type">string</td><td class="desc">Endpoints, for sankey, chord and network. <small>(optional)</small></td></tr>
           <tr><td class="name">target</td><td class="type">string</td><td class="desc">The column naming the link's destination, beside `source`. <small>(optional)</small></td></tr>
@@ -15162,8 +15569,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">diverging</td><td class="type">boolean</td><td class="desc">A diverging colour ramp, for heatmap and geomap. <small>(optional)</small></td></tr>
           <tr><td class="name">shapes</td><td class="type">unknown</td><td class="desc">Country outlines, for a geomap drawing countries rather than continents. Either GeoJSON, an object of code to SVG path data, or a geometry {@link GeoPack} imported from an optional `modules/geo-*` package (BACKLOG-0001321) — as the pack itself, or as `{ pack: id }` once its module has been imported and registered. <small>(optional)</small></td></tr>
           <tr><td class="name">codeProperty</td><td class="type">string</td><td class="desc">Which GeoJSON feature property carries the region code that the rows are matched against. Defaults to `iso_a2`. Unused when `shapes` is a map of code to path data. <small>(optional)</small></td></tr>
-          <tr><td class="name">lon</td><td class="type">string</td><td class="desc">The longitude column, for the types that place a row by where it is rather than by a code: `markermap`, `bubblemap` and `hexmap`. Degrees east, -180 to 180; a row outside that, or with no reading, is left off the map and counted. <small>(optional)</small></td></tr>
+          <tr><td class="name">lon</td><td class="type">string</td><td class="desc">The longitude column, for the types that place a row by where it is rather than by a code: `markermap`, `bubblemap`, `hexmap` and `choropleth`. Degrees east, -180 to 180; a row outside that, or with no reading, is left off the map and counted. Given together with {@link ChartSpec.geometry}, both are refused by name — a row is placed by one or the other. <small>(optional)</small></td></tr>
           <tr><td class="name">lat</td><td class="type">string</td><td class="desc">The latitude column, beside {@link ChartSpec.lon}. Degrees north, -90 to 90, on the same terms. <small>(optional)</small></td></tr>
+          <tr><td class="name">geometry</td><td class="type">string</td><td class="desc">A `geometry` column (the opt-in `modules/geometry`, GEO-3) to place each row from, instead of {@link ChartSpec.lon}/{@link ChartSpec.lat} — on `markermap`, `bubblemap` and `choropleth`. A Point row is a marker (or a `choropleth` feature) at its own coordinates; a LineString, Polygon or Multi* row is placed at its planar centroid, in degrees, the same one the column's own type reports. `choropleth` draws each Polygon/MultiPolygon row as its own shape, filled by {@link ChartSpec.y} through the chart's ramp; a Point row on a `choropleth` draws as a marker instead, filled the same way. A cell the column refused at ingest, or whose bounding box leaves the globe, is counted rather than drawn at the origin. Given together with `lon`/`lat`, both are refused by name. <small>(optional)</small></td></tr>
+          <tr><td class="name">viewportFilter</td><td class="type">boolean | <a href="#type-ChartViewportFilterOptions">ChartViewportFilterOptions</a></td><td class="desc">Turn a map's own pan and zoom into a filter on its grid (BACKLOG-0000004, GEO-4): whenever the reader pans or zooms `markermap`, `bubblemap` or `choropleth` (a drag, the wheel, or the keyboard — the same gestures {@link ChartSpec.geometry}/`shapes` already draw a pack through), the chart writes ONE condition to `grid.filters` for the box now on screen, replacing the previous one rather than stacking it, so every other viewer over the same grid — another chart, a KPI, the table — narrows with the map, and a pushdown source does the narrowing in the engine. A `geometry`-column map writes a single `withinBbox`; a `lon`/`lat` map writes a pair of `between` conditions, one per column, joined by `and`. `true` is the whole feature at its default 150 ms debounce, on the column the map already places rows from; the object form narrows either. Two-way: a matching condition set from outside — a saved view, a host, a sibling panel on the same column — pans and zooms the map to it instead of being overwritten. "Reset view" and destroying the chart both remove the condition; a map with nothing to pan (no `shapes` and no `geometry` column) never writes one. Ignored on any other type. <small>(optional)</small></td></tr>
+          <tr><td class="name">viewportCap</td><td class="type">number</td><td class="desc">The most rows a `markermap`, `bubblemap` or `choropleth` draws for one view (GEO-6); default 20,000. Over a grid on a paged pushdown source that holds only a window of its rows, the map asks the source's engine for the rows inside its current view — the grid's filters and quick search, plus a `withinBbox` on a `geometry` column or a `between` pair on `lon`/`lat` for the box once the reader has panned or zoomed — through the adapter's `execute`, capped at this many rows, instead of drawing the grid's page; the grid keeps its page and the map its own set, a pan or zoom asks again (aborting the request it supersedes), and the last drawing stays up until the answer lands. {@link ChartSpec.aggregate} governs this as it governs a grouped chart. When more rows than the cap fall inside the view — from the engine, or from rows the browser holds — a marker or bubble map draws square density cells instead, counted by the engine (GEO-2's spatial `buckets`, `geometry` columns only) or in the browser, at a size derived from the zoom; zooming in until the view holds no more than the cap returns to the rows. A `choropleth`, and an engine map that cannot bin (a `lon`/`lat` map, or an adapter without the `grid` bucket), is refused by name past the cap and draws none of its rows. {@link Chart.provenance} reports it as `viewport`, and the accessible summary says which happened. <small>(optional)</small></td></tr>
           <tr><td class="name">value</td><td class="type">string</td><td class="desc">The measure a `markermap` writes beside each dot and colours it by. Its text is the column's own formatted cell text and its colour is whatever the column's conditional-formatting rules give that value, so a map and the table beside it say the same thing about the same number. <small>(optional)</small></td></tr>
           <tr><td class="name">layer</td><td class="type">string</td><td class="desc">Which layer of a multi-layer geometry pack to draw — the UK pack, for instance, ships `regions`, `local-authorities` and `constituencies` together (BACKLOG-0001321). Ignored for a single-layer pack. <small>(optional)</small></td></tr>
           <tr><td class="name">projection</td><td class="type"><a href="#type-MapProjection">MapProjection</a> | ((lon: number, lat: number) =&gt; [number, number])</td><td class="desc">The map projection a geomap draws through (BACKLOG-0001321): `'equalEarth'` (the default for a world), `'robinson'`, `'mercator'`, `'equirectangular'`, `'albers'`, `'transverseMercator'`, or a projection function of the caller's own `(lon: number, lat: number) =&gt; [number, number]`. Left unset, a geometry pack draws through the projection it declares. <small>(optional)</small></td></tr>
@@ -15565,7 +15975,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">kind</td><td class="type">'stat'</td><td class="desc">Absent, or `'stat'`: the default tile kind. <small>(optional)</small></td></tr>
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">A stable identity for the tile (defaults to the label, then the index). <small>(optional)</small></td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc">The tile's accessible label. <small>(optional)</small></td></tr>
-          <tr><td class="name">aggregation</td><td class="type"><a href="#type-KPIAggregation">KPIAggregation</a> | ((rows: <a href="#type-KPIRow">KPIRow</a>[], tile: object) =&gt; unknown)</td><td class="desc">The aggregation kind, or a reducer `(rows, tile) =&gt; value` for a custom tile. <small>(optional)</small></td></tr>
+          <tr><td class="name">aggregation</td><td class="type"><a href="#type-KPIAggregation">KPIAggregation</a> | ((rows: <a href="#type-KPIRow">KPIRow</a>[], tile: object) =&gt; unknown)</td><td class="desc">The aggregation kind, or a reducer `(rows, tile) =&gt; value` for a custom tile. Over a grid on a paged pushdown source that holds only a window of its matching rows (GEO-6), a `sum`, `avg`, `min` or `max` tile is reduced by the engine — `source.aggregate()`, the grid's filters and quick search applied, one request for every such tile on the panel — rather than from the loaded page, and its model reads `computed: 'engine'` and its accessible name says so. `count` already counts every matching row and stays the panel's own. A tile with a `filter` function, a custom reducer, a field that is not a plain column, or a source whose `aggregates` config keeps the statistic in the browser keeps reducing the page and is named once in a `[lattice]` warning. The panel follows the grid's page and total landing, so it needs no `refresh()` after the first page settles. <small>(optional)</small></td></tr>
           <tr><td class="name">field</td><td class="type">string | ((row: <a href="#type-KPIRow">KPIRow</a>) =&gt; unknown)</td><td class="desc">The field the aggregation reads (a path or accessor). Ignored by `count`. <small>(optional)</small></td></tr>
           <tr><td class="name">format</td><td class="type"><a href="#type-KPIFormat">KPIFormat</a></td><td class="desc">Value formatting. <small>(optional)</small></td></tr>
           <tr><td class="name">target</td><td class="type">number</td><td class="desc">A comparison target rendered alongside the value. <small>(optional)</small></td></tr>
@@ -15670,6 +16080,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">deltaFormatted</td><td class="type">string</td><td class="desc">The delta rendered with the tile's own number format. Undefined when there is no delta. <small>(optional)</small></td></tr>
           <tr><td class="name">deltaMode</td><td class="type"><a href="#type-DeltaMode">DeltaMode</a> <small class="literals">'absolute' | 'relative' | 'both'</small></td><td class="desc">What the movement line prints; see `KPIStatTile.delta`. Always present once `baseline` is. <small>(optional)</small></td></tr>
           <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many of the panel's rows this tile's filter admitted — its own membership, which may be 0 while the panel holds rows. Always 0 on a clock tile.</td></tr>
+          <tr><td class="name">computed</td><td class="type">'engine' | 'client'</td><td class="desc">Where a stat tile's value was reduced (GEO-6): `'engine'` by a paged pushdown source's engine over every matching row (see `KPIStatTile.aggregation`), `'client'` from the rows the panel holds. Absent on a clock tile. <small>(optional)</small></td></tr>
           <tr><td class="name">sparkline</td><td class="type">number[] | null</td><td class="desc">The tile's trend series, as the finite numbers it plots, in `x` order. Null when the tile declares no sparkline and when no row yielded a finite value.</td></tr>
         </tbody>
       </table>
@@ -18898,6 +19309,22 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-ChartProvenance">ChartProvenance</h4>
+    <p class="section-note">What {@link Chart.provenance} reports (GEO-5).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">source</td><td class="type">'engine' | 'client'</td><td class="desc">`'engine'` when every measure was reduced by the source's engine; `'client'` otherwise.</td></tr>
+          <tr><td class="name">asked</td><td class="type">'auto' | 'engine' | 'client'</td><td class="desc">The mode the spec asked for, after an unknown value fell back to `'auto'`.</td></tr>
+          <tr><td class="name">reason</td><td class="type">string | null</td><td class="desc">Why the chart reads the loaded rows; `null` for an engine chart.</td></tr>
+          <tr><td class="name">refused</td><td class="type">boolean</td><td class="desc">True when `aggregate: 'engine'` was asked and the source could not serve it.</td></tr>
+          <tr><td class="name">pending</td><td class="type">boolean</td><td class="desc">True while an engine request is in flight; the last drawing stays up until it lands.</td></tr>
+          <tr><td class="name">viewport</td><td class="type"><a href="#type-ChartViewportProvenance">ChartViewportProvenance</a></td><td class="desc">A map's view (GEO-6; see {@link ChartSpec.viewportCap}): present when the engine sent the rows for the view, or when the cap changed what is drawn. <small>(optional)</small></td></tr>
+          <tr><td class="name">measures</td><td class="type">Array&lt;{ col: string | null; fn: string; computed: 'engine' | 'client'; /** The pushdown map's class for an engine measure: `identical` or `may-differ`. */ class?: string; /** Why, for a client measure. */ reason?: string; }&gt;</td><td class="desc">Each measure's column, reduction and where it was computed.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ChartState">ChartState</h4>
     <p class="section-note">What a chart's own view state holds: the drawings on it, and the zoom.</p>
     <div class="table-wrap">
@@ -18925,6 +19352,34 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">band</td><td class="type">boolean | 'prediction' | 'confidence'</td><td class="desc">The uncertainty band shaded around a linear `forecast` (BACKLOG-0000975). The Student-t `prediction` band (a future observation) by default; `confidence` shades the narrower mean-response band; `false` opts out and leaves the bare dashed line. Ignored where there is no linear forecast to put a band on. <small>(optional)</small></td></tr>
           <tr><td class="name">confidence</td><td class="type">number</td><td class="desc">The forecast band's confidence level in `(0, 1)`; 0.95 by default. <small>(optional)</small></td></tr>
           <tr><td class="name">label</td><td class="type">boolean</td><td class="desc">`false` suppresses the R² label on a linear trend. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartViewportFilterOptions">ChartViewportFilterOptions</h4>
+    <p class="section-note">Narrows {@link ChartSpec.viewportFilter} (BACKLOG-0000004, GEO-4).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">Write the condition to a different geometry column than the one this chart places its own rows from — always a `withinBbox` on that column, whatever the map itself is placed by. Defaults to `geometry`, or has no effect naming a column when the map places rows by `lon`/`lat` (the pair is always written to those two columns). <small>(optional)</small></td></tr>
+          <tr><td class="name">debounce</td><td class="type">number</td><td class="desc">Milliseconds to wait after a pan or zoom settles before writing; the default is 150. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartViewportProvenance">ChartViewportProvenance</h4>
+    <p class="section-note">What a map's {@link ChartProvenance.viewport} reports (GEO-6).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">rows</td><td class="type">number</td><td class="desc">The rows drawn as points for the view; 0 when binned or refused.</td></tr>
+          <tr><td class="name">matched</td><td class="type">number</td><td class="desc">How many rows fell inside the view.</td></tr>
+          <tr><td class="name">cap</td><td class="type">number</td><td class="desc">The cap in force ({@link ChartSpec.viewportCap}).</td></tr>
+          <tr><td class="name">binned</td><td class="type">boolean</td><td class="desc">True when the view was drawn as density cells.</td></tr>
+          <tr><td class="name">cells</td><td class="type">number</td><td class="desc">How many density cells were drawn; 0 when not binned.</td></tr>
+          <tr><td class="name">over</td><td class="type">string | null</td><td class="desc">Why nothing was drawn, when the view was over the cap with no density form; else null.</td></tr>
+          <tr><td class="name">bbox</td><td class="type">[number, number, number, number] | null</td><td class="desc">The box asked for, `[west, south, east, north]`; null at the initial view.</td></tr>
+          <tr><td class="name">computed</td><td class="type">'engine' | 'client'</td><td class="desc">Who counted or fetched the view's rows: the source's engine, or the browser.</td></tr>
         </tbody>
       </table>
     </div>
@@ -19154,6 +19609,19 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-DetailForwardedEvent">DetailForwardedEvent</h4>
+    <p class="section-note">The fields every `detail:` re-emission adds on top of the nested grid's own event payload (§13): which master row raised it, and where the change lands on that row's own record.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">masterKey</td><td class="type">string</td><td class="desc">The key of the master row whose detail region raised this.</td></tr>
+          <tr><td class="name">masterRow</td><td class="type"><a href="#type-Row">Row</a></td><td class="desc">The master row itself.</td></tr>
+          <tr><td class="name">detailGrid</td><td class="type"><a href="#type-Grid">Grid</a></td><td class="desc">The nested grid instance the event came from.</td></tr>
+          <tr><td class="name">path</td><td class="type">string | null</td><td class="desc">The dot path from the master's record to the value that changed (for example `ports.1.vlan`), or null when the detail rows are not part of the master's own record.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-DiagnosticWarning">DiagnosticWarning</h4>
     <p class="section-note">One thing the grid has flagged as probably a mistake.</p>
     <div class="table-wrap">
@@ -19167,6 +19635,17 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">first</td><td class="type">number</td><td class="desc">When it was first raised, as epoch milliseconds.</td></tr>
           <tr><td class="name">last</td><td class="type">number</td><td class="desc">When it was last raised, as epoch milliseconds — which, with `count`, says whether it is still happening.</td></tr>
           <tr><td class="name">source</td><td class="type"><a href="#type-DiagnosticSource">DiagnosticSource</a> <small class="literals">'check' | 'reported' | 'info'</small></td><td class="desc">`'check'` raised by a diagnostic check, `'reported'` from `warnOnce`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DuckDbSpatialOptions">DuckDbSpatialOptions</h4>
+    <p class="section-note">The `spatial` option of `duckdbAdapter` in its object form (GEO-2). `spatial: true` is the same with neither member set.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">A geometry column the schema and the file's metadata do not name — WKB in a `BLOB`, or a `GEOMETRY` column of a table or view. Must be a plain identifier. <small>(optional)</small></td></tr>
+          <tr><td class="name">crs</td><td class="type">string | number</td><td class="desc">The coordinate reference system the stored coordinates are in, when it is not longitude/latitude: `'EPSG:27700'`, or a bare EPSG code such as `27700`. Wins over a GeoParquet file's own declaration. Anything that is not `AUTHORITY:CODE` is refused when the adapter is built. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -19333,6 +19812,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">r2</td><td class="type">number</td><td class="desc">The fit's coefficient of determination — `linear` only. <small>(optional)</small></td></tr>
           <tr><td class="name">params</td><td class="type">{ slope?: number; intercept?: number; alpha?: number; beta?: number; gamma?: number; period?: number; windowLen?: number; }</td><td class="desc">The model parameters: `slope`/`intercept` (linear), `alpha`/`beta`/`gamma`/`period`, or `windowLen`.</td></tr>
           <tr><td class="name">points</td><td class="type"><a href="#type-ForecastPoint">ForecastPoint</a>[]</td><td class="desc">The forecast, one entry per step.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-GeoJsonGeometry">GeoJsonGeometry</h4>
+    <p class="section-note">A geometry as a `geometry` column stores it: a GeoJSON geometry object with two-ordinate positions, longitude first. Z and M are dropped on ingest.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type"><a href="#type-GeometryKind">GeometryKind</a> <small class="literals">'Point' | 'LineString' | 'Polygon' | 'MultiPoint' | 'MultiLineString' | 'MultiPolygon' | 'GeometryCollection'</small></td><td class="desc">The geometry kind.</td></tr>
+          <tr><td class="name">coordinates</td><td class="type">unknown</td><td class="desc">The positions, nested by kind: `[lon, lat]` for a `Point`, a list of them for a `LineString`, a list of rings for a `Polygon` (outer ring first, then holes), and one level deeper again for each `Multi*` kind. Absent on a `GeometryCollection`. <small>(optional)</small></td></tr>
+          <tr><td class="name">geometries</td><td class="type"><a href="#type-GeoJsonGeometry">GeoJsonGeometry</a>[]</td><td class="desc">The member geometries of a `GeometryCollection`. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -19694,6 +20185,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
+          <tr><td class="name">ready</td><td class="type">(): Promise&lt;void&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Promise&lt;void&gt;</code></td><td class="desc">First-use preparation, for an adapter whose capabilities depend on something it can only learn from the engine (GEO-2: `duckdbAdapter({ spatial })` declares the spatial operators only if the extension loads). `createPushdownSource` awaits it once, before its first plan or aggregate, and reads `capabilities` again when it settles. A load that fails should narrow the capabilities and resolve, not reject; a rejection fails that request and is asked again on the next. <small>(optional)</small></td></tr>
           <tr><td class="name">execute</td><td class="type">(query: <a href="#type-RemoteRequest">RemoteRequest</a>, request?: <a href="#type-RemoteRequest">RemoteRequest</a>): Promise&lt;{ rows: unknown[]; total?: number; pendingTotal?: Promise&lt;number | null&gt; }&gt;</td><td class="desc"><code>query: <a href="#type-RemoteRequest">RemoteRequest</a></code><br><code>request?: <a href="#type-RemoteRequest">RemoteRequest</a></code></td><td class="type"><code>Promise&lt;{ rows: unknown[]; total?: number; pendingTotal?: Promise&lt;number | null&gt; }&gt;</code></td><td class="desc">Run the part of the query the adapter declared it could handle. An adapter whose count is expensive may answer with `pendingTotal` instead of `total` (BACKLOG-0001078): the rows are delivered now and the promise resolves with the same exact number when the count finishes. The source publishes it then and fires `source:total`; until it does the grid reports no total and `grid.rows.totalPending()` is `true`. It is opt-in per adapter — one that returns `total` behaves exactly as it always has — and `pendingTotal` is ignored when `total` is present, because a total that is already here has nothing to wait for. The promise must resolve with the exact count or `null`; it must never resolve with an estimate.</td></tr>
           <tr><td class="name">executeGroupLevel</td><td class="type">( query: <a href="#type-RemoteRequest">RemoteRequest</a>, aggregates: Array&lt;{ id: string; col: string; fn: string; weight?: string }&gt;, request?: <a href="#type-RemoteRequest">RemoteRequest</a>, ): Promise&lt;{ rows: unknown[]; total?: number; leaves?: boolean; matchCount?: number; grand?: Record&lt;string, unknown&gt;; }&gt;</td><td class="desc"><code>query: <a href="#type-RemoteRequest">RemoteRequest</a></code><br><code>aggregates: Array&lt;{ id: string; col: string; fn: string; weight?: string }&gt;</code><br><code>request?: <a href="#type-RemoteRequest">RemoteRequest</a></code></td><td class="type"><code>Promise&lt;{ rows: unknown[]; total?: number; leaves?: boolean; matchCount?: number; grand?: Record&lt;string, unknown&gt;; }&gt;</code></td><td class="desc">Answer one level of a grouped grid (BACKLOG-0001325). Present only when `capabilities.group` opts in. The level is `query.groupValues.length`: the root asks for the outermost grouping column's distinct values, expanding a group asks for the next column's values within it, and past the last grouping column the children are the leaves (`leaves: true`). A group row comes back in the shape the remote source already reads from a grouping server: the grouping column's own id carries the key, `leafCount` the group's row count, `totals` the subtotals keyed by column id. `total` is how many group rows the level holds. At the root, `matchCount` and `grand` carry the whole-set figures a grouped window cannot derive — the rows the filter matched, and the grand total over them. `aggregates` is the subtotal list the source routed to the engine; anything it could not route is named in `PushdownPlan.aggregates.client` and left absent from the group row rather than computed over the wrong set. <small>(optional)</small></td></tr>
           <tr><td class="name">unfilteredCount</td><td class="type">(): Promise&lt;number | null&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Promise&lt;number | null&gt;</code></td><td class="desc">The row count before any filter (BACKLOG-0001325) — the denominator of "1,204 of 100,000" under grouping, where the display count is group headers rather than rows. Optional; a source falls back to the display count. <small>(optional)</small></td></tr>
@@ -19725,6 +20217,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">range</td><td class="type">boolean</td><td class="desc">Whether the engine can return a window rather than the whole result. <small>(optional)</small></td></tr>
           <tr><td class="name">total</td><td class="type">boolean</td><td class="desc">Whether it can report the count of matching rows. <small>(optional)</small></td></tr>
           <tr><td class="name">group</td><td class="type">boolean</td><td class="desc">Whether it can answer the grid's grouped view — group rows, their counts, their subtotals and their order — one level at a time, instead of returning the leaves for the grid to group in the browser (BACKLOG-0001325). All or nothing, unlike `filter`. A filter splits because the engine narrowing a superset and the grid narrowing what is left reach the same set; a grouping cannot, because group rows counted over the wrong set are wrong rows, not slow ones. So the push router refuses the whole grouped level — and says why in `PushdownPlan.groupReason` — whenever anything else in the query failed to push. An adapter declaring this must implement `executeGroupLevel`; one that declares it without the method is re-planned without grouping and warned about, rather than half-pushed. <small>(optional)</small></td></tr>
+          <tr><td class="name">buckets</td><td class="type">string[]</td><td class="desc">The spatial bucket kinds `source.aggregate()` may push as a `groupBy` key (GEO-2): `['grid']` for a {@link SpatialBucket}. Absent or empty, a bucket key sends every aggregate to the client, named in its `reason`. <small>(optional)</small></td></tr>
           <tr><td class="name">mutate</td><td class="type">false | <a href="#type-MutateCapability">MutateCapability</a></td><td class="desc">What the adapter can persist back — the write-back contract (§4.1). `false` (the default) is read-only by declaration. A declared block opts kinds in; `capabilitiesOf` resolves it to a full `MutateCapability` (or `false`). <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -19899,6 +20392,30 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">apply</td><td class="type">(change: <a href="#type-RowChange">RowChange</a>): <a href="#type-ChangeResult">ChangeResult</a></td><td class="desc"><code>change: <a href="#type-RowChange">RowChange</a></code></td><td class="type"><code><a href="#type-ChangeResult">ChangeResult</a></code></td><td class="desc">Apply an incremental change to the rows the source holds, returning what it added, updated and removed.</td></tr>
           <tr><td class="name">reload</td><td class="type">(opts?: ReloadOptions): void</td><td class="desc"><code>opts?: ReloadOptions</code></td><td class="type"><code>void</code></td><td class="desc">Throw away what is cached and fetch again. What a host calls when the data changed behind the grid's back.</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Release whatever the source holds — sockets, timers, in-flight requests — when the grid is torn down. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-SpatialBucket">SpatialBucket</h4>
+    <p class="section-note">A spatial grouping key for `source.aggregate()` (GEO-2): a geometry column's centroid binned into square cells `size` degrees on a side. Pushed by an adapter that declares `buckets: ['grid']` (`duckdbAdapter({ spatial })` with the extension loaded) as `floor(ST_X(ST_Centroid(geom)) / size)` and the same for `ST_Y`; each group's key comes back as `[x, y]`, the cell covering longitudes `[x·size, (x+1)·size)` and latitudes `[y·size, (y+1)·size)`, or `null` on a rolled-up row.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">col</td><td class="type"><a href="#type-ColumnRef">ColumnRef</a></td><td class="desc">The geometry column.</td></tr>
+          <tr><td class="name">bucket</td><td class="type">'grid'</td><td class="desc">The bucket kind; `grid` is the one there is.</td></tr>
+          <tr><td class="name">size</td><td class="type">number</td><td class="desc">The cell size in degrees, above zero.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-SpatialDistance">SpatialDistance</h4>
+    <p class="section-note">A circle on the Earth's surface: the operand of `withinDistance`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">lon</td><td class="type">number</td><td class="desc">The centre's longitude, in degrees.</td></tr>
+          <tr><td class="name">lat</td><td class="type">number</td><td class="desc">The centre's latitude, in degrees.</td></tr>
+          <tr><td class="name">metres</td><td class="type">number</td><td class="desc">The radius, in metres.</td></tr>
         </tbody>
       </table>
     </div>
@@ -20349,7 +20866,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="type-def"><code>type EventHandler = (e: <a href="#type-GridEvent">GridEvent</a>) =&gt; void</code></p>
     <h4 id="type-EventName">EventName</h4>
     <p class="section-note">Every event the grid emits. Complete, and checked against the runtime by `tools/check.js`, an `emit()` call with no entry here fails the build. It was not complete before: fifty-one events were emitted and undeclared, so subscribing to any of them from TypeScript was a compile error on an event the grid genuinely raises. Grouped by the subsystem that raises them, which is also how the reference lists them.</p>
-    <p class="type-def"><code>type EventName = 'ready' | 'destroy' | 'render:first' | 'render:done' | 'config:changed' | 'licence:changed' | 'model:changed' | 'rows:changed' | 'rows:queued' | 'rows:deferred' | 'rows:paused' | 'rows:resumed' | 'row:received' | 'row:sent' | 'row:copied' | 'row:moved' | 'source:error' | 'source:total' | 'stream:chunk' | 'stream:end' | 'stream:evicted' | 'rowDrag:started' | 'rowDrag:moved' | 'rowDrag:left' | 'rowDrag:ended' | 'cell:changed' | 'cell:pending' | 'cell:confirmed' | 'cell:reverted' | 'cell:conflict' | 'cell:clicked' | 'cell:dblclicked' | 'cell:contextmenu' | 'cell:mouseover' | 'cell:mouseout' | 'cell:mousedown' | 'cell:mouseup' | 'cell:edit:start' | 'cell:edit:end' | 'row:edit:start' | 'row:edit:end' | 'row:clicked' | 'row:dblclicked' | 'row:pending' | 'row:confirmed' | 'row:reverted' | 'row:conflict' | 'form:opened' | 'form:closed' | 'form:saved' | 'form:error' | 'sort:changed' | 'filter:changed' | 'group:toggled' | 'facet:computed' | 'facet:filtered' | 'facet:expanded' | 'facet:failed' | 'column:moved' | 'column:resized' | 'column:visible' | 'column:pinned' | 'column:grouped' | 'column:pivoted' | 'column:filter:open' | 'column:profile:open' | 'column:menu:open' | 'pivot:drill' | 'columns:changed' | 'columns:tagged' | 'columngroup:changed' | 'header:contextmenu' | 'selection:changed' | 'range:changed' | 'clipboard:copy' | 'page:changed' | 'scroll' | 'scroll:end' | 'size:changed' | 'detail:toggled' | 'toolpanel:focus' | 'highlight:changed' | 'find:changed' | 'tree:loading' | 'tree:loaded' | 'tree:loadFailed' | 'tree:loadAborted' | 'state:changed' | 'state:reset' | 'history:changed' | 'history:applied' | 'views:changed' | 'view:applied' | 'view:saved' | 'view:removed' | 'view:renamed' | 'view:default' | 'validation:failed' | 'validation:cleared' | 'formatting:changed' | 'redaction:changed' | 'permissions:changed' | 'presentation:changed' | 'presentation:started' | 'presentation:ended' | 'presentation:view' | 'presentation:scale' | 'presentation:spotlight' | 'presentation:captured' | 'comment:added' | 'comment:edited' | 'comment:deleted' | 'comment:failed' | 'comment:resolved' | 'comment:unresolved' | 'comment:threadOpened' | 'comment:threadClosed' | 'comment:indexLoaded' | 'presence:published' | 'presence:joined' | 'presence:updated' | 'presence:left' | 'presence:failed' | 'presence:lockRefused' | 'diff:changed' | 'diff:swapped' | 'timeline:attached' | 'timeline:detached' | 'timeline:seek' | 'timeline:seeking' | 'annotation:changed' | 'export:progress' | 'export:request' | 'export:done' | 'shortcuts:opened' | 'shortcuts:closed' | 'print:before' | 'print:after' | 'beforeEdit' | 'beforeSort' | 'beforeFilter' | 'beforeColumnMove' | 'beforeColumnResize' | 'beforeColumnHide' | 'beforeSelect' | 'beforeRowAdd' | 'beforeDelete' | 'beforeRowMove' | 'beforeGroup' | 'beforeRowReceive' | 'edit:cancelled' | 'sort:cancelled' | 'filter:cancelled' | 'columnMove:cancelled' | 'columnResize:cancelled' | 'columnHide:cancelled' | 'selection:cancelled' | 'rowAdd:cancelled' | 'delete:cancelled' | 'rowMove:cancelled' | 'group:cancelled' | 'rowReceive:cancelled' | '*'</code></p>
+    <p class="type-def"><code>type EventName = 'ready' | 'destroy' | 'render:first' | 'render:done' | 'config:changed' | 'licence:changed' | 'model:changed' | 'rows:changed' | 'rows:queued' | 'rows:deferred' | 'rows:paused' | 'rows:resumed' | 'row:received' | 'row:sent' | 'row:copied' | 'row:moved' | 'source:error' | 'source:total' | 'stream:chunk' | 'stream:end' | 'stream:evicted' | 'rowDrag:started' | 'rowDrag:moved' | 'rowDrag:left' | 'rowDrag:ended' | 'cell:changed' | 'cell:pending' | 'cell:confirmed' | 'cell:reverted' | 'cell:conflict' | 'cell:clicked' | 'cell:dblclicked' | 'cell:contextmenu' | 'cell:mouseover' | 'cell:mouseout' | 'cell:mousedown' | 'cell:mouseup' | 'cell:edit:start' | 'cell:edit:end' | 'row:edit:start' | 'row:edit:end' | 'row:clicked' | 'row:dblclicked' | 'row:pending' | 'row:confirmed' | 'row:reverted' | 'row:conflict' | 'form:opened' | 'form:closed' | 'form:saved' | 'form:error' | 'sort:changed' | 'filter:changed' | 'group:toggled' | 'facet:computed' | 'facet:filtered' | 'facet:expanded' | 'facet:failed' | 'column:moved' | 'column:resized' | 'column:visible' | 'column:pinned' | 'column:grouped' | 'column:pivoted' | 'column:filter:open' | 'column:profile:open' | 'column:menu:open' | 'pivot:drill' | 'columns:changed' | 'columns:tagged' | 'columngroup:changed' | 'header:contextmenu' | 'selection:changed' | 'range:changed' | 'clipboard:copy' | 'page:changed' | 'scroll' | 'scroll:end' | 'size:changed' | 'detail:toggled' | 'detail:cell:edit:start' | 'detail:cell:edit:end' | 'detail:row:edit:start' | 'detail:row:edit:end' | 'detail:cell:changed' | 'toolpanel:focus' | 'highlight:changed' | 'find:changed' | 'tree:loading' | 'tree:loaded' | 'tree:loadFailed' | 'tree:loadAborted' | 'state:changed' | 'state:reset' | 'history:changed' | 'history:applied' | 'views:changed' | 'view:applied' | 'view:saved' | 'view:removed' | 'view:renamed' | 'view:default' | 'validation:failed' | 'validation:cleared' | 'formatting:changed' | 'redaction:changed' | 'permissions:changed' | 'presentation:changed' | 'presentation:started' | 'presentation:ended' | 'presentation:view' | 'presentation:scale' | 'presentation:spotlight' | 'presentation:captured' | 'comment:added' | 'comment:edited' | 'comment:deleted' | 'comment:failed' | 'comment:resolved' | 'comment:unresolved' | 'comment:threadOpened' | 'comment:threadClosed' | 'comment:indexLoaded' | 'presence:published' | 'presence:joined' | 'presence:updated' | 'presence:left' | 'presence:failed' | 'presence:lockRefused' | 'diff:changed' | 'diff:swapped' | 'timeline:attached' | 'timeline:detached' | 'timeline:seek' | 'timeline:seeking' | 'annotation:changed' | 'export:progress' | 'export:request' | 'export:done' | 'shortcuts:opened' | 'shortcuts:closed' | 'print:before' | 'print:after' | 'beforeEdit' | 'beforeSort' | 'beforeFilter' | 'beforeColumnMove' | 'beforeColumnResize' | 'beforeColumnHide' | 'beforeSelect' | 'beforeRowAdd' | 'beforeDelete' | 'beforeRowMove' | 'beforeGroup' | 'beforeRowReceive' | 'edit:cancelled' | 'sort:cancelled' | 'filter:cancelled' | 'columnMove:cancelled' | 'columnResize:cancelled' | 'columnHide:cancelled' | 'selection:cancelled' | 'rowAdd:cancelled' | 'delete:cancelled' | 'rowMove:cancelled' | 'group:cancelled' | 'rowReceive:cancelled' | '*'</code></p>
     <h4 id="type-EventOrigin">EventOrigin</h4>
     <p class="section-note">Who caused a grid change: `'user'` interaction, an `'api'` call, `'init'` (the grid's own startup), or an approved `'ai'` write (BACKLOG-0000967).</p>
     <p class="type-def"><code>type EventOrigin = 'api' | 'user' | 'init' | 'ai'</code></p>
@@ -20411,8 +20928,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">A forecasting kernel's method.</p>
     <p class="type-def"><code>type ForecastMethod = 'movingAverage' | 'ses' | 'holt' | 'holtWinters' | 'linear'</code></p>
     <h4 id="type-FormatSpec">FormatSpec</h4>
-    <p class="section-note">How a value is turned into the text you see. One of the four formatters, picked by the `type` on the spec; the rest of the object is that formatter's own options.</p>
-    <p class="type-def"><code>type FormatSpec = <a href="#type-NumberFormat">NumberFormat</a> | <a href="#type-DateFormat">DateFormat</a> | <a href="#type-BooleanFormat">BooleanFormat</a> | <a href="#type-TextFormat">TextFormat</a></code></p>
+    <p class="section-note">How a value is turned into the text you see. One of the four formatters, picked by the `type` on the spec; the rest of the object is that formatter's own options. A `geometry` column reads a {@link GeometryFormat} instead.</p>
+    <p class="type-def"><code>type FormatSpec = <a href="#type-NumberFormat">NumberFormat</a> | <a href="#type-DateFormat">DateFormat</a> | <a href="#type-BooleanFormat">BooleanFormat</a> | <a href="#type-TextFormat">TextFormat</a> | <a href="#type-GeometryFormat">GeometryFormat</a></code></p>
     <h4 id="type-FormattingScope">FormattingScope</h4>
     <p class="section-note">A column id, or `'*'` for every column.</p>
     <p class="type-def"><code>type FormattingScope = string</code></p>
@@ -20447,6 +20964,12 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">The Gantt timeline's zoom: a named level, or raw pixels-per-day.</p>
     <p class="type-def"><code>type GanttZoom = 'day' | 'week' | 'month' | 'quarter'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
+    <h4 id="type-GeometryFormatPattern">GeometryFormatPattern</h4>
+    <p class="section-note">What a `geometry` cell shows: `'summary'` (the default) is a line a person reads — `Point 51.5074°N 0.1278°W`, `Polygon, 14 vertices, 2.31 km²` — with numbers in the grid's locale; `'wkt'` is the Well-Known Text; `'geojson'` is the GeoJSON geometry as JSON text.</p>
+    <p class="type-def"><code>type GeometryFormatPattern = 'summary' | 'wkt' | 'geojson'</code></p>
+    <h4 id="type-GeometryKind">GeometryKind</h4>
+    <p class="section-note">The kind of a geometry: the GeoJSON geometry type name.</p>
+    <p class="type-def"><code>type GeometryKind = 'Point' | 'LineString' | 'Polygon' | 'MultiPoint' | 'MultiLineString' | 'MultiPolygon' | 'GeometryCollection'</code></p>
     <h4 id="type-GraphqlPagination">GraphqlPagination</h4>
     <p class="section-note">How a GraphQL adapter pages: an offset/limit list, or a Relay cursor connection.</p>
     <p class="type-def"><code>type GraphqlPagination = 'offset' | 'cursor'</code></p>
@@ -20655,7 +21178,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="type-def"><code>type NumberFormatStyle = 'decimal' | 'currency' | 'percent'</code></p>
     <h4 id="type-Operator">Operator</h4>
     <p class="section-note">The comparison a filter condition makes. Every operator has an exact negation — `eq`/`ne`, `contains`/`notContains`, `between`/`notBetween`, `in`/`notIn`, `blank`/`notBlank` — so a rule and its inverse are always both expressible. Which of them a column offers depends on its type, and a source that pushes filtering down to a query engine may accept a narrower set again.</p>
-    <p class="type-def"><code>type Operator = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'between' | 'notBetween' | 'in' | 'notIn' | 'contains' | 'notContains' | 'startsWith' | 'endsWith' | 'matches' | 'blank' | 'notBlank' | 'containsAny' | 'containsAll' | 'containsNone'</code></p>
+    <p class="type-def"><code>type Operator = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'between' | 'notBetween' | 'in' | 'notIn' | 'contains' | 'notContains' | 'startsWith' | 'endsWith' | 'matches' | 'blank' | 'notBlank' | 'containsAny' | 'containsAll' | 'containsNone' | <a href="#type-SpatialOperator">SpatialOperator</a></code></p>
     <h4 id="type-OutlierMethod">OutlierMethod</h4>
     <p class="section-note">Every anomaly-detection method the statistics surface offers, widest set: the robust modified z-score and Tukey's IQR fences (static or rolling), and multivariate Mahalanobis distance. A narrower site accepts a subset via `Extract&lt;OutlierMethod, …&gt;` rather than minting a fourth named alias.</p>
     <p class="type-def"><code>type OutlierMethod = 'modifiedZScore' | 'iqr' | 'mahalanobis' | 'rollingModifiedZScore' | 'rollingIqr'</code></p>
@@ -20822,6 +21345,12 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h4 id="type-SourceMode">SourceMode</h4>
     <p class="section-note">Which kind of data source a grid is bound to.</p>
     <p class="type-def"><code>type SourceMode = 'memory' | 'paged' | 'remote' | 'stream'</code></p>
+    <h4 id="type-SpatialBbox">SpatialBbox</h4>
+    <p class="section-note">A box in degrees, `[minLon, minLat, maxLon, maxLat]`: the operand of `withinBbox`.</p>
+    <p class="type-def"><code>type SpatialBbox = [number, number, number, number]</code></p>
+    <h4 id="type-SpatialOperator">SpatialOperator</h4>
+    <p class="section-note">The four operators of a `geometry` column (declared by the type the opt-in `modules/geometry` registers), evaluated in memory for any source that does not push them down. A `geometry` column accepts these and `blank`/`notBlank` only, and these are refused on any other column. - `withinBbox` — the whole geometry lies inside a {@link SpatialBbox}. - `withinPolygon` — a Point or MultiPoint lies inside a Polygon or MultiPolygon operand (holes excluded); any other geometry is tested by its centroid. - `intersects` — the two share a point: a bounding-box test, then an edge test with edges straight in longitude/latitude rather than great circles. The operand is a geometry or a {@link SpatialBbox}. - `withinDistance` — the centroid is within a {@link SpatialDistance}, by great-circle (haversine) distance. The antimeridian is not handled: a box whose west edge is east of its east edge is refused; split it into two conditions joined by `or`.</p>
+    <p class="type-def"><code>type SpatialOperator = 'withinBbox' | 'withinPolygon' | 'intersects' | 'withinDistance'</code></p>
     <h4 id="type-SpcStatistic">SpcStatistic</h4>
     <p class="section-note">Which statistic a confidence interval reads: a mean, or a proportion.</p>
     <p class="type-def"><code>type SpcStatistic = 'mean' | 'proportion'</code></p>
@@ -20929,7 +21458,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.72.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.73.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

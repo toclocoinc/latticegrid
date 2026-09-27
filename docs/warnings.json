@@ -1,5 +1,5 @@
 {
-  "version": "1.72.0",
+  "version": "1.73.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 486,
+  "count": 506,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -223,6 +223,47 @@
       "docs": "api/charts.html#chart-annotate"
     },
     {
+      "id": "chart:*:annotate:projection",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "\"annotate\" anchors a drawing on a {type} in longitude and latitude, and this map is drawn through a projection with no written inverse, so no rail was added. Draw it through projection: 'mercator' or 'equirectangular' to annotate it.",
+      "meaning": "The drawing rail (BACKLOG-0001474) anchors every mark in the chart's own data coordinates, and on a map (markermap, bubblemap, choropleth) that means an invertible pair of longitude/latitude scales. Only `mercator` and `equirectangular` are conformal enough to give one — the others (equalEarth, robinson, the conics) bend a meridian, so no straight-line scale describes them — and rather than build a rail that could never place a drag, none is added.",
+      "fix": "Draw the map through `projection: 'mercator'` or `projection: 'equirectangular'` to take the drawing rail.",
+      "docs": "api/charts.html#chart-geometry-maps"
+    },
+    {
+      "id": "chart:*:geometry:both",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "a \"{type}\" chart was given both \"geometry\" and \"lon\"/\"lat\", and a row is placed by one or the other, so nothing was drawn rather than one being picked for you. Keep \"geometry\" for a geometry column, or \"lon\" and \"lat\" for two coordinate columns.",
+      "meaning": "markermap, bubblemap and choropleth place a row from a geometry column or from a lon/lat pair, never both — choosing between them silently would draw a map from whichever the chart picked, not from whichever the caller meant.",
+      "fix": "Give the chart `geometry: '<column>'` alone, or `lon`/`lat` alone.",
+      "docs": "api/charts.html#chart-geometry-maps"
+    },
+    {
+      "id": "chart:*:geometry:missing",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "a \"choropleth\" chart draws each row's own shape from a geometry column and was given none, so it has nothing to draw. Name the column: geometry: '<column>'.",
+      "meaning": "Unlike markermap and bubblemap, a choropleth has no lon/lat fallback: it draws each row's own Polygon/MultiPolygon, which only a geometry column carries.",
+      "fix": "Name a `type: 'geometry'` column: `geometry: '<column>'`.",
+      "snippet": "createChart({ grid, container, type: 'choropleth', geometry: 'zone', y: 'sales' });",
+      "docs": "api/charts.html#chart-geometry-maps"
+    },
+    {
+      "id": "chart:*:geometry:type:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "a \"{type}\" chart reads \"geometry\" from column \"{col}\", which is not a geometry column, so no row could be placed. Import '@toclocoinc/lattice-grid/modules/geometry' and declare the column type: 'geometry'.",
+      "meaning": "`geometry: '<col>'` reads its placement through `column.dataType.geometry`, which only a `type: 'geometry'` column (the opt-in `modules/geometry`) declares. A column of any other type has no such accessor, so every row is counted as unplaced rather than read as text.",
+      "fix": "Import `@toclocoinc/lattice-grid/modules/geometry` and declare the named column `type: 'geometry'`.",
+      "docs": "api/charts.html#chart-geometry-maps"
+    },
+    {
       "id": "chart:zoom:axes:*",
       "module": "charts",
       "severity": "warn",
@@ -356,6 +397,37 @@
       "docs": "api/charts.html#chartsmodule"
     },
     {
+      "id": "chart:aggregate:mode:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "chart aggregate {value} is not a mode; use one of {modes}. The chart used 'auto'.",
+      "meaning": "`spec.aggregate` named something other than `'auto'`, `'engine'` or `'client'` — a typo, most often. Rather than force a mode from a value that means nothing, the chart falls back to `'auto'` and still draws; the mode it actually used is what `chart.provenance().asked` reports.",
+      "fix": "Use one of `'auto'`, `'engine'` or `'client'`. `'auto'` is the default and needs no explicit value at all.",
+      "snippet": "createChart({ grid, container, type: 'bar', x: 'region', y: 'revenue', aggregate: 'engine' });",
+      "docs": "api/charts.html#chartsmodule"
+    },
+    {
+      "id": "chart:aggregate:engine-refused:*:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "chart aggregate: 'engine' was refused: {reason}. The chart reads the rows the grid has loaded instead; chart.provenance() reports the same reason.",
+      "meaning": "`spec.aggregate: 'engine'` asked the grid's pushdown source to compute the chart's figures, and the source could not: no `group` capability, an unpushed filter or quick search, a column the engine cannot name, or a reduction its `aggregates` config keeps client-side. The chart is never silently swapped to the window's rows without saying so — this is that saying.",
+      "fix": "Read the reason in the message (and in `chart.provenance().reason`); it names what stopped the push. Either fix that — widen the adapter, route the statistic to the engine — or use `aggregate: 'auto'` so the chart falls back on its own rather than refusing.",
+      "docs": "api/charts.html#chartsmodule"
+    },
+    {
+      "id": "chart:aggregate:window:*:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.72.0",
+      "message": "this chart draws the rows the grid has loaded, which are a window of the matching set, because {reason}. Its figures describe that window, not the whole relation.",
+      "meaning": "The chart is on `'auto'` (or was not forced to `'engine'`), the grid holds fewer rows than match, and the engine could not be asked for the given reason — so the chart drew from the loaded window rather than the whole relation, and says so once so the figures are not read as the full picture by mistake.",
+      "fix": "The reason names what stopped the push to the engine; widening the adapter (or the source's `aggregates` config) lets the chart ask instead. Where the window really is the intended answer — a deliberately unpaged view, say — there is nothing to fix.",
+      "docs": "api/charts.html#chartsmodule"
+    },
+    {
       "id": "chart:annotation:dropped:*:*:*",
       "module": "charts",
       "severity": "warn",
@@ -419,6 +491,28 @@
       "fix": "Use one of the aggregations listed in the message.",
       "snippet": "measures: [{ col: 'amount', fn: 'sum' }]",
       "docs": "api/charts.html#chartsmodule"
+    },
+    {
+      "id": "chart:viewportCap:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.73.0",
+      "message": "chart viewportCap {value} is not a positive whole number of rows; the map used {default}.",
+      "meaning": "`spec.viewportCap` on a `markermap`, `bubblemap` or `choropleth` named something other than a positive whole number of rows — a string, zero, a fraction. Rather than fetch everything or nothing from a value that means neither, the map uses the default cap of 20,000 rows.",
+      "fix": "Give a positive integer, or leave `viewportCap` out for the default.",
+      "snippet": "createChart({ grid, container, type: 'markermap', geometry: 'site', viewportCap: 50000 });",
+      "docs": "API.html#chart-map-viewport"
+    },
+    {
+      "id": "chart:viewportCap:over:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.73.0",
+      "message": "this map's view holds {count} matching rows, more than its viewportCap of {cap}, and {reason}, so it draws none of them. Zoom in, narrow the filter, or raise viewportCap.",
+      "meaning": "More rows fell inside the map's view than its `viewportCap`, and this map has no honest density form to draw instead: a `choropleth` draws each shape, and an engine map over a `lon`/`lat` pair or an adapter without the spatial `grid` bucket cannot have its rows binned by the engine. A random subset drawn as if it were the view would be the wrong picture, so the map draws none of the rows, writes the reason under itself and in its accessible summary, and reports it as `chart.provenance().viewport.over`.",
+      "fix": "Zoom in until the view holds no more than the cap; narrow the grid's filter; raise `viewportCap` if the browser can draw that many; or, for a marker or bubble map over DuckDB, place rows from a `geometry` column with `duckdbAdapter({ spatial: true })` so the engine can bin them.",
+      "snippet": "createChart({ grid, container, type: 'markermap', geometry: 'site' });",
+      "docs": "API.html#chart-map-viewport"
     },
     {
       "id": "chart:x:banded:*",
@@ -2287,6 +2381,72 @@
       "meaning": "The adapter uses `DESCRIBE` to learn the engine's own column types so that it can bind filter values with the right SQL type. Without it, types come from the grid's column declarations alone — which is enough for a declared column and not enough for an undeclared one, where a date or timestamp comparison may be rejected by the engine.",
       "fix": "Declare the `type` on the grid columns you filter, or fix whatever made `DESCRIBE` fail (the error is quoted in the message).",
       "docs": "api/grid.html#duckdb-options"
+    },
+    {
+      "id": "source.duckdb.spatial.column.*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.73.0",
+      "message": "column \"{col}\" is {type}, which is not a geometry DuckDB can read (GEOMETRY, or WKB in a BLOB), so spatial conditions on it match no row.",
+      "meaning": "duckdbAdapter({ spatial }) found a geometry column by name — spatial.column, or the GeoParquet metadata — whose engine type is neither GEOMETRY nor a BLOB of WKB, so there is no SQL that reads it as a shape. Spatial conditions on it compile to FALSE rather than a guess.",
+      "fix": "Point spatial.column at the WKB or GEOMETRY column, or convert the column in the FROM (for WKT text, a view selecting ST_GeomFromText(col)).",
+      "snippet": "duckdbAdapter({ connection, from: 'sites', spatial: { column: 'shape_wkb' } })",
+      "docs": "api/grid.html#duckdb-spatial"
+    },
+    {
+      "id": "source.duckdb.spatial.crs.*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.73.0",
+      "message": "the GeoParquet metadata does not say which CRS column \"{col}\" is in, so its coordinates are taken as longitude/latitude. Set `spatial.crs` if they are not.",
+      "meaning": "The file's geo metadata gives the column a null or unreadable crs, which GeoParquet defines as unknown. The adapter uses the coordinates as stored, as longitude/latitude; if they are projected (metres), every spatial filter and every map position is wrong.",
+      "fix": "Name the system the file is in.",
+      "snippet": "duckdbAdapter({ connection, from: \"read_parquet('depots.parquet')\", spatial: { crs: 27700 } })",
+      "docs": "api/grid.html#duckdb-spatial"
+    },
+    {
+      "id": "source.duckdb.spatial.load",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.73.0",
+      "message": "the DuckDB spatial extension did not load ({error}), so spatial filters are evaluated in the browser over the rows DuckDB returns rather than pushed into it, and geometry arrives as the stored WKB. Correct, and slower: check the extension repository is reachable from this page.",
+      "meaning": "LOAD spatial failed on this connection — on DuckDB-Wasm usually because extensions.duckdb.org could not be fetched. The adapter withdraws the spatial operators and buckets from its capabilities, so the pushdown source leaves the operators to the grid (with compute passed to createPushdownSource) and a bucket in source.aggregate() goes to the client. Sorting by the geometry column is refused rather than ordered by WKB bytes.",
+      "fix": "Make the extension repository reachable (or preinstall the extension on a server), or accept in-browser evaluation for this connection.",
+      "snippet": "const source = createPushdownSource({ adapter: duckdbAdapter({ connection, from, spatial: true }), compute: { evaluateFilters, sortMulti } });",
+      "docs": "api/grid.html#duckdb-spatial"
+    },
+    {
+      "id": "source.duckdb.spatial.metadata",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.73.0",
+      "message": "the GeoParquet metadata of {path} could not be read ({error}), so its geometry is taken to be longitude/latitude unless `spatial.crs` says otherwise.",
+      "meaning": "parquet_kv_metadata over the file failed, so neither the geometry columns the file declares nor their CRS are known. Columns the engine types GEOMETRY and spatial.column still work; their coordinates are used as stored.",
+      "fix": "Check the path, or set spatial.column and spatial.crs explicitly.",
+      "snippet": "duckdbAdapter({ connection, from, spatial: { column: 'geometry', crs: 'EPSG:4326' } })",
+      "docs": "api/grid.html#duckdb-spatial"
+    },
+    {
+      "id": "source.duckdb.spatial.module.*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.73.0",
+      "message": "a \"{op}\" condition reached the DuckDB adapter, but no loaded data type declares \"{op}\" — the geometry module is not loaded (import '@toclocoinc/lattice-grid/modules/geometry'), so the grid refuses it and the adapter does not push it. It matches no row.",
+      "meaning": "The spatial operators belong to the geometry column type, which is an opt-in module. Without it the grid refuses a spatial condition and duckdbAdapter({ spatial }) does not declare the operators; a condition handed to the adapter directly (sqlFor, execute) compiles to FALSE rather than being pushed.",
+      "fix": "Import the geometry module before building the grid, and declare the column type: 'geometry'.",
+      "snippet": "import '@toclocoinc/lattice-grid/modules/geometry';",
+      "docs": "api/grid.html#duckdb-spatial"
+    },
+    {
+      "id": "source.duckdb.spatial.operand.*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.73.0",
+      "message": "a \"{op}\" condition was refused: {reason}. It matches no row rather than guessing.",
+      "meaning": "A spatial condition reached duckdbAdapter with an operand it cannot hand to the engine — a box across the antimeridian or upside down, a withinPolygon operand that is not a polygon, text that is not GeoJSON, WKT or hex WKB — or on a column the adapter does not read as geometry. The condition compiles to FALSE: the same no-row answer the grid's in-memory operator gives.",
+      "fix": "Give the operand the operator expects; split a box across the antimeridian into two withinBbox conditions joined by or.",
+      "snippet": "grid.filters.set({ col: 'geometry', op: 'withinBbox', value: [-1.9, 51, 0, 53] });",
+      "docs": "api/grid.html#duckdb-spatial"
     },
     {
       "id": "source.duckdb.unprepared",
@@ -4496,6 +4656,16 @@
       "docs": "api/kpi.html#kpi"
     },
     {
+      "id": "kpi:engine-page:*",
+      "module": "kpi",
+      "severity": "warn",
+      "since": "1.73.0",
+      "message": "the \"{label}\" tile reduces only the rows the bound grid has loaded, a window of the matching set, because {reason}. Its {aggregation} describes that window, not every matching row.",
+      "meaning": "A `sum`, `avg`, `min` or `max` tile is bound to a grid on a paged pushdown source that holds fewer rows than match, and the engine could not be asked for it — a `filter` function, a field that is not a plain column, a source whose `aggregates` config keeps the statistic in the browser, a filter the engine cannot apply, or a failed request. The tile shows the loaded page's figure, and says so once so it is not read as the whole relation's.",
+      "fix": "The reason names what stopped the push: route the statistic to the engine (`aggregates: { default: 'engine' }` on the pushdown source), bind the tile to a plain column, or express the tile's `filter` as a grid filter the engine can apply.",
+      "docs": "API.html#kpi-engine"
+    },
+    {
       "id": "kpi:event:*",
       "module": "kpi",
       "severity": "warn",
@@ -5106,6 +5276,49 @@
       "fix": "Pass either a `scheme` name map (`{ [name]: colour }`) or a `palette` array, not both.",
       "snippet": "createChart({ grid, container, type: 'donut', x: 'status', y: 'count', scheme: { Operational: 'green', Offline: 'red' } });",
       "docs": "api/charts.html#chartsmodule"
+    },
+    {
+      "id": "filter:geometry:*",
+      "module": "geometry",
+      "severity": "warn",
+      "since": "1.73.0",
+      "message": "a \"{op}\" condition was refused: {reason}. It matches no row rather than guessing.",
+      "meaning": "A spatial condition reached the filter kernel with an operand it cannot read — a box whose west edge is east of its east edge (the antimeridian, which is not handled), a withinPolygon operand that is not a polygon, a withinDistance without lon, lat and metres. The condition matches no row. A grid's own filters.set() refuses such a condition before it installs; this is the path a host reaches by calling the kernel or testValue directly.",
+      "fix": "Give the operand the operator expects. For a box across the antimeridian, split it into two withinBbox conditions joined by or.",
+      "snippet": "grid.filters.set({ op: 'or', conditions: [\n  { col: 'site', op: 'withinBbox', value: [177, -19, 180, -16] },\n  { col: 'site', op: 'withinBbox', value: [-180, -19, -178, -16] },\n] });",
+      "docs": "api/geometry.html#geometry-operators"
+    },
+    {
+      "id": "filter:operand:*:*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.73.0",
+      "message": "filter condition on column \"{col}\" uses op \"{op}\" with an operand that cannot be read: {reason}. The condition is refused rather than installed.",
+      "meaning": "filters.set() or state.apply() was handed a condition using an operator a column's type declares (a geometry column's spatial operators) with an operand the type cannot use. It is dropped from the filter set rather than installed as a filter that matches nothing while looking applied; the rest of a compound filter still applies.",
+      "fix": "withinBbox takes [minLon, minLat, maxLon, maxLat]; withinPolygon a Polygon or MultiPolygon; intersects any geometry or a box; withinDistance { lon, lat, metres }.",
+      "snippet": "grid.filters.set({ col: 'site', op: 'withinDistance', value: { lon: -0.1278, lat: 51.5074, metres: 5000 } });",
+      "docs": "api/geometry.html#geometry-operators"
+    },
+    {
+      "id": "geometry:format:*",
+      "module": "geometry",
+      "severity": "warn",
+      "since": "1.73.0",
+      "message": "column \"{col}\" asks for geometry format pattern \"{pattern}\", which is not one of {list}; the summary is shown instead.",
+      "meaning": "A geometry column's format.pattern is not summary, wkt or geojson, so the cells show the summary. Export and the clipboard write WKT regardless.",
+      "fix": "Use one of the three patterns.",
+      "snippet": "columns: [{ field: 'site', type: 'geometry', format: { pattern: 'wkt' } }]",
+      "docs": "api/geometry.html#geometry-operators"
+    },
+    {
+      "id": "geometry:refused:*",
+      "module": "geometry",
+      "severity": "warn",
+      "since": "1.73.0",
+      "message": "column \"{col}\" refused a value that is not a geometry ({reason}); the cell is left blank rather than storing it. A geometry column accepts WKB, WKT or GeoJSON.",
+      "meaning": "A row value in a geometry column is none of the accepted forms — free text, WKB that ends early or has bytes left over, a ring with fewer than three corners, a FeatureCollection (many rows, not one value). Nothing is stored for that cell, so it is blank and every filter, sort and export treats it as empty. The reason in the message says what was wrong; later refusals in the same column are not repeated.",
+      "fix": "Send WKB (bytes, hex or base64), WKT or a GeoJSON geometry or Feature. Load a FeatureCollection's features as rows.",
+      "docs": "api/geometry.html#geometry-operators"
     }
   ]
 }

@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Data router API Reference — Lattice Grid 1.72.0</title>
+<title>Data router API Reference — Lattice Grid 1.73.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -404,6 +404,13 @@
         <a class="rail__sub-link" href="#datarouter-persist-example">Durable resume through a store of your own, executed</a>
         <a class="rail__sub-link" href="#datarouter-backpressure-example">Throttle one viewer under load, executed</a>
         <a class="rail__sub-link" href="#datarouter-time-example">Scrub by wall-clock time, executed</a>
+        <a class="rail__sub-link" href="#datarouter-alert-example">Fire once on a rising edge, and re-arm, executed</a>
+        <a class="rail__sub-link" href="#datarouter-monitor-example">Watch a slice and report every measurement, executed</a>
+        <a class="rail__sub-link" href="#datarouter-detach-example">Detach a grid; the host still owns it, executed</a>
+        <a class="rail__sub-link" href="#datarouter-removesource-example">Drop a fan-in source by id directly, executed</a>
+        <a class="rail__sub-link" href="#datarouter-checkpoint-example">Persist and prime the resume checkpoint, executed</a>
+        <a class="rail__sub-link" href="#datarouter-replay-pause-example">Walk an incident with pause and resume, executed</a>
+        <a class="rail__sub-link" href="#datarouter-devtools-example">Mount the live devtools panel, executed</a>
         <a href="#ref-data-router-reference">Type reference</a>
         <a class="rail__sub-link" href="#type-DataRouter">DataRouter</a>
       </div>
@@ -414,6 +421,7 @@
         <a href="charts.html">The charts module</a>
         <a href="kpi.html">The KPI (stat-tile) view</a>
         <a href="alarms.html">The alarms module</a>
+        <a href="geometry.html">The geometry module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="tabs.html">The tabbed grid</a>
@@ -439,7 +447,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 14 pages</a></span>
+      <span class="chip"><a href="index.html">All 15 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -525,7 +533,7 @@ router.load(snapshot);                        <span class="cmt">// every viewer 
     <p class="section-note">A customers grid and an orders grid off one feed; selecting customers filters the orders
     grid to their regions through the keyed-diff path, and deselecting restores the full set. Run headless
     on every build.</p>
-    <pre data-run="js" data-expect="3 | 2 | 3 | 3" data-covers="export:createDataRouter config:key config:selectionDebounce"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="3 | 2 | 3 | 3" data-covers="export:createDataRouter config:key config:selectionDebounce method:data-router.link"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'region', field: 'region', type: 'text' }];
@@ -618,7 +626,7 @@ chart.destroy(); router.destroy();
 <span class="kw">return</span> [groups, top, emeaTotal].join(' | ');</code></pre>
 
     <p><strong>The relationship graph (v3, BACKLOG-0000887).</strong> <code>relate([...])</code> is the scalable form of v2's pairwise <code>link()</code>. Each edge is <code>{ from, to, on }</code>, where <code>on</code> is a key map <code>{ from, to }</code> or a function <code>fn(sourceRows) =&gt; (row) =&gt; boolean</code>. The router resolves the whole graph on any selection change, so it handles <strong>multi-hop</strong> chains (A&rarr;B&rarr;C: a selection in A narrows B and, through B's resulting rows, C &mdash; with no selection in B), <strong>several sources into one target</strong> (their filters AND together), and <strong>mutual</strong> edges (<code>mutual: true</code> &mdash; selecting in either linked view narrows the other; requires a key-map <code>on</code>). A node's effective set is its own selection when it has one, otherwise the rows its incoming edges leave &mdash; that is what carries a selection transitively down a chain. Additive to <code>link()</code>; the two compose.</p>
-    <pre data-run="js" data-expect="o1,o3 | l1,l3,l4" data-covers="export:createDataRouter config:relate"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="o1,o3 | l1,l3,l4" data-covers="export:createDataRouter config:relate method:data-router.relate"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'region', field: 'region', type: 'text' }, { id: 'orderId', field: 'orderId', type: 'text' }];
@@ -643,7 +651,7 @@ customers.destroy(); orders.destroy(); lines.destroy(); router.destroy();
 <span class="kw">return</span> out.join(' | ');</code></pre>
 
     <p><strong>Stream hygiene (v3, BACKLOG-0000887).</strong> A production feed arrives out of order, gets replayed, and comes faster than a grid should repaint. Configure a <code>seq</code> (a version field or <code>fn(row)</code>) and the router orders each batch by it and <strong>drops</strong> any delta not newer than the one it already applied for that record (counted in <code>router.dropped</code>) &mdash; an out-of-order or replayed feed converges to the newest state. <code>push(delta)</code> with a <code>batch</code> interval or <code>coalesce: true</code> buffers a high-frequency feed and coalesces rapid updates to one key into a single apply (flush a deterministic point with <code>flushStream()</code>). When the host's own connection drops and it reconnects, resume precisely: <code>load</code> a fresh snapshot (a keyed diff that preserves grid state) and replay from <code>lastSeq()</code>/<code>checkpoint()</code> &mdash; the deltas the router already saw are dropped by the same gate. The router does not detect or recover from the drop itself; see <a href="#datarouter-websocket-example">a live WebSocket feed</a> for the worked reconnect example. <code>seenThrough(mark)</code> primes the checkpoint from a persisted one.</p>
-    <pre data-run="js" data-expect="30 | 1 | 4" data-covers="export:createDataRouter config:seq config:dedupe"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="30 | 1 | 4" data-covers="export:createDataRouter config:seq config:dedupe method:data-router.lastSeq"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }, { id: 'n', field: 'n', type: 'number' }] });
@@ -724,7 +732,7 @@ g.destroy(); router.destroy();
     <p class="section-note">A single snapshot fanned to an orders grid, an invoices grid and a "rest" sink, then a
     delta that changes a row's partition &mdash; proving the fan-out, the sink, and that a moved row
     leaves its old grid and joins the new one rather than being duplicated. Run headless on every build.</p>
-    <pre data-run="js" data-expect="2,1,1 | 1/2 | 0" data-covers="export:createDataRouter"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="2,1,1 | 1/2 | 0" data-covers="export:createDataRouter method:data-router.attach method:data-router.attachDefault method:data-router.load method:data-router.apply method:data-router.destroy"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'amt', field: 'amt', type: 'number' }];
@@ -759,7 +767,7 @@ orders.destroy(); invoices.destroy(); rest.destroy(); router.destroy();
     <h3 id="datarouter-v4-example">Scrub and return to live, executed</h3>
     <p class="section-note">A versioned feed buffered into a bounded ring; the view scrubs to a past seq, reads the
     reconstructed value, then returns to the live head. Run headless on every build.</p>
-    <pre data-run="js" data-expect="30 | 10 | true | 30" data-covers="export:createDataRouter config:buffer config:seq"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="30 | 10 | true | 30" data-covers="export:createDataRouter config:buffer config:seq method:data-router.buffer method:data-router.scrubTo method:data-router.live"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }, { id: 'n', field: 'n', type: 'number' }] });
@@ -785,7 +793,7 @@ g.destroy(); router.destroy();
     <h3 id="datarouter-v7-example">Query-slice routing, executed</h3>
     <p class="section-note">Two routes over one query, each with its own <code>where</code>; a capability-free adapter pushes
     nothing, so each residual is finished client-side, and the plan records the split. Run headless on every build.</p>
-    <pre data-run="js" data-expect="2 | 1 | 2" data-covers="export:createDataRouter"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="2 | 1 | 2" data-covers="export:createDataRouter method:data-router.query method:data-router.lastQueryPlan"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'amt', field: 'amt', type: 'number' }];
@@ -820,7 +828,7 @@ big.destroy(); small.destroy(); router.destroy();
     <h3 id="datarouter-v9-example">Fan-in from two feeds, executed</h3>
     <p class="section-note">Two feeds with a colliding raw id, namespaced per source so they merge without clobbering;
     removing one feed drops exactly its rows. Run headless on every build.</p>
-    <pre data-run="js" data-expect="3 | crm,erp | 2 | 2" data-covers="export:createDataRouter config:id config:key config:load config:size config:remove"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="3 | crm,erp | 2 | 2" data-covers="export:createDataRouter config:id config:key config:load config:size config:remove method:data-router.addSource method:data-router.sources"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'n', field: 'n', type: 'number' }];
@@ -875,7 +883,7 @@ g.destroy(); router.destroy();
     <h3 id="datarouter-v10-example">A metrics snapshot, executed</h3>
     <p class="section-note">A snapshot fanned to a route and a sink; the metrics read reports the route's row count and the
     unrouted total, and <code>on('metrics')</code> returns an unsubscribe. Run headless on every build.</p>
-    <pre data-run="js" data-expect="2 | 1 | function" data-covers="export:createDataRouter config:metricsInterval"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="2 | 1 | function" data-covers="export:createDataRouter config:metricsInterval method:data-router.metrics method:data-router.on"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }];
@@ -918,7 +926,7 @@ g1.destroy(); g2.destroy(); router.destroy();
 <span class="kw">return</span> out.join(' | ');</code></pre>
     <h3 id="datarouter-coalesce-example">Coalesce a burst into one repaint, executed</h3>
     <p class="section-note">A high-frequency feed goes through <code>push</code>; with <code>coalesce</code> (or a <code>batch</code> interval) rapid updates to one key fold into a single <code>apply</code>, and <code>flushStream</code> gives a deterministic point. Run headless on every build.</p>
-    <pre data-run="js" data-expect="0 | 1 | 3" data-covers="export:createDataRouter config:push config:coalesce config:batch"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="0 | 1 | 3" data-covers="export:createDataRouter config:push config:coalesce config:batch method:data-router.push method:data-router.flushStream"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="cmt">// A hand-rolled viewer, grid-shaped: the router accepts anything with rows.apply.</span>
@@ -955,7 +963,7 @@ g.destroy(); router.destroy();
 <span class="kw">return</span> out.join(' | ');</code></pre>
     <h3 id="datarouter-configure-example">The routing graph as one declarative spec, executed</h3>
     <p class="section-note">The same routes and links the imperative calls would make, as data: <code>routes</code> attach a grid <code>when</code> a value matches, <code>links</code> filter one grid by another&rsquo;s selection. Run headless on every build.</p>
-    <pre data-run="js" data-expect="2 | 1" data-covers="export:createDataRouter config:routes config:links"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="2 | 1" data-covers="export:createDataRouter config:routes config:links method:data-router.configure method:data-router.flush"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }, { id: 'region', field: 'region' }];
@@ -979,7 +987,7 @@ customers.destroy(); orders.destroy(); router.destroy();
 <span class="kw">return</span> [all, linked].join(' | ');</code></pre>
     <h3 id="datarouter-persist-example">Durable resume through a store of your own, executed</h3>
     <p class="section-note">The router snapshots to IndexedDB by default &mdash; <code>dbName</code> and <code>storeName</code> say where, and <code>indexedDB</code> lets you hand it a factory (here a tiny fake, so the example is deterministic) &mdash; or to any <code>storage</code> with async <code>get</code>/<code>set</code>. A second router over the same store <code>restore</code>s what the first one wrote. Run headless on every build.</p>
-    <pre data-run="js" data-expect="demo | router | true | 2 | true | 1" data-covers="export:createDataRouter config:storage config:indexedDB config:dbName config:storeName"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="demo | router | true | 2 | true | 1" data-covers="export:createDataRouter config:storage config:indexedDB config:dbName config:storeName method:data-router.persist method:data-router.restore method:data-router.flushPersist"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="cmt">// A fake IDBFactory: one database, one object store, put/get in a transaction.</span>
@@ -1037,7 +1045,7 @@ ga.destroy(); gb.destroy(); a.destroy(); b.destroy(); c.destroy();
 <span class="kw">return</span> out.join(' | ');</code></pre>
     <h3 id="datarouter-backpressure-example">Throttle one viewer under load, executed</h3>
     <p class="section-note">A <code>backpressure</code> policy on one route caps how often <em>that</em> viewer is refreshed without slowing the store or any sibling; a burst inside the window is held to one leading refresh, and <code>flushBackpressure</code> lands the coalesced latest state. Run headless on every build.</p>
-    <pre data-run="js" data-expect="1 | 2 | 9 | 3" data-covers="export:createDataRouter config:backpressure"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="1 | 2 | 9 | 3" data-covers="export:createDataRouter config:backpressure method:data-router.subscribe method:data-router.flushBackpressure"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
 
 <span class="kw">let</span> clock = 0;
@@ -1078,6 +1086,164 @@ router.live();
 <span class="kw">const</span> now = g.rows.count();                // 3
 g.destroy(); router.destroy();
 <span class="kw">return</span> [then, now].join(' | ');</code></pre>
+
+    <h3 id="datarouter-alert-example">Fire once on a rising edge, and re-arm, executed</h3>
+    <p class="section-note">An alert watches a partition slice and EMITS rather than renders: <code>condition(rows)</code> is evaluated on every load and delta, the handler fires once when it first becomes truthy, staying quiet while it holds and re-arming when it clears. Run headless on every build.</p>
+    <pre data-run="js" data-expect="1 | 1 | 2" data-covers="export:createDataRouter method:data-router.alert"><code><span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> fired = [];
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id' });
+router.alert('order',
+  (rows) =&gt; rows.find((r) =&gt; r.amt &gt; 100) || <span class="kw">false</span>,   <span class="cmt">// condition(rows): the signal, or falsy</span>
+  () =&gt; { fired.push(1); });                            <span class="cmt">// handler(signal, rows): fires on the rising edge</span>
+
+router.load([{ id: 'o1', type: 'order', amt: 10 }]);
+router.apply([{ op: 'upsert', row: { id: 'o1', type: 'order', amt: 150 } }]); <span class="cmt">// crosses</span>
+<span class="kw">const</span> crossed = fired.length;                        <span class="cmt">// 1</span>
+router.apply([{ op: 'upsert', row: { id: 'o1', type: 'order', amt: 200 } }]); <span class="cmt">// stays above: no refire</span>
+<span class="kw">const</span> stillOne = fired.length;                       <span class="cmt">// 1</span>
+router.apply([{ op: 'upsert', row: { id: 'o1', type: 'order', amt: 10 } }]);  <span class="cmt">// falls below: re-arms</span>
+router.apply([{ op: 'upsert', row: { id: 'o1', type: 'order', amt: 150 } }]); <span class="cmt">// crosses again</span>
+<span class="kw">const</span> refired = fired.length;                       <span class="cmt">// 2</span>
+
+router.destroy();
+<span class="kw">return</span> [crossed, stillOne, refired].join(' | ');</code></pre>
+
+    <h3 id="datarouter-monitor-example">Watch a slice and report every measurement, executed</h3>
+    <p class="section-note"><code>monitor</code> (v14, BACKLOG-0001434) is a levelled sibling of <code>alert</code>: <code>evaluate(rows)</code> runs and reports on <strong>every</strong> load and delta, not only on a rising edge, which is the feed the alarms module runs its level ladder on. It returns a stop function rather than the router. Run headless on every build.</p>
+    <pre data-run="js" data-expect="0 | 10 | 30 | 35" data-covers="export:createDataRouter method:data-router.monitor"><code><span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> readings = [];
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id' });
+<span class="kw">const</span> stop = router.monitor('order',
+  (rows) =&gt; rows.reduce((sum, r) =&gt; sum + r.amt, 0),    <span class="cmt">// evaluate(rows): what to report</span>
+  (value) =&gt; readings.push(value));                      <span class="cmt">// handler(value, rows): every evaluation</span>
+
+<span class="cmt">// Seeded immediately (0, over an empty world), then re-evaluated on load and each delta.</span>
+router.load([{ id: 'o1', type: 'order', amt: 10 }]);
+router.apply([{ op: 'upsert', row: { id: 'o2', type: 'order', amt: 20 } }]);
+router.apply([{ op: 'upsert', row: { id: 'o1', type: 'order', amt: 15 } }]);
+stop();                                                   <span class="cmt">// release the monitor and its partition</span>
+router.apply([{ op: 'upsert', row: { id: 'o3', type: 'order', amt: 999 } }]); <span class="cmt">// no further reading</span>
+
+router.destroy();
+<span class="kw">return</span> readings.join(' | ');</code></pre>
+
+    <h3 id="datarouter-detach-example">Detach a grid; the host still owns it, executed</h3>
+    <p class="section-note"><code>detach(grid)</code> stops routing to a grid and forgets its slice, but never touches the grid itself — the host still owns and destroys it. Run headless on every build.</p>
+    <pre data-run="js" data-expect="1 | 1 | true" data-covers="export:createDataRouter method:data-router.detach"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }];
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id' });
+router.attach(g, 'order');
+router.load([{ id: 'o1', type: 'order' }]);
+<span class="kw">const</span> before = g.rows.count();          <span class="cmt">// 1</span>
+router.detach(g);                       <span class="cmt">// stop routing to g; the router forgets its slice</span>
+router.apply([{ op: 'upsert', row: { id: 'o2', type: 'order' } }]);
+<span class="kw">const</span> after = g.rows.count();           <span class="cmt">// still 1: the delta never reached the detached grid</span>
+<span class="kw">const</span> stillUsable = <span class="kw">typeof</span> g.rows.count === 'function'; <span class="cmt">// detach never destroys the grid</span>
+
+g.destroy(); router.destroy();
+<span class="kw">return</span> [before, after, stillUsable].join(' | ');</code></pre>
+
+    <h3 id="datarouter-removesource-example">Drop a fan-in source by id directly, executed</h3>
+    <p class="section-note"><code>removeSource(ref)</code> takes either a source id or the handle <code>addSource</code> returned; this executed example drops one by its id directly, the way a host that only kept the id (not the handle) would. Run headless on every build.</p>
+    <pre data-run="js" data-expect="2 | 1" data-covers="export:createDataRouter method:data-router.removeSource"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }];
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id' });
+router.attach(g, 'order');
+router.addSource('crm', { key: <span class="kw">true</span> }).load([{ id: '1', type: 'order' }]);
+router.addSource('erp', { key: <span class="kw">true</span> }).load([{ id: '1', type: 'order' }]); <span class="cmt">// colliding raw id, namespaced</span>
+<span class="kw">const</span> merged = g.rows.count();          <span class="cmt">// 2: both feeds' rows, kept apart by source id</span>
+router.removeSource('erp');             <span class="cmt">// drop a feed by id, without going through its handle</span>
+<span class="kw">const</span> after = g.rows.count();           <span class="cmt">// 1</span>
+
+g.destroy(); router.destroy();
+<span class="kw">return</span> [merged, after].join(' | ');</code></pre>
+
+    <h3 id="datarouter-checkpoint-example">Persist and prime the resume checkpoint, executed</h3>
+    <p class="section-note"><code>checkpoint()</code> is a copy of the per-record resume point a host can persist; <code>seenThrough(mark)</code> primes a fresh router from it, so a delta at or below what was already seen is dropped by the ordinary <code>seq</code> gate rather than reapplied. Run headless on every build.</p>
+    <pre data-run="js" data-expect="3 | dropped | 9" data-covers="export:createDataRouter method:data-router.checkpoint method:data-router.seenThrough"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'n', field: 'n', type: 'number' }];
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ rowKey: 'id', seq: 'v', dedupe: <span class="kw">true</span> });
+router.attach(g, () =&gt; <span class="kw">true</span>);
+router.apply([{ op: 'upsert', row: { id: 'a', n: 1, v: 3 } }]);
+
+<span class="kw">const</span> mark = router.checkpoint();       <span class="cmt">// per-record resume point: Map&lt;rowKey, seq&gt;</span>
+<span class="kw">const</span> persisted = mark.get('a');        <span class="cmt">// 3 -- what a host writes to storage before a reload</span>
+
+<span class="cmt">// "After the reload": a fresh router primed from the persisted checkpoint.</span>
+<span class="kw">const</span> g2 = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router2 = createDataRouter({ rowKey: 'id', seq: 'v', dedupe: <span class="kw">true</span> });
+router2.attach(g2, () =&gt; <span class="kw">true</span>);
+router2.seenThrough(mark);              <span class="cmt">// primes the checkpoint, so an early replay is dropped</span>
+router2.apply([{ op: 'upsert', row: { id: 'a', n: 1, v: 2 } }]);   <span class="cmt">// replayed, below the checkpoint</span>
+<span class="kw">const</span> belowDropped = g2.rows.count() === 0 ? 'dropped' : 'leaked';
+router2.apply([{ op: 'upsert', row: { id: 'a', n: 9, v: 4 } }]);   <span class="cmt">// genuinely new</span>
+<span class="kw">const</span> above = g2.rows.value('a', 'n');
+
+g.destroy(); router.destroy(); g2.destroy(); router2.destroy();
+<span class="kw">return</span> [persisted, belowDropped, above].join(' | ');</code></pre>
+
+    <h3 id="datarouter-replay-pause-example">Walk an incident with pause and resume, executed</h3>
+    <p class="section-note"><code>pause()</code> freezes an in-flight <code>replay</code> at its current step; <code>resume()</code> continues it from exactly there. Run headless on every build.</p>
+    <pre data-run="js" data-expect="1 | 1 | 4" data-covers="export:createDataRouter method:data-router.replay method:data-router.pause method:data-router.resume"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'n', field: 'n', type: 'number' }];
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ rowKey: 'id', seq: 'v' });
+router.attach(g, () =&gt; <span class="kw">true</span>);
+router.buffer({ max: 100 });
+router.load([{ id: 'a', n: 0, v: 0 }]);
+<span class="kw">for</span> (<span class="kw">let</span> i = 1; i &lt;= 4; i++) router.apply([{ op: 'upsert', row: { id: 'a', n: i, v: i } }]);
+
+<span class="kw">const</span> p = router.replay(1, 4, { speed: 5 });   <span class="cmt">// walk v1..v4, one step every 5ms</span>
+router.pause();                                 <span class="cmt">// synchronously, before the first step timer fires</span>
+<span class="kw">const</span> paused = g.rows.value('a', 'n');          <span class="cmt">// 1: parked at the range start</span>
+<span class="kw">await</span> <span class="kw">new</span> Promise((r) =&gt; setTimeout(r, 20));
+<span class="kw">const</span> stillPaused = g.rows.value('a', 'n');     <span class="cmt">// 1: still frozen while paused</span>
+
+router.resume();                                <span class="cmt">// continue from where it stopped</span>
+<span class="kw">await</span> p;
+<span class="kw">const</span> done = g.rows.value('a', 'n');            <span class="cmt">// 4: resume ran the rest of the range</span>
+
+g.destroy(); router.destroy();
+<span class="kw">return</span> [paused, stillPaused, done].join(' | ');</code></pre>
+
+    <h3 id="datarouter-devtools-example">Mount the live devtools panel, executed</h3>
+    <p class="section-note"><code>mountDevtools(el)</code> is opt-in and DOM-touching (kept out of the DOM-free <code>index.js</code>, in the module's own <code>devtools.js</code>); it renders <code>metrics()</code> into <code>el</code>, and the controller's <code>refresh()</code>/<code>destroy()</code> are deterministic for a test. Reaches for the same in-tree DOM test double the suite runs headlessly against. Run headless on every build.</p>
+    <pre data-run="js" data-expect="1 | 1 | 0" data-covers="export:createDataRouter method:data-router.mountDevtools"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { document } = createTestDom();
+<span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }, { id: 'type', field: 'type' }] });
+<span class="kw">const</span> router = createDataRouter({ key: 'type', rowKey: 'id', metricsInterval: 0 });
+router.attach(g, 'order');
+router.load([{ id: 'o1', type: 'order' }]);
+
+<span class="kw">const</span> el = document.createElement('div');
+<span class="kw">const</span> panel = router.mountDevtools(el);        <span class="cmt">// renders metrics() into el; off unless called</span>
+<span class="kw">const</span> mountedRows = el.children.length;        <span class="cmt">// 1: the panel root</span>
+
+router.load([{ id: 'o1', type: 'order' }, { id: 'o2', type: 'order' }]);
+panel.refresh();                                <span class="cmt">// force an immediate re-render, deterministic for tests</span>
+<span class="kw">const</span> stillMounted = el.children.length;        <span class="cmt">// still 1: refresh replaces the panel's own content</span>
+
+panel.destroy();                                <span class="cmt">// unsubscribes and removes the panel from the DOM</span>
+<span class="kw">const</span> afterDestroy = el.children.length;        <span class="cmt">// 0</span>
+
+g.destroy(); router.destroy();
+<span class="kw">return</span> [mountedRows, stillMounted, afterDestroy].join(' | ');</code></pre>
     <h2 id="ref-data-router-reference">Type reference</h2>
     <p class="section-note">Generated from the type declarations, so it always matches the release. Each surface lists its properties, its methods and the events it raises as three tables; an option or value type lists its members once.</p>
     <h3 id="ref-module-data-router">The data router</h3>

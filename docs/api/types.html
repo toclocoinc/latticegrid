@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.72.0</title>
+<title>Types API Reference — Lattice Grid 1.73.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -397,6 +397,7 @@
         <a href="data-router.html">The data router</a>
         <a href="kpi.html">The KPI (stat-tile) view</a>
         <a href="alarms.html">The alarms module</a>
+        <a href="geometry.html">The geometry module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="tabs.html">The tabbed grid</a>
@@ -421,7 +422,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 14 pages</a></span>
+      <span class="chip"><a href="index.html">All 15 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -921,6 +922,22 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-ChartProvenance">ChartProvenance</h4>
+    <p class="section-note">What {@link Chart.provenance} reports (GEO-5).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">source</td><td class="type">'engine' | 'client'</td><td class="desc">`'engine'` when every measure was reduced by the source's engine; `'client'` otherwise.</td></tr>
+          <tr><td class="name">asked</td><td class="type">'auto' | 'engine' | 'client'</td><td class="desc">The mode the spec asked for, after an unknown value fell back to `'auto'`.</td></tr>
+          <tr><td class="name">reason</td><td class="type">string | null</td><td class="desc">Why the chart reads the loaded rows; `null` for an engine chart.</td></tr>
+          <tr><td class="name">refused</td><td class="type">boolean</td><td class="desc">True when `aggregate: 'engine'` was asked and the source could not serve it.</td></tr>
+          <tr><td class="name">pending</td><td class="type">boolean</td><td class="desc">True while an engine request is in flight; the last drawing stays up until it lands.</td></tr>
+          <tr><td class="name">viewport</td><td class="type"><a href="#type-ChartViewportProvenance">ChartViewportProvenance</a></td><td class="desc">A map's view (GEO-6; see {@link ChartSpec.viewportCap}): present when the engine sent the rows for the view, or when the cap changed what is drawn. <small>(optional)</small></td></tr>
+          <tr><td class="name">measures</td><td class="type">Array&lt;{ col: string | null; fn: string; computed: 'engine' | 'client'; /** The pushdown map's class for an engine measure: `identical` or `may-differ`. */ class?: string; /** Why, for a client measure. */ reason?: string; }&gt;</td><td class="desc">Each measure's column, reduction and where it was computed.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ChartState">ChartState</h4>
     <p class="section-note">What a chart's own view state holds: the drawings on it, and the zoom.</p>
     <div class="table-wrap">
@@ -948,6 +965,34 @@
           <tr><td class="name">band</td><td class="type">boolean | 'prediction' | 'confidence'</td><td class="desc">The uncertainty band shaded around a linear `forecast` (BACKLOG-0000975). The Student-t `prediction` band (a future observation) by default; `confidence` shades the narrower mean-response band; `false` opts out and leaves the bare dashed line. Ignored where there is no linear forecast to put a band on. <small>(optional)</small></td></tr>
           <tr><td class="name">confidence</td><td class="type">number</td><td class="desc">The forecast band's confidence level in `(0, 1)`; 0.95 by default. <small>(optional)</small></td></tr>
           <tr><td class="name">label</td><td class="type">boolean</td><td class="desc">`false` suppresses the R² label on a linear trend. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartViewportFilterOptions">ChartViewportFilterOptions</h4>
+    <p class="section-note">Narrows {@link ChartSpec.viewportFilter} (BACKLOG-0000004, GEO-4).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">Write the condition to a different geometry column than the one this chart places its own rows from — always a `withinBbox` on that column, whatever the map itself is placed by. Defaults to `geometry`, or has no effect naming a column when the map places rows by `lon`/`lat` (the pair is always written to those two columns). <small>(optional)</small></td></tr>
+          <tr><td class="name">debounce</td><td class="type">number</td><td class="desc">Milliseconds to wait after a pan or zoom settles before writing; the default is 150. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartViewportProvenance">ChartViewportProvenance</h4>
+    <p class="section-note">What a map's {@link ChartProvenance.viewport} reports (GEO-6).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">rows</td><td class="type">number</td><td class="desc">The rows drawn as points for the view; 0 when binned or refused.</td></tr>
+          <tr><td class="name">matched</td><td class="type">number</td><td class="desc">How many rows fell inside the view.</td></tr>
+          <tr><td class="name">cap</td><td class="type">number</td><td class="desc">The cap in force ({@link ChartSpec.viewportCap}).</td></tr>
+          <tr><td class="name">binned</td><td class="type">boolean</td><td class="desc">True when the view was drawn as density cells.</td></tr>
+          <tr><td class="name">cells</td><td class="type">number</td><td class="desc">How many density cells were drawn; 0 when not binned.</td></tr>
+          <tr><td class="name">over</td><td class="type">string | null</td><td class="desc">Why nothing was drawn, when the view was over the cap with no density form; else null.</td></tr>
+          <tr><td class="name">bbox</td><td class="type">[number, number, number, number] | null</td><td class="desc">The box asked for, `[west, south, east, north]`; null at the initial view.</td></tr>
+          <tr><td class="name">computed</td><td class="type">'engine' | 'client'</td><td class="desc">Who counted or fetched the view's rows: the source's engine, or the browser.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1177,6 +1222,19 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-DetailForwardedEvent">DetailForwardedEvent</h4>
+    <p class="section-note">The fields every `detail:` re-emission adds on top of the nested grid's own event payload (§13): which master row raised it, and where the change lands on that row's own record.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">masterKey</td><td class="type">string</td><td class="desc">The key of the master row whose detail region raised this.</td></tr>
+          <tr><td class="name">masterRow</td><td class="type"><a href="grid.html#type-Row">Row</a></td><td class="desc">The master row itself.</td></tr>
+          <tr><td class="name">detailGrid</td><td class="type"><a href="grid.html#type-Grid">Grid</a></td><td class="desc">The nested grid instance the event came from.</td></tr>
+          <tr><td class="name">path</td><td class="type">string | null</td><td class="desc">The dot path from the master's record to the value that changed (for example `ports.1.vlan`), or null when the detail rows are not part of the master's own record.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-DiagnosticWarning">DiagnosticWarning</h4>
     <p class="section-note">One thing the grid has flagged as probably a mistake.</p>
     <div class="table-wrap">
@@ -1190,6 +1248,17 @@
           <tr><td class="name">first</td><td class="type">number</td><td class="desc">When it was first raised, as epoch milliseconds.</td></tr>
           <tr><td class="name">last</td><td class="type">number</td><td class="desc">When it was last raised, as epoch milliseconds — which, with `count`, says whether it is still happening.</td></tr>
           <tr><td class="name">source</td><td class="type"><a href="#type-DiagnosticSource">DiagnosticSource</a> <small class="literals">'check' | 'reported' | 'info'</small></td><td class="desc">`'check'` raised by a diagnostic check, `'reported'` from `warnOnce`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DuckDbSpatialOptions">DuckDbSpatialOptions</h4>
+    <p class="section-note">The `spatial` option of `duckdbAdapter` in its object form (GEO-2). `spatial: true` is the same with neither member set.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">A geometry column the schema and the file's metadata do not name — WKB in a `BLOB`, or a `GEOMETRY` column of a table or view. Must be a plain identifier. <small>(optional)</small></td></tr>
+          <tr><td class="name">crs</td><td class="type">string | number</td><td class="desc">The coordinate reference system the stored coordinates are in, when it is not longitude/latitude: `'EPSG:27700'`, or a bare EPSG code such as `27700`. Wins over a GeoParquet file's own declaration. Anything that is not `AUTHORITY:CODE` is refused when the adapter is built. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -1356,6 +1425,18 @@
           <tr><td class="name">r2</td><td class="type">number</td><td class="desc">The fit's coefficient of determination — `linear` only. <small>(optional)</small></td></tr>
           <tr><td class="name">params</td><td class="type">{ slope?: number; intercept?: number; alpha?: number; beta?: number; gamma?: number; period?: number; windowLen?: number; }</td><td class="desc">The model parameters: `slope`/`intercept` (linear), `alpha`/`beta`/`gamma`/`period`, or `windowLen`.</td></tr>
           <tr><td class="name">points</td><td class="type"><a href="#type-ForecastPoint">ForecastPoint</a>[]</td><td class="desc">The forecast, one entry per step.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-GeoJsonGeometry">GeoJsonGeometry</h4>
+    <p class="section-note">A geometry as a `geometry` column stores it: a GeoJSON geometry object with two-ordinate positions, longitude first. Z and M are dropped on ingest.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type"><a href="#type-GeometryKind">GeometryKind</a> <small class="literals">'Point' | 'LineString' | 'Polygon' | 'MultiPoint' | 'MultiLineString' | 'MultiPolygon' | 'GeometryCollection'</small></td><td class="desc">The geometry kind.</td></tr>
+          <tr><td class="name">coordinates</td><td class="type">unknown</td><td class="desc">The positions, nested by kind: `[lon, lat]` for a `Point`, a list of them for a `LineString`, a list of rings for a `Polygon` (outer ring first, then holes), and one level deeper again for each `Multi*` kind. Absent on a `GeometryCollection`. <small>(optional)</small></td></tr>
+          <tr><td class="name">geometries</td><td class="type"><a href="#type-GeoJsonGeometry">GeoJsonGeometry</a>[]</td><td class="desc">The member geometries of a `GeometryCollection`. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -1717,6 +1798,7 @@
       <table>
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
+          <tr><td class="name">ready</td><td class="type">(): Promise&lt;void&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Promise&lt;void&gt;</code></td><td class="desc">First-use preparation, for an adapter whose capabilities depend on something it can only learn from the engine (GEO-2: `duckdbAdapter({ spatial })` declares the spatial operators only if the extension loads). `createPushdownSource` awaits it once, before its first plan or aggregate, and reads `capabilities` again when it settles. A load that fails should narrow the capabilities and resolve, not reject; a rejection fails that request and is asked again on the next. <small>(optional)</small></td></tr>
           <tr><td class="name">execute</td><td class="type">(query: <a href="grid.html#type-RemoteRequest">RemoteRequest</a>, request?: <a href="grid.html#type-RemoteRequest">RemoteRequest</a>): Promise&lt;{ rows: unknown[]; total?: number; pendingTotal?: Promise&lt;number | null&gt; }&gt;</td><td class="desc"><code>query: <a href="grid.html#type-RemoteRequest">RemoteRequest</a></code><br><code>request?: <a href="grid.html#type-RemoteRequest">RemoteRequest</a></code></td><td class="type"><code>Promise&lt;{ rows: unknown[]; total?: number; pendingTotal?: Promise&lt;number | null&gt; }&gt;</code></td><td class="desc">Run the part of the query the adapter declared it could handle. An adapter whose count is expensive may answer with `pendingTotal` instead of `total` (BACKLOG-0001078): the rows are delivered now and the promise resolves with the same exact number when the count finishes. The source publishes it then and fires `source:total`; until it does the grid reports no total and `grid.rows.totalPending()` is `true`. It is opt-in per adapter — one that returns `total` behaves exactly as it always has — and `pendingTotal` is ignored when `total` is present, because a total that is already here has nothing to wait for. The promise must resolve with the exact count or `null`; it must never resolve with an estimate.</td></tr>
           <tr><td class="name">executeGroupLevel</td><td class="type">( query: <a href="grid.html#type-RemoteRequest">RemoteRequest</a>, aggregates: Array&lt;{ id: string; col: string; fn: string; weight?: string }&gt;, request?: <a href="grid.html#type-RemoteRequest">RemoteRequest</a>, ): Promise&lt;{ rows: unknown[]; total?: number; leaves?: boolean; matchCount?: number; grand?: Record&lt;string, unknown&gt;; }&gt;</td><td class="desc"><code>query: <a href="grid.html#type-RemoteRequest">RemoteRequest</a></code><br><code>aggregates: Array&lt;{ id: string; col: string; fn: string; weight?: string }&gt;</code><br><code>request?: <a href="grid.html#type-RemoteRequest">RemoteRequest</a></code></td><td class="type"><code>Promise&lt;{ rows: unknown[]; total?: number; leaves?: boolean; matchCount?: number; grand?: Record&lt;string, unknown&gt;; }&gt;</code></td><td class="desc">Answer one level of a grouped grid (BACKLOG-0001325). Present only when `capabilities.group` opts in. The level is `query.groupValues.length`: the root asks for the outermost grouping column's distinct values, expanding a group asks for the next column's values within it, and past the last grouping column the children are the leaves (`leaves: true`). A group row comes back in the shape the remote source already reads from a grouping server: the grouping column's own id carries the key, `leafCount` the group's row count, `totals` the subtotals keyed by column id. `total` is how many group rows the level holds. At the root, `matchCount` and `grand` carry the whole-set figures a grouped window cannot derive — the rows the filter matched, and the grand total over them. `aggregates` is the subtotal list the source routed to the engine; anything it could not route is named in `PushdownPlan.aggregates.client` and left absent from the group row rather than computed over the wrong set. <small>(optional)</small></td></tr>
           <tr><td class="name">unfilteredCount</td><td class="type">(): Promise&lt;number | null&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Promise&lt;number | null&gt;</code></td><td class="desc">The row count before any filter (BACKLOG-0001325) — the denominator of "1,204 of 100,000" under grouping, where the display count is group headers rather than rows. Optional; a source falls back to the display count. <small>(optional)</small></td></tr>
@@ -1748,6 +1830,7 @@
           <tr><td class="name">range</td><td class="type">boolean</td><td class="desc">Whether the engine can return a window rather than the whole result. <small>(optional)</small></td></tr>
           <tr><td class="name">total</td><td class="type">boolean</td><td class="desc">Whether it can report the count of matching rows. <small>(optional)</small></td></tr>
           <tr><td class="name">group</td><td class="type">boolean</td><td class="desc">Whether it can answer the grid's grouped view — group rows, their counts, their subtotals and their order — one level at a time, instead of returning the leaves for the grid to group in the browser (BACKLOG-0001325). All or nothing, unlike `filter`. A filter splits because the engine narrowing a superset and the grid narrowing what is left reach the same set; a grouping cannot, because group rows counted over the wrong set are wrong rows, not slow ones. So the push router refuses the whole grouped level — and says why in `PushdownPlan.groupReason` — whenever anything else in the query failed to push. An adapter declaring this must implement `executeGroupLevel`; one that declares it without the method is re-planned without grouping and warned about, rather than half-pushed. <small>(optional)</small></td></tr>
+          <tr><td class="name">buckets</td><td class="type">string[]</td><td class="desc">The spatial bucket kinds `source.aggregate()` may push as a `groupBy` key (GEO-2): `['grid']` for a {@link SpatialBucket}. Absent or empty, a bucket key sends every aggregate to the client, named in its `reason`. <small>(optional)</small></td></tr>
           <tr><td class="name">mutate</td><td class="type">false | <a href="#type-MutateCapability">MutateCapability</a></td><td class="desc">What the adapter can persist back — the write-back contract (§4.1). `false` (the default) is read-only by declaration. A declared block opts kinds in; `capabilitiesOf` resolves it to a full `MutateCapability` (or `false`). <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -1922,6 +2005,30 @@
           <tr><td class="name">apply</td><td class="type">(change: <a href="#type-RowChange">RowChange</a>): <a href="#type-ChangeResult">ChangeResult</a></td><td class="desc"><code>change: <a href="#type-RowChange">RowChange</a></code></td><td class="type"><code><a href="#type-ChangeResult">ChangeResult</a></code></td><td class="desc">Apply an incremental change to the rows the source holds, returning what it added, updated and removed.</td></tr>
           <tr><td class="name">reload</td><td class="type">(opts?: ReloadOptions): void</td><td class="desc"><code>opts?: ReloadOptions</code></td><td class="type"><code>void</code></td><td class="desc">Throw away what is cached and fetch again. What a host calls when the data changed behind the grid's back.</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Release whatever the source holds — sockets, timers, in-flight requests — when the grid is torn down. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-SpatialBucket">SpatialBucket</h4>
+    <p class="section-note">A spatial grouping key for `source.aggregate()` (GEO-2): a geometry column's centroid binned into square cells `size` degrees on a side. Pushed by an adapter that declares `buckets: ['grid']` (`duckdbAdapter({ spatial })` with the extension loaded) as `floor(ST_X(ST_Centroid(geom)) / size)` and the same for `ST_Y`; each group's key comes back as `[x, y]`, the cell covering longitudes `[x·size, (x+1)·size)` and latitudes `[y·size, (y+1)·size)`, or `null` on a rolled-up row.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">col</td><td class="type"><a href="#type-ColumnRef">ColumnRef</a></td><td class="desc">The geometry column.</td></tr>
+          <tr><td class="name">bucket</td><td class="type">'grid'</td><td class="desc">The bucket kind; `grid` is the one there is.</td></tr>
+          <tr><td class="name">size</td><td class="type">number</td><td class="desc">The cell size in degrees, above zero.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-SpatialDistance">SpatialDistance</h4>
+    <p class="section-note">A circle on the Earth's surface: the operand of `withinDistance`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">lon</td><td class="type">number</td><td class="desc">The centre's longitude, in degrees.</td></tr>
+          <tr><td class="name">lat</td><td class="type">number</td><td class="desc">The centre's latitude, in degrees.</td></tr>
+          <tr><td class="name">metres</td><td class="type">number</td><td class="desc">The radius, in metres.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2372,7 +2479,7 @@
     <p class="type-def"><code>type EventHandler = (e: <a href="grid.html#type-GridEvent">GridEvent</a>) =&gt; void</code></p>
     <h4 id="type-EventName">EventName</h4>
     <p class="section-note">Every event the grid emits. Complete, and checked against the runtime by `tools/check.js`, an `emit()` call with no entry here fails the build. It was not complete before: fifty-one events were emitted and undeclared, so subscribing to any of them from TypeScript was a compile error on an event the grid genuinely raises. Grouped by the subsystem that raises them, which is also how the reference lists them.</p>
-    <p class="type-def"><code>type EventName = 'ready' | 'destroy' | 'render:first' | 'render:done' | 'config:changed' | 'licence:changed' | 'model:changed' | 'rows:changed' | 'rows:queued' | 'rows:deferred' | 'rows:paused' | 'rows:resumed' | 'row:received' | 'row:sent' | 'row:copied' | 'row:moved' | 'source:error' | 'source:total' | 'stream:chunk' | 'stream:end' | 'stream:evicted' | 'rowDrag:started' | 'rowDrag:moved' | 'rowDrag:left' | 'rowDrag:ended' | 'cell:changed' | 'cell:pending' | 'cell:confirmed' | 'cell:reverted' | 'cell:conflict' | 'cell:clicked' | 'cell:dblclicked' | 'cell:contextmenu' | 'cell:mouseover' | 'cell:mouseout' | 'cell:mousedown' | 'cell:mouseup' | 'cell:edit:start' | 'cell:edit:end' | 'row:edit:start' | 'row:edit:end' | 'row:clicked' | 'row:dblclicked' | 'row:pending' | 'row:confirmed' | 'row:reverted' | 'row:conflict' | 'form:opened' | 'form:closed' | 'form:saved' | 'form:error' | 'sort:changed' | 'filter:changed' | 'group:toggled' | 'facet:computed' | 'facet:filtered' | 'facet:expanded' | 'facet:failed' | 'column:moved' | 'column:resized' | 'column:visible' | 'column:pinned' | 'column:grouped' | 'column:pivoted' | 'column:filter:open' | 'column:profile:open' | 'column:menu:open' | 'pivot:drill' | 'columns:changed' | 'columns:tagged' | 'columngroup:changed' | 'header:contextmenu' | 'selection:changed' | 'range:changed' | 'clipboard:copy' | 'page:changed' | 'scroll' | 'scroll:end' | 'size:changed' | 'detail:toggled' | 'toolpanel:focus' | 'highlight:changed' | 'find:changed' | 'tree:loading' | 'tree:loaded' | 'tree:loadFailed' | 'tree:loadAborted' | 'state:changed' | 'state:reset' | 'history:changed' | 'history:applied' | 'views:changed' | 'view:applied' | 'view:saved' | 'view:removed' | 'view:renamed' | 'view:default' | 'validation:failed' | 'validation:cleared' | 'formatting:changed' | 'redaction:changed' | 'permissions:changed' | 'presentation:changed' | 'presentation:started' | 'presentation:ended' | 'presentation:view' | 'presentation:scale' | 'presentation:spotlight' | 'presentation:captured' | 'comment:added' | 'comment:edited' | 'comment:deleted' | 'comment:failed' | 'comment:resolved' | 'comment:unresolved' | 'comment:threadOpened' | 'comment:threadClosed' | 'comment:indexLoaded' | 'presence:published' | 'presence:joined' | 'presence:updated' | 'presence:left' | 'presence:failed' | 'presence:lockRefused' | 'diff:changed' | 'diff:swapped' | 'timeline:attached' | 'timeline:detached' | 'timeline:seek' | 'timeline:seeking' | 'annotation:changed' | 'export:progress' | 'export:request' | 'export:done' | 'shortcuts:opened' | 'shortcuts:closed' | 'print:before' | 'print:after' | 'beforeEdit' | 'beforeSort' | 'beforeFilter' | 'beforeColumnMove' | 'beforeColumnResize' | 'beforeColumnHide' | 'beforeSelect' | 'beforeRowAdd' | 'beforeDelete' | 'beforeRowMove' | 'beforeGroup' | 'beforeRowReceive' | 'edit:cancelled' | 'sort:cancelled' | 'filter:cancelled' | 'columnMove:cancelled' | 'columnResize:cancelled' | 'columnHide:cancelled' | 'selection:cancelled' | 'rowAdd:cancelled' | 'delete:cancelled' | 'rowMove:cancelled' | 'group:cancelled' | 'rowReceive:cancelled' | '*'</code></p>
+    <p class="type-def"><code>type EventName = 'ready' | 'destroy' | 'render:first' | 'render:done' | 'config:changed' | 'licence:changed' | 'model:changed' | 'rows:changed' | 'rows:queued' | 'rows:deferred' | 'rows:paused' | 'rows:resumed' | 'row:received' | 'row:sent' | 'row:copied' | 'row:moved' | 'source:error' | 'source:total' | 'stream:chunk' | 'stream:end' | 'stream:evicted' | 'rowDrag:started' | 'rowDrag:moved' | 'rowDrag:left' | 'rowDrag:ended' | 'cell:changed' | 'cell:pending' | 'cell:confirmed' | 'cell:reverted' | 'cell:conflict' | 'cell:clicked' | 'cell:dblclicked' | 'cell:contextmenu' | 'cell:mouseover' | 'cell:mouseout' | 'cell:mousedown' | 'cell:mouseup' | 'cell:edit:start' | 'cell:edit:end' | 'row:edit:start' | 'row:edit:end' | 'row:clicked' | 'row:dblclicked' | 'row:pending' | 'row:confirmed' | 'row:reverted' | 'row:conflict' | 'form:opened' | 'form:closed' | 'form:saved' | 'form:error' | 'sort:changed' | 'filter:changed' | 'group:toggled' | 'facet:computed' | 'facet:filtered' | 'facet:expanded' | 'facet:failed' | 'column:moved' | 'column:resized' | 'column:visible' | 'column:pinned' | 'column:grouped' | 'column:pivoted' | 'column:filter:open' | 'column:profile:open' | 'column:menu:open' | 'pivot:drill' | 'columns:changed' | 'columns:tagged' | 'columngroup:changed' | 'header:contextmenu' | 'selection:changed' | 'range:changed' | 'clipboard:copy' | 'page:changed' | 'scroll' | 'scroll:end' | 'size:changed' | 'detail:toggled' | 'detail:cell:edit:start' | 'detail:cell:edit:end' | 'detail:row:edit:start' | 'detail:row:edit:end' | 'detail:cell:changed' | 'toolpanel:focus' | 'highlight:changed' | 'find:changed' | 'tree:loading' | 'tree:loaded' | 'tree:loadFailed' | 'tree:loadAborted' | 'state:changed' | 'state:reset' | 'history:changed' | 'history:applied' | 'views:changed' | 'view:applied' | 'view:saved' | 'view:removed' | 'view:renamed' | 'view:default' | 'validation:failed' | 'validation:cleared' | 'formatting:changed' | 'redaction:changed' | 'permissions:changed' | 'presentation:changed' | 'presentation:started' | 'presentation:ended' | 'presentation:view' | 'presentation:scale' | 'presentation:spotlight' | 'presentation:captured' | 'comment:added' | 'comment:edited' | 'comment:deleted' | 'comment:failed' | 'comment:resolved' | 'comment:unresolved' | 'comment:threadOpened' | 'comment:threadClosed' | 'comment:indexLoaded' | 'presence:published' | 'presence:joined' | 'presence:updated' | 'presence:left' | 'presence:failed' | 'presence:lockRefused' | 'diff:changed' | 'diff:swapped' | 'timeline:attached' | 'timeline:detached' | 'timeline:seek' | 'timeline:seeking' | 'annotation:changed' | 'export:progress' | 'export:request' | 'export:done' | 'shortcuts:opened' | 'shortcuts:closed' | 'print:before' | 'print:after' | 'beforeEdit' | 'beforeSort' | 'beforeFilter' | 'beforeColumnMove' | 'beforeColumnResize' | 'beforeColumnHide' | 'beforeSelect' | 'beforeRowAdd' | 'beforeDelete' | 'beforeRowMove' | 'beforeGroup' | 'beforeRowReceive' | 'edit:cancelled' | 'sort:cancelled' | 'filter:cancelled' | 'columnMove:cancelled' | 'columnResize:cancelled' | 'columnHide:cancelled' | 'selection:cancelled' | 'rowAdd:cancelled' | 'delete:cancelled' | 'rowMove:cancelled' | 'group:cancelled' | 'rowReceive:cancelled' | '*'</code></p>
     <h4 id="type-EventOrigin">EventOrigin</h4>
     <p class="section-note">Who caused a grid change: `'user'` interaction, an `'api'` call, `'init'` (the grid's own startup), or an approved `'ai'` write (BACKLOG-0000967).</p>
     <p class="type-def"><code>type EventOrigin = 'api' | 'user' | 'init' | 'ai'</code></p>
@@ -2434,8 +2541,8 @@
     <p class="section-note">A forecasting kernel's method.</p>
     <p class="type-def"><code>type ForecastMethod = 'movingAverage' | 'ses' | 'holt' | 'holtWinters' | 'linear'</code></p>
     <h4 id="type-FormatSpec">FormatSpec</h4>
-    <p class="section-note">How a value is turned into the text you see. One of the four formatters, picked by the `type` on the spec; the rest of the object is that formatter's own options.</p>
-    <p class="type-def"><code>type FormatSpec = <a href="grid.html#type-NumberFormat">NumberFormat</a> | <a href="grid.html#type-DateFormat">DateFormat</a> | <a href="grid.html#type-BooleanFormat">BooleanFormat</a> | <a href="grid.html#type-TextFormat">TextFormat</a></code></p>
+    <p class="section-note">How a value is turned into the text you see. One of the four formatters, picked by the `type` on the spec; the rest of the object is that formatter's own options. A `geometry` column reads a {@link GeometryFormat} instead.</p>
+    <p class="type-def"><code>type FormatSpec = <a href="grid.html#type-NumberFormat">NumberFormat</a> | <a href="grid.html#type-DateFormat">DateFormat</a> | <a href="grid.html#type-BooleanFormat">BooleanFormat</a> | <a href="grid.html#type-TextFormat">TextFormat</a> | <a href="grid.html#type-GeometryFormat">GeometryFormat</a></code></p>
     <h4 id="type-FormattingScope">FormattingScope</h4>
     <p class="section-note">A column id, or `'*'` for every column.</p>
     <p class="type-def"><code>type FormattingScope = string</code></p>
@@ -2470,6 +2577,12 @@
     <p class="section-note">The Gantt timeline's zoom: a named level, or raw pixels-per-day.</p>
     <p class="type-def"><code>type GanttZoom = 'day' | 'week' | 'month' | 'quarter'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
+    <h4 id="type-GeometryFormatPattern">GeometryFormatPattern</h4>
+    <p class="section-note">What a `geometry` cell shows: `'summary'` (the default) is a line a person reads — `Point 51.5074°N 0.1278°W`, `Polygon, 14 vertices, 2.31 km²` — with numbers in the grid's locale; `'wkt'` is the Well-Known Text; `'geojson'` is the GeoJSON geometry as JSON text.</p>
+    <p class="type-def"><code>type GeometryFormatPattern = 'summary' | 'wkt' | 'geojson'</code></p>
+    <h4 id="type-GeometryKind">GeometryKind</h4>
+    <p class="section-note">The kind of a geometry: the GeoJSON geometry type name.</p>
+    <p class="type-def"><code>type GeometryKind = 'Point' | 'LineString' | 'Polygon' | 'MultiPoint' | 'MultiLineString' | 'MultiPolygon' | 'GeometryCollection'</code></p>
     <h4 id="type-GraphqlPagination">GraphqlPagination</h4>
     <p class="section-note">How a GraphQL adapter pages: an offset/limit list, or a Relay cursor connection.</p>
     <p class="type-def"><code>type GraphqlPagination = 'offset' | 'cursor'</code></p>
@@ -2678,7 +2791,7 @@
     <p class="type-def"><code>type NumberFormatStyle = 'decimal' | 'currency' | 'percent'</code></p>
     <h4 id="type-Operator">Operator</h4>
     <p class="section-note">The comparison a filter condition makes. Every operator has an exact negation — `eq`/`ne`, `contains`/`notContains`, `between`/`notBetween`, `in`/`notIn`, `blank`/`notBlank` — so a rule and its inverse are always both expressible. Which of them a column offers depends on its type, and a source that pushes filtering down to a query engine may accept a narrower set again.</p>
-    <p class="type-def"><code>type Operator = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'between' | 'notBetween' | 'in' | 'notIn' | 'contains' | 'notContains' | 'startsWith' | 'endsWith' | 'matches' | 'blank' | 'notBlank' | 'containsAny' | 'containsAll' | 'containsNone'</code></p>
+    <p class="type-def"><code>type Operator = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'between' | 'notBetween' | 'in' | 'notIn' | 'contains' | 'notContains' | 'startsWith' | 'endsWith' | 'matches' | 'blank' | 'notBlank' | 'containsAny' | 'containsAll' | 'containsNone' | <a href="#type-SpatialOperator">SpatialOperator</a></code></p>
     <h4 id="type-OutlierMethod">OutlierMethod</h4>
     <p class="section-note">Every anomaly-detection method the statistics surface offers, widest set: the robust modified z-score and Tukey's IQR fences (static or rolling), and multivariate Mahalanobis distance. A narrower site accepts a subset via `Extract&lt;OutlierMethod, …&gt;` rather than minting a fourth named alias.</p>
     <p class="type-def"><code>type OutlierMethod = 'modifiedZScore' | 'iqr' | 'mahalanobis' | 'rollingModifiedZScore' | 'rollingIqr'</code></p>
@@ -2845,6 +2958,12 @@
     <h4 id="type-SourceMode">SourceMode</h4>
     <p class="section-note">Which kind of data source a grid is bound to.</p>
     <p class="type-def"><code>type SourceMode = 'memory' | 'paged' | 'remote' | 'stream'</code></p>
+    <h4 id="type-SpatialBbox">SpatialBbox</h4>
+    <p class="section-note">A box in degrees, `[minLon, minLat, maxLon, maxLat]`: the operand of `withinBbox`.</p>
+    <p class="type-def"><code>type SpatialBbox = [number, number, number, number]</code></p>
+    <h4 id="type-SpatialOperator">SpatialOperator</h4>
+    <p class="section-note">The four operators of a `geometry` column (declared by the type the opt-in `modules/geometry` registers), evaluated in memory for any source that does not push them down. A `geometry` column accepts these and `blank`/`notBlank` only, and these are refused on any other column. - `withinBbox` — the whole geometry lies inside a {@link SpatialBbox}. - `withinPolygon` — a Point or MultiPoint lies inside a Polygon or MultiPolygon operand (holes excluded); any other geometry is tested by its centroid. - `intersects` — the two share a point: a bounding-box test, then an edge test with edges straight in longitude/latitude rather than great circles. The operand is a geometry or a {@link SpatialBbox}. - `withinDistance` — the centroid is within a {@link SpatialDistance}, by great-circle (haversine) distance. The antimeridian is not handled: a box whose west edge is east of its east edge is refused; split it into two conditions joined by `or`.</p>
+    <p class="type-def"><code>type SpatialOperator = 'withinBbox' | 'withinPolygon' | 'intersects' | 'withinDistance'</code></p>
     <h4 id="type-SpcStatistic">SpcStatistic</h4>
     <p class="section-note">Which statistic a confidence interval reads: a mean, or a proportion.</p>
     <p class="type-def"><code>type SpcStatistic = 'mean' | 'proportion'</code></p>

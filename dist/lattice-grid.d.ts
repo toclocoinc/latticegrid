@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.72.0, type declarations
+ * Lattice Grid 1.73.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -59,6 +59,10 @@ export type TypeName =
   // Currency, whose "factor" is a moving exchange rate, so it carries an amount
   // and a code rather than joining the fixed-factor unit factory.
   | 'currency' | 'usd' | 'eur' | 'gbp' | 'jpy'
+  // A point, line or shape held as a GeoJSON geometry, read from WKB, WKT or
+  // GeoJSON, with spatial filter operators and measures a map reads. Registered
+  // by the opt-in `modules/geometry`: without it the name warns and is text.
+  | 'geometry'
   | (string & {});
 
 /**
@@ -548,11 +552,28 @@ export interface TextFormat {
 }
 
 /**
+ * What a `geometry` cell shows: `'summary'` (the default) is a line a person
+ * reads — `Point 51.5074°N 0.1278°W`, `Polygon, 14 vertices, 2.31 km²` — with
+ * numbers in the grid's locale; `'wkt'` is the Well-Known Text; `'geojson'` is
+ * the GeoJSON geometry as JSON text.
+ */
+export type GeometryFormatPattern = 'summary' | 'wkt' | 'geojson';
+export interface GeometryFormat {
+  /**
+   * The display form: `'summary'`, `'wkt'` or `'geojson'`. Any other value
+   * warns once by column and shows the summary. Export and the clipboard write
+   * WKT whatever this says.
+   */
+  pattern?: GeometryFormatPattern;
+}
+
+/**
  * How a value is turned into the text you see. One of the four formatters,
  * picked by the `type` on the spec; the rest of the object is that
- * formatter's own options.
+ * formatter's own options. A `geometry` column reads a {@link GeometryFormat}
+ * instead.
  */
-export type FormatSpec = NumberFormat | DateFormat | BooleanFormat | TextFormat;
+export type FormatSpec = NumberFormat | DateFormat | BooleanFormat | TextFormat | GeometryFormat;
 
 // ---------------------------------------------------------------------------
 // Data types (spec 8.2)
@@ -653,6 +674,87 @@ export interface DataType {
    * ahead of the grid-wide hook and taking the text unchanged.
    */
   fromClipboard?: (s: string) => unknown;
+  /**
+   * The measures of a geometry value — its kind, bounding box, centroid,
+   * length and area — or `null` for an empty cell. Declared by the `geometry`
+   * type; a viewer (a map, a chart) reads a cell's shape through
+   * `column.dataType.geometry(value)` rather than parsing it itself. Accepts
+   * the stored GeoJSON and anything the type would accept on ingest.
+   */
+  geometry?: (value: unknown) => GeometryInfo | null;
+  /**
+   * Filter operators this type brings beyond the §9.3 set, by name. A column of
+   * the type accepts these and `blank`/`notBlank` only, and they are refused
+   * on any other column. `compile` turns a condition's operand into a
+   * predicate over one cell; `check` names what is wrong with an operand, so
+   * `filters.set()` refuses it rather than installing a filter that matches
+   * nothing. The `geometry` type declares its four spatial operators here.
+   */
+  operators?: Record<string, DataTypeOperator>;
+  /**
+   * The text CSV and a text Excel cell write for a value of this type, in place
+   * of the display text. A geometry cell shows a summary and exports WKT.
+   */
+  exportText?: (value: unknown) => string;
+}
+
+/** A filter operator a data type declares (see `DataType.operators`). */
+export interface DataTypeOperator {
+  /** Turn a condition's operand into a predicate over one cell's value. */
+  compile(value: unknown): (cell: unknown) => boolean;
+  /** Why an operand cannot be used, or `null` when it can. */
+  check?(value: unknown): string | null;
+}
+
+/** The kind of a geometry: the GeoJSON geometry type name. */
+export type GeometryKind =
+  | 'Point' | 'LineString' | 'Polygon'
+  | 'MultiPoint' | 'MultiLineString' | 'MultiPolygon' | 'GeometryCollection';
+
+/**
+ * A geometry as a `geometry` column stores it: a GeoJSON geometry object with
+ * two-ordinate positions, longitude first. Z and M are dropped on ingest.
+ */
+export interface GeoJsonGeometry {
+  /** The geometry kind. */
+  type: GeometryKind;
+  /**
+   * The positions, nested by kind: `[lon, lat]` for a `Point`, a list of them
+   * for a `LineString`, a list of rings for a `Polygon` (outer ring first,
+   * then holes), and one level deeper again for each `Multi*` kind. Absent on
+   * a `GeometryCollection`.
+   */
+  coordinates?: unknown;
+  /** The member geometries of a `GeometryCollection`. */
+  geometries?: GeoJsonGeometry[];
+}
+
+/**
+ * What a viewer reads from a geometry cell, through `DataType.geometry`.
+ *
+ * Lengths and areas are on a sphere of the mean Earth radius (6,371,008.8 m):
+ * within about 0.5% of the WGS84 ellipsoid. The centroid is planar in
+ * longitude/latitude degrees, as a database's `ST_Centroid` on a geometry
+ * column is.
+ */
+export interface GeometryInfo {
+  /** The geometry kind. */
+  kind: GeometryKind;
+  /** `[minLon, minLat, maxLon, maxLat]` over every position. */
+  bbox: [number, number, number, number];
+  /**
+   * `[lon, lat]`: the area-weighted centre of a polygon, the length-weighted
+   * centre of a line, the mean of points. A collection uses its
+   * highest-dimension members.
+   */
+  centroid: [number, number];
+  /**
+   * Metres: a line's length, a polygon's perimeter (holes included), 0 for
+   * points.
+   */
+  length: number;
+  /** Square metres: a polygon's area with its holes removed; 0 otherwise. */
+  area: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -2341,7 +2443,42 @@ export type Operator =
   | 'in' | 'notIn'
   | 'contains' | 'notContains' | 'startsWith' | 'endsWith' | 'matches'
   | 'blank' | 'notBlank'
-  | 'containsAny' | 'containsAll' | 'containsNone';
+  | 'containsAny' | 'containsAll' | 'containsNone'
+  | SpatialOperator;
+
+/**
+ * The four operators of a `geometry` column (declared by the type the opt-in
+ * `modules/geometry` registers), evaluated in memory for any source that does
+ * not push them down. A `geometry` column accepts these and
+ * `blank`/`notBlank` only, and these are refused on any other column.
+ *
+ * - `withinBbox` — the whole geometry lies inside a {@link SpatialBbox}.
+ * - `withinPolygon` — a Point or MultiPoint lies inside a Polygon or
+ *   MultiPolygon operand (holes excluded); any other geometry is tested by its
+ *   centroid.
+ * - `intersects` — the two share a point: a bounding-box test, then an edge
+ *   test with edges straight in longitude/latitude rather than great circles.
+ *   The operand is a geometry or a {@link SpatialBbox}.
+ * - `withinDistance` — the centroid is within a {@link SpatialDistance}, by
+ *   great-circle (haversine) distance.
+ *
+ * The antimeridian is not handled: a box whose west edge is east of its east
+ * edge is refused; split it into two conditions joined by `or`.
+ */
+export type SpatialOperator = 'withinBbox' | 'withinPolygon' | 'intersects' | 'withinDistance';
+
+/** A box in degrees, `[minLon, minLat, maxLon, maxLat]`: the operand of `withinBbox`. */
+export type SpatialBbox = [number, number, number, number];
+
+/** A circle on the Earth's surface: the operand of `withinDistance`. */
+export interface SpatialDistance {
+  /** The centre's longitude, in degrees. */
+  lon: number;
+  /** The centre's latitude, in degrees. */
+  lat: number;
+  /** The radius, in metres. */
+  metres: number;
+}
 
 /** Which ends of a `between` range are inclusive, in interval notation. */
 export type IntervalBounds = '[]' | '[)' | '(]' | '()';
@@ -2363,7 +2500,9 @@ export interface Condition {
   op: Operator;
   /**
    * The operand: a single value, a pair for `between`, or a list for `in`.
-   * Left out by the operators that need none.
+   * Left out by the operators that need none. A spatial operator takes a
+   * {@link SpatialBbox}, a geometry (GeoJSON, WKT or WKB) or a
+   * {@link SpatialDistance}.
    */
   value?: unknown;
   /**
@@ -5289,6 +5428,12 @@ export interface PushdownCapabilities {
    */
   group?: boolean;
   /**
+   * The spatial bucket kinds `source.aggregate()` may push as a `groupBy` key
+   * (GEO-2): `['grid']` for a {@link SpatialBucket}. Absent or empty, a bucket
+   * key sends every aggregate to the client, named in its `reason`.
+   */
+  buckets?: string[];
+  /**
    * What the adapter can persist back — the write-back contract (§4.1). `false`
    * (the default) is read-only by declaration. A declared block opts kinds in;
    * `capabilitiesOf` resolves it to a full `MutateCapability` (or `false`).
@@ -5300,6 +5445,16 @@ export interface PushdownCapabilities {
 export interface PushdownAdapter {
   /** Used in diagnostics and in the message when work cannot be pushed. */
   name?: string;
+  /**
+   * First-use preparation, for an adapter whose capabilities depend on
+   * something it can only learn from the engine (GEO-2:
+   * `duckdbAdapter({ spatial })` declares the spatial operators only if the
+   * extension loads). `createPushdownSource` awaits it once, before its first
+   * plan or aggregate, and reads `capabilities` again when it settles. A load
+   * that fails should narrow the capabilities and resolve, not reject; a
+   * rejection fails that request and is asked again on the next.
+   */
+  ready?(): Promise<void>;
   /**
    * What the engine behind this adapter can do — which filters, sorts,
    * aggregates and grouping it will take. The planner pushes only what is
@@ -7123,6 +7278,16 @@ export type EventName =
   | 'size:changed'
   /** A master-detail region was opened or closed. */
   | 'detail:toggled'
+  /** A nested (master-detail) grid's cell editor opened; re-emitted on the master, tagged with which detail region it came from (§13). */
+  | 'detail:cell:edit:start'
+  /** A nested grid's cell editor closed, committed or cancelled; re-emitted on the master the same way. */
+  | 'detail:cell:edit:end'
+  /** A nested grid's row editor opened; re-emitted on the master the same way. */
+  | 'detail:row:edit:start'
+  /** A nested grid's row editor closed, committed or cancelled; re-emitted on the master the same way. */
+  | 'detail:row:edit:end'
+  /** A nested grid's cell value was written; re-emitted on the master with the dot path into its own record, when the detail rows belong to it. */
+  | 'detail:cell:changed'
   /** The keyboard asked for focus to move to the tool panel (Ctrl+Alt+P). */
   | 'toolpanel:focus'
   /** The set of host-declared highlights changed. */
@@ -11019,13 +11184,14 @@ export function createPushdownSource(
    * one entry per subtotal level and the grand total (`level: 0`, produced by a
    * single `GROUP BY ROLLUP`), each with its key values and its aggregate values
    * keyed by id. The client list is what the caller computes itself over the
-   * full set. Aggregates are pushed only when the filter is fully pushed and —
-   * under grouping — every grouping key is a plain column the engine can group
-   * by; a residual filter or an unpushable group key forces every aggregate
-   * client-side (no mixed provenance).
+   * full set. Aggregates are pushed only when the filter and the quick search
+   * are both fully pushed and — under grouping — every grouping key is a plain
+   * column the engine can group by; a residual filter, an unpushed quick
+   * search or an unpushable group key forces every aggregate client-side (no
+   * mixed provenance).
    */
   aggregate(
-    request: RemoteRequest,
+    request: Omit<RemoteRequest, 'groupBy'> & { groupBy?: Array<ColumnRef | SpatialBucket> },
     requested: AggregateRequest[],
   ): Promise<{
     values: Record<string, unknown>;
@@ -11250,6 +11416,44 @@ export function restAdapter(options: {
 }): PushdownAdapter & { urlFor(query: RemoteRequest): string };
 
 /**
+ * The `spatial` option of `duckdbAdapter` in its object form (GEO-2).
+ * `spatial: true` is the same with neither member set.
+ */
+export interface DuckDbSpatialOptions {
+  /**
+   * A geometry column the schema and the file's metadata do not name — WKB in
+   * a `BLOB`, or a `GEOMETRY` column of a table or view. Must be a plain
+   * identifier.
+   */
+  column?: string;
+  /**
+   * The coordinate reference system the stored coordinates are in, when it is
+   * not longitude/latitude: `'EPSG:27700'`, or a bare EPSG code such as
+   * `27700`. Wins over a GeoParquet file's own declaration. Anything that is
+   * not `AUTHORITY:CODE` is refused when the adapter is built.
+   */
+  crs?: string | number;
+}
+
+/**
+ * A spatial grouping key for `source.aggregate()` (GEO-2): a geometry
+ * column's centroid binned into square cells `size` degrees on a side. Pushed
+ * by an adapter that declares `buckets: ['grid']` (`duckdbAdapter({ spatial })`
+ * with the extension loaded) as `floor(ST_X(ST_Centroid(geom)) / size)` and the
+ * same for `ST_Y`; each group's key comes back as `[x, y]`, the cell covering
+ * longitudes `[x·size, (x+1)·size)` and latitudes `[y·size, (y+1)·size)`, or
+ * `null` on a rolled-up row.
+ */
+export interface SpatialBucket {
+  /** The geometry column. */
+  col: ColumnRef;
+  /** The bucket kind; `grid` is the one there is. */
+  bucket: 'grid';
+  /** The cell size in degrees, above zero. */
+  size: number;
+}
+
+/**
  * An adapter over a DuckDB connection, in the browser through
  * `@duckdb/duckdb-wasm` or on a server through any DuckDB client.
  *
@@ -11301,6 +11505,31 @@ export function duckdbAdapter(options: {
    * key to rekey the temp row.
    */
   returning?: Extract<Returning, 'row' | 'none'>;
+  /**
+   * Push spatial work into DuckDB's spatial extension (GEO-2). Off by default.
+   *
+   * On first use the adapter runs `INSTALL spatial; LOAD spatial;` once per
+   * connection, inside the connection's statement queue, then finds the
+   * geometry columns: any the engine types `GEOMETRY` (a GeoParquet file read
+   * after the extension loads), any a GeoParquet file's `geo` metadata names,
+   * and `column`. Geometry is projected as `ST_AsGeoJSON(...)`, so rows arrive
+   * as GeoJSON a `type: 'geometry'` column reads; a WKB `BLOB` is read through
+   * `ST_GeomFromWKB`, and a column stored in another CRS through
+   * `ST_Transform(..., always_xy := true)` to longitude/latitude.
+   *
+   * The four spatial operators (`withinBbox`, `withinPolygon`, `intersects`,
+   * `withinDistance`) are pushed with the grid's own in-memory meaning and
+   * bound values; a geometry column sorts by centroid latitude, then
+   * longitude; grouping by one is refused by name; `source.aggregate()` takes a
+   * {@link SpatialBucket} as a `groupBy` key.
+   *
+   * If the extension does not load, `source.duckdb.spatial.load` warns once
+   * and the spatial operators and buckets are withdrawn from `capabilities`, so
+   * the pushdown source leaves the operators to the grid (pass `compute` to
+   * `createPushdownSource` for them to be applied) and geometry arrives as the
+   * stored WKB.
+   */
+  spatial?: boolean | DuckDbSpatialOptions;
 }): PushdownAdapter & {
   sqlFor(query: RemoteRequest): { sql: string; params: unknown[] };
   /**
@@ -12236,6 +12465,19 @@ export interface ChartZoomOptions {
   /** The narrowest the view may go, as a share of the full extent; the default is 0.01. */
   min?: number;
 }
+/** Narrows {@link ChartSpec.viewportFilter} (GEO-4). */
+export interface ChartViewportFilterOptions {
+  /**
+   * Write the condition to a different geometry column than the one this
+   * chart places its own rows from — always a `withinBbox` on that column,
+   * whatever the map itself is placed by. Defaults to `geometry`, or has no
+   * effect naming a column when the map places rows by `lon`/`lat` (the pair
+   * is always written to those two columns).
+   */
+  column?: string;
+  /** Milliseconds to wait after a pan or zoom settles before writing; the default is 150. */
+  debounce?: number;
+}
 /** The host's handle on a chart's zoom. */
 export interface ChartZoomApi {
   /**
@@ -12464,6 +12706,23 @@ export interface ChartSpec {
    * to the band of rows a selected range covers rather than the whole grid.
    */
   rows?: object[] | ((grid: Grid) => object[]);
+  /**
+   * Where the chart's aggregate is computed (GEO-5). `'auto'`, the default,
+   * asks the grid's pushdown source — `source.aggregate()`, with x (and
+   * `series`) as the `GROUP BY` and the measures as its aggregates, the grid's
+   * filter and quick search applied — when the source's adapter declares the
+   * `group` capability and the grid holds only a window of the matching rows;
+   * otherwise it reduces the loaded rows, as a chart always has. `'engine'`
+   * asks the source whenever it can, and is refused by name (a `[lattice]`
+   * warning and `provenance().refused`) when it cannot; `'client'` always
+   * reduces the loaded rows. One chart is never a mixture: if any measure
+   * would be computed client-side, every one is. Applies to the grouped
+   * types (`line`, `step`, `area`, `bar`, `horizontalBar`, `waterfall`,
+   * `combo`, `pareto`, `heatmap`, `radar`, `funnel`, `stream`, `marimekko`);
+   * the source's `aggregates` config must route the reductions to the engine.
+   * {@link Chart.provenance} reports which happened and why.
+   */
+  aggregate?: 'auto' | 'engine' | 'client';
   /** Several measures at once, for combo and candlestick. */
   measures?: ChartMeasure[];
   /** Endpoints, for sankey, chord and network. */
@@ -12703,9 +12962,10 @@ export interface ChartSpec {
   codeProperty?: string;
   /**
    * The longitude column, for the types that place a row by where it is rather
-   * than by a code: `markermap`, `bubblemap` and `hexmap`. Degrees east, -180
-   * to 180; a row outside that, or with no reading, is left off the map and
-   * counted.
+   * than by a code: `markermap`, `bubblemap`, `hexmap` and `choropleth`.
+   * Degrees east, -180 to 180; a row outside that, or with no reading, is left
+   * off the map and counted. Given together with {@link ChartSpec.geometry},
+   * both are refused by name — a row is placed by one or the other.
    */
   lon?: string;
   /**
@@ -12713,6 +12973,61 @@ export interface ChartSpec {
    * 90, on the same terms.
    */
   lat?: string;
+  /**
+   * A `geometry` column (the opt-in `modules/geometry`, GEO-3) to place each
+   * row from, instead of {@link ChartSpec.lon}/{@link ChartSpec.lat} — on
+   * `markermap`, `bubblemap` and `choropleth`. A Point row is a marker (or a
+   * `choropleth` feature) at its own coordinates; a LineString, Polygon or
+   * Multi* row is placed at its planar centroid, in degrees, the same one the
+   * column's own type reports. `choropleth` draws each Polygon/MultiPolygon
+   * row as its own shape, filled by {@link ChartSpec.y} through the chart's
+   * ramp; a Point row on a `choropleth` draws as a marker instead, filled the
+   * same way. A cell the column refused at ingest, or whose bounding box
+   * leaves the globe, is counted rather than drawn at the origin. Given
+   * together with `lon`/`lat`, both are refused by name.
+   */
+  geometry?: string;
+  /**
+   * Turn a map's own pan and zoom into a filter on its grid (GEO-4): whenever the reader pans or zooms `markermap`, `bubblemap` or
+   * `choropleth` (a drag, the wheel, or the keyboard — the same gestures
+   * {@link ChartSpec.geometry}/`shapes` already draw a pack through), the
+   * chart writes ONE condition to `grid.filters` for the box now on screen,
+   * replacing the previous one rather than stacking it, so every other viewer
+   * over the same grid — another chart, a KPI, the table — narrows with the
+   * map, and a pushdown source does the narrowing in the engine. A
+   * `geometry`-column map writes a single `withinBbox`; a `lon`/`lat` map
+   * writes a pair of `between` conditions, one per column, joined by `and`.
+   * `true` is the whole feature at its default 150 ms debounce, on the column
+   * the map already places rows from; the object form narrows either. Two-way:
+   * a matching condition set from outside — a saved view, a host, a sibling
+   * panel on the same column — pans and zooms the map to it instead of being
+   * overwritten. "Reset view" and destroying the chart both remove the
+   * condition; a map with nothing to pan (no `shapes` and no `geometry`
+   * column) never writes one. Ignored on any other type.
+   */
+  viewportFilter?: boolean | ChartViewportFilterOptions;
+  /**
+   * The most rows a `markermap`, `bubblemap` or `choropleth` draws for one view
+   * (GEO-6); default 20,000. Over a grid on a paged pushdown source that holds
+   * only a window of its rows, the map asks the source's engine for the rows
+   * inside its current view — the grid's filters and quick search, plus a
+   * `withinBbox` on a `geometry` column or a `between` pair on `lon`/`lat` for
+   * the box once the reader has panned or zoomed — through the adapter's
+   * `execute`, capped at this many rows, instead of drawing the grid's page;
+   * the grid keeps its page and the map its own set, a pan or zoom asks again
+   * (aborting the request it supersedes), and the last drawing stays up until
+   * the answer lands. {@link ChartSpec.aggregate} governs this as it governs a
+   * grouped chart. When more rows than the cap fall inside the view — from the
+   * engine, or from rows the browser holds — a marker or bubble map draws
+   * square density cells instead, counted by the engine (GEO-2's spatial
+   * `buckets`, `geometry` columns only) or in the browser, at a size derived
+   * from the zoom; zooming in until the view holds no more than the cap returns
+   * to the rows. A `choropleth`, and an engine map that cannot bin (a
+   * `lon`/`lat` map, or an adapter without the `grid` bucket), is refused by
+   * name past the cap and draws none of its rows. {@link Chart.provenance}
+   * reports it as `viewport`, and the accessible summary says which happened.
+   */
+  viewportCap?: number;
   /**
    * The measure a `markermap` writes beside each dot and colours it by. Its
    * text is the column's own formatted cell text and its colour is whatever
@@ -13126,6 +13441,55 @@ export interface ChartEventPayloads {
 }
 
 /** A live chart. */
+/** What a map's {@link ChartProvenance.viewport} reports (GEO-6). */
+export interface ChartViewportProvenance {
+  /** The rows drawn as points for the view; 0 when binned or refused. */
+  rows: number;
+  /** How many rows fell inside the view. */
+  matched: number;
+  /** The cap in force ({@link ChartSpec.viewportCap}). */
+  cap: number;
+  /** True when the view was drawn as density cells. */
+  binned: boolean;
+  /** How many density cells were drawn; 0 when not binned. */
+  cells: number;
+  /** Why nothing was drawn, when the view was over the cap with no density form; else null. */
+  over: string | null;
+  /** The box asked for, `[west, south, east, north]`; null at the initial view. */
+  bbox: [number, number, number, number] | null;
+  /** Who counted or fetched the view's rows: the source's engine, or the browser. */
+  computed: 'engine' | 'client';
+}
+
+/** What {@link Chart.provenance} reports (GEO-5). */
+export interface ChartProvenance {
+  /** `'engine'` when every measure was reduced by the source's engine; `'client'` otherwise. */
+  source: 'engine' | 'client';
+  /** The mode the spec asked for, after an unknown value fell back to `'auto'`. */
+  asked: 'auto' | 'engine' | 'client';
+  /** Why the chart reads the loaded rows; `null` for an engine chart. */
+  reason: string | null;
+  /** True when `aggregate: 'engine'` was asked and the source could not serve it. */
+  refused: boolean;
+  /** True while an engine request is in flight; the last drawing stays up until it lands. */
+  pending: boolean;
+  /**
+   * A map's view (GEO-6; see {@link ChartSpec.viewportCap}): present when the
+   * engine sent the rows for the view, or when the cap changed what is drawn.
+   */
+  viewport?: ChartViewportProvenance;
+  /** Each measure's column, reduction and where it was computed. */
+  measures: Array<{
+    col: string | null;
+    fn: string;
+    computed: 'engine' | 'client';
+    /** The pushdown map's class for an engine measure: `identical` or `may-differ`. */
+    class?: string;
+    /** Why, for a client measure. */
+    reason?: string;
+  }>;
+}
+
 export interface Chart {
   /**
    * The chart's root element — the wrapper the chart built inside the container, which
@@ -13139,6 +13503,14 @@ export interface Chart {
   update(spec: Partial<ChartSpec>): void;
   /** The data the chart last bound. */
   data(): object | null;
+  /**
+   * How the figures the chart is drawing were computed (GEO-5): by a pushdown
+   * source's engine over the whole matching relation, or from the rows the grid
+   * has loaded — never a mixture — with the reason for a client chart and each
+   * measure's split in the shape `source.aggregate()` reports it. See
+   * {@link ChartSpec.aggregate}.
+   */
+  provenance(): ChartProvenance;
   /** Go up one level, on a drillable hierarchy. */
   ascend(levels?: number): void;
   /**
@@ -14105,6 +14477,37 @@ export interface DetailToggledEvent extends GridEvent {
   active: string | null;
 }
 
+/**
+ * The fields every `detail:` re-emission adds on top of the nested grid's own
+ * event payload (§13): which master row raised it, and where the change
+ * lands on that row's own record.
+ */
+export interface DetailForwardedEvent {
+  /** The key of the master row whose detail region raised this. */
+  masterKey: string;
+  /** The master row itself. */
+  masterRow: Row;
+  /** The nested grid instance the event came from. */
+  detailGrid: Grid;
+  /** The dot path from the master's record to the value that changed (for example `ports.1.vlan`), or null when the detail rows are not part of the master's own record. */
+  path: string | null;
+}
+
+/** `detail:cell:edit:start`: a nested grid's cell editor opened, re-emitted on the master. */
+export interface DetailCellEditStartEvent extends EditStartEvent, DetailForwardedEvent {}
+
+/** `detail:cell:edit:end`: a nested grid's cell editor closed, re-emitted on the master. */
+export interface DetailCellEditEndEvent extends EditEndEvent, DetailForwardedEvent {}
+
+/** `detail:row:edit:start`: a nested grid's row editor opened, re-emitted on the master. */
+export interface DetailRowEditStartEvent extends EditStartEvent, DetailForwardedEvent {}
+
+/** `detail:row:edit:end`: a nested grid's row editor closed, re-emitted on the master. */
+export interface DetailRowEditEndEvent extends EditEndEvent, DetailForwardedEvent {}
+
+/** `detail:cell:changed`: a nested grid's cell value was written, re-emitted on the master. */
+export interface DetailCellChangedEvent extends CellChangedEvent, DetailForwardedEvent {}
+
 /** `highlight:changed`: the set of host-declared highlights changed. */
 export interface HighlightChangedEvent extends GridEvent {
   /** Every highlight in force, with its scope, target, colour and duration. */
@@ -14935,6 +15338,16 @@ export interface EventPayloads {
   'size:changed': void;
   /** Which detail regions are open, and which one is mounted. */
   'detail:toggled': DetailToggledEvent;
+  /** The nested grid's own cell-edit-start payload, plus which master row it came from. */
+  'detail:cell:edit:start': DetailCellEditStartEvent;
+  /** The nested grid's own cell-edit-end payload, plus which master row it came from. */
+  'detail:cell:edit:end': DetailCellEditEndEvent;
+  /** The nested grid's own row-edit-start payload, plus which master row it came from. */
+  'detail:row:edit:start': DetailRowEditStartEvent;
+  /** The nested grid's own row-edit-end payload, plus which master row it came from. */
+  'detail:row:edit:end': DetailRowEditEndEvent;
+  /** The nested grid's own cell-changed payload, plus which master row it came from and where it lands on that row's record. */
+  'detail:cell:changed': DetailCellChangedEvent;
   /** Nothing: it is a request to move focus, not a report about state. */
   'toolpanel:focus': void;
   /** Every highlight now in force. */

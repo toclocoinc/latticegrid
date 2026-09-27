@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.72.0, kpi module type declarations
+ * Lattice Grid 1.73.0, kpi module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -78,7 +78,22 @@ export interface KPIStatTile {
   id?: string;
   /** The tile's accessible label. */
   label?: string;
-  /** The aggregation kind, or a reducer `(rows, tile) => value` for a custom tile. */
+  /**
+   * The aggregation kind, or a reducer `(rows, tile) => value` for a custom tile.
+   *
+   * Over a grid on a paged pushdown source that holds only a window of its
+   * matching rows (GEO-6), a `sum`, `avg`, `min` or `max` tile is reduced by
+   * the engine — `source.aggregate()`, the grid's filters and quick search
+   * applied, one request for every such tile on the panel — rather than from
+   * the loaded page, and its model reads `computed: 'engine'` and its
+   * accessible name says so. `count` already counts every matching row and
+   * stays the panel's own. A tile with a `filter` function, a custom
+   * reducer, a field that is not a plain column, or a source whose
+   * `aggregates` config keeps the statistic in the browser keeps reducing
+   * the page and is named once in a `[lattice]` warning. The panel follows
+   * the grid's page and total landing, so it needs no `refresh()` after the
+   * first page settles.
+   */
   aggregation?: KPIAggregation | ((rows: KPIRow[], tile: object) => unknown);
   /** The reducer for a `custom` aggregation, when `aggregation` is the string `'custom'`. */
   compute?: (rows: KPIRow[], tile: object) => unknown;
@@ -319,6 +334,12 @@ export interface KPITileModel {
    * may be 0 while the panel holds rows. Always 0 on a clock tile.
    */
   count: number;
+  /**
+   * Where a stat tile's value was reduced (GEO-6): `'engine'` by a paged pushdown
+   * source's engine over every matching row (see `KPIStatTile.aggregation`), `'client'`
+   * from the rows the panel holds. Absent on a clock tile.
+   */
+  computed?: 'engine' | 'client';
   /**
    * The tile's trend series, as the finite numbers it plots, in `x` order. Null when the
    * tile declares no sparkline and when no row yielded a finite value.

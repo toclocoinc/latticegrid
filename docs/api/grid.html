@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.72.0</title>
+<title>Grid API Reference — Lattice Grid 1.73.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -532,6 +532,7 @@
         <a href="data-router.html">The data router</a>
         <a href="kpi.html">The KPI (stat-tile) view</a>
         <a href="alarms.html">The alarms module</a>
+        <a href="geometry.html">The geometry module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="tabs.html">The tabbed grid</a>
@@ -557,7 +558,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 14 pages</a></span>
+      <span class="chip"><a href="index.html">All 15 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -1115,7 +1116,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.72.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.73.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -3492,9 +3493,44 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">writable</td><td class="type">boolean</td><td class="type">false</td><td class="desc">Allow write-back against a plain writable table. Off keeps the source read-only, so a <code>from</code> that is a view or an expression can never be mutated by accident. Enables <code>update</code>, <code>delete</code> and <code>append</code>.</td></tr>
           <tr><td class="name">keyField</td><td class="type">string</td><td class="type"><code>id</code></td><td class="desc">The key column an update and a delete target in their <code>WHERE</code>, and that an add-row is rekeyed by. Write-back is refused unless this names a real column, because an <code>UPDATE</code>/<code>DELETE</code> without a unique key could touch more than one row.</td></tr>
           <tr><td class="name">returning</td><td class="type">'row' | 'none'</td><td class="type"><code>row</code></td><td class="desc">The reconcile contract for a successful write. <code>row</code> appends <code>RETURNING *</code> and reconciles server truth (computed columns, triggers); <code>none</code> keeps the optimistic value. An add-row always <code>RETURNING</code>s at least the key column regardless, since it needs that key to rekey the temp row.</td></tr>
+          <tr><td class="name">spatial</td><td class="type">boolean | <a href="types.html#type-DuckDbSpatialOptions">DuckDbSpatialOptions</a></td><td class="type">false</td><td class="desc">Push the <code>geometry</code> column's work into DuckDB's spatial extension: the four spatial filters, sorting by location, and grid buckets in <code>source.aggregate()</code>, with geometry projected as GeoJSON. <code>{ column }</code> names a WKB <code>BLOB</code> or <code>GEOMETRY</code> column the schema and the file do not; <code>{ crs }</code> (<code>'EPSG:27700'</code> or <code>27700</code>) is the system stored coordinates are in when it is not longitude/latitude. See <a href="#duckdb-spatial">spatial pushdown</a>.</td></tr>
         </tbody>
       </table>
     </div>
+
+    <p class="section-note" id="duckdb-spatial">
+      <strong>Spatial pushdown (<code>spatial</code>).</strong> On first use the adapter runs
+      <code>INSTALL spatial; LOAD spatial;</code> once per connection, inside the connection's statement
+      queue, then reads the schema and, for a <code>read_parquet('…')</code> FROM, the GeoParquet
+      <code>geo</code> metadata. A column is geometry when DuckDB types it <code>GEOMETRY</code> (its
+      Parquet reader converts a GeoParquet column itself once the extension is loaded), when the
+      metadata names it, or when <code>column</code> does; a <code>BLOB</code> is read through
+      <code>ST_GeomFromWKB</code>, and a column in another CRS (the file's declaration, or
+      <code>crs</code>, which wins) through <code>ST_Transform(geom, crs, 'EPSG:4326', always_xy :=
+      true)</code>. Geometry is selected as <code>ST_AsGeoJSON(geom)</code>. The operators keep their
+      <a href="geometry.html#geometry-operators">in-memory meaning</a>: <code>withinBbox</code> →
+      <code>ST_CoveredBy(geom, ST_MakeEnvelope(?, ?, ?, ?))</code>; <code>withinPolygon</code> →
+      <code>ST_Within</code> of the centroid (of the geometry itself for a MultiPoint);
+      <code>intersects</code> → <code>ST_Intersects</code> (a four-number operand is an envelope);
+      <code>withinDistance</code> → the haversine distance from the centroid on the 6,371,008.8&nbsp;m
+      sphere, in SQL. Operands are bound, never interpolated: GeoJSON to
+      <code>ST_GeomFromGeoJSON(?)</code>, WKT to <code>ST_GeomFromText(?)</code>, WKB bytes or hex to
+      <code>ST_GeomFromHEXWKB(?)</code>; one that cannot be read compiles to <code>FALSE</code> and
+      <code>source.duckdb.spatial.operand.&lt;op&gt;</code> says why. A geometry column sorts by
+      <code>ST_Y(ST_Centroid(geom))</code>, then <code>ST_X</code>; grouping by one is refused by name;
+      a <a href="types.html#type-SpatialBucket">SpatialBucket</a> <code>{ col, bucket: 'grid', size }</code> in
+      <code>source.aggregate()</code>'s <code>groupBy</code> pushes as
+      <code>floor(ST_X(ST_Centroid(geom)) / size)</code> and the same for <code>ST_Y</code>, one
+      <code>ROLLUP</code> unit, the key back as <code>[x, y]</code>. The adapter declares the operators
+      in <code>capabilities.operators</code> and the bucket kind in <code>capabilities.buckets</code>,
+      and exposes <code>ready()</code>, which <code>createPushdownSource</code> awaits before its first
+      plan. The operators are declared only while the type layer has them &mdash; the
+      <code>modules/geometry</code> module is loaded and a grid has resolved the type; without it a
+      condition handed to the adapter compiles to <code>FALSE</code> and
+      <code>source.duckdb.spatial.module.&lt;op&gt;</code> names the missing import. If the extension does not load, <code>source.duckdb.spatial.load</code> warns once, both
+      are withdrawn, and the operators are left to the grid (pass <code>compute</code> to
+      <code>createPushdownSource</code> to apply them), with geometry arriving as its stored WKB.
+    </p>
 
     <p class="section-note" id="duckdb-total">
       <strong>How the total is counted, and what it costs.</strong> The grid needs the size of the
@@ -3722,6 +3758,31 @@ createGrid(host, { source, columns: [...] });</code></pre>
       empty string are both <code>''</code>. The engine's answer is the right one; the two are
       otherwise identical group for group, count for count and subtotal for subtotal, which the
       parity suite asserts at every level.
+    </p>
+    <p class="section-note">
+      <strong>A chart over a paged relation reads through <code>source.aggregate()</code>, not the
+      loaded window (GEO-5).</strong> A bar chart drawn from a grid holding the first hundred rows of
+      a hundred thousand cannot sum those hundred and call it the total — that is a confident, wrong
+      picture. <a href="charts.html#chartsmodule">The charts module</a>'s grouped types (a bar, a line, a
+      heatmap and the rest of <a href="charts.html#chartsmodule">the aggregate types</a>) ask the same
+      <code>group</code> capability this section describes: <code>x</code> (and <code>series</code>)
+      become the <code>groupBy</code>, each measure an aggregate in the request, and the grid's
+      filter and quick search are pushed exactly as they are for a grouped row above — refused
+      wholesale, never partially, on the same conditions: an unpushed filter or quick search, a
+      grouping key that is not a plain column, or a statistic the source's own <code>aggregates</code>
+      config keeps in the browser. The one difference from a group row is the trigger: a chart asks
+      only when the grid holds fewer rows than match, so a fully-loaded memory grid never pays for a
+      request whose answer it already has.
+    </p>
+    <p class="section-note">
+      <strong>Maps and KPI tiles ask the same way (GEO-6).</strong> A <a href="charts.html#chart-map-viewport">map</a>
+      over a paged pushdown source counts the rows inside its view with an ungrouped
+      <code>source.aggregate()</code>, fetches them through the adapter's <code>execute</code> capped at
+      its <code>viewportCap</code>, and past the cap groups by a spatial <code>buckets</code> key for density
+      cells; a <a href="kpi.html#kpi-engine">KPI tile</a>'s <code>sum</code>, <code>avg</code>, <code>min</code> or
+      <code>max</code> is one ungrouped aggregate. The refusals are the chart's: an unpushed filter or quick
+      search, a <code>where</code> predicate, or a statistic the <code>aggregates</code> config keeps in the
+      browser sends the viewer back to the loaded rows, said by name.
     </p>
 
     <h5 id="dfql-options"><code>dfqlAdapter</code></h5>
@@ -4266,8 +4327,9 @@ app.get('/api/orders', async (req, res) =&gt; {
     </div>
     <p class="section-note">
       <strong>No mixed provenance.</strong> An engine number and a client number never appear in one
-      result set. Aggregates are pushed only when the filter is <em>fully</em> pushed; a residual
-      filter the engine could not apply forces <em>every</em> aggregate client-side, because an
+      result set. Aggregates are pushed only when the filter <em>and</em> the quick search are both
+      <em>fully</em> pushed; a residual filter the engine could not apply, or a quick search its
+      <code>capabilities.quick</code> refuses, forces <em>every</em> aggregate client-side, because an
       engine figure computed over a superset beside a client figure over the real set would be
       wrong-but-plausible. <code>lastPlan().aggregates</code> reports, per statistic, whether the
       engine or the client computed it and the class it was assigned — build-time inspection, not a
@@ -5196,6 +5258,7 @@ createGrid(el, {
           <tr><td class="name">Text</td><td class="desc"><code>contains</code>, <code>notContains</code>, <code>startsWith</code>, <code>endsWith</code>, <code>matches</code></td></tr>
           <tr><td class="name">Blankness</td><td class="desc"><code>blank</code>, <code>notBlank</code></td></tr>
           <tr><td class="name">Multi-value</td><td class="desc"><code>containsAny</code>, <code>containsAll</code>, <code>containsNone</code>, for cells holding an array of ids</td></tr>
+          <tr><td class="name">Spatial</td><td class="desc"><code>withinBbox</code>, <code>withinPolygon</code>, <code>intersects</code>, <code>withinDistance</code>, on a <code>geometry</code> column only, with the <a href="geometry.html#geometry">geometry module</a></td></tr>
           <tr><td class="name">Grouping</td><td class="desc"><code>and</code>, <code>or</code>, <code>not</code></td></tr>
         </tbody>
       </table>
@@ -5779,7 +5842,7 @@ grid.destroy();
     <p class="section-note">Each documented event is subscribed to and unsubscribed on every build. A consumer
     wiring a handler to a renamed event gets silence, which is indistinguishable from an event that
     has not fired yet — so the name is checked rather than left to be discovered.</p>
-    <pre data-run="js" data-expect="116" data-covers="event:cell:mouseover event:cell:mouseout event:cell:mousedown event:cell:mouseup event:rowDrag:started event:rowDrag:moved event:rowDrag:left event:rowDrag:ended event:find:changed event:cell:changed event:cell:clicked event:cell:confirmed event:cell:conflict event:cell:contextmenu event:cell:dblclicked event:cell:edit:end event:cell:edit:start event:cell:pending event:cell:reverted event:clipboard:copy event:column:filter:open event:column:profile:open event:column:grouped event:column:menu:open event:column:pivoted event:column:resized event:columns:changed event:columns:tagged event:comment:added event:comment:deleted event:comment:edited event:comment:failed event:comment:indexLoaded event:comment:resolved event:comment:threadClosed event:comment:threadOpened event:comment:unresolved event:destroy event:detail:toggled event:diff:changed event:diff:swapped event:export:progress event:facet:computed event:facet:expanded event:facet:failed event:facet:filtered event:form:closed event:form:error event:form:opened event:form:saved event:formatting:changed event:group:toggled event:header:contextmenu event:highlight:changed event:history:applied event:history:changed event:licence:changed event:page:changed event:permissions:changed event:presence:failed event:presence:joined event:presence:left event:presence:lockRefused event:presence:published event:presence:updated event:presentation:captured event:presentation:changed event:presentation:ended event:presentation:scale event:presentation:spotlight event:presentation:started event:presentation:view event:range:changed event:ready event:redaction:changed event:render:done event:render:first event:row:clicked event:row:copied event:row:dblclicked event:row:edit:end event:row:edit:start event:row:moved event:row:received event:row:sent event:rows:deferred event:rows:paused event:rows:queued event:rows:resumed event:scroll event:scroll:end event:selection:changed event:size:changed event:source:error event:stream:chunk event:stream:end event:stream:evicted event:timeline:attached event:timeline:detached event:timeline:seek event:timeline:seeking event:toolpanel:focus event:tree:loadAborted event:tree:loadFailed event:tree:loaded event:tree:loading event:view:applied event:view:default event:view:removed event:view:renamed event:view:saved event:views:changed event:row:pending event:row:confirmed event:row:reverted event:row:conflict"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="121" data-covers="event:cell:mouseover event:cell:mouseout event:cell:mousedown event:cell:mouseup event:rowDrag:started event:rowDrag:moved event:rowDrag:left event:rowDrag:ended event:find:changed event:cell:changed event:cell:clicked event:cell:confirmed event:cell:conflict event:cell:contextmenu event:cell:dblclicked event:cell:edit:end event:cell:edit:start event:cell:pending event:cell:reverted event:clipboard:copy event:column:filter:open event:column:profile:open event:column:grouped event:column:menu:open event:column:pivoted event:column:resized event:columns:changed event:columns:tagged event:comment:added event:comment:deleted event:comment:edited event:comment:failed event:comment:indexLoaded event:comment:resolved event:comment:threadClosed event:comment:threadOpened event:comment:unresolved event:destroy event:detail:toggled event:detail:cell:edit:start event:detail:cell:edit:end event:detail:row:edit:start event:detail:row:edit:end event:detail:cell:changed event:diff:changed event:diff:swapped event:export:progress event:facet:computed event:facet:expanded event:facet:failed event:facet:filtered event:form:closed event:form:error event:form:opened event:form:saved event:formatting:changed event:group:toggled event:header:contextmenu event:highlight:changed event:history:applied event:history:changed event:licence:changed event:page:changed event:permissions:changed event:presence:failed event:presence:joined event:presence:left event:presence:lockRefused event:presence:published event:presence:updated event:presentation:captured event:presentation:changed event:presentation:ended event:presentation:scale event:presentation:spotlight event:presentation:started event:presentation:view event:range:changed event:ready event:redaction:changed event:render:done event:render:first event:row:clicked event:row:copied event:row:dblclicked event:row:edit:end event:row:edit:start event:row:moved event:row:received event:row:sent event:rows:deferred event:rows:paused event:rows:queued event:rows:resumed event:scroll event:scroll:end event:selection:changed event:size:changed event:source:error event:stream:chunk event:stream:end event:stream:evicted event:timeline:attached event:timeline:detached event:timeline:seek event:timeline:seeking event:toolpanel:focus event:tree:loadAborted event:tree:loadFailed event:tree:loaded event:tree:loading event:view:applied event:view:default event:view:removed event:view:renamed event:view:saved event:views:changed event:row:pending event:row:confirmed event:row:reverted event:row:conflict"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 
 <span class="cmt">// Every documented event name, checked against the bus that would carry it.</span>
 <span class="cmt">// Subscribing to a name the grid does not know is the failure this catches:</span>
@@ -5794,6 +5857,8 @@ grid.destroy();
   'columns:tagged', 'comment:added', 'comment:deleted', 'comment:edited',
   'comment:failed', 'comment:indexLoaded', 'comment:resolved', 'comment:threadClosed',
   'comment:threadOpened', 'comment:unresolved', 'destroy', 'detail:toggled',
+  'detail:cell:edit:start', 'detail:cell:edit:end', 'detail:row:edit:start',
+  'detail:row:edit:end', 'detail:cell:changed',
   'diff:changed', 'diff:swapped', 'export:progress', 'facet:computed',
   'facet:expanded', 'facet:failed', 'facet:filtered', 'form:closed',
   'form:error', 'form:opened', 'form:saved', 'formatting:changed',
@@ -7170,6 +7235,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Event</th><th>When</th><th>Payload</th><th>Cancellable</th></tr></thead>
         <tbody>
           <tr><td class="name">detail:toggled</td><td class="desc">A master-detail region was opened or closed.</td><td class="type"><a href="#type-DetailToggledEvent">DetailToggledEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">detail:cell:edit:start</td><td class="desc">A nested (master-detail) grid's cell editor opened; re-emitted on the master, tagged with which detail region it came from (§13).</td><td class="type">DetailCellEditStartEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">detail:cell:edit:end</td><td class="desc">A nested grid's cell editor closed, committed or cancelled; re-emitted on the master the same way.</td><td class="type">DetailCellEditEndEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">detail:row:edit:start</td><td class="desc">A nested grid's row editor opened; re-emitted on the master the same way.</td><td class="type">DetailRowEditStartEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">detail:row:edit:end</td><td class="desc">A nested grid's row editor closed, committed or cancelled; re-emitted on the master the same way.</td><td class="type">DetailRowEditEndEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">detail:cell:changed</td><td class="desc">A nested grid's cell value was written; re-emitted on the master with the dot path into its own record, when the detail rows belong to it.</td><td class="type">DetailCellChangedEvent</td><td class="desc">&mdash;</td></tr>
         </tbody>
       </table>
     </div>
@@ -7808,6 +7878,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">storage</td><td class="type"><a href="types.html#type-DataTypeStorage">DataTypeStorage</a> <small class="literals">'float64' | 'int32' | 'bitset' | 'dictionary' | 'object'</small></td><td class="desc">How the column store holds these values in bulk: a typed array, a bitset, a dictionary of codes, or plain objects. `'object'` when unset. <small>(optional)</small></td></tr>
           <tr><td class="name">totals</td><td class="type">{ /** * The aggregates that mean something. A column of this type configured * with any other fails at construction rather than rendering a confident * wrong number. */ supported?: <a href="types.html#type-TotalName">TotalName</a>[]; /** * The type's own reduction for an aggregate, replacing the built-in * arithmetic. Receives the values index-aligned with their rows, and a * context carrying `column` and `valueAt(colId, i)` for reading another * column of the same row. */ implement?: Record&lt;string, <a href="types.html#type-TotalFn">TotalFn</a>&gt;; }</td><td class="desc">Which aggregates are meaningful for this type, and how. Omit it and every aggregate is allowed, which is what every type that shipped before this does. <small>(optional)</small></td></tr>
           <tr><td class="name">excel</td><td class="type">string</td><td class="desc">The Excel number format an export writes for this type, when the column's own formatter supplies none. `'General'` when neither does. <small>(optional)</small></td></tr>
+          <tr><td class="name">operators</td><td class="type">Record&lt;string, <a href="#type-DataTypeOperator">DataTypeOperator</a>&gt;</td><td class="desc">Filter operators this type brings beyond the §9.3 set, by name. A column of the type accepts these and `blank`/`notBlank` only, and they are refused on any other column. `compile` turns a condition's operand into a predicate over one cell; `check` names what is wrong with an operand, so `filters.set()` refuses it rather than installing a filter that matches nothing. The `geometry` type declares its four spatial operators here. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -7820,6 +7891,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">parse</td><td class="type">(p: ParseParams) =&gt; unknown</td><td class="desc"><code>p: ParseParams</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">Read the formatted form back into a value — what a paste and a text editor go through. It is a *text* parser: the grid does not put an already-typed editor value through it. <small>(optional)</small></td></tr>
           <tr><td class="name">toClipboard</td><td class="type">(v: unknown) =&gt; string</td><td class="desc"><code>v: unknown</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">Turn a value of this type into the text a copy puts on the clipboard. First in that chain, ahead of the grid-wide hook and the plain display text. <small>(optional)</small></td></tr>
           <tr><td class="name">fromClipboard</td><td class="type">(s: string) =&gt; unknown</td><td class="desc"><code>s: string</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">Read pasted text back into a value of this type. First in that chain, ahead of the grid-wide hook and taking the text unchanged. <small>(optional)</small></td></tr>
+          <tr><td class="name">geometry</td><td class="type">(value: unknown) =&gt; <a href="#type-GeometryInfo">GeometryInfo</a> | null</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>=&gt; <a href="#type-GeometryInfo">GeometryInfo</a> | null</code></td><td class="desc">The measures of a geometry value — its kind, bounding box, centroid, length and area — or `null` for an empty cell. Declared by the `geometry` type; a viewer (a map, a chart) reads a cell's shape through `column.dataType.geometry(value)` rather than parsing it itself. Accepts the stored GeoJSON and anything the type would accept on ingest. <small>(optional)</small></td></tr>
+          <tr><td class="name">exportText</td><td class="type">(value: unknown) =&gt; string</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">The text CSV and a text Excel cell write for a value of this type, in place of the display text. A geometry cell shows a summary and exports WKT. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -8490,6 +8563,15 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-GeometryFormat">GeometryFormat</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">pattern</td><td class="type"><a href="types.html#type-GeometryFormatPattern">GeometryFormatPattern</a> <small class="literals">'summary' | 'wkt' | 'geojson'</small></td><td class="desc">The display form: `'summary'`, `'wkt'` or `'geojson'`. Any other value warns once by column and shows the summary. Export and the clipboard write WKT whatever this says. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ColumnValueSpec">ColumnValueSpec</h4>
     <div class="table-wrap">
       <table>
@@ -8745,7 +8827,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">col</td><td class="type">string</td><td class="desc">The id of the column this condition reads.</td></tr>
           <tr><td class="name">type</td><td class="type"><a href="types.html#type-TypeName">TypeName</a> <small class="literals">'text' | 'number' | 'boolean' | 'date' | 'dateString' | 'object' | 'lookup' | 'image'</small></td><td class="desc">The column's type, which decides how both sides are normalised before comparison — a `date` or `dateString` condition brings the value and the operand to the same calendar day first, so a `Date`, an epoch number and an ISO string all line up. <small>(optional)</small></td></tr>
           <tr><td class="name">op</td><td class="type"><a href="types.html#type-Operator">Operator</a></td><td class="desc">The comparison to make: `eq`, `contains`, `between`, `in`, `blank` and the rest, each with an exact negation (`ne`, `notContains`, `notBetween`, `notIn`, `notBlank`).</td></tr>
-          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The operand: a single value, a pair for `between`, or a list for `in`. Left out by the operators that need none. <small>(optional)</small></td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The operand: a single value, a pair for `between`, or a list for `in`. Left out by the operators that need none. A spatial operator takes a {@link SpatialBbox}, a geometry (GeoJSON, WKT or WKB) or a {@link SpatialDistance}. <small>(optional)</small></td></tr>
           <tr><td class="name">bounds</td><td class="type"><a href="types.html#type-IntervalBounds">IntervalBounds</a> <small class="literals">'[]' | '[)' | '(]' | '()'</small></td><td class="desc">Which ends of a `between` range are inclusive, written in interval notation. `'[]'` — both ends — by default; `'[)'` is the half-open form a date range usually wants. <small>(optional)</small></td></tr>
           <tr><td class="name">caseSensitive</td><td class="type">boolean</td><td class="desc">Compare text exactly as written. Off by default, so text matching, set membership and regular expressions all ignore case. <small>(optional)</small></td></tr>
           <tr><td class="name">meta</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Extra information carried alongside the condition for whoever executes it — the relative date token a range was built from, so a saved `last 7 days` filter is re-derived rather than frozen to the day it was written. <small>(optional)</small></td></tr>
@@ -8875,6 +8957,31 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">fn</td><td class="type">'datasetVsDataset'</td><td class="desc">Selects the dataset-comparison producer: one row per compared column, against a second grid. It replaces the pipeline.</td></tr>
           <tr><td class="name">with</td><td class="type"><a href="#type-Grid">Grid</a></td><td class="desc">The second grid to compare this one against.</td></tr>
           <tr><td class="name">columns</td><td class="type">string[]</td><td class="desc">Restrict the comparison to these columns. All shared columns by default. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-GeometryInfo">GeometryInfo</h4>
+    <p class="section-note">What a viewer reads from a geometry cell, through `DataType.geometry`. Lengths and areas are on a sphere of the mean Earth radius (6,371,008.8 m): within about 0.5% of the WGS84 ellipsoid. The centroid is planar in longitude/latitude degrees, as a database's `ST_Centroid` on a geometry column is.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">kind</td><td class="type"><a href="types.html#type-GeometryKind">GeometryKind</a> <small class="literals">'Point' | 'LineString' | 'Polygon' | 'MultiPoint' | 'MultiLineString' | 'MultiPolygon' | 'GeometryCollection'</small></td><td class="desc">The geometry kind.</td></tr>
+          <tr><td class="name">bbox</td><td class="type">[number, number, number, number]</td><td class="desc">`[minLon, minLat, maxLon, maxLat]` over every position.</td></tr>
+          <tr><td class="name">centroid</td><td class="type">[number, number]</td><td class="desc">`[lon, lat]`: the area-weighted centre of a polygon, the length-weighted centre of a line, the mean of points. A collection uses its highest-dimension members.</td></tr>
+          <tr><td class="name">length</td><td class="type">number</td><td class="desc">Metres: a line's length, a polygon's perimeter (holes included), 0 for points.</td></tr>
+          <tr><td class="name">area</td><td class="type">number</td><td class="desc">Square metres: a polygon's area with its holes removed; 0 otherwise.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DataTypeOperator">DataTypeOperator</h4>
+    <p class="section-note">A filter operator a data type declares (see `DataType.operators`).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">compile</td><td class="type">(value: unknown): (cell: unknown) =&gt; boolean</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>(cell: unknown) =&gt; boolean</code></td><td class="desc">Turn a condition's operand into a predicate over one cell's value.</td></tr>
+          <tr><td class="name">check</td><td class="type">(value: unknown): string | null</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>string | null</code></td><td class="desc">Why an operand cannot be used, or `null` when it can. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -9404,6 +9511,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">scroll:end</td><td class="desc">Selection and view</td><td class="desc">Scrolling settled: the last of a scroll gesture's frames has been drawn.</td><td class="type"><a href="#type-ScrollEvent">ScrollEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">size:changed</td><td class="desc">Selection and view</td><td class="desc">The host element's box changed size, as reported by the `ResizeObserver` the grid watches it with.</td><td class="type">no payload</td><td class="desc">no</td></tr>
           <tr><td class="name">detail:toggled</td><td class="desc">Selection and view</td><td class="desc">A master-detail region was opened or closed.</td><td class="type"><a href="#type-DetailToggledEvent">DetailToggledEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">detail:cell:edit:start</td><td class="desc">Selection and view</td><td class="desc">A nested (master-detail) grid's cell editor opened; re-emitted on the master, tagged with which detail region it came from (§13).</td><td class="type">DetailCellEditStartEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">detail:cell:edit:end</td><td class="desc">Selection and view</td><td class="desc">A nested grid's cell editor closed, committed or cancelled; re-emitted on the master the same way.</td><td class="type">DetailCellEditEndEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">detail:row:edit:start</td><td class="desc">Selection and view</td><td class="desc">A nested grid's row editor opened; re-emitted on the master the same way.</td><td class="type">DetailRowEditStartEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">detail:row:edit:end</td><td class="desc">Selection and view</td><td class="desc">A nested grid's row editor closed, committed or cancelled; re-emitted on the master the same way.</td><td class="type">DetailRowEditEndEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">detail:cell:changed</td><td class="desc">Selection and view</td><td class="desc">A nested grid's cell value was written; re-emitted on the master with the dot path into its own record, when the detail rows belong to it.</td><td class="type">DetailCellChangedEvent</td><td class="desc">&mdash;</td></tr>
           <tr><td class="name">toolpanel:focus</td><td class="desc">Selection and view</td><td class="desc">The keyboard asked for focus to move to the tool panel (Ctrl+Alt+P).</td><td class="type">no payload</td><td class="desc">no</td></tr>
           <tr><td class="name">highlight:changed</td><td class="desc">Selection and view</td><td class="desc">The set of host-declared highlights changed.</td><td class="type"><a href="#type-HighlightChangedEvent">HighlightChangedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">find:changed</td><td class="desc">Selection and view</td><td class="desc">The find bar's query, open state or match count changed (BACKLOG-0001018).</td><td class="type"><a href="#type-FindChangedEvent">FindChangedEvent</a></td><td class="desc">no</td></tr>
@@ -10211,6 +10323,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">scroll:end</td><td class="type"><a href="#type-ScrollEvent">ScrollEvent</a></td><td class="desc">The viewport's offset once the gesture settled.</td></tr>
           <tr><td class="name">size:changed</td><td class="type">void</td><td class="desc">Nothing: the new size is read off the element, which the handler already has.</td></tr>
           <tr><td class="name">detail:toggled</td><td class="type"><a href="#type-DetailToggledEvent">DetailToggledEvent</a></td><td class="desc">Which detail regions are open, and which one is mounted.</td></tr>
+          <tr><td class="name">detail:cell:edit:start</td><td class="type">DetailCellEditStartEvent</td><td class="desc">The nested grid's own cell-edit-start payload, plus which master row it came from.</td></tr>
+          <tr><td class="name">detail:cell:edit:end</td><td class="type">DetailCellEditEndEvent</td><td class="desc">The nested grid's own cell-edit-end payload, plus which master row it came from.</td></tr>
+          <tr><td class="name">detail:row:edit:start</td><td class="type">DetailRowEditStartEvent</td><td class="desc">The nested grid's own row-edit-start payload, plus which master row it came from.</td></tr>
+          <tr><td class="name">detail:row:edit:end</td><td class="type">DetailRowEditEndEvent</td><td class="desc">The nested grid's own row-edit-end payload, plus which master row it came from.</td></tr>
+          <tr><td class="name">detail:cell:changed</td><td class="type">DetailCellChangedEvent</td><td class="desc">The nested grid's own cell-changed payload, plus which master row it came from and where it lands on that row's record.</td></tr>
           <tr><td class="name">toolpanel:focus</td><td class="type">void</td><td class="desc">Nothing: it is a request to move focus, not a report about state.</td></tr>
           <tr><td class="name">highlight:changed</td><td class="type"><a href="#type-HighlightChangedEvent">HighlightChangedEvent</a></td><td class="desc">Every highlight now in force.</td></tr>
           <tr><td class="name">find:changed</td><td class="type"><a href="#type-FindChangedEvent">FindChangedEvent</a></td><td class="desc">The query, whether the bar is open, and the match count.</td></tr>
