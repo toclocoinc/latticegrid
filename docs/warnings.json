@@ -1,5 +1,5 @@
 {
-  "version": "1.74.0",
+  "version": "1.75.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 525,
+  "count": 528,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -5361,6 +5361,38 @@
       "docs": "api/charts.html#chartsmodule"
     },
     {
+      "id": "chart:*:ramp:log",
+      "module": "charts",
+      "severity": "info",
+      "since": "1.75.0",
+      "message": "chart {type} is coloured on a log ramp scale: its values span {ratio}:1, past the 100:1 at which a linear ramp leaves all but the largest in its palest shade. Set ramp: { scale: \"linear\" } to keep it linear.",
+      "meaning": "A ramp-coloured chart (a heatmap, a geomap, a map's density cells, or the opt-in calendar, hexbin, hexmap or choropleth) named no `ramp.scale`, and its finite positive values span more than two orders of magnitude. On a linear ramp every value below the top decade would draw in nearly the palest shade, so the chart placed values on a log scale instead: equal ratios are equal steps of colour, and the legend is labelled at powers of ten. `chart.provenance().ramp` reports `{ scale: 'log', auto: true, ratio }` on every draw. Said once per chart.",
+      "fix": "Nothing, if the log scale reads well. To keep the linear scale, set `ramp: { scale: 'linear' }`; for equal-count classes, `ramp: { scale: 'quantile' }`. Naming a scale also silences this note.",
+      "snippet": "createChart({ grid, container, type: 'markermap', geometry: 'place', ramp: { scale: 'log' } });",
+      "docs": "api/charts.html#chartsmodule"
+    },
+    {
+      "id": "chart:ramp:scale:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.75.0",
+      "message": "chart \"ramp.scale\" was \"{scale}\", which is not a ramp scale; the chart chose one from its values instead. Use \"linear\", \"log\" or \"quantile\".",
+      "meaning": "`ramp.scale` names how a value is placed along a colour ramp, and only `linear`, `log` and `quantile` exist. The unknown name was ignored and the default rule applied: log when the positive values span more than 100:1, linear otherwise.",
+      "fix": "Set `ramp.scale` to `'linear'`, `'log'` or `'quantile'`, or leave it out to let the chart choose.",
+      "snippet": "ramp: { scale: 'quantile' }",
+      "docs": "api/charts.html#chartsmodule"
+    },
+    {
+      "id": "chart:ramp:diverging-scale",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.75.0",
+      "message": "chart \"ramp.scale\" was \"{scale}\" on a diverging ramp, which is always linear and centred on zero; the scale was not applied. Drop \"diverging\" to colour by a log or quantile scale.",
+      "meaning": "A diverging ramp (`diverging: true`) is centred on zero so the sign reads first, and a log or quantile placement would move that centre. The chart kept the diverging ramp linear and ignored the scale.",
+      "fix": "Drop `diverging` to colour by a log or quantile scale, or drop `ramp.scale` to keep the diverging ramp.",
+      "docs": "api/charts.html#chartsmodule"
+    },
+    {
       "id": "filter:geometry:*",
       "module": "geometry",
       "severity": "warn",
@@ -5411,7 +5443,8 @@
       "message": "data-type \"{declaredType}\" on column \"{field}\" is not a built-in type name, so it was ignored; the column falls back to sampled shape typing.",
       "meaning": "readTable/hydrateTable read a server-rendered <th data-type> to set that column's type, so sort, filter and editor follow it without further configuration. The named value matches none of the built-in type names (the seven base types or the extended catalogue), so it cannot be resolved to anything, and the column is left untyped: it is inferred from the row data exactly as if no data-type had been given.",
       "fix": "Spell a built-in type name (number, date, bytes, ...), or omit data-type and let the column's shape be inferred from the data.",
-      "snippet": "<th data-type=\"number\">Qty</th>"
+      "snippet": "<th data-type=\"number\">Qty</th>",
+      "docs": "api-detail.html#htmx-guide-data-type"
     },
     {
       "id": "list:item:*",

@@ -9,6 +9,18 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.75.0] - 2026-09-28
+
+### Breaking
+
+- **A city of 493,910 places drew as one dark cell in a pale blur** (BACKLOG-0001516). *Existing charts can change colour:* any ramp-coloured chart whose positive values span more than 100:1 will now be coloured on a log scale unless it sets `ramp: { scale: 'linear' }`; narrower ranges are untouched. *Recognise your own case:* a map past its viewport cap, a heatmap, a choropleth or any ramp-coloured chart whose values span orders of magnitude shows its largest mark dark and everything else in the palest shade. Every ramp-coloured type (`heatmap`, `geomap`, density cells on `markermap` and `bubblemap`, and the opt-in `calendar`, `hexbin`, `hexmap` and `choropleth`) takes `ramp: { colours, scale }` with a `scale` of `'linear'`, `'log'` or `'quantile'`. Left unset, a chart whose positive values span more than 100:1 is coloured on a log scale, says so once in the console (`chart:*:ramp:log`) and reports it in `chart.provenance().ramp`; anything narrower stays linear as before. A value at or below zero on a log scale takes the bottom of the ramp. The ramp legend labels follow the scale: powers of ten (1-2-5 steps inside two decades) for log, the four cut points for quantile. `ramp: { scale: 'linear' }` keeps the previous colouring.
+
+### Fixed
+
+- **`hydrate.unknownType:*` carried no `docs` anchor, and the catalogue check let a missing `docs` field pass silently** (BACKLOG-0001517). The entry now points at the htmx guide's new "Column type precedence when hydrating a table" section (`docs/api-detail.html#htmx-guide-data-type`), which states the `data-type` precedence. `tools/warnings.js`'s `docs-anchor` rule now fails by name when any catalogue entry has no `docs` field at all, not only when one resolves nowhere.
+
+- **A deck.gl layer over a small in-view set drew nothing while the readout said every row was drawn.** When the grid held all its rows and the position column carried its geometry as text (WKT or GeoJSON text, as a plain-text column from a remote source delivers it) or as WKB, `bindDeck` handed the layer function an empty `ctx.features` yet counted every row in `ctx.provenance.rows`. Every path now reads a row's place through the geometry type's own reader (a GeoJSON object, a parsed geometry, WKT, WKB or GeoJSON text), `provenance.rows` always equals `ctx.features.length`, and a row whose position is blank or cannot be read is counted in the new `provenance.skipped`, never as drawn. (BACKLOG-0001518)
+
 ## [1.74.0] - 2026-09-28
 
 ### Breaking

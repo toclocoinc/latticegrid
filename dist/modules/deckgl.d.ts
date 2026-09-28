@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.74.0, deckgl module type declarations
+ * Lattice Grid 1.75.0, deckgl module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -69,8 +69,14 @@ export interface DeckLayerContext {
   pending: boolean;
   /** One GeoJSON `Feature` per placed row, the row as its `properties`; empty when binned. */
   features: Array<{ type: 'Feature'; geometry: Record<string, unknown>; properties: Record<string, unknown> }>;
-  /** What was handed over — the shape of `chart.provenance().viewport`. */
-  provenance: ChartViewportProvenance;
+  /**
+   * What was handed over — the shape of `chart.provenance().viewport`, where
+   * `rows` is the rows drawn and always equals `features.length`, plus
+   * `skipped`: the rows handed over whose position is blank or could not be
+   * read by the geometry type's own reader (WKT, WKB or GeoJSON, as an object
+   * or as text), counted here and never as drawn; 0 when binned.
+   */
+  provenance: ChartViewportProvenance & { skipped: number };
 }
 
 /** A live binding between a grid and a deck. */

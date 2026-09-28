@@ -174,6 +174,14 @@ palest sixth, so the *lowest real reading* does not fall close enough to that
 empty tone to read as the same thing — a heatmap's ramp is unaffected; its pale
 end is the intended bottom of its own scale.
 
+The ramp places a value by a **scale** (`ramp: { scale }`, BACKLOG-0001516):
+`'linear'`, `'log'` or `'quantile'`. Unset, a map whose positive values span
+more than two orders of magnitude (largest / smallest > 100) is coloured on a
+log scale, and says so once; otherwise linear. A log scale draws zero and below
+at the bottom of the ramp and labels its legend at powers of ten; a quantile
+scale draws five equal-count classes and labels the cut points. A diverging
+ramp is always linear.
+
 ## Rendering and interaction (1.63)
 
 A region's stroke comes from `--lattice-chart-map-stroke` (falling back to the

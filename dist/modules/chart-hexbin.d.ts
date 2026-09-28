@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.74.0, chart-hexbin module type declarations
+ * Lattice Grid 1.75.0, chart-hexbin module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

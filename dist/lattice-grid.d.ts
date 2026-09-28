@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.74.0, type declarations
+ * Lattice Grid 1.75.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -12279,6 +12279,31 @@ export interface ChartScheme {
   negative?: string;
 }
 
+/**
+ * The object form of {@link ChartSpec.ramp}: the ramp's
+ * colours together with the scale a value is placed along it by. Read by
+ * every ramp-coloured type — `heatmap`, `geomap`, a `markermap` or `bubblemap`
+ * past its viewport cap (density cells), and the opt-in `calendar`, `hexbin`,
+ * `hexmap` and `choropleth`.
+ */
+export interface ChartRampOptions {
+  /** The sequential ramp's two colours, low value then high; the scheme's pair when unset. */
+  colours?: [string, string] | string[];
+  /**
+   * How a value is placed along the ramp. `'linear'`: equal steps of value are
+   * equal steps of colour. `'log'`: equal ratios are, so 10 → 100 moves as far
+   * as 1,000 → 10,000; a value at or below zero is drawn at the bottom of the
+   * ramp; the legend labels powers of ten (1-2-5 steps when the values span
+   * under two decades). `'quantile'`: the values are split into five classes
+   * of equal count, one shade each, and the legend labels the four cut points.
+   * Unset, the chart chooses: `'log'` when the finite positive values span
+   * more than two orders of magnitude (largest / smallest > 100), saying so
+   * once in the console and in `chart.provenance().ramp`, and `'linear'`
+   * otherwise. A diverging ramp is always linear and centred on zero.
+   */
+  scale?: 'linear' | 'log' | 'quantile';
+}
+
 /** A measure a chart reduces, when the chart is not given a bare `y`. */
 /** The mark a combo chart's measure draws with. */
 export type ChartMeasureType = 'bar' | 'line' | 'area';
@@ -12968,8 +12993,11 @@ export interface ChartSpec {
    * leaving the palette, the diverging ramp and the semantic colours as the
    * scheme (named or default) already set them. Two colours,
    * low value then high; a longer array is read by its first and last stop.
+   * The object form, {@link ChartRampOptions}, also takes the `scale` a value
+   * is placed along the ramp by — `'linear'`, `'log'` or `'quantile'`, chosen
+   * from the values when unset.
    */
-  ramp?: [string, string] | string[];
+  ramp?: [string, string] | string[] | ChartRampOptions;
   /**
    * Draw these series (by their own value, the same name `scheme`'s map keys
    * on) with a heavier stroke, full opacity and on top of the rest; every
@@ -13692,6 +13720,13 @@ export interface ChartProvenance {
    * engine sent the rows for the view, or when the cap changed what is drawn.
    */
   viewport?: ChartViewportProvenance;
+  /**
+   * A ramp-coloured draw:
+   * the scale its marks were placed on, `auto` when the chart chose it from the
+   * values rather than the spec asking, and the finite positive values'
+   * largest / smallest (0 when there are none).
+   */
+  ramp?: { scale: 'linear' | 'log' | 'quantile'; auto: boolean; ratio: number };
   /** Each measure's column, reduction and where it was computed. */
   measures: Array<{
     col: string | null;

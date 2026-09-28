@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.74.0</title>
+<title>Types API Reference — Lattice Grid 1.75.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -936,7 +936,19 @@
           <tr><td class="name">refused</td><td class="type">boolean</td><td class="desc">True when `aggregate: 'engine'` was asked and the source could not serve it.</td></tr>
           <tr><td class="name">pending</td><td class="type">boolean</td><td class="desc">True while an engine request is in flight; the last drawing stays up until it lands.</td></tr>
           <tr><td class="name">viewport</td><td class="type"><a href="#type-ChartViewportProvenance">ChartViewportProvenance</a></td><td class="desc">A map's view (GEO-6; see {@link ChartSpec.viewportCap}): present when the engine sent the rows for the view, or when the cap changed what is drawn. <small>(optional)</small></td></tr>
+          <tr><td class="name">ramp</td><td class="type">{ scale: 'linear' | 'log' | 'quantile'; auto: boolean; ratio: number }</td><td class="desc">A ramp-coloured draw (BACKLOG-0001516; see {@link ChartRampOptions.scale}): the scale its marks were placed on, `auto` when the chart chose it from the values rather than the spec asking, and the finite positive values' largest / smallest (0 when there are none). <small>(optional)</small></td></tr>
           <tr><td class="name">measures</td><td class="type">Array&lt;{ col: string | null; fn: string; computed: 'engine' | 'client'; /** The pushdown map's class for an engine measure: `identical` or `may-differ`. */ class?: string; /** Why, for a client measure. */ reason?: string; }&gt;</td><td class="desc">Each measure's column, reduction and where it was computed.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartRampOptions">ChartRampOptions</h4>
+    <p class="section-note">The object form of {@link ChartSpec.ramp} (BACKLOG-0001516): the ramp's colours together with the scale a value is placed along it by. Read by every ramp-coloured type — `heatmap`, `geomap`, a `markermap` or `bubblemap` past its viewport cap (density cells), and the opt-in `calendar`, `hexbin`, `hexmap` and `choropleth`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">colours</td><td class="type">[string, string] | string[]</td><td class="desc">The sequential ramp's two colours, low value then high; the scheme's pair when unset. <small>(optional)</small></td></tr>
+          <tr><td class="name">scale</td><td class="type">'linear' | 'log' | 'quantile'</td><td class="desc">How a value is placed along the ramp. `'linear'`: equal steps of value are equal steps of colour. `'log'`: equal ratios are, so 10 → 100 moves as far as 1,000 → 10,000; a value at or below zero is drawn at the bottom of the ramp; the legend labels powers of ten (1-2-5 steps when the values span under two decades). `'quantile'`: the values are split into five classes of equal count, one shade each, and the legend labels the four cut points. Unset, the chart chooses: `'log'` when the finite positive values span more than two orders of magnitude (largest / smallest &gt; 100), saying so once in the console and in `chart.provenance().ramp`, and `'linear'` otherwise. A diverging ramp is always linear and centred on zero. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>

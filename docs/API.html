@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.74.0</p>
+    <p class="rail__sub">API reference · v1.75.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -555,7 +555,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.74.0</span>
+      <span class="chip">Version 1.75.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -2182,7 +2182,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.74.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.75.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -6057,6 +6057,7 @@ return [p.source, p.pending, p.measures[0].computed, p.reason].join(' | ');</cod
           <tr><td class="name">measures</td><td class="type">object[]</td><td class="desc"><code>{col, fn, type, axis}</code>: several measures at once, each reduced by an aggregation. <code>fn</code> is one of <code>sum</code>, <code>avg</code> (alias <code>mean</code>), <code>min</code>, <code>max</code>, <code>count</code>, <code>countValues</code>, <code>first</code>, <code>last</code>; it defaults to <code>sum</code>. An <code>fn</code> that is none of these is a mistake, not a silent <code>sum</code>: it warns once, naming the value and the supported set, and falls back to <code>sum</code> so the chart still draws.</td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">Drawn above the plot.</td></tr>
           <tr><td class="name">scheme</td><td class="type">string | string[] | object</td><td class="desc">A named scheme, your own ordered colours, or a <code>{ name: colour }</code> map (BACKLOG-0001453). <code>schemeNames()</code> lists the built-in ones, including a colour-blind-safe palette. The map is what survives a filter: a pie or donut keys it on the category, a chart with <code>series</code> keys it on the series value, and a single-series bar or column keys it on the <code>x</code> category instead. A name the map does not mention falls back to the ordered scheme by its position among the other unmapped names, so <code>{ Operational: 'green', Offline: 'red' }</code> keeps "Operational" exactly as green whichever categories a filter leaves. A map and a <code>palette</code> array do not combine — the map wins, and the array is ignored once, with a warning.</td></tr>
+          <tr><td class="name">ramp</td><td class="type">string[] | <a href="#type-ChartRampOptions">ChartRampOptions</a></td><td class="desc">The colour ramp every ramp-coloured type fills by (<code>heatmap</code>, <code>geomap</code>, density cells, <code>calendar</code>, <code>hexbin</code>, <code>hexmap</code>, <code>choropleth</code>). <code>[low, high]</code> sets the two colours; <code>{ colours, scale }</code> also sets the <strong>scale</strong> a value is placed by (BACKLOG-0001516): <code>'linear'</code>, equal steps of value; <code>'log'</code>, equal ratios, so a city's 40,000-place centre and its 40-place suburbs both get a shade of their own, with zero and below at the bottom of the ramp and the legend labelled at powers of ten (1-2-5 inside two decades); <code>'quantile'</code>, five equal-count classes, the legend labelled at the four cut points. Unset, the chart uses <code>'log'</code> when the positive values span more than 100:1 and says so once (<code>chart.provenance().ramp</code> reports it every draw), and <code>'linear'</code> otherwise. A <code>diverging</code> ramp is always linear.</td></tr>
           <tr><td class="name">legend</td><td class="type">boolean | object</td><td class="desc"><code>position</code>, <code>isolate</code> so a click shows only that series (what plain toggling makes a reader with eight series do in seven clicks), and <code>values: true</code>, which appends each entry's own total after its name and a thin space — a category's for pie and donut, a series' for a series legend — formatted by the measure column (BACKLOG-0001453).</td></tr>
           <tr><td class="name">emphasis / seriesStyle</td><td class="type">string[] / object</td><td class="desc">Weight, not just hue, for one series among many on a <code>line</code>, <code>area</code> or the line half of a <code>combo</code>/<code>pareto</code> (BACKLOG-0001472) — an equal-weighted index drawn thicker than the 24 tickers it averages, say. <code>emphasis: ['Index']</code> names series by the same value <code>scheme</code>'s map keys on: those draw with a heavier stroke, full opacity and on top; every other series draws thinner and muted. <code>seriesStyle: { Index: { width: 4, dash: [6, 3] } }</code> sets a series' own stroke width and/or dash pattern directly and wins over <code>emphasis</code> for the same name. The fixed emphasis/mute pair is themeable through <code>--lattice-chart-emphasis-width</code> and <code>--lattice-chart-muted-opacity</code>.</td></tr>
           <tr><td class="name">centre</td><td class="type">object</td><td class="desc">A donut's own figure, drawn in its hole (BACKLOG-0001453); every other type ignores it, having no hole. <code>{ value: 'total' | number | string, label? }</code> — <code>'total'</code> sums the slices actually drawn, so hiding a category from the legend moves the figure with them; a number is formatted the same way; a string is written through unchanged. <code>label</code> is a second line beneath it. Both are sized to fit the hole and never drawn past its edge.</td></tr>
@@ -6092,6 +6093,31 @@ return [p.source, p.pending, p.measures[0].computed, p.reason].join(' | ');</cod
         </tbody>
       </table>
     </div>
+    <p><strong>The ramp's scale.</strong> Every ramp-coloured type places a value along its ramp by <code>ramp.scale</code> (BACKLOG-0001516): a map whose densest cell holds forty thousand places and whose quietest holds forty is coloured on a log scale unless you ask otherwise, so the forty-place cells are not all the palest shade. The legend labels the scale it drew.</p>
+    <pre data-run="js" data-expect="log | 100 1,000 10,000" data-covers="export:createChart config:ChartRampOptions.colours config:ChartRampOptions.scale"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 600, height: 300 });
+const container = document.createElement('div');
+container.rect = { width: 600, height: 300, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'cell' }, { field: 'city' }, { field: 'places', type: 'number' }],
+  rows: [
+    { id: 'a', cell: 'Centre', city: 'London', places: 40000 },
+    { id: 'b', cell: 'Inner', city: 'London', places: 1000 },
+    { id: 'c', cell: 'Outer', city: 'London', places: 40 },
+  ],
+});
+const chart = createChart({
+  grid, container, type: 'heatmap', x: 'cell', y: 'places', series: 'city', legend: true,
+  ramp: { colours: ['#f7fbff', '#08306b'], scale: 'log' },
+});
+const ticks = [...container.querySelectorAll('.lat-chartview__legend-ramp-tick')].map((n) =&gt; n.textContent);
+return [chart.provenance().ramp.scale, ticks.join(' ')].join(' | ');</code></pre>
     <p class="section-note">
       <strong>A reduction over no readings is a gap, not a zero (BACKLOG-0001088).</strong>
       <code>sum</code>, <code>avg</code>/<code>mean</code>, <code>min</code>, <code>max</code>,
@@ -15846,7 +15872,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">end</td><td class="type">string</td><td class="desc">The end-date column, for a gantt chart. <small>(optional)</small></td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">A heading above the plot, drawn in the figure's caption alongside any `subtitle`. <small>(optional)</small></td></tr>
           <tr><td class="name">scheme</td><td class="type"><a href="#type-ChartSchemeName">ChartSchemeName</a> | string | string[] | Record&lt;string, string&gt; | <a href="#type-ChartScheme">ChartScheme</a></td><td class="desc">A named scheme, an array of colours, a `{ [name]: colour }` map (BACKLOG-0001453), or a full {@link ChartScheme} object (BACKLOG-0001471) — the shape every built-in scheme already is, so a host can override the ramps and semantic colours alongside the palette in one value. The built-in names are {@link ChartSchemeName} (`'default'`, `'bright'`, `'earth'`, `'mono'`); a name registered with `registerScheme` is a plain string alongside them. The map is the form that survives a filter: a pie or donut keys it on the category (`x`) value, a chart with a `series` column keys it on the series value, and a single-series bar or column — no `series` — keys it on the `x` category instead. A name absent from the map falls back to the ordered scheme by its position among the *other unmapped* names, so `{ Operational: 'green' }` keeps every other category exactly as it was whichever ones a filter removes — an ordered array reassigns every colour after the gap. A map and an array `palette` do not combine; given both, the map wins and the array is ignored, once, with a warning. A {@link ChartScheme} object and a map are told apart by content: an object naming at least one of `series`/`sequential`/`diverging`/`positive`/`negative` is a scheme override, not a map of category names to colours. <small>(optional)</small></td></tr>
-          <tr><td class="name">ramp</td><td class="type">[string, string] | string[]</td><td class="desc">A shorthand that overrides only the resolved scheme's sequential ramp — the colour a heatmap, calendar, hexbin or hexmap's magnitude comes from — leaving the palette, the diverging ramp and the semantic colours as the scheme (named or default) already set them (BACKLOG-0001471). Two colours, low value then high; a longer array is read by its first and last stop. <small>(optional)</small></td></tr>
+          <tr><td class="name">ramp</td><td class="type">[string, string] | string[] | <a href="#type-ChartRampOptions">ChartRampOptions</a></td><td class="desc">A shorthand that overrides only the resolved scheme's sequential ramp — the colour a heatmap, calendar, hexbin or hexmap's magnitude comes from — leaving the palette, the diverging ramp and the semantic colours as the scheme (named or default) already set them (BACKLOG-0001471). Two colours, low value then high; a longer array is read by its first and last stop. The object form, {@link ChartRampOptions}, also takes the `scale` a value is placed along the ramp by — `'linear'`, `'log'` or `'quantile'`, chosen from the values when unset (BACKLOG-0001516). <small>(optional)</small></td></tr>
           <tr><td class="name">emphasis</td><td class="type">string[]</td><td class="desc">Draw these series (by their own value, the same name `scheme`'s map keys on) with a heavier stroke, full opacity and on top of the rest; every other series draws thinner and muted (BACKLOG-0001472). Applies to `line`, `area` and the line half of `combo`/`pareto`. The fixed style pair is themeable through `--lattice-chart-emphasis-width` and `--lattice-chart-muted-opacity`. An entry in {@link ChartSpec.seriesStyle} for the same name wins over this. <small>(optional)</small></td></tr>
           <tr><td class="name">seriesStyle</td><td class="type">Record&lt;string, { width?: number; dash?: number[] }&gt;</td><td class="desc">An explicit stroke width and/or dash pattern for a named series (BACKLOG-0001472), keyed the same way {@link ChartSpec.emphasis} is. Wins over `emphasis` for a series named in both. Applies to `line`, `area` and the line half of `combo`/`pareto`. <small>(optional)</small></td></tr>
           <tr><td class="name">legend</td><td class="type">boolean | { position?: 'top' | 'bottom' | 'left' | 'right'; isolate?: boolean; values?: boolean; title?: string; }</td><td class="desc">Show the series legend. The object form places it, and `isolate` lets a click on a legend entry show that series alone. `values: true` appends each entry's own total — a category's for pie and donut, a series' for a series legend — formatted by the measure column, after the name and a thin space (BACKLOG-0001453). `title` labels a continuous colour-ramp legend (heatmap, calendar, hexbin, hexmap); ignored by a series legend, which names each series instead. <small>(optional)</small></td></tr>
@@ -16736,7 +16762,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">binned</td><td class="type">boolean</td><td class="desc">True when `rows` are density cells (`{ west, south, east, north, count }`), not rows.</td></tr>
           <tr><td class="name">pending</td><td class="type">boolean</td><td class="desc">True while an engine request for the view is in flight; `rows` is the last answer.</td></tr>
           <tr><td class="name">features</td><td class="type">Array&lt;{ type: 'Feature'; geometry: Record&lt;string, unknown&gt;; properties: Record&lt;string, unknown&gt; }&gt;</td><td class="desc">One GeoJSON `Feature` per placed row, the row as its `properties`; empty when binned.</td></tr>
-          <tr><td class="name">provenance</td><td class="type"><a href="#type-ChartViewportProvenance">ChartViewportProvenance</a></td><td class="desc">What was handed over — the shape of `chart.provenance().viewport`.</td></tr>
+          <tr><td class="name">provenance</td><td class="type"><a href="#type-ChartViewportProvenance">ChartViewportProvenance</a> &amp; { skipped: number }</td><td class="desc">What was handed over — the shape of `chart.provenance().viewport`, where `rows` is the rows drawn and always equals `features.length`, plus `skipped`: the rows handed over whose position is blank or could not be read by the geometry type's own reader (WKT, WKB or GeoJSON, as an object or as text), counted here and never as drawn; 0 when binned.</td></tr>
         </tbody>
       </table>
     </div>
@@ -19689,7 +19715,19 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">refused</td><td class="type">boolean</td><td class="desc">True when `aggregate: 'engine'` was asked and the source could not serve it.</td></tr>
           <tr><td class="name">pending</td><td class="type">boolean</td><td class="desc">True while an engine request is in flight; the last drawing stays up until it lands.</td></tr>
           <tr><td class="name">viewport</td><td class="type"><a href="#type-ChartViewportProvenance">ChartViewportProvenance</a></td><td class="desc">A map's view (GEO-6; see {@link ChartSpec.viewportCap}): present when the engine sent the rows for the view, or when the cap changed what is drawn. <small>(optional)</small></td></tr>
+          <tr><td class="name">ramp</td><td class="type">{ scale: 'linear' | 'log' | 'quantile'; auto: boolean; ratio: number }</td><td class="desc">A ramp-coloured draw (BACKLOG-0001516; see {@link ChartRampOptions.scale}): the scale its marks were placed on, `auto` when the chart chose it from the values rather than the spec asking, and the finite positive values' largest / smallest (0 when there are none). <small>(optional)</small></td></tr>
           <tr><td class="name">measures</td><td class="type">Array&lt;{ col: string | null; fn: string; computed: 'engine' | 'client'; /** The pushdown map's class for an engine measure: `identical` or `may-differ`. */ class?: string; /** Why, for a client measure. */ reason?: string; }&gt;</td><td class="desc">Each measure's column, reduction and where it was computed.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartRampOptions">ChartRampOptions</h4>
+    <p class="section-note">The object form of {@link ChartSpec.ramp} (BACKLOG-0001516): the ramp's colours together with the scale a value is placed along it by. Read by every ramp-coloured type — `heatmap`, `geomap`, a `markermap` or `bubblemap` past its viewport cap (density cells), and the opt-in `calendar`, `hexbin`, `hexmap` and `choropleth`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">colours</td><td class="type">[string, string] | string[]</td><td class="desc">The sequential ramp's two colours, low value then high; the scheme's pair when unset. <small>(optional)</small></td></tr>
+          <tr><td class="name">scale</td><td class="type">'linear' | 'log' | 'quantile'</td><td class="desc">How a value is placed along the ramp. `'linear'`: equal steps of value are equal steps of colour. `'log'`: equal ratios are, so 10 → 100 moves as far as 1,000 → 10,000; a value at or below zero is drawn at the bottom of the ramp; the legend labels powers of ten (1-2-5 steps when the values span under two decades). `'quantile'`: the values are split into five classes of equal count, one shade each, and the legend labels the four cut points. Unset, the chart chooses: `'log'` when the finite positive values span more than two orders of magnitude (largest / smallest &gt; 100), saying so once in the console and in `chart.provenance().ramp`, and `'linear'` otherwise. A diverging ramp is always linear and centred on zero. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -21877,7 +21915,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.74.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.75.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>
