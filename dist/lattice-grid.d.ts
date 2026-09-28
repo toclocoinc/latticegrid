@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.73.0, type declarations
+ * Lattice Grid 1.74.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -63,6 +63,10 @@ export type TypeName =
   // GeoJSON, with spatial filter operators and measures a map reads. Registered
   // by the opt-in `modules/geometry`: without it the name warns and is text.
   | 'geometry'
+  // Many values in one cell, each usable on its own: a list of items of the
+  // scalar type named by `typeOptions.of`. Registered by the opt-in
+  // `modules/list`: without it the name warns and is text.
+  | 'list'
   | (string & {});
 
 /**
@@ -102,9 +106,16 @@ export type Density = 'compact' | 'standard' | 'comfortable' | 'spacious' | numb
 /**
  * A shipped theme, or your own name, the value is written to `data-theme` on
  * the grid's root, so `.lattice[data-theme="mine"]` is all a custom one needs.
- * Unset follows the viewer's `prefers-color-scheme`.
+ *
+ * One switch reaches every module: `data-theme="dark"` on
+ * any ancestor (a layout's root, or `<html>`) darkens the grid, the layout
+ * chrome, charts, KPI tiles, tabs, kanban and gantt together. The nearest
+ * `data-theme` wins, so `'light'` here forces a light grid inside a dark page.
+ * `'auto'` follows the viewer's `prefers-color-scheme`. Unset writes no
+ * attribute: the grid follows the nearest themed ancestor, and is light when
+ * there is none.
  */
-export type Theme = 'light' | 'dark' | 'high-contrast' | 'terminal' | (string & {});
+export type Theme = 'light' | 'dark' | 'auto' | 'high-contrast' | 'terminal' | (string & {});
 /** A column, named by its `id`: what every API that asks "which column" takes. */
 export type ColumnRef = string;
 /**
@@ -692,10 +703,39 @@ export interface DataType {
    */
   operators?: Record<string, DataTypeOperator>;
   /**
-   * The text CSV and a text Excel cell write for a value of this type, in place
-   * of the display text. A geometry cell shows a summary and exports WKT.
+   * The text CSV, a text Excel cell and the clipboard write for a value of this
+   * type, in place of the display text. A geometry cell shows a summary and
+   * exports WKT; a list exports its items joined. Receives the resolved column,
+   * for a type whose text depends on its options.
    */
-  exportText?: (value: unknown) => string;
+  exportText?: (value: unknown, column?: ResolvedColumn) => string;
+  /**
+   * The items of a cell, for a type whose cell holds several values (the
+   * `list` type). Declaring it makes the grid resolve the column's
+   * `typeOptions.of` into {@link ResolvedColumn.itemType}, and every §9.3
+   * operator the item type offers then applies item by item: a row matches when
+   * **any** item does, and a negated operator (`ne`, `notContains`, `notIn`,
+   * `notBetween`) when **no** item matches its positive twin, so an empty list
+   * passes it.
+   */
+  items?: (value: unknown) => unknown[];
+  /**
+   * Build the column's comparator from the resolved column, for a type whose
+   * order depends on its options (a list orders by item count, then the first
+   * item under its item type's comparator). Takes the place of `compare`.
+   */
+  compareFor?: (column: ResolvedColumn) => Comparator;
+  /**
+   * Defaults that depend on the item type, merged over `defaults` for a type
+   * that declares `items` (a list of numbers gets a filter offering the
+   * number comparisons).
+   */
+  defaultsFor?: (itemType: DataType) => DataType['defaults'];
+  /**
+   * The operator a chosen facet value becomes on a column of this type, in
+   * place of `in`. A list column's is `hasAny`.
+   */
+  memberOperator?: Operator;
 }
 
 /** A filter operator a data type declares (see `DataType.operators`). */
@@ -1865,6 +1905,25 @@ export type SmoothingMethod = 'ses' | 'holt';
 export type RegressionMethod = 'ols' | 'wls' | 'robust' | 'quantile';
 /** A running total's shape: a running sum, a running percentage, or a period-over-period delta. */
 export type RunningTotalMode = 'total' | 'percent' | 'delta';
+/** The options a column's data type reads (`Column.typeOptions`). */
+export interface ColumnTypeOptions {
+  /**
+   * A `list` column's item type: any scalar data type name, `'text'` by
+   * default. A name that is not a known scalar type warns once by name
+   * (`type:of:<name>`) and the items are read as text.
+   */
+  of?: TypeName;
+  /**
+   * The text between items when a `list` cell is copied or exported, `', '`
+   * by default. Typed and pasted text is split on it and on commas.
+   */
+  joiner?: string;
+  /**
+   * Any other option a data type reads from its column: a weighted average's
+   * `weight` column, a unit's `significantFigures`.
+   */
+  [option: string]: unknown;
+}
 export interface Column {
   /**
    * Free-form labels for grouping columns together. A bare string is
@@ -1881,6 +1940,11 @@ export interface Column {
   field?: string;
   /** The heading. Defaults to a readable form of `field`. */
   title?: string;
+  /**
+   * Options the column's data type reads: a `list` column's item type (`of`)
+   * and export joiner (`joiner`), and any a data type of your own reads.
+   */
+  typeOptions?: ColumnTypeOptions;
   /**
    * The data type, which decides parsing, formatting, sorting, the default
    * editor and the default filter together. `false` turns inference off and
@@ -2291,6 +2355,13 @@ export interface ResolvedColumn {
    */
   dataType: DataType;
   /**
+   * The resolved type of each item, for a column whose type holds several
+   * values per cell (`DataType.items`, the `list` type): `typeOptions.of`,
+   * `text` when nothing names one or the name is not a scalar type. `null` on
+   * every other column.
+   */
+  itemType: DataType | null;
+  /**
    * Whether an empty value is allowed in this column. True unless the
    * definition said `nullable: false`.
    */
@@ -2444,7 +2515,31 @@ export type Operator =
   | 'contains' | 'notContains' | 'startsWith' | 'endsWith' | 'matches'
   | 'blank' | 'notBlank'
   | 'containsAny' | 'containsAll' | 'containsNone'
-  | SpatialOperator;
+  | SpatialOperator
+  | ListOperator;
+
+/**
+ * The four operators of a `list` column (declared by the type the opt-in
+ * `modules/list` registers), questions about the whole list. They compare
+ * items exactly (case matters), as SQL's `list_has_any` does.
+ *
+ * - `hasAny` — the list holds at least one of the operand's items.
+ * - `hasAll` — the list holds every one of them (an empty operand: every row).
+ * - `hasNone` — the list holds none of them (an empty or absent list included).
+ * - `listCount` — the number of items compares as a {@link ListCount} says.
+ *
+ * Every operator of the item type applies to a list column too, with "any
+ * item matches" semantics; see `DataType.items`.
+ */
+export type ListOperator = 'hasAny' | 'hasAll' | 'hasNone' | 'listCount';
+
+/** The operand of `listCount`: how the number of items compares to `value`. */
+export interface ListCount {
+  /** The comparison. */
+  op: 'gt' | 'gte' | 'lt' | 'lte' | 'eq';
+  /** The number of items to compare with. */
+  value: number;
+}
 
 /**
  * The four operators of a `geometry` column (declared by the type the opt-in
@@ -3881,7 +3976,10 @@ export interface GridConfig {
    * Omit to use each viewer's own zone. A column's own `format.timeZone` wins.
    */
   timeZone?: string;
-  /** The visual theme. */
+  /**
+   * The visual theme. Unset (the default) follows the nearest `data-theme` on an
+   * ancestor, and is light when there is none; see {@link Theme}.
+   */
   theme?: Theme;
   /** Row height and padding as a named step, rather than pixel by pixel. */
   density?: Density;
@@ -4854,6 +4952,27 @@ export interface GridConfig {
     maxColumns?: number;
     separator?: string;
   };
+}
+
+/**
+ * The configuration {@link createHeadlessGrid} accepts (§20).
+ *
+ * Every {@link GridConfig} key remains meaningful off the DOM — sources,
+ * columns, sort, grouping and the rest all still drive the same pipeline —
+ * so this is the same shape, not a smaller one; it exists so `icons` has its
+ * own doc anchor for the headless case, which touches no `document` at all.
+ */
+export interface HeadlessGridConfig extends GridConfig {
+  /**
+   * Your own SVG glyphs, registered into this grid's own icon registry
+   * alongside the built-in set — the same shape {@link GridConfig.icons}
+   * takes, and no DOM is touched to register them. A chart type bound to
+   * this grid (a `network` node's `icon`, for example) reads a name back out
+   * through {@link Grid.icons} when it draws, into its own `<svg>`; a name
+   * neither this map nor the built-ins hold still warns once, by name, the
+   * same way it does on a rendered grid.
+   */
+  icons?: Record<string, IconDefinition>;
 }
 
 /**
@@ -8418,6 +8537,46 @@ export interface DetailApi {
   config(): DetailConfig | null;
 }
 
+/**
+ * The shape {@link SelectionApi.statistics} returns: what
+ * `summary()` reports, plus the range's own size and shape. `distinct` counts
+ * every non-blank value, numeric or not, so a numeric-looking selection that
+ * is really a set of codes shows up as a low distinct count against a high
+ * `count`. The five fields after `distinct` are present only when at least
+ * one selected value parsed as a number — `statistics()` never invents a
+ * quartile or a deviation over an empty numeric set.
+ */
+export interface SelectionStatistics {
+  /** How many selected cells carry a value at all (blank cells are excluded). */
+  count: number;
+  /** How many of those parsed as a number. */
+  numeric: number;
+  /** Null when `numeric` is 0. */
+  sum: number | null;
+  /** Null when `numeric` is 0. */
+  min: number | null;
+  /** Null when `numeric` is 0. */
+  max: number | null;
+  /** Null when `numeric` is 0. */
+  avg: number | null;
+  /** How many cells were selected, blank or not — the size of the range itself. */
+  cells: number;
+  /** How many distinct values (numeric or not) the selected cells hold. */
+  distinct: number;
+  /** The middle of the numeric values, sorted. Absent when `numeric` is 0. */
+  median?: number;
+  /** The first quartile. Absent when `numeric` is 0. */
+  q1?: number;
+  /** The third quartile. Absent when `numeric` is 0. */
+  q3?: number;
+  /** `q3 - q1`. Absent when `numeric` is 0. */
+  iqr?: number;
+  /** Sample standard deviation; null with exactly one numeric value. Absent when `numeric` is 0. */
+  stddev?: number | null;
+  /** How many numeric values sit outside the standard `1.5 * iqr` fence. Absent when `numeric` is 0. */
+  outliers?: number;
+}
+
 export interface SelectionApi {
   /** Drop every range, leaving the row and cell selection alone. */
   clearRange(): void;
@@ -8441,7 +8600,7 @@ export interface SelectionApi {
    * cells rather than a column, so a rectangle spanning three columns is one
    * set of numbers. Null with nothing selected.
    */
-  statistics(): object | null;
+  statistics(): SelectionStatistics | null;
   /** The selected rows, as row objects. */
   rows(): Row[];
   /** The keys of the selected rows. */
@@ -11769,7 +11928,7 @@ export function splunkAdapter(options: {
 };
 
 export function createGrid(element: HTMLElement, config?: GridConfig): Grid;
-export function createHeadlessGrid(config?: GridConfig): Grid;
+export function createHeadlessGrid(config?: HeadlessGridConfig): Grid;
 
 /**
  * House-wide defaults, merged beneath every grid built afterwards.
@@ -11837,6 +11996,27 @@ export function createLocalViewStorage(opts?: {
   key?: string;
   storage?: { getItem: Function; setItem: Function };
 }): { read(): object[] | null; write(views: object[]): void } | null;
+
+/**
+ * A compact, URL-safe encoding of a grid's current state —
+ * only what differs from `grid.state.baseline()`, so a grid a user has not
+ * touched yet encodes to almost nothing. The core export the bundle ships at
+ * top level; `lattice-grid/modules/htmx` re-exports this exact function
+ * rather than a wrapper.
+ */
+export function serialiseState(grid: Grid): string;
+/**
+ * Restore state previously produced by {@link serialiseState}, through
+ * `grid.state.apply` — which, like the rest of state handling, tolerates an
+ * encoding written against a column set that has since moved on: it reports
+ * what it could not apply in the returned {@link StateApplyReport} rather
+ * than throwing. `opts.skip` names sections to leave untouched.
+ */
+export function restoreState(
+  grid: Grid,
+  encoded: string,
+  opts?: { skip?: StateSection[] },
+): StateApplyReport;
 
 /** Build a data type for hexadecimal, binary or octal values. */
 export function createRadixType(config?: object | string): DataType;
@@ -12395,6 +12575,14 @@ export interface ChartAnnotateMeasure {
    */
   volume?: string;
 }
+/** A candlestick's volume pane. */
+export interface ChartVolumePaneOptions {
+  /**
+   * The volume pane's share of the plot's height, above 0 and below 1; the
+   * default is 0.25. A value outside that range warns and the default is used.
+   */
+  height?: number;
+}
 /** The drawing rail's settings, when `annotate` is an object rather than `true`. */
 export interface ChartAnnotateOptions {
   /** Which tools the rail offers; the default is all of them, in rail order. */
@@ -12725,6 +12913,21 @@ export interface ChartSpec {
   aggregate?: 'auto' | 'engine' | 'client';
   /** Several measures at once, for combo and candlestick. */
   measures?: ChartMeasure[];
+  /**
+   * A candlestick's volume pane: the column holding each
+   * period's traded volume, summed per period. The candlestick then draws a
+   * price pane and a volume pane in one svg, on one x scale with one x axis
+   * at the bottom, so `axis.x.window`, `axis.x.min`/`max`, `zoom`, `annotate`
+   * and the measurers act on both panes together, and one tooltip reads both.
+   * Each volume bar takes its candle's up or down colour, and the volume axis
+   * sits on the price axis's side. The column is bound as the fifth measure,
+   * so it appears in `chart.data()` and the accessible table and is the
+   * volume a measurer sums. Any other chart type, or a column the grid does
+   * not have, warns and draws no pane.
+   */
+  volume?: string;
+  /** The volume pane's geometry, when `volume` is set. */
+  volumePane?: ChartVolumePaneOptions;
   /** Endpoints, for sankey, chord and network. */
   source?: string;
   /** The column naming the link's destination, beside `source`. */
@@ -13060,6 +13263,17 @@ export interface ChartSpec {
    * one against. `step` is the spacing between lines in degrees (default 30).
    */
   graticule?: boolean | { step?: number };
+  /**
+   * Override the land a `shapes` pack draws with, one
+   * colour or width at a time: `fill` and `stroke` as any CSS colour,
+   * `strokeWidth` in pixels. Unset, each takes its theme token —
+   * `--lattice-chart-basemap-fill`, `--lattice-chart-basemap-stroke`,
+   * `--lattice-chart-basemap-stroke-width` — whose defaults are legible
+   * against the plot in both themes without a host doing anything. Applies to
+   * every type that draws a `shapes` pack: `markermap`, `bubblemap`,
+   * `choropleth`'s own backdrop pack, `hexmap` and `geomap`.
+   */
+  basemap?: { fill?: string; stroke?: string; strokeWidth?: number };
   /** One chart per distinct value of this column. */
   multiples?: string;
   /** Draw to canvas past this many points. */

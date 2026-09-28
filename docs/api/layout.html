@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Layout API Reference — Lattice Grid 1.73.0</title>
+<title>Layout API Reference — Lattice Grid 1.74.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -401,6 +401,8 @@
         <a href="kpi.html">The KPI (stat-tile) view</a>
         <a href="alarms.html">The alarms module</a>
         <a href="geometry.html">The geometry module</a>
+        <a href="deckgl.html">The deck.gl adapter</a>
+        <a href="list.html">The list module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="tabs.html">The tabbed grid</a>
@@ -425,7 +427,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 15 pages</a></span>
+      <span class="chip"><a href="index.html">All 17 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -526,6 +528,7 @@ layout.destroy();
           <tr><td class="name">resizable</td><td class="type">boolean</td><td class="desc">Whether the window can be resized by drag or keyboard (default `false`). <small>(optional)</small></td></tr>
           <tr><td class="name">maximisable</td><td class="type">boolean</td><td class="desc">Whether to offer a maximise control in the chrome (default `false`). Maximising fills the **layout host**, not the browser window, and hides every other window for the duration. Escape restores it, unless a payload has already claimed the key. <small>(optional)</small></td></tr>
           <tr><td class="name">minimisable</td><td class="type">boolean</td><td class="desc">Whether to offer a minimise control in the chrome (default `false`). A window with `chrome: false` cannot be minimised whatever this says: there would be nothing left on screen to restore it with. <small>(optional)</small></td></tr>
+          <tr><td class="name">corners</td><td class="type"><a href="types.html#type-LayoutCorners">LayoutCorners</a> <small class="literals">'rounded' | 'square'</small></td><td class="desc">This window's own corner style; the layout's `corners` default otherwise. <small>(optional)</small></td></tr>
           <tr><td class="name">padding</td><td class="type">number | string</td><td class="desc">Padding inside the window; the layout's `padding` (default `'5px'`) otherwise. <small>(optional)</small></td></tr>
           <tr><td class="name">payloadId</td><td class="type">string</td><td class="desc">The `id` given to the payload container (default `` `${id}-body` ``). <small>(optional)</small></td></tr>
           <tr><td class="name">ariaLabel</td><td class="type">string</td><td class="desc">The window's accessible name, when the title alone is not enough context. <small>(optional)</small></td></tr>
@@ -732,6 +735,7 @@ layout.destroy();
           <tr><td class="name">gap</td><td class="type">number | string</td><td class="desc">The gap between cells (default `'8px'`). <small>(optional)</small></td></tr>
           <tr><td class="name">padding</td><td class="type">number | string</td><td class="desc">The default padding inside a window (default `'5px'`). <small>(optional)</small></td></tr>
           <tr><td class="name">compact</td><td class="type"><a href="types.html#type-LayoutCompaction">LayoutCompaction</a> <small class="literals">'vertical' | 'horizontal' | 'none'</small></td><td class="desc">Rearrangement (default `'vertical'`). One gravity direction, never two: `'vertical'` pushes displaced windows down and then floats everything up, `'horizontal'` pushes them right and then floats everything left — so dragging a window out of a row closes the hole sideways — and `'none'` leaves every placement exactly where it was put. An unrecognised value warns once, naming what it got, and falls back to `'vertical'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">corners</td><td class="type"><a href="types.html#type-LayoutCorners">LayoutCorners</a> <small class="literals">'rounded' | 'square'</small></td><td class="desc">The default corner style for every window that does not declare its own (default `'rounded'`, today's look). `'square'` zeroes the radius on the window, its title bar, the minimised strip and the maximised frame. The rounded radius itself is themed via `--lattice-layout-radius`, separately from the shared `--lattice-radius` every other module reads. A window's own `corners` overrides this. An unrecognised value warns once and falls back to `'rounded'`. <small>(optional)</small></td></tr>
           <tr><td class="name">movable</td><td class="type">boolean</td><td class="desc">The default `movable` for every window that does not declare its own (default `false`). This states a default, so `false` takes nothing away from a window that declared `movable: true`; `setInteractive(false)` is the active lock that does. <small>(optional)</small></td></tr>
           <tr><td class="name">resizable</td><td class="type">boolean</td><td class="desc">The default `resizable` for windows that declare none (default `false`); see `movable`. <small>(optional)</small></td></tr>
           <tr><td class="name">closable</td><td class="type">boolean</td><td class="desc">The default `closable` for windows that declare none (default `false`); see `movable`. <small>(optional)</small></td></tr>
@@ -740,6 +744,7 @@ layout.destroy();
           <tr><td class="name">windows</td><td class="type"><a href="#type-LayoutWindow">LayoutWindow</a>[]</td><td class="desc">The windows, in mount order. <small>(optional)</small></td></tr>
           <tr><td class="name">layout</td><td class="type"><a href="#type-LayoutSnapshot">LayoutSnapshot</a></td><td class="desc">An arrangement to apply at mount, as produced by `getLayout()`. <small>(optional)</small></td></tr>
           <tr><td class="name">ariaLabel</td><td class="type">string</td><td class="desc">The layout region's accessible name. <small>(optional)</small></td></tr>
+          <tr><td class="name">theme</td><td class="type">'light' | 'dark' | 'auto' | (string &amp; {})</td><td class="desc">The theme for the whole dashboard (BACKLOG-0001462), written to `data-theme` on the layout's root: `'dark'` darkens the window chrome, the window bodies and every grid, chart, KPI panel, tab strip, kanban board and gantt mounted in a window that does not set a theme of its own. `'light'` forces light inside a dark page; `'auto'` follows `prefers-color-scheme`. Unset follows the nearest `data-theme` on an ancestor, and is light when there is none. <small>(optional)</small></td></tr>
           <tr><td class="name">messages</td><td class="type">{ t(key: string, params?: Record&lt;string, unknown&gt;): string }</td><td class="desc">A message catalogue, e.g. `grid.messages`; built-in English seeds otherwise. <small>(optional)</small></td></tr>
         </tbody>
       </table>

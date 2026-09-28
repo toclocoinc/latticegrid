@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Charts API Reference — Lattice Grid 1.73.0</title>
+<title>Charts API Reference — Lattice Grid 1.74.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -396,6 +396,7 @@
         <a class="rail__sub-link" href="#chart-geometry-maps">Maps from a geometry column</a>
         <a class="rail__sub-link" href="#chart-annotate">Drawing on a chart &mdash; a tool rail anchored in the data</a>
         <a class="rail__sub-link" href="#chart-zoom">Zooming a chart &mdash; five controls, the wheel, and a rolling window</a>
+        <a class="rail__sub-link" href="#chart-volume-pane">A price-and-volume pane &mdash; candles over volume on one x axis</a>
         <a href="#ref-charts-reference">Type reference</a>
         <a class="rail__sub-link" href="#type-Chart">Chart</a>
       </div>
@@ -407,6 +408,8 @@
         <a href="kpi.html">The KPI (stat-tile) view</a>
         <a href="alarms.html">The alarms module</a>
         <a href="geometry.html">The geometry module</a>
+        <a href="deckgl.html">The deck.gl adapter</a>
+        <a href="list.html">The list module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="tabs.html">The tabbed grid</a>
@@ -432,7 +435,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 15 pages</a></span>
+      <span class="chip"><a href="index.html">All 17 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -875,6 +878,7 @@ createGrid(el, {
 
 createChart({ grid, container: '#map', type: 'geomap', code: 'iso', y: 'revenue',
   shapes: pack });                       <span class="cmt">// Equal Earth, fitted to the pack</span></code></pre>
+    <p><strong>The land itself is legible by default, in both themes.</strong> A pack's own outline fills from <code>--lattice-chart-basemap-fill</code> and strokes from <code>--lattice-chart-basemap-stroke</code>/<code>-stroke-width</code>, chosen to sit clear of the plot and of each other rather than fading into it; <code>spec.basemap: { fill, stroke, strokeWidth }</code> overrides any one of them per chart. Every type that draws a pack reads the same tokens: <code>markermap</code>, <code>bubblemap</code>, <code>choropleth</code>'s own backdrop pack, <code>hexmap</code> and <code>geomap</code>.</p>
     <p><strong>No bundler? Every pack also ships UMD/CJS</strong> (BACKLOG-0001450), exactly as
     <code>chart-markermap</code> and the other extension chart types do: a plain <code>&lt;script
     src&gt;</code> page reaches the pack from its own global rather than an <code>import</code>. Each
@@ -932,7 +936,7 @@ createChart({ grid, container: '#us', type: 'geomap', code: 'state', y: 'sales',
 
     <h3 id="network-map">Network diagrams &mdash; icon nodes, links coloured by their value</h3>
     <p>A <code>network</code> draws the grid's rows as a graph: <code>source</code> and <code>target</code> name the two endpoint columns and <code>y</code> carries the value on the link between them. Three things make it a picture of <em>your</em> network rather than a generic hairball, and each is a fact only you have.</p>
-    <p><strong>Nodes you name.</strong> <code>nodes: [{ id, label, icon, x, y }]</code> gives a node a glyph from the grid's own icon registry &mdash; a built-in name, or one you registered &mdash; and a label drawn beneath it. A node that appears in the rows but not in <code>nodes</code> takes the chart's <code>icon</code> default (a plain disc when there is none) and its own id as its label. A node listed in <code>nodes</code> that appears in <em>no</em> row is still drawn: a device with no links is a fact worth seeing. The glyphs are SVG paths from the same registry the cells paint from, so they are sharp at any chart size and take the chart's theme colours.</p>
+    <p><strong>Nodes you name.</strong> <code>nodes: [{ id, label, icon, x, y }]</code> gives a node a glyph from the grid's own icon registry &mdash; a built-in name, or one you registered &mdash; and a label drawn beneath it. A node that appears in the rows but not in <code>nodes</code> takes the chart's <code>icon</code> default (a plain disc when there is none) and its own id as its label. A node listed in <code>nodes</code> that appears in <em>no</em> row is still drawn: a device with no links is a fact worth seeing. The glyphs are SVG paths from the same registry the cells paint from, so they are sharp at any chart size and take the chart's theme colours. This still works over a grid with no DOM of its own: <code>createHeadlessGrid({ icons: {&hellip;} })</code> registers into that grid's own registry, and the chart resolves a node's <code>icon</code> from it exactly as it would on a rendered grid &mdash; a name neither it nor the built-ins hold still warns once, by name, rather than silently drawing a disc.</p>
     <p><strong>Positions you choose.</strong> <code>x</code> and <code>y</code> are fractions of the plot, measured from its top-left. A node giving <em>both</em> is <strong>pinned</strong> there and takes no part in the force simulation; everything else is laid out around it by the same deterministic relaxation as before, so &ldquo;core on top, regions below&rdquo; needs no hand-placed SVG. Half a position is not a position: a node with only <code>x</code> is laid out. A fraction outside 0&nbsp;to&nbsp;1 clamps to the edge of the plot rather than drawing where nobody can see it. Pinning one node never reshuffles the others &mdash; the layout's seeding draws for every node, pinned or not, precisely so that it cannot.</p>
     <p><strong>Colours from the rules you already wrote.</strong> Each link's stroke comes from the value column's own conditional-formatting rules, through <code>grid.formatting.styleFor(col, value)</code> &mdash; the colour order is <code>background</code>, then <code>backgroundColor</code>, then <code>color</code>; a gradient (a data bar, an icon set) is not a colour and is not read. A link no rule matches keeps the chart's default link colour. <strong>There is no chart-level threshold option, deliberately</strong>: a second place to say &ldquo;red above 80&rdquo; is a second place for the chart and the cell to disagree. The legend lists the rules that actually fired, with their own labels and their own swatches; a rule that matched nothing is not advertised. Change a rule and the links recolour on the next frame without the layout re-running, so nothing moves.</p>
     <p><strong>Links are undirected, and parallel links stay parallel.</strong> There are no arrowheads, and <code>A,B</code> is the same pair as <code>B,A</code> &mdash; a cable has two ends and no direction. <strong>Several rows between the same pair are drawn as several lines</strong>, side by side, offset perpendicular to the pair by 4&nbsp;px and symmetric about it, in row order, each with its own value and its own colour. They are <em>not</em> summed: three circuits between two sites are three readings, and one line carrying 120% would be a number nothing measured. The tooltip on any one line names both endpoints and that line's own value, and the pointer picks out the line you are actually over rather than the pair. Width follows the value unless <code>linkWidth</code> fixes it.</p>
@@ -1421,6 +1425,74 @@ chart.destroy();
 copy.destroy();
 return `axis ${full} then ${closer} then ${panned}; day 5 at ${share} of the plot; `
   + `moves ${moves.join(',')}; restored ${same} silently ${seen.length === 0}`;</code></pre>
+
+    <h3 id="chart-volume-pane">A price-and-volume pane &mdash; candles over volume on one x axis</h3>
+    <p>A trading screen reads price candles with the volume traded in each period underneath, in one chart: one x axis, one window, one zoom, one tooltip. <code>volume</code> on a candlestick draws exactly that &mdash; a price pane and a volume pane in one svg &mdash; rather than two stacked charts that share an <code>x</code> and a <code>window</code> and have to be kept in step by hand. <code>volume</code> names the column holding each period&rsquo;s traded volume, summed per period; <code>volumePane.height</code> is the volume pane&rsquo;s share of the plot&rsquo;s height, <code>0.25</code> by default.</p>
+    <p>Both panes are drawn on <strong>one x scale</strong>, so a candle and its volume bar share an x by construction, and the x axis is drawn once, under the volume pane. Everything that moves the x axis moves both panes together: a rolling <code>axis.x.window</code>, a pinned <code>axis.x.min</code>/<code>max</code>, the <a href="#chart-zoom">zoom</a>&rsquo;s buttons, wheel and pan, and <code>chart.zoom.set()</code>. Each volume bar takes its candle&rsquo;s rise or fall colour &mdash; the scheme&rsquo;s <code>positive</code> and <code>negative</code> &mdash; and the volume axis starts at zero on the same side as the price axis (<code>axis.y.position</code>). The tooltip, and the <code>hover</code> and <code>click</code> events, read both panes at the hovered period.</p>
+    <div class="note"><p><strong>The price axis is still the chart&rsquo;s y axis.</strong> A <a href="#chart-annotate">drawing</a> is anchored in price, a y zoom narrows the price pane, and <code>chart.state()</code> holds the drawings and the zoom exactly as it does for a candlestick without volume. The volume column is bound as the fifth measure, after open, high, low and close, so it appears in <code>chart.data()</code> and in the accessible table, and a measurer&rsquo;s volume figure sums it. <code>volume</code> on any other chart type, or naming a column the grid does not have, warns once and draws no pane. A candlestick without <code>volume</code> is drawn exactly as before.</p></div>
+    <pre><code>createChart({
+  grid, container, type: 'candlestick', x: 'at',
+  measures: [{ col: 'open', fn: 'first' }, { col: 'high', fn: 'max' }, { col: 'low', fn: 'min' }, { col: 'close', fn: 'last' }],
+  volume: 'volume',                  <span class="cmt">// summed per period, drawn under the candles</span>
+  volumePane: { height: 0.25 },      <span class="cmt">// a quarter of the plot</span>
+  axis: { x: { scale: 'time', window: { kind: 'time', span: 1800000 } }, y: { position: 'right' } },
+  zoom: true, annotate: true,         <span class="cmt">// both act on the one shared x axis</span>
+});</code></pre>
+    <pre data-run="js" data-expect="10 candles over 10 bars, aligned; volume under price true; 4 falling bars; zoomed 4 candles over 4 bars, aligned; tooltip 3 | Close102 | Volume1,750" data-covers="export:createChart config:ChartVolumePaneOptions.height"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 640, height: 400 });
+const panel = document.createElement('div');
+panel.rect = { width: 640, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'day',
+  columns: ['day', 'open', 'high', 'low', 'close', 'volume'].map((field) =&gt; ({ field, type: 'number' })),
+  rows: Array.from({ length: 10 }, (v, i) =&gt; ({
+    day: i, open: 100 + i, high: 104 + i, low: 98 + i,
+    close: i % 3 ? 103 + i : 99 + i,          // every third day falls
+    volume: 1000 + i * 250,
+  })),
+});
+
+const chart = createChart({
+  grid, container: panel, type: 'candlestick', x: 'day',
+  measures: ['open', 'high', 'low', 'close'],
+  volume: 'volume', volumePane: { height: 0.25 },
+  zoom: true,
+});
+const plot = panel.querySelector('.lat-chartview__plot');
+plot.rect = { left: 0, top: 0, width: 640, height: 400 };
+
+// Read back off the SVG: what is drawn, not what the options say.
+const marks = (name) =&gt; [...plot.querySelectorAll('rect')]
+  .filter((n) =&gt; String(n.getAttribute('class')).split(' ').includes(`lat-chartview__${name}`));
+const lined = () =&gt; {
+  const candles = marks('candle');
+  const bars = marks('volume');
+  const same = candles.every((c, i) =&gt; bars[i] &amp;&amp; c.getAttribute('x') === bars[i].getAttribute('x'));
+  return `${candles.length} candles over ${bars.length} bars${same ? ', aligned' : ', MISALIGNED'}`;
+};
+const before = lined();
+const priceBottom = Math.max(...marks('candle').map((n) =&gt; Number(n.getAttribute('y')) + Number(n.getAttribute('height'))));
+const volumeTop = Math.min(...marks('volume').map((n) =&gt; Number(n.getAttribute('y'))));
+const falls = marks('volume').filter((n) =&gt; n.getAttribute('data-direction') === 'down').length;
+
+// One zoom narrows both panes.
+chart.zoom.set([3, 6]);
+const zoomed = lined();
+
+// One tooltip reads both panes at the hovered day.
+const first = marks('candle')[0];
+const x = Number(first.getAttribute('x')) + Number(first.getAttribute('width')) / 2;
+plot.dispatchEvent(new TestEvent('pointermove', { clientX: x, clientY: 100 }));
+const tip = [...panel.querySelectorAll('.lat-chartview__tooltip-row')].map((row) =&gt; row.textContent).join(' | ');
+
+chart.destroy();
+return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} falling bars; `
+  + `zoomed ${zoomed}; tooltip ${tip}`;</code></pre>
     <h2 id="ref-charts-reference">Type reference</h2>
     <p class="section-note">Generated from the type declarations, so it always matches the release. Each surface lists its properties, its methods and the events it raises as three tables; an option or value type lists its members once.</p>
     <h3 id="ref-module-charts">The charts module</h3>
@@ -1510,6 +1582,8 @@ return `axis ${full} then ${closer} then ${panned}; day 5 at ${share} of the plo
           <tr><td class="name">rows</td><td class="type">object[] | ((grid: <a href="grid.html#type-Grid">Grid</a>) =&gt; object[])</td><td class="desc">The exact rows to chart, overriding the grid's own walk — an array, or a function returning one at draw time. `chartRange` uses it to bind a chart to the band of rows a selected range covers rather than the whole grid. <small>(optional)</small></td></tr>
           <tr><td class="name">aggregate</td><td class="type">'auto' | 'engine' | 'client'</td><td class="desc">Where the chart's aggregate is computed (GEO-5). `'auto'`, the default, asks the grid's pushdown source — `source.aggregate()`, with x (and `series`) as the `GROUP BY` and the measures as its aggregates, the grid's filter and quick search applied — when the source's adapter declares the `group` capability and the grid holds only a window of the matching rows; otherwise it reduces the loaded rows, as a chart always has. `'engine'` asks the source whenever it can, and is refused by name (a `[lattice]` warning and `provenance().refused`) when it cannot; `'client'` always reduces the loaded rows. One chart is never a mixture: if any measure would be computed client-side, every one is. Applies to the grouped types (`line`, `step`, `area`, `bar`, `horizontalBar`, `waterfall`, `combo`, `pareto`, `heatmap`, `radar`, `funnel`, `stream`, `marimekko`); the source's `aggregates` config must route the reductions to the engine. {@link Chart.provenance} reports which happened and why. <small>(optional)</small></td></tr>
           <tr><td class="name">measures</td><td class="type"><a href="types.html#type-ChartMeasure">ChartMeasure</a>[]</td><td class="desc">Several measures at once, for combo and candlestick. <small>(optional)</small></td></tr>
+          <tr><td class="name">volume</td><td class="type">string</td><td class="desc">A candlestick's volume pane (BACKLOG-0001468): the column holding each period's traded volume, summed per period. The candlestick then draws a price pane and a volume pane in one svg, on one x scale with one x axis at the bottom, so `axis.x.window`, `axis.x.min`/`max`, `zoom`, `annotate` and the measurers act on both panes together, and one tooltip reads both. Each volume bar takes its candle's up or down colour, and the volume axis sits on the price axis's side. The column is bound as the fifth measure, so it appears in `chart.data()` and the accessible table and is the volume a measurer sums. Any other chart type, or a column the grid does not have, warns and draws no pane. <small>(optional)</small></td></tr>
+          <tr><td class="name">volumePane</td><td class="type"><a href="types.html#type-ChartVolumePaneOptions">ChartVolumePaneOptions</a></td><td class="desc">The volume pane's geometry, when `volume` is set (BACKLOG-0001468). <small>(optional)</small></td></tr>
           <tr><td class="name">source</td><td class="type">string</td><td class="desc">Endpoints, for sankey, chord and network. <small>(optional)</small></td></tr>
           <tr><td class="name">target</td><td class="type">string</td><td class="desc">The column naming the link's destination, beside `source`. <small>(optional)</small></td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc">Row label and dates, for gantt. <small>(optional)</small></td></tr>
@@ -1550,6 +1624,7 @@ return `axis ${full} then ${closer} then ${panned}; day 5 at ${share} of the plo
           <tr><td class="name">projection</td><td class="type"><a href="types.html#type-MapProjection">MapProjection</a> | ((lon: number, lat: number) =&gt; [number, number])</td><td class="desc">The map projection a geomap draws through (BACKLOG-0001321): `'equalEarth'` (the default for a world), `'robinson'`, `'mercator'`, `'equirectangular'`, `'albers'`, `'transverseMercator'`, or a projection function of the caller's own `(lon: number, lat: number) =&gt; [number, number]`. Left unset, a geometry pack draws through the projection it declares. <small>(optional)</small></td></tr>
           <tr><td class="name">projectionOptions</td><td class="type">{ parallels?: [number, number]; centre?: [number, number] }</td><td class="desc">Parameters for the projections that take them: `parallels` and `centre` for `albers`, `centre` for `transverseMercator` (BACKLOG-0001321). <small>(optional)</small></td></tr>
           <tr><td class="name">graticule</td><td class="type">boolean | { step?: number }</td><td class="desc">A lon/lat reference grid under a geomap's regions, off by default (BACKLOG-0001321 part 2). Only drawn over a geometry pack's fitted projection — the schematic continents have no fitted projection to draw one against. `step` is the spacing between lines in degrees (default 30). <small>(optional)</small></td></tr>
+          <tr><td class="name">basemap</td><td class="type">{ fill?: string; stroke?: string; strokeWidth?: number }</td><td class="desc">Override the land a `shapes` pack draws with (BACKLOG-0001508), one colour or width at a time: `fill` and `stroke` as any CSS colour, `strokeWidth` in pixels. Unset, each takes its theme token — `--lattice-chart-basemap-fill`, `--lattice-chart-basemap-stroke`, `--lattice-chart-basemap-stroke-width` — whose defaults are legible against the plot in both themes without a host doing anything. Applies to every type that draws a `shapes` pack: `markermap`, `bubblemap`, `choropleth`'s own backdrop pack, `hexmap` and `geomap`. <small>(optional)</small></td></tr>
           <tr><td class="name">multiples</td><td class="type">string</td><td class="desc">One chart per distinct value of this column. <small>(optional)</small></td></tr>
           <tr><td class="name">canvas</td><td class="type">boolean | number</td><td class="desc">Draw to canvas past this many points. <small>(optional)</small></td></tr>
           <tr><td class="name">downsample</td><td class="type">number</td><td class="desc">How many points to reduce a dense line or scatter series to before drawing. Reduction keeps the first point, the last, and the ones that carry the outline. Unset, the target is the plot's width in pixels; a series is only reduced once it exceeds half again that target. <small>(optional)</small></td></tr>

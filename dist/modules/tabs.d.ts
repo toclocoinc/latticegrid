@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.73.0, tabs module type declarations
+ * Lattice Grid 1.74.0, tabs module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -173,7 +173,15 @@ export interface TabsEventPayloads {
   'tabChange:cancelled': TabChangeCancelledEvent;
 }
 
-/** Tabbed-grid configuration. */
+/**
+ * Tabbed-grid configuration. The tab strip inherits as below, and so does every
+ * grid it mounts unless that tab's own `config.theme` says otherwise.
+ *
+ * Theme: no `theme` of its own — it inherits. Its colours are the
+ * grid's `--lattice-*` tokens, so `data-theme="dark"` on any ancestor (a layout's
+ * `theme: 'dark'`, or `<html>`) darkens it with everything else, and the nearest
+ * `data-theme` wins. Load the grid stylesheet, which carries the tokens.
+ */
 export interface TabsConfig {
   /** The grid factory to mount each tab with, e.g. `import { createGrid } from '../lattice-grid.js'`. Required. */
   createGrid: (el: HTMLElement, config: object) => unknown;

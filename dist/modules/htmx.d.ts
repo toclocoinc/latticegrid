@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.73.0, htmx module type declarations
+ * Lattice Grid 1.74.0, htmx module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -35,6 +35,8 @@ import type {
   RO_RO,
   Registry,
   SV_SE,
+  StateApplyReport,
+  StateSection,
   UK_UA,
   UNIT_SYSTEMS,
   WINDOW_KINDS,
@@ -144,8 +146,14 @@ export function driveInfiniteScroll(
   opts?: { columns?: { field: string }[]; threshold?: number },
 ): () => void;
 export function driveOobUpdates(grid: Grid, opts?: object): () => void;
+/** Re-exports the base package's {@link serialiseState} unchanged. */
 export function serialiseState(grid: Grid): string;
-export function restoreState(grid: Grid, state: string): void;
+/** Re-exports the base package's {@link restoreState} unchanged. */
+export function restoreState(
+  grid: Grid,
+  encoded: string,
+  opts?: { skip?: StateSection[] },
+): StateApplyReport;
 export function saveStateWithin(root: ParentNode): void;
 export function restoreStateWithin(root: ParentNode): void;
 export function queryParams(grid: Grid): Record<string, string>;

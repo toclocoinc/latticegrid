@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.73.0</p>
+    <p class="rail__sub">API reference · v1.74.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -516,6 +516,8 @@
         <a class="rail__sub-link" href="#type-KPI">KPI</a>
         <a href="#ref-module-alarms">The alarms module</a>
         <a class="rail__sub-link" href="#type-Alarms">Alarms</a>
+        <a href="#ref-module-deckgl">The deck.gl adapter</a>
+        <a class="rail__sub-link" href="#type-DeckBinding">DeckBinding</a>
         <a href="#ref-module-kanban">The kanban module</a>
         <a class="rail__sub-link" href="#type-Kanban">Kanban</a>
         <a href="#ref-module-gantt">The gantt module</a>
@@ -553,7 +555,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.73.0</span>
+      <span class="chip">Version 1.74.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -1741,7 +1743,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">messages</td><td class="type">object</td><td class="dflt">en-GB</td><td class="desc">Replaces the grid's own text: labels, menus and screen-reader announcements. A partial catalogue laid over the built-in British English one, so anything you leave out stays in English. Twenty catalogues are bundled: <code>EN_GB</code>, <code>EN_US</code>, <code>FR_FR</code>, <code>FR_CA</code>, <code>IT_IT</code>, <code>ES_ES</code>, <code>PT_BR</code>, <code>DE_DE</code>, <code>NL_NL</code>, <code>SV_SE</code>, <code>DA_DK</code>, <code>NB_NO</code>, <code>FI_FI</code>, <code>PL_PL</code>, <code>CS_CZ</code>, <code>HU_HU</code>, <code>RO_RO</code>, <code>UK_UA</code>, <code>EL_GR</code>, <code>JA_JP</code> and <code>AR</code>. They are exports of the package, not separate files, so importing one does not reduce what is bundled. <code>EN_US</code> is a partial overlay carrying only what differs from British English. <code>AR_SA</code> is an alias for <code>AR</code>: the Arabic catalogue is pan-Arabic, and a region appears in a name only where two variants ship. <code>resolveCatalogue(tag)</code> finds the catalogue for any tag, so <code>resolveCatalogue('es-MX')</code> returns the Spanish one. Every key is listed in <code>MESSAGE_KEYS</code>; <code>auditCatalogue()</code> reports what a catalogue of your own is missing.</td></tr>
           <tr><td class="name">locale</td><td class="type">string</td><td class="dflt">runtime</td><td class="desc">BCP-47. Drives every formatter and one shared <code>Intl.Collator</code>.</td></tr>
           <tr><td class="name">direction</td><td class="type">'ltr' | 'rtl' | 'auto' <small class="literals"><a href="#type-Direction">Direction</a></small></td><td class="dflt">auto</td><td class="desc">Writing direction. Left unset, it follows the element's computed <code>dir</code> and then the locale, so <code>locale: 'ar'</code> renders right to left without further configuration. Set it explicitly to override both.</td></tr>
-          <tr><td class="name">theme</td><td class="type">'light' | 'dark' | 'high-contrast' | 'terminal' <small class="literals"><a href="#type-Theme">Theme</a></small></td><td class="dflt">, </td><td class="desc">Stamped as <code>data-theme</code> on the grid's root. Unset follows the viewer's <code>prefers-color-scheme</code>. See <a href="api-detail.html#theming">Theming</a>.</td></tr>
+          <tr><td class="name">theme</td><td class="type">'light' | 'dark' | 'auto' | 'high-contrast' | 'terminal' <small class="literals"><a href="#type-Theme">Theme</a></small></td><td class="dflt">, </td><td class="desc">Stamped as <code>data-theme</code> on the grid's root. Unset follows the nearest <code>data-theme</code> on an ancestor, and is light when there is none; <code>'auto'</code> follows the viewer's <code>prefers-color-scheme</code>. See <a href="api-detail.html#theming">Theming</a>.</td></tr>
           <tr><td class="name">density</td><td class="type">'compact' | 'standard' | 'comfortable' | 'spacious' | number <small class="literals"><a href="#type-Density">Density</a></small></td><td class="dflt">'compact'</td><td class="desc">One scale that every geometry token derives from: row height, spacing, decoration sizes, and type at a damped rate. Row heights are 23.8 / 28 / 42 / 56px. A number scales 28px, so <code>1.4</code> gives 39.2px for anything between the presets. Virtualisation follows it; an explicit <code>rowHeight</code> overrides it.</td></tr>
           <tr><td class="name">rowHeight</td><td class="type">number | (row) =&gt; number</td><td class="dflt">28</td><td class="desc">A function enables variable-height rows.</td></tr>
           <tr><td class="name">headerHeight</td><td class="type">number</td><td class="dflt">32</td><td class="desc">Per header row.</td></tr>
@@ -2180,7 +2182,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.73.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.74.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -4631,6 +4633,27 @@ createGrid(host, { source, columns: [...] });</code></pre>
       <code>createPushdownSource</code> to apply them), with geometry arriving as its stored WKB.
     </p>
 
+    <p class="section-note" id="duckdb-lists">
+      <strong>List pushdown.</strong> Over a column DuckDB types as a <code>LIST</code>
+      (<code>VARCHAR[]</code>, <code>INTEGER[]</code>, <code>DATE[]</code>&hellip;), a condition keeps
+      its <a href="#list-operators">in-memory meaning</a>: <code>hasAny</code> →
+      <code>list_has_any(col, [?, …])</code>, <code>hasAll</code> → <code>list_has_all</code>,
+      <code>hasNone</code> → <code>NOT list_has_any</code>, <code>listCount</code> →
+      <code>len(col) &lt;op&gt; ?</code> (an absent list counting as none), <code>blank</code> →
+      <code>len(col) = 0 OR col IS NULL</code>; <code>eq</code> → <code>list_contains(col, ?)</code>
+      (over <code>list_transform(col, x -&gt; lower(x))</code> for case-insensitive text), and any
+      other item operator → <code>len(list_filter(col, x -&gt; x &lt;op&gt; ?)) &gt; 0</code>, text
+      matching through <code>ILIKE</code>. A negation is written <code>NOT COALESCE(…, false)</code>
+      so an absent list is kept, as it is in memory. Every item is bound, typed by the list's item type
+      (<code>CAST(? AS DATE)</code> for a <code>DATE[]</code>), never interpolated. The list operators
+      are declared in <code>capabilities.operators</code> only while the <code>modules/list</code>
+      module is loaded; one reaching a column the engine does not describe as a <code>LIST</code>
+      compiles to <code>FALSE</code> and <code>source.duckdb.list.column.&lt;col&gt;</code> says so.
+      <code>notContains</code>, <code>notIn</code> and <code>matches</code> are left to the grid, which
+      asks them item by item over the returned rows; <code>lastPlan()</code> shows which conditions
+      went to the engine. A <code>LIST</code> value arrives in the grid as an array.
+    </p>
+
     <p class="section-note" id="duckdb-total">
       <strong>How the total is counted, and what it costs.</strong> The grid needs the size of the
       matching set to size its scrollbar. Until 1.51 every page query carried
@@ -6405,6 +6428,7 @@ createGrid(el, {
 
 createChart({ grid, container: '#map', type: 'geomap', code: 'iso', y: 'revenue',
   shapes: pack });                       <span class="cmt">// Equal Earth, fitted to the pack</span></code></pre>
+    <p><strong>The land itself is legible by default, in both themes.</strong> A pack's own outline fills from <code>--lattice-chart-basemap-fill</code> and strokes from <code>--lattice-chart-basemap-stroke</code>/<code>-stroke-width</code>, chosen to sit clear of the plot and of each other rather than fading into it; <code>spec.basemap: { fill, stroke, strokeWidth }</code> overrides any one of them per chart. Every type that draws a pack reads the same tokens: <code>markermap</code>, <code>bubblemap</code>, <code>choropleth</code>'s own backdrop pack, <code>hexmap</code> and <code>geomap</code>.</p>
     <p><strong>No bundler? Every pack also ships UMD/CJS</strong> (BACKLOG-0001450), exactly as
     <code>chart-markermap</code> and the other extension chart types do: a plain <code>&lt;script
     src&gt;</code> page reaches the pack from its own global rather than an <code>import</code>. Each
@@ -6462,7 +6486,7 @@ createChart({ grid, container: '#us', type: 'geomap', code: 'state', y: 'sales',
 
     <h3 id="network-map">Network diagrams &mdash; icon nodes, links coloured by their value</h3>
     <p>A <code>network</code> draws the grid's rows as a graph: <code>source</code> and <code>target</code> name the two endpoint columns and <code>y</code> carries the value on the link between them. Three things make it a picture of <em>your</em> network rather than a generic hairball, and each is a fact only you have.</p>
-    <p><strong>Nodes you name.</strong> <code>nodes: [{ id, label, icon, x, y }]</code> gives a node a glyph from the grid's own icon registry &mdash; a built-in name, or one you registered &mdash; and a label drawn beneath it. A node that appears in the rows but not in <code>nodes</code> takes the chart's <code>icon</code> default (a plain disc when there is none) and its own id as its label. A node listed in <code>nodes</code> that appears in <em>no</em> row is still drawn: a device with no links is a fact worth seeing. The glyphs are SVG paths from the same registry the cells paint from, so they are sharp at any chart size and take the chart's theme colours.</p>
+    <p><strong>Nodes you name.</strong> <code>nodes: [{ id, label, icon, x, y }]</code> gives a node a glyph from the grid's own icon registry &mdash; a built-in name, or one you registered &mdash; and a label drawn beneath it. A node that appears in the rows but not in <code>nodes</code> takes the chart's <code>icon</code> default (a plain disc when there is none) and its own id as its label. A node listed in <code>nodes</code> that appears in <em>no</em> row is still drawn: a device with no links is a fact worth seeing. The glyphs are SVG paths from the same registry the cells paint from, so they are sharp at any chart size and take the chart's theme colours. This still works over a grid with no DOM of its own: <code>createHeadlessGrid({ icons: {&hellip;} })</code> registers into that grid's own registry, and the chart resolves a node's <code>icon</code> from it exactly as it would on a rendered grid &mdash; a name neither it nor the built-ins hold still warns once, by name, rather than silently drawing a disc.</p>
     <p><strong>Positions you choose.</strong> <code>x</code> and <code>y</code> are fractions of the plot, measured from its top-left. A node giving <em>both</em> is <strong>pinned</strong> there and takes no part in the force simulation; everything else is laid out around it by the same deterministic relaxation as before, so &ldquo;core on top, regions below&rdquo; needs no hand-placed SVG. Half a position is not a position: a node with only <code>x</code> is laid out. A fraction outside 0&nbsp;to&nbsp;1 clamps to the edge of the plot rather than drawing where nobody can see it. Pinning one node never reshuffles the others &mdash; the layout's seeding draws for every node, pinned or not, precisely so that it cannot.</p>
     <p><strong>Colours from the rules you already wrote.</strong> Each link's stroke comes from the value column's own conditional-formatting rules, through <code>grid.formatting.styleFor(col, value)</code> &mdash; the colour order is <code>background</code>, then <code>backgroundColor</code>, then <code>color</code>; a gradient (a data bar, an icon set) is not a colour and is not read. A link no rule matches keeps the chart's default link colour. <strong>There is no chart-level threshold option, deliberately</strong>: a second place to say &ldquo;red above 80&rdquo; is a second place for the chart and the cell to disagree. The legend lists the rules that actually fired, with their own labels and their own swatches; a rule that matched nothing is not advertised. Change a rule and the links recolour on the next frame without the layout re-running, so nothing moves.</p>
     <p><strong>Links are undirected, and parallel links stay parallel.</strong> There are no arrowheads, and <code>A,B</code> is the same pair as <code>B,A</code> &mdash; a cable has two ends and no direction. <strong>Several rows between the same pair are drawn as several lines</strong>, side by side, offset perpendicular to the pair by 4&nbsp;px and symmetric about it, in row order, each with its own value and its own colour. They are <em>not</em> summed: three circuits between two sites are three readings, and one line carrying 120% would be a number nothing measured. The tooltip on any one line names both endpoints and that line's own value, and the pointer picks out the line you are actually over rather than the pair. Width follows the value unless <code>linkWidth</code> fixes it.</p>
@@ -6951,6 +6975,74 @@ chart.destroy();
 copy.destroy();
 return `axis ${full} then ${closer} then ${panned}; day 5 at ${share} of the plot; `
   + `moves ${moves.join(',')}; restored ${same} silently ${seen.length === 0}`;</code></pre>
+
+    <h3 id="chart-volume-pane">A price-and-volume pane &mdash; candles over volume on one x axis</h3>
+    <p>A trading screen reads price candles with the volume traded in each period underneath, in one chart: one x axis, one window, one zoom, one tooltip. <code>volume</code> on a candlestick draws exactly that &mdash; a price pane and a volume pane in one svg &mdash; rather than two stacked charts that share an <code>x</code> and a <code>window</code> and have to be kept in step by hand. <code>volume</code> names the column holding each period&rsquo;s traded volume, summed per period; <code>volumePane.height</code> is the volume pane&rsquo;s share of the plot&rsquo;s height, <code>0.25</code> by default.</p>
+    <p>Both panes are drawn on <strong>one x scale</strong>, so a candle and its volume bar share an x by construction, and the x axis is drawn once, under the volume pane. Everything that moves the x axis moves both panes together: a rolling <code>axis.x.window</code>, a pinned <code>axis.x.min</code>/<code>max</code>, the <a href="#chart-zoom">zoom</a>&rsquo;s buttons, wheel and pan, and <code>chart.zoom.set()</code>. Each volume bar takes its candle&rsquo;s rise or fall colour &mdash; the scheme&rsquo;s <code>positive</code> and <code>negative</code> &mdash; and the volume axis starts at zero on the same side as the price axis (<code>axis.y.position</code>). The tooltip, and the <code>hover</code> and <code>click</code> events, read both panes at the hovered period.</p>
+    <div class="note"><p><strong>The price axis is still the chart&rsquo;s y axis.</strong> A <a href="#chart-annotate">drawing</a> is anchored in price, a y zoom narrows the price pane, and <code>chart.state()</code> holds the drawings and the zoom exactly as it does for a candlestick without volume. The volume column is bound as the fifth measure, after open, high, low and close, so it appears in <code>chart.data()</code> and in the accessible table, and a measurer&rsquo;s volume figure sums it. <code>volume</code> on any other chart type, or naming a column the grid does not have, warns once and draws no pane. A candlestick without <code>volume</code> is drawn exactly as before.</p></div>
+    <pre><code>createChart({
+  grid, container, type: 'candlestick', x: 'at',
+  measures: [{ col: 'open', fn: 'first' }, { col: 'high', fn: 'max' }, { col: 'low', fn: 'min' }, { col: 'close', fn: 'last' }],
+  volume: 'volume',                  <span class="cmt">// summed per period, drawn under the candles</span>
+  volumePane: { height: 0.25 },      <span class="cmt">// a quarter of the plot</span>
+  axis: { x: { scale: 'time', window: { kind: 'time', span: 1800000 } }, y: { position: 'right' } },
+  zoom: true, annotate: true,         <span class="cmt">// both act on the one shared x axis</span>
+});</code></pre>
+    <pre data-run="js" data-expect="10 candles over 10 bars, aligned; volume under price true; 4 falling bars; zoomed 4 candles over 4 bars, aligned; tooltip 3 | Close102 | Volume1,750" data-covers="export:createChart config:ChartVolumePaneOptions.height"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 640, height: 400 });
+const panel = document.createElement('div');
+panel.rect = { width: 640, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'day',
+  columns: ['day', 'open', 'high', 'low', 'close', 'volume'].map((field) =&gt; ({ field, type: 'number' })),
+  rows: Array.from({ length: 10 }, (v, i) =&gt; ({
+    day: i, open: 100 + i, high: 104 + i, low: 98 + i,
+    close: i % 3 ? 103 + i : 99 + i,          // every third day falls
+    volume: 1000 + i * 250,
+  })),
+});
+
+const chart = createChart({
+  grid, container: panel, type: 'candlestick', x: 'day',
+  measures: ['open', 'high', 'low', 'close'],
+  volume: 'volume', volumePane: { height: 0.25 },
+  zoom: true,
+});
+const plot = panel.querySelector('.lat-chartview__plot');
+plot.rect = { left: 0, top: 0, width: 640, height: 400 };
+
+// Read back off the SVG: what is drawn, not what the options say.
+const marks = (name) =&gt; [...plot.querySelectorAll('rect')]
+  .filter((n) =&gt; String(n.getAttribute('class')).split(' ').includes(`lat-chartview__${name}`));
+const lined = () =&gt; {
+  const candles = marks('candle');
+  const bars = marks('volume');
+  const same = candles.every((c, i) =&gt; bars[i] &amp;&amp; c.getAttribute('x') === bars[i].getAttribute('x'));
+  return `${candles.length} candles over ${bars.length} bars${same ? ', aligned' : ', MISALIGNED'}`;
+};
+const before = lined();
+const priceBottom = Math.max(...marks('candle').map((n) =&gt; Number(n.getAttribute('y')) + Number(n.getAttribute('height'))));
+const volumeTop = Math.min(...marks('volume').map((n) =&gt; Number(n.getAttribute('y'))));
+const falls = marks('volume').filter((n) =&gt; n.getAttribute('data-direction') === 'down').length;
+
+// One zoom narrows both panes.
+chart.zoom.set([3, 6]);
+const zoomed = lined();
+
+// One tooltip reads both panes at the hovered day.
+const first = marks('candle')[0];
+const x = Number(first.getAttribute('x')) + Number(first.getAttribute('width')) / 2;
+plot.dispatchEvent(new TestEvent('pointermove', { clientX: x, clientY: 100 }));
+const tip = [...panel.querySelectorAll('.lat-chartview__tooltip-row')].map((row) =&gt; row.textContent).join(' | ');
+
+chart.destroy();
+return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} falling bars; `
+  + `zoomed ${zoomed}; tooltip ${tip}`;</code></pre>
 
     <h2 id="datarouter">The data router</h2>
     <p><code>modules/data-router</code> is a host-layer demultiplexer: it takes <strong>one</strong> arriving stream or dataset, splits it by what each record <em>is</em>, and routes each partition to its own grid &mdash; or to a headless grid driving a chart. One round-trip, or one live feed, hydrates a whole screen of grids that each see only their slice. It is optional, imports nothing from the grid, and adds no core hook: every grid is driven through the <strong>public</strong> incremental path, <code>grid.rows.apply({ add, update, remove })</code>. <strong>The router never opens a connection itself &mdash; the host owns the connection (a <code>WebSocket</code>, SSE, CDC, a message bus, a plain fetch), and the router owns everything once a message has arrived</strong>; see <a href="#datarouter-websocket-example">a live WebSocket feed</a> for the worked, runnable integration.</p>
@@ -8530,6 +8622,194 @@ grid.filters.set({ col: <span class="kw">'site'</span>, op: <span class="kw">'wi
       <p><strong>Refused, not guessed.</strong> A geometry column accepts these four and <code>blank</code>/<code>notBlank</code>; any other operator on it, a spatial operator on any other column, and an operand that cannot be read are refused by <code>filters.set()</code> and <code>state.apply()</code> with a <code>[lattice]</code> warning. A value that is not a geometry is refused on ingest the same way: the cell is blank and <code>geometry:refused:&lt;column&gt;</code> names why.</p>
       <p><strong>The antimeridian is not handled.</strong> A box whose west edge is east of its east edge is refused; split it into two <code>withinBbox</code> conditions joined by <code>or</code>. Distances and areas are on a sphere of the mean Earth radius, within about 0.5% of the WGS84 ellipsoid; the centroid is planar in degrees, as <code>ST_Centroid</code> on a geometry column is.</p>
     </div>
+
+    <h2 id="deckgl">The deck.gl adapter</h2>
+    <p><code>modules/deckgl</code> makes a <a href="https://deck.gl">deck.gl</a> layer one more viewer of a grid, the way a chart or a KPI tile is one: the grid decides <em>which rows</em>, your code decides <em>how they look</em>, and deck's own view can filter the grid back. deck.gl and MapLibre stay yours &mdash; the module imports neither, ships no dependency, and is handed your <code>Deck</code> (or a React <code>DeckGL</code>'s <code>deck</code>) and a function that builds layers with your own deck.gl classes.</p>
+    <pre><code>import { bindDeck } from '@toclocoinc/lattice-grid/modules/deckgl';
+
+const map = new deck.Deck({ parent, initialViewState: { longitude: 0, latitude: 20, zoom: 1 }, controller: true });
+const binding = bindDeck(grid, {
+  deck: map,
+  position: { lon: 'lon', lat: 'lat' },                 <span class="cmt">// or { geometry: 'place' }</span>
+  layers: (rows, ctx) =&gt; [new deck.ScatterplotLayer({
+    id: 'quakes', data: rows, getPosition: (r) =&gt; [r.lon, r.lat], getRadius: (r) =&gt; r.mag * 20000,
+  })],
+  viewportFilter: true,                                  <span class="cmt">// deck's view filters the grid</span>
+});</code></pre>
+    <p><strong>Grid &rarr; deck.</strong> <code>layers(rows, ctx)</code> is called with the rows the grid currently shows &mdash; every leaf row after its filter and sort for a grid that holds them all &mdash; and its result goes to <code>deck.setProps({ layers })</code>. <code>model:changed</code> and <code>rows:changed</code> queue <em>one</em> rebuild for the next frame however many fire; <code>binding.update()</code> rebuilds now and <code>binding.layers()</code> returns what deck was last given. A <code>geometry</code> position also arrives as GeoJSON <code>Feature</code>s in <code>ctx.features</code> (the row is each feature's <code>properties</code>), so a <code>GeoJsonLayer</code> needs no conversion; a <code>lon</code>/<code>lat</code> pair gives <code>Point</code> features the same way.</p>
+    <p><strong>A paged pushdown grid</strong> holds a page of its relation, and a map of a page is a map of the page. So, exactly as a <a href="#chart-map-viewport">map chart over a pushdown source</a> does, the binding asks the engine for the rows inside deck's view &mdash; the same question, through the same code &mdash; up to <code>viewportCap</code> (default 20,000). Past the cap your function receives the engine's square density cells (<code>{ west, south, east, north, count }</code>) with <code>ctx.binned</code> true, so it can draw a grid or hexagon layer instead of 35,000 overlapping dots. <code>ctx.provenance</code> says what was handed over, in the shape of <code>chart.provenance().viewport</code>: rows drawn, rows matched, the cap, whether it was binned, the box, and whether the engine or the browser counted.</p>
+    <p><strong>Deck &rarr; grid.</strong> With <code>viewportFilter: true</code> (or <code>{ debounce }</code>, default 150&nbsp;ms) the binding wraps deck's <code>onViewStateChange</code> &mdash; your own handler still runs first and its return value is kept &mdash; and, once a pan or zoom <em>by the reader</em> settles (deck's own fitting of its initial view writes nothing), reads the box off deck's own <code>WebMercatorViewport</code>, and writes <strong>one</strong> condition onto the grid: a <code>withinBbox</code> on a geometry position, or a <code>between</code> pair on <code>lon</code>/<code>lat</code>. It is the <a href="#chart-geometry-maps">map viewport filter</a>'s condition, built and merged by the same code, so the grid's other conditions are kept and a second pan replaces the box rather than adding one. A matching condition set from elsewhere &mdash; a saved view, a sibling map &mdash; moves deck's view to its box instead of being overwritten. <code>destroy()</code> removes the condition, the grid listeners and the wrapper.</p>
+    <p><strong>Refused by name.</strong> A <code>deck</code> without <code>setProps</code> (<code>deckgl:deck</code>), a <code>layers</code> that is not a function (<code>deckgl:layers</code>), or a <code>position</code> naming no column of the grid (<code>deckgl:position</code>) warns once and binds nothing. A view over the cap that the engine cannot bin warns <code>deckgl:over</code> and hands over no rows rather than a random subset.</p>
+    <div class="example">
+      <p class="example__label">Rows to deck, a filter followed, a pan written back as the grid's filter, and destroy</p>
+      <pre data-run="js" data-expect="40 | 20 | 5 | 20" data-covers="export:bindDeck config:DeckBindingOptions.deck config:DeckBindingOptions.layers config:DeckBindingOptions.position config:DeckBindingOptions.viewportFilter config:DeckBindingOptions.viewportCap method:deckgl.update method:deckgl.layers method:deckgl.destroy"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { bindDeck } = await import('../packages/modules/deckgl/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'mag', type: 'number' },
+    { field: 'lon', type: 'number' }, { field: 'lat', type: 'number' }],
+  rows: Array.from({ length: 40 }, (_, i) =&gt; ({ id: i, mag: i % 4, lon: -100 + i * 5, lat: 10 })),
+});
+
+// A stand-in for deck.gl's Deck: setProps recorded, one viewport whose box we set.
+// On a page this is `new deck.Deck({ ... })`, and the layer is a ScatterplotLayer.
+let box = [-180, -85, 180, 85];
+const deck = {
+  props: {},
+  setProps(p) { Object.assign(deck.props, p); },
+  getViewports: () =&gt; [{
+    getBounds: () =&gt; box,
+    fitBounds: ([[w, s], [e, n]]) =&gt; ({ longitude: (w + e) / 2, latitude: (s + n) / 2, zoom: 4 }),
+  }],
+};
+
+const binding = bindDeck(grid, {
+  deck,
+  position: { lon: 'lon', lat: 'lat' },
+  layers: (rows, ctx) =&gt; [{ id: 'quakes', data: rows, binned: ctx.binned }],
+  viewportFilter: { debounce: 0 },
+  viewportCap: 20000,
+});
+const drawn = [deck.props.layers[0].data.length];
+
+grid.filters.set({ col: 'mag', op: 'gte', value: 2 });
+binding.update();                                  // now, rather than on the next frame
+drawn.push(binding.layers()[0].data.length);
+
+box = [-100, 0, -50, 20];                          // the reader pans deck
+deck.props.onViewStateChange({ viewState: {}, interactionState: { isDragging: true } });
+await new Promise((r) =&gt; setTimeout(r, 30));
+drawn.push(grid.rows.matchCount());
+
+binding.destroy();                                 // the box condition goes with it
+drawn.push(grid.rows.matchCount());
+return drawn.join(' | ');                          // 40 | 20 | 5 | 20</code></pre>
+    </div>
+
+    <h2 id="lists">Lists: the list module</h2>
+    <pre><code><span class="kw">import</span> <span class="str">'@toclocoinc/lattice-grid/modules/list'</span>;</code></pre>
+    <p class="section-note">
+      Importing the module registers the <code>list</code> data type with the page's registry
+      (<code>listModule</code> is the module object, for a grid built on a registry of its own).
+      Without it, <code>type: 'list'</code> warns <code>type:list</code>, naming this import, and the
+      column is plain text.
+    </p>
+    <p>
+      A <code>list</code> column holds many values in one cell, each usable on its own: the tags on a
+      ticket, the sizes a product comes in, the dates a meeting recurs on.
+      <code>typeOptions: { of }</code> names the item type &mdash; any scalar data type,
+      <code>'text'</code> by default &mdash; and each item is read, formatted, parsed and compared as
+      a value of that type. A name that is not a known scalar type warns once by name
+      (<code>type:of:&lt;name&gt;</code>) and the items are text. A cell is an array of items;
+      <code>null</code> and <code>[]</code> are both an empty cell. A single value where a list was
+      expected is read as a one-item list and <code>list:scalar:&lt;column&gt;</code> says so once;
+      an item the item type cannot read is left out of the stored list and
+      <code>list:item:&lt;column&gt;</code> names it. Neither rewrites your row object.
+    </p>
+    <pre><code>columns: [
+  { field: <span class="str">'tags'</span>, type: <span class="str">'list'</span> },                                          <span class="cmt">// items are text</span>
+  { field: <span class="str">'sizes'</span>, type: <span class="str">'list'</span>, typeOptions: { of: <span class="str">'number'</span>, joiner: <span class="str">'; '</span> } },
+]</code></pre>
+    <p>
+      <strong>Display, editing, copying.</strong> A cell draws its items as chips in the list's order;
+      the ones that do not fit the column's width collapse into a <code>+3</code> chip, and the
+      cell's tooltip lists every item. Each item is shown through the item type's own formatter. The
+      editor is a token editor: type and press Enter to add an item, Backspace in the empty box removes
+      the last one, and a pasted comma-separated string becomes one item per piece. Each piece is read
+      by the item type's parser, and one it cannot read is refused by name and not stored. The edit
+      goes through the ordinary edit contract, events and undo. Copy, CSV and Excel write the items
+      joined by <code>', '</code>, or by the column's <code>joiner</code>
+      (<code>typeOptions: { joiner: '; ' }</code>); typed and pasted text is split on it and on
+      commas.
+    </p>
+
+    <h3 id="list-operators">Filtering on a list</h3>
+    <p class="section-note">
+      <strong>One item at a time.</strong> Every operator the <em>item</em> type offers applies to a
+      list column, and a row matches when <strong>any</strong> item does: <code>eq 'gold'</code> keeps
+      a row whose list holds gold, <code>contains 'ab'</code> one with an item containing it,
+      <code>gt 5</code> on a list of numbers one with an item above five. The negations &mdash;
+      <code>ne</code>, <code>notContains</code>, <code>notIn</code>, <code>notBetween</code> &mdash;
+      mean <strong>no</strong> item matches, so <code>ne 'gold'</code> keeps a row with no gold in it,
+      an empty list included. That is why the filter row's ordinary box and a set-filter tick just work
+      on a list column. Text items follow the grid's text rules (case-insensitive unless
+      <code>caseSensitive</code>).
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Operator</th><th>Operand</th><th>A row matches when</th></tr></thead>
+        <tbody>
+          <tr><td class="name"><code>hasAny</code></td><td class="desc">an array of items</td><td class="desc">the list holds at least one of them</td></tr>
+          <tr><td class="name"><code>hasAll</code></td><td class="desc">an array of items</td><td class="desc">the list holds every one of them (an empty array matches every row)</td></tr>
+          <tr><td class="name"><code>hasNone</code></td><td class="desc">an array of items</td><td class="desc">the list holds none of them, an empty list included</td></tr>
+          <tr><td class="name"><code>listCount</code></td><td class="desc"><code>{ op: 'gt' | 'gte' | 'lt' | 'lte' | 'eq', value }</code></td><td class="desc">the number of items compares as <code>op</code> says; an empty cell has none</td></tr>
+          <tr><td class="name"><code>blank</code> / <code>notBlank</code></td><td class="desc">none</td><td class="desc">the list is empty (or absent) / holds at least one item</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      The four list questions compare items exactly, case included, as SQL's
+      <code>list_has_any</code> does. They are declared through <code>DataType.operators</code>, so a
+      list column refuses an operator its item type does not offer, and every other column refuses
+      these, with a <code>[lattice]</code> warning, from <code>filters.set()</code> and
+      <code>state.apply()</code>. The column's filter panel offers the item type's operators, then
+      <em>Has any of</em>, <em>Has all of</em>, <em>Has none of</em> and three item counts. The set
+      filter and the facets tally each item on its own, and a chosen facet value filters with
+      <code>hasAny</code>.
+    </p>
+    <p>
+      <strong>Sorting</strong> orders by the number of items, then by the first item under the item
+      type's comparator; an empty cell sorts with the other empty cells. <strong>Grouping</strong> by
+      a list column groups by the joined text, so <code>gold, silver</code> is one group; grouping by
+      each item on its own is not offered. <strong>Excel</strong> receives the joined text in a text
+      cell: Excel's own format for several values in one cell is not published, and will be written
+      when it is. The <strong>AI schema</strong> describes the column as a list of its item type, with
+      the operators above.
+    </p>
+    <p>
+      <strong>Pushed down.</strong> Over a DuckDB <code>LIST</code> column the same questions become
+      the engine's list functions; see <a href="#duckdb-lists">list pushdown</a>.
+    </p>
+
+    <h3 id="lists-example">A list column, executed</h3>
+    <p class="section-note">A list of tags and a list of sizes, filtered one item at a time and as
+    whole lists, sorted, and exported with the column's joiner. Run headless on every build.</p>
+    <pre data-run="js" data-expect="list | 1 | 3 | 2,3 | 1,2 | 1,3 | 2,3,1 | 3,,14; 16" data-covers="export:listModule config:ColumnTypeOptions.of config:ColumnTypeOptions.joiner"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="cmt">// Importing the module registers the type; listModule is the module object.</span>
+<span class="kw">const</span> { listModule } = <span class="kw">await</span> import('../packages/modules/list/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'id', type: 'number' },
+    { field: 'tags', type: 'list' },
+    { field: 'sizes', type: 'list', typeOptions: { of: 'number', joiner: '; ' } },
+  ],
+  rows: [
+    { id: 1, tags: ['gold', 'silver'], sizes: [8, 10, 12] },
+    { id: 2, tags: ['bronze'], sizes: [6] },
+    { id: 3, tags: [], sizes: [14, 16] },
+  ],
+});
+<span class="kw">const</span> ids = () =&gt; Array.from({ length: grid.rows.count() }, (_, i) =&gt; grid.rows.get(i).key).join(',');
+
+grid.filters.set({ col: 'tags', op: 'eq', value: 'gold' });          <span class="cmt">// any item is gold</span>
+<span class="kw">const</span> gold = ids();
+grid.filters.set({ col: 'sizes', op: 'gt', value: 12 });             <span class="cmt">// any size above 12</span>
+<span class="kw">const</span> big = ids();
+grid.filters.set({ col: 'tags', op: 'ne', value: 'gold' });          <span class="cmt">// no item is gold</span>
+<span class="kw">const</span> notGold = ids();
+grid.filters.set({ col: 'tags', op: 'hasAny', value: ['bronze', 'silver'] });
+<span class="kw">const</span> either = ids();
+grid.filters.set({ col: 'sizes', op: 'listCount', value: { op: 'gte', value: 2 } });
+<span class="kw">const</span> several = ids();
+grid.filters.clear();
+grid.sort.set([{ col: 'sizes', dir: 'asc' }]);                       <span class="cmt">// by count, then first item</span>
+<span class="kw">const</span> bySize = ids();
+<span class="kw">const</span> csv = grid.export.csv().split('\r\n').find((line) =&gt; line.startsWith('3,'));
+grid.destroy();
+<span class="kw">return</span> `${listModule.name} | ${gold} | ${big} | ${notGold} | ${either} | ${several} | ${bySize} | ${csv}`;</code></pre>
 
     <h2 id="ai-narrative">The AI narrative / insights layer</h2>
     <p><code>modules/ai</code> is an opt-in layer that produces a short, plain-language <strong>narrative</strong> of the grid's <em>computed</em> figures &mdash; a per-KPI / per-chart / per-column &ldquo;Explain&rdquo;, or an insights panel over the current (filtered) view. It is a separate bundle that adds no weight to a page that does not load it, changes nothing in grid core, and pulls in no dependency. <strong>The grid makes no AI call of its own:</strong> <code>createAI</code> never imports a provider SDK, never reads a key, and never makes a network request. It calls one async callback you supply, <code>ask()</code> &mdash; your model, your key, your privacy decision &mdash; exactly the philosophy of the data adapters, where auth and transport are always the caller's.</p>
@@ -10447,7 +10727,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">clearRange</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Drop every range, leaving the row and cell selection alone.</td></tr>
           <tr><td class="name">summary</td><td class="type">(): { count: number; numeric: number; sum: number | null; min: number | null; max: number | null; avg: number | null; }</td><td class="desc">&mdash;</td><td class="type"><code>{ count: number; numeric: number; sum: number | null; min: number | null; max: number | null; avg: number | null; }</code></td><td class="desc">The selected cells as a status bar states them: how many carry a value, how many of those are numbers, and the sum, extremes and mean of the numbers. Every figure but the two counts is null when nothing selected is numeric. {@link SelectionApi.statistics} is the fuller answer.</td></tr>
-          <tr><td class="name">statistics</td><td class="type">(): object | null</td><td class="desc">&mdash;</td><td class="type"><code>object | null</code></td><td class="desc">Everything worth knowing about the selected cells: what `summary()` reports plus median, quartiles, deviation, distinct and outliers. Over the cells rather than a column, so a rectangle spanning three columns is one set of numbers. Null with nothing selected.</td></tr>
+          <tr><td class="name">statistics</td><td class="type">(): <a href="#type-SelectionStatistics">SelectionStatistics</a> | null</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-SelectionStatistics">SelectionStatistics</a> | null</code></td><td class="desc">Everything worth knowing about the selected cells: what `summary()` reports plus median, quartiles, deviation, distinct and outliers. Over the cells rather than a column, so a rectangle spanning three columns is one set of numbers. Null with nothing selected.</td></tr>
           <tr><td class="name">rows</td><td class="type">(): <a href="#type-Row">Row</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Row">Row</a>[]</code></td><td class="desc">The selected rows, as row objects.</td></tr>
           <tr><td class="name">keys</td><td class="type">(): string[]</td><td class="desc">&mdash;</td><td class="type"><code>string[]</code></td><td class="desc">The keys of the selected rows.</td></tr>
           <tr><td class="name">set</td><td class="type">(keys: string[]): void</td><td class="desc"><code>keys: string[]</code></td><td class="type"><code>void</code></td><td class="desc">Replace the row selection with exactly these keys and repaint.</td></tr>
@@ -11599,7 +11879,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">messages</td><td class="type">Record&lt;string, string | Record&lt;string, string&gt;&gt;</td><td class="desc">A partial message catalogue laid over the one `locale` resolves — every string the grid renders or announces. Supply a bundled catalogue (`FR_FR`, `AR`, …) or your own object; overrides merge over the default rather than replacing it, so translating part of the interface leaves the remainder in English rather than showing raw keys. Every valid key is listed in `MESSAGE_KEYS`; a key that is not is ignored with a warning. <small>(optional)</small></td></tr>
           <tr><td class="name">direction</td><td class="type"><a href="#type-Direction">Direction</a> <small class="literals">'ltr' | 'rtl' | 'auto'</small></td><td class="desc">Writing direction. An explicit `'ltr'` or `'rtl'` always wins. Omit it, or say `'auto'`, to settle it from the mount or the nearest ancestor carrying a `dir="ltr"`/`dir="rtl"` attribute, and only then from `locale`: `ar`, `he`, `fa` and the rest resolve to `rtl`. A page-level `dir="ltr"` therefore wins over an RTL locale — a host that wants RTL inside an LTR page sets `direction: 'rtl'` explicitly. In a right-to-left grid the logical alignments `start`/`end` mirror while the physical `left`/`right` do not (see {@link Align}). <small>(optional)</small></td></tr>
           <tr><td class="name">timeZone</td><td class="type">string</td><td class="desc">IANA zone every date column formats in, e.g. 'Europe/London' or 'UTC'. Omit to use each viewer's own zone. A column's own `format.timeZone` wins. <small>(optional)</small></td></tr>
-          <tr><td class="name">theme</td><td class="type"><a href="#type-Theme">Theme</a> <small class="literals">'light' | 'dark' | 'high-contrast' | 'terminal' | (string &amp; {})</small></td><td class="desc">The visual theme. <small>(optional)</small></td></tr>
+          <tr><td class="name">theme</td><td class="type"><a href="#type-Theme">Theme</a> <small class="literals">'light' | 'dark' | 'auto' | 'high-contrast' | 'terminal' | (string &amp; {})</small></td><td class="desc">The visual theme. Unset (the default) follows the nearest `data-theme` on an ancestor, and is light when there is none; see {@link Theme}. <small>(optional)</small></td></tr>
           <tr><td class="name">density</td><td class="type"><a href="#type-Density">Density</a> <small class="literals">'compact' | 'standard' | 'comfortable' | 'spacious' | number</small></td><td class="desc">Row height and padding as a named step, rather than pixel by pixel. <small>(optional)</small></td></tr>
           <tr><td class="name">gridLines</td><td class="type">boolean | 'both' | 'horizontal' | 'vertical' | 'none' | 'rows' | 'columns'</td><td class="desc">Which rules are drawn between cells. `'both'` by default. The two axes are separate decisions: horizontal rules help the eye track along a row, vertical ones stop adjacent values running together. `false` or `'none'` draws neither. Only the rules *between data* are affected, the header's underline, the pinned seams and the totals separator are structure, not grid lines. <small>(optional)</small></td></tr>
           <tr><td class="name">cornerRadius</td><td class="type">boolean | number | string</td><td class="desc">Round the grid's outer corners. Square by default. `true` adopts the theme's own radius; a number is pixels; a string is used as written, so a host can pass its own token or a relative unit. <small>(optional)</small></td></tr>
@@ -11702,6 +11982,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">The column's own identity. Defaults to `field`; needed explicitly when two columns read the same field, as a value and its running total do. <small>(optional)</small></td></tr>
           <tr><td class="name">field</td><td class="type">string</td><td class="desc">The property to read from each row. Dotted paths reach into nested data. <small>(optional)</small></td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">The heading. Defaults to a readable form of `field`. <small>(optional)</small></td></tr>
+          <tr><td class="name">typeOptions</td><td class="type"><a href="#type-ColumnTypeOptions">ColumnTypeOptions</a></td><td class="desc">Options the column's data type reads: a `list` column's item type (`of`) and export joiner (`joiner`), and any a data type of your own reads. <small>(optional)</small></td></tr>
           <tr><td class="name">type</td><td class="type"><a href="#type-TypeName">TypeName</a> | false</td><td class="desc">The data type, which decides parsing, formatting, sorting, the default editor and the default filter together. `false` turns inference off and treats the values as opaque. <small>(optional)</small></td></tr>
           <tr><td class="name">preset</td><td class="type">string | string[]</td><td class="desc">Named column presets to merge in first, so a house style is declared once. <small>(optional)</small></td></tr>
           <tr><td class="name">format</td><td class="type"><a href="#type-FormatSpec">FormatSpec</a> | string</td><td class="desc">How a value is rendered as text. A string is a shorthand mask. <small>(optional)</small></td></tr>
@@ -11896,6 +12177,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">totals</td><td class="type">{ /** * The aggregates that mean something. A column of this type configured * with any other fails at construction rather than rendering a confident * wrong number. */ supported?: <a href="#type-TotalName">TotalName</a>[]; /** * The type's own reduction for an aggregate, replacing the built-in * arithmetic. Receives the values index-aligned with their rows, and a * context carrying `column` and `valueAt(colId, i)` for reading another * column of the same row. */ implement?: Record&lt;string, <a href="#type-TotalFn">TotalFn</a>&gt;; }</td><td class="desc">Which aggregates are meaningful for this type, and how. Omit it and every aggregate is allowed, which is what every type that shipped before this does. <small>(optional)</small></td></tr>
           <tr><td class="name">excel</td><td class="type">string</td><td class="desc">The Excel number format an export writes for this type, when the column's own formatter supplies none. `'General'` when neither does. <small>(optional)</small></td></tr>
           <tr><td class="name">operators</td><td class="type">Record&lt;string, <a href="#type-DataTypeOperator">DataTypeOperator</a>&gt;</td><td class="desc">Filter operators this type brings beyond the §9.3 set, by name. A column of the type accepts these and `blank`/`notBlank` only, and they are refused on any other column. `compile` turns a condition's operand into a predicate over one cell; `check` names what is wrong with an operand, so `filters.set()` refuses it rather than installing a filter that matches nothing. The `geometry` type declares its four spatial operators here. <small>(optional)</small></td></tr>
+          <tr><td class="name">memberOperator</td><td class="type"><a href="#type-Operator">Operator</a></td><td class="desc">The operator a chosen facet value becomes on a column of this type, in place of `in`. A list column's is `hasAny`. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -11909,7 +12191,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">toClipboard</td><td class="type">(v: unknown) =&gt; string</td><td class="desc"><code>v: unknown</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">Turn a value of this type into the text a copy puts on the clipboard. First in that chain, ahead of the grid-wide hook and the plain display text. <small>(optional)</small></td></tr>
           <tr><td class="name">fromClipboard</td><td class="type">(s: string) =&gt; unknown</td><td class="desc"><code>s: string</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">Read pasted text back into a value of this type. First in that chain, ahead of the grid-wide hook and taking the text unchanged. <small>(optional)</small></td></tr>
           <tr><td class="name">geometry</td><td class="type">(value: unknown) =&gt; <a href="#type-GeometryInfo">GeometryInfo</a> | null</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>=&gt; <a href="#type-GeometryInfo">GeometryInfo</a> | null</code></td><td class="desc">The measures of a geometry value — its kind, bounding box, centroid, length and area — or `null` for an empty cell. Declared by the `geometry` type; a viewer (a map, a chart) reads a cell's shape through `column.dataType.geometry(value)` rather than parsing it itself. Accepts the stored GeoJSON and anything the type would accept on ingest. <small>(optional)</small></td></tr>
-          <tr><td class="name">exportText</td><td class="type">(value: unknown) =&gt; string</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">The text CSV and a text Excel cell write for a value of this type, in place of the display text. A geometry cell shows a summary and exports WKT. <small>(optional)</small></td></tr>
+          <tr><td class="name">exportText</td><td class="type">(value: unknown, column?: <a href="#type-ResolvedColumn">ResolvedColumn</a>) =&gt; string</td><td class="desc"><code>value: unknown</code><br><code>column?: <a href="#type-ResolvedColumn">ResolvedColumn</a></code></td><td class="type"><code>=&gt; string</code></td><td class="desc">The text CSV, a text Excel cell and the clipboard write for a value of this type, in place of the display text. A geometry cell shows a summary and exports WKT; a list exports its items joined. Receives the resolved column, for a type whose text depends on its options. <small>(optional)</small></td></tr>
+          <tr><td class="name">items</td><td class="type">(value: unknown) =&gt; unknown[]</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>=&gt; unknown[]</code></td><td class="desc">The items of a cell, for a type whose cell holds several values (the `list` type). Declaring it makes the grid resolve the column's `typeOptions.of` into {@link ResolvedColumn.itemType}, and every §9.3 operator the item type offers then applies item by item: a row matches when **any** item does, and a negated operator (`ne`, `notContains`, `notIn`, `notBetween`) when **no** item matches its positive twin, so an empty list passes it. <small>(optional)</small></td></tr>
+          <tr><td class="name">compareFor</td><td class="type">(column: <a href="#type-ResolvedColumn">ResolvedColumn</a>) =&gt; <a href="#type-Comparator">Comparator</a></td><td class="desc"><code>column: <a href="#type-ResolvedColumn">ResolvedColumn</a></code></td><td class="type"><code>=&gt; <a href="#type-Comparator">Comparator</a></code></td><td class="desc">Build the column's comparator from the resolved column, for a type whose order depends on its options (a list orders by item count, then the first item under its item type's comparator). Takes the place of `compare`. <small>(optional)</small></td></tr>
+          <tr><td class="name">defaultsFor</td><td class="type">(itemType: <a href="#type-DataType">DataType</a>) =&gt; <a href="#type-DataType">DataType</a>['defaults']</td><td class="desc"><code>itemType: <a href="#type-DataType">DataType</a></code></td><td class="type"><code>=&gt; <a href="#type-DataType">DataType</a>['defaults']</code></td><td class="desc">Defaults that depend on the item type, merged over `defaults` for a type that declares `items` (a list of numbers gets a filter offering the number comparisons). <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -12472,6 +12757,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">The heading text. Defaults to the field (or the id) made human: `unitPrice` becomes `Unit Price`, and a dotted path uses only its last segment.</td></tr>
           <tr><td class="name">type</td><td class="type"><a href="#type-TypeName">TypeName</a> <small class="literals">'text' | 'number' | 'boolean' | 'date' | 'dateString' | 'object' | 'lookup' | 'image'</small></td><td class="desc">The data type actually in force. Not always the name that was asked for: an unknown `type` falls back to `text` for every behaviour, and reads back here as `text`.</td></tr>
           <tr><td class="name">dataType</td><td class="type"><a href="#type-DataType">DataType</a></td><td class="desc">The resolved data type itself — the object supplying the parser, comparator, editor, Excel format and defaults this column behaves by.</td></tr>
+          <tr><td class="name">itemType</td><td class="type"><a href="#type-DataType">DataType</a> | null</td><td class="desc">The resolved type of each item, for a column whose type holds several values per cell (`DataType.items`, the `list` type): `typeOptions.of`, `text` when nothing names one or the name is not a scalar type. `null` on every other column.</td></tr>
           <tr><td class="name">nullable</td><td class="type">boolean</td><td class="desc">Whether an empty value is allowed in this column. True unless the definition said `nullable: false`.</td></tr>
           <tr><td class="name">align</td><td class="type"><a href="#type-Align">Align</a> <small class="literals">'start' | 'center' | 'end' | 'left' | 'right' | 'centre'</small></td><td class="desc">The horizontal alignment in force, after the column's own `align` or `cell.align`, the grid's column defaults and the data type's default have been weighed in that order. `'start'` when nothing sets one.</td></tr>
           <tr><td class="name">verticalAlign</td><td class="type"><a href="#type-VAlign">VAlign</a> <small class="literals">'top' | 'middle' | 'bottom'</small></td><td class="desc">The resolved vertical alignment (BACKLOG-0000989), or `undefined` when neither the column nor the grid set one — in which case the cell keeps the grid's historical vertical placement (centred, or top for `autoHeight`). <small>(optional)</small></td></tr>
@@ -12504,6 +12790,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">formatValue</td><td class="type">(value: unknown, row?: <a href="#type-Row">Row</a>, data?: unknown): string</td><td class="desc"><code>value: unknown</code><br><code>row?: <a href="#type-Row">Row</a></code><br><code>data?: unknown</code></td><td class="type"><code>string</code></td><td class="desc">Compiled display-text producer.</td></tr>
           <tr><td class="name">getValue</td><td class="type">(data: unknown, row?: <a href="#type-Row">Row</a>): unknown</td><td class="desc"><code>data: unknown</code><br><code>row?: <a href="#type-Row">Row</a></code></td><td class="type"><code>unknown</code></td><td class="desc">Resolve the value for a row, through the computed-value graph.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ColumnTypeOptions">ColumnTypeOptions</h4>
+    <p class="section-note">The options a column's data type reads (`Column.typeOptions`).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">of</td><td class="type"><a href="#type-TypeName">TypeName</a> <small class="literals">'text' | 'number' | 'boolean' | 'date' | 'dateString' | 'object' | 'lookup' | 'image'</small></td><td class="desc">A `list` column's item type: any scalar data type name, `'text'` by default. A name that is not a known scalar type warns once by name (`type:of:&lt;name&gt;`) and the items are read as text. <small>(optional)</small></td></tr>
+          <tr><td class="name">joiner</td><td class="type">string</td><td class="desc">The text between items when a `list` cell is copied or exported, `', '` by default. Typed and pasted text is split on it and on commas. <small>(optional)</small></td></tr>
+          <tr><td class="name">[option: string]</td><td class="type">unknown</td><td class="desc">Any other option a data type reads from its column: a weighted average's `weight` column, a unit's `significantFigures`.</td></tr>
         </tbody>
       </table>
     </div>
@@ -15539,6 +15837,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">rows</td><td class="type">object[] | ((grid: <a href="#type-Grid">Grid</a>) =&gt; object[])</td><td class="desc">The exact rows to chart, overriding the grid's own walk — an array, or a function returning one at draw time. `chartRange` uses it to bind a chart to the band of rows a selected range covers rather than the whole grid. <small>(optional)</small></td></tr>
           <tr><td class="name">aggregate</td><td class="type">'auto' | 'engine' | 'client'</td><td class="desc">Where the chart's aggregate is computed (GEO-5). `'auto'`, the default, asks the grid's pushdown source — `source.aggregate()`, with x (and `series`) as the `GROUP BY` and the measures as its aggregates, the grid's filter and quick search applied — when the source's adapter declares the `group` capability and the grid holds only a window of the matching rows; otherwise it reduces the loaded rows, as a chart always has. `'engine'` asks the source whenever it can, and is refused by name (a `[lattice]` warning and `provenance().refused`) when it cannot; `'client'` always reduces the loaded rows. One chart is never a mixture: if any measure would be computed client-side, every one is. Applies to the grouped types (`line`, `step`, `area`, `bar`, `horizontalBar`, `waterfall`, `combo`, `pareto`, `heatmap`, `radar`, `funnel`, `stream`, `marimekko`); the source's `aggregates` config must route the reductions to the engine. {@link Chart.provenance} reports which happened and why. <small>(optional)</small></td></tr>
           <tr><td class="name">measures</td><td class="type"><a href="#type-ChartMeasure">ChartMeasure</a>[]</td><td class="desc">Several measures at once, for combo and candlestick. <small>(optional)</small></td></tr>
+          <tr><td class="name">volume</td><td class="type">string</td><td class="desc">A candlestick's volume pane (BACKLOG-0001468): the column holding each period's traded volume, summed per period. The candlestick then draws a price pane and a volume pane in one svg, on one x scale with one x axis at the bottom, so `axis.x.window`, `axis.x.min`/`max`, `zoom`, `annotate` and the measurers act on both panes together, and one tooltip reads both. Each volume bar takes its candle's up or down colour, and the volume axis sits on the price axis's side. The column is bound as the fifth measure, so it appears in `chart.data()` and the accessible table and is the volume a measurer sums. Any other chart type, or a column the grid does not have, warns and draws no pane. <small>(optional)</small></td></tr>
+          <tr><td class="name">volumePane</td><td class="type"><a href="#type-ChartVolumePaneOptions">ChartVolumePaneOptions</a></td><td class="desc">The volume pane's geometry, when `volume` is set (BACKLOG-0001468). <small>(optional)</small></td></tr>
           <tr><td class="name">source</td><td class="type">string</td><td class="desc">Endpoints, for sankey, chord and network. <small>(optional)</small></td></tr>
           <tr><td class="name">target</td><td class="type">string</td><td class="desc">The column naming the link's destination, beside `source`. <small>(optional)</small></td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc">Row label and dates, for gantt. <small>(optional)</small></td></tr>
@@ -15579,6 +15879,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">projection</td><td class="type"><a href="#type-MapProjection">MapProjection</a> | ((lon: number, lat: number) =&gt; [number, number])</td><td class="desc">The map projection a geomap draws through (BACKLOG-0001321): `'equalEarth'` (the default for a world), `'robinson'`, `'mercator'`, `'equirectangular'`, `'albers'`, `'transverseMercator'`, or a projection function of the caller's own `(lon: number, lat: number) =&gt; [number, number]`. Left unset, a geometry pack draws through the projection it declares. <small>(optional)</small></td></tr>
           <tr><td class="name">projectionOptions</td><td class="type">{ parallels?: [number, number]; centre?: [number, number] }</td><td class="desc">Parameters for the projections that take them: `parallels` and `centre` for `albers`, `centre` for `transverseMercator` (BACKLOG-0001321). <small>(optional)</small></td></tr>
           <tr><td class="name">graticule</td><td class="type">boolean | { step?: number }</td><td class="desc">A lon/lat reference grid under a geomap's regions, off by default (BACKLOG-0001321 part 2). Only drawn over a geometry pack's fitted projection — the schematic continents have no fitted projection to draw one against. `step` is the spacing between lines in degrees (default 30). <small>(optional)</small></td></tr>
+          <tr><td class="name">basemap</td><td class="type">{ fill?: string; stroke?: string; strokeWidth?: number }</td><td class="desc">Override the land a `shapes` pack draws with (BACKLOG-0001508), one colour or width at a time: `fill` and `stroke` as any CSS colour, `strokeWidth` in pixels. Unset, each takes its theme token — `--lattice-chart-basemap-fill`, `--lattice-chart-basemap-stroke`, `--lattice-chart-basemap-stroke-width` — whose defaults are legible against the plot in both themes without a host doing anything. Applies to every type that draws a `shapes` pack: `markermap`, `bubblemap`, `choropleth`'s own backdrop pack, `hexmap` and `geomap`. <small>(optional)</small></td></tr>
           <tr><td class="name">multiples</td><td class="type">string</td><td class="desc">One chart per distinct value of this column. <small>(optional)</small></td></tr>
           <tr><td class="name">canvas</td><td class="type">boolean | number</td><td class="desc">Draw to canvas past this many points. <small>(optional)</small></td></tr>
           <tr><td class="name">downsample</td><td class="type">number</td><td class="desc">How many points to reduce a dense line or scatter series to before drawing. Reduction keeps the first point, the last, and the ones that carry the outline. Unset, the target is the plot's width in pixels; a series is only reduced once it exceeds half again that target. <small>(optional)</small></td></tr>
@@ -16161,7 +16462,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       </table>
     </div>
     <h4 id="type-KPIConfig">KPIConfig</h4>
-    <p class="section-note">KPI panel configuration.</p>
+    <p class="section-note">KPI panel configuration. Theme: no `theme` of its own — it inherits (BACKLOG-0001462). Its colours are the grid's `--lattice-*` tokens, so `data-theme="dark"` on any ancestor (a layout's `theme: 'dark'`, or `&lt;html&gt;`) darkens it with everything else, and the nearest `data-theme` wins. Load the grid stylesheet, which carries the tokens.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
@@ -16402,6 +16703,60 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h3 id="ref-module-deckgl">The deck.gl adapter</h3>
+    <h4 id="type-DeckBindingOptions">DeckBindingOptions</h4>
+    <p class="section-note">What {@link bindDeck} takes (BACKLOG-0001514). deck.gl is the page's: the module imports none of it, and is handed the page's `Deck` and a function that builds layers with the page's own deck.gl classes.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">deck</td><td class="type">{ setProps(props: Record&lt;string, unknown&gt;): void; props?: Record&lt;string, unknown&gt;; getViewports?(): unknown[]; }</td><td class="desc">The page's deck.gl `Deck` instance (or a React `DeckGL`'s `deck`). The binding calls its `setProps({ layers })`, wraps its `onViewStateChange`, and reads its view from `getViewports()[0]` (`getBounds()`, `fitBounds()`). Without `setProps` nothing is bound and `deckgl:deck` warns.</td></tr>
+          <tr><td class="name">position</td><td class="type">{ lon: string; lat: string } | { geometry: string }</td><td class="desc">The column(s) rows are placed by: a `lon`/`lat` pair, or a `geometry` column. A name that is not a column of the grid: nothing is bound and `deckgl:position` warns.</td></tr>
+          <tr><td class="name">viewportFilter</td><td class="type">boolean | { debounce?: number }</td><td class="desc">deck's view as a filter on the grid, exactly as a map chart's {@link ChartSpec.viewportFilter}: after a pan or zoom settles (debounced, default 150 ms) the binding writes ONE condition — a `withinBbox` on a geometry column, or a `between` pair on `lon`/`lat` — and a matching condition set from elsewhere moves deck's view to its box. Off by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">viewportCap</td><td class="type">number</td><td class="desc">The most rows fetched for one view of a paged pushdown grid before the engine's density cells are handed over instead; as {@link ChartSpec.viewportCap}, default 20,000. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">layers</td><td class="type">(rows: Array&lt;Record&lt;string, unknown&gt;&gt;, ctx: <a href="#type-DeckLayerContext">DeckLayerContext</a>) =&gt; unknown[]</td><td class="desc"><code>rows: Array&lt;Record&lt;string, unknown&gt;&gt;</code><br><code>ctx: <a href="#type-DeckLayerContext">DeckLayerContext</a></code></td><td class="type"><code>=&gt; unknown[]</code></td><td class="desc">Builds the layers from the rows the grid shows: every leaf row after its filter and sort for a grid that holds them all; for a paged pushdown grid, the rows inside deck's view fetched from the engine, or — past {@link DeckBindingOptions.viewportCap} — the engine's density cells, with `ctx.binned` true. Not a function: nothing is bound and `deckgl:layers` warns.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DeckLayerContext">DeckLayerContext</h4>
+    <p class="section-note">The second argument of {@link DeckBindingOptions.layers}.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">grid</td><td class="type"><a href="#type-Grid">Grid</a></td><td class="desc">The bound grid.</td></tr>
+          <tr><td class="name">position</td><td class="type">{ lon?: string; lat?: string; geometry?: string }</td><td class="desc">The position, as given.</td></tr>
+          <tr><td class="name">binned</td><td class="type">boolean</td><td class="desc">True when `rows` are density cells (`{ west, south, east, north, count }`), not rows.</td></tr>
+          <tr><td class="name">pending</td><td class="type">boolean</td><td class="desc">True while an engine request for the view is in flight; `rows` is the last answer.</td></tr>
+          <tr><td class="name">features</td><td class="type">Array&lt;{ type: 'Feature'; geometry: Record&lt;string, unknown&gt;; properties: Record&lt;string, unknown&gt; }&gt;</td><td class="desc">One GeoJSON `Feature` per placed row, the row as its `properties`; empty when binned.</td></tr>
+          <tr><td class="name">provenance</td><td class="type"><a href="#type-ChartViewportProvenance">ChartViewportProvenance</a></td><td class="desc">What was handed over — the shape of `chart.provenance().viewport`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DeckBinding">DeckBinding</h4>
+    <p class="section-note">A live binding between a grid and a deck.</p>
+    <h5 id="type-DeckBinding-properties">Properties</h5>
+    <p class="section-note">No properties.</p>
+    <h5 id="type-DeckBinding-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">update</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Rebuild the layers and hand them to deck now, rather than on the next frame.</td></tr>
+          <tr><td class="name">layers</td><td class="type">(): unknown[]</td><td class="desc">&mdash;</td><td class="type"><code>unknown[]</code></td><td class="desc">The layers last handed to deck.</td></tr>
+          <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Remove the binding's viewport condition, its grid listeners and its `onViewStateChange` wrapper.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-DeckBinding-events">Events</h5>
+    <p class="section-note">No events.</p>
     <h3 id="ref-module-kanban">The kanban module</h3>
     <h4 id="type-KanbanCard">KanbanCard</h4>
     <p class="section-note">A card model — one row as it appears on the board. `fields` holds the resolved display text for each mapped card field; `columnId` is the column the card sits in; `points` is the numeric points value (0 when absent). `swimlane`/`sprint`/`epic`/`order` are read from their configured properties and carried for the later cycles that render them.</p>
@@ -16609,7 +16964,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       </table>
     </div>
     <h4 id="type-KanbanConfig">KanbanConfig</h4>
-    <p class="section-note">Kanban configuration. Every structural property is named here so the same board maps DemandFlow (a status field, `points`, `sprint`, `epic`, a swimlane property) and any customer schema without code change.</p>
+    <p class="section-note">Kanban configuration. Every structural property is named here so the same board maps DemandFlow (a status field, `points`, `sprint`, `epic`, a swimlane property) and any customer schema without code change. Theme: no `theme` of its own — it inherits (BACKLOG-0001462). Its colours are the grid's `--lattice-*` tokens, so `data-theme="dark"` on any ancestor (a layout's `theme: 'dark'`, or `&lt;html&gt;`) darkens it with everything else, and the nearest `data-theme` wins. Load the grid stylesheet, which carries the tokens.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
@@ -17815,7 +18170,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       </table>
     </div>
     <h4 id="type-TabsConfig">TabsConfig</h4>
-    <p class="section-note">Tabbed-grid configuration.</p>
+    <p class="section-note">Tabbed-grid configuration. The tab strip inherits as below, and so does every grid it mounts unless that tab's own `config.theme` says otherwise. Theme: no `theme` of its own — it inherits (BACKLOG-0001462). Its colours are the grid's `--lattice-*` tokens, so `data-theme="dark"` on any ancestor (a layout's `theme: 'dark'`, or `&lt;html&gt;`) darkens it with everything else, and the nearest `data-theme` wins. Load the grid stylesheet, which carries the tokens.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
@@ -17896,6 +18251,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">resizable</td><td class="type">boolean</td><td class="desc">Whether the window can be resized by drag or keyboard (default `false`). <small>(optional)</small></td></tr>
           <tr><td class="name">maximisable</td><td class="type">boolean</td><td class="desc">Whether to offer a maximise control in the chrome (default `false`). Maximising fills the **layout host**, not the browser window, and hides every other window for the duration. Escape restores it, unless a payload has already claimed the key. <small>(optional)</small></td></tr>
           <tr><td class="name">minimisable</td><td class="type">boolean</td><td class="desc">Whether to offer a minimise control in the chrome (default `false`). A window with `chrome: false` cannot be minimised whatever this says: there would be nothing left on screen to restore it with. <small>(optional)</small></td></tr>
+          <tr><td class="name">corners</td><td class="type"><a href="#type-LayoutCorners">LayoutCorners</a> <small class="literals">'rounded' | 'square'</small></td><td class="desc">This window's own corner style; the layout's `corners` default otherwise. <small>(optional)</small></td></tr>
           <tr><td class="name">padding</td><td class="type">number | string</td><td class="desc">Padding inside the window; the layout's `padding` (default `'5px'`) otherwise. <small>(optional)</small></td></tr>
           <tr><td class="name">payloadId</td><td class="type">string</td><td class="desc">The `id` given to the payload container (default `` `${id}-body` ``). <small>(optional)</small></td></tr>
           <tr><td class="name">ariaLabel</td><td class="type">string</td><td class="desc">The window's accessible name, when the title alone is not enough context. <small>(optional)</small></td></tr>
@@ -18102,6 +18458,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">gap</td><td class="type">number | string</td><td class="desc">The gap between cells (default `'8px'`). <small>(optional)</small></td></tr>
           <tr><td class="name">padding</td><td class="type">number | string</td><td class="desc">The default padding inside a window (default `'5px'`). <small>(optional)</small></td></tr>
           <tr><td class="name">compact</td><td class="type"><a href="#type-LayoutCompaction">LayoutCompaction</a> <small class="literals">'vertical' | 'horizontal' | 'none'</small></td><td class="desc">Rearrangement (default `'vertical'`). One gravity direction, never two: `'vertical'` pushes displaced windows down and then floats everything up, `'horizontal'` pushes them right and then floats everything left — so dragging a window out of a row closes the hole sideways — and `'none'` leaves every placement exactly where it was put. An unrecognised value warns once, naming what it got, and falls back to `'vertical'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">corners</td><td class="type"><a href="#type-LayoutCorners">LayoutCorners</a> <small class="literals">'rounded' | 'square'</small></td><td class="desc">The default corner style for every window that does not declare its own (default `'rounded'`, today's look). `'square'` zeroes the radius on the window, its title bar, the minimised strip and the maximised frame. The rounded radius itself is themed via `--lattice-layout-radius`, separately from the shared `--lattice-radius` every other module reads. A window's own `corners` overrides this. An unrecognised value warns once and falls back to `'rounded'`. <small>(optional)</small></td></tr>
           <tr><td class="name">movable</td><td class="type">boolean</td><td class="desc">The default `movable` for every window that does not declare its own (default `false`). This states a default, so `false` takes nothing away from a window that declared `movable: true`; `setInteractive(false)` is the active lock that does. <small>(optional)</small></td></tr>
           <tr><td class="name">resizable</td><td class="type">boolean</td><td class="desc">The default `resizable` for windows that declare none (default `false`); see `movable`. <small>(optional)</small></td></tr>
           <tr><td class="name">closable</td><td class="type">boolean</td><td class="desc">The default `closable` for windows that declare none (default `false`); see `movable`. <small>(optional)</small></td></tr>
@@ -18110,6 +18467,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">windows</td><td class="type"><a href="#type-LayoutWindow">LayoutWindow</a>[]</td><td class="desc">The windows, in mount order. <small>(optional)</small></td></tr>
           <tr><td class="name">layout</td><td class="type"><a href="#type-LayoutSnapshot">LayoutSnapshot</a></td><td class="desc">An arrangement to apply at mount, as produced by `getLayout()`. <small>(optional)</small></td></tr>
           <tr><td class="name">ariaLabel</td><td class="type">string</td><td class="desc">The layout region's accessible name. <small>(optional)</small></td></tr>
+          <tr><td class="name">theme</td><td class="type">'light' | 'dark' | 'auto' | (string &amp; {})</td><td class="desc">The theme for the whole dashboard (BACKLOG-0001462), written to `data-theme` on the layout's root: `'dark'` darkens the window chrome, the window bodies and every grid, chart, KPI panel, tab strip, kanban board and gantt mounted in a window that does not set a theme of its own. `'light'` forces light inside a dark page; `'auto'` follows `prefers-color-scheme`. Unset follows the nearest `data-theme` on an ancestor, and is light when there is none. <small>(optional)</small></td></tr>
           <tr><td class="name">messages</td><td class="type">{ t(key: string, params?: Record&lt;string, unknown&gt;): string }</td><td class="desc">A message catalogue, e.g. `grid.messages`; built-in English seeds otherwise. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -18816,6 +19174,16 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">No methods.</p>
     <h5 id="type-LatticeRouterElement-events">Events</h5>
     <p class="section-note">No events.</p>
+    <h4 id="type-StateApplyReport">StateApplyReport</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">applied</td><td class="type">string[]</td><td class="desc">The state keys that were restored, in application order.</td></tr>
+          <tr><td class="name">skipped</td><td class="type">{ key: string; reason: string }[]</td><td class="desc">The keys that were not restored, each with a reason in words a host can show — `not an array`, `unknown column`, `skipped by caller`, and so on. A partial restore is reported, never thrown.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="ref-glossary">Glossary of value types</h3>
     <p class="section-note">The value and result types the surfaces above hand back, alphabetical.</p>
     <h4 id="type-AcfResult">AcfResult</h4>
@@ -19383,6 +19751,16 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-ChartVolumePaneOptions">ChartVolumePaneOptions</h4>
+    <p class="section-note">A candlestick's volume pane (BACKLOG-0001468).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">height</td><td class="type">number</td><td class="desc">The volume pane's share of the plot's height, above 0 and below 1; the default is 0.25. A value outside that range warns and the default is used. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ChartZoomApi">ChartZoomApi</h4>
     <p class="section-note">The host's handle on a chart's zoom.</p>
     <div class="table-wrap">
@@ -19914,6 +20292,16 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-HeadlessGridConfig">HeadlessGridConfig</h4>
+    <p class="section-note">The configuration {@link createHeadlessGrid} accepts (§20, BACKLOG-0001454). Every {@link GridConfig} key remains meaningful off the DOM — sources, columns, sort, grouping and the rest all still drive the same pipeline — so this is the same shape, not a smaller one; it exists so `icons` has its own doc anchor for the headless case, which touches no `document` at all.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">icons</td><td class="type">Record&lt;string, <a href="#type-IconDefinition">IconDefinition</a>&gt;</td><td class="desc">Your own SVG glyphs, registered into this grid's own icon registry alongside the built-in set — the same shape {@link GridConfig.icons} takes, and no DOM is touched to register them. A chart type bound to this grid (a `network` node's `icon`, for example) reads a name back out through {@link Grid.icons} when it draws, into its own `&lt;svg&gt;`; a name neither this map nor the built-ins hold still warns once, by name, the same way it does on a rendered grid. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-Heteroscedasticity">Heteroscedasticity</h4>
     <p class="section-note">The Breusch–Pagan heteroscedasticity test result.</p>
     <div class="table-wrap">
@@ -20023,6 +20411,17 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">issuedTo</td><td class="type">string</td><td class="desc">Who the key was issued to. <small>(optional)</small></td></tr>
           <tr><td class="name">expires</td><td class="type">string</td><td class="desc">The ISO date the licence lapses on, judged in UTC so a licence expiring `2027-01-01` is good throughout that day. A perpetual key has none. <small>(optional)</small></td></tr>
           <tr><td class="name">reason</td><td class="type">string</td><td class="desc">Why the verdict came out as it did: `missing`, `malformed`, `prefix`, `product`, `expired`, `domain` or `signature` for a refusal, and `unverified` alongside a pass on a host with no Ed25519 to check with, where only the signature's shape could be examined. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ListCount">ListCount</h4>
+    <p class="section-note">The operand of `listCount`: how the number of items compares to `value`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">op</td><td class="type">'gt' | 'gte' | 'lt' | 'lte' | 'eq'</td><td class="desc">The comparison.</td></tr>
+          <tr><td class="name">value</td><td class="type">number</td><td class="desc">The number of items to compare with.</td></tr>
         </tbody>
       </table>
     </div>
@@ -20349,6 +20748,29 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-SelectionStatistics">SelectionStatistics</h4>
+    <p class="section-note">The shape {@link SelectionApi.statistics} returns (BACKLOG-0001488): what `summary()` reports, plus the range's own size and shape. `distinct` counts every non-blank value, numeric or not, so a numeric-looking selection that is really a set of codes shows up as a low distinct count against a high `count`. The five fields after `distinct` are present only when at least one selected value parsed as a number — `statistics()` never invents a quartile or a deviation over an empty numeric set.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many selected cells carry a value at all (blank cells are excluded).</td></tr>
+          <tr><td class="name">numeric</td><td class="type">number</td><td class="desc">How many of those parsed as a number.</td></tr>
+          <tr><td class="name">sum</td><td class="type">number | null</td><td class="desc">Null when `numeric` is 0.</td></tr>
+          <tr><td class="name">min</td><td class="type">number | null</td><td class="desc">Null when `numeric` is 0.</td></tr>
+          <tr><td class="name">max</td><td class="type">number | null</td><td class="desc">Null when `numeric` is 0.</td></tr>
+          <tr><td class="name">avg</td><td class="type">number | null</td><td class="desc">Null when `numeric` is 0.</td></tr>
+          <tr><td class="name">cells</td><td class="type">number</td><td class="desc">How many cells were selected, blank or not — the size of the range itself.</td></tr>
+          <tr><td class="name">distinct</td><td class="type">number</td><td class="desc">How many distinct values (numeric or not) the selected cells hold.</td></tr>
+          <tr><td class="name">median</td><td class="type">number</td><td class="desc">The middle of the numeric values, sorted. Absent when `numeric` is 0. <small>(optional)</small></td></tr>
+          <tr><td class="name">q1</td><td class="type">number</td><td class="desc">The first quartile. Absent when `numeric` is 0. <small>(optional)</small></td></tr>
+          <tr><td class="name">q3</td><td class="type">number</td><td class="desc">The third quartile. Absent when `numeric` is 0. <small>(optional)</small></td></tr>
+          <tr><td class="name">iqr</td><td class="type">number</td><td class="desc">`q3 - q1`. Absent when `numeric` is 0. <small>(optional)</small></td></tr>
+          <tr><td class="name">stddev</td><td class="type">number | null</td><td class="desc">Sample standard deviation; null with exactly one numeric value. Absent when `numeric` is 0. <small>(optional)</small></td></tr>
+          <tr><td class="name">outliers</td><td class="type">number</td><td class="desc">How many numeric values sit outside the standard `1.5 * iqr` fence. Absent when `numeric` is 0. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-SeriesStats">SeriesStats</h4>
     <div class="table-wrap">
       <table>
@@ -20441,16 +20863,6 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">covered</td><td class="type">number</td><td class="desc">Rows the figure was computed over.</td></tr>
           <tr><td class="name">total</td><td class="type">number | null</td><td class="desc">Rows the source knows about, or `null` when it cannot know — never a guess.</td></tr>
           <tr><td class="name">windowed</td><td class="type">boolean</td><td class="desc">True when a window bounded the computation, so the figure covers part of the data.</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <h4 id="type-StateApplyReport">StateApplyReport</h4>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="name">applied</td><td class="type">string[]</td><td class="desc">The state keys that were restored, in application order.</td></tr>
-          <tr><td class="name">skipped</td><td class="type">{ key: string; reason: string }[]</td><td class="desc">The keys that were not restored, each with a reason in words a host can show — `not an array`, `unknown column`, `skipped by caller`, and so on. A partial restore is reported, never thrown.</td></tr>
         </tbody>
       </table>
     </div>
@@ -21143,6 +21555,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">Which way displaced windows are pushed, and floated, when the arrangement compacts.</p>
     <p class="type-def"><code>type LayoutCompaction = 'vertical' | 'horizontal' | 'none'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/layout</code>.</small></p>
+    <h4 id="type-LayoutCorners">LayoutCorners</h4>
+    <p class="section-note">A window frame's corner style (default `'rounded'`, BACKLOG-0001460). `'square'` zeroes the radius on the window, its title bar, the minimised strip and the maximised frame — all the same element in a different state — with no other visual change.</p>
+    <p class="type-def"><code>type LayoutCorners = 'rounded' | 'square'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/layout</code>.</small></p>
     <h4 id="type-LayoutEventName">LayoutEventName</h4>
     <p class="section-note">The events a dashboard layout raises. The layout's own, not a grid's: `grid.on` takes {@link EventName} and knows nothing about these. Each has a matching `on…` config callback (`onWindowMoved`, `onBeforeWindowClose`, …) and both routes fire. The three `before…` events are cancellable: call `preventDefault(reason?)` on the payload, or return a Promise to hold the gesture until it settles; a veto fires the matching `…:cancelled` carrying the reason. Subscribing to `'*'` receives every past-tense event and never gates.</p>
     <p class="type-def"><code>type LayoutEventName = 'window:moved' | 'window:resized' | 'window:closed' | 'layout:changed' | 'beforeWindowMove' | 'beforeWindowResize' | 'beforeWindowClose' | 'windowMove:cancelled' | 'windowResize:cancelled' | 'windowClose:cancelled'</code></p>
@@ -21158,6 +21574,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">One dashed event, as the listener prop Vue's template compiler produces: `'cell-changed'` becomes `'onCell-changed'`. Vue resolves `@cell-changed` to that prop name, so listing them is what makes a template binding type-check.</p>
     <p class="type-def"><code>type ListenerProp&lt;E extends string&gt; = `on${Capitalize&lt;E&gt;}`</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/vue</code>.</small></p>
+    <h4 id="type-ListOperator">ListOperator</h4>
+    <p class="section-note">The four operators of a `list` column (declared by the type the opt-in `modules/list` registers), questions about the whole list. They compare items exactly (case matters), as SQL's `list_has_any` does. - `hasAny` — the list holds at least one of the operand's items. - `hasAll` — the list holds every one of them (an empty operand: every row). - `hasNone` — the list holds none of them (an empty or absent list included). - `listCount` — the number of items compares as a {@link ListCount} says. Every operator of the item type applies to a list column too, with "any item matches" semantics; see `DataType.items`.</p>
+    <p class="type-def"><code>type ListOperator = 'hasAny' | 'hasAll' | 'hasNone' | 'listCount'</code></p>
     <h4 id="type-LookupSortBy">LookupSortBy</h4>
     <p class="section-note">How a lookup's option list is ordered for display.</p>
     <p class="type-def"><code>type LookupSortBy = 'label' | 'value' | 'optionOrder' | 'count'</code></p>
@@ -21178,7 +21597,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="type-def"><code>type NumberFormatStyle = 'decimal' | 'currency' | 'percent'</code></p>
     <h4 id="type-Operator">Operator</h4>
     <p class="section-note">The comparison a filter condition makes. Every operator has an exact negation — `eq`/`ne`, `contains`/`notContains`, `between`/`notBetween`, `in`/`notIn`, `blank`/`notBlank` — so a rule and its inverse are always both expressible. Which of them a column offers depends on its type, and a source that pushes filtering down to a query engine may accept a narrower set again.</p>
-    <p class="type-def"><code>type Operator = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'between' | 'notBetween' | 'in' | 'notIn' | 'contains' | 'notContains' | 'startsWith' | 'endsWith' | 'matches' | 'blank' | 'notBlank' | 'containsAny' | 'containsAll' | 'containsNone' | <a href="#type-SpatialOperator">SpatialOperator</a></code></p>
+    <p class="type-def"><code>type Operator = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'between' | 'notBetween' | 'in' | 'notIn' | 'contains' | 'notContains' | 'startsWith' | 'endsWith' | 'matches' | 'blank' | 'notBlank' | 'containsAny' | 'containsAll' | 'containsNone' | <a href="#type-SpatialOperator">SpatialOperator</a> | <a href="#type-ListOperator">ListOperator</a></code></p>
     <h4 id="type-OutlierMethod">OutlierMethod</h4>
     <p class="section-note">Every anomaly-detection method the statistics surface offers, widest set: the robust modified z-score and Tukey's IQR fences (static or rolling), and multivariate Mahalanobis distance. A narrower site accepts a subset via `Extract&lt;OutlierMethod, …&gt;` rather than minting a fourth named alias.</p>
     <p class="type-def"><code>type OutlierMethod = 'modifiedZScore' | 'iqr' | 'mahalanobis' | 'rollingModifiedZScore' | 'rollingIqr'</code></p>
@@ -21383,8 +21802,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">A locale-aware case change for text display: upper, lower, title, or none.</p>
     <p class="type-def"><code>type TextTransform = 'none' | 'upper' | 'lower' | 'title'</code></p>
     <h4 id="type-Theme">Theme</h4>
-    <p class="section-note">A shipped theme, or your own name, the value is written to `data-theme` on the grid's root, so `.lattice[data-theme="mine"]` is all a custom one needs. Unset follows the viewer's `prefers-color-scheme`.</p>
-    <p class="type-def"><code>type Theme = 'light' | 'dark' | 'high-contrast' | 'terminal' | (string &amp; {})</code></p>
+    <p class="section-note">A shipped theme, or your own name, the value is written to `data-theme` on the grid's root, so `.lattice[data-theme="mine"]` is all a custom one needs. One switch reaches every module (BACKLOG-0001462): `data-theme="dark"` on any ancestor (a layout's root, or `&lt;html&gt;`) darkens the grid, the layout chrome, charts, KPI tiles, tabs, kanban and gantt together. The nearest `data-theme` wins, so `'light'` here forces a light grid inside a dark page. `'auto'` follows the viewer's `prefers-color-scheme`. Unset writes no attribute: the grid follows the nearest themed ancestor, and is light when there is none.</p>
+    <p class="type-def"><code>type Theme = 'light' | 'dark' | 'auto' | 'high-contrast' | 'terminal' | (string &amp; {})</code></p>
     <h4 id="type-ThresholdLevel">ThresholdLevel</h4>
     <p class="section-note">An SLA threshold classification: on time, past the warn threshold, or past the breach one.</p>
     <p class="type-def"><code>type ThresholdLevel = 'ok' | 'warn' | 'breach'</code></p>
@@ -21458,7 +21877,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.73.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.74.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

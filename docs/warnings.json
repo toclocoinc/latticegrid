@@ -1,5 +1,5 @@
 {
-  "version": "1.73.0",
+  "version": "1.74.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 506,
+  "count": 525,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -181,6 +181,17 @@
       "docs": "api/charts.html#chartsmodule"
     },
     {
+      "id": "chart.axis.band.thinned",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "{hidden} of {total} band labels were hidden: even the smallest font (--lattice-chart-tick-min) could not make them all fit. Set axis.x.every or axis.y.every to choose which ones show.",
+      "meaning": "A banded axis (a category axis's rotated labels, or the upright band labels down the side) shrank its label font toward the `--lattice-chart-tick-min` floor to try to draw every band without hiding any, and even the floor was still wider than a band. The axis fell back to showing every nth label instead, and this is that fallback, reported once — which bands are shown is otherwise indistinguishable from a caller's own `every`.",
+      "fix": "Give the axis more room, lower `--lattice-chart-tick-min`, or set `axis.x.every`/`axis.y.every` yourself to choose exactly which labels are kept.",
+      "snippet": "createChart({ grid, container, type: 'heatmap', axis: { y: { every: 1 } } });",
+      "docs": "api/charts.html#chartsmodule"
+    },
+    {
       "id": "chart:annotate:tools:*",
       "module": "charts",
       "severity": "warn",
@@ -231,6 +242,36 @@
       "meaning": "The drawing rail (BACKLOG-0001474) anchors every mark in the chart's own data coordinates, and on a map (markermap, bubblemap, choropleth) that means an invertible pair of longitude/latitude scales. Only `mercator` and `equirectangular` are conformal enough to give one — the others (equalEarth, robinson, the conics) bend a meridian, so no straight-line scale describes them — and rather than build a rail that could never place a drag, none is added.",
       "fix": "Draw the map through `projection: 'mercator'` or `projection: 'equirectangular'` to take the drawing rail.",
       "docs": "api/charts.html#chart-geometry-maps"
+    },
+    {
+      "id": "chart:*:volume:type:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "\"volume\" adds a volume pane under a candlestick's price pane, and this chart's type is {type}, so no volume pane was drawn. Set type: 'candlestick', or draw the volume as its own bar chart.",
+      "meaning": "`volume` was set on a chart whose type is not `candlestick`. A volume pane is drawn under a candlestick's price pane on the same x axis; no other type has a price pane to put it under, so the option was refused rather than accepted and silently ignored.",
+      "fix": "Set `type: 'candlestick'` with four `measures` (open, high, low, close), or remove `volume` and draw the volume as its own `bar` chart.",
+      "docs": "api/charts.html#chart-volume-pane"
+    },
+    {
+      "id": "chart:*:volume:missing-column",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "\"volume\" names {col}, which is not a column of this grid, so the candlestick was drawn without a volume pane. Name the column that holds each period's traded volume by its id.",
+      "meaning": "A candlestick's `volume` named a column the grid does not have. A pane of empty bars under a 0-to-1 axis would read as a session in which nothing traded, so the candlestick was drawn with its price pane alone.",
+      "fix": "Name the grid column that holds each period's traded volume, by its column id.",
+      "docs": "api/charts.html#chart-volume-pane"
+    },
+    {
+      "id": "chart:*:volumePane:height",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "\"volumePane.height\" is the volume pane's share of the plot's height, a number above 0 and below 1, and was given {height}, so the default of {default} was used.",
+      "meaning": "`volumePane.height` was not a number strictly between 0 and 1. It is a share of the plot's height, not pixels, so the default share (0.25) was used instead.",
+      "fix": "Give `volumePane.height` as a share, such as `0.25` for a quarter of the plot.",
+      "docs": "api/charts.html#chart-volume-pane"
     },
     {
       "id": "chart:*:geometry:both",
@@ -2383,6 +2424,16 @@
       "docs": "api/grid.html#duckdb-options"
     },
     {
+      "id": "source.duckdb.filter.refuse.*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "a \"{op}\" filter condition cannot be written as a DuckDB SQL predicate, so the request was refused rather than sent without it — silently dropping it would have matched more or fewer rows than the filter asked for. Route this condition through a source that can pushdown-split it as residual (source.filter capability), or drop it from the tree before building the SQL.",
+      "meaning": "filtersToSql used to fold a leaf it could not translate into the same empty string an empty group legitimately produces, then drop it from its parent and/or join — narrowing or widening the query past what the filter asked. It now throws instead. The ordinary pushdown path, whose splitFilters already keeps an unsupported operator out of what reaches this function via the adapter's declared capabilities.operators, is unaffected; this fires only when filtersToSql is handed a tree containing an operator duckdbAdapter does not express directly.",
+      "fix": "Use only the operators duckdbAdapter declares (capabilities.operators), or fetch through a source that splits the filter into pushed and residual halves before calling filtersToSql.",
+      "docs": "api/grid.html#duckdb-options"
+    },
+    {
       "id": "source.duckdb.spatial.column.*",
       "module": "core",
       "severity": "warn",
@@ -2539,6 +2590,16 @@
       "meaning": "Reordering rows means reordering the array they live in, and under `dropSourceRows` there is no array: the store holds the data columnwise. Reordering columns row by row is a different operation the store does not offer, so the move is refused loudly rather than doing nothing quietly — or, worse, corrupting the physical indexing the store keys on.",
       "fix": "Leave `ingest.dropSourceRows` off for a grid whose rows can be reordered.",
       "docs": "api/grid.html#type-IngestConfig"
+    },
+    {
+      "id": "source.odata.filter.refuse.*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "a \"{op}\" filter condition cannot be written as an OData $filter expression, so the request was refused rather than sent without it — silently dropping it would have matched more or fewer rows than the filter asked for. Route this condition through a source that can pushdown-split it as residual (source.filter capability), or drop it from the tree before building the URL.",
+      "meaning": "filtersToOData used to fold a leaf it could not translate into the same empty string an empty group legitimately produces, then drop it from its parent and/or join — narrowing or widening the query past what the filter asked. It now throws instead. The ordinary pushdown path, whose splitFilters already keeps an unsupported operator out of what reaches this function via the adapter's declared capabilities.operators, is unaffected; this fires only when filtersToOData (or urlFor) is handed a tree containing an operator odataAdapter does not express directly.",
+      "fix": "Use only the operators odataAdapter declares (capabilities.operators), or fetch through a source that splits the filter into pushed and residual halves before calling filtersToOData.",
+      "docs": "api/grid.html#odata-options"
     },
     {
       "id": "source.odata.nocount",
@@ -4775,6 +4836,17 @@
       "docs": "api/layout.html#layout"
     },
     {
+      "id": "layout.corners.unknown",
+      "module": "layout",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "layout: corners: {value} is not a corner style; expected {styles}. Falling back to \"rounded\".",
+      "meaning": "The layout's `corners` setting was not one of the two styles. A window's corner radius cannot be resolved from an unreadable value, so the layout uses `\"rounded\"`, its default (today's look). A value that is not a string is described by its type rather than printed, because printing it would risk a throw inside the warning itself.",
+      "fix": "Set `corners` to `'rounded'` or `'square'`.",
+      "snippet": "createLayout(el, { corners: 'square', windows: [ … ] });",
+      "docs": "api/layout.html#layout"
+    },
+    {
       "id": "layout.length:*",
       "module": "layout",
       "severity": "warn",
@@ -4867,6 +4939,17 @@
       "meaning": "`setInteractive()` was called with something that is neither a boolean nor an object. Nothing was changed — the call returns the values currently in force — so the dashboard is neither locked nor unlocked by it. Passing `null` or a string is the usual mistake.",
       "fix": "Pass `true`/`false` to set all three capabilities at once, or an object naming the ones to change.",
       "snippet": "layout.setInteractive({ movable: false, resizable: false });",
+      "docs": "api/layout.html#layout"
+    },
+    {
+      "id": "layout.theme.type",
+      "module": "layout",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "layout: theme must be a theme name such as 'dark', 'light' or 'auto'; got {theme}, so the layout follows the page.",
+      "meaning": "`createLayout` was given a `theme` that is not a non-empty string. No `data-theme` was written on the layout root, so the dashboard takes its theme from the nearest `data-theme` above it, or is light when there is none.",
+      "fix": "Pass a theme name: `'dark'`, `'light'`, `'auto'` to follow the viewer's `prefers-color-scheme`, or a theme of your own. Leave it out to follow the page.",
+      "snippet": "createLayout(el, { theme: 'dark', windows });",
       "docs": "api/layout.html#layout"
     },
     {
@@ -5319,6 +5402,121 @@
       "meaning": "A row value in a geometry column is none of the accepted forms — free text, WKB that ends early or has bytes left over, a ring with fewer than three corners, a FeatureCollection (many rows, not one value). Nothing is stored for that cell, so it is blank and every filter, sort and export treats it as empty. The reason in the message says what was wrong; later refusals in the same column are not repeated.",
       "fix": "Send WKB (bytes, hex or base64), WKT or a GeoJSON geometry or Feature. Load a FeatureCollection's features as rows.",
       "docs": "api/geometry.html#geometry-operators"
+    },
+    {
+      "id": "hydrate.unknownType:*",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "data-type \"{declaredType}\" on column \"{field}\" is not a built-in type name, so it was ignored; the column falls back to sampled shape typing.",
+      "meaning": "readTable/hydrateTable read a server-rendered <th data-type> to set that column's type, so sort, filter and editor follow it without further configuration. The named value matches none of the built-in type names (the seven base types or the extended catalogue), so it cannot be resolved to anything, and the column is left untyped: it is inferred from the row data exactly as if no data-type had been given.",
+      "fix": "Spell a built-in type name (number, date, bytes, ...), or omit data-type and let the column's shape be inferred from the data.",
+      "snippet": "<th data-type=\"number\">Qty</th>"
+    },
+    {
+      "id": "list:item:*",
+      "module": "list",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "column \"{col}\" refused the item {item}: it is not a value of the item type \"{type}\". The item is left out of the stored list rather than kept.",
+      "meaning": "A row's list held an item its column's item type (typeOptions.of) cannot read — text in a list of numbers, an unreadable date in a list of dates. That item is not stored: the list the grid holds, filters and exports is the rest of the items. The host's row object is not changed. Later refusals in the same column are not repeated.",
+      "fix": "Send items of the declared item type, or declare the item type the data actually holds (typeOptions: { of: 'text' }).",
+      "docs": "api/list.html#lists"
+    },
+    {
+      "id": "list:parse:*",
+      "module": "list",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "column \"{col}\" refused the item {item}: it is not a value of the item type \"{type}\". Nothing was stored.",
+      "meaning": "Typed or pasted text for a list cell held a piece the item type cannot read. The whole edit or paste is refused — the cell keeps the list it had — rather than storing the pieces that did read and silently dropping the one that did not.",
+      "fix": "Correct the named item, or separate items with commas (or the column's typeOptions.joiner).",
+      "docs": "api/list.html#lists"
+    },
+    {
+      "id": "list:scalar:*",
+      "module": "list",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "column \"{col}\" is a list column and received a single value ({kind}) where a list was expected; it is read as a one-item list. The row itself is not changed: pass an array to say so.",
+      "meaning": "A list column's cell held one value rather than an array. The grid holds it as a list of one item, so filters and exports treat it as such; the host's row object keeps the single value. Said once per column.",
+      "fix": "Pass the cell as an array (['gold'] rather than 'gold'), or declare the column with its scalar type if it never holds several values.",
+      "docs": "api/list.html#lists"
+    },
+    {
+      "id": "type:of:*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "column \"{col}\" names \"{name}\" as its item type (typeOptions.of), which is not {what}; its items are read as text.",
+      "meaning": "A list column's typeOptions.of named a type the grid does not know, or one that is not a scalar (object, geometry, list). The items are read, compared and filtered as text instead. Said once per name.",
+      "fix": "Name a scalar data type: 'text', 'number', 'date', 'boolean', or any other scalar type the grid registers.",
+      "docs": "api/list.html#lists"
+    },
+    {
+      "id": "source.duckdb.list.column.*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "a \"{op}\" condition reached the DuckDB adapter for \"{col}\", which the engine does not describe as a LIST column; it matches no row rather than guessing.",
+      "meaning": "A list operator (hasAny, hasAll, hasNone, listCount) was handed to duckdbAdapter for a column whose DuckDB type is not a LIST (VARCHAR[], INTEGER[] and so on). The condition compiles to FALSE rather than to SQL that would error or mean something else.",
+      "fix": "Use the list operators on LIST columns only, and declare the grid column type: 'list'.",
+      "docs": "api/grid.html#duckdb-lists"
+    },
+    {
+      "id": "deckgl:deck",
+      "module": "deckgl",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "bindDeck: options.deck has no setProps(); pass the page's deck.gl Deck instance. Nothing was bound.",
+      "meaning": "`bindDeck` hands the layers it builds to deck through `deck.setProps({ layers })`. The object passed as `options.deck` has no `setProps`, so it is not a deck.gl `Deck` (a common slip is passing the React `DeckGL` element or its ref rather than its `deck` instance). Nothing was bound: no listener, no layers, no filter.",
+      "fix": "Pass the `Deck` instance itself — `new deck.Deck({ ... })`, or `ref.current.deck` from a React `DeckGL`.",
+      "snippet": "bindDeck(grid, { deck: new deck.Deck({ parent, initialViewState, controller: true }), layers, position: { lon: 'lon', lat: 'lat' } });",
+      "docs": "API.html#deckgl"
+    },
+    {
+      "id": "deckgl:layers",
+      "module": "deckgl",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "bindDeck: options.layers is not a function; pass (rows, ctx) => Layer[] built with your deck.gl classes. Nothing was bound.",
+      "meaning": "The module imports nothing of deck.gl's, so it cannot build a layer itself: the page supplies a function that turns the grid's rows into deck.gl layers with its own classes. `options.layers` was not a function (an array of layers, say), so there is nothing to call when the rows change. Nothing was bound.",
+      "fix": "Pass a function of the rows and a context that returns the layers.",
+      "snippet": "layers: (rows, ctx) => [new deck.ScatterplotLayer({ id: 'pts', data: rows, getPosition: (r) => [r.lon, r.lat] })]",
+      "docs": "API.html#deckgl"
+    },
+    {
+      "id": "deckgl:over",
+      "module": "deckgl",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "bindDeck: deck's view holds {count} matching rows, more than its viewportCap of {cap}, and {reason}, so no rows were handed to the layers. Zoom in, narrow the filter, or raise viewportCap.",
+      "meaning": "On a paged pushdown grid, more rows fell inside deck's view than `viewportCap`, and the engine cannot bin them into density cells (a `lon`/`lat` position, or an adapter without the spatial `grid` bucket). A random subset handed over as if it were the view would be the wrong picture, so the layers receive no rows and `ctx.provenance.over` carries the reason.",
+      "fix": "Zoom in until the view holds no more than the cap; narrow the grid's filter; raise `viewportCap`; or place rows by a `geometry` column over an adapter that bins it (`duckdbAdapter({ spatial: true })`).",
+      "snippet": "bindDeck(grid, { deck, layers, position: { geometry: 'place' }, viewportCap: 50000 });",
+      "docs": "API.html#deckgl"
+    },
+    {
+      "id": "deckgl:position",
+      "module": "deckgl",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "bindDeck: the grid has no position: {reason}. Nothing was bound.",
+      "meaning": "`options.position` says which column(s) place a row — `{ lon, lat }` or `{ geometry }` — and the binding needs them to fetch the rows in deck's view and to write its viewport filter. It was missing, named neither shape, or named a column the grid does not have (the reason says which). Nothing was bound.",
+      "fix": "Name the grid's own columns: `position: { lon: 'lon', lat: 'lat' }` or `position: { geometry: 'place' }`.",
+      "snippet": "bindDeck(grid, { deck, layers, position: { geometry: 'place' } });",
+      "docs": "API.html#deckgl"
+    },
+    {
+      "id": "deckgl:viewports",
+      "module": "deckgl",
+      "severity": "warn",
+      "since": "1.74.0",
+      "message": "bindDeck: viewportFilter is on but options.deck has no getViewports(), so its view cannot be read as a box; the grid is not filtered by it.",
+      "meaning": "The viewport filter reads deck's view as a lon/lat box from deck's own `WebMercatorViewport` (`getViewports()[0].getBounds()`), rather than reimplementing Web Mercator. The object passed as `options.deck` has no `getViewports`, so the rows are still drawn but deck's view never filters the grid.",
+      "fix": "Pass a deck.gl `Deck` instance (which has `getViewports()`), or leave `viewportFilter` off.",
+      "snippet": "bindDeck(grid, { deck: new deck.Deck({ parent, initialViewState, controller: true }), layers, position, viewportFilter: true });",
+      "docs": "API.html#deckgl"
     }
   ]
 }

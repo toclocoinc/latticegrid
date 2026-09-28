@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.73.0, charts module type declarations
+ * Lattice Grid 1.74.0, charts module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -21,6 +21,14 @@ export const TYPES: readonly ChartType[];
 /** The built-in colour schemes, by name. */
 export const SCHEMES: Readonly<Record<ChartSchemeName, ChartScheme>>;
 export const PALETTE: readonly string[];
+/**
+ * Draw a chart over a grid's rows.
+ *
+ * Theme: no `theme` of its own — it inherits. Its colours are the
+ * grid's `--lattice-*` tokens, so `data-theme="dark"` on any ancestor (a layout's
+ * `theme: 'dark'`, or `<html>`) darkens it with everything else, and the nearest
+ * `data-theme` wins. Load the grid stylesheet, which carries the tokens.
+ */
 export function createChart(spec: ChartSpec): Chart;
 /**
  * Chart a selected cell range. Derives the chart from the range's shape — a
@@ -76,6 +84,19 @@ export function regressionPlots(
     spec?: RegressionSpec;
     fitted?: string;
     residual?: string;
+    /**
+     * The fit-shadow column `residualsLeverage` plots on `y`.
+     * Needed alongside `leverage`; without both, `residualsLeverage` comes back
+     * `absent('needs-leverage-and-standardised-residual-columns')`.
+     */
+    stdResidual?: string;
+    /** The fit-shadow column `residualsLeverage` plots on `x`. See `stdResidual`. */
+    leverage?: string;
+    /**
+     * Sizes `residualsLeverage`'s points by Cook's distance when named; the
+     * preset draws a plain scatter without it.
+     */
+    cooksD?: string;
     rows?: object[] | ((grid: Grid) => object[]);
     confidence?: number;
   },

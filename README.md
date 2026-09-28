@@ -5,7 +5,7 @@ dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it, and Angular has compiled components of its
 own at `@toclocoinc/lattice-grid/angular` — inside this package, not beside it.
 
-Version 1.73.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.74.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -253,7 +253,12 @@ a server-rendered `<table>`, and drive sort, filter and infinite scroll over
 plain htmx requests. It is a complete package rather than an add-on,
 `createGrid`, `autoInit`, `hydrateTable`, `readTable`, `serialiseState` and
 `restoreState` are re-exported alongside its own functions, so a page using it
-imports this and never the base package as well.
+imports this and never the base package as well. A server-rendered `<th
+data-type="number">` (any built-in type name, including the extended
+catalogue — `bytes`, `date`, and so on) sets that column's `type`; a sibling
+`data-format` sets `format`. An unknown `data-type` is warned about once and
+ignored, falling back to sampled shape typing. A `config.columns` entry
+passed to `hydrateTable` still wins over the markup for the same column.
 
 **dhtmlx.** `modules/dhtmlx-compat` exposes a dhtmlx Grid-shaped API over
 Lattice, for moving an existing integration across a piece at a time rather

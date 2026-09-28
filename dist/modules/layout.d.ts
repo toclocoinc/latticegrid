@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.73.0, layout module type declarations
+ * Lattice Grid 1.74.0, layout module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -52,6 +52,8 @@ export interface LayoutWindow {
    * there would be nothing left on screen to restore it with.
    */
   minimisable?: boolean;
+  /** This window's own corner style; the layout's `corners` default otherwise. */
+  corners?: LayoutCorners;
   /** Padding inside the window; the layout's `padding` (default `'5px'`) otherwise. */
   padding?: number | string;
   /** The `id` given to the payload container (default `` `${id}-body` ``). */
@@ -351,6 +353,13 @@ export interface LayoutChangedEvent extends LayoutSnapshot {
 export type LayoutOverflow = 'static' | 'scroll';
 /** Which way displaced windows are pushed, and floated, when the arrangement compacts. */
 export type LayoutCompaction = 'vertical' | 'horizontal' | 'none';
+/**
+ * A window frame's corner style (default `'rounded'`).
+ * `'square'` zeroes the radius on the window, its title bar, the minimised
+ * strip and the maximised frame — all the same element in a different
+ * state — with no other visual change.
+ */
+export type LayoutCorners = 'rounded' | 'square';
 /** Dashboard layout configuration. */
 export interface LayoutConfig {
   /** Cell columns across the mounted element (default 12). */
@@ -379,6 +388,16 @@ export interface LayoutConfig {
    */
   compact?: LayoutCompaction;
   /**
+   * The default corner style for every window that does not declare its own
+   * (default `'rounded'`, today's look). `'square'` zeroes the radius on the
+   * window, its title bar, the minimised strip and the maximised frame. The
+   * rounded radius itself is themed via `--lattice-layout-radius`, separately
+   * from the shared `--lattice-radius` every other module reads. A window's
+   * own `corners` overrides this. An unrecognised value warns once and falls
+   * back to `'rounded'`.
+   */
+  corners?: LayoutCorners;
+  /**
    * The default `movable` for every window that does not declare its own
    * (default `false`). This states a default, so `false` takes nothing away
    * from a window that declared `movable: true`; `setInteractive(false)` is
@@ -405,6 +424,15 @@ export interface LayoutConfig {
   layout?: LayoutSnapshot;
   /** The layout region's accessible name. */
   ariaLabel?: string;
+  /**
+   * The theme for the whole dashboard, written to `data-theme`
+   * on the layout's root: `'dark'` darkens the window chrome, the window bodies
+   * and every grid, chart, KPI panel, tab strip, kanban board and gantt mounted in
+   * a window that does not set a theme of its own. `'light'` forces light inside
+   * a dark page; `'auto'` follows `prefers-color-scheme`. Unset follows the
+   * nearest `data-theme` on an ancestor, and is light when there is none.
+   */
+  theme?: 'light' | 'dark' | 'auto' | (string & {});
   /** A message catalogue, e.g. `grid.messages`; built-in English seeds otherwise. */
   messages?: { t(key: string, params?: Record<string, unknown>): string };
   /** Called after a window has moved, alongside the `window:moved` event. */

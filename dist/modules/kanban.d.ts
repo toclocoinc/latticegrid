@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.73.0, kanban module type declarations
+ * Lattice Grid 1.74.0, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -413,6 +413,11 @@ export interface KanbanFlow {
  * Kanban configuration. Every structural property is named here so the same
  * board maps DemandFlow (a status field, `points`, `sprint`, `epic`, a
  * swimlane property) and any customer schema without code change.
+ *
+ * Theme: no `theme` of its own — it inherits. Its colours are the
+ * grid's `--lattice-*` tokens, so `data-theme="dark"` on any ancestor (a layout's
+ * `theme: 'dark'`, or `<html>`) darkens it with everything else, and the nearest
+ * `data-theme` wins. Load the grid stylesheet, which carries the tokens.
  */
 export interface KanbanConfig {
   /** The source rows, one per card. Use this or `grid`, not both — `rows` wins. */

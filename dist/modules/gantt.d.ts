@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.73.0, gantt module type declarations
+ * Lattice Grid 1.74.0, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1095,6 +1095,11 @@ export interface Gantt {
  * `applyEdit`, emitting `schedule` on success and `error` on a cycle or bad
  * input. `grid` is stored for the write-back binding; `autoSchedule` requests
  * dependent cascading.
+ *
+ * Theme: no `theme` of its own — it inherits. Its colours are the
+ * grid's `--lattice-*` tokens, so `data-theme="dark"` on any ancestor (a layout's
+ * `theme: 'dark'`, or `<html>`) darkens it with everything else, and the nearest
+ * `data-theme` wins. Load the grid stylesheet, which carries the tokens.
  */
 export function createGantt(opts?: {
   tasks?: GanttTask[];

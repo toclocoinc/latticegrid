@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.73.0</title>
+<title>Types API Reference — Lattice Grid 1.74.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -398,6 +398,8 @@
         <a href="kpi.html">The KPI (stat-tile) view</a>
         <a href="alarms.html">The alarms module</a>
         <a href="geometry.html">The geometry module</a>
+        <a href="deckgl.html">The deck.gl adapter</a>
+        <a href="list.html">The list module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="tabs.html">The tabbed grid</a>
@@ -422,7 +424,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 15 pages</a></span>
+      <span class="chip"><a href="index.html">All 17 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -996,6 +998,16 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-ChartVolumePaneOptions">ChartVolumePaneOptions</h4>
+    <p class="section-note">A candlestick's volume pane (BACKLOG-0001468).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">height</td><td class="type">number</td><td class="desc">The volume pane's share of the plot's height, above 0 and below 1; the default is 0.25. A value outside that range warns and the default is used. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ChartZoomApi">ChartZoomApi</h4>
     <p class="section-note">The host's handle on a chart's zoom.</p>
     <div class="table-wrap">
@@ -1527,6 +1539,16 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-HeadlessGridConfig">HeadlessGridConfig</h4>
+    <p class="section-note">The configuration {@link createHeadlessGrid} accepts (§20, BACKLOG-0001454). Every {@link GridConfig} key remains meaningful off the DOM — sources, columns, sort, grouping and the rest all still drive the same pipeline — so this is the same shape, not a smaller one; it exists so `icons` has its own doc anchor for the headless case, which touches no `document` at all.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">icons</td><td class="type">Record&lt;string, <a href="#type-IconDefinition">IconDefinition</a>&gt;</td><td class="desc">Your own SVG glyphs, registered into this grid's own icon registry alongside the built-in set — the same shape {@link GridConfig.icons} takes, and no DOM is touched to register them. A chart type bound to this grid (a `network` node's `icon`, for example) reads a name back out through {@link Grid.icons} when it draws, into its own `&lt;svg&gt;`; a name neither this map nor the built-ins hold still warns once, by name, the same way it does on a rendered grid. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-Heteroscedasticity">Heteroscedasticity</h4>
     <p class="section-note">The Breusch–Pagan heteroscedasticity test result.</p>
     <div class="table-wrap">
@@ -1636,6 +1658,17 @@
           <tr><td class="name">issuedTo</td><td class="type">string</td><td class="desc">Who the key was issued to. <small>(optional)</small></td></tr>
           <tr><td class="name">expires</td><td class="type">string</td><td class="desc">The ISO date the licence lapses on, judged in UTC so a licence expiring `2027-01-01` is good throughout that day. A perpetual key has none. <small>(optional)</small></td></tr>
           <tr><td class="name">reason</td><td class="type">string</td><td class="desc">Why the verdict came out as it did: `missing`, `malformed`, `prefix`, `product`, `expired`, `domain` or `signature` for a refusal, and `unverified` alongside a pass on a host with no Ed25519 to check with, where only the signature's shape could be examined. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ListCount">ListCount</h4>
+    <p class="section-note">The operand of `listCount`: how the number of items compares to `value`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">op</td><td class="type">'gt' | 'gte' | 'lt' | 'lte' | 'eq'</td><td class="desc">The comparison.</td></tr>
+          <tr><td class="name">value</td><td class="type">number</td><td class="desc">The number of items to compare with.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1962,6 +1995,29 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-SelectionStatistics">SelectionStatistics</h4>
+    <p class="section-note">The shape {@link SelectionApi.statistics} returns (BACKLOG-0001488): what `summary()` reports, plus the range's own size and shape. `distinct` counts every non-blank value, numeric or not, so a numeric-looking selection that is really a set of codes shows up as a low distinct count against a high `count`. The five fields after `distinct` are present only when at least one selected value parsed as a number — `statistics()` never invents a quartile or a deviation over an empty numeric set.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many selected cells carry a value at all (blank cells are excluded).</td></tr>
+          <tr><td class="name">numeric</td><td class="type">number</td><td class="desc">How many of those parsed as a number.</td></tr>
+          <tr><td class="name">sum</td><td class="type">number | null</td><td class="desc">Null when `numeric` is 0.</td></tr>
+          <tr><td class="name">min</td><td class="type">number | null</td><td class="desc">Null when `numeric` is 0.</td></tr>
+          <tr><td class="name">max</td><td class="type">number | null</td><td class="desc">Null when `numeric` is 0.</td></tr>
+          <tr><td class="name">avg</td><td class="type">number | null</td><td class="desc">Null when `numeric` is 0.</td></tr>
+          <tr><td class="name">cells</td><td class="type">number</td><td class="desc">How many cells were selected, blank or not — the size of the range itself.</td></tr>
+          <tr><td class="name">distinct</td><td class="type">number</td><td class="desc">How many distinct values (numeric or not) the selected cells hold.</td></tr>
+          <tr><td class="name">median</td><td class="type">number</td><td class="desc">The middle of the numeric values, sorted. Absent when `numeric` is 0. <small>(optional)</small></td></tr>
+          <tr><td class="name">q1</td><td class="type">number</td><td class="desc">The first quartile. Absent when `numeric` is 0. <small>(optional)</small></td></tr>
+          <tr><td class="name">q3</td><td class="type">number</td><td class="desc">The third quartile. Absent when `numeric` is 0. <small>(optional)</small></td></tr>
+          <tr><td class="name">iqr</td><td class="type">number</td><td class="desc">`q3 - q1`. Absent when `numeric` is 0. <small>(optional)</small></td></tr>
+          <tr><td class="name">stddev</td><td class="type">number | null</td><td class="desc">Sample standard deviation; null with exactly one numeric value. Absent when `numeric` is 0. <small>(optional)</small></td></tr>
+          <tr><td class="name">outliers</td><td class="type">number</td><td class="desc">How many numeric values sit outside the standard `1.5 * iqr` fence. Absent when `numeric` is 0. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-SeriesStats">SeriesStats</h4>
     <div class="table-wrap">
       <table>
@@ -2054,16 +2110,6 @@
           <tr><td class="name">covered</td><td class="type">number</td><td class="desc">Rows the figure was computed over.</td></tr>
           <tr><td class="name">total</td><td class="type">number | null</td><td class="desc">Rows the source knows about, or `null` when it cannot know — never a guess.</td></tr>
           <tr><td class="name">windowed</td><td class="type">boolean</td><td class="desc">True when a window bounded the computation, so the figure covers part of the data.</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <h4 id="type-StateApplyReport">StateApplyReport</h4>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="name">applied</td><td class="type">string[]</td><td class="desc">The state keys that were restored, in application order.</td></tr>
-          <tr><td class="name">skipped</td><td class="type">{ key: string; reason: string }[]</td><td class="desc">The keys that were not restored, each with a reason in words a host can show — `not an array`, `unknown column`, `skipped by caller`, and so on. A partial restore is reported, never thrown.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2756,6 +2802,10 @@
     <p class="section-note">Which way displaced windows are pushed, and floated, when the arrangement compacts.</p>
     <p class="type-def"><code>type LayoutCompaction = 'vertical' | 'horizontal' | 'none'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/layout</code>.</small></p>
+    <h4 id="type-LayoutCorners">LayoutCorners</h4>
+    <p class="section-note">A window frame's corner style (default `'rounded'`, BACKLOG-0001460). `'square'` zeroes the radius on the window, its title bar, the minimised strip and the maximised frame — all the same element in a different state — with no other visual change.</p>
+    <p class="type-def"><code>type LayoutCorners = 'rounded' | 'square'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/layout</code>.</small></p>
     <h4 id="type-LayoutEventName">LayoutEventName</h4>
     <p class="section-note">The events a dashboard layout raises. The layout's own, not a grid's: `grid.on` takes {@link EventName} and knows nothing about these. Each has a matching `on…` config callback (`onWindowMoved`, `onBeforeWindowClose`, …) and both routes fire. The three `before…` events are cancellable: call `preventDefault(reason?)` on the payload, or return a Promise to hold the gesture until it settles; a veto fires the matching `…:cancelled` carrying the reason. Subscribing to `'*'` receives every past-tense event and never gates.</p>
     <p class="type-def"><code>type LayoutEventName = 'window:moved' | 'window:resized' | 'window:closed' | 'layout:changed' | 'beforeWindowMove' | 'beforeWindowResize' | 'beforeWindowClose' | 'windowMove:cancelled' | 'windowResize:cancelled' | 'windowClose:cancelled'</code></p>
@@ -2771,6 +2821,9 @@
     <p class="section-note">One dashed event, as the listener prop Vue's template compiler produces: `'cell-changed'` becomes `'onCell-changed'`. Vue resolves `@cell-changed` to that prop name, so listing them is what makes a template binding type-check.</p>
     <p class="type-def"><code>type ListenerProp&lt;E extends string&gt; = `on${Capitalize&lt;E&gt;}`</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/vue</code>.</small></p>
+    <h4 id="type-ListOperator">ListOperator</h4>
+    <p class="section-note">The four operators of a `list` column (declared by the type the opt-in `modules/list` registers), questions about the whole list. They compare items exactly (case matters), as SQL's `list_has_any` does. - `hasAny` — the list holds at least one of the operand's items. - `hasAll` — the list holds every one of them (an empty operand: every row). - `hasNone` — the list holds none of them (an empty or absent list included). - `listCount` — the number of items compares as a {@link ListCount} says. Every operator of the item type applies to a list column too, with "any item matches" semantics; see `DataType.items`.</p>
+    <p class="type-def"><code>type ListOperator = 'hasAny' | 'hasAll' | 'hasNone' | 'listCount'</code></p>
     <h4 id="type-LookupSortBy">LookupSortBy</h4>
     <p class="section-note">How a lookup's option list is ordered for display.</p>
     <p class="type-def"><code>type LookupSortBy = 'label' | 'value' | 'optionOrder' | 'count'</code></p>
@@ -2791,7 +2844,7 @@
     <p class="type-def"><code>type NumberFormatStyle = 'decimal' | 'currency' | 'percent'</code></p>
     <h4 id="type-Operator">Operator</h4>
     <p class="section-note">The comparison a filter condition makes. Every operator has an exact negation — `eq`/`ne`, `contains`/`notContains`, `between`/`notBetween`, `in`/`notIn`, `blank`/`notBlank` — so a rule and its inverse are always both expressible. Which of them a column offers depends on its type, and a source that pushes filtering down to a query engine may accept a narrower set again.</p>
-    <p class="type-def"><code>type Operator = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'between' | 'notBetween' | 'in' | 'notIn' | 'contains' | 'notContains' | 'startsWith' | 'endsWith' | 'matches' | 'blank' | 'notBlank' | 'containsAny' | 'containsAll' | 'containsNone' | <a href="#type-SpatialOperator">SpatialOperator</a></code></p>
+    <p class="type-def"><code>type Operator = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'between' | 'notBetween' | 'in' | 'notIn' | 'contains' | 'notContains' | 'startsWith' | 'endsWith' | 'matches' | 'blank' | 'notBlank' | 'containsAny' | 'containsAll' | 'containsNone' | <a href="#type-SpatialOperator">SpatialOperator</a> | <a href="#type-ListOperator">ListOperator</a></code></p>
     <h4 id="type-OutlierMethod">OutlierMethod</h4>
     <p class="section-note">Every anomaly-detection method the statistics surface offers, widest set: the robust modified z-score and Tukey's IQR fences (static or rolling), and multivariate Mahalanobis distance. A narrower site accepts a subset via `Extract&lt;OutlierMethod, …&gt;` rather than minting a fourth named alias.</p>
     <p class="type-def"><code>type OutlierMethod = 'modifiedZScore' | 'iqr' | 'mahalanobis' | 'rollingModifiedZScore' | 'rollingIqr'</code></p>
@@ -2996,8 +3049,8 @@
     <p class="section-note">A locale-aware case change for text display: upper, lower, title, or none.</p>
     <p class="type-def"><code>type TextTransform = 'none' | 'upper' | 'lower' | 'title'</code></p>
     <h4 id="type-Theme">Theme</h4>
-    <p class="section-note">A shipped theme, or your own name, the value is written to `data-theme` on the grid's root, so `.lattice[data-theme="mine"]` is all a custom one needs. Unset follows the viewer's `prefers-color-scheme`.</p>
-    <p class="type-def"><code>type Theme = 'light' | 'dark' | 'high-contrast' | 'terminal' | (string &amp; {})</code></p>
+    <p class="section-note">A shipped theme, or your own name, the value is written to `data-theme` on the grid's root, so `.lattice[data-theme="mine"]` is all a custom one needs. One switch reaches every module (BACKLOG-0001462): `data-theme="dark"` on any ancestor (a layout's root, or `&lt;html&gt;`) darkens the grid, the layout chrome, charts, KPI tiles, tabs, kanban and gantt together. The nearest `data-theme` wins, so `'light'` here forces a light grid inside a dark page. `'auto'` follows the viewer's `prefers-color-scheme`. Unset writes no attribute: the grid follows the nearest themed ancestor, and is light when there is none.</p>
+    <p class="type-def"><code>type Theme = 'light' | 'dark' | 'auto' | 'high-contrast' | 'terminal' | (string &amp; {})</code></p>
     <h4 id="type-ThresholdLevel">ThresholdLevel</h4>
     <p class="section-note">An SLA threshold classification: on time, past the warn threshold, or past the breach one.</p>
     <p class="type-def"><code>type ThresholdLevel = 'ok' | 'warn' | 'breach'</code></p>
