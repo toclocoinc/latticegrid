@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.75.1, type declarations
+ * Lattice Grid 1.76.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -834,15 +834,63 @@ export interface Option {
 
 /** How a lookup's option list is ordered for display. */
 export type LookupSortBy = 'label' | 'value' | 'optionOrder' | 'count';
+
+/**
+ * A lookup whose dictionary is fed by a data-router route instead of a fixed
+ * list or a one-shot loader (`lookup.options`).
+ *
+ * `router.subscribe(predicate, handler)` is the same "route to any view"
+ * surface a KPI tile or a detail pane binds to — the lookup is just another
+ * subscriber, receiving the same keyed `{ add, update, remove }` diff a grid
+ * does. Every diff folds into the option dictionary in one pass: one version
+ * bump and one repaint of every dependent cell per batch, not per row. A row
+ * the route removes removes its option; a cell still holding that id renders
+ * through the ordinary `unknownLabel` rule and is reported once, exactly as
+ * an id absent from a static list is.
+ */
+export interface LookupRouterOptions {
+  /**
+   * A `createDataRouter()` instance (or anything shaped like one): its
+   * `subscribe` is called once, at load, and released when the column is
+   * redefined or the grid is destroyed.
+   */
+  router: {
+    subscribe: (
+      predicate: unknown,
+      handler: (change: { add: object[]; update: object[]; remove: string[] }) => void,
+      opts?: object,
+    ) => unknown;
+    detach?: (target: unknown) => unknown;
+  };
+  /** The partition value or `fn(row) => boolean` naming this column's route. */
+  predicate: unknown;
+  /**
+   * Turn a routed row into an option. Omit it when the row already carries
+   * `lookup.valueKey`/`lookup.labelKey` (`id`/`label` by default) — the row
+   * itself is then used as the option, exactly as a static list's entries are.
+   */
+  map?: (row: object) => Option | object;
+}
+
 export interface LookupSpec {
   /**
-   * The dictionary: a list of options, or a function returning one,
-   * synchronously or as a promise. Loaded once per column, not per cell, and
-   * cached against a version so a refresh invalidates every dependent cell in
-   * one pass. Options may nest through `children` for the tree editor; every
-   * other consumer sees the flattened list.
+   * The dictionary: a list of options, a function returning one (synchronously
+   * or as a promise), or `{ router, predicate, map? }` to keep it in step with
+   * a live data-router route (see {@link LookupRouterOptions}, "Options that
+   * change"). Loaded once per column, not per cell, and
+   * cached against a version so a refresh — `refreshLookup()`, or a router
+   * diff — invalidates every dependent cell in one pass. Options may nest
+   * through `children` for the tree editor; every other consumer sees the
+   * flattened list.
+   *
+   * Static recipe: `lookup: { options: () => fetch('/statuses').then((r) => r.json()) }`,
+   * refreshed on demand with `grid.columns.refreshLookup('status')`.
+   *
+   * Live recipe: `lookup: { options: { router, predicate: 'customer', map: (r) => ({ id: r.id, label: r.name }) } }`
+   * — the dictionary tracks `router`'s `'customer'` route for as long as the
+   * column exists, no `refreshLookup()` call needed.
    */
-  options?: Option[] | (() => Option[] | Promise<Option[]>);
+  options?: Option[] | (() => Option[] | Promise<Option[]>) | LookupRouterOptions;
   /**
    * Which property of an option holds the stored value. `'id'` by default. A
    * bare string or number is accepted as an option and becomes its own value
@@ -935,7 +983,7 @@ export type IconName =
   | 'maximise' | 'minimise' | 'views' | 'search' | 'pencil' | 'trash' | 'share'
   | 'pin' | 'sortAsc' | 'sortDesc' | 'menu' | 'drag'
   | 'star' | 'heart' | 'circleFilled' | 'square' | 'bolt' | 'flag'
-  | 'arrow' | 'highlight' | 'thumbUp' | 'eye' | 'eyeOff' | 'copy' | 'present'
+  | 'arrow' | 'highlight' | 'eraser' | 'thumbUp' | 'eye' | 'eyeOff' | 'copy' | 'present'
   | 'blank'
   | (string & {});
 
@@ -3847,6 +3895,7 @@ export type TargetSize = 'default' | 'large';
 export type Direction = 'ltr' | 'rtl' | 'auto';
 /** Whether `GridConfig.rowForm` opens as a side drawer or a centred dialog. */
 export type RowFormMode = 'drawer' | 'dialog';
+
 /**
  * When the per-column header controls — the sort arrow, the filter funnel and
  * the menu button — are shown, as a grid-level default. See
@@ -4305,34 +4354,10 @@ export interface GridConfig {
    * fields and in what order. The panel opens immediately with a loading state
    * and offers a retry on failure or on a load that never answers, rather than
    * closing. Save applies the changed fields that map to columns and announces
-   * the rest — persisting the record is yours.
+   * the rest — persisting the record is yours. `grid.form.openNew()` opens
+   * the same form over a new record, which `create` persists.
    */
-  rowForm?: boolean | {
-    mode?: RowFormMode;
-    load?: (p: { row: Row; data: unknown; key: string; grid: Grid }) => unknown | Promise<unknown>;
-    fields?: (string | {
-      field: string;
-      label?: string;
-      /** Which editor to build, by registry name or constructor. Defaults to the column's, then the type's. */
-      editor?: string | (new () => object);
-      type?: TypeName;
-      props?: object;
-      lookup?: LookupSpec;
-    })[];
-    title?: string | ((p: { row: Row; data: unknown }) => string);
-    width?: string;
-    trigger?: false;
-    /** How long to wait for `load`, in milliseconds. 2000 by default; `false` waits indefinitely. */
-    timeout?: number | false;
-    /**
-     * An element of your own to build the form in, instead of over the grid.
-     * An element, a CSS selector or a function returning either; a selector is
-     * resolved when the form opens, not when the grid is configured. A form in
-     * your own container fills it, is a region rather than a modal dialog, and
-     * does not trap Tab.
-     */
-    container?: HTMLElement | string | (() => HTMLElement | string | null);
-  };
+  rowForm?: boolean | RowFormConfig;
 
   /**
    * Draw the sort, filter and menu controls in the column headings.
@@ -5552,6 +5577,13 @@ export interface PushdownCapabilities {
    * key sends every aggregate to the client, named in its `reason`.
    */
   buckets?: string[];
+  /**
+   * The statistics `source.aggregate()` may send to this engine, by the grid's
+   * statistic name. Declared, a statistic outside it is
+   * computed by the grid and named in `lastPlan().aggregates.client` with its
+   * reason; absent, the pushdown map alone decides, as before.
+   */
+  aggregates?: string[] | Set<string>;
   /**
    * What the adapter can persist back — the write-back contract (§4.1). `false`
    * (the default) is read-only by declaration. A declared block opts kinds in;
@@ -8454,6 +8486,15 @@ export interface ColumnsApi {
    * definition asked for.
    */
   totals(ids: string | string[]): void;
+  /**
+   * Re-run a lookup column's `options` — call its function again, re-accept
+   * its static list, or (for a router-bound column) resolve with whatever the
+   * dictionary already holds — bump its version, and repaint every dependent
+   * cell in one pass. An open editor for the column picks
+   * up the refreshed options without being reopened. A column with no
+   * `lookup` declines and warns, by name, rather than resolving to nothing.
+   */
+  refreshLookup(id: string): Promise<Option[]>;
 }
 
 /** One sprite: its view box, its path data, and how it is painted. */
@@ -8477,6 +8518,14 @@ export interface IconRegistryApi {
 export interface RowFormApi {
   /** Open the form for a row. False when the form is not configured. */
   open(key: string): boolean;
+  /**
+   * Open the form over a new, empty record: the same fields,
+   * each empty or holding `defaults[field]`, under the title "New row". Save
+   * validates as an edit does, then adds the row through `rowForm.create` (or
+   * locally when the values carry the row key). False, with the named warning
+   * `rowform:off`, when the form is not configured.
+   */
+  openNew(defaults?: Record<string, unknown>): boolean;
   /** Close the form without saving, returning focus to wherever it came from. */
   close(): void;
   /**
@@ -8801,11 +8850,15 @@ export interface EditApi {
    * edit is: the AI writes through this so a host `beforeEdit`
    * handler can veto it and nothing persists when it does. With a gated origin
    * and an async (deferring) before-handler, the return is a `Promise<number>`.
+   * `{ origin: 'form' }` is the row form's own seam: it skips
+   * `edit.enabled` — a cell's inline-editing switch, not a ban on writing the
+   * column at all — while every other refusal (permission, the advisory lock,
+   * parse, validate) still applies; nothing but the row form passes it.
    */
   setCells(
     writes: { key: string; colId: string; value: unknown }[],
     type?: 'cell' | 'fill' | 'paste',
-    opts?: { origin?: 'api' | 'ai' | 'user' },
+    opts?: { origin?: 'api' | 'ai' | 'user' | 'form' },
   ): number | Promise<number>;
   /**
    * Set one value across a block of cells as a single undoable step (§12, card
@@ -9214,6 +9267,14 @@ export type AnnotationKind = 'freehand' | 'arrow' | 'rect' | 'highlight' | 'text
 export type AnnotationRegion = 'start' | 'centre' | 'end';
 export interface AnnotationMark {
   /**
+   * A stable identifier, for {@link AnnotationApi.remove}.
+   * Generated when a descriptor omits one — on `add()` and on a live-drawn
+   * mark alike — and carried through `list()`/`getState`, so a mark restored
+   * from a saved view keeps the same id it was removable by before it was
+   * saved.
+   */
+  id?: string;
+  /**
    * What the mark is: a freehand trail, an arrow, a rectangle, a highlighter stroke, or a
    * text label. `pen` is accepted on input as another name for `freehand`, and `list()`
    * reports `freehand`.
@@ -9241,8 +9302,28 @@ export interface AnnotationMark {
   region?: AnnotationRegion;
 }
 
-/** The annotation drawing tool: a pen, an arrow, a rectangle, or a highlighter. */
-export type AnnotationTool = 'pen' | 'arrow' | 'rect' | 'highlight';
+/** The annotation drawing tool: a pen, an arrow, a rectangle, a highlighter, or the eraser. */
+export type AnnotationTool = 'pen' | 'arrow' | 'rect' | 'highlight' | 'erase';
+/**
+ * The result of {@link AnnotationApi.add}: the new mark's id
+ * alongside the mark count `add()` returned before it had one. Coerces to
+ * `count` via `valueOf`, so code written against the old bare-number return
+ * (`if (annotate.add(m))`, `annotate.add(m) + 1`, `annotate.add(m) > 0`) keeps
+ * working unchanged. `===` and `assert.strictEqual` against a number do not
+ * coerce; compare `.count` instead.
+ */
+export interface AnnotationAddResult {
+  /** The new mark's stable id, usable with {@link AnnotationApi.remove}. */
+  id: string;
+  /** How many marks are on the layer now. */
+  count: number;
+  /**
+   * The primitive-coercion hook: makes the result stand in for the old
+   * bare-number return in arithmetic and comparison.
+   * @returns {number} `count`
+   */
+  valueOf(): number;
+}
 export interface AnnotationApi {
   /**
    * The drawing tool in use, or null when the layer is inert — which it is until a tool is
@@ -9260,11 +9341,20 @@ export interface AnnotationApi {
   use(tool: AnnotationTool | null, opts?: { colour?: string }): string | null;
   /**
    * Add a durable mark from a descriptor, without synthesising pointer input. The mark is painted, survives a presentation ending, and
-   * round-trips through `getState`. Returns the mark count.
+   * round-trips through `getState`. Returns the new mark's id and the layer's
+   * mark count; the result coerces to the count for a caller
+   * that only ever read the number.
    */
-  add(mark: AnnotationMark): number;
+  add(mark: AnnotationMark): AnnotationAddResult;
   /** Every mark on the layer, as descriptors — the shape `getState` persists. */
   list(): AnnotationMark[];
+  /**
+   * Remove one mark by id and repaint — the counterpart to the
+   * eraser tool and the keyboard delete, callable directly too. Returns true
+   * when a mark with that id was found and removed; an unknown id declines,
+   * warns once, and returns false, changing nothing.
+   */
+  remove(id: string): boolean;
   /**
    * Remove the most recent mark and repaint. Returns how many are left; on an empty layer
    * it does nothing and returns 0.
@@ -9272,7 +9362,9 @@ export interface AnnotationApi {
   undo(): number;
   /**
    * Remove every mark, seeded and drawn alike — the explicit "clear all". Ending a
-   * presentation drops only the drawn ones.
+   * presentation drops only the drawn ones. The rail's own "Clear all" button
+   * calls this only after the user confirms; this method
+   * itself does not ask.
    */
   clear(): void;
   /**
@@ -11927,6 +12019,65 @@ export function splunkAdapter(options: {
   searchFor(query: RemoteRequest): { search: string; earliest?: string | number; latest?: string | number };
 };
 
+/**
+ * An adapter for ClickHouse through its HTTP interface.
+ *
+ * Each statement is POSTed to `{url}/?default_format=JSONEachRow` with the SQL
+ * as the body. Every filter value travels as a typed ClickHouse query parameter
+ * (`{p0:String}` with `param_p0=…`), never inside the SQL; identifiers are
+ * validated and backtick-quoted. The filter tree, a multi-column sort (with the
+ * grid's `NULL` placement written out), `LIMIT`/`OFFSET` paging and a
+ * `count()` total are pushed; `source.aggregate()` computes sum, avg, min, max,
+ * count and distinct (`uniqExact`) in the engine, grouped through
+ * `GROUP BY ROLLUP`. Anything else stays with the grid and is named in
+ * `lastPlan()`. A ClickHouse refusal rejects with an `Error` named
+ * `ClickHouseError` carrying `status`, `code`, `type` and ClickHouse's own
+ * message.
+ *
+ * **The adapter never holds a credential.** A user and password travel in
+ * `headers`, a credential that expires in a `fetch` wrapper, and a page that
+ * must see none points `url` at a proxy that adds one.
+ */
+export function clickhouseAdapter(options: {
+  /**
+   * The HTTP interface of the server, for example
+   * `https://clickhouse.example.com:8443`, or a proxy path of your own. Any
+   * query string it carries is kept. Required.
+   */
+  url: string;
+  /**
+   * The table the grid reads, `table` or `database.table`, each part a plain
+   * identifier. Give exactly one of `table` and `query`.
+   */
+  table?: string;
+  /**
+   * A SELECT the grid reads as a subquery (`SELECT * FROM (<query>)`). Give
+   * exactly one of `table` and `query`.
+   */
+  query?: string;
+  /**
+   * Headers sent on every request — where a fixed credential goes
+   * (`X-ClickHouse-User`/`X-ClickHouse-Key`, or `Authorization: Basic …`).
+   */
+  headers?: Record<string, string>;
+  /**
+   * The `fetch` every request is made with. This is where a credential that
+   * expires is refreshed, since it is called afresh per request.
+   */
+  fetch?: typeof fetch;
+  /**
+   * ClickHouse settings sent with every statement, over the default
+   * `{ readonly: 1 }` — the one setting a user whose profile is already
+   * read-only accepts, so the default works for such a user unchanged.
+   * `max_execution_time` is optional and not sent unless set here; set it on a
+   * writable or service account. `null` drops any setting.
+   */
+  settings?: Record<string, string | number | boolean | null>;
+}): PushdownAdapter & {
+  sqlFor(query: RemoteRequest): { sql: string; params: Record<string, string> };
+  countSqlFor(query: RemoteRequest): { sql: string; params: Record<string, string> };
+};
+
 export function createGrid(element: HTMLElement, config?: GridConfig): Grid;
 export function createHeadlessGrid(config?: HeadlessGridConfig): Grid;
 
@@ -14401,18 +14552,20 @@ export interface RowConflictEvent extends GridEvent {
   row?: Row;
 }
 
-/** `form:opened`: the row form opened over a row. */
+/** `form:opened`: the row form opened over a row, or over a new record. */
 export interface FormOpenedEvent extends GridEvent {
-  /** The key of the row the form is editing. */
-  key: string;
-  /** That row. */
-  row: Row;
+  /** The key of the row the form is editing; null for a new record. */
+  key: string | null;
+  /** That row; null for a new record. */
+  row: Row | null;
+  /** True when the form was opened by `form.openNew()` for a new record. */
+  created?: boolean;
 }
 
 /** `form:closed`: the row form was closed without saving. */
 export interface FormClosedEvent extends GridEvent {
-  /** The key of the row the form was editing. */
-  key: string;
+  /** The key of the row the form was editing; null for a new record. */
+  key: string | null;
 }
 
 /** `form:saved`: the row form's values were written back to the row. */
@@ -14425,16 +14578,23 @@ export interface FormSavedEvent extends GridEvent {
   changed: Record<string, unknown>;
   /** Fields the form held that no column maps, so nothing was written for them. */
   unmapped: string[];
+  /**
+   * True when the save added a new row (`form.openNew()`); `key` is then the
+   * new row's key and `changed` is every value.
+   */
+  created?: boolean;
 }
 
 /** `form:error`: the row form could not load or save a row. */
 export interface FormErrorEvent extends GridEvent {
-  /** The key of the row the form was working on. */
-  key: string;
+  /** The key of the row the form was working on; null for a new record. */
+  key: string | null;
   /** What went wrong. */
   error: unknown;
-  /** True when the load timed out rather than being refused. */
+  /** True when the load (or the create) timed out rather than being refused. */
   timedOut: boolean;
+  /** True when it was adding a new row that failed (`rowForm.create`). */
+  created?: boolean;
 }
 
 /** `sort:changed`: the sort order changed. */
@@ -15763,4 +15923,60 @@ export interface EventPayloads {
   'rowReceive:cancelled': RowReceiveCancelledEvent;
   /** Whichever past-tense event fired; the wildcard is never given a before-event. */
   '*': GridEvent;
+}
+
+/**
+ * The `rowForm` options: see {@link GridConfig.rowForm}.
+ *
+ * Declared last on purpose. The capability registry credits a bare
+ * `config:<key>` tag to the first interface that declares the key, and
+ * `container`, `fields`, `load`, `mode` and `title` are declared earlier by
+ * other surfaces; declaring this one after them keeps that credit where it
+ * already was.
+ */
+export interface RowFormConfig {
+  /** `'drawer'` (the default) keeps the grid visible beside the form; `'dialog'` centres it over the grid. Ignored with `container`. */
+  mode?: RowFormMode;
+  /**
+   * Fetch a fuller record than the grid shows. The panel opens at once with a
+   * loading state and fills in when this answers; name the fields with `fields`.
+   */
+  load?: (p: { row: Row; data: unknown; key: string; grid: Grid }) => unknown | Promise<unknown>;
+  /** Which fields the form shows, and in what order. The grid's own columns when omitted. */
+  fields?: (string | {
+    field: string;
+    label?: string;
+    /** Which editor to build, by registry name or constructor. Defaults to the column's, then the type's. */
+    editor?: string | (new () => object);
+    type?: TypeName;
+    props?: object;
+    lookup?: LookupSpec;
+  })[];
+  /** The panel's heading, as text or from the row. "Edit row" when omitted; a new record is always titled "New row". */
+  title?: string | ((p: { row: Row; data: unknown }) => string);
+  /** The panel's width, as any CSS length (`'28rem'`). */
+  width?: string;
+  /** `false` leaves opening entirely to `grid.form.open()` / `openNew()`, keeping double-click for cells. */
+  trigger?: false;
+  /** How long to wait for `load`, or for `create`, in milliseconds. 2000 by default; `false` waits indefinitely. */
+  timeout?: number | false;
+  /**
+   * Persist a new row. Called by Save on a form opened with
+   * `grid.form.openNew()`, with the form's validated values; answer (or
+   * resolve) with the row as stored, key included, and that row is added
+   * through `rows.apply({ add })`. The key is yours to assign: the grid never
+   * invents one. A rejection, a throw or no answer within `timeout` keeps the
+   * form open with a retry and fires `form:error` with `created: true`.
+   * Without `create`, a new row is added only when its values already carry
+   * the row key.
+   */
+  create?: (values: Record<string, unknown>) => unknown | Promise<unknown>;
+  /**
+   * An element of your own to build the form in, instead of over the grid.
+   * An element, a CSS selector or a function returning either; a selector is
+   * resolved when the form opens, not when the grid is configured. A form in
+   * your own container fills it, is a region rather than a modal dialog, and
+   * does not trap Tab.
+   */
+  container?: HTMLElement | string | (() => HTMLElement | string | null);
 }

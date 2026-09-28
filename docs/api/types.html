@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.75.1</title>
+<title>Types API Reference — Lattice Grid 1.76.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -399,6 +399,7 @@
         <a href="alarms.html">The alarms module</a>
         <a href="geometry.html">The geometry module</a>
         <a href="deckgl.html">The deck.gl adapter</a>
+        <a href="leaflet.html">The Leaflet binding</a>
         <a href="list.html">The list module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
@@ -424,7 +425,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 17 pages</a></span>
+      <span class="chip"><a href="index.html">All 18 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -493,6 +494,25 @@
           <tr><td class="name">fn</td><td class="type">string</td><td class="desc">The statistic name, as used in `total: '&lt;name&gt;'`.</td></tr>
           <tr><td class="name">weight</td><td class="type">string</td><td class="desc">The second column, for a two-column statistic. <small>(optional)</small></td></tr>
           <tr><td class="name">params</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Parameters the statistic takes, e.g. a trim share. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-AnnotationAddResult">AnnotationAddResult</h4>
+    <p class="section-note">The result of {@link AnnotationApi.add} (BACKLOG-0001521): the new mark's id alongside the mark count `add()` returned before it had one. Coerces to `count` via `valueOf`, so code written against the old bare-number return (`if (annotate.add(m))`, `annotate.add(m) + 1`, `annotate.add(m) &gt; 0`) keeps working unchanged. `===` and `assert.strictEqual` against a number do not coerce; compare `.count` instead.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The new mark's stable id, usable with {@link AnnotationApi.remove}.</td></tr>
+          <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many marks are on the layer now.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">valueOf</td><td class="type">(): number</td><td class="desc">&mdash;</td><td class="type"><code>number</code> `count`</td><td class="desc">The primitive-coercion hook: makes the result stand in for the old bare-number return in arithmetic and comparison.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1876,6 +1896,7 @@
           <tr><td class="name">total</td><td class="type">boolean</td><td class="desc">Whether it can report the count of matching rows. <small>(optional)</small></td></tr>
           <tr><td class="name">group</td><td class="type">boolean</td><td class="desc">Whether it can answer the grid's grouped view — group rows, their counts, their subtotals and their order — one level at a time, instead of returning the leaves for the grid to group in the browser (BACKLOG-0001325). All or nothing, unlike `filter`. A filter splits because the engine narrowing a superset and the grid narrowing what is left reach the same set; a grouping cannot, because group rows counted over the wrong set are wrong rows, not slow ones. So the push router refuses the whole grouped level — and says why in `PushdownPlan.groupReason` — whenever anything else in the query failed to push. An adapter declaring this must implement `executeGroupLevel`; one that declares it without the method is re-planned without grouping and warned about, rather than half-pushed. <small>(optional)</small></td></tr>
           <tr><td class="name">buckets</td><td class="type">string[]</td><td class="desc">The spatial bucket kinds `source.aggregate()` may push as a `groupBy` key (GEO-2): `['grid']` for a {@link SpatialBucket}. Absent or empty, a bucket key sends every aggregate to the client, named in its `reason`. <small>(optional)</small></td></tr>
+          <tr><td class="name">aggregates</td><td class="type">string[] | Set&lt;string&gt;</td><td class="desc">The statistics `source.aggregate()` may send to this engine, by the grid's statistic name (BACKLOG-0001526). Declared, a statistic outside it is computed by the grid and named in `lastPlan().aggregates.client` with its reason; absent, the pushdown map alone decides, as before. <small>(optional)</small></td></tr>
           <tr><td class="name">mutate</td><td class="type">false | <a href="#type-MutateCapability">MutateCapability</a></td><td class="desc">What the adapter can persist back — the write-back contract (§4.1). `false` (the default) is read-only by declaration. A declared block opts kinds in; `capabilitiesOf` resolves it to a full `MutateCapability` (or `false`). <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -2346,8 +2367,8 @@
     <p class="section-note">Which columns an annotation mark belongs to: the pinned start, the centre, or the pinned end.</p>
     <p class="type-def"><code>type AnnotationRegion = 'start' | 'centre' | 'end'</code></p>
     <h4 id="type-AnnotationTool">AnnotationTool</h4>
-    <p class="section-note">The annotation drawing tool: a pen, an arrow, a rectangle, or a highlighter.</p>
-    <p class="type-def"><code>type AnnotationTool = 'pen' | 'arrow' | 'rect' | 'highlight'</code></p>
+    <p class="section-note">The annotation drawing tool: a pen, an arrow, a rectangle, a highlighter, or the eraser.</p>
+    <p class="type-def"><code>type AnnotationTool = 'pen' | 'arrow' | 'rect' | 'highlight' | 'erase'</code></p>
     <h4 id="type-BadgeTone">BadgeTone</h4>
     <p class="section-note">A tab's count-badge tone, declared by the host rather than derived from a threshold.</p>
     <p class="type-def"><code>type BadgeTone = 'good' | 'warn' | 'bad' | 'unknown'</code></p>
@@ -2659,7 +2680,7 @@
     <p class="type-def"><code>type IconDefinition = string | string[] | { viewBox?: string; paths?: string[]; path?: string; paint?: <a href="#type-Paint">Paint</a>; }</code></p>
     <h4 id="type-IconName">IconName</h4>
     <p class="section-note">A glyph name from the icon sprite registry (`packages/dom/src/cell/icons.js`). The union below is every built-in name, generated from `iconNames()` so an editor can autocomplete and typo-check them — see `test/icon-name-type-drift.test.js`, which fails if this list and the registry ever disagree. It is deliberately **not closed**: the registry is extensible at runtime via `registerIcon`, `registerIcons`, `config.icons` and `grid.icons`, and `(string &amp; {})` widens the type so a custom registered name still typechecks without losing autocomplete on the built-ins. A name the registry has never heard of — built-in or custom — draws a blank glyph and warns once at runtime; it is not a type error.</p>
-    <p class="type-def"><code>type IconName = 'chevronRight' | 'chevronDown' | 'chevronUp' | 'chevronLeft' | 'check' | 'dash' | 'close' | 'plus' | 'minus' | 'info' | 'success' | 'warning' | 'danger' | 'clock' | 'lock' | 'link' | 'external' | 'filter' | 'pause' | 'play' | 'chart' | 'palette' | 'undo' | 'redo' | 'columns' | 'download' | 'restore' | 'spreadsheet' | 'print' | 'maximise' | 'minimise' | 'views' | 'search' | 'pencil' | 'trash' | 'share' | 'pin' | 'sortAsc' | 'sortDesc' | 'menu' | 'drag' | 'star' | 'heart' | 'circleFilled' | 'square' | 'bolt' | 'flag' | 'arrow' | 'highlight' | 'thumbUp' | 'eye' | 'eyeOff' | 'copy' | 'present' | 'blank' | (string &amp; {})</code></p>
+    <p class="type-def"><code>type IconName = 'chevronRight' | 'chevronDown' | 'chevronUp' | 'chevronLeft' | 'check' | 'dash' | 'close' | 'plus' | 'minus' | 'info' | 'success' | 'warning' | 'danger' | 'clock' | 'lock' | 'link' | 'external' | 'filter' | 'pause' | 'play' | 'chart' | 'palette' | 'undo' | 'redo' | 'columns' | 'download' | 'restore' | 'spreadsheet' | 'print' | 'maximise' | 'minimise' | 'views' | 'search' | 'pencil' | 'trash' | 'share' | 'pin' | 'sortAsc' | 'sortDesc' | 'menu' | 'drag' | 'star' | 'heart' | 'circleFilled' | 'square' | 'bolt' | 'flag' | 'arrow' | 'highlight' | 'eraser' | 'thumbUp' | 'eye' | 'eyeOff' | 'copy' | 'present' | 'blank' | (string &amp; {})</code></p>
     <h4 id="type-IconSetKind">IconSetKind</h4>
     <p class="section-note">A built-in glyph set for an icon-set formatting rule.</p>
     <p class="type-def"><code>type IconSetKind = 'arrows' | 'trafficLights' | 'ratings'</code></p>

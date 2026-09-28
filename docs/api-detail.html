@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.75.1</p>
+    <p class="rail__sub">Developer guide · v1.76.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.75.1</span>
+        <span class="chip">Version 1.76.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1502,7 +1502,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.75.1'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.76.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -2007,6 +2007,42 @@ format: { decimals: 0, signed: true }        <span class="cmt">// +5, 0, -5</spa
       Options may be a function, may return a promise, and may be searched remotely with an
       <code>AbortSignal</code> so a superseded keystroke cancels its own request.
     </p>
+    <p class="lead-in">
+      Options can also follow a live source instead of a fixed list or a one-shot loader
+      (BACKLOG-0001523): <code>lookup.options: { router, predicate, map? }</code> subscribes the
+      column to a data-router route, so its dictionary tracks the route's keyed diffs — one
+      repaint per batch, not per row — for as long as the column exists. Call
+      <code>grid.columns.refreshLookup(id)</code> to re-run a static or function-loaded lookup's
+      options on demand instead; either way an open editor for the column shows the refreshed
+      options without being reopened.
+    </p>
+    <div class="example">
+      <p class="example__label">A lookup fed by a data-router route, executed</p>
+      <pre data-run="js" data-expect="before Open, after Reopened" data-covers="config:LookupRouterOptions.router config:LookupRouterOptions.predicate config:LookupRouterOptions.map"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createDataRouter } = await import('../packages/modules/data-router/index.js');
+
+// `router` is subscribed through the same predicate/keyed-diff surface a KPI
+// tile binds to, and `map` turns a routed row into an option.
+const router = createDataRouter();
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'id' },
+    {
+      field: 'statusId', type: 'lookup',
+      lookup: { options: { router, predicate: () => true, map: (row) => ({ id: row.code, label: row.name }) } },
+    },
+  ],
+  rows: [{ id: 'r1', statusId: 'OPEN' }],
+});
+router.load([{ code: 'OPEN', name: 'Open' }]);
+const before = grid.rows.text('r1', 'statusId');
+router.apply([{ op: 'upsert', row: { code: 'OPEN', name: 'Reopened' } }]);
+const after = grid.rows.text('r1', 'statusId');
+grid.destroy();
+return `before ${before}, after ${after}`;
+</code></pre>
+    </div>
 
     <h3>Custom types</h3>
     <div class="example">
@@ -3865,7 +3901,7 @@ createGrid(el, {
 });</code></pre>
     </div>
     <p>
-      Six adapters ship. <code>odataAdapter</code> writes <code>$filter</code>,
+      Seven adapters ship. <code>odataAdapter</code> writes <code>$filter</code>,
       <code>$orderby</code>, <code>$top</code> and <code>$skip</code>, and follows
       <code>@odata.nextLink</code> when the server pages on its own terms.
       <code>restAdapter</code> covers an ordinary JSON endpoint whose parameter names are yours to
@@ -3884,6 +3920,15 @@ createGrid(el, {
       column becomes the job&rsquo;s own <code>earliest_time</code>/<code>latest_time</code> window where
       Splunk&rsquo;s boundaries map onto the operator exactly. Your token travels in
       <code>headers</code> or in a <code>fetch</code> wrapper; the grid stores no credential.
+      <code>clickhouseAdapter</code> speaks ClickHouse&rsquo;s HTTP interface: it POSTs SQL for the
+      <code>table</code> or <code>query</code> you name, with every filter value sent as a typed query
+      parameter rather than written into the statement, pages with <code>LIMIT</code>/<code>OFFSET</code>,
+      counts with a second <code>count()</code> statement, and computes <code>source.aggregate()</code>&rsquo;s
+      sum, average, minimum, maximum, count and exact distinct count in the engine. Statements are sent
+      with <code>readonly=1</code> and nothing else by default, so a read-only analyst account works
+      unchanged; set <code>max_execution_time</code> in <code>settings</code> on a writable or service
+      account. The grid&rsquo;s grouped view is not pushed — the grid groups the rows it holds — and a
+      ClickHouse refusal reaches the grid as an error carrying ClickHouse&rsquo;s own message.
     </p>
 
     <h3>Declaring what an engine can do</h3>
@@ -4248,6 +4293,133 @@ grid.destroy();
       <code>LOAD</code> took 0.88&ndash;1.07&nbsp;s, and the first query over the 13-row fixture that
       returned GeoJSON about 1&nbsp;s more. The <code>mvp</code> and <code>threads</code> builds have their
       own files of the same size. Re-measure against the build you ship.</p>
+    </div>
+
+    <h3 id="duckdb-motherduck-guide">MotherDuck: the same adapter, a cloud catalogue</h3>
+    <p class="lead-in">
+      MotherDuck is DuckDB with a cloud catalogue attached, so <code>duckdbAdapter</code> needs no
+      MotherDuck adapter and no option: attach MotherDuck on the connection you hand it, and name
+      the table by its three-part name, <code>&lt;database&gt;.&lt;schema&gt;.&lt;table&gt;</code>.
+      Filter, sort, paging, the count, engine aggregates (plain and grouped), <code>LIST</code>
+      pushdown, spatial pushdown and write-back were all checked against a live MotherDuck database
+      (<code>test/duckdb-motherduck.test.js</code>, below). Only the connection differs, and it
+      differs between Node and the browser.
+    </p>
+    <div class="example">
+      <p class="example__label">Node: <code>@duckdb/node-api</code> with <code>ATTACH 'md:'</code></p>
+      <pre><code><span class="kw">import</span> { DuckDBInstance } <span class="kw">from</span> <span class="str">'@duckdb/node-api'</span>;
+<span class="kw">import</span> { duckdbAdapter, createPushdownSource } <span class="kw">from</span> <span class="str">'@toclocoinc/lattice-grid'</span>;
+
+<span class="cmt">// The motherduck extension reads the token from the environment:</span>
+<span class="cmt">// MOTHERDUCK_TOKEN (or motherduck_token). Never put it in the SQL text.</span>
+<span class="kw">const</span> instance = <span class="kw">await</span> DuckDBInstance.create(<span class="str">':memory:'</span>);
+<span class="kw">const</span> conn = <span class="kw">await</span> instance.connect();
+<span class="kw">await</span> conn.run(<span class="str">"ATTACH 'md:lattice_demo'"</span>);   <span class="cmt">// or 'md:' for every database in the account</span>
+
+<span class="cmt">// The shape duckdbAdapter reads: query(sql) and prepare(sql).query(...params), each</span>
+<span class="cmt">// resolving to rows. node-api's runAndReadAll binds the values itself.</span>
+<span class="kw">const</span> run = <span class="kw">async</span> (sql, params) =&gt;
+  (<span class="kw">await</span> conn.runAndReadAll(sql, params &amp;&amp; params.length ? params : <span class="kw">undefined</span>)).getRowObjectsJS();
+<span class="kw">const</span> connection = {
+  query: (sql) =&gt; run(sql),
+  prepare: <span class="kw">async</span> (sql) =&gt; ({ query: (...params) =&gt; run(sql, params), close: <span class="kw">async</span> () =&gt; {} }),
+};
+
+<span class="kw">const</span> source = createPushdownSource({
+  adapter: duckdbAdapter({ connection, from: <span class="str">'lattice_demo.main.products'</span> }),
+});</code></pre>
+    </div>
+    <div class="example">
+      <p class="example__label">Browser: <code>@motherduck/wasm-client</code>, token from your backend</p>
+      <pre><code><span class="kw">import</span> { MDConnection } <span class="kw">from</span> <span class="str">'@motherduck/wasm-client'</span>;
+<span class="kw">import</span> { createGrid, duckdbAdapter, createPushdownSource } <span class="kw">from</span> <span class="str">'@toclocoinc/lattice-grid'</span>;
+
+<span class="cmt">// Your backend mints a short-lived, read-scoped token per session.</span>
+<span class="kw">const</span> mdToken = <span class="kw">await</span> (<span class="kw">await</span> fetch(<span class="str">'/api/motherduck-token'</span>, { credentials: <span class="str">'same-origin'</span> })).text();
+<span class="kw">const</span> md = MDConnection.create({ mdToken });
+<span class="kw">await</span> md.isInitialized();
+
+<span class="cmt">// MotherDuck's rows carry DuckDB value objects for dates, timestamps, decimals and</span>
+<span class="cmt">// lists; toJson() turns each into plain JSON (a LIST into an array).</span>
+<span class="kw">const</span> plain = (v) =&gt; (v !== <span class="kw">null</span> &amp;&amp; <span class="kw">typeof</span> v === <span class="str">'object'</span> &amp;&amp; <span class="kw">typeof</span> v.toJson === <span class="str">'function'</span> ? v.toJson() : v);
+<span class="kw">const</span> rows = (result) =&gt; result.data.toRows().map((row) =&gt;
+  Object.fromEntries(Object.entries(row).map(([k, v]) =&gt; [k, plain(v)])));
+<span class="kw">const</span> connection = {
+  query: <span class="kw">async</span> (sql) =&gt; rows(<span class="kw">await</span> md.evaluateQuery(sql)),
+  prepare: <span class="kw">async</span> (sql) =&gt; ({
+    query: <span class="kw">async</span> (...params) =&gt; rows(<span class="kw">await</span> md.evaluatePreparedStatement(sql, params)),
+    close: <span class="kw">async</span> () =&gt; {},
+  }),
+};
+
+createGrid(el, {
+  columns,
+  source: createPushdownSource({
+    adapter: duckdbAdapter({ connection, from: <span class="str">'lattice_demo.main.products'</span> }),
+  }),
+});</code></pre>
+    </div>
+    <div class="why">
+      <p><strong>Why the browser needs the small wrapper.</strong> An <code>MDConnection</code> is
+      not a DuckDB-Wasm connection: it answers <code>evaluateQuery</code> and
+      <code>evaluatePreparedStatement</code>, not <code>query</code> and <code>prepare</code>. Do not
+      hand the adapter the underlying DuckDB-Wasm connection instead: the client's own README says an
+      <code>AsyncPreparedStatement</code>'s <code>query</code> method can deadlock with the MotherDuck
+      extension, and <code>prepare(sql).query(...)</code> is exactly how the adapter binds a filter.
+      The wrapper routes both through the client's evaluate methods, which it serialises per
+      connection.</p>
+      <p><strong>The token belongs to the host, not the page.</strong> A MotherDuck token in page
+      source is a key to the whole account for anyone who opens devtools. Mint a short-lived,
+      read-scoped token on your backend for the signed-in user and hand it to the page at run time,
+      as the example does; refresh it by calling the client's <code>terminateDuckDB()</code> and
+      creating a new connection. For a public page, publish the data as a read-only MotherDuck share
+      in an account that holds nothing else, and mint the token there. On Node the token lives in
+      the process environment (<code>MOTHERDUCK_TOKEN</code>; DuckDB 1.5.5 also accepts
+      <code>motherduck_token</code>) and never in SQL text, which ends up in logs.</p>
+      <p><strong>What was measured, and what it means for your grid</strong> (2026-09-28, Node 22,
+      <code>@duckdb/node-api</code> 1.5.5-r.5 = DuckDB 1.5.5, 50,000 rows):</p>
+      <ul>
+        <li><strong>Attaching</strong> took 0.7&ndash;1.8&nbsp;s (<code>ATTACH 'md:'</code> or
+        <code>ATTACH 'md:lattice_demo'</code>, six runs); budget it once per process, not per query.</li>
+        <li><strong>The first query</strong> (the adapter's <code>DESCRIBE</code>, the first page and
+        the count) took 57&ndash;105&nbsp;ms over three runs; a filtered, sorted page at offset 100 with its count
+        89&ndash;121&nbsp;ms.</li>
+        <li><strong>Three-part names need nothing from you.</strong> <code>from</code> is a FROM
+        expression, so <code>lattice_demo.main.products</code> (and even
+        <code>md:lattice_demo.main.products</code>, which DuckDB also resolves) reads as written.
+        Write-back accepts <code>database.schema.table</code> when every part is a plain identifier
+        and was proven with an <code>UPDATE &hellip; RETURNING</code> against MotherDuck. A name that
+        needs quoting (<code>"my-db".main.t</code>) or carries <code>md:</code> is not a plain table,
+        so <code>writable: true</code> is refused by name (<em>refusing to mutate &hellip; is not a
+        plain writable table</em>) and the source stays read-only. Reading through such a name
+        still works.</li>
+        <li><strong>Result size.</strong> No limit was reached: reading all 50,000 rows of seven
+        columns in one statement took 0.21&ndash;0.85&nbsp;s. A pushdown grid reads a page at a
+        time, so it never asks for that many.</li>
+        <li><strong>Extensions.</strong> <code>spatial: true</code> works unchanged: the adapter's
+        <code>INSTALL spatial; LOAD spatial</code> ran on the client, the table's
+        <code>GEOMETRY</code> column was found by <code>DESCRIBE</code>, and a bounding box, a
+        sort by location and GeoJSON output all matched the oracle. The <code>motherduck</code>
+        extension itself is fetched by DuckDB on the first <code>ATTACH</code>, so the machine
+        needs to reach DuckDB's extension repository once.</li>
+      </ul>
+      <p><strong>The data behind these numbers.</strong> <code>lattice_demo.main.products</code> is
+      50,000 synthetic rows (id, name, category, price, qty, created, a <code>VARCHAR[]</code> of
+      tags, lon, lat and a <code>GEOMETRY</code> point), every column a pure function of the row
+      number. <code>test/duckdb-motherduck.test.js</code> holds the recipe and creates the table when
+      it is absent. That test skips, and says why, without <code>MOTHERDUCK_TOKEN</code> and
+      <code>@duckdb/node-api</code>; this package depends on neither.</p>
+      <p><strong>The browser recipe, run once.</strong> The built <code>dist/lattice-grid.esm.js</code>
+      in headless Chrome, <code>@motherduck/wasm-client</code> 1.5.5-r.1 loaded from jsDelivr, the
+      token fetched from the serving process at run time (2026-09-28): the page did not need to be
+      cross-origin isolated (<code>crossOriginIsolated</code> was <code>false</code>); importing the
+      client took 395&nbsp;ms and <code>isInitialized()</code> 4.6&nbsp;s, which is the DuckDB-Wasm
+      download and start, once per page. The first page with its count took 165&nbsp;ms, and a
+      filtered, sorted page at offset 100 with its count 120&nbsp;ms, its rows and its total (4,998)
+      identical to a hand-written SQL query. A <code>hasAny</code> over the tags came back as arrays
+      and matched (20,000), and <code>spatial: true</code> loaded the extension in the browser, pushed
+      a bounding box (907, matched) and returned GeoJSON. Nothing was left to the grid. This was a
+      one-off check, not a gated test: it needs a token and the network.</p>
     </div>
 
     <h3 id="viewport-filter-guide">The map viewport is a filter</h3>
@@ -5593,13 +5765,14 @@ rowTemplate: { template: CARD, maxCardWidth: 260 }    <span class="cmt">// as ma
         <thead><tr><th>Member</th><th>Does</th></tr></thead>
         <tbody>
           <tr><td class="sig">form.open(key)</td><td class="desc">Open a row by key. Returns false if there is no such row.</td></tr>
+          <tr><td class="sig">form.openNew(defaults?)</td><td class="desc">Open the form over a new record, each field empty or holding <code>defaults[field]</code>. Returns false, warning <code>rowform:off</code>, when the form is not configured. See <a href="#row-form-add">Adding a row</a>.</td></tr>
           <tr><td class="sig">form.close()</td><td class="desc">Close without saving.</td></tr>
           <tr><td class="sig">form.save()</td><td class="desc">Commit the fields and close. Returns false if a validator refused, or if there is nothing to save.</td></tr>
           <tr><td class="sig">form.isOpen()</td><td class="desc">Whether the panel is showing.</td></tr>
-          <tr><td class="name">form:opened</td><td class="desc">Fired with <code>{ key, row }</code>.</td></tr>
-          <tr><td class="name">form:saved</td><td class="desc">Fired with <code>{ key, values, changed, unmapped }</code>.</td></tr>
+          <tr><td class="name">form:opened</td><td class="desc">Fired with <code>{ key, row }</code>; for a new record <code>{ key: null, row: null, created: true }</code>.</td></tr>
+          <tr><td class="name">form:saved</td><td class="desc">Fired with <code>{ key, values, changed, unmapped }</code>; a new row adds <code>created: true</code> and its key.</td></tr>
           <tr><td class="name">form:closed</td><td class="desc">Fired with <code>{ key }</code>.</td></tr>
-          <tr><td class="name">form:error</td><td class="desc">Fired with <code>{ key, error, timedOut }</code> when a load fails or runs out of time.</td></tr>
+          <tr><td class="name">form:error</td><td class="desc">Fired with <code>{ key, error, timedOut }</code> when a load fails or runs out of time, and with <code>created: true</code> when adding a row does.</td></tr>
         </tbody>
       </table>
     </div>
@@ -5611,6 +5784,63 @@ rowTemplate: { template: CARD, maxCardWidth: 260 }    <span class="cmt">// as ma
       configured, double-clicking a row opens the form and the cell editor stays reachable by
       Enter or by typing into the cell. Set <code>trigger: false</code> to leave opening entirely to
       <code>form.open()</code> and keep double-click for cells.</p>
+    </div>
+
+    <h3 id="row-form-add">Adding a row</h3>
+    <p class="lead-in">
+      <code>form.openNew(defaults)</code> opens the same form over a new record: the same fields,
+      each empty or holding the default you pass, under the title &ldquo;New row&rdquo;. Save
+      validates every field exactly as an edit does. The key is never the grid&rsquo;s to invent:
+      give <code>create</code> and it receives the values, persists them however your application
+      does, and answers (or resolves) with the row as stored, server id included. That row is added
+      through <code>rows.apply({ add })</code>, <code>form:saved</code> fires with
+      <code>created: true</code> and the new key, the panel closes, and the row is scrolled into
+      view and selected where selection is on.
+    </p>
+
+    <div class="example">
+      <p class="example__label">An &ldquo;Add&rdquo; button, and a server that assigns the key</p>
+      <pre data-run="js" data-expect="added NEW-1 | rows 2 | created true" data-covers="config:RowFormConfig.create config:RowFormConfig.trigger config:RowFormConfig.timeout"><code><span class="kw">const</span> { createTestDom, flushFrames } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createGrid } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+<span class="kw">const</span> { root } = createTestDom({ width: 800, height: 400 });
+
+<span class="kw">const</span> grid = createGrid(root, {
+  columns: [{ field: 'sku' }, { field: 'name' }, { field: 'price', type: 'number' }],
+  rows: [{ sku: 'P-1', name: 'Kettle', price: 30 }],
+  rowKey: 'sku',
+  columnDefaults: { edit: <span class="kw">true</span> },   <span class="cmt">// the form edits what the cells may edit</span>
+  rowForm: {
+    trigger: <span class="kw">false</span>,     <span class="cmt">// opened from your own button, not a double click</span>
+    timeout: 5000,      <span class="cmt">// how long create may take before the form offers a retry</span>
+    <span class="cmt">// Persist, then answer with the row as stored. In an application this is</span>
+    <span class="cmt">// fetch('/api/products', { method: 'POST', body: JSON.stringify(values) }).then((r) =&gt; r.json())</span>
+    create: (values) =&gt; Promise.resolve({ ...values, sku: 'NEW-1' }),
+  },
+});
+flushFrames();
+
+<span class="kw">let</span> saved = <span class="kw">null</span>;
+grid.on('form:saved', (e) =&gt; { saved = e; });
+grid.form.openNew({ name: 'Teapot', price: 25 });   <span class="cmt">// the user fills in the rest</span>
+grid.form.save();
+<span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; 8; i++) <span class="kw">await</span> Promise.resolve();
+<span class="kw">const</span> out = `added ${saved.key} | rows ${grid.rows.count()} | created ${saved.created}`;
+grid.destroy();
+<span class="kw">return</span> out;
+</code></pre>
+    </div>
+
+    <div class="why">
+      <p><strong>A failed create keeps the form.</strong> A <code>create</code> that rejects, throws,
+      or has not answered within <code>timeout</code> leaves the panel open with the values the user
+      typed, a message and the same retry a failed load offers; the retry sends the values again.
+      <code>form:error</code> fires with <code>created: true</code>, and Save is disabled while a
+      create is on its way, so a second press cannot add the row twice.</p>
+      <p><strong>Without <code>create</code></strong> the values are added as they stand, and only
+      when they already carry the row key &mdash; a field for it, or a default passed to
+      <code>openNew</code>. Otherwise Save is refused with the warning
+      <code>rowform:create:missing-key</code> and the form stays open: the grid never adds a row it
+      cannot identify.</p>
     </div>
 
     <h3>Putting the form in your own element</h3>
@@ -5627,6 +5857,27 @@ rowTemplate: { template: CARD, maxCardWidth: 260 }    <span class="cmt">// as ma
   columns, rows, rowKey: <span class="str">'id'</span>, editable: <span class="kw">true</span>,
   rowForm: { container: <span class="str">'#record-panel'</span> },   <span class="cmt">// or the element itself, or a function</span>
 });</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">The same, with an element to hand, and a width for the panel</p>
+      <pre data-run="js" data-expect="in the sidebar true | width 28rem" data-covers="config:RowFormConfig.container config:RowFormConfig.width"><code><span class="kw">const</span> { createTestDom, flushFrames } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createGrid } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+<span class="kw">const</span> { root } = createTestDom({ width: 800, height: 400 });
+<span class="kw">const</span> sidebar = root.ownerDocument.createElement('div');
+root.appendChild(sidebar);
+
+<span class="kw">const</span> grid = createGrid(root, {
+  columns: [{ field: 'name' }], rows: [{ id: 1, name: 'Alpha' }], rowKey: 'id',
+  rowForm: { container: sidebar, width: '28rem' },   <span class="cmt">// width sizes the panel</span>
+});
+flushFrames();
+grid.form.open('1');
+<span class="kw">const</span> panel = sidebar.querySelector('.lat-rowform');
+<span class="kw">const</span> out = `in the sidebar ${!!panel} | width ${panel.style.getPropertyValue('--lattice-rowform-width')}`;
+grid.destroy();
+<span class="kw">return</span> out;
+</code></pre>
     </div>
 
     <p class="lead-in">
@@ -10539,6 +10790,34 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
       </table>
     </div>
 
+    <h2 id="leaflet-guide">Leaflet</h2>
+    <p class="lead-in">
+      <code>bindLeaflet(grid, options)</code> (<code>modules/leaflet</code>) draws a grid's rows with
+      <a href="https://leafletjs.com">Leaflet</a>, lets the map's view filter the grid, and selects a row
+      when its feature is clicked &mdash; the same contract as <code>bindDeck</code>. Leaflet stays on your
+      page: pass your <code>L.Map</code> and a function that builds layers with your own <code>L</code>; the
+      module imports nothing of Leaflet's. A paged pushdown grid hands over the rows inside the map's view
+      from the engine, and past <code>viewportCap</code> the engine's density cells with
+      <code>ctx.binned</code> true. See <a href="API.html#leaflet">the Leaflet binding</a> for the
+      executed example.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td class="name">bindLeaflet</td><td class="desc">Bind a Leaflet map to a grid. Returns the binding; a map missing a method the binding calls, a <code>layers</code> that is not a function or a position that names no column is refused by name and binds nothing.</td></tr>
+          <tr><td class="name">map</td><td class="desc">Your <code>L.Map</code>. The binding adds and removes its layers, listens for <code>moveend</code>/<code>zoomend</code>, reads <code>getBounds()</code> and moves it with <code>fitBounds()</code>.</td></tr>
+          <tr><td class="name">layers</td><td class="desc"><code>(rows, ctx) =&gt; L.Layer[]</code>, called on every change of the rows or the selection. <code>ctx</code> carries <code>features</code> (GeoJSON, <code>id</code> = row key), <code>selected</code>, <code>binned</code>, <code>pending</code> and <code>provenance</code>. The previous layers are removed from the map; on the binding, <code>layers()</code> returns what is on it.</td></tr>
+          <tr><td class="name">position</td><td class="desc"><code>{ lon, lat }</code> or <code>{ geometry }</code>: the column(s) rows are placed by; a geometry cell may hold GeoJSON, WKT, WKB or GeoJSON text.</td></tr>
+          <tr><td class="name">viewportFilter</td><td class="desc"><code>true</code> or <code>{ debounce }</code>: after every <code>moveend</code>/<code>zoomend</code> &mdash; including your own <code>setView</code>, <code>fitBounds</code> and <code>flyTo</code> &mdash; write the map's bounds onto the grid as one condition, and move the map to a box set from elsewhere.</td></tr>
+          <tr><td class="name">viewportCap</td><td class="desc">On a paged pushdown grid, the most rows fetched for one view before density cells are handed over instead. Default 20,000.</td></tr>
+          <tr><td class="name">select</td><td class="desc">Select a row by key for a layer that carries no feature; <code>null</code> clears. A click on a feature of <code>L.geoJSON(ctx.features)</code> selects on its own. The grid needs <code>selection: 'single'</code> or <code>'multiple'</code>.</td></tr>
+          <tr><td class="name">update</td><td class="desc">Rebuild the layers now; otherwise changes are coalesced to one rebuild per frame.</td></tr>
+          <tr><td class="name">destroy</td><td class="desc">Remove the layers, the viewport condition and the map and grid listeners.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
     <h2 id="events-guide">Events</h2>
     <p class="lead-in">
       One bus, 111 events. The table below is the working set, the ones most applications
@@ -10953,7 +11232,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.75.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.76.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.75.1</title>
+<title>Grid API Reference — Lattice Grid 1.76.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -534,6 +534,7 @@
         <a href="alarms.html">The alarms module</a>
         <a href="geometry.html">The geometry module</a>
         <a href="deckgl.html">The deck.gl adapter</a>
+        <a href="leaflet.html">The Leaflet binding</a>
         <a href="list.html">The list module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
@@ -560,7 +561,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 17 pages</a></span>
+      <span class="chip"><a href="index.html">All 18 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -1118,7 +1119,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.75.1'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.76.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -3387,6 +3388,7 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">dfqlAdapter</td><td class="desc">DemandFlow entities</td><td class="desc">Speaks <code>POST /v1/query</code>. Sends the entity, the key attribute and the prefix to match, a field projection and one field-and-term filter, matched as a case-insensitive substring. It cannot sort or page, so the grid does both, and every request carries a <code>countOnly</code> line because <code>limit</code> caps rows <em>scanned</em> rather than matched: a filtered query returns an arbitrary subset, and the count is the only thing that reveals it.</td></tr>
           <tr><td class="name">graphqlAdapter</td><td class="desc">Any GraphQL endpoint</td><td class="desc">Configured, not zero-config: GraphQL has no fixed query semantics, so you pass <code>buildQuery</code> to turn the plan into a <code>{ query, variables }</code> operation and <code>parseResponse</code> to read <code>data</code> back into rows and total. Defaults cover an offset/limit list with <code>totalCount</code> and a Relay cursor connection (<code>first</code>/<code>after</code> with <code>pageInfo</code>). The default pushes only the window and the total; declare <code>operators</code> or <code>capabilities</code> for filter/sort only alongside a <code>buildQuery</code> that emits them. A cursor connection is forward-only, so a deep window costs round trips proportional to its offset.</td></tr>
           <tr><td class="name">splunkAdapter</td><td class="desc">Splunk Enterprise 9 and Splunk Cloud</td><td class="desc">Speaks the search REST API v2: dispatches a search job, reads a window from <code>/results</code>, and cancels the job when the grid asks something else. The filter tree becomes an SPL <code>search</code> expression with every value quoted and escaped, a multi-column sort becomes <code>| sort 0</code>, and a time filter becomes the job's own <code>earliest_time</code>/<code>latest_time</code> where Splunk's boundaries map onto the operator exactly. <code>| stats</code> grouping is not pushed and there is no write-back; the grid never holds the token. See <a href="#splunk-options">its options</a>.</td></tr>
+          <tr><td class="name">clickhouseAdapter</td><td class="desc">ClickHouse, over its HTTP interface</td><td class="desc">POSTs SQL to <code>{url}/?default_format=JSONEachRow</code> with every filter value as a typed query parameter (<code>{p0:String}</code> beside <code>param_p0=…</code>), never inside the statement. Takes the filter tree, a multi-column sort, <code>LIMIT</code>/<code>OFFSET</code> paging and a <code>count()</code> total; <code>source.aggregate()</code> computes six statistics in the engine, grouped through <code>GROUP BY ROLLUP</code>. Sent <code>readonly=1</code> by default; the grid never holds the credential. See <a href="#clickhouse-options">its options</a>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -4010,6 +4012,138 @@ createGrid(host, { source, columns: [...] });</code></pre>
 <span class="cmt">// One window of the result, and the job's own match count.</span>
 <span class="kw">const</span> page = <span class="kw">await</span> adapter.execute(query, {});
 <span class="kw">return</span> `${search === expected ? <span class="str">'SPL as documented'</span> : search}, ${page.rows.length} of ${page.total} events`;</code></pre>
+
+    <h5 id="clickhouse-options"><code>clickhouseAdapter</code></h5>
+    <p class="section-note">
+      <strong>Transport.</strong> ClickHouse answers SQL over plain HTTP, so the adapter needs no
+      driver: each statement is <code>POST</code>ed to <code>{url}/?default_format=JSONEachRow</code>
+      with the SQL as the body and read back one JSON row per line. The page and its count are two
+      statements sent together — <code>SELECT * … ORDER BY … LIMIT n OFFSET m</code> and
+      <code>SELECT count() …</code> over the same <code>WHERE</code>. Give <code>table</code>
+      (<code>events</code> or <code>analytics.events</code>, each part validated as an identifier and
+      backtick-quoted) or <code>query</code>, any SELECT, which is read as a subquery. The adapter sets
+      no <code>Content-Type</code> of its own, so a browser request without an
+      <code>Authorization</code> header is a simple request and needs no CORS preflight.
+    </p>
+    <p class="section-note">
+      <strong>No value is written into the SQL.</strong> Every filter value is a ClickHouse
+      <em>query parameter</em>: the statement says <code>{p0:String}</code>, <code>{p1:Float64}</code>,
+      <code>{p2:DateTime64(3, 'UTC')}</code> or <code>{p3:Array(String)}</code>, and the value travels
+      separately as <code>param_p0=…</code>, parsed by the server as a value of that type. A backslash
+      in a value is doubled on the way out, because ClickHouse reads a parameter in its escaped format
+      and would otherwise turn <code>a\b</code> into a backspace. Column names are validated against
+      <code>^[A-Za-z_][A-Za-z0-9_$]*$</code> and refused by name otherwise.
+    </p>
+    <p class="section-note">
+      <strong>What pushes down, and how it matches the grid.</strong> A text comparison folds case
+      the way the grid's own filter does, through <code>lowerUTF8()</code> on both sides
+      (<code>lower()</code> folds ASCII only), unless the condition sets <code>caseSensitive</code>,
+      when it is exact. <code>contains</code>/<code>startsWith</code>/<code>endsWith</code> use
+      <code>position</code>/<code>startsWith</code>/<code>endsWith</code> rather than
+      <code>LIKE</code>, so a <code>%</code> or <code>_</code> someone typed is a character, not a
+      wildcard. <code>ne</code>, <code>notIn</code> and <code>notBetween</code> add an explicit
+      <code>IS NULL</code> branch, because the grid keeps a row with no value there and SQL's
+      <code>NULL &lt;&gt; x</code> would drop it. A sort writes its <code>NULL</code> placement out —
+      last ascending, first descending — which is the grid's rule. Anything not in the table below —
+      <code>matches</code>, <code>notContains</code>, the quick filter — stays with the grid through
+      the ordinary residual path and is named in <code>lastPlan()</code>. The grid's grouped view is
+      not pushed; <code>source.aggregate()</code> is.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Grid</th><th>ClickHouse</th></tr></thead>
+        <tbody>
+          <tr><td class="name">eq / ne</td><td class="desc"><code>lowerUTF8(toString(c)) = lowerUTF8({p0:String})</code>; exact <code>c = {p0:…}</code> for a number, a date or <code>caseSensitive</code>; <code>ne</code> is <code>(c IS NULL OR NOT (…))</code></td></tr>
+          <tr><td class="name">gt / gte / lt / lte</td><td class="desc"><code>c &gt; {p0:Float64}</code>, and so on</td></tr>
+          <tr><td class="name">between / notBetween</td><td class="desc">two typed comparisons, each end's inclusivity read from <code>bounds</code>; <code>notBetween</code> keeps <code>NULL</code></td></tr>
+          <tr><td class="name">in / notIn</td><td class="desc"><code>has({p0:Array(…)}, c)</code>, folded through <code>arrayMap(x -&gt; lowerUTF8(x), …)</code> for text</td></tr>
+          <tr><td class="name">contains / startsWith / endsWith</td><td class="desc"><code>position(…) &gt; 0</code>, <code>startsWith</code>, <code>endsWith</code></td></tr>
+          <tr><td class="name">blank / notBlank</td><td class="desc"><code>(c IS NULL OR toString(c) = '')</code> and its negation</td></tr>
+          <tr><td class="name">list: hasAny / hasAll / hasNone / listCount</td><td class="desc"><code>hasAny</code>, <code>hasAll</code>, <code>NOT hasAny</code>, <code>length(c)</code> — declared while the list module is loaded; an item operator on a list column is <code>arrayExists(x -&gt; …, c)</code></td></tr>
+          <tr><td class="name">time filters</td><td class="desc"><code>{p0:DateTime64(3, 'UTC')}</code> for an instant (a <code>Date</code>, epoch milliseconds or an ISO-8601 instant with a zone), <code>{p0:Date}</code> for a <code>YYYY-MM-DD</code> day</td></tr>
+          <tr><td class="name">aggregate()</td><td class="desc"><code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>count()</code>, and <code>distinct</code> as <code>uniqExact</code> (exact, not the estimate <code>uniq</code>); grouped through <code>GROUP BY ROLLUP</code> with <code>grouping()</code> flags. Any other statistic is computed by the grid and named in <code>lastPlan().aggregates.client</code>.</td></tr>
+          <tr><td class="name">grouped view</td><td class="desc">Not pushed: <code>capabilities.group</code> is <code>false</code>, so a grid grouped by a column groups the rows it holds, and <code>lastPlan().unpushed</code> names <code>group</code>. Only <code>source.aggregate()</code> groups in the engine.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note">
+      <strong>The grid never holds your credential.</strong> The rule <code>splunkAdapter</code>
+      follows. A fixed user and password go in <code>headers</code>
+      (<code>X-ClickHouse-User</code>/<code>X-ClickHouse-Key</code>, or
+      <code>Authorization: Basic …</code>); a credential that expires goes in a <code>fetch</code>
+      wrapper, called afresh per request; and a page that must not see a credential at all points
+      <code>url</code> at a proxy of your own that adds one (a relative <code>url</code> such as
+      <code>/api/clickhouse</code> is kept relative). A public read-only user can ride in the URL's own
+      query string — <code>url: 'https://play.clickhouse.com/?user=play'</code> — which the adapter
+      keeps. See <a href="#adapter-auth">authenticating</a>.
+    </p>
+    <p class="section-note">
+      <strong>Settings.</strong> <code>readonly=1</code> is sent with every statement, because the grid
+      only reads — and nothing else is sent by default. A user whose profile is already read-only (the
+      public playground's <code>play</code> user, most analyst accounts) may change no setting at all:
+      ClickHouse refuses such a request with <code>READONLY</code> if it carries, say,
+      <code>max_execution_time</code>, while re-sending <code>readonly=1</code> is accepted. So the
+      default works for that common case with nothing to configure. <code>max_execution_time</code> is
+      optional: on a writable or service account, set it —
+      <code>settings: { max_execution_time: 30 }</code> — so a filter a stranger can steer cannot hold
+      the server longer than a page is worth waiting for. <code>settings</code> adds any other
+      ClickHouse setting; <code>null</code> drops any, <code>readonly</code> included. 64-bit integers past
+      JavaScript's safe range arrive as their exact text rather than a rounded number, where the
+      runtime gives <code>JSON.parse</code> the source text (current Chrome, Node 22).
+    </p>
+    <p class="section-note">
+      <strong>Errors carry ClickHouse's message.</strong> A non-2xx answer, and an exception ClickHouse
+      writes into a <code>200</code> after it has started streaming, reject with an <code>Error</code>
+      named <code>ClickHouseError</code> carrying <code>status</code>, <code>code</code> (<code>60</code>),
+      <code>type</code> (<code>UNKNOWN_TABLE</code>) and <code>clickhouseMessage</code>, the server's own
+      text — surfaced by the grid as <code>source:error</code>, never as an empty page.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="name">url</td><td class="type">string</td><td class="type">—</td><td class="desc">The HTTP interface, e.g. <code>https://clickhouse.example.com:8443</code>, or a proxy path of your own. Statements go to <code>{url}/?…</code>; any query string <code>url</code> carries is kept. Required.</td></tr>
+          <tr><td class="name">table</td><td class="type">string</td><td class="type">—</td><td class="desc"><code>table</code> or <code>database.table</code>, each part a plain identifier. Give exactly one of <code>table</code> and <code>query</code>.</td></tr>
+          <tr><td class="name">query</td><td class="type">string</td><td class="type">—</td><td class="desc">A SELECT the grid reads as a subquery, <code>SELECT * FROM (&lt;query&gt;) AS __lattice_src</code>; a trailing semicolon is trimmed.</td></tr>
+          <tr><td class="name">headers</td><td class="type">Record&lt;string, string&gt;</td><td class="type">{}</td><td class="desc">Sent on every request: where a fixed user and password go. The adapter adds none of its own.</td></tr>
+          <tr><td class="name">fetch</td><td class="type">typeof fetch</td><td class="type">the global <code>fetch</code></td><td class="desc">Your own fetch: where a credential that expires is refreshed, since it is called afresh per request. The adapter bundles no HTTP client.</td></tr>
+          <tr><td class="name">settings</td><td class="type">Record&lt;string, string | number | boolean | null&gt;</td><td class="type">{ readonly: 1 }</td><td class="desc">ClickHouse settings sent with every statement, merged over the default; <code>null</code> drops one, a boolean is sent as <code>1</code>/<code>0</code>. <code>max_execution_time</code> is optional and not sent unless you set it; set it on a writable or service account (a read-only profile refuses it).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note">
+      <strong>An executed example.</strong> The <code>fetch</code> below stands in for the server so the
+      example can show exactly what is sent — the SQL, the parameter beside it and the settings —
+      without a network or a credential. Leave it out, and the same adapter talks to ClickHouse.
+    </p>
+    <pre data-run="js" data-expect="parameter p0=admin, readonly=1, 2 of 3 rows" data-covers="export:clickhouseAdapter"><code><span class="kw">const</span> { clickhouseAdapter } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> sent = [];
+<span class="kw">const</span> adapter = clickhouseAdapter({
+  url: <span class="str">'https://clickhouse.example.com:8443'</span>,
+  table: <span class="str">'logs.requests'</span>,
+  headers: { <span class="str">'X-ClickHouse-User'</span>: <span class="str">'grid_reader'</span>, <span class="str">'X-ClickHouse-Key'</span>: <span class="str">'your-password'</span> },
+  <span class="cmt">// A stand-in server: records the request and answers in JSONEachRow.</span>
+  fetch: <span class="kw">async</span> (url, init) =&gt; {
+    sent.push({ url: <span class="kw">new</span> URL(url), sql: init.body });
+    <span class="kw">const</span> body = init.body.startsWith(<span class="str">'SELECT count()'</span>)
+      ? <span class="str">'{"__lattice_total":"3"}'</span>
+      : <span class="str">'{"id":1,"path":"/admin"}\n{"id":2,"path":"/Admin/login"}'</span>;
+    <span class="kw">return</span> { ok: <span class="kw">true</span>, status: 200, text: <span class="kw">async</span> () =&gt; body };
+  },
+});
+
+<span class="kw">const</span> page = <span class="kw">await</span> adapter.execute({
+  filters: { col: <span class="str">'path'</span>, op: <span class="str">'contains'</span>, value: <span class="str">'admin'</span> },
+  sort: [{ col: <span class="str">'id'</span>, dir: <span class="str">'asc'</span> }],
+  range: { start: 0, end: 2 },
+}, {});
+
+<span class="cmt">// The value is a parameter; the SQL only names it.</span>
+<span class="kw">const</span> [first] = sent;
+<span class="kw">const</span> sql = <span class="str">'SELECT * FROM `logs`.`requests` WHERE position(lowerUTF8(toString(`path`)), lowerUTF8({p0:String})) &gt; 0 ORDER BY `id` ASC NULLS LAST LIMIT 2 OFFSET 0'</span>;
+<span class="kw">if</span> (first.sql !== sql) <span class="kw">return</span> first.sql;
+<span class="kw">return</span> `parameter p0=${first.url.searchParams.get(<span class="str">'param_p0'</span>)}, readonly=${first.url.searchParams.get(<span class="str">'readonly'</span>)}, ${page.rows.length} of ${page.total} rows`;</code></pre>
 
     <h4 id="adapter-auth">Authenticating a remote adapter</h4>
     <p class="section-note">
@@ -5245,6 +5379,7 @@ createGrid(el, {
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M4 1.5h1.5v13H4Zm1.5 1h7.5l-1.6 2.6L13 7.7H5.5Z"></path></svg>flag</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13 12.5 3.5"></path><path d="M7.5 3.5H12.5V8.5"></path></svg>arrow</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 10 5l2 2-6 6H4z"></path><path d="M3 14.5h10"></path></svg>highlight</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 9 5 13 9 7 15Z"></path><path d="M5 13 9 9"></path></svg>eraser</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M5.5 6.8 8.6 1.5a1.6 1.6 0 0 1 1.5 2.1L9.4 6h3.4a1.4 1.4 0 0 1 1.35 1.78l-1.3 4.6A1.9 1.9 0 0 1 11 13.8H5.5ZM4 6.5H1.5v7.3H4Z"></path></svg>thumbUp</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M8 3.2c3.3 0 6 3 6.6 4.5C14 9.3 11.3 12.3 8 12.3S2 9.3 1.4 7.7C2 6.2 4.7 3.2 8 3.2Zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"></path></svg>eye</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.2 2.9 13.1 13.8M8 3.2c3.3 0 6 3 6.6 4.5a9.4 9.4 0 0 1-1.9 2.4M5 4.2A9 9 0 0 0 1.4 7.7C2 9.3 4.7 12.3 8 12.3c.9 0 1.7-.2 2.5-.5M6.3 6a2.5 2.5 0 0 0 3.4 3.5"></path></svg>eyeOff</span>
@@ -6421,6 +6556,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">group</td><td class="type">(ids: string | string[]): void</td><td class="desc"><code>ids: string | string[]</code></td><td class="type"><code>void</code></td><td class="desc">Set the row-grouping columns, outermost first; pass an empty list to ungroup. Columns the current permissions withhold are dropped. Emits `column:grouped` and rebuilds the header, since grouping adds or removes the generated group column.</td></tr>
           <tr><td class="name">pivot</td><td class="type">(ids: string | string[]): void</td><td class="desc"><code>ids: string | string[]</code></td><td class="type"><code>void</code></td><td class="desc">Set the pivot columns, turning each distinct value into a column heading; pass an empty list to leave pivot mode. Columns the current permissions withhold are dropped. Emits `column:pivoted`.</td></tr>
           <tr><td class="name">totals</td><td class="type">(ids: string | string[]): void</td><td class="desc"><code>ids: string | string[]</code></td><td class="type"><code>void</code></td><td class="desc">Choose which columns carry a footer total. A column named here that has none is given `sum`; a column not named falls back to whatever its own definition asked for.</td></tr>
+          <tr><td class="name">refreshLookup</td><td class="type">(id: string): Promise&lt;<a href="#type-Option">Option</a>[]&gt;</td><td class="desc"><code>id: string</code></td><td class="type"><code>Promise&lt;<a href="#type-Option">Option</a>[]&gt;</code></td><td class="desc">Re-run a lookup column's `options` — call its function again, re-accept its static list, or (for a router-bound column) resolve with whatever the dictionary already holds — bump its version, and repaint every dependent cell in one pass (BACKLOG-0001523). An open editor for the column picks up the refreshed options without being reopened. A column with no `lookup` declines and warns, by name, rather than resolving to nothing.</td></tr>
         </tbody>
       </table>
     </div>
@@ -6555,7 +6691,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">stop</td><td class="type">(cancel?: boolean): void</td><td class="desc"><code>cancel?: boolean</code></td><td class="type"><code>void</code></td><td class="desc">End the edit session, committing by default or discarding with `cancel: true`. A commit runs the full write path — parse, validate, apply — and records the change on the undo timeline.</td></tr>
           <tr><td class="name">undo</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Undo the last action. Routed through the grid-wide timeline rather than an edit-only stack: with two stacks the first press after a sort would undo an edit made before it, which is not what the user did last.</td></tr>
           <tr><td class="name">redo</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Redo the last undone action, through the same grid-wide timeline.</td></tr>
-          <tr><td class="name">setCells</td><td class="type">( writes: { key: string; colId: string; value: unknown }[], type?: 'cell' | 'fill' | 'paste', opts?: { origin?: 'api' | 'ai' | 'user' }, ): number | Promise&lt;number&gt;</td><td class="desc"><code>writes: { key: string; colId: string; value: unknown }[]</code><br><code>type?: 'cell' | 'fill' | 'paste'</code><br><code>opts?: { origin?: 'api' | 'ai' | 'user' }</code></td><td class="type"><code>number | Promise&lt;number&gt;</code></td><td class="desc">Write several cells as one undoable step (§12). `opts.origin` defaults to `'api'` — the ungated seam every existing caller uses (a fill, a paste, a kanban move), unchanged. Pass `{ origin: 'ai' }` (or `'user'`) to route the write through the cancellable `beforeEdit` gate, exactly as an interactive edit is (BACKLOG-0000967): the AI writes through this so a host `beforeEdit` handler can veto it and nothing persists when it does. With a gated origin and an async (deferring) before-handler, the return is a `Promise&lt;number&gt;`.</td></tr>
+          <tr><td class="name">setCells</td><td class="type">( writes: { key: string; colId: string; value: unknown }[], type?: 'cell' | 'fill' | 'paste', opts?: { origin?: 'api' | 'ai' | 'user' | 'form' }, ): number | Promise&lt;number&gt;</td><td class="desc"><code>writes: { key: string; colId: string; value: unknown }[]</code><br><code>type?: 'cell' | 'fill' | 'paste'</code><br><code>opts?: { origin?: 'api' | 'ai' | 'user' | 'form' }</code></td><td class="type"><code>number | Promise&lt;number&gt;</code></td><td class="desc">Write several cells as one undoable step (§12). `opts.origin` defaults to `'api'` — the ungated seam every existing caller uses (a fill, a paste, a kanban move), unchanged. Pass `{ origin: 'ai' }` (or `'user'`) to route the write through the cancellable `beforeEdit` gate, exactly as an interactive edit is (BACKLOG-0000967): the AI writes through this so a host `beforeEdit` handler can veto it and nothing persists when it does. With a gated origin and an async (deferring) before-handler, the return is a `Promise&lt;number&gt;`. `{ origin: 'form' }` (BACKLOG-0001535) is the row form's own seam: it skips `edit.enabled` — a cell's inline-editing switch, not a ban on writing the column at all — while every other refusal (permission, the advisory lock, parse, validate) still applies; nothing but the row form passes it.</td></tr>
           <tr><td class="name">bulkSet</td><td class="type">(value: unknown, opts?: { cells?: { key: string; colId: string }[] }): number</td><td class="desc"><code>value: unknown</code><br><code>opts?: { cells?: { key: string; colId: string }[] }</code></td><td class="type"><code>number</code></td><td class="desc">Set one value across a block of cells as a single undoable step (§12, card 740). Defaults to the selected range; read-only and non-editable cells are skipped and every write runs the normal parse/validate path.</td></tr>
           <tr><td class="name">fill</td><td class="type">(opts?: { direction?: 'down' | 'up' | 'left' | 'right'; series?: boolean; range?: <a href="#type-CellRange">CellRange</a> }): number</td><td class="desc"><code>opts?: { direction?: 'down' | 'up' | 'left' | 'right'; series?: boolean; range?: <a href="#type-CellRange">CellRange</a> }</code></td><td class="type"><code>number</code></td><td class="desc">Fill a selected range from its leading edge as one undoable step (§12, card 740). The default copies the anchor across the range (Excel's Ctrl+D and its natural siblings); `series: true` extrapolates a numeric or date series from the first one or two cells of each line, falling back to a copy for types with no series. `direction` defaults to `'down'`.</td></tr>
           <tr><td class="name">pasteInto</td><td class="type">(anchor: { key: string; colId: string }, text: string, extent?: { rows?: number; columns?: number }): number</td><td class="desc"><code>anchor: { key: string; colId: string }</code><br><code>text: string</code><br><code>extent?: { rows?: number; columns?: number }</code></td><td class="type"><code>number</code></td><td class="desc">Paste tab-separated text anchored at a cell, as one undoable step. Excel's shape rules apply: a single value fills the whole target, a smaller block tiles to fill it, and a block taller than the rows available is clipped rather than creating rows. Returns how many cells were written.</td></tr>
@@ -7037,10 +7173,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">use</td><td class="type">(tool: <a href="types.html#type-AnnotationTool">AnnotationTool</a> | null, opts?: { colour?: string }): string | null</td><td class="desc"><code>tool: <a href="types.html#type-AnnotationTool">AnnotationTool</a> | null</code><br><code>opts?: { colour?: string }</code></td><td class="type"><code>string | null</code></td><td class="desc">Choose a tool, or pass null to hand the pointer back to the grid. Asking for the tool already in use turns it off, so one button can toggle; `opts.colour` sets the colour to draw in, and changing only the colour keeps the current tool. Returns the tool now in use.</td></tr>
-          <tr><td class="name">add</td><td class="type">(mark: <a href="#type-AnnotationMark">AnnotationMark</a>): number</td><td class="desc"><code>mark: <a href="#type-AnnotationMark">AnnotationMark</a></code></td><td class="type"><code>number</code></td><td class="desc">Add a durable mark from a descriptor, without synthesising pointer input (BACKLOG-0000813). The mark is painted, survives a presentation ending, and round-trips through `getState`. Returns the mark count.</td></tr>
+          <tr><td class="name">add</td><td class="type">(mark: <a href="#type-AnnotationMark">AnnotationMark</a>): <a href="types.html#type-AnnotationAddResult">AnnotationAddResult</a></td><td class="desc"><code>mark: <a href="#type-AnnotationMark">AnnotationMark</a></code></td><td class="type"><code><a href="types.html#type-AnnotationAddResult">AnnotationAddResult</a></code></td><td class="desc">Add a durable mark from a descriptor, without synthesising pointer input (BACKLOG-0000813). The mark is painted, survives a presentation ending, and round-trips through `getState`. Returns the new mark's id and the layer's mark count (BACKLOG-0001521); the result coerces to the count for a caller that only ever read the number.</td></tr>
           <tr><td class="name">list</td><td class="type">(): <a href="#type-AnnotationMark">AnnotationMark</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-AnnotationMark">AnnotationMark</a>[]</code></td><td class="desc">Every mark on the layer, as descriptors — the shape `getState` persists.</td></tr>
+          <tr><td class="name">remove</td><td class="type">(id: string): boolean</td><td class="desc"><code>id: string</code></td><td class="type"><code>boolean</code></td><td class="desc">Remove one mark by id and repaint (BACKLOG-0001521) — the counterpart to the eraser tool and the keyboard delete, callable directly too. Returns true when a mark with that id was found and removed; an unknown id declines, warns once, and returns false, changing nothing.</td></tr>
           <tr><td class="name">undo</td><td class="type">(): number</td><td class="desc">&mdash;</td><td class="type"><code>number</code></td><td class="desc">Remove the most recent mark and repaint. Returns how many are left; on an empty layer it does nothing and returns 0.</td></tr>
-          <tr><td class="name">clear</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Remove every mark, seeded and drawn alike — the explicit "clear all". Ending a presentation drops only the drawn ones.</td></tr>
+          <tr><td class="name">clear</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Remove every mark, seeded and drawn alike — the explicit "clear all". Ending a presentation drops only the drawn ones. The rail's own "Clear all" button calls this only after the user confirms (BACKLOG-0001521); this method itself does not ask.</td></tr>
           <tr><td class="name">redraw</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Repaint every mark at the current scroll offset. Called for you on scroll and after each render; a host needs it only after moving the layer itself.</td></tr>
         </tbody>
       </table>
@@ -7537,6 +7674,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">open</td><td class="type">(key: string): boolean</td><td class="desc"><code>key: string</code></td><td class="type"><code>boolean</code></td><td class="desc">Open the form for a row. False when the form is not configured.</td></tr>
+          <tr><td class="name">openNew</td><td class="type">(defaults?: Record&lt;string, unknown&gt;): boolean</td><td class="desc"><code>defaults?: Record&lt;string, unknown&gt;</code></td><td class="type"><code>boolean</code></td><td class="desc">Open the form over a new, empty record (BACKLOG-0001521): the same fields, each empty or holding `defaults[field]`, under the title "New row". Save validates as an edit does, then adds the row through `rowForm.create` (or locally when the values carry the row key). False, with the named warning `rowform:off`, when the form is not configured.</td></tr>
           <tr><td class="name">close</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Close the form without saving, returning focus to wherever it came from.</td></tr>
           <tr><td class="name">save</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">Collect the fields, write the ones that map to columns as one undoable step, announce them all on `form:saved`, and close. `false` when a field failed validation — the offending field is scrolled into view and marked — or when there is nothing to save.</td></tr>
           <tr><td class="name">isOpen</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">Whether the form panel is showing.</td></tr>
@@ -7622,7 +7760,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">board</td><td class="type">boolean | { /** The card layout. Generated from the columns as a tile when omitted. */ template?: string; /** How wide a lane is, in pixels. 280 by default. */ laneWidth?: number; /** How tall a card is, in pixels. 120 by default. */ cardHeight?: number; /** Space between lanes, in pixels. 16 by default. */ laneGap?: number; /** Space around a card within its lane, in pixels. 8 by default. */ gap?: number; /** A class of your own on every card, alongside the grid's. */ className?: string; /** The board's role. `list` by default; `listbox` for a selectable set. */ role?: string; /** Each card's role. `listitem` by default. */ itemRole?: string; }</td><td class="desc">Present rows as a board — a kanban of grouped lanes of cards (§7.14). The top-level group becomes a lane and every leaf under it becomes a card stacked in that lane: a pipeline by stage, a task list by status, a backlog by owner. `true` draws a card per row generated from the columns; an object sizes the lanes and cards or supplies a template. Group the grid to give the board its lanes; an ungrouped board is a single lane of every card. A card is drawn through the same code the other card presentations use, so a board card is still a row: it clicks, selects and drags through the grid's own handlers, masks protected columns, and shows the same text the table shows. Both axes are virtualised — the lanes across and the cards down each — so a board of many long lanes renders only what is on screen. Presentation only: sort, filter, group and the data pipeline are unchanged. <small>(optional)</small></td></tr>
           <tr><td class="name">pivotView</td><td class="type">boolean | { /** How wide one value column is, in pixels. 120 by default. */ cellWidth?: number; /** How tall one body row is, in pixels. 32 by default. */ cellHeight?: number; /** How wide the row-label gutter is, in pixels. 200 by default. */ headerWidth?: number; /** Degrade to cards at or below this container width. 640 by default. */ maxWidth?: number; /** The card layout the narrow fallback uses. The record card when omitted. */ fallbackTemplate?: string | object; /** A class of your own on the pivot root, alongside the grid's. */ className?: string; /** The pivot's role. `grid` by default — a pivot is a grid of cells. */ role?: string; }</td><td class="desc">Present the grid as a pivot — a cross-tab drawn as a matrix (§10, BACKLOG-0000738). The row dimensions (the grid's `group`) go down the left gutter, the column dimensions (the grid's `pivot`) go across the top, and each totalled column fills a cell with its reduction. `true` draws the matrix with the default geometry; an object sizes the cells and gutter or names the breakpoint below which it degrades to cards. **The numbers are the grid's own.** Every cell — body, subtotal, grand total — is the same aggregate kernel the totals row uses, run over the rows that feed the cell, so a pivot subtotal equals the grid's group total for that set by construction rather than being re-derived. Both axes expand and collapse, both are virtualised, and a cell click emits `pivot:drill` with the keys of the contributing rows. **Narrow-screen fallback.** A matrix cannot be read on a phone, so at or below `maxWidth` (the container width, not the viewport) the pivot degrades to a card list — the record card by default — exactly as the table does under `responsive`. Presentation only: sort, filter, group, pivot and the data pipeline are unchanged. <small>(optional)</small></td></tr>
           <tr><td class="name">responsive</td><td class="type">{ /** Collapse at or below this container width. 640 by default. */ maxWidth?: number; /** The card layout, as `rowTemplate` takes it. */ template: string | object; /** How tall a collapsed card is. 64 by default, a table row is too short. */ rowHeight?: number; }</td><td class="desc">Present rows as cards when the grid's container is too narrow to be a table honestly, a phone, or a narrow panel on a wide screen. Measured on the container, not the viewport, so a grid in a sidebar collapses and a grid filling a small tablet does not. Sorting, filtering and export continue to work; the tool panel is where they live when there are no column headings to click. Emits `presentation:changed`. <small>(optional)</small></td></tr>
-          <tr><td class="name">rowForm</td><td class="type">boolean | { mode?: <a href="types.html#type-RowFormMode">RowFormMode</a>; load?: (p: { row: <a href="#type-Row">Row</a>; data: unknown; key: string; grid: <a href="#type-Grid">Grid</a> }) =&gt; unknown | Promise&lt;unknown&gt;; fields?: (string | { field: string; label?: string; /** Which editor to build, by registry name or constructor. Defaults to the column's, then the type's. */ editor?: string | (new () =&gt; object); type?: <a href="types.html#type-TypeName">TypeName</a>; props?: object; lookup?: <a href="#type-LookupSpec">LookupSpec</a>; })[]; title?: string | ((p: { row: <a href="#type-Row">Row</a>; data: unknown }) =&gt; string); width?: string; trigger?: false; /** How long to wait for `load`, in milliseconds. 2000 by default; `false` waits indefinitely. */ timeout?: number | false; /** * An element of your own to build the form in, instead of over the grid. * An element, a CSS selector or a function returning either; a selector is * resolved when the form opens, not when the grid is configured. A form in * your own container fills it, is a region rather than a modal dialog, and * does not trap Tab. */ container?: HTMLElement | string | (() =&gt; HTMLElement | string | null); }</td><td class="desc">Open a row on a form — a drawer or a centred dialog with one control per field, a Save and a Cancel — on a double-click or through `grid.form.open()`. By default the fields are the grid's own columns, edited with the same editors the cells use; supply `load` to show a fuller record than the grid displays, in which case you must also say which fields and in what order. The panel opens immediately with a loading state and offers a retry on failure or on a load that never answers, rather than closing. Save applies the changed fields that map to columns and announces the rest — persisting the record is yours. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowForm</td><td class="type">boolean | <a href="#type-RowFormConfig">RowFormConfig</a></td><td class="desc">Open a row on a form — a drawer or a centred dialog with one control per field, a Save and a Cancel — on a double-click or through `grid.form.open()`. By default the fields are the grid's own columns, edited with the same editors the cells use; supply `load` to show a fuller record than the grid displays, in which case you must also say which fields and in what order. The panel opens immediately with a loading state and offers a retry on failure or on a load that never answers, rather than closing. Save applies the changed fields that map to columns and announces the rest — persisting the record is yours. `grid.form.openNew()` opens the same form over a new record, which `create` persists. <small>(optional)</small></td></tr>
           <tr><td class="name">showColumnFunctions</td><td class="type">boolean</td><td class="desc">Draw the sort, filter and menu controls in the column headings. `true` by default. `false` leaves each heading as its label alone, which is what a dense grid wants: three affordances take roughly fifty pixels, and on an eighty-pixel column that leaves the heading nothing and the label disappears entirely. Only the furniture goes. Sorting, filtering and the column menu are still reachable through the API, the keyboard and the tool panel. <small>(optional)</small></td></tr>
           <tr><td class="name">headerControls</td><td class="type"><a href="types.html#type-HeaderControlsVisibility">HeaderControlsVisibility</a> <small class="literals">'hover' | 'always' | 'hidden' | 'none'</small></td><td class="desc">When the per-column header controls — the sort arrow, the filter funnel and the menu button — are shown, as a default for every column (BACKLOG-0000982). - `'hover'` (the default) reveals them when the heading is hovered or a keyboard user focuses into it, which is the historical behaviour: a wide header does not read as a row of identical icons. - `'always'` keeps them visible unconditionally, for a grid where the controls are the point and the discoverability of hover is not wanted. - `'hidden'` draws none of them, for a clean read-only heading; they leave the tab order with the elements that carried them. An active filter and a live sort are still reflected by the heading's state attributes, but no control furniture is built. A column that is actually sorted still shows a read-only sort arrow and multi-sort order number. - `'none'` (BACKLOG-0001423) is `'hidden'` with that last exception removed: the heading shows only its title, whatever the grid's state — no controls, no hover affordance, and no sort/filter/group badge even when the column is sorted, filtered or grouped programmatically or via a saved view. The column's own `aria-sort` still reports the truth; only the visual badge is gone. For a dashboard heading that must never change its own appearance, however the grid around it is driven. A column's own `headerControls` overrides this default for that column. Distinct from `showColumnFunctions: false`, which also drops the furniture but keeps sorting, filtering and the menu reachable from the keyboard; `'hidden'` and `'none'` are the read-only choices that remove them outright. <small>(optional)</small></td></tr>
           <tr><td class="name">filterRow</td><td class="type">boolean</td><td class="desc">Draw a filter row directly under the column headings (BACKLOG-0001436). One inline filter cell per column, below the column groups and above the pinned rows, in every pinned region. Each cell is the inline form of that column's own filter: a box with the operator implied — contains for text, equals for a number, and for a date equals means "on that day" — plus a small picker for the other single-operand operators; a tri-state box for a boolean; and a chip that opens the column's own filter popup for a set or multi column, whose value list belongs in the popup. It writes the one filter model, `grid.filters`, through the same path the column menu writes: the menu shows what was typed in the row and the row shows what was set in the menu, `state.get()` round-trips it because the filter tree *is* the state, and a pushdown source receives exactly the condition the menu would have sent. Unaffected by `headerControls: 'none'` and by `showColumnFunctions: false`. Those govern the chrome a heading carries; the filter row is data entry, and this key is the only thing that decides whether it is drawn. A column opts itself out with its own `filterRow: false`. <small>(optional)</small></td></tr>
@@ -8132,20 +8270,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
-    <h4 id="type-LookupSpec">LookupSpec</h4>
+    <h4 id="type-RowFormConfig">RowFormConfig</h4>
+    <p class="section-note">The `rowForm` options: see {@link GridConfig.rowForm}. Declared last on purpose. The capability registry credits a bare `config:&lt;key&gt;` tag to the first interface that declares the key, and `container`, `fields`, `load`, `mode` and `title` are declared earlier by other surfaces; declaring this one after them keeps that credit where it already was (BACKLOG-0001521).</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">options</td><td class="type"><a href="#type-Option">Option</a>[] | (() =&gt; <a href="#type-Option">Option</a>[] | Promise&lt;<a href="#type-Option">Option</a>[]&gt;)</td><td class="desc">The dictionary: a list of options, or a function returning one, synchronously or as a promise. Loaded once per column, not per cell, and cached against a version so a refresh invalidates every dependent cell in one pass. Options may nest through `children` for the tree editor; every other consumer sees the flattened list. <small>(optional)</small></td></tr>
-          <tr><td class="name">valueKey</td><td class="type">string</td><td class="desc">Which property of an option holds the stored value. `'id'` by default. A bare string or number is accepted as an option and becomes its own value and label. <small>(optional)</small></td></tr>
-          <tr><td class="name">labelKey</td><td class="type">string</td><td class="desc">Which property of an option holds the displayed text. `'label'` by default; an option with no label falls back to its value. <small>(optional)</small></td></tr>
-          <tr><td class="name">groupKey</td><td class="type">string</td><td class="desc">Which property of an option names the option group it belongs to, for an editor that shows headings. `'group'` when unset. <small>(optional)</small></td></tr>
-          <tr><td class="name">multiple</td><td class="type">boolean</td><td class="desc">The cell holds a list of values rather than one. The display joins their labels with `separator`, and grouping keys on the whole combination. <small>(optional)</small></td></tr>
-          <tr><td class="name">allowCustom</td><td class="type">boolean</td><td class="desc">Accept a value that is not in the option list, without complaint. Off by default, in which case an unknown value still renders — never blanked — but is reported once per column, since a blank cell hides a data problem. <small>(optional)</small></td></tr>
-          <tr><td class="name">unknownLabel</td><td class="type">string | ((v: unknown) =&gt; string)</td><td class="desc">What to show for a value the option list does not contain: fixed text, or a function of the value. The raw value itself when unset. <small>(optional)</small></td></tr>
-          <tr><td class="name">sortBy</td><td class="type"><a href="types.html#type-LookupSortBy">LookupSortBy</a> <small class="literals">'label' | 'value' | 'optionOrder' | 'count'</small></td><td class="desc">How the editor and the set filter order the options: `'label'` (the default, collated for the locale), `'value'`, `'optionOrder'` to keep them exactly as declared, or `'count'` to put the commonest first. <small>(optional)</small></td></tr>
-          <tr><td class="name">separator</td><td class="type">string</td><td class="desc">What joins the labels of a multi-value cell, in the display and in an export. `', '` by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">mode</td><td class="type"><a href="types.html#type-RowFormMode">RowFormMode</a> <small class="literals">'drawer' | 'dialog'</small></td><td class="desc">`'drawer'` (the default) keeps the grid visible beside the form; `'dialog'` centres it over the grid. Ignored with `container`. <small>(optional)</small></td></tr>
+          <tr><td class="name">title</td><td class="type">string | ((p: { row: <a href="#type-Row">Row</a>; data: unknown }) =&gt; string)</td><td class="desc">The panel's heading, as text or from the row. "Edit row" when omitted; a new record is always titled "New row". <small>(optional)</small></td></tr>
+          <tr><td class="name">width</td><td class="type">string</td><td class="desc">The panel's width, as any CSS length (`'28rem'`). <small>(optional)</small></td></tr>
+          <tr><td class="name">trigger</td><td class="type">false</td><td class="desc">`false` leaves opening entirely to `grid.form.open()` / `openNew()`, keeping double-click for cells. <small>(optional)</small></td></tr>
+          <tr><td class="name">timeout</td><td class="type">number | false</td><td class="desc">How long to wait for `load`, or for `create`, in milliseconds. 2000 by default; `false` waits indefinitely. <small>(optional)</small></td></tr>
+          <tr><td class="name">container</td><td class="type">HTMLElement | string | (() =&gt; HTMLElement | string | null)</td><td class="desc">An element of your own to build the form in, instead of over the grid. An element, a CSS selector or a function returning either; a selector is resolved when the form opens, not when the grid is configured. A form in your own container fills it, is a region rather than a modal dialog, and does not trap Tab. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -8153,7 +8289,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">search</td><td class="type">(query: string, signal: AbortSignal) =&gt; Promise&lt;<a href="#type-Option">Option</a>[]&gt;</td><td class="desc"><code>query: string</code><br><code>signal: AbortSignal</code></td><td class="type"><code>=&gt; Promise&lt;<a href="#type-Option">Option</a>[]&gt;</code></td><td class="desc">Ask the server for matching options as the user types, with an abort signal for the request this one supersedes. Results are shown in the editor but never merged into the cached dictionary. Without it the editor filters the loaded options by label, case-insensitively. <small>(optional)</small></td></tr>
+          <tr><td class="name">load</td><td class="type">(p: { row: <a href="#type-Row">Row</a>; data: unknown; key: string; grid: <a href="#type-Grid">Grid</a> }) =&gt; unknown | Promise&lt;unknown&gt;</td><td class="desc"><code>p: { row: <a href="#type-Row">Row</a>; data: unknown; key: string; grid: <a href="#type-Grid">Grid</a> }</code></td><td class="type"><code>=&gt; unknown | Promise&lt;unknown&gt;</code></td><td class="desc">Fetch a fuller record than the grid shows. The panel opens at once with a loading state and fills in when this answers; name the fields with `fields`. <small>(optional)</small></td></tr>
+          <tr><td class="name">fields</td><td class="type">(string | { field: string; label?: string; /** Which editor to build, by registry name or constructor. Defaults to the column's, then the type's. */ editor?: string | (new () =&gt; object); type?: <a href="types.html#type-TypeName">TypeName</a>; props?: object; lookup?: <a href="#type-LookupSpec">LookupSpec</a>; })[]</td><td class="desc"><code>string | { field: string; label?: string; /** Which editor to build, by registry name or constructor. Defaults to the column's, then the type's. */ editor?: string | (new () =&gt; object); type?: <a href="types.html#type-TypeName">TypeName</a>; props?: object; lookup?: <a href="#type-LookupSpec">LookupSpec</a>; }</code></td><td class="type"><code>[]</code></td><td class="desc">Which fields the form shows, and in what order. The grid's own columns when omitted. <small>(optional)</small></td></tr>
+          <tr><td class="name">create</td><td class="type">(values: Record&lt;string, unknown&gt;) =&gt; unknown | Promise&lt;unknown&gt;</td><td class="desc"><code>values: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown | Promise&lt;unknown&gt;</code></td><td class="desc">Persist a new row (BACKLOG-0001521). Called by Save on a form opened with `grid.form.openNew()`, with the form's validated values; answer (or resolve) with the row as stored, key included, and that row is added through `rows.apply({ add })`. The key is yours to assign: the grid never invents one. A rejection, a throw or no answer within `timeout` keeps the form open with a retry and fires `form:error` with `created: true`. Without `create`, a new row is added only when its values already carry the row key. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -8610,6 +8748,31 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">pattern</td><td class="type"><a href="types.html#type-GeometryFormatPattern">GeometryFormatPattern</a> <small class="literals">'summary' | 'wkt' | 'geojson'</small></td><td class="desc">The display form: `'summary'`, `'wkt'` or `'geojson'`. Any other value warns once by column and shows the summary. Export and the clipboard write WKT whatever this says. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-LookupSpec">LookupSpec</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">options</td><td class="type"><a href="#type-Option">Option</a>[] | (() =&gt; <a href="#type-Option">Option</a>[] | Promise&lt;<a href="#type-Option">Option</a>[]&gt;) | <a href="#type-LookupRouterOptions">LookupRouterOptions</a></td><td class="desc">The dictionary: a list of options, a function returning one (synchronously or as a promise), or `{ router, predicate, map? }` to keep it in step with a live data-router route (see {@link LookupRouterOptions}, "Options that change", BACKLOG-0001523). Loaded once per column, not per cell, and cached against a version so a refresh — `refreshLookup()`, or a router diff — invalidates every dependent cell in one pass. Options may nest through `children` for the tree editor; every other consumer sees the flattened list. Static recipe: `lookup: { options: () =&gt; fetch('/statuses').then((r) =&gt; r.json()) }`, refreshed on demand with `grid.columns.refreshLookup('status')`. Live recipe: `lookup: { options: { router, predicate: 'customer', map: (r) =&gt; ({ id: r.id, label: r.name }) } }` — the dictionary tracks `router`'s `'customer'` route for as long as the column exists, no `refreshLookup()` call needed. <small>(optional)</small></td></tr>
+          <tr><td class="name">valueKey</td><td class="type">string</td><td class="desc">Which property of an option holds the stored value. `'id'` by default. A bare string or number is accepted as an option and becomes its own value and label. <small>(optional)</small></td></tr>
+          <tr><td class="name">labelKey</td><td class="type">string</td><td class="desc">Which property of an option holds the displayed text. `'label'` by default; an option with no label falls back to its value. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupKey</td><td class="type">string</td><td class="desc">Which property of an option names the option group it belongs to, for an editor that shows headings. `'group'` when unset. <small>(optional)</small></td></tr>
+          <tr><td class="name">multiple</td><td class="type">boolean</td><td class="desc">The cell holds a list of values rather than one. The display joins their labels with `separator`, and grouping keys on the whole combination. <small>(optional)</small></td></tr>
+          <tr><td class="name">allowCustom</td><td class="type">boolean</td><td class="desc">Accept a value that is not in the option list, without complaint. Off by default, in which case an unknown value still renders — never blanked — but is reported once per column, since a blank cell hides a data problem. <small>(optional)</small></td></tr>
+          <tr><td class="name">unknownLabel</td><td class="type">string | ((v: unknown) =&gt; string)</td><td class="desc">What to show for a value the option list does not contain: fixed text, or a function of the value. The raw value itself when unset. <small>(optional)</small></td></tr>
+          <tr><td class="name">sortBy</td><td class="type"><a href="types.html#type-LookupSortBy">LookupSortBy</a> <small class="literals">'label' | 'value' | 'optionOrder' | 'count'</small></td><td class="desc">How the editor and the set filter order the options: `'label'` (the default, collated for the locale), `'value'`, `'optionOrder'` to keep them exactly as declared, or `'count'` to put the commonest first. <small>(optional)</small></td></tr>
+          <tr><td class="name">separator</td><td class="type">string</td><td class="desc">What joins the labels of a multi-value cell, in the display and in an export. `', '` by default. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">search</td><td class="type">(query: string, signal: AbortSignal) =&gt; Promise&lt;<a href="#type-Option">Option</a>[]&gt;</td><td class="desc"><code>query: string</code><br><code>signal: AbortSignal</code></td><td class="type"><code>=&gt; Promise&lt;<a href="#type-Option">Option</a>[]&gt;</code></td><td class="desc">Ask the server for matching options as the user types, with an abort signal for the request this one supersedes. Results are shown in the editor but never merged into the cached dictionary. Without it the editor filters the loaded options by label, case-insensitively. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -9079,20 +9242,6 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
-    <h4 id="type-Option">Option</h4>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="name">id</td><td class="type">unknown</td><td class="desc">The stored value — what the cell holds, sorts by and exports when `export.lookup` asks for the value. A bare string or number as the whole option becomes both its id and its label.</td></tr>
-          <tr><td class="name">label</td><td class="type">string</td><td class="desc">What the reader sees. Falls back to the id stringified when the option carries none.</td></tr>
-          <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc">Show the option in the editor but refuse to let it be chosen — for a value that exists historically and should not be used again. <small>(optional)</small></td></tr>
-          <tr><td class="name">variant</td><td class="type"><a href="types.html#type-VariantName">VariantName</a> <small class="literals">'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent' | 'none' | (string &amp; {})</small></td><td class="desc">A semantic token for this option, so a pill or a dot takes its colour from the value rather than from a rule. <small>(optional)</small></td></tr>
-          <tr><td class="name">icon</td><td class="type"><a href="types.html#type-IconName">IconName</a></td><td class="desc">A glyph name from the icon registry (see {@link IconName}), shown before the label. <small>(optional)</small></td></tr>
-          <tr><td class="name">group</td><td class="type">string</td><td class="desc">The heading this option sits under in an editor that groups its list. Read from `groupKey` when the column names one. <small>(optional)</small></td></tr>
-        </tbody>
-      </table>
-    </div>
     <h4 id="type-ColumnState">ColumnState</h4>
     <div class="table-wrap">
       <table>
@@ -9134,6 +9283,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">A stable identifier, for {@link AnnotationApi.remove} (BACKLOG-0001521). Generated when a descriptor omits one — on `add()` and on a live-drawn mark alike — and carried through `list()`/`getState`, so a mark restored from a saved view keeps the same id it was removable by before it was saved. <small>(optional)</small></td></tr>
           <tr><td class="name">type</td><td class="type"><a href="types.html#type-AnnotationKind">AnnotationKind</a> <small class="literals">'freehand' | 'arrow' | 'rect' | 'highlight' | 'text'</small></td><td class="desc">What the mark is: a freehand trail, an arrow, a rectangle, a highlighter stroke, or a text label. `pen` is accepted on input as another name for `freehand`, and `list()` reports `freehand`.</td></tr>
           <tr><td class="name">points</td><td class="type">{ x: number; y: number }[]</td><td class="desc">Content coordinates. A `text` mark carries a single anchor point; `arrow` and `rect` carry their two corners, and `freehand` a trail.</td></tr>
           <tr><td class="name">colour</td><td class="type">string</td><td class="desc">The mark's colour, any CSS colour. Omitted, it takes the layer's current colour. <small>(optional)</small></td></tr>
@@ -9284,6 +9434,39 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">of</td><td class="type">string</td><td class="desc">The column to reduce, as a field name or a dotted path. Omit for `count`. <small>(optional)</small></td></tr>
           <tr><td class="name">fn</td><td class="type"><a href="types.html#type-TotalName">TotalName</a> <small class="literals">'sum' | 'min' | 'max' | 'avg' | 'count' | 'first' | 'last' | 'countValues' | (string &amp; {})</small></td><td class="desc">A key of `TOTAL_FNS`: `sum`, `avg`, `median`, `p95`, `gini` and the rest. <small>(optional)</small></td></tr>
           <tr><td class="name">show</td><td class="type">string</td><td class="desc">Report this column from the row holding the extreme, rather than the extreme itself: `{ of: 'sales', fn: 'max', show: 'rep' }` is the *name* of the best rep. Needs `min` or `max`, no single row holds an average. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-Option">Option</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">unknown</td><td class="desc">The stored value — what the cell holds, sorts by and exports when `export.lookup` asks for the value. A bare string or number as the whole option becomes both its id and its label.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">What the reader sees. Falls back to the id stringified when the option carries none.</td></tr>
+          <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc">Show the option in the editor but refuse to let it be chosen — for a value that exists historically and should not be used again. <small>(optional)</small></td></tr>
+          <tr><td class="name">variant</td><td class="type"><a href="types.html#type-VariantName">VariantName</a> <small class="literals">'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent' | 'none' | (string &amp; {})</small></td><td class="desc">A semantic token for this option, so a pill or a dot takes its colour from the value rather than from a rule. <small>(optional)</small></td></tr>
+          <tr><td class="name">icon</td><td class="type"><a href="types.html#type-IconName">IconName</a></td><td class="desc">A glyph name from the icon registry (see {@link IconName}), shown before the label. <small>(optional)</small></td></tr>
+          <tr><td class="name">group</td><td class="type">string</td><td class="desc">The heading this option sits under in an editor that groups its list. Read from `groupKey` when the column names one. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-LookupRouterOptions">LookupRouterOptions</h4>
+    <p class="section-note">A lookup whose dictionary is fed by a data-router route instead of a fixed list or a one-shot loader (BACKLOG-0001523, `lookup.options`). `router.subscribe(predicate, handler)` is the same "route to any view" surface a KPI tile or a detail pane binds to — the lookup is just another subscriber, receiving the same keyed `{ add, update, remove }` diff a grid does. Every diff folds into the option dictionary in one pass: one version bump and one repaint of every dependent cell per batch, not per row. A row the route removes removes its option; a cell still holding that id renders through the ordinary `unknownLabel` rule and is reported once, exactly as an id absent from a static list is.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">router</td><td class="type">{ subscribe: ( predicate: unknown, handler: (change: { add: object[]; update: object[]; remove: string[] }) =&gt; void, opts?: object, ) =&gt; unknown; detach?: (target: unknown) =&gt; unknown; }</td><td class="desc">A `createDataRouter()` instance (or anything shaped like one): its `subscribe` is called once, at load, and released when the column is redefined or the grid is destroyed.</td></tr>
+          <tr><td class="name">predicate</td><td class="type">unknown</td><td class="desc">The partition value or `fn(row) =&gt; boolean` naming this column's route.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">map</td><td class="type">(row: object) =&gt; <a href="#type-Option">Option</a> | object</td><td class="desc"><code>row: object</code></td><td class="type"><code>=&gt; <a href="#type-Option">Option</a> | object</code></td><td class="desc">Turn a routed row into an option. Omit it when the row already carries `lookup.valueKey`/`lookup.labelKey` (`id`/`label` by default) — the row itself is then used as the option, exactly as a static list's entries are. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -10585,7 +10768,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">key</td><td class="type">string</td><td class="desc">The key of the row the form was editing.</td></tr>
+          <tr><td class="name">key</td><td class="type">string | null</td><td class="desc">The key of the row the form was editing; null for a new record.</td></tr>
         </tbody>
       </table>
     </div>
@@ -10595,20 +10778,22 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">key</td><td class="type">string</td><td class="desc">The key of the row the form was working on.</td></tr>
+          <tr><td class="name">key</td><td class="type">string | null</td><td class="desc">The key of the row the form was working on; null for a new record.</td></tr>
           <tr><td class="name">error</td><td class="type">unknown</td><td class="desc">What went wrong.</td></tr>
-          <tr><td class="name">timedOut</td><td class="type">boolean</td><td class="desc">True when the load timed out rather than being refused.</td></tr>
+          <tr><td class="name">timedOut</td><td class="type">boolean</td><td class="desc">True when the load (or the create) timed out rather than being refused.</td></tr>
+          <tr><td class="name">created</td><td class="type">boolean</td><td class="desc">True when it was adding a new row that failed (`rowForm.create`). <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
     <h4 id="type-FormOpenedEvent">FormOpenedEvent</h4>
-    <p class="section-note">`form:opened`: the row form opened over a row.</p>
+    <p class="section-note">`form:opened`: the row form opened over a row, or over a new record.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">key</td><td class="type">string</td><td class="desc">The key of the row the form is editing.</td></tr>
-          <tr><td class="name">row</td><td class="type"><a href="#type-Row">Row</a></td><td class="desc">That row.</td></tr>
+          <tr><td class="name">key</td><td class="type">string | null</td><td class="desc">The key of the row the form is editing; null for a new record.</td></tr>
+          <tr><td class="name">row</td><td class="type"><a href="#type-Row">Row</a> | null</td><td class="desc">That row; null for a new record.</td></tr>
+          <tr><td class="name">created</td><td class="type">boolean</td><td class="desc">True when the form was opened by `form.openNew()` for a new record. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -10622,6 +10807,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">values</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Every value the form held, by field name.</td></tr>
           <tr><td class="name">changed</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Only the values that differ from what the row held.</td></tr>
           <tr><td class="name">unmapped</td><td class="type">string[]</td><td class="desc">Fields the form held that no column maps, so nothing was written for them.</td></tr>
+          <tr><td class="name">created</td><td class="type">boolean</td><td class="desc">True when the save added a new row (`form.openNew()`); `key` is then the new row's key and `changed` is every value. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>

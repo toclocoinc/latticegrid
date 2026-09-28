@@ -1,5 +1,5 @@
 {
-  "version": "1.75.1",
+  "version": "1.76.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 528,
+  "count": 539,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -1290,6 +1290,16 @@
       "docs": "api/grid.html#formatting"
     },
     {
+      "id": "format:unknown-style-key:*:*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.75.2",
+      "message": "column {col} has format: { type: \"{value}\" }, which is not a valid format type (\"number\", \"date\", \"boolean\" or \"text\") and is ignored; did you mean style: \"{value}\" instead?",
+      "meaning": "`type` already selects which of the four format shapes a spec is (`number`/`date`/`boolean`/`text`); it is not an alias for a number's `style`. `format: { type: 'currency', currency: 'GBP', decimals: 2 }` compiled as a plain decimal — no currency symbol — because every other key the host wrote (`currency`, `decimals`) was one `compileNumber` genuinely reads, so nothing else caught the mistake.",
+      "fix": "Use `style` for the number's display style and `type` only to force the spec's kind: `format: { style: \"{value}\", currency: \"GBP\", decimals: 2 }`.",
+      "docs": "api/grid.html#formatting"
+    },
+    {
       "id": "format:unknown:*:*",
       "module": "core",
       "severity": "warn",
@@ -1676,11 +1686,21 @@
       "module": "core",
       "severity": "warn",
       "since": "1.0.1",
-      "message": "column \"{colId}\" has an invalid `lookup.options`; expected an array or a function",
-      "meaning": "`lookup.options` was neither an array of options nor a function returning one (or a promise of one), so there is nothing to look values up in. The lookup resolves to an empty option list: every value renders raw and the select editor has nothing to offer.",
-      "fix": "Give `options` an array, or a function that returns one (or a promise of one) for lazy loading.",
+      "message": "column \"{colId}\" has an invalid `lookup.options`; expected an array, a function, or a router route",
+      "meaning": "`lookup.options` was neither an array of options, a function returning one (or a promise of one), nor a `{ router, predicate }` route, so there is nothing to look values up in. The lookup resolves to an empty option list: every value renders raw and the select editor has nothing to offer.",
+      "fix": "Give `options` an array, a function that returns one (or a promise of one) for lazy loading, or `{ router, predicate, map? }` to keep it fed by a live data-router route.",
       "snippet": "columns: [{ id: 'status', type: 'lookup', lookup: { options: () => fetch('/statuses').then((r) => r.json()) } }]",
       "docs": "api/grid.html#type-LookupSpec"
+    },
+    {
+      "id": "refreshLookup:*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.76.0",
+      "message": "columns.refreshLookup('{id}'): column has no `lookup`.",
+      "meaning": "`grid.columns.refreshLookup(id)` was called on a column that declares no `lookup`, so there is no option set to reload. The call resolves to an empty array rather than throwing.",
+      "fix": "Call `refreshLookup` only on a column whose definition carries a `lookup`.",
+      "docs": "api/grid.html#type-ColumnsApi"
     },
     {
       "id": "lookup:unknown:*",
@@ -3439,6 +3459,17 @@
       "docs": "api/grid.html#annotate"
     },
     {
+      "id": "annotate.remove.unknown",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.76.0",
+      "message": "annotate.remove ignored an unknown id: \"{id}\".",
+      "meaning": "`annotate.remove(id)` was called with an id that names no mark currently on the layer — already removed, from a different grid, or never a real id at all. Nothing was removed and the layer is unchanged.",
+      "fix": "Use an id from `grid.annotate.list()` or the id `add()`/the eraser returned, and remove it only once.",
+      "snippet": "grid.annotate.remove(grid.annotate.list()[0].id);",
+      "docs": "api/grid.html#annotate"
+    },
+    {
       "id": "autoHeight-limit",
       "module": "dom",
       "severity": "warn",
@@ -4011,6 +4042,37 @@
       "meaning": "A container was nominated for the row form and it could not be resolved to an element. The form still opens — over the grid, in its overlay layer — rather than being left with nowhere to appear, so the feature works and the placement is not the one asked for.",
       "fix": "Check the selector or element. A container created after the grid, or one inside a component that has not mounted yet, is the usual cause.",
       "docs": "api/grid.html#form"
+    },
+    {
+      "id": "rowform:create:missing-key",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.76.0",
+      "message": "rowForm could not add the new row: it carries no row key. Return the stored row, key included, from rowForm.create, or give the key a field or a default.",
+      "meaning": "The row form was saving a new row (grid.form.openNew) and the record it would add resolves to no row key: either there is no rowForm.create and the form's values do not carry the key, or rowForm.create answered with a row that does not. The grid never adds a row it cannot identify, so nothing is added and the form stays open with the user's values.",
+      "fix": "Give rowForm.create a function that persists the values and returns the row as stored, key included. Or, where the key is known on the client, make it one of the form's fields or pass it in the defaults to openNew.",
+      "snippet": "rowForm: { create: (values) => api.post('/products', values) }   // answers { ...values, sku: 'P-123' }",
+      "docs": "api-detail.html#row-form"
+    },
+    {
+      "id": "rowform:no-fields",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.76.0",
+      "message": "rowForm has no fields to show; the form opened with no controls. Check rowForm.fields, or the grid's columns when fields is absent.",
+      "meaning": "The row form built zero controls: every field named in rowForm.fields resolved to nothing (a blank field name, or fields itself is empty), or, with fields absent, the grid has no columns with a field to show. The form still opens rather than being left unreachable, but there is nothing a Save could ever collect.",
+      "fix": "Name at least one field in rowForm.fields, or give the grid a column with a field when fields is left to default to the grid's own columns.",
+      "docs": "api-detail.html#row-form"
+    },
+    {
+      "id": "rowform:off",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.76.0",
+      "message": "grid.form.openNew() was called on a grid with no row form (rowForm is off, or no renderer is attached); nothing opened.",
+      "meaning": "grid.form.openNew() was called on a grid whose row form is not switched on, or on a headless grid, which has no renderer to draw a form. It returned false and nothing opened.",
+      "fix": "Configure rowForm on the grid (rowForm: true, or an options object) and create it with createGrid rather than createHeadlessGrid.",
+      "docs": "api-detail.html#row-form"
     },
     {
       "id": "scrollToColumn:*",
@@ -5550,6 +5612,61 @@
       "fix": "Pass a deck.gl `Deck` instance (which has `getViewports()`), or leave `viewportFilter` off.",
       "snippet": "bindDeck(grid, { deck: new deck.Deck({ parent, initialViewState, controller: true }), layers, position, viewportFilter: true });",
       "docs": "API.html#deckgl"
+    },
+    {
+      "id": "leaflet:layers",
+      "module": "leaflet",
+      "severity": "warn",
+      "since": "1.76.0",
+      "message": "bindLeaflet: options.layers is not a function; pass (rows, ctx) => L.Layer[] built with your Leaflet. Nothing was bound.",
+      "meaning": "The module imports nothing of Leaflet's, so it cannot build a layer itself: the page supplies a function that turns the grid's rows (or `ctx.features`) into Leaflet layers with its own `L`. `options.layers` was not a function (an array of layers, say), so there is nothing to call when the rows change. Nothing was bound.",
+      "fix": "Pass a function of the rows and a context that returns the layers.",
+      "snippet": "layers: (rows, ctx) => [L.geoJSON(ctx.features)]",
+      "docs": "API.html#leaflet"
+    },
+    {
+      "id": "leaflet:map",
+      "module": "leaflet",
+      "severity": "warn",
+      "since": "1.76.0",
+      "message": "bindLeaflet: options.map has no {methods}(); pass the page's Leaflet map (L.map(...)). Nothing was bound.",
+      "meaning": "The binding adds and removes its layers with the map's `addLayer`/`removeLayer`, listens for `moveend`/`zoomend` with `on`/`off`, and reads the view with `getBounds()`. The object passed as `options.map` lacks the methods named, so it is not a Leaflet `L.Map` (a common slip is passing the map's container element or its id). Nothing was bound: no listener, no layers, no filter.",
+      "fix": "Pass the map itself, as `L.map(...)` returns it.",
+      "snippet": "bindLeaflet(grid, { map: L.map('map').setView([51.5, -0.1], 11), layers, position: { lon: 'lon', lat: 'lat' } });",
+      "docs": "API.html#leaflet"
+    },
+    {
+      "id": "leaflet:over",
+      "module": "leaflet",
+      "severity": "warn",
+      "since": "1.76.0",
+      "message": "bindLeaflet: the map's view holds {count} matching rows, more than its viewportCap of {cap}, and {reason}, so no rows were handed to the layers. Zoom in, narrow the filter, or raise viewportCap.",
+      "meaning": "On a paged pushdown grid, more rows fell inside the map's view than `viewportCap`, and the engine cannot bin them into density cells (a `lon`/`lat` position, or an adapter without the spatial `grid` bucket). A random subset handed over as if it were the view would be the wrong picture, so the layers receive no rows and `ctx.provenance.over` carries the reason.",
+      "fix": "Zoom in until the view holds no more than the cap; narrow the grid's filter; raise `viewportCap`; or place rows by a `geometry` column over an adapter that bins it (`duckdbAdapter({ spatial: true })`).",
+      "snippet": "bindLeaflet(grid, { map, layers, position: { geometry: 'place' }, viewportCap: 50000 });",
+      "docs": "API.html#leaflet"
+    },
+    {
+      "id": "leaflet:position",
+      "module": "leaflet",
+      "severity": "warn",
+      "since": "1.76.0",
+      "message": "bindLeaflet: the grid has no position: {reason}. Nothing was bound.",
+      "meaning": "`options.position` says which column(s) place a row — `{ lon, lat }` or `{ geometry }` — and the binding needs them to fetch the rows in the map's view and to write its viewport filter. It was missing, named neither shape, or named a column the grid does not have (the reason says which). Nothing was bound.",
+      "fix": "Name the grid's own columns: `position: { lon: 'lon', lat: 'lat' }` or `position: { geometry: 'place' }`.",
+      "snippet": "bindLeaflet(grid, { map, layers, position: { geometry: 'place' } });",
+      "docs": "API.html#leaflet"
+    },
+    {
+      "id": "leaflet:selection",
+      "module": "leaflet",
+      "severity": "warn",
+      "since": "1.76.0",
+      "message": "bindLeaflet: row {key} was selected from the map but the grid did not take it: a grid selects nothing unless it is created with selection: 'single' or 'multiple', and a beforeSelect handler can refuse it.",
+      "meaning": "A click on a feature (or `binding.select(key)`) asked the grid to select that row, and afterwards the row was not selected. A grid created without a `selection` option selects nothing, so the click would otherwise do nothing and say nothing; a `beforeSelect` handler that refuses the change has the same effect.",
+      "fix": "Create the grid with `selection: 'single'` (or `'multiple'`), or check the `beforeSelect` handler.",
+      "snippet": "createGrid(el, { rowKey: 'id', selection: 'single', columns, rows });",
+      "docs": "API.html#leaflet"
     }
   ]
 }
