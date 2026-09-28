@@ -9,6 +9,14 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.75.1] - 2026-09-28
+
+### Fixed
+
+- **Picking a saved view froze the browser for 20-30 seconds on a wide grid** (BACKLOG-0001519). On a 444-column x 2,014-row grid, `views.apply` restored the grid's baseline column order one `columns.move` at a time, and every move relaid the whole header and released every mounted cell, so one view switch ran several hundred full column relayouts. A restored `columnOrder` (in `views.apply`, `state.apply`, `state.reset` and undo) is now settled as one reorder before anything is announced, and each column that actually changed position still raises `column:moved` with the same `{ id, to }` payload; `columns.move(id, to)` to the position the column already holds does nothing (no event, no undo entry, no "not movable" warning); column changes inside a transaction relay the grid out once, when the outermost transaction closes; and `views.apply` restores only the baseline sections that differ from the current state. A view produces the same state, `view:applied` payload, report and single undo entry as before.
+
+- **A saved view that only hid or showed columns moved every column it named to the front of the grid** (BACKLOG-0001520). The state `columns` section applied its entries as a display order, so a view carrying `{ id, hidden }` flags for some columns reordered the grid as a side effect. Through `state.apply`, `views.apply` and `state.reset`, the `columns` section now applies widths, visibility, pinning and the rest without touching display order; order changes only through the `columnOrder` section. `grid.columns.apply(list)` is unchanged: the list order is still the display order.
+
 ## [1.75.0] - 2026-09-28
 
 ### Breaking
