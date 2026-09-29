@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.76.0</p>
+    <p class="rail__sub">API reference · v1.77.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -471,6 +471,7 @@
         <a class="rail__sub-link" href="#type-SelectionApi">SelectionApi</a>
         <a class="rail__sub-link" href="#type-FiltersApi">FiltersApi</a>
         <a class="rail__sub-link" href="#type-SortApi">SortApi</a>
+        <a class="rail__sub-link" href="#type-RowOrderApi">RowOrderApi</a>
         <a class="rail__sub-link" href="#type-EditApi">EditApi</a>
         <a class="rail__sub-link" href="#type-ScrollApi">ScrollApi</a>
         <a class="rail__sub-link" href="#type-ExportApi">ExportApi</a>
@@ -528,6 +529,8 @@
         <a class="rail__sub-link" href="#type-Tabs">Tabs</a>
         <a href="#ref-module-layout">The dashboard layout</a>
         <a class="rail__sub-link" href="#type-Layout">Layout</a>
+        <a href="#ref-module-dashboard">Dashboard composition</a>
+        <a class="rail__sub-link" href="#type-Dashboard">Dashboard</a>
         <a href="#ref-module-ai">The AI module</a>
         <a class="rail__sub-link" href="#type-AI">AI</a>
         <a href="#ref-module-mock-socket">The mock socket</a>
@@ -557,7 +560,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.76.0</span>
+      <span class="chip">Version 1.77.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -2184,7 +2187,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.76.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.77.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -2860,6 +2863,7 @@ result.rejected;  <span class="cmt">// [{ operation, id, reason }]</span></code>
     <div class="note"><p><strong>These are batches, not database transactions.</strong> There is no isolation and no all-or-nothing guarantee: partial application with per-row rejection is the defined behaviour, which is why the API is not called a transaction.</p></div>
 
     <p><code>stats()</code> reports <code>held</code> against <code>heldLimit</code>: what the log is carrying now, against what it will carry. <code>rows</code> is a lifetime total of everything that ever arrived and says nothing about memory; these two do. Raise <code>logRows</code> for a deeper scrubber on a grid you have measured, and lower it on a feed of very wide rows.</p>
+    <p><strong><code>stats().dropped</code> is not lost data.</strong> It counts change-log entries trimmed to stay inside <code>heldLimit</code> — the scrubber losing depth on the oldest history — never an update the grid failed to apply. Every row it counts was already applied before its log entry aged out (BACKLOG-0001033).</p>
 
     <h2 id="timeline">grid.timeline</h2>
     <p>Moves the grid back through recent <em>data</em> changes: what a row held a minute ago, before the number moved. It reads the change log rather than the undo history: history records what <em>you</em> did, and on a live grid the question is what the <em>data</em> did.</p>
@@ -4489,6 +4493,7 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">graphqlAdapter</td><td class="desc">Any GraphQL endpoint</td><td class="desc">Configured, not zero-config: GraphQL has no fixed query semantics, so you pass <code>buildQuery</code> to turn the plan into a <code>{ query, variables }</code> operation and <code>parseResponse</code> to read <code>data</code> back into rows and total. Defaults cover an offset/limit list with <code>totalCount</code> and a Relay cursor connection (<code>first</code>/<code>after</code> with <code>pageInfo</code>). The default pushes only the window and the total; declare <code>operators</code> or <code>capabilities</code> for filter/sort only alongside a <code>buildQuery</code> that emits them. A cursor connection is forward-only, so a deep window costs round trips proportional to its offset.</td></tr>
           <tr><td class="name">splunkAdapter</td><td class="desc">Splunk Enterprise 9 and Splunk Cloud</td><td class="desc">Speaks the search REST API v2: dispatches a search job, reads a window from <code>/results</code>, and cancels the job when the grid asks something else. The filter tree becomes an SPL <code>search</code> expression with every value quoted and escaped, a multi-column sort becomes <code>| sort 0</code>, and a time filter becomes the job's own <code>earliest_time</code>/<code>latest_time</code> where Splunk's boundaries map onto the operator exactly. <code>| stats</code> grouping is not pushed and there is no write-back; the grid never holds the token. See <a href="#splunk-options">its options</a>.</td></tr>
           <tr><td class="name">clickhouseAdapter</td><td class="desc">ClickHouse, over its HTTP interface</td><td class="desc">POSTs SQL to <code>{url}/?default_format=JSONEachRow</code> with every filter value as a typed query parameter (<code>{p0:String}</code> beside <code>param_p0=…</code>), never inside the statement. Takes the filter tree, a multi-column sort, <code>LIMIT</code>/<code>OFFSET</code> paging and a <code>count()</code> total; <code>source.aggregate()</code> computes six statistics in the engine, grouped through <code>GROUP BY ROLLUP</code>. Sent <code>readonly=1</code> by default; the grid never holds the credential. See <a href="#clickhouse-options">its options</a>.</td></tr>
+          <tr><td class="name">elasticsearchAdapter</td><td class="desc">Elasticsearch and OpenSearch</td><td class="desc">Speaks <code>POST {index}/_search</code> and <code>_count</code>. The filter tree becomes a Query DSL <code>bool</code> query built as JSON — <code>term</code>/<code>terms</code>, <code>wildcard</code>, <code>range</code>, <code>exists</code>, <code>must_not</code> — never a query string. A multi-column sort writes the grid's <code>null</code> placement as <code>missing</code>; paging is <code>from</code>/<code>size</code> inside the index's result window and <code>search_after</code> over a point in time past it; the count is exact (<code>track_total_hits</code>). <code>source.aggregate()</code> computes six statistics in the engine, grouped through <code>terms</code>. The mapping is read once so text fields go through their <code>.keyword</code> sub-field; the grid never holds the credential. See <a href="#elasticsearch-options">its options</a>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -5244,6 +5249,149 @@ createGrid(host, { source, columns: [...] });</code></pre>
 <span class="kw">const</span> sql = <span class="str">'SELECT * FROM `logs`.`requests` WHERE position(lowerUTF8(toString(`path`)), lowerUTF8({p0:String})) &gt; 0 ORDER BY `id` ASC NULLS LAST LIMIT 2 OFFSET 0'</span>;
 <span class="kw">if</span> (first.sql !== sql) <span class="kw">return</span> first.sql;
 <span class="kw">return</span> `parameter p0=${first.url.searchParams.get(<span class="str">'param_p0'</span>)}, readonly=${first.url.searchParams.get(<span class="str">'readonly'</span>)}, ${page.rows.length} of ${page.total} rows`;</code></pre>
+
+    <h5 id="elasticsearch-options"><code>elasticsearchAdapter</code></h5>
+    <p class="section-note">
+      <strong>Transport.</strong> Elasticsearch and OpenSearch answer the same Query DSL over HTTP, so
+      the adapter needs no client library. A page is one <code>POST {url}/{index}/_search</code> with
+      <code>from</code>, <code>size</code> and <code>track_total_hits: true</code>, so the rows and their
+      exact count come back together. <code>GET {index}/_mapping</code> is read once, before the first
+      request, so the adapter knows which fields are <code>keyword</code>, <code>text</code>, numbers or
+      dates; pass <code>mapping</code> to skip it. <code>index</code> is a name, an alias, a pattern such
+      as <code>logs-*</code> or a comma-separated list, and is refused if it is anything else, because it
+      is written into the request path. Each hit arrives as its <code>_source</code> with its
+      <code>_id</code> beside it, so <code>rowKey: '_id'</code> works for any index.
+    </p>
+    <p class="section-note">
+      <strong>No value is spliced into a string.</strong> The request body is JSON the adapter builds as
+      an object, and every filter value is a JSON value inside it. There is no
+      <code>query_string</code>: a user who types <code>a OR b</code> is searching for that text. The one
+      grammar that reaches the engine is the <code>wildcard</code> pattern of
+      <code>contains</code>/<code>startsWith</code>/<code>endsWith</code>, and a <code>*</code>,
+      <code>?</code> or <code>\</code> the user typed is escaped, so it is a character and not a wildcard.
+      Field names are validated (letters, digits, <code>_</code>, <code>@</code> and <code>-</code> in
+      dot-separated segments) and refused by name otherwise.
+    </p>
+    <p class="section-note">
+      <strong>What pushes down, and how it matches the grid.</strong> A text comparison folds case the way
+      the grid's own filter does, with <code>case_insensitive: true</code>, unless the condition sets
+      <code>caseSensitive</code>. The engines fold A&ndash;Z only, so a case-insensitive value holding a
+      cased letter outside ASCII (<code>Zoë</code>) is pushed and named once
+      (<code>source.elasticsearch.casefold</code>). A <code>text</code> field holds analysed words
+      rather than a whole value, so it is compared through its <code>keyword</code> sub-field (the
+      default dynamic mapping always adds <code>.keyword</code>; a value longer than its
+      <code>ignore_above</code> is not in that sub-field and cannot match). A text field with no keyword
+      sub-field is matched word by word with <code>match_phrase</code> and named once per field
+      (<code>source.elasticsearch.analyzed.*</code>). <code>ne</code>, <code>notIn</code> and
+      <code>notBetween</code> are <code>must_not</code>, which keeps a document with no value, as the
+      grid does. A substring test on a number or a date, and any filter on a <code>nested</code> field,
+      is refused by name rather than sent to fail or to match nothing. <code>matches</code>,
+      <code>notContains</code>, <code>listCount</code> and the quick filter stay with the grid through the
+      ordinary residual path and are named in <code>lastPlan()</code>.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Grid</th><th>Query DSL</th></tr></thead>
+        <tbody>
+          <tr><td class="name">eq / ne</td><td class="desc"><code>term</code> with <code>case_insensitive: true</code> for text, exact for a number, a date or <code>caseSensitive</code>; <code>ne</code> is <code>bool.must_not</code>; <code>null</code> is <code>exists</code></td></tr>
+          <tr><td class="name">gt / gte / lt / lte</td><td class="desc"><code>range</code></td></tr>
+          <tr><td class="name">between / notBetween</td><td class="desc"><code>range</code>, each end's inclusivity read from <code>bounds</code>; <code>notBetween</code> is <code>must_not</code></td></tr>
+          <tr><td class="name">in / notIn</td><td class="desc"><code>terms</code>, or a <code>should</code> of case-insensitive <code>term</code>s for text (<code>terms</code> has no case flag)</td></tr>
+          <tr><td class="name">contains / startsWith / endsWith</td><td class="desc"><code>wildcard</code> over the whole value (<code>*x*</code>, <code>x*</code>, <code>*x</code>) on a keyword field; <code>match_phrase</code>/<code>match_phrase_prefix</code> on a text field with no keyword sub-field</td></tr>
+          <tr><td class="name">blank / notBlank</td><td class="desc"><code>must_not exists</code> or an empty string, and its negation</td></tr>
+          <tr><td class="name">list: hasAny / hasAll / hasNone</td><td class="desc"><code>terms</code>, a <code>filter</code> of <code>term</code>s, <code>must_not terms</code> — declared while the list module is loaded</td></tr>
+          <tr><td class="name">time filters</td><td class="desc"><code>range</code> on the ISO-8601 instant (a <code>Date</code>, epoch milliseconds or an ISO string with a zone), or on a <code>YYYY-MM-DD</code> day</td></tr>
+          <tr><td class="name">sort</td><td class="desc">each column with <code>missing: '_last'</code> ascending and <code>'_first'</code> descending — the grid's rule; a text field sorts by its keyword sub-field, and one without is refused by name with the <code>.keyword</code> hint</td></tr>
+          <tr><td class="name">aggregate()</td><td class="desc"><code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, the document count, and <code>distinct</code> as <code>cardinality</code> — an estimate, near-exact below 40,000 values, and named past it; grouped through nested <code>terms</code> with a <code>missing</code> bucket for documents with no key. A level with more than <code>maxBuckets</code> groups is refused rather than returned short.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note">
+      <strong>Paging past the result window.</strong> An index answers <code>from + size</code> only up
+      to its <code>max_result_window</code> (10,000 by default; tell the adapter yours with
+      <code>maxResultWindow</code>). A page inside it is one <code>_search</code>. A page past it — or the
+      whole result, which the grid asks for when part of the filter stays with it — is counted with
+      <code>_count</code> and read with <code>search_after</code> over a point in time: the adapter opens
+      one, hops to the page's start without fetching documents, reads the page, remembers where each hop
+      ended so scrolling on does not walk again, and closes the point in time as soon as the grid asks a
+      different question. The sort gains a tiebreaker so the walk never repeats or skips a row:
+      <code>_shard_doc</code> on Elasticsearch; on OpenSearch set <code>engine: 'opensearch'</code> (its
+      point-in-time endpoints differ) and <code>tiebreaker</code> to a field unique per document.
+    </p>
+    <p class="section-note">
+      <strong>The grid never holds your credential.</strong> An API key or a user and password go in
+      <code>headers</code> (<code>Authorization: ApiKey …</code> or <code>Basic …</code>); a credential
+      that expires goes in a <code>fetch</code> wrapper, called afresh per request. In production put a
+      proxy of your own in front of the cluster that authenticates your user, adds the credential and
+      forwards only
+      <code>GET {index}/_mapping</code>, <code>POST {index}/_search</code>, <code>POST {index}/_count</code>
+      and the point-in-time calls, and point <code>url</code> at it. A browser that talks to the cluster
+      directly needs <code>http.cors.enabled: true</code>, <code>http.cors.allow-origin</code> set to
+      your page's origin and <code>http.cors.allow-headers</code> including <code>Authorization</code>
+      and <code>Content-Type</code> in <code>elasticsearch.yml</code> (the same settings in
+      <code>opensearch.yml</code>); the JSON body always makes the request preflighted.
+    </p>
+    <p class="section-note">
+      <strong>Errors carry the engine's reason.</strong> A refusal rejects with an <code>Error</code> named
+      <code>ElasticsearchError</code> carrying <code>status</code>, <code>type</code>
+      (<code>index_not_found_exception</code>) and <code>reason</code>, the engine's own text — surfaced
+      by the grid as <code>source:error</code>, never as an empty page. A 401 or 403 is also named once
+      (<code>source.elasticsearch.auth</code>).
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="name">url</td><td class="type">string</td><td class="type">—</td><td class="desc">The cluster, e.g. <code>https://es.example.com:9200</code>, or a proxy path of your own. Required.</td></tr>
+          <tr><td class="name">index</td><td class="type">string</td><td class="type">—</td><td class="desc">An index, alias, pattern (<code>logs-*</code>) or comma-separated list. Required.</td></tr>
+          <tr><td class="name">headers</td><td class="type">Record&lt;string, string&gt;</td><td class="type">{}</td><td class="desc">Sent on every request: where a fixed API key or user and password go.</td></tr>
+          <tr><td class="name">fetch</td><td class="type">typeof fetch</td><td class="type">the global <code>fetch</code></td><td class="desc">Your own fetch: where a credential that expires is refreshed, since it is called afresh per request.</td></tr>
+          <tr><td class="name">engine</td><td class="type">'elasticsearch' | 'opensearch'</td><td class="type">'elasticsearch'</td><td class="desc">Selects the point-in-time endpoints, the one place the two differ for this adapter.</td></tr>
+          <tr><td class="name">mapping</td><td class="type">Record&lt;string, string&gt;</td><td class="type">read from <code>_mapping</code></td><td class="desc">The field types as a flat record — <code>{ msg: 'text', 'msg.keyword': 'keyword', bytes: 'long' }</code> — so the mapping is not read.</td></tr>
+          <tr><td class="name">fields</td><td class="type">string[]</td><td class="type">the whole document</td><td class="desc">The fields each hit's <code>_source</code> is limited to.</td></tr>
+          <tr><td class="name">maxResultWindow</td><td class="type">number</td><td class="type">10000</td><td class="desc">The index's <code>max_result_window</code>: past it, paging switches to <code>search_after</code>.</td></tr>
+          <tr><td class="name">maxBuckets</td><td class="type">number</td><td class="type">10000</td><td class="desc">The most groups one level of a grouped aggregate may return before it is refused as incomplete.</td></tr>
+          <tr><td class="name">tiebreaker</td><td class="type">string</td><td class="type"><code>_shard_doc</code> (Elasticsearch)</td><td class="desc">A field unique per document that makes a walk past the result window total. Required on OpenSearch for that walk.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note">
+      <strong>An executed example.</strong> It drives the suite's mock cluster, which evaluates the
+      Query DSL the adapter sends, so the example shows the exact query and a real answer without a
+      network or a credential. Leave <code>fetch</code> out, and the same adapter talks to your cluster.
+    </p>
+    <pre data-run="js" data-expect="2 of 2 hits, 503 then 500" data-covers="export:elasticsearchAdapter"><code><span class="kw">const</span> { elasticsearchAdapter } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createElasticsearchMock } = <span class="kw">await</span> import('../test/fixtures/elasticsearch-mock.js');
+
+<span class="kw">const</span> cluster = createElasticsearchMock({
+  types: { service: <span class="str">'keyword'</span>, status: <span class="str">'long'</span>, message: <span class="str">'text'</span>, <span class="str">'message.keyword'</span>: <span class="str">'keyword'</span> },
+  docs: [
+    { service: <span class="str">'api'</span>, status: 503, message: <span class="str">'Upstream timeout'</span> },
+    { service: <span class="str">'API'</span>, status: 500, message: <span class="str">'Disk full'</span> },
+    { service: <span class="str">'web'</span>, status: 200, message: <span class="str">'OK'</span> },
+  ],
+});
+<span class="kw">const</span> adapter = elasticsearchAdapter({
+  url: <span class="str">'https://es.example.com:9200'</span>,
+  index: <span class="str">'logs-*'</span>,
+  headers: { Authorization: <span class="str">'ApiKey your-key'</span> },
+  fetch: cluster.fetch, <span class="cmt">// leave out to talk to the cluster</span>
+});
+
+<span class="kw">const</span> page = <span class="kw">await</span> adapter.execute({
+  filters: { op: <span class="str">'and'</span>, conditions: [
+    { col: <span class="str">'service'</span>, op: <span class="str">'eq'</span>, value: <span class="str">'api'</span> },
+    { col: <span class="str">'status'</span>, op: <span class="str">'gte'</span>, value: 500 },
+  ] },
+  sort: [{ col: <span class="str">'status'</span>, dir: <span class="str">'desc'</span> }],
+  range: { start: 0, end: 50 },
+}, {});
+
+<span class="cmt">// The query is JSON: the value is a value, and "api" matches "API" as the grid would.</span>
+<span class="kw">const</span> sent = cluster.calls.find((c) =&gt; c.path.endsWith(<span class="str">'/_search'</span>)).body;
+<span class="kw">const</span> expected = <span class="str">'{"bool":{"filter":[{"term":{"service":{"value":"api","case_insensitive":true}}},{"range":{"status":{"gte":500}}}]}}'</span>;
+<span class="kw">if</span> (JSON.stringify(sent.query) !== expected) <span class="kw">return</span> JSON.stringify(sent.query);
+<span class="kw">return</span> `${page.rows.length} of ${page.total} hits, ${page.rows.map((r) =&gt; r.status).join(<span class="str">' then '</span>)}`;</code></pre>
 
     <h4 id="adapter-auth">Authenticating a remote adapter</h4>
     <p class="section-note">
@@ -9355,6 +9503,196 @@ layout.setLayout(saved);                       <span class="cmt">// the saved ar
 layout.destroy();
 <span class="kw">return</span> [placed, pushed, restored, payload].join('|');</code></pre>
 
+    <h2 id="dashboard">Dashboard composition</h2>
+    <p><code>modules/dashboard</code> describes a dashboard as data. One JSON spec names a <a href="#layout">layout</a>, the panels in it &mdash; a grid, a chart, a KPI panel, a map or static html &mdash; the source each panel reads and the links between them, and <code>createDashboard(el, spec, factories)</code> builds the wired page. <code>dashboard.spec()</code> hands the same spec back, with every window where the user has since dragged it, so a host can store, diff and version a dashboard like any other document. It is a composition layer and nothing more: there is no builder UI, no persistence and no users, and everything it draws is drawn by a module you already have.</p>
+    <pre><code>import { createGrid, createHeadlessGrid } from '@toclocoinc/lattice-grid';
+import { createLayout } from '@toclocoinc/lattice-grid/modules/layout';
+import { createChart } from '@toclocoinc/lattice-grid/modules/charts';
+import { createDashboard } from '@toclocoinc/lattice-grid/modules/dashboard';
+
+const dashboard = createDashboard(document.querySelector('#dash'), {
+  layout: { columns: 2, rows: 2 },
+  sources: { sales: { kind: 'rows', rows, rowKey: 'id' } },
+  panels: [
+    { id: 'table', kind: 'grid', title: 'Sales', source: 'sales', options: { selection: 'multiple' } },
+    { id: 'byRegion', kind: 'chart', source: 'grid:table', options: { type: 'bar', x: 'region', y: 'sales' } },
+  ],
+}, { createGrid, createHeadlessGrid, createLayout, createChart });</code></pre>
+    <p><strong>The viewers are handed in, never imported.</strong> The third argument names the factories the dashboard builds with &mdash; <code>createGrid</code>, <code>createHeadlessGrid</code>, <code>createPushdownSource</code>, <code>createLayout</code>, <code>createChart</code>, <code>createKPI</code>, <code>bindLeaflet</code>, <code>bindDeck</code> &mdash; so the module stays a few kilobytes and carries no second copy of any of them. On a script-tag page any factory not named is found on its own global (<code>LatticeGrid</code>, <code>LatticeGridLayout</code>, <code>LatticeGridKPI</code>, <code>LatticeGridLeaflet</code>, <code>LatticeGridDeck</code>). A panel whose factory is on neither is refused by name and the rest of the dashboard is built; without <code>createLayout</code> nothing is.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Spec key</th><th>What it says</th></tr></thead>
+        <tbody>
+          <tr><td class="name">layout</td><td class="desc">Any <code>createLayout</code> option (<code>columns</code>, <code>rows</code>, <code>gap</code>, <code>compact</code>, <code>movable</code>, &hellip;), handed to the layout as written, plus <code>windows</code>: one entry per panel id with its placement (<code>xPos</code>, <code>yPos</code>, <code>xSize</code>, <code>ySize</code>) and any window option. A panel with no entry is auto-placed; a panel's <code>title</code> names its window when the entry gives none.</td></tr>
+          <tr><td class="name">panels[]</td><td class="desc"><code>{ id, kind, title, source, binding, options }</code>. <code>kind</code> is <code>grid</code>, <code>chart</code>, <code>kpi</code>, <code>map</code> or <code>html</code>. <code>options</code> go to the viewer's own call unchanged &mdash; <code>createGrid</code>, <code>createChart</code>, <code>createKPI</code>, <code>bindLeaflet</code> or <code>bindDeck</code> &mdash; and the dashboard adds only the element and the grid. A <code>map</code> panel draws through a map chart (<code>binding: 'chart'</code>, the default: <code>markermap</code>, <code>choropleth</code>, &hellip;), <code>'leaflet'</code> or <code>'deckgl'</code>; a Leaflet panel's <code>options.map</code> (a deck.gl panel's <code>options.deck</code>) may be a function of the panel's element that makes one. An <code>html</code> panel takes <code>{ html }</code> &mdash; your own markup, set as it is &mdash; or <code>{ text }</code>.</td></tr>
+          <tr><td class="name">sources</td><td class="desc">Named sources: <code>{ kind: 'rows', rows }</code>, <code>{ kind: 'pushdown', adapter, ... }</code> (every other key is a <code>createPushdownSource</code> option), <code>{ kind: 'router', router, predicate, route }</code> (each grid reading it is attached with <code>router.attach(grid, predicate, route)</code>; load the router after the dashboard is built), or <code>{ kind: 'grid', of: '&lt;panel id&gt;' }</code>. Each may carry the <code>columns</code> and <code>rowKey</code> every grid over it is given; a <code>rows</code> source with no columns gets one per key of its first rows. A panel names one as <code>source: '&lt;id&gt;'</code>, or <code>source: 'grid:&lt;panel id&gt;'</code> to view that grid panel's grid.</td></tr>
+          <tr><td class="name">links[]</td><td class="desc"><code>{ from, to, on }</code>: the rows selected in the <code>from</code> grid panel filter the <code>to</code> panel. <code>on</code> is a column both share, or <code>{ from, to }</code> naming each side's column.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>A source is a grid.</strong> A grid panel is the grid over its source. A chart, KPI or map panel over a source gets a headless grid of its own, so two panels on different sources &mdash; or on the same one &mdash; stay independent until a link says otherwise. <code>grid:&lt;panel id&gt;</code> makes a panel a viewer of that panel's grid instead: filter the table and the chart over it narrows, exactly as a chart bound to a grid always has.</p>
+    <p><strong>Links become what already exists.</strong> When both panels' grids are routes of one <a href="#datarouter">Data Router</a>, a link is a <code>router.relate()</code> edge (and <code>on</code> may be the router's own relation function). Otherwise it is a named <code>filters.where()</code> predicate on the target's grid, rewritten on every <code>selection:changed</code> of the source grid and cleared with the selection &mdash; with a pushed-down <code>in</code> condition when the target reads a pushdown engine. Two pushdown sources with no router between them, two different routers, and a relation function without a router are refused by name, with the reason.</p>
+    <p><strong>The AI proposes; you apply.</strong> With an AI callback in the options &mdash; the same <code>ask(payload)</code> <a href="#ai-narrative">createAI</a> takes &mdash; <code>dashboard.propose(prompt, { source })</code> asks for a spec over one source. The model is sent the source's column names and types and the panel kinds this page can draw, never a row unless you pass <code>rows: true</code> (at most <code>maxRows</code>, default 50). The answer is checked against the spec schema and the source's columns: a panel naming a column the source does not have, a kind the page cannot draw or another source is dropped, and each drop is a line in <code>warnings</code>; markup a model put in an <code>html</code> panel is removed. Nothing is built until you call <code>dashboard.apply(spec)</code>. Without a callback, <code>propose</code> declines by name.</p>
+    <p><strong>Views and presentation.</strong> <code>saveView(name)</code> stores the spec and every grid panel's <code>grid.state.get()</code> as one view; <code>applyView(id)</code> &mdash; or a view your application stored &mdash; puts the layout back with <code>layout.setLayout()</code> and each grid's state with <code>grid.state.apply()</code>, rebuilding first when the view's panels differ. <code>present()</code> steps through the panels with the layout's own <code>maximise()</code>; <code>step(by)</code> moves, <code>stopPresenting()</code> puts the dashboard back.</p>
+    <p><strong>Refused by name.</strong> Every refusal is a line in <code>dashboard.problems()</code> (<code>{ id, path, message }</code>) and a console warning under a catalogued id: <code>dashboard:panel:&lt;id&gt;</code> for a panel that was not built, or was built but its viewer refused one of its options (heard from the viewer's own <code>[lattice]</code> warning, which quotes the option); <code>dashboard:link:&lt;from&gt;-&gt;&lt;to&gt;</code>; <code>dashboard:spec:&lt;path&gt;</code> for any other problem the validator finds; and <code>dashboard:spec</code>, <code>dashboard:el</code>, <code>dashboard:layout</code> when nothing could be built. <code>validateDashboardSpec(spec)</code> runs the same checks without building anything. <code>destroy()</code> removes the links, every viewer, grid and router attachment the dashboard made, and the layout.</p>
+    <div class="example">
+      <p class="example__label">Five panels from one spec, a chart narrowing with its grid, spec() rebuilding the same dashboard, and destroy</p>
+      <pre data-run="js" data-expect="5 | 0 | north | true | 0" data-covers="export:createDashboard config:DashboardOptions.createGrid config:DashboardOptions.createHeadlessGrid config:DashboardOptions.createLayout config:DashboardOptions.createChart config:DashboardOptions.createKPI method:dashboard.panels method:dashboard.problems method:dashboard.panel method:dashboard.spec method:dashboard.apply method:dashboard.destroy"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid, createHeadlessGrid } = await import('../packages/dom/src/index.js');
+const { createLayout } = await import('../packages/modules/layout/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+await import('../packages/modules/chart-markermap/index.js');
+const { createKPI } = await import('../packages/modules/kpi/index.js');
+const { createDashboard } = await import('../packages/modules/dashboard/index.js');
+
+const { document, root } = createTestDom({ width: 1200, height: 800 });
+const el = document.createElement('div');
+root.appendChild(el);
+
+const rows = Array.from({ length: 12 }, (_, i) =&gt; ({
+  id: 'r' + i, region: ['north', 'south', 'east'][i % 3], sales: 10 * (i + 1),
+  lon: -1 + i * 0.1, lat: 50 + i * 0.1,
+}));
+
+// Five panels, one source. The factories are handed in (on a script-tag page
+// they are found on LatticeGrid, LatticeGridLayout and LatticeGridKPI).
+const spec = {
+  layout: { columns: 3, rows: 2 },
+  sources: { sales: { kind: 'rows', rows, rowKey: 'id' } },
+  panels: [
+    { id: 'table', kind: 'grid', title: 'Sales', source: 'sales', options: { selection: 'multiple' } },
+    { id: 'byRegion', kind: 'chart', source: 'grid:table', options: { type: 'bar', x: 'region', y: 'sales' } },
+    { id: 'total', kind: 'kpi', source: 'grid:table', options: { tiles: [{ id: 'sum', field: 'sales', aggregation: 'sum' }] } },
+    { id: 'where', kind: 'map', source: 'sales', options: { type: 'markermap', lon: 'lon', lat: 'lat' } },
+    { id: 'note', kind: 'html', options: { text: 'Provisional figures.' } },
+  ],
+};
+const dashboard = createDashboard(el, spec, { createGrid, createHeadlessGrid, createLayout, createChart, createKPI });
+const seen = [dashboard.panels().length, dashboard.problems().length];
+
+// The chart views the table's grid, so filtering the table narrows it.
+dashboard.panel('table').grid.filters.set({ col: 'region', op: 'eq', value: 'north' });
+flushFrames();                                        // the next frame
+seen.push(dashboard.panel('byRegion').viewer.data().categories.join('+'));
+
+// spec() is what is on screen, placements included; it rebuilds the same dashboard.
+const once = dashboard.spec();
+dashboard.apply(once);
+seen.push(JSON.stringify(dashboard.spec()) === JSON.stringify(once));
+
+dashboard.destroy();                                 // every viewer, grid and window
+seen.push(el.children.length);
+return seen.join(' | ');                             // 5 | 0 | north | true | 0</code></pre>
+    </div>
+    <div class="example">
+      <p class="example__label">Mixed sources, the Leaflet and deck.gl bindings, a selection filtering a chart, and a link refused by name</p>
+      <pre data-run="js" data-expect="true | 6 | south | links[1] | panels[0].kind" data-covers="export:validateDashboardSpec config:DashboardOptions.createPushdownSource config:DashboardOptions.bindLeaflet config:DashboardOptions.bindDeck"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid, createHeadlessGrid, createPushdownSource } = await import('../packages/dom/src/index.js');
+const { createLayout } = await import('../packages/modules/layout/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+const { bindLeaflet } = await import('../packages/modules/leaflet/index.js');
+const { bindDeck } = await import('../packages/modules/deckgl/index.js');
+const { createDashboard, validateDashboardSpec } = await import('../packages/modules/dashboard/index.js');
+
+const { document, root } = createTestDom({ width: 1200, height: 800 });
+const el = document.createElement('div');
+root.appendChild(el);
+const rows = Array.from({ length: 12 }, (_, i) =&gt; ({
+  id: 'r' + i, region: ['north', 'south', 'east'][i % 3], sales: 10 * (i + 1), lon: -1 + i * 0.1, lat: 50 + i * 0.1,
+}));
+// Two engines with no router between them: stand-ins for two duckdbAdapter()s.
+const engine = () =&gt; ({ capabilities: { filter: 'tree' }, execute: async () =&gt; ({ rows: [], total: 0 }) });
+// Stand-ins for the page's L.map and deck.gl Deck.
+const map = { addLayer() {}, removeLayer() {}, on() {}, off() {},
+  getBounds: () =&gt; ({ getWest: () =&gt; -180, getSouth: () =&gt; -85, getEast: () =&gt; 180, getNorth: () =&gt; 85 }) };
+const deck = { setProps() {} };
+
+const spec = {
+  sources: {
+    sales: { kind: 'rows', rows, rowKey: 'id' },
+    east: { kind: 'pushdown', adapter: engine(), rowKey: 'id', columns: [{ field: 'id' }, { field: 'region' }] },
+    west: { kind: 'pushdown', adapter: engine(), rowKey: 'id', columns: [{ field: 'id' }, { field: 'region' }] },
+  },
+  panels: [
+    { id: 'table', kind: 'grid', source: 'sales', options: { selection: 'multiple' } },
+    { id: 'chart', kind: 'chart', source: 'sales', options: { type: 'bar', x: 'region', y: 'sales' } },
+    { id: 'leaf', kind: 'map', binding: 'leaflet', source: 'sales', options: { map, layers: () =&gt; [], position: { lon: 'lon', lat: 'lat' } } },
+    { id: 'gl', kind: 'map', binding: 'deckgl', source: 'sales', options: { deck, layers: () =&gt; [], position: { lon: 'lon', lat: 'lat' } } },
+    { id: 'a', kind: 'grid', source: 'east' },
+    { id: 'b', kind: 'grid', source: 'west' },
+  ],
+  links: [
+    { from: 'table', to: 'chart', on: 'region' },    // the table's selection filters the chart
+    { from: 'a', to: 'b', on: 'region' },            // refused: two engines, no shared router
+  ],
+};
+const seen = [validateDashboardSpec(spec).ok];
+const dashboard = createDashboard(el, spec, {
+  createGrid, createHeadlessGrid, createPushdownSource, createLayout, createChart, bindLeaflet, bindDeck,
+});
+seen.push(dashboard.panels().length);
+
+dashboard.panel('table').grid.selection.set(['r1']);   // a south row
+flushFrames();                                        // the next frame
+seen.push(dashboard.panel('chart').viewer.data().categories.join('+'));
+seen.push(dashboard.problems().map((p) =&gt; p.path).join(', '));   // dashboard:link:a-&gt;b, at links[1]
+
+// The validator names every problem by path, without building anything.
+seen.push(validateDashboardSpec({ panels: [{ id: 'x', kind: 'gauge' }] }).problems[0].path);
+dashboard.destroy();
+return seen.join(' | ');   // true | 6 | south | links[1] | panels[0].kind</code></pre>
+    </div>
+    <div class="example">
+      <p class="example__label">A proposal over a source, checked and applied; a view saved and restored; a presentation stepped</p>
+      <pre data-run="js" data-expect="id,region,sales | 2 | 1 | 1 | 4 | byRegion" data-covers="config:DashboardOptions.ai method:dashboard.propose method:dashboard.saveView method:dashboard.views method:dashboard.applyView method:dashboard.present method:dashboard.step method:dashboard.stopPresenting"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid, createHeadlessGrid } = await import('../packages/dom/src/index.js');
+const { createLayout } = await import('../packages/modules/layout/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+const { createDashboard } = await import('../packages/modules/dashboard/index.js');
+
+const { document, root } = createTestDom({ width: 1200, height: 800 });
+const el = document.createElement('div');
+root.appendChild(el);
+const rows = Array.from({ length: 12 }, (_, i) =&gt; ({
+  id: 'r' + i, region: ['north', 'south', 'east'][i % 3], sales: 10 * (i + 1),
+}));
+
+// The same ask() createAI takes. It sees the columns and the panel kinds, never
+// the rows. A stand-in model answers with a table, a chart and a column that
+// does not exist.
+let asked = null;
+const ask = async (payload) =&gt; {
+  asked = payload.schema;
+  return { structured: { panels: [
+    { id: 'top', kind: 'grid', source: 'sales', options: { selection: 'single' } },
+    { id: 'byRegion', kind: 'chart', source: 'grid:top', options: { type: 'bar', x: 'region', y: 'sales' } },
+    { id: 'trend', kind: 'chart', source: 'sales', options: { type: 'line', x: 'month', y: 'sales' } },
+  ] } };
+};
+const dashboard = createDashboard(el, { sources: { sales: { kind: 'rows', rows, rowKey: 'id' } }, panels: [] },
+  { createGrid, createHeadlessGrid, createLayout, createChart, ai: { ask } });
+
+const { spec, warnings } = await dashboard.propose('sales by region and a table', { source: 'sales' });
+const seen = [asked.columns.map((c) =&gt; c.id).join(','), spec.panels.length, warnings.length];  // 'trend' named no column
+dashboard.apply(spec);                                  // accepted: now it is built
+flushFrames();
+
+// A view is the spec plus every grid panel's state.
+dashboard.panel('top').grid.filters.set({ col: 'region', op: 'eq', value: 'east' });
+const view = dashboard.saveView('East only');
+dashboard.panel('top').grid.filters.clear();
+dashboard.applyView(view.id);
+seen.push(dashboard.views().length, dashboard.panel('top').grid.rows.matchCount());
+
+// Presentation steps through the panels, each filling the dashboard.
+dashboard.present();
+dashboard.step();
+seen.push(dashboard.layout.maximised());
+dashboard.stopPresenting();
+dashboard.destroy();
+return seen.join(' | ');                              // id,region,sales | 2 | 1 | 1 | 4 | byRegion</code></pre>
+    </div>
+
     <h2 id="mocksocket">The mock socket</h2>
     <p><code>modules/mock-socket</code> is a serverless stand-in for a live <code>WebSocket</code> feed, for building and demonstrating a real-time UI with <strong>no backend</strong>. <code>MockWebSocket</code> presents the same surface as the browser's <code>WebSocket</code> &mdash; the same <code>readyState</code> and state constants, the same <code>onopen</code>, <code>onmessage</code>, <code>onclose</code> and <code>onerror</code>, <code>addEventListener</code>, <code>send</code> and <code>close</code> &mdash; so the code that reads it does not change when it is swapped for a real one. It fires an initial snapshot the moment it opens, then a stream of deltas on a timer, all from a generator you hand it. It is a dev and test utility: optional, imports nothing from the grid, and is never pulled into the core bundle. It pairs naturally with the data router (one mock stream, partitioned to many grids), but depends on it no more than a real socket does.</p>
     <pre><code>import { MockWebSocket, opsFeed } from '@toclocoinc/lattice-grid/modules/mock-socket';
@@ -10705,6 +11043,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">selection</td><td class="type"><a href="#type-SelectionApi">SelectionApi</a></td><td class="desc">What is selected, and the range the user has marked. <small>(read-only)</small></td></tr>
           <tr><td class="name">filters</td><td class="type"><a href="#type-FiltersApi">FiltersApi</a></td><td class="desc">The filter tree, however it was set. <small>(read-only)</small></td></tr>
           <tr><td class="name">sort</td><td class="type"><a href="#type-SortApi">SortApi</a></td><td class="desc">The sort, in priority order. <small>(read-only)</small></td></tr>
+          <tr><td class="name">rowOrder</td><td class="type"><a href="#type-RowOrderApi">RowOrderApi</a></td><td class="desc">A manual row order that overrides the sort, entered and left explicitly. <small>(read-only)</small></td></tr>
           <tr><td class="name">edit</td><td class="type"><a href="#type-EditApi">EditApi</a></td><td class="desc">Editing sessions: starting, committing and cancelling them. <small>(read-only)</small></td></tr>
           <tr><td class="name">scroll</td><td class="type"><a href="#type-ScrollApi">ScrollApi</a></td><td class="desc">Where the viewport is, and moving it. <small>(read-only)</small></td></tr>
           <tr><td class="name">export</td><td class="type"><a href="#type-ExportApi">ExportApi</a></td><td class="desc">CSV, Excel and clipboard. <small>(read-only)</small></td></tr>
@@ -10865,7 +11204,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">text</td><td class="type">(key: string, colId: string): string</td><td class="desc"><code>key: string</code><br><code>colId: string</code></td><td class="type"><code>string</code></td><td class="desc">A cell's display text — the value after the column's format and any lookup label, exactly as the cell shows it.</td></tr>
           <tr><td class="name">values</td><td class="type">(key: string): Record&lt;string, unknown&gt;</td><td class="desc"><code>key: string</code></td><td class="type"><code>Record&lt;string, unknown&gt;</code></td><td class="desc">Every column's resolved value for one row, keyed by column id. Columns the current permissions hide from reading are left out.</td></tr>
           <tr><td class="name">refresh</td><td class="type">(opts?: { rows?: string[]; columns?: string[]; force?: boolean }): void</td><td class="desc"><code>opts?: { rows?: string[]; columns?: string[]; force?: boolean }</code></td><td class="type"><code>void</code></td><td class="desc">Repaint without re-running the sort, filter and group stages, discarding the memoised `compute` results for the named rows and columns (all of them when none are named). `force: true` also recomputes and rewrites pure computed values already materialised into the store — the call to make when an answer the grid cannot see has changed, such as a lookup table that has just arrived.</td></tr>
-          <tr><td class="name">move</td><td class="type">(key: string, to: number): { moved: boolean; from: number; to: number; reason?: string }</td><td class="desc"><code>key: string</code><br><code>to: number</code></td><td class="type"><code>{ moved: boolean; from: number; to: number; reason?: string }</code></td><td class="desc">Move a row to another position in the data. Refuses, with a reason, while a sort, filter or grouping is active.</td></tr>
+          <tr><td class="name">move</td><td class="type">(key: string, to: number, opts?: { origin?: 'user' | 'ai' }): { moved: boolean; from: number; to: number; reason?: string; detail?: string; regrouped?: <a href="#type-RowRegroupChange">RowRegroupChange</a>[]; }</td><td class="desc"><code>key: string</code><br><code>to: number</code><br><code>opts?: { origin?: 'user' | 'ai' }</code></td><td class="type"><code>{ moved: boolean; from: number; to: number; reason?: string; detail?: string; regrouped?: <a href="#type-RowRegroupChange">RowRegroupChange</a>[]; }</code></td><td class="desc">Move a row to another position in the data. Refuses, with a reason, while a sort, filter or grouping is active. In a manual order (`rowOrder`) it rewrites that order instead of the data, within a group too. Under a grouping with `rowReorder.betweenGroups`, a row moved onto another group's row or heading joins that group: its grouping values are written through `beforeEdit` as one undoable change, and `regrouped` lists them. A veto is `reason: 'vetoed'`, with the handler's reason as `detail`. `origin` defaults to `'user'`.</td></tr>
           <tr><td class="name">groupHeadings</td><td class="type">(index: number): <a href="#type-Row">Row</a>[]</td><td class="desc"><code>index: number</code></td><td class="type"><code><a href="#type-Row">Row</a>[]</code></td><td class="desc">The group headings enclosing a display row, outermost first. Empty when the grid is not grouped.</td></tr>
           <tr><td class="name">leavesOf</td><td class="type">(key: string): <a href="#type-Row">Row</a>[]</td><td class="desc"><code>key: string</code></td><td class="type"><code><a href="#type-Row">Row</a>[]</code></td><td class="desc">The leaf rows beneath a group heading: the members it counts in `leafCount`, as rows, so you can roll up a field the grid was never told to total. Filtered members in display order. Computed per call, so call it when you draw a group row rather than in a loop over every row.</td></tr>
           <tr><td class="name">expand</td><td class="type">(key: string, deep?: boolean): void</td><td class="desc"><code>key: string</code><br><code>deep?: boolean</code></td><td class="type"><code>void</code></td><td class="desc">Open a group or tree row. Note that `deep` expands *every* group in the grid, not only this row's descendants.</td></tr>
@@ -11051,6 +11390,25 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-RowOrderApi">RowOrderApi</h4>
+    <p class="section-note">A manual row order: the rows follow an explicit list of keys instead of the sort. Entering one keeps the rows where the sort put them and clears the sort; any sort ends it; `exit()` returns to the sort it was entered from. Carried by `state.get()` as `rowOrder`, and every change to it is announced by `state:changed` with `rowOrder` among its `sections`.</p>
+    <h5 id="type-RowOrderApi-properties">Properties</h5>
+    <p class="section-note">No properties.</p>
+    <h5 id="type-RowOrderApi-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">manual</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">Whether a manual order is in force.</td></tr>
+          <tr><td class="name">get</td><td class="type">(): string[] | null</td><td class="desc">&mdash;</td><td class="type"><code>string[] | null</code></td><td class="desc">The row keys in order, or null when the rows follow the sort.</td></tr>
+          <tr><td class="name">enter</td><td class="type">(opts?: { origin?: string }): <a href="#type-RowOrderResult">RowOrderResult</a> | Promise&lt;<a href="#type-RowOrderResult">RowOrderResult</a>&gt;</td><td class="desc"><code>opts?: { origin?: string }</code></td><td class="type"><code><a href="#type-RowOrderResult">RowOrderResult</a> | Promise&lt;<a href="#type-RowOrderResult">RowOrderResult</a>&gt;</code></td><td class="desc">Leave the sort for a manual order, keeping the rows in place. Clearing a sort is a sort change, so `beforeSort` can veto it.</td></tr>
+          <tr><td class="name">set</td><td class="type">(keys: string[], opts?: { origin?: string }): <a href="#type-RowOrderResult">RowOrderResult</a> | Promise&lt;<a href="#type-RowOrderResult">RowOrderResult</a>&gt;</td><td class="desc"><code>keys: string[]</code><br><code>opts?: { origin?: string }</code></td><td class="type"><code><a href="#type-RowOrderResult">RowOrderResult</a> | Promise&lt;<a href="#type-RowOrderResult">RowOrderResult</a>&gt;</code></td><td class="desc">Put the rows in this order, entering a manual order if needed. Rows it does not name follow the named ones, in data order.</td></tr>
+          <tr><td class="name">exit</td><td class="type">(): <a href="#type-RowOrderResult">RowOrderResult</a> | Promise&lt;<a href="#type-RowOrderResult">RowOrderResult</a>&gt;</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-RowOrderResult">RowOrderResult</a> | Promise&lt;<a href="#type-RowOrderResult">RowOrderResult</a>&gt;</code></td><td class="desc">Return to the sort the manual order was entered from, through `sort.set`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-RowOrderApi-events">Events</h5>
+    <p class="section-note">No events.</p>
     <h4 id="type-EditApi">EditApi</h4>
     <h5 id="type-EditApi-properties">Properties</h5>
     <div class="table-wrap">
@@ -11900,6 +12258,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">checkOptions</td><td class="type">(options: unknown): boolean</td><td class="desc"><code>options: unknown</code></td><td class="type"><code>boolean</code></td><td class="desc">Ask whether an options object keeps changing identity without its contents changing — the framework-wrapper mistake that rebuilds the grid on every parent render. True means the identity churned.</td></tr>
           <tr><td class="name">record</td><td class="type">(kind: string, detail: { rows?: number; ms?: number; worker?: boolean }): void</td><td class="desc"><code>kind: string</code><br><code>detail: { rows?: number; ms?: number; worker?: boolean }</code></td><td class="type"><code>void</code></td><td class="desc">Record an operation your own code performed — its name, the rows it touched, how long it took — so it appears alongside the grid's in `operations()`.</td></tr>
           <tr><td class="name">render</td><td class="type">(cause: string, phases?: Record&lt;string, number&gt;): void</td><td class="desc"><code>cause: string</code><br><code>phases?: Record&lt;string, number&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Record a repaint and what caused it, with optional per-phase timings. The DOM layer calls this; a custom renderer can too.</td></tr>
+          <tr><td class="name">frame</td><td class="type">(at?: number): void</td><td class="desc"><code>at?: number</code></td><td class="type"><code>void</code></td><td class="desc">Record one animation-frame tick for the `renders().frames` health graph. The DOM layer calls this every real `requestAnimationFrame`, whether or not that frame painted anything; a render only fires on invalidation, so the gap between renders is a flush interval, not a frame time. `at` is the timestamp `requestAnimationFrame` passed its callback.</td></tr>
           <tr><td class="name">recordEvents</td><td class="type">(on: boolean, limit?: number): void</td><td class="desc"><code>on: boolean</code><br><code>limit?: number</code></td><td class="type"><code>void</code></td><td class="desc">Off by default; recording times every emit.</td></tr>
           <tr><td class="name">eventLog</td><td class="type">(): Array&lt;{ type: string; origin: string; listeners: number; payload: Record&lt;string, string&gt;; at: number; ms: number }&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Array&lt;{ type: string; origin: string; listeners: number; payload: Record&lt;string, string&gt;; at: number; ms: number }&gt;</code></td><td class="desc">The recorded events, oldest first, once `recordEvents(true)` has been called. Empty otherwise.</td></tr>
           <tr><td class="name">clearEventLog</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Forget the recorded events while leaving recording switched on.</td></tr>
@@ -12184,7 +12543,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">rangeChart</td><td class="type">| boolean | ((grid: <a href="#type-Grid">Grid</a>, range: <a href="#type-CellRange">CellRange</a>) =&gt; void) | { onChart?: (grid: <a href="#type-Grid">Grid</a>, range: <a href="#type-CellRange">CellRange</a>) =&gt; void }</td><td class="desc">Chart a selected cell range — the spreadsheet "chart this selection" gesture. Off by default, so a grid opts in. The DOM layer draws no charts itself — the charts module is optional and loaded by the host — so this is where the host wires the two together: a function, or an object carrying `onChart`, is called with the grid and the selected range when the reader chooses "Chart selection" from the cell menu. The handler typically calls `chartRange` from `lattice-grid/modules/charts`. `true` offers the item and emits nothing extra; supply a handler to have it actually draw. <small>(optional)</small></td></tr>
           <tr><td class="name">shortcuts</td><td class="type">boolean</td><td class="desc">The `?` keyboard shortcut overlay. `false` suppresses it, for a host that wants `?` for itself. Default true. <small>(optional)</small></td></tr>
           <tr><td class="name">find</td><td class="type">boolean | <a href="#type-FindConfig">FindConfig</a></td><td class="desc">The in-grid find bar (BACKLOG-0001018): Ctrl+F / Cmd+F with focus in the grid opens it; typing highlights every matching cell in place without filtering a row away; Enter and Shift+Enter step through the matches. `false` removes the bar and its shortcut; the `grid.find` API still works. Default true. <small>(optional)</small></td></tr>
-          <tr><td class="name">rowReorder</td><td class="type">boolean | { column?: string }</td><td class="desc">Let a user reorder rows by dragging a handle, or with Alt+Shift+Up/Down. `true` puts the handle in the first visible column; `{ column }` names a different one. The move reorders your data and emits `row:moved`; persisting it is yours, and `rows.data()` afterwards is the new order. Refused, with a reason announced, while a sort, filter or grouping is active, the position a row is dropped at has no single meaning in the underlying order then. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowReorder</td><td class="type">boolean | <a href="#type-RowReorderOptions">RowReorderOptions</a></td><td class="desc">Let a user reorder rows by dragging a handle, or with Alt+Shift+Up/Down. `true` puts the handle in the first visible column; `{ column }` names a different one. The move reorders your data and emits `row:moved`; persisting it is yours, and `rows.data()` afterwards is the new order. Refused, with a reason announced, while a sort, filter or grouping is active, the position a row is dropped at has no single meaning in the underlying order then. Two opt-ins give such a drop a meaning. `manualOrder: true` draws a Manual order button in the handle column's heading, also bound to Alt+Shift+M: it leaves the sort for an explicit order the rows keep (see `grid.rowOrder`), and pressing it again returns to the sort. `betweenGroups: true` lets a row dropped on another group join it, which writes its grouping values through `beforeEdit`, vetoable and undoable. A filter still refuses every move. <small>(optional)</small></td></tr>
           <tr><td class="name">rowTransfer</td><td class="type">boolean | { send?: boolean; receive?: boolean; mode?: <a href="#type-RowTransferMode">RowTransferMode</a>; group?: string; }</td><td class="desc">Let rows be dragged out of this grid, into it, or both. Off by default: rows leaving a grid is a data change a host has to want, and a mis-drag that silently removed one has no gesture a user would think to undo. `send` and `receive` are both on when the option is present, so one-way is expressed by turning off the direction you do not want, a source grid is `{ receive: false }` and a target is `{ send: false }`. `mode: 'copy'` leaves the row where it was. `group` restricts exchange to grids sharing the same name, so two unrelated grids on a page do not accept each other's rows. The source needs `rowReorder` as well, since that is what draws the handle a drag starts from. <small>(optional)</small></td></tr>
           <tr><td class="name">alignedGrids</td><td class="type">unknown[]</td><td class="desc">Other grids to stay column-aligned with. Column widths, order, visibility and pinning are shared, and horizontal scrolling moves them together. Sort, filters, selection, grouping and the rows themselves stay independent: sharing those would make one grid with extra steps rather than two aligned ones. Declared on the grid created last, since it is the only one that can name the others; the link is peer-based once made. <small>(optional)</small></td></tr>
           <tr><td class="name">stickyGroupHeaders</td><td class="type">boolean | number | { depth?: number }</td><td class="desc">Keep the enclosing group headings pinned above the viewport while scrolling inside a group. Off by default — a deliberate product default; sticky group headers are opt-in. `true` turns it on, stacking at most two; a number, or `{ depth }`, sets how many may stack: each costs a row of viewport, so a deep grouping would otherwise spend the screen describing itself. `false` is off, the same as leaving it unset. <small>(optional)</small></td></tr>
@@ -12256,6 +12615,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">allowGroup</td><td class="type">boolean</td><td class="desc">Whether the user may group by this column from the interface. <small>(optional)</small></td></tr>
           <tr><td class="name">allowPivot</td><td class="type">boolean</td><td class="desc">Whether the user may pivot on it. <small>(optional)</small></td></tr>
           <tr><td class="name">allowTotal</td><td class="type">boolean</td><td class="desc">Whether the user may put a total on it. <small>(optional)</small></td></tr>
+          <tr><td class="name">diff</td><td class="type">boolean</td><td class="desc">Whether this column takes part in diff/audit mode (`GridConfig.diff`). Defaults to `true` for a stored column (one with `field`) and `false` for a computed one (`value.compute`), because comparing a computed column's before/after needs a real row shape on both sides and the snapshot side rarely has one. Set `true` on a computed column to opt it in — it is then compared on its computed value, read against the snapshot row for "before" — or `false` on a stored column to opt it out of the diff entirely (BACKLOG-0001540). <small>(optional)</small></td></tr>
           <tr><td class="name">nullable</td><td class="type">boolean</td><td class="desc">Whether an empty value is a legitimate value rather than a gap. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -12688,6 +13048,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">quick</td><td class="type">string</td><td class="desc">The quick-filter text. Absent when there was none. <small>(optional)</small></td></tr>
           <tr><td class="name">quickMode</td><td class="type"><a href="#type-QuickFilterMode">QuickFilterMode</a> <small class="literals">'contains' | 'words' | 'fuzzy' | 'regex'</small></td><td class="desc">How the quick filter matched. Saved with the text and only when it is not the default, because a view restored as `contains` when it was saved as `words` or `regex` shows a different set of rows than the one it captured. <small>(optional)</small></td></tr>
           <tr><td class="name">sort</td><td class="type"><a href="#type-SortEntry">SortEntry</a>[]</td><td class="desc">The sort entries that were in force, outermost first. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowOrder</td><td class="type">{ keys: string[]; sort: <a href="#type-SortEntry">SortEntry</a>[] }</td><td class="desc">The manual row order, present only while one is in force: the row keys in order, and the sort `rowOrder.exit()` returns to. <small>(optional)</small></td></tr>
           <tr><td class="name">group</td><td class="type">string[]</td><td class="desc">The ids of the columns the rows were grouped by, outermost first. <small>(optional)</small></td></tr>
           <tr><td class="name">pivot</td><td class="type">{ enabled: boolean; columns: string[] }</td><td class="desc">Whether the grid was in pivot mode, and the columns it pivoted on. <small>(optional)</small></td></tr>
           <tr><td class="name">pivotView</td><td class="type">{ rowsCollapsed: string[]; columnsCollapsed: string[] }</td><td class="desc">The pivot presentation's collapse state (§10, BACKLOG-0000738): which row-axis and column-axis nodes are collapsed. Absent when the matrix is fully expanded, and tolerated as "expand all" when applied. <small>(optional)</small></td></tr>
@@ -12902,6 +13263,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">shortcut</td><td class="type">boolean</td><td class="desc">Bind Ctrl+F (Cmd+F on a Mac) while focus is in the grid. The browser's own find is untouched while focus is anywhere else on the page. Default true. <small>(optional)</small></td></tr>
           <tr><td class="name">debounce</td><td class="type">number</td><td class="desc">Milliseconds of typing quiet before the bar searches. Default 120. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RowReorderOptions">RowReorderOptions</h4>
+    <p class="section-note">The `rowReorder` option's object form.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">The column that carries the drag handle. The first visible one when omitted. <small>(optional)</small></td></tr>
+          <tr><td class="name">manualOrder</td><td class="type">boolean</td><td class="desc">Draw a Manual order button in the handle column's heading, bound to Alt+Shift+M as well, that enters and leaves a manual row order. Default false. <small>(optional)</small></td></tr>
+          <tr><td class="name">betweenGroups</td><td class="type">boolean</td><td class="desc">Under a grouping, let a row dropped on another group join it by writing its grouping values through `beforeEdit`. The grouping column has to be editable. Default false. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -14333,17 +14706,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">key</td><td class="type">string</td><td class="desc">The key of the row being moved.</td></tr>
           <tr><td class="name">from</td><td class="type">number</td><td class="desc">The display index it is at.</td></tr>
           <tr><td class="name">to</td><td class="type">number</td><td class="desc">The display index it would take.</td></tr>
+          <tr><td class="name">regrouped</td><td class="type"><a href="#type-RowRegroupChange">RowRegroupChange</a>[]</td><td class="desc">The grouping values it would be given, when the move takes it into another group. `beforeEdit` is asked as well, as for any edit. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
     <h4 id="type-BeforeRowReceiveEvent">BeforeRowReceiveEvent</h4>
-    <p class="section-note">The `beforeRowReceive` event (BACKLOG-0001225): a row dragged from another grid is about to be inserted into this one. Fires on the **receiving** grid, before the insert, with the row under the pointer named — so a drop that means "assign this to that" can be recorded by the host and the insert stopped with `preventDefault(reason)`. A veto leaves the source grid untouched: the row stays where it was, and neither `row:sent` nor `row:copied` fires there. The source removes its row only after the target has admitted it, and a veto is a refusal to admit. The paired `rowReceive:cancelled` carries the same context plus the reason. Like every {@link BeforeEvent}, the handler may be `async`; the insert is held until it settles, and is cancelled as `'stale'` (BACKLOG-0001242) if the source row is gone by then, or if the row under the pointer is gone or has moved to a different index — `at` names a slot as "before `overKey`", and once that is no longer where `overKey`'s row sits, `at` is a stale index into a list that changed while the handler was thinking, not the slot the drop meant. `overKey: null` (the drop landed on no row) has no row to drift against and is never stale on that account.</p>
+    <p class="section-note">The `beforeRowReceive` event (BACKLOG-0001225): a row dragged from another grid is about to be inserted into this one. Fires on the **receiving** grid, before the insert, with the row under the pointer named — so a drop that means "assign this to that" can be recorded by the host and the insert stopped with `preventDefault(reason)`. A veto leaves the source grid untouched: the row stays where it was, and neither `row:sent` nor `row:copied` fires there. The source removes its row only after the target has admitted it, and a veto is a refusal to admit. The paired `rowReceive:cancelled` carries the same context plus the reason. Like every {@link BeforeEvent}, the handler may be `async`; the insert is held until it settles, and is cancelled as `'stale'` (BACKLOG-0001242) if the source row is gone by then, or if the row under the pointer is gone or has moved to a different index — `at` names a slot as "before `overKey`", and once that is no longer where `overKey`'s row sits, `at` is a stale index into a list that changed while the handler was thinking, not the slot the drop meant. `overKey: null` (the drop landed on no row) has no row to drift against and is never stale on that account — an append's intent, "put it at the end", stays satisfiable regardless of what else happened, so instead `at` is re-resolved to the target's row count at the moment the insert actually runs (BACKLOG-0001249), and the row still lands at the true end.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">data</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">The row about to be inserted: a shallow copy of the source row's data, and the very object that is inserted if no handler vetoes, so a change made to it here lands with the row.</td></tr>
-          <tr><td class="name">at</td><td class="type">number</td><td class="desc">The display index the row would be inserted at: the index of the row under the pointer, or `rows.count()` when the drop landed on no row. When `overKey` names a row, this is guaranteed to still be that row's index at the moment the insert actually runs — an async handler that leaves the named row at a different index causes the drop to be cancelled as `'stale'` (BACKLOG-0001242) rather than inserted at this index regardless.</td></tr>
+          <tr><td class="name">at</td><td class="type">number</td><td class="desc">The display index the row would be inserted at: the index of the row under the pointer, or `rows.count()` when the drop landed on no row. When `overKey` names a row, this is guaranteed to still be that row's index at the moment the insert actually runs — an async handler that leaves the named row at a different index causes the drop to be cancelled as `'stale'` (BACKLOG-0001242) rather than inserted at this index regardless. When `overKey` is null this value, seen from an async handler, is the index at the moment the event fired; it is re-resolved to the target's current `rows.count()` right before the insert runs, so an append still lands at the true end even if the handler itself changed the target's rows meanwhile (BACKLOG-0001249).</td></tr>
           <tr><td class="name">overKey</td><td class="type">string | null</td><td class="desc">The key of the row under the pointer when the drop happened — the row the user meant. Null when the drop landed past the last row, on empty space, on the header, or on a pinned row: there is no row to name, and a nearest guess would be wrong in a way that looks right.</td></tr>
           <tr><td class="name">source</td><td class="type"><a href="#type-Grid">Grid</a></td><td class="desc">The grid the row is being dragged from.</td></tr>
         </tbody>
@@ -15604,6 +15978,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">from</td><td class="type">number</td><td class="desc">The display index it came from.</td></tr>
           <tr><td class="name">to</td><td class="type">number</td><td class="desc">The display index it went to.</td></tr>
           <tr><td class="name">data</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">That row's data.</td></tr>
+          <tr><td class="name">regrouped</td><td class="type"><a href="#type-RowRegroupChange">RowRegroupChange</a>[]</td><td class="desc">The grouping values it was given, when it moved into another group under `rowReorder.betweenGroups`. Absent for a move that changed only its place. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -17003,7 +17378,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">deck</td><td class="type">{ setProps(props: Record&lt;string, unknown&gt;): void; props?: Record&lt;string, unknown&gt;; getViewports?(): unknown[]; }</td><td class="desc">The page's deck.gl `Deck` instance (or a React `DeckGL`'s `deck`). The binding calls its `setProps({ layers })`, wraps its `onViewStateChange`, and reads its view from `getViewports()[0]` (`getBounds()`, `fitBounds()`). Without `setProps` nothing is bound and `deckgl:deck` warns.</td></tr>
           <tr><td class="name">position</td><td class="type">{ lon: string; lat: string } | { geometry: string }</td><td class="desc">The column(s) rows are placed by: a `lon`/`lat` pair, or a `geometry` column. A name that is not a column of the grid: nothing is bound and `deckgl:position` warns.</td></tr>
-          <tr><td class="name">viewportFilter</td><td class="type">boolean | { debounce?: number }</td><td class="desc">deck's view as a filter on the grid, exactly as a map chart's {@link ChartSpec.viewportFilter}: after a pan or zoom settles (debounced, default 150 ms) the binding writes ONE condition — a `withinBbox` on a geometry column, or a `between` pair on `lon`/`lat` — and a matching condition set from elsewhere moves deck's view to its box. Off by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">viewportFilter</td><td class="type">boolean | { debounce?: number }</td><td class="desc">deck's view as a filter on the grid, exactly as a map chart's {@link ChartSpec.viewportFilter}: written at bind time from deck's initial viewport (BACKLOG-0001539), so the grid and the layers agree from the first paint, and again after a pan or zoom settles (debounced, default 150 ms) the binding writes ONE condition — a `withinBbox` on a geometry column, or a `between` pair on `lon`/`lat` — and a matching condition set from elsewhere moves deck's view to its box. Off by default. <small>(optional)</small></td></tr>
           <tr><td class="name">viewportCap</td><td class="type">number</td><td class="desc">The most rows fetched for one view of a paged pushdown grid before the engine's density cells are handed over instead; as {@link ChartSpec.viewportCap}, default 20,000. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -17057,7 +17432,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">map</td><td class="type">{ addLayer(layer: unknown): unknown; removeLayer(layer: unknown): unknown; on(type: string, fn: (e: unknown) =&gt; void): unknown; off(type: string, fn: (e: unknown) =&gt; void): unknown; getBounds(): { getWest(): number; getSouth(): number; getEast(): number; getNorth(): number }; fitBounds?(bounds: [[number, number], [number, number]], options?: Record&lt;string, unknown&gt;): unknown; }</td><td class="desc">The page's Leaflet map (`L.map(...)`). The binding calls its `addLayer`/`removeLayer`, listens for `moveend`/`zoomend` with `on`/`off`, reads its view from `getBounds()` and moves it with `fitBounds()`. Missing any of the first five: nothing is bound and `leaflet:map` warns.</td></tr>
           <tr><td class="name">position</td><td class="type">{ lon: string; lat: string } | { geometry: string }</td><td class="desc">The column(s) rows are placed by: a `lon`/`lat` pair, or a `geometry` column, whose cells may hold GeoJSON, a parsed geometry, or WKT, WKB or GeoJSON text. A name that is not a column of the grid: nothing is bound and `leaflet:position` warns.</td></tr>
-          <tr><td class="name">viewportFilter</td><td class="type">boolean | { debounce?: number }</td><td class="desc">The map's view as a filter on the grid, exactly as a map chart's {@link ChartSpec.viewportFilter}: after every `moveend`/`zoomend` — a drag or zoom by the reader, or the page's own `setView`, `fitBounds` or `flyTo` — debounced (default 150 ms), the binding writes the map's `getBounds()` as ONE condition: a `withinBbox` on a geometry column, or a `between` pair on `lon`/`lat`. A matching condition set from elsewhere moves the map to its box. Off by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">viewportFilter</td><td class="type">boolean | { debounce?: number }</td><td class="desc">The map's view as a filter on the grid, exactly as a map chart's {@link ChartSpec.viewportFilter}: written at bind time from the map's own bounds once it has a size (BACKLOG-0001539), so the grid and the layers agree from the first paint, and again after every `moveend`/`zoomend` — a drag or zoom by the reader, or the page's own `setView`, `fitBounds` or `flyTo` — debounced (default 150 ms), the binding writes the map's `getBounds()` as ONE condition: a `withinBbox` on a geometry column, or a `between` pair on `lon`/`lat`. A matching condition set from elsewhere moves the map to its box. Off by default. <small>(optional)</small></td></tr>
           <tr><td class="name">viewportCap</td><td class="type">number</td><td class="desc">The most rows fetched for one view of a paged pushdown grid before the engine's density cells are handed over instead; as {@link ChartSpec.viewportCap}, default 20,000. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -18895,6 +19270,218 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h3 id="ref-module-dashboard">Dashboard composition</h3>
+    <h4 id="type-DashboardSpec">DashboardSpec</h4>
+    <p class="section-note">A dashboard described as data (BACKLOG-0000728): a layout, the panels in it, the sources they read and the links between them. `createDashboard` builds it and `dashboard.spec()` hands it back, placements included, so a host can store and version it.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">layout</td><td class="type"><a href="#type-DashboardLayoutSpec">DashboardLayoutSpec</a></td><td class="desc">The layout the panels sit in: any `createLayout` option, with `windows` placing panels by id (`{ id, xPos, yPos, xSize, ySize, … }`). A panel with no window entry is auto-placed. <small>(optional)</small></td></tr>
+          <tr><td class="name">panels</td><td class="type"><a href="#type-DashboardPanel">DashboardPanel</a>[]</td><td class="desc">The panels, one viewer each, in the order their windows are mounted.</td></tr>
+          <tr><td class="name">sources</td><td class="type">Record&lt;string, <a href="#type-DashboardSource">DashboardSource</a>&gt;</td><td class="desc">The named sources panels read, by id. <small>(optional)</small></td></tr>
+          <tr><td class="name">links</td><td class="type"><a href="#type-DashboardLink">DashboardLink</a>[]</td><td class="desc">Selection-to-filter links between panels. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DashboardLayoutSpec">DashboardLayoutSpec</h4>
+    <p class="section-note">The layout part of a spec: the layout module's own options, windows placed by panel id.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">columns</td><td class="type">number</td><td class="desc">Cell columns across the dashboard (the layout's default otherwise). <small>(optional)</small></td></tr>
+          <tr><td class="name">rows</td><td class="type">number</td><td class="desc">Cell rows down the dashboard (the layout's default otherwise). <small>(optional)</small></td></tr>
+          <tr><td class="name">gap</td><td class="type">number | string</td><td class="desc">The gap between cells. <small>(optional)</small></td></tr>
+          <tr><td class="name">windows</td><td class="type">Array&lt;{ id: string; xPos?: number; yPos?: number; xSize?: number; ySize?: number; [option: string]: unknown }&gt;</td><td class="desc">Each panel's window, by panel id: its placement and any window option (title, chrome, movable, …). <small>(optional)</small></td></tr>
+          <tr><td class="name">[option: string]</td><td class="type">unknown</td><td class="desc">Every other key is handed to `createLayout` unchanged.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DashboardPanel">DashboardPanel</h4>
+    <p class="section-note">One panel: a viewer in a window.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">A unique id; its window has the same id.</td></tr>
+          <tr><td class="name">kind</td><td class="type"><a href="#type-DashboardPanelKind">DashboardPanelKind</a> <small class="literals">'grid' | 'chart' | 'kpi' | 'map' | 'html'</small></td><td class="desc">Which viewer: a grid, a chart, a KPI panel, a map, or static html.</td></tr>
+          <tr><td class="name">title</td><td class="type">string</td><td class="desc">The window's title, when its window entry declares none. <small>(optional)</small></td></tr>
+          <tr><td class="name">source</td><td class="type">string</td><td class="desc">The source it reads: a key of `sources`, or `grid:&lt;panel id&gt;` to view that grid panel's grid (it narrows when that grid is filtered). Required for `chart` and `map`; an `html` panel reads none. <small>(optional)</small></td></tr>
+          <tr><td class="name">binding</td><td class="type">'chart' | 'leaflet' | 'deckgl'</td><td class="desc">For a `map` panel, what draws it: `'chart'` (a map chart such as `markermap` or `choropleth`, the default), `'leaflet'` (`bindLeaflet`) or `'deckgl'` (`bindDeck`), each needing its module on the page. <small>(optional)</small></td></tr>
+          <tr><td class="name">options</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">The viewer's own options, passed to `createGrid`, `createChart`, `createKPI`, `bindLeaflet` or `bindDeck` unchanged — the dashboard adds only the element and the grid. A Leaflet panel's `map` and a deck.gl panel's `deck` may be a function of the panel's element that makes one. An `html` panel takes `{ html }` (the host's own markup) or `{ text }`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DashboardRowsSource">DashboardRowsSource</h4>
+    <p class="section-note">Rows held in the page.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">kind</td><td class="type">'rows'</td><td class="desc">Rows held in the page.</td></tr>
+          <tr><td class="name">rows</td><td class="type">unknown[]</td><td class="desc">The rows.</td></tr>
+          <tr><td class="name">columns</td><td class="type">unknown[]</td><td class="desc">The grid columns; one per key of the first rows when omitted. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowKey</td><td class="type">unknown</td><td class="desc">The row identity every grid over this source is given. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DashboardPushdownSource">DashboardPushdownSource</h4>
+    <p class="section-note">A pushdown adapter: the rows stay in the engine.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">kind</td><td class="type">'pushdown'</td><td class="desc">A pushdown adapter: the rows stay in the engine.</td></tr>
+          <tr><td class="name">adapter</td><td class="type">{ execute: (...args: unknown[]) =&gt; unknown; [key: string]: unknown }</td><td class="desc">The adapter, handed to `createPushdownSource` with every key but `kind`, `columns` and `rowKey`.</td></tr>
+          <tr><td class="name">columns</td><td class="type">unknown[]</td><td class="desc">The grid columns. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowKey</td><td class="type">unknown</td><td class="desc">The row identity every grid over this source is given. <small>(optional)</small></td></tr>
+          <tr><td class="name">[option: string]</td><td class="type">unknown</td><td class="desc">Any other `createPushdownSource` option (`pageSize`, `aggregates`, …).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DashboardRouterSource">DashboardRouterSource</h4>
+    <p class="section-note">A Data Router route: each grid reading it is attached with `router.attach(grid, predicate, route)`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">kind</td><td class="type">'router'</td><td class="desc">A Data Router route.</td></tr>
+          <tr><td class="name">router</td><td class="type">{ attach: (...args: unknown[]) =&gt; unknown; [key: string]: unknown }</td><td class="desc">The router. Load it after the dashboard is built: a route sees what arrives after it is attached.</td></tr>
+          <tr><td class="name">predicate</td><td class="type">unknown</td><td class="desc">The partition value or predicate the route matches.</td></tr>
+          <tr><td class="name">route</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">The route's options (`transform`, `rollup`, …). <small>(optional)</small></td></tr>
+          <tr><td class="name">columns</td><td class="type">unknown[]</td><td class="desc">The grid columns. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowKey</td><td class="type">unknown</td><td class="desc">The row identity every grid over this source is given. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DashboardGridSource">DashboardGridSource</h4>
+    <p class="section-note">Another panel's grid, as `grid:&lt;panel id&gt;` does inline.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">kind</td><td class="type">'grid'</td><td class="desc">Another panel's grid.</td></tr>
+          <tr><td class="name">of</td><td class="type">string</td><td class="desc">The grid panel whose grid is viewed.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DashboardLink">DashboardLink</h4>
+    <p class="section-note">A link: the rows selected in the `from` grid panel filter the `to` panel. Over one Data Router it is a `router.relate()` edge; otherwise a named `filters.where()` predicate on the target's grid. Two pushdown sources with no router between them, or two routers, are refused by name.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">from</td><td class="type">string</td><td class="desc">The grid panel whose selection drives the link.</td></tr>
+          <tr><td class="name">to</td><td class="type">string</td><td class="desc">The panel it filters.</td></tr>
+          <tr><td class="name">on</td><td class="type">string | { from: string; to: string } | ((selected: Array&lt;Record&lt;string, unknown&gt;&gt;) =&gt; (row: Record&lt;string, unknown&gt;) =&gt; boolean)</td><td class="desc">The relation: a column both sides share, `{ from, to }` naming each side's column, or (over one router) the router's own relation function.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DashboardProblem">DashboardProblem</h4>
+    <p class="section-note">Something the dashboard refused or reported, by catalogued id.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The catalogued warning id: `dashboard:panel:&lt;id&gt;`, `dashboard:link:&lt;from&gt;-&gt;&lt;to&gt;`, `dashboard:spec:&lt;path&gt;`, …</td></tr>
+          <tr><td class="name">path</td><td class="type">string</td><td class="desc">Where in the spec, e.g. `panels[2].kind`.</td></tr>
+          <tr><td class="name">message</td><td class="type">string</td><td class="desc">What happened.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DashboardOptions">DashboardOptions</h4>
+    <p class="section-note">The third argument of {@link createDashboard}: the factories the dashboard builds with, and the AI callback. A factory not given here is looked up on its script-tag global (`LatticeGrid`, `LatticeGridLayout`, `LatticeGridKPI`, `LatticeGridLeaflet`, `LatticeGridDeck`); a panel whose factory is on neither is refused by name.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">createGrid</td><td class="type">(el: HTMLElement, config: Record&lt;string, unknown&gt;) =&gt; <a href="#type-Grid">Grid</a></td><td class="desc"><code>el: HTMLElement</code><br><code>config: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; <a href="#type-Grid">Grid</a></code></td><td class="desc">The grid's `createGrid`, for `grid` panels. <small>(optional)</small></td></tr>
+          <tr><td class="name">createHeadlessGrid</td><td class="type">(config: Record&lt;string, unknown&gt;) =&gt; <a href="#type-Grid">Grid</a></td><td class="desc"><code>config: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; <a href="#type-Grid">Grid</a></code></td><td class="desc">The grid's `createHeadlessGrid`, which holds a chart's, KPI panel's or map's source. <small>(optional)</small></td></tr>
+          <tr><td class="name">createPushdownSource</td><td class="type">(config: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>config: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The grid's `createPushdownSource`, for `pushdown` sources. <small>(optional)</small></td></tr>
+          <tr><td class="name">createChart</td><td class="type">(spec: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>spec: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The charts module's `createChart`, for `chart` panels and map charts. <small>(optional)</small></td></tr>
+          <tr><td class="name">createLayout</td><td class="type">(el: HTMLElement, config: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>el: HTMLElement</code><br><code>config: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The layout module's `createLayout`. Without it nothing is built. <small>(optional)</small></td></tr>
+          <tr><td class="name">createKPI</td><td class="type">(el: HTMLElement, config: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>el: HTMLElement</code><br><code>config: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The KPI module's `createKPI`, for `kpi` panels. <small>(optional)</small></td></tr>
+          <tr><td class="name">bindLeaflet</td><td class="type">(grid: <a href="#type-Grid">Grid</a>, options: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>grid: <a href="#type-Grid">Grid</a></code><br><code>options: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The Leaflet module's `bindLeaflet`, for `map` panels with `binding: 'leaflet'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">bindDeck</td><td class="type">(grid: <a href="#type-Grid">Grid</a>, options: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>grid: <a href="#type-Grid">Grid</a></code><br><code>options: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The deck.gl module's `bindDeck`, for `map` panels with `binding: 'deckgl'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">ai</td><td class="type">((payload: Record&lt;string, unknown&gt;) =&gt; Promise&lt;unknown&gt;) | { ask: (payload: Record&lt;string, unknown&gt;) =&gt; Promise&lt;unknown&gt; }</td><td class="desc"><code>(payload: Record&lt;string, unknown&gt;) =&gt; Promise&lt;unknown&gt;</code></td><td class="type"><code>| { ask: (payload: Record&lt;string, unknown&gt;) =&gt; Promise&lt;unknown&gt; }</code></td><td class="desc">The AI callback `propose()` asks: the same `ask(payload)` `createAI` takes (or `{ ask }`). Without it `propose()` declines by name. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DashboardPanelHandle">DashboardPanelHandle</h4>
+    <p class="section-note">One built panel.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The panel id.</td></tr>
+          <tr><td class="name">kind</td><td class="type"><a href="#type-DashboardPanelKind">DashboardPanelKind</a> <small class="literals">'grid' | 'chart' | 'kpi' | 'map' | 'html'</small></td><td class="desc">Its kind.</td></tr>
+          <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The element its viewer was mounted in, inside its window.</td></tr>
+          <tr><td class="name">grid</td><td class="type"><a href="#type-Grid">Grid</a> | null</td><td class="desc">The grid it reads (a grid panel's own), or null.</td></tr>
+          <tr><td class="name">viewer</td><td class="type">unknown</td><td class="desc">What its factory returned: the grid, chart, KPI panel or binding; null for html.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DashboardProposal">DashboardProposal</h4>
+    <p class="section-note">What {@link Dashboard.propose} resolves to.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">spec</td><td class="type"><a href="#type-DashboardSpec">DashboardSpec</a> | null</td><td class="desc">The checked spec to accept with `apply(spec)`, or null when nothing usable came back.</td></tr>
+          <tr><td class="name">warnings</td><td class="type">string[]</td><td class="desc">Everything dropped or refused, one line each.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DashboardView">DashboardView</h4>
+    <p class="section-note">A saved dashboard view: the spec and each grid panel's state.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The view's id.</td></tr>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">Its name.</td></tr>
+          <tr><td class="name">spec</td><td class="type"><a href="#type-DashboardSpec">DashboardSpec</a></td><td class="desc">The dashboard spec, placements included.</td></tr>
+          <tr><td class="name">grids</td><td class="type">Record&lt;string, <a href="#type-GridState">GridState</a>&gt;</td><td class="desc">Each grid panel's `grid.state.get()`, by panel id.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-Dashboard">Dashboard</h4>
+    <p class="section-note">A built dashboard.</p>
+    <h5 id="type-Dashboard-properties">Properties</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The element it is mounted on. <small>(read-only)</small></td></tr>
+          <tr><td class="name">layout</td><td class="type">unknown</td><td class="desc">The layout the panels sit in, or null when nothing was built. <small>(read-only)</small></td></tr>
+          <tr><td class="name">presenting</td><td class="type">string | null</td><td class="desc">The panel a presentation shows, or null. <small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-Dashboard-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">spec</td><td class="type">(): <a href="#type-DashboardSpec">DashboardSpec</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-DashboardSpec">DashboardSpec</a></code></td><td class="desc">The dashboard as built — its panels, the sources by id, the links that were made and each window's live placement — as a spec that rebuilds it.</td></tr>
+          <tr><td class="name">apply</td><td class="type">(spec: <a href="#type-DashboardSpec">DashboardSpec</a>): <a href="#type-DashboardProblem">DashboardProblem</a>[]</td><td class="desc"><code>spec: <a href="#type-DashboardSpec">DashboardSpec</a></code></td><td class="type"><code><a href="#type-DashboardProblem">DashboardProblem</a>[]</code></td><td class="desc">Tear down and build this spec in its place: how a host accepts a proposal or restores a stored spec. Returns what was refused.</td></tr>
+          <tr><td class="name">panels</td><td class="type">(): string[]</td><td class="desc">&mdash;</td><td class="type"><code>string[]</code></td><td class="desc">The built panels' ids, in spec order.</td></tr>
+          <tr><td class="name">panel</td><td class="type">(id: string): <a href="#type-DashboardPanelHandle">DashboardPanelHandle</a> | null</td><td class="desc"><code>id: string</code></td><td class="type"><code><a href="#type-DashboardPanelHandle">DashboardPanelHandle</a> | null</code></td><td class="desc">One built panel, or null.</td></tr>
+          <tr><td class="name">problems</td><td class="type">(): <a href="#type-DashboardProblem">DashboardProblem</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-DashboardProblem">DashboardProblem</a>[]</code></td><td class="desc">Everything the last build refused or reported.</td></tr>
+          <tr><td class="name">propose</td><td class="type">(prompt: string, request: { source: string; rows?: boolean; maxRows?: number; signal?: AbortSignal }): Promise&lt;<a href="#type-DashboardProposal">DashboardProposal</a>&gt;</td><td class="desc"><code>prompt: string</code><br><code>request: { source: string; rows?: boolean; maxRows?: number; signal?: AbortSignal }</code></td><td class="type"><code>Promise&lt;<a href="#type-DashboardProposal">DashboardProposal</a>&gt;</code></td><td class="desc">Ask the AI callback for a spec over one source's columns. The model sees the column names and types and the panel kinds this page can draw — rows only with `rows: true` (at most `maxRows`, default 50). A panel naming a column the source lacks, a kind the page cannot draw or another source is dropped with a warning. Nothing is built: accept with `apply(spec)`. Without an AI callback it declines by name.</td></tr>
+          <tr><td class="name">saveView</td><td class="type">(name: string): <a href="#type-DashboardView">DashboardView</a> | null</td><td class="desc"><code>name: string</code></td><td class="type"><code><a href="#type-DashboardView">DashboardView</a> | null</code></td><td class="desc">Save the spec and every grid panel's state as one named view; a name already saved is replaced.</td></tr>
+          <tr><td class="name">views</td><td class="type">(): <a href="#type-DashboardView">DashboardView</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-DashboardView">DashboardView</a>[]</code></td><td class="desc">The saved views, in the order first saved.</td></tr>
+          <tr><td class="name">applyView</td><td class="type">(view: string | <a href="#type-DashboardView">DashboardView</a>): boolean</td><td class="desc"><code>view: string | <a href="#type-DashboardView">DashboardView</a></code></td><td class="type"><code>boolean</code></td><td class="desc">Restore a view by id, or one the host stored: the layout and every grid's state.</td></tr>
+          <tr><td class="name">present</td><td class="type">(options?: { panels?: string[]; from?: number }): boolean</td><td class="desc"><code>options?: { panels?: string[]; from?: number }</code></td><td class="type"><code>boolean</code></td><td class="desc">Present the panels one at a time, each filling the dashboard (the layout's maximise).</td></tr>
+          <tr><td class="name">step</td><td class="type">(by?: number): number</td><td class="desc"><code>by?: number</code></td><td class="type"><code>number</code></td><td class="desc">Move the presentation by this many panels, clamped; the position shown, or -1.</td></tr>
+          <tr><td class="name">stopPresenting</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">End the presentation and put the dashboard back.</td></tr>
+          <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Tear everything down: links, viewers, grids, router attachments and the layout.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-Dashboard-events">Events</h5>
+    <p class="section-note">No events.</p>
     <h3 id="ref-module-ai">The AI module</h3>
     <h4 id="type-AIFact">AIFact</h4>
     <p class="section-note">A single computed figure a narrative is grounded on.</p>
@@ -21111,6 +21698,29 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-RowOrderResult">RowOrderResult</h4>
+    <p class="section-note">What `rowOrder.enter`, `set` and `exit` report.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">manual</td><td class="type">boolean</td><td class="desc">Whether a manual order is in force after the call.</td></tr>
+          <tr><td class="name">reason</td><td class="type">string</td><td class="desc">Why nothing changed, when nothing did: `'already'`, `'not-manual'`, `'vetoed'` (a `beforeSort` handler), `'bad-order'` or `'source-cannot-reorder'`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RowRegroupChange">RowRegroupChange</h4>
+    <p class="section-note">One grouping value a row moved into another group was given.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">colId</td><td class="type">string</td><td class="desc">The column the grid is grouped by at this level.</td></tr>
+          <tr><td class="name">from</td><td class="type">unknown</td><td class="desc">The value it had.</td></tr>
+          <tr><td class="name">to</td><td class="type">unknown</td><td class="desc">The value of the group it joined.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-SavedView">SavedView</h4>
     <div class="table-wrap">
       <table>
@@ -21570,6 +22180,14 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h4 id="type-CurrencyDisplay">CurrencyDisplay</h4>
     <p class="section-note">How a currency figure names its unit, mirroring `Intl.NumberFormatOptions.currencyDisplay`.</p>
     <p class="type-def"><code>type CurrencyDisplay = 'symbol' | 'code' | 'name' | 'narrowSymbol'</code></p>
+    <h4 id="type-DashboardPanelKind">DashboardPanelKind</h4>
+    <p class="section-note">What a panel shows.</p>
+    <p class="type-def"><code>type DashboardPanelKind = 'grid' | 'chart' | 'kpi' | 'map' | 'html'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/dashboard</code>.</small></p>
+    <h4 id="type-DashboardSource">DashboardSource</h4>
+    <p class="section-note">A named source.</p>
+    <p class="type-def"><code>type DashboardSource = <a href="#type-DashboardRowsSource">DashboardRowsSource</a> | <a href="#type-DashboardPushdownSource">DashboardPushdownSource</a> | <a href="#type-DashboardRouterSource">DashboardRouterSource</a> | <a href="#type-DashboardGridSource">DashboardGridSource</a></code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/dashboard</code>.</small></p>
     <h4 id="type-DashJoin">DashJoin</h4>
     <p class="section-note">The event name a Vue template binds, as a type: `'cell:changed'` becomes `'cell-changed'` (BACKLOG-0001660). Recursive over the `:` segments, so a three-part name like `'cell:edit:start'` becomes `'cell-edit-start'` — the same rule `dashedName` applies at runtime, stated once so the props type and the implementation cannot disagree. A colon cannot appear in a Vue binding, which is why the adapter renames at all.</p>
     <p class="type-def"><code>type DashJoin&lt;E extends string&gt; = E extends `${infer Head}:${infer Tail}` ? `${Head}-${<a href="#type-DashJoin">DashJoin</a>&lt;Tail&gt;}` : E</code></p>
@@ -22257,7 +22875,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.76.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.77.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

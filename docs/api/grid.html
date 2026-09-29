@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.76.0</title>
+<title>Grid API Reference — Lattice Grid 1.77.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -489,6 +489,7 @@
         <a class="rail__sub-link" href="#type-SelectionApi">SelectionApi</a>
         <a class="rail__sub-link" href="#type-FiltersApi">FiltersApi</a>
         <a class="rail__sub-link" href="#type-SortApi">SortApi</a>
+        <a class="rail__sub-link" href="#type-RowOrderApi">RowOrderApi</a>
         <a class="rail__sub-link" href="#type-EditApi">EditApi</a>
         <a class="rail__sub-link" href="#type-ScrollApi">ScrollApi</a>
         <a class="rail__sub-link" href="#type-ExportApi">ExportApi</a>
@@ -540,6 +541,7 @@
         <a href="gantt.html">The Gantt module</a>
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
+        <a href="dashboard.html">Dashboard composition</a>
         <a href="ai.html">The AI narrative and insights layer</a>
         <a href="mock-socket.html">The mock socket</a>
         <a href="adapters.html">Framework adapters and custom elements</a>
@@ -561,7 +563,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 18 pages</a></span>
+      <span class="chip"><a href="index.html">All 19 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -1119,7 +1121,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.76.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.77.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -1777,6 +1779,7 @@ result.rejected;  <span class="cmt">// [{ operation, id, reason }]</span></code>
     <div class="note"><p><strong>These are batches, not database transactions.</strong> There is no isolation and no all-or-nothing guarantee: partial application with per-row rejection is the defined behaviour, which is why the API is not called a transaction.</p></div>
 
     <p><code>stats()</code> reports <code>held</code> against <code>heldLimit</code>: what the log is carrying now, against what it will carry. <code>rows</code> is a lifetime total of everything that ever arrived and says nothing about memory; these two do. Raise <code>logRows</code> for a deeper scrubber on a grid you have measured, and lower it on a feed of very wide rows.</p>
+    <p><strong><code>stats().dropped</code> is not lost data.</strong> It counts change-log entries trimmed to stay inside <code>heldLimit</code> — the scrubber losing depth on the oldest history — never an update the grid failed to apply. Every row it counts was already applied before its log entry aged out (BACKLOG-0001033).</p>
     <h2 id="timeline">grid.timeline</h2>
     <p>Moves the grid back through recent <em>data</em> changes: what a row held a minute ago, before the number moved. It reads the change log rather than the undo history: history records what <em>you</em> did, and on a live grid the question is what the <em>data</em> did.</p>
     <p>Nothing is scrubbable until <code>attach()</code>. What a value used to be is not recoverable after the fact, and reading a row per key on every change is real cost on a busy feed, so recording is off until you ask for it and the window fills from that moment.</p>
@@ -3389,6 +3392,7 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">graphqlAdapter</td><td class="desc">Any GraphQL endpoint</td><td class="desc">Configured, not zero-config: GraphQL has no fixed query semantics, so you pass <code>buildQuery</code> to turn the plan into a <code>{ query, variables }</code> operation and <code>parseResponse</code> to read <code>data</code> back into rows and total. Defaults cover an offset/limit list with <code>totalCount</code> and a Relay cursor connection (<code>first</code>/<code>after</code> with <code>pageInfo</code>). The default pushes only the window and the total; declare <code>operators</code> or <code>capabilities</code> for filter/sort only alongside a <code>buildQuery</code> that emits them. A cursor connection is forward-only, so a deep window costs round trips proportional to its offset.</td></tr>
           <tr><td class="name">splunkAdapter</td><td class="desc">Splunk Enterprise 9 and Splunk Cloud</td><td class="desc">Speaks the search REST API v2: dispatches a search job, reads a window from <code>/results</code>, and cancels the job when the grid asks something else. The filter tree becomes an SPL <code>search</code> expression with every value quoted and escaped, a multi-column sort becomes <code>| sort 0</code>, and a time filter becomes the job's own <code>earliest_time</code>/<code>latest_time</code> where Splunk's boundaries map onto the operator exactly. <code>| stats</code> grouping is not pushed and there is no write-back; the grid never holds the token. See <a href="#splunk-options">its options</a>.</td></tr>
           <tr><td class="name">clickhouseAdapter</td><td class="desc">ClickHouse, over its HTTP interface</td><td class="desc">POSTs SQL to <code>{url}/?default_format=JSONEachRow</code> with every filter value as a typed query parameter (<code>{p0:String}</code> beside <code>param_p0=…</code>), never inside the statement. Takes the filter tree, a multi-column sort, <code>LIMIT</code>/<code>OFFSET</code> paging and a <code>count()</code> total; <code>source.aggregate()</code> computes six statistics in the engine, grouped through <code>GROUP BY ROLLUP</code>. Sent <code>readonly=1</code> by default; the grid never holds the credential. See <a href="#clickhouse-options">its options</a>.</td></tr>
+          <tr><td class="name">elasticsearchAdapter</td><td class="desc">Elasticsearch and OpenSearch</td><td class="desc">Speaks <code>POST {index}/_search</code> and <code>_count</code>. The filter tree becomes a Query DSL <code>bool</code> query built as JSON — <code>term</code>/<code>terms</code>, <code>wildcard</code>, <code>range</code>, <code>exists</code>, <code>must_not</code> — never a query string. A multi-column sort writes the grid's <code>null</code> placement as <code>missing</code>; paging is <code>from</code>/<code>size</code> inside the index's result window and <code>search_after</code> over a point in time past it; the count is exact (<code>track_total_hits</code>). <code>source.aggregate()</code> computes six statistics in the engine, grouped through <code>terms</code>. The mapping is read once so text fields go through their <code>.keyword</code> sub-field; the grid never holds the credential. See <a href="#elasticsearch-options">its options</a>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -4144,6 +4148,149 @@ createGrid(host, { source, columns: [...] });</code></pre>
 <span class="kw">const</span> sql = <span class="str">'SELECT * FROM `logs`.`requests` WHERE position(lowerUTF8(toString(`path`)), lowerUTF8({p0:String})) &gt; 0 ORDER BY `id` ASC NULLS LAST LIMIT 2 OFFSET 0'</span>;
 <span class="kw">if</span> (first.sql !== sql) <span class="kw">return</span> first.sql;
 <span class="kw">return</span> `parameter p0=${first.url.searchParams.get(<span class="str">'param_p0'</span>)}, readonly=${first.url.searchParams.get(<span class="str">'readonly'</span>)}, ${page.rows.length} of ${page.total} rows`;</code></pre>
+
+    <h5 id="elasticsearch-options"><code>elasticsearchAdapter</code></h5>
+    <p class="section-note">
+      <strong>Transport.</strong> Elasticsearch and OpenSearch answer the same Query DSL over HTTP, so
+      the adapter needs no client library. A page is one <code>POST {url}/{index}/_search</code> with
+      <code>from</code>, <code>size</code> and <code>track_total_hits: true</code>, so the rows and their
+      exact count come back together. <code>GET {index}/_mapping</code> is read once, before the first
+      request, so the adapter knows which fields are <code>keyword</code>, <code>text</code>, numbers or
+      dates; pass <code>mapping</code> to skip it. <code>index</code> is a name, an alias, a pattern such
+      as <code>logs-*</code> or a comma-separated list, and is refused if it is anything else, because it
+      is written into the request path. Each hit arrives as its <code>_source</code> with its
+      <code>_id</code> beside it, so <code>rowKey: '_id'</code> works for any index.
+    </p>
+    <p class="section-note">
+      <strong>No value is spliced into a string.</strong> The request body is JSON the adapter builds as
+      an object, and every filter value is a JSON value inside it. There is no
+      <code>query_string</code>: a user who types <code>a OR b</code> is searching for that text. The one
+      grammar that reaches the engine is the <code>wildcard</code> pattern of
+      <code>contains</code>/<code>startsWith</code>/<code>endsWith</code>, and a <code>*</code>,
+      <code>?</code> or <code>\</code> the user typed is escaped, so it is a character and not a wildcard.
+      Field names are validated (letters, digits, <code>_</code>, <code>@</code> and <code>-</code> in
+      dot-separated segments) and refused by name otherwise.
+    </p>
+    <p class="section-note">
+      <strong>What pushes down, and how it matches the grid.</strong> A text comparison folds case the way
+      the grid's own filter does, with <code>case_insensitive: true</code>, unless the condition sets
+      <code>caseSensitive</code>. The engines fold A&ndash;Z only, so a case-insensitive value holding a
+      cased letter outside ASCII (<code>Zoë</code>) is pushed and named once
+      (<code>source.elasticsearch.casefold</code>). A <code>text</code> field holds analysed words
+      rather than a whole value, so it is compared through its <code>keyword</code> sub-field (the
+      default dynamic mapping always adds <code>.keyword</code>; a value longer than its
+      <code>ignore_above</code> is not in that sub-field and cannot match). A text field with no keyword
+      sub-field is matched word by word with <code>match_phrase</code> and named once per field
+      (<code>source.elasticsearch.analyzed.*</code>). <code>ne</code>, <code>notIn</code> and
+      <code>notBetween</code> are <code>must_not</code>, which keeps a document with no value, as the
+      grid does. A substring test on a number or a date, and any filter on a <code>nested</code> field,
+      is refused by name rather than sent to fail or to match nothing. <code>matches</code>,
+      <code>notContains</code>, <code>listCount</code> and the quick filter stay with the grid through the
+      ordinary residual path and are named in <code>lastPlan()</code>.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Grid</th><th>Query DSL</th></tr></thead>
+        <tbody>
+          <tr><td class="name">eq / ne</td><td class="desc"><code>term</code> with <code>case_insensitive: true</code> for text, exact for a number, a date or <code>caseSensitive</code>; <code>ne</code> is <code>bool.must_not</code>; <code>null</code> is <code>exists</code></td></tr>
+          <tr><td class="name">gt / gte / lt / lte</td><td class="desc"><code>range</code></td></tr>
+          <tr><td class="name">between / notBetween</td><td class="desc"><code>range</code>, each end's inclusivity read from <code>bounds</code>; <code>notBetween</code> is <code>must_not</code></td></tr>
+          <tr><td class="name">in / notIn</td><td class="desc"><code>terms</code>, or a <code>should</code> of case-insensitive <code>term</code>s for text (<code>terms</code> has no case flag)</td></tr>
+          <tr><td class="name">contains / startsWith / endsWith</td><td class="desc"><code>wildcard</code> over the whole value (<code>*x*</code>, <code>x*</code>, <code>*x</code>) on a keyword field; <code>match_phrase</code>/<code>match_phrase_prefix</code> on a text field with no keyword sub-field</td></tr>
+          <tr><td class="name">blank / notBlank</td><td class="desc"><code>must_not exists</code> or an empty string, and its negation</td></tr>
+          <tr><td class="name">list: hasAny / hasAll / hasNone</td><td class="desc"><code>terms</code>, a <code>filter</code> of <code>term</code>s, <code>must_not terms</code> — declared while the list module is loaded</td></tr>
+          <tr><td class="name">time filters</td><td class="desc"><code>range</code> on the ISO-8601 instant (a <code>Date</code>, epoch milliseconds or an ISO string with a zone), or on a <code>YYYY-MM-DD</code> day</td></tr>
+          <tr><td class="name">sort</td><td class="desc">each column with <code>missing: '_last'</code> ascending and <code>'_first'</code> descending — the grid's rule; a text field sorts by its keyword sub-field, and one without is refused by name with the <code>.keyword</code> hint</td></tr>
+          <tr><td class="name">aggregate()</td><td class="desc"><code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, the document count, and <code>distinct</code> as <code>cardinality</code> — an estimate, near-exact below 40,000 values, and named past it; grouped through nested <code>terms</code> with a <code>missing</code> bucket for documents with no key. A level with more than <code>maxBuckets</code> groups is refused rather than returned short.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note">
+      <strong>Paging past the result window.</strong> An index answers <code>from + size</code> only up
+      to its <code>max_result_window</code> (10,000 by default; tell the adapter yours with
+      <code>maxResultWindow</code>). A page inside it is one <code>_search</code>. A page past it — or the
+      whole result, which the grid asks for when part of the filter stays with it — is counted with
+      <code>_count</code> and read with <code>search_after</code> over a point in time: the adapter opens
+      one, hops to the page's start without fetching documents, reads the page, remembers where each hop
+      ended so scrolling on does not walk again, and closes the point in time as soon as the grid asks a
+      different question. The sort gains a tiebreaker so the walk never repeats or skips a row:
+      <code>_shard_doc</code> on Elasticsearch; on OpenSearch set <code>engine: 'opensearch'</code> (its
+      point-in-time endpoints differ) and <code>tiebreaker</code> to a field unique per document.
+    </p>
+    <p class="section-note">
+      <strong>The grid never holds your credential.</strong> An API key or a user and password go in
+      <code>headers</code> (<code>Authorization: ApiKey …</code> or <code>Basic …</code>); a credential
+      that expires goes in a <code>fetch</code> wrapper, called afresh per request. In production put a
+      proxy of your own in front of the cluster that authenticates your user, adds the credential and
+      forwards only
+      <code>GET {index}/_mapping</code>, <code>POST {index}/_search</code>, <code>POST {index}/_count</code>
+      and the point-in-time calls, and point <code>url</code> at it. A browser that talks to the cluster
+      directly needs <code>http.cors.enabled: true</code>, <code>http.cors.allow-origin</code> set to
+      your page's origin and <code>http.cors.allow-headers</code> including <code>Authorization</code>
+      and <code>Content-Type</code> in <code>elasticsearch.yml</code> (the same settings in
+      <code>opensearch.yml</code>); the JSON body always makes the request preflighted.
+    </p>
+    <p class="section-note">
+      <strong>Errors carry the engine's reason.</strong> A refusal rejects with an <code>Error</code> named
+      <code>ElasticsearchError</code> carrying <code>status</code>, <code>type</code>
+      (<code>index_not_found_exception</code>) and <code>reason</code>, the engine's own text — surfaced
+      by the grid as <code>source:error</code>, never as an empty page. A 401 or 403 is also named once
+      (<code>source.elasticsearch.auth</code>).
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="name">url</td><td class="type">string</td><td class="type">—</td><td class="desc">The cluster, e.g. <code>https://es.example.com:9200</code>, or a proxy path of your own. Required.</td></tr>
+          <tr><td class="name">index</td><td class="type">string</td><td class="type">—</td><td class="desc">An index, alias, pattern (<code>logs-*</code>) or comma-separated list. Required.</td></tr>
+          <tr><td class="name">headers</td><td class="type">Record&lt;string, string&gt;</td><td class="type">{}</td><td class="desc">Sent on every request: where a fixed API key or user and password go.</td></tr>
+          <tr><td class="name">fetch</td><td class="type">typeof fetch</td><td class="type">the global <code>fetch</code></td><td class="desc">Your own fetch: where a credential that expires is refreshed, since it is called afresh per request.</td></tr>
+          <tr><td class="name">engine</td><td class="type">'elasticsearch' | 'opensearch'</td><td class="type">'elasticsearch'</td><td class="desc">Selects the point-in-time endpoints, the one place the two differ for this adapter.</td></tr>
+          <tr><td class="name">mapping</td><td class="type">Record&lt;string, string&gt;</td><td class="type">read from <code>_mapping</code></td><td class="desc">The field types as a flat record — <code>{ msg: 'text', 'msg.keyword': 'keyword', bytes: 'long' }</code> — so the mapping is not read.</td></tr>
+          <tr><td class="name">fields</td><td class="type">string[]</td><td class="type">the whole document</td><td class="desc">The fields each hit's <code>_source</code> is limited to.</td></tr>
+          <tr><td class="name">maxResultWindow</td><td class="type">number</td><td class="type">10000</td><td class="desc">The index's <code>max_result_window</code>: past it, paging switches to <code>search_after</code>.</td></tr>
+          <tr><td class="name">maxBuckets</td><td class="type">number</td><td class="type">10000</td><td class="desc">The most groups one level of a grouped aggregate may return before it is refused as incomplete.</td></tr>
+          <tr><td class="name">tiebreaker</td><td class="type">string</td><td class="type"><code>_shard_doc</code> (Elasticsearch)</td><td class="desc">A field unique per document that makes a walk past the result window total. Required on OpenSearch for that walk.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note">
+      <strong>An executed example.</strong> It drives the suite's mock cluster, which evaluates the
+      Query DSL the adapter sends, so the example shows the exact query and a real answer without a
+      network or a credential. Leave <code>fetch</code> out, and the same adapter talks to your cluster.
+    </p>
+    <pre data-run="js" data-expect="2 of 2 hits, 503 then 500" data-covers="export:elasticsearchAdapter"><code><span class="kw">const</span> { elasticsearchAdapter } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createElasticsearchMock } = <span class="kw">await</span> import('../test/fixtures/elasticsearch-mock.js');
+
+<span class="kw">const</span> cluster = createElasticsearchMock({
+  types: { service: <span class="str">'keyword'</span>, status: <span class="str">'long'</span>, message: <span class="str">'text'</span>, <span class="str">'message.keyword'</span>: <span class="str">'keyword'</span> },
+  docs: [
+    { service: <span class="str">'api'</span>, status: 503, message: <span class="str">'Upstream timeout'</span> },
+    { service: <span class="str">'API'</span>, status: 500, message: <span class="str">'Disk full'</span> },
+    { service: <span class="str">'web'</span>, status: 200, message: <span class="str">'OK'</span> },
+  ],
+});
+<span class="kw">const</span> adapter = elasticsearchAdapter({
+  url: <span class="str">'https://es.example.com:9200'</span>,
+  index: <span class="str">'logs-*'</span>,
+  headers: { Authorization: <span class="str">'ApiKey your-key'</span> },
+  fetch: cluster.fetch, <span class="cmt">// leave out to talk to the cluster</span>
+});
+
+<span class="kw">const</span> page = <span class="kw">await</span> adapter.execute({
+  filters: { op: <span class="str">'and'</span>, conditions: [
+    { col: <span class="str">'service'</span>, op: <span class="str">'eq'</span>, value: <span class="str">'api'</span> },
+    { col: <span class="str">'status'</span>, op: <span class="str">'gte'</span>, value: 500 },
+  ] },
+  sort: [{ col: <span class="str">'status'</span>, dir: <span class="str">'desc'</span> }],
+  range: { start: 0, end: 50 },
+}, {});
+
+<span class="cmt">// The query is JSON: the value is a value, and "api" matches "API" as the grid would.</span>
+<span class="kw">const</span> sent = cluster.calls.find((c) =&gt; c.path.endsWith(<span class="str">'/_search'</span>)).body;
+<span class="kw">const</span> expected = <span class="str">'{"bool":{"filter":[{"term":{"service":{"value":"api","case_insensitive":true}}},{"range":{"status":{"gte":500}}}]}}'</span>;
+<span class="kw">if</span> (JSON.stringify(sent.query) !== expected) <span class="kw">return</span> JSON.stringify(sent.query);
+<span class="kw">return</span> `${page.rows.length} of ${page.total} hits, ${page.rows.map((r) =&gt; r.status).join(<span class="str">' then '</span>)}`;</code></pre>
 
     <h4 id="adapter-auth">Authenticating a remote adapter</h4>
     <p class="section-note">
@@ -6326,6 +6473,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">selection</td><td class="type"><a href="#type-SelectionApi">SelectionApi</a></td><td class="desc">What is selected, and the range the user has marked. <small>(read-only)</small></td></tr>
           <tr><td class="name">filters</td><td class="type"><a href="#type-FiltersApi">FiltersApi</a></td><td class="desc">The filter tree, however it was set. <small>(read-only)</small></td></tr>
           <tr><td class="name">sort</td><td class="type"><a href="#type-SortApi">SortApi</a></td><td class="desc">The sort, in priority order. <small>(read-only)</small></td></tr>
+          <tr><td class="name">rowOrder</td><td class="type"><a href="#type-RowOrderApi">RowOrderApi</a></td><td class="desc">A manual row order that overrides the sort, entered and left explicitly. <small>(read-only)</small></td></tr>
           <tr><td class="name">edit</td><td class="type"><a href="#type-EditApi">EditApi</a></td><td class="desc">Editing sessions: starting, committing and cancelling them. <small>(read-only)</small></td></tr>
           <tr><td class="name">scroll</td><td class="type"><a href="#type-ScrollApi">ScrollApi</a></td><td class="desc">Where the viewport is, and moving it. <small>(read-only)</small></td></tr>
           <tr><td class="name">export</td><td class="type"><a href="#type-ExportApi">ExportApi</a></td><td class="desc">CSV, Excel and clipboard. <small>(read-only)</small></td></tr>
@@ -6486,7 +6634,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">text</td><td class="type">(key: string, colId: string): string</td><td class="desc"><code>key: string</code><br><code>colId: string</code></td><td class="type"><code>string</code></td><td class="desc">A cell's display text — the value after the column's format and any lookup label, exactly as the cell shows it.</td></tr>
           <tr><td class="name">values</td><td class="type">(key: string): Record&lt;string, unknown&gt;</td><td class="desc"><code>key: string</code></td><td class="type"><code>Record&lt;string, unknown&gt;</code></td><td class="desc">Every column's resolved value for one row, keyed by column id. Columns the current permissions hide from reading are left out.</td></tr>
           <tr><td class="name">refresh</td><td class="type">(opts?: { rows?: string[]; columns?: string[]; force?: boolean }): void</td><td class="desc"><code>opts?: { rows?: string[]; columns?: string[]; force?: boolean }</code></td><td class="type"><code>void</code></td><td class="desc">Repaint without re-running the sort, filter and group stages, discarding the memoised `compute` results for the named rows and columns (all of them when none are named). `force: true` also recomputes and rewrites pure computed values already materialised into the store — the call to make when an answer the grid cannot see has changed, such as a lookup table that has just arrived.</td></tr>
-          <tr><td class="name">move</td><td class="type">(key: string, to: number): { moved: boolean; from: number; to: number; reason?: string }</td><td class="desc"><code>key: string</code><br><code>to: number</code></td><td class="type"><code>{ moved: boolean; from: number; to: number; reason?: string }</code></td><td class="desc">Move a row to another position in the data. Refuses, with a reason, while a sort, filter or grouping is active.</td></tr>
+          <tr><td class="name">move</td><td class="type">(key: string, to: number, opts?: { origin?: 'user' | 'ai' }): { moved: boolean; from: number; to: number; reason?: string; detail?: string; regrouped?: <a href="types.html#type-RowRegroupChange">RowRegroupChange</a>[]; }</td><td class="desc"><code>key: string</code><br><code>to: number</code><br><code>opts?: { origin?: 'user' | 'ai' }</code></td><td class="type"><code>{ moved: boolean; from: number; to: number; reason?: string; detail?: string; regrouped?: <a href="types.html#type-RowRegroupChange">RowRegroupChange</a>[]; }</code></td><td class="desc">Move a row to another position in the data. Refuses, with a reason, while a sort, filter or grouping is active. In a manual order (`rowOrder`) it rewrites that order instead of the data, within a group too. Under a grouping with `rowReorder.betweenGroups`, a row moved onto another group's row or heading joins that group: its grouping values are written through `beforeEdit` as one undoable change, and `regrouped` lists them. A veto is `reason: 'vetoed'`, with the handler's reason as `detail`. `origin` defaults to `'user'`.</td></tr>
           <tr><td class="name">groupHeadings</td><td class="type">(index: number): <a href="#type-Row">Row</a>[]</td><td class="desc"><code>index: number</code></td><td class="type"><code><a href="#type-Row">Row</a>[]</code></td><td class="desc">The group headings enclosing a display row, outermost first. Empty when the grid is not grouped.</td></tr>
           <tr><td class="name">leavesOf</td><td class="type">(key: string): <a href="#type-Row">Row</a>[]</td><td class="desc"><code>key: string</code></td><td class="type"><code><a href="#type-Row">Row</a>[]</code></td><td class="desc">The leaf rows beneath a group heading: the members it counts in `leafCount`, as rows, so you can roll up a field the grid was never told to total. Filtered members in display order. Computed per call, so call it when you draw a group row rather than in a loop over every row.</td></tr>
           <tr><td class="name">expand</td><td class="type">(key: string, deep?: boolean): void</td><td class="desc"><code>key: string</code><br><code>deep?: boolean</code></td><td class="type"><code>void</code></td><td class="desc">Open a group or tree row. Note that `deep` expands *every* group in the grid, not only this row's descendants.</td></tr>
@@ -6672,6 +6820,25 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-RowOrderApi">RowOrderApi</h4>
+    <p class="section-note">A manual row order: the rows follow an explicit list of keys instead of the sort. Entering one keeps the rows where the sort put them and clears the sort; any sort ends it; `exit()` returns to the sort it was entered from. Carried by `state.get()` as `rowOrder`, and every change to it is announced by `state:changed` with `rowOrder` among its `sections`.</p>
+    <h5 id="type-RowOrderApi-properties">Properties</h5>
+    <p class="section-note">No properties.</p>
+    <h5 id="type-RowOrderApi-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">manual</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">Whether a manual order is in force.</td></tr>
+          <tr><td class="name">get</td><td class="type">(): string[] | null</td><td class="desc">&mdash;</td><td class="type"><code>string[] | null</code></td><td class="desc">The row keys in order, or null when the rows follow the sort.</td></tr>
+          <tr><td class="name">enter</td><td class="type">(opts?: { origin?: string }): <a href="types.html#type-RowOrderResult">RowOrderResult</a> | Promise&lt;<a href="types.html#type-RowOrderResult">RowOrderResult</a>&gt;</td><td class="desc"><code>opts?: { origin?: string }</code></td><td class="type"><code><a href="types.html#type-RowOrderResult">RowOrderResult</a> | Promise&lt;<a href="types.html#type-RowOrderResult">RowOrderResult</a>&gt;</code></td><td class="desc">Leave the sort for a manual order, keeping the rows in place. Clearing a sort is a sort change, so `beforeSort` can veto it.</td></tr>
+          <tr><td class="name">set</td><td class="type">(keys: string[], opts?: { origin?: string }): <a href="types.html#type-RowOrderResult">RowOrderResult</a> | Promise&lt;<a href="types.html#type-RowOrderResult">RowOrderResult</a>&gt;</td><td class="desc"><code>keys: string[]</code><br><code>opts?: { origin?: string }</code></td><td class="type"><code><a href="types.html#type-RowOrderResult">RowOrderResult</a> | Promise&lt;<a href="types.html#type-RowOrderResult">RowOrderResult</a>&gt;</code></td><td class="desc">Put the rows in this order, entering a manual order if needed. Rows it does not name follow the named ones, in data order.</td></tr>
+          <tr><td class="name">exit</td><td class="type">(): <a href="types.html#type-RowOrderResult">RowOrderResult</a> | Promise&lt;<a href="types.html#type-RowOrderResult">RowOrderResult</a>&gt;</td><td class="desc">&mdash;</td><td class="type"><code><a href="types.html#type-RowOrderResult">RowOrderResult</a> | Promise&lt;<a href="types.html#type-RowOrderResult">RowOrderResult</a>&gt;</code></td><td class="desc">Return to the sort the manual order was entered from, through `sort.set`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-RowOrderApi-events">Events</h5>
+    <p class="section-note">No events.</p>
     <h4 id="type-EditApi">EditApi</h4>
     <h5 id="type-EditApi-properties">Properties</h5>
     <div class="table-wrap">
@@ -7521,6 +7688,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">checkOptions</td><td class="type">(options: unknown): boolean</td><td class="desc"><code>options: unknown</code></td><td class="type"><code>boolean</code></td><td class="desc">Ask whether an options object keeps changing identity without its contents changing — the framework-wrapper mistake that rebuilds the grid on every parent render. True means the identity churned.</td></tr>
           <tr><td class="name">record</td><td class="type">(kind: string, detail: { rows?: number; ms?: number; worker?: boolean }): void</td><td class="desc"><code>kind: string</code><br><code>detail: { rows?: number; ms?: number; worker?: boolean }</code></td><td class="type"><code>void</code></td><td class="desc">Record an operation your own code performed — its name, the rows it touched, how long it took — so it appears alongside the grid's in `operations()`.</td></tr>
           <tr><td class="name">render</td><td class="type">(cause: string, phases?: Record&lt;string, number&gt;): void</td><td class="desc"><code>cause: string</code><br><code>phases?: Record&lt;string, number&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Record a repaint and what caused it, with optional per-phase timings. The DOM layer calls this; a custom renderer can too.</td></tr>
+          <tr><td class="name">frame</td><td class="type">(at?: number): void</td><td class="desc"><code>at?: number</code></td><td class="type"><code>void</code></td><td class="desc">Record one animation-frame tick for the `renders().frames` health graph. The DOM layer calls this every real `requestAnimationFrame`, whether or not that frame painted anything; a render only fires on invalidation, so the gap between renders is a flush interval, not a frame time. `at` is the timestamp `requestAnimationFrame` passed its callback.</td></tr>
           <tr><td class="name">recordEvents</td><td class="type">(on: boolean, limit?: number): void</td><td class="desc"><code>on: boolean</code><br><code>limit?: number</code></td><td class="type"><code>void</code></td><td class="desc">Off by default; recording times every emit.</td></tr>
           <tr><td class="name">eventLog</td><td class="type">(): Array&lt;{ type: string; origin: string; listeners: number; payload: Record&lt;string, string&gt;; at: number; ms: number }&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Array&lt;{ type: string; origin: string; listeners: number; payload: Record&lt;string, string&gt;; at: number; ms: number }&gt;</code></td><td class="desc">The recorded events, oldest first, once `recordEvents(true)` has been called. Empty otherwise.</td></tr>
           <tr><td class="name">clearEventLog</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Forget the recorded events while leaving recording switched on.</td></tr>
@@ -7805,7 +7973,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">rangeChart</td><td class="type">| boolean | ((grid: <a href="#type-Grid">Grid</a>, range: <a href="#type-CellRange">CellRange</a>) =&gt; void) | { onChart?: (grid: <a href="#type-Grid">Grid</a>, range: <a href="#type-CellRange">CellRange</a>) =&gt; void }</td><td class="desc">Chart a selected cell range — the spreadsheet "chart this selection" gesture. Off by default, so a grid opts in. The DOM layer draws no charts itself — the charts module is optional and loaded by the host — so this is where the host wires the two together: a function, or an object carrying `onChart`, is called with the grid and the selected range when the reader chooses "Chart selection" from the cell menu. The handler typically calls `chartRange` from `lattice-grid/modules/charts`. `true` offers the item and emits nothing extra; supply a handler to have it actually draw. <small>(optional)</small></td></tr>
           <tr><td class="name">shortcuts</td><td class="type">boolean</td><td class="desc">The `?` keyboard shortcut overlay. `false` suppresses it, for a host that wants `?` for itself. Default true. <small>(optional)</small></td></tr>
           <tr><td class="name">find</td><td class="type">boolean | <a href="#type-FindConfig">FindConfig</a></td><td class="desc">The in-grid find bar (BACKLOG-0001018): Ctrl+F / Cmd+F with focus in the grid opens it; typing highlights every matching cell in place without filtering a row away; Enter and Shift+Enter step through the matches. `false` removes the bar and its shortcut; the `grid.find` API still works. Default true. <small>(optional)</small></td></tr>
-          <tr><td class="name">rowReorder</td><td class="type">boolean | { column?: string }</td><td class="desc">Let a user reorder rows by dragging a handle, or with Alt+Shift+Up/Down. `true` puts the handle in the first visible column; `{ column }` names a different one. The move reorders your data and emits `row:moved`; persisting it is yours, and `rows.data()` afterwards is the new order. Refused, with a reason announced, while a sort, filter or grouping is active, the position a row is dropped at has no single meaning in the underlying order then. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowReorder</td><td class="type">boolean | <a href="#type-RowReorderOptions">RowReorderOptions</a></td><td class="desc">Let a user reorder rows by dragging a handle, or with Alt+Shift+Up/Down. `true` puts the handle in the first visible column; `{ column }` names a different one. The move reorders your data and emits `row:moved`; persisting it is yours, and `rows.data()` afterwards is the new order. Refused, with a reason announced, while a sort, filter or grouping is active, the position a row is dropped at has no single meaning in the underlying order then. Two opt-ins give such a drop a meaning. `manualOrder: true` draws a Manual order button in the handle column's heading, also bound to Alt+Shift+M: it leaves the sort for an explicit order the rows keep (see `grid.rowOrder`), and pressing it again returns to the sort. `betweenGroups: true` lets a row dropped on another group join it, which writes its grouping values through `beforeEdit`, vetoable and undoable. A filter still refuses every move. <small>(optional)</small></td></tr>
           <tr><td class="name">rowTransfer</td><td class="type">boolean | { send?: boolean; receive?: boolean; mode?: <a href="types.html#type-RowTransferMode">RowTransferMode</a>; group?: string; }</td><td class="desc">Let rows be dragged out of this grid, into it, or both. Off by default: rows leaving a grid is a data change a host has to want, and a mis-drag that silently removed one has no gesture a user would think to undo. `send` and `receive` are both on when the option is present, so one-way is expressed by turning off the direction you do not want, a source grid is `{ receive: false }` and a target is `{ send: false }`. `mode: 'copy'` leaves the row where it was. `group` restricts exchange to grids sharing the same name, so two unrelated grids on a page do not accept each other's rows. The source needs `rowReorder` as well, since that is what draws the handle a drag starts from. <small>(optional)</small></td></tr>
           <tr><td class="name">alignedGrids</td><td class="type">unknown[]</td><td class="desc">Other grids to stay column-aligned with. Column widths, order, visibility and pinning are shared, and horizontal scrolling moves them together. Sort, filters, selection, grouping and the rows themselves stay independent: sharing those would make one grid with extra steps rather than two aligned ones. Declared on the grid created last, since it is the only one that can name the others; the link is peer-based once made. <small>(optional)</small></td></tr>
           <tr><td class="name">stickyGroupHeaders</td><td class="type">boolean | number | { depth?: number }</td><td class="desc">Keep the enclosing group headings pinned above the viewport while scrolling inside a group. Off by default — a deliberate product default; sticky group headers are opt-in. `true` turns it on, stacking at most two; a number, or `{ depth }`, sets how many may stack: each costs a row of viewport, so a deep grouping would otherwise spend the screen describing itself. `false` is off, the same as leaving it unset. <small>(optional)</small></td></tr>
@@ -7877,6 +8045,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">allowGroup</td><td class="type">boolean</td><td class="desc">Whether the user may group by this column from the interface. <small>(optional)</small></td></tr>
           <tr><td class="name">allowPivot</td><td class="type">boolean</td><td class="desc">Whether the user may pivot on it. <small>(optional)</small></td></tr>
           <tr><td class="name">allowTotal</td><td class="type">boolean</td><td class="desc">Whether the user may put a total on it. <small>(optional)</small></td></tr>
+          <tr><td class="name">diff</td><td class="type">boolean</td><td class="desc">Whether this column takes part in diff/audit mode (`GridConfig.diff`). Defaults to `true` for a stored column (one with `field`) and `false` for a computed one (`value.compute`), because comparing a computed column's before/after needs a real row shape on both sides and the snapshot side rarely has one. Set `true` on a computed column to opt it in — it is then compared on its computed value, read against the snapshot row for "before" — or `false` on a stored column to opt it out of the diff entirely (BACKLOG-0001540). <small>(optional)</small></td></tr>
           <tr><td class="name">nullable</td><td class="type">boolean</td><td class="desc">Whether an empty value is a legitimate value rather than a gap. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -8309,6 +8478,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">quick</td><td class="type">string</td><td class="desc">The quick-filter text. Absent when there was none. <small>(optional)</small></td></tr>
           <tr><td class="name">quickMode</td><td class="type"><a href="types.html#type-QuickFilterMode">QuickFilterMode</a> <small class="literals">'contains' | 'words' | 'fuzzy' | 'regex'</small></td><td class="desc">How the quick filter matched. Saved with the text and only when it is not the default, because a view restored as `contains` when it was saved as `words` or `regex` shows a different set of rows than the one it captured. <small>(optional)</small></td></tr>
           <tr><td class="name">sort</td><td class="type"><a href="#type-SortEntry">SortEntry</a>[]</td><td class="desc">The sort entries that were in force, outermost first. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowOrder</td><td class="type">{ keys: string[]; sort: <a href="#type-SortEntry">SortEntry</a>[] }</td><td class="desc">The manual row order, present only while one is in force: the row keys in order, and the sort `rowOrder.exit()` returns to. <small>(optional)</small></td></tr>
           <tr><td class="name">group</td><td class="type">string[]</td><td class="desc">The ids of the columns the rows were grouped by, outermost first. <small>(optional)</small></td></tr>
           <tr><td class="name">pivot</td><td class="type">{ enabled: boolean; columns: string[] }</td><td class="desc">Whether the grid was in pivot mode, and the columns it pivoted on. <small>(optional)</small></td></tr>
           <tr><td class="name">pivotView</td><td class="type">{ rowsCollapsed: string[]; columnsCollapsed: string[] }</td><td class="desc">The pivot presentation's collapse state (§10, BACKLOG-0000738): which row-axis and column-axis nodes are collapsed. Absent when the matrix is fully expanded, and tolerated as "expand all" when applied. <small>(optional)</small></td></tr>
@@ -8523,6 +8693,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">shortcut</td><td class="type">boolean</td><td class="desc">Bind Ctrl+F (Cmd+F on a Mac) while focus is in the grid. The browser's own find is untouched while focus is anywhere else on the page. Default true. <small>(optional)</small></td></tr>
           <tr><td class="name">debounce</td><td class="type">number</td><td class="desc">Milliseconds of typing quiet before the bar searches. Default 120. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RowReorderOptions">RowReorderOptions</h4>
+    <p class="section-note">The `rowReorder` option's object form.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">The column that carries the drag handle. The first visible one when omitted. <small>(optional)</small></td></tr>
+          <tr><td class="name">manualOrder</td><td class="type">boolean</td><td class="desc">Draw a Manual order button in the handle column's heading, bound to Alt+Shift+M as well, that enters and leaves a manual row order. Default false. <small>(optional)</small></td></tr>
+          <tr><td class="name">betweenGroups</td><td class="type">boolean</td><td class="desc">Under a grouping, let a row dropped on another group join it by writing its grouping values through `beforeEdit`. The grouping column has to be editable. Default false. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -9954,17 +10136,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">key</td><td class="type">string</td><td class="desc">The key of the row being moved.</td></tr>
           <tr><td class="name">from</td><td class="type">number</td><td class="desc">The display index it is at.</td></tr>
           <tr><td class="name">to</td><td class="type">number</td><td class="desc">The display index it would take.</td></tr>
+          <tr><td class="name">regrouped</td><td class="type"><a href="types.html#type-RowRegroupChange">RowRegroupChange</a>[]</td><td class="desc">The grouping values it would be given, when the move takes it into another group. `beforeEdit` is asked as well, as for any edit. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
     <h4 id="type-BeforeRowReceiveEvent">BeforeRowReceiveEvent</h4>
-    <p class="section-note">The `beforeRowReceive` event (BACKLOG-0001225): a row dragged from another grid is about to be inserted into this one. Fires on the **receiving** grid, before the insert, with the row under the pointer named — so a drop that means "assign this to that" can be recorded by the host and the insert stopped with `preventDefault(reason)`. A veto leaves the source grid untouched: the row stays where it was, and neither `row:sent` nor `row:copied` fires there. The source removes its row only after the target has admitted it, and a veto is a refusal to admit. The paired `rowReceive:cancelled` carries the same context plus the reason. Like every {@link BeforeEvent}, the handler may be `async`; the insert is held until it settles, and is cancelled as `'stale'` (BACKLOG-0001242) if the source row is gone by then, or if the row under the pointer is gone or has moved to a different index — `at` names a slot as "before `overKey`", and once that is no longer where `overKey`'s row sits, `at` is a stale index into a list that changed while the handler was thinking, not the slot the drop meant. `overKey: null` (the drop landed on no row) has no row to drift against and is never stale on that account.</p>
+    <p class="section-note">The `beforeRowReceive` event (BACKLOG-0001225): a row dragged from another grid is about to be inserted into this one. Fires on the **receiving** grid, before the insert, with the row under the pointer named — so a drop that means "assign this to that" can be recorded by the host and the insert stopped with `preventDefault(reason)`. A veto leaves the source grid untouched: the row stays where it was, and neither `row:sent` nor `row:copied` fires there. The source removes its row only after the target has admitted it, and a veto is a refusal to admit. The paired `rowReceive:cancelled` carries the same context plus the reason. Like every {@link BeforeEvent}, the handler may be `async`; the insert is held until it settles, and is cancelled as `'stale'` (BACKLOG-0001242) if the source row is gone by then, or if the row under the pointer is gone or has moved to a different index — `at` names a slot as "before `overKey`", and once that is no longer where `overKey`'s row sits, `at` is a stale index into a list that changed while the handler was thinking, not the slot the drop meant. `overKey: null` (the drop landed on no row) has no row to drift against and is never stale on that account — an append's intent, "put it at the end", stays satisfiable regardless of what else happened, so instead `at` is re-resolved to the target's row count at the moment the insert actually runs (BACKLOG-0001249), and the row still lands at the true end.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">data</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">The row about to be inserted: a shallow copy of the source row's data, and the very object that is inserted if no handler vetoes, so a change made to it here lands with the row.</td></tr>
-          <tr><td class="name">at</td><td class="type">number</td><td class="desc">The display index the row would be inserted at: the index of the row under the pointer, or `rows.count()` when the drop landed on no row. When `overKey` names a row, this is guaranteed to still be that row's index at the moment the insert actually runs — an async handler that leaves the named row at a different index causes the drop to be cancelled as `'stale'` (BACKLOG-0001242) rather than inserted at this index regardless.</td></tr>
+          <tr><td class="name">at</td><td class="type">number</td><td class="desc">The display index the row would be inserted at: the index of the row under the pointer, or `rows.count()` when the drop landed on no row. When `overKey` names a row, this is guaranteed to still be that row's index at the moment the insert actually runs — an async handler that leaves the named row at a different index causes the drop to be cancelled as `'stale'` (BACKLOG-0001242) rather than inserted at this index regardless. When `overKey` is null this value, seen from an async handler, is the index at the moment the event fired; it is re-resolved to the target's current `rows.count()` right before the insert runs, so an append still lands at the true end even if the handler itself changed the target's rows meanwhile (BACKLOG-0001249).</td></tr>
           <tr><td class="name">overKey</td><td class="type">string | null</td><td class="desc">The key of the row under the pointer when the drop happened — the row the user meant. Null when the drop landed past the last row, on empty space, on the header, or on a pinned row: there is no row to name, and a nearest guess would be wrong in a way that looks right.</td></tr>
           <tr><td class="name">source</td><td class="type"><a href="#type-Grid">Grid</a></td><td class="desc">The grid the row is being dragged from.</td></tr>
         </tbody>
@@ -11225,6 +11408,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">from</td><td class="type">number</td><td class="desc">The display index it came from.</td></tr>
           <tr><td class="name">to</td><td class="type">number</td><td class="desc">The display index it went to.</td></tr>
           <tr><td class="name">data</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">That row's data.</td></tr>
+          <tr><td class="name">regrouped</td><td class="type"><a href="types.html#type-RowRegroupChange">RowRegroupChange</a>[]</td><td class="desc">The grouping values it was given, when it moved into another group under `rowReorder.betweenGroups`. Absent for a move that changed only its place. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>

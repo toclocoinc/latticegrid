@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.76.0, type declarations
+ * Lattice Grid 1.77.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -2319,6 +2319,17 @@ export interface Column {
   allowPivot?: boolean;
   /** Whether the user may put a total on it. */
   allowTotal?: boolean;
+  /**
+   * Whether this column takes part in diff/audit mode (`GridConfig.diff`).
+   * Defaults to `true` for a stored column (one with `field`) and `false`
+   * for a computed one (`value.compute`), because comparing a computed
+   * column's before/after needs a real row shape on both sides and the
+   * snapshot side rarely has one. Set `true` on a computed column to opt it
+   * in — it is then compared on its computed value, read against the
+   * snapshot row for "before" — or `false` on a stored column to opt it out
+   * of the diff entirely.
+   */
+  diff?: boolean;
   /** Whether an empty value is a legitimate value rather than a gap. */
   nullable?: boolean;
 }
@@ -4736,8 +4747,16 @@ export interface GridConfig {
    * Refused, with a reason announced, while a sort, filter or grouping is
    * active, the position a row is dropped at has no single meaning in the
    * underlying order then.
+   *
+   * Two opt-ins give such a drop a meaning. `manualOrder: true` draws a
+   * Manual order button in the handle column's heading, also bound to
+   * Alt+Shift+M: it leaves the sort for an explicit order the rows keep (see
+   * `grid.rowOrder`), and pressing it again returns to the sort.
+   * `betweenGroups: true` lets a row dropped on another group join it, which
+   * writes its grouping values through `beforeEdit`, vetoable and undoable.
+   * A filter still refuses every move.
    */
-  rowReorder?: boolean | { column?: string };
+  rowReorder?: boolean | RowReorderOptions;
 
   /**
    * Let rows be dragged out of this grid, into it, or both.
@@ -5189,6 +5208,11 @@ export interface GridState {
   quickMode?: QuickFilterMode;
   /** The sort entries that were in force, outermost first. */
   sort?: SortEntry[];
+  /**
+   * The manual row order, present only while one is in force: the row keys in
+   * order, and the sort `rowOrder.exit()` returns to.
+   */
+  rowOrder?: { keys: string[]; sort: SortEntry[] };
   /** The ids of the columns the rows were grouped by, outermost first. */
   group?: string[];
   /** Whether the grid was in pivot mode, and the columns it pivoted on. */
@@ -7710,7 +7734,10 @@ export interface BeforeEvent extends GridEvent {
  * and once that is no longer where `overKey`'s row sits, `at` is a stale index
  * into a list that changed while the handler was thinking, not the slot the
  * drop meant. `overKey: null` (the drop landed on no row) has no row to drift
- * against and is never stale on that account.
+ * against and is never stale on that account — an append's intent, "put it at
+ * the end", stays satisfiable regardless of what else happened, so instead
+ * `at` is re-resolved to the target's row count at the moment the insert
+ * actually runs, and the row still lands at the true end.
  */
 export interface BeforeRowReceiveEvent extends BeforeEvent {
   /**
@@ -7726,6 +7753,11 @@ export interface BeforeRowReceiveEvent extends BeforeEvent {
    * the moment the insert actually runs — an async handler that leaves the
    * named row at a different index causes the drop to be cancelled as
    * `'stale'` rather than inserted at this index regardless.
+   * When `overKey` is null this value, seen from an async handler, is the
+   * index at the moment the event fired; it is re-resolved to the target's
+   * current `rows.count()` right before the insert runs, so an append still
+   * lands at the true end even if the handler itself changed the target's
+   * rows meanwhile.
    */
   at: number;
   /**
@@ -8300,8 +8332,22 @@ export interface RowsApi {
   /**
    * Move a row to another position in the data. Refuses, with a
    * reason, while a sort, filter or grouping is active.
+   *
+   * In a manual order (`rowOrder`) it rewrites that order instead of the data,
+   * within a group too. Under a grouping with `rowReorder.betweenGroups`, a
+   * row moved onto another group's row or heading joins that group: its
+   * grouping values are written through `beforeEdit` as one undoable change,
+   * and `regrouped` lists them. A veto is `reason: 'vetoed'`, with the
+   * handler's reason as `detail`. `origin` defaults to `'user'`.
    */
-  move(key: string, to: number): { moved: boolean; from: number; to: number; reason?: string };
+  move(key: string, to: number, opts?: { origin?: 'user' | 'ai' }): {
+    moved: boolean;
+    from: number;
+    to: number;
+    reason?: string;
+    detail?: string;
+    regrouped?: RowRegroupChange[];
+  };
   /**
    * The group headings enclosing a display row, outermost first. Empty when the
    * grid is not grouped.
@@ -8808,6 +8854,62 @@ export interface FiltersApi {
    * @returns whether anything was re-run
    */
   reapply(name?: string): boolean;
+}
+
+/** The `rowReorder` option's object form. */
+export interface RowReorderOptions {
+  /** The column that carries the drag handle. The first visible one when omitted. */
+  column?: string;
+  /**
+   * Draw a Manual order button in the handle column's heading, bound to
+   * Alt+Shift+M as well, that enters and leaves a manual row order. Default
+   * false.
+   */
+  manualOrder?: boolean;
+  /**
+   * Under a grouping, let a row dropped on another group join it by writing
+   * its grouping values through `beforeEdit`. The grouping column has to be
+   * editable. Default false.
+   */
+  betweenGroups?: boolean;
+}
+
+/** What `rowOrder.enter`, `set` and `exit` report. */
+export interface RowOrderResult {
+  /** Whether a manual order is in force after the call. */
+  manual: boolean;
+  /**
+   * Why nothing changed, when nothing did: `'already'`, `'not-manual'`,
+   * `'vetoed'` (a `beforeSort` handler), `'bad-order'` or
+   * `'source-cannot-reorder'`.
+   */
+  reason?: string;
+}
+
+/**
+ * A manual row order: the rows follow an explicit list of keys instead of the
+ * sort. Entering one keeps the rows where the sort put them and clears the
+ * sort; any sort ends it; `exit()` returns to the sort it was entered from.
+ * Carried by `state.get()` as `rowOrder`, and every change to it is announced
+ * by `state:changed` with `rowOrder` among its `sections`.
+ */
+export interface RowOrderApi {
+  /** Whether a manual order is in force. */
+  manual(): boolean;
+  /** The row keys in order, or null when the rows follow the sort. */
+  get(): string[] | null;
+  /**
+   * Leave the sort for a manual order, keeping the rows in place. Clearing a
+   * sort is a sort change, so `beforeSort` can veto it.
+   */
+  enter(opts?: { origin?: string }): RowOrderResult | Promise<RowOrderResult>;
+  /**
+   * Put the rows in this order, entering a manual order if needed. Rows it
+   * does not name follow the named ones, in data order.
+   */
+  set(keys: string[], opts?: { origin?: string }): RowOrderResult | Promise<RowOrderResult>;
+  /** Return to the sort the manual order was entered from, through `sort.set`. */
+  exit(): RowOrderResult | Promise<RowOrderResult>;
 }
 
 export interface SortApi {
@@ -9468,6 +9570,15 @@ export interface DiagnosticsApi {
    * DOM layer calls this; a custom renderer can too.
    */
   render(cause: string, phases?: Record<string, number>): void;
+  /**
+   * Record one animation-frame tick for the `renders().frames` health
+   * graph. The DOM layer calls this every real `requestAnimationFrame`,
+   * whether or not that frame painted anything; a render only fires on
+   * invalidation, so the gap between renders is a flush interval, not a
+   * frame time. `at` is the timestamp `requestAnimationFrame` passed its
+   * callback.
+   */
+  frame(at?: number): void;
   /** Off by default; recording times every emit. */
   recordEvents(on: boolean, limit?: number): void;
   /**
@@ -10980,6 +11091,8 @@ export interface Grid {
   readonly filters: FiltersApi;
   /** The sort, in priority order. */
   readonly sort: SortApi;
+  /** A manual row order that overrides the sort, entered and left explicitly. */
+  readonly rowOrder: RowOrderApi;
   /** Editing sessions: starting, committing and cancelling them. */
   readonly edit: EditApi;
   /** Where the viewport is, and moving it. */
@@ -12076,6 +12189,90 @@ export function clickhouseAdapter(options: {
 }): PushdownAdapter & {
   sqlFor(query: RemoteRequest): { sql: string; params: Record<string, string> };
   countSqlFor(query: RemoteRequest): { sql: string; params: Record<string, string> };
+};
+
+/**
+ * An adapter for Elasticsearch and OpenSearch through the search API.
+ *
+ * The grid's filter tree becomes a Query DSL `bool` query built as JSON — a
+ * value is never spliced into a string — with `term`/`terms` for equality and
+ * membership, `wildcard` (with `case_insensitive` unless the condition sets
+ * `caseSensitive`) for `contains`/`startsWith`/`endsWith`, `range` for
+ * comparisons and dates, `exists` for `blank`/`notBlank` and `must_not` for
+ * negation. The index mapping is read once (`GET {index}/_mapping`) so a `text`
+ * field is compared, sorted and aggregated through its `keyword` sub-field; a
+ * `text` field without one is matched by phrase and named once, and a sort or
+ * aggregate on it is refused by name with the `.keyword` hint before anything
+ * is sent. A page inside the index's result window is one `_search` with
+ * `from`/`size` and `track_total_hits: true`; past it the adapter counts with
+ * `_count` and walks with `search_after` over a point in time, closed when the
+ * grid asks a different question. `source.aggregate()` computes sum, avg, min,
+ * max, count and distinct (`cardinality`, an estimate past 40,000 values) in
+ * the engine, grouped through nested `terms` aggregations. Anything else stays
+ * with the grid and is named in `lastPlan()`. A refusal rejects with an `Error`
+ * named `ElasticsearchError` carrying `status`, `type` and the engine's own
+ * `reason`.
+ *
+ * **The adapter never holds a credential.** An API key or a user and password
+ * travel in `headers`, a credential that expires in a `fetch` wrapper, and a
+ * page that must see none points `url` at a proxy that adds one.
+ */
+export function elasticsearchAdapter(options: {
+  /**
+   * The cluster, for example `https://es.example.com:9200`, or a proxy path of
+   * your own in front of it. Required.
+   */
+  url: string;
+  /**
+   * The index the grid reads: a name, an alias, a pattern (`logs-*`) or a
+   * comma-separated list. Written into the request path, so anything else is
+   * refused. Required.
+   */
+  index: string;
+  /**
+   * Headers sent on every request — where a fixed credential goes
+   * (`Authorization: ApiKey …` or `Authorization: Basic …`).
+   */
+  headers?: Record<string, string>;
+  /**
+   * The `fetch` every request is made with. This is where a credential that
+   * expires is refreshed, since it is called afresh per request.
+   */
+  fetch?: typeof fetch;
+  /**
+   * `'elasticsearch'` (the default) or `'opensearch'`. The two differ only in
+   * their point-in-time endpoints, used for paging past the result window.
+   */
+  engine?: 'elasticsearch' | 'opensearch';
+  /**
+   * The index's field types as a flat record — `{ status: 'keyword', msg:
+   * 'text', 'msg.keyword': 'keyword', bytes: 'long' }` — so the mapping is not
+   * read. Absent, `GET {index}/_mapping` is read once before the first request.
+   */
+  mapping?: Record<string, string>;
+  /** The fields each hit's `_source` is limited to. Absent, the whole document. */
+  fields?: string[];
+  /**
+   * The index's `max_result_window`, 10,000 by default. A window that ends
+   * inside it is paged with `from`/`size`; one past it with `search_after`.
+   */
+  maxResultWindow?: number;
+  /**
+   * The most groups one level of a grouped aggregate may return, 10,000 by
+   * default. A level with more is refused by name rather than returned short.
+   */
+  maxBuckets?: number;
+  /**
+   * A field unique per document, added to the sort to make a walk past the
+   * result window total. Elasticsearch uses `_shard_doc` when this is absent;
+   * OpenSearch needs it, and a walk without one is refused by name.
+   */
+  tiebreaker?: string;
+}): PushdownAdapter & {
+  bodyFor(query: RemoteRequest): object;
+  aggregateBodyFor(query: RemoteRequest, aggregates: Array<{ id: string; col: string; fn: string }>): object;
+  groupedAggregateBodyFor(query: RemoteRequest, groupBy: string[],
+    aggregates: Array<{ id: string; col: string; fn: string }>): object;
 };
 
 export function createGrid(element: HTMLElement, config?: GridConfig): Grid;
@@ -14208,7 +14405,23 @@ export interface RowMovedEvent extends GridEvent {
   to: number;
   /** That row's data. */
   data: Record<string, unknown>;
+  /**
+   * The grouping values it was given, when it moved into another group under
+   * `rowReorder.betweenGroups`. Absent for a move that changed only its place.
+   */
+  regrouped?: RowRegroupChange[];
 }
+
+/** One grouping value a row moved into another group was given. */
+export interface RowRegroupChange {
+  /** The column the grid is grouped by at this level. */
+  colId: string;
+  /** The value it had. */
+  from: unknown;
+  /** The value of the group it joined. */
+  to: unknown;
+}
+
 
 /**
  * `source:error`: a source could not fetch what was asked of it. Which of the
@@ -15442,6 +15655,11 @@ export interface BeforeRowMoveEvent extends BeforeEvent {
   from: number;
   /** The display index it would take. */
   to: number;
+  /**
+   * The grouping values it would be given, when the move takes it into
+   * another group. `beforeEdit` is asked as well, as for any edit.
+   */
+  regrouped?: RowRegroupChange[];
 }
 
 /** `beforeGroup`: a group row is about to be expanded or collapsed. */

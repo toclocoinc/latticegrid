@@ -322,20 +322,31 @@ function safeString(value) {
 
 function reportedWarnings() { return reported.map((r) => ({ ...r })); }
 
+function stripRedundantPrefix(message) {
+    if (message.length === 0 || typeof message[0] !== 'string')
+        return message;
+    const stripped = message[0].replace(/^\[lattice\]\s*/, '');
+    if (stripped === message[0])
+        return message;
+    return [stripped, ...message.slice(1)];
+}
+
 function warnOnce$1(key, ...message) {
     if (warned.has(key))
         return;
     rememberWarned(key);
-    record(key, 'warn', message);
-    console.warn('[lattice]', ...message);
+    const normalized = stripRedundantPrefix(message);
+    record(key, 'warn', normalized);
+    console.warn('[lattice]', ...normalized);
 }
 
 function infoOnce(key, ...message) {
     if (warned.has(key))
         return;
     rememberWarned(key);
-    record(key, 'info', message);
-    console.info('[lattice]', ...message);
+    const normalized = stripRedundantPrefix(message);
+    record(key, 'info', normalized);
+    console.info('[lattice]', ...normalized);
 }
 
 function resetWarnings() {

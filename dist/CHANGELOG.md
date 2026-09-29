@@ -9,6 +9,119 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.77.0] - 2026-09-29
+
+### Breaking
+
+- **`grid.diagnostics.snapshot().render.frames` reported false "dropped" frames on any feed slower than 60Hz** (BACKLOG-0001033). It measured the gap between renders — a flush interval — as if it were a frame time: a page whose feed flushed only every 25ms, with the display painting a rock-steady 16.7ms, reported `meanMs` near 25 and `dropped` growing even though real frame timing had zero long frames. `render.frames` is now sampled from real animation frames via a new `grid.diagnostics.frame(at)`, which the DOM layer calls every `requestAnimationFrame` tick whether or not that frame painted anything; `render(cause, phases)` no longer touches the frame counters at all. A caller quoting `render.frames` as frame health, or as a release claim, now sees the true figures rather than a false negative.
+  - `grid.updates.stats().dropped` is unchanged in behaviour, but is now documented explicitly (in `docs/API.html` and its own JSDoc) as change-log entries trimmed past `heldLimit`, never a lost update — it was easy to misread as data loss.
+
+### Added
+
+- **A dashboard is now a JSON spec, not a page of wiring.** Building a dashboard meant 100–150 lines per page: a layout of windows, a grid, charts, KPI tiles, a map, and the listeners that kept them in step. The new opt-in `modules/dashboard` (global `LatticeGridDashboard`) builds one from data: `createDashboard(el, { layout, panels, sources, links }, { createGrid, createLayout, createChart, … })` puts a grid, chart, KPI, map (a map chart, Leaflet or deck.gl) or html panel in each window, with each panel's `options` handed to its own viewer unchanged. Each panel names its source — rows in the page, a pushdown adapter, a Data Router route, or `grid:<panel>` to follow another panel's grid, so a chart over the table narrows when the table is filtered — and `links` let one grid's selection filter another panel (a `relate()` edge over one router; two pushdown engines with no router between them are refused with the reason). `dashboard.spec()` hands the spec back with every window where the user dragged it, and rebuilding from it gives the same dashboard, so your application can store and version dashboards. With your AI callback, `dashboard.propose('sales by region with a map', { source })` asks the model for a spec from the source's column names and types alone — a panel naming a column that does not exist comes back as a warning and is dropped — and nothing is built until you call `dashboard.apply(spec)`. `saveView`/`applyView` store and restore the layout with every grid's state, and `present()` steps through the panels. Every refusal is named in `dashboard.problems()` and catalogued; `validateDashboardSpec(spec)` checks a spec without building it. The module is 12.5 KB gzipped and imports none of the viewers. (BACKLOG-0000728)
+
+- **A sorted or grouped grid can now take a row drag, when you opt in.** Row reorder was declined outright while a sort or grouping was active, so a triage list that was sorted could not be hand-ordered and a row could not be dragged into another group. Two opt-ins, both off by default so nothing changes until you ask (BACKLOG-0001019):
+  - `rowReorder: { manualOrder: true }` draws a **Manual order** button in the handle column's heading, also bound to Alt+Shift+M. Pressing it keeps every row where the sort put it, clears the sort, and lets a drag (or Alt+Shift+Up/Down) set an explicit order; pressing it again returns to the sort. The same from code is the new `grid.rowOrder` (`enter()`, `set(keys)`, `exit()`, `manual()`, `get()`); every change is announced by `state:changed` with `rowOrder` among its sections. The order is a list of row keys that `state.get()` carries as `rowOrder`, so `serialiseState`, saved views and `restoreState` keep it; the data itself is never reordered. Any sort ends a manual order, and clearing a sort to enter one asks `beforeSort` like any sort change.
+  - `rowReorder: { betweenGroups: true }` lets a row dropped on another group's row or heading, or moved across a group boundary with Alt+Shift+Up/Down, join that group. It is an edit of the grouping value: every differing level goes through one `beforeEdit`, is one undo step and fires `cell:changed`; `beforeRowMove` and `row:moved` carry the values as `regrouped` and the `origin`; group counts and totals recompute. A veto leaves the row where it was and is announced with the handler's reason (`rows.move()` returns `reason: 'vetoed'` and `detail`).
+  - A filter still refuses every move, and every refusal, including the new `group-not-editable`, `group-derived` and `invalid`, is announced in words rather than as a catalogue key. `rows.move()` takes `{ origin }`.
+
+- **A grid can now read Elasticsearch and OpenSearch directly, filtering, sorting, paging, counting and aggregating in the cluster** (BACKLOG-0001528). `elasticsearchAdapter({ url, index })` speaks `POST {index}/_search` and `_count` with no client library and no dependency. The grid's filter tree becomes a Query DSL `bool` query built as JSON, so no value is ever spliced into a query string: `term`/`terms` for `eq`/`ne`/`in`/`notIn`, `wildcard` over the whole value for `contains`/`startsWith`/`endsWith` (a `*` or `?` the user typed is a character), `range` for the comparisons, `between`/`notBetween` and time filters, `exists` for `blank`/`notBlank`, `must_not` for negation, and the list type's `hasAny`/`hasAll`/`hasNone`. Text folds case with `case_insensitive` exactly as the grid's own filter does unless `caseSensitive` is set, and a value with a cased non-ASCII letter (which the engines do not fold) is named once. The index mapping is read once, so a `text` field is compared, sorted and grouped through its `.keyword` sub-field; sorting or aggregating a text field that has none is refused by name with the `.keyword` hint before anything is sent, never a 400. A multi-column sort writes the grid's `null` placement as `missing`; a page is `from`/`size` with an exact `track_total_hits` count inside the index's result window (`maxResultWindow`, 10,000 by default) and `search_after` over a point in time past it, closed as soon as the grid asks a different question (`engine: 'opensearch'` selects OpenSearch's point-in-time endpoints and needs a `tiebreaker` field). `source.aggregate()` computes sum, avg, min, max, count and distinct (`cardinality`, named as an estimate past 40,000 values) in the engine, grouped through nested `terms` with a bucket for documents with no key, and a level with more than `maxBuckets` groups is refused rather than returned short. Anything not translated stays with the grid and is named in `lastPlan()`; a refusal reaches the grid as an `ElasticsearchError` carrying the engine's own `type` and `reason`. The adapter stores no credential: an API key travels in `headers`, a `fetch` wrapper, or a proxy of your own in front of the cluster.
+
+### Fixed
+
+- A row dropped past the last row of another grid (`overKey: null`, an
+  append) could land at a stale numeric index instead of the true end when an
+  async `beforeRowReceive` handler changed the target's rows while the drop
+  was awaiting it — the same class of defect BACKLOG-0001242 fixed for a
+  named `overKey`, in the one case its position check could not reach.
+  `RowReorder#receive()` now re-resolves the append's `at` to the target's
+  live `rows.count()` right before the insert applies, rather than reapplying
+  the count captured when the drop was hit, so the row always lands at the
+  true end. Unlike the named-row case this is not cancelled as `'stale'`: an
+  append's intent, "put it at the end", stays exactly satisfiable regardless
+  of what else happened during the await, so there is nothing here for
+  `beforeRowMove`'s cancel-as-stale precedent to apply to. (BACKLOG-0001249)
+
+- Some diagnostics printed `[lattice] [lattice] ...` when a call site's own
+  message already started with the prefix `warnOnce`/`infoOnce` add — 34 call
+  sites across `views.js`, `grid.js`, `hypothesis.js`, `localviews.js`,
+  `createGrid.js`, `webcomponent/elements.js` and the gantt module had grown
+  to carry a literal leading `[lattice]`, more than the ten first reported.
+  `warnOnce`/`infoOnce` now strip a redundant leading `[lattice]` from the
+  first message argument before prepending their own, so the console line
+  (and the diagnostics panel's record of it) carries the prefix exactly once,
+  whatever the call site passes. (BACKLOG-0001251)
+
+- **A cyclic object handed to `defaults()` exhausted the call stack at the host's own call site** (BACKLOG-0001252). `cloneValue` recursed into every plain object unconditionally, so a house-wide config with a back-reference blew up with an unlabelled `RangeError` instead of a diagnostic. `defaults()` now detects the cycle before it recurses and refuses the call with a `[lattice]` warning, leaving the previous policy in force, the same way it already handles a non-object argument.
+  - **Unchanged.** A value that is merely *shared* between two branches of a config (the same object referenced twice, not a cycle) is still accepted and still copied independently into the snapshot — only an object that refers back to one of its own ancestors is refused.
+
+- **`bindLeaflet`/`bindDeck` with `viewportFilter: true` never wrote the map's initial bounds as the viewport filter, only on the first `moveend`/`zoomend`, so the attribute table and KPI tiles counted every row on load while the layers already answered for the view** (BACKLOG-0001539). Both bindings now write the map's own bounds as the grid's viewport condition at bind time too — Leaflet once `map.getBounds()` reports a real box (deferring to the map's first `load`/`resize` when it does not yet), deck.gl from its initial viewState (deferring to its first `onViewStateChange` report when none is ready yet) — so the grid, the KPIs and the layers agree from the first paint. A bind before the map has a size still never writes a zero-area box.
+
+- **A computed column read through `grid.diff` corrupted every row's diff status** (BACKLOG-0001540). Diffing compared every resolved column, computed ones included; reading a computed column's "before" value called its `compute` with no row, the throw was swallowed into `undefined`, and the mismatch marked the row changed — on 5,000 rows with 60 true changes, `grid.diff.summary()` reported 4,970 changed and 0 unchanged.
+  - Diffing now compares **stored fields only by default**: a column without `field` never contributes to a row's status, `summary()`, `changedColumns()` or `before()`.
+  - A column may opt in with `diff: true` — a computed column is then compared on its computed value, with a real row shape synthesised for the snapshot side — or opt out with `diff: false`.
+  - A `compute` that throws while diffing is reported once by name (`diff:compute-threw`) and the column is left out of that row's diff, never swallowed into a false "changed".
+
+### Internal
+
+- `DerivedSource#coverageOf`'s deliberate use of `rows.matchCount()` (the
+  parent's data rows) rather than `rows.count()` (its display rows, which for
+  a grouped parent also include group-header rows) had no test with a grouped
+  parent, so the exact mutation the code comment defends against — preferring
+  `count()` — survived unnoticed. Added a test that groups the parent and
+  asserts every `statistics` row's `n` still reports the 40 underlying data
+  rows rather than the 42 grouped display rows; confirmed the `count()`
+  mutation fails it by name, then reverted. (BACKLOG-0001105)
+
+- **A browser test could report a shrunk panel as a stale-paint defect that did not exist, because the renderer pools row elements and it read every `[role="row"]` at face value** (BACKLOG-0001109). `test/derived-statistics-browser.test.js` carried the same unguarded pattern BACKLOG-0001094 fixed elsewhere; it now reads painted rows through a new shared `visibleRows(browser, selector, cellSelector)` helper (`tools/browser.js`) that filters on `offsetParent !== null` before counting or reading text.
+  - Added a browser test, `test/pooled-rows-visible-browser.test.js`, proving the helper reports a panel's actual live row after it shrinks rather than the pooled high-water mark.
+  - No shipped library behaviour changed; test infrastructure only.
+
+- Three layout-module doc-comment guarantees around window interactivity were
+  correct but unasserted — a mutation could remove any of them and the full
+  suite still reported zero failures (BACKLOG-0001137). `window(id)` never
+  exposing the non-enumerable `own` bookkeeping is now asserted headlessly; a
+  close listener released on lock is now proven dead by clicking the
+  decommissioned button directly rather than the one currently painted; and a
+  chrome-less window's post-lock re-measure is now proven in a real browser —
+  the payload box actually grows once the handlebar is gone, and
+  `onWindowResized` reports the new height rather than a stale one. No
+  behaviour changed; each mutation now fails a named test.
+
+- A `tsc --strict` proof run in an agent's session scratchpad left with the
+  agent when the session ended, so no reviewer could re-check it and no gate
+  could tell a card that had done the proof from one that had silently
+  skipped it — the same proof produced twice, unaware of itself, in one night
+  (BACKLOG-0001224, BACKLOG-0001228). Added `tools/tscproof.js`: hosts the
+  convention two prior cards had already used unprompted (a
+  `test/fixtures/<slug>/tsconfig.json` + `*.fixture.ts` pair, compiled by
+  `packages/modules/angular`'s own `typescript` — the one place this
+  zero-dependency repository installs it), gates every hosted fixture's
+  hygiene in `node tools/check.js` with no compiler required, and re-verifies
+  by actually compiling them (`npm run typecheck`, or `--require-tsc-proof`
+  as part of `npm run check:release`). Confirmed a real declaration
+  regression is caught (a mutated built `.d.ts` turned a fixture's
+  `@ts-expect-error` unused, TS2578) rather than merely passing today.
+  Fixed a gap in that same hygiene gate: deleting a hosted fixture's
+  `tsconfig.json` outright made the whole fixture vanish from discovery
+  rather than fail — the exact "absence indistinguishable from a scratchpad
+  that has gone" defect this card exists to close, recurring one level up.
+  `discoverFixtures` now reports a `*.fixture.ts` with no `tsconfig.json`
+  beside it as a hygiene failure by name instead of silently skipping it.
+
+- Pinned the `<meta name="lattice-license">` precedence rule against a house `defaults()` policy: a house licence suppresses the meta tag, a grid's own licence beats both the house and the meta tag, and a house policy that names no licence leaves the meta tag fallback untouched. No behaviour changed.
+
+- Capability registry: an `extends`-bearing `*Config`/`*Options` interface whose
+  base is named neither `*Config`/`*Options` nor listed in the collector's
+  extra set had its inherited members credited to nobody — `StatConfig extends
+  StatValueSpec` was the case found, so `of`, `fn` and `show` were invisible to
+  `tools/capabilities.js` and to the completeness gate, not merely uncredited
+  on one surface (BACKLOG-0001513). `StatValueSpec` is now registered in its
+  own right (`config:StatValueSpec.of`/`.fn`/`.show`); the rule is recorded in
+  `docs/CONTRACTS.md` and in the collector's own header. The 3 newly-visible
+  keys are frozen in `tools/capability-baseline.json` pending backfill, per the
+  BACKLOG-0001247 precedent.
+
 ## [1.76.0] - 2026-09-28
 
 ### Breaking

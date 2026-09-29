@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.76.0, leaflet module type declarations
+ * Lattice Grid 1.77.0, leaflet module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -50,12 +50,14 @@ export interface LeafletBindingOptions {
   position: { lon: string; lat: string } | { geometry: string };
   /**
    * The map's view as a filter on the grid, exactly as a map chart's
-   * {@link ChartSpec.viewportFilter}: after every `moveend`/`zoomend` — a
-   * drag or zoom by the reader, or the page's own `setView`, `fitBounds` or
-   * `flyTo` — debounced (default 150 ms), the binding writes the map's
-   * `getBounds()` as ONE condition: a `withinBbox` on a geometry column, or a
-   * `between` pair on `lon`/`lat`. A matching condition set from elsewhere
-   * moves the map to its box. Off by default.
+   * {@link ChartSpec.viewportFilter}: written at bind time from the map's
+   * own bounds once it has a size, so the grid and the
+   * layers agree from the first paint, and again after every
+   * `moveend`/`zoomend` — a drag or zoom by the reader, or the page's own
+   * `setView`, `fitBounds` or `flyTo` — debounced (default 150 ms), the
+   * binding writes the map's `getBounds()` as ONE condition: a `withinBbox`
+   * on a geometry column, or a `between` pair on `lon`/`lat`. A matching
+   * condition set from elsewhere moves the map to its box. Off by default.
    */
   viewportFilter?: boolean | { debounce?: number };
   /**

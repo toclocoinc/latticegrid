@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.76.0</p>
+    <p class="rail__sub">Developer guide · v1.77.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.76.0</span>
+        <span class="chip">Version 1.77.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1502,7 +1502,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.76.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.77.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -3325,8 +3325,140 @@ grid.on('row:moved', ({ key, from, to }) =&gt; {
       something the grid computed rather than something the data says. Rather than pick an
       interpretation and put the row somewhere you did not ask for, the move is declined.
       <code>rows.move()</code> returns <code>{ moved: false, reason }</code> so you can handle it
-      yourself.
+      yourself. That stays the default; the two opt-ins below give a sorted or grouped drop a
+      meaning of its own.
     </p>
+
+    <h3 id="manual-order">A manual order under a sort</h3>
+    <p class="lead-in">
+      <code>rowReorder: { manualOrder: true }</code> puts a <strong>Manual order</strong> button in
+      the heading of the handle column (the <code>column</code> option, or the first visible one),
+      also bound to <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd>. Pressing it on a sorted grid keeps
+      every row where the sort put it, clears the sort, and from then on a drag sets an explicit
+      order. The button stays pressed, and the grid root carries
+      <code>data-row-order="manual"</code>, for as long as it is in force, so a heading with no sort
+      arrow still says what is ordering the rows. Pressing it again returns to the sort. The same
+      thing from code is <code>grid.rowOrder</code>: <code>enter()</code>, <code>set(keys)</code>,
+      <code>exit()</code>, <code>manual()</code> and <code>get()</code>.
+    </p>
+
+    <div class="example">
+      <p class="example__label">Hand-order a sorted triage list, save it, and bring it back</p>
+      <pre data-run="js" data-expect="manual 3,1,2 | restored 3,1,2 | back to sorted 1,2,3" data-covers="method:rowOrder config:RowReorderOptions.manualOrder config:RowReorderOptions.column"><code><span class="kw">const</span> { createHeadlessGrid, serialiseState, restoreState } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> make = () =&gt; createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'title' }, { field: 'priority', type: 'number' }],
+  rows: [
+    { id: 1, title: 'Login fails', priority: 1 },
+    { id: 2, title: 'Slow export', priority: 2 },
+    { id: 3, title: 'Typo in footer', priority: 3 },
+  ],
+  <span class="cmt">// The heading control, in the title column's heading. Headless, so here it is the API.</span>
+  rowReorder: { column: 'title', manualOrder: <span class="kw">true</span> },
+});
+<span class="kw">const</span> ids = (g) =&gt; g.rows.data().map((r) =&gt; r.id).join(',');
+
+<span class="kw">const</span> grid = make();
+grid.sort.set([{ col: 'priority', dir: 'asc' }]);
+<span class="kw">let</span> saved = <span class="kw">null</span>;
+<span class="cmt">// Entering, every move and leaving are announced as state changes, like any view state.</span>
+grid.on('state:changed', ({ sections }) =&gt; {
+  <span class="kw">if</span> (sections.includes('rowOrder') &amp;&amp; grid.rowOrder.manual()) saved = serialiseState(grid);
+});
+
+grid.rowOrder.enter();          <span class="cmt">// explicit: the rows stay put, the sort is cleared</span>
+grid.rows.move('3', 0);         <span class="cmt">// what a drag or Alt+Shift+Up does</span>
+<span class="kw">const</span> manual = ids(grid);
+grid.destroy();
+
+<span class="kw">const</span> again = make();
+restoreState(again, saved);     <span class="cmt">// the order travels in the saved state</span>
+<span class="kw">const</span> restored = ids(again);
+again.rowOrder.exit();          <span class="cmt">// the way back: the sort it was entered from</span>
+<span class="kw">const</span> back = ids(again);
+again.destroy();
+<span class="kw">return</span> `manual ${manual} | restored ${restored} | back to sorted ${back}`;</code></pre>
+    </div>
+
+    <div class="why">
+      <p><strong>Which wins: the manual order, until you sort.</strong> While a manual order is in
+      force it overrides the sort; any sort ends it, whether that is a heading click,
+      <code>sort.set</code>, <code>sort.clear</code> or restoring a view that was saved sorted.
+      <code>rowOrder.exit()</code> returns to the sort it was entered from. Entering is never
+      silent: it takes the button, the shortcut or a call, it fires <code>state:changed</code>
+      with <code>rowOrder</code> among its <code>sections</code>, and it is announced. Clearing the sort to enter is a sort change, so a
+      <code>beforeSort</code> handler that locks a view's sort locks this too.</p>
+      <p>The data is not reordered. The order is a list of row keys, carried by
+      <code>state.get()</code> as <code>rowOrder</code> (the keys, and the sort to return to), so
+      <code>serialiseState</code> and saved views keep it and <code>restoreState</code> puts it
+      back. A row the list does not name, one added since, goes after the named rows. Under a
+      grouping, a manual order also lets a row move within its group.</p>
+    </div>
+
+    <h3 id="move-between-groups">Moving a row into another group</h3>
+    <p class="lead-in">
+      <code>rowReorder: { betweenGroups: true }</code> lets a row dragged onto a row or heading of
+      another group join it, the way a card moves between kanban columns. With the keyboard,
+      <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>&uarr;</kbd> from the first row of a group, or
+      <kbd>&darr;</kbd> from the last, carries it across. Joining a group means taking that group's
+      value, so the move is an edit: it goes through <code>beforeEdit</code>, with every grouping
+      level that differs in one change, so a handler can veto it and <code>grid.edit.undo()</code>
+      puts it back. <code>beforeRowMove</code> and <code>row:moved</code> carry the values as
+      <code>regrouped</code>, and both carry the <code>origin</code>. Group counts and totals
+      recompute as for any edit.
+    </p>
+
+    <div class="example">
+      <p class="example__label">Re-categorise by dragging, with a host that can say no</p>
+      <pre data-run="js" data-expect="blue | vetoed: frozen | red" data-covers="config:RowReorderOptions.betweenGroups"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'name' }, { field: 'team', edit: { enabled: <span class="kw">true</span> } }],
+  rows: [{ id: 1, name: 'Ann', team: 'red' }, { id: 2, name: 'Bob', team: 'blue' }],
+  rowReorder: { betweenGroups: <span class="kw">true</span> },
+});
+grid.columns.group(['team']);    <span class="cmt">// blue heading, Bob, red heading, Ann</span>
+
+grid.rows.move('1', 1);          <span class="cmt">// Ann dropped on Bob: she joins blue</span>
+<span class="kw">const</span> joined = grid.rows.byKey('1').data.team;
+grid.edit.undo();                <span class="cmt">// one step puts her back in red</span>
+
+<span class="kw">const</span> off = grid.on('beforeEdit', (e) =&gt; e.preventDefault('frozen'));
+<span class="kw">const</span> vetoed = grid.rows.move('1', 1);
+off();
+<span class="kw">const</span> after = grid.rows.byKey('1').data.team;
+grid.destroy();
+<span class="kw">return</span> `${joined} | ${vetoed.reason}: ${vetoed.detail} | ${after}`;</code></pre>
+    </div>
+
+    <p class="lead-in">
+      The grouping column has to be editable (<code>edit: { enabled: true }</code>). A column that
+      is not, or one grouped by a derived bucket such as a date's month, refuses the move rather
+      than guessing a value.
+    </p>
+
+    <h3 id="row-reorder-refusals">What is refused, and what is said</h3>
+    <p class="lead-in">
+      Every refusal is announced through the grid's live region, and returned by
+      <code>rows.move()</code> as <code>reason</code>:
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th><code>reason</code></th><th>When</th><th>What a screen reader hears</th></tr></thead>
+        <tbody>
+          <tr><td><code>sorted</code></td><td>A sort is in force and no manual order is.</td><td>Rows cannot be reordered while the grid is sorted (with <code>manualOrder</code>, it adds how to order them by hand)</td></tr>
+          <tr><td><code>filtered</code></td><td>A filter is in force: a drop between visible rows says nothing about the hidden rows between them. Always refused.</td><td>Rows cannot be reordered while a filter is applied</td></tr>
+          <tr><td><code>grouped</code></td><td>A grouping is in force, and the move is within a group without a manual order, or into another group without <code>betweenGroups</code>.</td><td>Rows cannot be reordered while the grid is grouped</td></tr>
+          <tr><td><code>group-not-editable</code></td><td>The grouping column cannot be edited.</td><td>The row cannot join that group: its grouping value cannot be edited</td></tr>
+          <tr><td><code>group-derived</code></td><td>The group is a bucket worked out from the value.</td><td>The row cannot join that group: the group is worked out from the value…</td></tr>
+          <tr><td><code>invalid</code></td><td>The group's value failed the column's validation.</td><td>The row cannot join that group: the new value was not valid</td></tr>
+          <tr><td><code>vetoed</code></td><td>A <code>beforeEdit</code> handler declined it; <code>detail</code> is its reason.</td><td>The move was declined (<em>reason</em>); the row stays where it was</td></tr>
+        </tbody>
+      </table>
+    </div>
+
 
     <h2 id="row-transfer">Moving rows between grids</h2>
     <p class="lead-in">
@@ -3901,7 +4033,7 @@ createGrid(el, {
 });</code></pre>
     </div>
     <p>
-      Seven adapters ship. <code>odataAdapter</code> writes <code>$filter</code>,
+      Eight adapters ship. <code>odataAdapter</code> writes <code>$filter</code>,
       <code>$orderby</code>, <code>$top</code> and <code>$skip</code>, and follows
       <code>@odata.nextLink</code> when the server pages on its own terms.
       <code>restAdapter</code> covers an ordinary JSON endpoint whose parameter names are yours to
@@ -3929,6 +4061,17 @@ createGrid(el, {
       unchanged; set <code>max_execution_time</code> in <code>settings</code> on a writable or service
       account. The grid&rsquo;s grouped view is not pushed — the grid groups the rows it holds — and a
       ClickHouse refusal reaches the grid as an error carrying ClickHouse&rsquo;s own message.
+      <code>elasticsearchAdapter</code> speaks the Elasticsearch and OpenSearch search API for the
+      <code>index</code> you name: the grid&rsquo;s filter becomes a Query DSL <code>bool</code> query built
+      as JSON, so no value is ever spliced into a query string; a page is one <code>_search</code> carrying
+      its exact count, and a page past the index&rsquo;s result window is reached with
+      <code>search_after</code> over a point in time. It reads the index mapping once, so a text field is
+      compared, sorted and grouped through its <code>.keyword</code> sub-field, and a text field that has
+      none cannot be sorted: that is refused by name, with the fix, before anything is sent.
+      <code>source.aggregate()</code>&rsquo;s sum, average, minimum, maximum, count and distinct count are
+      computed in the engine, grouped through <code>terms</code> aggregations. Your API key travels in
+      <code>headers</code> or a <code>fetch</code> wrapper, and in production a proxy in front of the
+      cluster keeps it out of the page altogether.
     </p>
 
     <h3>Declaring what an engine can do</h3>
@@ -7428,6 +7571,7 @@ grid.annotate.use(null);                     <span class="cmt">// hand the grid 
           <tr><td class="name"><kbd>Shift</kbd>+<kbd>F10</kbd> <span class="sep">or</span> <kbd>ContextMenu</kbd></td><td class="desc">Open the context menu for the focused cell</td></tr>
           <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td class="desc">Find in the grid</td></tr>
           <tr><td class="name"><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>ArrowUp</kbd> <span class="sep">or</span> <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>ArrowDown</kbd></td><td class="desc">Move the focused row, when row reorder is enabled</td></tr>
+          <tr><td class="name"><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd></td><td class="desc">Order the rows by hand, or return to the sort, when row reorder allows a manual order</td></tr>
           <tr><th colspan="2">On a column heading</th></tr>
           <tr><td class="name"><kbd>ArrowLeft</kbd> <span class="sep">or</span> <kbd>ArrowRight</kbd></td><td class="desc">Move between headings</td></tr>
           <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>ArrowLeft</kbd> <span class="sep">or</span> <kbd>Ctrl</kbd>+<kbd>ArrowRight</kbd></td><td class="desc">First / last heading</td></tr>
@@ -8962,6 +9106,36 @@ grid.diff.before('CIR-100042', 'capacity');</code></pre>
       devices: "which rows moved" and "what changed in this row" are different questions and one
       highlight cannot serve both.
     </p>
+    <p class="lead-in">
+      Diffing compares <strong>stored fields only by default</strong>. A computed column
+      (<code>value.compute</code>, no <code>field</code>) has nothing on the snapshot side to read
+      without a real row, so it is left out of a row's status, <code>summary()</code>,
+      <code>changedColumns()</code> and <code>before()</code> unless you say otherwise: set
+      <code>diff: true</code> on it to compare its computed value on both sides, or
+      <code>diff: false</code> on a stored column to leave it out (BACKLOG-0001540).
+    </p>
+    <div class="example">
+      <p class="example__label">Opting a computed column in, and a stored one out, executed</p>
+      <pre data-run="js" data-expect="qty,total" data-covers="config:diff"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  rows: [{ id: 'r1', qty: 3, price: 10, note: 'x' }],
+  diff: { snapshot: [{ id: 'r1', qty: 2, price: 10, note: 'y' }] },
+  columns: [
+    { field: 'qty' },
+    { field: 'price' },
+    <span class="cmt">// Stored, but excluded on purpose.</span>
+    { field: 'note', diff: false },
+    <span class="cmt">// Computed, but opted in: compared on its own value.</span>
+    { id: 'total', diff: true, value: { deps: ['qty', 'price'], compute: (d) => d.qty * d.price } },
+  ],
+});
+
+<span class="kw">const</span> changed = [...grid.diff.changedColumns('r1')];
+grid.destroy();
+<span class="kw">return</span> changed.join(',');</code></pre>
+    </div>
 
     <h3 id="network-map-guide">A network map: icon nodes, links coloured by their value</h3>
     <p class="lead-in">
@@ -10818,6 +10992,34 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
       </table>
     </div>
 
+    <h2 id="dashboard-guide">Dashboards</h2>
+    <p class="lead-in">
+      <code>createDashboard(el, spec, factories)</code> (<code>modules/dashboard</code>) builds a dashboard from a
+      JSON spec &mdash; a <a href="API.html#layout">layout</a>, grid, chart, KPI, map and html panels, a source per
+      panel and links between them &mdash; and hands the spec back from <code>spec()</code> with every window's live
+      placement. The viewers are handed in (or found on their script-tag globals), a panel's <code>options</code> go
+      to its viewer untouched, and every refusal is named. See <a href="API.html#dashboard">Dashboard composition</a>
+      for the spec reference and the three executed recipes: one spec to a page, mixed sources and links, and an AI
+      proposal with views and presentation.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td class="name">createDashboard</td><td class="desc">Build a spec into an element. Everything the spec's problems do not touch is built; each refusal is in <code>problems()</code> and warned once under its catalogued id.</td></tr>
+          <tr><td class="name">validateDashboardSpec</td><td class="desc">Every problem in a spec, by path (<code>panels[2].kind</code>), without building it.</td></tr>
+          <tr><td class="name">spec</td><td class="desc">The dashboard as built: panels, sources by id, the links that were made, and each window where it now is. Rebuilding from it gives the same dashboard.</td></tr>
+          <tr><td class="name">apply</td><td class="desc">Tear down and build another spec in place: how a proposal is accepted or a stored spec restored.</td></tr>
+          <tr><td class="name">panels / panel</td><td class="desc">The built panel ids; one panel's element, grid and viewer.</td></tr>
+          <tr><td class="name">problems</td><td class="desc">What the last build refused or reported: <code>{ id, path, message }</code>.</td></tr>
+          <tr><td class="name">propose</td><td class="desc">Ask the AI callback for a spec over one source's columns; resolves to <code>{ spec, warnings }</code> and builds nothing.</td></tr>
+          <tr><td class="name">saveView / views / applyView</td><td class="desc">The spec and every grid panel's state as one named view, the saved views, and restoring one.</td></tr>
+          <tr><td class="name">present / step / stopPresenting</td><td class="desc">Step through the panels one at a time with the layout's maximise.</td></tr>
+          <tr><td class="name">destroy</td><td class="desc">Remove the links, every viewer, grid and router attachment the dashboard made, and the layout.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
     <h2 id="events-guide">Events</h2>
     <p class="lead-in">
       One bus, 111 events. The table below is the working set, the ones most applications
@@ -11232,7 +11434,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.76.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.77.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

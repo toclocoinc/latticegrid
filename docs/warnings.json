@@ -1,5 +1,5 @@
 {
-  "version": "1.76.0",
+  "version": "1.77.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 539,
+  "count": 559,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -919,6 +919,17 @@
       "docs": "api/grid.html#formatting"
     },
     {
+      "id": "defaults:cyclic",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "defaults() expects a configuration object with no circular references, but the object passed refers back to itself. The call was ignored and the defaults are unchanged.",
+      "meaning": "`defaults()` snapshots the object you pass by walking into every plain object it contains, so it can hand each grid its own independent copy. An object that refers back to one of its own ancestors cannot be walked at all, so the call is refused the same way a non-object argument is, instead of exhausting the call stack. A value merely *shared* between two branches (not a cycle) is unaffected.",
+      "fix": "Remove the back-reference from the object you pass to `defaults()`, or restructure it so nothing points back at an ancestor.",
+      "snippet": "const house = { theme: 'navy' };\nhouse.self = house; // refused\ndefaults(house);",
+      "docs": "api/grid.html#config"
+    },
+    {
       "id": "defaults:type",
       "module": "core",
       "severity": "warn",
@@ -1009,6 +1020,16 @@
       "message": "{n} snapshot row(s) produced no key and were dropped from the diff; `keyOf` must be the grid's own `rowKey`.",
       "meaning": "Rows in the snapshot produced a null or undefined key, so they could not be indexed and were dropped. The diff therefore reports every one of them as an addition on the current side, or as nothing at all — it is comparing against an incomplete past.",
       "fix": "Use the same key function as the grid's `rowKey`, so that the snapshot and the live rows agree on identity.",
+      "docs": "api/grid.html#diff"
+    },
+    {
+      "id": "diff:compute-threw:*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "column '{colId}' compute threw while diffing; the column was left out of the row's diff instead of being counted as a change.",
+      "meaning": "A column opted into diff/audit mode with `diff: true` had its `compute` throw while the diff read the snapshot or the current value. The column is left out of that row's comparison entirely rather than the throw being swallowed into a mismatch — which would otherwise flag the row as changed regardless of whether anything really changed.",
+      "fix": "The error is attached to the console line. A computed column diffed against the snapshot is called with a synthesised row (`{ key, data }`), not a live one; guard against fields the live row's `compute` may assume are always present.",
       "docs": "api/grid.html#diff"
     },
     {
@@ -2121,6 +2142,27 @@
       "docs": "api/grid.html#rows"
     },
     {
+      "id": "rowOrder.set.shape",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "rowOrder.set() takes an array of row keys; the call was ignored.",
+      "meaning": "`grid.rowOrder.set()` puts the rows in an explicit order, and it was given something that is not a list of row keys. Nothing changed: the grid kept whatever order it was in, sorted or manual.",
+      "fix": "Pass the row keys in the order you want them, for example the list a `rowOrder:changed` event or `rowOrder.get()` gave you.",
+      "snippet": "grid.rowOrder.set(['3', '1', '2']);",
+      "docs": "api-detail.html#manual-order"
+    },
+    {
+      "id": "rowOrder.source",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "a manual row order needs a source that orders rows in memory; this grid sorts elsewhere, so the order was not changed.",
+      "meaning": "A manual order ranks the rows the grid holds by an explicit list of keys. This grid's rows are sorted by a server, an engine or an adapter, which has no way to follow that list, so `rowOrder.enter()` or `set()` (or a restored view carrying one) left the order as it was.",
+      "fix": "Use an in-memory source for a grid whose rows users order by hand, or persist the order yourself and sort by it on the server.",
+      "docs": "api-detail.html#manual-order"
+    },
+    {
       "id": "rows.forEachAll.partial",
       "module": "core",
       "severity": "warn",
@@ -2579,6 +2621,49 @@
       "fix": "Pass `fields` (an array of names) or `selection` (a raw selection set), or build the query yourself with `buildQuery`.",
       "snippet": "createGraphqlAdapter({ url, fields: ['id', 'name', 'amount'] });",
       "docs": "api/grid.html#graphql-options"
+    },
+    {
+      "id": "source.elasticsearch.analyzed.*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "\"{name}\" is a text field with no keyword sub-field, so a filter on it was pushed as a word-by-word match under the field's analyser (`match_phrase`) rather than a whole-value or substring match, and may keep or drop rows the same filter treats differently in the grid. Map a keyword sub-field for it, or filter that column in the grid.",
+      "meaning": "A text field holds analysed words, not a whole value, and this one has no keyword sub-field to compare against instead. The filter is still pushed — as `match_phrase`, `match_phrase_prefix` or a per-word `wildcard` — because refusing it would fail the grid, but a word match is a different question from the grid's substring or equality test, so the difference is named once per field.",
+      "fix": "Give the field a keyword sub-field in the index mapping (the default dynamic mapping already adds `.keyword`), or leave that column's filter to the grid.",
+      "snippet": "\"message\": { \"type\": \"text\", \"fields\": { \"keyword\": { \"type\": \"keyword\" } } }",
+      "docs": "api/grid.html#elasticsearch-options"
+    },
+    {
+      "id": "source.elasticsearch.auth",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "the cluster refused the credential; supply a valid one through `headers` (`Authorization: ApiKey …` or `Basic …`), or a `fetch` wrapper that sets it per request. The adapter holds no credential of its own, so there is nothing for it to retry with.",
+      "meaning": "The cluster answered with 401 or 403. The call is thrown as an `ElasticsearchError` as well as named, so the grid surfaces an error rather than an empty result: a refused credential that looked like \"no matching documents\" would be the worst possible silence.",
+      "fix": "Put a valid API key or user and password in `headers`, or supply a `fetch` that sets `Authorization` per request when the credential expires. The adapter never stores or refreshes one.",
+      "snippet": "elasticsearchAdapter({ url, index, headers: { Authorization: `ApiKey ${key}` } });",
+      "docs": "api/grid.html#elasticsearch-options"
+    },
+    {
+      "id": "source.elasticsearch.cardinality",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "a distinct count reached {value}, past the {CARDINALITY_PRECISION} values below which the engine's `cardinality` is near-exact, so the figure is an estimate. Compute it in the grid where an exact count matters.",
+      "meaning": "`distinct` is computed with the engine's `cardinality` aggregation, a HyperLogLog++ estimate sent with the largest `precision_threshold` the engines accept (40,000). Below it the count is near-exact; at or past it the error grows, so a figure that large is named as an estimate rather than shown as a count.",
+      "fix": "Where an exact count matters, route that statistic to the grid with an `aggregates.overrides` entry of `'client'` on the source, or accept the estimate.",
+      "docs": "api/grid.html#elasticsearch-options"
+    },
+    {
+      "id": "source.elasticsearch.casefold",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "a case-insensitive filter value holds a letter outside ASCII, and Elasticsearch's `case_insensitive` folds ASCII letters only, so the pushed filter may miss case variants of that letter the same filter keeps in the grid. Set `caseSensitive: true` to make the two agree, or give the field a lowercase normalizer.",
+      "meaning": "The grid folds every letter's case; the engines' `case_insensitive` flag on `term` and `wildcard` folds A–Z only. A value such as `Zoë` is still pushed case-insensitively, and matches `ZOË` only if the index already holds that exact form of the `Ë`, so the difference is named once.",
+      "fix": "Set `caseSensitive: true` on the condition, or map the field with a lowercase normalizer so the index folds every letter itself.",
+      "snippet": "grid.filters.set({ col: 'name', op: 'eq', value: 'Zoë', caseSensitive: true });",
+      "docs": "api/grid.html#elasticsearch-options"
     },
     {
       "id": "source.group.*",
@@ -5667,6 +5752,138 @@
       "fix": "Create the grid with `selection: 'single'` (or `'multiple'`), or check the `beforeSelect` handler.",
       "snippet": "createGrid(el, { rowKey: 'id', selection: 'single', columns, rows });",
       "docs": "API.html#leaflet"
+    },
+    {
+      "id": "dashboard:el",
+      "module": "dashboard",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "createDashboard: the first argument is not an element to mount on. Nothing was built.",
+      "meaning": "The dashboard mounts its layout on the element it is given, and what it was given has no `appendChild` (an id string or a selector, say). Nothing was built, and `dashboard.problems()` names it.",
+      "fix": "Pass the element itself.",
+      "snippet": "createDashboard(document.querySelector('#dash'), spec, factories);",
+      "docs": "API.html#dashboard"
+    },
+    {
+      "id": "dashboard:layout",
+      "module": "dashboard",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "createDashboard: there is no createLayout on the page; load modules/layout or pass options.createLayout. Nothing was built.",
+      "meaning": "Every panel sits in a window of a `modules/layout` layout, and the dashboard imports no module itself: it was handed no `createLayout`, and there is no `LatticeGridLayout` global on the page. Nothing was built.",
+      "fix": "Import `createLayout` and pass it in the third argument, or load the layout's script before the dashboard's.",
+      "snippet": "createDashboard(el, spec, { createLayout, createGrid, createHeadlessGrid, createChart });",
+      "docs": "API.html#dashboard"
+    },
+    {
+      "id": "dashboard:link:*->*",
+      "module": "dashboard",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "createDashboard: the link from \"{from}\" to \"{to}\" {what}",
+      "meaning": "A link makes the rows selected in one grid panel filter another panel. This one was not made — the reason says why: a panel at either end was not built, the link does not start from a grid panel, the target reads no grid, both panels read pushdown sources with no Data Router between them (one engine's selected rows cannot filter another engine's query), the two panels read two different routers, or a relation function was given outside a router. Or it was made, and the spec entry carries a key the dashboard does not read.",
+      "fix": "Start the link from a grid panel; route two pushdown sources through one Data Router to relate them; name the columns (`on: 'region'` or `{ from, to }`) rather than a function when the panels are not on one router.",
+      "snippet": "links: [{ from: 'table', to: 'byRegion', on: 'region' }]",
+      "docs": "API.html#dashboard"
+    },
+    {
+      "id": "dashboard:panel:*",
+      "module": "dashboard",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "createDashboard: panel \"{id}\" {what}",
+      "meaning": "Either the panel was not built — the reason names why: an unknown `kind`, a source that is missing or unusable, a chart or map with no source, the grid it views was not built, its factory is not on the page (a `map` panel with `binding: 'leaflet'` and no `bindLeaflet`, say), or the factory threw — and every other panel was built without it. Or it was built, but its viewer refused part of the options it was given (the viewer's own warning is quoted), an option the dashboard sets itself (`rows`/`source` on a grid with a source, `grid`/`container` on a chart) was not used, or the spec entry carries a key the dashboard does not read.",
+      "fix": "Read the reason: fix the kind or the source, load the module the panel needs (or pass its factory), or correct the option the viewer quotes.",
+      "snippet": "{ id: 'byRegion', kind: 'chart', source: 'grid:table', options: { type: 'bar', x: 'region', y: 'sales' } }",
+      "docs": "API.html#dashboard"
+    },
+    {
+      "id": "dashboard:present",
+      "module": "dashboard",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "dashboard.present: {reason}; nothing is presented.",
+      "meaning": "A presentation steps through built panels with the layout's `maximise()`. The dashboard has no panels, the list given was empty, or it named a panel that is not built, so there was nothing to step through.",
+      "fix": "Present the built panels (`dashboard.panels()`), or name only those.",
+      "snippet": "dashboard.present({ panels: dashboard.panels().slice(0, 3) });",
+      "docs": "API.html#dashboard"
+    },
+    {
+      "id": "dashboard:proposal",
+      "module": "dashboard",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "dashboard.propose: the proposal has problems, each in the returned warnings: {first}",
+      "meaning": "The model's proposal was checked against the spec schema and the source's columns, and part of it was dropped: a panel naming a column the source does not have, a kind this page cannot draw, another source, markup in an html panel, or a link to a dropped panel — or the source named was not one of the dashboard's. Nothing was applied; the returned `warnings` list every drop.",
+      "fix": "Show the warnings with the proposal, and accept what survived with `dashboard.apply(spec)` or ask again.",
+      "snippet": "const { spec, warnings } = await dashboard.propose(prompt, { source: 'sales' });",
+      "docs": "API.html#dashboard"
+    },
+    {
+      "id": "dashboard:propose",
+      "module": "dashboard",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "dashboard.propose: there is no AI on this dashboard (options.ai.ask); nothing was asked. Load modules/ai and pass the same ask() createAI takes.",
+      "meaning": "`propose()` asks a model through the host's own callback, and the dashboard was created without one, so it declined: no request was made and the result's `spec` is null.",
+      "fix": "Pass the `ask` callback in the third argument of `createDashboard`.",
+      "snippet": "createDashboard(el, spec, { ...factories, ai: { ask } });",
+      "docs": "API.html#dashboard"
+    },
+    {
+      "id": "dashboard:router",
+      "module": "dashboard",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "dashboard.apply: {count} grid(s) read a Data Router route and were rebuilt; a router does not re-send rows to a route attached after they arrived, so they fill from its next load() or push().",
+      "meaning": "Rebuilding a dashboard attaches new grids to its router routes. A Data Router routes what arrives after a grid is attached; it does not replay what it already sent, so those panels are empty until the router's next `load()` or `push()`.",
+      "fix": "Load the router again after `apply()` (or `applyView()` with different panels).",
+      "snippet": "dashboard.apply(next);\nrouter.load(snapshot);",
+      "docs": "API.html#dashboard"
+    },
+    {
+      "id": "dashboard:spec",
+      "module": "dashboard",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "createDashboard: {reason}; a spec is { layout, panels, sources, links }. Nothing was built.",
+      "meaning": "The spec is not an object, or its `panels` is not an array, so there is nothing to build. Nothing was.",
+      "fix": "Pass a spec object with a `panels` array; `validateDashboardSpec(spec)` names every problem by path.",
+      "snippet": "createDashboard(el, { panels: [{ id: 'table', kind: 'grid', options: { rows } }] }, factories);",
+      "docs": "API.html#dashboard"
+    },
+    {
+      "id": "dashboard:spec:*",
+      "module": "dashboard",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "createDashboard: spec {path} {problem}",
+      "meaning": "The validator found a problem in the spec that belongs to no single panel or link — an unknown top-level key, a source that is not usable, a layout window naming no panel — and reports it by path. Whatever the problem touches is left out; everything else was built.",
+      "fix": "Correct the spec at the path named; `validateDashboardSpec(spec)` lists every problem without building.",
+      "snippet": "validateDashboardSpec(spec).problems;  // [{ path: 'sources.sales.rows', message: 'is not an array of rows' }]",
+      "docs": "API.html#dashboard"
+    },
+    {
+      "id": "dashboard:view",
+      "module": "dashboard",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "dashboard.applyView: {view} is not a saved view; nothing was applied.",
+      "meaning": "`applyView()` takes the id of a view saved with `saveView()`, or a view object your application stored (with its `spec`). What it was given is neither, so the dashboard was left as it was.",
+      "fix": "Pass an id from `dashboard.views()`, or the stored view object.",
+      "snippet": "dashboard.applyView(dashboard.views()[0].id);",
+      "docs": "API.html#dashboard"
+    },
+    {
+      "id": "dashboard:view-name",
+      "module": "dashboard",
+      "severity": "warn",
+      "since": "1.77.0",
+      "message": "dashboard.saveView: {name} is not a view name; nothing was saved.",
+      "meaning": "A view is saved under a name, and the name given was blank or not a string, so nothing was saved and `null` was returned.",
+      "fix": "Name the view.",
+      "snippet": "dashboard.saveView('East, biggest first');",
+      "docs": "API.html#dashboard"
     }
   ]
 }

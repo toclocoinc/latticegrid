@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.76.0</title>
+<title>Types API Reference — Lattice Grid 1.77.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -405,6 +405,7 @@
         <a href="gantt.html">The Gantt module</a>
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
+        <a href="dashboard.html">Dashboard composition</a>
         <a href="ai.html">The AI narrative and insights layer</a>
         <a href="mock-socket.html">The mock socket</a>
         <a href="adapters.html">Framework adapters and custom elements</a>
@@ -425,7 +426,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 18 pages</a></span>
+      <span class="chip"><a href="index.html">All 19 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -2011,6 +2012,29 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-RowOrderResult">RowOrderResult</h4>
+    <p class="section-note">What `rowOrder.enter`, `set` and `exit` report.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">manual</td><td class="type">boolean</td><td class="desc">Whether a manual order is in force after the call.</td></tr>
+          <tr><td class="name">reason</td><td class="type">string</td><td class="desc">Why nothing changed, when nothing did: `'already'`, `'not-manual'`, `'vetoed'` (a `beforeSort` handler), `'bad-order'` or `'source-cannot-reorder'`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RowRegroupChange">RowRegroupChange</h4>
+    <p class="section-note">One grouping value a row moved into another group was given.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">colId</td><td class="type">string</td><td class="desc">The column the grid is grouped by at this level.</td></tr>
+          <tr><td class="name">from</td><td class="type">unknown</td><td class="desc">The value it had.</td></tr>
+          <tr><td class="name">to</td><td class="type">unknown</td><td class="desc">The value of the group it joined.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-SavedView">SavedView</h4>
     <div class="table-wrap">
       <table>
@@ -2470,6 +2494,14 @@
     <h4 id="type-CurrencyDisplay">CurrencyDisplay</h4>
     <p class="section-note">How a currency figure names its unit, mirroring `Intl.NumberFormatOptions.currencyDisplay`.</p>
     <p class="type-def"><code>type CurrencyDisplay = 'symbol' | 'code' | 'name' | 'narrowSymbol'</code></p>
+    <h4 id="type-DashboardPanelKind">DashboardPanelKind</h4>
+    <p class="section-note">What a panel shows.</p>
+    <p class="type-def"><code>type DashboardPanelKind = 'grid' | 'chart' | 'kpi' | 'map' | 'html'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/dashboard</code>.</small></p>
+    <h4 id="type-DashboardSource">DashboardSource</h4>
+    <p class="section-note">A named source.</p>
+    <p class="type-def"><code>type DashboardSource = <a href="dashboard.html#type-DashboardRowsSource">DashboardRowsSource</a> | <a href="dashboard.html#type-DashboardPushdownSource">DashboardPushdownSource</a> | <a href="dashboard.html#type-DashboardRouterSource">DashboardRouterSource</a> | <a href="dashboard.html#type-DashboardGridSource">DashboardGridSource</a></code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/dashboard</code>.</small></p>
     <h4 id="type-DashJoin">DashJoin</h4>
     <p class="section-note">The event name a Vue template binds, as a type: `'cell:changed'` becomes `'cell-changed'` (BACKLOG-0001660). Recursive over the `:` segments, so a three-part name like `'cell:edit:start'` becomes `'cell-edit-start'` — the same rule `dashedName` applies at runtime, stated once so the props type and the implementation cannot disagree. A colon cannot appear in a Vue binding, which is why the adapter renames at all.</p>
     <p class="type-def"><code>type DashJoin&lt;E extends string&gt; = E extends `${infer Head}:${infer Tail}` ? `${Head}-${<a href="#type-DashJoin">DashJoin</a>&lt;Tail&gt;}` : E</code></p>

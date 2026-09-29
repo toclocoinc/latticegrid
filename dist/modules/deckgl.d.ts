@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.76.0, deckgl module type declarations
+ * Lattice Grid 1.77.0, deckgl module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -43,7 +43,9 @@ export interface DeckBindingOptions {
   position: { lon: string; lat: string } | { geometry: string };
   /**
    * deck's view as a filter on the grid, exactly as a map chart's
-   * {@link ChartSpec.viewportFilter}: after a pan or zoom settles (debounced,
+   * {@link ChartSpec.viewportFilter}: written at bind time from deck's
+   * initial viewport, so the grid and the layers agree
+   * from the first paint, and again after a pan or zoom settles (debounced,
    * default 150 ms) the binding writes ONE condition — a `withinBbox` on a
    * geometry column, or a `between` pair on `lon`/`lat` — and a matching
    * condition set from elsewhere moves deck's view to its box. Off by default.

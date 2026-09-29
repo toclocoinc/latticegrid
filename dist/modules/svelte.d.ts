@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.76.0, svelte module type declarations
+ * Lattice Grid 1.77.0, svelte module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
