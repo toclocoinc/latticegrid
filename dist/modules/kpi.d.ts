@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.78.0, kpi module type declarations
+ * Lattice Grid 1.79.0, kpi module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -82,17 +82,23 @@ export interface KPIStatTile {
    * The aggregation kind, or a reducer `(rows, tile) => value` for a custom tile.
    *
    * Over a grid on a paged pushdown source that holds only a window of its
-   * matching rows (GEO-6), a `sum`, `avg`, `min` or `max` tile is reduced by
-   * the engine — `source.aggregate()`, the grid's filters and quick search
-   * applied, one request for every such tile on the panel — rather than from
-   * the loaded page, and its model reads `computed: 'engine'` and its
-   * accessible name says so. `count` already counts every matching row and
-   * stays the panel's own. A tile with a `filter` function, a custom
-   * reducer, a field that is not a plain column, or a source whose
-   * `aggregates` config keeps the statistic in the browser keeps reducing
-   * the page and is named once in a `[lattice]` warning. The panel follows
-   * the grid's page and total landing, so it needs no `refresh()` after the
-   * first page settles.
+   * matching rows (GEO-6), a `sum`, `avg`, `min`, `max` or `countDistinct`
+   * tile is reduced by the engine — `source.aggregate()`, the grid's
+   * filters and quick search applied, one request for every such tile on
+   * the panel — rather than from the loaded page, and its model reads
+   * `computed: 'engine'` and its accessible name says so. `count` already
+   * counts every matching row and stays the panel's own. A tile with a
+   * `filter` function, a custom reducer, a field that is not a plain
+   * column, or a source whose `aggregates` config keeps the statistic in
+   * the browser keeps reducing the page — a `sum`/`avg`/`min`/`max` tile
+   * still shows that page figure, named once in a `[lattice]` warning
+   * (`kpi:engine-page`), because it is a real partial reading. A
+   * `countDistinct` tile is different: the same values
+   * can recur on pages that have not loaded, so a page's distinct count is
+   * not a partial answer the way a page's sum is, and the tile shows no
+   * number at all rather than one, named once (`kpi:aggregate-unpushable`).
+   * The panel follows the grid's page and total landing, so it needs no
+   * `refresh()` after the first page settles.
    */
   aggregation?: KPIAggregation | ((rows: KPIRow[], tile: object) => unknown);
   /** The reducer for a `custom` aggregation, when `aggregation` is the string `'custom'`. */
@@ -289,15 +295,17 @@ export interface KPITileModel {
    * operation (`sum` and `count` return 0), and 0 is a number a threshold
    * grades, so without it an empty panel would report as a healthy one.
    *
-   * Three things make a tile `unknown`: the panel holds no rows at all; the
+   * Four things make a tile `unknown`: the panel holds no rows at all; the
    * tile's `field` names no column on the bound grid, so it never read a cell
-   * to reduce over; or the panel declares a `maxAge` and its feed has been
+   * to reduce over; the panel declares a `maxAge` and its feed has been
    * silent for longer than that, so every row it could reduce over is older
-   * than the panel was told to trust (`stale` says which of the last two
-   * this is). A tile whose `filter` matches none of the rows the panel *does*
-   * hold, while its feed is fresh, is none of them — it has measured a real
-   * zero and is banded normally. `null` means the tile has no thresholds or
-   * bands configured.
+   * than the panel was told to trust (`stale` says which of these two this
+   * is); or it is a `countDistinct` tile over a windowed pushdown source
+   * whose engine could not be asked — a page's distinct
+   * count is not a usable partial reading, so none is shown. A tile whose
+   * `filter` matches none of the rows the panel *does* hold, while its feed
+   * is fresh, is none of them — it has measured a real zero and is banded
+   * normally. `null` means the tile has no thresholds or bands configured.
    */
   status: KpiRollupStatus | null;
   /**

@@ -1,5 +1,5 @@
 {
-  "version": "1.78.0",
+  "version": "1.79.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 566,
+  "count": 575,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -2234,6 +2234,16 @@
       "docs": "api-detail.html#selection-predicate"
     },
     {
+      "id": "selection:predicate-partial-keys",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.79.0",
+      "message": "selection.keys() was read while every row matching a filter is selected on a source that holds only the rows it has loaded, so it returned those loaded keys, not the whole selection. Use selection.stream() for every selected row and selection.count() for how many there are.",
+      "meaning": "`grid.selection.keys()` returns an array, and under a predicate selection on a pushdown source that array can only hold the keys of the rows the grid has loaded. The selection covers more rows than that (or its size has not been counted yet), so what came back is a subset — `keys()`'s sibling to `selection:predicate-partial` (BACKLOG-0001546). Readers of `keys()` inside the grid, and outside it (the data router's `link()`/`relate()` among them), see the same subset.",
+      "fix": "Read `grid.selection.stream()` for every selected row, and `await grid.selection.count()` for how many there are.",
+      "docs": "api-detail.html#selection-predicate"
+    },
+    {
       "id": "selection:predicate-unsupported",
       "module": "core",
       "severity": "warn",
@@ -2707,6 +2717,17 @@
       "docs": "api/grid.html#elasticsearch-options"
     },
     {
+      "id": "source.elasticsearch.truncated",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.79.0",
+      "message": "the export stream was stopped after {maxResultRows} rows because `maxResultRows` is set to {maxResultRows}; the matching set may hold more than that. Raise `maxResultRows`, or drop it to read the stream unbounded.",
+      "meaning": "`execute(query, { stream: true })` — the walk `selection.stream()` drives for a predicate selection and a whole-result export — is a point-in-time + `search_after` walk with no total, and `maxResultRows` bounds how far it goes. The row past the cap is never asked for, so a set larger than the cap is under-counted unless this is read: named once rather than a stream that quietly stopped short.",
+      "fix": "Raise `maxResultRows` to your ceiling, or drop it to read the stream unbounded (however many rows the matching set holds).",
+      "snippet": "elasticsearchAdapter({ url, index, maxResultRows: 500000 });",
+      "docs": "api/grid.html#elasticsearch-options"
+    },
+    {
       "id": "source.group.*",
       "module": "core",
       "severity": "warn",
@@ -2815,19 +2836,39 @@
       "severity": "warn",
       "since": "1.63.0",
       "message": "the {adapter} adapter was not asked to group this query because {reason}. The engine returns rows and the grouping is the grid's to do, which needs every matching row in the browser — correct where the grid holds them, and wrong-looking where it holds a window. `lastPlan().unpushed` names it.",
-      "meaning": "Grouping was not pushed for the reason named. The grid groups what it holds: right when it holds every matching row, and visibly wrong — group counts and subtotals describing a page — when it holds only a window.",
-      "fix": "The reason is printed in the message and is also in `lastPlan().unpushed`. Widen the adapter, or arrange for the grid to hold the whole set.",
+      "meaning": "Grouping was not pushed for the reason named, and `fullDataset` holds every matching row, so the grid groups them itself — over the whole set, which is correct. Without `fullDataset` the same refusal is `source.pushdown.group-unsupported.*.*` and the grid stays ungrouped.",
+      "fix": "Nothing is wrong: the reason is printed in the message and is also in `lastPlan().unpushed`. Widen the adapter to push the grouping and stop holding the whole set.",
       "docs": "api/grid.html#pushdown"
+    },
+    {
+      "id": "source.pushdown.group-unsupported.*.*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.79.0",
+      "message": "pushdown:group-unsupported: the {adapter} adapter was not asked to group this query because {reason}, so the grid stays ungrouped rather than building group rows, counts and subtotals from a window of leaf rows. `lastPlan().groupReason` says the same.",
+      "meaning": "The grid is grouped over a pushdown source and the engine was not asked to group, for the reason named: the adapter declares neither `capabilities.group` nor the statistics to build the level from grouped aggregates (Splunk, REST, OData, GraphQL, DFQL), or part of this query did not push, so the engine would group the wrong set. A remote source holds a window of leaves, and group rows built from it would show one page's figures as a group's, so the grid stays flat: every display row is a leaf, `grid.rows.count()` is the source's count and no row carries a subtotal. The next query the engine can group is shown grouped again.",
+      "fix": "Group over an adapter that declares `capabilities.group` (DuckDB) or builds groups from grouped aggregates (ClickHouse, Elasticsearch), or implement `executeGroupLevel` or `executeGroupedAggregates` on your own; where the reason is a filter, sort or quick search that did not push, narrow the query to what the adapter takes. To group client-side over every matching row, set `fullDataset: { enabled: true }` within its memory limits. `lastPlan().groupReason` carries the reason programmatically.",
+      "docs": "api/grid.html#pushdown-group-unsupported"
     },
     {
       "id": "source.pushdown.group.method.*",
       "module": "core",
       "severity": "warn",
       "since": "1.63.0",
-      "message": "the {adapter} adapter declares the `group` capability but has no `executeGroupLevel(query, aggregates, request)`, so grouping is not pushed and the grid is left to group whatever rows it holds. Implement the method or drop the capability.",
-      "meaning": "A capability declared without the method behind it is the one thing the planner cannot see — it is handed capabilities, not the adapter. The query is re-planned without grouping, so `lastPlan()` reports the query that actually ran and names `group` among the unpushed work, and the grid groups whatever rows it has.",
+      "message": "the {adapter} adapter declares the `group` capability but has no `executeGroupLevel(query, aggregates, request)`, so grouping is not pushed and the grid stays ungrouped unless it holds the whole matching set. Implement the method or drop the capability.",
+      "meaning": "A capability declared without the method behind it is the one thing the planner cannot see — it is handed capabilities, not the adapter. The query is re-planned without grouping, so `lastPlan()` reports the query that actually ran and names `group` among the unpushed work. The grid then stays ungrouped (`pushdown:group-unsupported`), unless `fullDataset` holds every matching row and the grid groups them itself.",
       "fix": "Implement `executeGroupLevel`, or stop declaring the `group` capability.",
       "docs": "api/grid.html#pushdown-sdk"
+    },
+    {
+      "id": "source.pushdown.group.aggregates.method.*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.79.0",
+      "message": "the {adapter} adapter declares `aggregates` but has no `executeGroupedAggregates(query, groupBy, aggregates)`, so the grouped view cannot be built from grouped aggregates and the grid stays ungrouped unless it holds the whole matching set. Implement the method, or declare `group` and implement `executeGroupLevel`.",
+      "meaning": "An adapter that does not declare `group` but declares statistics (with `count`) and a `tree` filter with `eq` would have its grouped view built from grouped aggregates, one call per level. Without the method behind the statistics that cannot happen, so the query is planned as for an adapter that cannot aggregate: the grouping is refused (`pushdown:group-unsupported`) and the grid stays ungrouped, unless `fullDataset` holds every matching row and the grid groups them itself.",
+      "fix": "Implement `executeGroupedAggregates(query, groupBy, aggregates)` returning one `{ keys, level, values }` entry per group, or declare `group` and implement `executeGroupLevel`.",
+      "docs": "api/grid.html#pushdown-group-aggregates"
     },
     {
       "id": "source.pushdown.group.totals.*.*",
@@ -3127,6 +3168,26 @@
       "meaning": "The statistic was computed over the rows this windowed source is holding, not over every row that matches. The number is real and it is a sample: it describes the window, not the dataset. The message carries the coverage so you can judge how far off it might be. Development builds only; the key is the statistic and the column, so a long session cannot grow the de-duplication set.",
       "fix": "Hold the data in a memory source for an exact figure, or compute the statistic where the whole set lives — on the server, or in the adapter through pushdown.",
       "docs": "api/grid.html#statistics"
+    },
+    {
+      "id": "stat.pivot-unsupported:profile:*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.79.0",
+      "message": "the profile of `{col}` cannot be computed over a pivoted pushdown grid (source #{n}): a pivot keeps no leaf rows client-side, so it reports no profile rather than a leaf-window figure.",
+      "meaning": "A pivot's terminal groups are pushed down and answered as aggregated cells: they carry no leaf rows at all, so `profile()` would otherwise read the pivot's own aggregated group rows as if they were the leaf population a profile describes — a wrong number with no symptom. `profile()` returns `null` instead (the statistics panel shows its usual \"no values\" placeholder), and this fires once per column.",
+      "fix": "Turn the pivot off to profile the leaf population, or read the number the grid already computed from the pivot's own cells (`grid.rows.value`) instead of `profile()`.",
+      "docs": "API.html#stat-pivot"
+    },
+    {
+      "id": "stat.pivot-unsupported:reduce:*:*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.79.0",
+      "message": "`{stat}` on `{col}` cannot be computed over a pivoted pushdown grid (source #{n}): a pivot keeps no leaf rows client-side, so it reports no number rather than a leaf-window figure.",
+      "meaning": "A pivot's terminal groups are pushed down and answered as aggregated cells: they carry no leaf rows at all, so `reduce()` would otherwise read the pivot's own aggregated group rows as if they were the leaf population a reduction describes — a wrong number with no symptom. `reduce()` returns `null` instead, and this fires once per statistic and column.",
+      "fix": "Turn the pivot off to reduce the leaf population, or read the number the grid already computed from the pivot's own cells (`grid.rows.value`) instead of `reduce()`.",
+      "docs": "API.html#stat-pivot"
     },
     {
       "id": "store.dup.*",
@@ -3462,6 +3523,16 @@
       "meaning": "The join has a `from` but nothing to match on from the left side, so no row can be paired with a lookup row. The join is dropped and rows pass through unenriched.",
       "fix": "Set `localKey` (or its alias `on`) to the field name on the incoming row, or a function that reads it.",
       "snippet": "join: { from: 'customers', localKey: 'customerId' }",
+      "docs": "api/data-router.html#datarouter-example"
+    },
+    {
+      "id": "data-router:link-predicate-unsupported",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.79.0",
+      "message": "link()/relate() source grid has every row matching a filter selected on a source that holds only the rows it has loaded. The relation does not declare it accepts a predicate selection — a function taking (selected, { predicate, count }) as its second parameter — so the link cannot build a target-row predicate from a truncated key list and imposes no constraint.",
+      "meaning": "The source grid's selection is a predicate (BACKLOG-0001546): every row a filter matched on a pushdown source, most of them never loaded. `link()`/`relate()` read a selection through `keys()`, and turning only the loaded keys into the target-row filter would filter the target by a truncated subset presented as the whole selection, so the router refuses to and the link imposes no constraint instead — exactly the choice `edit.deleteRows()` makes for a predicate selection it cannot express (`selection:predicate-unsupported`).",
+      "fix": "Give the relation a second parameter: `(selected, { predicate, count }) => (row) => boolean`, and build the target predicate from `predicate.filter`/`count` rather than `selected`.",
       "docs": "api/data-router.html#datarouter-example"
     },
     {
@@ -4892,6 +4963,17 @@
       "docs": "api/kpi.html#kpi"
     },
     {
+      "id": "kpi:aggregate-unpushable:*",
+      "module": "kpi",
+      "severity": "warn",
+      "since": "1.79.0",
+      "message": "the \"{label}\" tile's {aggregation} cannot be answered from the rows the bound grid has loaded, because {reason}. Unlike a sum or an average, a page's distinct count is not a partial reading of the relation's, so the tile shows no number rather than one that looks real and is not.",
+      "meaning": "A `countDistinct` tile is bound to a grid on a paged pushdown source that holds fewer rows than match, and the engine could not be asked for it — a `filter` function, a field that is not a plain column, a source whose `aggregates` config keeps the statistic in the browser, a filter the engine cannot apply, or a failed request. Unlike `sum`/`avg`/`min`/`max`, a page's distinct count is not a lower bound or a useful partial reading — the same values can recur on pages that have not loaded, so a bigger page does not converge toward the relation's true count. The tile shows no number and reports the `unknown` status instead of a figure that looks real and is not (BACKLOG-0001553, a demo reported 103 destinations for a relation of 354).",
+      "fix": "The reason names what stopped the push: route the statistic to the engine (`aggregates: { default: 'engine' }` on the pushdown source), bind the tile to a plain column, or express the tile's `filter` as a grid filter the engine can apply.",
+      "snippet": "tiles: [{ id: 'destinations', label: 'Destinations', aggregation: 'countDistinct', field: 'dest_name' }]",
+      "docs": "API.html#kpi-engine"
+    },
+    {
       "id": "kpi:apply-gridbound",
       "module": "kpi",
       "severity": "warn",
@@ -4988,6 +5070,16 @@
       "fix": "Correct the name, or drop it. Column *ids* are what the panel matches against, not header titles.",
       "snippet": "createKPI(el, { grid, fields: ['region'], tiles });",
       "docs": "api/kpi.html#kpi-follows-grid"
+    },
+    {
+      "id": "kpi:pivot-unsupported:*",
+      "module": "kpi",
+      "severity": "warn",
+      "since": "1.79.0",
+      "message": "the \"{label}\" tile cannot be computed over a pivoted pushdown grid because {reason}; a pivot keeps no leaf rows client-side, so it reports no data rather than a leaf-window figure.",
+      "meaning": "A pivot's terminal groups are pushed down and answered as aggregated cells: they carry no leaf rows at all, so `grid.rows.leavesOf` answers empty under one. A `sum`/`avg`/`min`/`max` tile over a plain column with no `filter` still computes through the engine's grand-total query (`kpi:engine-page:*` covers that path failing); this warning is for every tile that has no such fallback at all — a `count`, a `countDistinct`, a `custom` reduction, or a `filter` function only the browser can run. The tile reports `unknown` with a null value rather than a confident zero read over nothing.",
+      "fix": "There is no fix that keeps the same tile kind over a pivoted grid: switch the tile to a `sum`/`avg`/`min`/`max` over a plain column with no `filter` (routed through the engine), or read the number from the grid's own pivot cells instead of a KPI tile.",
+      "docs": "API.html#kpi-pivot"
     },
     {
       "id": "kpi:setRows-gridbound",

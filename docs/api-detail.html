@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.78.0</p>
+    <p class="rail__sub">Developer guide · v1.79.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.78.0</span>
+        <span class="chip">Version 1.79.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1502,7 +1502,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.78.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.79.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -2467,6 +2467,50 @@ grid.overlay.show('loading');
 <span class="kw">const</span> data = <span class="kw">await</span> fetch('/api/circuits').then(r =&gt; r.json());
 grid.rows.load(data);
 grid.overlay.hide();</code></pre>
+    </div>
+
+    <h3 id="loading-windowed">The automatic overlay and per-row treatment for a windowed source</h3>
+    <p class="lead-in">
+      A <code>paged</code>, <code>pushdown</code> or <code>remote</code> source has no rows at
+      all until its first fetch answers, and later pages arrive one scroll at a time. The grid
+      handles both gaps itself through <code>loading</code>, without the sequence above: an
+      overlay for the very first fetch (<code>loading.text</code>, <code>loading.delay</code>,
+      <code>loading.banner: false</code> to opt back into the pre-1.79 behaviour above), and a
+      shimmer — or, for a tall unloaded block, one centred "Loading rows <var>from</var> to
+      <var>to</var>" row — for a page still in flight (<code>loading.rowDelay</code>). Both wait
+      out their own delay (150ms by default) before drawing anything, so an answer that lands
+      quickly never flashes either one; a row whose page failed to fetch is marked by name
+      instead of shimmering forever, and a memory source's synchronous rows never trigger either
+      path.
+    </p>
+    <div class="example">
+      <p class="example__label">A windowed source's first fetch, and a row still in flight</p>
+      <pre data-run="js" data-expect="banner Fetching… | row shimmer true | after landed" data-covers="config:GridConfig.loading config:LoadingConfig.text config:LoadingConfig.delay config:LoadingConfig.banner config:LoadingConfig.rowDelay"><code><span class="kw">const</span> { createTestDom, flushFrames } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createGrid } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+
+<span class="kw">const</span> dom = createTestDom({ width: 400, height: 200 });
+<span class="kw">let</span> settle;
+<span class="kw">const</span> grid = createGrid(dom.root, {
+  rowKey: 'id',
+  columns: [{ field: 'id' }],
+  source: { mode: 'paged', pageSize: 5, fetch: () =&gt; <span class="kw">new</span> Promise((res) =&gt; { settle = res; }) },
+  loading: { delay: 5, rowDelay: 5, text: 'Fetching…', banner: <span class="kw">true</span> },
+});
+flushFrames();
+<span class="kw">await new</span> Promise((r) =&gt; setTimeout(r, 60));
+flushFrames();
+<span class="kw">const</span> overlayEl = dom.root.querySelector('[data-overlay="loading"]');
+<span class="kw">const</span> banner = overlayEl ? overlayEl.querySelector('.lat-overlay-message')?.textContent : <span class="kw">undefined</span>;
+<span class="kw">const</span> shimmer = dom.root.querySelectorAll('.lat-skeleton').length &gt; 0;
+
+settle({ rows: [{ id: '1' }], total: 1 });
+<span class="kw">await new</span> Promise((r) =&gt; setTimeout(r, 30));
+flushFrames();
+<span class="kw">const</span> after = dom.root.querySelector('[data-overlay]') ? 'still showing' : 'landed';
+
+grid.destroy();
+<span class="kw">return</span> `banner ${banner} | row shimmer ${shimmer} | after ${after}`;
+</code></pre>
     </div>
 
     <h3 id="url-source-guide">Straight from a URL, with <code>createUrlSource</code></h3>
@@ -6596,14 +6640,23 @@ grid.selection.extendRange(34, 'cap');  <span class="cmt">// grows the block jus
         <code>export.excel</code> and <code>export.clipboard</code> with <code>rows: 'selected'</code>
         use it, and return a Promise.</li>
       <li><code>keys()</code> and <code>rows()</code> still return arrays: the <em>loaded</em> rows the
-        predicate covers. <code>rows()</code> says so once, with the warning
-        <code>selection:predicate-partial</code>, when that is fewer than the selection holds.</li>
+        predicate covers. Each says so once, with a named warning, when that is fewer than the
+        selection holds — <code>rows()</code> with <code>selection:predicate-partial</code>,
+        <code>keys()</code> with <code>selection:predicate-partial-keys</code>.</li>
       <li>Ticking a row outside the captured filter — after the filter has changed — is refused with
         <code>selection:outside-predicate</code>, and the selection is left as it was. A filter change
         never widens or narrows the selection.</li>
       <li><code>edit.deleteRows()</code> hands <code>beforeDelete</code> the <code>predicate</code> and
         <code>count</code> with empty <code>keys</code>, and deletes nothing by key itself
         (<code>selection:predicate-unsupported</code>): delete by that filter on the server.</li>
+      <li>A <a href="data-router.html#datarouter">Data Router</a> <code>link()</code>/<code>relate()</code>
+        reads a source grid's selection through <code>keys()</code> too. Under a predicate selection it
+        never turns the loaded subset into the target-row filter: a function <code>relation</code> that
+        declares it accepts one — taking <code>(selected, { predicate, count })</code> as its second
+        parameter — is handed the source's predicate and count and builds the target predicate itself;
+        any other relation (a <code>{from, to}</code> key map, or a one-argument function) is refused
+        once, by name, with <code>data-router:link-predicate-unsupported</code>, and the link imposes no
+        constraint until an ordinary selection returns.</li>
     </ul>
     <p>A memory source, or a pushdown source holding its whole set under <code>fullDataset</code>,
       keeps selecting keys exactly as before.</p>
@@ -11675,7 +11728,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.78.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.79.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

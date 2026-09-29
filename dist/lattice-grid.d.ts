@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.78.0, type declarations
+ * Lattice Grid 1.79.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -187,6 +187,20 @@ export interface Row {
    * through `setPinnedRows`. Absent on every row that is part of the data.
    */
   pinned?: RowPin;
+  /**
+   * True on the placeholder a paged, pushdown or remote source hands back for
+   * a display index whose page has not arrived. `data` is
+   * null and `source.loaded(index)` is false while this is true. Absent — not
+   * false — on every ordinary row, including a memory source's, so a check
+   * like `row.pending` never has to know which source built the row.
+   */
+  pending?: boolean;
+  /**
+   * True alongside `pending` when the page this row belongs to failed to
+   * fetch, rather than merely being outstanding. The
+   * renderer marks the row by name instead of shimmering forever.
+   */
+  loadError?: boolean;
 }
 
 export interface RowChange {
@@ -3708,6 +3722,41 @@ export interface SelectionConfig {
 }
 
 /**
+ * Loading feedback for a windowed source (paged, pushdown or remote): the
+ * automatic overlay shown while the first fetch is in flight
+ * and the per-row shimmer or spinner a page still in flight
+ * draws in place of a blank row. Read by `Grid` and the
+ * renderer only; a memory source's rows resolve synchronously and never reach
+ * either path.
+ */
+export interface LoadingConfig {
+  /**
+   * Text for the automatic initial-load overlay. Falls back to the
+   * `overlay.loading` catalogue message when omitted, so a host that wants
+   * only a different delay need not repeat the English string.
+   */
+  text?: string;
+  /**
+   * Milliseconds the first fetch must be outstanding before the automatic
+   * overlay shows. Default 150 — long enough that an instant answer (a
+   * memory-backed source, or a paged/remote one whose first page is already
+   * cached) never flashes it.
+   */
+  delay?: number;
+  /**
+   * Set `false` to keep the pre-1.79 behaviour: no automatic overlay on the
+   * grid's first fetch. `grid.overlay.show`/`hide` are unaffected either way.
+   */
+  banner?: boolean;
+  /**
+   * Milliseconds a row must stay unloaded before it draws its loading
+   * treatment (a shimmer per cell, or a spinner for a tall unloaded block).
+   * Default 150, matching `delay`.
+   */
+  rowDelay?: number;
+}
+
+/**
  * How an edit session is scoped: one cell committing on move-away, or one row
  * held open until the whole row commits as a step.
  */
@@ -4534,6 +4583,13 @@ export interface GridConfig {
   state?: GridState;
   /** Your licence key. Without one the grid renders in full and watermarks off localhost. */
   licence?: string;
+  /**
+   * Loading feedback for a windowed source: the automatic initial-load
+   * overlay and the per-row shimmer or spinner a page still
+   * in flight draws instead of a blank row. Unread by a
+   * memory-backed grid.
+   */
+  loading?: LoadingConfig;
   /** Offer a full-screen control. */
   maximise?: boolean;
   /** Extra functions a formula may call, on top of the built-in library. */
@@ -12492,6 +12548,12 @@ export function elasticsearchAdapter(options: {
    * OpenSearch needs it, and a walk without one is refused by name.
    */
   tiebreaker?: string;
+  /**
+   * Caps `execute(query, { stream: true })` — the walk `selection.stream()`
+   * drives — stopping it once that many rows have arrived rather than reading
+   * an unbounded matching set to its end. Absent, the stream is unbounded.
+   */
+  maxResultRows?: number;
 }): PushdownAdapter & {
   bodyFor(query: RemoteRequest): object;
   aggregateBodyFor(query: RemoteRequest, aggregates: Array<{ id: string; col: string; fn: string }>): object;
