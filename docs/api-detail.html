@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.77.0</p>
+    <p class="rail__sub">Developer guide · v1.78.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.77.0</span>
+        <span class="chip">Version 1.78.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1502,7 +1502,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.77.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.78.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -1576,6 +1576,34 @@ LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid
   ]},
 ]</code></pre>
     </div>
+
+    <h3>Bands that open, close and stay together</h3>
+    <p class="lead-in">
+      A band is a <code>ColumnGroup</code>: a <code>title</code>, the columns under it, and four
+      options that decide how it behaves once the user starts moving things.
+    </p>
+    <div class="example">
+      <p class="example__label">One summary column when the band is shut, the detail when it is open</p>
+      <pre><code>{ title: 'Q3', collapsible: true, openByDefault: false, marryChildren: true, columns: [
+  { field: 'q3Total', showWhen: 'closed' },
+  { field: 'q3Jul',   showWhen: 'open' },
+  { field: 'q3Aug',   showWhen: 'open' },
+  { field: 'q3Sep',   showWhen: 'open' },
+]}</code></pre>
+    </div>
+    <p><code>collapsible</code> gives the band a control that opens and closes it. It is off by
+      default, and a band that is not collapsible passes its ancestor&rsquo;s open state straight
+      down. <code>openByDefault: false</code> starts it closed; once the user has toggled it their
+      choice stands, and a saved view keys the state by the band&rsquo;s <code>id</code>.</p>
+    <p><code>showWhen</code> is what makes the pair useful. <code>'closed'</code> shows a node only
+      while the enclosing band is shut, <code>'open'</code> only while it is open, and
+      <code>'always'</code> &mdash; the default &mdash; regardless. A leaf column declares it
+      exactly as a band does, so tying one column to a band&rsquo;s open state needs no wrapper
+      band of its own.</p>
+    <p><code>marryChildren</code> keeps the band&rsquo;s columns together: a drag, a keyboard move
+      or a column-menu move that would take one of them out of the band&rsquo;s run, or drop a
+      column from outside into it, is refused with a <code>[lattice]</code> warning. Off by
+      default, in which case any of those may separate them.</p>
 
     <h3>Computed columns</h3>
     <p class="lead-in">
@@ -1716,6 +1744,98 @@ grid.rows.refresh({ rows, columns: ['owner'], force: true });
       <code>width</code> does not do it: a column with neither <code>width</code> nor
       <code>flex</code> takes the default 150 rather than a share of what is free. Absorbing space is
       what <code>flex</code> is for, and <code>min</code> only ever sets a floor.</p>
+
+    <h3>Locking a column down</h3>
+    <p class="lead-in">
+      Refusing a resize, refusing a move and refusing a hide are three separate decisions, so they
+      are three separate keys.
+    </p>
+    <div class="example">
+      <p class="example__label">An identifier column that stays where it is, and stays visible</p>
+      <pre><code>{ field: 'circuitId', layout: { width: 130, resizable: false, movable: false,
+                               lockVisible: true, lockPosition: true } }</code></pre>
+    </div>
+    <p><code>lockVisible</code> refuses to hide the column: <code>grid.columns.hide()</code>, the
+      column menu and the tool panel all leave it alone and warn once, and the AI layer is told the
+      column cannot be hidden. <code>lockPosition</code> holds it where it is &mdash; no drag, no
+      keyboard move, and no being pulled into a header band. It locks a column; it does not place
+      one, so put a column at an edge by ordering <code>columns</code>, or pin it with
+      <code>layout.pin</code>.</p>
+
+    <h3>What the user may do with a column</h3>
+    <p class="lead-in">
+      The interface offers grouping, pivoting and totals on every column that admits them. These
+      keys are how a column opts out, or tells the grid something about its own values.
+    </p>
+    <div class="example">
+      <p class="example__label">A reference code nobody should pivot on or total</p>
+      <pre><code>{ field: 'reference', allowGroup: false, allowPivot: false, allowTotal: false, nullable: true }
+{ field: 'tags',      group: { explode: true } }
+{ field: 'closedAt',  sort: { nullsFirst: true } }</code></pre>
+    </div>
+    <p><code>allowPivot</code> and <code>allowTotal</code> keep the column out of the pivot and
+      aggregate choosers the way <code>allowGroup</code> keeps it out of the grouping one. They
+      govern what the interface offers; your own code may still group, pivot or total the column.
+      <code>nullable</code> says an empty value is a legitimate value rather than a gap, so a blank
+      is not read as missing data.</p>
+    <p><code>sort: { nullsFirst: true }</code> puts empty values before the rest instead of after
+      them, whichever direction the column is sorted in. <code>group: { explode: true }</code> is
+      for a multi-value cell: it gives the row one group per value rather than one group for the
+      whole combination, so a row tagged <code>['a', 'b']</code> is counted under both.</p>
+
+    <h3>Cells that cover more than one row or column</h3>
+    <p class="lead-in">
+      Two forms, and they are not the same mechanism. <code>rowSpan</code> and
+      <code>colSpan</code> on the column merge cells in the grid&rsquo;s own merge pass;
+      <code>cell.spanRows</code> and <code>cell.spanColumns</code> draw one spanned cell in a layer
+      of its own.
+    </p>
+    <div class="example">
+      <p class="example__label">A merged category column, and a full-width note row</p>
+      <pre><code>{ field: 'cat',  rowSpan: (p) =&gt; (p.index === 0 ? 3 : 1) }
+{ field: 'item', colSpan: (p) =&gt; (p.data.item === 'note' ? 3 : 1) }
+{ field: 'span', cell: { spanRows: (p) =&gt; p.rows, spanColumns: (p) =&gt; p.cols } }</code></pre>
+    </div>
+    <p><code>rowSpan</code> and <code>colSpan</code> are called with the same
+      <code>CellParams</code> bag a renderer or a formatter gets, and return how many rows or
+      columns the cell covers; 1 or less is no merge, and a grid where no column declares either
+      never runs the merge pass at all. The cell is painted once at its origin, the covered cells
+      are not painted, a merge stops at a group heading and at a detail panel, and CSV, clipboard
+      and Excel write the value at the origin and blanks in the rest.</p>
+    <p><code>cell.spanRows</code> and <code>cell.spanColumns</code> take a
+      <code>SpanParams</code> bag instead and are floored and clamped to what remains &mdash;
+      <code>spanColumns</code> to the columns to the cell&rsquo;s right. A spanned cell is drawn in
+      its own layer so row recycling cannot clip it. The renderer looks back 50 rows above the
+      viewport for a span&rsquo;s origin: a taller span is reported once and drawn from the first
+      row in range.</p>
+
+    <h3>The options a shadow&rsquo;s model needs</h3>
+    <p class="lead-in">
+      A <code>shadow</code> column is a value the grid maintains about a column&rsquo;s own history
+      rather than a field in the data. Most kinds need nothing but <code>kind</code> and
+      <code>of</code>; the statistical ones need to be told what to fit.
+    </p>
+    <div class="example">
+      <p class="example__label">A seasonal decomposition, a smoothing model, a regression, a spec status</p>
+      <pre><code>{ shadow: { kind: 'tsSeasonal', of: 'reading', orderBy: 'at', period: 7, decomposition: 'multiplicative' } }
+{ shadow: { kind: 'tsSmoothed', of: 'reading', orderBy: 'at', smoothing: 'holt', alpha: 0.4, beta: 0.1 } }
+{ shadow: { kind: 'fitPredicted', predictors: ['area', 'age'], response: 'price', method: 'wls' } }
+{ shadow: { kind: 'specStatus',  of: 'reading', lower: 9, upper: 11, warnLower: 9.5, warnUpper: 10.5 } }</code></pre>
+    </div>
+    <p><code>period</code> is the season length and is required, since there is no auto-detection:
+      7 for a weekly cycle in daily data, 12 for a monthly cycle in monthly data, and at least 2.
+      <code>decomposition</code> picks the classical model &mdash; additive by default, or
+      <code>'multiplicative'</code>, which is undefined on a non-positive series, so those rows
+      report null and warn.</p>
+    <p><code>beta</code> is Holt&rsquo;s trend factor in <code>[0, 1]</code>, and applies only to
+      <code>smoothing: 'holt'</code>. Omit it to have it fitted by minimising in-sample error; the
+      value chosen is reported by a <code>tsSmoothingBeta</code> column, exactly as
+      <code>alpha</code> is reported by <code>tsSmoothingAlpha</code>.</p>
+    <p><code>predictors</code> and <code>response</code> give a <code>fit*</code> shadow its
+      regression directly, where you would otherwise pass a whole <code>model</code>.
+      <code>warnLower</code> and <code>warnUpper</code> are the inner thresholds of a
+      <code>specStatus</code> shadow: a reading inside <code>lower</code> and <code>upper</code>
+      but beyond one of them is still in spec and is marked <code>'WARN'</code>.</p>
 
     <h2 id="types">Types and formatting</h2>
     <p class="lead-in">
@@ -2043,6 +2163,20 @@ grid.destroy();
 return `before ${before}, after ${after}`;
 </code></pre>
     </div>
+
+    <p>The dictionary is read with <code>valueKey</code> (which property holds the stored value,
+      <code>'id'</code> by default), <code>labelKey</code> (which holds the displayed text,
+      <code>'label'</code>) and <code>groupKey</code> (which names the option group an editor shows
+      as a heading, <code>'group'</code>), so an option list you already have needs no reshaping.
+      <code>sortBy</code> decides the order the editor and the set filter show them in:
+      <code>'label'</code> by default, collated for the locale, or <code>'value'</code>,
+      <code>'optionOrder'</code> to keep them exactly as declared, or <code>'count'</code> to put
+      the commonest first.</p>
+    <p>A value the list does not contain still renders &mdash; it is never blanked &mdash; and is
+      reported once per column, because a blank cell hides a data problem.
+      <code>allowCustom: true</code> accepts it without complaint, for a column whose values are
+      genuinely open. <code>unknownLabel</code> decides what such a value shows: fixed text, or a
+      function of the value; the raw value itself when unset.</p>
 
     <h3>Custom types</h3>
     <div class="example">
@@ -2541,6 +2675,41 @@ grid.filters.quick('');          <span class="cmt">// clear</span></code></pre>
       <code>notBlank</code> work everywhere.
     </p>
 
+    <h3 id="filter-values">Where a filter's value list comes from</h3>
+    <p class="lead-in">
+      A set filter lists a column's values to tick. Where that list comes from depends on the
+      source, and on a large source it matters: the list is built the moment the popup opens.
+    </p>
+    <ul>
+      <li><strong>Memory source</strong> (<code>rows</code>): the column's dictionary &mdash; every
+      value the grid holds, sorted alphabetically, with a blank last. Nothing is fetched.</li>
+      <li><strong>Pushdown source</strong> (<code>createPushdownSource</code>): the engine. Opening
+      the popup sends one <code>GROUP BY</code> on the column with a count through the adapter's
+      <code>executeGroupedAggregates()</code> &mdash; DuckDB, ClickHouse and Elasticsearch all
+      answer it &mdash; and the browser reads no row to build the list. The popup draws at once,
+      says <em>Loading values&hellip;</em>, and fills when the answer lands; closing it aborts the
+      request. The values come most frequent first, each with its count, capped at 200: when the
+      column has more, the popup says so (<em>Top 200 of 8,412 values</em>) and typing in its
+      search box asks the engine again with a <code>contains</code> condition on the column, so a
+      value past the first 200 is still one search away. The list covers the whole relation, not
+      only the rows the grid's current filters match &mdash; the same set a memory grid's
+      dictionary lists.</li>
+      <li><strong>A pushdown adapter that cannot answer</strong> a distinct-values query (no
+      <code>executeGroupedAggregates()</code>, no <code>count</code>, or a column it cannot group
+      by): the popup offers the text condition editor instead and says why, and the console
+      carries <code>filter:values-unsupported</code> naming the column and the reason.</li>
+      <li><strong>A column with a <code>lookup</code>, or a <code>filter.props.values</code>
+      list</strong>: that list, on every source. It is the fastest route and never touches the
+      data.</li>
+    </ul>
+    <div class="why">
+      <p>On a capped list, unticking a value filters with <code>notIn</code> rather than with an
+      <code>in</code> over the values that happened to be listed &mdash; the 8,212 values not shown
+      would otherwise vanish with the one you meant to remove. After <strong>Clear</strong>,
+      ticking builds an <code>in</code>. Either way the condition sent to the engine is exactly
+      what you ticked.</p>
+    </div>
+
     <h3 id="where-guide">Filters your application owns: <code>where</code></h3>
     <p class="lead-in">
       A condition tree can only test what is in a column. Plenty of real filters cannot be written
@@ -2765,7 +2934,7 @@ grid.destroy();
     </p>
     <div class="example">
       <p class="example__label">A grid that hides its controls by default, with one column that keeps them</p>
-      <pre data-run="js" data-expect="1" data-covers="config:headerControls"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+      <pre data-run="js" data-expect="1" data-covers="config:headerControls config:Column.headerControls"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 
 <span class="kw">const</span> grid = createHeadlessGrid({
   headerControls: 'hidden',                       <span class="cmt">// the read-only default for every column</span>
@@ -2844,7 +3013,7 @@ grid.destroy();
     </p>
     <div class="example">
       <p class="example__label">A filter row, with one column opted out, typed into and read back</p>
-      <pre data-run="js" data-expect="kinds condition,set,condition,none | typed 2 rows | menu sees alp | cleared 4 rows" data-covers="config:filterRow"><code><span class="kw">const</span> { createTestDom, flushFrames, TestEvent } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+      <pre data-run="js" data-expect="kinds condition,set,condition,none | typed 2 rows | menu sees alp | cleared 4 rows" data-covers="config:filterRow config:Column.filterRow"><code><span class="kw">const</span> { createTestDom, flushFrames, TestEvent } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
 <span class="kw">const</span> { createGrid } = <span class="kw">await</span> import('../packages/dom/src/index.js');
 <span class="kw">const</span> { branchFor } = <span class="kw">await</span> import('../packages/dom/src/filtermenu.js');
 <span class="kw">const</span> { root, document: doc } = createTestDom({ width: 800, height: 300 });
@@ -5377,7 +5546,7 @@ grid.edit.deleteRows();</code></pre>
 
     <div class="example">
       <p class="example__label">A grid default, with one column overriding it</p>
-      <pre data-run="js" data-expect="middle, bottom" data-covers="config:verticalAlign"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+      <pre data-run="js" data-expect="middle, bottom" data-covers="config:verticalAlign config:Column.verticalAlign"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 
 <span class="kw">const</span> grid = createHeadlessGrid({
   verticalAlign: <span class="str">'middle'</span>,                 <span class="cmt">// the default for every column</span>
@@ -6407,6 +6576,78 @@ grid.selection.extendRange(34, 'cap');  <span class="cmt">// grows the block jus
       Selected rows carry <code>aria-selected</code> and the class
       <code>lat-row--selected</code>, which the theme styles.
     </p>
+    <h3 id="selection-predicate">Selecting every row on a pushdown source</h3>
+    <p class="lead-in">
+      A pushdown source (<code>createPushdownSource</code>, <code>duckdbAdapter</code> and the other
+      adapters) holds only the rows you have scrolled past, so "every row the filter shows" is a
+      set the grid cannot list. Select-all there selects a <em>predicate</em> instead: every row the
+      current filter matches, less the rows you take out afterwards. The header checkbox shows
+      checked (indeterminate once you untick a row), the status bar reads
+      <em>N selected across the source</em>, and the count is the engine's, never the loaded rows.
+    </p>
+    <ul>
+      <li><code>grid.selection.predicate()</code> is <code>{ all: true, filter, except }</code> — the
+        filter captured at select-all and the keys taken out since — or, in the ordinary case,
+        <code>{ all: false, include }</code>.</li>
+      <li><code>await grid.selection.count()</code> asks the source for the matching count and
+        subtracts <code>except</code>.</li>
+      <li><code>for await (const row of grid.selection.stream())</code> reads every selected row from
+        the source, page by page, through the adapter's export mode. <code>export.csv</code>,
+        <code>export.excel</code> and <code>export.clipboard</code> with <code>rows: 'selected'</code>
+        use it, and return a Promise.</li>
+      <li><code>keys()</code> and <code>rows()</code> still return arrays: the <em>loaded</em> rows the
+        predicate covers. <code>rows()</code> says so once, with the warning
+        <code>selection:predicate-partial</code>, when that is fewer than the selection holds.</li>
+      <li>Ticking a row outside the captured filter — after the filter has changed — is refused with
+        <code>selection:outside-predicate</code>, and the selection is left as it was. A filter change
+        never widens or narrows the selection.</li>
+      <li><code>edit.deleteRows()</code> hands <code>beforeDelete</code> the <code>predicate</code> and
+        <code>count</code> with empty <code>keys</code>, and deletes nothing by key itself
+        (<code>selection:predicate-unsupported</code>): delete by that filter on the server.</li>
+    </ul>
+    <p>A memory source, or a pushdown source holding its whole set under <code>fullDataset</code>,
+      keeps selecting keys exactly as before.</p>
+    <div class="example">
+      <p class="example__label">Select all, untick three, count and export</p>
+      <pre data-run="js" data-expect="count 2500 | loaded 50 | header partial | after 2497 | exported 2497" data-covers="method:selection export:createPushdownSource"><code><span class="kw">const</span> { createHeadlessGrid, createPushdownSource } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="cmt">// Stands in for an engine over 10,000 rows; a quarter are in the north.</span>
+<span class="kw">const</span> table = Array.from({ length: <span class="num">10000</span> }, (_, i) =&gt; ({ id: i, region: i % <span class="num">4</span> ? <span class="str">'south'</span> : <span class="str">'north'</span> }));
+<span class="kw">const</span> adapter = {
+  name: <span class="str">'engine'</span>,
+  capabilities: { filter: <span class="str">'tree'</span>, operators: [<span class="str">'eq'</span>], sort: <span class="str">'multi'</span>, range: <span class="kw">true</span>, total: <span class="kw">true</span> },
+  execute: <span class="kw">async</span> (query) =&gt; {
+    <span class="kw">const</span> f = query.filters &amp;&amp; (query.filters.conditions ? query.filters.conditions[<span class="num">0</span>] : query.filters);
+    <span class="kw">const</span> hits = f ? table.filter((r) =&gt; r[f.col] === f.value) : table;
+    <span class="kw">const</span> { start, end } = query.range || { start: <span class="num">0</span>, end: hits.length };
+    <span class="kw">return</span> { rows: hits.slice(start, end), total: hits.length };
+  },
+};
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: <span class="str">'id'</span>,
+  selection: <span class="str">'multiple'</span>,
+  columns: [{ id: <span class="str">'id'</span>, field: <span class="str">'id'</span> }, { id: <span class="str">'region'</span>, field: <span class="str">'region'</span> }],
+  source: createPushdownSource({ adapter, pageSize: <span class="num">50</span> }),
+});
+grid.filters.set({ col: <span class="str">'region'</span>, op: <span class="str">'eq'</span>, value: <span class="str">'north'</span> });
+grid.rendererHost().hint(<span class="num">0</span>, <span class="num">20</span>);   <span class="cmt">// the renderer does this for you</span>
+<span class="kw">await</span> <span class="kw">new</span> Promise((r) =&gt; setTimeout(r, <span class="num">300</span>));
+
+grid.selection.all();
+<span class="kw">const</span> count = <span class="kw">await</span> grid.selection.count();     <span class="cmt">// the engine's number</span>
+<span class="kw">const</span> loaded = grid.selection.keys().length;       <span class="cmt">// only what is loaded</span>
+
+<span class="cmt">// Untick three rows, as ctrl-clicks do.</span>
+<span class="kw">for</span> (<span class="kw">const</span> i <span class="kw">of</span> [<span class="num">0</span>, <span class="num">1</span>, <span class="num">2</span>]) grid.rendererHost().actions.select({ rowIndex: i, toggle: <span class="kw">true</span> });
+<span class="kw">const</span> after = <span class="kw">await</span> grid.selection.count();
+
+<span class="kw">const</span> csv = <span class="kw">await</span> grid.export.csv({ rows: <span class="str">'selected'</span>, download: <span class="kw">false</span> });
+<span class="kw">const</span> exported = csv.split(<span class="str">'\n'</span>).filter(Boolean).length - <span class="num">1</span>;
+<span class="kw">const</span> header = grid.selection.headerState();
+grid.destroy();
+<span class="kw">return</span> `count ${count} | loaded ${loaded} | header ${header} | after ${after} | exported ${exported}`;</code></pre>
+    </div>
     <div class="example">
       <p class="example__label">Sizing and pinning the checkbox column, and the resize-drag preview</p>
       <pre data-run="js" data-expect="deferred | 60 | end" data-covers="config:GridConfig.resizePreview config:GridConfig.selectionColumnWidth config:GridConfig.selectionColumnPin"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
@@ -8418,7 +8659,7 @@ r.ok ? r.value : r.error;   <span class="cmt">// 42</span></code></pre>
     </p>
     <div class="example">
       <p class="example__label">Built-ins &rarr; grid &rarr; column, executed</p>
-      <pre data-run="js" data-expect="grid|column" data-covers="config:contextMenu"><code><span class="kw">const</span> { createTestDom, flushFrames } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+      <pre data-run="js" data-expect="grid|column" data-covers="config:contextMenu config:Column.contextMenu"><code><span class="kw">const</span> { createTestDom, flushFrames } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
 <span class="kw">const</span> { createGrid } = <span class="kw">await</span> import('../packages/dom/src/index.js');
 <span class="kw">const</span> { root } = createTestDom({ width: 600, height: 300 });
 
@@ -9116,7 +9357,7 @@ grid.diff.before('CIR-100042', 'capacity');</code></pre>
     </p>
     <div class="example">
       <p class="example__label">Opting a computed column in, and a stored one out, executed</p>
-      <pre data-run="js" data-expect="qty,total" data-covers="config:diff"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+      <pre data-run="js" data-expect="qty,total" data-covers="config:diff config:Column.diff"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 
 <span class="kw">const</span> grid = createHeadlessGrid({
   rowKey: 'id',
@@ -11434,7 +11675,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.77.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.78.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

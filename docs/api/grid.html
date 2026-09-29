@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.77.0</title>
+<title>Grid API Reference — Lattice Grid 1.78.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -391,6 +391,7 @@
         <a href="#config">Configuration properties</a>
         <a href="#column">Column definition</a>
         <a href="#column-specs">Column sub-specs</a>
+        <a class="rail__sub-link" href="#column-surface-examples">The rest of a column, drawn and executed</a>
         <a href="#merged-cells">Merged cells</a>
         <a href="#cell-tooltips">Rich cell tooltips</a>
         <a href="#grid-methods">Grid methods</a>
@@ -910,6 +911,733 @@
         </tbody>
       </table>
     </div>
+
+    <p class="lead-in">
+      Every block below runs in the test suite, against this build, and states what it
+      produced. Between them they exercise the column sub-specs above end to end.
+    </p>
+    <div class="example">
+      <p class="example__label">Everything a column’s <code>layout</code> accepts, and the three locks as refusals</p>
+      <pre data-run="js" data-expect="ref 130/44/300 start; notes flex 1 min 200; qty content hidden true; after locks ref,notes | ref,notes,qty" data-covers="config:Column.layout config:Column.layout.width config:Column.layout.min config:Column.layout.max config:Column.layout.pin config:Column.layout.resizable config:Column.layout.movable config:Column.layout.lockVisible config:Column.layout.lockPosition config:Column.layout.flex config:Column.layout.fit config:Column.layout.hidden"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+
+// Everything ColumnLayoutSpec accepts, on three columns.
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  rows: [{ id: 1, ref: 'A-1', notes: 'long text', qty: 3 }],
+  columns: [
+    // An identifier: fixed width, pinned to the start edge, and locked against
+    // every user gesture — resize, move, hide, and being pulled into a band.
+    { field: 'ref', layout: { width: 130, min: 44, max: 300, pin: 'start',
+        resizable: false, movable: false, lockVisible: true, lockPosition: true } },
+    // A column that follows the grid's width, and one sized to its content.
+    { field: 'notes', layout: { flex: 1, min: 200 } },
+    { field: 'qty', layout: { fit: 'content', hidden: true } },
+  ],
+});
+
+const ref = grid.columns.get('ref').layout;
+const notes = grid.columns.get('notes').layout;
+const qty = grid.columns.get('qty').layout;
+
+// The locks are refusals, not decoration: each gesture is ignored and warns.
+grid.columns.hide('ref');
+grid.columns.resize('ref', 300);
+grid.columns.move('ref', 2);
+const stillThere = grid.columns.visible().map((c) =&gt; c.id).join(',');
+const order = grid.columns.all().map((c) =&gt; c.id).join(',');
+grid.destroy();
+
+return `ref ${ref.width}/${ref.min}/${ref.max} ${ref.pin}; notes flex ${notes.flex} min ${notes.min};`
+  + ` qty ${qty.fit} hidden ${qty.hidden}; after locks ${stillThere} | ${order}`;</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">A lookup column read by key, ordered, joined, and asked about an unknown value</p>
+      <pre data-run="js" data-expect="Operations + Finance; unknown (nope); anything; eng,fin,ops / ops,eng,fin; search Newco; reported lookup:unknown:raw; groups Field|Back office|Field" data-covers="config:Column.lookup config:Column.lookup.options config:Column.lookup.valueKey config:Column.lookup.labelKey config:Column.lookup.groupKey config:Column.lookup.multiple config:Column.lookup.separator config:Column.lookup.sortBy config:Column.lookup.unknownLabel config:Column.lookup.allowCustom config:Column.lookup.search"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+
+// The dictionary is read by key, so an option list you already have needs no
+// reshaping: `code` is the stored value, `name` the label, `team` the heading an
+// editor groups under.
+const dictionary = [
+  { code: 'ops', name: 'Operations', team: 'Field' },
+  { code: 'eng', name: 'Engineering', team: 'Field' },
+  { code: 'fin', name: 'Finance', team: 'Back office' },
+];
+const base = { valueKey: 'code', labelKey: 'name', groupKey: 'team', options: dictionary };
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  rows: [{ id: 1, owner: ['ops', 'fin'], next: 'ops', raw: 'nope', open: 'anything' }],
+  columns: [
+    // A cell that holds several values: the labels are joined by `separator`.
+    { field: 'owner', type: 'lookup', lookup: { ...base, multiple: true, separator: ' + ' } },
+    // Workflow order rather than alphabetical order, for the editor and the set filter.
+    { field: 'next', type: 'lookup', lookup: { ...base, sortBy: 'optionOrder' } },
+    // A value the dictionary does not hold still renders, never blanked.
+    { field: 'raw', type: 'lookup', lookup: { ...base, unknownLabel: (v) =&gt; `unknown (${v})` } },
+    // ...and is reported once per column, unless the column says it is open.
+    { field: 'open', type: 'lookup', lookup: { ...base, allowCustom: true } },
+  ],
+});
+
+// The text the reader sees, straight off the row.
+const shown = (id) =&gt; grid.rows.text('1', id);
+const order = (id) =&gt; grid.columns.get(id).lookup.sorted().map((o) =&gt; o.id).join(',');
+// `sortBy` decides what the editor lists, and it is not the declaration order by
+// default: 'label' collates, 'optionOrder' keeps the sequence as declared.
+const byLabel = order('owner');
+const byDeclared = order('next');
+// `groupKey` names the heading an editor groups the options under.
+const headings = grid.columns.get('owner').lookup.sorted().map((o) =&gt; o.group).join('|');
+// Both are read before the snapshot below, because the unknown value is
+// reported when the cell is formatted.
+const multi = shown('owner');
+const unknown = shown('raw');
+const custom = shown('open');
+const reported = grid.diagnostics.snapshot().warnings
+  .filter((w) =&gt; w.id.startsWith('lookup:unknown:')).map((w) =&gt; w.id).join(',');
+// Asked for matching options as the user types; the signal belongs to the
+// request this keystroke supersedes.
+const search = async (query, signal) =&gt; (signal.aborted ? [] : [{ code: 'new', name: query }]);
+const extra = await search('Newco', { aborted: false });
+// The unknown value is reported against the column that did not allow it, and
+// not against the one that did.
+grid.destroy();
+
+return `${multi}; ${unknown}; ${custom}; ${byLabel} / ${byDeclared}; search ${extra[0].name}; reported ${reported}; groups ${headings}`;</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Every declarative validation rule, refusing a commit</p>
+      <pre data-run="js" data-expect="refused name:required,age:max,ref:pattern,state:oneOf,to:crossField,span:custom; kept 30/ABC; then 40 null; message Three capitals." data-covers="config:Column.validation config:Column.validation.required config:Column.validation.minLength config:Column.validation.maxLength config:Column.validation.min config:Column.validation.max config:Column.validation.pattern config:Column.validation.messages config:Column.validation.oneOf config:Column.validation.message config:Column.validation.crossField config:Column.validation.validate"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+
+// Declarative edit rules. Each is checked before the value is written, so a
+// failing commit is refused rather than corrected afterwards.
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  rows: [{ id: 'r1', name: 'Alice', age: 30, ref: 'ABC', state: 'open', from: 5, to: 9, span: 1 }],
+  columns: [
+    { field: 'id' },
+    { field: 'name', edit: true, validation: { required: true, minLength: 2, maxLength: 20 } },
+    { field: 'age', type: 'number', edit: true, validation: { min: 0, max: 120 } },
+    { field: 'ref', edit: true, validation: { pattern: '^[A-Z]{3}$', messages: { pattern: 'Three capitals.' } } },
+    { field: 'state', edit: true, validation: { oneOf: ['open', 'closed'], message: 'Not a state.' } },
+    // A cross-field rule sees the whole row, so it can compare siblings.
+    { field: 'to', type: 'number', edit: true, validation: {
+      crossField: (value, row) =&gt; (Number(value) &gt;= Number(row.from) ? true : 'Ends before it starts.'),
+    } },
+    // A free-form check, the same contract as `crossField`.
+    { field: 'span', type: 'number', edit: true, validation: {
+      validate: (value) =&gt; (Number(value) &lt; 100 ? true : 'Too far out.'),
+    } },
+  ],
+});
+
+// Commit a value the way a user does, through the editor.
+const commit = (colId, value) =&gt; { grid.edit.start('r1', colId); grid.edit.stop(false, { value }); };
+const refused = [];
+for (const [colId, value] of [['name', ''], ['age', 999], ['ref', 'abc'], ['state', 'paused'], ['to', 1], ['span', 500]]) {
+  commit(colId, value);
+  const error = grid.validation.errorFor('r1', colId);
+  if (error) refused.push(`${colId}:${error.code}`);
+}
+// The cells still hold what they held: a failing value is not written.
+const kept = `${grid.rows.byKey('r1').data.age}/${grid.rows.byKey('r1').data.ref}`;
+// A valid value writes through and clears the mark.
+commit('age', 40);
+const after = `${grid.rows.byKey('r1').data.age} ${grid.validation.errorFor('r1', 'age')}`;
+const wording = grid.validation.errorFor('r1', 'ref');
+grid.destroy();
+
+return `refused ${refused.join(',')}; kept ${kept}; then ${after}; message ${wording &amp;&amp; wording.message}`;</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Rolling, positional and anomaly shadows over a stated order</p>
+      <pre data-run="js" data-expect="sum 2,6,11,13,108; cov 0.33/1; q 99; cum 114; pop 95; running 114; anomaly false,true; rank 3/2" data-covers="config:Column.shadow config:Column.shadow.of config:Column.shadow.orderBy config:Column.shadow.within config:Column.shadow.window config:Column.shadow.window.kind config:Column.shadow.window.span config:Column.shadow.q config:Column.shadow.scope config:Column.shadow.threshold config:Column.running"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+
+// A shadow is a value the grid maintains about a column, not a field in the
+// data. The rolling kinds read an explicit `orderBy` — never the screen sort, or
+// a trailing average would change on every header click.
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  rows: [
+    { id: 'r1', t: 1, v: 2, g: 'a' }, { id: 'r2', t: 2, v: 4, g: 'a' },
+    { id: 'r3', t: 3, v: 5, g: 'a' }, { id: 'r4', t: 4, v: 4, g: 'b' },
+    { id: 'r5', t: 5, v: 99, g: 'b' },
+  ],
+  columns: [
+    { field: 't', type: 'number' },
+    { field: 'v', type: 'number' },
+    { field: 'g' },
+    // The last three rows of the series, across the whole dataset rather than
+    // per group.
+    { id: 'sum3', shadow: { kind: 'rollingSum', of: 'v', orderBy: 't', within: 'all',
+        window: { kind: 'count', span: 3 } } },
+    // How full that window is: the first rows carry a partial one, and are
+    // stamped as such rather than dressed as full.
+    { id: 'cov', shadow: { kind: 'windowCoverage', of: 'v', orderBy: 't', within: 'all',
+        window: { kind: 'count', span: 3 } } },
+    // The median of the window; `q` moves it anywhere in [0, 1].
+    { id: 'p90', shadow: { kind: 'rollingQuantile', of: 'v', orderBy: 't', within: 'all', q: 0.9,
+        window: { kind: 'session' } } },
+    // Everything so far, and the change on the row before.
+    { id: 'cum', shadow: { kind: 'cumulativeToDate', of: 'v', orderBy: 't', within: 'all' } },
+    { id: 'pop', shadow: { kind: 'periodOverPeriod', of: 'v', orderBy: 't', within: 'group' } },
+    // A rank is positional: `scope` decides whether the filters move it.
+    { id: 'rankAll', shadow: { kind: 'rank', of: 'v', scope: 'all' } },
+    { id: 'rankLeft', shadow: { kind: 'rank', of: 'v', scope: 'filtered' } },
+    // An outlier by modified z-score; `threshold` is the score a row must clear.
+    { id: 'odd', shadow: { kind: 'anomalyFlag', of: 'v', threshold: 3.5 } },
+    // A running total is the one derived value that depends on the display
+    // order, which is why it is not a shadow kind.
+    { field: 'v', id: 'sofar', running: 'total' },
+  ],
+});
+
+const at = (col, key) =&gt; grid.rows.value(key, col);
+const series = ['r1', 'r2', 'r3', 'r4', 'r5'].map((k) =&gt; at('sum3', k)).join(',');
+const coverage = `${at('cov', 'r1').toFixed(2)}/${at('cov', 'r5')}`;
+const quantile = at('p90', 'r5');
+const cumulative = at('cum', 'r5');
+const perGroup = at('pop', 'r5');
+const running = at('sofar', 'r5');
+const flagged = ['r1', 'r5'].map((k) =&gt; at('odd', k)).join(',');
+// With `scope: 'filtered'` the rank is taken over what the filters left; with
+// `'all'` it does not move.
+grid.filters.set({ col: 'g', op: 'eq', value: 'b' });
+const ranks = `${at('rankAll', 'r4')}/${at('rankLeft', 'r4')}`;
+grid.destroy();
+
+return `sum ${series}; cov ${coverage}; q ${quantile}; cum ${cumulative}; pop ${perGroup};`
+  + ` running ${running}; anomaly ${flagged}; rank ${ranks}`;</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">The options a decomposition, a smoothing model, a regression and a tolerance need</p>
+      <pre data-run="js" data-expect="trend/seasonal 10/2; ses/holt 9.60/7.89; fit 11/11; spec WARN,PASS,WARN; tolerance 8-12" data-covers="config:Column.shadow.period config:Column.shadow.decomposition config:Column.shadow.smoothing config:Column.shadow.alpha config:Column.shadow.beta config:Column.shadow.predictors config:Column.shadow.response config:Column.shadow.method config:Column.shadow.model config:Column.shadow.lower config:Column.shadow.upper config:Column.shadow.warnLower config:Column.shadow.warnUpper config:Column.spec config:Column.spec.lower config:Column.spec.upper"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+
+// A seasonal series: level 10 plus a four-step cycle, so the decomposition has
+// something to find. `period` is required — there is no auto-detection.
+const values = [12, 8, 11, 9, 12, 8, 11, 9, 12, 8, 11, 9];
+const series = { of: 'v', orderBy: 't', within: 'all' };
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  rows: values.map((v, i) =&gt; ({ id: String(i), t: i, v, x: i, y: 2 * i + 1 })),
+  columns: [
+    { field: 't', type: 'number' },
+    { field: 'v', type: 'number' },
+    { field: 'x', type: 'number' },
+    { field: 'y', type: 'number' },
+    // The classical decomposition. `decomposition: 'multiplicative'` is the
+    // other model, and is undefined on a non-positive series.
+    { id: 'trend', shadow: { kind: 'tsTrend', ...series, period: 4 } },
+    { id: 'seasonal', shadow: { kind: 'tsSeasonal', ...series, period: 4, decomposition: 'additive' } },
+    // Single smoothing at a fixed level factor, and Holt's level+trend, whose
+    // `beta` is the trend factor.
+    { id: 'ses', shadow: { kind: 'tsSmoothed', ...series, smoothing: 'ses', alpha: 0.5 } },
+    { id: 'holt', shadow: { kind: 'tsSmoothed', ...series, smoothing: 'holt', alpha: 0.5, beta: 0.1 } },
+    // A regression: the predictors and the response may be given on the shadow
+    // itself, or as a whole `model`. `method` picks the fit.
+    { id: 'fit', shadow: { kind: 'fitPredicted', predictors: ['x'], response: 'y', method: 'ols' } },
+    { id: 'fit2', shadow: { kind: 'fitPredicted', model: { predictors: ['x'], response: 'y', method: 'robust' } } },
+    // The customer's tolerance, judged per row: outside lower/upper fails, and
+    // inside the inner warnLower/warnUpper band is a still-in-spec warning.
+    { id: 'judged', shadow: { kind: 'specStatus', of: 'v', lower: 8, upper: 12, warnLower: 9, warnUpper: 11 } },
+    // Declared on the column, so the capability figures, a control chart and a
+    // rule marking an out-of-tolerance cell cannot disagree about the tolerance.
+    { field: 'v', id: 'graded', spec: { lower: 8, upper: 12, target: 10 } },
+  ],
+});
+
+const at = (col, key) =&gt; grid.rows.value(key, col);
+const decomposed = `${at('trend', '4')}/${at('seasonal', '4')}`;
+const smoothed = `${at('ses', '11').toFixed(2)}/${at('holt', '11').toFixed(2)}`;
+const fitted = `${at('fit', '5')}/${at('fit2', '5')}`;
+const judged = ['0', '2', '1'].map((k) =&gt; at('judged', k)).join(',');
+const tolerance = grid.columns.get('graded').spec;
+grid.destroy();
+
+return `trend/seasonal ${decomposed}; ses/holt ${smoothed}; fit ${fitted}; spec ${judged};`
+  + ` tolerance ${tolerance.lower}-${tolerance.upper}`;</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Grouping and pivot order, three reductions, and what the interface is allowed to offer</p>
+      <pre data-run="js" data-expect="groups region+team; pivots pivotTeam+pivotRegion; explode true; week/7; reductions sum/avg/sum; offered false/false/false; nullable true" data-covers="config:Column.group.explode config:Column.group.index config:Column.group.weekStart config:Column.pivot.index config:Column.total config:Column.groupTotal config:Column.grandTotal config:Column.allowGroup config:Column.allowPivot config:Column.allowTotal config:Column.nullable config:Column.group config:Column.group.enabled config:Column.group.granularity config:Column.pivot config:Column.pivot.enabled"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  rows: [
+    { id: 1, region: 'EMEA', team: 'Ops', tags: ['red', 'blue'], at: '2026-03-02T09:00:00Z', qty: 4, price: 10 },
+    { id: 2, region: 'EMEA', team: 'Eng', tags: ['red'], at: '2026-03-03T09:00:00Z', qty: 6, price: 20 },
+    { id: 3, region: 'APAC', team: 'Ops', tags: ['blue'], at: '2026-03-09T09:00:00Z', qty: 2, price: 30 },
+  ],
+  columns: [
+    // Two grouping columns, in a stated order rather than the column order.
+    { field: 'team', group: { enabled: true, index: 1 } },
+    { field: 'region', group: { enabled: true, index: 0 } },
+    // A multi-value cell: one group per value rather than one for the combination.
+    { field: 'tags', group: { explode: true } },
+    // A timestamp buckets by civil week, starting on Sunday.
+    { field: 'at', type: 'timestamp', group: { granularity: 'week', weekStart: 7 } },
+    // Two pivot dimensions, also ordered by a stated index.
+    { field: 'region', id: 'pivotRegion', pivot: { enabled: true, index: 1 } },
+    { field: 'team', id: 'pivotTeam', pivot: { enabled: true, index: 0 } },
+    // A column that averages within each group while the grand total sums, and
+    // one nobody may group, pivot or total from the interface.
+    { field: 'qty', type: 'number', total: 'sum', groupTotal: 'avg', grandTotal: 'sum' },
+    { field: 'price', type: 'number', allowGroup: false, allowPivot: false, allowTotal: false, nullable: true },
+  ],
+});
+
+// The grouping order is the declared `index`, not the column order.
+const grouped = grid.columns.state().filter((c) =&gt; c.groupIndex !== null)
+  .sort((a, b) =&gt; a.groupIndex - b.groupIndex).map((c) =&gt; c.id).join('+');
+// `explode` gives the row one group per value.
+const exploded = grid.columns.get('tags').group.explode;
+const buckets = grid.columns.get('at').group;
+const reductions = ['total', 'groupTotal', 'grandTotal'].map((k) =&gt; grid.columns.get('qty')[k]).join('/');
+// The pivot order is the declared `index` too.
+const pivoted = grid.columns.state().filter((c) =&gt; c.pivotIndex !== null)
+  .sort((a, b) =&gt; a.pivotIndex - b.pivotIndex).map((c) =&gt; c.id).join('+');
+// The three permissions are what the column menu, the tool panel and the AI
+// layer's schema read to decide what to offer; they are carried on the resolved
+// column, and they do not veto your own calls.
+const price = grid.columns.get('price');
+const offered = `${price.allowGroup}/${price.allowPivot}/${price.allowTotal}`;
+const blanks = price.nullable;
+grid.destroy();
+
+return `groups ${grouped}; pivots ${pivoted}; explode ${exploded}; ${buckets.granularity}/${buckets.weekStart};`
+  + ` reductions ${reductions}; offered ${offered}; nullable ${blanks}`;</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">A preset, a type turned off, column tags, and a computed value’s own hooks</p>
+      <pre data-run="js" data-expect="preset $1,000.50; type text; tags identity,audited; net 2001/60; memoised true; compare true; parse ab" data-covers="config:Column.preset config:Column.type config:Column.tags config:Column.value config:Column.value.compare config:Column.value.parse config:Column.value.pure config:Column.value.compute config:Column.value.deps"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+
+let computes = 0;
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  // A house style declared once, merged in before anything the column says.
+  columnPresets: { money: { type: 'number', format: { decimals: 2, prefix: '$' } } },
+  rows: [
+    { id: 1, code: 'b', paid: 1000.5, qty: 2, note: 'x' },
+    { id: 2, code: 'a', paid: 20, qty: 3, note: null },
+  ],
+  columns: [
+    // `type` decides parsing, formatting, sorting, the default editor and the
+    // default filter together; `false` turns inference off.
+    { field: 'qty', type: 'number' },
+    { field: 'note', type: false },
+    // The preset is merged first, so the column may still override it.
+    { field: 'paid', preset: 'money' },
+    // Free-form labels, so the column tag bar can show and hide sets of columns.
+    { field: 'code', tags: ['identity', 'audited'] },
+    // A computed value: `deps` are the columns it reads, `pure` says the result
+    // depends on nothing else, so it is computed once per dependency change.
+    { id: 'net', value: {
+      deps: ['paid', 'qty'],
+      compute: (deps) =&gt; { computes++; return deps.paid * deps.qty; },
+      pure: true,
+    } },
+    // A comparator of the column's own, and the parse an edit goes through.
+    { id: 'byLength', field: 'code', value: {
+      compare: (a, b) =&gt; String(a).localeCompare(String(b)),
+      parse: (p) =&gt; String(p.value).trim().toLowerCase(),
+    } },
+  ],
+});
+
+const shown = grid.rows.text('1', 'paid');
+const opaque = grid.columns.get('note').type;
+const tags = grid.columns.tags().join(',');
+const net = `${grid.rows.value('1', 'net')}/${grid.rows.value('2', 'net')}`;
+// A pure compute is memoised: reading the same cell again does not re-run it.
+const before = computes;
+grid.rows.value('1', 'net');
+const memoised = computes === before;
+const compare = grid.columns.get('byLength').compare('a', 'b') &lt; 0;
+const parsed = grid.columns.get('byLength').def.value.parse({ value: '  AB  ' });
+grid.destroy();
+
+return `preset ${shown}; type ${opaque}; tags ${tags}; net ${net}; memoised ${memoised};`
+  + ` compare ${compare}; parse ${parsed}`;</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Null ordering, an unexported column, the filter and editor a column asks for, and a history depth</p>
+      <pre data-run="js" data-expect="csv Ref,Closed,Note,Price,Trail; nulls A,B; filter set/50; editor textarea/true/3; kept 100; trail 120+130+140" data-covers="config:Column.sort.nullsFirst config:Column.export config:Column.export.csv config:Column.filter.type config:Column.filter.props config:Column.edit.editor config:Column.edit.popup config:Column.edit.props config:Column.edit.validate config:Column.shadow.depth"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  rows: [
+    { id: 1, ref: 'A', closed: null, secret: 'hide me', note: 'first', price: 100 },
+    { id: 2, ref: 'B', closed: '2026-03-02', secret: 'hide me too', note: 'second', price: 100 },
+  ],
+  columns: [
+    { field: 'ref' },
+    // Empty values before the rest, in both directions: the sort never moves them.
+    { field: 'closed', type: 'date', sort: { direction: 'asc', nullsFirst: true } },
+    // Shown, but never exported.
+    { field: 'secret', export: { csv: false, excel: false } },
+    // Which filter the column offers, and what that filter is handed.
+    { field: 'note', filter: { type: 'set', props: { limit: 50 } } },
+    // The editor by name, in a popup, with props of its own. `edit.validate` is
+    // the imperative check, distinct from the declarative `validation` rules.
+    { field: 'price', type: 'number', edit: {
+      enabled: true, editor: 'textarea', popup: true, props: { rows: 3 },
+      validate: (value) =&gt; (Number(value) &gt; 0 ? true : 'Must be positive.'),
+    } },
+    // `history` keeps the last `depth` readings of the column it shadows.
+    { id: 'trail', shadow: { of: 'price', kind: 'history', depth: 3 } },
+  ],
+});
+
+// The excluded column is not in the file, and the nulls sorted to the head.
+const header = grid.export.csv({ lineEnding: '|' }).split('|')[0];
+const order = [0, 1].map((i) =&gt; grid.rows.get(i).data.ref).join(',');
+const filter = grid.columns.get('note').filter;
+const editor = grid.columns.get('price').edit;
+// The imperative check is a veto: the cell keeps the value it had.
+grid.edit.start('1', 'price');
+grid.edit.stop(false, { value: -5 });
+const kept = grid.rows.byKey('1').data.price;
+// Four readings, a depth of three: the oldest falls off the end.
+for (const value of [110, 120, 130, 140]) grid.rows.apply({ update: [{ id: 1, price: value }] });
+const trail = grid.rows.value('1', 'trail').join('+');
+grid.destroy();
+
+return `csv ${header}; nulls ${order}; filter ${filter.type}/${filter.props.limit};`
+  + ` editor ${editor.editor}/${editor.popup}/${editor.props.rows}; kept ${kept}; trail ${trail}`;</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">A band whose columns are married: both moves are refused</p>
+      <pre data-run="js" data-expect="ref,jul,aug,sep,other; child ref,jul,aug,sep,other; outsider ref,jul,aug,sep,other" data-covers="config:ColumnGroup.marryChildren"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  rows: [{ id: 1, ref: 'A', jul: 10, aug: 10, sep: 10, other: 1 }],
+  columns: [
+    { field: 'ref' },
+    // A band whose columns are kept together: a move that would take one of them
+    // out of the band's run, or drop an outsider into it, is refused.
+    { id: 'q3', title: 'Q3', marryChildren: true, columns: [
+      { field: 'jul' }, { field: 'aug' }, { field: 'sep' },
+    ] },
+    { field: 'other' },
+  ],
+});
+
+const order = () =&gt; grid.columns.all().map((c) =&gt; c.id).join(',');
+const before = order();
+// Moving a married child out of its band, and an outsider into it, are both
+// refused: the column order does not change.
+grid.columns.move('aug', 4);
+const afterChild = order();
+grid.columns.move('other', 2);
+const afterOutsider = order();
+grid.destroy();
+
+return `${before}; child ${afterChild}; outsider ${afterOutsider}`;</code></pre>
+    </div>
+
+    <h3 id="column-surface-examples">The rest of a column, drawn and executed</h3>
+    <p class="lead-in">
+      The blocks above run headless. The ones below also mount a grid in the in-repo test DOM, so
+      what they report is what the renderer drew: the classes, styles, headings and tooltips a
+      column asks for, read back off the cells. Every block runs in the test suite against this
+      build (BACKLOG-0001189).
+    </p>
+
+    <div class="example">
+      <p class="example__label">A cell drawn every way a column can ask: renderer and props, classes, inline styles, a decoration and variant, a template, alignment, wrapping, a title tooltip and both spans</p>
+      <pre data-run="js" data-expect="Customer: #Acme 'Account Acme'; classes true/true/false; css mistyrose; pill true; template true; laid true; style navy; rows 56px; cols 150px/300px; amount -40.0" data-covers="config:Column.cell config:Column.cell.render config:Column.cell.props config:Column.cell.tooltip config:Column.cell.class config:Column.cell.classWhen config:Column.cell.css config:Column.cell.decoration config:Column.cell.variant config:Column.cell.template config:Column.cell.align config:Column.cell.verticalAlign config:Column.cell.wrap config:Column.cell.style config:Column.cell.spanRows config:Column.cell.spanColumns config:Column.title config:Column.format config:Column.field"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid } = await import('../packages/dom/src/index.js');
+const { root } = createTestDom({ width: 1200, height: 300 });
+
+const grid = createGrid(root, {
+  rowKey: 'id',
+  rows: [
+    { id: 1, account: 'Acme', amount: 1200, status: 'late', note: 'Call before noon', region: 'North' },
+    { id: 2, account: 'Bolt', amount: -40, status: 'ok', note: 'Paid', region: 'North' },
+  ],
+  columns: [
+    // A renderer of your own, handed the column's `props`, and a plain-text
+    // tooltip, which becomes the browser's own `title`.
+    { field: 'account', title: 'Customer', cell: {
+      render: (p) =&gt; `${p.props.prefix}${p.value}`,
+      props: { prefix: '#' },
+      tooltip: (p) =&gt; `Account ${p.value}`,
+    } },
+    // Classes, static and per value, and an inline style computed per cell.
+    { field: 'amount', type: 'number', format: { decimals: 1 }, cell: {
+      class: 'money',
+      classWhen: { 'is-negative': (p) =&gt; p.value &lt; 0 },
+      css: (p) =&gt; (p.value &lt; 0 ? { background: 'mistyrose' } : {}),
+    } },
+    // A decoration whose colour comes from a variant mapped from the value.
+    { field: 'status', cell: { decoration: 'pill', variant: { map: { late: 'danger', ok: 'success' } } } },
+    // A template (escaped), aligned, top-aligned and wrapping.
+    { field: 'note', cell: { template: '&lt;b&gt;{{value}}&lt;/b&gt;', align: 'center', verticalAlign: 'top', wrap: true } },
+    // A fixed inline style, and a region cell that covers the row below it.
+    { field: 'region', cell: {
+      style: { color: 'navy' },
+      spanRows: (p) =&gt; (p.index === 0 ? 2 : 1),
+    } },
+    // A cell that covers the column to its right when the amount is negative.
+    { field: 'id', title: 'Ref', cell: { spanColumns: (p) =&gt; (p.data.amount &lt; 0 ? 2 : 1) } },
+    { field: 'spare' },
+  ],
+});
+flushFrames();
+
+const cells = [...root.querySelectorAll('.lat-cell')];
+const cell = (key, col) =&gt; cells.find((c) =&gt; c.getAttribute('data-col') === col
+  &amp;&amp; c.closest('[data-key]')?.getAttribute('data-key') === String(key));
+const has = (el, name) =&gt; String(el?.className || '').split(/\s+/).includes(name);
+
+const account = cell(1, 'account');
+const drawn = `${account.textContent} '${account.getAttribute('title')}'`;
+const money = cell(2, 'amount');
+const classes = `${has(money, 'money')}/${has(money, 'is-negative')}/${has(cell(1, 'amount'), 'is-negative')}`;
+const shaded = money.style.getPropertyValue('background');
+const pill = has(cell(1, 'status'), 'lat-dec--pill') &amp;&amp; String(cell(1, 'status').className).includes('danger');
+const note = cell(1, 'note');
+const bold = note.childNodes.some((n) =&gt; n.tagName === 'B');
+const laid = ['lat-cell--center', 'lat-cell--valign-top', 'lat-cell--wrap'].every((c) =&gt; has(note, c));
+const navy = cell(1, 'region').style.getPropertyValue('color');
+const tall = cell(1, 'region').style.height;
+const wide = `${cell(1, 'id').style.width}/${cell(2, 'id').style.width}`;
+const heading = [...root.querySelectorAll('.lat-header-cell')]
+  .find((h) =&gt; h.getAttribute('data-col') === 'account').textContent.trim();
+grid.destroy();
+
+return `${heading}: ${drawn}; classes ${classes}; css ${shaded}; pill ${pill}; template ${bold};`
+  + ` laid ${laid}; style ${navy}; rows ${tall}; cols ${wide}; amount ${money.textContent}`;</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">A rich tooltip: content from <code>render</code>, live content from <code>mount</code>, and the <code>unmount</code> that tears it down</p>
+      <pre data-run="js" data-expect="render Account AcmeQty3 | mount live 3 | mount R1, unmount live 3" data-covers="config:Column.cell.tooltip.render config:Column.cell.tooltip.mount config:Column.cell.tooltip.unmount"><code>const { createTestDom, flushFrames, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid } = await import('../packages/dom/src/index.js');
+const { root, document } = createTestDom({ width: 800, height: 300 });
+
+const log = [];
+const grid = createGrid(root, {
+  rowKey: 'id',
+  // No delay, so focusing a cell opens its tooltip at once.
+  tooltip: { delay: 0 },
+  rows: [{ id: 'R1', account: 'Acme', qty: 3 }],
+  columns: [
+    // `render` returns the content: here a { title, rows } spec the grid lays out.
+    { field: 'account', cell: { tooltip: {
+      render: (p) =&gt; ({ title: `Account ${p.value}`, rows: [{ label: 'Qty', value: p.row.data.qty }] }),
+    } } },
+    // `mount` fills the element with live content; `unmount` is its teardown,
+    // called exactly once when the tooltip closes.
+    { field: 'qty', cell: { tooltip: {
+      mount: (el, p) =&gt; { log.push(`mount ${p.key}`); el.textContent = `live ${p.value}`; },
+      unmount: (el) =&gt; { log.push(`unmount ${el.textContent}`); },
+    } } },
+  ],
+});
+flushFrames();
+
+const cell = (col) =&gt; [...root.querySelectorAll('.lat-cell')].find((c) =&gt; c.getAttribute('data-col') === col);
+const tip = () =&gt; String(document.querySelector('[role="tooltip"]')?.textContent || '').trim();
+
+// A keyboard user reaches the tooltip exactly as a pointer does: by focus.
+cell('account').dispatchEvent(new TestEvent('focusin', { bubbles: true }));
+const rendered = tip();
+cell('qty').dispatchEvent(new TestEvent('focusin', { bubbles: true }));
+const live = tip();
+// Escape closes it without moving the pointer, and the host's teardown runs.
+document.dispatchEvent(new TestEvent('keydown', { bubbles: true, key: 'Escape' }));
+grid.destroy();
+
+return `render ${rendered} | mount ${live} | ${log.join(', ')}`;</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Headings and bands: a leaf and a band heading drawn by their own renderers, and a band that opens and closes with the columns that follow it</p>
+      <pre data-run="js" data-expect="§ Ref.is-key | Q1 (kg).quarter + Pets | closed ref,q1total,cat,dog | open ref,jan,feb,mar,cat,dog" data-covers="config:Column.id config:Column.header config:Column.header.render config:Column.header.props config:Column.header.class config:Column.showWhen config:ColumnGroup.id config:ColumnGroup.title config:ColumnGroup.columns config:ColumnGroup.collapsible config:ColumnGroup.openByDefault config:ColumnGroup.showWhen config:ColumnGroup.header config:ColumnGroup.header.render config:ColumnGroup.header.props config:ColumnGroup.header.class"><code>const { createTestDom, flushFrames, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid } = await import('../packages/dom/src/index.js');
+const { root } = createTestDom({ width: 1200, height: 300 });
+
+const grid = createGrid(root, {
+  rowKey: 'id',
+  rows: [{ id: 1, ref: 'A-1', jan: 1, feb: 2, mar: 3, q1: 6, cat: 4, dog: 5 }],
+  columns: [
+    // A leaf heading drawn by a renderer of your own, handed `header.props`,
+    // with a class on the heading cell.
+    { id: 'ref', field: 'ref', header: {
+      render: (el, p) =&gt; `${p.props.mark} ${p.title}`, props: { mark: '§' }, class: 'is-key',
+    } },
+    // A band that opens and closes, starting closed. Its months show only while
+    // it is open and its total only while it is closed. The band heading takes
+    // the same `render`, `props` and `class` a leaf heading does.
+    { id: 'q1', title: 'Q1', collapsible: true, openByDefault: false,
+      header: { render: (el, p) =&gt; `${p.title} (${p.props.unit})`, props: { unit: 'kg' }, class: 'quarter' },
+      columns: [
+        { field: 'jan', showWhen: 'open' }, { field: 'feb', showWhen: 'open' },
+        { field: 'mar', showWhen: 'open' },
+        { field: 'q1', id: 'q1total', title: 'Q1 total', showWhen: 'closed' },
+      ] },
+    // A plain band: its title over its columns, always shown.
+    { id: 'pets', title: 'Pets', columns: [{ field: 'cat' }, { field: 'dog' }] },
+  ],
+});
+flushFrames();
+
+const leaves = () =&gt; [...new Set([...root.querySelectorAll('.lat-header-cell')]
+  .map((c) =&gt; c.getAttribute('data-col')))].join(',');
+const bands = [...root.querySelectorAll('.lat-header-group-cell')]
+  .map((c) =&gt; `${String(c.textContent).trim()}${c.className.includes('quarter') ? '.quarter' : ''}`).join(' + ');
+const ref = [...root.querySelectorAll('.lat-header-cell')].find((c) =&gt; c.getAttribute('data-col') === 'ref');
+const heading = `${String(ref.textContent).trim()}${ref.className.includes('is-key') ? '.is-key' : ''}`;
+
+const closed = leaves();
+// Open the band with its own control.
+root.querySelector('.lat-header-group-toggle').dispatchEvent(new TestEvent('click', { bubbles: true }));
+flushFrames();
+const opened = leaves();
+grid.destroy();
+
+return `${heading} | ${bands} | closed ${closed} | open ${opened}`;</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">A column that flashes its own changed cells: the default, a colour of its own, a duration, and switched off</p>
+      <pre data-run="js" data-expect="bid var(--lattice-flash-background), ask gold, last tomato, volume none; ask held 0; last timed true" data-covers="config:Column.cell.flash config:Column.cell.flash.color config:Column.cell.flash.colour config:Column.cell.flash.duration config:Column.cell.flash.enabled config:Column.edit config:Column.edit.enabled"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  edit: { enabled: true },
+  rows: [{ id: 1, bid: 10, ask: 11, last: 10.5, volume: 100 }],
+  columns: [
+    // `true`: the default flash colour and duration.
+    { field: 'bid', edit: { enabled: true }, cell: { flash: true } },
+    // A colour of its own (either spelling) and a duration in milliseconds;
+    // `0` leaves the highlight until it is cleared.
+    { field: 'ask', edit: { enabled: true }, cell: { flash: { color: 'gold', duration: 0 } } },
+    { field: 'last', edit: { enabled: true }, cell: { flash: { colour: 'tomato', duration: 5000 } } },
+    // Declared but switched off, so a host can toggle it without deleting it.
+    { field: 'volume', edit: { enabled: true }, cell: { flash: { colour: 'tomato', enabled: false } } },
+  ],
+});
+
+grid.edit.setCells(['bid', 'ask', 'last', 'volume'].map((colId) =&gt; ({ key: '1', colId, value: 12 })));
+const colours = ['bid', 'ask', 'last', 'volume']
+  .map((id) =&gt; `${id} ${grid.highlight.colourFor('1', id) ?? 'none'}`).join(', ');
+const held = grid.highlight.list().find((h) =&gt; h.colId === 'ask').duration;
+const timed = grid.highlight.list().find((h) =&gt; h.colId === 'last').duration &gt; 4000;
+grid.destroy();
+
+return `${colours}; ask held ${held}; last timed ${timed}`;</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">The starting sort, the controls a heading offers, and a column left out of quick search</p>
+      <pre data-run="js" data-expect="sorted 2,1,3; controls team yy, code nn; search secret none, code 1" data-covers="config:Column.sort config:Column.sort.direction config:Column.sort.order config:Column.sort.enabled config:Column.filter config:Column.filter.enabled config:Column.quickFilter"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid } = await import('../packages/dom/src/index.js');
+const { root } = createTestDom({ width: 1000, height: 300 });
+
+const grid = createGrid(root, {
+  rowKey: 'id',
+  headerControls: 'always',
+  rows: [
+    { id: 1, team: 'b', qty: 2, code: 'X-9', secret: 'kryptonite' },
+    { id: 2, team: 'a', qty: 2, code: 'Y-1', secret: 'plain' },
+    { id: 3, team: 'a', qty: 1, code: 'Z-5', secret: 'plain' },
+  ],
+  columns: [
+    // The starting sort: qty descending first (`order: 0`), then team ascending.
+    { field: 'team', sort: { direction: 'asc', order: 1 } },
+    { field: 'qty', type: 'number', sort: { direction: 'desc', order: 0 } },
+    // No sort control and no filter control in this heading.
+    { field: 'code', sort: { enabled: false }, filter: { enabled: false } },
+    // Left out of quick search, whatever it holds.
+    { field: 'secret', quickFilter: false },
+  ],
+});
+flushFrames();
+
+const order = () =&gt; grid.rows.data().map((r) =&gt; r.id).join(',');
+const sorted = order();
+const heading = (id) =&gt; [...root.querySelectorAll('.lat-header-cell')].find((c) =&gt; c.getAttribute('data-col') === id);
+const controls = (id) =&gt; ['.lat-header-sort', '.lat-header-filter']
+  .map((sel) =&gt; (heading(id).querySelector(sel) ? 'y' : 'n')).join('');
+const affordances = `team ${controls('team')}, code ${controls('code')}`;
+grid.filters.quick('kryptonite');
+const hidden = order() || 'none';
+grid.filters.quick('X-9');
+const found = order();
+grid.destroy();
+
+return `sorted ${sorted}; controls ${affordances}; search secret ${hidden}, code ${found}`;</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">A rolling window in minutes, the value hooks, a data type’s own options, a target, and a column kept out of a workbook</p>
+      <pre data-run="js" data-expect="3min 1,3,6,7,9; 3rows 1,3,6,9,12; shown 2 kg; written 30; searched r4; items number; target 3; note/secret in xlsx true/false" data-covers="config:Column.shadow.kind config:Column.shadow.window.minutes config:Column.value.format config:Column.value.apply config:Column.value.quickFilterText config:Column.typeOptions config:Column.spec.target config:Column.export.excel"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+await import('../packages/modules/list/index.js');
+
+const t0 = Date.UTC(2026, 0, 1, 9, 0);
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  edit: { enabled: true },
+  rows: [0, 1, 2, 5, 6].map((minute, i) =&gt; ({
+    id: `r${i}`, at: t0 + minute * 60_000, v: i + 1, size: i + 1, note: `batch ${i}`, tag: `lot-${i}`,
+    sizes: [i, i + 1], secret: `s${i}`,
+  })),
+  columns: [
+    { field: 'at', type: 'number' },
+    { field: 'v', type: 'number' },
+    // The same rolling sum over the last three minutes of `at`, and over the
+    // last three rows: `kind` picks the statistic, `window.minutes` the span.
+    { id: 'last3min', shadow: { kind: 'rollingSum', of: 'v', orderBy: 'at', within: 'all',
+      window: { kind: 'time', minutes: 3 } } },
+    { id: 'last3rows', shadow: { kind: 'rollingSum', of: 'v', orderBy: 'at', within: 'all',
+      window: { kind: 'count', span: 3 } } },
+    // What the reader sees, what a commit writes, and what quick search reads.
+    { field: 'size', type: 'number', edit: true, value: {
+      format: (p) =&gt; `${p.value} kg`,
+      apply: (p) =&gt; { p.data.size = Number(p.value) * 10; return true; },
+      quickFilterText: (p) =&gt; String(p.data.tag),
+    } },
+    // Options the data type reads: a list of numbers, joined with ' / '.
+    { field: 'sizes', type: 'list', typeOptions: { of: 'number', joiner: ' / ' } },
+    // A tolerance with a target, declared once on the column.
+    { field: 'v', id: 'graded', spec: { lower: 1, upper: 5, target: 3 } },
+    // Both shown; only `note` is written to a workbook.
+    { field: 'note' },
+    { field: 'secret', export: { excel: false } },
+  ],
+});
+
+const byTime = grid.rows.data().map((r) =&gt; grid.rows.value(r.id, 'last3min')).join(',');
+const byCount = grid.rows.data().map((r) =&gt; grid.rows.value(r.id, 'last3rows')).join(',');
+const shown = grid.rows.text('r1', 'size');
+grid.edit.start('r1', 'size');
+grid.edit.stop(false, { value: 3 });
+const written = grid.rows.byKey('r1').data.size;
+grid.filters.quick('lot-4');
+const searched = grid.rows.data().map((r) =&gt; r.id).join(',');
+grid.filters.quick('');
+const items = grid.columns.get('sizes').itemType.name;
+const target = grid.columns.get('graded').spec.target;
+// A stored (`level: 0`) workbook keeps its text readable in the bytes.
+const workbook = new TextDecoder().decode(await (await grid.export.excel({ level: 0 })).arrayBuffer());
+const excel = `${workbook.includes('batch 0')}/${workbook.includes('s0')}`;
+grid.destroy();
+
+return `3min ${byTime}; 3rows ${byCount}; shown ${shown}; written ${written}; searched ${searched};`
+  + ` items ${items}; target ${target}; note/secret in xlsx ${excel}`;</code></pre>
+    </div>
     <h2 id="merged-cells">Merged cells</h2>
     <p class="lead-in">
       <code>rowSpan(p)</code> and <code>colSpan(p)</code> on a column say how many rows or columns
@@ -957,7 +1685,7 @@
 
     <div class="example">
       <p class="example__label">A reporting grid: a category cell spanning its rows, and a full-width note</p>
-      <pre data-run="js" data-expect="cat 0 spans 3; note 3 spans 3 cols; North,a,1,ok|,b,2,ok|,c,3,ok|South,note,," data-covers="config:GridConfig.columns config:GridConfig.rowKey method:export"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+      <pre data-run="js" data-expect="cat 0 spans 3; note 3 spans 3 cols; North,a,1,ok|,b,2,ok|,c,3,ok|South,note,," data-covers="config:GridConfig.columns config:GridConfig.rowKey config:Column.rowSpan config:Column.colSpan method:export"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 <span class="kw">const</span> { buildSpanMap } = <span class="kw">await</span> import('../packages/core/src/model/spans.js');
 
 <span class="kw">const</span> data = [
@@ -1121,7 +1849,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.77.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.78.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -3891,7 +4619,12 @@ createGrid(host, { source, columns: [...] });</code></pre>
       <code>offset</code> and <code>count</code>, and takes the match count from the job’s own
       <code>resultCount</code>. Paging reuses the job rather than dispatching a second search, and the
       moment the grid asks a different question — a new filter, a new sort — the job it walked away
-      from is <code>DELETE</code>d rather than left to expire. An aborted request cancels its job too.
+      from is <code>DELETE</code>d rather than left to expire. An aborted request cancels its job too,
+      and so does a finished one: the moment the last page of a <code>DONE</code> job is read, it is
+      <code>DELETE</code>d too, by default, rather than left for its 600-second TTL to reclaim — a
+      read-only role’s search-artifact quota is usually far smaller than an interactive user’s, and a
+      grid that only ever asks one question should not spend a slot on it for ten minutes nobody
+      reads. Set <code>releaseJobs: false</code> to keep the job open instead.
     </p>
     <p class="section-note">
       <strong>What pushes down.</strong> The filter tree becomes one SPL <code>search</code>
@@ -3940,17 +4673,24 @@ createGrid(host, { source, columns: [...] });</code></pre>
       <code>fetch</code> wrapper, which is the only thing called afresh per request. The adapter
       stores nothing, prompts for nothing and refreshes nothing, so there is nothing in it for a
       credential to leak from — and a 401 or 403 is reported as a refused token naming that fix,
-      rather than as an empty result. See <a href="#adapter-auth">authenticating</a>.
+      rather than as an empty result. Any other refusal — a 503 on an exhausted artifact quota, a 400
+      on a malformed search — reads Splunk’s own <code>messages[].text</code> out of the response body
+      and carries it in both the thrown error and a named warning, rather than leaving only the HTTP
+      status to go on. See <a href="#adapter-auth">authenticating</a>.
     </p>
     <p class="section-note">
       <strong>The limits worth knowing.</strong> A search job is capped by the instance’s
       <code>limits.conf</code> <code>maxresultrows</code> (500,000 by default): past it Splunk
       truncates, and a truncated count presented as a total would make every “showing X of Y” wrong,
-      so tell the adapter your ceiling with <code>maxResultRows</code> and it says so once instead. A
-      job also has a TTL (600 seconds by default) after which its results are gone; the adapter
-      re-dispatches rather than failing when a held job has expired. A case-sensitive condition is
-      pushed without its case constraint, because Splunk’s search matching is case-insensitive, and
-      that too is said once rather than left to be discovered.
+      so tell the adapter your ceiling with <code>maxResultRows</code> and it says so once instead. In
+      <code>mode: 'export'</code> the same option stops the stream once that many rows have arrived —
+      without it, an export is unbounded, however many rows the search matches, and lands in one
+      in-memory array. A job also has a TTL (600 seconds by default) after which its results are gone;
+      the adapter re-dispatches rather than failing when a held job has expired, and releases a
+      finished one itself once its last page is read (<code>releaseJobs</code>, default <code>true</code>)
+      so a read-only role’s artifact quota is not spent by jobs nobody will read again. A
+      case-sensitive condition is pushed without its case constraint, because Splunk’s search matching
+      is case-insensitive, and that too is said once rather than left to be discovered.
     </p>
     <div class="table-wrap">
       <table>
@@ -3965,11 +4705,12 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">owner</td><td class="type">string</td><td class="type"><code>-</code> when <code>app</code> is set</td><td class="desc">The namespace owner, used with <code>app</code>; <code>nobody</code> for a knowledge object shared across users.</td></tr>
           <tr><td class="name">fetch</td><td class="type">typeof fetch</td><td class="type">the global <code>fetch</code></td><td class="desc">Your own fetch: where a token that expires is refreshed, since it is called afresh per request. The adapter bundles no HTTP client.</td></tr>
           <tr><td class="name">headers</td><td class="type">Record&lt;string, string&gt;</td><td class="type">{}</td><td class="desc">Sent on every request. Where a fixed bearer token or session key goes. The adapter holds no credential of its own.</td></tr>
-          <tr><td class="name">mode</td><td class="type">'blocking' | 'export'</td><td class="type"><code>blocking</code></td><td class="desc"><code>blocking</code> dispatches a search job (<code>exec_mode=blocking</code>) and reads windows from <code>/results</code>, so the grid pages in the engine and gets a match count. <code>export</code> posts to the streaming export endpoint and reads it to the end: that endpoint has no offset and no count, so <code>capabilities.range</code> and <code>capabilities.total</code> are both declared <code>false</code> and the grid pages what it holds. Use it for a long search whose rows you want as they are produced.</td></tr>
+          <tr><td class="name">mode</td><td class="type">'blocking' | 'export'</td><td class="type"><code>blocking</code></td><td class="desc"><code>blocking</code> dispatches a search job (<code>exec_mode=blocking</code>) and reads windows from <code>/results</code>, so the grid pages in the engine and gets a match count. <code>export</code> posts to the streaming export endpoint and reads it to the end: that endpoint has no offset and no count, so <code>capabilities.range</code> and <code>capabilities.total</code> are both declared <code>false</code> and the grid pages what it holds. Use it for a long search whose rows you want as they are produced; pair it with <code>maxResultRows</code> to stop it at a ceiling instead of reading an unbounded search to its end.</td></tr>
           <tr><td class="name">timeColumn</td><td class="type">string</td><td class="type"><code>_time</code></td><td class="desc">The field a time filter maps onto the job window through. Splunk’s own is <code>_time</code>; name yours if the grid’s time column is a different field.</td></tr>
           <tr><td class="name">pollIntervalMs</td><td class="type">number</td><td class="type">250</td><td class="desc">Milliseconds between two <code>dispatchState</code> reads of a job that is still running.</td></tr>
           <tr><td class="name">pollTimeoutMs</td><td class="type">number</td><td class="type">60000</td><td class="desc">Milliseconds to wait for a job to finish before giving up by name. A job the grid gave up on is cancelled rather than left running.</td></tr>
-          <tr><td class="name">maxResultRows</td><td class="type">number</td><td class="type">—</td><td class="desc">Your instance’s <code>limits.conf</code> <code>maxresultrows</code>. Given, a result that reaches it is reported as truncated instead of being presented as the whole — Splunk does not always say so itself.</td></tr>
+          <tr><td class="name">maxResultRows</td><td class="type">number</td><td class="type">—</td><td class="desc">Your instance’s <code>limits.conf</code> <code>maxresultrows</code>. Given, a result that reaches it is reported as truncated instead of being presented as the whole — Splunk does not always say so itself. In <code>mode: 'export'</code> it also stops the stream at that many rows, rather than reading an unbounded search to its end.</td></tr>
+          <tr><td class="name">releaseJobs</td><td class="type">boolean</td><td class="type"><code>true</code></td><td class="desc">Whether a finished blocking-mode job is <code>DELETE</code>d the moment its last page is read, so a read-only role’s search-artifact quota is not spent by <code>DONE</code> jobs left for their TTL. <code>false</code> keeps the job open instead, for a host that wants to read it again without re-dispatching.</td></tr>
         </tbody>
       </table>
     </div>
@@ -4016,6 +4757,37 @@ createGrid(host, { source, columns: [...] });</code></pre>
 <span class="cmt">// One window of the result, and the job's own match count.</span>
 <span class="kw">const</span> page = <span class="kw">await</span> adapter.execute(query, {});
 <span class="kw">return</span> `${search === expected ? <span class="str">'SPL as documented'</span> : search}, ${page.rows.length} of ${page.total} events`;</code></pre>
+    <p class="section-note">
+      <strong>Two ways the adapter cleans up after itself.</strong> <code>mode: 'export'</code> stops
+      reading the stream once <code>maxResultRows</code> is reached, rather than holding every row an
+      unbounded search would produce; and a finished blocking-mode job is <code>DELETE</code>d the
+      moment its last page is read, by default, rather than left for its TTL — the failure mode that
+      exhausted a read-only role’s search-artifact quota before this existed. Set
+      <code>releaseJobs: false</code> to keep a job around instead.
+    </p>
+    <pre data-run="js" data-expect="capped at 2 of 5, job released: true" data-covers="option:splunkAdapter.releaseJobs option:splunkAdapter.maxResultRows"><code><span class="kw">const</span> { splunkAdapter } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createSplunkMock } = <span class="kw">await</span> import('../test/fixtures/splunk-mock.js');
+
+<span class="cmt">// Five events shared by both halves of this example.</span>
+<span class="kw">const</span> mock = createSplunkMock({ events: Array.from({ length: 5 }, (_v, i) =&gt; ({ seq: i })) });
+
+<span class="cmt">// mode: 'export' with a cap stops the stream rather than reading it unbounded.</span>
+<span class="kw">const</span> capped = splunkAdapter({
+  url: <span class="str">'https://splunk.example.com:8089'</span>, search: <span class="str">'index=security'</span>,
+  mode: <span class="str">'export'</span>, maxResultRows: 2, fetch: mock.fetch,
+});
+<span class="kw">const</span> exported = <span class="kw">await</span> capped.execute({}, {});
+
+<span class="cmt">// releaseJobs defaults to true: the job is DELETEd once its last page is read.</span>
+<span class="kw">const</span> blocking = splunkAdapter({
+  url: <span class="str">'https://splunk.example.com:8089'</span>, search: <span class="str">'index=security'</span>, fetch: mock.fetch,
+});
+<span class="kw">const</span> read = <span class="kw">await</span> blocking.execute({ range: { start: 0, end: 5 } }, {});
+
+<span class="cmt">// The release DELETE is fire-and-forget; give it a tick to land.</span>
+<span class="kw">await</span> <span class="kw">new</span> Promise((resolve) =&gt; setTimeout(resolve, 0));
+
+<span class="kw">return</span> `capped at ${exported.rows.length} of ${read.total}, job released: ${mock.cancelled.length === 1}`;</code></pre>
 
     <h5 id="clickhouse-options"><code>clickhouseAdapter</code></h5>
     <p class="section-note">
@@ -4711,6 +5483,96 @@ app.get('/api/orders', async (req, res) =&gt; {
 );
 <span class="cmt">// median is IDENTICAL so it pushes; weightedQuantile is a fallback so it stays here.</span>
 <span class="kw">return</span> `engine=${split.engine[0].class} client=${split.client[0].class}`;</code></pre>
+
+    <h4 id="pushdown-pivot">Pivoting in the engine</h4>
+    <p class="section-note">
+      A pivot on a pushdown source is answered by the engine, from grouped aggregates. The level's
+      grouping column and the pivot columns become the <code>GROUP BY</code> keys, the engine returns
+      one aggregated row per occupied group and pivot key, and the grid reshapes those rows into its
+      pivot columns. No leaf row is fetched to do it: over the 10-million-row transactions sample
+      below, a pivot of <code>country</code> by <code>category</code> with a sum, a count and an
+      average moves 90 aggregated rows, where a memory source moves all ten million.
+      <code>duckdbAdapter</code>, <code>clickhouseAdapter</code>, <code>elasticsearchAdapter</code> and
+      <code>splunkAdapter</code> (blocking mode) declare <code>capabilities.pivot</code>.
+    </p>
+    <p class="section-note">
+      <strong>The columns come from the answer.</strong> The root level also asks for the pivot's axis —
+      every pivot key over the whole matching set — so the column headings are the keys the engine
+      found, not a list you declare. <strong>Groups still open on demand.</strong> In a two-level
+      grouping the root fetches the outer groups and their cells; opening a group fetches its
+      children then, narrowed by the typed parent key. The innermost level is the pivot's row axis and
+      has no leaves to open, as in a memory pivot. <strong>Everything else must push too.</strong> A
+      filter, sort or quick search the engine cannot take, or a host <code>where</code> predicate,
+      would make the engine pivot the wrong set, so the pivot is refused rather than half-pushed.
+    </p>
+    <p class="section-note">
+      <strong>An adapter that cannot pivot refuses by name.</strong> <code>restAdapter</code>,
+      <code>odataAdapter</code>, <code>graphqlAdapter</code> and <code>dfqlAdapter</code> have no
+      grouped aggregate to ask for, and a remote source holds a window, not the leaves, so there is
+      nothing to pivot in the browser either. The fetch rejects with
+      <code>code: 'pushdown:pivot-unsupported'</code>, the grid shows the refusal in its error overlay
+      where the rows would have been, <code>lastPlan().unpushed</code> names <code>pivot</code> and
+      <code>lastPlan().pivotReason</code> says why. No row is requested.
+    </p>
+    <p class="section-note">The statements <code>duckdbAdapter</code> sends for the root level of that pivot, the cells statement bound to the window's group keys:</p>
+    <pre><code><span class="cmt">-- The level: one row per country, with its row totals, windowed.</span>
+SELECT "country" AS "__lattice_key", count(*) AS "__lattice_leaves", sum("amount") AS "amount",
+       count(*) AS "transaction_id", avg("risk_score") AS "risk_score"
+FROM read_parquet('https://data.latticegrid.dev/samples/transactions-10m.parquet')
+GROUP BY "country" ORDER BY "country" ASC NULLS LAST LIMIT 100 OFFSET 0
+
+<span class="cmt">-- The axis: every category over the matching set — the column set.</span>
+SELECT "category" AS "__lattice_p0", count(*) AS "__lattice_leaves", sum("amount") AS "amount",
+       count(*) AS "transaction_id", avg("risk_score") AS "risk_score"
+FROM read_parquet('https://data.latticegrid.dev/samples/transactions-10m.parquet')
+GROUP BY "category" ORDER BY "category" ASC NULLS LAST
+
+<span class="cmt">-- The cells: country × category for the countries in the window, keys bound.</span>
+SELECT "country" AS "__lattice_key", "category" AS "__lattice_p0", count(*) AS "__lattice_leaves",
+       sum("amount") AS "amount", count(*) AS "transaction_id", avg("risk_score") AS "risk_score"
+FROM read_parquet('https://data.latticegrid.dev/samples/transactions-10m.parquet')
+WHERE ("country" = ? OR "country" = ? OR …) GROUP BY "country", "category"</code></pre>
+    <p class="section-note">
+      <code>clickhouseAdapter</code> writes the same statements with its statistics aliased by position
+      (<code>sum(`price`) AS `__lattice_a0`</code>), because ClickHouse reads an alias back anywhere
+      in a statement. <code>elasticsearchAdapter</code> sends one <code>size: 0</code> search of nested
+      <code>terms</code> aggregations; <code>splunkAdapter</code> runs <code>| stats … by</code>
+      pipelines as jobs of their own and cancels each once read. <code>adapter.sqlFor</code>'s siblings
+      — <code>pivotCellsSqlFor</code>, <code>pivotAxisSqlFor</code>, <code>pivotSqlFor</code>,
+      <code>pivotBodyFor</code>, <code>pivotSearchFor</code> — show the statement without running it.
+      An adapter of your own declares <code>capabilities.pivot</code> and implements
+      <code>executePivotLevel(query, aggregates, request)</code>, returning the level's rows and
+      <code>pivot: { axis, cells }</code>:
+    </p>
+    <pre data-run="js" data-expect="pivoted=true unpushed=0 North|apple=5 refused=pushdown:pivot-unsupported" data-covers="export:createPushdownSource export:planQuery"><code><span class="kw">const</span> { createPushdownSource, planQuery, capabilitiesOf } = <span class="kw">await</span> import('../packages/core/src/source/index.js');
+<span class="kw">const</span> request = {
+  range: { start: 0, end: 50 }, groupPath: [], groupValues: [], groupBy: ['region'],
+  pivotBy: ['product'], pivotMode: <span class="kw">true</span>, totals: ['qty'], totalFns: { qty: 'sum' },
+  filters: <span class="kw">null</span>, sort: [],
+};
+<span class="cmt">// An engine that pivots: aggregated rows back, one per region × product.</span>
+<span class="kw">const</span> engine = createPushdownSource({ adapter: {
+  capabilities: { filter: 'tree', sort: 'multi', range: <span class="kw">true</span>, pivot: <span class="kw">true</span> },
+  execute: <span class="kw">async</span> () =&gt; { <span class="kw">throw</span> <span class="kw">new</span> Error('no leaf is ever asked for'); },
+  executePivotLevel: <span class="kw">async</span> () =&gt; ({
+    rows: [{ region: 'North', leafCount: 7, totals: { qty: 9 } }], total: 1,
+    pivot: { axis: [['apple'], ['pear']], cells: [
+      { group: ['North'], pivot: ['apple'], values: { qty: 5 } },
+      { group: ['North'], pivot: ['pear'], values: { qty: 4 } },
+    ] },
+  }),
+} });
+<span class="kw">const</span> level = <span class="kw">await</span> engine.fetch(request);
+<span class="kw">const</span> cell = level.pivot.cells.find((c) =&gt; c.pivot[0] === 'apple');
+<span class="cmt">// An adapter that cannot pivot is refused by name, and nothing is fetched.</span>
+<span class="kw">const</span> rest = createPushdownSource({ adapter: {
+  capabilities: { filter: 'tree', range: <span class="kw">true</span> },
+  execute: <span class="kw">async</span> () =&gt; { <span class="kw">throw</span> <span class="kw">new</span> Error('not reached'); },
+} });
+<span class="kw">const</span> refused = <span class="kw">await</span> rest.fetch(request).catch((error) =&gt; error.code);
+<span class="kw">const</span> plan = planQuery(request, capabilitiesOf({ pivot: <span class="kw">true</span>, range: <span class="kw">true</span> }));
+<span class="kw">return</span> `pivoted=${plan.pivoted} unpushed=${engine.lastPlan().unpushed.length} `
+  + `${cell.group[0]}|${cell.pivot[0]}=${cell.values.qty} refused=${refused}`;</code></pre>
 
     <h3 id="derived-join">Joining two grids</h3>
     <p class="section-note">
@@ -6738,10 +7600,13 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">clearRange</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Drop every range, leaving the row and cell selection alone.</td></tr>
           <tr><td class="name">summary</td><td class="type">(): { count: number; numeric: number; sum: number | null; min: number | null; max: number | null; avg: number | null; }</td><td class="desc">&mdash;</td><td class="type"><code>{ count: number; numeric: number; sum: number | null; min: number | null; max: number | null; avg: number | null; }</code></td><td class="desc">The selected cells as a status bar states them: how many carry a value, how many of those are numbers, and the sum, extremes and mean of the numbers. Every figure but the two counts is null when nothing selected is numeric. {@link SelectionApi.statistics} is the fuller answer.</td></tr>
           <tr><td class="name">statistics</td><td class="type">(): <a href="types.html#type-SelectionStatistics">SelectionStatistics</a> | null</td><td class="desc">&mdash;</td><td class="type"><code><a href="types.html#type-SelectionStatistics">SelectionStatistics</a> | null</code></td><td class="desc">Everything worth knowing about the selected cells: what `summary()` reports plus median, quartiles, deviation, distinct and outliers. Over the cells rather than a column, so a rectangle spanning three columns is one set of numbers. Null with nothing selected.</td></tr>
-          <tr><td class="name">rows</td><td class="type">(): <a href="#type-Row">Row</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Row">Row</a>[]</code></td><td class="desc">The selected rows, as row objects.</td></tr>
-          <tr><td class="name">keys</td><td class="type">(): string[]</td><td class="desc">&mdash;</td><td class="type"><code>string[]</code></td><td class="desc">The keys of the selected rows.</td></tr>
+          <tr><td class="name">rows</td><td class="type">(): <a href="#type-Row">Row</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Row">Row</a>[]</code></td><td class="desc">The selected rows, as row objects. Under a predicate selection (`predicate().all === true`), only the *loaded* rows it covers, with the named warning `selection:predicate-partial` the first time that is fewer than the selection holds; {@link SelectionApi.stream} reads them all.</td></tr>
+          <tr><td class="name">keys</td><td class="type">(): string[]</td><td class="desc">&mdash;</td><td class="type"><code>string[]</code></td><td class="desc">The keys of the selected rows. Under a predicate selection, the keys of the loaded rows it covers; {@link SelectionApi.predicate} is the whole.</td></tr>
+          <tr><td class="name">predicate</td><td class="type">(): <a href="types.html#type-SelectionPredicate">SelectionPredicate</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="types.html#type-SelectionPredicate">SelectionPredicate</a></code></td><td class="desc">The selection as a descriptor (BACKLOG-0001546): `{ all: true, filter, except }` after a select-all on a pushdown source that holds only a window of its rows, `{ all: false, include }` — the key list — otherwise.</td></tr>
+          <tr><td class="name">count</td><td class="type">(): Promise&lt;number | null&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Promise&lt;number | null&gt;</code></td><td class="desc">How many rows are selected. Under a predicate selection the source is asked — its count of the captured query less `except.length` — never the loaded rows. In keys mode, the number of keys. Null when the source could not count (its error is reported as `source:error`).</td></tr>
+          <tr><td class="name">stream</td><td class="type">(opts?: { /** Rows per page read from the source; default 5,000. */ pageSize?: number; }): AsyncIterable&lt;<a href="#type-Row">Row</a>&gt;</td><td class="desc"><code>opts?: { /** Rows per page read from the source; default 5,000. */ pageSize?: number; }</code></td><td class="type"><code>AsyncIterable&lt;<a href="#type-Row">Row</a>&gt;</code></td><td class="desc">Every selected row, one at a time. Under a predicate selection the captured query is read from the source in pages — the adapter's export mode — with `except` removed; in keys mode, the selected rows. Exports of `rows: 'selected'` read from here.</td></tr>
           <tr><td class="name">set</td><td class="type">(keys: string[]): void</td><td class="desc"><code>keys: string[]</code></td><td class="type"><code>void</code></td><td class="desc">Replace the row selection with exactly these keys and repaint.</td></tr>
-          <tr><td class="name">all</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Select every row currently on display — what the filters leave, detail rows excepted. Does nothing unless the selection mode is `'multiple'`.</td></tr>
+          <tr><td class="name">all</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Select every row currently on display — what the filters leave, detail rows excepted. Does nothing unless the selection mode is `'multiple'`. On a pushdown source holding only a window of its rows it selects every row the current query matches instead, as a predicate (BACKLOG-0001546): the header checkbox shows checked, `count()` asks the source, and a later filter change leaves the captured filter as it was.</td></tr>
           <tr><td class="name">clear</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Drop the row selection, leaving any cell ranges alone.</td></tr>
           <tr><td class="name">headerState</td><td class="type">(): boolean | 'partial'</td><td class="desc">&mdash;</td><td class="type"><code>boolean | 'partial'</code></td><td class="desc">The select-all checkbox's tri-state over the displayed rows: `true` when every one is selected, `'partial'` when some are, `false` when none are. Group and detail rows are furniture and do not count.</td></tr>
           <tr><td class="name">cells</td><td class="type">(): { key: string; colId: string }[]</td><td class="desc">&mdash;</td><td class="type"><code>{ key: string; colId: string }[]</code></td><td class="desc">Every cell inside the selected ranges, as row key and column id pairs.</td></tr>
@@ -9252,6 +10117,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many rows exist at this level in total, so the scrollbar is the right size. Omit it while the total is unknown and the grid keeps discovering. <small>(optional)</small></td></tr>
           <tr><td class="name">pendingTotal</td><td class="type">Promise&lt;number | null&gt;</td><td class="desc">The exact count, still being worked out (BACKLOG-0001078). A source whose count has to read data delivers the rows as soon as the page settles and resolves this when the count finishes; the grid keeps discovering until it does, then adopts the number and fires `source:total`. Ignored when `count` is present. Resolving with anything other than the exact count — an estimate, a page length — puts a wrong number in the place a right one goes. <small>(optional)</small></td></tr>
           <tr><td class="name">pivotFields</td><td class="type">string[]</td><td class="desc">The value-column names this level's pivot produced, so the grid can build the headings it has never seen before. <small>(optional)</small></td></tr>
+          <tr><td class="name">pivot</td><td class="type"><a href="#type-RemotePivotAnswer">RemotePivotAnswer</a></td><td class="desc">The pivot answered as aggregated rows (BACKLOG-0001545), which the remote source reshapes into the grid's pivot columns and the cells they read — `grid.rows.value(key, pivotColumnId)` included. The column set is discovered from the answer: `axis` where the server sent one, otherwise whatever pivot keys the cells carried. Cells accumulate across the levels and pages of one query and are dropped when the query changes. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -9723,6 +10589,17 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-RemotePivotAnswer">RemotePivotAnswer</h4>
+    <p class="section-note">A server's pivot, as aggregated rows (BACKLOG-0001545).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">axis</td><td class="type">unknown[][]</td><td class="desc">Every pivot key over the whole matching set, one tuple per key, the pivot columns in order — the pivot's column set. Sent with the root level; optional, since the keys the cells carry are also taken. <small>(optional)</small></td></tr>
+          <tr><td class="name">cells</td><td class="type"><a href="#type-RemotePivotCell">RemotePivotCell</a>[]</td><td class="desc">One aggregated row per occupied group and pivot key.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-CommentIndexEntry">CommentIndexEntry</h4>
     <p class="section-note">What `loadIndex` returns per commented cell.</p>
     <div class="table-wrap">
@@ -9815,6 +10692,19 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">title</td><td class="type">unknown</td><td class="desc">A heading for the tooltip. <small>(optional)</small></td></tr>
           <tr><td class="name">rows</td><td class="type"><a href="#type-TooltipRow">TooltipRow</a>[]</td><td class="desc">Label/value lines, in order. <small>(optional)</small></td></tr>
           <tr><td class="name">note</td><td class="type">unknown</td><td class="desc">A closing note under the lines, drawn quieter than them. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RemotePivotCell">RemotePivotCell</h4>
+    <p class="section-note">One aggregated pivot cell (BACKLOG-0001545).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">group</td><td class="type">unknown[]</td><td class="desc">The typed group path of the row the cell belongs to, outermost first, as the engine returned the keys; `[]` for the grand-total row.</td></tr>
+          <tr><td class="name">pivot</td><td class="type">unknown[]</td><td class="desc">The pivot key, one value per pivot column.</td></tr>
+          <tr><td class="name">leafCount</td><td class="type">number</td><td class="desc">How many rows the cell reduced. <small>(optional)</small></td></tr>
+          <tr><td class="name">values</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">One value per totalled column, by column id.</td></tr>
         </tbody>
       </table>
     </div>
@@ -10057,9 +10947,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">key</td><td class="type">string</td><td class="desc">The first key about to be deleted.</td></tr>
+          <tr><td class="name">key</td><td class="type">string | null</td><td class="desc">The first key about to be deleted; null for a predicate selection.</td></tr>
           <tr><td class="name">keys</td><td class="type">string[]</td><td class="desc">Every key about to be deleted, on the multi-row gesture. <small>(optional)</small></td></tr>
           <tr><td class="name">rows</td><td class="type">string[]</td><td class="desc">Every key about to be deleted.</td></tr>
+          <tr><td class="name">predicate</td><td class="type"><a href="types.html#type-SelectionPredicate">SelectionPredicate</a></td><td class="desc">`edit.deleteRows()` on a predicate selection (BACKLOG-0001546): the selection, with `keys` and `rows` empty. The grid deletes nothing by key for it (warning `selection:predicate-unsupported`); a handler deletes by this filter on the server. <small>(optional)</small></td></tr>
+          <tr><td class="name">count</td><td class="type">number | null</td><td class="desc">The predicate selection's count, from the source; null when it could not count. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -11110,7 +12002,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">reason</td><td class="type">string</td><td class="desc">Why it was rebuilt: `'rows'`, `'tree'`, `'expanded'`, `'children'`, `'children:loading'`, `'reload'`, `'page'`, `'expand'`, `'collapse'`, `'query'`, `'stream'`, or one of the pipeline's settle reasons.</td></tr>
+          <tr><td class="name">reason</td><td class="type">string</td><td class="desc">Why it was rebuilt: `'rows'`, `'tree'`, `'expanded'`, `'children'`, `'children:loading'`, `'reload'`, `'page'`, `'expand'`, `'collapse'`, `'query'`, `'stream'`, `'selection:count'` (a predicate selection's count arrived from the source, BACKLOG-0001546), or one of the pipeline's settle reasons.</td></tr>
           <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many display rows there now are, or how many children arrived. <small>(optional)</small></td></tr>
           <tr><td class="name">row</td><td class="type"><a href="#type-Row">Row</a></td><td class="desc">The branch row a `'children'` or `'children:loading'` rebuild is about. <small>(optional)</small></td></tr>
           <tr><td class="name">key</td><td class="type">string</td><td class="desc">The row key an `'expand'` or `'collapse'` is about. <small>(optional)</small></td></tr>
@@ -11597,8 +12489,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">keys</td><td class="type">string[]</td><td class="desc">The keys of every selected row.</td></tr>
+          <tr><td class="name">keys</td><td class="type">string[]</td><td class="desc">The keys of every selected row; under a predicate selection, the loaded ones.</td></tr>
           <tr><td class="name">rows</td><td class="type"><a href="#type-Row">Row</a>[]</td><td class="desc">Those rows.</td></tr>
+          <tr><td class="name">predicate</td><td class="type"><a href="types.html#type-SelectionPredicate">SelectionPredicate</a></td><td class="desc">Present under a predicate selection (BACKLOG-0001546): the selection itself. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>

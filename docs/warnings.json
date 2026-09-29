@@ -1,5 +1,5 @@
 {
-  "version": "1.77.0",
+  "version": "1.78.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 559,
+  "count": 566,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -1196,6 +1196,17 @@
       "docs": "api/grid.html#operators"
     },
     {
+      "id": "filter:values-unsupported:*",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.78.0",
+      "message": "the filter on column \"{colId}\" cannot list its values: {reason}. It offers the text condition editor instead.",
+      "meaning": "The column's filter is a set filter (a value list) and the grid's source is a pushdown source, whose value list comes from the engine as a `GROUP BY` with a count. This adapter cannot answer that query — it has no `executeGroupedAggregates()`, declares aggregates without `count`, or the column is not a plain column it can group by — so the popup offers the text condition editor instead, with a note saying so, rather than walking every row the source reports to rediscover the values (BACKLOG-0001552).",
+      "fix": "Use an adapter that implements `executeGroupedAggregates()` (DuckDB, ClickHouse and Elasticsearch do), give the column a `lookup` or `filter.props.values` list of its own, or filter it by condition.",
+      "snippet": "{ field: 'status', filter: { type: 'set', props: { values: ['open', 'closed'] } } }",
+      "docs": "api-detail.html#filter-values"
+    },
+    {
       "id": "filters.reapply:*",
       "module": "core",
       "severity": "warn",
@@ -2203,6 +2214,36 @@
       "docs": "api/grid.html#selection"
     },
     {
+      "id": "selection:outside-predicate",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.78.0",
+      "message": "row \"{key}\" is outside the filter captured when every matching row was selected, so it cannot be added to that selection and the selection is unchanged. Select all again under the current filter, or clear the selection and pick rows by key.",
+      "meaning": "Every row a pushdown source's filter matched was selected (a predicate selection), and the filter has since changed. The row just ticked is not one the captured filter matches, and a predicate selection can only take rows out (its `except` list), not add rows from outside, so the tick was refused and the selection left exactly as it was.",
+      "fix": "Select all again under the current filter, or clear the selection and select rows individually by key.",
+      "docs": "api-detail.html#selection-predicate"
+    },
+    {
+      "id": "selection:predicate-partial",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.78.0",
+      "message": "selection.rows() was read while every row matching a filter is selected on a source that holds only the rows it has loaded, so it returned those loaded rows, not the whole selection. Use selection.stream() for every selected row and selection.count() for how many there are.",
+      "meaning": "`grid.selection.rows()` returns an array, and under a predicate selection on a pushdown source that array can only hold the rows the grid has loaded. The selection covers more rows than that (or its size has not been counted yet), so what came back is a subset. Readers of `rows()` inside the grid (a derived grid following the selection, a dashboard, a stat tile) see the same subset.",
+      "fix": "Read `grid.selection.stream()` for every selected row, and `await grid.selection.count()` for how many there are.",
+      "docs": "api-detail.html#selection-predicate"
+    },
+    {
+      "id": "selection:predicate-unsupported",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.78.0",
+      "message": "edit.deleteRows() was called with every row matching a filter selected on a source that holds only the rows it has loaded. The grid deletes by row key and has no key list for that selection, so it deleted nothing rather than only the loaded rows. beforeDelete carries the selection as `predicate` and `count`: delete by that filter on the server, then reload.",
+      "meaning": "`edit.deleteRows()` with no keys deletes the selection, and the selection is a predicate: every row a filter matched, most of them never loaded. Deleting only the loaded rows would be a truncated delete shown as the whole, so the grid deleted nothing. The `beforeDelete` event carried `predicate` and `count` with empty `keys`.",
+      "fix": "In a `beforeDelete` handler, delete by `e.predicate.filter` (less `e.predicate.except`) on the server, then reload the source.",
+      "docs": "api-detail.html#selection-predicate"
+    },
+    {
       "id": "shadow.history.window.kind:*",
       "module": "core",
       "severity": "warn",
@@ -2799,6 +2840,26 @@
       "docs": "api/grid.html#pushdown-aggregates"
     },
     {
+      "id": "source.pushdown.pivot.*.*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.78.0",
+      "message": "pushdown:pivot-unsupported: the {adapter} adapter cannot pivot this query because {reason}, so no rows are fetched rather than every leaf row being pulled into the browser to pivot there. `lastPlan().pivotReason` says the same.",
+      "meaning": "The grid is pivoting over a pushdown source and the engine was not asked, for the reason named: the adapter does not declare `capabilities.pivot` (a REST, OData, GraphQL or DFQL endpoint has no grouped aggregate to ask for), or part of the query did not push, so the engine would pivot the wrong set. A remote source holds a window, not the leaves, so there is nothing to pivot in the browser either: the fetch is refused with the error code `pushdown:pivot-unsupported`, the grid shows the refusal in its error overlay, and no row is requested.",
+      "fix": "Pivot over an adapter that declares `capabilities.pivot` (DuckDB, ClickHouse, Elasticsearch, Splunk in blocking mode), or implement `executePivotLevel` on your own. Where the reason is a filter, sort or quick search that did not push, narrow the query to what the adapter takes. `lastPlan().pivotReason` carries the reason programmatically.",
+      "docs": "api/grid.html#pushdown-pivot"
+    },
+    {
+      "id": "source.pushdown.pivot.totals.*.*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.78.0",
+      "message": "the {adapter} adapter cannot compute the pivot cells for {columns}, so those cells are empty. A figure computed over anything other than the cell would be wrong, so none is shown; `lastPlan().aggregates.client` names them.",
+      "meaning": "A pivot cell has to be reduced over the cell's own rows, which only the engine holds under a pushed pivot. A column whose reduction the engine cannot express — a host function, a statistic outside the pushdown map, a two-column statistic — is left empty in every cell rather than filled with a figure computed over something else. The message names each column and why.",
+      "fix": "Use a reduction the adapter supports for the pivoted column. `lastPlan().aggregates.client` lists them programmatically.",
+      "docs": "api/grid.html#pushdown-pivot"
+    },
+    {
       "id": "source.pushdown.group.unfiltered.*",
       "module": "core",
       "severity": "warn",
@@ -2933,13 +2994,24 @@
       "docs": "api/grid.html#splunk-options"
     },
     {
+      "id": "source.splunk.failed",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.78.0",
+      "message": "Splunk refused a request with HTTP {status} and gave its own reason: {detail}. The error thrown from this call carries the same detail.",
+      "meaning": "A request came back with an HTTP status other than 401/403 (a refused token) or 404 on a job's own endpoint (an ordinary TTL expiry), and Splunk's response body carried a `messages` list explaining why — an exhausted search-artifact quota, a malformed search, an internal error. The call is thrown either way; this names the reason Splunk gave rather than leaving only the status code to go on.",
+      "fix": "Read the detail: it is usually Splunk's own diagnosis (a role's disk quota, a bad search) rather than something the adapter can retry around on its own.",
+      "snippet": "splunkAdapter({ url, search }); // a 503 with a quota message now names it",
+      "docs": "api/grid.html#splunk-options"
+    },
+    {
       "id": "source.splunk.truncated",
       "module": "core",
       "severity": "warn",
       "since": "1.72.0",
       "message": "Splunk truncated this search at {count} results, so the grid's total is the truncated count and not the number of events that matched. Narrow the search, raise `maxresultrows` in the instance's limits.conf, or read the result in `mode: \"export\"`.",
-      "meaning": "The search job reported a ceiling: it reached the instance's `maxresultrows`, was auto-finalized, or said so in one of its messages. The count Splunk returned is used as the total because it is the only number there is, and it is smaller than the number of events that matched — so every \"showing X of Y\" reads low until the search is narrowed.",
-      "fix": "Narrow the search or the time window, raise `maxresultrows` in the instance's limits.conf, or read the whole result with `mode: 'export'`. Setting `maxResultRows` to your instance's ceiling lets the adapter spot a truncation Splunk did not announce.",
+      "meaning": "The search job reported a ceiling: it reached the instance's `maxresultrows`, was auto-finalized, or said so in one of its messages. The count Splunk returned is used as the total because it is the only number there is, and it is smaller than the number of events that matched — so every \"showing X of Y\" reads low until the search is narrowed. The same key is also raised in `mode: 'export'` when `maxResultRows` stops the stream early, with its own wording naming the row count and the option, since an export has no total to misreport.",
+      "fix": "Narrow the search or the time window, raise `maxresultrows` in the instance's limits.conf, or read the whole result with `mode: 'export'`. Setting `maxResultRows` to your instance's ceiling lets the adapter spot a truncation Splunk did not announce — in export mode it also stops the stream at that ceiling.",
       "snippet": "splunkAdapter({ url, search, maxResultRows: 500000 });",
       "docs": "api/grid.html#splunk-options"
     },

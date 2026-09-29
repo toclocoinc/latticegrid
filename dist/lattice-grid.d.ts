@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.77.0, type declarations
+ * Lattice Grid 1.78.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -3047,6 +3047,46 @@ export interface RemoteResult {
    * the headings it has never seen before.
    */
   pivotFields?: string[];
+  /**
+   * The pivot answered as aggregated rows, which the remote
+   * source reshapes into the grid's pivot columns and the cells they read —
+   * `grid.rows.value(key, pivotColumnId)` included. The column set is
+   * discovered from the answer: `axis` where the server sent one, otherwise
+   * whatever pivot keys the cells carried. Cells accumulate across the levels
+   * and pages of one query and are dropped when the query changes.
+   */
+  pivot?: RemotePivotAnswer;
+}
+
+/**
+ * A server's pivot, as aggregated rows.
+ */
+export interface RemotePivotAnswer {
+  /**
+   * Every pivot key over the whole matching set, one tuple per key, the pivot
+   * columns in order — the pivot's column set. Sent with the root level;
+   * optional, since the keys the cells carry are also taken.
+   */
+  axis?: unknown[][];
+  /** One aggregated row per occupied group and pivot key. */
+  cells: RemotePivotCell[];
+}
+
+/**
+ * One aggregated pivot cell.
+ */
+export interface RemotePivotCell {
+  /**
+   * The typed group path of the row the cell belongs to, outermost first, as
+   * the engine returned the keys; `[]` for the grand-total row.
+   */
+  group: unknown[];
+  /** The pivot key, one value per pivot column. */
+  pivot: unknown[];
+  /** How many rows the cell reduced. */
+  leafCount?: number;
+  /** One value per totalled column, by column id. */
+  values: Record<string, unknown>;
 }
 
 export interface RemoteSourceConfig {
@@ -5596,6 +5636,19 @@ export interface PushdownCapabilities {
    */
   group?: boolean;
   /**
+   * Whether it can answer a pivoted grid from grouped aggregates: the level's grouping column and the pivot columns as
+   * group keys, one aggregated row per cell, never a leaf. The grid reshapes
+   * those rows into its pivot columns, whose set is discovered from the answer.
+   *
+   * All or nothing, and with no client-side fallback: a remote source holds a
+   * window, not the leaves, so a pivot the adapter cannot answer is refused by
+   * name — the fetch rejects with `code: 'pushdown:pivot-unsupported'`, the grid
+   * shows the refusal in its error overlay, and `PushdownPlan.pivotReason` says
+   * why — rather than every leaf being pulled into the browser. An adapter
+   * declaring this implements `executePivotLevel`.
+   */
+  pivot?: boolean;
+  /**
    * The spatial bucket kinds `source.aggregate()` may push as a `groupBy` key
    * (GEO-2): `['grid']` for a {@link SpatialBucket}. Absent or empty, a bucket
    * key sends every aggregate to the client, named in its `reason`.
@@ -5648,8 +5701,13 @@ export interface PushdownAdapter {
    * `pendingTotal` is ignored when `total` is present, because a total that is
    * already here has nothing to wait for. The promise must resolve with the
    * exact count or `null`; it must never resolve with an estimate.
+   *
+   * `request.stream: true` is export mode: the call is one
+   * page of a predicate selection being read out whole, and the rows are all
+   * that is wanted. An adapter may skip its count for it; the source ignores
+   * any total it returns.
    */
-  execute(query: RemoteRequest, request?: RemoteRequest):
+  execute(query: RemoteRequest, request?: Partial<RemoteRequest> & { stream?: boolean }):
     Promise<{ rows: unknown[]; total?: number; pendingTotal?: Promise<number | null> }>;
   /**
    * Answer one level of a grouped grid. Present only when
@@ -5681,6 +5739,33 @@ export interface PushdownAdapter {
     leaves?: boolean;
     matchCount?: number;
     grand?: Record<string, unknown>;
+  }>;
+  /**
+   * Answer one level of a pivoted grid. Present only when
+   * `capabilities.pivot` opts in.
+   *
+   * The rows are the level's group rows in the shape `executeGroupLevel`
+   * returns — or, when the grid has no row grouping, a window of leaf rows
+   * (`leaves: true`), which is what a pivot without row groups shows. Beside
+   * them, `pivot.cells` carries the *aggregated* rows the pivot columns are
+   * drawn from: one per occupied group and pivot key, with the typed group path
+   * (`[]` for the grand-total row). At the root, `pivot.axis` is every pivot key
+   * over the whole matching set — the pivot's column set, discovered from the
+   * answer — and `matchCount`/`grand` are the whole-set figures, as for a
+   * grouped level. A level of a group below the root carries only the cells of
+   * the groups in its window, so expanding a group fetches its children then.
+   */
+  executePivotLevel?(
+    query: RemoteRequest,
+    aggregates: Array<{ id: string; col: string; fn: string; weight?: string }>,
+    request?: RemoteRequest,
+  ): Promise<{
+    rows: unknown[];
+    total?: number;
+    leaves?: boolean;
+    matchCount?: number;
+    grand?: Record<string, unknown>;
+    pivot: RemotePivotAnswer;
   }>;
   /**
    * The row count before any filter — the denominator of
@@ -5727,7 +5812,7 @@ export interface PushdownPlan {
   needsAll: boolean;
   /**
    * Which parts could not be pushed: `filter`, `sort`, `quick`, `where`,
-   * `group`.
+   * `group`, `pivot`.
    */
   unpushed: string[];
   /**
@@ -5747,6 +5832,17 @@ export interface PushdownPlan {
    */
   groupReason: string;
   /**
+   * Whether the engine answered the grid's pivot for this request, from grouped aggregates. False when the grid is not
+   * pivoting and when the pivot was refused — `pivotReason` says why.
+   */
+  pivoted: boolean;
+  /**
+   * Why a pivoted request was refused, in a sentence, or `''` when it was
+   * pushed or nothing was pivoted. A refused pivot fetches nothing: the fetch
+   * rejects with `code: 'pushdown:pivot-unsupported'` and this reason.
+   */
+  pivotReason: string;
+  /**
    * Whether the whole result was fetched because `fullDataset` is on, rather
    * than only because residual work forced it. When true, totals and statistics
    * reduce over the whole matching set and the windowed-stat warning is silent.
@@ -5763,6 +5859,8 @@ export interface PushdownPlan {
     engine: AggregateProvenance[];
     client: AggregateProvenance[];
     groupBy?: string[];
+    /** Under a pushed pivot, the pivot columns the cells were computed over. */
+    pivotBy?: string[];
   };
 }
 
@@ -8696,15 +8794,50 @@ export interface SelectionApi {
    * set of numbers. Null with nothing selected.
    */
   statistics(): SelectionStatistics | null;
-  /** The selected rows, as row objects. */
+  /**
+   * The selected rows, as row objects. Under a predicate selection
+   * (`predicate().all === true`), only the *loaded* rows it covers, with the
+   * named warning `selection:predicate-partial` the first time that is fewer
+   * than the selection holds; {@link SelectionApi.stream} reads them all.
+   */
   rows(): Row[];
-  /** The keys of the selected rows. */
+  /**
+   * The keys of the selected rows. Under a predicate selection, the keys of
+   * the loaded rows it covers; {@link SelectionApi.predicate} is the whole.
+   */
   keys(): string[];
+  /**
+   * The selection as a descriptor: `{ all: true, filter,
+   * except }` after a select-all on a pushdown source that holds only a window
+   * of its rows, `{ all: false, include }` — the key list — otherwise.
+   */
+  predicate(): SelectionPredicate;
+  /**
+   * How many rows are selected. Under a predicate selection the source is
+   * asked — its count of the captured query less `except.length` — never the
+   * loaded rows. In keys mode, the number of keys. Null when the source could
+   * not count (its error is reported as `source:error`).
+   */
+  count(): Promise<number | null>;
+  /**
+   * Every selected row, one at a time. Under a predicate selection the captured
+   * query is read from the source in pages — the adapter's export mode — with
+   * `except` removed; in keys mode, the selected rows. Exports of
+   * `rows: 'selected'` read from here.
+   */
+  stream(opts?: {
+    /** Rows per page read from the source; default 5,000. */
+    pageSize?: number;
+  }): AsyncIterable<Row>;
   /** Replace the row selection with exactly these keys and repaint. */
   set(keys: string[]): void;
   /**
    * Select every row currently on display — what the filters leave, detail rows
-   * excepted. Does nothing unless the selection mode is `'multiple'`.
+   * excepted. Does nothing unless the selection mode is `'multiple'`. On a
+   * pushdown source holding only a window of its rows it selects every row the
+   * current query matches instead, as a predicate: the header
+   * checkbox shows checked, `count()` asks the source, and a later filter
+   * change leaves the captured filter as it was.
    */
   all(): void;
   /** Drop the row selection, leaving any cell ranges alone. */
@@ -8742,6 +8875,31 @@ export interface SelectionApi {
   /** Whether a cell falls inside any selected range. */
   inRange(rowIndex: number, colId: string): boolean;
 }
+
+/**
+ * A row selection as a descriptor, from
+ * {@link SelectionApi.predicate}.
+ *
+ * `all: true` is a predicate selection: every row `filter` (and `quick`, when
+ * a quick search was active) matched at the moment of select-all, less the
+ * rows in `except`. The filter is the one captured then: a later filter change
+ * does not widen or narrow it. `all: false` is the ordinary key list.
+ */
+export type SelectionPredicate =
+  | {
+    all: true;
+    /** The source filter at the moment of select-all, in wire form; null for none. */
+    filter: FilterSet | null;
+    /** The quick search active at select-all, when there was one. */
+    quick?: string;
+    /** Keys taken out of the selection since. */
+    except: string[];
+  }
+  | {
+    all: false;
+    /** The selected keys. */
+    include: string[];
+  };
 
 export interface CellRange {
   /**
@@ -11542,6 +11700,19 @@ export function createPushdownSource(
 ): SourceConfig & {
   lastPlan(): PushdownPlan | null;
   /**
+   * How many rows a captured query matches, asked of the adapter — a zero-row
+   * window's total, or the streamed rows when residual work or an uncounting
+   * adapter makes the engine's figure wrong. `range`,
+   * grouping and pivoting on the request are ignored.
+   */
+  countMatching(request: Partial<RemoteRequest>): Promise<number>;
+  /**
+   * Every row a captured query matches, page by page, through the adapter's
+   * export mode (`execute(query, { stream: true })`). Moves
+   * nothing the source reports — `lastPlan()` and `counts()` are unchanged.
+   */
+  streamMatching(request: Partial<RemoteRequest>, opts?: { pageSize?: number }): AsyncIterable<unknown[]>;
+  /**
    * Compute a set of aggregates over the matching set, splitting them between
    * the engine and the client by the design-time `aggregates` config. Ungrouped, returns the engine-computed `values`
    * keyed by id. When the request carries a `groupBy`, returns `groups` instead:
@@ -11934,6 +12105,25 @@ export function duckdbAdapter(options: {
     query: RemoteRequest,
     aggregates?: Array<{ id: string; col: string; fn: string; weight?: string }>,
   ): { sql: string; params: unknown[] };
+  /**
+   * The `GROUP BY` statement for one pivoted level's cells:
+   * the level's grouping column and the pivot columns as group keys, narrowed
+   * to the parent group and to the window's group `keys`.
+   */
+  pivotCellsSqlFor(
+    query: RemoteRequest,
+    aggregates: Array<{ id: string; col: string; fn: string; weight?: string }>,
+    keys: unknown[],
+  ): { sql: string; params: unknown[] };
+  /**
+   * The `GROUP BY` statement for a pivot's axis: the pivot
+   * columns over the whole matching set — the column set, and the grand-total
+   * row's cells.
+   */
+  pivotAxisSqlFor(
+    query: RemoteRequest,
+    aggregates: Array<{ id: string; col: string; fn: string; weight?: string }>,
+  ): { sql: string; params: unknown[] };
 };
 
 /**
@@ -12125,11 +12315,33 @@ export function splunkAdapter(options: {
   pollTimeoutMs?: number;
   /**
    * The instance's `limits.conf` `maxresultrows` ceiling. Given, a result that
-   * reaches it is reported as truncated rather than presented as the whole.
+   * reaches it is reported as truncated rather than presented as the whole. In
+   * `mode: 'export'` it also stops the stream once that many rows have
+   * arrived, rather than reading an unbounded search to its end.
    */
   maxResultRows?: number;
+  /**
+   * Whether a finished blocking-mode job is `DELETE`d the moment its last page
+   * is read, so a read-only role's search-artifact quota is not spent by
+   * `DONE` jobs left for their TTL. `true` by default; `false` keeps the job
+   * instead, for a host that wants to read it again without re-dispatching.
+   */
+  releaseJobs?: boolean;
 }): PushdownAdapter & {
   searchFor(query: RemoteRequest): { search: string; earliest?: string | number; latest?: string | number };
+  /**
+   * The `| stats … by …` pipelines one pivoted level becomes:
+   * the level's group rows, the window's cells, and at the root the pivot axis
+   * and the whole-set summary.
+   */
+  pivotSearchFor(query: RemoteRequest, aggregates: Array<{ id: string; col: string; fn: string }>): {
+    level: { search: string };
+    cells(keys: unknown[]): { search: string };
+    axis: { search: string } | null;
+    summary: { search: string } | null;
+    earliest?: string | number;
+    latest?: string | number;
+  };
 };
 
 /**
@@ -12189,6 +12401,18 @@ export function clickhouseAdapter(options: {
 }): PushdownAdapter & {
   sqlFor(query: RemoteRequest): { sql: string; params: Record<string, string> };
   countSqlFor(query: RemoteRequest): { sql: string; params: Record<string, string> };
+  /**
+   * The `GROUP BY` statements one pivoted level becomes: the
+   * level's group rows and their count, at the root the summary and the pivot
+   * axis, and the cells for the window's group keys.
+   */
+  pivotSqlFor(query: RemoteRequest, aggregates: Array<{ id: string; col: string; fn: string }>): {
+    level: { sql: string; params: Record<string, string> };
+    count: { sql: string; params: Record<string, string> };
+    summary: { sql: string; params: Record<string, string> } | null;
+    axis: { sql: string; params: Record<string, string> } | null;
+    cells(keys: unknown[]): { sql: string; params: Record<string, string> };
+  };
 };
 
 /**
@@ -12273,6 +12497,11 @@ export function elasticsearchAdapter(options: {
   aggregateBodyFor(query: RemoteRequest, aggregates: Array<{ id: string; col: string; fn: string }>): object;
   groupedAggregateBodyFor(query: RemoteRequest, groupBy: string[],
     aggregates: Array<{ id: string; col: string; fn: string }>): object;
+  /**
+   * The `size: 0` search one pivoted level becomes: nested
+   * `terms` aggregations over the grouping column and the pivot columns.
+   */
+  pivotBodyFor(query: RemoteRequest, aggregates: Array<{ id: string; col: string; fn: string }>): object;
 };
 
 export function createGrid(element: HTMLElement, config?: GridConfig): Grid;
@@ -14241,7 +14470,9 @@ export interface ModelChangedEvent extends GridEvent {
   /**
    * Why it was rebuilt: `'rows'`, `'tree'`, `'expanded'`, `'children'`,
    * `'children:loading'`, `'reload'`, `'page'`, `'expand'`, `'collapse'`,
-   * `'query'`, `'stream'`, or one of the pipeline's settle reasons.
+   * `'query'`, `'stream'`, `'selection:count'` (a predicate selection's count
+   * arrived from the source), or one of the pipeline's settle
+   * reasons.
    */
   reason: string;
   /** How many display rows there now are, or how many children arrived. */
@@ -15041,10 +15272,12 @@ export interface HeaderContextMenuEvent extends GridEvent {
 
 /** `selection:changed`: the row selection changed and was accepted. */
 export interface SelectionChangedEvent extends GridEvent {
-  /** The keys of every selected row. */
+  /** The keys of every selected row; under a predicate selection, the loaded ones. */
   keys: string[];
   /** Those rows. */
   rows: Row[];
+  /** Present under a predicate selection: the selection itself. */
+  predicate?: SelectionPredicate;
 }
 
 /** `range:changed`: the selected cell ranges changed. */
@@ -15639,12 +15872,21 @@ export interface BeforeRowAddEvent extends BeforeEvent {
 
 /** `beforeDelete`: one or more rows are about to be deleted. */
 export interface BeforeDeleteEvent extends BeforeEvent {
-  /** The first key about to be deleted. */
-  key: string;
+  /** The first key about to be deleted; null for a predicate selection. */
+  key: string | null;
   /** Every key about to be deleted, on the multi-row gesture. */
   keys?: string[];
   /** Every key about to be deleted. */
   rows: string[];
+  /**
+   * `edit.deleteRows()` on a predicate selection: the
+   * selection, with `keys` and `rows` empty. The grid deletes nothing by key
+   * for it (warning `selection:predicate-unsupported`); a handler deletes by
+   * this filter on the server.
+   */
+  predicate?: SelectionPredicate;
+  /** The predicate selection's count, from the source; null when it could not count. */
+  count?: number | null;
 }
 
 /** `beforeRowMove`: a row is about to be reordered within this grid. */
