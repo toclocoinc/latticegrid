@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.82.0, dashboard module type declarations
+ * Lattice Grid 1.83.0, dashboard module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -47,7 +47,7 @@ export interface DashboardLayoutSpec {
 }
 
 /** What a panel shows. */
-export type DashboardPanelKind = 'grid' | 'chart' | 'kpi' | 'map' | 'html';
+export type DashboardPanelKind = 'grid' | 'chart' | 'kpi' | 'calendar' | 'map' | 'html';
 
 /** One panel: a viewer in a window. */
 export interface DashboardPanel {
@@ -180,6 +180,8 @@ export interface DashboardOptions {
   createLayout?: (el: HTMLElement, config: Record<string, unknown>) => unknown;
   /** The KPI module's `createKPI`, for `kpi` panels. */
   createKPI?: (el: HTMLElement, config: Record<string, unknown>) => unknown;
+  /** The calendar module's `createCalendar`, for `calendar` panels. */
+  createCalendar?: (el: HTMLElement, config: Record<string, unknown>) => unknown;
   /** The Leaflet module's `bindLeaflet`, for `map` panels with `binding: 'leaflet'`. */
   bindLeaflet?: (grid: Grid, options: Record<string, unknown>) => unknown;
   /** The deck.gl module's `bindDeck`, for `map` panels with `binding: 'deckgl'`. */
@@ -213,7 +215,7 @@ export interface DashboardProposal {
   warnings: string[];
 }
 
-/** A saved dashboard view: the spec and each grid panel's state. */
+/** A saved dashboard view: the spec, each grid panel's state and each calendar's. */
 export interface DashboardView {
   /** The view's id. */
   id: string;
@@ -223,6 +225,8 @@ export interface DashboardView {
   spec: DashboardSpec;
   /** Each grid panel's `grid.state.get()`, by panel id. */
   grids: Record<string, GridState>;
+  /** Each calendar panel's `viewer.getState()`, by panel id — a separate slot, per CONTRACTS §10.5. */
+  calendars: Record<string, object>;
 }
 
 /** A built dashboard. */

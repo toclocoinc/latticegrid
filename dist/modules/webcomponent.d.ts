@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.82.0, webcomponent module type declarations
+ * Lattice Grid 1.83.0, webcomponent module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -221,6 +221,56 @@ export interface LatticeKanbanElement<Row = any> extends LatticeViewerElement {
   swimlanes: boolean | undefined;
 }
 
+/** `<lattice-calendar>`. Grid-bound like the board; give it `rows` to stand alone. */
+export interface LatticeCalendarElement<Row = any> extends LatticeViewerElement {
+  /** Rows for a standalone calendar. Set them and the element stops waiting for a grid. */
+  rows: Row[];
+  /** The default card template's field mapping — title, subtitle and the rest. */
+  card: unknown;
+  /** The header toolbar sections, or `false` to render none. */
+  header: unknown;
+  /** An optional value→colour map for the `color-property` field. */
+  colorMap: unknown;
+  /** Host-localised labels. */
+  labels: unknown;
+  /** A host card renderer `(row, el)`. */
+  renderCard: unknown;
+  /** Which field identifies a card. */
+  rowKey: string | undefined;
+  /** The view to show: `week` or `month`. The `view` attribute. */
+  view: 'week' | 'month' | undefined;
+  /** The anchor date the visible range centres on. */
+  date: unknown;
+  /** The field naming a point event's start. */
+  startProperty: string | undefined;
+  /** The optional field naming a span's end. */
+  endProperty: string | undefined;
+  /** An optional boolean field marking an all-day event. */
+  allDayProperty: string | undefined;
+  /** Week-start weekday, 0=Sun…6=Sat. */
+  firstDay: number | undefined;
+  /** BCP-47 locale. */
+  locale: string | undefined;
+  /** IANA time-zone name. */
+  timeZone: string | undefined;
+  /** The property whose value picks the card's edge colour. */
+  colorProperty: string | undefined;
+  /** Card stacking order within a day. */
+  eventOrder: string | undefined;
+  /** The `+N more` overflow threshold per day. */
+  dayMaxEvents: number | undefined;
+  /** Granular readonly (whole calendar, per day, per card). */
+  readonly: unknown;
+  /** The calendar's accessible name. */
+  ariaLabel: string | undefined;
+  /**
+   * Reschedule a card: move it to a new start (or resize its end), gated by
+   * `beforeMove` and announced by `card:move` (`lattice-beforeMove` /
+   * `lattice-card-move`). Resolves whether the reschedule stuck.
+   */
+  move(key: unknown, to: { start?: Date | null; end?: Date | null }): Promise<boolean>;
+}
+
 /** `<lattice-gantt>`. */
 export interface LatticeGanttElement extends LatticeViewerElement {
   /** The plan's tasks. A structure, so it is a property. */
@@ -301,6 +351,7 @@ export function createLatticeElements(deps?: {
   createKPI?: Function;
   createChart?: Function;
   createKanban?: Function;
+  createCalendar?: Function;
   createGantt?: Function;
   createLayout?: Function;
   createTabs?: Function;
@@ -318,6 +369,7 @@ export function defineLatticeElements(opts?: {
   createKPI?: Function;
   createChart?: Function;
   createKanban?: Function;
+  createCalendar?: Function;
   createGantt?: Function;
   createLayout?: Function;
   createTabs?: Function;
@@ -330,6 +382,8 @@ export function createLatticeKPIElement(deps: { createKPI: Function }): CustomEl
 export function createLatticeChartElement(deps: { createChart: Function }): CustomElementConstructor | null;
 /** Build the `<lattice-kanban>` class without registering it. */
 export function createLatticeKanbanElement(deps: { createKanban: Function }): CustomElementConstructor | null;
+/** Build the `<lattice-calendar>` class without registering it. */
+export function createLatticeCalendarElement(deps: { createCalendar: Function }): CustomElementConstructor | null;
 /** Build the `<lattice-gantt>` class without registering it. */
 export function createLatticeGanttElement(deps: { createGantt: Function }): CustomElementConstructor | null;
 /** Build the `<lattice-layout>` class without registering it. */

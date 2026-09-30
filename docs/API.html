@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.82.0</p>
+    <p class="rail__sub">API reference · v1.83.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -525,6 +525,8 @@
         <a class="rail__sub-link" href="#type-Kanban">Kanban</a>
         <a href="#ref-module-gantt">The gantt module</a>
         <a class="rail__sub-link" href="#type-Gantt">Gantt</a>
+        <a href="#ref-module-calendar">The calendar module</a>
+        <a class="rail__sub-link" href="#type-Calendar">Calendar</a>
         <a href="#ref-module-tabs">The tabs module</a>
         <a class="rail__sub-link" href="#type-Tabs">Tabs</a>
         <a href="#ref-module-layout">The dashboard layout</a>
@@ -564,7 +566,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.82.0</span>
+      <span class="chip">Version 1.83.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -705,6 +707,7 @@
           <tr><td class="name">createLatticeKPI</td><td class="sig">({ React, createKPI })</td><td class="desc">The KPI panel. Grid-bound through context by default; pass <code>rows</code> instead for a panel with no grid.</td></tr>
           <tr><td class="name">createLatticeChart</td><td class="sig">({ React, createChart })</td><td class="desc">A chart. Requires a grid, so nothing is mounted until one exists; a changed spec key goes to <code>chart.update()</code> and the chart redraws rather than being rebuilt.</td></tr>
           <tr><td class="name">createLatticeKanban</td><td class="sig">({ React, createKanban })</td><td class="desc">The board. <code>rows</code>, <code>quickFilter</code>, <code>sprint</code>, <code>epic</code>, <code>loading</code> and <code>error</code> are live props.</td></tr>
+          <tr><td class="name">createLatticeCalendar</td><td class="sig">({ React, createCalendar })</td><td class="desc">The calendar. <code>rows</code>, <code>view</code> and <code>date</code> are live props; grid-bound through context by default. The reschedule events arrive as <code>onBeforeMove</code> (cancel with <code>preventDefault(reason?)</code>) and <code>onCardMove</code>; call <code>move(key, to)</code> on the ref's instance.</td></tr>
           <tr><td class="name">createLatticeGantt</td><td class="sig">({ React, createGantt })</td><td class="desc">The Gantt. <code>tasks</code> and <code>dependencies</code> are live props.</td></tr>
           <tr><td class="name">createLatticeLayout</td><td class="sig">({ React, createLayout })</td><td class="desc">The layout. Windows are driven through the ref; its events arrive as <code>onLayoutChanged</code>, <code>onWindowMoved</code> and the rest.</td></tr>
           <tr><td class="name">createLatticeTabs</td><td class="sig">({ React, ReactDOM, createTabs, createGrid? })</td><td class="desc">The tab strip, with <strong>React-rendered tab content</strong>: a tab's <code>content</code> is a React element (or a function returning one) rendered into the strip's own panel through <code>createPortal</code>, so a tab's grid is a real <code>&lt;LatticeGrid&gt;</code> with props, a ref and the surrounding context. A tab with no <code>content</code> is left to the module, so the two kinds mix on one strip.</td></tr>
@@ -721,7 +724,7 @@
       </table>
     </div>
 
-    <pre data-run="js" data-expect="8 components, onCardMove, default, rows 2, events 6/6" data-covers="export:createLatticeReact export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeGantt export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/react/index.js');
+    <pre data-run="js" data-expect="9 components, onCardMove, default, rows 2, events 6/7" data-covers="export:createLatticeReact export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeCalendar export:createLatticeGantt export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/react/index.js');
 
 <span class="cmt">// A stand-in for React and react-dom. The adapter never imports either, so a</span>
 <span class="cmt">// factory only needs the handful of names it destructures — which is exactly</span>
@@ -741,6 +744,7 @@
   A.createLatticeKPI({ React, createKPI: stub }),
   A.createLatticeChart({ React, createChart: stub }),
   A.createLatticeKanban({ React, createKanban: stub }),
+  A.createLatticeCalendar({ React, createCalendar: stub }),
   A.createLatticeGantt({ React, createGantt: stub }),
   A.createLatticeLayout({ React, createLayout: stub }),
   A.createLatticeTabs({ React, ReactDOM, createTabs: stub }),
@@ -1093,6 +1097,7 @@ L.provideLatticeRouter(ROUTER_CONFIG);
           <tr><td class="name">createLatticeKPI</td><td class="sig">({ vue, createKPI })</td><td class="desc">The KPI panel. Grid-bound through the provided registry by default; bind <code>:rows</code> instead for a panel with no grid.</td></tr>
           <tr><td class="name">createLatticeChart</td><td class="sig">({ vue, createChart })</td><td class="desc">A chart. Requires a grid, so nothing is mounted until one exists; a changed spec key goes to <code>chart.update()</code> and the chart redraws rather than being rebuilt.</td></tr>
           <tr><td class="name">createLatticeKanban</td><td class="sig">({ vue, createKanban })</td><td class="desc">The board. <code>rows</code>, <code>quickFilter</code>, <code>sprint</code>, <code>epic</code>, <code>loading</code> and <code>error</code> are live props.</td></tr>
+          <tr><td class="name">createLatticeCalendar</td><td class="sig">({ vue, createCalendar })</td><td class="desc">The calendar. <code>rows</code>, <code>view</code> and <code>date</code> are live props; grid-bound through the registry by default. The reschedule events arrive as <code>@beforeMove</code> (cancel with <code>preventDefault(reason?)</code>) and <code>@card-move</code>; call <code>move(key, to)</code> on the exposed instance.</td></tr>
           <tr><td class="name">createLatticeGantt</td><td class="sig">({ vue, createGantt })</td><td class="desc">The Gantt. <code>tasks</code> and <code>dependencies</code> are live props.</td></tr>
           <tr><td class="name">createLatticeLayout</td><td class="sig">({ vue, createLayout })</td><td class="desc">The layout. Windows are driven through the exposed instance; its events arrive as <code>@layout-changed</code>, <code>@window-moved</code> and the rest.</td></tr>
           <tr><td class="name">createLatticeTabs</td><td class="sig">({ vue, createTabs, createGrid? })</td><td class="desc">The tab strip, with <strong>Vue-rendered tab content</strong>: a tab's content is a <strong>named slot</strong> &mdash; <code>&lt;template #overview&gt;</code> for a tab with <code>id: 'overview'</code>, or <code>&lt;template #tab-overview&gt;</code> &mdash; rendered into the strip's own panel through a <code>&lt;Teleport&gt;</code>, so a tab's grid is a real <code>LatticeGrid</code> with props, a ref and the surrounding <code>provide</code>s. A tab with no slot is left to the module, so the two kinds mix on one strip.</td></tr>
@@ -1109,7 +1114,7 @@ L.provideLatticeRouter(ROUTER_CONFIG);
       </table>
     </div>
 
-    <pre data-run="js" data-expect="7 components, cell-changed, card-move, default, rows 2" data-covers="export:createLatticeVue export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeGantt export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:dashedName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME export:EVENT_NAMES"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/vue/index.js');
+    <pre data-run="js" data-expect="8 components, cell-changed, card-move, default, rows 2" data-covers="export:createLatticeVue export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeCalendar export:createLatticeGantt export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:dashedName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME export:EVENT_NAMES"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/vue/index.js');
 
 <span class="cmt">// A stand-in for Vue. The adapter never imports it, so a factory only needs</span>
 <span class="cmt">// the handful of names it destructures — which is exactly why this example</span>
@@ -1134,6 +1139,7 @@ L.provideLatticeRouter(ROUTER_CONFIG);
   A.createLatticeKPI({ vue, createKPI: stub }),
   A.createLatticeChart({ vue, createChart: stub }),
   A.createLatticeKanban({ vue, createKanban: stub }),
+  A.createLatticeCalendar({ vue, createCalendar: stub }),
   A.createLatticeGantt({ vue, createGantt: stub }),
   A.createLatticeLayout({ vue, createLayout: stub }),
   A.createLatticeTabs({ vue, createTabs: stub }),
@@ -1304,7 +1310,7 @@ controller.destroy();
         </tbody>
       </table>
     </div>
-    <pre data-run="js" data-expect="config rowKey,onCellChanged; own main; registry main; grid dark; tabs one; viewers kpi,chart,kanban,gantt,layout; router 1" data-covers="export:bindGrid export:bindViewer export:bindTabs export:createGridRegistry export:createRouterHandle export:adaptProps export:pickCallback export:viewerMount export:snippetTabIds export:VIEWER_BINDING export:GRID_REGISTRY_KEY export:ROUTER_KEY"><code><span class="kw">const</span> S = <span class="kw">await</span> import('../packages/modules/svelte/index.js');
+    <pre data-run="js" data-expect="config rowKey,onCellChanged; own main; registry main; grid dark; tabs one; viewers kpi,chart,kanban,calendar,gantt,layout; router 1" data-covers="export:bindGrid export:bindViewer export:bindTabs export:createGridRegistry export:createRouterHandle export:adaptProps export:pickCallback export:viewerMount export:snippetTabIds export:VIEWER_BINDING export:GRID_REGISTRY_KEY export:ROUTER_KEY"><code><span class="kw">const</span> S = <span class="kw">await</span> import('../packages/modules/svelte/index.js');
 
 <span class="cmt">// A component hands its props straight to the helpers. They keep the</span>
 <span class="cmt">// adapter's own props out of the instance and accept a callback under</span>
@@ -1448,6 +1454,7 @@ bootstrapApplication(Dashboard, {
           <tr><td class="name">LatticeKpiComponent</td><td class="sig">&lt;lattice-kpi&gt;</td><td class="desc">The KPI panel. Grid-bound by default &mdash; <code>[gridName]</code> picks which published grid &mdash; or give it <code>[rows]</code> for a panel with no grid.</td></tr>
           <tr><td class="name">LatticeChartComponent</td><td class="sig">&lt;lattice-chart&gt;</td><td class="desc">A chart. Requires a grid, so nothing is built until one exists; a changed spec key goes to <code>chart.update()</code> and the chart redraws rather than being rebuilt. <code>(click)</code>, <code>(hover)</code> and <code>(leave)</code> on this element are the chart's events, carrying the datum under the pointer.</td></tr>
           <tr><td class="name">LatticeKanbanComponent</td><td class="sig">&lt;lattice-kanban&gt;</td><td class="desc">The board. <code>[rows]</code>, <code>[quickFilter]</code>, <code>[sprint]</code>, <code>[epic]</code>, <code>[loading]</code> and <code>[error]</code> are live inputs.</td></tr>
+          <tr><td class="name">LatticeCalendarComponent</td><td class="sig">&lt;lattice-calendar&gt;</td><td class="desc">The calendar. <code>[rows]</code>, <code>[view]</code> and <code>[date]</code> are live inputs; grid-bound through the registry by default. The reschedule events arrive as <code>(beforeMove)</code> (cancel with <code>preventDefault(reason?)</code>) and <code>(card-move)</code>; call <code>move(key, to)</code> on the component.</td></tr>
           <tr><td class="name">LatticeGanttComponent</td><td class="sig">&lt;lattice-gantt&gt;</td><td class="desc">The plan. <code>[tasks]</code> and <code>[dependencies]</code> are live inputs. It takes an explicit <code>[grid]</code> but never adopts a published one.</td></tr>
           <tr><td class="name">LatticeLayoutComponent</td><td class="sig">&lt;lattice-layout&gt;</td><td class="desc">The dashboard layout. Windows are driven through the instance; its events arrive as <code>(layout-changed)</code>, <code>(window-moved)</code> and the rest.</td></tr>
           <tr><td class="name">LatticeTabsComponent<br>LatticeTabDirective</td><td class="sig">&lt;lattice-tabs&gt;<br>ng-template[latticeTab]</td><td class="desc">The tab strip, with <strong>Angular-rendered tab content</strong>: a tab's content is an <code>&lt;ng-template latticeTab="id"&gt;</code> in your own template, rendered into the strip's panel through this component's <code>ViewContainerRef</code> &mdash; so a tab's grid is a real <code>&lt;lattice-grid&gt;</code> with inputs, a reference and your injectors above it. A tab with no template is left to the module, so configuration-driven grid tabs still work and the two kinds mix on one strip.</td></tr>
@@ -1696,7 +1703,7 @@ defaults(<span class="kw">null</span>);                <span class="cmt">// clea
     imported, because nothing is imported by this module — a page that draws no charts never loads
     the charts bundle.</p>
 
-    <pre data-run="js" data-expect="8" data-covers="export:ELEMENT_TAGS"><code><span class="cmt">// Every tag this package can register, under the default prefix.</span>
+    <pre data-run="js" data-expect="9" data-covers="export:ELEMENT_TAGS"><code><span class="cmt">// Every tag this package can register, under the default prefix.</span>
 <span class="kw">const</span> { ELEMENT_TAGS } = <span class="kw">await</span> import('../packages/modules/webcomponent/elements.js');
 <span class="kw">return</span> Object.keys(ELEMENT_TAGS).length;</code></pre>
 
@@ -1719,6 +1726,7 @@ defaults(<span class="kw">null</span>);                <span class="cmt">// clea
           <tr><td class="sig">&lt;lattice-kpi&gt;</td><td class="type">createKPI</td><td class="desc">Grid-bound by default; set <code>rows</code> for a standalone panel. <code>tiles</code> is a property. Like every grid-bound viewer it <strong>waits</strong> for its grid rather than mounting empty, so a panel written above its grid is built once, when the grid arrives.</td></tr>
           <tr><td class="sig">&lt;lattice-chart&gt;</td><td class="type">createChart</td><td class="desc">Always drawn from a grid, so it waits for one. Every other attribute is the chart spec and a change goes into <code>chart.update()</code>.</td></tr>
           <tr><td class="sig">&lt;lattice-kanban&gt;</td><td class="type">createKanban</td><td class="desc">Board. <code>rows</code>, <code>columns</code>, <code>card</code>, <code>facets</code> are properties.</td></tr>
+          <tr><td class="sig">&lt;lattice-calendar&gt;</td><td class="type">createCalendar</td><td class="desc">Calendar. <code>rows</code>, <code>card</code> and <code>header</code> are properties; <code>view</code>, <code>date</code> and <code>start-property</code> are scalars. The reschedule events arrive as <code>lattice-beforeMove</code> (cancel on <code>event.detail</code>) and <code>lattice-card-move</code>; call <code>move(key, to)</code> on the element.</td></tr>
           <tr><td class="sig">&lt;lattice-gantt&gt;</td><td class="type">createGantt</td><td class="desc"><code>tasks</code> and <code>dependencies</code> are properties and both are live.</td></tr>
           <tr><td class="sig">&lt;lattice-layout&gt;</td><td class="type">createLayout</td><td class="desc"><code>windows</code> is a property.</td></tr>
           <tr><td class="sig">&lt;lattice-tabs&gt;</td><td class="type">createTabs</td><td class="desc">A tab's content is a <code>&lt;template data-tab="&#8249;id&#8250;"&gt;</code> child, cloned into the panel the module creates. With no <code>tabs</code> property the descriptors are read from the templates. A tab with no template is left to the module; the two kinds mix.</td></tr>
@@ -3137,7 +3145,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.82.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.83.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -4860,7 +4868,7 @@ grid.licence.state();      <span class="cmt">// 'licensed' | 'localhost' | 'tria
         <tbody>
           <tr><td class="sig">set(key)</td><td class="type">object</td><td class="desc">Install a key for the process. Returns the provisional verdict; the check is asynchronous and <code>licence:changed</code> fires when it settles.</td></tr>
           <tr><td class="sig">state()</td><td class="type">string</td><td class="desc"><code>'licensed'</code>, <code>'localhost'</code> or <code>'trial'</code>.</td></tr>
-          <tr><td class="sig">info()</td><td class="type">object</td><td class="desc"><code>{ valid, reason, issuedTo, expires, product }</code>. <code>expires</code> is <code>undefined</code> for a perpetual key (the default) and an ISO date only for one deliberately issued with a term.</td></tr>
+          <tr><td class="sig">info()</td><td class="type">object</td><td class="desc"><code>{ valid, reason, issuedTo, expires, product, terms }</code>. <code>expires</code> is <code>undefined</code> for a perpetual key (the default) and an ISO date only for one deliberately issued with a term. <code>terms</code> is <code>'commercial'</code> (the default) or <code>'non-commercial'</code> for the free tier.</td></tr>
           <tr><td class="sig">watermark()</td><td class="type">boolean</td><td class="desc">Whether the trial mark is showing.</td></tr>
           <tr><td class="sig">ready</td><td class="type">Promise</td><td class="desc">Settles when the licence check finishes.</td></tr>
         </tbody>
@@ -4900,6 +4908,23 @@ grid.licence.state();      <span class="cmt">// 'licensed' | 'localhost' | 'tria
     <div class="note"><p>Install the key before creating a grid. Setting one later still works,
     <code>licence:changed</code> fires and the watermark is removed, but the first frames of the
     grid will carry it.</p></div>
+
+    <h3 id="terms">The terms marker</h3>
+    <p>A key&#39;s payload may carry a <code>terms</code> marker: <code>&#39;non-commercial&#39;</code>
+    for the free tier, and <code>&#39;commercial&#39;</code> &mdash; or absent, which is the same
+    thing &mdash; for everything else. <code>grid.licence.info()</code> reports it as
+    <code>terms</code>. The marker is carried and reported, <strong>never enforced by the
+    software</strong>: non-commercial terms are enforced by the licence terms, not by the grid.
+    There is no phone-home, no feature difference, and no network call of any kind &mdash; a
+    non-commercial key behaves exactly like any other valid key.</p>
+    <pre data-run="js" data-expect="commercial" data-covers="method:licence.info"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="cmt">// No key installed, and absent means 'commercial': the status API reports it.</span>
+<span class="kw">const</span> grid = createHeadlessGrid({ columns: [{ id: 'n', field: 'n' }], rows: [{ id: '1', n: 'a' }] });
+<span class="kw">const</span> terms = grid.licence.info().terms;
+grid.destroy();
+
+<span class="kw">return</span> terms;</code></pre>
 
     <h2 id="sources">Sources</h2>
     <p class="section-note">Where rows come from. <code>memory</code> is the default and needs no configuration.</p>
@@ -9819,6 +9844,175 @@ router.apply([{ op: 'upsert', row: { id: 't1', kind: 'task', status: 'done', tit
 router.destroy();
 <span class="kw">return</span> [hydrated, afterDelta].join(' | ');</code></pre>
 
+    <h2 id="calendar">The calendar viewer</h2>
+    <p><code>modules/calendar</code> is an opt-in view of grid rows as <strong>cards</strong> on a <strong>month</strong> grid or a <strong>week</strong> day-grid, keyed by a date field. It is a separate bundle in the same shape as charts, kanban and the data router: it adds no weight to a page that does not load it, changes nothing in grid core, and pulls in no dependency. A calendar is <em>just another dataset viewer</em>: it consumes data through the same keyed-diff contract a grid exposes, <code>calendar.rows.apply({ add, update, remove })</code> (plus <code>rows.get(key)</code>), so a Data Router can <code>attach(value, calendar)</code> and drive a calendar beside a grid, a kanban and a chart off one feed.</p>
+    <pre><code>import { createCalendar } from '@toclocoinc/lattice-grid/modules/calendar';
+
+const calendar = createCalendar(document.querySelector('#calendar'), {
+  rows,                          // or { grid } to bind a live grid
+  rowKey: 'id',
+  startProperty: 'posttime',     // the point-event start (configurable)
+  view: 'week',                  // 'week' | 'month'
+  header: { navigation: true, title: true, views: true },
+  card: { title: 'name' },
+  colorProperty: 'status',       // colour the card edge by a property
+  onCardClick: ({ row }) =&gt; open(row),
+});</code></pre>
+    <p>The date field is <code>startProperty</code> (default <code>'start'</code>); an optional <code>endProperty</code> turns point events into multi-day spans, drawn as one continuous bar across the days they cover. Days grow with their cards (<code>--lattice-calendar-cell-min-height</code>, default 120px; the page scrolls, never the calendar), and the built-in header (or <code>header: false</code>) carries prev / next / today, the title (<code>SEP 28 &ndash; OCT 4, 2026</code> for a week, <code>SEPTEMBER 2026</code> for a month, via <code>Intl.DateTimeFormat(locale)</code>) and a week/month toggle, styled only through theme tokens. The <code>week-time</code> and <code>day</code> views add a vertical hour axis: a row with a start time is a block positioned at its start and sized by its end (<code>defaultDuration</code> when there is none), overlapping blocks split the column side by side, all-day rows stack in a top all-day row, <code>businessHours</code> shades the working span, and a now line marks the current time in the current day column. <code>slotDuration</code> (default 30 minutes), <code>slotMinTime</code>/<code>slotMaxTime</code>, <code>scrollTime</code> and <code>weekNumbers</code> tune the axis, and times read through the grid's <code>timeZone</code> rule (a <code>12:17Z</code> post shows <code>13:17</code> under Europe/London summer time). A row whose start is empty or unparsable is counted in <code>unscheduled</code> and reported once, never thrown. Accessibility is built in: <code>role="grid"</code> with columnheader/gridcell, a roving-tabindex focus ring across cards, arrows by day/week (and by slot in the time grid), PageUp/PageDown by period, a live region announcing the range and card count, and an announced time slot on each timed block.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">createCalendar(el, config)</td><td class="desc">Create a calendar. Pass a DOM element to render into, or <code>null</code> for a headless calendar that computes the same range and card model without a DOM.</td></tr>
+          <tr><td class="sig">rows.apply({ add, update, remove }) / rows.forEach / rows.count / rows.get(key)</td><td class="desc">The keyed-diff consumer contract a grid shares, so the calendar is a drop-in Data Router target. <code>get</code>/<code>remove</code> key uncoerced, exactly as the calendar keys its own rows.</td></tr>
+          <tr><td class="sig">prev() / next() / today() / goTo(date) / setView('week'|'month')</td><td class="desc">Navigation. Each fires <code>range:change { start, end, view }</code>; a data update does not.</td></tr>
+          <tr><td class="sig">getRange()</td><td class="desc">The visible range <code>{ start, end, view }</code>, both local midnights, <code>end</code> inclusive.</td></tr>
+          <tr><td class="sig">refresh()</td><td class="desc">Recompute and re-render. A grid-bound calendar re-reads its grid; one still on <code>config.rows</code> re-reads that array; a routed calendar re-reads nothing.</td></tr>
+          <tr><td class="sig">renderCard(row, el)</td><td class="desc">A host card renderer; the element is kept mounted across updates and navigation, so an async image swap into the same <code>el</code> survives. The default renderer is time + title, via <code>Intl</code>.</td></tr>
+          <tr><td class="sig">colorProperty ( + colorMap)</td><td class="desc">Colour the card edge by a property's value, through an optional value&rarr;colour map.</td></tr>
+          <tr><td class="sig">dayMaxEvents / eventOrder</td><td class="desc">A <code>+N more</code> overflow threshold per day (default off), and the card stacking order (a field or a comparator).</td></tr>
+          <tr><td class="sig">getState() / setState(snapshot)</td><td class="desc">Serialise and restore the arrangement state <code>{ version: 2, view, date, firstDay, slotDuration, scrollTime }</code> &mdash; never the row data.</td></tr>
+          <tr><td class="sig">move(key, { start, end })</td><td class="desc">Reschedule a card: move it (shift the end by the same delta so the duration is kept) or resize it (a new end only). Grid-bound, the start/end cells are written through <code>grid.edit.setCells</code> (parse/validate/undo/history/write-back run, and a refused write snaps the card back with the grid's own message beside it); standalone, the calendar's own row is updated and a host <code>onCardMove</code> persists it (returning <code>false</code>/rejecting reverts). Gated by the cancellable <code>beforeMove</code> event; returns a Promise of whether it stuck.</td></tr>
+          <tr><td class="sig">on(name, fn) / off(name, fn)</td><td class="desc">Events: <code>card:click</code>, <code>card:dblclick</code>, <code>card:contextmenu</code> <code>{ row, key, clientX, clientY, nativeEvent }</code>; <code>card:mount</code> <code>{ row, key, el }</code>; <code>range:change</code> <code>{ start, end, view }</code>; <code>beforeMove</code> (cancellable) and <code>card:move</code> <code>{ row, key, from: { start, end }, to: { start, end } }</code>.</td></tr>
+          <tr><td class="sig">readonly(scope) / unscheduled</td><td class="desc">Granular readonly (whole / per day / per card), carried on the model; and the rows whose start could not be read.</td></tr>
+          <tr><td class="sig">destroy()</td><td class="desc">Empty the element, remove only what the module added, and drop handlers and caches. The host still owns any bound grid.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="calendar-example">Week and month, navigation and state, executed</h3>
+    <p class="section-note">Point events on a week grid, one unparsable start counted in <code>unscheduled</code>, the de-dup
+    contract (<code>add</code> of an existing key is an update), navigation firing <code>range:change</code>, and the
+    versioned state round-trip. Run headless on every build.</p>
+    <pre data-run="js" data-expect="4|1|28|4|4|Login v2|3|28|35|month|week|false" data-covers="export:createCalendar config:CalendarConfig.rows config:CalendarConfig.rowKey config:CalendarConfig.startProperty config:CalendarConfig.view config:CalendarConfig.date config:CalendarConfig.firstDay config:CalendarConfig.locale config:CalendarConfig.header config:CalendarConfig.card config:CalendarConfig.ariaLabel config:CalendarConfig.labels config:CalendarConfig.readonly config:CalendarConfig.timeZone method:calendar.prev method:calendar.next method:calendar.today method:calendar.goTo method:calendar.setView method:calendar.getRange method:calendar.getState method:calendar.setState method:calendar.refresh method:calendar.rebind method:calendar.on method:calendar.off method:calendar.readonly method:calendar.destroy"><code>const { createCalendar } = await import('../packages/modules/calendar/index.js');
+const cal = createCalendar(null, {
+  rows: [
+    { id: 'a', start: '2026-09-28 10:00', title: 'Login' },
+    { id: 'b', start: '2026-09-28 14:00', title: 'OAuth' },
+    { id: 'c', start: '2026-10-02 09:00', title: 'Reset' },
+    { id: 'd', start: '', title: 'No date' },
+  ],
+  rowKey: 'id', startProperty: 'start', view: 'week', date: '2026-09-30', firstDay: 1, locale: 'en-GB',
+  header: { navigation: true, title: true, views: true },
+  card: { title: 'title', subtitle: 'subtitle' },
+  ariaLabel: 'Calendar', labels: { today: 'Today', week: 'Week', month: 'Month' },
+  readonly: false, timeZone: 'Europe/London',
+});
+const heard = [];
+cal.on('range:change', (e) => heard.push(e.view));
+const off = () => {};
+cal.on('range:change', off); cal.off('range:change', off);
+const count = cal.rows.count;                       // 4
+const unscheduled = cal.unscheduled.length;         // 1
+const startDay = cal.getRange().start.getDate();    // 28
+const endDay = cal.getRange().end.getDate();        // 4
+cal.rows.apply({ add: [{ id: 'a', start: '2026-09-28 11:00', title: 'Login v2' }] });
+const dedup = cal.rows.count;                       // 4
+const title = cal.rows.get('a').title;              // Login v2
+cal.next(); cal.prev(); cal.today();                // range:change x3
+const changes = heard.length;                       // 3
+cal.goTo('2026-09-30');
+const nextRange = cal.getRange().start.getDate();   // 28
+cal.setView('month');
+const monthDays = cal.model.days.length;            // 35
+cal.refresh();
+cal.rebind(null);                                   // no-op: this calendar is not grid-bound
+const state = cal.getState();                       // view month
+cal.setState({ view: 'week', date: '2026-09-30' });
+const restored = cal.getRange().view;               // week
+const ro = cal.readonly({ day: '2026-09-30' });     // false
+cal.destroy();
+return [count, unscheduled, startDay, endDay, dedup, title, changes, nextRange, monthDays, state.view, restored, ro].join('|');</code></pre>
+
+    <h3 id="calendar-span-example">Spans, colour, overflow and the host renderer, executed</h3>
+    <p class="section-note">A multi-day span (one continuous bar, marked continuing), colour by property through a map, order by a
+    field, the <code>+N more</code> overflow threshold, and a host renderer. Run headless on every build.</p>
+    <pre data-run="js" data-expect="true|false|A,B,C|#16a34a" data-covers="config:CalendarConfig.endProperty config:CalendarConfig.allDayProperty config:CalendarConfig.colorProperty config:CalendarConfig.colorMap config:CalendarConfig.eventOrder config:CalendarConfig.dayMaxEvents config:CalendarConfig.renderCard config:CalendarConfig.onCardClick config:CalendarConfig.onCardDblClick config:CalendarConfig.onCardContextMenu config:CalendarConfig.onRangeChange"><code>const { createCalendar } = await import('../packages/modules/calendar/index.js');
+const cal = createCalendar(null, {
+  rows: [
+    { id: 's1', start: '2026-09-28', end: '2026-09-30', title: 'Span' },
+    { id: 'p1', start: '2026-09-29 09:00', title: 'B', status: 'posted', rank: 2 },
+    { id: 'p2', start: '2026-09-29 08:00', title: 'A', status: 'draft', rank: 1 },
+    { id: 'p3', start: '2026-09-29 10:00', title: 'C', status: 'posted', rank: 3 },
+  ],
+  rowKey: 'id', startProperty: 'start', endProperty: 'end', allDayProperty: 'allDay',
+  view: 'week', date: '2026-09-30', firstDay: 1,
+  colorProperty: 'status', colorMap: { posted: '#16a34a', draft: '#6b7280' },
+  eventOrder: 'rank', dayMaxEvents: 2,
+  renderCard: (row, el) => { el.textContent = row.title; },
+  onCardClick: () => {}, onCardDblClick: () => {}, onCardContextMenu: () => {}, onRangeChange: () => {},
+});
+const spanBars = cal.model.days.find((d) => d.key === '2026-09-28').spans;
+const span = spanBars[0];
+const continuing = span.span;                        // true
+const clippedBefore = span.continuesBefore;          // false (starts in range)
+const sep29 = cal.model.days.find((d) => d.key === '2026-09-29').cards;
+const order = sep29.map((c) => c.row.title).join(',');   // A,B,C (by rank)
+const colour = sep29.find((c) => c.row.id === 'p1').color; // #16a34a
+cal.destroy();
+return [continuing, clippedBefore, order, colour].join('|');</code></pre>
+
+    <h3 id="calendar-time-example">The hour axis, overlap columns, all-day and the now line, executed</h3>
+    <p class="section-note">The <code>week-time</code>/<code>day</code> time grid: a timed block positioned by its start and
+    sized by its end, overlapping blocks splitting the column, an all-day row, business-hours shading, week numbers
+    and the time-axis tuning keys. Run headless on every build.</p>
+    <pre data-run="js" data-expect="540|630|2|1" data-covers="config:CalendarConfig.slotDuration config:CalendarConfig.slotMinTime config:CalendarConfig.slotMaxTime config:CalendarConfig.scrollTime config:CalendarConfig.defaultDuration config:CalendarConfig.businessHours config:CalendarConfig.weekNumbers config:CalendarConfig.allDayProperty config:CalendarConfig.endProperty"><code>const { createCalendar } = await import('../packages/modules/calendar/index.js');
+const cal = createCalendar(null, {
+  rows: [
+    { id: 'a', start: '2026-09-30 09:00', end: '2026-09-30 10:30', title: 'Review' },
+    { id: 'b', start: '2026-09-30 09:30', title: 'Overlap' },
+    { id: 'all', start: '2026-09-30', title: 'All day' },
+  ],
+  rowKey: 'id', startProperty: 'start', endProperty: 'end', allDayProperty: 'allDay',
+  view: 'day', date: '2026-09-30',
+  slotDuration: 30, slotMinTime: '08:00', slotMaxTime: '18:00', scrollTime: '09:00',
+  defaultDuration: 60, businessHours: { startTime: '09:00', endTime: '17:00', daysOfWeek: [3] },
+  weekNumbers: true,
+});
+const day = cal.model.days[0];
+const a = day.timed.find((b) => b.key === 'a');
+const startMin = a.startMin;                         // 540 (09:00)
+const endMin = a.endMin;                             // 630 (10:30)
+const cols = a.cols;                                 // 2 (overlaps with b)
+const allDay = day.allDay.length;                    // 1 (the date-only row)
+cal.destroy();
+return [startMin, endMin, cols, allDay].join('|');</code></pre>
+
+    <h3 id="calendar-move-example">Rescheduling, veto and write-back, executed</h3>
+    <p class="section-note">A move shifts the end by the same delta (duration kept); a resize changes the end only; a
+    <code>beforeMove</code> veto cancels synchronously or by promise; <code>card:move</code> fires on success with the old
+    and new values; and a standalone <code>onCardMove</code> returning <code>false</code> reverts. Run headless on every
+    build.</p>
+    <pre data-run="js" data-expect="2026-09-29 10:00|2026-09-29 11:00|2026-09-29 12:00|2026-09-29 10:00|29|30|2026-09-28 10:00" data-covers="config:CalendarConfig.onCardMove method:calendar.move"><code>const { createCalendar } = await import('../packages/modules/calendar/index.js');
+const cal = createCalendar(null, {
+  rows: [{ id: 1, start: '2026-09-28 10:00', end: '2026-09-28 11:00', title: 'A' }],
+  rowKey: 'id', startProperty: 'start', endProperty: 'end', view: 'week', date: '2026-09-30',
+});
+await cal.move(1, { start: new Date(2026, 8, 29, 10, 0) });
+const movedStart = cal.rows.get(1).start;             // 2026-09-29 10:00
+const movedEnd = cal.rows.get(1).end;                 // 2026-09-29 11:00 (duration kept)
+await cal.move(1, { end: new Date(2026, 8, 29, 12, 0) });
+const resizedEnd = cal.rows.get(1).end;               // 2026-09-29 12:00 (end only)
+const heard = [];
+cal.on('card:move', (e) => heard.push([e.from.start.getDate(), e.to.start.getDate()]));
+const veto = (e) => e.preventDefault('blocked');
+cal.on('beforeMove', veto);
+await cal.move(1, { start: new Date(2026, 8, 30, 10, 0) });   // vetoed: no card:move
+const stayed = cal.rows.get(1).start;                 // 2026-09-29 10:00
+cal.off('beforeMove', veto);
+await cal.move(1, { start: new Date(2026, 8, 30, 10, 0) });
+const firedFrom = heard[0][0];                        // 29
+const firedTo = heard[0][1];                          // 30
+cal.destroy();
+const cal2 = createCalendar(null, {
+  rows: [{ id: 1, start: '2026-09-28 10:00', title: 'B' }],
+  rowKey: 'id', startProperty: 'start', view: 'week', date: '2026-09-30',
+  onCardMove: () => false,
+});
+await cal2.move(1, { start: new Date(2026, 8, 29, 10, 0) });
+const reverted = cal2.rows.get(1).start;              // 2026-09-28 10:00 (onCardMove reverted)
+cal2.destroy();
+return [movedStart, movedEnd, resizedEnd, stayed, firedFrom, firedTo, reverted].join('|');</code></pre>
+
     <h2 id="kpi">The KPI (stat-tile) view</h2>
     <p><code>modules/kpi</code> is an opt-in view of a dataset as a panel of <strong>stat tiles</strong> &mdash; each tile an aggregate over the routed rows: a sum, an average, a min/max, a count, a distinct count, or a host reducer. It is the fourth first-class viewer beside the grid, the kanban and the gantt, in the same shape: a separate bundle that adds no weight to a page that does not load it, changes nothing in grid core, and pulls in no dependency. A KPI panel is <em>just another dataset viewer</em>: it consumes data through the same keyed-diff contract a grid exposes, <code>kpi.rows.apply({ add, update, remove })</code>, so a Data Router can <code>attach(value, kpi)</code> and drive a KPI panel beside a grid, a kanban and a chart off one feed.</p>
     <pre><code>import { createKPI } from '@toclocoinc/lattice-grid/modules/kpi';
@@ -10836,12 +11030,13 @@ const dashboard = createDashboard(document.querySelector('#dash'), {
     <p><strong>Refused by name.</strong> Every refusal is a line in <code>dashboard.problems()</code> (<code>{ id, path, message }</code>) and a console warning under a catalogued id: <code>dashboard:panel:&lt;id&gt;</code> for a panel that was not built, or was built but its viewer refused one of its options (heard from the viewer's own <code>[lattice]</code> warning, which quotes the option); <code>dashboard:link:&lt;from&gt;-&gt;&lt;to&gt;</code>; <code>dashboard:spec:&lt;path&gt;</code> for any other problem the validator finds; and <code>dashboard:spec</code>, <code>dashboard:el</code>, <code>dashboard:layout</code> when nothing could be built. <code>validateDashboardSpec(spec)</code> runs the same checks without building anything. <code>destroy()</code> removes the links, every viewer, grid and router attachment the dashboard made, and the layout.</p>
     <div class="example">
       <p class="example__label">Five panels from one spec, a chart narrowing with its grid, spec() rebuilding the same dashboard, and destroy</p>
-      <pre data-run="js" data-expect="5 | 0 | north | true | 0" data-covers="export:createDashboard config:DashboardOptions.createGrid config:DashboardOptions.createHeadlessGrid config:DashboardOptions.createLayout config:DashboardOptions.createChart config:DashboardOptions.createKPI method:dashboard.panels method:dashboard.problems method:dashboard.panel method:dashboard.spec method:dashboard.apply method:dashboard.destroy"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+      <pre data-run="js" data-expect="6 | 0 | north | true | 0" data-covers="export:createDashboard config:DashboardOptions.createGrid config:DashboardOptions.createHeadlessGrid config:DashboardOptions.createLayout config:DashboardOptions.createChart config:DashboardOptions.createKPI config:DashboardOptions.createCalendar method:dashboard.panels method:dashboard.problems method:dashboard.panel method:dashboard.spec method:dashboard.apply method:dashboard.destroy"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
 const { createGrid, createHeadlessGrid } = await import('../packages/dom/src/index.js');
 const { createLayout } = await import('../packages/modules/layout/index.js');
 const { createChart } = await import('../packages/modules/charts/index.js');
 await import('../packages/modules/chart-markermap/index.js');
 const { createKPI } = await import('../packages/modules/kpi/index.js');
+const { createCalendar } = await import('../packages/modules/calendar/index.js');
 const { createDashboard } = await import('../packages/modules/dashboard/index.js');
 
 const { document, root } = createTestDom({ width: 1200, height: 800 });
@@ -10863,10 +11058,11 @@ const spec = {
     { id: 'byRegion', kind: 'chart', source: 'grid:table', options: { type: 'bar', x: 'region', y: 'sales' } },
     { id: 'total', kind: 'kpi', source: 'grid:table', options: { tiles: [{ id: 'sum', field: 'sales', aggregation: 'sum' }] } },
     { id: 'where', kind: 'map', source: 'sales', options: { type: 'markermap', lon: 'lon', lat: 'lat' } },
+    { id: 'when', kind: 'calendar', source: 'sales', options: { view: 'week' } },
     { id: 'note', kind: 'html', options: { text: 'Provisional figures.' } },
   ],
 };
-const dashboard = createDashboard(el, spec, { createGrid, createHeadlessGrid, createLayout, createChart, createKPI });
+const dashboard = createDashboard(el, spec, { createGrid, createHeadlessGrid, createLayout, createChart, createKPI, createCalendar });
 const seen = [dashboard.panels().length, dashboard.problems().length];
 
 // The chart views the table's grid, so filtering the table narrows it.
@@ -11129,7 +11325,7 @@ const socket = new WebSocket('wss://example.com/ops');</code></pre>
         <thead><tr><th>Prop</th><th>Applies to</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="sig">series</td><td>sparklines</td><td class="desc">Property name holding the array, when it is not the cell's value.</td></tr>
-          <tr><td class="sig">min / max</td><td>all</td><td class="desc">Pin the scale so several columns compare like for like.</td></tr>
+          <tr><td class="sig">min / max</td><td>all</td><td class="desc">Pin the scale so several columns compare like for like. Also the name of a row property (read from the row like <code>series</code>) or a function <code>(p) =&gt; number</code>, to pin each row to its own baseline band; a value that is not a finite number falls back to the autoscale for that bound only.</td></tr>
           <tr><td class="sig">label</td><td>all</td><td class="desc"><code>false</code> hides the number beside the chart.</td></tr>
           <tr><td class="sig">marker</td><td>line, area</td><td class="desc"><code>false</code> hides the dot on the last point.</td></tr>
           <tr><td class="sig">hole</td><td>donut</td><td class="desc">Inner radius as a fraction, default 0.55.</td></tr>
@@ -11147,6 +11343,39 @@ const socket = new WebSocket('wss://example.com/ops');</code></pre>
     columns, a sparkline scaled to its own data fills its cell whatever the magnitude.</p></div>
     <div class="note"><p>The chart is <code>aria-hidden</code> and the cell carries a text summary,
     so a screen reader is told "12 points, 9 to 20, ending 18" rather than each value in turn.</p></div>
+
+    <div class="example">
+      <p class="example__label">A sparkline pinned per row to a baseline band: <code>min</code>/<code>max</code> as a row field, so equal relative moves draw equal whatever the magnitude</p>
+      <pre data-run="js" data-expect="0.83 0.83 0.83" data-covers="config:Column.cell.render config:Column.cell.props"><code>const { createTestDom, flushFrames } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+const { createGrid } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+const { root } = createTestDom({ width: 800, height: 300 });
+
+<span class="cmt">// Three magnitudes — 40, 4,000, 400,000 — each pinned by field to its own</span>
+<span class="cmt">// ±15 % band, so the same relative move lands the same fraction of the cell.</span>
+const grid = createGrid(root, {
+  rowKey: 'id',
+  rows: [
+    { id: 'a', lo: 34, hi: 46, readings: [36, 40, 44] },
+    { id: 'b', lo: 3400, hi: 4600, readings: [3600, 4000, 4400] },
+    { id: 'c', lo: 340000, hi: 460000, readings: [360000, 400000, 440000] },
+  ],
+  columns: [{ field: 'readings', cell: { render: 'line', props: { min: 'lo', max: 'hi' } } }],
+});
+flushFrames();
+
+<span class="cmt">// Normalise each line's last point against the 24px drawing space: all three</span>
+<span class="cmt">// end at the same fraction because the scale is pinned per row.</span>
+const frac = [...root.querySelectorAll('.lat-chart__line')]
+  .map((p) =&gt; {
+    const d = p.getAttribute('d');
+    const pts = d.match(/[ML][\d.]+ [\d.]+/g);
+    const y = Number(pts[pts.length - 1].slice(1).split(' ')[1]);
+    return ((22 - y) / 20).toFixed(2);
+  })
+  .join(' ');
+grid.destroy();
+return frac;</code></pre>
+    </div>
 
     <h2 id="formulas">Formulas</h2>
     <p>A leading <code>=</code> in a numeric cell is a formula. The grid stores what it comes to.</p>
@@ -11900,7 +12129,7 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
 
     <h3 id="module-exports-example">Every module export, executed</h3>
     <p class="section-note">Every shipped module’s exports, resolved against its own barrel on every build.</p>
-    <pre data-run="js" data-expect="81" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:regressionPlots export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:rebindViewersWithin export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:createLatticeElements export:defineLatticeElements export:ELEMENT_TAGS export:createLatticeKPIElement export:createLatticeChartElement export:createLatticeKanbanElement export:createLatticeGanttElement export:createLatticeLayoutElement export:createLatticeTabsElement export:createLatticeRouterElement export:adoptLatticeStyles export:latticeStyleSheets export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload export:createDataRouter export:MockWebSocket export:rng export:opsFeed export:priceFeed export:createKanban export:pack"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
+    <pre data-run="js" data-expect="84" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:regressionPlots export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:rebindViewersWithin export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:autoInitCalendar export:CALENDAR_ATTR export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:createLatticeElements export:defineLatticeElements export:ELEMENT_TAGS export:createLatticeKPIElement export:createLatticeChartElement export:createLatticeKanbanElement export:createLatticeCalendarElement export:createLatticeGanttElement export:createLatticeLayoutElement export:createLatticeTabsElement export:createLatticeRouterElement export:adoptLatticeStyles export:latticeStyleSheets export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload export:createDataRouter export:MockWebSocket export:rng export:opsFeed export:priceFeed export:createKanban export:pack"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
 <span class="cmt">// barrel. A module that stopped exporting something fails here.</span>
 <span class="kw">const</span> modules = [
   [<span class="kw">await</span> import('../packages/dom/src/index.js'), [
@@ -11920,6 +12149,7 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
     'destroyWithin', 'driveInfiniteScroll', 'driveOobUpdates', 'driveServerMode',
      'ingestResponse', 'initWithin', 'queryParams', 'rebindViewersWithin', 'restoreStateWithin',
      'rowsFromFragment', 'rowsFromJson', 'saveStateWithin', 'warnIfLargeHtmlPayload',
+     'autoInitCalendar', 'CALENDAR_ATTR',
   ]],
   [<span class="kw">await</span> import('../packages/modules/webcomponent/index.js'), [
     'ATTRIBUTE_CONFIG', 'EVENT_PREFIX', 'GridElementController',
@@ -11927,6 +12157,7 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
     'observedAttributeNames',
     'createLatticeElements', 'defineLatticeElements', 'ELEMENT_TAGS',
     'createLatticeKPIElement', 'createLatticeChartElement', 'createLatticeKanbanElement',
+    'createLatticeCalendarElement',
     'createLatticeGanttElement', 'createLatticeLayoutElement', 'createLatticeTabsElement',
     'createLatticeRouterElement', 'adoptLatticeStyles', 'latticeStyleSheets',
   ]],
@@ -20214,6 +20445,233 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h3 id="ref-module-calendar">The calendar module</h3>
+    <h4 id="type-CalendarHeader">CalendarHeader</h4>
+    <p class="section-note">The built-in header toolbar. Each section is shown unless its flag is `false`; `header: false` (the whole object) renders no header at all and the host draws its own.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">navigation</td><td class="type">boolean</td><td class="desc">The prev / next / today buttons. <small>(optional)</small></td></tr>
+          <tr><td class="name">title</td><td class="type">boolean</td><td class="desc">The `SEP 28 – OCT 4, 2026` / `SEPTEMBER 2026` title. <small>(optional)</small></td></tr>
+          <tr><td class="name">views</td><td class="type">boolean</td><td class="desc">The week/month toggle. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-CalendarCardMap">CalendarCardMap</h4>
+    <p class="section-note">The field-to-property mapping that drives the default card template.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">title</td><td class="type"><a href="#type-CalendarFieldMap">CalendarFieldMap</a></td><td class="desc">The card's headline text (the default renderer shows time + this). <small>(optional)</small></td></tr>
+          <tr><td class="name">subtitle</td><td class="type"><a href="#type-CalendarFieldMap">CalendarFieldMap</a></td><td class="desc">A second line under the title. <small>(optional)</small></td></tr>
+          <tr><td class="name">[field: string]</td><td class="type"><a href="#type-CalendarFieldMap">CalendarFieldMap</a> | undefined</td><td class="desc">Any other card slot, mapped the same way as the named ones above.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-CalendarPointerEvent">CalendarPointerEvent</h4>
+    <p class="section-note">The payload of the three card pointer events — `card:click`, `card:dblclick` and `card:contextmenu`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">row</td><td class="type"><a href="#type-CalendarRow">CalendarRow</a></td><td class="desc">The data row the card was placed from.</td></tr>
+          <tr><td class="name">key</td><td class="type">unknown</td><td class="desc">The card's key, from `rowKey`.</td></tr>
+          <tr><td class="name">clientX</td><td class="type">number</td><td class="desc">The pointer's X position, where the host wants to anchor a popover.</td></tr>
+          <tr><td class="name">clientY</td><td class="type">number</td><td class="desc">The pointer's Y position.</td></tr>
+          <tr><td class="name">nativeEvent</td><td class="type">unknown</td><td class="desc">The DOM event that caused this one, so a host can call `preventDefault`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-CalendarMountEvent">CalendarMountEvent</h4>
+    <p class="section-note">The payload of `card:mount` — the card's element was created and attached.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">row</td><td class="type"><a href="#type-CalendarRow">CalendarRow</a></td><td class="desc">The data row the card was placed from.</td></tr>
+          <tr><td class="name">key</td><td class="type">unknown</td><td class="desc">The card's key, from `rowKey`.</td></tr>
+          <tr><td class="name">el</td><td class="type">unknown</td><td class="desc">The card's element, kept mounted for the host's async updates.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-CalendarRangeEvent">CalendarRangeEvent</h4>
+    <p class="section-note">The payload of `range:change` — the visible range moved.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">start</td><td class="type">Date</td><td class="desc">The first visible day, a local midnight.</td></tr>
+          <tr><td class="name">end</td><td class="type">Date</td><td class="desc">The last visible day, a local midnight (inclusive).</td></tr>
+          <tr><td class="name">view</td><td class="type"><a href="#type-CalendarView">CalendarView</a> <small class="literals">'week' | 'month' | 'week-time' | 'day'</small></td><td class="desc">The view now shown: `'week'`, `'month'`, `'week-time'` or `'day'`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-CalendarMoveSpan">CalendarMoveSpan</h4>
+    <p class="section-note">A card's start/end before or after a reschedule; either may be null.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">start</td><td class="type">Date | null</td><td class="desc">The card's start, or null when it has none.</td></tr>
+          <tr><td class="name">end</td><td class="type">Date | null</td><td class="desc">The card's end, or null when it has none.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-CalendarMoveEvent">CalendarMoveEvent</h4>
+    <p class="section-note">The payload of `beforeMove` and `card:move` — a card was (or may be) rescheduled.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">row</td><td class="type"><a href="#type-CalendarRow">CalendarRow</a></td><td class="desc">The data row the card was placed from.</td></tr>
+          <tr><td class="name">key</td><td class="type">unknown</td><td class="desc">The card's key, from `rowKey`.</td></tr>
+          <tr><td class="name">from</td><td class="type"><a href="#type-CalendarMoveSpan">CalendarMoveSpan</a></td><td class="desc">The card's position before the reschedule.</td></tr>
+          <tr><td class="name">to</td><td class="type"><a href="#type-CalendarMoveSpan">CalendarMoveSpan</a></td><td class="desc">The card's position after the reschedule.</td></tr>
+          <tr><td class="name">origin</td><td class="type">'user' | 'ai'</td><td class="desc">Who initiated the move: `'user'` or `'ai'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">reason</td><td class="type">string</td><td class="desc">When cancelled, the reason given to `preventDefault(reason?)`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-CalendarConfig">CalendarConfig</h4>
+    <p class="section-note">The configuration for {@link createCalendar}. The data source is `rows` (an array) or `grid` (a live grid to bind). The date field is `startProperty`; an `endProperty` turns point events into multi-day spans.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">rows</td><td class="type"><a href="#type-CalendarRow">CalendarRow</a>[]</td><td class="desc">The source rows (one card per row). One of `rows`/`grid`. <small>(optional)</small></td></tr>
+          <tr><td class="name">grid</td><td class="type">unknown</td><td class="desc">A Lattice grid to bind to instead of `rows`; the calendar follows its filtered/sorted rows live. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowKey</td><td class="type">string | ((row: <a href="#type-CalendarRow">CalendarRow</a>) =&gt; string | number)</td><td class="desc">The row identity: a property path or a function returning a string or number. Default `'id'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">startProperty</td><td class="type">string</td><td class="desc">The field naming a point event's start. Default `'start'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">endProperty</td><td class="type">string</td><td class="desc">The optional field naming a span's end; omitted means point events. <small>(optional)</small></td></tr>
+          <tr><td class="name">allDayProperty</td><td class="type">string</td><td class="desc">An optional boolean field marking an all-day event, stacked in the time-grid all-day row. <small>(optional)</small></td></tr>
+          <tr><td class="name">view</td><td class="type"><a href="#type-CalendarView">CalendarView</a> <small class="literals">'week' | 'month' | 'week-time' | 'day'</small></td><td class="desc">The view to show: `'week'`, `'month'`, `'week-time'` or `'day'`. Default `'month'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">date</td><td class="type">Date | string | number</td><td class="desc">The anchor date the visible range centres on. Default today. <small>(optional)</small></td></tr>
+          <tr><td class="name">firstDay</td><td class="type">number</td><td class="desc">Week-start weekday, 0=Sun…6=Sat. Default 1 (Monday). <small>(optional)</small></td></tr>
+          <tr><td class="name">locale</td><td class="type">string</td><td class="desc">BCP-47 locale for weekday/month names, the title and the card time. <small>(optional)</small></td></tr>
+          <tr><td class="name">timeZone</td><td class="type">string</td><td class="desc">IANA time-zone name, honoured on the hour axis and the now line. <small>(optional)</small></td></tr>
+          <tr><td class="name">slotDuration</td><td class="type">number | string</td><td class="desc">The time-grid slot step in minutes, or an `'H:MM(:SS)'` duration. Default 30. <small>(optional)</small></td></tr>
+          <tr><td class="name">slotMinTime</td><td class="type">number | string</td><td class="desc">The hour axis's first time, a clock or minutes. Default `'00:00'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">slotMaxTime</td><td class="type">number | string</td><td class="desc">The hour axis's last time, a clock or minutes. Default `'24:00'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">scrollTime</td><td class="type">number | string</td><td class="desc">The hour axis's initial scroll, a clock or minutes. Default `slotMinTime`. <small>(optional)</small></td></tr>
+          <tr><td class="name">defaultDuration</td><td class="type">number | string</td><td class="desc">A timed block's length when it has no end. Default 60 minutes. <small>(optional)</small></td></tr>
+          <tr><td class="name">businessHours</td><td class="type">boolean | { startTime?: string; endTime?: string; daysOfWeek?: number[] }</td><td class="desc">The working span the time grid shades: `true`, or `{ startTime, endTime, daysOfWeek }`. Default off. <small>(optional)</small></td></tr>
+          <tr><td class="name">weekNumbers</td><td class="type">boolean</td><td class="desc">Show the ISO week number in the time-grid header. Default false. <small>(optional)</small></td></tr>
+          <tr><td class="name">header</td><td class="type"><a href="#type-CalendarHeader">CalendarHeader</a> | false</td><td class="desc">The header toolbar sections, or `false` to render none. <small>(optional)</small></td></tr>
+          <tr><td class="name">card</td><td class="type"><a href="#type-CalendarCardMap">CalendarCardMap</a></td><td class="desc">The default card template's field mapping (title/subtitle/…). <small>(optional)</small></td></tr>
+          <tr><td class="name">colorProperty</td><td class="type">string</td><td class="desc">The property whose value picks the card's edge colour. <small>(optional)</small></td></tr>
+          <tr><td class="name">colorMap</td><td class="type">Record&lt;string, string&gt;</td><td class="desc">An optional value→colour map applied to `colorProperty`'s value. <small>(optional)</small></td></tr>
+          <tr><td class="name">eventOrder</td><td class="type">string | ((a: <a href="#type-CalendarRow">CalendarRow</a>, b: <a href="#type-CalendarRow">CalendarRow</a>) =&gt; number)</td><td class="desc">Card stacking order within a day: a property path, or a comparator. <small>(optional)</small></td></tr>
+          <tr><td class="name">dayMaxEvents</td><td class="type">number | false</td><td class="desc">The `+N more` overflow threshold per day. Default `false` (off). <small>(optional)</small></td></tr>
+          <tr><td class="name">readonly</td><td class="type"><a href="#type-CalendarReadonly">CalendarReadonly</a></td><td class="desc">Granular readonly (whole calendar, per day, per card). <small>(optional)</small></td></tr>
+          <tr><td class="name">ariaLabel</td><td class="type">string</td><td class="desc">The calendar's accessible name. Defaults to `Calendar`. <small>(optional)</small></td></tr>
+          <tr><td class="name">labels</td><td class="type">Record&lt;string, string&gt;</td><td class="desc">Host-localised labels: `today`, `week`, `month`, `more`, `event`, `eventSingular`, `calendar`. <small>(optional)</small></td></tr>
+          <tr><td class="name">messages</td><td class="type">unknown</td><td class="desc">A message catalogue with `t(key, params)`, or a bound grid's is borrowed. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">renderCard</td><td class="type">(row: <a href="#type-CalendarRow">CalendarRow</a>, el: unknown) =&gt; unknown</td><td class="desc"><code>row: <a href="#type-CalendarRow">CalendarRow</a></code><br><code>el: unknown</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">A host card renderer `(row, el)`; `el` stays mounted for its async updates. <small>(optional)</small></td></tr>
+          <tr><td class="name">onCardClick</td><td class="type">(event: <a href="#type-CalendarPointerEvent">CalendarPointerEvent</a>) =&gt; void</td><td class="desc"><code>event: <a href="#type-CalendarPointerEvent">CalendarPointerEvent</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Card click handler — the config route to the `card:click` event. <small>(optional)</small></td></tr>
+          <tr><td class="name">onCardDblClick</td><td class="type">(event: <a href="#type-CalendarPointerEvent">CalendarPointerEvent</a>) =&gt; void</td><td class="desc"><code>event: <a href="#type-CalendarPointerEvent">CalendarPointerEvent</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Card double-click handler — the config route to the `card:dblclick` event. <small>(optional)</small></td></tr>
+          <tr><td class="name">onCardContextMenu</td><td class="type">(event: <a href="#type-CalendarPointerEvent">CalendarPointerEvent</a>) =&gt; void</td><td class="desc"><code>event: <a href="#type-CalendarPointerEvent">CalendarPointerEvent</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Card right-click handler — the config route to the `card:contextmenu` event. <small>(optional)</small></td></tr>
+          <tr><td class="name">onRangeChange</td><td class="type">(event: <a href="#type-CalendarRangeEvent">CalendarRangeEvent</a>) =&gt; void</td><td class="desc"><code>event: <a href="#type-CalendarRangeEvent">CalendarRangeEvent</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Range-changed handler — the config route to the `range:change` event. <small>(optional)</small></td></tr>
+          <tr><td class="name">onCardMove</td><td class="type">(event: <a href="#type-CalendarMoveEvent">CalendarMoveEvent</a>) =&gt; unknown</td><td class="desc"><code>event: <a href="#type-CalendarMoveEvent">CalendarMoveEvent</a></code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">Reschedule handler — the config route to `card:move`. On a standalone calendar, returning `false` (or rejecting) reverts the move. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-CalendarRows">CalendarRows</h4>
+    <p class="section-note">The keyed-diff consumer surface a calendar shares with a grid, so a Data Router routes to it directly.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many rows the calendar holds. <small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">apply</td><td class="type">(change: { add?: <a href="#type-CalendarRow">CalendarRow</a>[]; update?: <a href="#type-CalendarRow">CalendarRow</a>[]; remove?: unknown[] }): void</td><td class="desc"><code>change: { add?: <a href="#type-CalendarRow">CalendarRow</a>[]; update?: <a href="#type-CalendarRow">CalendarRow</a>[]; remove?: unknown[] }</code></td><td class="type"><code>void</code></td><td class="desc">Apply a keyed diff: `add` sets each row outright, `update` merges each patch into the stored row, `remove` drops keys uncoerced — exactly as the calendar keys its own rows. Recomputes and re-renders without firing `range:change`. Ignored on a grid-bound calendar.</td></tr>
+          <tr><td class="name">forEach</td><td class="type">(fn: (row: <a href="#type-CalendarRow">CalendarRow</a>, key: unknown) =&gt; void): void</td><td class="desc"><code>fn: (row: <a href="#type-CalendarRow">CalendarRow</a>, key: unknown) =&gt; void</code></td><td class="type"><code>void</code></td><td class="desc">Visit every row the calendar holds, with its key.</td></tr>
+          <tr><td class="name">get</td><td class="type">(key: unknown): <a href="#type-CalendarRow">CalendarRow</a> | undefined</td><td class="desc"><code>key: unknown</code></td><td class="type"><code><a href="#type-CalendarRow">CalendarRow</a> | undefined</code></td><td class="desc">The row stored under a key, uncoerced.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-Calendar">Calendar</h4>
+    <p class="section-note">A calendar instance: a view of grid rows as cards on a month grid or a week day-grid. It consumes data through the same keyed-diff `rows.apply` contract a grid exposes, so `dataRouter.attach(value, calendar)` drives it like any other viewer.</p>
+    <h5 id="type-Calendar-properties">Properties</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">el</td><td class="type">unknown | null</td><td class="desc">The element the calendar renders into, or null for a headless calendar. <small>(read-only)</small></td></tr>
+          <tr><td class="name">rowKey</td><td class="type">string | ((row: <a href="#type-CalendarRow">CalendarRow</a>) =&gt; string | number)</td><td class="desc">The resolved row identity; see `CalendarConfig.rowKey`. <small>(read-only)</small></td></tr>
+          <tr><td class="name">rows</td><td class="type"><a href="#type-CalendarRows">CalendarRows</a></td><td class="desc">The keyed-diff consumer surface — what makes the calendar a Data Router target.</td></tr>
+          <tr><td class="name">unscheduled</td><td class="type"><a href="#type-CalendarRow">CalendarRow</a>[]</td><td class="desc">The rows whose start could not be read, in arrival order. <small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-Calendar-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">prev</td><td class="type">(): <a href="#type-Calendar">Calendar</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Calendar">Calendar</a></code></td><td class="desc">Move to the previous week or month, firing `range:change`.</td></tr>
+          <tr><td class="name">next</td><td class="type">(): <a href="#type-Calendar">Calendar</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Calendar">Calendar</a></code></td><td class="desc">Move to the next week or month, firing `range:change`.</td></tr>
+          <tr><td class="name">today</td><td class="type">(): <a href="#type-Calendar">Calendar</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Calendar">Calendar</a></code></td><td class="desc">Move back to today, firing `range:change`.</td></tr>
+          <tr><td class="name">goTo</td><td class="type">(date: Date | string | number): <a href="#type-Calendar">Calendar</a></td><td class="desc"><code>date: Date | string | number</code></td><td class="type"><code><a href="#type-Calendar">Calendar</a></code></td><td class="desc">Jump to an anchor date, firing `range:change`.</td></tr>
+          <tr><td class="name">setView</td><td class="type">(view: <a href="#type-CalendarView">CalendarView</a>): <a href="#type-Calendar">Calendar</a></td><td class="desc"><code>view: <a href="#type-CalendarView">CalendarView</a></code></td><td class="type"><code><a href="#type-Calendar">Calendar</a></code></td><td class="desc">Switch the view (`'week'` | `'month'` | `'week-time'` | `'day'`), firing `range:change`.</td></tr>
+          <tr><td class="name">getRange</td><td class="type">(): <a href="#type-CalendarRangeEvent">CalendarRangeEvent</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-CalendarRangeEvent">CalendarRangeEvent</a></code></td><td class="desc">The visible range `{ start, end, view }`, both local midnights, `end` inclusive.</td></tr>
+          <tr><td class="name">refresh</td><td class="type">(): <a href="#type-Calendar">Calendar</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Calendar">Calendar</a></code></td><td class="desc">Recompute and re-render. A grid-bound calendar re-reads its grid; one still on `config.rows` re-reads that array; a routed calendar re-reads nothing.</td></tr>
+          <tr><td class="name">rebind</td><td class="type">(grid: unknown): <a href="#type-Calendar">Calendar</a></td><td class="desc"><code>grid: unknown</code></td><td class="type"><code><a href="#type-Calendar">Calendar</a></code></td><td class="desc">Point this calendar at a replacement grid (BACKLOG-0001595), the one call a page framework makes after its swap destroyed the grid the calendar was bound to. No-op on a calendar not built over a grid, and on binding to the grid it already follows.</td></tr>
+          <tr><td class="name">getState</td><td class="type">(): object</td><td class="desc">&mdash;</td><td class="type"><code>object</code></td><td class="desc">Serialise the arrangement state: `{ version: 1, view, date, firstDay }`.</td></tr>
+          <tr><td class="name">setState</td><td class="type">(snapshot: object): <a href="#type-Calendar">Calendar</a></td><td class="desc"><code>snapshot: object</code></td><td class="type"><code><a href="#type-Calendar">Calendar</a></code></td><td class="desc">Restore a state snapshot from {@link Calendar#getState}, then re-render.</td></tr>
+          <tr><td class="name">on</td><td class="type">(name: <a href="#type-CalendarEventName">CalendarEventName</a>, fn: (event: <a href="#type-CalendarEventPayloads">CalendarEventPayloads</a>[<a href="#type-CalendarEventName">CalendarEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>name: <a href="#type-CalendarEventName">CalendarEventName</a></code><br><code>fn: (event: <a href="#type-CalendarEventPayloads">CalendarEventPayloads</a>[<a href="#type-CalendarEventName">CalendarEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Register an event handler; returns a function that removes it.</td></tr>
+          <tr><td class="name">off</td><td class="type">(name: <a href="#type-CalendarEventName">CalendarEventName</a>, fn: (event: <a href="#type-CalendarEventPayloads">CalendarEventPayloads</a>[<a href="#type-CalendarEventName">CalendarEventName</a>]) =&gt; void): void</td><td class="desc"><code>name: <a href="#type-CalendarEventName">CalendarEventName</a></code><br><code>fn: (event: <a href="#type-CalendarEventPayloads">CalendarEventPayloads</a>[<a href="#type-CalendarEventName">CalendarEventName</a>]) =&gt; void</code></td><td class="type"><code>void</code></td><td class="desc">Remove a handler registered with `on`.</td></tr>
+          <tr><td class="name">readonly</td><td class="type">(scope?: { day?: string; card?: unknown }): boolean</td><td class="desc"><code>scope?: { day?: string; card?: unknown }</code></td><td class="type"><code>boolean</code></td><td class="desc">Whether a scope (the whole calendar, a day, or a card) is readonly.</td></tr>
+          <tr><td class="name">move</td><td class="type">(key: unknown, to: { start?: Date | null; end?: Date | null }, opts?: { origin?: 'user' | 'ai' }): Promise&lt;boolean&gt;</td><td class="desc"><code>key: unknown</code><br><code>to: { start?: Date | null; end?: Date | null }</code><br><code>opts?: { origin?: 'user' | 'ai' }</code></td><td class="type"><code>Promise&lt;boolean&gt;</code></td><td class="desc">Reschedule a card: move it to a new start (shifting the end by the same delta so the duration is kept) or resize it to a new end. Grid-bound, the start/end cells are written through the grid's `edit.setCells`; standalone, the calendar's own row is updated and a host `onCardMove` persists it. Gated by the cancellable `beforeMove` event. Returns a Promise of whether the reschedule stuck.</td></tr>
+          <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Empty the element, remove only what the module added, and drop handlers and caches.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-Calendar-events">Events</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Event</th><th>When</th><th>Payload</th><th>Cancellable</th></tr></thead>
+        <tbody>
+          <tr><td class="name">card:click</td><td class="desc">A card was clicked, or Enter/Space was pressed on a focused card.</td><td class="type"><a href="#type-CalendarPointerEvent">CalendarPointerEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">card:dblclick</td><td class="desc">A card was double-clicked.</td><td class="type"><a href="#type-CalendarPointerEvent">CalendarPointerEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">card:contextmenu</td><td class="desc">A context menu was requested on a card.</td><td class="type"><a href="#type-CalendarPointerEvent">CalendarPointerEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">card:mount</td><td class="desc">A card's element was created and attached; fires once per mount.</td><td class="type"><a href="#type-CalendarMountEvent">CalendarMountEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">range:change</td><td class="desc">The visible range moved via prev/next/today/goTo/setView (not on a data update).</td><td class="type"><a href="#type-CalendarRangeEvent">CalendarRangeEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">beforeMove</td><td class="desc">A card is about to be rescheduled; cancel with `preventDefault(reason?)` or a returned/rejected `false`.</td><td class="type"><a href="#type-CalendarMoveEvent">CalendarMoveEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">card:move</td><td class="desc">A card was rescheduled; carries the old and new start/end.</td><td class="type"><a href="#type-CalendarMoveEvent">CalendarMoveEvent</a></td><td class="desc">no</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-CalendarEventPayloads">CalendarEventPayloads</h4>
+    <p class="section-note">What a handler receives, per calendar event.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">card:click</td><td class="type"><a href="#type-CalendarPointerEvent">CalendarPointerEvent</a></td><td class="desc">The row, key, pointer position and the DOM event.</td></tr>
+          <tr><td class="name">card:dblclick</td><td class="type"><a href="#type-CalendarPointerEvent">CalendarPointerEvent</a></td><td class="desc">The row, key, pointer position and the DOM event.</td></tr>
+          <tr><td class="name">card:contextmenu</td><td class="type"><a href="#type-CalendarPointerEvent">CalendarPointerEvent</a></td><td class="desc">The row, key, pointer position and the DOM event.</td></tr>
+          <tr><td class="name">card:mount</td><td class="type"><a href="#type-CalendarMountEvent">CalendarMountEvent</a></td><td class="desc">The row, key and the mounted element.</td></tr>
+          <tr><td class="name">range:change</td><td class="type"><a href="#type-CalendarRangeEvent">CalendarRangeEvent</a></td><td class="desc">The new range's start, end and view.</td></tr>
+          <tr><td class="name">beforeMove</td><td class="type"><a href="#type-CalendarMoveEvent">CalendarMoveEvent</a></td><td class="desc">The row, key and the from/to positions; veto with `preventDefault(reason?)`.</td></tr>
+          <tr><td class="name">card:move</td><td class="type"><a href="#type-CalendarMoveEvent">CalendarMoveEvent</a></td><td class="desc">The row, key and the old/new start/end after a successful reschedule.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="ref-module-tabs">The tabs module</h3>
     <h4 id="type-TabDescriptor">TabDescriptor</h4>
     <div class="table-wrap">
@@ -20725,7 +21183,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">A unique id; its window has the same id.</td></tr>
-          <tr><td class="name">kind</td><td class="type"><a href="#type-DashboardPanelKind">DashboardPanelKind</a> <small class="literals">'grid' | 'chart' | 'kpi' | 'map' | 'html'</small></td><td class="desc">Which viewer: a grid, a chart, a KPI panel, a map, or static html.</td></tr>
+          <tr><td class="name">kind</td><td class="type"><a href="#type-DashboardPanelKind">DashboardPanelKind</a> <small class="literals">'grid' | 'chart' | 'kpi' | 'calendar' | 'map' | 'html'</small></td><td class="desc">Which viewer: a grid, a chart, a KPI panel, a map, or static html.</td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">The window's title, when its window entry declares none. <small>(optional)</small></td></tr>
           <tr><td class="name">source</td><td class="type">string</td><td class="desc">The source it reads: a key of `sources`, or `grid:&lt;panel id&gt;` to view that grid panel's grid (it narrows when that grid is filtered). Required for `chart` and `map`; an `html` panel reads none. <small>(optional)</small></td></tr>
           <tr><td class="name">binding</td><td class="type">'chart' | 'leaflet' | 'deckgl'</td><td class="desc">For a `map` panel, what draws it: `'chart'` (a map chart such as `markermap` or `choropleth`, the default), `'leaflet'` (`bindLeaflet`) or `'deckgl'` (`bindDeck`), each needing its module on the page. <small>(optional)</small></td></tr>
@@ -20822,6 +21280,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">createChart</td><td class="type">(spec: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>spec: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The charts module's `createChart`, for `chart` panels and map charts. <small>(optional)</small></td></tr>
           <tr><td class="name">createLayout</td><td class="type">(el: HTMLElement, config: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>el: HTMLElement</code><br><code>config: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The layout module's `createLayout`. Without it nothing is built. <small>(optional)</small></td></tr>
           <tr><td class="name">createKPI</td><td class="type">(el: HTMLElement, config: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>el: HTMLElement</code><br><code>config: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The KPI module's `createKPI`, for `kpi` panels. <small>(optional)</small></td></tr>
+          <tr><td class="name">createCalendar</td><td class="type">(el: HTMLElement, config: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>el: HTMLElement</code><br><code>config: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The calendar module's `createCalendar`, for `calendar` panels. <small>(optional)</small></td></tr>
           <tr><td class="name">bindLeaflet</td><td class="type">(grid: <a href="#type-Grid">Grid</a>, options: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>grid: <a href="#type-Grid">Grid</a></code><br><code>options: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The Leaflet module's `bindLeaflet`, for `map` panels with `binding: 'leaflet'`. <small>(optional)</small></td></tr>
           <tr><td class="name">bindDeck</td><td class="type">(grid: <a href="#type-Grid">Grid</a>, options: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>grid: <a href="#type-Grid">Grid</a></code><br><code>options: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The deck.gl module's `bindDeck`, for `map` panels with `binding: 'deckgl'`. <small>(optional)</small></td></tr>
           <tr><td class="name">ai</td><td class="type">((payload: Record&lt;string, unknown&gt;) =&gt; Promise&lt;unknown&gt;) | { ask: (payload: Record&lt;string, unknown&gt;) =&gt; Promise&lt;unknown&gt; }</td><td class="desc"><code>(payload: Record&lt;string, unknown&gt;) =&gt; Promise&lt;unknown&gt;</code></td><td class="type"><code>| { ask: (payload: Record&lt;string, unknown&gt;) =&gt; Promise&lt;unknown&gt; }</code></td><td class="desc">The AI callback `propose()` asks: the same `ask(payload)` `createAI` takes (or `{ ask }`). Without it `propose()` declines by name. <small>(optional)</small></td></tr>
@@ -20835,7 +21294,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">The panel id.</td></tr>
-          <tr><td class="name">kind</td><td class="type"><a href="#type-DashboardPanelKind">DashboardPanelKind</a> <small class="literals">'grid' | 'chart' | 'kpi' | 'map' | 'html'</small></td><td class="desc">Its kind.</td></tr>
+          <tr><td class="name">kind</td><td class="type"><a href="#type-DashboardPanelKind">DashboardPanelKind</a> <small class="literals">'grid' | 'chart' | 'kpi' | 'calendar' | 'map' | 'html'</small></td><td class="desc">Its kind.</td></tr>
           <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The element its viewer was mounted in, inside its window.</td></tr>
           <tr><td class="name">grid</td><td class="type"><a href="#type-Grid">Grid</a> | null</td><td class="desc">The grid it reads (a grid panel's own), or null.</td></tr>
           <tr><td class="name">viewer</td><td class="type">unknown</td><td class="desc">What its factory returned: the grid, chart, KPI panel or binding; null for html.</td></tr>
@@ -20854,7 +21313,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       </table>
     </div>
     <h4 id="type-DashboardView">DashboardView</h4>
-    <p class="section-note">A saved dashboard view: the spec and each grid panel's state.</p>
+    <p class="section-note">A saved dashboard view: the spec, each grid panel's state and each calendar's.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
@@ -20863,6 +21322,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">name</td><td class="type">string</td><td class="desc">Its name.</td></tr>
           <tr><td class="name">spec</td><td class="type"><a href="#type-DashboardSpec">DashboardSpec</a></td><td class="desc">The dashboard spec, placements included.</td></tr>
           <tr><td class="name">grids</td><td class="type">Record&lt;string, <a href="#type-GridState">GridState</a>&gt;</td><td class="desc">Each grid panel's `grid.state.get()`, by panel id.</td></tr>
+          <tr><td class="name">calendars</td><td class="type">Record&lt;string, object&gt;</td><td class="desc">Each calendar panel's `viewer.getState()`, by panel id — a separate slot, per CONTRACTS §10.5.</td></tr>
         </tbody>
       </table>
     </div>
@@ -21707,6 +22167,43 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">columnProperty</td><td class="type">string | undefined</td><td class="desc">The row property that puts a card in a column.</td></tr>
           <tr><td class="name">titleProperty</td><td class="type">string | undefined</td><td class="desc">The row property a card's headline comes from — the shorthand for `card: { title }`, which wins where both are given.</td></tr>
           <tr><td class="name">swimlanes</td><td class="type">boolean | undefined</td><td class="desc">Draw the two-dimensional swimlane layout. The `swimlanes` attribute is a bare boolean; name the lane property through `swimlane-property`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-LatticeCalendarElement">LatticeCalendarElement</h4>
+    <p class="section-note">`&lt;lattice-calendar&gt;`. Grid-bound like the board; give it `rows` to stand alone.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">rows</td><td class="type"><a href="#type-Row">Row</a>[]</td><td class="desc">Rows for a standalone calendar. Set them and the element stops waiting for a grid.</td></tr>
+          <tr><td class="name">card</td><td class="type">unknown</td><td class="desc">The default card template's field mapping — title, subtitle and the rest.</td></tr>
+          <tr><td class="name">header</td><td class="type">unknown</td><td class="desc">The header toolbar sections, or `false` to render none.</td></tr>
+          <tr><td class="name">colorMap</td><td class="type">unknown</td><td class="desc">An optional value→colour map for the `color-property` field.</td></tr>
+          <tr><td class="name">labels</td><td class="type">unknown</td><td class="desc">Host-localised labels.</td></tr>
+          <tr><td class="name">renderCard</td><td class="type">unknown</td><td class="desc">A host card renderer `(row, el)`.</td></tr>
+          <tr><td class="name">rowKey</td><td class="type">string | undefined</td><td class="desc">Which field identifies a card.</td></tr>
+          <tr><td class="name">view</td><td class="type">'week' | 'month' | undefined</td><td class="desc">The view to show: `week` or `month`. The `view` attribute.</td></tr>
+          <tr><td class="name">date</td><td class="type">unknown</td><td class="desc">The anchor date the visible range centres on.</td></tr>
+          <tr><td class="name">startProperty</td><td class="type">string | undefined</td><td class="desc">The field naming a point event's start.</td></tr>
+          <tr><td class="name">endProperty</td><td class="type">string | undefined</td><td class="desc">The optional field naming a span's end.</td></tr>
+          <tr><td class="name">allDayProperty</td><td class="type">string | undefined</td><td class="desc">An optional boolean field marking an all-day event.</td></tr>
+          <tr><td class="name">firstDay</td><td class="type">number | undefined</td><td class="desc">Week-start weekday, 0=Sun…6=Sat.</td></tr>
+          <tr><td class="name">locale</td><td class="type">string | undefined</td><td class="desc">BCP-47 locale.</td></tr>
+          <tr><td class="name">timeZone</td><td class="type">string | undefined</td><td class="desc">IANA time-zone name.</td></tr>
+          <tr><td class="name">colorProperty</td><td class="type">string | undefined</td><td class="desc">The property whose value picks the card's edge colour.</td></tr>
+          <tr><td class="name">eventOrder</td><td class="type">string | undefined</td><td class="desc">Card stacking order within a day.</td></tr>
+          <tr><td class="name">dayMaxEvents</td><td class="type">number | undefined</td><td class="desc">The `+N more` overflow threshold per day.</td></tr>
+          <tr><td class="name">readonly</td><td class="type">unknown</td><td class="desc">Granular readonly (whole calendar, per day, per card).</td></tr>
+          <tr><td class="name">ariaLabel</td><td class="type">string | undefined</td><td class="desc">The calendar's accessible name.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">move</td><td class="type">(key: unknown, to: { start?: Date | null; end?: Date | null }): Promise&lt;boolean&gt;</td><td class="desc"><code>key: unknown</code><br><code>to: { start?: Date | null; end?: Date | null }</code></td><td class="type"><code>Promise&lt;boolean&gt;</code></td><td class="desc">Reschedule a card: move it to a new start (or resize its end), gated by `beforeMove` and announced by `card:move` (`lattice-beforeMove` / `lattice-card-move`). Resolves whether the reschedule stuck.</td></tr>
         </tbody>
       </table>
     </div>
@@ -23034,6 +23531,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">product</td><td class="type">string</td><td class="desc">The product the key was issued for. <small>(optional)</small></td></tr>
           <tr><td class="name">issuedTo</td><td class="type">string</td><td class="desc">Who the key was issued to. <small>(optional)</small></td></tr>
           <tr><td class="name">expires</td><td class="type">string</td><td class="desc">The ISO date the licence lapses on, judged in UTC so a licence expiring `2027-01-01` is good throughout that day. A perpetual key has none. <small>(optional)</small></td></tr>
+          <tr><td class="name">terms</td><td class="type">'commercial' | 'non-commercial'</td><td class="desc">The licence-terms marker: `'commercial'` (the default, and the reading of every key minted before the marker existed) or `'non-commercial'` for the free tier. Reported by the verifier, never enforced by it — the terms are enforced by the licence terms, not by the software. <small>(optional)</small></td></tr>
           <tr><td class="name">reason</td><td class="type">string</td><td class="desc">Why the verdict came out as it did: `missing`, `malformed`, `prefix`, `product`, `expired`, `domain` or `signature` for a refusal, and `unverified` alongside a pass on a host with no Ed25519 to check with, where only the signature's shape could be examined. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -23748,6 +24246,26 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h4 id="type-BooleanDisplay">BooleanDisplay</h4>
     <p class="section-note">How a boolean format renders its two states: as text, a glyph pair, or an icon pair.</p>
     <p class="type-def"><code>type BooleanDisplay = 'checkbox' | 'switch' | 'text' | 'icon'</code></p>
+    <h4 id="type-CalendarEventName">CalendarEventName</h4>
+    <p class="section-note">The events a calendar emits.</p>
+    <p class="type-def"><code>type CalendarEventName = 'card:click' | 'card:dblclick' | 'card:contextmenu' | 'card:mount' | 'range:change' | 'beforeMove' | 'card:move'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/calendar</code>.</small></p>
+    <h4 id="type-CalendarFieldMap">CalendarFieldMap</h4>
+    <p class="section-note">A card field mapping: a property path, or a function reading the row.</p>
+    <p class="type-def"><code>type CalendarFieldMap = string | ((row: <a href="#type-CalendarRow">CalendarRow</a>) =&gt; unknown)</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/calendar</code>.</small></p>
+    <h4 id="type-CalendarReadonly">CalendarReadonly</h4>
+    <p class="section-note">Granular readonly: the whole calendar, or selectively by day key and card key.</p>
+    <p class="type-def"><code>type CalendarReadonly = boolean | { board?: boolean; days?: Record&lt;string, boolean&gt;; cards?: Record&lt;string | number, boolean&gt;; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/calendar</code>.</small></p>
+    <h4 id="type-CalendarRow">CalendarRow</h4>
+    <p class="section-note">A row backing a calendar card: any object. Its date comes from `startProperty` and its identity from `rowKey`.</p>
+    <p class="type-def"><code>type CalendarRow = Record&lt;string, unknown&gt;</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/calendar</code>.</small></p>
+    <h4 id="type-CalendarView">CalendarView</h4>
+    <p class="section-note">A calendar view name: a week day-grid, a month grid, a week time-grid, or a single-day time-grid.</p>
+    <p class="type-def"><code>type CalendarView = 'week' | 'month' | 'week-time' | 'day'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/calendar</code>.</small></p>
     <h4 id="type-CamelJoin">CamelJoin</h4>
     <p class="section-note">An event name as the callback prop a Svelte 5 component takes: `'cell:changed'` becomes `'CellChanged'`, so the prop is `onCellChanged`. Svelte 5 removed component events — `createEventDispatcher` is deprecated and `on:` no longer applies to a component — so an instance event reaches a host as a callback prop. The all-lowercase spelling (`oncellchanged`) is accepted at runtime too, for hosts that prefer Svelte's DOM attribute style; only the canonical one is typed, because a union of both would make every misspelling type-check.</p>
     <p class="type-def"><code>type CamelJoin&lt;E extends string&gt; = E extends `${infer Head}:${infer Tail}` ? `${Capitalize&lt;Head&gt;}${<a href="#type-CamelJoin">CamelJoin</a>&lt;Tail&gt;}` : Capitalize&lt;E&gt;</code></p>
@@ -23844,7 +24362,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="type-def"><code>type CurrencyDisplay = 'symbol' | 'code' | 'name' | 'narrowSymbol'</code></p>
     <h4 id="type-DashboardPanelKind">DashboardPanelKind</h4>
     <p class="section-note">What a panel shows.</p>
-    <p class="type-def"><code>type DashboardPanelKind = 'grid' | 'chart' | 'kpi' | 'map' | 'html'</code></p>
+    <p class="type-def"><code>type DashboardPanelKind = 'grid' | 'chart' | 'kpi' | 'calendar' | 'map' | 'html'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/dashboard</code>.</small></p>
     <h4 id="type-DashboardSource">DashboardSource</h4>
     <p class="section-note">A named source.</p>
@@ -24524,7 +25042,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="type-def"><code>type ViewConflictPolicy = 'rename' | 'overwrite' | 'skip'</code></p>
     <h4 id="type-ViewerKind">ViewerKind</h4>
     <p class="section-note">Every viewer a framework adapter's generic `createLatticeViewer`/`bindViewer` helper can bind to. The widest set across React, Vue and Svelte; a helper that supports fewer of them still takes this type; the ones it cannot actually build fail at the call, not at the type.</p>
-    <p class="type-def"><code>type ViewerKind = 'kpi' | 'kanban' | 'tabs' | 'chart' | 'gantt' | 'layout' | 'router'</code></p>
+    <p class="type-def"><code>type ViewerKind = 'kpi' | 'kanban' | 'calendar' | 'tabs' | 'chart' | 'gantt' | 'layout' | 'router'</code></p>
     <h4 id="type-ViewerOrigin">ViewerOrigin</h4>
     <p class="section-note">Who asked for a viewer-chrome change — a tab switch, a layout window moved or closed — narrower than {@link EventOrigin} because these are always either a direct interaction or an API call, never the grid's own startup or an AI write.</p>
     <p class="type-def"><code>type ViewerOrigin = 'api' | 'user'</code></p>
@@ -24540,7 +25058,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.82.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.83.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

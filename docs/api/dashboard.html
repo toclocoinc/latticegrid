@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Dashboard API Reference — Lattice Grid 1.82.0</title>
+<title>Dashboard API Reference — Lattice Grid 1.83.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -405,6 +405,7 @@
         <a href="list.html">The list module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
+        <a href="calendar.html">The calendar viewer</a>
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
         <a href="ai.html">The AI narrative and insights layer</a>
@@ -429,7 +430,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 20 pages</a></span>
+      <span class="chip"><a href="index.html">All 21 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -468,12 +469,13 @@ const dashboard = createDashboard(document.querySelector('#dash'), {
     <p><strong>Refused by name.</strong> Every refusal is a line in <code>dashboard.problems()</code> (<code>{ id, path, message }</code>) and a console warning under a catalogued id: <code>dashboard:panel:&lt;id&gt;</code> for a panel that was not built, or was built but its viewer refused one of its options (heard from the viewer's own <code>[lattice]</code> warning, which quotes the option); <code>dashboard:link:&lt;from&gt;-&gt;&lt;to&gt;</code>; <code>dashboard:spec:&lt;path&gt;</code> for any other problem the validator finds; and <code>dashboard:spec</code>, <code>dashboard:el</code>, <code>dashboard:layout</code> when nothing could be built. <code>validateDashboardSpec(spec)</code> runs the same checks without building anything. <code>destroy()</code> removes the links, every viewer, grid and router attachment the dashboard made, and the layout.</p>
     <div class="example">
       <p class="example__label">Five panels from one spec, a chart narrowing with its grid, spec() rebuilding the same dashboard, and destroy</p>
-      <pre data-run="js" data-expect="5 | 0 | north | true | 0" data-covers="export:createDashboard config:DashboardOptions.createGrid config:DashboardOptions.createHeadlessGrid config:DashboardOptions.createLayout config:DashboardOptions.createChart config:DashboardOptions.createKPI method:dashboard.panels method:dashboard.problems method:dashboard.panel method:dashboard.spec method:dashboard.apply method:dashboard.destroy"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+      <pre data-run="js" data-expect="6 | 0 | north | true | 0" data-covers="export:createDashboard config:DashboardOptions.createGrid config:DashboardOptions.createHeadlessGrid config:DashboardOptions.createLayout config:DashboardOptions.createChart config:DashboardOptions.createKPI config:DashboardOptions.createCalendar method:dashboard.panels method:dashboard.problems method:dashboard.panel method:dashboard.spec method:dashboard.apply method:dashboard.destroy"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
 const { createGrid, createHeadlessGrid } = await import('../packages/dom/src/index.js');
 const { createLayout } = await import('../packages/modules/layout/index.js');
 const { createChart } = await import('../packages/modules/charts/index.js');
 await import('../packages/modules/chart-markermap/index.js');
 const { createKPI } = await import('../packages/modules/kpi/index.js');
+const { createCalendar } = await import('../packages/modules/calendar/index.js');
 const { createDashboard } = await import('../packages/modules/dashboard/index.js');
 
 const { document, root } = createTestDom({ width: 1200, height: 800 });
@@ -495,10 +497,11 @@ const spec = {
     { id: 'byRegion', kind: 'chart', source: 'grid:table', options: { type: 'bar', x: 'region', y: 'sales' } },
     { id: 'total', kind: 'kpi', source: 'grid:table', options: { tiles: [{ id: 'sum', field: 'sales', aggregation: 'sum' }] } },
     { id: 'where', kind: 'map', source: 'sales', options: { type: 'markermap', lon: 'lon', lat: 'lat' } },
+    { id: 'when', kind: 'calendar', source: 'sales', options: { view: 'week' } },
     { id: 'note', kind: 'html', options: { text: 'Provisional figures.' } },
   ],
 };
-const dashboard = createDashboard(el, spec, { createGrid, createHeadlessGrid, createLayout, createChart, createKPI });
+const dashboard = createDashboard(el, spec, { createGrid, createHeadlessGrid, createLayout, createChart, createKPI, createCalendar });
 const seen = [dashboard.panels().length, dashboard.problems().length];
 
 // The chart views the table's grid, so filtering the table narrows it.
@@ -660,7 +663,7 @@ return seen.join(' | ');                              // id,region,sales | 2 | 1
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">A unique id; its window has the same id.</td></tr>
-          <tr><td class="name">kind</td><td class="type"><a href="types.html#type-DashboardPanelKind">DashboardPanelKind</a> <small class="literals">'grid' | 'chart' | 'kpi' | 'map' | 'html'</small></td><td class="desc">Which viewer: a grid, a chart, a KPI panel, a map, or static html.</td></tr>
+          <tr><td class="name">kind</td><td class="type"><a href="types.html#type-DashboardPanelKind">DashboardPanelKind</a> <small class="literals">'grid' | 'chart' | 'kpi' | 'calendar' | 'map' | 'html'</small></td><td class="desc">Which viewer: a grid, a chart, a KPI panel, a map, or static html.</td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">The window's title, when its window entry declares none. <small>(optional)</small></td></tr>
           <tr><td class="name">source</td><td class="type">string</td><td class="desc">The source it reads: a key of `sources`, or `grid:&lt;panel id&gt;` to view that grid panel's grid (it narrows when that grid is filtered). Required for `chart` and `map`; an `html` panel reads none. <small>(optional)</small></td></tr>
           <tr><td class="name">binding</td><td class="type">'chart' | 'leaflet' | 'deckgl'</td><td class="desc">For a `map` panel, what draws it: `'chart'` (a map chart such as `markermap` or `choropleth`, the default), `'leaflet'` (`bindLeaflet`) or `'deckgl'` (`bindDeck`), each needing its module on the page. <small>(optional)</small></td></tr>
@@ -757,6 +760,7 @@ return seen.join(' | ');                              // id,region,sales | 2 | 1
           <tr><td class="name">createChart</td><td class="type">(spec: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>spec: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The charts module's `createChart`, for `chart` panels and map charts. <small>(optional)</small></td></tr>
           <tr><td class="name">createLayout</td><td class="type">(el: HTMLElement, config: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>el: HTMLElement</code><br><code>config: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The layout module's `createLayout`. Without it nothing is built. <small>(optional)</small></td></tr>
           <tr><td class="name">createKPI</td><td class="type">(el: HTMLElement, config: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>el: HTMLElement</code><br><code>config: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The KPI module's `createKPI`, for `kpi` panels. <small>(optional)</small></td></tr>
+          <tr><td class="name">createCalendar</td><td class="type">(el: HTMLElement, config: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>el: HTMLElement</code><br><code>config: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The calendar module's `createCalendar`, for `calendar` panels. <small>(optional)</small></td></tr>
           <tr><td class="name">bindLeaflet</td><td class="type">(grid: <a href="grid.html#type-Grid">Grid</a>, options: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>grid: <a href="grid.html#type-Grid">Grid</a></code><br><code>options: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The Leaflet module's `bindLeaflet`, for `map` panels with `binding: 'leaflet'`. <small>(optional)</small></td></tr>
           <tr><td class="name">bindDeck</td><td class="type">(grid: <a href="grid.html#type-Grid">Grid</a>, options: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>grid: <a href="grid.html#type-Grid">Grid</a></code><br><code>options: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The deck.gl module's `bindDeck`, for `map` panels with `binding: 'deckgl'`. <small>(optional)</small></td></tr>
           <tr><td class="name">ai</td><td class="type">((payload: Record&lt;string, unknown&gt;) =&gt; Promise&lt;unknown&gt;) | { ask: (payload: Record&lt;string, unknown&gt;) =&gt; Promise&lt;unknown&gt; }</td><td class="desc"><code>(payload: Record&lt;string, unknown&gt;) =&gt; Promise&lt;unknown&gt;</code></td><td class="type"><code>| { ask: (payload: Record&lt;string, unknown&gt;) =&gt; Promise&lt;unknown&gt; }</code></td><td class="desc">The AI callback `propose()` asks: the same `ask(payload)` `createAI` takes (or `{ ask }`). Without it `propose()` declines by name. <small>(optional)</small></td></tr>
@@ -770,7 +774,7 @@ return seen.join(' | ');                              // id,region,sales | 2 | 1
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">The panel id.</td></tr>
-          <tr><td class="name">kind</td><td class="type"><a href="types.html#type-DashboardPanelKind">DashboardPanelKind</a> <small class="literals">'grid' | 'chart' | 'kpi' | 'map' | 'html'</small></td><td class="desc">Its kind.</td></tr>
+          <tr><td class="name">kind</td><td class="type"><a href="types.html#type-DashboardPanelKind">DashboardPanelKind</a> <small class="literals">'grid' | 'chart' | 'kpi' | 'calendar' | 'map' | 'html'</small></td><td class="desc">Its kind.</td></tr>
           <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The element its viewer was mounted in, inside its window.</td></tr>
           <tr><td class="name">grid</td><td class="type"><a href="grid.html#type-Grid">Grid</a> | null</td><td class="desc">The grid it reads (a grid panel's own), or null.</td></tr>
           <tr><td class="name">viewer</td><td class="type">unknown</td><td class="desc">What its factory returned: the grid, chart, KPI panel or binding; null for html.</td></tr>
@@ -789,7 +793,7 @@ return seen.join(' | ');                              // id,region,sales | 2 | 1
       </table>
     </div>
     <h4 id="type-DashboardView">DashboardView</h4>
-    <p class="section-note">A saved dashboard view: the spec and each grid panel's state.</p>
+    <p class="section-note">A saved dashboard view: the spec, each grid panel's state and each calendar's.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
@@ -798,6 +802,7 @@ return seen.join(' | ');                              // id,region,sales | 2 | 1
           <tr><td class="name">name</td><td class="type">string</td><td class="desc">Its name.</td></tr>
           <tr><td class="name">spec</td><td class="type"><a href="#type-DashboardSpec">DashboardSpec</a></td><td class="desc">The dashboard spec, placements included.</td></tr>
           <tr><td class="name">grids</td><td class="type">Record&lt;string, <a href="grid.html#type-GridState">GridState</a>&gt;</td><td class="desc">Each grid panel's `grid.state.get()`, by panel id.</td></tr>
+          <tr><td class="name">calendars</td><td class="type">Record&lt;string, object&gt;</td><td class="desc">Each calendar panel's `viewer.getState()`, by panel id — a separate slot, per CONTRACTS §10.5.</td></tr>
         </tbody>
       </table>
     </div>

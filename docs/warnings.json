@@ -1,5 +1,5 @@
 {
-  "version": "1.82.0",
+  "version": "1.83.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 580,
+  "count": 587,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -6103,6 +6103,83 @@
       "fix": "Point the panel at the replacement grid with kpi.rebind(grid), or declare data-lattice-bind=\"<grid id>\" on its container so the htmx module re-binds it automatically after a swap.",
       "snippet": "kpi.rebind(newGrid);",
       "docs": "api/kpi.html#kpi"
+    },
+    {
+      "id": "calendar:unparsable-start",
+      "module": "calendar",
+      "severity": "warn",
+      "since": "1.83.0",
+      "message": "calendar: a row's \"{startProperty}\" is empty or unparsable, so it is not shown; count it in `unscheduled`.",
+      "meaning": "A row's start field (startProperty) could not be read as a date — it was empty, or not one of the accepted shapes (a Date, an ISO string, or a 'YYYY-MM-DD HH:mm' local string). The row is skipped and counted in the calendar's `unscheduled` list rather than thrown.",
+      "fix": "Give the row a readable start, or read the unscheduled rows back via the calendar's `unscheduled` property to reconcile them.",
+      "snippet": "calendar.unscheduled.forEach((row) => reconcile(row));",
+      "docs": "api/calendar.html#calendar"
+    },
+    {
+      "id": "calendar:apply-gridbound",
+      "module": "calendar",
+      "severity": "warn",
+      "since": "1.83.0",
+      "message": "rows.apply on a grid-bound calendar is ignored; route to the bound grid instead.",
+      "meaning": "apply() was called on a calendar created with a grid. A grid-bound calendar takes its rows from that grid, so accepting a diff here would give it a second source of truth; the diff was dropped and the calendar still shows the grid's rows.",
+      "fix": "Apply the diff to the grid and the calendar follows it, or create the calendar without grid if it is to be driven directly.",
+      "snippet": "grid.rows.apply({ add, update, remove });   // the calendar follows",
+      "docs": "api/calendar.html#calendar"
+    },
+    {
+      "id": "calendar:setRows-gridbound",
+      "module": "calendar",
+      "severity": "warn",
+      "since": "1.83.0",
+      "message": "setRows on a grid-bound calendar is ignored; the rows come from the bound grid.",
+      "meaning": "setRows() was called on a calendar created with a grid. The grid owns the rows, so replacing them on the calendar is refused; the calendar keeps following the grid.",
+      "fix": "Set the rows on the bound grid instead, or create the calendar without grid.",
+      "snippet": "grid.setRows(rows);   // the calendar follows",
+      "docs": "api/calendar.html#calendar"
+    },
+    {
+      "id": "calendar:event:*",
+      "module": "calendar",
+      "severity": "warn",
+      "since": "1.83.0",
+      "message": "\"{name}\" is not a calendar event; expected one of {events}.",
+      "meaning": "on() was called with a name the calendar never raises — a binding that can never fire, which is otherwise a silent no-op.",
+      "fix": "Use one of the calendar's events: card:click, card:dblclick, card:contextmenu, card:mount, range:change, beforeMove or card:move.",
+      "snippet": "calendar.on('card:click', (event) => { ... });",
+      "docs": "api/calendar.html#calendar"
+    },
+    {
+      "id": "calendar:state-version",
+      "module": "calendar",
+      "severity": "warn",
+      "since": "1.83.0",
+      "message": "calendar: restoring state version {version} into a version-2 calendar; unknown fields are skipped.",
+      "meaning": "setState() was handed a snapshot whose version field is not 2 — a snapshot written by a newer build. It is accepted best-effort: recognised fields are restored and unknown ones are skipped, rather than refused.",
+      "fix": "Read the snapshot with the build that wrote it, or accept the best-effort restore and re-apply any fields it skipped.",
+      "snippet": "calendar.setState(snapshot);   // version 2 fields restored, the rest ignored",
+      "docs": "api/calendar.html#calendar"
+    },
+    {
+      "id": "calendar:writeback-noop",
+      "module": "calendar",
+      "severity": "warn",
+      "since": "1.83.0",
+      "message": "a card reschedule did not persist through the bound grid: writing \"{startProperty}\" was refused (a read-only, non-editable, permission-blocked, unresolvable or invalid column), so the card stayed where it was.",
+      "meaning": "A move/resize was written through the bound grid's edit.setCells, but the grid refused every cell — the start column (or end column) is read-only, not editable, permission-blocked, unresolvable, or its validation rejected the value. The calendar reverted the card so it never shows a half-applied move.",
+      "fix": "Make the start (and end) columns editable and permitted, or correct the value so it passes the column's validation; the card stays where it was until the write can land.",
+      "snippet": "columns: [{ id: 'start', field: 'start', edit: true, validation: { … } }]",
+      "docs": "api/calendar.html#calendar"
+    },
+    {
+      "id": "htmx:history-snapshot-too-large",
+      "module": "htmx",
+      "severity": "warn",
+      "since": "1.83.0",
+      "message": "htmx could not store this page's history snapshot (its sessionStorage quota was exceeded), so browser Back will re-fetch the page instead of restoring the grid; scope the hx-history-elt subtree smaller, or lower htmx's historyCacheSize.",
+      "meaning": "Even after the htmx module shrank the snapshot to the original table markup, htmx hit its sessionStorage quota (~5 MB) and dropped the history entry, so browser Back re-fetches the page rather than restoring the grid's sort, filter and scroll position.",
+      "fix": "Scope the hx-history-elt subtree to just the table (not the whole page), or cap htmx's historyCacheSize so fewer snapshots are kept.",
+      "snippet": "<div hx-history-elt>\n  <table data-lattice-grid>…</table>\n</div>",
+      "docs": "api-detail.html#htmx-guide-history"
     }
   ]
 }

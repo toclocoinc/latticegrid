@@ -1,6 +1,7 @@
 import * as i0 from '@angular/core';
 import { InjectionToken, EnvironmentProviders, Signal, OnChanges, OnDestroy, ElementRef, EventEmitter, NgZone, TemplateRef, QueryList, Provider } from '@angular/core';
 import { createGrid, Grid, GridConfig, SortEntry, FilterSet, RowChange, GridEvent } from '@toclocoinc/lattice-grid';
+import { createCalendar } from '@toclocoinc/lattice-grid/modules/calendar';
 import { createChart } from '@toclocoinc/lattice-grid/modules/charts';
 import { createDataRouter } from '@toclocoinc/lattice-grid/modules/data-router';
 import { createGantt } from '@toclocoinc/lattice-grid/modules/gantt';
@@ -42,6 +43,8 @@ type KPIFactory = typeof createKPI;
 type ChartFactory = typeof createChart;
 /** The board factory, from `@toclocoinc/lattice-grid/modules/kanban`. */
 type KanbanFactory = typeof createKanban;
+/** The calendar factory, from `@toclocoinc/lattice-grid/modules/calendar`. */
+type CalendarFactory = typeof createCalendar;
 /** The plan factory, from `@toclocoinc/lattice-grid/modules/gantt`. */
 type GanttFactory = typeof createGantt;
 /** The layout factory, from `@toclocoinc/lattice-grid/modules/layout`. */
@@ -69,6 +72,9 @@ interface Chart extends ReturnType<ChartFactory> {
 /** The live board. */
 interface Kanban extends ReturnType<KanbanFactory> {
 }
+/** The live calendar. */
+interface Calendar extends ReturnType<CalendarFactory> {
+}
 /** The live plan. */
 interface Gantt extends ReturnType<GanttFactory> {
 }
@@ -94,6 +100,9 @@ interface ChartConfig extends ChartFactorySpec {
 }
 /** The board's configuration object. */
 interface KanbanConfig extends NonNullable<Parameters<KanbanFactory>[1]> {
+}
+/** The calendar's configuration object. */
+interface CalendarConfig extends NonNullable<Parameters<CalendarFactory>[1]> {
 }
 /** What `createGantt` takes, less the keys this package supplies. */
 type GanttFactoryOptions = Omit<NonNullable<Parameters<GanttFactory>[0]>, 'element' | 'grid'>;
@@ -128,6 +137,8 @@ interface LatticeFactories {
     createChart?: ChartFactory;
     /** `createKanban`, for `<lattice-kanban>`. */
     createKanban?: KanbanFactory;
+    /** `createCalendar`, for `<lattice-calendar>`. */
+    createCalendar?: CalendarFactory;
     /** `createGantt`, for `<lattice-gantt>`. */
     createGantt?: GanttFactory;
     /** `createLayout`, for `<lattice-layout>`. */
@@ -1078,6 +1089,73 @@ declare class LatticeKanbanComponent<TRow = unknown> extends LatticeViewerBase<K
 }
 
 /**
+ * The calendar, as an Angular component.
+ *
+ * Grid-bound like the board: with no `[grid]` it takes the published one. Its
+ * rows, view and date are all live inputs — a changed value reaches the
+ * calendar that is already on screen, with its anchor date and any open
+ * popover intact.
+ */
+
+declare class LatticeCalendarComponent<TRow = unknown> extends LatticeViewerBase<Calendar> {
+    /** Which viewer's tables drive this component. */
+    protected readonly viewer = "calendar";
+    /** The element name, for anything this component has to report. */
+    protected readonly label = "lattice-calendar";
+    /** The factories the application provided. */
+    private readonly factories;
+    /** The calendar's configuration: its rows, view, date and the 1592 keys. */
+    config?: CalendarConfig;
+    /** The cards. A live input. */
+    rows?: readonly TRow[];
+    /** The view to show (`'week'` | `'month'`). A live input. */
+    view?: 'week' | 'month';
+    /** The anchor date the visible range centres on. A live input. */
+    date?: Date | string | number;
+    /** The viewer's `card:click` event. */
+    readonly cardClick: EventEmitter<any>;
+    /** The viewer's `card:dblclick` event. */
+    readonly cardDblclick: EventEmitter<any>;
+    /** The viewer's `card:contextmenu` event. */
+    readonly cardContextmenu: EventEmitter<any>;
+    /** The viewer's `card:mount` event. */
+    readonly cardMount: EventEmitter<any>;
+    /** The viewer's `range:change` event. */
+    readonly rangeChange: EventEmitter<any>;
+    /** The viewer's `beforeMove` event — cancel with `preventDefault(reason?)`. */
+    readonly beforeMove: EventEmitter<any>;
+    /** The viewer's `card:move` event. */
+    readonly cardMove: EventEmitter<any>;
+    /**
+     * The live inputs, by the names the viewer tables use.
+     * @returns the live props that are set
+     */
+    protected liveProps(): Props;
+    /**
+     * Reschedule a card through the live calendar (BACKLOG-0001603): move it to a
+     * new start (or resize its end), gated by `beforeMove` and announced by
+     * `card:move`. The same imperative surface the React ref, Vue expose and
+     * Svelte export reach through the instance.
+     * @param key the card key
+     * @param to the target values; omit a field to leave it unchanged
+     * @returns a Promise of whether the reschedule stuck
+     */
+    move(key: unknown, to: {
+        start?: Date | null;
+        end?: Date | null;
+    }): Promise<boolean>;
+    /**
+     * Build the calendar.
+     * @param element the host element
+     * @param config the assembled configuration
+     * @returns the calendar
+     */
+    protected mount(element: HTMLElement, config: Props): Calendar;
+    static ɵfac: i0.ɵɵFactoryDeclaration<LatticeCalendarComponent<any>, never>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeCalendarComponent<any>, "lattice-calendar", never, { "config": { "alias": "config"; "required": false; }; "rows": { "alias": "rows"; "required": false; }; "view": { "alias": "view"; "required": false; }; "date": { "alias": "date"; "required": false; }; }, { "cardClick": "card-click"; "cardDblclick": "card-dblclick"; "cardContextmenu": "card-contextmenu"; "cardMount": "card-mount"; "rangeChange": "range-change"; "beforeMove": "beforeMove"; "cardMove": "card-move"; }, never, never, true, never>;
+}
+
+/**
  * The plan, as an Angular component.
  *
  * `[tasks]` and `[dependencies]` are live inputs: a new array reaches the plan
@@ -1376,5 +1454,5 @@ declare function provideLatticeRouter(options?: DataRouterOptions): Provider[];
  */
 declare function eventProp(event: string): string;
 
-export { DEFAULT_GRID_NAME, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeChartComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, eventProp, provideLattice, provideLatticeRouter, requireFactory };
-export type { Chart, ChartConfig, ChartFactory, DataRouter, DataRouterFactory, DataRouterOptions, Gantt, GanttConfig, GanttFactory, GridFactory, KPI, KPIConfig, KPIFactory, Kanban, KanbanConfig, KanbanFactory, LatticeFactories, LatticeGridConfig, LatticePredicates, LatticeQuickFilter, LatticeRoute, LatticeRouteOptions, LatticeRowChange, LatticeViewerEvent, Layout, LayoutConfig, LayoutFactory, Tabs, TabsConfig, TabsFactory };
+export { DEFAULT_GRID_NAME, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, eventProp, provideLattice, provideLatticeRouter, requireFactory };
+export type { Calendar, CalendarConfig, CalendarFactory, Chart, ChartConfig, ChartFactory, DataRouter, DataRouterFactory, DataRouterOptions, Gantt, GanttConfig, GanttFactory, GridFactory, KPI, KPIConfig, KPIFactory, Kanban, KanbanConfig, KanbanFactory, LatticeFactories, LatticeGridConfig, LatticePredicates, LatticeQuickFilter, LatticeRoute, LatticeRouteOptions, LatticeRowChange, LatticeViewerEvent, Layout, LayoutConfig, LayoutFactory, Tabs, TabsConfig, TabsFactory };

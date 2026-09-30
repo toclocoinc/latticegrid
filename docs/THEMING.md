@@ -339,6 +339,26 @@ These 10 also have no declared default, but unlike the ones above, the grid’s 
 | `--lattice-status-height` | `0px` | the status bar’s measured height | `packages/dom/src/createGrid.js` |
 | `--lattice-vscroll-gutter` | `0px` | reserved gutter width for a custom vertical scrollbar | `packages/dom/src/renderer/renderer.js` |
 
+### Calendar viewer tokens (module-owned, fallback-only)
+
+The calendar module (`modules/calendar`, BACKLOG-0001592, time grid BACKLOG-0001593) reads these names only from its own injected stylesheet — they are never declared in the theme CSS above, so they are not part of the machine-checked public-token list and a preset sets them only for closer fidelity. Every default derives from an existing grid token or a literal, and every one is **MAY**: `checkPresetCompleteness` never requires a preset edit for them.
+
+| Token | Default (the fallback) | Affects |
+|---|---|---|
+| `--lattice-calendar-cell-min-height` | `120px` | a day cell's minimum height (cells grow with their cards) |
+| `--lattice-calendar-header-bg` | `var(--lattice-header-bg, var(--lattice-background))` | the header toolbar background |
+| `--lattice-calendar-header-fg` | `var(--lattice-foreground)` | the header toolbar text |
+| `--lattice-calendar-today-bg` | `var(--lattice-selected-background, var(--lattice-range-background))` | today's cell background |
+| `--lattice-calendar-dim-fg` | `var(--lattice-foreground-muted)` | dimmed leading/trailing days and the card time |
+| `--lattice-calendar-card-radius` | `var(--lattice-radius-sm)` | a card's corner radius |
+| `--lattice-calendar-accent` | `var(--lattice-accent)` | the card edge and the active header state colour |
+| `--lattice-calendar-axis-width` | `56px` | the hour axis and header corner width |
+| `--lattice-calendar-slot-height` | `48px` | the height of one time-grid slot |
+| `--lattice-calendar-now-color` | `var(--lattice-calendar-accent, var(--lattice-accent))` | the now-indicator line |
+| `--lattice-calendar-business-bg` | `var(--lattice-background-subtle)` | the business-hours shading |
+| `--lattice-calendar-span-bg` | `var(--lattice-accent-soft)` | the multi-day span bar background |
+| `--lattice-calendar-all-day-min-height` | `20px` | an all-day row cell's minimum height |
+
 ## Internal, off-contract
 
 ### `--lat-*` internal computed aliases

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.82.0, react module type declarations
+ * Lattice Grid 1.83.0, react module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -193,6 +193,23 @@ export type LatticeKanbanProps<Row = unknown> =
     error?: string | null;
   };
 
+/** The calendar's React props. */
+export type LatticeCalendarProps<Row = unknown> =
+  Record<string, unknown> & LatticeViewerCommonProps & {
+    rows?: Row[];
+    view?: 'week' | 'month';
+    date?: Date | string | number;
+    onCardClick?: (payload: unknown) => void;
+    onCardDblClick?: (payload: unknown) => void;
+    onCardContextmenu?: (payload: unknown) => void;
+    onCardMount?: (payload: unknown) => void;
+    onRangeChange?: (payload: unknown) => void;
+    /** A card is about to be rescheduled; call `payload.preventDefault(reason?)` to veto. */
+    onBeforeMove?: (payload: unknown) => void;
+    /** A card was rescheduled; `payload` carries the old and new start/end. */
+    onCardMove?: (payload: unknown) => void;
+  };
+
 /** The Gantt's React props. */
 export type LatticeGanttProps = Record<string, unknown> & LatticeViewerCommonProps & {
   tasks?: unknown[];
@@ -266,6 +283,11 @@ export function createLatticeKanban<Row = unknown>(deps: {
   React: unknown; createKanban: (el: unknown, config: Record<string, unknown>) => unknown;
 }): (props: LatticeKanbanProps<Row> & { ref?: unknown }) => unknown;
 
+/** The calendar as a React component. Grid-bound through context by default. */
+export function createLatticeCalendar<Row = unknown>(deps: {
+  React: unknown; createCalendar: (el: unknown, config: Record<string, unknown>) => unknown;
+}): (props: LatticeCalendarProps<Row> & { ref?: unknown }) => unknown;
+
 /** The Gantt as a React component. */
 export function createLatticeGantt(deps: {
   React: unknown; createGantt: (opts: Record<string, unknown>) => unknown;
@@ -324,6 +346,7 @@ export function createLatticeReact(deps: {
   createKPI?: (el: unknown, config: Record<string, unknown>) => unknown;
   createChart?: (opts: Record<string, unknown>) => unknown;
   createKanban?: (el: unknown, config: Record<string, unknown>) => unknown;
+  createCalendar?: (el: unknown, config: Record<string, unknown>) => unknown;
   createGantt?: (opts: Record<string, unknown>) => unknown;
   createLayout?: (el: unknown, config: Record<string, unknown>) => unknown;
   createTabs?: (el: unknown, config: Record<string, unknown>) => unknown;

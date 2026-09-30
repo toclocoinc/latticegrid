@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.82.0</title>
+<title>Types API Reference — Lattice Grid 1.83.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -403,6 +403,7 @@
         <a href="list.html">The list module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
+        <a href="calendar.html">The calendar viewer</a>
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
         <a href="dashboard.html">Dashboard composition</a>
@@ -427,7 +428,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 20 pages</a></span>
+      <span class="chip"><a href="index.html">All 21 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -1691,6 +1692,7 @@
           <tr><td class="name">product</td><td class="type">string</td><td class="desc">The product the key was issued for. <small>(optional)</small></td></tr>
           <tr><td class="name">issuedTo</td><td class="type">string</td><td class="desc">Who the key was issued to. <small>(optional)</small></td></tr>
           <tr><td class="name">expires</td><td class="type">string</td><td class="desc">The ISO date the licence lapses on, judged in UTC so a licence expiring `2027-01-01` is good throughout that day. A perpetual key has none. <small>(optional)</small></td></tr>
+          <tr><td class="name">terms</td><td class="type">'commercial' | 'non-commercial'</td><td class="desc">The licence-terms marker: `'commercial'` (the default, and the reading of every key minted before the marker existed) or `'non-commercial'` for the free tier. Reported by the verifier, never enforced by it — the terms are enforced by the licence terms, not by the software. <small>(optional)</small></td></tr>
           <tr><td class="name">reason</td><td class="type">string</td><td class="desc">Why the verdict came out as it did: `missing`, `malformed`, `prefix`, `product`, `expired`, `domain` or `signature` for a refusal, and `unverified` alongside a pass on a host with no Ed25519 to check with, where only the signature's shape could be examined. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -2405,6 +2407,26 @@
     <h4 id="type-BooleanDisplay">BooleanDisplay</h4>
     <p class="section-note">How a boolean format renders its two states: as text, a glyph pair, or an icon pair.</p>
     <p class="type-def"><code>type BooleanDisplay = 'checkbox' | 'switch' | 'text' | 'icon'</code></p>
+    <h4 id="type-CalendarEventName">CalendarEventName</h4>
+    <p class="section-note">The events a calendar emits.</p>
+    <p class="type-def"><code>type CalendarEventName = 'card:click' | 'card:dblclick' | 'card:contextmenu' | 'card:mount' | 'range:change' | 'beforeMove' | 'card:move'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/calendar</code>.</small></p>
+    <h4 id="type-CalendarFieldMap">CalendarFieldMap</h4>
+    <p class="section-note">A card field mapping: a property path, or a function reading the row.</p>
+    <p class="type-def"><code>type CalendarFieldMap = string | ((row: <a href="#type-CalendarRow">CalendarRow</a>) =&gt; unknown)</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/calendar</code>.</small></p>
+    <h4 id="type-CalendarReadonly">CalendarReadonly</h4>
+    <p class="section-note">Granular readonly: the whole calendar, or selectively by day key and card key.</p>
+    <p class="type-def"><code>type CalendarReadonly = boolean | { board?: boolean; days?: Record&lt;string, boolean&gt;; cards?: Record&lt;string | number, boolean&gt;; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/calendar</code>.</small></p>
+    <h4 id="type-CalendarRow">CalendarRow</h4>
+    <p class="section-note">A row backing a calendar card: any object. Its date comes from `startProperty` and its identity from `rowKey`.</p>
+    <p class="type-def"><code>type CalendarRow = Record&lt;string, unknown&gt;</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/calendar</code>.</small></p>
+    <h4 id="type-CalendarView">CalendarView</h4>
+    <p class="section-note">A calendar view name: a week day-grid, a month grid, a week time-grid, or a single-day time-grid.</p>
+    <p class="type-def"><code>type CalendarView = 'week' | 'month' | 'week-time' | 'day'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/calendar</code>.</small></p>
     <h4 id="type-CamelJoin">CamelJoin</h4>
     <p class="section-note">An event name as the callback prop a Svelte 5 component takes: `'cell:changed'` becomes `'CellChanged'`, so the prop is `onCellChanged`. Svelte 5 removed component events — `createEventDispatcher` is deprecated and `on:` no longer applies to a component — so an instance event reaches a host as a callback prop. The all-lowercase spelling (`oncellchanged`) is accepted at runtime too, for hosts that prefer Svelte's DOM attribute style; only the canonical one is typed, because a union of both would make every misspelling type-check.</p>
     <p class="type-def"><code>type CamelJoin&lt;E extends string&gt; = E extends `${infer Head}:${infer Tail}` ? `${Capitalize&lt;Head&gt;}${<a href="#type-CamelJoin">CamelJoin</a>&lt;Tail&gt;}` : Capitalize&lt;E&gt;</code></p>
@@ -2501,7 +2523,7 @@
     <p class="type-def"><code>type CurrencyDisplay = 'symbol' | 'code' | 'name' | 'narrowSymbol'</code></p>
     <h4 id="type-DashboardPanelKind">DashboardPanelKind</h4>
     <p class="section-note">What a panel shows.</p>
-    <p class="type-def"><code>type DashboardPanelKind = 'grid' | 'chart' | 'kpi' | 'map' | 'html'</code></p>
+    <p class="type-def"><code>type DashboardPanelKind = 'grid' | 'chart' | 'kpi' | 'calendar' | 'map' | 'html'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/dashboard</code>.</small></p>
     <h4 id="type-DashboardSource">DashboardSource</h4>
     <p class="section-note">A named source.</p>
@@ -3181,7 +3203,7 @@
     <p class="type-def"><code>type ViewConflictPolicy = 'rename' | 'overwrite' | 'skip'</code></p>
     <h4 id="type-ViewerKind">ViewerKind</h4>
     <p class="section-note">Every viewer a framework adapter's generic `createLatticeViewer`/`bindViewer` helper can bind to. The widest set across React, Vue and Svelte; a helper that supports fewer of them still takes this type; the ones it cannot actually build fail at the call, not at the type.</p>
-    <p class="type-def"><code>type ViewerKind = 'kpi' | 'kanban' | 'tabs' | 'chart' | 'gantt' | 'layout' | 'router'</code></p>
+    <p class="type-def"><code>type ViewerKind = 'kpi' | 'kanban' | 'calendar' | 'tabs' | 'chart' | 'gantt' | 'layout' | 'router'</code></p>
     <h4 id="type-ViewerOrigin">ViewerOrigin</h4>
     <p class="section-note">Who asked for a viewer-chrome change — a tab switch, a layout window moved or closed — narrower than {@link EventOrigin} because these are always either a direct interaction or an API call, never the grid's own startup or an AI write.</p>
     <p class="type-def"><code>type ViewerOrigin = 'api' | 'user'</code></p>

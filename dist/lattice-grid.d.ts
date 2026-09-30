@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.82.0, type declarations
+ * Lattice Grid 1.83.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -7820,7 +7820,7 @@ export type ViewerOrigin = 'api' | 'user';
  * that supports fewer of them still takes this type; the ones it cannot
  * actually build fail at the call, not at the type.
  */
-export type ViewerKind = 'kpi' | 'kanban' | 'tabs' | 'chart' | 'gantt' | 'layout' | 'router';
+export type ViewerKind = 'kpi' | 'kanban' | 'calendar' | 'tabs' | 'chart' | 'gantt' | 'layout' | 'router';
 export interface GridEvent {
   /**
    * Which event this is — `rows:changed`, `sort:changed`, `cell:edit:end` and
@@ -8173,6 +8173,13 @@ export interface LicenceInfo {
    * `2027-01-01` is good throughout that day. A perpetual key has none.
    */
   expires?: string;
+  /**
+   * The licence-terms marker: `'commercial'` (the default, and the reading of
+   * every key minted before the marker existed) or `'non-commercial'` for the
+   * free tier. Reported by the verifier, never enforced by it — the terms are
+   * enforced by the licence terms, not by the software.
+   */
+  terms?: 'commercial' | 'non-commercial';
   /**
    * Why the verdict came out as it did: `missing`, `malformed`, `prefix`,
    * `product`, `expired`, `domain` or `signature` for a refusal, and
@@ -12774,6 +12781,9 @@ declare global {
   /** The Kanban / board module's script-tag global. */
   // eslint-disable-next-line no-var -- an ambient global is only a global as a var
   var LatticeGridKanban: typeof import('lattice-grid/modules/kanban');
+  /** The calendar viewer's script-tag global. */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridCalendar: typeof import('lattice-grid/modules/calendar');
   /** The alarms module's script-tag global. */
   // eslint-disable-next-line no-var -- an ambient global is only a global as a var
   var LatticeGridAlarms: typeof import('lattice-grid/modules/alarms');

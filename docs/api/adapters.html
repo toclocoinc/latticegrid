@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Adapters API Reference — Lattice Grid 1.82.0</title>
+<title>Adapters API Reference — Lattice Grid 1.83.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -422,6 +422,7 @@
         <a href="list.html">The list module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
+        <a href="calendar.html">The calendar viewer</a>
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
         <a href="dashboard.html">Dashboard composition</a>
@@ -446,7 +447,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 20 pages</a></span>
+      <span class="chip"><a href="index.html">All 21 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -545,6 +546,7 @@
           <tr><td class="name">createLatticeKPI</td><td class="sig">({ React, createKPI })</td><td class="desc">The KPI panel. Grid-bound through context by default; pass <code>rows</code> instead for a panel with no grid.</td></tr>
           <tr><td class="name">createLatticeChart</td><td class="sig">({ React, createChart })</td><td class="desc">A chart. Requires a grid, so nothing is mounted until one exists; a changed spec key goes to <code>chart.update()</code> and the chart redraws rather than being rebuilt.</td></tr>
           <tr><td class="name">createLatticeKanban</td><td class="sig">({ React, createKanban })</td><td class="desc">The board. <code>rows</code>, <code>quickFilter</code>, <code>sprint</code>, <code>epic</code>, <code>loading</code> and <code>error</code> are live props.</td></tr>
+          <tr><td class="name">createLatticeCalendar</td><td class="sig">({ React, createCalendar })</td><td class="desc">The calendar. <code>rows</code>, <code>view</code> and <code>date</code> are live props; grid-bound through context by default. The reschedule events arrive as <code>onBeforeMove</code> (cancel with <code>preventDefault(reason?)</code>) and <code>onCardMove</code>; call <code>move(key, to)</code> on the ref's instance.</td></tr>
           <tr><td class="name">createLatticeGantt</td><td class="sig">({ React, createGantt })</td><td class="desc">The Gantt. <code>tasks</code> and <code>dependencies</code> are live props.</td></tr>
           <tr><td class="name">createLatticeLayout</td><td class="sig">({ React, createLayout })</td><td class="desc">The layout. Windows are driven through the ref; its events arrive as <code>onLayoutChanged</code>, <code>onWindowMoved</code> and the rest.</td></tr>
           <tr><td class="name">createLatticeTabs</td><td class="sig">({ React, ReactDOM, createTabs, createGrid? })</td><td class="desc">The tab strip, with <strong>React-rendered tab content</strong>: a tab's <code>content</code> is a React element (or a function returning one) rendered into the strip's own panel through <code>createPortal</code>, so a tab's grid is a real <code>&lt;LatticeGrid&gt;</code> with props, a ref and the surrounding context. A tab with no <code>content</code> is left to the module, so the two kinds mix on one strip.</td></tr>
@@ -561,7 +563,7 @@
       </table>
     </div>
 
-    <pre data-run="js" data-expect="8 components, onCardMove, default, rows 2, events 6/6" data-covers="export:createLatticeReact export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeGantt export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/react/index.js');
+    <pre data-run="js" data-expect="9 components, onCardMove, default, rows 2, events 6/7" data-covers="export:createLatticeReact export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeCalendar export:createLatticeGantt export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/react/index.js');
 
 <span class="cmt">// A stand-in for React and react-dom. The adapter never imports either, so a</span>
 <span class="cmt">// factory only needs the handful of names it destructures — which is exactly</span>
@@ -581,6 +583,7 @@
   A.createLatticeKPI({ React, createKPI: stub }),
   A.createLatticeChart({ React, createChart: stub }),
   A.createLatticeKanban({ React, createKanban: stub }),
+  A.createLatticeCalendar({ React, createCalendar: stub }),
   A.createLatticeGantt({ React, createGantt: stub }),
   A.createLatticeLayout({ React, createLayout: stub }),
   A.createLatticeTabs({ React, ReactDOM, createTabs: stub }),
@@ -933,6 +936,7 @@ L.provideLatticeRouter(ROUTER_CONFIG);
           <tr><td class="name">createLatticeKPI</td><td class="sig">({ vue, createKPI })</td><td class="desc">The KPI panel. Grid-bound through the provided registry by default; bind <code>:rows</code> instead for a panel with no grid.</td></tr>
           <tr><td class="name">createLatticeChart</td><td class="sig">({ vue, createChart })</td><td class="desc">A chart. Requires a grid, so nothing is mounted until one exists; a changed spec key goes to <code>chart.update()</code> and the chart redraws rather than being rebuilt.</td></tr>
           <tr><td class="name">createLatticeKanban</td><td class="sig">({ vue, createKanban })</td><td class="desc">The board. <code>rows</code>, <code>quickFilter</code>, <code>sprint</code>, <code>epic</code>, <code>loading</code> and <code>error</code> are live props.</td></tr>
+          <tr><td class="name">createLatticeCalendar</td><td class="sig">({ vue, createCalendar })</td><td class="desc">The calendar. <code>rows</code>, <code>view</code> and <code>date</code> are live props; grid-bound through the registry by default. The reschedule events arrive as <code>@beforeMove</code> (cancel with <code>preventDefault(reason?)</code>) and <code>@card-move</code>; call <code>move(key, to)</code> on the exposed instance.</td></tr>
           <tr><td class="name">createLatticeGantt</td><td class="sig">({ vue, createGantt })</td><td class="desc">The Gantt. <code>tasks</code> and <code>dependencies</code> are live props.</td></tr>
           <tr><td class="name">createLatticeLayout</td><td class="sig">({ vue, createLayout })</td><td class="desc">The layout. Windows are driven through the exposed instance; its events arrive as <code>@layout-changed</code>, <code>@window-moved</code> and the rest.</td></tr>
           <tr><td class="name">createLatticeTabs</td><td class="sig">({ vue, createTabs, createGrid? })</td><td class="desc">The tab strip, with <strong>Vue-rendered tab content</strong>: a tab's content is a <strong>named slot</strong> &mdash; <code>&lt;template #overview&gt;</code> for a tab with <code>id: 'overview'</code>, or <code>&lt;template #tab-overview&gt;</code> &mdash; rendered into the strip's own panel through a <code>&lt;Teleport&gt;</code>, so a tab's grid is a real <code>LatticeGrid</code> with props, a ref and the surrounding <code>provide</code>s. A tab with no slot is left to the module, so the two kinds mix on one strip.</td></tr>
@@ -949,7 +953,7 @@ L.provideLatticeRouter(ROUTER_CONFIG);
       </table>
     </div>
 
-    <pre data-run="js" data-expect="7 components, cell-changed, card-move, default, rows 2" data-covers="export:createLatticeVue export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeGantt export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:dashedName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME export:EVENT_NAMES"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/vue/index.js');
+    <pre data-run="js" data-expect="8 components, cell-changed, card-move, default, rows 2" data-covers="export:createLatticeVue export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeCalendar export:createLatticeGantt export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:dashedName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME export:EVENT_NAMES"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/vue/index.js');
 
 <span class="cmt">// A stand-in for Vue. The adapter never imports it, so a factory only needs</span>
 <span class="cmt">// the handful of names it destructures — which is exactly why this example</span>
@@ -974,6 +978,7 @@ L.provideLatticeRouter(ROUTER_CONFIG);
   A.createLatticeKPI({ vue, createKPI: stub }),
   A.createLatticeChart({ vue, createChart: stub }),
   A.createLatticeKanban({ vue, createKanban: stub }),
+  A.createLatticeCalendar({ vue, createCalendar: stub }),
   A.createLatticeGantt({ vue, createGantt: stub }),
   A.createLatticeLayout({ vue, createLayout: stub }),
   A.createLatticeTabs({ vue, createTabs: stub }),
@@ -1144,7 +1149,7 @@ controller.destroy();
         </tbody>
       </table>
     </div>
-    <pre data-run="js" data-expect="config rowKey,onCellChanged; own main; registry main; grid dark; tabs one; viewers kpi,chart,kanban,gantt,layout; router 1" data-covers="export:bindGrid export:bindViewer export:bindTabs export:createGridRegistry export:createRouterHandle export:adaptProps export:pickCallback export:viewerMount export:snippetTabIds export:VIEWER_BINDING export:GRID_REGISTRY_KEY export:ROUTER_KEY"><code><span class="kw">const</span> S = <span class="kw">await</span> import('../packages/modules/svelte/index.js');
+    <pre data-run="js" data-expect="config rowKey,onCellChanged; own main; registry main; grid dark; tabs one; viewers kpi,chart,kanban,calendar,gantt,layout; router 1" data-covers="export:bindGrid export:bindViewer export:bindTabs export:createGridRegistry export:createRouterHandle export:adaptProps export:pickCallback export:viewerMount export:snippetTabIds export:VIEWER_BINDING export:GRID_REGISTRY_KEY export:ROUTER_KEY"><code><span class="kw">const</span> S = <span class="kw">await</span> import('../packages/modules/svelte/index.js');
 
 <span class="cmt">// A component hands its props straight to the helpers. They keep the</span>
 <span class="cmt">// adapter's own props out of the instance and accept a callback under</span>
@@ -1288,6 +1293,7 @@ bootstrapApplication(Dashboard, {
           <tr><td class="name">LatticeKpiComponent</td><td class="sig">&lt;lattice-kpi&gt;</td><td class="desc">The KPI panel. Grid-bound by default &mdash; <code>[gridName]</code> picks which published grid &mdash; or give it <code>[rows]</code> for a panel with no grid.</td></tr>
           <tr><td class="name">LatticeChartComponent</td><td class="sig">&lt;lattice-chart&gt;</td><td class="desc">A chart. Requires a grid, so nothing is built until one exists; a changed spec key goes to <code>chart.update()</code> and the chart redraws rather than being rebuilt. <code>(click)</code>, <code>(hover)</code> and <code>(leave)</code> on this element are the chart's events, carrying the datum under the pointer.</td></tr>
           <tr><td class="name">LatticeKanbanComponent</td><td class="sig">&lt;lattice-kanban&gt;</td><td class="desc">The board. <code>[rows]</code>, <code>[quickFilter]</code>, <code>[sprint]</code>, <code>[epic]</code>, <code>[loading]</code> and <code>[error]</code> are live inputs.</td></tr>
+          <tr><td class="name">LatticeCalendarComponent</td><td class="sig">&lt;lattice-calendar&gt;</td><td class="desc">The calendar. <code>[rows]</code>, <code>[view]</code> and <code>[date]</code> are live inputs; grid-bound through the registry by default. The reschedule events arrive as <code>(beforeMove)</code> (cancel with <code>preventDefault(reason?)</code>) and <code>(card-move)</code>; call <code>move(key, to)</code> on the component.</td></tr>
           <tr><td class="name">LatticeGanttComponent</td><td class="sig">&lt;lattice-gantt&gt;</td><td class="desc">The plan. <code>[tasks]</code> and <code>[dependencies]</code> are live inputs. It takes an explicit <code>[grid]</code> but never adopts a published one.</td></tr>
           <tr><td class="name">LatticeLayoutComponent</td><td class="sig">&lt;lattice-layout&gt;</td><td class="desc">The dashboard layout. Windows are driven through the instance; its events arrive as <code>(layout-changed)</code>, <code>(window-moved)</code> and the rest.</td></tr>
           <tr><td class="name">LatticeTabsComponent<br>LatticeTabDirective</td><td class="sig">&lt;lattice-tabs&gt;<br>ng-template[latticeTab]</td><td class="desc">The tab strip, with <strong>Angular-rendered tab content</strong>: a tab's content is an <code>&lt;ng-template latticeTab="id"&gt;</code> in your own template, rendered into the strip's panel through this component's <code>ViewContainerRef</code> &mdash; so a tab's grid is a real <code>&lt;lattice-grid&gt;</code> with inputs, a reference and your injectors above it. A tab with no template is left to the module, so configuration-driven grid tabs still work and the two kinds mix on one strip.</td></tr>
@@ -1535,7 +1541,7 @@ defaults(<span class="kw">null</span>);                <span class="cmt">// clea
     imported, because nothing is imported by this module — a page that draws no charts never loads
     the charts bundle.</p>
 
-    <pre data-run="js" data-expect="8" data-covers="export:ELEMENT_TAGS"><code><span class="cmt">// Every tag this package can register, under the default prefix.</span>
+    <pre data-run="js" data-expect="9" data-covers="export:ELEMENT_TAGS"><code><span class="cmt">// Every tag this package can register, under the default prefix.</span>
 <span class="kw">const</span> { ELEMENT_TAGS } = <span class="kw">await</span> import('../packages/modules/webcomponent/elements.js');
 <span class="kw">return</span> Object.keys(ELEMENT_TAGS).length;</code></pre>
 
@@ -1558,6 +1564,7 @@ defaults(<span class="kw">null</span>);                <span class="cmt">// clea
           <tr><td class="sig">&lt;lattice-kpi&gt;</td><td class="type">createKPI</td><td class="desc">Grid-bound by default; set <code>rows</code> for a standalone panel. <code>tiles</code> is a property. Like every grid-bound viewer it <strong>waits</strong> for its grid rather than mounting empty, so a panel written above its grid is built once, when the grid arrives.</td></tr>
           <tr><td class="sig">&lt;lattice-chart&gt;</td><td class="type">createChart</td><td class="desc">Always drawn from a grid, so it waits for one. Every other attribute is the chart spec and a change goes into <code>chart.update()</code>.</td></tr>
           <tr><td class="sig">&lt;lattice-kanban&gt;</td><td class="type">createKanban</td><td class="desc">Board. <code>rows</code>, <code>columns</code>, <code>card</code>, <code>facets</code> are properties.</td></tr>
+          <tr><td class="sig">&lt;lattice-calendar&gt;</td><td class="type">createCalendar</td><td class="desc">Calendar. <code>rows</code>, <code>card</code> and <code>header</code> are properties; <code>view</code>, <code>date</code> and <code>start-property</code> are scalars. The reschedule events arrive as <code>lattice-beforeMove</code> (cancel on <code>event.detail</code>) and <code>lattice-card-move</code>; call <code>move(key, to)</code> on the element.</td></tr>
           <tr><td class="sig">&lt;lattice-gantt&gt;</td><td class="type">createGantt</td><td class="desc"><code>tasks</code> and <code>dependencies</code> are properties and both are live.</td></tr>
           <tr><td class="sig">&lt;lattice-layout&gt;</td><td class="type">createLayout</td><td class="desc"><code>windows</code> is a property.</td></tr>
           <tr><td class="sig">&lt;lattice-tabs&gt;</td><td class="type">createTabs</td><td class="desc">A tab's content is a <code>&lt;template data-tab="&#8249;id&#8250;"&gt;</code> child, cloned into the panel the module creates. With no <code>tabs</code> property the descriptors are read from the templates. A tab with no template is left to the module; the two kinds mix.</td></tr>
@@ -2170,6 +2177,43 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="name">columnProperty</td><td class="type">string | undefined</td><td class="desc">The row property that puts a card in a column.</td></tr>
           <tr><td class="name">titleProperty</td><td class="type">string | undefined</td><td class="desc">The row property a card's headline comes from — the shorthand for `card: { title }`, which wins where both are given.</td></tr>
           <tr><td class="name">swimlanes</td><td class="type">boolean | undefined</td><td class="desc">Draw the two-dimensional swimlane layout. The `swimlanes` attribute is a bare boolean; name the lane property through `swimlane-property`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-LatticeCalendarElement">LatticeCalendarElement</h4>
+    <p class="section-note">`&lt;lattice-calendar&gt;`. Grid-bound like the board; give it `rows` to stand alone.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">rows</td><td class="type"><a href="grid.html#type-Row">Row</a>[]</td><td class="desc">Rows for a standalone calendar. Set them and the element stops waiting for a grid.</td></tr>
+          <tr><td class="name">card</td><td class="type">unknown</td><td class="desc">The default card template's field mapping — title, subtitle and the rest.</td></tr>
+          <tr><td class="name">header</td><td class="type">unknown</td><td class="desc">The header toolbar sections, or `false` to render none.</td></tr>
+          <tr><td class="name">colorMap</td><td class="type">unknown</td><td class="desc">An optional value→colour map for the `color-property` field.</td></tr>
+          <tr><td class="name">labels</td><td class="type">unknown</td><td class="desc">Host-localised labels.</td></tr>
+          <tr><td class="name">renderCard</td><td class="type">unknown</td><td class="desc">A host card renderer `(row, el)`.</td></tr>
+          <tr><td class="name">rowKey</td><td class="type">string | undefined</td><td class="desc">Which field identifies a card.</td></tr>
+          <tr><td class="name">view</td><td class="type">'week' | 'month' | undefined</td><td class="desc">The view to show: `week` or `month`. The `view` attribute.</td></tr>
+          <tr><td class="name">date</td><td class="type">unknown</td><td class="desc">The anchor date the visible range centres on.</td></tr>
+          <tr><td class="name">startProperty</td><td class="type">string | undefined</td><td class="desc">The field naming a point event's start.</td></tr>
+          <tr><td class="name">endProperty</td><td class="type">string | undefined</td><td class="desc">The optional field naming a span's end.</td></tr>
+          <tr><td class="name">allDayProperty</td><td class="type">string | undefined</td><td class="desc">An optional boolean field marking an all-day event.</td></tr>
+          <tr><td class="name">firstDay</td><td class="type">number | undefined</td><td class="desc">Week-start weekday, 0=Sun…6=Sat.</td></tr>
+          <tr><td class="name">locale</td><td class="type">string | undefined</td><td class="desc">BCP-47 locale.</td></tr>
+          <tr><td class="name">timeZone</td><td class="type">string | undefined</td><td class="desc">IANA time-zone name.</td></tr>
+          <tr><td class="name">colorProperty</td><td class="type">string | undefined</td><td class="desc">The property whose value picks the card's edge colour.</td></tr>
+          <tr><td class="name">eventOrder</td><td class="type">string | undefined</td><td class="desc">Card stacking order within a day.</td></tr>
+          <tr><td class="name">dayMaxEvents</td><td class="type">number | undefined</td><td class="desc">The `+N more` overflow threshold per day.</td></tr>
+          <tr><td class="name">readonly</td><td class="type">unknown</td><td class="desc">Granular readonly (whole calendar, per day, per card).</td></tr>
+          <tr><td class="name">ariaLabel</td><td class="type">string | undefined</td><td class="desc">The calendar's accessible name.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">move</td><td class="type">(key: unknown, to: { start?: Date | null; end?: Date | null }): Promise&lt;boolean&gt;</td><td class="desc"><code>key: unknown</code><br><code>to: { start?: Date | null; end?: Date | null }</code></td><td class="type"><code>Promise&lt;boolean&gt;</code></td><td class="desc">Reschedule a card: move it to a new start (or resize its end), gated by `beforeMove` and announced by `card:move` (`lattice-beforeMove` / `lattice-card-move`). Resolves whether the reschedule stuck.</td></tr>
         </tbody>
       </table>
     </div>

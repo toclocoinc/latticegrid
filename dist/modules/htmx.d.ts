@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.82.0, htmx module type declarations
+ * Lattice Grid 1.83.0, htmx module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -95,6 +95,16 @@ import type {
  */
 export function createGrid(element: Element, config: GridConfig): Grid;
 export function autoInit(root?: ParentNode): Grid[];
+/**
+ * Build a calendar on every uninitialised `[data-lattice-calendar]` element
+ * under `root`, bound to the grid named by its
+ * `data-lattice-bind` attribute or a `grid: "<id>"` config string — the
+ * calendar twin of {@link autoInit}. Idempotent: an element already carrying
+ * `.__latticeCalendar` is skipped.
+ */
+export function autoInitCalendar(root?: ParentNode): unknown[];
+/** The marker attribute `autoInitCalendar` scans for: `data-lattice-calendar`. */
+export const CALENDAR_ATTR: string;
 /**
  * Wire the htmx lifecycle events on a document: grids are built in each
  * swapped-in fragment, released before htmx detaches one, and their view

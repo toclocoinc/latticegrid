@@ -802,6 +802,11 @@ const VIEWER_EVENTS$1 = Object.freeze({
     ]),
     tabs: Object.freeze(['beforeTabChange', 'tab:changed', 'tabChange:cancelled']),
 
+    calendar: Object.freeze([
+        'card:click', 'card:dblclick', 'card:contextmenu', 'card:mount', 'range:change',
+        'beforeMove', 'card:move',
+    ]),
+
     chart: Object.freeze(['click', 'hover', 'leave', 'draw', 'legend']),
 
     gantt: Object.freeze(['schedule', 'error']),
@@ -842,6 +847,16 @@ const VIEWER_APPLY$1 = Object.freeze({
 
         active: (tabs, value) => { if (typeof value === 'string')
             tabs.activate(value); },
+    }),
+    calendar: Object.freeze({
+
+        rows: (cal, value) => cal.setRows(Array.isArray(value) ? value : []),
+
+        view: (cal, value) => cal.setView(value),
+
+        date: (cal, value) => cal.goTo(value),
+
+        move: (cal, key, patch) => cal.move(key, patch),
     }),
 
     chart: Object.freeze({}),
@@ -2599,6 +2614,86 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
                 args: ['columnChange-cancelled']
             }] } });
 
+class LatticeCalendarComponent extends LatticeViewerBase {
+    constructor() {
+        super(...arguments);
+
+        this.viewer = 'calendar';
+
+        this.label = 'lattice-calendar';
+
+        this.factories = inject(LATTICE_FACTORIES, { optional: true });
+
+        this.cardClick = new EventEmitter();
+
+        this.cardDblclick = new EventEmitter();
+
+        this.cardContextmenu = new EventEmitter();
+
+        this.cardMount = new EventEmitter();
+
+        this.rangeChange = new EventEmitter();
+
+        this.beforeMove = new EventEmitter();
+
+        this.cardMove = new EventEmitter();
+    }
+
+    liveProps() {
+        const out = {};
+        if (this.rows !== undefined)
+            out['rows'] = this.rows;
+        if (this.view !== undefined)
+            out['view'] = this.view;
+        if (this.date !== undefined)
+            out['date'] = this.date;
+        return out;
+    }
+
+    move(key, to) {
+        return this.instance ? this.instance.move(key, to) : Promise.resolve(false);
+    }
+
+    mount(element, config) {
+        const createCalendar = requireFactory(this.factories, 'createCalendar', '@toclocoinc/lattice-grid/modules/calendar', this.label);
+        return createCalendar(element, config);
+    }
+    static { this.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeCalendarComponent, deps: null, target: i0.ɵɵFactoryTarget.Component }); }
+    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeCalendarComponent, isStandalone: true, selector: "lattice-calendar", inputs: { config: "config", rows: "rows", view: "view", date: "date" }, outputs: { cardClick: "card-click", cardDblclick: "card-dblclick", cardContextmenu: "card-contextmenu", cardMount: "card-mount", rangeChange: "range-change", beforeMove: "beforeMove", cardMove: "card-move" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
+}
+i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeCalendarComponent, decorators: [{
+            type: Component,
+            args: [{ selector: 'lattice-calendar', template: '', encapsulation: ViewEncapsulation.Emulated, styles: [":host{display:block}\n"] }]
+        }], propDecorators: { config: [{
+                type: Input
+            }], rows: [{
+                type: Input
+            }], view: [{
+                type: Input
+            }], date: [{
+                type: Input
+            }], cardClick: [{
+                type: Output,
+                args: ['card-click']
+            }], cardDblclick: [{
+                type: Output,
+                args: ['card-dblclick']
+            }], cardContextmenu: [{
+                type: Output,
+                args: ['card-contextmenu']
+            }], cardMount: [{
+                type: Output,
+                args: ['card-mount']
+            }], rangeChange: [{
+                type: Output,
+                args: ['range-change']
+            }], beforeMove: [{
+                type: Output
+            }], cardMove: [{
+                type: Output,
+                args: ['card-move']
+            }] } });
+
 class LatticeGanttComponent extends LatticeViewerBase {
     constructor() {
         super(...arguments);
@@ -2892,4 +2987,4 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
                 args: ['tabChange-cancelled']
             }] } });
 
-export { DEFAULT_GRID_NAME, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeChartComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, eventProp, provideLattice, provideLatticeRouter, requireFactory };
+export { DEFAULT_GRID_NAME, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, eventProp, provideLattice, provideLatticeRouter, requireFactory };

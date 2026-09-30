@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.82.0, vue module type declarations
+ * Lattice Grid 1.83.0, vue module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -230,6 +230,16 @@ export type LatticeVueKanbanProps<Row = unknown> =
     error?: string | null;
   };
 
+/** The calendar's Vue props. */
+export type LatticeVueCalendarProps<Row = unknown> =
+  Record<string, unknown> & LatticeVueViewerCommonProps & {
+    rows?: Row[];
+    view?: 'week' | 'month';
+    date?: Date | string | number;
+  } & LatticeVueListeners<
+    'card-click' | 'card-dblclick' | 'card-contextmenu' | 'card-mount' | 'range-change'
+    | 'beforeMove' | 'card-move', unknown>;
+
 /** The Gantt's Vue props. */
 export type LatticeVueGanttProps = Record<string, unknown> & LatticeVueViewerCommonProps & {
   tasks?: unknown[];
@@ -300,6 +310,12 @@ export function createLatticeChart(deps: {
 export function createLatticeKanban<Row = unknown>(deps: {
   vue: unknown; createKanban: (el: unknown, config: Record<string, unknown>) => unknown;
 }): LatticeVueComponent<LatticeVueKanbanProps<Row>, LatticeVueViewerEmit<string>,
+  LatticeVueViewerExposed>;
+
+/** The calendar as a Vue component. Grid-bound through the registry by default. */
+export function createLatticeCalendar<Row = unknown>(deps: {
+  vue: unknown; createCalendar: (el: unknown, config: Record<string, unknown>) => unknown;
+}): LatticeVueComponent<LatticeVueCalendarProps<Row>, LatticeVueViewerEmit<string>,
   LatticeVueViewerExposed>;
 
 /** The Gantt as a Vue component. */
@@ -394,6 +410,7 @@ export function createLatticeVue(deps: {
   createKPI?: (el: unknown, config: Record<string, unknown>) => unknown;
   createChart?: (opts: Record<string, unknown>) => unknown;
   createKanban?: (el: unknown, config: Record<string, unknown>) => unknown;
+  createCalendar?: (el: unknown, config: Record<string, unknown>) => unknown;
   createGantt?: (opts: Record<string, unknown>) => unknown;
   createLayout?: (el: unknown, config: Record<string, unknown>) => unknown;
   createTabs?: (el: unknown, config: Record<string, unknown>) => unknown;
