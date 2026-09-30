@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>KPI API Reference — Lattice Grid 1.81.0</title>
+<title>KPI API Reference — Lattice Grid 1.82.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -488,10 +488,30 @@ const kpi = createKPI(document.querySelector('#kpis'), {
           <tr><td class="sig">expand(key) / collapse(key) / toggle(key)</td><td class="desc">Open or close a branch. A key for a branch the panel does not (yet) hold is retained rather than dropped, so a delta that later introduces it finds it already open.</td></tr>
           <tr><td class="sig">getState() / setState(snapshot)</td><td class="desc">Serialise and restore the panel's row set, so a headless panel round-trips, plus <code>expanded</code> (the open branch keys) on a hierarchical panel. A snapshot with no <code>expanded</code> key leaves expansion alone rather than resetting it.</td></tr>
           <tr><td class="sig">on(name, fn) / off(name, fn)</td><td class="desc">Events: <code>tile:click</code>, <code>tile:dblclick</code>, <code>tile:contextmenu</code>, <code>node:toggle</code> (a branch opened or closed), and <code>change</code> (after every update).</td></tr>
+          <tr><td class="sig">rebind(grid)</td><td class="desc">Point the panel at a replacement grid after the one it was bound to was destroyed (BACKLOG-0001588) — the panel keeps its tiles and element, drops its subscriptions to the dead grid, subscribes to the new one and re-reads its rows. A panel left unbound shows nothing and warns once (<code>kpi:grid-destroyed</code>) rather than throwing. Binding to the grid it already follows is a no-op.</td></tr>
           <tr><td class="sig">destroy()</td><td class="desc">Empty the element and drop the listeners. The host still owns any bound grid.</td></tr>
         </tbody>
       </table>
     </div>
+    <p>A panel whose grid is destroyed — an htmx swap, a framework teardown — stays on the page but shows nothing; a refresh in that state reports nothing and warns once (<code>kpi:grid-destroyed</code>) rather than throwing. <code>kpi.rebind(grid)</code> points it at the replacement:</p>
+    <pre data-run="js" data-expect="70" data-covers="export:createKPI method:kpi.rebind"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createKPI } = await import('../packages/modules/kpi/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'qty', type: 'number' }],
+  rows: [{ id: 'a', qty: 2 }, { id: 'b', qty: 1 }],
+});
+const kpi = createKPI(null, { grid, tiles: [{ id: 'total', label: 'Total', aggregation: 'sum', field: 'qty' }] });
+grid.destroy();  // the panel un-binds: a refresh would warn once, not throw
+
+const replacement = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'qty', type: 'number' }],
+  rows: [{ id: 'c', qty: 30 }, { id: 'd', qty: 40 }],
+});
+kpi.rebind(replacement);
+return String(kpi.value('total'));</code></pre>
     <p><strong>Interaction is light and host-driven.</strong> A tile emits <code>tile:click</code> (also from the keyboard) carrying the tile model, so a host can drill down or, in a demo, filter a routed grid &mdash; the wiring lives in the host, not the module. This is deliberately not a dashboard layout engine (that is the parked dashboard generator) and charting beyond a minimal sparkline belongs to the charts module.</p>
     <h3 id="kpi-clock">The clock tile: the device clock, not an aggregate</h3>
     <p><code>{ kind: 'clock', label, timeZone?, locale?, seconds?, date? }</code> in <code>tiles</code> renders a tile that shows the current date and time instead of a figure &mdash; the date on one line, the time on the next, e.g. <code>Mon, 21 Apr 2025</code> over <code>14:32:18</code> &mdash; styled like any other tile, so a panel of zone clocks beside a panel of figures reads as one visual system with no host CSS.</p>
@@ -965,6 +985,7 @@ kpi.rows.apply({ add: [{ id: 'e1', severity: 3 }, { id: 'e2', severity: 2 }] });
           <tr><td class="name">setState</td><td class="type">(snapshot: object): <a href="#type-KPI">KPI</a></td><td class="desc"><code>snapshot: object</code></td><td class="type"><code><a href="#type-KPI">KPI</a></code></td><td class="desc">Restore a snapshot from `getState`. A snapshot without `expanded` leaves the expansion alone rather than collapsing the rail.</td></tr>
           <tr><td class="name">on</td><td class="type">(name: <a href="types.html#type-KPIEventName">KPIEventName</a>, fn: (event: <a href="#type-KPIEventPayloads">KPIEventPayloads</a>[<a href="types.html#type-KPIEventName">KPIEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>name: <a href="types.html#type-KPIEventName">KPIEventName</a></code><br><code>fn: (event: <a href="#type-KPIEventPayloads">KPIEventPayloads</a>[<a href="types.html#type-KPIEventName">KPIEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Register an event handler; returns a function that removes it. An unrecognised event name is warned about once. What each event carries is {@link KPIEventPayloads}; the handler is declared with the widest of them, so narrow on the name inside it.</td></tr>
           <tr><td class="name">off</td><td class="type">(name: <a href="types.html#type-KPIEventName">KPIEventName</a>, fn: (event: <a href="#type-KPIEventPayloads">KPIEventPayloads</a>[<a href="types.html#type-KPIEventName">KPIEventName</a>]) =&gt; void): void</td><td class="desc"><code>name: <a href="types.html#type-KPIEventName">KPIEventName</a></code><br><code>fn: (event: <a href="#type-KPIEventPayloads">KPIEventPayloads</a>[<a href="types.html#type-KPIEventName">KPIEventName</a>]) =&gt; void</code></td><td class="type"><code>void</code></td><td class="desc">Remove a handler registered with `on`.</td></tr>
+          <tr><td class="name">rebind</td><td class="type">(grid: <a href="grid.html#type-Grid">Grid</a>): <a href="#type-KPI">KPI</a></td><td class="desc"><code>grid: <a href="grid.html#type-Grid">Grid</a></code></td><td class="type"><code><a href="#type-KPI">KPI</a></code></td><td class="desc">Point the panel at a replacement grid after the one it was bound to was destroyed (BACKLOG-0001588). The panel keeps its tiles and element, drops its subscriptions to the dead grid, subscribes to the new one and re-reads its rows. Binding to the grid it already follows is a no-op, so a re-bind pass over the whole page is safe after every swap. On a panel not built over a grid the call is a no-op — its rows are its own.</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Drop every listener, stop following the bound grid, stop any clock tile ticking, and empty the element (removing only the class the panel added).</td></tr>
         </tbody>
       </table>

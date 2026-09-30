@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.81.0, type declarations
+ * Lattice Grid 1.82.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -14451,6 +14451,13 @@ export interface Chart {
    * warns rather than silently doing nothing.
    */
   readonly zoom: ChartZoomApi;
+  /**
+   * Point the chart at a replacement grid after the one it was bound to was destroyed. The chart keeps its spec and element, drops its subscriptions to the
+   * dead grid, subscribes to the new one and redraws from it. Binding to the grid it already
+   * follows is a no-op, so a re-bind pass over the whole page is safe after every swap. A
+   * destroyed chart cannot be re-bound.
+   */
+  rebind(grid: Grid): Chart;
   /**
    * Stop following the grid, disconnect the resize observer, stop any rolling-window timer,
    * remove the chart's element and drop every listener. Calling it twice is harmless.

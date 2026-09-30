@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.81.0, htmx module type declarations
+ * Lattice Grid 1.82.0, htmx module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -156,6 +156,14 @@ export function restoreState(
 ): StateApplyReport;
 export function saveStateWithin(root: ParentNode): void;
 export function restoreStateWithin(root: ParentNode): void;
+/**
+ * Re-point every viewer declared with `data-lattice-bind="<grid id>"` at the
+ * live grid whose host element now carries that id, and
+ * return how many it re-bound. Runs automatically on `htmx:load` after the
+ * new grids are built; a page keeps one chart and one panel across a swap
+ * instead of re-creating them.
+ */
+export function rebindViewersWithin(root: ParentNode): number;
 export function queryParams(grid: Grid): Record<string, string>;
 export function warnIfLargeHtmlPayload(rows: number): void;
 export const QUERY_CHANGED_EVENT: string;

@@ -9,6 +9,22 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.82.0] - 2026-09-30
+
+### Fixed
+
+- **With htmx's history cache on, pressing Back restored the cached HTML but left no live grid on a table the module had hydrated from server-rendered markup.** A grid built from `[data-lattice-grid]` config came back on `htmx:historyRestore`, but one hydrated from a `<table>` could not: the table was consumed at hydration and its host carried no marker, so the restored snapshot was a picture of a grid, not a grid (the page had to disable htmx's snapshot cache, which reloaded the month and lost sort and filter). `hydrateTable` now marks its host (`data-lattice-hydrated`), and on `htmx:beforeHistorySave` the module serialises a hydrated grid's columns and rows alongside its state (`data-lattice-hydrate`), so on a cache hit it rebuilds the grid and applies the saved state — Back restores a live, re-hydrated grid with its sort, filter and grouping, and Forward returns to the swapped month. (BACKLOG-0001586)
+
+- **A `<th data-type="text">` column hydrating a value like `01` lost its leading zero and became the number `1`, so sorting, display and a filter for `01` were all wrong.** The header's declared type set the column's `type` but its cell values still went through the value sniffer. `readTable` now lets a declared `data-type` drive each cell's value: `text` stays text (the leading zero survives), and `number`/`date`/`boolean` coerce only because the header declared them; a column with no declaration still sniffs numeric text to numbers. (BACKLOG-0001587)
+
+- **Supplying a `columns` entry to `hydrateTable` dropped every table column the entry did not list.** The guide always described the entry as refining the column it names while the rest still come from the table, but the code replaced the table's columns outright. `hydrateTable` now merges `config.columns` onto the columns read from the table by `id`/`field` (declared keys override, the rest keep their read definition), with a documented opt-out — `columns: { only: [...] }` — for a page that wants the old replace behaviour. (BACKLOG-0001587)
+
+- **An htmx swap destroyed the grid but left a chart or KPI panel still bound to it, which threw a `TypeError` on its next draw, so a page had to re-create its viewers after every swap.** `grid.destroy()` now tells every viewer bound to it, and a chart or KPI panel left without a grid stops drawing and warns once by name (`chart:grid-destroyed` / `kpi:grid-destroyed`) instead of throwing. A documented `rebind(grid)` points either at a replacement grid, and a viewer container marked `data-lattice-bind="<grid id>"` is re-bound automatically by the htmx module's `htmx:load` path after a swap — a page keeps one chart and one panel across swaps rather than re-creating them. (BACKLOG-0001588)
+
+### Internal
+
+- **`filter-values-toolpanel-pushdown-1559.test.js` and `views-apply-1519-browser.test.js` flaked under the suite's 16-way process concurrency and any concurrent load, and now wait for the signal they measure instead of racing a clock.** The 1559 subtest waits for the tool-panel filter list's own rendered rows (a named 10 s bound) rather than a fixed `settle()`; the views.apply browser test measures its 250 ms relayout budget only when the box is quiet, emitting a `SKIPPED-UNDER-LOAD` line otherwise (the perf gate's load-aware rule), while its one-relayout behavioural assertion stays unconditional. (BACKLOG-0001590)
+
 ## [1.81.0] - 2026-09-30
 
 ### Changed

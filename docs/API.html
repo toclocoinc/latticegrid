@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.81.0</p>
+    <p class="rail__sub">API reference · v1.82.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -564,7 +564,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.81.0</span>
+      <span class="chip">Version 1.82.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3137,7 +3137,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.81.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.82.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -7850,11 +7850,38 @@ grid.destroy();
           <tr><td class="sig">toSVG(opts?)</td><td class="type">string</td><td class="desc">The chart as markup.</td></tr>
           <tr><td class="sig">toPNG(opts?)</td><td class="type">Promise&lt;Blob&gt;</td><td class="desc"><code>scale: 2</code> for a retina still.</td></tr>
           <tr><td class="sig">toCSV()</td><td class="type">string</td><td class="desc">The bound data, for a reader who wants the numbers.</td></tr>
+          <tr><td class="sig">rebind(grid)</td><td class="type"><a href="#type-Chart">Chart</a></td><td class="desc">Point the chart at a replacement grid after the one it was bound to was destroyed (BACKLOG-0001588) — the chart keeps its spec and element, drops its subscriptions to the dead grid, subscribes to the new one and redraws. A chart left unbound draws nothing and warns once (<code>chart:grid-destroyed</code>) rather than throwing. Binding to the grid it already follows is a no-op.</td></tr>
           <tr><td class="sig">destroy()</td><td class="type">void</td><td class="desc">Yours to call: the element is in your page, not the grid's.</td></tr>
           <tr><td class="sig">element</td><td class="type">SVGElement</td><td class="desc">The chart's own root.</td></tr>
         </tbody>
       </table>
     </div>
+
+    <p>A chart whose grid is destroyed — an htmx swap, a framework teardown — stays on the page but stops following it; a draw in that state draws nothing and warns once (<code>chart:grid-destroyed</code>) rather than throwing. <code>chart.rebind(grid)</code> points it at the replacement:</p>
+    <pre data-run="js" data-expect="north,south | 2" data-covers="export:createChart method:charts.rebind"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 600, height: 300 });
+const container = document.createElement('div');
+container.rect = { width: 600, height: 300, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'region' }, { field: 'charge', type: 'number' }],
+  rows: [{ id: 'a', region: 'emea', charge: 10 }, { id: 'b', region: 'amer', charge: 20 }],
+});
+const chart = createChart({ grid, container, type: 'bar', x: 'region', y: 'charge' });
+grid.destroy();  // the chart un-binds: a draw would warn once, not throw
+
+const replacement = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'region' }, { field: 'charge', type: 'number' }],
+  rows: [{ id: 'c', region: 'north', charge: 40 }, { id: 'd', region: 'south', charge: 50 }],
+});
+chart.rebind(replacement);
+return [chart.data().categories.join(','), String(chart.data().rows)].join(' | ');</code></pre>
 
     <h3>Clicking a chart</h3>
     <p>A chart emits <code>click</code>, <code>hover</code>, <code>leave</code>, <code>focus</code>, <code>draw</code>, <code>drill</code>, <code>brush</code> and <code>legend</code> — there is no <code>point:click</code>, <code>point:hover</code> or <code>series:toggle</code>. The common use is filtering the grid from a mark, which makes the pair two views of one selection rather than a chart beside a table. The <code>click</code> and <code>hover</code> payload is <strong>flat</strong> — <code>{ label, category, column, value, series, rowKeys, native, preventDefault }</code>, with no <code>point</code> wrapper — where <code>column</code> is the grid column the mark filters on and <code>category</code> the value to filter it to.</p>
@@ -9840,10 +9867,30 @@ const kpi = createKPI(document.querySelector('#kpis'), {
           <tr><td class="sig">expand(key) / collapse(key) / toggle(key)</td><td class="desc">Open or close a branch. A key for a branch the panel does not (yet) hold is retained rather than dropped, so a delta that later introduces it finds it already open.</td></tr>
           <tr><td class="sig">getState() / setState(snapshot)</td><td class="desc">Serialise and restore the panel's row set, so a headless panel round-trips, plus <code>expanded</code> (the open branch keys) on a hierarchical panel. A snapshot with no <code>expanded</code> key leaves expansion alone rather than resetting it.</td></tr>
           <tr><td class="sig">on(name, fn) / off(name, fn)</td><td class="desc">Events: <code>tile:click</code>, <code>tile:dblclick</code>, <code>tile:contextmenu</code>, <code>node:toggle</code> (a branch opened or closed), and <code>change</code> (after every update).</td></tr>
+          <tr><td class="sig">rebind(grid)</td><td class="desc">Point the panel at a replacement grid after the one it was bound to was destroyed (BACKLOG-0001588) — the panel keeps its tiles and element, drops its subscriptions to the dead grid, subscribes to the new one and re-reads its rows. A panel left unbound shows nothing and warns once (<code>kpi:grid-destroyed</code>) rather than throwing. Binding to the grid it already follows is a no-op.</td></tr>
           <tr><td class="sig">destroy()</td><td class="desc">Empty the element and drop the listeners. The host still owns any bound grid.</td></tr>
         </tbody>
       </table>
     </div>
+    <p>A panel whose grid is destroyed — an htmx swap, a framework teardown — stays on the page but shows nothing; a refresh in that state reports nothing and warns once (<code>kpi:grid-destroyed</code>) rather than throwing. <code>kpi.rebind(grid)</code> points it at the replacement:</p>
+    <pre data-run="js" data-expect="70" data-covers="export:createKPI method:kpi.rebind"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createKPI } = await import('../packages/modules/kpi/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'qty', type: 'number' }],
+  rows: [{ id: 'a', qty: 2 }, { id: 'b', qty: 1 }],
+});
+const kpi = createKPI(null, { grid, tiles: [{ id: 'total', label: 'Total', aggregation: 'sum', field: 'qty' }] });
+grid.destroy();  // the panel un-binds: a refresh would warn once, not throw
+
+const replacement = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'qty', type: 'number' }],
+  rows: [{ id: 'c', qty: 30 }, { id: 'd', qty: 40 }],
+});
+kpi.rebind(replacement);
+return String(kpi.value('total'));</code></pre>
     <p><strong>Interaction is light and host-driven.</strong> A tile emits <code>tile:click</code> (also from the keyboard) carrying the tile model, so a host can drill down or, in a demo, filter a routed grid &mdash; the wiring lives in the host, not the module. This is deliberately not a dashboard layout engine (that is the parked dashboard generator) and charting beyond a minimal sparkline belongs to the charts module.</p>
     <h3 id="kpi-clock">The clock tile: the device clock, not an aggregate</h3>
     <p><code>{ kind: 'clock', label, timeZone?, locale?, seconds?, date? }</code> in <code>tiles</code> renders a tile that shows the current date and time instead of a figure &mdash; the date on one line, the time on the next, e.g. <code>Mon, 21 Apr 2025</code> over <code>14:32:18</code> &mdash; styled like any other tile, so a panel of zone clocks beside a panel of figures reads as one visual system with no host CSS.</p>
@@ -11853,7 +11900,7 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
 
     <h3 id="module-exports-example">Every module export, executed</h3>
     <p class="section-note">Every shipped module’s exports, resolved against its own barrel on every build.</p>
-    <pre data-run="js" data-expect="80" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:regressionPlots export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:createLatticeElements export:defineLatticeElements export:ELEMENT_TAGS export:createLatticeKPIElement export:createLatticeChartElement export:createLatticeKanbanElement export:createLatticeGanttElement export:createLatticeLayoutElement export:createLatticeTabsElement export:createLatticeRouterElement export:adoptLatticeStyles export:latticeStyleSheets export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload export:createDataRouter export:MockWebSocket export:rng export:opsFeed export:priceFeed export:createKanban export:pack"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
+    <pre data-run="js" data-expect="81" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:regressionPlots export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:rebindViewersWithin export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:createLatticeElements export:defineLatticeElements export:ELEMENT_TAGS export:createLatticeKPIElement export:createLatticeChartElement export:createLatticeKanbanElement export:createLatticeGanttElement export:createLatticeLayoutElement export:createLatticeTabsElement export:createLatticeRouterElement export:adoptLatticeStyles export:latticeStyleSheets export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload export:createDataRouter export:MockWebSocket export:rng export:opsFeed export:priceFeed export:createKanban export:pack"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
 <span class="cmt">// barrel. A module that stopped exporting something fails here.</span>
 <span class="kw">const</span> modules = [
   [<span class="kw">await</span> import('../packages/dom/src/index.js'), [
@@ -11871,8 +11918,8 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
   [<span class="kw">await</span> import('../packages/modules/htmx/index.js'), [
     'HTML_ROW_WARNING_THRESHOLD', 'QUERY_CHANGED_EVENT', 'SCROLL_NEAR_END_EVENT', 'attach',
     'destroyWithin', 'driveInfiniteScroll', 'driveOobUpdates', 'driveServerMode',
-    'ingestResponse', 'initWithin', 'queryParams', 'restoreStateWithin',
-    'rowsFromFragment', 'rowsFromJson', 'saveStateWithin', 'warnIfLargeHtmlPayload',
+     'ingestResponse', 'initWithin', 'queryParams', 'rebindViewersWithin', 'restoreStateWithin',
+     'rowsFromFragment', 'rowsFromJson', 'saveStateWithin', 'warnIfLargeHtmlPayload',
   ]],
   [<span class="kw">await</span> import('../packages/modules/webcomponent/index.js'), [
     'ATTRIBUTE_CONFIG', 'EVENT_PREFIX', 'GridElementController',
@@ -12223,6 +12270,7 @@ grid.destroy();
         <tbody>
           <tr><td class="name">initWithin</td><td class="type">(root) =&gt; <a href="#type-Grid">Grid</a>[]</td><td class="desc">Build every grid inside a fragment htmx just swapped in.</td></tr>
           <tr><td class="name">destroyWithin</td><td class="type">(root) =&gt; void</td><td class="desc">Tear them down before the fragment goes.</td></tr>
+          <tr><td class="name">rebindViewersWithin</td><td class="type">(root) =&gt; number</td><td class="desc">Re-point every viewer declared with <code>data-lattice-bind="&lt;grid id&gt;"</code> at the live grid now carrying that id (BACKLOG-0001588), and return how many it re-bound. Runs automatically on <code>htmx:load</code> after the new grids are built.</td></tr>
           <tr><td class="name">gridElementsWithin</td><td class="type">(root) =&gt; Element[]</td><td class="desc">The grid elements in a fragment, without building them.</td></tr>
           <tr><td class="name">rowsFromFragment</td><td class="type">(fragment) =&gt; unknown[]</td><td class="desc">Read rows out of server-rendered markup.</td></tr>
           <tr><td class="name">rowsFromJson</td><td class="type">(text) =&gt; unknown[]</td><td class="desc">Read rows out of a JSON payload.</td></tr>
@@ -17835,6 +17883,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">toCSV</td><td class="type">(): string</td><td class="desc">&mdash;</td><td class="type"><code>string</code></td><td class="desc">The numbers the chart is drawing, as CSV: one column per series, one row per category (or label and total, for a hierarchy). Empty string before the first draw.</td></tr>
           <tr><td class="name">state</td><td class="type">(): <a href="#type-ChartState">ChartState</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-ChartState">ChartState</a></code></td><td class="desc">The chart's own view state: everything a reader has drawn on it, as plain JSON that survives `JSON.stringify` and comes back through {@link Chart.setState} as the same drawings (BACKLOG-0001474).</td></tr>
           <tr><td class="name">setState</td><td class="type">(state: <a href="#type-ChartState">ChartState</a> | <a href="#type-ChartAnnotationItem">ChartAnnotationItem</a>[]): void</td><td class="desc"><code>state: <a href="#type-ChartState">ChartState</a> | <a href="#type-ChartAnnotationItem">ChartAnnotationItem</a>[]</code></td><td class="type"><code>void</code></td><td class="desc">Restore a state produced by {@link Chart.state}. Silent — reloading a saved view is not an edit, so it raises no `annotation:added`. A chart that has not drawn yet holds the drawings until it has.</td></tr>
+          <tr><td class="name">rebind</td><td class="type">(grid: <a href="#type-Grid">Grid</a>): <a href="#type-Chart">Chart</a></td><td class="desc"><code>grid: <a href="#type-Grid">Grid</a></code></td><td class="type"><code><a href="#type-Chart">Chart</a></code></td><td class="desc">Point the chart at a replacement grid after the one it was bound to was destroyed (BACKLOG-0001588). The chart keeps its spec and element, drops its subscriptions to the dead grid, subscribes to the new one and redraws from it. Binding to the grid it already follows is a no-op, so a re-bind pass over the whole page is safe after every swap. A destroyed chart cannot be re-bound.</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Stop following the grid, disconnect the resize observer, stop any rolling-window timer, remove the chart's element and drop every listener. Calling it twice is harmless.</td></tr>
         </tbody>
       </table>
@@ -18584,6 +18633,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">setState</td><td class="type">(snapshot: object): <a href="#type-KPI">KPI</a></td><td class="desc"><code>snapshot: object</code></td><td class="type"><code><a href="#type-KPI">KPI</a></code></td><td class="desc">Restore a snapshot from `getState`. A snapshot without `expanded` leaves the expansion alone rather than collapsing the rail.</td></tr>
           <tr><td class="name">on</td><td class="type">(name: <a href="#type-KPIEventName">KPIEventName</a>, fn: (event: <a href="#type-KPIEventPayloads">KPIEventPayloads</a>[<a href="#type-KPIEventName">KPIEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>name: <a href="#type-KPIEventName">KPIEventName</a></code><br><code>fn: (event: <a href="#type-KPIEventPayloads">KPIEventPayloads</a>[<a href="#type-KPIEventName">KPIEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Register an event handler; returns a function that removes it. An unrecognised event name is warned about once. What each event carries is {@link KPIEventPayloads}; the handler is declared with the widest of them, so narrow on the name inside it.</td></tr>
           <tr><td class="name">off</td><td class="type">(name: <a href="#type-KPIEventName">KPIEventName</a>, fn: (event: <a href="#type-KPIEventPayloads">KPIEventPayloads</a>[<a href="#type-KPIEventName">KPIEventName</a>]) =&gt; void): void</td><td class="desc"><code>name: <a href="#type-KPIEventName">KPIEventName</a></code><br><code>fn: (event: <a href="#type-KPIEventPayloads">KPIEventPayloads</a>[<a href="#type-KPIEventName">KPIEventName</a>]) =&gt; void</code></td><td class="type"><code>void</code></td><td class="desc">Remove a handler registered with `on`.</td></tr>
+          <tr><td class="name">rebind</td><td class="type">(grid: <a href="#type-Grid">Grid</a>): <a href="#type-KPI">KPI</a></td><td class="desc"><code>grid: <a href="#type-Grid">Grid</a></code></td><td class="type"><code><a href="#type-KPI">KPI</a></code></td><td class="desc">Point the panel at a replacement grid after the one it was bound to was destroyed (BACKLOG-0001588). The panel keeps its tiles and element, drops its subscriptions to the dead grid, subscribes to the new one and re-reads its rows. Binding to the grid it already follows is a no-op, so a re-bind pass over the whole page is safe after every swap. On a panel not built over a grid the call is a no-op — its rows are its own.</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Drop every listener, stop following the bound grid, stop any clock tile ticking, and empty the element (removing only the class the panel added).</td></tr>
         </tbody>
       </table>
@@ -24490,7 +24540,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.81.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.82.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

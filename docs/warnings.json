@@ -1,5 +1,5 @@
 {
-  "version": "1.81.0",
+  "version": "1.82.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 578,
+  "count": 580,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -6081,6 +6081,28 @@
       "fix": "Name the view.",
       "snippet": "dashboard.saveView('East, biggest first');",
       "docs": "API.html#dashboard"
+    },
+    {
+      "id": "chart:grid-destroyed",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.82.0",
+      "message": "this chart was bound to a grid that has been destroyed, so it draws nothing. Point it at a replacement with chart.rebind(grid).",
+      "meaning": "The grid the chart was bound to was destroyed (an htmx swap, a page-framework teardown, or a host call to grid.destroy()). The chart stays mounted — its element and last drawing remain — but stops following the dead grid, and a draw draws nothing rather than throwing on the torn-down store.",
+      "fix": "Point the chart at the replacement grid with chart.rebind(grid), or declare data-lattice-bind=\"<grid id>\" on its container so the htmx module re-binds it automatically after a swap.",
+      "snippet": "chart.rebind(newGrid);",
+      "docs": "api/charts.html#chartsmodule"
+    },
+    {
+      "id": "kpi:grid-destroyed",
+      "module": "kpi",
+      "severity": "warn",
+      "since": "1.82.0",
+      "message": "this KPI panel was bound to a grid that has been destroyed, so it shows nothing. Point it at a replacement with kpi.rebind(grid).",
+      "meaning": "The grid the panel was bound to was destroyed (an htmx swap, a page-framework teardown, or a host call to grid.destroy()). The panel stays mounted but stops following the dead grid, and a refresh shows nothing rather than throwing on the torn-down store.",
+      "fix": "Point the panel at the replacement grid with kpi.rebind(grid), or declare data-lattice-bind=\"<grid id>\" on its container so the htmx module re-binds it automatically after a swap.",
+      "snippet": "kpi.rebind(newGrid);",
+      "docs": "api/kpi.html#kpi"
     }
   ]
 }

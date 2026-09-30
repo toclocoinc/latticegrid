@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Charts API Reference — Lattice Grid 1.81.0</title>
+<title>Charts API Reference — Lattice Grid 1.82.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -769,11 +769,38 @@ grid.destroy();
           <tr><td class="sig">toSVG(opts?)</td><td class="type">string</td><td class="desc">The chart as markup.</td></tr>
           <tr><td class="sig">toPNG(opts?)</td><td class="type">Promise&lt;Blob&gt;</td><td class="desc"><code>scale: 2</code> for a retina still.</td></tr>
           <tr><td class="sig">toCSV()</td><td class="type">string</td><td class="desc">The bound data, for a reader who wants the numbers.</td></tr>
+          <tr><td class="sig">rebind(grid)</td><td class="type"><a href="#type-Chart">Chart</a></td><td class="desc">Point the chart at a replacement grid after the one it was bound to was destroyed (BACKLOG-0001588) — the chart keeps its spec and element, drops its subscriptions to the dead grid, subscribes to the new one and redraws. A chart left unbound draws nothing and warns once (<code>chart:grid-destroyed</code>) rather than throwing. Binding to the grid it already follows is a no-op.</td></tr>
           <tr><td class="sig">destroy()</td><td class="type">void</td><td class="desc">Yours to call: the element is in your page, not the grid's.</td></tr>
           <tr><td class="sig">element</td><td class="type">SVGElement</td><td class="desc">The chart's own root.</td></tr>
         </tbody>
       </table>
     </div>
+
+    <p>A chart whose grid is destroyed — an htmx swap, a framework teardown — stays on the page but stops following it; a draw in that state draws nothing and warns once (<code>chart:grid-destroyed</code>) rather than throwing. <code>chart.rebind(grid)</code> points it at the replacement:</p>
+    <pre data-run="js" data-expect="north,south | 2" data-covers="export:createChart method:charts.rebind"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 600, height: 300 });
+const container = document.createElement('div');
+container.rect = { width: 600, height: 300, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'region' }, { field: 'charge', type: 'number' }],
+  rows: [{ id: 'a', region: 'emea', charge: 10 }, { id: 'b', region: 'amer', charge: 20 }],
+});
+const chart = createChart({ grid, container, type: 'bar', x: 'region', y: 'charge' });
+grid.destroy();  // the chart un-binds: a draw would warn once, not throw
+
+const replacement = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'region' }, { field: 'charge', type: 'number' }],
+  rows: [{ id: 'c', region: 'north', charge: 40 }, { id: 'd', region: 'south', charge: 50 }],
+});
+chart.rebind(replacement);
+return [chart.data().categories.join(','), String(chart.data().rows)].join(' | ');</code></pre>
 
     <h3>Clicking a chart</h3>
     <p>A chart emits <code>click</code>, <code>hover</code>, <code>leave</code>, <code>focus</code>, <code>draw</code>, <code>drill</code>, <code>brush</code> and <code>legend</code> — there is no <code>point:click</code>, <code>point:hover</code> or <code>series:toggle</code>. The common use is filtering the grid from a mark, which makes the pair two views of one selection rather than a chart beside a table. The <code>click</code> and <code>hover</code> payload is <strong>flat</strong> — <code>{ label, category, column, value, series, rowKeys, native, preventDefault }</code>, with no <code>point</code> wrapper — where <code>column</code> is the grid column the mark filters on and <code>category</code> the value to filter it to.</p>
@@ -1573,6 +1600,7 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">toCSV</td><td class="type">(): string</td><td class="desc">&mdash;</td><td class="type"><code>string</code></td><td class="desc">The numbers the chart is drawing, as CSV: one column per series, one row per category (or label and total, for a hierarchy). Empty string before the first draw.</td></tr>
           <tr><td class="name">state</td><td class="type">(): <a href="types.html#type-ChartState">ChartState</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="types.html#type-ChartState">ChartState</a></code></td><td class="desc">The chart's own view state: everything a reader has drawn on it, as plain JSON that survives `JSON.stringify` and comes back through {@link Chart.setState} as the same drawings (BACKLOG-0001474).</td></tr>
           <tr><td class="name">setState</td><td class="type">(state: <a href="types.html#type-ChartState">ChartState</a> | <a href="types.html#type-ChartAnnotationItem">ChartAnnotationItem</a>[]): void</td><td class="desc"><code>state: <a href="types.html#type-ChartState">ChartState</a> | <a href="types.html#type-ChartAnnotationItem">ChartAnnotationItem</a>[]</code></td><td class="type"><code>void</code></td><td class="desc">Restore a state produced by {@link Chart.state}. Silent — reloading a saved view is not an edit, so it raises no `annotation:added`. A chart that has not drawn yet holds the drawings until it has.</td></tr>
+          <tr><td class="name">rebind</td><td class="type">(grid: <a href="grid.html#type-Grid">Grid</a>): <a href="#type-Chart">Chart</a></td><td class="desc"><code>grid: <a href="grid.html#type-Grid">Grid</a></code></td><td class="type"><code><a href="#type-Chart">Chart</a></code></td><td class="desc">Point the chart at a replacement grid after the one it was bound to was destroyed (BACKLOG-0001588). The chart keeps its spec and element, drops its subscriptions to the dead grid, subscribes to the new one and redraws from it. Binding to the grid it already follows is a no-op, so a re-bind pass over the whole page is safe after every swap. A destroyed chart cannot be re-bound.</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Stop following the grid, disconnect the resize observer, stop any rolling-window timer, remove the chart's element and drop every listener. Calling it twice is harmless.</td></tr>
         </tbody>
       </table>

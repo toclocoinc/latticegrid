@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.81.0</p>
+    <p class="rail__sub">Developer guide · v1.82.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.81.0</span>
+        <span class="chip">Version 1.82.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1408,15 +1408,92 @@ autoInit(document);</code></pre>
       library, not just through <code>autoInit</code>: <code>element.__lattice</code> holds
       the instance for any element <code>createGrid</code> was called on, and is cleared
       when the grid is destroyed.</p>
+      <p id="htmx-guide-rebind"><strong>Viewers re-bind across a swap.</strong> A chart or
+      KPI panel bound to a grid inside a swapped-out subtree would otherwise keep pointing
+      at the grid <code>htmx:beforeCleanupElement</code> just destroyed, and throw on its
+      next draw. Instead the grid tells every viewer bound to it, and the viewer stops
+      drawing — a chart or panel left unbound draws nothing and warns once by name
+      (<code>chart:grid-destroyed</code> / <code>kpi:grid-destroyed</code>) rather than
+      throwing. To re-bind it to the grid that lands in the fragment, mark the viewer's
+      container with <code>data-lattice-bind="&lt;grid id&gt;"</code>, where the value is
+      the <code>id</code> attribute of the grid's host element, and give that element the
+      matching <code>id</code>. On <code>htmx:load</code> the module builds the new grid,
+      then walks the page for every <code>[data-lattice-bind]</code> container, resolves the
+      named grid to the live instance now carrying that id, and calls
+      <code>viewer.rebind(grid)</code> — a chart or panel created by the page's own code
+      publishes itself on its container (<code>container.__latticeChart</code> /
+      <code>container.__latticeKpi</code>), which is how the two bundles find each other
+      across the DOM. <code>rebind(grid)</code> is also a public method on both, for a host
+      that swaps grids itself.</p>
       <p id="htmx-guide-data-type"><strong>Column type precedence when hydrating a
       table.</strong> A <code>&lt;th data-type="..."&gt;</code> sets that column's
       <code>type</code> to any built-in type name (the seven base types plus the
       extended catalogue); an unknown name is warned about once, by name, and
       ignored, leaving the column to sampled shape typing exactly as if no
-      <code>data-type</code> had been given. A sibling <code>data-format</code>
+      <code>data-type</code> had been given. The declaration also drives each
+      cell's value: it wins over the value sniffer, so a <code>text</code> column
+      keeps its leading zeros — <code>'01'</code> stays <code>'01'</code>, not the
+      number <code>1</code> — and a <code>number</code>/<code>date</code>/<code>boolean</code>
+      column coerces to that type; a column with no declaration still runs the
+      sniffer, reading numeric text as numbers. A sibling <code>data-format</code>
       likewise sets <code>format</code> when present. <code>hydrateTable</code>'s
       own <code>config.columns</code>, when given, still takes precedence over
       both for the same column.</p>
+      <p id="htmx-guide-columns-merge"><strong>Hydrating with <code>columns</code>
+      merges rather than replaces.</strong> A <code>columns</code> entry in the
+      hydrate config refines the column it names while the rest still come from
+      the table: each config column overrides the table column with the same
+      <code>id</code>/<code>field</code>, and every table column it does not name
+      keeps its read definition. A page that wants the old replace behaviour —
+      only the columns it lists — opts out with
+      <code>columns: { only: [...] }</code>.</p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Hydrate <code>columns</code> merge, and the <code>only</code> opt-out, executed</p>
+      <pre data-run="js" data-expect="merge=name,qty,active only=qty" data-covers="config:columns export:hydrateTable"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+const { hydrateTable } = await import('../packages/dom/src/hydrate.js');
+
+function table(doc) {
+  const t = doc.createElement('table');
+  const thead = doc.createElement('thead');
+  const hr = doc.createElement('tr');
+  for (const h of ['Name', 'Qty', 'Active']) {
+    const th = doc.createElement('th');
+    th.textContent = h;
+    hr.appendChild(th);
+  }
+  thead.appendChild(hr);
+  t.appendChild(thead);
+  const tb = doc.createElement('tbody');
+  const tr = doc.createElement('tr');
+  for (const c of ['Alpha', '10', 'true']) {
+    const td = doc.createElement('td');
+    td.textContent = c;
+    tr.appendChild(td);
+  }
+  tb.appendChild(tr);
+  t.appendChild(tb);
+  return t;
+}
+
+const { root: root1 } = createTestDom();
+root1.appendChild(table(root1.ownerDocument));
+const g1 = hydrateTable(root1.firstChild, { columns: [{ id: 'qty', field: 'qty', type: 'number' }] });
+flushFrames();
+const merged = g1.columns.all().map((c) => c.id).join(',');
+
+const { root: root2 } = createTestDom();
+root2.appendChild(table(root2.ownerDocument));
+const g2 = hydrateTable(root2.firstChild, { columns: { only: [{ id: 'qty', field: 'qty', type: 'number' }] } });
+flushFrames();
+const only = g2.columns.all().map((c) => c.id).join(',');
+
+g1.destroy();
+g2.destroy();
+
+return `merge=${merged} only=${only}`;
+</code></pre>
     </div>
 
     <div class="example">
@@ -1470,8 +1547,14 @@ driveInfiniteScroll(grid, document.getElementById('sentinel'), { columns: COLUMN
       <code>data-lattice-state</code>, which rides along in htmx's own history snapshot. On
       <code>htmx:historyRestore</code>, it is read back and applied: browser back
       returns a visitor to the sort, filter and scroll position they had, not a blank
-      slate. A cache miss (the page was re-fetched from the server) restores nothing, since
-      a fresh response is already the truth.</p>
+      slate. This covers a grid hydrated from a server-rendered
+      <code>&lt;table&gt;</code> too, not only a config-built one: because the table
+      itself was consumed at hydration, its columns and rows are serialised alongside
+      the state (<code>data-lattice-hydrate</code>) so the snapshot holds the data to
+      rebuild from, and on a cache hit the module rebuilds the grid and applies the
+      saved state — back restores a live, re-hydrated grid with its sort, filter and
+      grouping, not a picture of one. A cache miss (the page was re-fetched from the
+      server) restores nothing, since a fresh response is already the truth.</p>
       <p><strong>A failed request leaves the grid alone.</strong> <code>driveServerMode</code>
       and <code>driveInfiniteScroll</code> both listen for
       <code>htmx:responseError</code>/<code>htmx:sendError</code>; the grid's rows are
@@ -1579,7 +1662,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.81.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.82.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -11814,7 +11897,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.81.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.82.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

@@ -1,8 +1,12 @@
 /*!
- * Lattice Grid 1.81.0, kpi module type declarations
+ * Lattice Grid 1.82.0, kpi module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
+import type {
+  Grid,
+} from '../lattice-grid.js';
+
 /** A row backing a KPI aggregate: any object. Its identity comes from `rowKey`. */
 type KPIRow = Record<string, unknown>;
 
@@ -664,6 +668,13 @@ export interface KPI {
   on(name: KPIEventName, fn: (event: KPIEventPayloads[KPIEventName]) => void): () => void;
   /** Remove a handler registered with `on`. */
   off(name: KPIEventName, fn: (event: KPIEventPayloads[KPIEventName]) => void): void;
+  /**
+   * Point the panel at a replacement grid after the one it was bound to was destroyed. The panel keeps its tiles and element, drops its subscriptions to the
+   * dead grid, subscribes to the new one and re-reads its rows. Binding to the grid it already
+   * follows is a no-op, so a re-bind pass over the whole page is safe after every swap. On a
+   * panel not built over a grid the call is a no-op — its rows are its own.
+   */
+  rebind(grid: Grid): KPI;
   /**
    * Drop every listener, stop following the bound grid, stop any clock tile ticking, and
    * empty the element (removing only the class the panel added).
