@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Adapters API Reference — Lattice Grid 1.79.0</title>
+<title>Adapters API Reference — Lattice Grid 1.80.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -389,6 +389,7 @@
         <span class="rail__label">On this page</span>
         <a href="#adapters">Framework adapters</a>
         <a class="rail__sub-link" href="#react-v2">React: every viewer, not only the grid</a>
+        <a class="rail__sub-link" href="#react-data-grid">React: &lt;LatticeDataGrid&gt;, an MUI X DataGrid page by one import</a>
         <a class="rail__sub-link" href="#vue-v2">Vue 3: every viewer, not only the grid</a>
         <a class="rail__sub-link" href="#svelte-v2">Svelte 5: components you compile, not a bundle you load</a>
         <a class="rail__sub-link" href="#angular-v2">Angular: a compiled entry point, @toclocoinc/lattice-grid/angular</a>
@@ -399,6 +400,8 @@
         <a href="#htmx-integration">htmx integration</a>
         <a href="#ref-adapters-reference">Type reference</a>
         <a class="rail__sub-link" href="#type-LatticeViewerCommonProps">LatticeViewerCommonProps</a>
+        <a class="rail__sub-link" href="#type-LatticeDataGridApi">LatticeDataGridApi</a>
+        <a class="rail__sub-link" href="#type-LatticeDataGridProps">LatticeDataGridProps</a>
         <a class="rail__sub-link" href="#type-LatticeVueGridRegistry">LatticeVueGridRegistry</a>
         <a class="rail__sub-link" href="#type-LatticeVueRouterHandle">LatticeVueRouterHandle</a>
         <a class="rail__sub-link" href="#type-LatticeGridElement">LatticeGridElement</a>
@@ -423,6 +426,7 @@
         <a href="layout.html">The dashboard layout</a>
         <a href="dashboard.html">Dashboard composition</a>
         <a href="ai.html">The AI narrative and insights layer</a>
+        <a href="presets.html">Design-system presets</a>
         <a href="mock-socket.html">The mock socket</a>
         <a href="types.html">Types and the glossary</a>
       </div>
@@ -442,7 +446,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 19 pages</a></span>
+      <span class="chip"><a href="index.html">All 20 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -662,6 +666,225 @@ controller.destroy();
       build of every application printed "The above dynamic import cannot be analyzed by Vite" about
       a line that could never run. The build now deletes that branch from every emitted artefact.
     </p>
+
+    <h3 id="react-data-grid">React: <code>&lt;LatticeDataGrid&gt;</code>, an MUI X DataGrid page by one import</h3>
+    <p>
+      <code>createLatticeDataGrid</code> (1.80) builds a component that takes the props of MUI X's
+      <code>&lt;DataGrid&gt;</code> &mdash; the free-tier ones in the table below &mdash; so a page written
+      against <code>@mui/x-data-grid</code> keeps its column definitions, its controlled models and
+      its callbacks, and changes the import. Every accepted prop maps to documented grid configuration,
+      a grid API call or a subscription to a grid event. <strong>Every other prop is refused once, by
+      name</strong>, with the catalogued warning <code>react:mui-prop-unsupported:&lt;prop&gt;</code>, and
+      ignored &mdash; never half-applied. It is <strong>React-only by design</strong>: it exists for pages
+      leaving MUI X, which Vue, Svelte and Angular hosts are not, so the rule that every framework gets
+      every viewer does not extend to it. <code>sx</code> and the <code>.MuiDataGrid-*</code> class names are
+      not emulated; theme the grid through its <code>--lattice-*</code> tokens. The grid's stylesheet still
+      needs loading.
+    </p>
+    <pre><code><span class="kw">import</span> React <span class="kw">from</span> 'react';
+<span class="kw">import</span> * <span class="kw">as</span> ReactDOM <span class="kw">from</span> 'react-dom/client';
+<span class="kw">import</span> { createGrid } <span class="kw">from</span> '@toclocoinc/lattice-grid';
+<span class="kw">import</span> { createLatticeDataGrid } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/react';
+
+<span class="cmt">// Built once, at module scope. ReactDOM is needed only by a renderCell that returns an element.</span>
+<span class="kw">export const</span> DataGrid = createLatticeDataGrid({ React, ReactDOM, createGrid });
+
+<span class="cmt">// …and in the page, instead of `import { DataGrid } from '@mui/x-data-grid'`:</span>
+&lt;DataGrid rows={rows} columns={columns} checkboxSelection
+  sortModel={sortModel} onSortModelChange={setSortModel}
+  paginationModel={paginationModel} onPaginationModelChange={setPaginationModel} /&gt;</code></pre>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Prop</th><th>What it becomes</th></tr></thead>
+        <tbody>
+          <tr><td class="name">rows</td><td class="desc">the <code>rows</code> of a memory source (copied on ingest)</td></tr>
+          <tr><td class="name">columns</td><td class="desc"><code>columns</code>, each definition translated (table below)</td></tr>
+          <tr><td class="name">getRowId</td><td class="desc"><code>rowKey</code> as a function, read at call time; <code>id</code> by default</td></tr>
+          <tr><td class="name">loading</td><td class="desc"><code>grid.overlay.show('loading')</code> / <code>hide()</code></td></tr>
+          <tr><td class="name">density</td><td class="desc"><code>density</code> (the three MUI values are grid values too)</td></tr>
+          <tr><td class="name">checkboxSelection</td><td class="desc"><code>selection: { mode: 'multiple', checkbox: true, headerCheckbox: true }</code>; without it, <code>mode: 'single'</code></td></tr>
+          <tr><td class="name">disableRowSelectionOnClick</td><td class="desc"><code>selection.checkboxOnly</code></td></tr>
+          <tr><td class="name">editMode</td><td class="desc"><code>edit.mode</code> (<code>'cell'</code> or <code>'row'</code>)</td></tr>
+          <tr><td class="name">sortModel / onSortModelChange</td><td class="desc"><code>grid.sort.set</code> / <code>sort:changed</code></td></tr>
+          <tr><td class="name">filterModel / onFilterModelChange</td><td class="desc"><code>grid.filters.set</code> and <code>filters.quick(…, { mode: 'words' })</code> / <code>filter:changed</code>; every free-tier operator translates</td></tr>
+          <tr><td class="name">rowSelectionModel / onRowSelectionModelChange</td><td class="desc"><code>grid.selection.set</code> / <code>selection:changed</code>, as <code>{ type: 'include', ids }</code> by MUI id</td></tr>
+          <tr><td class="name">columnVisibilityModel / onColumnVisibilityModelChange</td><td class="desc"><code>layout.hidden</code>, <code>columns.hide</code>/<code>show</code> / <code>column:visible</code></td></tr>
+          <tr><td class="name">paginationModel / onPaginationModelChange</td><td class="desc"><code>pagination.pageSize</code> and <code>pagination.applyPage</code> / <code>page:changed</code> &mdash; <strong>memory source only</strong></td></tr>
+          <tr><td class="name">pageSizeOptions</td><td class="desc"><code>pagination.pageSizes</code>; <code>[25, 50, 100]</code> by default, as in MUI &mdash; memory source only</td></tr>
+          <tr><td class="name">onRowClick</td><td class="desc"><code>row:clicked</code>, as <code>(params, event, details)</code></td></tr>
+          <tr><td class="name">onCellClick / onCellDoubleClick</td><td class="desc"><code>cell:clicked</code> / <code>cell:dblclicked</code></td></tr>
+          <tr><td class="name">onCellEditStop / onCellModesModelChange</td><td class="desc"><code>cell:edit:end</code> / <code>cell:edit:start</code> and <code>cell:edit:end</code></td></tr>
+          <tr><td class="name">onRowEditStop / onRowModesModelChange</td><td class="desc"><code>row:edit:end</code> / <code>row:edit:start</code> and <code>row:edit:end</code>, in <code>editMode="row"</code></td></tr>
+          <tr><td class="name">onColumnResize</td><td class="desc"><code>column:resized</code></td></tr>
+          <tr><td class="name">onColumnOrderChange</td><td class="desc"><code>column:moved</code></td></tr>
+          <tr><td class="name">onDataSourceError</td><td class="desc"><code>source:error</code></td></tr>
+          <tr><td class="name">apiRef</td><td class="desc"><code>apiRef.current</code> is the six methods below while the grid exists, <code>null</code> after</td></tr>
+          <tr><td class="name">slots / showToolbar</td><td class="desc"><code>slots.toolbar</code> rendered above the grid when <code>showToolbar</code> is true; any other slot is refused</td></tr>
+          <tr><td class="name">source</td><td class="desc"><em>Not an MUI prop.</em> A Lattice <code>source</code>, for rows that are not in memory. Over one, the three paging props are refused by name</td></tr>
+          <tr><td class="name">className / style</td><td class="desc">the host element</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Column key</th><th>What it becomes</th></tr></thead>
+        <tbody>
+          <tr><td class="name">field</td><td class="desc">the column id and the row property</td></tr>
+          <tr><td class="name">headerName</td><td class="desc">the heading</td></tr>
+          <tr><td class="name">width</td><td class="desc"><code>layout.width</code>; 100 by default, as in MUI</td></tr>
+          <tr><td class="name">flex</td><td class="desc"><code>layout.flex</code>, instead of a width</td></tr>
+          <tr><td class="name">type</td><td class="desc"><code>string</code>, <code>number</code>, <code>date</code>, <code>dateTime</code>, <code>boolean</code> to the grid's types; any other is refused</td></tr>
+          <tr><td class="name">valueGetter</td><td class="desc"><code>value.compute</code>, called <code>(value, row, column, apiRef)</code></td></tr>
+          <tr><td class="name">valueFormatter</td><td class="desc"><code>value.format</code>, called the same way</td></tr>
+          <tr><td class="name">renderCell</td><td class="desc">a cell renderer: text as text, a React element through its own root (needs <code>ReactDOM</code>)</td></tr>
+          <tr><td class="name">editable</td><td class="desc"><code>edit</code></td></tr>
+          <tr><td class="name">sortable</td><td class="desc"><code>sort: false</code></td></tr>
+          <tr><td class="name">filterable</td><td class="desc"><code>filter: false</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th><code>apiRef</code> method</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td class="name">getSelectedRows()</td><td class="desc">a <code>Map</code> of MUI id to row, from <code>grid.selection.rows()</code></td></tr>
+          <tr><td class="name">setSortModel(model)</td><td class="desc"><code>grid.sort.set</code>; <code>onSortModelChange</code> fires</td></tr>
+          <tr><td class="name">setFilterModel(model)</td><td class="desc">the filter translation; <code>onFilterModelChange</code> fires once</td></tr>
+          <tr><td class="name">scrollToIndexes({ rowIndex, colIndex })</td><td class="desc"><code>grid.scroll.toCell</code>/<code>toRow</code>/<code>toColumn</code>; the checkbox column is index 0, as in MUI</td></tr>
+          <tr><td class="name">exportDataAsCsv(options)</td><td class="desc"><code>grid.export.csv({ download: true })</code>: the selected rows if any, else the filtered rows; <code>fileName</code>, <code>delimiter</code>, <code>includeHeaders</code>, <code>utf8WithBom</code>, <code>fields</code>, <code>allColumns</code>, <code>escapeFormulas</code> mapped</td></tr>
+          <tr><td class="name">updateRows(updates)</td><td class="desc">merge by id, add a new id, <code>_action: 'delete'</code> removes; <code>_action: 'replace'</code> is refused</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note">
+      <strong>Refused by name, with a reason of its own:</strong> <code>paginationMode</code>,
+      <code>rowCount</code>, <code>paginationMeta</code> and <code>onPaginationMetaChange</code> (MUI's
+      server paging hands the paging contract to the host; the grid pages a non-memory source inside
+      the source); <code>dataSource</code> (use a Lattice <code>source</code>); the Pro/Premium props
+      <code>rowGroupingModel</code>, <code>onRowGroupingModelChange</code>, <code>groupingColDef</code>,
+      <code>rowGroupingColumnMode</code>, <code>disableRowGrouping</code>, <code>treeData</code>,
+      <code>getTreeDataPath</code>, <code>onRowExpansionChange</code>, <code>aggregationModel</code>,
+      <code>onAggregationModelChange</code> and <code>aggregationFunctions</code> (not verified against
+      the Pro types, so not guessed at); <code>sx</code> and <code>classes</code>; and
+      <code>initialState</code> (pass the controlled models instead). Any other prop, column key,
+      slot, column type, filter operator or CSV option is refused with the same warning family, by its
+      own name. A filter model with one untranslatable operator is not applied at all.
+    </p>
+    <p class="section-note">
+      <strong>Client-side paging over a memory source only.</strong> MUI pages rows the browser
+      already holds, which is what the grid's own paging does over a memory source &mdash; so there the
+      three paging props map one for one, and MUI's defaults (100 a page, <code>[25, 50, 100]</code>) apply.
+      Over a pushdown, paged or remote <code>source</code> the page belongs to the source:
+      <code>paginationModel</code>, <code>onPaginationModelChange</code> and <code>pageSizeOptions</code>
+      are each refused by name and the rows are left exactly as the source delivers them.
+    </p>
+    <p class="section-note">
+      <strong>Controlled models follow the adapter's identity rule.</strong> <code>sortModel</code>,
+      <code>filterModel</code>, <code>rowSelectionModel</code>, <code>columnVisibilityModel</code> and
+      <code>paginationModel</code> are applied when their identity changes, and their callbacks fire for
+      the reader's and <code>apiRef</code>'s changes, never for the prop's own &mdash; MUI's rule. One
+      difference, stated: the grid is not pinned to a controlled model between renders, so a host that
+      ignores <code>onSortModelChange</code> sees the reader's sort until it next passes a
+      <code>sortModel</code>, where MUI would snap it back.
+    </p>
+    <pre data-run="js" data-expect="rows 2 of 3, first c, 36 yrs, Ada Lovelace | heard visibility,sort,filter,selection,page,cellModes,cellModes,editStop,resize,move | selected a+c, Cyrus, scrolled true | row edit rowModes,rowModes,rowEditStop | pushdown pagination refused, error offline | people toolbar MyToolbar" data-covers="export:createLatticeDataGrid export:createDataGridController config:LatticeDataGridProps.rows config:LatticeDataGridProps.columns config:LatticeDataGridProps.getRowId config:LatticeDataGridProps.loading config:LatticeDataGridProps.density config:LatticeDataGridProps.checkboxSelection config:LatticeDataGridProps.disableRowSelectionOnClick config:LatticeDataGridProps.editMode config:LatticeDataGridProps.sortModel config:LatticeDataGridProps.onSortModelChange config:LatticeDataGridProps.filterModel config:LatticeDataGridProps.onFilterModelChange config:LatticeDataGridProps.rowSelectionModel config:LatticeDataGridProps.onRowSelectionModelChange config:LatticeDataGridProps.columnVisibilityModel config:LatticeDataGridProps.onColumnVisibilityModelChange config:LatticeDataGridProps.paginationModel config:LatticeDataGridProps.onPaginationModelChange config:LatticeDataGridProps.pageSizeOptions config:LatticeDataGridProps.onRowClick config:LatticeDataGridProps.onCellClick config:LatticeDataGridProps.onCellDoubleClick config:LatticeDataGridProps.onCellEditStop config:LatticeDataGridProps.onRowEditStop config:LatticeDataGridProps.onColumnResize config:LatticeDataGridProps.onColumnOrderChange config:LatticeDataGridProps.onCellModesModelChange config:LatticeDataGridProps.onRowModesModelChange config:LatticeDataGridProps.onDataSourceError config:LatticeDataGridProps.apiRef config:LatticeDataGridProps.slots config:LatticeDataGridProps.showToolbar config:LatticeDataGridProps.source config:LatticeDataGridProps.className config:LatticeDataGridProps.style config:LatticeDataGridColDef.field config:LatticeDataGridColDef.headerName config:LatticeDataGridColDef.width config:LatticeDataGridColDef.flex config:LatticeDataGridColDef.type config:LatticeDataGridColDef.valueGetter config:LatticeDataGridColDef.valueFormatter config:LatticeDataGridColDef.renderCell config:LatticeDataGridColDef.editable config:LatticeDataGridColDef.sortable config:LatticeDataGridColDef.filterable method:react.getSelectedRows method:react.setSortModel method:react.setFilterModel method:react.scrollToIndexes method:react.exportDataAsCsv method:react.updateRows"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid, createPushdownSource } = await import('../packages/dom/src/index.js');
+const { createLatticeDataGrid, createDataGridController } = await import('../packages/modules/react/index.js');
+
+// An MUI X page's rows and column definitions, unchanged.
+const rows = [
+  { code: 'a', name: 'Ada', age: 36, first: 'Ada', last: 'Lovelace', ok: true },
+  { code: 'b', name: 'Bob', age: 20, first: 'Bob', last: 'Moog', ok: false },
+  { code: 'c', name: 'Cy', age: 50, first: 'Cy', last: 'Young', ok: true },
+];
+const columns = [
+  { field: 'code', headerName: 'Code', width: 80, sortable: false, filterable: false },
+  { field: 'name', headerName: 'Name', flex: 1, editable: true },
+  { field: 'age', type: 'number', valueFormatter: (value) =&gt; `${value} yrs` },
+  { field: 'full', valueGetter: (value, row) =&gt; `${row.first} ${row.last}`,
+    renderCell: (params) =&gt; String(params.value).toUpperCase() },
+  { field: 'ok', type: 'boolean' },
+];
+
+// Every callback records its own name, so the result says which fired.
+const heard = [];
+const hear = (name) =&gt; () =&gt; heard.push(name);
+const apiRef = { current: null };
+
+// The framework-free half, driven here with no React at all.
+const grid = createDataGridController({
+  createGrid,
+  element: createTestDom().root,
+  props: {
+    rows, columns, getRowId: (row) =&gt; row.code, loading: false, density: 'compact',
+    checkboxSelection: true, disableRowSelectionOnClick: true, editMode: 'cell',
+    sortModel: [{ field: 'age', sort: 'desc' }], onSortModelChange: hear('sort'),
+    filterModel: { items: [] }, onFilterModelChange: hear('filter'),
+    rowSelectionModel: { type: 'include', ids: new Set(['b']) }, onRowSelectionModelChange: hear('selection'),
+    columnVisibilityModel: { ok: false }, onColumnVisibilityModelChange: hear('visibility'),
+    paginationModel: { page: 0, pageSize: 2 }, onPaginationModelChange: hear('page'), pageSizeOptions: [2, 5],
+    onRowClick: hear('row'), onCellClick: hear('cell'), onCellDoubleClick: hear('dblclick'),
+    onCellEditStop: hear('editStop'), onColumnResize: hear('resize'), onColumnOrderChange: hear('move'),
+    onCellModesModelChange: hear('cellModes'), apiRef,
+  },
+}).grid;
+flushFrames();
+const shown = `rows ${grid.rows.count()} of ${grid.rows.matchCount()}, first ${grid.rows.get(0).key}, `
+  + `${grid.rows.text('a', 'age')}, ${grid.rows.text('a', 'full')}`;
+
+// The props' own values called nothing back; the reader and the apiRef do.
+grid.columns.show('ok');
+apiRef.current.setSortModel([{ field: 'name', sort: 'asc' }]);
+apiRef.current.setFilterModel({ items: [{ field: 'age', operator: '&gt;', value: 25 }] });
+grid.selection.set(['a', 'c']);
+grid.pagination.set({ page: 0, pageSize: 5 });
+flushFrames();
+grid.edit.start('a', 'name');
+grid.edit.stop();
+grid.columns.resize('name', 150);
+grid.columns.move('age', 0);
+const selected = [...apiRef.current.getSelectedRows().keys()].join('+');
+apiRef.current.updateRows([{ code: 'c', name: 'Cyrus' }]);
+const scrolled = apiRef.current.scrollToIndexes({ rowIndex: 1 });
+// In a browser this downloads people.csv; Node has no download, so the grid says so.
+apiRef.current.exportDataAsCsv({ fileName: 'people', fields: ['code', 'name'] });
+
+// Row editing, with its two callbacks.
+const rowHeard = [];
+const rowGrid = createDataGridController({
+  createGrid, element: createTestDom().root,
+  props: { rows, columns, getRowId: (row) =&gt; row.code, editMode: 'row',
+    onRowEditStop: () =&gt; rowHeard.push('rowEditStop'), onRowModesModelChange: () =&gt; rowHeard.push('rowModes') },
+}).grid;
+flushFrames();
+rowGrid.edit.start('a', 'name');
+rowGrid.edit.stop();
+
+// A pushdown source: the page model is refused by name, the error still reaches the host.
+let failed = '';
+const remote = createDataGridController({
+  createGrid, element: createTestDom().root,
+  props: {
+    columns, paginationModel: { page: 1, pageSize: 2 },
+    source: createPushdownSource({ adapter: { name: 'down', capabilities: {}, execute: async () =&gt; { throw new Error('offline'); } } }),
+    onDataSourceError: (error) =&gt; { failed = error.message; },
+  },
+}).grid;
+await new Promise((r) =&gt; setTimeout(r, 20));
+
+// And the React component: the toolbar slot above the grid, on a host element.
+const React = {
+  createElement: (type, props, ...children) =&gt; ({ type, props, children }),
+  useRef: (current) =&gt; ({ current }), useEffect() {}, useImperativeHandle() {}, forwardRef: (f) =&gt; f,
+};
+const DataGrid = createLatticeDataGrid({ React, createGrid });
+const tree = DataGrid({ rows, columns, slots: { toolbar: 'MyToolbar' }, showToolbar: true,
+  className: 'people', style: { height: 300 } }, null);
+
+return `${shown} | heard ${heard.join(',')} | selected ${selected}, ${grid.rows.byKey('c').data.name}, `
+  + `scrolled ${scrolled} | row edit ${rowHeard.join(',')} | pushdown pagination `
+  + `${remote.config().pagination === undefined ? 'refused' : 'applied'}, error ${failed} | `
+  + `${tree.props.className} toolbar ${tree.children[0].children[0].type}`;</code></pre>
 
     <h3 id="vue-v2">Vue 3: every viewer, not only the grid</h3>
     <p>
@@ -1569,6 +1792,209 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
         </tbody>
       </table>
     </div>
+    <h4 id="type-LatticeDataGridColDef">LatticeDataGridColDef</h4>
+    <p class="section-note">One MUI X-shaped column definition, as `&lt;LatticeDataGrid&gt;` takes it (BACKLOG-0001572). These eleven keys are mapped onto a grid column; any other key is refused once, by name, as `columns.&lt;key&gt;`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">field</td><td class="type">string</td><td class="desc">The row property the column shows; also the column's id. Required.</td></tr>
+          <tr><td class="name">headerName</td><td class="type">string</td><td class="desc">The heading text. Defaults to the field. <small>(optional)</small></td></tr>
+          <tr><td class="name">width</td><td class="type">number</td><td class="desc">The width in pixels; 100 by default, as in MUI. Ignored when `flex` is set. <small>(optional)</small></td></tr>
+          <tr><td class="name">flex</td><td class="type">number</td><td class="desc">A share of the spare width, instead of a fixed `width`. <small>(optional)</small></td></tr>
+          <tr><td class="name">type</td><td class="type">'string' | 'number' | 'date' | 'dateTime' | 'boolean'</td><td class="desc">The value type: `'string'`, `'number'`, `'date'`, `'dateTime'` or `'boolean'`, each mapped to the grid's own type. Any other type is refused by name and the type is inferred from the data. <small>(optional)</small></td></tr>
+          <tr><td class="name">editable</td><td class="type">boolean</td><td class="desc">Let the reader edit this column's cells. <small>(optional)</small></td></tr>
+          <tr><td class="name">sortable</td><td class="type">boolean</td><td class="desc">`false` stops the column being sorted. <small>(optional)</small></td></tr>
+          <tr><td class="name">filterable</td><td class="type">boolean</td><td class="desc">`false` stops the column being filtered. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">valueGetter</td><td class="type">(value: any, row: any, column: <a href="#type-LatticeDataGridColDef">LatticeDataGridColDef</a>, apiRef: { current: <a href="#type-LatticeDataGridApi">LatticeDataGridApi</a> | null }) =&gt; unknown</td><td class="desc"><code>value: any</code><br><code>row: any</code><br><code>column: <a href="#type-LatticeDataGridColDef">LatticeDataGridColDef</a></code><br><code>apiRef: { current: <a href="#type-LatticeDataGridApi">LatticeDataGridApi</a> | null }</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">Derive the cell value, MUI's four-argument form: the row's value for `field`, the row, this definition, and the `apiRef`. <small>(optional)</small></td></tr>
+          <tr><td class="name">valueFormatter</td><td class="type">(value: any, row: any, column: <a href="#type-LatticeDataGridColDef">LatticeDataGridColDef</a>, apiRef: { current: <a href="#type-LatticeDataGridApi">LatticeDataGridApi</a> | null }) =&gt; unknown</td><td class="desc"><code>value: any</code><br><code>row: any</code><br><code>column: <a href="#type-LatticeDataGridColDef">LatticeDataGridColDef</a></code><br><code>apiRef: { current: <a href="#type-LatticeDataGridApi">LatticeDataGridApi</a> | null }</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">Turn the cell value into the text the cell shows, with the same four arguments. <small>(optional)</small></td></tr>
+          <tr><td class="name">renderCell</td><td class="type">(params: <a href="#type-LatticeDataGridCellParams">LatticeDataGridCellParams</a>) =&gt; unknown</td><td class="desc"><code>params: <a href="#type-LatticeDataGridCellParams">LatticeDataGridCellParams</a></code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">Render the cell: a string or number is shown as text, a React element is mounted into the cell through its own root (which needs `ReactDOM` passed to `createLatticeDataGrid`). <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-LatticeDataGridCellParams">LatticeDataGridCellParams</h4>
+    <p class="section-note">What `onCellClick`, `onCellDoubleClick`, `onCellEditStop` and `renderCell` receive, MUI's shape.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">unknown</td><td class="desc">The row's MUI id: `getRowId(row)`, or `row.id`.</td></tr>
+          <tr><td class="name">field</td><td class="type">string</td><td class="desc">The column's field.</td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The cell's value.</td></tr>
+          <tr><td class="name">formattedValue</td><td class="type">unknown</td><td class="desc">The cell's display text.</td></tr>
+          <tr><td class="name">row</td><td class="type">any</td><td class="desc">The row object.</td></tr>
+          <tr><td class="name">colDef</td><td class="type"><a href="#type-LatticeDataGridColDef">LatticeDataGridColDef</a> | undefined</td><td class="desc">The column's definition, or undefined for a column the grid generated.</td></tr>
+          <tr><td class="name">cellMode</td><td class="type">'view'</td><td class="desc">Always `'view'`: the callbacks fire outside an edit.</td></tr>
+          <tr><td class="name">hasFocus</td><td class="type">boolean</td><td class="desc">Always false; focus is not reported.</td></tr>
+          <tr><td class="name">tabIndex</td><td class="type">number</td><td class="desc">Always -1.</td></tr>
+          <tr><td class="name">api</td><td class="type"><a href="#type-LatticeDataGridApi">LatticeDataGridApi</a></td><td class="desc">The `apiRef` methods, on `renderCell` only. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-LatticeDataGridRowParams">LatticeDataGridRowParams</h4>
+    <p class="section-note">What `onRowClick` and `onRowEditStop` receive, MUI's shape.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">unknown</td><td class="desc">The row's MUI id.</td></tr>
+          <tr><td class="name">row</td><td class="type">any</td><td class="desc">The row object.</td></tr>
+          <tr><td class="name">columns</td><td class="type"><a href="#type-LatticeDataGridColDef">LatticeDataGridColDef</a>[]</td><td class="desc">Every column definition.</td></tr>
+          <tr><td class="name">field</td><td class="type">string</td><td class="desc">The field the edit stopped on, on `onRowEditStop` only. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</h4>
+    <p class="section-note">The second argument MUI's `on*Change` callbacks receive.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">api</td><td class="type"><a href="#type-LatticeDataGridApi">LatticeDataGridApi</a></td><td class="desc">The `apiRef` methods.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-LatticeDataGridSortItem">LatticeDataGridSortItem</h4>
+    <p class="section-note">One sort item, MUI's shape.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">field</td><td class="type">string</td><td class="desc">The column field.</td></tr>
+          <tr><td class="name">sort</td><td class="type">'asc' | 'desc' | null | undefined</td><td class="desc">The direction; an item with no direction is dropped.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-LatticeDataGridFilterItem">LatticeDataGridFilterItem</h4>
+    <p class="section-note">One filter item, MUI's shape.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">number | string</td><td class="desc">An id for the item; kept for the host, not read. <small>(optional)</small></td></tr>
+          <tr><td class="name">field</td><td class="type">string</td><td class="desc">The column field.</td></tr>
+          <tr><td class="name">operator</td><td class="type">string</td><td class="desc">The MUI operator. Every free-tier operator translates; an operator that does not makes the whole model refused, never partly applied.</td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The operand. An item with no operand is skipped, except `isEmpty`/`isNotEmpty`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-LatticeDataGridFilterModel">LatticeDataGridFilterModel</h4>
+    <p class="section-note">The filter model, MUI's shape.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">items</td><td class="type"><a href="#type-LatticeDataGridFilterItem">LatticeDataGridFilterItem</a>[]</td><td class="desc">The conditions.</td></tr>
+          <tr><td class="name">logicOperator</td><td class="type">'and' | 'or'</td><td class="desc">How the items combine; `'and'` by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">quickFilterValues</td><td class="type">unknown[]</td><td class="desc">Quick-filter words: every word must match somewhere in the row. <small>(optional)</small></td></tr>
+          <tr><td class="name">quickFilterLogicOperator</td><td class="type">'and' | 'or'</td><td class="desc">`'and'` only: `'or'` has no quick-filter equivalent and refuses the model. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-LatticeDataGridRowSelectionModel">LatticeDataGridRowSelectionModel</h4>
+    <p class="section-note">The row-selection model, MUI's shape. `'exclude'` is refused by name.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">'include' | 'exclude'</td><td class="desc">`'include'`: exactly these rows are selected.</td></tr>
+          <tr><td class="name">ids</td><td class="type">Set&lt;unknown&gt;</td><td class="desc">The selected rows' MUI ids.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-LatticeDataGridPaginationModel">LatticeDataGridPaginationModel</h4>
+    <p class="section-note">The page model, MUI's shape; the page is zero-based.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">page</td><td class="type">number</td><td class="desc">The zero-based page.</td></tr>
+          <tr><td class="name">pageSize</td><td class="type">number</td><td class="desc">Rows per page.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-LatticeDataGridApi">LatticeDataGridApi</h4>
+    <p class="section-note">The methods the `apiRef` exposes: the commonly used six, with MUI's signatures. `apiRef.current` is set when the grid is built and cleared when it is destroyed.</p>
+    <h5 id="type-LatticeDataGridApi-properties">Properties</h5>
+    <p class="section-note">No properties.</p>
+    <h5 id="type-LatticeDataGridApi-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">getSelectedRows</td><td class="type">(): Map&lt;unknown, any&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Map&lt;unknown, any&gt;</code></td><td class="desc">The selected rows, keyed by MUI row id.</td></tr>
+          <tr><td class="name">setSortModel</td><td class="type">(model: <a href="#type-LatticeDataGridSortItem">LatticeDataGridSortItem</a>[]): void</td><td class="desc"><code>model: <a href="#type-LatticeDataGridSortItem">LatticeDataGridSortItem</a>[]</code></td><td class="type"><code>void</code></td><td class="desc">Replace the sort model. `onSortModelChange` fires, as in MUI.</td></tr>
+          <tr><td class="name">setFilterModel</td><td class="type">(model: <a href="#type-LatticeDataGridFilterModel">LatticeDataGridFilterModel</a>): void</td><td class="desc"><code>model: <a href="#type-LatticeDataGridFilterModel">LatticeDataGridFilterModel</a></code></td><td class="type"><code>void</code></td><td class="desc">Replace the filter model. `onFilterModelChange` fires once, as in MUI.</td></tr>
+          <tr><td class="name">scrollToIndexes</td><td class="type">(params: { rowIndex?: number; colIndex?: number }): boolean</td><td class="desc"><code>params: { rowIndex?: number; colIndex?: number }</code></td><td class="type"><code>boolean</code></td><td class="desc">Scroll a row, a column, or a cell into view. The column index counts the checkbox column as 0 when there is one, as MUI's does. Returns false when neither index names anything.</td></tr>
+          <tr><td class="name">exportDataAsCsv</td><td class="type">(options?: Record&lt;string, unknown&gt;): void</td><td class="desc"><code>options?: Record&lt;string, unknown&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Download the rows as CSV: the selected rows when there are any, otherwise every row the filters pass. `fileName`, `delimiter`, `includeHeaders`, `utf8WithBom`, `fields`, `allColumns` and `escapeFormulas` are mapped; any other option is refused by name.</td></tr>
+          <tr><td class="name">updateRows</td><td class="type">(updates: Array&lt;Record&lt;string, unknown&gt;&gt;): void</td><td class="desc"><code>updates: Array&lt;Record&lt;string, unknown&gt;&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Merge a partial row into the row with its id, add a row with a new id, or delete one with `_action: 'delete'`. `_action: 'replace'` is refused by name.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-LatticeDataGridApi-events">Events</h5>
+    <p class="section-note">No events.</p>
+    <h4 id="type-LatticeDataGridProps">LatticeDataGridProps</h4>
+    <p class="section-note">What `&lt;LatticeDataGrid&gt;` takes (BACKLOG-0001572): the MUI X DataGrid props it maps, and nothing else. Every other prop is refused once, by name, as `react:mui-prop-unsupported:&lt;prop&gt;`, and ignored.</p>
+    <h5 id="type-LatticeDataGridProps-properties">Properties</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">rows</td><td class="type">readonly any[]</td><td class="desc">The rows, for a memory source. Each needs an `id`, unless `getRowId` says otherwise. <small>(optional)</small></td></tr>
+          <tr><td class="name">columns</td><td class="type">readonly <a href="#type-LatticeDataGridColDef">LatticeDataGridColDef</a>[]</td><td class="desc">The column definitions. Hoist or memoise them: a new array rebuilds the columns.</td></tr>
+          <tr><td class="name">loading</td><td class="type">boolean</td><td class="desc">Show the loading overlay while true. <small>(optional)</small></td></tr>
+          <tr><td class="name">density</td><td class="type">'compact' | 'standard' | 'comfortable'</td><td class="desc">Row density: `'compact'`, `'standard'` or `'comfortable'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">checkboxSelection</td><td class="type">boolean</td><td class="desc">A checkbox column, with a select-all box in its heading, and multiple selection. <small>(optional)</small></td></tr>
+          <tr><td class="name">disableRowSelectionOnClick</td><td class="type">boolean</td><td class="desc">A click on a row does not select it; only the checkbox does. <small>(optional)</small></td></tr>
+          <tr><td class="name">editMode</td><td class="type">'cell' | 'row'</td><td class="desc">`'cell'` or `'row'` editing; `'row'` is what makes `onRowEditStop` fire. <small>(optional)</small></td></tr>
+          <tr><td class="name">sortModel</td><td class="type"><a href="#type-LatticeDataGridSortItem">LatticeDataGridSortItem</a>[]</td><td class="desc">The sort, applied when its identity changes. <small>(optional)</small></td></tr>
+          <tr><td class="name">filterModel</td><td class="type"><a href="#type-LatticeDataGridFilterModel">LatticeDataGridFilterModel</a></td><td class="desc">The filter, applied when its identity changes. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowSelectionModel</td><td class="type"><a href="#type-LatticeDataGridRowSelectionModel">LatticeDataGridRowSelectionModel</a> | readonly unknown[]</td><td class="desc">The selected rows, applied when its identity changes. An array of ids is taken too. <small>(optional)</small></td></tr>
+          <tr><td class="name">columnVisibilityModel</td><td class="type">Record&lt;string, boolean&gt;</td><td class="desc">`{ [field]: false }` hides a column; applied when its identity changes. <small>(optional)</small></td></tr>
+          <tr><td class="name">paginationModel</td><td class="type"><a href="#type-LatticeDataGridPaginationModel">LatticeDataGridPaginationModel</a></td><td class="desc">The page and page size, client-side over a memory source only. Over any other source it is refused by name and the rows are left untouched. <small>(optional)</small></td></tr>
+          <tr><td class="name">pageSizeOptions</td><td class="type">ReadonlyArray&lt;number | { value: number; label: string }&gt;</td><td class="desc">The page sizes the pager offers; `[25, 50, 100]` by default. Memory source only. <small>(optional)</small></td></tr>
+          <tr><td class="name">apiRef</td><td class="type">{ current: <a href="#type-LatticeDataGridApi">LatticeDataGridApi</a> | null }</td><td class="desc">An object whose `current` is set to the {@link LatticeDataGridApi} while the grid exists. <small>(optional)</small></td></tr>
+          <tr><td class="name">slots</td><td class="type">{ toolbar?: unknown }</td><td class="desc">Component slots; only `toolbar` is mapped, and it renders when `showToolbar` is true. <small>(optional)</small></td></tr>
+          <tr><td class="name">showToolbar</td><td class="type">boolean</td><td class="desc">Render `slots.toolbar` above the grid. <small>(optional)</small></td></tr>
+          <tr><td class="name">source</td><td class="type"><a href="types.html#type-SourceConfig">SourceConfig</a> | Record&lt;string, unknown&gt;</td><td class="desc">Not an MUI prop: a Lattice `source` for rows that are not in memory. Over one, the three paging props are refused by name. <small>(optional)</small></td></tr>
+          <tr><td class="name">className</td><td class="type">string</td><td class="desc">Applied to the host element. <small>(optional)</small></td></tr>
+          <tr><td class="name">style</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Applied to the host element, over its flex-column default. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-LatticeDataGridProps-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">getRowId</td><td class="type">(row: any) =&gt; string | number</td><td class="desc"><code>row: any</code></td><td class="type"><code>=&gt; string | number</code></td><td class="desc">Read a row's id, when it is not `row.id`. Read at call time, so an inline arrow is fine. <small>(optional)</small></td></tr>
+          <tr><td class="name">onSortModelChange</td><td class="type">(model: <a href="#type-LatticeDataGridSortItem">LatticeDataGridSortItem</a>[], details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a>) =&gt; void</td><td class="desc"><code>model: <a href="#type-LatticeDataGridSortItem">LatticeDataGridSortItem</a>[]</code><br><code>details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Told when the reader or `apiRef` changes the sort; never for the prop's own change. <small>(optional)</small></td></tr>
+          <tr><td class="name">onFilterModelChange</td><td class="type">(model: <a href="#type-LatticeDataGridFilterModel">LatticeDataGridFilterModel</a>, details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a>) =&gt; void</td><td class="desc"><code>model: <a href="#type-LatticeDataGridFilterModel">LatticeDataGridFilterModel</a></code><br><code>details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Told when the reader or `apiRef` changes the filter. <small>(optional)</small></td></tr>
+          <tr><td class="name">onRowSelectionModelChange</td><td class="type">(model: <a href="#type-LatticeDataGridRowSelectionModel">LatticeDataGridRowSelectionModel</a>, details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a>) =&gt; void</td><td class="desc"><code>model: <a href="#type-LatticeDataGridRowSelectionModel">LatticeDataGridRowSelectionModel</a></code><br><code>details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Told when the selection changes, always with an `'include'` model. <small>(optional)</small></td></tr>
+          <tr><td class="name">onColumnVisibilityModelChange</td><td class="type">(model: Record&lt;string, boolean&gt;, details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a>) =&gt; void</td><td class="desc"><code>model: Record&lt;string, boolean&gt;</code><br><code>details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Told when a column is shown or hidden, with every column's visibility. <small>(optional)</small></td></tr>
+          <tr><td class="name">onPaginationModelChange</td><td class="type">(model: <a href="#type-LatticeDataGridPaginationModel">LatticeDataGridPaginationModel</a>, details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a>) =&gt; void</td><td class="desc"><code>model: <a href="#type-LatticeDataGridPaginationModel">LatticeDataGridPaginationModel</a></code><br><code>details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Told when the page or page size changes; memory source only. <small>(optional)</small></td></tr>
+          <tr><td class="name">onRowClick</td><td class="type">(params: <a href="#type-LatticeDataGridRowParams">LatticeDataGridRowParams</a>, event: unknown, details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a>) =&gt; void</td><td class="desc"><code>params: <a href="#type-LatticeDataGridRowParams">LatticeDataGridRowParams</a></code><br><code>event: unknown</code><br><code>details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Told when a row is clicked. <small>(optional)</small></td></tr>
+          <tr><td class="name">onCellClick</td><td class="type">(params: <a href="#type-LatticeDataGridCellParams">LatticeDataGridCellParams</a>, event: unknown, details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a>) =&gt; void</td><td class="desc"><code>params: <a href="#type-LatticeDataGridCellParams">LatticeDataGridCellParams</a></code><br><code>event: unknown</code><br><code>details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Told when a cell is clicked. <small>(optional)</small></td></tr>
+          <tr><td class="name">onCellDoubleClick</td><td class="type">(params: <a href="#type-LatticeDataGridCellParams">LatticeDataGridCellParams</a>, event: unknown, details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a>) =&gt; void</td><td class="desc"><code>params: <a href="#type-LatticeDataGridCellParams">LatticeDataGridCellParams</a></code><br><code>event: unknown</code><br><code>details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Told when a cell is double-clicked. <small>(optional)</small></td></tr>
+          <tr><td class="name">onCellEditStop</td><td class="type">(params: <a href="#type-LatticeDataGridCellParams">LatticeDataGridCellParams</a>, event: { defaultMuiPrevented: boolean }, details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a>) =&gt; void</td><td class="desc"><code>params: <a href="#type-LatticeDataGridCellParams">LatticeDataGridCellParams</a></code><br><code>event: { defaultMuiPrevented: boolean }</code><br><code>details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Told when a cell edit ends. The edit has ended; `defaultMuiPrevented` is not read. <small>(optional)</small></td></tr>
+          <tr><td class="name">onRowEditStop</td><td class="type">(params: <a href="#type-LatticeDataGridRowParams">LatticeDataGridRowParams</a>, event: { defaultMuiPrevented: boolean }, details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a>) =&gt; void</td><td class="desc"><code>params: <a href="#type-LatticeDataGridRowParams">LatticeDataGridRowParams</a></code><br><code>event: { defaultMuiPrevented: boolean }</code><br><code>details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Told when a row edit ends, in `editMode="row"`. <small>(optional)</small></td></tr>
+          <tr><td class="name">onColumnResize</td><td class="type">(params: { colDef: <a href="#type-LatticeDataGridColDef">LatticeDataGridColDef</a> | undefined; width: number; element: null }, event: unknown, details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a>) =&gt; void</td><td class="desc"><code>params: { colDef: <a href="#type-LatticeDataGridColDef">LatticeDataGridColDef</a> | undefined; width: number; element: null }</code><br><code>event: unknown</code><br><code>details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Told when a column is resized. <small>(optional)</small></td></tr>
+          <tr><td class="name">onColumnOrderChange</td><td class="type">(params: { column: <a href="#type-LatticeDataGridColDef">LatticeDataGridColDef</a> | undefined; targetIndex: number; oldIndex: number }, event: unknown, details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a>) =&gt; void</td><td class="desc"><code>params: { column: <a href="#type-LatticeDataGridColDef">LatticeDataGridColDef</a> | undefined; targetIndex: number; oldIndex: number }</code><br><code>event: unknown</code><br><code>details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Told when a column is moved. <small>(optional)</small></td></tr>
+          <tr><td class="name">onCellModesModelChange</td><td class="type">(model: Record&lt;string, Record&lt;string, { mode: 'edit' }&gt;&gt;, details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a>) =&gt; void</td><td class="desc"><code>model: Record&lt;string, Record&lt;string, { mode: 'edit' }&gt;&gt;</code><br><code>details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Told when a cell enters or leaves edit mode: `{ [id]: { [field]: { mode: 'edit' } } }`. <small>(optional)</small></td></tr>
+          <tr><td class="name">onRowModesModelChange</td><td class="type">(model: Record&lt;string, { mode: 'edit' }&gt;, details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a>) =&gt; void</td><td class="desc"><code>model: Record&lt;string, { mode: 'edit' }&gt;</code><br><code>details: <a href="#type-LatticeDataGridCallbackDetails">LatticeDataGridCallbackDetails</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Told when a row enters or leaves edit mode: `{ [id]: { mode: 'edit' } }`. <small>(optional)</small></td></tr>
+          <tr><td class="name">onDataSourceError</td><td class="type">(error: unknown) =&gt; void</td><td class="desc"><code>error: unknown</code></td><td class="type"><code>=&gt; void</code></td><td class="desc">Told when the grid's `source` reports an error. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-LatticeDataGridProps-events">Events</h5>
+    <p class="section-note">No events.</p>
     <h4 id="type-LatticeVueGridExposed">LatticeVueGridExposed</h4>
     <p class="section-note">What a `&lt;LatticeGrid&gt;` template ref exposes; `grid()` is null before mount.</p>
     <div class="table-wrap">

@@ -1,0 +1,155 @@
+/*!
+ * Ant Design 5 preset for Lattice Grid (BACKLOG-0001577).
+ *
+ * A second stylesheet, loaded after `lattice-grid.css`: nothing here matches
+ * `.lattice` more specifically than the grid's own rules do (every selector
+ * below is the identical `.lattice[data-theme="…"]` shape the core theme
+ * itself uses, the same shape `material3.css` — BACKLOG-0001571 — already
+ * ships), so load order is what makes this preset win.
+ *
+ * Values are Ant Design 5's (`antd`, https://ant.design, MIT licensed)
+ * default and dark ALGORITHM tokens, version 5.9.4. `antd` is not installed
+ * anywhere in this repository (CONTRACTS §0 — zero runtime dependencies) and
+ * no antd source is redistributed here; every hex/rgba value below was
+ * COMPUTED by fetching antd@5.9.4's own published token-derivation source
+ * (`es/theme/themes/{seed,default,dark}/*.js`, `es/table/style/index.js`
+ * from https://unpkg.com/antd@5.9.4/) and running it, unmodified, through
+ * antd's own dependencies (`@ant-design/colors`' `generate()` and
+ * `@ctrl/tinycolor`) in a throwaway scratch script — not guessed or
+ * transcribed from memory. Two things that script caught, worth stating
+ * because a reader would trip on them too:
+ *
+ * 1. **The light and dark "solid colour" formulas are opposite operations
+ *    with the same export name.** `es/theme/themes/default/colorAlgorithm.js`
+ *    derives `colorBgLayout`/`colorBgContainer`/`colorBorder` etc. by
+ *    `darken()`-ing white; `es/theme/themes/dark/colorAlgorithm.js` derives
+ *    the same roles by `lighten()`-ing black. Reusing one formula for both
+ *    (an easy mistake — the function is literally called `getSolidColor` in
+ *    both files) computes `colorBgLayout` as white-on-white (`#fff`) instead
+ *    of antd's real `#f5f5f5` light default.
+ * 2. **The Table component's own alias tokens, not the raw palette,
+ *    supply the header/hover/selected roles the card names.** `headerBg`
+ *    and `rowHoverBg` both resolve to `colorFillAlter` (`colorText` at 2%
+ *    alpha) composited onto `colorBgContainer` as a solid hex — not
+ *    `colorBgContainer` or `colorFill` directly — and `rowSelectedBg` is
+ *    `controlItemBgActive`, i.e. `colorPrimaryBg` (the primary palette's
+ *    "1" step), not `colorPrimary` itself scaled down.
+ *
+ * `themeFromAntd(token)` — a live route reading a real antd `theme.token`
+ * object, the way {@link themeFromMui} in this same module's `index.js`
+ * reads a MUI theme — is explicitly NOT in scope for this card (BACKLOG-
+ * 0001577): only the static `<link>` route. See the card's own finding
+ * F-1577-1 in FINDINGS-TRIAGE.md.
+ */
+
+/*
+ * Typography, radius and shape: antd's seed and alias tokens for these do not
+ * vary with light/dark, so they are declared once, unconditionally — the
+ * same lesson `material3.css`'s own header states: a token scoped only under
+ * one `[data-theme="…"]` value never applies under another.
+ */
+.lattice {
+  --lattice-radius: 6px;                /* antd seed borderRadius */
+  --lattice-radius-sm: 4px;              /* antd borderRadiusSM */
+  --lattice-radius-pill: 100px;
+
+  --lattice-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"; /* antd seed fontFamily, verbatim */
+  --lattice-font-size: 14px;             /* antd seed fontSize */
+  --lattice-font-size-sm: 12px;
+  --lattice-font-size-lg: 16px;
+  --lattice-font-weight: 400;
+  --lattice-header-font-weight: 600;     /* antd alias fontWeightStrong, used for Table headers */
+  --lattice-line-height: 1.5715;         /* antd's own body line-height */
+}
+
+.lattice[data-theme="light"], .lattice[data-theme="auto"] {
+  /* surface roles */
+  --lattice-background: #f5f5f5;         /* colorBgLayout: darken(#fff, 4) */
+  --lattice-surface: #fafafa;            /* Table headerBg/rowHoverBg: colorFillAlter-on-colorBgContainer */
+  --lattice-surface-alt: #ffffff;        /* colorBgContainer: darken(#fff, 0) */
+  --lattice-border-color: #f0f0f0;       /* colorSplit: colorBorderSecondary, darken(#fff, 6) */
+  --lattice-border-strong: #d9d9d9;      /* colorBorder: darken(#fff, 15) */
+
+  /* text */
+  --lattice-foreground: rgba(0, 0, 0, 0.88);        /* colorText */
+  --lattice-foreground-muted: rgba(0, 0, 0, 0.65);  /* colorTextSecondary */
+  --lattice-header-foreground: rgba(0, 0, 0, 0.88); /* Table headerColor: colorTextHeading = colorText */
+
+  /* accent = colorPrimary */
+  --lattice-accent: #1677ff;
+  --lattice-accent-contrast: #ffffff;    /* colorTextLightSolid: the fixed colorWhite alias, both modes */
+  --lattice-link-color: #1677ff;         /* colorLink falls back to colorInfo, which equals colorPrimary by seed */
+
+  /* selection / hover: the Table component's own alias tokens */
+  --lattice-selected-background: #e6f4ff; /* rowSelectedBg: controlItemBgActive = colorPrimaryBg */
+  --lattice-selected-foreground: rgba(0, 0, 0, 0.88);
+  --lattice-hovered-background: #fafafa;  /* rowHoverBg: colorFillAlter-on-colorBgContainer, same as headerBg */
+
+  /* focus ring: antd's own focus outline is a 4px-wide ring in colorPrimary */
+  --lattice-focus-color: #1677ff;
+  --lattice-focus-width: 4px;            /* alias lineWidthFocus: lineWidth * 4 */
+  --lattice-focus-offset: 2px;
+
+  /* invalid / find / skeleton: not carried by antd's Table role set, so
+     mapped onto the nearest already-computed status tone rather than a new
+     colour, the same choice `material3.css` documents making. */
+  --lattice-invalid-background: #fff2f0;  /* colorErrorBg */
+  --lattice-invalid-border: #ff4d4f;      /* colorError */
+  --lattice-find-match: #fffbe6;          /* colorWarningBg, reused */
+  --lattice-skeleton-color: #f0f0f0;      /* colorSplit, reused */
+
+  /* status roles: antd's four seed status colours, each read at its "bg"
+     (palette step 1), "solid" (step 6) and "text" (step 9, which antd's own
+     light-mode palette remap folds back onto step 6 — see this file's
+     header note 1's sibling quirk in the source, not this preset's choice). */
+  --lattice-variant-danger-solid: #ff4d4f;
+  --lattice-variant-danger-fill: #fff2f0;
+  --lattice-variant-danger-border: #ffccc7;
+  --lattice-variant-danger-text: #ff4d4f;
+  --lattice-variant-warning-solid: #faad14;
+  --lattice-variant-warning-fill: #fffbe6;
+  --lattice-variant-success-solid: #52c41a;
+  --lattice-variant-success-fill: #f6ffed;
+  --lattice-variant-info-solid: #1677ff;
+  --lattice-variant-info-fill: #e6f4ff;
+}
+
+.lattice[data-theme="dark"] {
+  --lattice-background: #000000;          /* colorBgLayout: lighten(#000, 0) */
+  --lattice-surface: #1d1d1d;             /* Table headerBg/rowHoverBg (dark) */
+  --lattice-surface-alt: #141414;         /* colorBgContainer: lighten(#000, 8) */
+  --lattice-border-color: #303030;        /* colorSplit (dark) */
+  --lattice-border-strong: #424242;       /* colorBorder: lighten(#000, 26) */
+
+  --lattice-foreground: rgba(255, 255, 255, 0.85);   /* colorText (dark) */
+  --lattice-foreground-muted: rgba(255, 255, 255, 0.65);
+  --lattice-header-foreground: rgba(255, 255, 255, 0.85);
+
+  --lattice-accent: #1668dc;              /* colorPrimary (dark algorithm) */
+  --lattice-accent-contrast: #ffffff;     /* colorTextLightSolid stays fixed white */
+  --lattice-link-color: #1668dc;
+
+  --lattice-selected-background: #111a2c; /* rowSelectedBg (dark) */
+  --lattice-selected-foreground: rgba(255, 255, 255, 0.85);
+  --lattice-hovered-background: #1d1d1d;  /* rowHoverBg (dark) */
+
+  --lattice-focus-color: #1668dc;
+
+  --lattice-invalid-background: #2c1618;
+  --lattice-invalid-border: #dc4446;
+  --lattice-find-match: #2b2111;
+  --lattice-skeleton-color: #303030;
+
+  --lattice-variant-danger-solid: #dc4446;
+  --lattice-variant-danger-fill: #2c1618;
+  --lattice-variant-danger-border: #5b2526;
+  --lattice-variant-danger-text: #dc4446;
+  --lattice-variant-warning-solid: #d89614;
+  --lattice-variant-warning-fill: #2b2111;
+  --lattice-variant-success-solid: #49aa19;
+  --lattice-variant-success-fill: #162312;
+  --lattice-variant-info-solid: #1668dc;
+  --lattice-variant-info-fill: #111a2c;
+}

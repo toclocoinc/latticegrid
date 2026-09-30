@@ -1,0 +1,130 @@
+/*!
+ * Fluent 2 preset for Lattice Grid (BACKLOG-0001578).
+ *
+ * A second stylesheet, loaded after `lattice-grid.css`: nothing here matches
+ * `.lattice` more specifically than the grid's own rules do (every selector
+ * below is the identical `.lattice[data-theme="…"]` shape the core theme
+ * itself uses), so load order is what makes this preset win — the same
+ * mechanism the docs already describe for a house palette
+ * (`docs/api-detail.html#theming`).
+ *
+ * Values are transcribed from `@fluentui/tokens` (MIT licensed,
+ * microsoft/fluentui on GitHub) — the published "web" theme token set
+ * (`webLightTheme`, `webDarkTheme`). No token *file* is redistributed; these
+ * are hand-transcribed public role values, the same approach
+ * `material3.css` (BACKLOG-0001571) takes for Material 3's own published
+ * roles.
+ *
+ * Productised from the BACKLOG-0001543 spike prototype
+ * (`fluent2-static.css`) with two fixes found while productising it, both
+ * worth stating because a reader would hit them too:
+ *
+ * 1. **Typography and radius are set once, outside the light/dark blocks.**
+ *    The spike scoped `--lattice-radius`, `--lattice-font-family` and the
+ *    rest of the type scale only under `[data-theme="light"]` (and
+ *    `"auto"`), so `data-theme="dark"` silently fell back to the grid's own
+ *    default font and radius rather than Fluent's — the exact bug the 1571
+ *    lane found in this same file and fixed in `material3.css` by giving
+ *    theme-invariant roles a selector that does not test `[data-theme]` at
+ *    all. Fixed here the same way.
+ * 2. **`--lattice-header-foreground` was missing from the dark block.** The
+ *    light block set it to `colorNeutralForeground1`, matching
+ *    `--lattice-foreground`; the dark block set `--lattice-foreground` but
+ *    never repeated the header role, leaving it MUST-incomplete in dark.
+ *    Fixed by setting it to the same `colorNeutralForeground1` (dark) value
+ *    already used for `--lattice-foreground` below.
+ *
+ * Fluent 2's elevation ramp (`shadow2`/`shadow4`/`shadow8`/`shadow16`) has no
+ * direct equivalent in the contract's two shadow roles, so it is mapped the
+ * way `material3.css` maps M3 elevation: `shadow4` (the smaller step) onto
+ * `--lattice-pinned-shadow`, a pinned column/row's edge; `shadow8` (used for
+ * menus and dialogs in Fluent 2 itself) onto `--lattice-popup-shadow`, which
+ * the contract documents as "menus, tooltips, the filter popup" — the same
+ * role Fluent uses shadow8 for.
+ */
+
+/*
+ * Typography and shape: Fluent 2's type ramp and shape tokens do not vary
+ * with light/dark, so they are declared once, unconditionally.
+ */
+.lattice {
+  --lattice-radius: 4px;               /* borderRadiusMedium */
+  --lattice-radius-sm: 2px;            /* borderRadiusSmall */
+
+  --lattice-font-family: "Segoe UI", "Segoe UI Web (West European)", -apple-system, system-ui, sans-serif; /* fontFamilyBase */
+  --lattice-font-size: 14px;           /* fontSizeBase300 */
+  --lattice-font-size-sm: 12px;        /* fontSizeBase200 */
+  --lattice-font-size-lg: 16px;        /* fontSizeBase400 */
+  --lattice-header-font-weight: 600;   /* fontWeightSemibold */
+  --lattice-line-height: 1.43;         /* lineHeightBase300 */
+}
+
+.lattice[data-theme="light"], .lattice[data-theme="auto"] {
+  --lattice-background: #FFFFFF;          /* colorNeutralBackground1 */
+  --lattice-surface: #FAFAFA;             /* colorNeutralBackground2 */
+  --lattice-surface-alt: #F5F5F5;         /* colorNeutralBackground3 */
+  --lattice-border-color: #D1D1D1;        /* colorNeutralStroke1 */
+  --lattice-border-strong: #B3B0AD;       /* colorNeutralStroke1Hover-ish */
+
+  --lattice-foreground: #242424;          /* colorNeutralForeground1 */
+  --lattice-foreground-muted: #616161;    /* colorNeutralForeground2 */
+  --lattice-header-foreground: #242424;   /* colorNeutralForeground1 */
+
+  --lattice-accent: #0F6CBD;              /* colorBrandBackground */
+  --lattice-accent-contrast: #FFFFFF;     /* colorNeutralForegroundOnBrand */
+  --lattice-link-color: #115EA3;          /* colorBrandForegroundLink */
+
+  --lattice-selected-background: #E8F3FC; /* colorSubtleBackgroundSelected-ish */
+  --lattice-hovered-background: #F5F5F5;  /* colorSubtleBackgroundHover */
+
+  --lattice-focus-color: #000000;         /* Fluent's focus ring is a 2px black/white ring */
+  --lattice-focus-width: 2px;
+  --lattice-focus-offset: 1px;
+
+  --lattice-variant-danger-solid: #D13438;   /* colorPaletteRedForeground3 */
+  --lattice-variant-danger-fill: #FDF3F4;
+  --lattice-variant-warning-solid: #986F0B;  /* colorPaletteMarigoldForeground2 */
+  --lattice-variant-warning-fill: #FEF7E9;
+  --lattice-variant-success-solid: #0E700E;  /* colorPaletteGreenForeground2 */
+  --lattice-variant-success-fill: #F1FAF1;
+  --lattice-variant-info-solid: #0F6CBD;
+  --lattice-variant-info-fill: #EFF6FC;
+
+  /* elevation: shadow4 onto the pinned edge, shadow8 (Fluent's own menu/dialog
+     elevation) onto the popup role — see the file header note. */
+  --lattice-pinned-shadow: 0 0 2px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.14);  /* shadow4 */
+  --lattice-popup-shadow: 0 0 2px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.14);   /* shadow8 */
+}
+
+.lattice[data-theme="dark"] {
+  --lattice-background: #292929;          /* colorNeutralBackground1 (dark) */
+  --lattice-surface: #1F1F1F;             /* colorNeutralBackground2 (dark) */
+  --lattice-surface-alt: #2E2E2E;         /* colorNeutralBackground3 (dark) */
+  --lattice-border-color: #666666;        /* colorNeutralStroke1 (dark) */
+  --lattice-border-strong: #858585;
+
+  --lattice-foreground: #FFFFFF;          /* colorNeutralForeground1 (dark) */
+  --lattice-foreground-muted: #D6D6D6;    /* colorNeutralForeground2 (dark) */
+  --lattice-header-foreground: #FFFFFF;   /* colorNeutralForeground1 (dark) */
+
+  --lattice-accent: #479EF5;              /* colorBrandBackground (dark) */
+  --lattice-accent-contrast: #0F1215;     /* colorNeutralForegroundOnBrand (dark) */
+  --lattice-link-color: #479EF5;
+
+  --lattice-selected-background: #14375E;
+  --lattice-hovered-background: #383838;
+
+  --lattice-focus-color: #FFFFFF;
+
+  --lattice-variant-danger-solid: #F1707B;
+  --lattice-variant-danger-fill: #3B080A;
+  --lattice-variant-warning-solid: #F6AD4C;
+  --lattice-variant-warning-fill: #3D2A00;
+  --lattice-variant-success-solid: #6CCB6C;
+  --lattice-variant-success-fill: #0C2D0C;
+  --lattice-variant-info-solid: #479EF5;
+  --lattice-variant-info-fill: #082338;
+
+  --lattice-pinned-shadow: 0 0 2px rgba(0, 0, 0, 0.40), 0 2px 4px rgba(0, 0, 0, 0.44);  /* shadow4, dark */
+  --lattice-popup-shadow: 0 0 2px rgba(0, 0, 0, 0.40), 0 4px 8px rgba(0, 0, 0, 0.44);   /* shadow8, dark */
+}

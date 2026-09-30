@@ -1,0 +1,150 @@
+/*!
+ * Material 3 preset for Lattice Grid (BACKLOG-0001571).
+ *
+ * A second stylesheet, loaded after `lattice-grid.css`: nothing here matches
+ * `.lattice` more specifically than the grid's own rules do (every selector
+ * below is the identical `.lattice[data-theme="…"]` shape the core theme
+ * itself uses), so load order is what makes this preset win — the same
+ * mechanism the docs already describe for a house palette
+ * (`docs/api-detail.html#theming`).
+ *
+ * Values are the Material 3 "Baseline" scheme published in the Material
+ * Design 3 specification (material.io/design/material-3 — guidelines text and
+ * colour roles licensed CC BY 4.0 by Google). These are hand-transcribed
+ * public role values; no token *file* is redistributed. M3 roles the Lattice
+ * contract has no dedicated slot for (tertiary, the 5-level surface-container
+ * ladder) are folded onto the nearest contract role — see
+ * SPIKE-THEME-PRESETS.md §2 for the mapping table this follows.
+ *
+ * Productised from the BACKLOG-0001543 spike prototype
+ * (`material3-static.css`) with two fixes found while productising it, both
+ * worth stating because a reader would hit them too:
+ *
+ * 1. **Typography and radius are set once, outside the light/dark blocks.**
+ *    The spike's own Fluent sibling (§4 of the memo) shipped exactly this bug:
+ *    `--lattice-font-family` was scoped under `[data-theme="light"]` only, so
+ *    dark mode silently fell back to the grid's default font. `[data-theme]`
+ *    is one attribute with mutually exclusive values, so a token set only
+ *    under one value's selector never applies under another — nesting it
+ *    "outside" the per-theme blocks means giving it a selector that does not
+ *    test the attribute's value at all.
+ * 2. **Three MUST roles the prototype left unset are set here**, reusing
+ *    hues already in this file rather than inventing new ones:
+ *    `--lattice-invalid-background` (the danger-fill tone), `--lattice-find-match`
+ *    (the warning-fill tone, matching the amber "find" highlight convention),
+ *    and `--lattice-skeleton-color` (the outline-variant tone already used for
+ *    `border-color`).
+ */
+
+/*
+ * Typography, radius and shape: Material 3's type scale and shape tokens do
+ * not vary with light/dark, so they are declared once, unconditionally.
+ */
+.lattice {
+  --lattice-radius: 8px;              /* M3 "small" component shape */
+  --lattice-radius-sm: 4px;
+  --lattice-radius-pill: 100px;
+
+  --lattice-font-family: Roboto, "Segoe UI", system-ui, sans-serif;
+  --lattice-font-size: 14px;           /* M3 body-medium */
+  --lattice-font-size-sm: 12px;
+  --lattice-font-size-lg: 16px;
+  --lattice-font-weight: 400;
+  --lattice-header-font-weight: 500;   /* M3 label-large */
+  --lattice-line-height: 1.43;
+}
+
+.lattice[data-theme="light"], .lattice[data-theme="auto"] {
+  /* surface roles: M3 surface / surface-container / outline */
+  --lattice-background: #FFFBFE;       /* M3 surface */
+  --lattice-surface: #F3EDF7;          /* M3 surface-container-low */
+  --lattice-surface-alt: #ECE6F0;      /* M3 surface-container */
+  --lattice-border-color: #CAC4D0;     /* M3 outline-variant */
+  --lattice-border-strong: #79747E;    /* M3 outline */
+
+  /* text */
+  --lattice-foreground: #1C1B1F;       /* M3 on-surface */
+  --lattice-foreground-muted: #49454F; /* M3 on-surface-variant */
+  --lattice-header-foreground: #1C1B1F;
+
+  /* accent = M3 primary */
+  --lattice-accent: #6750A4;
+  --lattice-accent-contrast: #FFFFFF;  /* M3 on-primary */
+  --lattice-link-color: #6750A4;
+
+  /* selection / hover: M3 state layers — primary at low opacity */
+  --lattice-selected-background: rgba(103, 80, 164, 0.12);
+  --lattice-selected-foreground: #1C1B1F;
+  --lattice-hovered-background: rgba(28, 27, 31, 0.06);
+
+  /* focus ring: M3's focus indicator is a 3px outline in primary */
+  --lattice-focus-color: #6750A4;
+  --lattice-focus-width: 3px;
+  --lattice-focus-offset: 2px;
+
+  /* invalid / find / skeleton: not carried by M3's core role set, so mapped
+     onto the nearest already-declared M3 tone rather than a new colour. */
+  --lattice-invalid-background: #F9DEDC;  /* M3 error-container */
+  --lattice-invalid-border: #B3261E;       /* M3 error */
+  --lattice-find-match: #FFEFC4;           /* the warning-fill tone below, reused */
+  --lattice-skeleton-color: #CAC4D0;       /* the outline-variant tone above, reused */
+
+  /* status roles: M3 error, plus the standard tone recommendations from the
+     M3 "extended colors" guidance for warning/success/info, which M3 does
+     not define as core roles. */
+  --lattice-variant-danger-solid: #B3261E;
+  --lattice-variant-danger-fill: #F9DEDC;
+  --lattice-variant-danger-border: #B3261E;
+  --lattice-variant-danger-text: #410E0B;
+  --lattice-variant-warning-solid: #7A5900;
+  --lattice-variant-warning-fill: #FFEFC4;
+  --lattice-variant-success-solid: #2E7D32;
+  --lattice-variant-success-fill: #DCEFDD;
+  --lattice-variant-info-solid: #0061A4;
+  --lattice-variant-info-fill: #D3E4FF;
+
+  /* elevation: M3 elevation level 1, mapped onto the contract's two shadows —
+     there is no elevation *scale* in the contract (SPIKE-THEME-PRESETS.md §1). */
+  --lattice-popup-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.30), 0 1px 3px 1px rgba(0, 0, 0, 0.15);
+  --lattice-pinned-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.30);
+}
+
+.lattice[data-theme="dark"] {
+  --lattice-background: #1C1B1F;        /* M3 dark surface */
+  --lattice-surface: #2B2930;            /* surface-container-low (dark) */
+  --lattice-surface-alt: #322F35;        /* surface-container (dark) */
+  --lattice-border-color: #49454F;       /* outline-variant (dark) */
+  --lattice-border-strong: #938F99;      /* outline (dark) */
+
+  --lattice-foreground: #E6E1E5;         /* on-surface (dark) */
+  --lattice-foreground-muted: #CAC4D0;   /* on-surface-variant (dark) */
+  --lattice-header-foreground: #E6E1E5;
+
+  --lattice-accent: #D0BCFF;             /* primary (dark) */
+  --lattice-accent-contrast: #381E72;    /* on-primary (dark) */
+  --lattice-link-color: #D0BCFF;
+
+  --lattice-selected-background: rgba(208, 188, 255, 0.16);
+  --lattice-selected-foreground: #E6E1E5;
+  --lattice-hovered-background: rgba(230, 225, 229, 0.08);
+
+  --lattice-focus-color: #D0BCFF;
+
+  --lattice-invalid-background: #601410;
+  --lattice-invalid-border: #F2B8B5;
+  --lattice-find-match: #4A3B00;
+  --lattice-skeleton-color: #49454F;
+
+  --lattice-variant-danger-solid: #F2B8B5;
+  --lattice-variant-danger-fill: #601410;
+  --lattice-variant-danger-text: #F2B8B5;
+  --lattice-variant-warning-solid: #FFD54F;
+  --lattice-variant-warning-fill: #4A3B00;
+  --lattice-variant-success-solid: #81C784;
+  --lattice-variant-success-fill: #0F3D14;
+  --lattice-variant-info-solid: #9ECAFF;
+  --lattice-variant-info-fill: #00325B;
+
+  --lattice-popup-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.60), 0 1px 3px 1px rgba(0, 0, 0, 0.40);
+  --lattice-pinned-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.60);
+}

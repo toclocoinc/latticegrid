@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.79.0, svelte module type declarations
+ * Lattice Grid 1.80.0, svelte module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -12,6 +12,11 @@ import type {
   ViewerKind,
   createGrid,
 } from '../lattice-grid.js';
+
+// The Material 3 preset's return shape, imported
+// type-only for the same reason the React adapter's block does: the
+// re-export below is a pure function, needing no second copy of its types.
+import type { MuiTheme as PresetsMuiTheme, MuiThemeResult as PresetsMuiThemeResult } from './presets.js';
 
 /**
  * A Svelte action: `use:lattice={config}`.
@@ -251,6 +256,12 @@ export const VIEWER_BINDING: Readonly<Record<string, {
 export const EVENT_NAMES: readonly string[];
 /** `cell:edit:start` → `cell-edit-start`, the name the action dispatches under. */
 export function dashedName(event: string): string;
+/**
+ * The Material 3 preset's live route, re-exported: takes
+ * no Svelte dependency at all, a pure function over a plain theme-shaped
+ * object. See `lattice-grid/modules/presets` for the full declaration.
+ */
+export function themeFromMui(theme: PresetsMuiTheme): PresetsMuiThemeResult;
 /** Every event each non-grid viewer emits, keyed by viewer name. */
 export const VIEWER_EVENTS: Readonly<Record<string, readonly string[]>>;
 /** The props each viewer can take live, and the instance call each becomes. */

@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.79.0</p>
+    <p class="rail__sub">Developer guide · v1.80.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.79.0</span>
+        <span class="chip">Version 1.80.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -902,6 +902,83 @@ createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so out
       <p><strong>React 18 and 19, client only.</strong> Nothing uses an API added in 19 or removed in
       19. Every component owns a real DOM element, so there is no SSR and no React Server Component
       support.</p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">React: migrating an MUI X DataGrid page (1.80)</p>
+      <pre><code><span class="kw">import</span> * <span class="kw">as</span> React <span class="kw">from</span> 'react';
+<span class="kw">import</span> * <span class="kw">as</span> ReactDOM <span class="kw">from</span> 'react-dom/client';
+<span class="kw">import</span> { createGrid } <span class="kw">from</span> '@toclocoinc/lattice-grid';
+<span class="kw">import</span> { createLatticeDataGrid } <span class="kw">from</span> '@toclocoinc/lattice-grid/modules/react';
+
+<span class="cmt">// Was: import { DataGrid } from '@mui/x-data-grid';</span>
+<span class="kw">const</span> DataGrid = createLatticeDataGrid({ React, ReactDOM, createGrid });
+
+<span class="kw">const</span> columns = [
+  { field: 'id', headerName: 'ID', width: 90 },
+  { field: 'firstName', headerName: 'First name', width: 150, editable: <span class="kw">true</span> },
+  { field: 'age', headerName: 'Age', type: 'number', width: 110 },
+  { field: 'fullName', headerName: 'Full name', flex: 1, sortable: <span class="kw">false</span>, filterable: <span class="kw">false</span>,
+    valueGetter: (value, row) =&gt; `${row.firstName} ${row.lastName}` },
+];
+
+<span class="kw">function</span> People({ rows }) {
+  <span class="kw">const</span> apiRef = React.useRef(<span class="kw">null</span>);
+  <span class="kw">const</span> [paginationModel, setPaginationModel] = React.useState({ page: 0, pageSize: 25 });
+  <span class="kw">const</span> [sortModel, setSortModel] = React.useState([{ field: 'age', sort: 'desc' }]);
+  <span class="kw">return</span> (
+    &lt;DataGrid
+      apiRef={apiRef}
+      rows={rows}
+      columns={columns}
+      checkboxSelection
+      disableRowSelectionOnClick
+      paginationModel={paginationModel}
+      onPaginationModelChange={setPaginationModel}
+      sortModel={sortModel}
+      onSortModelChange={setSortModel}
+      onRowClick={(params) =&gt; open(params.id)}
+      slots={{ toolbar: () =&gt; &lt;button onClick={() =&gt; apiRef.current.exportDataAsCsv()}&gt;CSV&lt;/button&gt; }}
+      showToolbar
+    /&gt;
+  );
+}</code></pre>
+    </div>
+    <div class="why">
+      <p><strong>One import changes; the page does not.</strong> <code>createLatticeDataGrid</code>
+      returns a component that takes MUI X's free-tier <code>&lt;DataGrid&gt;</code> props and maps
+      each onto the grid: <code>rows</code>, <code>columns</code>, <code>getRowId</code>,
+      <code>loading</code>, <code>density</code>, <code>checkboxSelection</code>,
+      <code>disableRowSelectionOnClick</code>, <code>editMode</code>, the controlled models
+      <code>sortModel</code>, <code>filterModel</code>, <code>rowSelectionModel</code>,
+      <code>columnVisibilityModel</code> and <code>paginationModel</code> with
+      <code>onSortModelChange</code>, <code>onFilterModelChange</code>,
+      <code>onRowSelectionModelChange</code>, <code>onColumnVisibilityModelChange</code> and
+      <code>onPaginationModelChange</code>, <code>pageSizeOptions</code>, the events
+      <code>onRowClick</code>, <code>onCellClick</code>, <code>onCellDoubleClick</code>,
+      <code>onCellEditStop</code>, <code>onRowEditStop</code>, <code>onColumnResize</code>,
+      <code>onColumnOrderChange</code>, <code>onCellModesModelChange</code>,
+      <code>onRowModesModelChange</code> and <code>onDataSourceError</code>, plus
+      <code>apiRef</code>, <code>slots</code> (the toolbar) with <code>showToolbar</code>,
+      <code>className</code> and <code>style</code>. A column definition's <code>field</code>,
+      <code>headerName</code>, <code>width</code>, <code>flex</code>, <code>type</code>,
+      <code>valueGetter</code>, <code>valueFormatter</code>, <code>renderCell</code>,
+      <code>editable</code>, <code>sortable</code> and <code>filterable</code> are mapped, with MUI's
+      argument order. <code>apiRef.current</code> carries <code>getSelectedRows</code>,
+      <code>setSortModel</code>, <code>setFilterModel</code>, <code>scrollToIndexes</code>,
+      <code>exportDataAsCsv</code> and <code>updateRows</code>.</p>
+      <p><strong>Anything else is refused by name, never guessed at.</strong> A prop the component
+      does not map &mdash; <code>sx</code>, <code>initialState</code>, a Pro prop such as
+      <code>rowGroupingModel</code>, an unknown column key &mdash; prints one
+      <code>react:mui-prop-unsupported:&lt;prop&gt;</code> warning and is ignored. A filter model
+      holding one operator it cannot translate is not applied at all, because applying the rest would
+      show rows nobody asked for.</p>
+      <p><strong>Paging is MUI's only over a memory source.</strong> MUI pages rows the browser already
+      holds. Give the component a Lattice <code>source</code> (a pushdown engine, a paged endpoint) and
+      the page belongs to the source: the three paging props are refused by name and the rows are
+      left as the source delivers them. <code>createDataGridController</code> is the framework-free
+      half underneath, for driving the same translation without React. The component is React-only by
+      design: it is a migration path off MUI X, which the other frameworks do not need.</p>
     </div>
 
     <div class="example">
@@ -1502,7 +1579,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.79.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.80.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -2338,7 +2415,9 @@ rowStyle: (p) =&gt; p.data.region === 'AMER' ? { borderLeft: '3px solid #7c3aed'
 
     <h3 id="theming">Theming</h3>
     <p class="lead-in">
-      The stylesheet is custom properties throughout. Override the tokens, not the rules.
+      The stylesheet is custom properties throughout. Override the tokens, not the rules. Every
+      public token, its default in each theme, what it affects and whether a preset must set it,
+      may set it, or should leave it alone is in <a href="THEMING.md">the theme token contract</a>.
     </p>
     <div class="example">
       <p class="example__label">A house palette</p>
@@ -2404,6 +2483,13 @@ grid.set('theme', <span class="kw">null</span>);   <span class="cmt">// back to 
         </tbody>
       </table>
     </div>
+    <h4 id="theming-presets">Design-system presets</h4>
+    <p class="lead-in">
+      <code>modules/presets</code> ships two routes onto the same token contract: static variable
+      files &mdash; <code>material3.css</code> and <code>fluent2.css</code> &mdash; and
+      <code>themeFromMui(theme)</code>, which drives the contract from a real MUI theme. See the
+      <a href="api/presets.html">presets reference</a> for all three.
+    </p>
     <h3>Forced colours</h3>
     <p class="lead-in">
       Windows High Contrast Mode replaces the palette outright: that is the point of it, and
@@ -11728,7 +11814,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.79.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.80.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

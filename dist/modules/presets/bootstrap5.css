@@ -1,0 +1,98 @@
+/*!
+ * Bootstrap 5.3 preset for Lattice Grid (BACKLOG-0001576).
+ *
+ * A second stylesheet, loaded after `lattice-grid.css`: the same load-order
+ * mechanism `material3.css` (BACKLOG-0001571) and a house palette already
+ * use — every selector below is the identical `.lattice[data-theme="…"]`
+ * shape the core theme itself uses, so nothing here needs to out-specificity
+ * the grid's own rules; load order alone is what makes this preset win.
+ *
+ * Values are Bootstrap 5.3's own published CSS custom properties
+ * (getbootstrap.com — MIT Licensed) — `--bs-primary`, `--bs-body-bg`,
+ * `--bs-body-color`, `--bs-border-color`, `--bs-border-radius`,
+ * `--bs-font-sans-serif`, `--bs-body-font-size`, `--bs-link-color`,
+ * `--bs-emphasis-color`, `--bs-tertiary-bg`, `--bs-table-striped-bg`,
+ * `--bs-table-hover-bg` and `--bs-focus-ring-color` — read LIVE, via
+ * `var(--bs-name, fallback)`. Bootstrap declares every one of those on
+ * `:root` (the table pair are declared per-`.table` element, so they carry
+ * through only when `.lattice` sits inside a Bootstrap `.table`; elsewhere
+ * they fall back to the literal below, same as every other role) and
+ * re-declares the ones that change under `[data-bs-theme="dark"]`. So a page
+ * that already loads Bootstrap — and has therefore already set these,
+ * either on `:root` or under its own `[data-bs-theme="dark"]` ancestor — gets
+ * ITS OWN palette through this preset with no further wiring: the `var()`
+ * fallback only renders when Bootstrap itself is absent, taken from
+ * Bootstrap 5.3's stock theme (`$primary: #0d6efd`, `$body-bg`/`$body-color`,
+ * `$border-color`, `$border-radius: 0.375rem`, the default font stack,
+ * `1rem` body text, the stock table striping/hover tints, and the
+ * primary-tinted focus ring).
+ *
+ * Two of the contract's MUST roles have no Bootstrap variable to read at
+ * all, so they are plain literals rather than `var(--bs-*, …)`:
+ * `--lattice-accent-contrast` matches Bootstrap's own `.btn-primary` text
+ * colour (white — `color-contrast()` against `$primary` resolves to white in
+ * the stock theme, in both `data-bs-theme` values, because Bootstrap does not
+ * redefine `$primary` for dark mode), and `--lattice-header-foreground` reads
+ * `--bs-emphasis-color`, Bootstrap's own "stronger than body text" role and
+ * the closest published token to a heading colour — Bootstrap does not emit
+ * a `--bs-heading-color` variable unless a theme sets `$headings-color`,
+ * which the stock theme leaves unset.
+ *
+ * Radius and typography are set once, outside the light/dark blocks — the
+ * same fix `material3.css`'s own header documents (BACKLOG-0001571 §1):
+ * Bootstrap does not redefine its border-radius or font tokens under
+ * `[data-bs-theme="dark"]`, so nesting them under one `data-theme` value only
+ * would silently drop them under the other.
+ */
+
+.lattice {
+  --lattice-radius: var(--bs-border-radius, 0.375rem);
+  --lattice-font-family: var(--bs-font-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+  --lattice-font-size: var(--bs-body-font-size, 1rem);
+}
+
+.lattice[data-theme="light"], .lattice[data-theme="auto"] {
+  /* surfaces / borders */
+  --lattice-background: var(--bs-body-bg, #fff);
+  --lattice-surface: var(--bs-tertiary-bg, #f8f9fa);
+  --lattice-surface-alt: var(--bs-table-striped-bg, rgba(0, 0, 0, 0.05));
+  --lattice-border-color: var(--bs-border-color, #dee2e6);
+
+  /* text */
+  --lattice-foreground: var(--bs-body-color, #212529);
+  --lattice-header-foreground: var(--bs-emphasis-color, #000);
+
+  /* accent = Bootstrap's $primary */
+  --lattice-accent: var(--bs-primary, #0d6efd);
+  --lattice-accent-contrast: #fff;
+  --lattice-link-color: var(--bs-link-color, #0d6efd);
+
+  /* table hover, reused as the row-hover fill */
+  --lattice-hovered-background: var(--bs-table-hover-bg, rgba(0, 0, 0, 0.075));
+
+  /* focus ring: Bootstrap's own focus-ring token is a translucent primary,
+     meant as a box-shadow colour rather than a solid line — kept as-is
+     rather than opacified, so a page's own --bs-focus-ring-color is read
+     unmodified when present. */
+  --lattice-focus-color: var(--bs-focus-ring-color, rgba(13, 110, 253, 0.25));
+}
+
+.lattice[data-theme="dark"] {
+  --lattice-background: var(--bs-body-bg, #212529);
+  --lattice-surface: var(--bs-tertiary-bg, #2b3035);
+  --lattice-surface-alt: var(--bs-table-striped-bg, rgba(255, 255, 255, 0.05));
+  --lattice-border-color: var(--bs-border-color, #495057);
+
+  --lattice-foreground: var(--bs-body-color, #dee2e6);
+  --lattice-header-foreground: var(--bs-emphasis-color, #fff);
+
+  /* Bootstrap does not redefine $primary for dark mode by default, so the
+     accent stays the same blue — only the surfaces/text around it change. */
+  --lattice-accent: var(--bs-primary, #0d6efd);
+  --lattice-accent-contrast: #fff;
+  --lattice-link-color: var(--bs-link-color, #6ea8fe);
+
+  --lattice-hovered-background: var(--bs-table-hover-bg, rgba(255, 255, 255, 0.075));
+
+  --lattice-focus-color: var(--bs-focus-ring-color, rgba(13, 110, 253, 0.25));
+}

@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.79.0</title>
+<title>Grid API Reference — Lattice Grid 1.80.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -403,6 +403,7 @@
         <a href="#edit">grid.edit</a>
         <a href="#form">grid.form</a>
         <a href="#pagination">grid.pagination</a>
+        <a class="rail__sub-link" href="#pagination-windowed">Paging over a paged or remote source</a>
         <a href="#scroll">grid.scroll</a>
         <a href="#export">grid.export</a>
         <a href="#import">grid.import</a>
@@ -544,6 +545,7 @@
         <a href="layout.html">The dashboard layout</a>
         <a href="dashboard.html">Dashboard composition</a>
         <a href="ai.html">The AI narrative and insights layer</a>
+        <a href="presets.html">Design-system presets</a>
         <a href="mock-socket.html">The mock socket</a>
         <a href="adapters.html">Framework adapters and custom elements</a>
         <a href="types.html">Types and the glossary</a>
@@ -564,7 +566,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 19 pages</a></span>
+      <span class="chip"><a href="index.html">All 20 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -688,7 +690,7 @@
           <tr><td class="name">messages</td><td class="type">object</td><td class="dflt">en-GB</td><td class="desc">Replaces the grid's own text: labels, menus and screen-reader announcements. A partial catalogue laid over the built-in British English one, so anything you leave out stays in English. Twenty catalogues are bundled: <code>EN_GB</code>, <code>EN_US</code>, <code>FR_FR</code>, <code>FR_CA</code>, <code>IT_IT</code>, <code>ES_ES</code>, <code>PT_BR</code>, <code>DE_DE</code>, <code>NL_NL</code>, <code>SV_SE</code>, <code>DA_DK</code>, <code>NB_NO</code>, <code>FI_FI</code>, <code>PL_PL</code>, <code>CS_CZ</code>, <code>HU_HU</code>, <code>RO_RO</code>, <code>UK_UA</code>, <code>EL_GR</code>, <code>JA_JP</code> and <code>AR</code>. They are exports of the package, not separate files, so importing one does not reduce what is bundled. <code>EN_US</code> is a partial overlay carrying only what differs from British English. <code>AR_SA</code> is an alias for <code>AR</code>: the Arabic catalogue is pan-Arabic, and a region appears in a name only where two variants ship. <code>resolveCatalogue(tag)</code> finds the catalogue for any tag, so <code>resolveCatalogue('es-MX')</code> returns the Spanish one. Every key is listed in <code>MESSAGE_KEYS</code>; <code>auditCatalogue()</code> reports what a catalogue of your own is missing.</td></tr>
           <tr><td class="name">locale</td><td class="type">string</td><td class="dflt">runtime</td><td class="desc">BCP-47. Drives every formatter and one shared <code>Intl.Collator</code>.</td></tr>
           <tr><td class="name">direction</td><td class="type">'ltr' | 'rtl' | 'auto' <small class="literals"><a href="types.html#type-Direction">Direction</a></small></td><td class="dflt">auto</td><td class="desc">Writing direction. Left unset, it follows the element's computed <code>dir</code> and then the locale, so <code>locale: 'ar'</code> renders right to left without further configuration. Set it explicitly to override both.</td></tr>
-          <tr><td class="name">theme</td><td class="type">'light' | 'dark' | 'auto' | 'high-contrast' | 'terminal' <small class="literals"><a href="types.html#type-Theme">Theme</a></small></td><td class="dflt">, </td><td class="desc">Stamped as <code>data-theme</code> on the grid's root. Unset follows the nearest <code>data-theme</code> on an ancestor, and is light when there is none; <code>'auto'</code> follows the viewer's <code>prefers-color-scheme</code>. See <a href="../api-detail.html#theming">Theming</a>.</td></tr>
+          <tr><td class="name">theme</td><td class="type">'light' | 'dark' | 'auto' | 'high-contrast' | 'terminal' <small class="literals"><a href="types.html#type-Theme">Theme</a></small></td><td class="dflt">, </td><td class="desc">Stamped as <code>data-theme</code> on the grid's root. Unset follows the nearest <code>data-theme</code> on an ancestor, and is light when there is none; <code>'auto'</code> follows the viewer's <code>prefers-color-scheme</code>. See <a href="../api-detail.html#theming">Theming</a> and the full <a href="../THEMING.md">theme token contract</a>.</td></tr>
           <tr><td class="name">density</td><td class="type">'compact' | 'standard' | 'comfortable' | 'spacious' | number <small class="literals"><a href="types.html#type-Density">Density</a></small></td><td class="dflt">'compact'</td><td class="desc">One scale that every geometry token derives from: row height, spacing, decoration sizes, and type at a damped rate. Row heights are 23.8 / 28 / 42 / 56px. A number scales 28px, so <code>1.4</code> gives 39.2px for anything between the presets. Virtualisation follows it; an explicit <code>rowHeight</code> overrides it.</td></tr>
           <tr><td class="name">rowHeight</td><td class="type">number | (row) =&gt; number</td><td class="dflt">28</td><td class="desc">A function enables variable-height rows.</td></tr>
           <tr><td class="name">headerHeight</td><td class="type">number</td><td class="dflt">32</td><td class="desc">Per header row.</td></tr>
@@ -1849,7 +1851,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.79.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.80.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -2147,11 +2149,64 @@ grid.edit.setCells(preview.changes.map((c) =&gt; ({ key: c.key, colId: c.colId, 
       <table>
         <thead><tr><th>Method</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">get()</td><td class="type">{ page, pageSize, total, pageCount }</td><td class="desc"><code>total</code> is the filtered row count, so it moves when a filter does.</td></tr>
+          <tr><td class="sig">get()</td><td class="type">{ page, pageSize, total, pageCount, counting }</td><td class="desc"><code>total</code> is the filtered row count, so it moves when a filter does. On a paged or remote source it is <code>null</code> until the server's total arrives, with <code>counting</code> true while the first answer is still on its way.</td></tr>
           <tr><td class="sig">set({ page?, pageSize? })</td><td class="type">void</td><td class="desc">Move, resize, or both. <code>pageSize: 0</code> turns paging off and shows everything. Emits <code>page:changed</code> once the rows have moved.</td></tr>
         </tbody>
       </table>
     </div>
+
+    <h3 id="pagination-windowed">Paging over a paged or remote source</h3>
+    <p>
+      A <code>paged</code> or <code>remote</code> source holds only the rows it has fetched, so there is
+      nothing to slice. Instead, page <em>p</em> is the row window
+      <code>[p &times; pageSize, (p + 1) &times; pageSize)</code> of the server's answer to the current
+      query, and moving to a page fetches the blocks that window needs &mdash; one request when the page
+      size equals the source's own <code>pageSize</code>. The viewport scrolls within the page, rows still
+      in flight draw as loading rows, and <code>rows.get(0)</code> is the first row of the page, exactly as
+      on a memory grid. <code>rows.count()</code> is the page on screen; <code>rows.matchCount()</code>,
+      <code>rows.totalCount()</code> and <code>pagination.get().total</code> are the whole result.
+    </p>
+    <ul>
+      <li><strong>Configure both.</strong> <code>pagination: { enabled: true, pageSize: 250 }</code> turns the
+        pager on; <code>source: { mode: 'paged', pageSize: 250, fetch }</code> sets the block the server is
+        asked for. Matching them makes every page one request. A headless grid honours the configured page
+        size too, with no pager to apply it.</li>
+      <li><strong>A new query starts at page 0.</strong> A sort, a filter or a quick filter changes the list the
+        server answers, so the page goes back to the first one and <code>page:changed</code> says so.</li>
+      <li><strong>No total yet is not the end.</strong> While <code>total</code> is <code>null</code>, the pager
+        keeps "next" enabled and <code>pageCount</code> counts the pages known so far plus the next one.</li>
+      <li><strong>A source with no page model refuses by name.</strong> A <code>stream</code> or custom source
+        that cannot window warns once (<code>pagination:source-unsupported</code>), shows no pager and keeps
+        scrolling.</li>
+    </ul>
+    <pre data-run="js" data-expect="page 3 of 4, rows from 500, 1000 total, fetched 500-750, page:changed to 3" data-covers="method:pagination config:pagination config:source event:page:changed"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> asked = [];
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'name' }],
+  pagination: { enabled: <span class="kw">true</span>, pageSize: 250 },
+  source: {
+    mode: 'paged', pageSize: 250,
+    fetch: <span class="kw">async</span> ({ range }) =&gt; {
+      asked.push(`${range.start}-${range.end}`);
+      <span class="kw">const</span> rows = [];
+      <span class="kw">for</span> (<span class="kw">let</span> i = range.start; i &lt; Math.min(range.end, 1000); i++) rows.push({ id: i, name: `row ${i}` });
+      <span class="kw">return</span> { rows, total: 1000 };
+    },
+  },
+});
+
+<span class="kw">const</span> heard = [];
+grid.on('page:changed', (e) =&gt; heard.push(e.page + 1));
+<span class="kw">const</span> landed = <span class="kw">new</span> Promise((resolve) =&gt; grid.once('rows:changed', resolve));
+grid.pagination.set({ page: 2 }); <span class="cmt">// the third page: rows 500 to 749</span>
+<span class="kw">await</span> landed;
+
+<span class="kw">const</span> { page, pageCount, total } = grid.pagination.get();
+<span class="kw">const</span> first = grid.rows.get(0).data.id;
+grid.destroy();
+<span class="kw">return</span> `page ${page + 1} of ${pageCount}, rows from ${first}, ${total} total, fetched ${asked.join(' ')}, page:changed to ${heard}`;</code></pre>
     <h2 id="scroll">grid.scroll</h2>
     <div class="table-wrap">
       <table>
@@ -3544,8 +3599,8 @@ grid.licence.state();      <span class="cmt">// 'licensed' | 'localhost' | 'tria
         <thead><tr><th>Mode</th><th>Needs</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="sig">memory</td><td class="type">rows</td><td class="desc">Everything is present. The grid filters, sorts, groups and totals it.</td></tr>
-          <tr><td class="sig">paged</td><td class="type">fetch</td><td class="desc">A page at a time from a server that paginates.</td></tr>
-          <tr><td class="sig">remote</td><td class="type">fetch</td><td class="desc">Blocks fetched as the viewport reaches them, with sort, filter and grouping pushed to the server.</td></tr>
+          <tr><td class="sig">paged</td><td class="type">fetch</td><td class="desc">A page at a time from a server that paginates. With <code>pagination</code> on, each page of the pager is fetched as its own window (<a href="#pagination-windowed">pagination over a paged or remote source</a>).</td></tr>
+          <tr><td class="sig">remote</td><td class="type">fetch</td><td class="desc">Blocks fetched as the viewport reaches them, with sort, filter and grouping pushed to the server. Pages with <code>pagination</code> on, the same way <code>paged</code> does.</td></tr>
           <tr><td class="sig">stream</td><td class="type">connect</td><td class="desc">Rows arriving over time. Promotes to memory once complete.</td></tr>
           <tr><td class="sig">derived</td><td class="type">from</td><td class="desc">Rows built from another grid: grouped, unnested, filtered, ranked or profiled. Read-only, and follows the source.</td></tr>
         </tbody>

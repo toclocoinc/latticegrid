@@ -1,5 +1,5 @@
 {
-  "version": "1.79.0",
+  "version": "1.80.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 575,
+  "count": 578,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -1843,6 +1843,17 @@
       "meaning": "An optimistic cell write has been waiting for confirmation beyond the timeout. The cell is still showing the optimistic value and is still marked pending, and it will stay that way until something settles it. Reported once per sweep, naming the oldest offender.",
       "fix": "Under `confirm: 'manual'`, call `grid.edit.settle(id, ok)` when your backend answers. Under `'auto'`, the commit promise must settle — a fetch with no timeout that never rejects produces exactly this.",
       "docs": "api/grid.html#change-contract"
+    },
+    {
+      "id": "pagination:source-unsupported",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.80.0",
+      "message": "pagination is not available on a \"{mode}\" source, which has no page model to window; the grid scrolls through every row instead and shows no pager.",
+      "meaning": "Pagination was asked for — `pagination` in the config, or `grid.pagination.set()` with a page or a page size — on a source that has no page model: a `stream` source, or a custom source with no `pageInfo()`. Nothing could be windowed, so the request was refused rather than recorded: the grid keeps scrolling through every row, `pagination.get()` keeps reporting one page, and no pager is drawn, so there is no control that moves nothing. Memory, derived, paged and remote sources all page.",
+      "fix": "Drop `pagination` for this source, or use a source that pages: `memory` slices the rows it holds, and `paged` or `remote` fetch each page as a window from the server.",
+      "snippet": "source: { mode: 'paged', pageSize: 250, fetch },\npagination: { enabled: true, pageSize: 250 }",
+      "docs": "api/grid.html#pagination-windowed"
     },
     {
       "id": "perm*",
@@ -5264,6 +5275,17 @@
       "docs": "api/layout.html#layout"
     },
     {
+      "id": "react:mui-prop-unsupported:*",
+      "module": "react",
+      "severity": "warn",
+      "since": "1.80.0",
+      "message": "<LatticeDataGrid> ignored \"{prop}\": {reason} Nothing of it was applied.",
+      "meaning": "<LatticeDataGrid>, the MUI X DataGrid-shaped React component, was handed something it does not map onto the grid: an MUI prop outside the accepted list, a Pro/Premium prop, `sx`, `classes` or `initialState`, a column-definition key, column type, slot, filter operator or CSV option it has no translation for, an \"exclude\" selection model, an `updateRows` replace, or one of the three paging props over a source that is not a memory source. The `*` is the name, so each one is reported once and separately. Nothing of it was applied: a filter model with one untranslatable operator is not applied at all, and a refused page model leaves the source's rows exactly as they are.",
+      "fix": "Read the reason in the message. Drop the prop, or reach the same result the Lattice way: a controlled model instead of `initialState`, the --lattice-* theme tokens instead of `sx`, the grid's own grouping, tree, pivot and totals instead of the Pro props, and the source's own paging instead of `paginationModel` over a pushdown source.",
+      "snippet": "<DataGrid rows={rows} columns={columns} paginationModel={model} onPaginationModelChange={setModel} />",
+      "docs": "api/adapters.html#react-data-grid"
+    },
+    {
       "id": "react.tabs.mountOnly.tabs",
       "module": "react",
       "severity": "warn",
@@ -5659,6 +5681,17 @@
       "fix": "Pass the router instance (`createRouter()`'s return, or the one an adapter exposes) and, optionally, the partition kind to publish under.",
       "snippet": "alarms.publish(router, 'alarms');\nrouter.attach(alarmGrid, 'alarms');",
       "docs": "api/alarms.html#ref-alarms-reference"
+    },
+    {
+      "id": "presets:themefrommui-apply-no-element",
+      "module": "presets",
+      "severity": "warn",
+      "since": "1.80.0",
+      "message": "themeFromMui(theme).apply(element) was given something with no style.setProperty — pass the element you want themed, e.g. apply(document.querySelector(\".lattice\")).",
+      "meaning": "`apply(element)` sets the resolved `--lattice-*` tokens as inline custom properties on `element`, which needs a real `style.setProperty`. The value passed had none — not a DOM element, or a plain object with no `style` — so nothing was themed.",
+      "fix": "Pass the element you want themed: `themeFromMui(theme).apply(document.querySelector('.lattice'))`, or the grid's own root element.",
+      "snippet": "const { apply } = themeFromMui(theme);\napply(document.querySelector('.lattice'));",
+      "docs": "api/presets.html#ref-presets-reference"
     },
     {
       "id": "chart:scheme:array-and-map",
