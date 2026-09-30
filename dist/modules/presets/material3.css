@@ -34,6 +34,43 @@
  *    (the warning-fill tone, matching the amber "find" highlight convention),
  *    and `--lattice-skeleton-color` (the outline-variant tone already used for
  *    `border-color`).
+ *
+ * BACKLOG-0001582 adds the shape MUST alone never carried: a MUST-complete
+ * preset still had Lattice's own 28px compact row, a vertical rule on every
+ * header cell (`--lattice-cell-border-width`, unset, drew the base border
+ * width) and a tinted `surface-container-low` header band — none of which
+ * read as "Material" beside a real `@mui/x-data-grid` table
+ * (`test/preset-proportions-browser.test.js` renders one side by side).
+ * Fixed here:
+ *
+ * 3. **`--lattice-cell-border-width: 0`.** MUI X DataGrid draws horizontal
+ *    dividers only; Material's own table guidance has no vertical rule
+ *    either. `--lattice-border-width` itself is untouched, so an explicit
+ *    `gridLines: 'vertical'|'both'` config still draws its own line
+ *    (`structure.css`'s own note on the token).
+ * 4. **`--lattice-row-height: 52px` / `--lattice-header-height: 56px`.**
+ *    `@mui/x-data-grid`'s own defaults (`rowHeight`/`columnHeaderHeight`),
+ *    confirmed against a real installed `DataGrid` in the side-by-side test
+ *    rather than only cited — a hardcoded guess here would be exactly the
+ *    "declared but not verified" gap this project's Definition of Done
+ *    forbids, so the side-by-side test is what makes these two literals a
+ *    fact rather than a transcription.
+ * 5. **`--lattice-surface` no longer carries the M3 `surface-container-low`
+ *    tint** (`#F3EDF7` light / `#2B2930` dark) — it now equals
+ *    `--lattice-background` in both themes. MUI X's own header, footer and
+ *    toolbar all paint `theme.palette.background.paper` (the plain surface),
+ *    not a tinted container tier; M3's 5-level surface-container ladder has
+ *    no contract role of its own either (SPIKE-THEME-PRESETS.md §1), so
+ *    "plain" is the closer read of both sources. `--lattice-surface-alt`
+ *    (the zebra-stripe role) is untouched and keeps its own tint.
+ *
+ * `--lattice-hovered-background`/`--lattice-selected-background` already read
+ * M3's own primary-tinted state-layer alphas (8%/12%) and needed no change;
+ * `--lattice-header-font-weight: 500` (M3 label-large) likewise predates this
+ * card. No `--lattice-density-scale` override: none of the four shipped
+ * presets' cited row heights are shorter than Lattice's own 28px compact
+ * default, so none is "denser" in the sense the card's density-scale clause
+ * means.
  */
 
 /*
@@ -52,13 +89,24 @@
   --lattice-font-weight: 400;
   --lattice-header-font-weight: 500;   /* M3 label-large */
   --lattice-line-height: 1.43;
+
+  /* Shape, not colour, so declared once like radius/typography above
+     (BACKLOG-0001582). No vertical rule (MUI X DataGrid draws horizontal
+     dividers only) and the two-tier row/header heights DataGrid itself ships
+     with — see the file header note 4 for how these are verified. */
+  --lattice-cell-border-width: 0;
+  --lattice-row-height: 52px;
+  --lattice-header-height: 56px;
 }
 
 .lattice[data-theme="light"], .lattice[data-theme="auto"] {
-  /* surface roles: M3 surface / surface-container / outline */
+  /* surface roles: M3 surface / outline. `--lattice-surface` is deliberately
+     the same value as `--lattice-background` (see file header note 5) — the
+     plain header/totals/status-bar fill MUI X DataGrid itself ships, not a
+     tinted M3 surface-container tier. */
   --lattice-background: #FFFBFE;       /* M3 surface */
-  --lattice-surface: #F3EDF7;          /* M3 surface-container-low */
-  --lattice-surface-alt: #ECE6F0;      /* M3 surface-container */
+  --lattice-surface: #FFFBFE;          /* plain — equals --lattice-background */
+  --lattice-surface-alt: #ECE6F0;      /* M3 surface-container (zebra stripe only) */
   --lattice-border-color: #CAC4D0;     /* M3 outline-variant */
   --lattice-border-strong: #79747E;    /* M3 outline */
 
@@ -111,8 +159,8 @@
 
 .lattice[data-theme="dark"] {
   --lattice-background: #1C1B1F;        /* M3 dark surface */
-  --lattice-surface: #2B2930;            /* surface-container-low (dark) */
-  --lattice-surface-alt: #322F35;        /* surface-container (dark) */
+  --lattice-surface: #1C1B1F;            /* plain — equals --lattice-background */
+  --lattice-surface-alt: #322F35;        /* surface-container (dark, zebra stripe only) */
   --lattice-border-color: #49454F;       /* outline-variant (dark) */
   --lattice-border-strong: #938F99;      /* outline (dark) */
 

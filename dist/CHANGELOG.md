@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.81.0] - 2026-09-30
+
+### Changed
+
+- **The owner, looking at the live Material preset: "is this really what material ui looks like? — no."** A MUST-complete preset (BACKLOG-0001570) still left every grid at Lattice's own 28px compact row, a vertical rule on every header cell and a tinted header band — none of which a real MUI X DataGrid, Ant, Bootstrap or Fluent table draws; only colour, radius and font were ever a preset's to set. A new public MAY token, `--lattice-cell-border-width`, joins `docs/THEMING.md` for the vertical/inline-end rule a header or filter cell always draws — its default equals `--lattice-border-width`, so nothing changes until a preset overrides it, and an explicit `gridLines: 'vertical'|'both'` config still draws its own line regardless of what a preset sets it to. Each of the four shipped presets (`packages/modules/presets/*.css`) now also sets, light and dark: `--lattice-cell-border-width: 0` (all four systems are divider-only), `--lattice-row-height`/`--lattice-header-height` (Material 52px/56px, Ant 55px, Bootstrap ~41px, Fluent 44px), `--lattice-header-font-weight` (Bootstrap's own 700, a stock `<th>`'s browser-default bold, was previously unset), and a plain (untinted) header fill for Material, Bootstrap and Fluent, matching each system's own published table — Ant's was already correct. Bootstrap also gains `--lattice-selected-background`, from its own `$table-active-bg-factor` convention. The Material figures are checked against a real installed `@mui/x-data-grid`, not only cited: row height, header height, header weight and divider style each match within 1px in a real-Chrome side-by-side render (`test/preset-proportions-browser.test.js`). `node tools/theme-check.js` gains a report-only proportion count, shown in the gate line, of how many of these six tokens each shipped preset sets. (BACKLOG-0001582)
+
 ## [1.80.0] - 2026-09-30
 
 ### Added

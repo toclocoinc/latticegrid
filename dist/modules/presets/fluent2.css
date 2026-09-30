@@ -41,6 +41,28 @@
  * menus and dialogs in Fluent 2 itself) onto `--lattice-popup-shadow`, which
  * the contract documents as "menus, tooltips, the filter popup" — the same
  * role Fluent uses shadow8 for.
+ *
+ * BACKLOG-0001582 adds the shape the colour/radius/font MUST roles never
+ * covered:
+ *
+ * - `--lattice-cell-border-width: 0` — Fluent 2's own `DetailsList`/table
+ *   guidance draws horizontal row separators only, no vertical rule.
+ * - `--lattice-row-height`/`--lattice-header-height: 44px` — the card's own
+ *   cited Fluent row height (`@fluentui/tokens`' medium row size). Fluent's
+ *   own default table does not size its header row differently from a body
+ *   row, so header height mirrors row height, the same simplification
+ *   `antd5.css`/`bootstrap5.css` make for their own systems.
+ * - `--lattice-surface` now equals `--lattice-background` in both themes,
+ *   rather than `colorNeutralBackground2`/`3` (a 1-2% grey tint) — Fluent's
+ *   own default table header sits on `colorNeutralBackground1`, the same
+ *   surface the body uses, not a tinted tier; `--lattice-surface-alt` (the
+ *   zebra-stripe role) is untouched.
+ *
+ * `--lattice-hovered-background`/`--lattice-selected-background` already
+ * read Fluent's own subtle-interaction tones and `--lattice-header-font-
+ * weight: 600` (`fontWeightSemibold`) already matches Fluent's own header
+ * weight — neither needed a change. No `--lattice-density-scale`: 44px is
+ * taller than Lattice's own 28px compact default, not shorter.
  */
 
 /*
@@ -57,12 +79,17 @@
   --lattice-font-size-lg: 16px;        /* fontSizeBase400 */
   --lattice-header-font-weight: 600;   /* fontWeightSemibold */
   --lattice-line-height: 1.43;         /* lineHeightBase300 */
+
+  /* Shape (BACKLOG-0001582): divider-only, and Fluent's own cited row height. */
+  --lattice-cell-border-width: 0;
+  --lattice-row-height: 44px;
+  --lattice-header-height: 44px;
 }
 
 .lattice[data-theme="light"], .lattice[data-theme="auto"] {
   --lattice-background: #FFFFFF;          /* colorNeutralBackground1 */
-  --lattice-surface: #FAFAFA;             /* colorNeutralBackground2 */
-  --lattice-surface-alt: #F5F5F5;         /* colorNeutralBackground3 */
+  --lattice-surface: #FFFFFF;             /* plain — equals --lattice-background */
+  --lattice-surface-alt: #F5F5F5;         /* colorNeutralBackground3 (zebra stripe only) */
   --lattice-border-color: #D1D1D1;        /* colorNeutralStroke1 */
   --lattice-border-strong: #B3B0AD;       /* colorNeutralStroke1Hover-ish */
 
@@ -98,8 +125,8 @@
 
 .lattice[data-theme="dark"] {
   --lattice-background: #292929;          /* colorNeutralBackground1 (dark) */
-  --lattice-surface: #1F1F1F;             /* colorNeutralBackground2 (dark) */
-  --lattice-surface-alt: #2E2E2E;         /* colorNeutralBackground3 (dark) */
+  --lattice-surface: #292929;             /* plain — equals --lattice-background */
+  --lattice-surface-alt: #2E2E2E;         /* colorNeutralBackground3 (dark, zebra stripe only) */
   --lattice-border-color: #666666;        /* colorNeutralStroke1 (dark) */
   --lattice-border-strong: #858585;
 

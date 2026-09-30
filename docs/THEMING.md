@@ -28,11 +28,11 @@ finds:
 
 | | Count |
 |---|---:|
-| `--lattice-*` with a declared per-theme default | 128 |
+| `--lattice-*` with a declared per-theme default | 129 |
 | `--lattice-*` fallback-only, no built-in default, no JS setter — a real, undocumented escape hatch | 28 |
 | `--lattice-*` fallback-only, set by the grid’s own JS at runtime — read, don’t set | 10 |
 | `--lat-*` geometry helper, declared, state-class-driven | 5 |
-| **Public total (this page)** | **171** |
+| **Public total (this page)** | **172** |
 | `--lat-*` internal computed alias of `--lattice-scrollbar-size` (prefixed, but never a preset’s to set) | 2 |
 | `--lat-*` internal per-cell/per-instance data (a bar fill %, a swatch colour...) set inline by JS per cell, never a theme default (prefixed, but not a token) | 11 |
 | Internal, unprefixed component-local plumbing (`--bl`, `--br`, `--dimmed`, `--focused`, `--hovered`, ... — named, not enumerated here) | ~50 |
@@ -45,7 +45,8 @@ at the time (not the spike’s 132; no token was renamed either way — the
 spike’s "no renames needed" finding still held). BACKLOG-0001573 moved
 `--lattice-duration` from the fallback-only row above to a declared default,
 renamed it `--lattice-motion-duration`, and added `--lattice-motion-easing`
-beside it, for a net +1: **171**.
+beside it, for a net +1: **171**. BACKLOG-0001582 added
+`--lattice-cell-border-width`, for a net +1: **172**.
 
 ## Public vs internal
 
@@ -268,6 +269,7 @@ Legend: **MUST** — a preset claiming to match a design system sets this or the
 | Token | Light | Dark | High-contrast | Terminal | Affects | Marking |
 |---|---|---|---|---|---|---|
 | `--lattice-border-width` | `1px` | `1px` | `1px` | `1px` | the grid’s hairline border thickness | MAY |
+| `--lattice-cell-border-width` | `var(--lattice-border-width)` | `var(--lattice-border-width)` | `var(--lattice-border-width)` | `var(--lattice-border-width)` | the vertical/inline-end border a header or filter cell always draws, independent of `gridLines` (BACKLOG-0001582); a preset sets this to `0` for a divider-only look. An explicit `gridLines: 'vertical'\|'both'` config always wins for body cells — those read `--lattice-border-width` directly, so this token can never hide a host’s own request for vertical lines | MAY |
 | `--lattice-focus-offset` | `-2px` | `-2px` | `-2px` | `-2px` | the focus ring’s inset/outset offset | leave |
 | `--lattice-focus-width` | `2px` | `2px` | `3px` | `2px` | the focus ring’s thickness | MAY |
 | `--lattice-hscroll-sign` | `-1` | `-1` | `-1` | `-1` | internal RTL horizontal-scroll direction flip | leave |
@@ -389,6 +391,7 @@ The two fenced blocks below are what `test/theming-contract-doc.test.js` diffs a
 --lattice-border-color
 --lattice-border-strong
 --lattice-border-width
+--lattice-cell-border-width
 --lattice-cell-highlight
 --lattice-cell-padding-x
 --lattice-cell-padding-y

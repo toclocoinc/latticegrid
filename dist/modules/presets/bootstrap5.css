@@ -12,7 +12,8 @@
  * `--bs-body-color`, `--bs-border-color`, `--bs-border-radius`,
  * `--bs-font-sans-serif`, `--bs-body-font-size`, `--bs-link-color`,
  * `--bs-emphasis-color`, `--bs-tertiary-bg`, `--bs-table-striped-bg`,
- * `--bs-table-hover-bg` and `--bs-focus-ring-color` — read LIVE, via
+ * `--bs-table-hover-bg`, `--bs-table-active-bg` (BACKLOG-0001582) and
+ * `--bs-focus-ring-color` — read LIVE, via
  * `var(--bs-name, fallback)`. Bootstrap declares every one of those on
  * `:root` (the table pair are declared per-`.table` element, so they carry
  * through only when `.lattice` sits inside a Bootstrap `.table`; elsewhere
@@ -43,18 +44,56 @@
  * Bootstrap does not redefine its border-radius or font tokens under
  * `[data-bs-theme="dark"]`, so nesting them under one `data-theme` value only
  * would silently drop them under the other.
+ *
+ * BACKLOG-0001582 adds the shape the MUST roles above never covered:
+ *
+ * - `--lattice-cell-border-width: 0` — a stock Bootstrap `.table` draws
+ *   horizontal rules only (`.table > :not(:first-child) { border-top }`); no
+ *   vertical rule exists absent the `.table-bordered` variant this preset
+ *   does not opt into.
+ * - `--lattice-row-height`/`--lattice-header-height: 41px` — Bootstrap's own
+ *   default `.table` cell box: `--bs-table-cell-padding-y: 0.5rem` (8px) top
+ *   and bottom plus the default `line-height: 1.5` on `1rem` (16px) body
+ *   text (24px) = 40px, the card's own cited "~41px" rounding. A stock table
+ *   does not size `<thead>` cells differently from `<tbody>` ones, so header
+ *   height mirrors row height, the same simplification `antd5.css` makes.
+ * - `--lattice-header-font-weight: 700` — Bootstrap's Reboot does not reset
+ *   `<th>`'s browser-default `font-weight: bold`, so a stock table head is
+ *   bold, unlike its body.
+ * - `--lattice-surface` now reads `var(--bs-body-bg, …)` — "the table head
+ *   colour" — rather than `--bs-tertiary-bg`: a stock Bootstrap `<thead>`
+ *   carries no background of its own (`--bs-table-bg` is transparent absent
+ *   a `.table-*` variant), so it shows the page body colour through, the
+ *   same "plain" header `material3.css`/`fluent2.css` set for their own
+ *   systems. `--bs-tertiary-bg` remains available for anything reading
+ *   `--lattice-surface-alt` — untouched, so striping is unaffected.
+ * - `--lattice-selected-background` reads `var(--bs-table-active-bg, …)` —
+ *   Bootstrap's own `.table-active` row treatment, one Sass factor darker
+ *   than hover by Bootstrap's own convention (`$table-hover-bg-factor: .075`
+ *   already read above, `$table-active-bg-factor: .1` for the literal
+ *   fallback here) — the closest built-in "this row is selected" look Boot-
+ *   strap ships, since a plain `.table` has no selection state of its own.
  */
 
 .lattice {
   --lattice-radius: var(--bs-border-radius, 0.375rem);
   --lattice-font-family: var(--bs-font-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
   --lattice-font-size: var(--bs-body-font-size, 1rem);
+  --lattice-header-font-weight: 700; /* a stock <th> is browser-default bold; Reboot does not reset it */
+
+  /* Shape (BACKLOG-0001582): divider-only, and the box a stock .table cell's
+     own padding/line-height produces — see the file header note. */
+  --lattice-cell-border-width: 0;
+  --lattice-row-height: 41px;
+  --lattice-header-height: 41px;
 }
 
 .lattice[data-theme="light"], .lattice[data-theme="auto"] {
-  /* surfaces / borders */
+  /* surfaces / borders. --lattice-surface reads --bs-body-bg, not
+     --bs-tertiary-bg: a stock <thead> carries no background of its own (see
+     the file header note) — the table head colour is the body colour. */
   --lattice-background: var(--bs-body-bg, #fff);
-  --lattice-surface: var(--bs-tertiary-bg, #f8f9fa);
+  --lattice-surface: var(--bs-body-bg, #fff);
   --lattice-surface-alt: var(--bs-table-striped-bg, rgba(0, 0, 0, 0.05));
   --lattice-border-color: var(--bs-border-color, #dee2e6);
 
@@ -67,8 +106,9 @@
   --lattice-accent-contrast: #fff;
   --lattice-link-color: var(--bs-link-color, #0d6efd);
 
-  /* table hover, reused as the row-hover fill */
+  /* table hover/active, reused as the row-hover/selected fills */
   --lattice-hovered-background: var(--bs-table-hover-bg, rgba(0, 0, 0, 0.075));
+  --lattice-selected-background: var(--bs-table-active-bg, rgba(0, 0, 0, 0.1));
 
   /* focus ring: Bootstrap's own focus-ring token is a translucent primary,
      meant as a box-shadow colour rather than a solid line — kept as-is
@@ -79,7 +119,7 @@
 
 .lattice[data-theme="dark"] {
   --lattice-background: var(--bs-body-bg, #212529);
-  --lattice-surface: var(--bs-tertiary-bg, #2b3035);
+  --lattice-surface: var(--bs-body-bg, #212529);
   --lattice-surface-alt: var(--bs-table-striped-bg, rgba(255, 255, 255, 0.05));
   --lattice-border-color: var(--bs-border-color, #495057);
 
@@ -93,6 +133,7 @@
   --lattice-link-color: var(--bs-link-color, #6ea8fe);
 
   --lattice-hovered-background: var(--bs-table-hover-bg, rgba(255, 255, 255, 0.075));
+  --lattice-selected-background: var(--bs-table-active-bg, rgba(255, 255, 255, 0.1));
 
   --lattice-focus-color: var(--bs-focus-ring-color, rgba(13, 110, 253, 0.25));
 }
