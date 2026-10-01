@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.83.1</p>
+    <p class="rail__sub">API reference · v1.84.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -521,6 +521,8 @@
         <a class="rail__sub-link" href="#type-DeckBinding">DeckBinding</a>
         <a href="#ref-module-leaflet">The Leaflet binding</a>
         <a class="rail__sub-link" href="#type-LeafletBinding">LeafletBinding</a>
+        <a href="#ref-module-mapview">The map view</a>
+        <a class="rail__sub-link" href="#type-MapView">MapView</a>
         <a href="#ref-module-kanban">The kanban module</a>
         <a class="rail__sub-link" href="#type-Kanban">Kanban</a>
         <a href="#ref-module-gantt">The gantt module</a>
@@ -566,7 +568,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.83.1</span>
+      <span class="chip">Version 1.84.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3145,7 +3147,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.83.1'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.84.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -7615,11 +7617,12 @@ return [p.source, p.pending, p.measures[0].computed, p.reason].join(' | ');</cod
           <tr><td class="name">series</td><td class="type">string</td><td class="desc">Splits the measure into one series per distinct value.</td></tr>
           <tr><td class="name">measures</td><td class="type">object[]</td><td class="desc"><code>{col, fn, type, axis}</code>: several measures at once, each reduced by an aggregation. <code>fn</code> is one of <code>sum</code>, <code>avg</code> (alias <code>mean</code>), <code>min</code>, <code>max</code>, <code>count</code>, <code>countValues</code>, <code>first</code>, <code>last</code>; it defaults to <code>sum</code>. An <code>fn</code> that is none of these is a mistake, not a silent <code>sum</code>: it warns once, naming the value and the supported set, and falls back to <code>sum</code> so the chart still draws.</td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">Drawn above the plot.</td></tr>
-          <tr><td class="name">scheme</td><td class="type">string | string[] | object</td><td class="desc">A named scheme, your own ordered colours, or a <code>{ name: colour }</code> map (BACKLOG-0001453). <code>schemeNames()</code> lists the built-in ones, including a colour-blind-safe palette. The map is what survives a filter: a pie or donut keys it on the category, a chart with <code>series</code> keys it on the series value, and a single-series bar or column keys it on the <code>x</code> category instead. A name the map does not mention falls back to the ordered scheme by its position among the other unmapped names, so <code>{ Operational: 'green', Offline: 'red' }</code> keeps "Operational" exactly as green whichever categories a filter leaves. A map and a <code>palette</code> array do not combine — the map wins, and the array is ignored once, with a warning.</td></tr>
+          <tr><td class="name">scheme</td><td class="type">string | string[] | object</td><td class="desc">A named scheme, your own ordered colours, or a <code>{ name: colour }</code> map (BACKLOG-0001453). <code>schemeNames()</code> lists the built-in ones, including a colour-blind-safe palette. A bare array is <code>{ series: [...] }</code> and colours series in measure order on every type (BACKLOG-0001638). The map is what survives a filter: a pie or donut keys it on the category, a chart with <code>series</code> keys it on the series value, a single-series bar or column keys it on the <code>x</code> category, and a measure-based type (a bar or combo given several <code>measures</code>, a <code>radar</code>, a <code>candlestick</code>) keys it on the measure's title, falling back to its column (BACKLOG-0001638). A name the map does not mention falls back to the ordered scheme by its position among the other unmapped names, so <code>{ Operational: 'green', Offline: 'red' }</code> keeps "Operational" exactly as green whichever categories a filter leaves. A map and a <code>palette</code> array do not combine — the map wins, and the array is ignored once, with a warning.</td></tr>
           <tr><td class="name">ramp</td><td class="type">string[] | <a href="#type-ChartRampOptions">ChartRampOptions</a></td><td class="desc">The colour ramp every ramp-coloured type fills by (<code>heatmap</code>, <code>geomap</code>, density cells, <code>calendar</code>, <code>hexbin</code>, <code>hexmap</code>, <code>choropleth</code>). <code>[low, high]</code> sets the two colours; <code>{ colours, scale }</code> also sets the <strong>scale</strong> a value is placed by (BACKLOG-0001516): <code>'linear'</code>, equal steps of value; <code>'log'</code>, equal ratios, so a city's 40,000-place centre and its 40-place suburbs both get a shade of their own, with zero and below at the bottom of the ramp and the legend labelled at powers of ten (1-2-5 inside two decades); <code>'quantile'</code>, five equal-count classes, the legend labelled at the four cut points. Unset, the chart uses <code>'log'</code> when the positive values span more than 100:1 and says so once (<code>chart.provenance().ramp</code> reports it every draw), and <code>'linear'</code> otherwise. A <code>diverging</code> ramp is always linear.</td></tr>
           <tr><td class="name">legend</td><td class="type">boolean | object</td><td class="desc"><code>position</code>, <code>isolate</code> so a click shows only that series (what plain toggling makes a reader with eight series do in seven clicks), and <code>values: true</code>, which appends each entry's own total after its name and a thin space — a category's for pie and donut, a series' for a series legend — formatted by the measure column (BACKLOG-0001453).</td></tr>
           <tr><td class="name">emphasis / seriesStyle</td><td class="type">string[] / object</td><td class="desc">Weight, not just hue, for one series among many on a <code>line</code>, <code>area</code> or the line half of a <code>combo</code>/<code>pareto</code> (BACKLOG-0001472) — an equal-weighted index drawn thicker than the 24 tickers it averages, say. <code>emphasis: ['Index']</code> names series by the same value <code>scheme</code>'s map keys on: those draw with a heavier stroke, full opacity and on top; every other series draws thinner and muted. <code>seriesStyle: { Index: { width: 4, dash: [6, 3] } }</code> sets a series' own stroke width and/or dash pattern directly and wins over <code>emphasis</code> for the same name. The fixed emphasis/mute pair is themeable through <code>--lattice-chart-emphasis-width</code> and <code>--lattice-chart-muted-opacity</code>.</td></tr>
-          <tr><td class="name">centre</td><td class="type">object</td><td class="desc">A donut's own figure, drawn in its hole (BACKLOG-0001453); every other type ignores it, having no hole. <code>{ value: 'total' | number | string, label? }</code> — <code>'total'</code> sums the slices actually drawn, so hiding a category from the legend moves the figure with them; a number is formatted the same way; a string is written through unchanged. <code>label</code> is a second line beneath it. Both are sized to fit the hole and never drawn past its edge.</td></tr>
+          <tr><td class="name">centre</td><td class="type">object</td><td class="desc">A donut's own figure, drawn in its hole (BACKLOG-0001453); a gauge reads <code>label</code> as its caption instead (BACKLOG-0001637). <code>{ value?: 'total' | number | string, label? }</code> — <code>'total'</code> sums the slices actually drawn, so hiding a category from the legend moves the figure with them; a number is formatted the same way; a string is written through unchanged. <code>label</code> is a second line beneath it. Both are sized to fit the hole and never drawn past its edge.</td></tr>
+          <tr><td class="name">bands / needle / ticks</td><td class="type">object[] / boolean | object / number | array</td><td class="desc">A gauge's dial (BACKLOG-0001637). <code>bands</code> shades the range behind the value, each <code>{ from, to, colour?, label? }</code> clipped to <code>min</code>/<code>max</code>; <code>needle</code> draws a pointer from the centre instead of the filled value arc (<code>true</code>, or <code>{ width, pin }</code>); <code>ticks</code> places tick values round the arc.</td></tr>
           <tr><td class="name">labels</td><td class="type">boolean | object</td><td class="desc">Values beside each mark. <code>position</code>, <code>format</code>, <code>minGap</code>. A label that would overlap one already placed is dropped rather than drawn over it. <code>horizontalBar</code> draws them exactly as <code>bar</code> does: the figure sits past the end of the bar and, where that would spill past the plot's right edge, inside the bar instead (BACKLOG-0001451).</td></tr>
           <tr><td class="name">axis</td><td class="type">object</td><td class="desc">Titles, tick density and formatting per axis.</td></tr>
           <tr><td class="name">reference</td><td class="type">object[]</td><td class="desc">Horizontal lines: <code>{value, label}</code>.</td></tr>
@@ -7632,7 +7635,7 @@ return [p.source, p.pending, p.measures[0].computed, p.reason].join(' | ');</cod
           <tr><td class="name">fit</td><td class="type">boolean | 'line'</td><td class="desc">A least-squares line through a scatter or bubble chart, one per series. <code>true</code> draws it with its R&sup2;; <code>'line'</code> draws the line alone. Only where the x axis is numeric: on a band scale a slope would be a slope through the order the categories happened to be listed in.</td></tr>
           <tr><td class="name">trend</td><td class="type">boolean | string | <a href="#type-ChartTrend">ChartTrend</a> | array</td><td class="desc">Trend and forecast overlays (BACKLOG-0000952): a <code>linear</code> least-squares line, a <code>movingAverage</code>, or <code>exponential</code> smoothing, one per series. <code>true</code> draws a single linear trend; a method name or a <code>{ method, forecast, window, kind, alpha, beta }</code> object configures one; an array draws several. The maths matches the core stats engine to the last digit (a parity test asserts it) but is computed locally to keep the charts bundle lean. For the linear method, <code>forecast: n</code> projects the line <code>n</code> steps past the data as a dashed forecast; a moving average and a smoothed level have no slope to project, so <code>forecast</code> is ignored for them and the fact is said in the accessible description. The trend layer (the fitted line, the forecast line, its band and the R² label) may extend past the plot into the chart's margin, but it is bounded by the chart box, the chart's own <code>&lt;svg&gt;</code>: a forecast that reaches past the chart's edge is cut off there rather than painted over the content beside it (BACKLOG-0001120).</td></tr>
           <tr><td class="name">error</td><td class="type">boolean | object</td><td class="desc">Whiskers showing the uncertainty in each mark, computed from the readings the chart can see behind it. <code>{ of }</code> takes a symmetric margin from a column instead; <code>{ confidence }</code> sets the level. A mark the chart sees only one value for gets none, and the chart says so.</td></tr>
-          <tr><td class="name">stack</td><td class="type">boolean</td><td class="desc">Stack the series rather than drawing them side by side.</td></tr>
+          <tr><td class="name">stack</td><td class="type">boolean</td><td class="desc">Stack the series rather than drawing them side by side. On a <code>combo</code> it stacks the bar measures; line and area measures stay outside the stack and are drawn after the columns (BACKLOG-0001636).</td></tr>
           <tr><td class="name">curve</td><td class="type">boolean</td><td class="desc">Overlay a kernel density curve on a histogram, which shows which features are in the data and which are in the binning.</td></tr>
           <tr><td class="name">diverging</td><td class="type">boolean</td><td class="desc">Colour a heatmap outward from zero rather than along a single ramp.</td></tr>
           <tr><td class="name">downsample</td><td class="type">number</td><td class="desc">Reduce to at most this many points per series before drawing, keeping the extremes so a spike is not lost.</td></tr>
@@ -7833,16 +7836,22 @@ grid.destroy();
       <strong>A <code>scheme</code> can colour by name instead of by position</strong>
       (BACKLOG-0001453). <code>scheme: { Operational: 'green', Degraded: 'amber', Offline: 'red' }</code>
       keys on the category for a <code>pie</code>, <code>donut</code> or <code>sunburst</code>; on
-      the series value for any cartesian type with a <code>series</code> column; and on the
-      <code>x</code> category for a single-series <code>bar</code> or <code>horizontalBar</code>
-      &mdash; the same "no <code>series</code>" case the rule colour above reads, and a rule still
-      outranks the map where both apply. The point of the map is what an ordered array cannot do: a
-      category a filter removes never shifts the colour of the ones that stay, because each name's
-      colour comes from the map rather than from where it happens to sort. A name the map does not
-      mention falls back to the ordered scheme by its position among the <em>other unmapped</em>
-      names only. A map and an array <code>palette</code> are two ways of choosing the same thing
-      and do not combine &mdash; given both, the map wins and the array is ignored, once, with a
-      warning (<code>chart:scheme:array-and-map</code>).
+      the series value for any cartesian type with a <code>series</code> column; on the measure's
+      <code>title</code> (falling back to its column) for the measure-based types &mdash; a bar or
+      combo given several <code>measures</code>, a <code>radar</code> or a <code>candlestick</code>
+      &mdash; so <code>{ 'Committed revenue': '#1f4d5c' }</code> colours that measure on a combo
+      exactly as it does on a bar (BACKLOG-0001638); and on the <code>x</code> category for a
+      single-series <code>bar</code> or <code>horizontalBar</code> &mdash; the same "no
+      <code>series</code>" case the rule colour above reads, and a rule still outranks the map where
+      both apply. A <strong>bare array</strong> &mdash; <code>scheme: ['#1f4d5c', '#b4701a']</code>
+      &mdash; is the shorthand for <code>{ series: [...] }</code> and colours series in measure order
+      on every type, exactly as explicit (BACKLOG-0001638). The point of the map is what an ordered
+      array cannot do: a category a filter removes never shifts the colour of the ones that stay,
+      because each name's colour comes from the map rather than from where it happens to sort. A name
+      the map does not mention falls back to the ordered scheme by its position among the <em>other
+      unmapped</em> names only. A map and an array <code>palette</code> are two ways of choosing the
+      same thing and do not combine &mdash; given both, the map wins and the array is ignored, once,
+      with a warning (<code>chart:scheme:array-and-map</code>).
     </p>
     <p class="section-note">
       <strong><code>legend: { values: true }</code> writes the number beside the name</strong>
@@ -7861,6 +7870,43 @@ grid.destroy();
       which has none &mdash; and are shrunk together, proportionally, and truncated rather than
       drawn past its edge.
     </p>
+    <p class="section-note">
+      <strong>A gauge can be a needle dial over threshold bands</strong> (BACKLOG-0001637).
+      <code>bands</code> shades the range behind the value, clipped to <code>min</code>/<code>max</code>
+      and drawn in order; <code>needle</code> draws a pointer from the centre instead of the filled
+      value arc; <code>ticks</code> places values round the arc; and <code>centre: { label }</code>
+      names the reading&rsquo;s caption. The figure itself is the measure, formatted by its own
+      column &mdash; a suffix <code>%</code> column reads <code>68%</code>, not <code>68</code>.
+      A value outside <code>min</code>/<code>max</code> is clamped on the arc while the tooltip keeps
+      the real number. With none of the new keys the arc dial is unchanged.
+    </p>
+    <pre data-run="js" data-expect="3 | #43a047 | 1.07" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 420, height: 420 });
+const container = document.createElement('div');
+container.rect = { width: 420, height: 420, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'name' }, { field: 'spi', type: 'number', title: 'SPI' }],
+  rows: [{ id: 'a', name: 'SPI', spi: 1.07 }],
+});
+const chart = createChart({
+  grid, container, type: 'gauge', x: 'name', y: 'spi', min: 0, max: 2,
+  bands: [
+    { from: 0, to: 0.9, colour: '#e53935', label: 'Behind' },
+    { from: 0.9, to: 1, colour: '#ffb300', label: 'At risk' },
+    { from: 1, to: 2, colour: '#43a047', label: 'On track' },
+  ],
+  needle: true, ticks: [0, 0.5, 1, 1.5, 2], centre: { label: 'SPI' },
+});
+const bands = container.querySelectorAll('.lat-chartview__gauge-band').length;
+const needle = container.querySelector('.lat-chartview__gauge-needle').getAttribute('stroke');
+const reading = container.querySelector('.lat-chartview__gauge-reading').textContent;
+return [bands, needle, reading].join(' | ');</code></pre>
 
     <h3>The chart</h3>
     <div class="table-wrap">
@@ -8717,7 +8763,7 @@ router.load(snapshot);                        <span class="cmt">// every viewer 
           <tr><td class="sig">traveling / buffered</td><td class="desc"><strong>v4:</strong> whether the grids currently show a reconstructed past, and how many deltas are held in the bounded buffer.</td></tr>
           <tr><td class="sig">broadcast({ channel })</td><td class="desc"><strong>v6 (BACKLOG-0000913):</strong> mirror the router's ordered, de-duplicated deltas to other browser tabs/windows over a <strong>BroadcastChannel</strong>, so a grid popped into its own tab joins the same feed with no second socket. Each tab runs its own router on the same <code>channel</code> name; an inbound mirror is applied without re-broadcasting (no echo loop), and <code>broadcast</code> announces the tab so a peer holding the feed resyncs it mid-stream (snapshot + replay). Off by default; needs a <code>seq</code>/<code>dedupe</code> router to drop replayed deltas cleanly.</td></tr>
           <tr><td class="sig">broadcasting</td><td class="desc"><strong>v6:</strong> whether the router is currently mirroring to a BroadcastChannel.</td></tr>
-          <tr><td class="sig">addSource(feed, { map?, key? })</td><td class="desc"><strong>v9 (BACKLOG-0000931):</strong> register a source feed &mdash; fan-in. Returns a handle (<code>load</code>/<code>apply</code>/<code>push</code>/<code>remove</code>, plus <code>id</code>/<code>size</code>) whose rows are normalized by <code>map</code> and namespaced by <code>key</code> (a prefix string, <code>true</code> to prefix with the source id, or a <code>keyFn(row)</code>) so ids from different feeds cannot collide, then merged through the router's ordinary path &mdash; partitioned, routed, linked, deduped, buffered and written back exactly as the single-source path. <code>feed</code> is an optional source id or an options object. A source may also carry a <code>join</code> spec (v11) to <strong>enrich</strong> its rows with fields looked up from another source.</td></tr>
+          <tr><td class="sig">addSource(feed, { map?, key?, join?, unnest?, fields? })</td><td class="desc"><strong>v9 (BACKLOG-0000931):</strong> register a source feed &mdash; fan-in. Returns a handle (<code>load</code>/<code>apply</code>/<code>push</code>/<code>remove</code>, plus <code>id</code>/<code>size</code>) whose rows are normalized by <code>map</code> and namespaced by <code>key</code> (a prefix string, <code>true</code> to prefix with the source id, or a <code>keyFn(row)</code>) so ids from different feeds cannot collide, then merged through the router's ordinary path &mdash; partitioned, routed, linked, deduped, buffered and written back exactly as the single-source path. <code>feed</code> is an optional source id or an options object. A source may also carry a <code>join</code> spec (v11) to <strong>enrich</strong> its rows with fields looked up from another source, an <code>unnest</code> spec (v17, BACKLOG-0001610) to <strong>expand</strong> a nested array into its own row type, and a <code>fields</code> map (BACKLOG-0001613) to <strong>coerce</strong> raw values to typed values before joins.</td></tr>
           <tr><td class="sig">removeSource(ref) / sources()</td><td class="desc"><strong>v9:</strong> drop exactly the rows a feed contributed (by source id or handle) from every route and unregister it; and list the registered source ids.</td></tr>
           <tr><td class="sig">metrics()</td><td class="desc"><strong>v10 (BACKLOG-0000932):</strong> a cheap point-in-time observability snapshot &mdash; per-route row counts and throughput (rows/sec since the previous read), per-source rates and totals (fan-in), and the global <code>unrouted</code> / <code>dropped</code> / <code>buffered</code> / <code>lag</code> figures. Throughput is sampled over the interval since the last <code>metrics()</code> call or emit. Each entry in <code>routes[]</code> also carries its <code>label</code> and, when the route declares a backpressure policy, a <code>backpressure: { pending, coalesced }</code> object &mdash; <code>pending</code> is the held backlog since the last flush (the route's lag) and <code>coalesced</code> the cumulative change-events it has absorbed into deferred refreshes (<code>null</code> when the route has no policy).</td></tr>
           <tr><td class="sig">on('metrics', handler)</td><td class="desc"><strong>v10:</strong> subscribe to the periodic <code>metrics</code> emit (the <code>metricsInterval</code> ms, default 1000; <code>0</code> disables it). The timer runs only while at least one listener is registered and stops when the last is removed. Returns an unsubscribe function.</td></tr>
@@ -9082,6 +9128,188 @@ customers.load([{ id: 'C1', kind: 'customer', customerId: 'C1', name: 'Acme' }])
 
 g.destroy(); router.destroy();
 <span class="kw">return</span> [held, released, name].join(' | ');</code></pre>
+
+    <p><strong>COLLECT join and join arrays (v14, BACKLOG-0001607).</strong> A <code>join</code> may be <em>one</em> spec or an <em>array</em> applied in order, and a spec with <code>many: true</code> is a <strong>collect join</strong> instead of a lookup: it gathers <em>every</em> row of <code>from</code> whose <code>foreignKey</code> equals the left row's <code>localKey</code> (defaults to the source's <code>rowKey</code>) into an array written under <code>as</code>, mapping each by <code>select(fromRow, leftRow)</code> (default the whole row), with optional <code>distinct</code> and <code>sort</code> (<code>true</code> for the default ascending order, or a <code>compareFn</code>). <code>missing</code> works as for a lookup, on the collected array: <code>passthrough</code> (default) yields <code>[]</code> when nothing matches, <code>null</code> yields <code>null</code>, and <code>hold</code> withholds the row until at least one match arrives. Because a join reads <code>from</code>'s rows <em>after</em> that source's own joins, the graph chains into a <strong>multi-level join</strong> &mdash; a country rename re-enriches its addresses, which re-collect their companies &mdash; live everywhere by keyed diff, touching only the affected rows and recomputed from the base row so it stays idempotent. A declaration that would close a cycle (a source collecting from a source that transitively collects from it) is refused by name (<code>router:join-cycle</code>) rather than recursing.</p>
+    <h3 id="datarouter-collect-example">A multi-level COLLECT join into a <code>list</code> column, executed</h3>
+    <p class="section-note">An address looks up its country's name; a company collects its addresses' names &mdash; distinct and
+    sorted &mdash; into a <code>list</code> column. Run headless on every build.</p>
+    <pre data-run="js" data-expect="France,Germany | Germany,UK | UK" data-covers="export:createDataRouter method:data-router.addSource config:ColumnTypeOptions.of"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+<span class="kw">await</span> import('../packages/modules/list/index.js');   <span class="cmt">// registers the `list` type</span>
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'countries', field: 'countries', type: 'list', typeOptions: { of: 'text' } }];
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ key: 'kind', rowKey: 'id' });
+router.attach(g, 'company');
+
+<span class="kw">const</span> countries = router.addSource('country');
+<span class="kw">const</span> address = router.addSource('address', { join: { from: 'country', localKey: 'countryId', fields: { name: 'countryName' } } });
+<span class="kw">const</span> company = router.addSource('company', { join: { from: 'address', foreignKey: 'companyId', many: true, select: (a) =&gt; a.countryName, distinct: true, sort: true, as: 'countries' } });
+
+countries.load([
+  { id: 'CO1', kind: 'country', countryId: 'CO1', name: 'France' },
+  { id: 'CO2', kind: 'country', countryId: 'CO2', name: 'Germany' },
+  { id: 'CO3', kind: 'country', countryId: 'CO3', name: 'UK' },
+]);
+address.load([
+  { id: 'A1', kind: 'address', companyId: 'C1', countryId: 'CO1' },
+  { id: 'A2', kind: 'address', companyId: 'C1', countryId: 'CO1' },  <span class="cmt">// same country twice: distinct collapses it</span>
+  { id: 'A3', kind: 'address', companyId: 'C1', countryId: 'CO2' },
+  { id: 'A4', kind: 'address', companyId: 'C2', countryId: 'CO2' },
+  { id: 'A5', kind: 'address', companyId: 'C2', countryId: 'CO3' },
+  { id: 'A6', kind: 'address', companyId: 'C3', countryId: 'CO3' },
+]);
+company.load([{ id: 'C1', kind: 'company' }, { id: 'C2', kind: 'company' }, { id: 'C3', kind: 'company' }]);
+
+<span class="kw">const</span> pick = (k) =&gt; { <span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; g.rows.count(); i++) { <span class="kw">const</span> r = g.rows.get(i); <span class="kw">if</span> (r.key === k) <span class="kw">return</span> r.data.countries; } <span class="kw">return</span> []; };
+<span class="kw">const</span> out = [pick('C1').join(','), pick('C2').join(','), pick('C3').join(',')].join(' | ');
+g.destroy(); router.destroy();
+<span class="kw">return</span> out;</code></pre>
+
+    <p><strong>Rollup onto the parent (v15, BACKLOG-0001609).</strong> A <code>many: true</code> join may <em>compute</em> instead of <em>collect</em>: give it an <code>aggregate</code> map (in place of <code>as</code>) and each named reducer is written straight onto the parent row. The reducer <code>fn</code>s reuse the v3 rollup vocabulary &mdash; <code>count</code>, <code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code> &mdash; plus <code>distinctCount</code>, <code>first</code> and <code>last</code> (<code>first</code>/<code>last</code> order the children by an <code>orderBy</code> field and return the <code>field</code> value of the first/last child; <code>orderBy</code> defaults to <code>field</code>). A join-level <code>where: (childRow) =&gt; boolean</code> filters the children before any aggregate is computed. An empty child set yields <code>count</code> 0, <code>sum</code> 0 and the rest <code>null</code>. Because a join reads <code>from</code>'s rows after that source's own joins, a company can count the distinct countries its addresses sit in &mdash; a country rename re-enriches the addresses and the company's counts follow &mdash; live by keyed diff, one parent re-emitted per child change.</p>
+    <h3 id="datarouter-rollup-parent-example">A rollup-onto-parent join, executed</h3>
+    <p class="section-note">An address looks up its country's name; a company counts its addresses and the distinct
+    countries they sit in. Run headless on every build.</p>
+    <pre data-run="js" data-expect="3,2 | 2,2" data-covers="export:createDataRouter method:data-router.addSource"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: [
+  { id: 'id', field: 'id' },
+  { id: 'addressCount', field: 'addressCount', type: 'number' },
+  { id: 'countriesCount', field: 'countriesCount', type: 'number' },
+] });
+<span class="kw">const</span> router = createDataRouter({ key: 'kind', rowKey: 'id' });
+router.attach(g, 'company');
+
+<span class="kw">const</span> country = router.addSource('country');
+<span class="kw">const</span> address = router.addSource('address', { join: { from: 'country', localKey: 'countryId', fields: { name: 'countryName' } } });
+<span class="kw">const</span> company = router.addSource('company', { join: {
+  from: 'address', foreignKey: 'companyId', many: true,
+  aggregate: { addressCount: { fn: 'count' }, countriesCount: { field: 'countryName', fn: 'distinctCount' } },
+} });
+
+country.load([
+  { id: 'CO1', kind: 'country', countryId: 'CO1', name: 'France' },
+  { id: 'CO2', kind: 'country', countryId: 'CO2', name: 'Germany' },
+  { id: 'CO3', kind: 'country', countryId: 'CO3', name: 'UK' },
+]);
+address.load([
+  { id: 'A1', kind: 'address', companyId: 'C1', countryId: 'CO1' },
+  { id: 'A2', kind: 'address', companyId: 'C1', countryId: 'CO1' },  <span class="cmt">// same country twice: distinct collapses it</span>
+  { id: 'A3', kind: 'address', companyId: 'C1', countryId: 'CO2' },
+  { id: 'A4', kind: 'address', companyId: 'C2', countryId: 'CO2' },
+  { id: 'A5', kind: 'address', companyId: 'C2', countryId: 'CO3' },
+]);
+company.load([{ id: 'C1', kind: 'company' }, { id: 'C2', kind: 'company' }]);
+
+<span class="kw">const</span> pick = (k) =&gt; { <span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; g.rows.count(); i++) { <span class="kw">const</span> r = g.rows.get(i); <span class="kw">if</span> (r.key === k) <span class="kw">return</span> `${r.data.addressCount},${r.data.countriesCount}`; } <span class="kw">return</span> ''; };
+<span class="kw">const</span> out = [pick('C1'), pick('C2')].join(' | ');
+g.destroy(); router.destroy();
+<span class="kw">return</span> out;</code></pre>
+    <p><strong>Shaping: <code>map</code> plus <code>fields</code> coercion (BACKLOG-0001613).</strong> Beyond <code>map</code> — which renames and reshapes a feed&rsquo;s rows &mdash; a source may declare a <code>fields</code> map that <em>coerces</em> raw values to the typed values the grid&rsquo;s columns expect. Each entry is a type name (<code>'text'</code>, <code>'number'</code>, <code>'integer'</code>, <code>'boolean'</code>, <code>'date'</code>, <code>'json'</code>) or an options object: <code>{ type: 'number', decimal: ',' }</code> reads a decimal comma and thousands separators; <code>{ type: 'boolean', true: ['Y','yes','1'], false: ['N','no','0'] }</code> names its own marker sets; <code>{ type: 'date', format: 'iso' | 'epoch-s' | 'epoch-ms' | 'dd/MM/yyyy' }</code> chooses the input format (the result is the grid&rsquo;s <code>YYYY-MM-DD</code> date storage form, and the router reuses the core&rsquo;s own parsers so the two never disagree); <code>'json'</code> parses a string. Any field may also list <code>nulls: ['', 'N/A', '-']</code> to map those strings to null first. Coercion runs <em>after</em> <code>map</code> and <em>before</em> joins, so join keys, spread and rollups all read typed values; a value that fails to coerce is stored as null and warns once per source+field (<code>router:coerce-failed</code>), never thrown; an undeclared field passes through untouched.</p>
+    <h3 id="datarouter-fields-example">Field coercion feeding a typed grid, executed</h3>
+    <p class="section-note">A feed sends a decimal-comma amount and a Y/N flag; <code>fields</code> coerces them to the number and
+    boolean the grid&rsquo;s typed columns sort and filter on, before any join sees them. Run headless on every build.</p>
+    <pre data-run="js" data-expect="1234.56 | number | true | true" data-covers="export:createDataRouter method:data-router.addSource method:data-router.attach"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [
+  { id: 'id', field: 'id' }, { id: 'kind', field: 'kind' },
+  { id: 'amount', field: 'amount', type: 'number' },
+  { id: 'active', field: 'active', type: 'boolean' },
+];
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ key: 'kind', rowKey: 'id' });
+router.attach(g, 'order');
+
+<span class="cmt">// The feed sends "1.234,56" and "Y"/"N"; `fields` types them for the grid.</span>
+<span class="kw">const</span> orders = router.addSource('orders', {
+  fields: {
+    amount: { type: 'number', decimal: ',' },
+    active: { type: 'boolean', true: ['Y', 'yes'], false: ['N', 'no'] },
+  },
+});
+orders.load([
+  { id: 'o1', kind: 'order', amount: '1.234,56', active: 'Y' },
+  { id: 'o2', kind: 'order', amount: '42', active: 'N' },
+]);
+
+<span class="kw">const</span> amount = g.rows.value('o1', 'amount');   <span class="cmt">// 1234.56 — a number, not "1.234,56"</span>
+<span class="kw">const</span> typed = <span class="kw">typeof</span> amount;                   <span class="cmt">// number</span>
+<span class="kw">const</span> active = g.rows.value('o1', 'active');   <span class="cmt">// true — a boolean, not "Y"</span>
+<span class="cmt">// The typed number column compares numerically, so o1 sorts above o2.</span>
+<span class="kw">const</span> bigger = g.rows.value('o1', 'amount') &gt; g.rows.value('o2', 'amount');
+
+g.destroy(); router.destroy();
+<span class="kw">return</span> [amount, typed, active, bigger].join(' | ');</code></pre>
+
+    <p><strong>Spread onto the parent (v16, BACKLOG-0001611).</strong> An EAV / custom-field source's rows each become their OWN field on the parent: give the join a <code>spread</code> spec instead of <code>as</code>/<code>aggregate</code>, and every matching child row writes <code>prefix + name(row)</code> &rarr; <code>value(row)</code> onto the parent. <code>name</code> and <code>value</code> are field names or <code>fn(row)</code>s; <code>prefix</code> (e.g. <code>'cf_'</code>) namespaces them; <code>include</code> narrows which attributes spread (an array, or a <code>fn(name, row)</code>); and <code>type</code> coerces per-name values (<code>number</code>/<code>date</code>/<code>boolean</code>/<code>text</code>, a bad parse keeping the raw value rather than a silent <code>NaN</code>/<code>Invalid Date</code>). The attribute source's own joins apply first (multi-level), an attribute add/change/delete re-emits its parent live, and a deleted attribute leaves the field <em>cleared</em> rather than stale. Two attributes landing on one name are last-writer-wins and warned once (<code>router:spread-duplicate</code>); a spread field never overwrites a base parent field and warns once (<code>router:spread-collision</code>). The router reports the field names per route through <code>fieldsOf(ref)</code> and the <code>fields:changed</code> event (<code>{ route, added, removed }</code>), so a host can add or drop grid columns as custom attributes appear and disappear.</p>
+    <h3 id="datarouter-spread-example">A SPREAD join of EAV attributes onto a parent, executed</h3>
+    <p class="section-note">Each <code>companyAttr</code> row becomes one <code>cf_</code>-prefixed field on its company; <code>fieldsOf</code>
+    reports the names a host turns into grid columns. Run headless on every build.</p>
+    <pre data-run="js" data-expect="Media,Gold | cf_industry,cf_tier" data-covers="export:createDataRouter method:data-router.addSource method:data-router.fieldsOf"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }] });
+<span class="kw">const</span> router = createDataRouter({ key: 'kind', rowKey: 'id' });
+router.attach(g, 'company');
+
+<span class="kw">const</span> attr = router.addSource('companyAttr');
+<span class="kw">const</span> company = router.addSource('company', { join: {
+  from: 'companyAttr', foreignKey: 'companyId',
+  spread: { name: 'attribute', value: 'value', prefix: 'cf_' },
+}});
+
+company.load([{ id: 'C1', kind: 'company', name: 'Acme' }]);
+attr.load([
+  { id: 'A1', kind: 'companyAttr', companyId: 'C1', attribute: 'industry', value: 'Media' },
+  { id: 'A2', kind: 'companyAttr', companyId: 'C1', attribute: 'tier', value: 'Gold' },
+]);
+
+<span class="kw">const</span> pick = (k) =&gt; { <span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; g.rows.count(); i++) { <span class="kw">const</span> r = g.rows.get(i); <span class="kw">if</span> (r.key === k) <span class="kw">return</span> r.data; } <span class="kw">return</span> {}; };
+<span class="kw">const</span> row = pick('C1');
+<span class="kw">const</span> out = [row.cf_industry, row.cf_tier].join(',') + ' | ' + router.fieldsOf('company').join(',');
+g.destroy(); router.destroy();
+<span class="kw">return</span> out;</code></pre>
+
+    <p><strong>Unnest a nested payload (v17, BACKLOG-0001610).</strong> A REST-style response embeds its children: a company carries an <code>addresses</code> array. Give the source an <code>unnest</code> spec and each element becomes its OWN row type, routed through the ordinary partition/route/join machinery &mdash; an <code>address</code> grid fills from the companies&rsquo; embedded addresses, a <code>country</code> lookup join can enrich each address, and a <code>company</code> collect join can collect its children&rsquo;s looked-up fields straight back. Each spec is <code>{ path, as, key?, parentKey?, keep?, join?, unnest? }</code>: <code>path</code> is the dotted array field (<code>'profile.addresses'</code>); <code>as</code> the child type (and its source id, so a lookup/collect join can <code>from</code> it); <code>key</code> the child&rsquo;s identity &mdash; a field name, or <code>fn(child, parent, index)</code>, defaulting to <code>`${parentKey}:${index}`</code> (the index fallback, whose caveat is that reordering an array churns its children); <code>parentKey</code> the field written onto each child holding the parent&rsquo;s key (default <code>${source}Id</code>, e.g. <code>companyId</code>); <code>keep</code> (default false) keeps the nested array on the parent&rsquo;s own routed row; and <code>join</code>/<code>unnest</code> are the child source&rsquo;s own joins and nested unnest. A parent update whose array changed emits a keyed diff of its children (add/change/remove by child key; a child moved between parents is a remove + add), a parent delete removes its children, and a <code>load()</code> snapshot diffs children too. Two children of one parent resolving to the same key warn once (<code>router:unnest-duplicate-key</code>), last in source order winning.</p>
+    <h3 id="datarouter-unnest-example">Unnest: a nested REST payload into two grids, executed</h3>
+    <p class="section-note">A company payload embeds its addresses; <code>unnest</code> routes them to an address grid, each address
+    looks up its country&rsquo;s name, and the company collects those names back. Run headless on every build.</p>
+    <pre data-run="js" data-expect="3 | France,Germany | C1" data-covers="export:createDataRouter method:data-router.addSource"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> companyGrid = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }, { id: 'name', field: 'name' }] });
+<span class="kw">const</span> addressGrid = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }, { id: 'companyId', field: 'companyId' }] });
+<span class="kw">const</span> router = createDataRouter({ key: 'kind', rowKey: 'id' });
+router.attach(companyGrid, 'company');
+router.attach(addressGrid, 'address');
+
+<span class="kw">const</span> country = router.addSource('country');
+<span class="kw">const</span> company = router.addSource('company', {
+  unnest: [{ path: 'addresses', as: 'address', key: 'id', parentKey: 'companyId',
+             join: { from: 'country', localKey: 'countryId', fields: { name: 'countryName' } } }],
+  join: { from: 'address', foreignKey: 'companyId', many: true, select: (a) =&gt; a.countryName, distinct: true, sort: true, as: 'countries' },
+});
+
+country.load([
+  { id: 'CO1', kind: 'country', countryId: 'CO1', name: 'France' },
+  { id: 'CO2', kind: 'country', countryId: 'CO2', name: 'Germany' },
+]);
+company.load([
+  { id: 'C1', kind: 'company', name: 'Acme', addresses: [
+    { id: 'A1', countryId: 'CO1' },
+    { id: 'A2', countryId: 'CO2' },
+    { id: 'A3', countryId: 'CO1' },
+  ] },
+]);
+
+<span class="kw">const</span> pick = (g, k) =&gt; { <span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; g.rows.count(); i++) { <span class="kw">const</span> r = g.rows.get(i); <span class="kw">if</span> (r.key === k) <span class="kw">return</span> r.data; } <span class="kw">return</span> {}; };
+<span class="kw">const</span> addrCount = addressGrid.rows.count();
+<span class="kw">const</span> countries = pick(companyGrid, 'C1').countries.join(',');
+<span class="kw">const</span> a1Company = pick(addressGrid, 'A1').companyId;
+companyGrid.destroy(); addressGrid.destroy(); router.destroy();
+<span class="kw">return</span> [addrCount, countries, a1Company].join(' | ');</code></pre>
 
     <p><strong>Observability (v10, BACKLOG-0000932).</strong> <code>metrics()</code> is a cheap point-in-time snapshot of the router's runtime &mdash; per-route row counts and throughput (rows/sec since the previous read), per-source rates and totals (fan-in), and the global <code>unrouted</code> / <code>dropped</code> (duplicate) / <code>buffered</code> (buffer depth) / <code>lag</code> figures. Throughput is sampled, so it is measured over the interval since the last read or emit. <code>on('metrics', handler)</code> drives it on a periodic timer (the <code>metricsInterval</code> ms, default 1000; <code>0</code> disables it) and returns an unsubscribe &mdash; the timer runs only while a listener is registered, so collection is off-by-default. <code>mountDevtools(el, { interval? })</code> mounts an opt-in DOM panel (in the module's own <code>devtools.js</code>, so the core stays DOM-free) that renders <code>metrics()</code> and refreshes on each emit.</p>
     <h3 id="datarouter-v10-example">A metrics snapshot, executed</h3>
@@ -9448,6 +9676,33 @@ panel.destroy();                                <span class="cmt">// unsubscribe
 
 g.destroy(); router.destroy();
 <span class="kw">return</span> [mountedRows, stillMounted, afterDestroy].join(' | ');</code></pre>
+
+    <h3 id="datarouter-integrity">Parent-delete integrity: cascade, orphan, keep (v18, BACKLOG-0001612)</h3>
+    <p>When a parent row is deleted, what happens to its children? <code>onParentDelete: 'cascade' | 'orphan' | 'keep'</code> answers that on a COLLECT join (<code>join: { from, foreignKey, many: true, as, onParentDelete }</code>), on an unnest (<code>unnest: { path, as, onParentDelete }</code>), and standalone via <code>relateRows({ child, parent, foreignKey, onParentDelete, writeBack })</code> &mdash; the last is for a parent&rarr;child relationship the router does not otherwise read. <code>'cascade'</code> deletes every child whose foreign key matches the deleted parent, in one keyed-diff batch, recursively through the child&rsquo;s own cascades (a company whose addresses cascade, whose phones cascade). <code>'orphan'</code> keeps the children, marks them <code>__orphan: true</code> (a documented field), and warns once (<code>router:orphaned-rows</code>, with the count); a re-added parent re-adopts its orphans (the mark clears). <code>'keep'</code> keeps them bare &mdash; the default for a collect join and for <code>relateRows</code>, and the unchanged behaviour there; an unnest&rsquo;s unchanged behaviour is already to remove its children, so it defaults to <code>'cascade'</code>. The join graph is acyclic (a cyclic join is refused), and <code>relateRows</code> cycles are broken by never deleting a row twice. Cascaded deletes do <strong>not</strong> trigger write-back &mdash; the server is assumed to have done the cascade &mdash; unless <code>writeBack: true</code> on <code>relateRows</code>, which routes each cascaded delete to the router&rsquo;s <code>onWrite</code> so the host persists it.</p>
+    <h3 id="datarouter-integrity-example">A standalone cascade rule, executed</h3>
+    <p class="section-note"><code>relateRows</code> declares a parent&rarr;child delete rule without a join: deleting a company cascades its addresses. Run headless on every build.</p>
+    <pre data-run="js" data-expect="1 | 1" data-covers="export:createDataRouter method:data-router.addSource method:data-router.relateRows"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> companyGrid = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }] });
+<span class="kw">const</span> addressGrid = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }] });
+<span class="kw">const</span> router = createDataRouter({ key: 'kind', rowKey: 'id' });
+router.attach(companyGrid, 'company');
+router.attach(addressGrid, 'address');
+<span class="kw">const</span> company = router.addSource('company');
+<span class="kw">const</span> address = router.addSource('address');
+router.relateRows({ child: 'address', parent: 'company', foreignKey: 'companyId', onParentDelete: 'cascade' });
+address.load([
+  { id: 'A1', kind: 'address', companyId: 'C1' },
+  { id: 'A2', kind: 'address', companyId: 'C1' },
+  { id: 'A3', kind: 'address', companyId: 'C2' },
+]);
+company.load([{ id: 'C1', kind: 'company' }, { id: 'C2', kind: 'company' }]);
+company.apply([{ op: 'delete', row: { id: 'C1', kind: 'company' } }]);   <span class="cmt">// cascades A1 + A2</span>
+<span class="kw">const</span> companyCount = companyGrid.rows.count();   <span class="cmt">// 1: C2 survives</span>
+<span class="kw">const</span> addressCount = addressGrid.rows.count();   <span class="cmt">// 1: A3 survives</span>
+companyGrid.destroy(); addressGrid.destroy(); router.destroy();
+<span class="kw">return</span> [companyCount, addressCount].join(' | ');</code></pre>
     <h2 id="ganttmodule">The Gantt module</h2>
     <p><code>modules/gantt</code> is a separate, opt-in project-planning module &mdash; its own bundle, imported only when you want it, changing nothing in the grid core. It turns a task list into a real schedule: a <strong>CPM (Critical Path Method) engine</strong> computes each task's early/late start and finish, its slack (total float), and the zero-float <strong>critical path</strong>, recomputing on every edit. <code>computeSchedule(tasks, deps)</code> is the pure engine; <code>createGantt(opts)</code> is a controller that holds the model, recomputes on <code>setTasks</code>/<code>setDependencies</code>/<code>applyEdit</code>, and emits <code>schedule</code> (or <code>error</code>). Dependencies are the four standard link types &mdash; <code>LINK_TYPES</code> is <code>['FS','SS','FF','SF']</code> &mdash; each with optional lag/lead. A <strong>milestone</strong> is a zero-duration task scheduled as a point; a <strong>summary</strong> task (any task named as another's <code>parent</code>) is derived from its children (start = earliest child, end = latest child, duration-weighted progress) and is not scheduled itself. Bad input never throws or loops: a dependency cycle is refused and reported with a code from <code>SCHEDULE_ERROR</code>, and <code>findViolations</code> flags any task placed earlier than its predecessors allow. <code>toISODate</code> converts an engine day-number back to a calendar date for display.</p>
     <p><strong>Feed it the rows you already have.</strong> <code>fields</code> names your own task properties for the scheduler &mdash; <code>{ id: 'taskId', start: 'startDate', name: 'jobName', duration: 'dur' }</code>, each a field name or a reader <code>(row) =&gt; value</code> &mdash; so a task list arrives as it is rather than being renamed first. The vocabulary is <code>id</code>, <code>name</code>, <code>start</code>, <code>end</code>, <code>duration</code>, <code>milestone</code>, <code>percentComplete</code>, <code>parent</code>, <code>baselineStart</code>, <code>baselineEnd</code>, <code>constraint</code> and <code>constraintDate</code>; anything you leave unmapped reads its canonical name, so an existing plan is unaffected. <code>rowKey</code> reaches the scheduler too, so a row carrying <code>taskId</code> and no <code>id</code> is identified by it &mdash; a task's own <code>id</code> still wins where it has one. It is a <strong>read</strong> mapping: <code>applyEdit</code> and <code>level()</code> write the canonical property, so each says so plainly rather than writing to a field the schedule is not read from, and <code>assignee</code>/<code>cost</code>/<code>actualCost</code> belong to the resource and earned-value layers rather than to this list.</p>
@@ -10565,6 +10820,120 @@ seen.push(grid.selection.keys()[0]);
 binding.destroy();                                 // the box condition goes with it
 seen.push(grid.rows.matchCount());
 return seen.join(' | ');                           // 40 | 20 | 5 | r7 | r3 | 20</code></pre>
+    </div>
+
+    <h2 id="mapview">The map view</h2>
+    <p><code>modules/mapview</code> puts a 3D map beside the grid that shows the same rows geographically, and keeps the two in step: the map is always a picture of the grid's current state, not a separate report. Any row with a place &mdash; a latitude and a longitude, a GeoJSON geometry, or a path of coordinates &mdash; is drawn; a filter, a quick search or a grouping on the grid redraws the map on the grid's next frame; selecting a row flies the map to it; clicking a feature selects its row and scrolls the grid to it; and hovering shows the row's cells in the grid's own formatted text. For a telecoms team, the build schedule, premises list or fault log they already manage in the grid becomes a 3D map of their network with no extra integration.</p>
+    <pre><code>import { createMapView } from '@toclocoinc/lattice-grid/modules/mapview';
+
+const map = createMapView(grid, {
+  container: '#map',                                     <span class="cmt">// or mode: 'split' | 'tab' | 'popout'</span>
+  geometry: { lat: 'latitude', lng: 'longitude' },       <span class="cmt">// or { geojson: 'geom' } or { path: 'route' }</span>
+  layer: 'column',                                       <span class="cmt">// 'point' | 'column' | 'polygon' | 'path'</span>
+  elevation: 'premisesPassed',
+  color: { field: 'status', map: { live: '#2e7d32', build: '#f9a825', planned: '#90a4ae' } },
+  buildings: true,
+});</code></pre>
+    <p><strong>deck.gl and MapLibre stay yours.</strong> The module imports neither and ships no dependency. Load MapLibre GL and deck.gl on the page (their UMD builds set the globals <code>maplibregl</code> and <code>deck</code>), or pass them as <code>libs: { deck, maplibregl }</code>. The map is a MapLibre map, and the rows are deck.gl layers on it through deck's <code>MapboxOverlay</code> in interleaved mode, so deck's columns and MapLibre's 3D buildings share one depth buffer and hide each other correctly. If either library is missing, <code>mapview:libs</code> warns, naming which one, and the map's box is left empty.</p>
+    <p><strong>Where the rows are.</strong> <code>geometry</code> is <code>{ lat, lng }</code> (or <code>lon</code>), <code>{ geojson }</code> &mdash; a GeoJSON <code>Geometry</code> or <code>Feature</code>, as an object or its JSON text, or WKT or WKB &mdash; or <code>{ path }</code>, an array of <code>[lng, lat]</code> pairs or its JSON text. A row whose place is blank or cannot be read is skipped and counted: <code>provenance()</code> returns <code>{ drawn, skipped, matched, layers }</code>, the rows drawn, the rows with no usable place, the rows the grid matched, and the count drawn by each layer kind.</p>
+    <p><strong>How they look.</strong> A row is drawn by the layer for its geometry: a point is a marker (deck's <code>ScatterplotLayer</code>), or an extruded column (<code>ColumnLayer</code>) when an <code>elevation</code> is given; a polygon is an area (<code>GeoJsonLayer</code>), extruded when an <code>elevation</code> is given; a line is a route (<code>PathLayer</code>). <code>layer</code> picks the kind for the rows of its geometry, and <code>setLayer()</code> switches it live. <code>elevation</code> is a numeric column or one number, in metres, multiplied by <code>elevationScale</code>. <code>color</code> is one colour; <code>{ field, map }</code>, a colour per value (any value not in <code>map</code> takes the next colour of the charts palette); or <code>{ field, scale: 'ramp', domain, colours, rampScale }</code>, a number placed along a ramp by the charts module's own scale code, exactly as a heat map places it. Unset, rows take the grid theme's accent, and selected rows its focus colour. <code>radius</code> (a marker's, in metres) and <code>width</code> (a route's, in pixels) are a column or a number; a <code>column</code> layer draws every column at one radius, so only a number applies to it. <code>flow: true</code> (or <code>{ speed, trail }</code>) animates a flow along the routes; it stops while the page is hidden and is drawn still for a reader who prefers reduced motion.</p>
+    <p><strong>Which rows: the grid's.</strong> The map draws the rows the grid shows after its filters and quick search &mdash; and, when it is grouped, every leaf row of the grouped result, whether or not its group is collapsed, because collapsing a group hides its rows from the table, not from the data. It is the same row path as <a href="#deckgl">the deck.gl adapter</a>: a paged pushdown grid's map draws the rows inside the map's view, asked of the engine, up to <code>viewportCap</code>. A burst of grid changes costs one redraw, on the next animation frame.</p>
+    <p><strong>Selection, both ways.</strong> A grid selection draws the selected rows in the highlight colour and flies the map to them: to the row, or to the box of several. <code>flyTo(key)</code> or <code>flyTo([keys])</code> does the same from code. A click on a feature selects its row in the grid (<code>selection: 'single'</code> or <code>'multiple'</code>; a grid that cannot take it warns <code>mapview:selection</code>), opens any collapsed group the row sits in, and scrolls it into view. Hovering a feature shows the <code>tooltip</code> columns (default the first three visible columns that do not hold the place; <code>false</code> for none), each as the grid's own display text for that cell, so a formatted value reads identically on the map and in the grid.</p>
+    <p><strong>The basemap and buildings.</strong> <code>basemap</code> is a MapLibre style URL or style object; the default is OpenFreeMap's keyless positron, or its dark style for a dark theme. <code>buildings: true</code> adds 3D buildings from the style's OpenMapTiles <code>building</code> layer (<code>render_height</code>, <code>render_min_height</code>), coloured for the light or dark theme; a style with no vector source warns <code>mapview:buildings</code>. The first view fits the drawn rows; <code>view: { center, zoom, pitch, bearing }</code> sets it instead. <code>theme</code> is <code>light</code> or <code>dark</code>, by default the grid's own.</p>
+    <p><strong>Where the map goes.</strong> <code>mode: 'container'</code> (the default when <code>container</code>, an element or a selector, is given) fills that element. <code>'split'</code> (the default without one) puts the map beside the grid in the grid's own host, with a divider a pointer drags and the arrow keys move. <code>'tab'</code> shows the grid and the map as two tabs. <code>'popout'</code> opens the map in a separate browser window that runs on this page's libraries; when the browser blocks the popup, it opens in a floating panel instead, moved by its title bar, resized from its corner and closed by its button. <code>destroy()</code> removes the map, its layers and every listener, and puts the grid back where it was.</p>
+    <p><strong>Events.</strong> <code>on(name, fn)</code> returns the unsubscribe and <code>off(name, fn)</code> removes a listener: <code>feature:click</code> (<code>{ key, row }</code>), <code>feature:hover</code> (<code>{ key, row, lines }</code>), <code>draw</code> (<code>{ provenance }</code>), <code>load</code> (the basemap style loaded) and <code>close</code> (the reader closed a popped-out map). <code>update(options)</code> changes options and redraws now; <code>layers()</code> returns the deck.gl layers last handed to the map.</p>
+    <p>The <code>mapView</code> key in a grid's own configuration is not offered: the grid has no means for a module to add a configuration key, so the map view is made by <code>createMapView(grid, options)</code> once the grid exists.</p>
+    <div class="example">
+      <p class="example__label">Rows to the map, a filter followed, a selection flown to, the grid's own text on hover, a click selecting, a layer switched, and destroy</p>
+      <pre data-run="js" data-expect="30 column fit | 10 | fly 0.89,51.89 | live $950 | p8 | point | fit | jump 14 10 | 0" data-covers="export:createMapView config:MapViewOptions.geometry config:MapViewOptions.container config:MapViewOptions.mode config:MapViewOptions.layer config:MapViewOptions.elevation config:MapViewOptions.elevationScale config:MapViewOptions.color config:MapViewOptions.radius config:MapViewOptions.width config:MapViewOptions.flow config:MapViewOptions.buildings config:MapViewOptions.basemap config:MapViewOptions.view config:MapViewOptions.theme config:MapViewOptions.tooltip config:MapViewOptions.libs config:MapViewOptions.viewportCap method:mapview.update method:mapview.flyTo method:mapview.setLayer method:mapview.provenance method:mapview.layers method:mapview.on method:mapview.off method:mapview.destroy"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createMapView } = await import('../packages/modules/mapview/index.js');
+
+const dom = createTestDom();
+const el = dom.document.createElement('div');
+dom.root.appendChild(el);
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  selection: 'single',
+  columns: [{ field: 'id' }, { field: 'status' }, { field: 'passed', type: 'number' },
+    { field: 'cost', type: 'number', format: { style: 'currency', decimals: 0 } },
+    { field: 'lat', type: 'number' }, { field: 'lng', type: 'number' }],
+  rows: Array.from({ length: 30 }, (_, i) =&gt; ({
+    id: 'p' + i, status: ['planned', 'build', 'live'][i % 3], passed: (i % 10) + 1,
+    cost: 900 + i * 25, lat: 51.88 + (i % 6) * 0.002, lng: 0.89 + Math.floor(i / 6) * 0.003,
+  })),
+});
+
+// Stand-ins for the page's deck.gl and MapLibre: a layer keeps its props, the
+// overlay keeps the layers, the map records its camera. On a page these are
+// the UMD globals `deck` and `maplibregl`, and `libs` is not needed.
+const layer = (kind) =&gt; class { constructor(props) { this.props = props; this.kind = kind; } };
+const deck = {
+  ScatterplotLayer: layer('point'), ColumnLayer: layer('column'), GeoJsonLayer: layer('polygon'),
+  PathLayer: layer('path'), TripsLayer: layer('flow'),
+  MapboxOverlay: class { constructor(p) { this.props = p; } setProps(p) { Object.assign(this.props, p); } },
+};
+const camera = [];
+const maplibregl = {
+  Map: class {
+    on() {} off() {} addControl() {} removeControl() {} remove() {} resize() {} setStyle() {}
+    getZoom() { return 12; } getBounds() { return null; } getStyle() { return { sources: {} }; }
+    getLayer() {} addLayer() {} jumpTo(o) { camera.push('jump ' + o.zoom); }
+    fitBounds() { camera.push('fit'); } flyTo(o) { camera.push('fly ' + o.center.join(',')); }
+  },
+};
+
+const map = createMapView(grid, {
+  container: el,
+  mode: 'container',
+  libs: { deck, maplibregl },
+  geometry: { lat: 'lat', lng: 'lng' },
+  layer: 'column',
+  elevation: 'passed',
+  elevationScale: 20,
+  radius: 15,
+  width: 3,
+  color: { field: 'status', map: { live: '#2e7d32', build: '#f9a825', planned: '#90a4ae' } },
+  flow: false,                                     // routes only: an animated flow along them
+  buildings: true,
+  basemap: 'https://tiles.openfreemap.org/styles/positron',
+  theme: 'light',
+  tooltip: ['status', 'cost'],
+  viewportCap: 20000,                              // a paged pushdown grid: rows fetched for the view
+});
+const seen = [`${map.provenance().drawn} ${map.layers()[0].kind} ${camera.at(-1)}`];
+
+grid.filters.set({ col: 'status', op: 'eq', value: 'live' });
+flushFrames();                                     // the map redraws on the grid's next frame
+seen.push(map.provenance().drawn);
+
+grid.selection.set(['p5']);                        // a grid selection flies the map
+seen.push(camera.at(-1));
+
+const tips = [];
+map.on('feature:hover', (e) =&gt; tips.push(e.lines.map((l) =&gt; l.text).join(' ')));
+map.overlay.props.onHover({ object: map.layers()[0].props.data[0], x: 0, y: 0 });
+seen.push(tips[0]);                                // the grid's own cell text
+
+map.overlay.props.onClick({ object: map.layers()[0].props.data[2] });
+seen.push(grid.selection.keys()[0]);               // a click selects the row
+
+map.setLayer('point');
+seen.push(map.layers()[0].kind);
+map.flyTo(['p2', 'p8']);
+seen.push(camera.at(-1));
+
+const draws = [];
+const onDraw = (e) =&gt; draws.push(e.provenance.drawn);
+map.on('draw', onDraw);
+map.update({ view: { zoom: 14, pitch: 60 } });
+map.off('draw', onDraw);
+map.update({});
+seen.push(`${camera.at(-1)} ${draws.join()}`);
+
+map.destroy();
+seen.push(el.children.length);
+return seen.join(' | ');</code></pre>
     </div>
 
     <h2 id="lists">Lists: the list module</h2>
@@ -18162,12 +18531,15 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">start</td><td class="type">string</td><td class="desc">The start-date column, for a gantt chart. <small>(optional)</small></td></tr>
           <tr><td class="name">end</td><td class="type">string</td><td class="desc">The end-date column, for a gantt chart. <small>(optional)</small></td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">A heading above the plot, drawn in the figure's caption alongside any `subtitle`. <small>(optional)</small></td></tr>
-          <tr><td class="name">scheme</td><td class="type"><a href="#type-ChartSchemeName">ChartSchemeName</a> | string | string[] | Record&lt;string, string&gt; | <a href="#type-ChartScheme">ChartScheme</a></td><td class="desc">A named scheme, an array of colours, a `{ [name]: colour }` map (BACKLOG-0001453), or a full {@link ChartScheme} object (BACKLOG-0001471) — the shape every built-in scheme already is, so a host can override the ramps and semantic colours alongside the palette in one value. The built-in names are {@link ChartSchemeName} (`'default'`, `'bright'`, `'earth'`, `'mono'`); a name registered with `registerScheme` is a plain string alongside them. The map is the form that survives a filter: a pie or donut keys it on the category (`x`) value, a chart with a `series` column keys it on the series value, and a single-series bar or column — no `series` — keys it on the `x` category instead. A name absent from the map falls back to the ordered scheme by its position among the *other unmapped* names, so `{ Operational: 'green' }` keeps every other category exactly as it was whichever ones a filter removes — an ordered array reassigns every colour after the gap. A map and an array `palette` do not combine; given both, the map wins and the array is ignored, once, with a warning. A {@link ChartScheme} object and a map are told apart by content: an object naming at least one of `series`/`sequential`/`diverging`/`positive`/`negative` is a scheme override, not a map of category names to colours. <small>(optional)</small></td></tr>
+          <tr><td class="name">scheme</td><td class="type"><a href="#type-ChartSchemeName">ChartSchemeName</a> | string | string[] | Record&lt;string, string&gt; | <a href="#type-ChartScheme">ChartScheme</a></td><td class="desc">A named scheme, an array of colours, a `{ [name]: colour }` map (BACKLOG-0001453), or a full {@link ChartScheme} object (BACKLOG-0001471) — the shape every built-in scheme already is, so a host can override the ramps and semantic colours alongside the palette in one value. The built-in names are {@link ChartSchemeName} (`'default'`, `'bright'`, `'earth'`, `'mono'`); a name registered with `registerScheme` is a plain string alongside them. The map is the form that survives a filter: a pie or donut keys it on the category (`x`) value, a chart with a `series` column keys it on the series value, and a single-series bar or column — no `series` — keys it on the `x` category instead. On the measure-based types — a bar or combo given several `measures`, a `radar` and a `candlestick` — the map keys on the measure's `title`, falling back to its column, so `{ 'Committed revenue': '#1f4d5c' }` colours that measure on a combo the same way it does on a bar (BACKLOG-0001638). A bare array (`scheme: ['#1f4d5c', '#b4701a']`) is the shorthand for `{ series: [...] }` and colours series in measure order on every type, exactly as explicit (BACKLOG-0001638). A name absent from the map falls back to the ordered scheme by its position among the *other unmapped* names, so `{ Operational: 'green' }` keeps every other category exactly as it was whichever ones a filter removes — an ordered array reassigns every colour after the gap. A map and an array `palette` do not combine; given both, the map wins and the array is ignored, once, with a warning. A {@link ChartScheme} object and a map are told apart by content: an object naming at least one of `series`/`sequential`/`diverging`/`positive`/`negative` is a scheme override, not a map of category names to colours. <small>(optional)</small></td></tr>
           <tr><td class="name">ramp</td><td class="type">[string, string] | string[] | <a href="#type-ChartRampOptions">ChartRampOptions</a></td><td class="desc">A shorthand that overrides only the resolved scheme's sequential ramp — the colour a heatmap, calendar, hexbin or hexmap's magnitude comes from — leaving the palette, the diverging ramp and the semantic colours as the scheme (named or default) already set them (BACKLOG-0001471). Two colours, low value then high; a longer array is read by its first and last stop. The object form, {@link ChartRampOptions}, also takes the `scale` a value is placed along the ramp by — `'linear'`, `'log'` or `'quantile'`, chosen from the values when unset (BACKLOG-0001516). <small>(optional)</small></td></tr>
           <tr><td class="name">emphasis</td><td class="type">string[]</td><td class="desc">Draw these series (by their own value, the same name `scheme`'s map keys on) with a heavier stroke, full opacity and on top of the rest; every other series draws thinner and muted (BACKLOG-0001472). Applies to `line`, `area` and the line half of `combo`/`pareto`. The fixed style pair is themeable through `--lattice-chart-emphasis-width` and `--lattice-chart-muted-opacity`. An entry in {@link ChartSpec.seriesStyle} for the same name wins over this. <small>(optional)</small></td></tr>
           <tr><td class="name">seriesStyle</td><td class="type">Record&lt;string, { width?: number; dash?: number[] }&gt;</td><td class="desc">An explicit stroke width and/or dash pattern for a named series (BACKLOG-0001472), keyed the same way {@link ChartSpec.emphasis} is. Wins over `emphasis` for a series named in both. Applies to `line`, `area` and the line half of `combo`/`pareto`. <small>(optional)</small></td></tr>
           <tr><td class="name">legend</td><td class="type">boolean | { position?: 'top' | 'bottom' | 'left' | 'right'; isolate?: boolean; values?: boolean; title?: string; }</td><td class="desc">Show the series legend. The object form places it, and `isolate` lets a click on a legend entry show that series alone. `values: true` appends each entry's own total — a category's for pie and donut, a series' for a series legend — formatted by the measure column, after the name and a thin space (BACKLOG-0001453). `title` labels a continuous colour-ramp legend (heatmap, calendar, hexbin, hexmap); ignored by a series legend, which names each series instead. <small>(optional)</small></td></tr>
-          <tr><td class="name">centre</td><td class="type">{ value: 'total' | number | string; label?: string }</td><td class="desc">The figure a donut draws in its own hole (BACKLOG-0001453); ignored by every other type, which has no hole to draw into. `value: 'total'` sums the slices actually drawn — a legend click that hides a category moves the figure with them — formatted by the measure column; a number is a caller's own figure, formatted the same way; a string is written through unchanged. `label` is a second line beneath it. Both are sized to fit the hole and are never drawn past its edge. <small>(optional)</small></td></tr>
+          <tr><td class="name">centre</td><td class="type">{ value?: 'total' | number | string; label?: string }</td><td class="desc">The figure a donut draws in its own hole (BACKLOG-0001453); ignored by every other type, which has no hole to draw into. `value: 'total'` sums the slices actually drawn — a legend click that hides a category moves the figure with them — formatted by the measure column; a number is a caller's own figure, formatted the same way; a string is written through unchanged. `label` is a second line beneath it. Both are sized to fit the hole and are never drawn past its edge. A `gauge` reads the same object differently (BACKLOG-0001637): `label` names the reading's caption (the figure itself is the measure, formatted by its column), and `value` is unused. <small>(optional)</small></td></tr>
+          <tr><td class="name">bands</td><td class="type">{ from: number; to: number; colour?: string; label?: string }[]</td><td class="desc">Threshold bands behind a gauge's value, clipped to `min`/`max` and drawn in order (BACKLOG-0001637). `colour` takes any form `scheme` accepts; `label`, when given, is drawn in the legend rather than on the arc. <small>(optional)</small></td></tr>
+          <tr><td class="name">needle</td><td class="type">boolean | { width?: number; pin?: number }</td><td class="desc">Draw a gauge as a needle dial rather than a filled value arc (BACKLOG-0001637). `true` takes the defaults; the object form sets the needle's stroke width in pixels (`width`) and the central pin's radius as a fraction of the gauge radius (`pin`). With a needle the value arc is not drawn, and the needle takes the colour of the band the value falls in — or the series colour without bands. <small>(optional)</small></td></tr>
+          <tr><td class="name">ticks</td><td class="type">number | unknown[]</td><td class="desc">Tick values drawn round a gauge's arc (BACKLOG-0001637). Values outside `min`/`max` are dropped. <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">boolean | <a href="#type-ChartLabels">ChartLabels</a></td><td class="desc">Print the value beside each mark. `true` takes the defaults; the object form sets the position, the format and the minimum gap. Only the chart types that support labels honour it. <small>(optional)</small></td></tr>
           <tr><td class="name">axis</td><td class="type">{ x?: string | <a href="#type-ChartAxis">ChartAxis</a>; y?: string | <a href="#type-ChartAxis">ChartAxis</a>; y2?: string | <a href="#type-ChartAxis">ChartAxis</a>; right?: string | <a href="#type-ChartAxis">ChartAxis</a>; }</td><td class="desc">Per-axis configuration. Each side is a title string or an object of `{ title, min, max, ticks, format, grid, labels }`. `y2` (or `right`) configures the second measure axis of a dual-axis or combo chart (BACKLOG-0000743); a dual-axis chart labels both axes by default so it cannot silently mislead. <small>(optional)</small></td></tr>
           <tr><td class="name">brush</td><td class="type">boolean | 'filter' | 'zoom' | 'select' | { mode: 'filter' | 'zoom' | 'select'; axis?: 'x' | 'y' | 'y2' }</td><td class="desc">Dragging across the plot. `true` or `'filter'` writes a range condition into the grid; `'zoom'` changes only this chart's own domain; `'select'` selects the rows under the drag. The object form names which axis the drag acts on — `axis: 'y'` or `'y2'` brushes a value axis, which on a dual-axis chart must say which one it means (BACKLOG-0000743). <small>(optional)</small></td></tr>
@@ -18207,7 +18579,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">selection</td><td class="type">boolean</td><td class="desc">Draw the grid's selected rows emphasised, and follow the selection. <small>(optional)</small></td></tr>
           <tr><td class="name">drill</td><td class="type">boolean</td><td class="desc">Clicking a group drills into it. <small>(optional)</small></td></tr>
           <tr><td class="name">filterOnClick</td><td class="type">boolean</td><td class="desc">Clicking a mark filters the grid to it. <small>(optional)</small></td></tr>
-          <tr><td class="name">stack</td><td class="type">boolean</td><td class="desc">Stack the series rather than drawing them side by side. <small>(optional)</small></td></tr>
+          <tr><td class="name">stack</td><td class="type">boolean</td><td class="desc">Stack the series rather than drawing them side by side. On a `combo` it stacks the bar measures (BACKLOG-0001636); line and area measures stay outside the stack on the same scale and are drawn after the columns. <small>(optional)</small></td></tr>
           <tr><td class="name">curve</td><td class="type">boolean</td><td class="desc">Overlay a kernel density curve on a histogram. <small>(optional)</small></td></tr>
           <tr><td class="name">measure</td><td class="type">string</td><td class="desc">An alias for `y`, where "the measure" reads better than "the y axis". <small>(optional)</small></td></tr>
           <tr><td class="name">size</td><td class="type">string</td><td class="desc">Bubble charts: the column driving the radius, and the largest it may be. <small>(optional)</small></td></tr>
@@ -18338,19 +18710,77 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-RouterJoinAggregate">RouterJoinAggregate</h4>
+    <p class="section-note">One named reducer of a ROLLUP-ONTO-PARENT join's `aggregate` map (v15, BACKLOG-0001609). `fn` reuses the v3 rollup vocabulary — `count`, `sum`, `avg`, `min`, `max` — and adds `distinctCount`, `first` and `last`. `field` is the child field reduced over (required for every `fn` except `count`); `first`/`last` order the children by `orderBy` (defaulting to `field`) and return the `field` value of the first/last child. An empty child set yields `count` 0, `sum` 0 and the rest null.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">fn</td><td class="type">string</td><td class="desc">The reducer: count | sum | avg | min | max | distinctCount | first | last.</td></tr>
+          <tr><td class="name">field</td><td class="type">string</td><td class="desc">The child field reduced over (required for every `fn` except `count`). <small>(optional)</small></td></tr>
+          <tr><td class="name">orderBy</td><td class="type">string</td><td class="desc">For first/last: the field the children are ordered by (defaults to `field`). <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-RouterJoin">RouterJoin</h4>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">from</td><td class="type">string</td><td class="desc">The id of the registered source holding the lookup rows.</td></tr>
-          <tr><td class="name">localKey</td><td class="type"><a href="#type-RouterKey">RouterKey</a></td><td class="desc">Reads the joining value off this source's row — a field name or a `fn(row)`. Required: without it (or `on`) the join is ignored with a warning. <small>(optional)</small></td></tr>
+          <tr><td class="name">from</td><td class="type">string</td><td class="desc">The id of the registered source holding the lookup/collected rows.</td></tr>
+          <tr><td class="name">localKey</td><td class="type"><a href="#type-RouterKey">RouterKey</a></td><td class="desc">Reads the joining value off this source's row — a field name or a `fn(row)`. Required for a lookup join (or `on`); a collect join defaults it to the source's rowKey. Without it the join is ignored with a warning. <small>(optional)</small></td></tr>
           <tr><td class="name">on</td><td class="type"><a href="#type-RouterKey">RouterKey</a></td><td class="desc">An alias for `localKey`, read when `localKey` is absent. <small>(optional)</small></td></tr>
-          <tr><td class="name">foreignKey</td><td class="type"><a href="#type-RouterKey">RouterKey</a></td><td class="desc">Reads the joining value off the lookup row — a field name or a `fn(row)`. Defaults to a string `localKey`; with a function `localKey` and no `foreignKey`, the join is ignored with a warning. <small>(optional)</small></td></tr>
+          <tr><td class="name">foreignKey</td><td class="type"><a href="#type-RouterKey">RouterKey</a></td><td class="desc">Reads the joining value off the other source's rows — a field name or a `fn(row)`. Defaults to a string `localKey`; with a function `localKey` and no `foreignKey`, the join is ignored with a warning. <small>(optional)</small></td></tr>
           <tr><td class="name">fromKey</td><td class="type"><a href="#type-RouterKey">RouterKey</a></td><td class="desc">An alias for `foreignKey`, read when `foreignKey` is absent. <small>(optional)</small></td></tr>
-          <tr><td class="name">fields</td><td class="type">string[] | Record&lt;string, string&gt; | ((lookupRow: <a href="#type-RouterRecord">RouterRecord</a> | null, leftRow: <a href="#type-RouterRecord">RouterRecord</a>) =&gt; <a href="#type-RouterRecord">RouterRecord</a>)</td><td class="desc">Which lookup fields to carry onto the row: a list of names, a `{ from: to }` rename map, or a `fn(lookupRow, leftRow)` returning the fields to merge. With none, rows pass through unenriched and the router warns. <small>(optional)</small></td></tr>
-          <tr><td class="name">select</td><td class="type">string[] | Record&lt;string, string&gt; | ((lookupRow: <a href="#type-RouterRecord">RouterRecord</a> | null, leftRow: <a href="#type-RouterRecord">RouterRecord</a>) =&gt; <a href="#type-RouterRecord">RouterRecord</a>)</td><td class="desc">An alias for `fields`, read when `fields` is absent. <small>(optional)</small></td></tr>
-          <tr><td class="name">missing</td><td class="type"><a href="#type-RouterJoinMissing">RouterJoinMissing</a> <small class="literals">'hold' | 'passthrough' | 'null'</small></td><td class="desc">What happens while the lookup row has not arrived: `hold` keeps the row from viewers until it does, `passthrough` sends it unenriched, `null` fills the declared fields with null. Defaults to `passthrough`, which an unrecognised value also falls back to, with a warning. <small>(optional)</small></td></tr>
+          <tr><td class="name">many</td><td class="type">boolean</td><td class="desc">A COLLECT join (v14): gather every matching row instead of one. <small>(optional)</small></td></tr>
+          <tr><td class="name">as</td><td class="type">string</td><td class="desc">A COLLECT join's destination field: the collected array is written here. Required for a collect join; without it the join is ignored with a warning. <small>(optional)</small></td></tr>
+          <tr><td class="name">aggregate</td><td class="type">Record&lt;string, <a href="#type-RouterJoinAggregate">RouterJoinAggregate</a>&gt;</td><td class="desc">A ROLLUP-ONTO-PARENT join (v15, BACKLOG-0001609): a `many: true` join with an `aggregate` map instead of `as`. Each named result is computed over the matching children and written onto the parent row. Omit `as` when `aggregate` is set. <small>(optional)</small></td></tr>
+          <tr><td class="name">fields</td><td class="type">string[] | Record&lt;string, string&gt; | ((lookupRow: <a href="#type-RouterRecord">RouterRecord</a> | null, leftRow: <a href="#type-RouterRecord">RouterRecord</a>) =&gt; unknown)</td><td class="desc">Which lookup fields to carry onto the row: a list of names, a `{ from: to }` rename map, or a `fn(lookupRow, leftRow)` returning the fields to merge. With none, rows pass through unenriched and the router warns. <small>(optional)</small></td></tr>
+          <tr><td class="name">select</td><td class="type">string[] | Record&lt;string, string&gt; | ((lookupRow: <a href="#type-RouterRecord">RouterRecord</a> | null, leftRow: <a href="#type-RouterRecord">RouterRecord</a>) =&gt; unknown)</td><td class="desc">An alias for `fields`, read when `fields` is absent. For a COLLECT join it is also the per-row mapping: `fn(fromRow, leftRow)` returning the value to collect (defaults to the whole from-row). <small>(optional)</small></td></tr>
+          <tr><td class="name">distinct</td><td class="type">boolean</td><td class="desc">A COLLECT join: de-duplicate the collected values. Defaults to false. <small>(optional)</small></td></tr>
+          <tr><td class="name">sort</td><td class="type">boolean | ((a: unknown, b: unknown) =&gt; number)</td><td class="desc">A COLLECT join: order the collected array — `true` for the default ascending order (numbers numerically, everything else by string), or a `compareFn`. Defaults to no sort. <small>(optional)</small></td></tr>
+          <tr><td class="name">missing</td><td class="type"><a href="#type-RouterJoinMissing">RouterJoinMissing</a> <small class="literals">'hold' | 'passthrough' | 'null'</small></td><td class="desc">What happens while the match has not arrived: `hold` keeps the row from viewers until it does, `passthrough` sends it unenriched (a collect join sets `as` to `[]`), `null` fills the declared fields with null (a collect join sets `as` to null). Defaults to `passthrough`, which an unrecognised value also falls back to, with a warning. <small>(optional)</small></td></tr>
+          <tr><td class="name">onParentDelete</td><td class="type"><a href="#type-RouterParentDelete">RouterParentDelete</a> <small class="literals">'cascade' | 'orphan' | 'keep'</small></td><td class="desc">A COLLECT join's parent-delete integrity (v18, BACKLOG-0001612): what deleting a parent (this source's row) does to the collected children. `'cascade'` deletes every matching child (recursively), `'orphan'` keeps them marked `__orphan: true` and warns once, and `'keep'` (the default) keeps them bare — the unchanged behaviour. A rollup/spread join is not a collect join and does not read this. <small>(optional)</small></td></tr>
+          <tr><td class="name">spread</td><td class="type"><a href="#type-RouterSpread">RouterSpread</a></td><td class="desc">A SPREAD join (v16, BACKLOG-0001611): an EAV / custom-field source whose rows each become one field on the parent. `name` reads the attribute name off the child row and `value` the value (each a field name or a `fn(row)`), the pair written onto the parent as `prefix + name` — so `company` + `companyAttr` rows with `prefix: 'cf_'` gain `cf_industry`, `cf_tier` columns as attributes arrive. `include` narrows the names (an array, or a `fn(name, row)`), and `type` coerces per-name values (`number`, `date`, `boolean`, `text`). The attribute source's own joins apply first (multi-level), an attribute add/change/delete re-emits its parent live (a deleted field is absent, not stale), and the router reports the field names through `fieldsOf(ref)` and the `fields:changed` event. Set `spread` without `many: true`; it implies a one-to-many match and a `missing` policy has no meaning (a parent with no attribute simply carries no spread fields). Two attributes landing on one name are last-writer-wins and warned once (`router:spread-duplicate`); a spread field never overwrites a base parent field and warns once (`router:spread-collision`). <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">where</td><td class="type">(childRow: <a href="#type-RouterRecord">RouterRecord</a>) =&gt; boolean</td><td class="desc"><code>childRow: <a href="#type-RouterRecord">RouterRecord</a></code></td><td class="type"><code>=&gt; boolean</code></td><td class="desc">Filters the children before any `aggregate` is computed: a predicate over each matching child row (its enriched form, so a child's own joins are visible). Only the rows it admits contribute to the result. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RouterSpread">RouterSpread</h4>
+    <p class="section-note">A SPREAD join's shape (v16, BACKLOG-0001611): turn an EAV / custom-field source's rows into one field per attribute on the parent row.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">name</td><td class="type">string | ((row: <a href="#type-RouterRecord">RouterRecord</a>) =&gt; unknown)</td><td class="desc">Reads the attribute name off the child row — a field name or a `fn(row)`. Required.</td></tr>
+          <tr><td class="name">value</td><td class="type">string | ((row: <a href="#type-RouterRecord">RouterRecord</a>) =&gt; unknown)</td><td class="desc">Reads the attribute value off the child row — a field name or a `fn(row)`. Required.</td></tr>
+          <tr><td class="name">prefix</td><td class="type">string</td><td class="desc">Prepended to every attribute name on the parent (e.g. `'cf_'`). Defaults to `''`. <small>(optional)</small></td></tr>
+          <tr><td class="name">include</td><td class="type">string[] | ((name: string, row: <a href="#type-RouterRecord">RouterRecord</a>) =&gt; boolean)</td><td class="desc">Narrows which attribute names spread: an array of names, or a `fn(name, row)` returning true to keep. Omitted, every attribute spreads. <small>(optional)</small></td></tr>
+          <tr><td class="name">type</td><td class="type">Record&lt;string, <a href="#type-RouterSpreadType">RouterSpreadType</a>&gt;</td><td class="desc">Coerces each attribute's value by name: `number`, `date`, `boolean` or `text`. A value that fails to parse keeps its raw value rather than becoming `NaN`/`Invalid Date`; `null`/`undefined` pass through untouched. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RouterUnnest">RouterUnnest</h4>
+    <p class="section-note">One `unnest` spec of `addSource` (v17, BACKLOG-0001610): expand a nested array on each of a source's rows into its OWN row type, routed through the ordinary partition/route/join machinery. `path` is the dotted array field (`'profile.addresses'`); `as` is the child type (and its source id, so a lookup/collect join can `from` it); `key` is the child's identity — a field name, or `fn(child, parent, index)`, defaulting to `` `${parentKey}:${index}` `` (the index fallback, whose caveat is that reordering an array churns its children); `parentKey` is the field written onto each child holding the parent's key (default `${source}Id`); `keep` (default false) keeps the nested array on the parent's own routed row; and `join`/`unnest` are the child source's own joins and nested unnest. A parent update whose nested array changed emits a keyed diff of its children (add/change/remove by child key; a child moved between parents is a remove + add), a parent delete removes its children, and a `load()` snapshot diffs children too. Two children of one parent resolving to the same key warn once (`router:unnest-duplicate-key`), last in source order winning.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">path</td><td class="type">string</td><td class="desc">The dotted array field on the parent row to expand.</td></tr>
+          <tr><td class="name">as</td><td class="type">string</td><td class="desc">The child row type (and its source id, so joins can `from` it).</td></tr>
+          <tr><td class="name">key</td><td class="type">string | ((child: <a href="#type-RouterRecord">RouterRecord</a>, parent: <a href="#type-RouterRecord">RouterRecord</a>, index: number) =&gt; string | number)</td><td class="desc">The child's identity: a field name read off the child, or `fn(child, parent, index)`. Defaults to `` `${parentKey}:${index}` `` — the index fallback, which churns its children when an array is reordered. <small>(optional)</small></td></tr>
+          <tr><td class="name">parentKey</td><td class="type">string</td><td class="desc">The field written onto each child holding the parent's key (default `${source}Id`). <small>(optional)</small></td></tr>
+          <tr><td class="name">keep</td><td class="type">boolean</td><td class="desc">Keep the nested array on the parent's own routed row. Defaults to false. <small>(optional)</small></td></tr>
+          <tr><td class="name">onParentDelete</td><td class="type"><a href="#type-RouterParentDelete">RouterParentDelete</a> <small class="literals">'cascade' | 'orphan' | 'keep'</small></td><td class="desc">What a parent's delete does to its unnested children (v18, BACKLOG-0001612). `'cascade'` (the default, and the unchanged behaviour) removes them, `'orphan'` keeps them marked `__orphan: true` and warns once, and `'keep'` keeps them bare. A re-added parent re-adopts its orphans (the mark clears). <small>(optional)</small></td></tr>
+          <tr><td class="name">join</td><td class="type"><a href="#type-RouterJoin">RouterJoin</a> | <a href="#type-RouterJoin">RouterJoin</a>[]</td><td class="desc">The child source's own joins (applied after unnest, before it routes). <small>(optional)</small></td></tr>
+          <tr><td class="name">unnest</td><td class="type"><a href="#type-RouterUnnest">RouterUnnest</a> | <a href="#type-RouterUnnest">RouterUnnest</a>[]</td><td class="desc">A nested unnest: the child rows may declare their own nested arrays. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -18446,6 +18876,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">metrics</td><td class="type"><a href="#type-RouterMetrics">RouterMetrics</a></td><td class="desc">The same snapshot `metrics()` returns, taken at the emit; the throughput baseline advances with it.</td></tr>
+          <tr><td class="name">fields:changed</td><td class="type">{ route: unknown; added: string[]; removed: string[] }</td><td class="desc">The spread field names a route gained and lost since the last emit, keyed by the route's partition value, label or target (v16). `added` are the names that first appeared, `removed` those that disappeared; a host turns `added` into grid columns and `removed` into dropped columns.</td></tr>
         </tbody>
       </table>
     </div>
@@ -18488,8 +18919,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">addSource</td><td class="type">(feed: string | RouterSourceOptions, opts?: RouterSourceOptions): <a href="#type-RouterSourceHandle">RouterSourceHandle</a></td><td class="desc"><code>feed: string | RouterSourceOptions</code><br><code>opts?: RouterSourceOptions</code></td><td class="type"><code><a href="#type-RouterSourceHandle">RouterSourceHandle</a></code></td><td class="desc">Register a source feed for fan-in (v9): its rows are normalised and namespaced into the one keyed store.</td></tr>
           <tr><td class="name">removeSource</td><td class="type">(ref: string | <a href="#type-RouterSourceHandle">RouterSourceHandle</a>): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>ref: string | <a href="#type-RouterSourceHandle">RouterSourceHandle</a></code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Remove a source feed by id or handle (v9): delete exactly its rows from every route, then unregister it.</td></tr>
           <tr><td class="name">sources</td><td class="type">(): string[]</td><td class="desc">&mdash;</td><td class="type"><code>string[]</code></td><td class="desc">The registered source ids (v9).</td></tr>
+          <tr><td class="name">relateRows</td><td class="type">(o: { child: string | <a href="#type-RouterSourceHandle">RouterSourceHandle</a>; parent: string | <a href="#type-RouterSourceHandle">RouterSourceHandle</a>; foreignKey: <a href="#type-RouterKey">RouterKey</a>; onParentDelete?: <a href="#type-RouterParentDelete">RouterParentDelete</a>; writeBack?: boolean }): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>o: { child: string | <a href="#type-RouterSourceHandle">RouterSourceHandle</a>; parent: string | <a href="#type-RouterSourceHandle">RouterSourceHandle</a>; foreignKey: <a href="#type-RouterKey">RouterKey</a>; onParentDelete?: <a href="#type-RouterParentDelete">RouterParentDelete</a>; writeBack?: boolean }</code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Declare a parent→child delete rule without a join (v18, BACKLOG-0001612): deleting a `parent` row cascades (`onParentDelete: 'cascade'`) or orphans (`'orphan'`) the `child` rows whose `foreignKey` matches, or does nothing (`'keep'`, the default). `writeBack` (default false) routes each cascaded delete through the router's `onWrite` so the host persists it.</td></tr>
+          <tr><td class="name">fieldsOf</td><td class="type">(ref: unknown): string[]</td><td class="desc"><code>ref: unknown</code></td><td class="type"><code>string[]</code></td><td class="desc">The spread field names a route currently carries (v16, BACKLOG-0001611): with a `spread` join, each EAV attribute row becomes its own field on the parent, and this reports the names a host can turn into grid columns. Pass the route's target (an `attach` grid or a `subscribe` handler), its partition value, or its `label`. Returns the names in first-seen order — an empty array for an unknown route, a route with no spread fields, or a router with no spread join. Pair it with the `fields:changed` event to add or drop columns as attributes appear and disappear.</td></tr>
           <tr><td class="name">metrics</td><td class="type">(): <a href="#type-RouterMetrics">RouterMetrics</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-RouterMetrics">RouterMetrics</a></code></td><td class="desc">A cheap point-in-time snapshot of the router's runtime (v10); throughput is measured since the previous read.</td></tr>
-          <tr><td class="name">on</td><td class="type">(event: <a href="#type-RouterEventName">RouterEventName</a>, handler: (snapshot: <a href="#type-RouterEventPayloads">RouterEventPayloads</a>[<a href="#type-RouterEventName">RouterEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>event: <a href="#type-RouterEventName">RouterEventName</a></code><br><code>handler: (snapshot: <a href="#type-RouterEventPayloads">RouterEventPayloads</a>[<a href="#type-RouterEventName">RouterEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Subscribe to the periodic `metrics` emit (v10) — the only event; the timer runs only while a listener is registered. What it carries is {@link RouterEventPayloads}. Returns the unsubscribe.</td></tr>
+          <tr><td class="name">on</td><td class="type">(event: <a href="#type-RouterEventName">RouterEventName</a>, handler: (snapshot: <a href="#type-RouterEventPayloads">RouterEventPayloads</a>[<a href="#type-RouterEventName">RouterEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>event: <a href="#type-RouterEventName">RouterEventName</a></code><br><code>handler: (snapshot: <a href="#type-RouterEventPayloads">RouterEventPayloads</a>[<a href="#type-RouterEventName">RouterEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Subscribe to a router event (v10): the periodic `metrics` emit — the timer runs only while a listener is registered — or a `fields:changed` emit when a spread join's field set for a route changes (v16). What each carries is {@link RouterEventPayloads}. Returns the unsubscribe.</td></tr>
           <tr><td class="name">mountDevtools</td><td class="type">(el: unknown): RouterDevtoolsPanel</td><td class="desc"><code>el: unknown</code></td><td class="type"><code>RouterDevtoolsPanel</code></td><td class="desc">Mount the live devtools panel into `el` (v10); it re-renders on each `metrics` emit.</td></tr>
           <tr><td class="name">lastSeq</td><td class="type">(): number | undefined</td><td class="desc">&mdash;</td><td class="type"><code>number | undefined</code></td><td class="desc">The highest seq applied — the resume point to request the feed from after a dropped socket (v3).</td></tr>
           <tr><td class="name">checkpoint</td><td class="type">(): Map&lt;string, number&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Map&lt;string, number&gt;</code></td><td class="desc">A copy of the per-record resume checkpoint: record identity → last applied seq (v3).</td></tr>
@@ -18516,6 +18949,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Event</th><th>When</th><th>Payload</th><th>Cancellable</th></tr></thead>
         <tbody>
           <tr><td class="name">metrics</td><td class="desc">The metrics timer fired: a `metrics()` snapshot, every `metricsInterval` ms (default 1000; `0` disables the timer).</td><td class="type"><a href="#type-RouterMetrics">RouterMetrics</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">fields:changed</td><td class="desc">A route's spread field set changed (v16): `{ route, added, removed }`, the names that appeared and disappeared.</td><td class="type">{ route: unknown; added: string[]; removed: string[] }</td><td class="desc">&mdash;</td></tr>
         </tbody>
       </table>
     </div>
@@ -19132,6 +19566,103 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     </div>
     <h5 id="type-LeafletBinding-events">Events</h5>
     <p class="section-note">No events.</p>
+    <h3 id="ref-module-mapview">The map view</h3>
+    <h4 id="type-MapViewOptions">MapViewOptions</h4>
+    <p class="section-note">What {@link createMapView} takes.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">geometry</td><td class="type"><a href="#type-MapViewGeometry">MapViewGeometry</a></td><td class="desc">Where each row is placed. A row whose place is blank or cannot be read is skipped and counted in `provenance().skipped`. A name that is not a column of the grid: nothing is drawn and `mapview:geometry` warns.</td></tr>
+          <tr><td class="name">container</td><td class="type">HTMLElement | string</td><td class="desc">The element (or a selector for it) the map fills. Given without a `mode`, the mode is `container`. <small>(optional)</small></td></tr>
+          <tr><td class="name">mode</td><td class="type">'container' | 'split' | 'tab' | 'popout'</td><td class="desc">Where the map goes: `container` (the `container` element); `split` (the default without a container: the map beside the grid in the grid's own host, with a divider a pointer drags and the arrow keys move); `tab` (the grid and the map as two tabs); `popout` (a separate browser window on this page's libraries, or a floating panel when the popup is blocked). `split`, `tab` and `popout` need a grid made by `createGrid`. <small>(optional)</small></td></tr>
+          <tr><td class="name">layer</td><td class="type"><a href="#type-MapViewLayer">MapViewLayer</a> <small class="literals">'point' | 'column' | 'polygon' | 'path'</small></td><td class="desc">The layer for the rows of one geometry: `point` (markers) or `column` (extruded columns) for points, `polygon` (areas, extruded with an `elevation`) for polygons, `path` (routes) for lines. Rows of another geometry keep their default: a point is a marker, or a column when an `elevation` is given; a polygon an area; a line a route. <small>(optional)</small></td></tr>
+          <tr><td class="name">elevation</td><td class="type">string | number</td><td class="desc">A numeric column (or one number) for the height of columns and extruded areas, in metres. <small>(optional)</small></td></tr>
+          <tr><td class="name">elevationScale</td><td class="type">number</td><td class="desc">A multiplier on `elevation`. Default 1. <small>(optional)</small></td></tr>
+          <tr><td class="name">color</td><td class="type"><a href="#type-MapViewColour">MapViewColour</a></td><td class="desc">How rows are coloured. Default the grid theme's accent. <small>(optional)</small></td></tr>
+          <tr><td class="name">radius</td><td class="type">string | number</td><td class="desc">A marker's radius in metres: a numeric column or one number (default 30). A `column` layer draws every column at one radius, so only a number applies to it. <small>(optional)</small></td></tr>
+          <tr><td class="name">width</td><td class="type">string | number</td><td class="desc">A route's width in pixels: a numeric column or one number. Default 3. <small>(optional)</small></td></tr>
+          <tr><td class="name">flow</td><td class="type"><a href="#type-MapViewFlow">MapViewFlow</a></td><td class="desc">Animate a flow along the routes. Stops while the page is hidden, and is drawn still when the reader prefers reduced motion. <small>(optional)</small></td></tr>
+          <tr><td class="name">buildings</td><td class="type">boolean</td><td class="desc">Add 3D buildings from the basemap's OpenMapTiles `building` layer (`render_height`, `render_min_height`), coloured for the light or dark theme. Off by default. A style with no vector source warns `mapview:buildings`. <small>(optional)</small></td></tr>
+          <tr><td class="name">basemap</td><td class="type">string | Record&lt;string, unknown&gt;</td><td class="desc">A MapLibre style URL or style object. Default OpenFreeMap's keyless positron, or its dark style for a dark theme. <small>(optional)</small></td></tr>
+          <tr><td class="name">view</td><td class="type"><a href="#type-MapViewCamera">MapViewCamera</a></td><td class="desc">The initial camera. Default: fitted to the drawn rows. <small>(optional)</small></td></tr>
+          <tr><td class="name">theme</td><td class="type">'light' | 'dark' | 'auto'</td><td class="desc">`light` or `dark`; default the grid's own (`data-theme` above it, `auto` read from the reader's colour-scheme preference). <small>(optional)</small></td></tr>
+          <tr><td class="name">tooltip</td><td class="type">string[] | false</td><td class="desc">The columns the hover tooltip shows, each as the grid's own formatted cell text. Default the grid's first three visible columns that do not hold the place; `false` for no tooltip. <small>(optional)</small></td></tr>
+          <tr><td class="name">libs</td><td class="type">{ deck?: unknown; maplibregl?: unknown }</td><td class="desc">The page's deck.gl and MapLibre GL. Default the globals `deck` and `maplibregl` their UMD builds set. Either missing: the map is left empty and `mapview:libs` warns, naming which. <small>(optional)</small></td></tr>
+          <tr><td class="name">viewportCap</td><td class="type">number</td><td class="desc">On a paged pushdown grid, the most rows fetched for the map's view; as {@link ChartSpec.viewportCap}, default 20,000. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-MapViewProvenance">MapViewProvenance</h4>
+    <p class="section-note">What a map view drew.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">drawn</td><td class="type">number</td><td class="desc">The rows drawn.</td></tr>
+          <tr><td class="name">skipped</td><td class="type">number</td><td class="desc">The rows the grid shows that have no usable place, so were not drawn.</td></tr>
+          <tr><td class="name">matched</td><td class="type">number</td><td class="desc">The rows the grid matched.</td></tr>
+          <tr><td class="name">layers</td><td class="type">Partial&lt;Record&lt;<a href="#type-MapViewLayer">MapViewLayer</a>, number&gt;&gt;</td><td class="desc">The rows drawn by each layer kind.</td></tr>
+          <tr><td class="name">computed</td><td class="type">'client' | 'engine'</td><td class="desc">`client` when the grid held the rows, `engine` when a paged source's engine answered for the view.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-MapViewEventPayloads">MapViewEventPayloads</h4>
+    <p class="section-note">What each map view event carries.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">feature:click</td><td class="type">{ key: string | number; row: Record&lt;string, unknown&gt; | null }</td><td class="desc">A feature was clicked; its row is now selected in the grid.</td></tr>
+          <tr><td class="name">feature:hover</td><td class="type">{ key: string | number | null; row: Record&lt;string, unknown&gt; | null; lines: Array&lt;{ column: string; title: string; text: string }&gt; }</td><td class="desc">The pointer moved onto a feature (`key` null when it left one); `lines` are the tooltip's.</td></tr>
+          <tr><td class="name">draw</td><td class="type">{ provenance: <a href="#type-MapViewProvenance">MapViewProvenance</a> }</td><td class="desc">The layers were redrawn.</td></tr>
+          <tr><td class="name">load</td><td class="type">{ map: unknown }</td><td class="desc">The basemap style loaded (at first, and after a basemap or theme change).</td></tr>
+          <tr><td class="name">close</td><td class="type">Record&lt;string, never&gt;</td><td class="desc">The reader closed a popped-out map.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-MapView">MapView</h4>
+    <p class="section-note">A live map view of a grid.</p>
+    <h5 id="type-MapView-properties">Properties</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">element</td><td class="type">HTMLElement | null</td><td class="desc">The map view's own element. <small>(read-only)</small></td></tr>
+          <tr><td class="name">map</td><td class="type">unknown</td><td class="desc">The MapLibre map; null when the map could not be built. <small>(read-only)</small></td></tr>
+          <tr><td class="name">overlay</td><td class="type">unknown</td><td class="desc">deck.gl's `MapboxOverlay` on it; null when the map could not be built. <small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-MapView-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">update</td><td class="type">(options?: Partial&lt;<a href="#type-MapViewOptions">MapViewOptions</a>&gt;): void</td><td class="desc"><code>options?: Partial&lt;<a href="#type-MapViewOptions">MapViewOptions</a>&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Change options and redraw now: `basemap` and `theme` restyle the map, `buildings` adds or removes them, `view` moves the camera, and `geometry` re-reads every row's place.</td></tr>
+          <tr><td class="name">flyTo</td><td class="type">(keys: string | number | Array&lt;string | number&gt;): void</td><td class="desc"><code>keys: string | number | Array&lt;string | number&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Fly to one row, or fit the map to several.</td></tr>
+          <tr><td class="name">setLayer</td><td class="type">(layer: <a href="#type-MapViewLayer">MapViewLayer</a>): void</td><td class="desc"><code>layer: <a href="#type-MapViewLayer">MapViewLayer</a></code></td><td class="type"><code>void</code></td><td class="desc">Draw the rows of one geometry with this layer kind.</td></tr>
+          <tr><td class="name">provenance</td><td class="type">(): <a href="#type-MapViewProvenance">MapViewProvenance</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-MapViewProvenance">MapViewProvenance</a></code></td><td class="desc">What the map drew last: rows drawn, skipped and matched, and per layer.</td></tr>
+          <tr><td class="name">layers</td><td class="type">(): unknown[]</td><td class="desc">&mdash;</td><td class="type"><code>unknown[]</code></td><td class="desc">The deck.gl layers last handed to the map.</td></tr>
+          <tr><td class="name">on</td><td class="type">(name: <a href="#type-MapViewEventName">MapViewEventName</a>, fn: (event: <a href="#type-MapViewEventPayloads">MapViewEventPayloads</a>[<a href="#type-MapViewEventName">MapViewEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>name: <a href="#type-MapViewEventName">MapViewEventName</a></code><br><code>fn: (event: <a href="#type-MapViewEventPayloads">MapViewEventPayloads</a>[<a href="#type-MapViewEventName">MapViewEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Listen for an event; returns the unsubscribe. An unknown name warns `mapview:event:&lt;name&gt;`.</td></tr>
+          <tr><td class="name">off</td><td class="type">(name: <a href="#type-MapViewEventName">MapViewEventName</a>, fn: (event: <a href="#type-MapViewEventPayloads">MapViewEventPayloads</a>[<a href="#type-MapViewEventName">MapViewEventName</a>]) =&gt; void): void</td><td class="desc"><code>name: <a href="#type-MapViewEventName">MapViewEventName</a></code><br><code>fn: (event: <a href="#type-MapViewEventPayloads">MapViewEventPayloads</a>[<a href="#type-MapViewEventName">MapViewEventName</a>]) =&gt; void</code></td><td class="type"><code>void</code></td><td class="desc">Stop listening for an event.</td></tr>
+          <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Remove the map, its layers and every listener, and put the grid back where it was.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-MapView-events">Events</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Event</th><th>When</th><th>Payload</th><th>Cancellable</th></tr></thead>
+        <tbody>
+          <tr><td class="name">feature:click</td><td class="desc"></td><td class="type">{ key: string | number; row: Record&lt;string, unknown&gt; | null }</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">feature:hover</td><td class="desc"></td><td class="type">{ key: string | number | null; row: Record&lt;string, unknown&gt; | null; lines: Array&lt;{ column: string; title: string; text: string }&gt; }</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">draw</td><td class="desc"></td><td class="type">{ provenance: <a href="#type-MapViewProvenance">MapViewProvenance</a> }</td><td class="desc">no</td></tr>
+          <tr><td class="name">load</td><td class="desc"></td><td class="type">{ map: unknown }</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">close</td><td class="desc"></td><td class="type">Record&lt;string, never&gt;</td><td class="desc">&mdash;</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="ref-module-kanban">The kanban module</h3>
     <h4 id="type-KanbanCard">KanbanCard</h4>
     <p class="section-note">A card model — one row as it appears on the board. `fields` holds the resolved display text for each mapped card field; `columnId` is the column the card sits in; `points` is the numeric points value (0 when absent). `swimlane`/`sprint`/`epic`/`order` are read from their configured properties and carried for the later cycles that render them.</p>
@@ -24765,6 +25296,30 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h4 id="type-MapProjection">MapProjection</h4>
     <p class="section-note">A geomap's named projection; a caller may also supply a projection function directly.</p>
     <p class="type-def"><code>type MapProjection = 'equalEarth' | 'robinson' | 'mercator' | 'equirectangular' | 'albers' | 'transverseMercator' | 'britishNationalGrid'</code></p>
+    <h4 id="type-MapViewCamera">MapViewCamera</h4>
+    <p class="section-note">A camera: centre `[lng, lat]`, zoom, pitch and bearing in degrees.</p>
+    <p class="type-def"><code>type MapViewCamera = { center?: [number, number]; zoom?: number; pitch?: number; bearing?: number }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewColour">MapViewColour</h4>
+    <p class="section-note">How rows are coloured: one colour (a CSS hex or `rgb()` colour, or `[r, g, b, a?]`); a category per value of a column (`map` names the colour of each value, and any other value takes the next colour of the charts palette); or a number placed along a ramp by the charts module's own scale code, between the `colours` stops (default the default scheme's sequential ramp), over `domain` (default the drawn values' range), on a `rampScale` (`linear`, `log` or `quantile`; chosen from the values when unset, as a heat map's is).</p>
+    <p class="type-def"><code>type MapViewColour = string | number[] | { field: string; map?: Record&lt;string, string | number[]&gt; } | { field: string; scale: 'ramp'; domain?: [number, number]; colours?: string[]; rampScale?: 'linear' | 'log' | 'quantile'; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewEventName">MapViewEventName</h4>
+    <p class="section-note">The events a map view emits.</p>
+    <p class="type-def"><code>type MapViewEventName = 'feature:click' | 'feature:hover' | 'draw' | 'load' | 'close'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewFlow">MapViewFlow</h4>
+    <p class="section-note">An animated flow along routes: `speed` is traversals of a route per second (default 0.25), `trail` the share of a route the moving trail lights (default 0.3).</p>
+    <p class="type-def"><code>type MapViewFlow = boolean | { speed?: number; trail?: number }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewGeometry">MapViewGeometry</h4>
+    <p class="section-note">Where a row's place is read from (BACKLOG-0001639): a latitude and a longitude column (`lng`, or `lon`); a GeoJSON column (a `Geometry` or a `Feature`, as an object or its JSON text, or WKT or WKB); or a path column holding an array of `[lng, lat]` pairs (or its JSON text).</p>
+    <p class="type-def"><code>type MapViewGeometry = { lat: string; lng: string } | { lat: string; lon: string } | { geojson: string } | { path: string }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewLayer">MapViewLayer</h4>
+    <p class="section-note">The layer kinds a map view draws a row with.</p>
+    <p class="type-def"><code>type MapViewLayer = 'point' | 'column' | 'polygon' | 'path'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
     <h4 id="type-NumberFormatNegative">NumberFormatNegative</h4>
     <p class="section-note">How a negative number is marked: a leading minus, parentheses, or a trailing suffix.</p>
     <p class="type-def"><code>type NumberFormatNegative = 'minus' | 'parentheses' | 'suffix'</code></p>
@@ -24846,21 +25401,41 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">What a route matches: a partition VALUE (the record is routed when `row[key] === value`), or a `fn(row)` predicate for a composite route. Declared as `unknown` because any value can be a partition key; the function form is the only one TypeScript can check.</p>
     <p class="type-def"><code>type RoutePredicate = unknown</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
+    <h4 id="type-RouterDateFieldFormat">RouterDateFieldFormat</h4>
+    <p class="section-note">The input format a `date` field reads (BACKLOG-0001613): `'iso'` (the default — ISO 8601, a `Date`, or an epoch number), `'epoch-s'` (seconds since the epoch), `'epoch-ms'` (milliseconds), or an explicit pattern such as `'dd/MM/yyyy'`, parsed with the grid's own date-pattern token vocabulary.</p>
+    <p class="type-def"><code>type RouterDateFieldFormat = 'iso' | 'epoch-s' | 'epoch-ms' | string</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
     <h4 id="type-RouterEventName">RouterEventName</h4>
-    <p class="section-note">The events a data router raises. One event, and the router raises nothing else: routing itself is reported to each attached viewer through its own `rows.apply`, not through an event here. The `metrics` timer runs only while at least one `metrics` listener is registered, so collection costs nothing until someone asks for it, and stops when the last listener unsubscribes.</p>
-    <p class="type-def"><code>type RouterEventName = 'metrics'</code></p>
+    <p class="section-note">The events a data router raises. Routing itself is reported to each attached viewer through its own `rows.apply`, not through an event here. `metrics` is the periodic observability timer, running only while at least one listener is registered so collection costs nothing until someone asks for it. `fields:changed` (v16) fires when a spread join's field set for a route changes.</p>
+    <p class="type-def"><code>type RouterEventName = 'metrics' | 'fields:changed'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
+    <h4 id="type-RouterFieldSpec">RouterFieldSpec</h4>
+    <p class="section-note">One entry of `addSource`'s `fields` option (BACKLOG-0001613): a type name, or an options object. The object form narrows a `number`'s decimal separator (`decimal: ','`), gives a `boolean` its own true/false marker sets, chooses a `date`'s input `format`, and lists `nulls` — strings that mean null for this field, mapped before any coercion. A field with only `nulls` (no `type`) maps its null markers and passes every other value through untouched. A value that fails to coerce is stored as null and warns once per source+field (`router:coerce-failed`).</p>
+    <p class="type-def"><code>type RouterFieldSpec = <a href="#type-RouterFieldType">RouterFieldType</a> | { type?: <a href="#type-RouterFieldType">RouterFieldType</a>; format?: <a href="#type-RouterDateFieldFormat">RouterDateFieldFormat</a>; decimal?: ',' | '.'; true?: string[]; false?: string[]; nulls?: string[]; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
+    <h4 id="type-RouterFieldType">RouterFieldType</h4>
+    <p class="section-note">The field types `addSource`'s `fields` option can coerce a raw value to (BACKLOG-0001613): text, number (decimal comma and thousands separators), integer, boolean (configurable true/false sets), date (ISO, epoch s/ms or a small explicit pattern set) and json (parse a string).</p>
+    <p class="type-def"><code>type RouterFieldType = 'text' | 'number' | 'integer' | 'boolean' | 'date' | 'json'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
     <h4 id="type-RouterJoinMissing">RouterJoinMissing</h4>
-    <p class="section-note">What a fan-in lookup join does with a row while its lookup has not arrived.</p>
+    <p class="section-note">What a fan-in join does with a row while its match has not arrived.</p>
     <p class="type-def"><code>type RouterJoinMissing = 'hold' | 'passthrough' | 'null'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
     <h4 id="type-RouterKey">RouterKey</h4>
     <p class="section-note">A property name, or a function reading the value off a row, returning a string or number (BACKLOG-0001669). Composite (`string[]`) keys are core-grid-only: a route (or an alert, or a group) keys its own partition by one value, so there is nothing for an array to join into here.</p>
     <p class="type-def"><code>type RouterKey = string | ((row: <a href="#type-RouterRecord">RouterRecord</a>) =&gt; string | number)</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
+    <h4 id="type-RouterParentDelete">RouterParentDelete</h4>
+    <p class="section-note">What a parent's delete does to its children (v18, BACKLOG-0001612), on a COLLECT join, on an unnest, and standalone via `relateRows`. `'cascade'` deletes every child whose foreign key matches the deleted parent (recursively); `'orphan'` keeps them, marked `__orphan: true`, warned once; `'keep'` keeps them bare. The default for a collect join and `relateRows` is `'keep'` — the unchanged behaviour — while an unnest defaults to `'cascade'` (its unchanged behaviour already removes its embedded children).</p>
+    <p class="type-def"><code>type RouterParentDelete = 'cascade' | 'orphan' | 'keep'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
     <h4 id="type-RouterRecord">RouterRecord</h4>
     <p class="section-note">A record routed through a data router: any object. Its partition comes from the router's `key` and its identity within a grid from `rowKey`.</p>
     <p class="type-def"><code>type RouterRecord = Record&lt;string, unknown&gt;</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
+    <h4 id="type-RouterSpreadType">RouterSpreadType</h4>
+    <p class="section-note">The value types a SPREAD join's `type` map can coerce an attribute to.</p>
+    <p class="type-def"><code>type RouterSpreadType = 'number' | 'date' | 'boolean' | 'text'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
     <h4 id="type-RouterWrite">RouterWrite</h4>
     <p class="section-note">A write captured off a writable route's grid, handed to `onWrite`.</p>
@@ -25059,7 +25634,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.83.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.84.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

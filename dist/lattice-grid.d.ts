@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.83.1, type declarations
+ * Lattice Grid 1.84.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -13637,19 +13637,26 @@ export interface ChartSpec {
    * `'earth'`, `'mono'`); a name registered with `registerScheme` is a plain
    * string alongside them.
    *
-   * The map is the form that survives a filter: a pie or donut keys it on the
-   * category (`x`) value, a chart with a `series` column keys it on the
-   * series value, and a single-series bar or column — no `series` — keys it
-   * on the `x` category instead. A name absent from the map falls back to the
-   * ordered scheme by its position among the *other unmapped* names, so
-   * `{ Operational: 'green' }` keeps every other category exactly as it was
-   * whichever ones a filter removes — an ordered array reassigns every colour
-   * after the gap. A map and an array `palette` do not combine; given both,
-   * the map wins and the array is ignored, once, with a warning. A
-   * {@link ChartScheme} object and a map are told apart by content: an object
-   * naming at least one of `series`/`sequential`/`diverging`/`positive`/`negative`
-   * is a scheme override, not a map of category names to colours.
-   */
+    * The map is the form that survives a filter: a pie or donut keys it on the
+    * category (`x`) value, a chart with a `series` column keys it on the
+    * series value, and a single-series bar or column — no `series` — keys it
+    * on the `x` category instead. On the measure-based types — a bar or combo
+    * given several `measures`, a `radar` and a `candlestick` — the map keys on
+    * the measure's `title`, falling back to its column, so
+    * `{ 'Committed revenue': '#1f4d5c' }` colours that measure on a combo the
+    * same way it does on a bar. A bare array
+    * (`scheme: ['#1f4d5c', '#b4701a']`) is the shorthand for
+    * `{ series: [...] }` and colours series in measure order on every type,
+    * exactly as explicit. A name absent from the map falls
+    * back to the ordered scheme by its position among the *other unmapped*
+    * names, so `{ Operational: 'green' }` keeps every other category exactly
+    * as it was whichever ones a filter removes — an ordered array reassigns
+    * every colour after the gap. A map and an array `palette` do not combine;
+    * given both, the map wins and the array is ignored, once, with a warning.
+    * A {@link ChartScheme} object and a map are told apart by content: an
+    * object naming at least one of `series`/`sequential`/`diverging`/`positive`/`negative`
+    * is a scheme override, not a map of category names to colours.
+    */
   scheme?: ChartSchemeName | string | string[] | Record<string, string> | ChartScheme;
   /**
    * A shorthand that overrides only the resolved scheme's sequential ramp —
@@ -13698,8 +13705,31 @@ export interface ChartSpec {
    * caller's own figure, formatted the same way; a string is written through
    * unchanged. `label` is a second line beneath it. Both are sized to fit the
    * hole and are never drawn past its edge.
+   *
+   * A `gauge` reads the same object differently: `label`
+   * names the reading's caption (the figure itself is the measure, formatted
+   * by its column), and `value` is unused.
    */
-  centre?: { value: 'total' | number | string; label?: string };
+  centre?: { value?: 'total' | number | string; label?: string };
+  /**
+   * Threshold bands behind a gauge's value, clipped to `min`/`max` and drawn in
+   * order. `colour` takes any form `scheme` accepts; `label`,
+   * when given, is drawn in the legend rather than on the arc.
+   */
+  bands?: { from: number; to: number; colour?: string; label?: string }[];
+  /**
+   * Draw a gauge as a needle dial rather than a filled value arc. `true` takes the defaults; the object form sets the
+   * needle's stroke width in pixels (`width`) and the central pin's radius as a
+   * fraction of the gauge radius (`pin`). With a needle the value arc is not
+   * drawn, and the needle takes the colour of the band the value falls in — or
+   * the series colour without bands.
+   */
+  needle?: boolean | { width?: number; pin?: number };
+  /**
+   * Tick values drawn round a gauge's arc. Values outside
+   * `min`/`max` are dropped.
+   */
+  ticks?: number | unknown[];
   /**
    * Print the value beside each mark. `true` takes the defaults; the object form sets the
    * position, the format and the minimum gap. Only the chart types that support labels
@@ -13995,7 +14025,11 @@ export interface ChartSpec {
   drill?: boolean;
   /** Clicking a mark filters the grid to it. */
   filterOnClick?: boolean;
-  /** Stack the series rather than drawing them side by side. */
+  /**
+   * Stack the series rather than drawing them side by side. On a `combo` it
+   * stacks the bar measures; line and area measures stay
+   * outside the stack on the same scale and are drawn after the columns.
+   */
   stack?: boolean;
   /** Overlay a kernel density curve on a histogram. */
   curve?: boolean;

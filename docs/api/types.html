@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.83.1</title>
+<title>Types API Reference — Lattice Grid 1.84.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -400,6 +400,7 @@
         <a href="geometry.html">The geometry module</a>
         <a href="deckgl.html">The deck.gl adapter</a>
         <a href="leaflet.html">The Leaflet binding</a>
+        <a href="mapview.html">The map view</a>
         <a href="list.html">The list module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
@@ -428,7 +429,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 21 pages</a></span>
+      <span class="chip"><a href="index.html">All 22 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -2925,6 +2926,30 @@
     <h4 id="type-MapProjection">MapProjection</h4>
     <p class="section-note">A geomap's named projection; a caller may also supply a projection function directly.</p>
     <p class="type-def"><code>type MapProjection = 'equalEarth' | 'robinson' | 'mercator' | 'equirectangular' | 'albers' | 'transverseMercator' | 'britishNationalGrid'</code></p>
+    <h4 id="type-MapViewCamera">MapViewCamera</h4>
+    <p class="section-note">A camera: centre `[lng, lat]`, zoom, pitch and bearing in degrees.</p>
+    <p class="type-def"><code>type MapViewCamera = { center?: [number, number]; zoom?: number; pitch?: number; bearing?: number }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewColour">MapViewColour</h4>
+    <p class="section-note">How rows are coloured: one colour (a CSS hex or `rgb()` colour, or `[r, g, b, a?]`); a category per value of a column (`map` names the colour of each value, and any other value takes the next colour of the charts palette); or a number placed along a ramp by the charts module's own scale code, between the `colours` stops (default the default scheme's sequential ramp), over `domain` (default the drawn values' range), on a `rampScale` (`linear`, `log` or `quantile`; chosen from the values when unset, as a heat map's is).</p>
+    <p class="type-def"><code>type MapViewColour = string | number[] | { field: string; map?: Record&lt;string, string | number[]&gt; } | { field: string; scale: 'ramp'; domain?: [number, number]; colours?: string[]; rampScale?: 'linear' | 'log' | 'quantile'; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewEventName">MapViewEventName</h4>
+    <p class="section-note">The events a map view emits.</p>
+    <p class="type-def"><code>type MapViewEventName = 'feature:click' | 'feature:hover' | 'draw' | 'load' | 'close'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewFlow">MapViewFlow</h4>
+    <p class="section-note">An animated flow along routes: `speed` is traversals of a route per second (default 0.25), `trail` the share of a route the moving trail lights (default 0.3).</p>
+    <p class="type-def"><code>type MapViewFlow = boolean | { speed?: number; trail?: number }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewGeometry">MapViewGeometry</h4>
+    <p class="section-note">Where a row's place is read from (BACKLOG-0001639): a latitude and a longitude column (`lng`, or `lon`); a GeoJSON column (a `Geometry` or a `Feature`, as an object or its JSON text, or WKT or WKB); or a path column holding an array of `[lng, lat]` pairs (or its JSON text).</p>
+    <p class="type-def"><code>type MapViewGeometry = { lat: string; lng: string } | { lat: string; lon: string } | { geojson: string } | { path: string }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewLayer">MapViewLayer</h4>
+    <p class="section-note">The layer kinds a map view draws a row with.</p>
+    <p class="type-def"><code>type MapViewLayer = 'point' | 'column' | 'polygon' | 'path'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
     <h4 id="type-NumberFormatNegative">NumberFormatNegative</h4>
     <p class="section-note">How a negative number is marked: a leading minus, parentheses, or a trailing suffix.</p>
     <p class="type-def"><code>type NumberFormatNegative = 'minus' | 'parentheses' | 'suffix'</code></p>
@@ -3006,21 +3031,41 @@
     <p class="section-note">What a route matches: a partition VALUE (the record is routed when `row[key] === value`), or a `fn(row)` predicate for a composite route. Declared as `unknown` because any value can be a partition key; the function form is the only one TypeScript can check.</p>
     <p class="type-def"><code>type RoutePredicate = unknown</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
+    <h4 id="type-RouterDateFieldFormat">RouterDateFieldFormat</h4>
+    <p class="section-note">The input format a `date` field reads (BACKLOG-0001613): `'iso'` (the default — ISO 8601, a `Date`, or an epoch number), `'epoch-s'` (seconds since the epoch), `'epoch-ms'` (milliseconds), or an explicit pattern such as `'dd/MM/yyyy'`, parsed with the grid's own date-pattern token vocabulary.</p>
+    <p class="type-def"><code>type RouterDateFieldFormat = 'iso' | 'epoch-s' | 'epoch-ms' | string</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
     <h4 id="type-RouterEventName">RouterEventName</h4>
-    <p class="section-note">The events a data router raises. One event, and the router raises nothing else: routing itself is reported to each attached viewer through its own `rows.apply`, not through an event here. The `metrics` timer runs only while at least one `metrics` listener is registered, so collection costs nothing until someone asks for it, and stops when the last listener unsubscribes.</p>
-    <p class="type-def"><code>type RouterEventName = 'metrics'</code></p>
+    <p class="section-note">The events a data router raises. Routing itself is reported to each attached viewer through its own `rows.apply`, not through an event here. `metrics` is the periodic observability timer, running only while at least one listener is registered so collection costs nothing until someone asks for it. `fields:changed` (v16) fires when a spread join's field set for a route changes.</p>
+    <p class="type-def"><code>type RouterEventName = 'metrics' | 'fields:changed'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
+    <h4 id="type-RouterFieldSpec">RouterFieldSpec</h4>
+    <p class="section-note">One entry of `addSource`'s `fields` option (BACKLOG-0001613): a type name, or an options object. The object form narrows a `number`'s decimal separator (`decimal: ','`), gives a `boolean` its own true/false marker sets, chooses a `date`'s input `format`, and lists `nulls` — strings that mean null for this field, mapped before any coercion. A field with only `nulls` (no `type`) maps its null markers and passes every other value through untouched. A value that fails to coerce is stored as null and warns once per source+field (`router:coerce-failed`).</p>
+    <p class="type-def"><code>type RouterFieldSpec = <a href="#type-RouterFieldType">RouterFieldType</a> | { type?: <a href="#type-RouterFieldType">RouterFieldType</a>; format?: <a href="#type-RouterDateFieldFormat">RouterDateFieldFormat</a>; decimal?: ',' | '.'; true?: string[]; false?: string[]; nulls?: string[]; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
+    <h4 id="type-RouterFieldType">RouterFieldType</h4>
+    <p class="section-note">The field types `addSource`'s `fields` option can coerce a raw value to (BACKLOG-0001613): text, number (decimal comma and thousands separators), integer, boolean (configurable true/false sets), date (ISO, epoch s/ms or a small explicit pattern set) and json (parse a string).</p>
+    <p class="type-def"><code>type RouterFieldType = 'text' | 'number' | 'integer' | 'boolean' | 'date' | 'json'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
     <h4 id="type-RouterJoinMissing">RouterJoinMissing</h4>
-    <p class="section-note">What a fan-in lookup join does with a row while its lookup has not arrived.</p>
+    <p class="section-note">What a fan-in join does with a row while its match has not arrived.</p>
     <p class="type-def"><code>type RouterJoinMissing = 'hold' | 'passthrough' | 'null'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
     <h4 id="type-RouterKey">RouterKey</h4>
     <p class="section-note">A property name, or a function reading the value off a row, returning a string or number (BACKLOG-0001669). Composite (`string[]`) keys are core-grid-only: a route (or an alert, or a group) keys its own partition by one value, so there is nothing for an array to join into here.</p>
     <p class="type-def"><code>type RouterKey = string | ((row: <a href="#type-RouterRecord">RouterRecord</a>) =&gt; string | number)</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
+    <h4 id="type-RouterParentDelete">RouterParentDelete</h4>
+    <p class="section-note">What a parent's delete does to its children (v18, BACKLOG-0001612), on a COLLECT join, on an unnest, and standalone via `relateRows`. `'cascade'` deletes every child whose foreign key matches the deleted parent (recursively); `'orphan'` keeps them, marked `__orphan: true`, warned once; `'keep'` keeps them bare. The default for a collect join and `relateRows` is `'keep'` — the unchanged behaviour — while an unnest defaults to `'cascade'` (its unchanged behaviour already removes its embedded children).</p>
+    <p class="type-def"><code>type RouterParentDelete = 'cascade' | 'orphan' | 'keep'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
     <h4 id="type-RouterRecord">RouterRecord</h4>
     <p class="section-note">A record routed through a data router: any object. Its partition comes from the router's `key` and its identity within a grid from `rowKey`.</p>
     <p class="type-def"><code>type RouterRecord = Record&lt;string, unknown&gt;</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
+    <h4 id="type-RouterSpreadType">RouterSpreadType</h4>
+    <p class="section-note">The value types a SPREAD join's `type` map can coerce an attribute to.</p>
+    <p class="type-def"><code>type RouterSpreadType = 'number' | 'date' | 'boolean' | 'text'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
     <h4 id="type-RouterWrite">RouterWrite</h4>
     <p class="section-note">A write captured off a writable route's grid, handed to `onWrite`.</p>

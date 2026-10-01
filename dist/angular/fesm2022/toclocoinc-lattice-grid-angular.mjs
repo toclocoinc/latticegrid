@@ -815,7 +815,7 @@ const VIEWER_EVENTS$1 = Object.freeze({
         'beforeWindowClose', 'windowClose:cancelled',
     ]),
 
-    router: Object.freeze(['metrics']),
+    router: Object.freeze(['metrics', 'fields:changed']),
 });
 
 const VIEWER_APPLY$1 = Object.freeze({

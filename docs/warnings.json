@@ -1,5 +1,5 @@
 {
-  "version": "1.83.1",
+  "version": "1.84.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 587,
+  "count": 618,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -906,6 +906,28 @@
       "meaning": "A bitset column packs eight rows per byte, so its length cannot be recovered from the buffer: the last byte may be up to seven rows of padding. With no declared count the kernel assumes the buffer is full, which can overstate the row count by up to seven.",
       "fix": "Declare the row count on the handle (`length`, or a `presence` set) when you build a bitset column yourself.",
       "docs": "api/grid.html#type-IngestConfig"
+    },
+    {
+      "id": "data-router:field-spec",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "addSource field \"{field}\" has an unusable fields declaration (a type string or an options object); the field passes through uncoerced.",
+      "meaning": "A field in addSource’s fields option was declared as something other than a type name or an options object, so the router could not build a coercion for it. The field is left exactly as it arrived rather than throwing.",
+      "fix": "Declare the field as a type name (e.g. \"text\") or an options object (e.g. { type: \"number\", decimal: \",\" }).",
+      "snippet": "fields: { amount: { type: \"number\", decimal: \",\" } }",
+      "docs": "api/data-router.html#datarouter-fields-example"
+    },
+    {
+      "id": "data-router:field-type",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "addSource field \"{field}\" names an unknown type \"{type}\" (expected {types}); the field passes through uncoerced.",
+      "meaning": "A field in addSource’s fields option named a type the router does not coerce. The field is left exactly as it arrived — passed through uncoerced — rather than throwing.",
+      "fix": "Name one of the supported types — text, number, integer, boolean, date or json — or drop the field’s declaration to pass it through deliberately.",
+      "snippet": "fields: { code: \"text\", amount: { type: \"number\" } }",
+      "docs": "api/data-router.html#datarouter-fields-example"
     },
     {
       "id": "date.pattern.token:*",
@@ -2121,6 +2143,17 @@
       "meaning": "The column declares `layout.resizable: false`, so the new width — from a drag or from the API — was refused and the column keeps its width.",
       "fix": "Clear `layout.resizable: false` on the column if it should be resizable.",
       "docs": "api/grid.html#columns"
+    },
+    {
+      "id": "router:coerce-failed:*:*",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "source \"{sourceId}\" field \"{field}\": could not coerce {example} to {type}; the value is stored as null.",
+      "meaning": "A value on a fan-in source’s declared field could not be coerced to the type its fields option names, so the router stored null for it rather than leaving the raw (wrongly typed) value in the row. The warning names the source, the field and the first offending value.",
+      "fix": "Correct the feed’s raw value for that field, or widen or correct the field’s fields declaration to match what the feed actually sends.",
+      "snippet": "addSource(\"orders\", { fields: { amount: { type: \"number\", decimal: \",\" } } })",
+      "docs": "api/data-router.html#datarouter-fields-example"
     },
     {
       "id": "rowHeight.throw",
@@ -3482,6 +3515,50 @@
       "docs": "api/data-router.html#datarouter-configure-example"
     },
     {
+      "id": "data-router:join-aggregate-bad-fn",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "join aggregate \"{name}\" uses fn \"{fn}\", which is not count|sum|avg|min|max|distinctCount|first|last; the aggregate is skipped.",
+      "meaning": "A rollup-onto-parent join's `aggregate` map names a reducer the router does not know. The named result is omitted from the parent row — the other reducers in the map still compute — rather than the router throwing or inventing a value.",
+      "fix": "Use one of the supported `fn` names: `count`, `sum`, `avg`, `min`, `max`, `distinctCount`, `first` or `last`.",
+      "snippet": "join: { from: 'line', foreignKey: 'orderId', many: true, aggregate: { lineTotal: { field: 'amount', fn: 'sum' } } }",
+      "docs": "api/data-router.html#datarouter-rollup-parent-example"
+    },
+    {
+      "id": "data-router:join-aggregate-bad-spec",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "join aggregate \"{name}\" is not a { fn, field? } reducer; the aggregate is skipped.",
+      "meaning": "A rollup-onto-parent join's `aggregate` entry is not the `{ fn, field? }` object the router reduces over — it is missing a string `fn` (a bare value, say). The named result is omitted and the other reducers still compute.",
+      "fix": "Give each aggregate a `{ fn, field? }` object: the reducer name and, for every `fn` except `count`, the child `field`.",
+      "snippet": "join: { from: 'line', foreignKey: 'orderId', many: true, aggregate: { lines: { fn: 'count' } } }",
+      "docs": "api/data-router.html#datarouter-rollup-parent-example"
+    },
+    {
+      "id": "data-router:join-aggregate-invalid",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "a join aggregate must be a non-empty object of named reducers; ignoring the join.",
+      "meaning": "A `many: true` join was given an `aggregate` that is not a usable object — empty, or not an object at all. There is nothing to write onto the parent row, so the whole join is dropped and the rows pass through unenriched rather than the router throwing.",
+      "fix": "Set `aggregate` to an object of named reducers: `{ field: { fn, field? } }`, one entry per result you want on the parent row.",
+      "snippet": "join: { from: 'line', foreignKey: 'orderId', many: true, aggregate: { lines: { fn: 'count' }, lineTotal: { field: 'amount', fn: 'sum' } } }",
+      "docs": "api/data-router.html#datarouter-rollup-parent-example"
+    },
+    {
+      "id": "data-router:join-aggregate-no-field",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "join aggregate \"{name}\" ({fn}) needs a field; the aggregate is skipped.",
+      "meaning": "A rollup-onto-parent join's reducer — `sum`, `avg`, `min`, `max`, `distinctCount`, `first` or `last` — was declared without the child `field` it reduces over. The named result is omitted; `count` is the one reducer that needs no field.",
+      "fix": "Add the child field: `field: 'amount'`. Only `count` may omit it.",
+      "snippet": "join: { from: 'line', foreignKey: 'orderId', many: true, aggregate: { lineTotal: { field: 'amount', fn: 'sum' } } }",
+      "docs": "api/data-router.html#datarouter-rollup-parent-example"
+    },
+    {
       "id": "data-router:join-bad-missing",
       "module": "data-router",
       "severity": "warn",
@@ -3491,6 +3568,17 @@
       "fix": "Use `'hold'`, `'passthrough'` or `'null'`.",
       "snippet": "join: { from: 'customers', localKey: 'customerId', fields: ['name'], missing: 'hold' }",
       "docs": "api/data-router.html#datarouter-example"
+    },
+    {
+      "id": "data-router:join-no-as",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "a collect join (many: true) needs an `as` (the field to put the collected array into); ignoring the join.",
+      "meaning": "A collect join gathers every matching row of `from` into an array, and that array has to live somewhere on the left row. `as` names that field; without it the router cannot write the collected array anywhere, so the join is dropped and the rows pass through unenriched rather than the router throwing.",
+      "fix": "Add `as` — the field name the collected array is written to.",
+      "snippet": "join: { from: 'address', foreignKey: 'companyId', many: true, as: 'addresses' }",
+      "docs": "api/data-router.html#datarouter-collect-example"
     },
     {
       "id": "data-router:join-no-fields",
@@ -3535,6 +3623,137 @@
       "fix": "Set `localKey` (or its alias `on`) to the field name on the incoming row, or a function that reads it.",
       "snippet": "join: { from: 'customers', localKey: 'customerId' }",
       "docs": "api/data-router.html#datarouter-example"
+    },
+    {
+      "id": "router:join-cycle",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "join from \"{from}\" to \"{to}\" would close a join cycle; the join is refused.",
+      "meaning": "A join graph is a DAG: a source joins or collects from another, which may in turn join from a third. A declaration that would point the graph back at itself — a source collecting from a source that transitively collects from it — has no stable evaluation order, so the closing join is refused and that source's rows pass through unjoined rather than the router recursing forever.",
+      "fix": "Break the cycle: point the join at a source that does not (transitively) depend on this one.",
+      "docs": "api/data-router.html#datarouter-collect-example"
+    },
+    {
+      "id": "data-router:spread-no-name",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "a spread join needs a `name` (the attribute-name field or fn); ignoring the join.",
+      "meaning": "A SPREAD join was declared without a `name` reader — the field or `fn(row)` that reads each attribute row's name. Without a name there is nothing to write onto the parent, so the join is dropped and the parent rows pass through unenriched rather than the router throwing.",
+      "fix": "Set `spread.name` to the child field holding the attribute name, or a `fn(row)` that reads it.",
+      "snippet": "join: { from: 'companyAttr', foreignKey: 'companyId', spread: { name: 'attribute', value: 'value', prefix: 'cf_' } }",
+      "docs": "api/data-router.html#datarouter-spread-example"
+    },
+    {
+      "id": "data-router:spread-no-value",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "a spread join needs a `value` (the attribute-value field or fn); ignoring the join.",
+      "meaning": "A SPREAD join was declared without a `value` reader — the field or `fn(row)` that reads each attribute row's value. Without a value there is nothing to write under the spread field, so the join is dropped and the parent rows pass through unenriched rather than the router throwing.",
+      "fix": "Set `spread.value` to the child field holding the attribute value, or a `fn(row)` that reads it.",
+      "snippet": "join: { from: 'companyAttr', foreignKey: 'companyId', spread: { name: 'attribute', value: 'value', prefix: 'cf_' } }",
+      "docs": "api/data-router.html#datarouter-spread-example"
+    },
+    {
+      "id": "router:spread-collision",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "a spread join skipped the field \"{fieldName}\" because the parent row already carries it; a spread field never overwrites a base parent field.",
+      "meaning": "A spread attribute resolved to a field name the parent row already carries as one of its own (base) fields. The spread field is skipped — the base value stands — so a custom field can never silently overwrite a real column. Warned once per field name, not per parent.",
+      "fix": "Rename the base field, or change the spread's `prefix`/`name` so the attribute lands on a field the parent does not already carry.",
+      "snippet": "join: { from: 'companyAttr', foreignKey: 'companyId', spread: { name: 'attribute', value: 'value', prefix: 'cf_' } }",
+      "docs": "api/data-router.html#datarouter-spread-example"
+    },
+    {
+      "id": "router:spread-duplicate",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "a spread join wrote the field \"{fieldName}\" more than once for one parent; the last attribute row (source order) wins.",
+      "meaning": "Two attribute rows resolved to the SAME spread field name for one parent. The router is last-writer-wins in the attribute source's order — the later row's value stands, the earlier is overwritten — rather than collecting or throwing. Warned once per field name.",
+      "fix": "De-duplicate the attribute rows upstream, or make `name`/`prefix` produce distinct field names per attribute.",
+      "snippet": "join: { from: 'companyAttr', foreignKey: 'companyId', spread: { name: 'attribute', value: 'value', prefix: 'cf_' } }",
+      "docs": "api/data-router.html#datarouter-spread-example"
+    },
+    {
+      "id": "router:unnest-duplicate-key",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "the unnest \"{as}\" produced the child key \"{key}\" more than once for one parent; the later child (source order) wins.",
+      "meaning": "Two elements of one parent's nested array resolved to the same child key — a duplicated `id` under a `key: 'id'` spec, most often. The router is last-writer-wins in the array's source order: the later child's row stands, the earlier is overwritten, rather than collecting or throwing. Warned once per router, not per parent.",
+      "fix": "Make the child `key` (or the array's own ids) unique within each parent, or switch to the default index key.",
+      "snippet": "addSource('company', { unnest: [{ path: 'addresses', as: 'address', key: 'id', parentKey: 'companyId' }] })",
+      "docs": "api/data-router.html#datarouter-unnest-example"
+    },
+    {
+      "id": "data-router:unnest-no-path",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "an unnest needs a `path` (the dotted array field on the row); ignoring the unnest.",
+      "meaning": "An `unnest` spec was declared without a `path` — the dotted array field to expand. Without it there is nothing to read, so the spec is dropped and the source's rows pass through as plain fan-in rather than the router throwing.",
+      "fix": "Set `path` to the array field on the parent row, e.g. `'addresses'` or `'profile.addresses'`.",
+      "snippet": "addSource('company', { unnest: [{ path: 'addresses', as: 'address' }] })",
+      "docs": "api/data-router.html#datarouter-unnest-example"
+    },
+    {
+      "id": "data-router:unnest-no-as",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "an unnest needs an `as` (the child row type); ignoring the unnest.",
+      "meaning": "An `unnest` spec was declared without an `as` — the child row type (and the source id the children route and join under). Without it the children have no type to route under, so the spec is dropped and the source's rows pass through as plain fan-in rather than the router throwing.",
+      "fix": "Set `as` to the child type, e.g. `'address'`, and attach a route to that value.",
+      "snippet": "addSource('company', { unnest: [{ path: 'addresses', as: 'address' }] })",
+      "docs": "api/data-router.html#datarouter-unnest-example"
+    },
+    {
+      "id": "router:unnest-cycle",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "unnest \"{from}\" → \"{to}\" would close an unnest cycle; the unnest is refused.",
+      "meaning": "An `unnest` chain is a tree: a source unnests a child type, which may unnest its own. A spec whose `as` points back at an ancestor (or the source itself) would recurse forever, so the closing unnest is refused and the source's rows pass through unexpanded rather than the router recursing.",
+      "fix": "Point the nested unnest's `as` at a type that is not (transitively) an ancestor of this one.",
+      "snippet": "addSource('company', { unnest: [{ path: 'addresses', as: 'address' }] })",
+      "docs": "api/data-router.html#datarouter-unnest-example"
+    },
+    {
+      "id": "router:orphaned-rows",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "{count} child row(s) were orphaned when their parent was deleted; they are kept and marked __orphan: true (onParentDelete: 'orphan').",
+      "meaning": "A parent row was deleted under `onParentDelete: 'orphan'`, so its children were NOT deleted: they stay in their own source/grid, marked `__orphan: true` so a viewer can tell they no longer have a parent. Warned once per router, with the count of children orphaned in that batch.",
+      "fix": "Re-add the parent (which re-adopts its orphans and clears the mark), or clean the orphaned rows up yourself.",
+      "snippet": "join: { from: 'address', foreignKey: 'companyId', many: true, as: 'addrs', onParentDelete: 'orphan' }",
+      "docs": "api/data-router.html#datarouter-integrity"
+    },
+    {
+      "id": "data-router:relaterows-missing-source",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "relateRows needs both `child` and `parent` to be registered source ids (or the handles addSource returned); the rule was ignored.",
+      "meaning": "`relateRows` was called with a `child` or `parent` that names no registered source, so there is no child store to cascade or orphan. The rule is dropped rather than the router throwing.",
+      "fix": "Register both sources with `addSource` first, then pass their ids (or the returned handles) to `relateRows`.",
+      "snippet": "router.relateRows({ child: 'address', parent: 'company', foreignKey: 'companyId', onParentDelete: 'cascade' })",
+      "docs": "api/data-router.html#datarouter-integrity"
+    },
+    {
+      "id": "data-router:relaterows-no-foreignkey",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.84.0",
+      "message": "relateRows needs a `foreignKey` (the child field holding the parent key); the rule was ignored.",
+      "meaning": "`relateRows` was called without a `foreignKey`, so the router cannot tell which child rows belong to a deleted parent. The rule is dropped rather than the router throwing.",
+      "fix": "Set `foreignKey` to the child field holding the parent's key (a field name or `fn(row)`).",
+      "snippet": "router.relateRows({ child: 'address', parent: 'company', foreignKey: 'companyId', onParentDelete: 'cascade' })",
+      "docs": "api/data-router.html#datarouter-integrity"
     },
     {
       "id": "data-router:link-predicate-unsupported",
@@ -6180,6 +6399,126 @@
       "fix": "Scope the hx-history-elt subtree to just the table (not the whole page), or cap htmx's historyCacheSize so fewer snapshots are kept.",
       "snippet": "<div hx-history-elt>\n  <table data-lattice-grid>…</table>\n</div>",
       "docs": "api-detail.html#htmx-guide-history"
+    },
+    {
+      "id": "mapview:grid",
+      "module": "mapview",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "createMapView: the first argument is not a grid; pass the grid whose rows the map shows. Nothing was drawn.",
+      "meaning": "`createMapView` draws the rows of a grid, so its first argument must be one (a grid from `createGrid` or `createHeadlessGrid`). It was something else, or nothing, so no map was made.",
+      "fix": "Pass the grid as the first argument.",
+      "snippet": "createMapView(grid, { container: '#map', geometry: { lat: 'latitude', lng: 'longitude' } });",
+      "docs": "API.html#mapview"
+    },
+    {
+      "id": "mapview:geometry",
+      "module": "mapview",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "createMapView: the grid has no place to draw rows at: {reason}. Nothing was drawn.",
+      "meaning": "`options.geometry` says where each row is placed, and it must name columns of the grid: `{ lat, lng }` (or `lon`), `{ geojson }` or `{ path }`. It was missing, or named a column the grid does not have, so no map was made.",
+      "fix": "Name the grid's own columns in `geometry`.",
+      "snippet": "geometry: { lat: 'latitude', lng: 'longitude' }  // or { geojson: 'geom' } or { path: 'route' }",
+      "docs": "API.html#mapview"
+    },
+    {
+      "id": "mapview:layer:*",
+      "module": "mapview",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "createMapView: layer \"{layer}\" is not a layer kind; each row is drawn by the default for its geometry. Use \"point\", \"column\", \"polygon\" or \"path\".",
+      "meaning": "`layer` names how the rows of one geometry are drawn. The value given is not one of the four kinds, so it was ignored and every row is drawn by the default for its geometry: a point as a marker (or a column with an `elevation`), a polygon as an area, a line as a route.",
+      "fix": "Use one of the four layer kinds.",
+      "snippet": "layer: 'column'",
+      "docs": "API.html#mapview"
+    },
+    {
+      "id": "mapview:color",
+      "module": "mapview",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "createMapView: color is neither a colour nor { field, map } nor { field, scale: 'ramp' }; every row is drawn in the theme's colour.",
+      "meaning": "`color` takes one colour (a CSS hex or `rgb()` colour, or `[r, g, b]`), a categorical rule `{ field, map }`, or a numeric ramp `{ field, scale: 'ramp' }`. The value given was none of these, so every row is drawn in the grid theme's accent.",
+      "fix": "Give a colour, or name the column the colour follows in `field`.",
+      "snippet": "color: { field: 'status', map: { live: '#2e7d32', build: '#f9a825', planned: '#90a4ae' } }",
+      "docs": "API.html#mapview"
+    },
+    {
+      "id": "mapview:container",
+      "module": "mapview",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "createMapView: the map has nowhere to go: {reason}. Nothing was drawn.",
+      "meaning": "The map goes into `container` (an element, or a selector that finds one), or beside, in a tab of, or popped out of the grid's own element for `mode: 'split'`, `'tab'` and `'popout'`. The container named no element, the mode is not one of the four, or the mode needs the grid's element and the grid has none (a headless grid). No map was made.",
+      "fix": "Pass an element or a selector that finds one, or use a mode with a grid made by `createGrid`.",
+      "snippet": "createMapView(grid, { container: document.querySelector('#map'), geometry })",
+      "docs": "API.html#mapview"
+    },
+    {
+      "id": "mapview:libs",
+      "module": "mapview",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "createMapView: {library} {is/are} not on the page; load the UMD build (it sets the global) or pass options.libs = { deck, maplibregl }. The map was left empty.",
+      "meaning": "The map view imports neither deck.gl nor MapLibre GL: the page supplies them, as the globals `deck` and `maplibregl` that their UMD builds set, or as `options.libs`. The one(s) named were not found (deck.gl must include `MapboxOverlay`), so the map's box was placed and left empty.",
+      "fix": "Load MapLibre GL and deck.gl on the page before creating the map view, or pass them in `libs`.",
+      "snippet": "<script src=\"https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js\"></script>\n<script src=\"https://cdn.jsdelivr.net/npm/deck.gl@9.1.0/dist.min.js\"></script>",
+      "docs": "API.html#mapview"
+    },
+    {
+      "id": "mapview:over",
+      "module": "mapview",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "createMapView: the map's view holds {count} matching rows, more than its viewportCap of {cap}, and {reason}, so none were drawn. Zoom in, narrow the filter, or raise viewportCap.",
+      "meaning": "On a paged pushdown grid the map asks the engine for the rows inside its view, up to `viewportCap`. The view held more, and the engine could not bin them into density cells, so the map drew nothing rather than an arbitrary subset.",
+      "fix": "Zoom in or narrow the grid's filter, or raise `viewportCap`.",
+      "snippet": "viewportCap: 50000",
+      "docs": "API.html#mapview"
+    },
+    {
+      "id": "mapview:selection",
+      "module": "mapview",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "createMapView: row {key} was clicked on the map but the grid did not select it: a grid selects nothing unless it is created with selection: 'single' or 'multiple', and a beforeSelect handler can refuse it.",
+      "meaning": "A click on a feature selects its row in the grid. The grid did not take the selection: it was created without a selection mode, or a `beforeSelect` handler refused it.",
+      "fix": "Create the grid with a selection mode.",
+      "snippet": "createGrid(el, { selection: 'single', columns, rows })",
+      "docs": "API.html#mapview"
+    },
+    {
+      "id": "mapview:buildings",
+      "module": "mapview",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "createMapView: buildings is on but the basemap style has no vector source with an OpenMapTiles \"building\" layer; no buildings were drawn. Use an OpenMapTiles style such as the default.",
+      "meaning": "`buildings: true` adds a 3D layer from the basemap style's OpenMapTiles `building` source layer. The style has no vector source at all, so there is nothing to extrude.",
+      "fix": "Use an OpenMapTiles style (the default OpenFreeMap styles are), or turn `buildings` off.",
+      "snippet": "basemap: 'https://tiles.openfreemap.org/styles/positron', buildings: true",
+      "docs": "API.html#mapview"
+    },
+    {
+      "id": "mapview:event:*",
+      "module": "mapview",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "createMapView: \"{name}\" is not an event a map view emits; use {events}.",
+      "meaning": "`on(name, fn)` was given a name the map view never emits, so the listener would never run. It was not added.",
+      "fix": "Listen for one of the map view's events: `feature:click`, `feature:hover`, `draw`, `load` or `close`.",
+      "snippet": "map.on('feature:click', (e) => console.log(e.key));",
+      "docs": "API.html#mapview"
+    },
+    {
+      "id": "mapview:listener:*",
+      "module": "mapview",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "createMapView: a \"{name}\" listener threw: {error}",
+      "meaning": "A listener added with `on()` threw. The map view caught it so the other listeners and the map keep working.",
+      "fix": "Fix the listener; the error message names what went wrong.",
+      "docs": "API.html#mapview"
     }
   ]
 }

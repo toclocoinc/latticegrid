@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.83.1, data-router module type declarations
+ * Lattice Grid 1.84.0, data-router module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -207,58 +207,269 @@ export interface RouterConfig {
 }
 
 /**
- * A fan-in source's lookup join (v11): `from` is the lookup source's id;
- * `localKey` (alias `on`) reads the joining value off this source's row;
- * `foreignKey` (alias `fromKey`) reads it off the lookup row, defaulting to a
- * string `localKey`; `fields` (alias `select`) picks the lookup fields to
- * carry — a list, a rename map, or a function of both rows; `missing` says
- * what to do while the lookup row has not arrived: `hold` the row back,
- * `passthrough` it unjoined, or fill the fields with `null`.
+ * A fan-in source's join. `from` is the other source's id; `localKey` (alias
+ * `on`) reads the joining value off this source's row; `foreignKey` (alias
+ * `fromKey`) reads it off the other source's rows, defaulting to a string
+ * `localKey`; `missing` says what to do while a match has not arrived: `hold`
+ * the row back, `passthrough` it unjoined, or fill with `null`.
+ *
+ * A plain join is a LOOKUP (v11): one matched row enriches this row with the
+ * declared `fields` (alias `select`). A `many: true` join is a COLLECT join
+ * (v14): every matching `from` row is gathered into an array under `as`,
+ * mapped by `select(fromRow, leftRow)` (default the whole row), with optional
+ * `distinct` and `sort`. A `many: true` join with an `aggregate` map instead
+ * of `as` is a ROLLUP-ONTO-PARENT join (v15): each named
+ * reducer is computed over the matching children (optionally narrowed by
+ * `where`) and written straight onto the parent row. A `join` may be one spec
+ * or an ARRAY applied in order, and a join reads its `from` source's rows
+ * after that source's own joins, so joins chain into a multi-level graph.
  */
-/** What a fan-in lookup join does with a row while its lookup has not arrived. */
+/** What a fan-in join does with a row while its match has not arrived. */
 export type RouterJoinMissing = 'hold' | 'passthrough' | 'null';
+/**
+ * What a parent's delete does to its children (v18), on a
+ * COLLECT join, on an unnest, and standalone via `relateRows`. `'cascade'`
+ * deletes every child whose foreign key matches the deleted parent (recursively);
+ * `'orphan'` keeps them, marked `__orphan: true`, warned once; `'keep'` keeps
+ * them bare. The default for a collect join and `relateRows` is `'keep'` — the
+ * unchanged behaviour — while an unnest defaults to `'cascade'` (its unchanged
+ * behaviour already removes its embedded children).
+ */
+export type RouterParentDelete = 'cascade' | 'orphan' | 'keep';
+/**
+ * One named reducer of a ROLLUP-ONTO-PARENT join's `aggregate` map (v15). `fn` reuses the v3 rollup vocabulary — `count`, `sum`,
+ * `avg`, `min`, `max` — and adds `distinctCount`, `first` and `last`. `field`
+ * is the child field reduced over (required for every `fn` except `count`);
+ * `first`/`last` order the children by `orderBy` (defaulting to `field`) and
+ * return the `field` value of the first/last child. An empty child set yields
+ * `count` 0, `sum` 0 and the rest null.
+ */
+export interface RouterJoinAggregate {
+  /** The reducer: count | sum | avg | min | max | distinctCount | first | last. */
+  fn: string;
+  /** The child field reduced over (required for every `fn` except `count`). */
+  field?: string;
+  /** For first/last: the field the children are ordered by (defaults to `field`). */
+  orderBy?: string;
+}
 export interface RouterJoin {
-  /** The id of the registered source holding the lookup rows. */
+  /** The id of the registered source holding the lookup/collected rows. */
   from: string;
   /**
    * Reads the joining value off this source's row — a field name or a `fn(row)`.
-   * Required: without it (or `on`) the join is ignored with a warning.
+   * Required for a lookup join (or `on`); a collect join defaults it to the
+   * source's rowKey. Without it the join is ignored with a warning.
    */
   localKey?: RouterKey;
   /** An alias for `localKey`, read when `localKey` is absent. */
   on?: RouterKey;
   /**
-   * Reads the joining value off the lookup row — a field name or a `fn(row)`. Defaults to
-   * a string `localKey`; with a function `localKey` and no `foreignKey`, the join is
-   * ignored with a warning.
+   * Reads the joining value off the other source's rows — a field name or a `fn(row)`.
+   * Defaults to a string `localKey`; with a function `localKey` and no `foreignKey`, the
+   * join is ignored with a warning.
    */
   foreignKey?: RouterKey;
   /** An alias for `foreignKey`, read when `foreignKey` is absent. */
   fromKey?: RouterKey;
+  /** A COLLECT join (v14): gather every matching row instead of one. */
+  many?: boolean;
+  /**
+   * A COLLECT join's destination field: the collected array is written here. Required
+   * for a collect join; without it the join is ignored with a warning.
+   */
+  as?: string;
+  /**
+   * A ROLLUP-ONTO-PARENT join (v15): a `many: true` join with an
+   * `aggregate` map instead of `as`. Each named result is computed over the matching
+   * children and written onto the parent row. Omit `as` when `aggregate` is set.
+   */
+  aggregate?: Record<string, RouterJoinAggregate>;
+  /**
+   * Filters the children before any `aggregate` is computed: a predicate over each
+   * matching child row (its enriched form, so a child's own joins are visible). Only the
+   * rows it admits contribute to the result.
+   */
+  where?: (childRow: RouterRecord) => boolean;
   /**
    * Which lookup fields to carry onto the row: a list of names, a `{ from: to }` rename
    * map, or a `fn(lookupRow, leftRow)` returning the fields to merge. With none, rows
    * pass through unenriched and the router warns.
    */
-  fields?: string[] | Record<string, string> | ((lookupRow: RouterRecord | null, leftRow: RouterRecord) => RouterRecord);
-  /** An alias for `fields`, read when `fields` is absent. */
-  select?: string[] | Record<string, string> | ((lookupRow: RouterRecord | null, leftRow: RouterRecord) => RouterRecord);
+  fields?: string[] | Record<string, string> | ((lookupRow: RouterRecord | null, leftRow: RouterRecord) => unknown);
   /**
-   * What happens while the lookup row has not arrived: `hold` keeps the row from viewers
-   * until it does, `passthrough` sends it unenriched, `null` fills the declared fields
-   * with null. Defaults to `passthrough`, which an unrecognised value also falls back to,
-   * with a warning.
+   * An alias for `fields`, read when `fields` is absent. For a COLLECT join it is also
+   * the per-row mapping: `fn(fromRow, leftRow)` returning the value to collect (defaults
+   * to the whole from-row).
+   */
+  select?: string[] | Record<string, string> | ((lookupRow: RouterRecord | null, leftRow: RouterRecord) => unknown);
+  /** A COLLECT join: de-duplicate the collected values. Defaults to false. */
+  distinct?: boolean;
+  /**
+   * A COLLECT join: order the collected array — `true` for the default ascending order
+   * (numbers numerically, everything else by string), or a `compareFn`. Defaults to no
+   * sort.
+   */
+  sort?: boolean | ((a: unknown, b: unknown) => number);
+  /**
+   * What happens while the match has not arrived: `hold` keeps the row from viewers until
+   * it does, `passthrough` sends it unenriched (a collect join sets `as` to `[]`), `null`
+   * fills the declared fields with null (a collect join sets `as` to null). Defaults to
+   * `passthrough`, which an unrecognised value also falls back to, with a warning.
    */
   missing?: RouterJoinMissing;
+  /**
+   * A COLLECT join's parent-delete integrity (v18): what deleting
+   * a parent (this source's row) does to the collected children. `'cascade'` deletes
+   * every matching child (recursively), `'orphan'` keeps them marked `__orphan: true`
+   * and warns once, and `'keep'` (the default) keeps them bare — the unchanged
+   * behaviour. A rollup/spread join is not a collect join and does not read this.
+   */
+  onParentDelete?: RouterParentDelete;
+  /**
+   * A SPREAD join (v16): an EAV / custom-field source whose rows each
+   * become one field on the parent. `name` reads the attribute name off the child row and
+   * `value` the value (each a field name or a `fn(row)`), the pair written onto the parent
+   * as `prefix + name` — so `company` + `companyAttr` rows with `prefix: 'cf_'` gain
+   * `cf_industry`, `cf_tier` columns as attributes arrive. `include` narrows the names
+   * (an array, or a `fn(name, row)`), and `type` coerces per-name values (`number`,
+   * `date`, `boolean`, `text`). The attribute source's own joins apply first (multi-level),
+   * an attribute add/change/delete re-emits its parent live (a deleted field is absent, not
+   * stale), and the router reports the field names through `fieldsOf(ref)` and the
+   * `fields:changed` event. Set `spread` without `many: true`; it implies a one-to-many
+   * match and a `missing` policy has no meaning (a parent with no attribute simply carries
+   * no spread fields). Two attributes landing on one name are last-writer-wins and warned
+   * once (`router:spread-duplicate`); a spread field never overwrites a base parent field
+   * and warns once (`router:spread-collision`).
+   */
+  spread?: RouterSpread;
+}
+
+/** The value types a SPREAD join's `type` map can coerce an attribute to. */
+export type RouterSpreadType = 'number' | 'date' | 'boolean' | 'text';
+
+/**
+ * A SPREAD join's shape (v16): turn an EAV / custom-field
+ * source's rows into one field per attribute on the parent row.
+ */
+export interface RouterSpread {
+  /** Reads the attribute name off the child row — a field name or a `fn(row)`. Required. */
+  name: string | ((row: RouterRecord) => unknown);
+  /** Reads the attribute value off the child row — a field name or a `fn(row)`. Required. */
+  value: string | ((row: RouterRecord) => unknown);
+  /** Prepended to every attribute name on the parent (e.g. `'cf_'`). Defaults to `''`. */
+  prefix?: string;
+  /**
+   * Narrows which attribute names spread: an array of names, or a
+   * `fn(name, row)` returning true to keep. Omitted, every attribute spreads.
+   */
+  include?: string[] | ((name: string, row: RouterRecord) => boolean);
+  /**
+   * Coerces each attribute's value by name: `number`, `date`, `boolean` or
+   * `text`. A value that fails to parse keeps its raw value rather than
+   * becoming `NaN`/`Invalid Date`; `null`/`undefined` pass through untouched.
+   */
+  type?: Record<string, RouterSpreadType>;
+}
+
+/**
+ * The field types `addSource`'s `fields` option can coerce a raw value to: text, number (decimal comma and thousands separators),
+ * integer, boolean (configurable true/false sets), date (ISO, epoch s/ms or
+ * a small explicit pattern set) and json (parse a string).
+ */
+export type RouterFieldType = 'text' | 'number' | 'integer' | 'boolean' | 'date' | 'json';
+
+/**
+ * The input format a `date` field reads: `'iso'` (the
+ * default — ISO 8601, a `Date`, or an epoch number), `'epoch-s'` (seconds
+ * since the epoch), `'epoch-ms'` (milliseconds), or an explicit pattern such
+ * as `'dd/MM/yyyy'`, parsed with the grid's own date-pattern token vocabulary.
+ */
+export type RouterDateFieldFormat = 'iso' | 'epoch-s' | 'epoch-ms' | string;
+
+/**
+ * One entry of `addSource`'s `fields` option: a type name,
+ * or an options object. The object form narrows a `number`'s decimal
+ * separator (`decimal: ','`), gives a `boolean` its own true/false marker
+ * sets, chooses a `date`'s input `format`, and lists `nulls` — strings that
+ * mean null for this field, mapped before any coercion. A field with only
+ * `nulls` (no `type`) maps its null markers and passes every other value
+ * through untouched. A value that fails to coerce is stored as null and
+ * warns once per source+field (`router:coerce-failed`).
+ */
+export type RouterFieldSpec =
+  | RouterFieldType
+  | {
+      /** A field type; omit it (with only `nulls`) to just map null markers. */
+      type?: RouterFieldType;
+      /** A `date`'s input format: `'iso'` (default), `'epoch-s'`, `'epoch-ms'`, or a pattern. */
+      format?: RouterDateFieldFormat;
+      /** A `number`'s decimal separator: `','` (e.g. `1.234,56`) or `'.'` (default). */
+      decimal?: ',' | '.';
+      /** The strings a `boolean` field reads as true. */
+      true?: string[];
+      /** The strings a `boolean` field reads as false. */
+      false?: string[];
+      /** Strings that mean null for this field, mapped before any coercion. */
+      nulls?: string[];
+    };
+
+/**
+ * One `unnest` spec of `addSource` (v17): expand a nested
+ * array on each of a source's rows into its OWN row type, routed through the
+ * ordinary partition/route/join machinery. `path` is the dotted array field
+ * (`'profile.addresses'`); `as` is the child type (and its source id, so a
+ * lookup/collect join can `from` it); `key` is the child's identity — a field
+ * name, or `fn(child, parent, index)`, defaulting to `` `${parentKey}:${index}` ``
+ * (the index fallback, whose caveat is that reordering an array churns its
+ * children); `parentKey` is the field written onto each child holding the
+ * parent's key (default `${source}Id`); `keep` (default false) keeps the
+ * nested array on the parent's own routed row; and `join`/`unnest` are the
+ * child source's own joins and nested unnest. A parent update whose nested
+ * array changed emits a keyed diff of its children (add/change/remove by
+ * child key; a child moved between parents is a remove + add), a parent
+ * delete removes its children, and a `load()` snapshot diffs children too.
+ * Two children of one parent resolving to the same key warn once
+ * (`router:unnest-duplicate-key`), last in source order winning.
+ */
+export interface RouterUnnest {
+  /** The dotted array field on the parent row to expand. */
+  path: string;
+  /** The child row type (and its source id, so joins can `from` it). */
+  as: string;
+  /**
+   * The child's identity: a field name read off the child, or
+   * `fn(child, parent, index)`. Defaults to `` `${parentKey}:${index}` `` — the
+   * index fallback, which churns its children when an array is reordered.
+   */
+  key?: string | ((child: RouterRecord, parent: RouterRecord, index: number) => string | number);
+  /** The field written onto each child holding the parent's key (default `${source}Id`). */
+  parentKey?: string;
+  /** Keep the nested array on the parent's own routed row. Defaults to false. */
+  keep?: boolean;
+  /**
+   * What a parent's delete does to its unnested children (v18).
+   * `'cascade'` (the default, and the unchanged behaviour) removes them,
+   * `'orphan'` keeps them marked `__orphan: true` and warns once, and `'keep'`
+   * keeps them bare. A re-added parent re-adopts its orphans (the mark clears).
+   */
+  onParentDelete?: RouterParentDelete;
+  /** The child source's own joins (applied after unnest, before it routes). */
+  join?: RouterJoin | RouterJoin[];
+  /** A nested unnest: the child rows may declare their own nested arrays. */
+  unnest?: RouterUnnest | RouterUnnest[];
 }
 
 /**
  * Options for a fan-in source (v9): `map` normalises each of the feed's rows
  * before routing; `key` namespaces the feed's identities (`true` prefixes
  * the source id) so feeds with colliding ids do not clobber one another;
- * `join` enriches rows from another registered source (v11).
+ * `join` enriches (lookup), collects (`many: true`) or rolls aggregates onto
+ * (`many: true` + `aggregate`) rows from another registered source
+ * (v11/v14/v15), as one spec or an array applied in order; `fields` coerces
+ * raw values to typed values before joins; and `unnest`
+ * expands a nested array on each row into its own row type (v17).
  */
-export interface RouterSourceOptions { id?: string; map?: (row: RouterRecord) => RouterRecord; key?: unknown; join?: RouterJoin }
+export interface RouterSourceOptions { id?: string; map?: (row: RouterRecord) => RouterRecord; key?: unknown; join?: RouterJoin | RouterJoin[]; unnest?: RouterUnnest | RouterUnnest[]; fields?: Record<string, RouterFieldSpec> }
 
 /**
  * The handle `addSource` returns for one feed (v9). Its `load` is a
@@ -403,20 +614,29 @@ export interface RouterPersistOptions {
 /**
  * The events a data router raises.
  *
- * One event, and the router raises nothing else: routing itself is reported to
- * each attached viewer through its own `rows.apply`, not through an event here.
- * The `metrics` timer runs only while at least one `metrics` listener is
- * registered, so collection costs nothing until someone asks for it, and stops
- * when the last listener unsubscribes.
+ * Routing itself is reported to each attached viewer through its own
+ * `rows.apply`, not through an event here. `metrics` is the periodic
+ * observability timer, running only while at least one listener is registered
+ * so collection costs nothing until someone asks for it. `fields:changed`
+ * (v16) fires when a spread join's field set for a route changes.
  */
 export type RouterEventName =
   /** The metrics timer fired: a `metrics()` snapshot, every `metricsInterval` ms (default 1000; `0` disables the timer). */
-  | 'metrics';
+  | 'metrics'
+  /** A route's spread field set changed (v16): `{ route, added, removed }`, the names that appeared and disappeared. */
+  | 'fields:changed';
 
 /** What a handler receives, per router event. */
 export interface RouterEventPayloads {
   /** The same snapshot `metrics()` returns, taken at the emit; the throughput baseline advances with it. */
   metrics: RouterMetrics;
+  /**
+   * The spread field names a route gained and lost since the last emit, keyed
+   * by the route's partition value, label or target (v16). `added` are the
+   * names that first appeared, `removed` those that disappeared; a host turns
+   * `added` into grid columns and `removed` into dropped columns.
+   */
+  'fields:changed': { route: unknown; added: string[]; removed: string[] };
 }
 
 /**
@@ -475,11 +695,31 @@ export interface DataRouter {
   removeSource(ref: string | RouterSourceHandle): DataRouter;
   /** The registered source ids (v9). */
   sources(): string[];
+  /**
+   * Declare a parent→child delete rule without a join (v18):
+   * deleting a `parent` row cascades (`onParentDelete: 'cascade'`) or orphans
+   * (`'orphan'`) the `child` rows whose `foreignKey` matches, or does nothing
+   * (`'keep'`, the default). `writeBack` (default false) routes each cascaded
+   * delete through the router's `onWrite` so the host persists it.
+   */
+  relateRows(o: { child: string | RouterSourceHandle; parent: string | RouterSourceHandle; foreignKey: RouterKey; onParentDelete?: RouterParentDelete; writeBack?: boolean }): DataRouter;
+  /**
+   * The spread field names a route currently carries (v16):
+   * with a `spread` join, each EAV attribute row becomes its own field on the
+   * parent, and this reports the names a host can turn into grid columns. Pass
+   * the route's target (an `attach` grid or a `subscribe` handler), its
+   * partition value, or its `label`. Returns the names in first-seen order — an
+   * empty array for an unknown route, a route with no spread fields, or a router
+   * with no spread join. Pair it with the `fields:changed` event to add or drop
+   * columns as attributes appear and disappear.
+   */
+  fieldsOf(ref: unknown): string[];
   /** A cheap point-in-time snapshot of the router's runtime (v10); throughput is measured since the previous read. */
   metrics(): RouterMetrics;
   /**
-   * Subscribe to the periodic `metrics` emit (v10) — the only event; the timer runs only
-   * while a listener is registered. What it carries is {@link RouterEventPayloads}.
+   * Subscribe to a router event (v10): the periodic `metrics` emit — the timer runs only
+   * while a listener is registered — or a `fields:changed` emit when a spread join's field
+   * set for a route changes (v16). What each carries is {@link RouterEventPayloads}.
    * Returns the unsubscribe.
    */
   on(event: RouterEventName, handler: (snapshot: RouterEventPayloads[RouterEventName]) => void): () => void;

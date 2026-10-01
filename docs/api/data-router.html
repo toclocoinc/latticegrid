@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Data router API Reference — Lattice Grid 1.83.1</title>
+<title>Data router API Reference — Lattice Grid 1.84.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -395,6 +395,11 @@
         <a class="rail__sub-link" href="#datarouter-v7-example">Query-slice routing, executed</a>
         <a class="rail__sub-link" href="#datarouter-v9-example">Fan-in from two feeds, executed</a>
         <a class="rail__sub-link" href="#datarouter-v11-example">A JOIN with a late lookup, executed</a>
+        <a class="rail__sub-link" href="#datarouter-collect-example">A multi-level COLLECT join into a list column, executed</a>
+        <a class="rail__sub-link" href="#datarouter-rollup-parent-example">A rollup-onto-parent join, executed</a>
+        <a class="rail__sub-link" href="#datarouter-fields-example">Field coercion feeding a typed grid, executed</a>
+        <a class="rail__sub-link" href="#datarouter-spread-example">A SPREAD join of EAV attributes onto a parent, executed</a>
+        <a class="rail__sub-link" href="#datarouter-unnest-example">Unnest: a nested REST payload into two grids, executed</a>
         <a class="rail__sub-link" href="#datarouter-v10-example">A metrics snapshot, executed</a>
         <a class="rail__sub-link" href="#datarouter-options-examples">The remaining options, each executed</a>
         <a class="rail__sub-link" href="#datarouter-overlap-example">Fan one value to two viewers, and log the strays, executed</a>
@@ -411,6 +416,8 @@
         <a class="rail__sub-link" href="#datarouter-checkpoint-example">Persist and prime the resume checkpoint, executed</a>
         <a class="rail__sub-link" href="#datarouter-replay-pause-example">Walk an incident with pause and resume, executed</a>
         <a class="rail__sub-link" href="#datarouter-devtools-example">Mount the live devtools panel, executed</a>
+        <a class="rail__sub-link" href="#datarouter-integrity">Parent-delete integrity: cascade, orphan, keep (v18, BACKLOG-0001612)</a>
+        <a class="rail__sub-link" href="#datarouter-integrity-example">A standalone cascade rule, executed</a>
         <a href="#ref-data-router-reference">Type reference</a>
         <a class="rail__sub-link" href="#type-DataRouter">DataRouter</a>
       </div>
@@ -424,6 +431,7 @@
         <a href="geometry.html">The geometry module</a>
         <a href="deckgl.html">The deck.gl adapter</a>
         <a href="leaflet.html">The Leaflet binding</a>
+        <a href="mapview.html">The map view</a>
         <a href="list.html">The list module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
@@ -453,7 +461,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 21 pages</a></span>
+      <span class="chip"><a href="index.html">All 22 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -519,7 +527,7 @@ router.load(snapshot);                        <span class="cmt">// every viewer 
           <tr><td class="sig">traveling / buffered</td><td class="desc"><strong>v4:</strong> whether the grids currently show a reconstructed past, and how many deltas are held in the bounded buffer.</td></tr>
           <tr><td class="sig">broadcast({ channel })</td><td class="desc"><strong>v6 (BACKLOG-0000913):</strong> mirror the router's ordered, de-duplicated deltas to other browser tabs/windows over a <strong>BroadcastChannel</strong>, so a grid popped into its own tab joins the same feed with no second socket. Each tab runs its own router on the same <code>channel</code> name; an inbound mirror is applied without re-broadcasting (no echo loop), and <code>broadcast</code> announces the tab so a peer holding the feed resyncs it mid-stream (snapshot + replay). Off by default; needs a <code>seq</code>/<code>dedupe</code> router to drop replayed deltas cleanly.</td></tr>
           <tr><td class="sig">broadcasting</td><td class="desc"><strong>v6:</strong> whether the router is currently mirroring to a BroadcastChannel.</td></tr>
-          <tr><td class="sig">addSource(feed, { map?, key? })</td><td class="desc"><strong>v9 (BACKLOG-0000931):</strong> register a source feed &mdash; fan-in. Returns a handle (<code>load</code>/<code>apply</code>/<code>push</code>/<code>remove</code>, plus <code>id</code>/<code>size</code>) whose rows are normalized by <code>map</code> and namespaced by <code>key</code> (a prefix string, <code>true</code> to prefix with the source id, or a <code>keyFn(row)</code>) so ids from different feeds cannot collide, then merged through the router's ordinary path &mdash; partitioned, routed, linked, deduped, buffered and written back exactly as the single-source path. <code>feed</code> is an optional source id or an options object. A source may also carry a <code>join</code> spec (v11) to <strong>enrich</strong> its rows with fields looked up from another source.</td></tr>
+          <tr><td class="sig">addSource(feed, { map?, key?, join?, unnest?, fields? })</td><td class="desc"><strong>v9 (BACKLOG-0000931):</strong> register a source feed &mdash; fan-in. Returns a handle (<code>load</code>/<code>apply</code>/<code>push</code>/<code>remove</code>, plus <code>id</code>/<code>size</code>) whose rows are normalized by <code>map</code> and namespaced by <code>key</code> (a prefix string, <code>true</code> to prefix with the source id, or a <code>keyFn(row)</code>) so ids from different feeds cannot collide, then merged through the router's ordinary path &mdash; partitioned, routed, linked, deduped, buffered and written back exactly as the single-source path. <code>feed</code> is an optional source id or an options object. A source may also carry a <code>join</code> spec (v11) to <strong>enrich</strong> its rows with fields looked up from another source, an <code>unnest</code> spec (v17, BACKLOG-0001610) to <strong>expand</strong> a nested array into its own row type, and a <code>fields</code> map (BACKLOG-0001613) to <strong>coerce</strong> raw values to typed values before joins.</td></tr>
           <tr><td class="sig">removeSource(ref) / sources()</td><td class="desc"><strong>v9:</strong> drop exactly the rows a feed contributed (by source id or handle) from every route and unregister it; and list the registered source ids.</td></tr>
           <tr><td class="sig">metrics()</td><td class="desc"><strong>v10 (BACKLOG-0000932):</strong> a cheap point-in-time observability snapshot &mdash; per-route row counts and throughput (rows/sec since the previous read), per-source rates and totals (fan-in), and the global <code>unrouted</code> / <code>dropped</code> / <code>buffered</code> / <code>lag</code> figures. Throughput is sampled over the interval since the last <code>metrics()</code> call or emit. Each entry in <code>routes[]</code> also carries its <code>label</code> and, when the route declares a backpressure policy, a <code>backpressure: { pending, coalesced }</code> object &mdash; <code>pending</code> is the held backlog since the last flush (the route's lag) and <code>coalesced</code> the cumulative change-events it has absorbed into deferred refreshes (<code>null</code> when the route has no policy).</td></tr>
           <tr><td class="sig">on('metrics', handler)</td><td class="desc"><strong>v10:</strong> subscribe to the periodic <code>metrics</code> emit (the <code>metricsInterval</code> ms, default 1000; <code>0</code> disables it). The timer runs only while at least one listener is registered and stops when the last is removed. Returns an unsubscribe function.</td></tr>
@@ -884,6 +892,188 @@ customers.load([{ id: 'C1', kind: 'customer', customerId: 'C1', name: 'Acme' }])
 
 g.destroy(); router.destroy();
 <span class="kw">return</span> [held, released, name].join(' | ');</code></pre>
+
+    <p><strong>COLLECT join and join arrays (v14, BACKLOG-0001607).</strong> A <code>join</code> may be <em>one</em> spec or an <em>array</em> applied in order, and a spec with <code>many: true</code> is a <strong>collect join</strong> instead of a lookup: it gathers <em>every</em> row of <code>from</code> whose <code>foreignKey</code> equals the left row's <code>localKey</code> (defaults to the source's <code>rowKey</code>) into an array written under <code>as</code>, mapping each by <code>select(fromRow, leftRow)</code> (default the whole row), with optional <code>distinct</code> and <code>sort</code> (<code>true</code> for the default ascending order, or a <code>compareFn</code>). <code>missing</code> works as for a lookup, on the collected array: <code>passthrough</code> (default) yields <code>[]</code> when nothing matches, <code>null</code> yields <code>null</code>, and <code>hold</code> withholds the row until at least one match arrives. Because a join reads <code>from</code>'s rows <em>after</em> that source's own joins, the graph chains into a <strong>multi-level join</strong> &mdash; a country rename re-enriches its addresses, which re-collect their companies &mdash; live everywhere by keyed diff, touching only the affected rows and recomputed from the base row so it stays idempotent. A declaration that would close a cycle (a source collecting from a source that transitively collects from it) is refused by name (<code>router:join-cycle</code>) rather than recursing.</p>
+    <h3 id="datarouter-collect-example">A multi-level COLLECT join into a <code>list</code> column, executed</h3>
+    <p class="section-note">An address looks up its country's name; a company collects its addresses' names &mdash; distinct and
+    sorted &mdash; into a <code>list</code> column. Run headless on every build.</p>
+    <pre data-run="js" data-expect="France,Germany | Germany,UK | UK" data-covers="export:createDataRouter method:data-router.addSource config:ColumnTypeOptions.of"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+<span class="kw">await</span> import('../packages/modules/list/index.js');   <span class="cmt">// registers the `list` type</span>
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'countries', field: 'countries', type: 'list', typeOptions: { of: 'text' } }];
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ key: 'kind', rowKey: 'id' });
+router.attach(g, 'company');
+
+<span class="kw">const</span> countries = router.addSource('country');
+<span class="kw">const</span> address = router.addSource('address', { join: { from: 'country', localKey: 'countryId', fields: { name: 'countryName' } } });
+<span class="kw">const</span> company = router.addSource('company', { join: { from: 'address', foreignKey: 'companyId', many: true, select: (a) =&gt; a.countryName, distinct: true, sort: true, as: 'countries' } });
+
+countries.load([
+  { id: 'CO1', kind: 'country', countryId: 'CO1', name: 'France' },
+  { id: 'CO2', kind: 'country', countryId: 'CO2', name: 'Germany' },
+  { id: 'CO3', kind: 'country', countryId: 'CO3', name: 'UK' },
+]);
+address.load([
+  { id: 'A1', kind: 'address', companyId: 'C1', countryId: 'CO1' },
+  { id: 'A2', kind: 'address', companyId: 'C1', countryId: 'CO1' },  <span class="cmt">// same country twice: distinct collapses it</span>
+  { id: 'A3', kind: 'address', companyId: 'C1', countryId: 'CO2' },
+  { id: 'A4', kind: 'address', companyId: 'C2', countryId: 'CO2' },
+  { id: 'A5', kind: 'address', companyId: 'C2', countryId: 'CO3' },
+  { id: 'A6', kind: 'address', companyId: 'C3', countryId: 'CO3' },
+]);
+company.load([{ id: 'C1', kind: 'company' }, { id: 'C2', kind: 'company' }, { id: 'C3', kind: 'company' }]);
+
+<span class="kw">const</span> pick = (k) =&gt; { <span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; g.rows.count(); i++) { <span class="kw">const</span> r = g.rows.get(i); <span class="kw">if</span> (r.key === k) <span class="kw">return</span> r.data.countries; } <span class="kw">return</span> []; };
+<span class="kw">const</span> out = [pick('C1').join(','), pick('C2').join(','), pick('C3').join(',')].join(' | ');
+g.destroy(); router.destroy();
+<span class="kw">return</span> out;</code></pre>
+
+    <p><strong>Rollup onto the parent (v15, BACKLOG-0001609).</strong> A <code>many: true</code> join may <em>compute</em> instead of <em>collect</em>: give it an <code>aggregate</code> map (in place of <code>as</code>) and each named reducer is written straight onto the parent row. The reducer <code>fn</code>s reuse the v3 rollup vocabulary &mdash; <code>count</code>, <code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code> &mdash; plus <code>distinctCount</code>, <code>first</code> and <code>last</code> (<code>first</code>/<code>last</code> order the children by an <code>orderBy</code> field and return the <code>field</code> value of the first/last child; <code>orderBy</code> defaults to <code>field</code>). A join-level <code>where: (childRow) =&gt; boolean</code> filters the children before any aggregate is computed. An empty child set yields <code>count</code> 0, <code>sum</code> 0 and the rest <code>null</code>. Because a join reads <code>from</code>'s rows after that source's own joins, a company can count the distinct countries its addresses sit in &mdash; a country rename re-enriches the addresses and the company's counts follow &mdash; live by keyed diff, one parent re-emitted per child change.</p>
+    <h3 id="datarouter-rollup-parent-example">A rollup-onto-parent join, executed</h3>
+    <p class="section-note">An address looks up its country's name; a company counts its addresses and the distinct
+    countries they sit in. Run headless on every build.</p>
+    <pre data-run="js" data-expect="3,2 | 2,2" data-covers="export:createDataRouter method:data-router.addSource"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: [
+  { id: 'id', field: 'id' },
+  { id: 'addressCount', field: 'addressCount', type: 'number' },
+  { id: 'countriesCount', field: 'countriesCount', type: 'number' },
+] });
+<span class="kw">const</span> router = createDataRouter({ key: 'kind', rowKey: 'id' });
+router.attach(g, 'company');
+
+<span class="kw">const</span> country = router.addSource('country');
+<span class="kw">const</span> address = router.addSource('address', { join: { from: 'country', localKey: 'countryId', fields: { name: 'countryName' } } });
+<span class="kw">const</span> company = router.addSource('company', { join: {
+  from: 'address', foreignKey: 'companyId', many: true,
+  aggregate: { addressCount: { fn: 'count' }, countriesCount: { field: 'countryName', fn: 'distinctCount' } },
+} });
+
+country.load([
+  { id: 'CO1', kind: 'country', countryId: 'CO1', name: 'France' },
+  { id: 'CO2', kind: 'country', countryId: 'CO2', name: 'Germany' },
+  { id: 'CO3', kind: 'country', countryId: 'CO3', name: 'UK' },
+]);
+address.load([
+  { id: 'A1', kind: 'address', companyId: 'C1', countryId: 'CO1' },
+  { id: 'A2', kind: 'address', companyId: 'C1', countryId: 'CO1' },  <span class="cmt">// same country twice: distinct collapses it</span>
+  { id: 'A3', kind: 'address', companyId: 'C1', countryId: 'CO2' },
+  { id: 'A4', kind: 'address', companyId: 'C2', countryId: 'CO2' },
+  { id: 'A5', kind: 'address', companyId: 'C2', countryId: 'CO3' },
+]);
+company.load([{ id: 'C1', kind: 'company' }, { id: 'C2', kind: 'company' }]);
+
+<span class="kw">const</span> pick = (k) =&gt; { <span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; g.rows.count(); i++) { <span class="kw">const</span> r = g.rows.get(i); <span class="kw">if</span> (r.key === k) <span class="kw">return</span> `${r.data.addressCount},${r.data.countriesCount}`; } <span class="kw">return</span> ''; };
+<span class="kw">const</span> out = [pick('C1'), pick('C2')].join(' | ');
+g.destroy(); router.destroy();
+<span class="kw">return</span> out;</code></pre>
+    <p><strong>Shaping: <code>map</code> plus <code>fields</code> coercion (BACKLOG-0001613).</strong> Beyond <code>map</code> — which renames and reshapes a feed&rsquo;s rows &mdash; a source may declare a <code>fields</code> map that <em>coerces</em> raw values to the typed values the grid&rsquo;s columns expect. Each entry is a type name (<code>'text'</code>, <code>'number'</code>, <code>'integer'</code>, <code>'boolean'</code>, <code>'date'</code>, <code>'json'</code>) or an options object: <code>{ type: 'number', decimal: ',' }</code> reads a decimal comma and thousands separators; <code>{ type: 'boolean', true: ['Y','yes','1'], false: ['N','no','0'] }</code> names its own marker sets; <code>{ type: 'date', format: 'iso' | 'epoch-s' | 'epoch-ms' | 'dd/MM/yyyy' }</code> chooses the input format (the result is the grid&rsquo;s <code>YYYY-MM-DD</code> date storage form, and the router reuses the core&rsquo;s own parsers so the two never disagree); <code>'json'</code> parses a string. Any field may also list <code>nulls: ['', 'N/A', '-']</code> to map those strings to null first. Coercion runs <em>after</em> <code>map</code> and <em>before</em> joins, so join keys, spread and rollups all read typed values; a value that fails to coerce is stored as null and warns once per source+field (<code>router:coerce-failed</code>), never thrown; an undeclared field passes through untouched.</p>
+    <h3 id="datarouter-fields-example">Field coercion feeding a typed grid, executed</h3>
+    <p class="section-note">A feed sends a decimal-comma amount and a Y/N flag; <code>fields</code> coerces them to the number and
+    boolean the grid&rsquo;s typed columns sort and filter on, before any join sees them. Run headless on every build.</p>
+    <pre data-run="js" data-expect="1234.56 | number | true | true" data-covers="export:createDataRouter method:data-router.addSource method:data-router.attach"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [
+  { id: 'id', field: 'id' }, { id: 'kind', field: 'kind' },
+  { id: 'amount', field: 'amount', type: 'number' },
+  { id: 'active', field: 'active', type: 'boolean' },
+];
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="kw">const</span> router = createDataRouter({ key: 'kind', rowKey: 'id' });
+router.attach(g, 'order');
+
+<span class="cmt">// The feed sends "1.234,56" and "Y"/"N"; `fields` types them for the grid.</span>
+<span class="kw">const</span> orders = router.addSource('orders', {
+  fields: {
+    amount: { type: 'number', decimal: ',' },
+    active: { type: 'boolean', true: ['Y', 'yes'], false: ['N', 'no'] },
+  },
+});
+orders.load([
+  { id: 'o1', kind: 'order', amount: '1.234,56', active: 'Y' },
+  { id: 'o2', kind: 'order', amount: '42', active: 'N' },
+]);
+
+<span class="kw">const</span> amount = g.rows.value('o1', 'amount');   <span class="cmt">// 1234.56 — a number, not "1.234,56"</span>
+<span class="kw">const</span> typed = <span class="kw">typeof</span> amount;                   <span class="cmt">// number</span>
+<span class="kw">const</span> active = g.rows.value('o1', 'active');   <span class="cmt">// true — a boolean, not "Y"</span>
+<span class="cmt">// The typed number column compares numerically, so o1 sorts above o2.</span>
+<span class="kw">const</span> bigger = g.rows.value('o1', 'amount') &gt; g.rows.value('o2', 'amount');
+
+g.destroy(); router.destroy();
+<span class="kw">return</span> [amount, typed, active, bigger].join(' | ');</code></pre>
+
+    <p><strong>Spread onto the parent (v16, BACKLOG-0001611).</strong> An EAV / custom-field source's rows each become their OWN field on the parent: give the join a <code>spread</code> spec instead of <code>as</code>/<code>aggregate</code>, and every matching child row writes <code>prefix + name(row)</code> &rarr; <code>value(row)</code> onto the parent. <code>name</code> and <code>value</code> are field names or <code>fn(row)</code>s; <code>prefix</code> (e.g. <code>'cf_'</code>) namespaces them; <code>include</code> narrows which attributes spread (an array, or a <code>fn(name, row)</code>); and <code>type</code> coerces per-name values (<code>number</code>/<code>date</code>/<code>boolean</code>/<code>text</code>, a bad parse keeping the raw value rather than a silent <code>NaN</code>/<code>Invalid Date</code>). The attribute source's own joins apply first (multi-level), an attribute add/change/delete re-emits its parent live, and a deleted attribute leaves the field <em>cleared</em> rather than stale. Two attributes landing on one name are last-writer-wins and warned once (<code>router:spread-duplicate</code>); a spread field never overwrites a base parent field and warns once (<code>router:spread-collision</code>). The router reports the field names per route through <code>fieldsOf(ref)</code> and the <code>fields:changed</code> event (<code>{ route, added, removed }</code>), so a host can add or drop grid columns as custom attributes appear and disappear.</p>
+    <h3 id="datarouter-spread-example">A SPREAD join of EAV attributes onto a parent, executed</h3>
+    <p class="section-note">Each <code>companyAttr</code> row becomes one <code>cf_</code>-prefixed field on its company; <code>fieldsOf</code>
+    reports the names a host turns into grid columns. Run headless on every build.</p>
+    <pre data-run="js" data-expect="Media,Gold | cf_industry,cf_tier" data-covers="export:createDataRouter method:data-router.addSource method:data-router.fieldsOf"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }] });
+<span class="kw">const</span> router = createDataRouter({ key: 'kind', rowKey: 'id' });
+router.attach(g, 'company');
+
+<span class="kw">const</span> attr = router.addSource('companyAttr');
+<span class="kw">const</span> company = router.addSource('company', { join: {
+  from: 'companyAttr', foreignKey: 'companyId',
+  spread: { name: 'attribute', value: 'value', prefix: 'cf_' },
+}});
+
+company.load([{ id: 'C1', kind: 'company', name: 'Acme' }]);
+attr.load([
+  { id: 'A1', kind: 'companyAttr', companyId: 'C1', attribute: 'industry', value: 'Media' },
+  { id: 'A2', kind: 'companyAttr', companyId: 'C1', attribute: 'tier', value: 'Gold' },
+]);
+
+<span class="kw">const</span> pick = (k) =&gt; { <span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; g.rows.count(); i++) { <span class="kw">const</span> r = g.rows.get(i); <span class="kw">if</span> (r.key === k) <span class="kw">return</span> r.data; } <span class="kw">return</span> {}; };
+<span class="kw">const</span> row = pick('C1');
+<span class="kw">const</span> out = [row.cf_industry, row.cf_tier].join(',') + ' | ' + router.fieldsOf('company').join(',');
+g.destroy(); router.destroy();
+<span class="kw">return</span> out;</code></pre>
+
+    <p><strong>Unnest a nested payload (v17, BACKLOG-0001610).</strong> A REST-style response embeds its children: a company carries an <code>addresses</code> array. Give the source an <code>unnest</code> spec and each element becomes its OWN row type, routed through the ordinary partition/route/join machinery &mdash; an <code>address</code> grid fills from the companies&rsquo; embedded addresses, a <code>country</code> lookup join can enrich each address, and a <code>company</code> collect join can collect its children&rsquo;s looked-up fields straight back. Each spec is <code>{ path, as, key?, parentKey?, keep?, join?, unnest? }</code>: <code>path</code> is the dotted array field (<code>'profile.addresses'</code>); <code>as</code> the child type (and its source id, so a lookup/collect join can <code>from</code> it); <code>key</code> the child&rsquo;s identity &mdash; a field name, or <code>fn(child, parent, index)</code>, defaulting to <code>`${parentKey}:${index}`</code> (the index fallback, whose caveat is that reordering an array churns its children); <code>parentKey</code> the field written onto each child holding the parent&rsquo;s key (default <code>${source}Id</code>, e.g. <code>companyId</code>); <code>keep</code> (default false) keeps the nested array on the parent&rsquo;s own routed row; and <code>join</code>/<code>unnest</code> are the child source&rsquo;s own joins and nested unnest. A parent update whose array changed emits a keyed diff of its children (add/change/remove by child key; a child moved between parents is a remove + add), a parent delete removes its children, and a <code>load()</code> snapshot diffs children too. Two children of one parent resolving to the same key warn once (<code>router:unnest-duplicate-key</code>), last in source order winning.</p>
+    <h3 id="datarouter-unnest-example">Unnest: a nested REST payload into two grids, executed</h3>
+    <p class="section-note">A company payload embeds its addresses; <code>unnest</code> routes them to an address grid, each address
+    looks up its country&rsquo;s name, and the company collects those names back. Run headless on every build.</p>
+    <pre data-run="js" data-expect="3 | France,Germany | C1" data-covers="export:createDataRouter method:data-router.addSource"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> companyGrid = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }, { id: 'name', field: 'name' }] });
+<span class="kw">const</span> addressGrid = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }, { id: 'companyId', field: 'companyId' }] });
+<span class="kw">const</span> router = createDataRouter({ key: 'kind', rowKey: 'id' });
+router.attach(companyGrid, 'company');
+router.attach(addressGrid, 'address');
+
+<span class="kw">const</span> country = router.addSource('country');
+<span class="kw">const</span> company = router.addSource('company', {
+  unnest: [{ path: 'addresses', as: 'address', key: 'id', parentKey: 'companyId',
+             join: { from: 'country', localKey: 'countryId', fields: { name: 'countryName' } } }],
+  join: { from: 'address', foreignKey: 'companyId', many: true, select: (a) =&gt; a.countryName, distinct: true, sort: true, as: 'countries' },
+});
+
+country.load([
+  { id: 'CO1', kind: 'country', countryId: 'CO1', name: 'France' },
+  { id: 'CO2', kind: 'country', countryId: 'CO2', name: 'Germany' },
+]);
+company.load([
+  { id: 'C1', kind: 'company', name: 'Acme', addresses: [
+    { id: 'A1', countryId: 'CO1' },
+    { id: 'A2', countryId: 'CO2' },
+    { id: 'A3', countryId: 'CO1' },
+  ] },
+]);
+
+<span class="kw">const</span> pick = (g, k) =&gt; { <span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; g.rows.count(); i++) { <span class="kw">const</span> r = g.rows.get(i); <span class="kw">if</span> (r.key === k) <span class="kw">return</span> r.data; } <span class="kw">return</span> {}; };
+<span class="kw">const</span> addrCount = addressGrid.rows.count();
+<span class="kw">const</span> countries = pick(companyGrid, 'C1').countries.join(',');
+<span class="kw">const</span> a1Company = pick(addressGrid, 'A1').companyId;
+companyGrid.destroy(); addressGrid.destroy(); router.destroy();
+<span class="kw">return</span> [addrCount, countries, a1Company].join(' | ');</code></pre>
 
     <p><strong>Observability (v10, BACKLOG-0000932).</strong> <code>metrics()</code> is a cheap point-in-time snapshot of the router's runtime &mdash; per-route row counts and throughput (rows/sec since the previous read), per-source rates and totals (fan-in), and the global <code>unrouted</code> / <code>dropped</code> (duplicate) / <code>buffered</code> (buffer depth) / <code>lag</code> figures. Throughput is sampled, so it is measured over the interval since the last read or emit. <code>on('metrics', handler)</code> drives it on a periodic timer (the <code>metricsInterval</code> ms, default 1000; <code>0</code> disables it) and returns an unsubscribe &mdash; the timer runs only while a listener is registered, so collection is off-by-default. <code>mountDevtools(el, { interval? })</code> mounts an opt-in DOM panel (in the module's own <code>devtools.js</code>, so the core stays DOM-free) that renders <code>metrics()</code> and refreshes on each emit.</p>
     <h3 id="datarouter-v10-example">A metrics snapshot, executed</h3>
@@ -1250,6 +1440,33 @@ panel.destroy();                                <span class="cmt">// unsubscribe
 
 g.destroy(); router.destroy();
 <span class="kw">return</span> [mountedRows, stillMounted, afterDestroy].join(' | ');</code></pre>
+
+    <h3 id="datarouter-integrity">Parent-delete integrity: cascade, orphan, keep (v18, BACKLOG-0001612)</h3>
+    <p>When a parent row is deleted, what happens to its children? <code>onParentDelete: 'cascade' | 'orphan' | 'keep'</code> answers that on a COLLECT join (<code>join: { from, foreignKey, many: true, as, onParentDelete }</code>), on an unnest (<code>unnest: { path, as, onParentDelete }</code>), and standalone via <code>relateRows({ child, parent, foreignKey, onParentDelete, writeBack })</code> &mdash; the last is for a parent&rarr;child relationship the router does not otherwise read. <code>'cascade'</code> deletes every child whose foreign key matches the deleted parent, in one keyed-diff batch, recursively through the child&rsquo;s own cascades (a company whose addresses cascade, whose phones cascade). <code>'orphan'</code> keeps the children, marks them <code>__orphan: true</code> (a documented field), and warns once (<code>router:orphaned-rows</code>, with the count); a re-added parent re-adopts its orphans (the mark clears). <code>'keep'</code> keeps them bare &mdash; the default for a collect join and for <code>relateRows</code>, and the unchanged behaviour there; an unnest&rsquo;s unchanged behaviour is already to remove its children, so it defaults to <code>'cascade'</code>. The join graph is acyclic (a cyclic join is refused), and <code>relateRows</code> cycles are broken by never deleting a row twice. Cascaded deletes do <strong>not</strong> trigger write-back &mdash; the server is assumed to have done the cascade &mdash; unless <code>writeBack: true</code> on <code>relateRows</code>, which routes each cascaded delete to the router&rsquo;s <code>onWrite</code> so the host persists it.</p>
+    <h3 id="datarouter-integrity-example">A standalone cascade rule, executed</h3>
+    <p class="section-note"><code>relateRows</code> declares a parent&rarr;child delete rule without a join: deleting a company cascades its addresses. Run headless on every build.</p>
+    <pre data-run="js" data-expect="1 | 1" data-covers="export:createDataRouter method:data-router.addSource method:data-router.relateRows"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> companyGrid = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }] });
+<span class="kw">const</span> addressGrid = createHeadlessGrid({ rowKey: 'id', columns: [{ id: 'id', field: 'id' }] });
+<span class="kw">const</span> router = createDataRouter({ key: 'kind', rowKey: 'id' });
+router.attach(companyGrid, 'company');
+router.attach(addressGrid, 'address');
+<span class="kw">const</span> company = router.addSource('company');
+<span class="kw">const</span> address = router.addSource('address');
+router.relateRows({ child: 'address', parent: 'company', foreignKey: 'companyId', onParentDelete: 'cascade' });
+address.load([
+  { id: 'A1', kind: 'address', companyId: 'C1' },
+  { id: 'A2', kind: 'address', companyId: 'C1' },
+  { id: 'A3', kind: 'address', companyId: 'C2' },
+]);
+company.load([{ id: 'C1', kind: 'company' }, { id: 'C2', kind: 'company' }]);
+company.apply([{ op: 'delete', row: { id: 'C1', kind: 'company' } }]);   <span class="cmt">// cascades A1 + A2</span>
+<span class="kw">const</span> companyCount = companyGrid.rows.count();   <span class="cmt">// 1: C2 survives</span>
+<span class="kw">const</span> addressCount = addressGrid.rows.count();   <span class="cmt">// 1: A3 survives</span>
+companyGrid.destroy(); addressGrid.destroy(); router.destroy();
+<span class="kw">return</span> [companyCount, addressCount].join(' | ');</code></pre>
     <h2 id="ref-data-router-reference">Type reference</h2>
     <p class="section-note">Generated from the type declarations, so it always matches the release. Each surface lists its properties, its methods and the events it raises as three tables; an option or value type lists its members once.</p>
     <h3 id="ref-module-data-router">The data router</h3>
@@ -1304,19 +1521,77 @@ g.destroy(); router.destroy();
         </tbody>
       </table>
     </div>
+    <h4 id="type-RouterJoinAggregate">RouterJoinAggregate</h4>
+    <p class="section-note">One named reducer of a ROLLUP-ONTO-PARENT join's `aggregate` map (v15, BACKLOG-0001609). `fn` reuses the v3 rollup vocabulary — `count`, `sum`, `avg`, `min`, `max` — and adds `distinctCount`, `first` and `last`. `field` is the child field reduced over (required for every `fn` except `count`); `first`/`last` order the children by `orderBy` (defaulting to `field`) and return the `field` value of the first/last child. An empty child set yields `count` 0, `sum` 0 and the rest null.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">fn</td><td class="type">string</td><td class="desc">The reducer: count | sum | avg | min | max | distinctCount | first | last.</td></tr>
+          <tr><td class="name">field</td><td class="type">string</td><td class="desc">The child field reduced over (required for every `fn` except `count`). <small>(optional)</small></td></tr>
+          <tr><td class="name">orderBy</td><td class="type">string</td><td class="desc">For first/last: the field the children are ordered by (defaults to `field`). <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-RouterJoin">RouterJoin</h4>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">from</td><td class="type">string</td><td class="desc">The id of the registered source holding the lookup rows.</td></tr>
-          <tr><td class="name">localKey</td><td class="type"><a href="types.html#type-RouterKey">RouterKey</a></td><td class="desc">Reads the joining value off this source's row — a field name or a `fn(row)`. Required: without it (or `on`) the join is ignored with a warning. <small>(optional)</small></td></tr>
+          <tr><td class="name">from</td><td class="type">string</td><td class="desc">The id of the registered source holding the lookup/collected rows.</td></tr>
+          <tr><td class="name">localKey</td><td class="type"><a href="types.html#type-RouterKey">RouterKey</a></td><td class="desc">Reads the joining value off this source's row — a field name or a `fn(row)`. Required for a lookup join (or `on`); a collect join defaults it to the source's rowKey. Without it the join is ignored with a warning. <small>(optional)</small></td></tr>
           <tr><td class="name">on</td><td class="type"><a href="types.html#type-RouterKey">RouterKey</a></td><td class="desc">An alias for `localKey`, read when `localKey` is absent. <small>(optional)</small></td></tr>
-          <tr><td class="name">foreignKey</td><td class="type"><a href="types.html#type-RouterKey">RouterKey</a></td><td class="desc">Reads the joining value off the lookup row — a field name or a `fn(row)`. Defaults to a string `localKey`; with a function `localKey` and no `foreignKey`, the join is ignored with a warning. <small>(optional)</small></td></tr>
+          <tr><td class="name">foreignKey</td><td class="type"><a href="types.html#type-RouterKey">RouterKey</a></td><td class="desc">Reads the joining value off the other source's rows — a field name or a `fn(row)`. Defaults to a string `localKey`; with a function `localKey` and no `foreignKey`, the join is ignored with a warning. <small>(optional)</small></td></tr>
           <tr><td class="name">fromKey</td><td class="type"><a href="types.html#type-RouterKey">RouterKey</a></td><td class="desc">An alias for `foreignKey`, read when `foreignKey` is absent. <small>(optional)</small></td></tr>
-          <tr><td class="name">fields</td><td class="type">string[] | Record&lt;string, string&gt; | ((lookupRow: <a href="types.html#type-RouterRecord">RouterRecord</a> | null, leftRow: <a href="types.html#type-RouterRecord">RouterRecord</a>) =&gt; <a href="types.html#type-RouterRecord">RouterRecord</a>)</td><td class="desc">Which lookup fields to carry onto the row: a list of names, a `{ from: to }` rename map, or a `fn(lookupRow, leftRow)` returning the fields to merge. With none, rows pass through unenriched and the router warns. <small>(optional)</small></td></tr>
-          <tr><td class="name">select</td><td class="type">string[] | Record&lt;string, string&gt; | ((lookupRow: <a href="types.html#type-RouterRecord">RouterRecord</a> | null, leftRow: <a href="types.html#type-RouterRecord">RouterRecord</a>) =&gt; <a href="types.html#type-RouterRecord">RouterRecord</a>)</td><td class="desc">An alias for `fields`, read when `fields` is absent. <small>(optional)</small></td></tr>
-          <tr><td class="name">missing</td><td class="type"><a href="types.html#type-RouterJoinMissing">RouterJoinMissing</a> <small class="literals">'hold' | 'passthrough' | 'null'</small></td><td class="desc">What happens while the lookup row has not arrived: `hold` keeps the row from viewers until it does, `passthrough` sends it unenriched, `null` fills the declared fields with null. Defaults to `passthrough`, which an unrecognised value also falls back to, with a warning. <small>(optional)</small></td></tr>
+          <tr><td class="name">many</td><td class="type">boolean</td><td class="desc">A COLLECT join (v14): gather every matching row instead of one. <small>(optional)</small></td></tr>
+          <tr><td class="name">as</td><td class="type">string</td><td class="desc">A COLLECT join's destination field: the collected array is written here. Required for a collect join; without it the join is ignored with a warning. <small>(optional)</small></td></tr>
+          <tr><td class="name">aggregate</td><td class="type">Record&lt;string, <a href="#type-RouterJoinAggregate">RouterJoinAggregate</a>&gt;</td><td class="desc">A ROLLUP-ONTO-PARENT join (v15, BACKLOG-0001609): a `many: true` join with an `aggregate` map instead of `as`. Each named result is computed over the matching children and written onto the parent row. Omit `as` when `aggregate` is set. <small>(optional)</small></td></tr>
+          <tr><td class="name">fields</td><td class="type">string[] | Record&lt;string, string&gt; | ((lookupRow: <a href="types.html#type-RouterRecord">RouterRecord</a> | null, leftRow: <a href="types.html#type-RouterRecord">RouterRecord</a>) =&gt; unknown)</td><td class="desc">Which lookup fields to carry onto the row: a list of names, a `{ from: to }` rename map, or a `fn(lookupRow, leftRow)` returning the fields to merge. With none, rows pass through unenriched and the router warns. <small>(optional)</small></td></tr>
+          <tr><td class="name">select</td><td class="type">string[] | Record&lt;string, string&gt; | ((lookupRow: <a href="types.html#type-RouterRecord">RouterRecord</a> | null, leftRow: <a href="types.html#type-RouterRecord">RouterRecord</a>) =&gt; unknown)</td><td class="desc">An alias for `fields`, read when `fields` is absent. For a COLLECT join it is also the per-row mapping: `fn(fromRow, leftRow)` returning the value to collect (defaults to the whole from-row). <small>(optional)</small></td></tr>
+          <tr><td class="name">distinct</td><td class="type">boolean</td><td class="desc">A COLLECT join: de-duplicate the collected values. Defaults to false. <small>(optional)</small></td></tr>
+          <tr><td class="name">sort</td><td class="type">boolean | ((a: unknown, b: unknown) =&gt; number)</td><td class="desc">A COLLECT join: order the collected array — `true` for the default ascending order (numbers numerically, everything else by string), or a `compareFn`. Defaults to no sort. <small>(optional)</small></td></tr>
+          <tr><td class="name">missing</td><td class="type"><a href="types.html#type-RouterJoinMissing">RouterJoinMissing</a> <small class="literals">'hold' | 'passthrough' | 'null'</small></td><td class="desc">What happens while the match has not arrived: `hold` keeps the row from viewers until it does, `passthrough` sends it unenriched (a collect join sets `as` to `[]`), `null` fills the declared fields with null (a collect join sets `as` to null). Defaults to `passthrough`, which an unrecognised value also falls back to, with a warning. <small>(optional)</small></td></tr>
+          <tr><td class="name">onParentDelete</td><td class="type"><a href="types.html#type-RouterParentDelete">RouterParentDelete</a> <small class="literals">'cascade' | 'orphan' | 'keep'</small></td><td class="desc">A COLLECT join's parent-delete integrity (v18, BACKLOG-0001612): what deleting a parent (this source's row) does to the collected children. `'cascade'` deletes every matching child (recursively), `'orphan'` keeps them marked `__orphan: true` and warns once, and `'keep'` (the default) keeps them bare — the unchanged behaviour. A rollup/spread join is not a collect join and does not read this. <small>(optional)</small></td></tr>
+          <tr><td class="name">spread</td><td class="type"><a href="#type-RouterSpread">RouterSpread</a></td><td class="desc">A SPREAD join (v16, BACKLOG-0001611): an EAV / custom-field source whose rows each become one field on the parent. `name` reads the attribute name off the child row and `value` the value (each a field name or a `fn(row)`), the pair written onto the parent as `prefix + name` — so `company` + `companyAttr` rows with `prefix: 'cf_'` gain `cf_industry`, `cf_tier` columns as attributes arrive. `include` narrows the names (an array, or a `fn(name, row)`), and `type` coerces per-name values (`number`, `date`, `boolean`, `text`). The attribute source's own joins apply first (multi-level), an attribute add/change/delete re-emits its parent live (a deleted field is absent, not stale), and the router reports the field names through `fieldsOf(ref)` and the `fields:changed` event. Set `spread` without `many: true`; it implies a one-to-many match and a `missing` policy has no meaning (a parent with no attribute simply carries no spread fields). Two attributes landing on one name are last-writer-wins and warned once (`router:spread-duplicate`); a spread field never overwrites a base parent field and warns once (`router:spread-collision`). <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">where</td><td class="type">(childRow: <a href="types.html#type-RouterRecord">RouterRecord</a>) =&gt; boolean</td><td class="desc"><code>childRow: <a href="types.html#type-RouterRecord">RouterRecord</a></code></td><td class="type"><code>=&gt; boolean</code></td><td class="desc">Filters the children before any `aggregate` is computed: a predicate over each matching child row (its enriched form, so a child's own joins are visible). Only the rows it admits contribute to the result. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RouterSpread">RouterSpread</h4>
+    <p class="section-note">A SPREAD join's shape (v16, BACKLOG-0001611): turn an EAV / custom-field source's rows into one field per attribute on the parent row.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">name</td><td class="type">string | ((row: <a href="types.html#type-RouterRecord">RouterRecord</a>) =&gt; unknown)</td><td class="desc">Reads the attribute name off the child row — a field name or a `fn(row)`. Required.</td></tr>
+          <tr><td class="name">value</td><td class="type">string | ((row: <a href="types.html#type-RouterRecord">RouterRecord</a>) =&gt; unknown)</td><td class="desc">Reads the attribute value off the child row — a field name or a `fn(row)`. Required.</td></tr>
+          <tr><td class="name">prefix</td><td class="type">string</td><td class="desc">Prepended to every attribute name on the parent (e.g. `'cf_'`). Defaults to `''`. <small>(optional)</small></td></tr>
+          <tr><td class="name">include</td><td class="type">string[] | ((name: string, row: <a href="types.html#type-RouterRecord">RouterRecord</a>) =&gt; boolean)</td><td class="desc">Narrows which attribute names spread: an array of names, or a `fn(name, row)` returning true to keep. Omitted, every attribute spreads. <small>(optional)</small></td></tr>
+          <tr><td class="name">type</td><td class="type">Record&lt;string, <a href="types.html#type-RouterSpreadType">RouterSpreadType</a>&gt;</td><td class="desc">Coerces each attribute's value by name: `number`, `date`, `boolean` or `text`. A value that fails to parse keeps its raw value rather than becoming `NaN`/`Invalid Date`; `null`/`undefined` pass through untouched. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RouterUnnest">RouterUnnest</h4>
+    <p class="section-note">One `unnest` spec of `addSource` (v17, BACKLOG-0001610): expand a nested array on each of a source's rows into its OWN row type, routed through the ordinary partition/route/join machinery. `path` is the dotted array field (`'profile.addresses'`); `as` is the child type (and its source id, so a lookup/collect join can `from` it); `key` is the child's identity — a field name, or `fn(child, parent, index)`, defaulting to `` `${parentKey}:${index}` `` (the index fallback, whose caveat is that reordering an array churns its children); `parentKey` is the field written onto each child holding the parent's key (default `${source}Id`); `keep` (default false) keeps the nested array on the parent's own routed row; and `join`/`unnest` are the child source's own joins and nested unnest. A parent update whose nested array changed emits a keyed diff of its children (add/change/remove by child key; a child moved between parents is a remove + add), a parent delete removes its children, and a `load()` snapshot diffs children too. Two children of one parent resolving to the same key warn once (`router:unnest-duplicate-key`), last in source order winning.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">path</td><td class="type">string</td><td class="desc">The dotted array field on the parent row to expand.</td></tr>
+          <tr><td class="name">as</td><td class="type">string</td><td class="desc">The child row type (and its source id, so joins can `from` it).</td></tr>
+          <tr><td class="name">key</td><td class="type">string | ((child: <a href="types.html#type-RouterRecord">RouterRecord</a>, parent: <a href="types.html#type-RouterRecord">RouterRecord</a>, index: number) =&gt; string | number)</td><td class="desc">The child's identity: a field name read off the child, or `fn(child, parent, index)`. Defaults to `` `${parentKey}:${index}` `` — the index fallback, which churns its children when an array is reordered. <small>(optional)</small></td></tr>
+          <tr><td class="name">parentKey</td><td class="type">string</td><td class="desc">The field written onto each child holding the parent's key (default `${source}Id`). <small>(optional)</small></td></tr>
+          <tr><td class="name">keep</td><td class="type">boolean</td><td class="desc">Keep the nested array on the parent's own routed row. Defaults to false. <small>(optional)</small></td></tr>
+          <tr><td class="name">onParentDelete</td><td class="type"><a href="types.html#type-RouterParentDelete">RouterParentDelete</a> <small class="literals">'cascade' | 'orphan' | 'keep'</small></td><td class="desc">What a parent's delete does to its unnested children (v18, BACKLOG-0001612). `'cascade'` (the default, and the unchanged behaviour) removes them, `'orphan'` keeps them marked `__orphan: true` and warns once, and `'keep'` keeps them bare. A re-added parent re-adopts its orphans (the mark clears). <small>(optional)</small></td></tr>
+          <tr><td class="name">join</td><td class="type"><a href="#type-RouterJoin">RouterJoin</a> | <a href="#type-RouterJoin">RouterJoin</a>[]</td><td class="desc">The child source's own joins (applied after unnest, before it routes). <small>(optional)</small></td></tr>
+          <tr><td class="name">unnest</td><td class="type"><a href="#type-RouterUnnest">RouterUnnest</a> | <a href="#type-RouterUnnest">RouterUnnest</a>[]</td><td class="desc">A nested unnest: the child rows may declare their own nested arrays. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -1412,6 +1687,7 @@ g.destroy(); router.destroy();
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">metrics</td><td class="type"><a href="#type-RouterMetrics">RouterMetrics</a></td><td class="desc">The same snapshot `metrics()` returns, taken at the emit; the throughput baseline advances with it.</td></tr>
+          <tr><td class="name">fields:changed</td><td class="type">{ route: unknown; added: string[]; removed: string[] }</td><td class="desc">The spread field names a route gained and lost since the last emit, keyed by the route's partition value, label or target (v16). `added` are the names that first appeared, `removed` those that disappeared; a host turns `added` into grid columns and `removed` into dropped columns.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1454,8 +1730,10 @@ g.destroy(); router.destroy();
           <tr><td class="name">addSource</td><td class="type">(feed: string | RouterSourceOptions, opts?: RouterSourceOptions): <a href="#type-RouterSourceHandle">RouterSourceHandle</a></td><td class="desc"><code>feed: string | RouterSourceOptions</code><br><code>opts?: RouterSourceOptions</code></td><td class="type"><code><a href="#type-RouterSourceHandle">RouterSourceHandle</a></code></td><td class="desc">Register a source feed for fan-in (v9): its rows are normalised and namespaced into the one keyed store.</td></tr>
           <tr><td class="name">removeSource</td><td class="type">(ref: string | <a href="#type-RouterSourceHandle">RouterSourceHandle</a>): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>ref: string | <a href="#type-RouterSourceHandle">RouterSourceHandle</a></code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Remove a source feed by id or handle (v9): delete exactly its rows from every route, then unregister it.</td></tr>
           <tr><td class="name">sources</td><td class="type">(): string[]</td><td class="desc">&mdash;</td><td class="type"><code>string[]</code></td><td class="desc">The registered source ids (v9).</td></tr>
+          <tr><td class="name">relateRows</td><td class="type">(o: { child: string | <a href="#type-RouterSourceHandle">RouterSourceHandle</a>; parent: string | <a href="#type-RouterSourceHandle">RouterSourceHandle</a>; foreignKey: <a href="types.html#type-RouterKey">RouterKey</a>; onParentDelete?: <a href="types.html#type-RouterParentDelete">RouterParentDelete</a>; writeBack?: boolean }): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>o: { child: string | <a href="#type-RouterSourceHandle">RouterSourceHandle</a>; parent: string | <a href="#type-RouterSourceHandle">RouterSourceHandle</a>; foreignKey: <a href="types.html#type-RouterKey">RouterKey</a>; onParentDelete?: <a href="types.html#type-RouterParentDelete">RouterParentDelete</a>; writeBack?: boolean }</code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Declare a parent→child delete rule without a join (v18, BACKLOG-0001612): deleting a `parent` row cascades (`onParentDelete: 'cascade'`) or orphans (`'orphan'`) the `child` rows whose `foreignKey` matches, or does nothing (`'keep'`, the default). `writeBack` (default false) routes each cascaded delete through the router's `onWrite` so the host persists it.</td></tr>
+          <tr><td class="name">fieldsOf</td><td class="type">(ref: unknown): string[]</td><td class="desc"><code>ref: unknown</code></td><td class="type"><code>string[]</code></td><td class="desc">The spread field names a route currently carries (v16, BACKLOG-0001611): with a `spread` join, each EAV attribute row becomes its own field on the parent, and this reports the names a host can turn into grid columns. Pass the route's target (an `attach` grid or a `subscribe` handler), its partition value, or its `label`. Returns the names in first-seen order — an empty array for an unknown route, a route with no spread fields, or a router with no spread join. Pair it with the `fields:changed` event to add or drop columns as attributes appear and disappear.</td></tr>
           <tr><td class="name">metrics</td><td class="type">(): <a href="#type-RouterMetrics">RouterMetrics</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-RouterMetrics">RouterMetrics</a></code></td><td class="desc">A cheap point-in-time snapshot of the router's runtime (v10); throughput is measured since the previous read.</td></tr>
-          <tr><td class="name">on</td><td class="type">(event: <a href="types.html#type-RouterEventName">RouterEventName</a>, handler: (snapshot: <a href="#type-RouterEventPayloads">RouterEventPayloads</a>[<a href="types.html#type-RouterEventName">RouterEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>event: <a href="types.html#type-RouterEventName">RouterEventName</a></code><br><code>handler: (snapshot: <a href="#type-RouterEventPayloads">RouterEventPayloads</a>[<a href="types.html#type-RouterEventName">RouterEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Subscribe to the periodic `metrics` emit (v10) — the only event; the timer runs only while a listener is registered. What it carries is {@link RouterEventPayloads}. Returns the unsubscribe.</td></tr>
+          <tr><td class="name">on</td><td class="type">(event: <a href="types.html#type-RouterEventName">RouterEventName</a>, handler: (snapshot: <a href="#type-RouterEventPayloads">RouterEventPayloads</a>[<a href="types.html#type-RouterEventName">RouterEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>event: <a href="types.html#type-RouterEventName">RouterEventName</a></code><br><code>handler: (snapshot: <a href="#type-RouterEventPayloads">RouterEventPayloads</a>[<a href="types.html#type-RouterEventName">RouterEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Subscribe to a router event (v10): the periodic `metrics` emit — the timer runs only while a listener is registered — or a `fields:changed` emit when a spread join's field set for a route changes (v16). What each carries is {@link RouterEventPayloads}. Returns the unsubscribe.</td></tr>
           <tr><td class="name">mountDevtools</td><td class="type">(el: unknown): RouterDevtoolsPanel</td><td class="desc"><code>el: unknown</code></td><td class="type"><code>RouterDevtoolsPanel</code></td><td class="desc">Mount the live devtools panel into `el` (v10); it re-renders on each `metrics` emit.</td></tr>
           <tr><td class="name">lastSeq</td><td class="type">(): number | undefined</td><td class="desc">&mdash;</td><td class="type"><code>number | undefined</code></td><td class="desc">The highest seq applied — the resume point to request the feed from after a dropped socket (v3).</td></tr>
           <tr><td class="name">checkpoint</td><td class="type">(): Map&lt;string, number&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Map&lt;string, number&gt;</code></td><td class="desc">A copy of the per-record resume checkpoint: record identity → last applied seq (v3).</td></tr>
@@ -1482,6 +1760,7 @@ g.destroy(); router.destroy();
         <thead><tr><th>Event</th><th>When</th><th>Payload</th><th>Cancellable</th></tr></thead>
         <tbody>
           <tr><td class="name">metrics</td><td class="desc">The metrics timer fired: a `metrics()` snapshot, every `metricsInterval` ms (default 1000; `0` disables the timer).</td><td class="type"><a href="#type-RouterMetrics">RouterMetrics</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">fields:changed</td><td class="desc">A route's spread field set changed (v16): `{ route, added, removed }`, the names that appeared and disappeared.</td><td class="type">{ route: unknown; added: string[]; removed: string[] }</td><td class="desc">&mdash;</td></tr>
         </tbody>
       </table>
     </div>
