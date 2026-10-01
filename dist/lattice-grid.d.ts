@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.83.0, type declarations
+ * Lattice Grid 1.83.1, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -8450,13 +8450,28 @@ export interface RowsApi {
    */
   coverage(): StatCoverage;
   /**
+   * How many leaf rows the grid holds in memory right now — what a viewer
+   * walking the rows would actually see, skeleton placeholders left out. On a
+   * source that fetches a window (`remote` or `paged`) this is the rows
+   * actually loaded, read in O(blocks) rather than by walking the matching
+   * total; a source that holds everything reports every matching leaf row.
+   * Equal to {@link RowsApi.matchCount} when every matching row is resident,
+   * smaller when the grid holds a window of the set.
+   */
+  residentCount(): number;
+  /**
    * Your own row objects, in source order, with the grid's furniture left out
-   * — group and total rows are not in the data and never appear here.
+   * — group and total rows are not in the data and never appear here. On a
+   * windowed source this is the resident rows, not the whole matching set.
    */
   data(): unknown[];
   /**
    * Visit every display row in order: filtered, sorted and grouped as drawn,
-   * with collapsed rows left out.
+   * with collapsed rows left out. On an ungrouped windowed source (`remote` or
+   * `paged`) this visits the resident leaf rows — what has actually loaded —
+   * not the matching total, and never walks skeleton rows. A grouped or
+   * pivoted windowed source keeps its own bounded display and is walked as
+   * before.
    */
   forEach(fn: (row: Row, index: number) => void): void;
   /** Every row in the data, before any filter. Leaf rows, in physical order. */

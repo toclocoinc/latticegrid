@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.83.0</p>
+    <p class="rail__sub">API reference · v1.83.1</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -566,7 +566,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.83.0</span>
+      <span class="chip">Version 1.83.1</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3145,7 +3145,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.83.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.83.1'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -12798,8 +12798,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">totalPending</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">Whether an exact total is still being counted for the current query (BACKLOG-0001078). True only between the rows arriving and the total landing, on a source that defers the count because counting reads data. It is what separates "not counted yet" from "never going to be counted": `totalCount()` is `null` for both, and only one of them is going to become a number.</td></tr>
           <tr><td class="name">matchCount</td><td class="type">(): number</td><td class="desc">&mdash;</td><td class="type"><code>number</code></td><td class="desc">Data rows matching the filters, excluding group, footer and total rows.</td></tr>
           <tr><td class="name">coverage</td><td class="type">(): <a href="#type-StatCoverage">StatCoverage</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-StatCoverage">StatCoverage</a></code></td><td class="desc">How much of the data a figure computed from this grid covers, so a statistic over a windowed source can say it is approximate.</td></tr>
-          <tr><td class="name">data</td><td class="type">(): unknown[]</td><td class="desc">&mdash;</td><td class="type"><code>unknown[]</code></td><td class="desc">Your own row objects, in source order, with the grid's furniture left out — group and total rows are not in the data and never appear here.</td></tr>
-          <tr><td class="name">forEach</td><td class="type">(fn: (row: <a href="#type-Row">Row</a>, index: number) =&gt; void): void</td><td class="desc"><code>fn: (row: <a href="#type-Row">Row</a>, index: number) =&gt; void</code></td><td class="type"><code>void</code></td><td class="desc">Visit every display row in order: filtered, sorted and grouped as drawn, with collapsed rows left out.</td></tr>
+          <tr><td class="name">residentCount</td><td class="type">(): number</td><td class="desc">&mdash;</td><td class="type"><code>number</code></td><td class="desc">How many leaf rows the grid holds in memory right now — what a viewer walking the rows would actually see, skeleton placeholders left out. On a source that fetches a window (`remote` or `paged`) this is the rows actually loaded, read in O(blocks) rather than by walking the matching total; a source that holds everything reports every matching leaf row. Equal to {@link RowsApi.matchCount} when every matching row is resident, smaller when the grid holds a window of the set.</td></tr>
+          <tr><td class="name">data</td><td class="type">(): unknown[]</td><td class="desc">&mdash;</td><td class="type"><code>unknown[]</code></td><td class="desc">Your own row objects, in source order, with the grid's furniture left out — group and total rows are not in the data and never appear here. On a windowed source this is the resident rows, not the whole matching set.</td></tr>
+          <tr><td class="name">forEach</td><td class="type">(fn: (row: <a href="#type-Row">Row</a>, index: number) =&gt; void): void</td><td class="desc"><code>fn: (row: <a href="#type-Row">Row</a>, index: number) =&gt; void</code></td><td class="type"><code>void</code></td><td class="desc">Visit every display row in order: filtered, sorted and grouped as drawn, with collapsed rows left out. On an ungrouped windowed source (`remote` or `paged`) this visits the resident leaf rows — what has actually loaded — not the matching total, and never walks skeleton rows. A grouped or pivoted windowed source keeps its own bounded display and is walked as before.</td></tr>
           <tr><td class="name">forEachAll</td><td class="type">(fn: (row: <a href="#type-Row">Row</a>, index: number) =&gt; void): void</td><td class="desc"><code>fn: (row: <a href="#type-Row">Row</a>, index: number) =&gt; void</code></td><td class="type"><code>void</code></td><td class="desc">Every row in the data, before any filter. Leaf rows, in physical order.</td></tr>
           <tr><td class="name">forEachExcept</td><td class="type">(colId: string, fn: (row: <a href="#type-Row">Row</a>, index: number) =&gt; void): void</td><td class="desc"><code>colId: string</code><br><code>fn: (row: <a href="#type-Row">Row</a>, index: number) =&gt; void</code></td><td class="type"><code>void</code></td><td class="desc">Visit the rows surviving every filter except one column's own: the faceting question, asked of the rows.</td></tr>
           <tr><td class="name">value</td><td class="type">(key: string, colId: string): unknown</td><td class="desc"><code>key: string</code><br><code>colId: string</code></td><td class="type"><code>unknown</code></td><td class="desc">A cell's resolved value, stored or computed, read through the same path the renderer uses so the API and the cell beside it can never disagree.</td></tr>
@@ -25058,7 +25059,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.83.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.83.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

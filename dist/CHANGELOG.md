@@ -9,6 +9,14 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.83.1] - 2026-10-01
+
+### Fixed
+
+- **A multi-day span in the month or week view showed as a full-width band above the grid** (BACKLOG-0001604). Each span segment is now a child of the day grid itself, placed by `grid-column`/`grid-row` so it sits over the cells it covers — aligned to the cell columns at any width, one continuous bar per week row with its continues-before/after corners. Overlapping spans in one week row stack into lanes, and each cell in a span row reserves that top space (tune it with the `--lattice-calendar-span-lane-height` MAY token) so a bar never covers the cards beneath.
+
+- **A KPI panel and a chart over a paged pushdown source froze the main thread for tens of seconds after the first rows** (BACKLOG-0001606). Their "does the grid hold a window?" guards walked `rows.forEach`, which on a windowed source visited the whole matching total — ten million skeleton rows for a hundred resident ones — because each per-index `at()` re-signed the query and recounted the window. The guards now read the new public `rows.residentCount()` (the loaded rows, in constant-ish time), and `rows.forEach`/`rows.data()` on a windowed source walk the resident rows off the block cache, so no viewer walks every matching index.
+
 ## [1.83.0] - 2026-09-30
 
 ### Added

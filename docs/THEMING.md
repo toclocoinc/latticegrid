@@ -357,6 +357,7 @@ The calendar module (`modules/calendar`, BACKLOG-0001592, time grid BACKLOG-0001
 | `--lattice-calendar-now-color` | `var(--lattice-calendar-accent, var(--lattice-accent))` | the now-indicator line |
 | `--lattice-calendar-business-bg` | `var(--lattice-background-subtle)` | the business-hours shading |
 | `--lattice-calendar-span-bg` | `var(--lattice-accent-soft)` | the multi-day span bar background |
+| `--lattice-calendar-span-lane-height` | `22px` | the height of one span-bar lane in a day-grid week row (overlapping spans stack into lanes) |
 | `--lattice-calendar-all-day-min-height` | `20px` | an all-day row cell's minimum height |
 
 ## Internal, off-contract

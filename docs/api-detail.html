@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.83.0</p>
+    <p class="rail__sub">Developer guide · v1.83.1</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.83.0</span>
+        <span class="chip">Version 1.83.1</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1676,7 +1676,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.83.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.83.1'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -2836,6 +2836,21 @@ grid.rows.forEachAll(r =&gt; { total += r.data.amount });   <span class="cmt">//
       returning the filtered rows, a caller who asked for everything and silently received a
       subset gets a number that looks entirely plausible and is wrong.</p>
     </div>
+    <p><code>rows.residentCount</code> answers the question a viewer must ask <em>before</em> walking
+      &mdash; &ldquo;how many rows does the grid actually hold?&rdquo; &mdash; without the walk. On a
+      source that fetches a window (<code>remote</code> or <code>paged</code>) it is the rows that
+      have loaded, read off the source's block caches in constant-ish time, never the matching total.
+      Compare it with <code>rows.matchCount</code>: equal means every matching row is resident, smaller
+      means the grid holds a window and a figure reduced from <code>rows.forEach</code> describes that
+      window, not the set.</p>
+    <pre data-run="js" data-expect="true" data-covers="method:rows.residentCount"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'amount', type: 'number' }],
+  rows: [{ id: 1, amount: 10 }, { id: 2, amount: 20 }],
+});
+// A memory grid holds every matching row, so residentCount and matchCount agree.
+return grid.rows.residentCount() === 2 &amp;&amp; grid.rows.matchCount() === 2;</code></pre>
 
     <h2 id="sorting">Sorting</h2>
     <div class="example">
@@ -11990,7 +12005,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.83.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.83.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>
