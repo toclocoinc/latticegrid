@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.86.0</p>
+    <p class="rail__sub">Developer guide · v1.86.1</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.86.0</span>
+        <span class="chip">Version 1.86.1</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1676,7 +1676,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.86.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.86.1'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -8631,11 +8631,37 @@ p.alerts;        <span class="cmt">// what is worth looking at</span></code></pr
       out not to be unique, a fifth of the rows missing. A profile that reports only numbers leaves
       the reader to notice those, and readers reliably do not.
     </p>
+    <div class="example">
+      <p class="example__label">The profile of a column the grid does not hold, computed by the source</p>
+      <pre data-run="js" data-expect="true|source|100|50.5|outliers+histogram|5" data-covers="method:statistics.profileAsync config:Column.facet"><code>const { createHeadlessGrid, createPushdownSource } = await import('../packages/core/src/index.js');
+const rows = Array.from({ length: 100 }, (_, i) => ({ id: i, price: i + 1 }));
+const adapter = {
+  name: 'demo',
+  capabilities: { filter: 'tree', operators: ['equals'], range: true, total: true },
+  async execute(q) { return { rows: rows.slice(q.range.start, q.range.end), total: rows.length }; },
+  async executeAggregates(q, aggs) {
+    const by = { count: 100, countValues: 100, distinct: 100, min: 1, max: 100, avg: 50.5, median: 50.5, p25: 25.75, p75: 75.25, stddev: 29.01 };
+    return Object.fromEntries(aggs.map((a) => [a.id, by[a.fn]]));
+  },
+};
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id', type: 'number' }, { field: 'price', type: 'number', facet: { buckets: 5 } }],
+  source: createPushdownSource({ adapter, pageSize: 50, aggregates: { default: 'engine' } }),
+});
+const held = grid.statistics.profile('price') === null;  // true: the grid holds no rows to read
+const p = await grid.statistics.profileAsync('price');  // the engine's answer
+const named = p.unavailable.map((u) => u.stat).join('+'); // what it could not push down
+const buckets = grid.columns.get('price').facet.buckets;  // a column's own facet settings
+grid.destroy();
+return [held, p.computed, p.rows, p.median, named, buckets].join('|');</code></pre>
+    </div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Method</th><th>Answers</th></tr></thead>
         <tbody>
           <tr><td class="name">reduce</td><td class="desc">A column through any of the thirty-eight named kernels, or one of your own.</td></tr>
+          <tr><td class="name">profileAsync</td><td class="desc"><code>grid.statistics.profileAsync(colId)</code>: the same profile when the grid does not hold the rows. Over a pushdown source without <code>fullDataset</code> the source's engine computes the count, distinct count, min, max, mean, quartiles, median and standard deviation the adapter supports, over the grid's filters; a figure it could not push down is named under <code>unavailable</code> with the reason rather than left blank. Everywhere else it is <code>profile()</code>, resolved.</td></tr>
           <tr><td class="name">correlation</td><td class="desc">Pearson's r between two columns. <code>spearman</code> resists an outlier; <code>kendall</code> is tau-b.</td></tr>
           <tr><td class="name">regression</td><td class="desc">A least-squares fit of one column on another, with slope, intercept and r².</td></tr>
           <tr><td class="name">weightedAverage</td><td class="desc">One column averaged by another. <code>weightedQuantile</code> for the median and beyond.</td></tr>
@@ -9143,8 +9169,11 @@ createGrid(el, {
     <p>
       Charts that share a <code>group</code> share the cursor <strong>by value</strong>. Hover one
       at 14:05 and every other chart in the group puts its hairline at 14:05 &mdash; on its own
-      scale, with its own values &mdash; and a chart that does not cover 14:05 shows nothing, not its
-      nearest edge. The charts may be bound to different grids and have different ranges.
+      scale, with its own axis label &mdash; and a chart that does not cover 14:05 shows nothing, not
+      its nearest edge. The charts may be bound to different grids and have different ranges. Only
+      the chart under the pointer opens its tooltip, so tooltips never stack up across a dashboard;
+      <code>groupTooltips: 'all'</code> on a chart makes it open its own tooltip too while it
+      follows the group (<code>'pointer'</code>, the default, keeps it to the hairline).
       <code>zoom: true</code> inside the cursor option carries one chart's zoom to the others that
       also set it; it is off unless asked for. <code>rowHover: true</code> moves the cursor to the x
       of the grid row under the pointer, so hovering a row of the table points at the same moment on
@@ -12152,7 +12181,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.86.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.86.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

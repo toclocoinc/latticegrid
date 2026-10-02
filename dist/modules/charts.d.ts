@@ -1,11 +1,12 @@
 /*!
- * Lattice Grid 1.86.0, charts module type declarations
+ * Lattice Grid 1.86.1, charts module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 import type {
   CellRange,
   Chart,
+  ChartExtensionType,
   ChartScheme,
   ChartSchemeName,
   ChartSpec,
@@ -42,7 +43,7 @@ export function chartRange(
   opts: {
     container: Element | string;
     range?: CellRange;
-    type?: ChartType;
+    type?: ChartType | ChartExtensionType | (string & {});
   } & Partial<ChartSpec>,
 ): Chart | null;
 /** Would {@link chartRange} draw something for the grid's current selection? */
@@ -54,10 +55,10 @@ export function canChartRange(grid: Grid, opts?: { range?: CellRange }): boolean
  */
 export function deriveRangeSpec(
   grid: Grid,
-  opts?: { range?: CellRange; type?: ChartType },
+  opts?: { range?: CellRange; type?: ChartType | ChartExtensionType | (string & {}) },
 ): {
   spec: ChartSpec | null;
-  type: ChartType | null;
+  type: ChartType | ChartExtensionType | (string & {}) | null;
   x: string | null;
   measures: string[];
   columns: string[];

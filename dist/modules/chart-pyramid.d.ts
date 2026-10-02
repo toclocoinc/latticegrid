@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.0, chart-pyramid module type declarations
+ * Lattice Grid 1.86.1, chart-pyramid module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

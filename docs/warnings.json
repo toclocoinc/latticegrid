@@ -1,5 +1,5 @@
 {
-  "version": "1.86.0",
+  "version": "1.86.1",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 645,
+  "count": 653,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -404,6 +404,17 @@
       "docs": "api/charts.html#chart-cursor"
     },
     {
+      "id": "chart:*:cursor:groupTooltips",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.1",
+      "message": "\"cursor.groupTooltips\" is {value}, which is not 'pointer' or 'all', so 'pointer' was used: only the chart under the pointer shows its tooltip.",
+      "meaning": "`cursor.groupTooltips` was set to something other than `'pointer'` or `'all'`. The chart behaves as `'pointer'`: in a cursor group only the chart under the pointer, or the one `cursor.set` was called on, shows its tooltip.",
+      "fix": "Use `'pointer'` (the default) or `'all'` to give every chart in the group its own tooltip.",
+      "snippet": "createChart({ grid, container, type: 'line', x: 'day', y: 'price', cursor: { group: 'panels', groupTooltips: 'all' } });",
+      "docs": "api/charts.html#chart-cursor"
+    },
+    {
       "id": "chart:*:cursor:multiples",
       "module": "charts",
       "severity": "warn",
@@ -469,6 +480,17 @@
       "meaning": "A column named in the chart spec is not a column of the grid. It is asked first, before emptiness, because a missing column does not produce an empty binding: every row answers `undefined` for it, which is one category or one null measure, so a chart bound to one would otherwise draw a complete frame around nothing. The chart shows its empty state instead, and the message lists the columns the grid does have.",
       "fix": "Bind a column the grid declares — the id, not the header title — or declare the column on the grid. The spec key that named it (`x`, `y`, `measures`, `source`, `target`, …) is printed with it.",
       "snippet": "createChart({ grid, container, type: 'bar', x: 'region', y: 'amount' });",
+      "docs": "api/charts.html#chartsmodule"
+    },
+    {
+      "id": "chart:*:rangearea:form",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.1",
+      "message": "a rangeArea chart fills the band between two measures and was not given two. Write `measures: [low, high]` (low first, then high), with an optional third measure typed `line` for the centre: `measures: ['avg', 'peak', { col: 'mean', type: 'line' }]`. `y` and `y2` do not form a band, so this drew a plain area.",
+      "meaning": "A `rangeArea` chart was given `y` (and perhaps `y2`) or fewer than two `measures`. The band is drawn only from `measures: [low, high]`, the first measure the lower edge and the second the upper one, so any other form drew a plain area of `y` from the axis floor instead of a band. The id carries the chart's own id.",
+      "fix": "Give the chart two measures in low, high order; a third measure typed `line` draws the centre line over the band.",
+      "snippet": "createChart({ grid, container, type: 'rangeArea', x: 'at', measures: ['avg', 'peak'] });",
       "docs": "api/charts.html#chartsmodule"
     },
     {
@@ -583,8 +605,8 @@
       "module": "charts",
       "severity": "warn",
       "since": "1.64.0",
-      "message": "Unknown icon '{name}' on a network node; drew a plain disc instead. Register it with registerIcon or config.icons, or name a built-in.",
-      "meaning": "The grid has an icon registry and it holds no icon under that name. The node drew as a plain disc, so the chart is complete but unlabelled by icon.",
+      "message": "Unknown icon '{name}' on {who}; {outcome} instead. Register it with registerIcon or config.icons, or name a built-in.",
+      "meaning": "The grid has an icon registry and it holds no icon under that name. A network node drew as a plain disc and a chart image marker kept the default marker, so the chart is complete but lacks the icon.",
       "fix": "Register the icon before the chart draws, or use one of the built-in names.",
       "snippet": "createGrid(el, { icons: { server: { viewBox: '0 0 24 24', paths: ['…'] } } });",
       "docs": "api/charts.html#network-map"
@@ -594,9 +616,9 @@
       "module": "charts",
       "severity": "warn",
       "since": "1.64.0",
-      "message": "A network node asked for the icon '{name}', but this grid publishes no icon registry — a headless grid has no sprites. The node drew as a plain disc.",
-      "meaning": "A network chart node named an icon and the grid it is bound to has no icon registry at all, which is what a headless grid looks like — the sprites live in the DOM layer. The node is still drawn, as a plain disc.",
-      "fix": "Bind the chart to a grid created with `createGrid` (which publishes the registry), or drop the icon names from the node specs.",
+      "message": "{Who} asked for the icon '{name}', but this grid publishes no icon registry — a headless grid has no sprites. The {thing} drew as {outcome}.",
+      "meaning": "A network node or a chart image marker named an icon and the grid it is bound to has no icon registry at all, which is what a headless grid looks like — the sprites live in the DOM layer. The node is still drawn as a plain disc, or the point with its default marker.",
+      "fix": "Bind the chart to a grid created with `createGrid` (which publishes the registry), or drop the icon names from the node specs and image markers.",
       "docs": "api/charts.html#network-map"
     },
     {
@@ -6816,6 +6838,69 @@
       "fix": "Fix the URL, or serve the image with a header that lets the page load it.",
       "snippet": "createChart({ grid, container, type: 'line', x: 'day', y: 'value', marker: { image: '/img/pin.png' } });",
       "docs": "API.html#chart-fills"
+    },
+    {
+      "id": "chart.format.string:*:*",
+      "module": "charts",
+      "message": "{option}: the format string \"{format}\" is not understood; values are drawn unformatted",
+      "meaning": "A chart option (a tooltip, axis or label `format` given as a string) named a format the formatter could not compile. The option is ignored and the values are drawn unformatted. The key ends with the option name and the offending string.",
+      "fix": "Correct the format string, or give a formatter function instead.",
+      "snippet": "createChart({ grid, container, type: 'line', x: 'day', y: 'value', tooltip: { format: '#,##0.00' } });",
+      "docs": "api/charts.html#chartsmodule",
+      "severity": "warn",
+      "since": "1.86.1"
+    },
+    {
+      "id": "chart:rows:not-grid-rows",
+      "module": "charts",
+      "message": "chart \"rows\" takes rows the grid holds (from grid.rows.get(i) or grid.rows.byKey(key)); {left} of {given} given are not and were left out. To chart other data, put it in a grid and chart that grid.",
+      "meaning": "The chart's `rows` option was handed objects the grid does not hold, so there is nothing to read their values from. Those entries are left out; if none remain the chart draws nothing rather than a chart of nothing.",
+      "fix": "Pass rows obtained from the grid (`grid.rows.get(i)` or `grid.rows.byKey(key)`), or load the data into a grid and chart that grid.",
+      "docs": "api/charts.html#chartsmodule",
+      "severity": "warn",
+      "since": "1.86.1"
+    },
+    {
+      "id": "column.cell.autoHeight",
+      "module": "core",
+      "message": "`cell.autoHeight` is not a column option, so it had no effect on column \"{column}\". Rows grow to fit with the grid-level `autoHeight`; `cell.wrap` lets this column's text wrap.",
+      "meaning": "A column definition carried `cell.autoHeight`, which is not a column setting and does nothing. Row height is governed by the grid-level `autoHeight`.",
+      "fix": "Remove `cell.autoHeight` from the column; set `autoHeight` on the grid for rows that grow to fit, and `cell.wrap` on the column to wrap its text.",
+      "snippet": "createGrid(el, { autoHeight: true, columns: [{ field: 'notes', cell: { wrap: true } }] });",
+      "docs": "api/grid.html#columns",
+      "severity": "warn",
+      "since": "1.86.1"
+    },
+    {
+      "id": "data-router:function-key-namespace:*",
+      "module": "data-router",
+      "message": "addSource(\"{id}\") sets `key` but the rowKey function does not read exactly one row property, so its ids cannot be namespaced and rows from different feeds sharing an id will replace one another. Use a property-name rowKey, or give each feed ids that are already distinct.",
+      "meaning": "A router source set `key` and its `rowKey` is a function that reads zero or several row properties, so the router cannot work out which single property to prefix. Ids are left un-namespaced, and rows from different feeds that share an id replace one another.",
+      "fix": "Use a property-name `rowKey`, or make each feed's ids distinct already.",
+      "docs": "api/data-router.html#datarouter",
+      "severity": "warn",
+      "since": "1.86.1"
+    },
+    {
+      "id": "pivotView.no-dimension",
+      "module": "core",
+      "message": "pivotView is on but the grid has no pivot dimension, so there is no matrix to draw. Put a column on the pivot (its `pivot` setting, or `pivotBy` in the query) for the columns across the top, and group by a column for the rows down the side.",
+      "meaning": "`pivotView: true` needs at least one dimension on some axis; with none it would be a single grand cell, which the totals row already shows. The body is left empty.",
+      "fix": "Put a column on the pivot (its `pivot` setting, or `pivotBy` in the query) and group by a column for the rows.",
+      "snippet": "createGrid(el, { pivotView: true, groupBy: ['region'], pivotBy: ['year'] });",
+      "docs": "api/grid.html#type-PivotViewApi",
+      "severity": "warn",
+      "since": "1.86.1"
+    },
+    {
+      "id": "webcomponent.write:*",
+      "module": "webcomponent",
+      "message": "<lattice-grid>: `{key}` could not be written to the grid (it has no API for it), so it had no effect.",
+      "meaning": "The `<lattice-grid>` element was given a property or attribute that the grid has no API to receive, so it was ignored. The key ends with the property name.",
+      "fix": "Use a property the grid exposes, or check the spelling against the reference.",
+      "docs": "api/adapters.html#webcomponent-v2",
+      "severity": "warn",
+      "since": "1.86.1"
     }
   ]
 }

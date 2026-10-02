@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.0, webcomponent module type declarations
+ * Lattice Grid 1.86.1, webcomponent module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -25,8 +25,15 @@ import type {
  * The live grid is reached through the element's `grid` getter: `el.grid` is
  * the same `Grid` the vanilla `createGrid` returns, or null while the element
  * is disconnected.
+ *
+ * Takes `{ tagName?, createGrid? }` and returns the registered element class,
+ * the class already registered under that tag, or `null` where there is no
+ * custom-element registry.
  */
-export function defineLatticeGrid(tag?: string): void;
+export function defineLatticeGrid(opts?: {
+  tagName?: string;
+  createGrid?: (el: object, config: object) => object;
+}): typeof HTMLElement | null;
 /**
  * Build the `<lattice-grid>` element class. The one argument is the grid
  * factory the element creates its grid with — `createGrid`-shaped, and

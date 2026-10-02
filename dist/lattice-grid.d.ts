@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.0, type declarations
+ * Lattice Grid 1.86.1, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1922,9 +1922,9 @@ export interface ColumnHeaderSpec {
    */
   class?: string | string[];
   /**
-   * Declared, but not drawn: the header renderer never reads it, so a
-   * heading's only hover text is the drag hint. Put the text in the heading
-   * itself with `header.render`, or on the cells with `cell.tooltip`.
+   * Hover text for the heading, set as its `title`. On a movable column it
+   * takes the place of the drag hint. For structured or live content, put it in
+   * the heading with `header.render`, or on the cells with `cell.tooltip`.
    */
   tooltip?: string;
   /**
@@ -2347,6 +2347,11 @@ export interface Column {
   diff?: boolean;
   /** Whether an empty value is a legitimate value rather than a gap. */
   nullable?: boolean;
+  /**
+   * This column's header histogram. `true` turns it on with the grid's
+   * settings, `false` turns it off for this column, an object overrides them.
+   */
+  facet?: ColumnFacetConfig | boolean;
 }
 
 export interface ColumnGroup {
@@ -2395,7 +2400,12 @@ export interface ColumnGroup {
    * handed to it, and classes to add.
    */
   header?: { render?: string | RendererCtor; props?: Record<string, unknown>; class?: string | string[] };
-  /** This column's histogram. `true` turns it on with the grid's settings. */
+  /**
+   * The header histogram of every column under this band, as a default: `true`
+   * turns it on with the grid's settings, `false` off, an object overrides
+   * them. A column's own `facet` wins over it, and an inner band's over an
+   * outer one's.
+   */
   facet?: ColumnFacetConfig | boolean;
 }
 
@@ -6104,6 +6114,16 @@ export interface StatisticsApi {
   /** Everything worth knowing about one column, in one pass each. */
   profile(colId: string): ColumnProfile | null;
   /**
+   * `profile`, answered by the source's engine when the grid does not hold the
+   * rows: over a pushdown source without `fullDataset` it
+   * asks `source.aggregate()` for the count, distinct count, min, max, mean,
+   * quartiles, median and standard deviation the adapter supports, over the
+   * grid's filters, and lists under `unavailable` each figure it could not push
+   * down — a figure is never filled in from the rows the browser happens to
+   * hold. Wherever the grid holds the rows this is `profile()`, resolved.
+   */
+  profileAsync(colId: string): Promise<ColumnProfile | null>;
+  /**
    * The rows that do not belong: anomaly detection over the
    * filtered rows by the robust modified z-score (`modifiedZScore`, the
    * default), Tukey's IQR fences (`iqr`), or multivariate Mahalanobis distance
@@ -6978,7 +6998,20 @@ export interface ColumnProfile {
    * How many values fall outside Tukey's fence, 1.5 interquartile ranges
    * beyond the quartiles — an outlier here means what it means on a box plot.
    */
-  outliers: number;
+  outliers: number | null;
+  /**
+   * `'source'` when the figures were computed by a pushdown source's engine
+   * (`statistics.profileAsync`) rather than read from rows the
+   * grid holds; absent otherwise.
+   */
+  computed?: 'source';
+  /**
+   * The figures a pushdown source could not compute, each with why — a
+   * statistic the adapter does not declare, a source whose `aggregates` config
+   * keeps it client-side, a filter that did not push whole. Their fields carry
+   * no number. Absent when the profile was read from rows the grid holds.
+   */
+  unavailable?: Array<{ stat: string; reason: string }>;
   /**
    * The shape rather than the summary: the value counts per bucket. Two
    * columns can share a mean, a median and a deviation and still be a bell and
@@ -13533,7 +13566,12 @@ export interface ChartViewportFilterOptions {
  * its updates play.
  */
 export interface ChartAnimationOptions {
-  /** How long an entry or an update plays, in milliseconds. Default 400; `0` draws the final state at once. */
+  /**
+   * How long an entry or an update plays, in milliseconds. Default: 400. The theme's
+   * `--lattice-motion-duration` read where the chart is mounted only switches the default play
+   * off when it is `0ms`; any other value leaves 400. An explicit `duration`
+   * wins over the token. `0` draws the final state at once.
+   */
   duration?: number;
   /**
    * The curve the play follows: `'linear'`, `'ease-in'`, `'ease-out'` (the default) or
@@ -13596,6 +13634,16 @@ export interface ChartCursorOptions {
    * nearest the pointer; `false` draws no tooltip.
    */
   tooltip?: 'shared' | 'single' | false;
+  /**
+   * With a `group`, which charts show a tooltip. `'pointer'` (the default) shows one: the chart
+   * under the pointer, or the one `cursor.set` was called on; the other members show the
+   * hairline and axis labels only. `'all'` shows every member's own tooltip at its own hairline,
+   * on each chart that has a reading at the shared x (they overlap when the charts share a
+   * place). Read on each chart, so a follower set to `'all'` shows its tooltip even when the
+   * driving chart says `'pointer'`. `tooltip: false` still means no tooltip anywhere; any other
+   * value warns once and is treated as `'pointer'`.
+   */
+  groupTooltips?: 'pointer' | 'all';
   /**
    * Charts that name the same group share the cursor by x value, not by pixel: hovering one
    * puts the hairline at the same category or instant on every other, and on none whose range
@@ -13939,6 +13987,12 @@ export interface ChartSpec {
    * The exact rows to chart, overriding the grid's own walk — an array, or a
    * function returning one at draw time. `chartRange` uses it to bind a chart
    * to the band of rows a selected range covers rather than the whole grid.
+   *
+   * Only rows the grid holds are charted — the objects `grid.rows.get(i)` and
+   * `grid.rows.byKey(key)` return — because every value is read back through
+   * the grid by the row's key. Any other object is left out and named once in a
+   * `[lattice]` warning (`chart:rows:not-grid-rows`); if none of the entries is
+   * a grid row the chart is empty rather than falling back to every row.
    */
   rows?: object[] | ((grid: Grid) => object[]);
   /**
@@ -14025,7 +14079,9 @@ export interface ChartSpec {
   scheme?: ChartSchemeName | string | Array<string | ChartFill> | Record<string, string | ChartFill> | ChartScheme;
   /**
    * A fill per mark, read per row on the bar family,
-   * lollipops, scatter and bubble points: a column id or `{ col }` whose cell
+   * lollipops, scatter and bubble points, and on the slices
+   * of a `pie`, `donut` or `sunburst` and the tiles of a `treemap`, whose
+   * legend swatches wear the same fill; a column id or `{ col }` whose cell
    * holds a {@link ChartFill}, a pattern name (`'hatch'`, drawn in the series
    * colour) or a CSS colour; or a function of the point returning the same.
    * Nothing (null, an empty cell) leaves the mark in its series colour. A fill
@@ -14037,7 +14093,7 @@ export interface ChartSpec {
    * Draw pictures where a `line`, `scatter`, `bubble` or `markermap` would draw
    * dots. See {@link ChartMarkerOptions}. On a `line` every
    * reading wears the marker; a cartesian chart's tooltip still resolves by
-   * category, a `markermap` hit-tests the picture's box.
+   * category until the pointer is over a picture, which then hits that point; a `markermap` hit-tests the picture's box.
    */
   marker?: ChartMarkerOptions;
   /**
@@ -14209,12 +14265,17 @@ export interface ChartSpec {
    */
   error?: boolean | { of?: string; confidence?: number };
   /**
-   * Horizontal reference lines. On a dual-axis bar or line chart (see
-   * {@link ChartMeasure.axis}) a line naming `axis: 'right'` is placed on the
-   * right-hand scale, so it means what the right axis says rather than landing
-   * at the same number on the scale it does not belong to.
+   * Reference lines, placed on the chart's value axis: horizontal on a bar,
+   * line, area or candlestick, vertical on a `horizontalBar`, whose value axis
+   * runs left to right. On a candlestick they span the price pane (not the
+   * volume pane) and sit above the gridlines and below the candles. On a
+   * dual-axis bar or line chart (see {@link ChartMeasure.axis}) a line naming
+   * `axis: 'right'` is placed on the right-hand scale, so it means what the
+   * right axis says rather than landing at the same number on the scale it
+   * does not belong to. `colour` is any CSS colour (the current text colour
+   * when omitted).
    */
-  reference?: { value: number; label?: string; axis?: 'left' | 'right' }[];
+  reference?: { value: number; label?: string; axis?: 'left' | 'right'; colour?: string }[];
   /**
    * The declarative annotation layer: reference and target lines, shaded bands
    * and callouts, each naming the axis it reads and each described into the
@@ -14435,7 +14496,22 @@ export interface ChartSpec {
   footnote?: string;
   /** `false` turns the hover tooltip off. */
   tooltip?: boolean;
-  /** Draw the grid's selected rows emphasised, and follow the selection. */
+  /**
+   * Where the hover tooltip node lives. Defaults to `document.body`, so a host that blurs,
+   * transforms or clips the chart cannot hide it; a chart mounted inside a shadow root
+   * defaults to that shadow root instead, so the root's stylesheets still reach the tooltip
+   * (a transform or filter on the shadow host then moves it: give an element outside to host
+   * it there). It is removed when the chart is destroyed.
+   */
+  tooltipHost?: HTMLElement;
+  /**
+   * Draw the grid's selected rows emphasised, and follow the selection. A click
+   * on a mark that stands for rows selects them: a marker on a marker map, a
+   * network's node or link, an extension's items, a `pie`, `donut` or
+   * `sunburst` slice, a `treemap` tile (every row at or beneath it), and a
+   * `chord` ribbon or arc. Marks the selection leaves out are
+   * dimmed.
+   */
   selection?: boolean;
   /** Clicking a group drills into it. */
   drill?: boolean;
@@ -14804,6 +14880,23 @@ export interface ChartSpec {
   trails?: boolean | string[];
   /** A `motion` chart's axis scales, `'linear'` or `'log'` each. A log axis leaves out readings at or below zero and counts them in `provenance().dropped`. */
   scale?: { x?: 'linear' | 'log'; y?: 'linear' | 'log' };
+  /**
+   * Inline handlers for the chart's events: `on` plus the event name with
+   * each word capitalised, colons dropped, so `annotation:added` is `onAnnotationAdded` and
+   * `cursor:move` is `onCursorMove`. One-word events are `onClick`, `onHover`, `onDraw` and so
+   * on. Called before the `chart.on` subscribers; `chart.on` keeps taking the event name as
+   * written. (`on` + the name with only its first letter capitalised, `onAnnotation:added`,
+   * is still read.)
+   */
+  onAnnotationAdded?: (payload: ChartEvent) => void;
+  /** Inline handler for `annotation:changed`. */
+  onAnnotationChanged?: (payload: ChartEvent) => void;
+  /** Inline handler for `annotation:removed`. */
+  onAnnotationRemoved?: (payload: ChartEvent) => void;
+  /** Inline handler for `cursor:move`. */
+  onCursorMove?: (payload: ChartEvent) => void;
+  /** Inline handler for `cursor:leave`. */
+  onCursorLeave?: (payload: ChartEvent) => void;
 }
 
 /**

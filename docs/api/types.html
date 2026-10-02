@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.86.0</title>
+<title>Types API Reference — Lattice Grid 1.86.1</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -641,7 +641,7 @@
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">duration</td><td class="type">number</td><td class="desc">How long an entry or an update plays, in milliseconds. Default 400; `0` draws the final state at once. <small>(optional)</small></td></tr>
+          <tr><td class="name">duration</td><td class="type">number</td><td class="desc">How long an entry or an update plays, in milliseconds. Default: 400. The theme's `--lattice-motion-duration` read where the chart is mounted only switches the default play off when it is `0ms`; any other value leaves 400 (BACKLOG-0001693). An explicit `duration` wins over the token. `0` draws the final state at once. <small>(optional)</small></td></tr>
           <tr><td class="name">easing</td><td class="type">'linear' | 'ease-in' | 'ease-out' | 'ease-in-out' | ((t: number) =&gt; number)</td><td class="desc">The curve the play follows: `'linear'`, `'ease-in'`, `'ease-out'` (the default) or `'ease-in-out'`, or a function from 0..1 to 0..1 (held to exactly 0 and 1 at the ends). <small>(optional)</small></td></tr>
           <tr><td class="name">entry</td><td class="type">boolean</td><td class="desc">Play the first drawing in: bars and columns grow from the baseline, lines and areas draw left to right, pie and donut slices sweep open, points scale and fade in. Default true. <small>(optional)</small></td></tr>
           <tr><td class="name">update</td><td class="type">boolean</td><td class="desc">Play a change in the grid (a filter, a sort, a row update, live data) from the old drawing to the new, keyed by series and category: a mark that stays moves and grows, an entering mark grows in, a leaving one shrinks out, and the axes re-tick smoothly. Default true. <small>(optional)</small></td></tr>
@@ -881,6 +881,7 @@
           <tr><td class="name">snap</td><td class="type">'nearest' | 'none'</td><td class="desc">`'nearest'` (the default) snaps the x hairline to the nearest reading in the data; `'none'` puts it under the pointer, and labels the value there. <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">boolean</td><td class="desc">Label the hairlines at the axes, in the axis's own format. Default true. <small>(optional)</small></td></tr>
           <tr><td class="name">tooltip</td><td class="type">'shared' | 'single' | false</td><td class="desc">`'shared'` (the default) lists every series at the x; `'single'` lists only the series nearest the pointer; `false` draws no tooltip. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupTooltips</td><td class="type">'pointer' | 'all'</td><td class="desc">With a `group`, which charts show a tooltip. `'pointer'` (the default) shows one: the chart under the pointer, or the one `cursor.set` was called on; the other members show the hairline and axis labels only. `'all'` shows every member's own tooltip at its own hairline, on each chart that has a reading at the shared x (they overlap when the charts share a place). Read on each chart, so a follower set to `'all'` shows its tooltip even when the driving chart says `'pointer'`. `tooltip: false` still means no tooltip anywhere; any other value warns once and is treated as `'pointer'`. <small>(optional)</small></td></tr>
           <tr><td class="name">group</td><td class="type">string</td><td class="desc">Charts that name the same group share the cursor by x value, not by pixel: hovering one puts the hairline at the same category or instant on every other, and on none whose range does not cover it. Works across charts bound to different grids. <small>(optional)</small></td></tr>
           <tr><td class="name">zoom</td><td class="type">boolean</td><td class="desc">With a `group`, carry this chart's x zoom to the other members that also set `zoom: true` (and a reset with it). Off by default; needs {@link ChartSpec.zoom} on each chart. <small>(optional)</small></td></tr>
           <tr><td class="name">rowHover</td><td class="type">boolean</td><td class="desc">Move the cursor to the x of the grid row the pointer is over. Off by default. <small>(optional)</small></td></tr>
@@ -1370,7 +1371,9 @@
           <tr><td class="name">q3</td><td class="type">number | null</td><td class="desc">The third quartile — three quarters of the values fall below it. Null when there are no numbers.</td></tr>
           <tr><td class="name">iqr</td><td class="type">number | null</td><td class="desc">The interquartile range, `q3 - q1`: the spread of the middle half, which outliers cannot inflate. Null when there are no numbers.</td></tr>
           <tr><td class="name">stddev</td><td class="type">number | null</td><td class="desc">The sample standard deviation, needing at least two numbers; null otherwise.</td></tr>
-          <tr><td class="name">outliers</td><td class="type">number</td><td class="desc">How many values fall outside Tukey's fence, 1.5 interquartile ranges beyond the quartiles — an outlier here means what it means on a box plot.</td></tr>
+          <tr><td class="name">outliers</td><td class="type">number | null</td><td class="desc">How many values fall outside Tukey's fence, 1.5 interquartile ranges beyond the quartiles — an outlier here means what it means on a box plot.</td></tr>
+          <tr><td class="name">computed</td><td class="type">'source'</td><td class="desc">`'source'` when the figures were computed by a pushdown source's engine (`statistics.profileAsync`, BACKLOG-0001689) rather than read from rows the grid holds; absent otherwise. <small>(optional)</small></td></tr>
+          <tr><td class="name">unavailable</td><td class="type">Array&lt;{ stat: string; reason: string }&gt;</td><td class="desc">The figures a pushdown source could not compute, each with why — a statistic the adapter does not declare, a source whose `aggregates` config keeps it client-side, a filter that did not push whole. Their fields carry no number. Absent when the profile was read from rows the grid holds. <small>(optional)</small></td></tr>
           <tr><td class="name">histogram</td><td class="type"><a href="#type-HistogramBin">HistogramBin</a>[]</td><td class="desc">The shape rather than the summary: the value counts per bucket. Two columns can share a mean, a median and a deviation and still be a bell and a barbell. Empty on a column with no numbers.</td></tr>
           <tr><td class="name">topValues</td><td class="type"><a href="#type-TopValue">TopValue</a>[]</td><td class="desc">For a categorical (non-numeric) column, the commonest values, largest first (BACKLOG-0000959). Absent for a numeric column, whose shape the numeric figures and the histogram already carry. <small>(optional)</small></td></tr>
         </tbody>

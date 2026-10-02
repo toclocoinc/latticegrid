@@ -9,6 +9,91 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.86.1] - 2026-10-02
+
+### Fixed
+
+- A `rangeArea` chart drew nothing useful from any spec form: `measures: ['avg', 'peak']` (in any of its three spellings) rendered an empty plot on a 0 to 1 axis, and `y` with `y2` drew a plain area of `y` from the axis floor. `measures: [low, high]` now fills the band between the first measure (lower edge) and the second (upper edge) at each `x`, with an optional third measure typed `line` drawn over it as the centre line; the y axis reaches the high edge and the tooltip at a point reads both. A `rangeArea` given `y`/`y2` or fewer than two measures says so by name (`chart:*:rangearea:form`) and points at that form, and the type table documents it (BACKLOG-0001671).
+
+- **A `reference` line on a candlestick (or OHLC) chart was never drawn** (BACKLOG-0001672). The same entry draws on bar, line, area and bubble charts. A candlestick now draws each `reference` entry as a dashed horizontal line at its value across the price pane, labelled at the right edge, above the gridlines and below the candles, with both lines and labels in `toSVG()`. With a volume pane on, the lines stay on the price pane. `axis: 'left' | 'right'` resolves to the one price scale, whichever side the price axis sits on.
+
+- A dual-axis chart (a `line`, `area` or `bar` with a measure on `axis: 'right'`, or a `combo` with a right-hand measure) drew its right axis but left the left axis with no tick labels and no title, so `axis: { y: 'Watts', y2: 'Availability %' }` showed only one of the two. The right axis claimed its elements by position in the group the left axis had just filled, overwriting its ticks and title; it now draws after them and both axes carry their ticks, labels and titles (BACKLOG-0001673).
+
+- **A `reference` line on a `horizontalBar` was drawn across the category axis** (BACKLOG-0001674). `reference` was always drawn as a horizontal line at the value's y pixel, but a horizontal bar's value axis runs left to right, so a budget limit of 250k landed somewhere between two bars. `reference`, and `annotations` of kind `line` or `target`, are now placed on the value axis whichever way it runs: horizontal on bar, line and area, vertical on `horizontalBar`, with the label at the top. `colour` is now listed on a reference entry in the types and the reference docs.
+
+- A chart's hover tooltip showed nothing, or showed in the wrong place, when the chart sat inside a popout that blurs its backdrop, transforms, or hides overflow: the tooltip lived inside the chart root and was positioned against that ancestor (BACKLOG-0001675).
+  - The tooltip node is now appended to `document.body`, above overlay z-indexes, and positioned in viewport coordinates; it carries the chart's resolved `data-theme` so the dark theme still colours it, and `destroy()` removes it. The crosshair's shared tooltip is the same node. The crosshair's axis labels are part of the chart's own SVG and are unaffected.
+  - New optional `tooltipHost` on the chart spec hosts the tooltip on a given element instead of the body.
+  - A chart mounted inside a shadow root hosts its tooltip on that shadow root rather than on the body, so the root's adopted stylesheets (the charts sheet among them) still style it.
+
+- The PR curve's headline `AP` on a `chart-roc` chart (`curve: 'pr'`) showed the positive rate P/N (0.236 on UCI Adult) instead of average precision (0.825): it is now AP as scikit-learn defines it, the step-wise sum of (R_n - R_{n-1}) * P_n over distinct score thresholds, rows tied on a score counting as one threshold. The ROC curve and its AUC now treat tied scores as one threshold too, so the AUC equals `roc_auc_score` when a positive and a negative share a score (it was order-dependent).
+
+- The `AUC` / `AP` label on a `chart-roc` chart drew with the SVG default black fill, unreadable on a dark page (rgb(20,24,28)); it now takes the theme foreground token, at 4.5:1 or better in light and dark.
+
+- **A fan chart whose forecast was empty over the history drew its dashed forecast line and interval band from zero, and a decomposition panel dropped to zero at a missing point** (BACKLOG-0001687). *Recognise your own case: actuals followed by a forecast horizon, the forecast, lower and upper columns empty over the history, and a y axis stretched down to 0.* Both bindings read cells with `Number(...)`, and `Number(null)` is 0. A null, undefined, empty or non-numeric cell is now a gap in `chart-fan` and `chart-decomposition`: the forecast line and band begin at the first row that has a value, the band is drawn only where both bounds are present, the y domain uses present values only, and decomposition lines break at a missing point. A real 0 still draws as 0.
+
+- Grouping a memory grid and then pivoting it through `grid.columns.group()` and `grid.columns.pivot()` (or the Columns panel drop zones) left every raw row under each group (609,722 rows instead of 24); the result now equals the same layout declared in the column config, in either order, and removing the pivot and grouping restores the flat grid.
+
+- A header histogram whose count was still running when the rows were replaced stayed empty, with no `facet:computed`, until something called `grid.facets.get()`; every column that had been asked for is now counted again once the replacement settles.
+
+- Over a pushdown source without `fullDataset`, `grid.statistics.profile()` is null and the statistics panel said "Nothing numeric". `grid.statistics.profileAsync(colId)` now asks the source's engine for the count, distinct count, min, max, mean, quartiles, median and standard deviation the adapter supports, over the grid's filters, and the panel shows them. A figure the engine could not compute is named in the panel and under `unavailable` on the profile instead of left blank.
+
+- A column with `facet: false` (or a `facet` object) logged "not a configuration key this grid recognises" although the option worked; `facet` is now a declared `Column` key and accepted without a warning.
+
+- Opt-in chart types (waffle, alluvial, marker map and the rest of the extension set) were announced by their raw key, `chart.type.waffle`. Every registered type now has a catalogue label in every shipped locale, and a type registered without one is read by its id spelled out as words.
+
+- A Sankey's and a network's accessible table was a caption and one header cell with no rows. It now lists every link (source, target, value), as the chord's does.
+
+- On line, area and step charts the arrow keys read point 0 for the whole series. Left and Right (and Home and End) now move point by point and announce each point's own category and value; the crosshair cursor keeps the arrows while it is on.
+
+- A click on a pie, donut or sunburst slice, a treemap tile, or a chord ribbon or arc did nothing on a chart with `selection: true`. It now selects the rows behind that mark and dims the marks the selection leaves out, as it does on marker maps and networks (BACKLOG-0001692).
+
+- With `marker: { image }` on a line, scatter or bubble chart, hover and click resolved by the nearest category rather than by the picture under the pointer, so a pointer on one picture could name its neighbour. A pointer over a picture now hits that point (BACKLOG-0001692).
+
+- The per-row `fill` (a column or a function) painted bars, lollipops, scatter and bubble points but left pie and donut slices and treemap tiles in the scheme colours. It now paints those too, and the legend swatches carry it (BACKLOG-0001692).
+
+- `ChartSpec.rows` silently drew nothing for plain objects that are not rows of the grid. Such entries are now named once in a `[lattice]` warning (`chart:rows:not-grid-rows`) and left out, and a chart given only such entries is empty instead of charting every row; `rows` is documented as taking the grid's own rows (BACKLOG-0001692).
+
+- **`chart.toCSV()` threw on freeform extension types.** A word cloud, a Venn, a scatter matrix and the rest raised "Cannot read properties of undefined (reading 'title')", and a flow chart exported only a header; it now exports the rows the chart's accessible table reads out and never throws (BACKLOG-0001693).
+
+- **A colon event's inline handler had to be spelled `onAnnotation:added`.** `onAnnotationAdded`, `onAnnotationChanged`, `onAnnotationRemoved`, `onCursorMove` and `onCursorLeave` now work and are declared on `ChartSpec`; `chart.on` takes the event name as before (BACKLOG-0001693).
+
+- **`chartRange` and `deriveRangeSpec` rejected an extension or host chart type under strict TypeScript**, because `type` was the built-in `ChartType`; they take `ChartType | ChartExtensionType | (string & {})` as `ChartSpec.type` does (BACKLOG-0001693).
+
+- **A chart's play ignored a host that silenced motion.** The default play stays 400 ms; the theme's `--lattice-motion-duration` is read only to switch it off when it resolves to 0, and `animation.duration` still wins (BACKLOG-0001693).
+
+- **A `fan` chart drew no x-axis labels.** It labels its time axis as a line chart does, thinned so neighbours never overprint (BACKLOG-0001693).
+
+- **The unknown-icon warning said "network node" and "plain disc" when a chart image marker raised it.** It names the chart image marker (BACKLOG-0001693).
+
+- **`grid.columns.resize('__lattice_group', 120)` was ignored**: the generated auto-group column stayed 240 px because the column model does not hold it. It now takes the width (clamped to its minimum, announced as `column:resized`) and keeps it when the grouping changes; on a grid that is not grouped it warns by name (BACKLOG-0001694).
+
+- **Rows under a collapsed group vanished from a deck.gl or Leaflet map.** `bindDeck` and `bindLeaflet` read the grid's display rows, so collapsing a group removed its rows from the map; both now draw every filtered data row whatever the group expansion, as Map View does (BACKLOG-0001694).
+
+- **A chart tooltip stayed on screen when the host removed the chart's container without `destroy()`.** The tooltip lives on `document.body` (or the shadow root), so it was orphaned and painted forever while open; it is now hidden and removed when the chart root leaves the document (BACKLOG-0001694).
+
+- **With `cursor.group`, setting the cursor opened a tooltip on every chart in the group**, stacked on top of one another. Only the chart under the pointer, or the one `cursor.set` was called on, shows its tooltip; the others show the hairline and axis labels (BACKLOG-0001694).
+
+- A column definition with an undeclared `hidden: true` key was reported as not hiding the column; the grid already warns by name ('hidden' is not a configuration key, on column "x") and the declared `layout.hidden` hides, so this is now pinned by a test (BACKLOG-0001694).
+
+- **`cursor.groupTooltips: 'all'` shows every chart's own tooltip in a cursor group.** In a `cursor.group`, only the chart under the pointer, or the one `cursor.set` was called on, shows its tooltip by default (`groupTooltips: 'pointer'`); `'all'` restores a tooltip on every member that has a reading at the shared x, each at its own hairline, as 1.86.0 drew them. It is read on each chart, `tooltip: false` still shows none, and any other value warns once (`chart:*:cursor:groupTooltips`) and is treated as `'pointer'` (BACKLOG-0001694).
+
+- A chart redrawn with more ticks than before (`chart.update`, 3 then 9 ticks) drew one tick label carrying the axis title's class, `rotate(-90)` transform and `aria-label`, because the pool recycled the title node; a title node is now never handed out as a tick label (BACKLOG-0001695).
+
+- `axis.y.format: '$0,0'` and a string `format` on data labels did nothing (ticks stayed 0, 100, 200) because the string was passed to a `grid.formatting.format` that does not exist; a string format now goes through the grid's format compiler, and one it does not understand warns once, naming the option (BACKLOG-0001695).
+
+- A horizontal band, a line or a callout whose value could not be resolved vanished without a word; each kind now warns once by name, as a vertical one already did (BACKLOG-0001695).
+
+- A `hexmap` over a geometry pack armed the geomap pan and zoom handlers but ignored them; the wheel and a drag now zoom and pan the hexagons and the map under them (BACKLOG-0001695).
+
+- `<KPI grid-name="g">` and `<Chart grid-name="g">` in Svelte rendered unbound, because the adapter tested the raw kebab key; `grid-name`, `route-options`, `row-updates` and `content-ids` now bind exactly as their camelCase forms do.
+
+- `<lattice-grid>` accepted `quickFilter`, `sort`, `filters` and `selectedKeys` and did nothing with them, since the element only called `grid.set`; each is now applied through the grid's own filter, sort and selection API, at creation and live, and a key the grid has no API for warns once by name.
+
+- The `defineLatticeGrid` declaration in `types.d.ts` took a tag string and returned `void`; it now takes `{ tagName?, createGrid? }` and returns the registered element class (or `null`), matching the runtime, with a strict `tsc` fixture.
+
+- **Seven declared options did nothing, silently** (BACKLOG-0001697). Each now takes effect or warns once naming itself. `header.tooltip` is drawn as the heading's hover text, in place of the drag hint on a movable column. `cell.autoHeight` is not a column option (rows grow to fit with the grid-level `autoHeight`, and `cell.wrap` is the per-column half), so declaring it warns once naming the column. A KPI format `{ type: 'compact', currency: 'USD' }` reads `$1.2M`; the currency was dropped. `pivotView: true` with no `groupBy` and no pivot dimension warns once instead of drawing an empty body. A column group's `facet` is the default histogram setting for every column under it (a column's own `facet` wins, an inner band beats an outer one). A data router fed by `addSource(…, { key: true })` under a function `rowKey` such as `(r) => r.id` keeps two feeds that share an id as two rows, as a string `rowKey` does; a function that does not read exactly one property warns once that it cannot be namespaced. The statistics panel's "Not computed by the source" note and each reason come from the message catalogue (English; the other locales await translation).
+
 ## [1.86.0] - 2026-10-02
 
 ### Added
