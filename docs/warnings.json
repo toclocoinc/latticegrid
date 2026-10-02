@@ -1,5 +1,5 @@
 {
-  "version": "1.85.0",
+  "version": "1.86.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 627,
+  "count": 645,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -244,6 +244,16 @@
       "docs": "api/charts.html#chart-geometry-maps"
     },
     {
+      "id": "chart:*:viewportFilter:globe",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "a globe's \"viewportFilter\" writes the visible hemisphere as one condition on a geometry column, and this chart places its rows by \"lon\"/\"lat\", so no filter was written. Place the rows with geometry: '<column>' (or name viewportFilter: { column }).",
+      "meaning": "On a globe (projection: 'orthographic') the viewport filter is the visible hemisphere, written as a single withinDistance condition on a geometry column. A chart that places its rows by two coordinate columns has no single column to put that condition on, and a bounding box would not be the hemisphere, so nothing was written and the grid is not narrowed.",
+      "fix": "Place the rows with a geometry column (`geometry: 'place'`), or name one with `viewportFilter: { column }`.",
+      "docs": "api/charts.html#chart-globe"
+    },
+    {
       "id": "chart:*:volume:type:*",
       "module": "charts",
       "severity": "warn",
@@ -305,6 +315,18 @@
       "docs": "api/charts.html#chart-geometry-maps"
     },
     {
+      "id": "chart:*:notice:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "{notice}",
+      "computed": true,
+      "meaning": "A shape or timeline chart (`pictorial`, `serpentine`, `spiral`) noticed something about its input while binding and drew what it could rather than guess. The id after `notice:` says what: `shape-rejected` (a pictorial `shape` was neither a registered icon name nor SVG path data, so the built-in figure was drawn), `undated` (rows with no readable date are left off a timeline rather than placed at an invented moment) or `period` (a spiral `period` could not be read, so one turn per week was drawn).",
+      "fix": "Give the option a value it names: a registered icon name or a path string of commands and numbers only; a date column of dates, ISO strings or epoch milliseconds; a spiral period of 'day', 'week', 'year' or a duration such as '28d'.",
+      "snippet": "createChart({ grid, container, type: 'spiral', x: 'at', spiral: { period: '28d' } });",
+      "docs": "API.html#chart-flow-funnel-time"
+    },
+    {
       "id": "chart:zoom:axes:*",
       "module": "charts",
       "severity": "warn",
@@ -360,6 +382,50 @@
       "docs": "api/charts.html#chart-zoom"
     },
     {
+      "id": "chart:*:animation:invalid",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "{problems}. The default is used in its place.",
+      "meaning": "A chart's `animation` option held a value the chart cannot read: a negative or non-numeric `duration` or `budget`, an `easing` that is neither one of 'linear', 'ease-in', 'ease-out', 'ease-in-out' nor a function, an `entry` or `update` that is not true or false, or an `animation` that is not true, false or an object. Each is named in the message, and the default plays in its place.",
+      "fix": "Give `animation` true, false, or an object of a duration in milliseconds, a named easing or a function, true/false for entry and update, and a mark budget.",
+      "snippet": "createChart({ grid, container, type: 'bar', x: 'region', y: 'sales', animation: { duration: 300, easing: 'ease-in-out' } });",
+      "docs": "API.html#chart-animation"
+    },
+    {
+      "id": "chart:*:cursor:type:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "\"cursor\" is a crosshair over a chart's own axes and {type} has none to put one on, so no cursor was added. The types that take one are {types}.",
+      "meaning": "`cursor` was set on a chart type that has no pair of cartesian axes to read a position from — a pie, a treemap, a Sankey, a geomap. No hairline was drawn, and the option was reported rather than accepted in silence, because a caller who sets an option and sees nothing cannot tell a broken option from a broken chart.",
+      "fix": "Set `cursor` on a cartesian type: line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble, candlestick, ohlc, combo or pareto.",
+      "snippet": "createChart({ grid, container, type: 'line', x: 'day', y: 'price', cursor: true });",
+      "docs": "api/charts.html#chart-cursor"
+    },
+    {
+      "id": "chart:*:cursor:multiples",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "\"cursor\" is not drawn on small multiples: each panel has its own plot and the set reads as one chart, so no cursor was added. Put a cursor on each panel's own chart instead.",
+      "meaning": "`cursor` was set on a chart with `multiples`. The panels share one scale and are read as a set, so a single crosshair has no one plot to sit on; no cursor was drawn.",
+      "fix": "Remove `multiples`, or build one chart per panel and give each a `cursor` with the same `group` so they share it by value.",
+      "snippet": "createChart({ grid, container, type: 'line', x: 'day', y: 'price', cursor: { group: 'panels' } });",
+      "docs": "api/charts.html#chart-cursor"
+    },
+    {
+      "id": "chart:*:cursor:off",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "chart.cursor.set() was called on a chart with no cursor, so nothing moved. Set `cursor: true` on a cartesian chart before driving it.",
+      "meaning": "A host asked a chart to put its crosshair at an x, but the chart has no cursor: either `cursor` was never set, or the type it was set on has no axes to read one from. Nothing moved, and it was said rather than returning quietly.",
+      "fix": "Set `cursor: true` (or the object form) on a cartesian chart before calling `chart.cursor.set()`.",
+      "snippet": "createChart({ grid, container, type: 'line', x: 'day', y: 'price', cursor: true }).cursor.set('Tue');",
+      "docs": "api/charts.html#chart-cursor"
+    },
+    {
       "id": "chart:*:empty",
       "module": "charts",
       "severity": "warn",
@@ -369,6 +435,17 @@
       "meaning": "The grid has rows and the binding produced nothing from them, so the chart shows its empty state over data that is plainly there. The other empty case — a grid with no rows at all — is deliberately *not* reported: the viewer can see it, there is nothing for an integrator to do, and a dashboard that starts empty must not print a line per chart on its way to drawing.",
       "fix": "Check that the spec names the columns this chart type needs. A flow type needs `source` and `target`; a measure needs a column that actually holds values.",
       "docs": "api/charts.html#chartsmodule"
+    },
+    {
+      "id": "chart:*:brush:polar:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "a {type} chart can only brush to a selection, and brush: {mode} was set, so the drag did nothing. Set brush: 'select' to select the rows inside the dragged band in the grid.",
+      "meaning": "A polar scatter was given a brush mode other than 'select'. A band of points on a polar plot has no category set or value range to filter the grid by or to zoom into, so the only meaning a drag has is a selection; the other modes were refused rather than accepted and ignored.",
+      "fix": "Set `brush: 'select'`, or remove `brush`.",
+      "snippet": "createChart({ grid, container, type: 'polarScatter', x: 'bearing', y: 'speed', brush: 'select' });",
+      "docs": "api/charts.html#chart-polar"
     },
     {
       "id": "chart:*:incomplete",
@@ -6324,6 +6401,28 @@
       "docs": "api/charts.html#chartsmodule"
     },
     {
+      "id": "chart:responsive-option",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "the chart option `responsive` takes 'auto' or an array of rules ({ maxWidth?, minWidth?, maxHeight?, minHeight?, set }); it was ignored.",
+      "meaning": "The responsive option was given something other than 'auto' or an array, so the chart has no breakpoint rules and always draws from its base options.",
+      "fix": "Pass responsive: 'auto' for the built-in narrow-chart rules, or an array such as [{ maxWidth: 400, set: { legend: false } }].",
+      "snippet": "createChart({ grid, container, type: 'bar', x: 'q', y: 'sales', responsive: 'auto' });",
+      "docs": "api/charts.html#chart-responsive"
+    },
+    {
+      "id": "chart:responsive-rule",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "a chart `responsive` rule was ignored: each rule needs a `set` object and, optionally, numeric maxWidth / minWidth / maxHeight / minHeight.",
+      "meaning": "One entry of the responsive array was not an object with a set object (or a function returning one), or carried a size bound that is not a finite number. That rule is skipped; the others still apply.",
+      "fix": "Write each rule as { maxWidth?: number, minWidth?: number, maxHeight?: number, minHeight?: number, set: { ...chart options } }.",
+      "snippet": "responsive: [{ maxWidth: 400, set: { legend: { position: 'top' } } }]",
+      "docs": "api/charts.html#chart-responsive"
+    },
+    {
       "id": "kpi:grid-destroyed",
       "module": "kpi",
       "severity": "warn",
@@ -6609,6 +6708,61 @@
       "docs": "API.html#chart-bars-set"
     },
     {
+      "id": "chart:editable:aggregated",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "a chart mark that stands for several rows (a bar summing a category, a group) cannot be dragged, because there is no single cell to write. Set editable: { distribute: \"proportional\" } (or \"first\") to say how a new total is shared between its rows, or chart one row per mark.",
+      "meaning": "A reader grabbed the handle of a chart mark that stands for several rows (a bar summing a category, or a grouped mark) with `editable` on. There is no single cell to write the dragged value to, so nothing was written; the chart says so under the plot.",
+      "fix": "Chart one row per mark, or set `editable: { distribute: 'proportional' }` (every row scaled by one factor) or `'first'` (the whole difference on the first row) to say how a new total is shared between the rows. The measure must be reduced with `sum` or `avg`.",
+      "snippet": "createChart({ grid, container, type: 'bar', x: 'region', y: 'sales', editable: { distribute: 'proportional' } });",
+      "docs": "API.html#chart-drag-edit"
+    },
+    {
+      "id": "chart:editable:axis",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "editable.axis asks for an axis this chart cannot drag along. Only a numeric x axis (a scatter or bubble) can be dragged sideways; a bar, line, area, floating bar, pie or donut moves along its value only. Use axis: \"y\".",
+      "meaning": "`editable.axis` named an axis the chart cannot drag along: `'x'` or `'xy'` on a chart whose x axis is not numeric (anything but a scatter or bubble), or on a pie, donut or floating bar. The sideways part is left out.",
+      "fix": "Use `axis: 'y'` (the default), or bind a numeric column to `x` on a `scatter` or `bubble` chart.",
+      "snippet": "createChart({ grid, container, type: 'scatter', x: 'width', y: 'height', editable: { axis: 'xy' } });",
+      "docs": "API.html#chart-drag-edit"
+    },
+    {
+      "id": "chart:editable:cap",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "editable draws a handle on at most 2000 marks, and this chart has more, so the rest cannot be dragged. Filter the grid, or aggregate the chart, to a size a person can point at.",
+      "meaning": "A chart with `editable` has more than 2000 marks, so only the first 2000 get a handle and the rest cannot be dragged or focused.",
+      "fix": "Filter the grid, or aggregate the chart, to a number of marks a person can point at.",
+      "snippet": "createChart({ grid, container, type: 'scatter', x: 'width', y: 'height', editable: true, limit: 500 });",
+      "docs": "API.html#chart-drag-edit"
+    },
+    {
+      "id": "chart:editable:distribute",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "editable.distribute shares a new total between the rows of a mark, and only a sum or an average has a total to share. A mark that is a minimum, a maximum, a median or a count cannot be dragged.",
+      "meaning": "`editable.distribute` was set and a reader dragged a mark whose measure is reduced with `min`, `max`, `median`, `count` or another function with no total to share out, so nothing was written.",
+      "fix": "Reduce the measure with `sum` or `avg` (`y: { col: 'sales', fn: 'sum' }`), or chart one row per mark.",
+      "snippet": "createChart({ grid, container, type: 'bar', x: 'region', y: { col: 'sales', fn: 'sum' }, editable: { distribute: 'first' } });",
+      "docs": "API.html#chart-drag-edit"
+    },
+    {
+      "id": "chart:editable:type",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "editable has no effect on this chart: its type has no draggable marks, it is stacked or percent (no single value at the end of a mark), it is drawn as small multiples, or it is a floating bar on a time axis. It drags a line, step or area point, a bar or horizontal bar end, both ends of a floating bar, a scatter or bubble point, and a pie or donut slice edge.",
+      "meaning": "`editable` was set on a chart whose marks cannot be dragged: a type other than line, step, area, bar, horizontalBar, scatter, bubble, floatingBar, horizontalFloatingBar, pie or donut; a stacked or percent chart; small multiples; or a floating bar on a time axis. No handles are drawn.",
+      "fix": "Use `editable` on one of the supported types, unstack the chart, or drop `multiples`. A time-valued floating bar is edited in the grid.",
+      "snippet": "createChart({ grid, container, type: 'line', x: 'day', y: 'sales', editable: true });",
+      "docs": "API.html#chart-drag-edit"
+    },
+    {
       "id": "chart:pyramid:halves",
       "module": "charts",
       "severity": "warn",
@@ -6618,6 +6772,50 @@
       "fix": "Split `y` by a `series` column holding exactly two values (the first is drawn on the left), or name the two columns: `measures: [{ col: 'male' }, { col: 'female' }]`. Filter the grid to two values if the column holds more.",
       "snippet": "createChart({ grid, container, type: 'populationPyramid', x: 'age', measures: [{ col: 'male' }, { col: 'female' }] });",
       "docs": "API.html#chart-bars-set"
+    },
+    {
+      "id": "chart:fill:invalid:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "a chart fill object was ignored: {detail} The mark was drawn in a solid colour instead. A fill is a gradient object (gradient: \"linear\" or \"radial\", with stops of [offset, colour]) or a pattern object (pattern: \"hatch\", \"crosshatch\", \"dots\" or \"grid\", with a colour).",
+      "meaning": "A fill object in a `scheme`, a per-row `fill`, or a `basemap.fill` could not be drawn: a gradient with fewer than two usable `[offset, colour]` stops, an unknown gradient kind, or a pattern name the module does not have. The mark was drawn in a solid colour (the series colour, or the first stop) rather than as nothing. The key's last part names the reason: `stops`, `gradient` or `pattern`.",
+      "fix": "Give a gradient at least two stops, `[[0, '#0072b2'], [1, '#56b4e9']]`, and use `'linear'` or `'radial'`; name a pattern `'hatch'`, `'crosshatch'`, `'dots'` or `'grid'`.",
+      "snippet": "createChart({ grid, container, type: 'bar', x: 'team', y: 'hours', scheme: [{ gradient: 'linear', stops: [[0, '#0072b2'], [1, '#56b4e9']] }] });",
+      "docs": "API.html#chart-fills"
+    },
+    {
+      "id": "chart:marker:no-image",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "chart \"marker\" needs an \"image\": an icon name, a URL, { col } or a function. No markers were drawn from it.",
+      "meaning": "The chart's `marker` option was given without an `image`, so there is nothing to draw at a point and the default markers were kept.",
+      "fix": "Give `marker.image` an icon name, an image URL, `{ col: 'columnId' }` to read one per row, or a function of the point.",
+      "snippet": "createChart({ grid, container, type: 'scatter', x: 'x', y: 'y', marker: { image: { col: 'logo' }, size: 20 } });",
+      "docs": "API.html#chart-fills"
+    },
+    {
+      "id": "chart:marker:unsafe-url:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "a chart marker image URL was refused ({shown}): only http, https, blob, relative and data:image URLs are drawn. Those points keep the default marker.",
+      "meaning": "A marker image URL came from the data with a scheme the chart will not write into an image: `javascript:`, `vbscript:`, `file:` or a `data:` URI that is not an image type. The points it was for kept the default marker. The key ends with the first 40 characters of the value.",
+      "fix": "Supply an `https` or relative URL, a `blob:` URL the page made, or a `data:image/...` URI; or clean the column the images are read from.",
+      "snippet": "createChart({ grid, container, type: 'scatter', x: 'x', y: 'y', marker: { image: 'https://example.com/logo.png' } });",
+      "docs": "API.html#chart-fills"
+    },
+    {
+      "id": "chart:marker:image-failed:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.0",
+      "message": "a chart marker image could not be loaded ({shown}); those points keep the default marker. Check the URL, and that the server allows the page to load it.",
+      "meaning": "The browser tried to load a marker image once and could not (a 404, a blocked cross-origin request, a file that is not an image). The outcome is remembered for the page, so the URL is not retried, and the points keep the default marker. The key ends with the full URL.",
+      "fix": "Fix the URL, or serve the image with a header that lets the page load it.",
+      "snippet": "createChart({ grid, container, type: 'line', x: 'day', y: 'value', marker: { image: '/img/pin.png' } });",
+      "docs": "API.html#chart-fills"
     }
   ]
 }

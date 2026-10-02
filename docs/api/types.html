@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.85.0</title>
+<title>Types API Reference — Lattice Grid 1.86.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -620,6 +620,48 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-ChartActiveRule">ChartActiveRule</h4>
+    <p class="section-note">One entry of {@link Chart.responsive} and of the `responsive` event's `active` list.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The rule's position in the resolved list (`'auto'` expands to two rules).</td></tr>
+          <tr><td class="name">auto</td><td class="type">boolean</td><td class="desc">True for one of the built-in rules `responsive: 'auto'` stands for.</td></tr>
+          <tr><td class="name">maxWidth</td><td class="type">number</td><td class="desc">The rule's `maxWidth`, as given. <small>(optional)</small></td></tr>
+          <tr><td class="name">minWidth</td><td class="type">number</td><td class="desc">The rule's `minWidth`, as given. <small>(optional)</small></td></tr>
+          <tr><td class="name">maxHeight</td><td class="type">number</td><td class="desc">The rule's `maxHeight`, as given. <small>(optional)</small></td></tr>
+          <tr><td class="name">minHeight</td><td class="type">number</td><td class="desc">The rule's `minHeight`, as given. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartAnimationOptions">ChartAnimationOptions</h4>
+    <p class="section-note">The object form of {@link ChartSpec.animation} (BACKLOG-0001666): how a chart's entry and its updates play.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">duration</td><td class="type">number</td><td class="desc">How long an entry or an update plays, in milliseconds. Default 400; `0` draws the final state at once. <small>(optional)</small></td></tr>
+          <tr><td class="name">easing</td><td class="type">'linear' | 'ease-in' | 'ease-out' | 'ease-in-out' | ((t: number) =&gt; number)</td><td class="desc">The curve the play follows: `'linear'`, `'ease-in'`, `'ease-out'` (the default) or `'ease-in-out'`, or a function from 0..1 to 0..1 (held to exactly 0 and 1 at the ends). <small>(optional)</small></td></tr>
+          <tr><td class="name">entry</td><td class="type">boolean</td><td class="desc">Play the first drawing in: bars and columns grow from the baseline, lines and areas draw left to right, pie and donut slices sweep open, points scale and fade in. Default true. <small>(optional)</small></td></tr>
+          <tr><td class="name">update</td><td class="type">boolean</td><td class="desc">Play a change in the grid (a filter, a sort, a row update, live data) from the old drawing to the new, keyed by series and category: a mark that stays moves and grows, an entering mark grows in, a leaving one shrinks out, and the axes re-tick smoothly. Default true. <small>(optional)</small></td></tr>
+          <tr><td class="name">budget</td><td class="type">number</td><td class="desc">The most marks a draw animates. Past it the chart draws its final state at once and {@link ChartProvenance.animation} says `reason: 'budget'`. Default 2000. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartAnimationProvenance">ChartAnimationProvenance</h4>
+    <p class="section-note">What the last draw did about animation: {@link ChartProvenance.animation} (BACKLOG-0001666).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">animated</td><td class="type">boolean</td><td class="desc">Whether the draw played an entry or an update.</td></tr>
+          <tr><td class="name">reason</td><td class="type">string</td><td class="desc">Why: `'entry'` or `'update'` when it played; otherwise `'disabled'` (`animation: false`, or `entry`/`update` off), `'reduced-motion'`, `'automation'` (`navigator.webdriver`), `'no-window'` (headless), `'own-motion'` (a type that plays its own), `'budget'`, (`'automation'` also covers a jsdom or happy-dom test DOM, which names itself in its user agent), `'view-change'` (a resize or a zoom, which draw at once), `'unchanged'` or `'not-drawn'`.</td></tr>
+          <tr><td class="name">marks</td><td class="type">number</td><td class="desc">How many marks the drawing has, as counted against the budget.</td></tr>
+          <tr><td class="name">budget</td><td class="type">number</td><td class="desc">The budget in force.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ChartAnnotateMeasure">ChartAnnotateMeasure</h4>
     <p class="section-note">Where a `measure-x` or `measure-xy` readout's volume figure comes from (BACKLOG-0001475).</p>
     <div class="table-wrap">
@@ -795,6 +837,68 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-ChartCursorApi">ChartCursorApi</h4>
+    <p class="section-note">The host's handle on a chart's crosshair (BACKLOG-0001667).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">set</td><td class="type">(x: unknown): boolean</td><td class="desc"><code>x: unknown</code></td><td class="type"><code>boolean</code></td><td class="desc">Put the cursor at this x: a category on a category axis, a number or a `Date` on a continuous one (the nearest reading, unless the cursor says `snap: 'none'`). Shows the hairline and the shared tooltip and raises `cursor:move` with `source: 'api'`. Returns false when the chart has no cursor or the x is not on it.</td></tr>
+          <tr><td class="name">clear</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Take the cursor away, raising `cursor:leave`.</td></tr>
+          <tr><td class="name">get</td><td class="type">(): <a href="#type-ChartCursorPosition">ChartCursorPosition</a> | null</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-ChartCursorPosition">ChartCursorPosition</a> | null</code></td><td class="desc">Where the cursor is, or null when it is not showing.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartCursorLeaveEvent">ChartCursorLeaveEvent</h4>
+    <p class="section-note">What a `cursor:leave` handler receives (BACKLOG-0001667).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">source</td><td class="type">'pointer' | 'api' | 'row' | 'group'</td><td class="desc">What took it away.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartCursorMoveEvent">ChartCursorMoveEvent</h4>
+    <p class="section-note">What a `cursor:move` handler receives (BACKLOG-0001667).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">values</td><td class="type">{ series: string; value: string; raw: number | null }[]</td><td class="desc">One entry per series at the x: its label, its value as the chart words it, and the number.</td></tr>
+          <tr><td class="name">source</td><td class="type">'pointer' | 'keyboard' | 'api' | 'row' | 'group'</td><td class="desc">What moved it.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartCursorOptions">ChartCursorOptions</h4>
+    <p class="section-note">The object form of {@link ChartSpec.cursor} (BACKLOG-0001667): a crosshair that follows the pointer over a cartesian chart.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">x</td><td class="type">boolean</td><td class="desc">Draw the hairline across the category or time axis, snapped to a reading. Default true. <small>(optional)</small></td></tr>
+          <tr><td class="name">y</td><td class="type">boolean</td><td class="desc">Draw the hairline across the measure axis, following the pointer. Default false. <small>(optional)</small></td></tr>
+          <tr><td class="name">snap</td><td class="type">'nearest' | 'none'</td><td class="desc">`'nearest'` (the default) snaps the x hairline to the nearest reading in the data; `'none'` puts it under the pointer, and labels the value there. <small>(optional)</small></td></tr>
+          <tr><td class="name">labels</td><td class="type">boolean</td><td class="desc">Label the hairlines at the axes, in the axis's own format. Default true. <small>(optional)</small></td></tr>
+          <tr><td class="name">tooltip</td><td class="type">'shared' | 'single' | false</td><td class="desc">`'shared'` (the default) lists every series at the x; `'single'` lists only the series nearest the pointer; `false` draws no tooltip. <small>(optional)</small></td></tr>
+          <tr><td class="name">group</td><td class="type">string</td><td class="desc">Charts that name the same group share the cursor by x value, not by pixel: hovering one puts the hairline at the same category or instant on every other, and on none whose range does not cover it. Works across charts bound to different grids. <small>(optional)</small></td></tr>
+          <tr><td class="name">zoom</td><td class="type">boolean</td><td class="desc">With a `group`, carry this chart's x zoom to the other members that also set `zoom: true` (and a reset with it). Off by default; needs {@link ChartSpec.zoom} on each chart. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowHover</td><td class="type">boolean</td><td class="desc">Move the cursor to the x of the grid row the pointer is over. Off by default. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartCursorPosition">ChartCursorPosition</h4>
+    <p class="section-note">What {@link Chart.cursor.get} and `cursor:move` report about where the cursor is.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">x</td><td class="type">unknown</td><td class="desc">The x of the reading it is at: a category, a number or a date as the column holds it.</td></tr>
+          <tr><td class="name">key</td><td class="type">string</td><td class="desc">A stable string for that x.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The x as the column's own cell text words it.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ChartDatumEvent">ChartDatumEvent</h4>
     <p class="section-note">A mark, in the terms a host thinks in: `hover`'s payload, and the shape `click` adds its `preventDefault` to. One shape for every chart type, so a host need not know whether it attached to a pie, a bar chart, a treemap, a map, a matrix or a network to read what the pointer is on: a type with no third channel leaves the field null. There is no `point` wrapper — the fields are flat.</p>
     <div class="table-wrap">
@@ -809,6 +913,7 @@
           <tr><td class="name">rowKeys</td><td class="type">unknown[]</td><td class="desc">The keys of the source rows behind the mark; empty where the geometry keeps none.</td></tr>
           <tr><td class="name">path</td><td class="type">unknown[]</td><td class="desc">The mark's path from the drawn root, on a hierarchy — a treemap tile, a sunburst arc, a flow end. <small>(optional)</small></td></tr>
           <tr><td class="name">depth</td><td class="type">number</td><td class="desc">How deep the mark sits below the drawn root, on a hierarchy. <small>(optional)</small></td></tr>
+          <tr><td class="name">index</td><td class="type">number</td><td class="desc">Which drawn node, on `forceTree`, `pack`, `tree` and `voronoiTreemap` — its position in the drawing's node list. <small>(optional)</small></td></tr>
           <tr><td class="name">from</td><td class="type">number</td><td class="desc">A histogram bin's lower bound, present only on a bin. <small>(optional)</small></td></tr>
           <tr><td class="name">to</td><td class="type">number</td><td class="desc">A histogram bin's upper bound, present only on a bin. <small>(optional)</small></td></tr>
           <tr><td class="name">native</td><td class="type">object</td><td class="desc">The DOM pointer event behind it.</td></tr>
@@ -851,6 +956,37 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-ChartEditEvent">ChartEditEvent</h4>
+    <p class="section-note">What a chart's `edit` and `editRejected` handlers receive (BACKLOG-0001670).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">rowKeys</td><td class="type">string[]</td><td class="desc">The rows the edit wrote to.</td></tr>
+          <tr><td class="name">colId</td><td class="type">string</td><td class="desc">The column of the first value written.</td></tr>
+          <tr><td class="name">value</td><td class="type">number</td><td class="desc">The value the mark was dragged to.</td></tr>
+          <tr><td class="name">oldValue</td><td class="type">number</td><td class="desc">The value it had.</td></tr>
+          <tr><td class="name">writes</td><td class="type">Array&lt;{ key: string; colId: string; value: number }&gt;</td><td class="desc">Every cell written (several, for a distributed total or an `'xy'` drag).</td></tr>
+          <tr><td class="name">reason</td><td class="type">string</td><td class="desc">For `editRejected`: why the grid refused it (`'validation'`, a veto reason, `'readOnly'`). <small>(optional)</small></td></tr>
+          <tr><td class="name">message</td><td class="type">string</td><td class="desc">For `editRejected`: the grid's own message, shown under the plot. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartEditable">ChartEditable</h4>
+    <p class="section-note">How a chart's marks may be dragged to edit the grid (BACKLOG-0001670; see {@link ChartSpec.editable}).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">axis</td><td class="type">'y' | 'x' | 'xy'</td><td class="desc">Which axis a drag moves along: `'y'` the measure (default), `'x'` the category value of a scatter or bubble point on a numeric x axis, or `'xy'` both at once. A pie or donut slice and a floating bar's ends move along their value only. <small>(optional)</small></td></tr>
+          <tr><td class="name">step</td><td class="type">number</td><td class="desc">The keyboard step in the measure's units (Shift takes ten). Default: a round 1% of the axis. <small>(optional)</small></td></tr>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc">The lowest value a drag or a key can reach. <small>(optional)</small></td></tr>
+          <tr><td class="name">max</td><td class="type">number</td><td class="desc">The highest value a drag or a key can reach. <small>(optional)</small></td></tr>
+          <tr><td class="name">snap</td><td class="type">boolean | number</td><td class="desc">Round a drag to a quantum: `true` rounds to `step` (counted from `min`, or 0); a number rounds to that. Off by default, when a drag is continuous to about a pixel's worth. <small>(optional)</small></td></tr>
+          <tr><td class="name">distribute</td><td class="type">'proportional' | 'first'</td><td class="desc">How a new total is shared when a mark is several rows (a bar summing a category). `'proportional'` scales every row by the same factor (equal shares when the total was zero); `'first'` puts the whole difference on the first row. Needs a measure reduced with `sum` or `avg`. Off by default: an aggregated mark is not draggable, and an attempt is warned by name (`chart:editable:aggregated`). The rows are written in one undo step; if any is refused, none is kept. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ChartEvent">ChartEvent</h4>
     <p class="section-note">What every chart event carries, whatever it is about. The three members the chart's own dispatcher adds to each payload before it reaches a handler, so one handler bound to several charts can tell which chart and which grid it is being told about.</p>
     <div class="table-wrap">
@@ -881,6 +1017,11 @@
           <tr><td class="name">annotation:changed</td><td class="type"><a href="#type-ChartAnnotationEvent">ChartAnnotationEvent</a></td><td class="desc">The drawing that was just moved or re-lettered.</td></tr>
           <tr><td class="name">annotation:removed</td><td class="type"><a href="#type-ChartAnnotationEvent">ChartAnnotationEvent</a></td><td class="desc">The drawing that was just deleted.</td></tr>
           <tr><td class="name">zoom</td><td class="type"><a href="#type-ChartZoomEvent">ChartZoomEvent</a></td><td class="desc">The range now drawn, and what moved it.</td></tr>
+          <tr><td class="name">cursor:move</td><td class="type"><a href="#type-ChartCursorMoveEvent">ChartCursorMoveEvent</a></td><td class="desc">Where the crosshair is and every series' value there.</td></tr>
+          <tr><td class="name">cursor:leave</td><td class="type"><a href="#type-ChartCursorLeaveEvent">ChartCursorLeaveEvent</a></td><td class="desc">Why the crosshair went.</td></tr>
+          <tr><td class="name">edit</td><td class="type"><a href="#type-ChartEditEvent">ChartEditEvent</a></td><td class="desc">The edit the grid accepted.</td></tr>
+          <tr><td class="name">editRejected</td><td class="type"><a href="#type-ChartEditEvent">ChartEditEvent</a></td><td class="desc">The edit the grid refused, with its reason and message.</td></tr>
+          <tr><td class="name">responsive</td><td class="type"><a href="#type-ChartResponsiveEvent">ChartResponsiveEvent</a></td><td class="desc">The rules now active, and the container size they were evaluated at.</td></tr>
         </tbody>
       </table>
     </div>
@@ -893,6 +1034,18 @@
           <tr><td class="name">label</td><td class="type">string</td><td class="desc">The focused mark's label.</td></tr>
           <tr><td class="name">value</td><td class="type">number | null</td><td class="desc">The focused mark's value.</td></tr>
           <tr><td class="name">index</td><td class="type">number</td><td class="desc">The mark's position in the drawn order.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartGradientFill">ChartGradientFill</h4>
+    <p class="section-note">A linear or radial gradient fill (BACKLOG-0001669), accepted anywhere a chart takes a colour for a filled mark — a bar, an area, a pie or donut slice, a treemap cell, a band, a map's land (`basemap.fill`). `stops` are `[offset, colour]` pairs, offset 0 to 1. A line or an outline is stroked in the gradient's first colour: a gradient across a hairline paints nothing.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">gradient</td><td class="type">'linear' | 'radial'</td><td class="desc">`'linear'` along `angle`, or `'radial'` from the centre out.</td></tr>
+          <tr><td class="name">angle</td><td class="type">number</td><td class="desc">A linear gradient's direction in CSS degrees: 0 bottom-to-top, 90 left-to-right, 180 (default) top-to-bottom. <small>(optional)</small></td></tr>
+          <tr><td class="name">stops</td><td class="type">Array&lt;[number, string]&gt;</td><td class="desc">At least two `[offset, colour]` stops.</td></tr>
         </tbody>
       </table>
     </div>
@@ -918,6 +1071,17 @@
           <tr><td class="name">key</td><td class="type">string</td><td class="desc">The clicked entry's series key.</td></tr>
           <tr><td class="name">hidden</td><td class="type">boolean</td><td class="desc">Whether that series is now hidden.</td></tr>
           <tr><td class="name">hiddenKeys</td><td class="type">string[]</td><td class="desc">Every hidden series key after the click.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartMarkerOptions">ChartMarkerOptions</h4>
+    <p class="section-note">Pictures as markers on a line, scatter or bubble chart and on a `markermap` (BACKLOG-0001669).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">image</td><td class="type">string | { col: string } | ((point: { label: string; x: unknown; y: unknown; rowKey: unknown }) =&gt; string | null | undefined)</td><td class="desc">What to draw at each point: an icon name from the grid's icon registry (the one a network node's `icon` uses), an image URL (`https`, `http`, `blob`, a relative path or a `data:image/...` URI), `{ col }` to read either from a column per row, or a function of the point. A URL is loaded once and cached; one that is refused (`javascript:`, a non-image `data:`) or fails to load leaves the default marker for those points, with a named warning.</td></tr>
+          <tr><td class="name">size</td><td class="type">number</td><td class="desc">The marker's size in pixels, 6 to 64. Default 16. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -948,6 +1112,20 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-ChartPatternFill">ChartPatternFill</h4>
+    <p class="section-note">A repeating pattern fill (BACKLOG-0001669): the colour-blind-safe way to tell series apart without relying on hue. `colour` is also the solid fallback an export that cannot carry definitions paints.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">pattern</td><td class="type">'hatch' | 'crosshatch' | 'dots' | 'grid'</td><td class="desc">The motif: diagonal lines, two crossing line sets, dots, or a square grid.</td></tr>
+          <tr><td class="name">colour</td><td class="type">string</td><td class="desc">The ink colour; the series colour when unset. <small>(optional)</small></td></tr>
+          <tr><td class="name">background</td><td class="type">string</td><td class="desc">The tile's background; transparent when unset. <small>(optional)</small></td></tr>
+          <tr><td class="name">size</td><td class="type">number</td><td class="desc">The tile size in pixels. Default 8. <small>(optional)</small></td></tr>
+          <tr><td class="name">angle</td><td class="type">number</td><td class="desc">The pattern's rotation in degrees. Default 45 for a hatch or crosshatch, 0 otherwise. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ChartProvenance">ChartProvenance</h4>
     <p class="section-note">What {@link Chart.provenance} reports (GEO-5).</p>
     <div class="table-wrap">
@@ -961,6 +1139,11 @@
           <tr><td class="name">pending</td><td class="type">boolean</td><td class="desc">True while an engine request is in flight; the last drawing stays up until it lands.</td></tr>
           <tr><td class="name">viewport</td><td class="type"><a href="#type-ChartViewportProvenance">ChartViewportProvenance</a></td><td class="desc">A map's view (GEO-6; see {@link ChartSpec.viewportCap}): present when the engine sent the rows for the view, or when the cap changed what is drawn. <small>(optional)</small></td></tr>
           <tr><td class="name">ramp</td><td class="type">{ scale: 'linear' | 'log' | 'quantile'; auto: boolean; ratio: number }</td><td class="desc">A ramp-coloured draw (BACKLOG-0001516; see {@link ChartRampOptions.scale}): the scale its marks were placed on, `auto` when the chart chose it from the values rather than the spec asking, and the finite positive values' largest / smallest (0 when there are none). <small>(optional)</small></td></tr>
+          <tr><td class="name">dropped</td><td class="type">number</td><td class="desc">What an extension chart type left out and said so (BACKLOG-0001661): a `wordCloud`'s words that were wanted and not drawn, a `motion` chart's readings a log axis cannot place. <small>(optional)</small></td></tr>
+          <tr><td class="name">droppedBy</td><td class="type">{ maxWords: number; noRoom: number }</td><td class="desc">A `wordCloud`'s split of `dropped`: beyond `maxWords`, and no room left in the plot. <small>(optional)</small></td></tr>
+          <tr><td class="name">venn</td><td class="type">{ sets: number; exact: boolean; error: number; regionErrors: Record&lt;string, number&gt;; outside: number; }</td><td class="desc">A `venn`'s fit (BACKLOG-0001662): `exact` for two sets (`error` 0), and for three the largest gap between a region's drawn share and its share of the rows, with each region's own in `regionErrors`. <small>(optional)</small></td></tr>
+          <tr><td class="name">frames</td><td class="type">number</td><td class="desc">How many frames an animated chart (`barRace`, `motion`) has: the distinct values of its time column. <small>(optional)</small></td></tr>
+          <tr><td class="name">animation</td><td class="type"><a href="#type-ChartAnimationProvenance">ChartAnimationProvenance</a></td><td class="desc">What the last draw did about animation (BACKLOG-0001666): whether it played, why or why not, and the marks counted against {@link ChartAnimationOptions.budget}.</td></tr>
           <tr><td class="name">measures</td><td class="type">Array&lt;{ col: string | null; fn: string; computed: 'engine' | 'client'; /** The pushdown map's class for an engine measure: `identical` or `may-differ`. */ class?: string; /** Why, for a client measure. */ reason?: string; }&gt;</td><td class="desc">Each measure's column, reduction and where it was computed.</td></tr>
         </tbody>
       </table>
@@ -973,6 +1156,32 @@
         <tbody>
           <tr><td class="name">colours</td><td class="type">[string, string] | string[]</td><td class="desc">The sequential ramp's two colours, low value then high; the scheme's pair when unset. <small>(optional)</small></td></tr>
           <tr><td class="name">scale</td><td class="type">'linear' | 'log' | 'quantile'</td><td class="desc">How a value is placed along the ramp. `'linear'`: equal steps of value are equal steps of colour. `'log'`: equal ratios are, so 10 → 100 moves as far as 1,000 → 10,000; a value at or below zero is drawn at the bottom of the ramp; the legend labels powers of ten (1-2-5 steps when the values span under two decades). `'quantile'`: the values are split into five classes of equal count, one shade each, and the legend labels the four cut points. Unset, the chart chooses: `'log'` when the finite positive values span more than two orders of magnitude (largest / smallest &gt; 100), saying so once in the console and in `chart.provenance().ramp`, and `'linear'` otherwise. A diverging ramp is always linear and centred on zero. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartResponsiveEvent">ChartResponsiveEvent</h4>
+    <p class="section-note">`responsive`: the set of matching rules changed (BACKLOG-0001668), after the redraw it caused. Raised when a rule starts or stops matching, and once at the first draw when any rule matches.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">active</td><td class="type"><a href="#type-ChartActiveRule">ChartActiveRule</a>[]</td><td class="desc">The rules matching now, in the order they apply; empty when the base options are back.</td></tr>
+          <tr><td class="name">width</td><td class="type">number</td><td class="desc">The container's width in pixels at the change. <small>(optional)</small></td></tr>
+          <tr><td class="name">height</td><td class="type">number</td><td class="desc">The container's height in pixels at the change. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartResponsiveOptions">ChartResponsiveOptions</h4>
+    <p class="section-note">One responsive rule (BACKLOG-0001668): `set` is laid over the chart's options while the chart's own container satisfies every bound given. Bounds are inclusive pixel sizes of the container, not the viewport.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">maxWidth</td><td class="type">number</td><td class="desc">Matches while the container is at most this wide. <small>(optional)</small></td></tr>
+          <tr><td class="name">minWidth</td><td class="type">number</td><td class="desc">Matches while the container is at least this wide. <small>(optional)</small></td></tr>
+          <tr><td class="name">maxHeight</td><td class="type">number</td><td class="desc">Matches while the container is at most this tall. <small>(optional)</small></td></tr>
+          <tr><td class="name">minHeight</td><td class="type">number</td><td class="desc">Matches while the container is at least this tall. <small>(optional)</small></td></tr>
+          <tr><td class="name">set</td><td class="type">Partial&lt;<a href="charts.html#type-ChartSpec">ChartSpec</a>&gt;</td><td class="desc">Any chart option, merged over the base options: plain objects (`legend`, `axis`) merge key by key, anything else replaces. Read at draw time, so `title`, `subtitle` and `footnote`, which are built once, do not change.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1063,7 +1272,7 @@
         <tbody>
           <tr><td class="name">x</td><td class="type"><a href="#type-ChartZoomRange">ChartZoomRange</a> | null</td><td class="desc">The x range now drawn, in the axis's own units; the full extent when nothing is zoomed.</td></tr>
           <tr><td class="name">y</td><td class="type"><a href="#type-ChartZoomRange">ChartZoomRange</a> | null</td><td class="desc">The measure range now drawn, present only when `zoom.axes` includes the y axis. <small>(optional)</small></td></tr>
-          <tr><td class="name">reason</td><td class="type"><a href="#type-ChartZoomReason">ChartZoomReason</a> <small class="literals">'button' | 'wheel' | 'key' | 'pan' | 'reset' | 'api'</small></td><td class="desc">What moved it.</td></tr>
+          <tr><td class="name">reason</td><td class="type"><a href="#type-ChartZoomReason">ChartZoomReason</a> <small class="literals">'button' | 'wheel' | 'key' | 'pan' | 'reset' | 'api' | 'group'</small></td><td class="desc">What moved it.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2459,15 +2668,30 @@
     <h4 id="type-ChartCurveOptions">ChartCurveOptions</h4>
     <p class="section-note">The object form of {@link ChartSpec.curve} (BACKLOG-0001645): a curve with its own settings. `tension` (0..1, default 1) is the Catmull–Rom spline's pull toward its points; `mode` (`'after'`, the default; `'before'` or `'middle'`) is where a step changes level between two readings.</p>
     <p class="type-def"><code>type ChartCurveOptions = { type: <a href="#type-ChartCurve">ChartCurve</a>; tension?: number; mode?: 'before' | 'after' | 'middle'; }</code></p>
+    <h4 id="type-ChartDirectedOptions">ChartDirectedOptions</h4>
+    <p class="section-note">The object form of {@link ChartSpec.directed} (BACKLOG-0001656): how a directed chord draws its flows. `style` is how a ribbon ends at its target — `'taper'` (the default: it narrows to 40% of the width it left with) or `'arrow'` (it closes into an arrow head whose tip sits on the ring). `arc` is what a node's arc length measures — `'out'` (the default: what the node sends; a node that only receives keeps a small floor so it stays on the ring) or `'inout'` (what it sends plus what it receives).</p>
+    <p class="type-def"><code>type ChartDirectedOptions = { style?: 'taper' | 'arrow'; arc?: 'out' | 'inout'; }</code></p>
     <h4 id="type-ChartEventName">ChartEventName</h4>
     <p class="section-note">The events a chart raises. A chart's own, not the grid's: `grid.on` takes {@link EventName} and knows nothing about these. There is no `point:click`, `point:hover` or `series:toggle`; the events are the flat names below, and `click` is the one most callers want — it is how a click on a mark becomes a filter on the grid. Every payload carries `type`, `chart` and `grid` ({@link ChartEvent}); what else arrives is {@link ChartEventPayloads}. A handler that throws is reported to the console and the rest still run. Each event also fires the matching `on&lt;Event&gt;` in the spec (`onClick`, `onDraw`, …) before the subscribers. `click` and `brush` are the two events the chart acts on, and both carry a `preventDefault` a handler can call to take the action over; the rest are notifications.</p>
-    <p class="type-def"><code>type ChartEventName = 'click' | 'hover' | 'leave' | 'focus' | 'draw' | 'drill' | 'brush' | 'legend' | 'annotation:added' | 'annotation:changed' | 'annotation:removed' | 'zoom'</code></p>
+    <p class="type-def"><code>type ChartEventName = 'click' | 'hover' | 'leave' | 'focus' | 'draw' | 'drill' | 'brush' | 'legend' | 'annotation:added' | 'annotation:changed' | 'annotation:removed' | 'zoom' | 'cursor:move' | 'cursor:leave' | 'edit' | 'editRejected' | 'responsive'</code></p>
+    <h4 id="type-ChartExtensionType">ChartExtensionType</h4>
+    <p class="section-note">Every chart type an opt-in `lattice-grid/modules/chart-*` module registers, aliases included (BACKLOG-0001683). Importing the module is what makes the type draw; naming it here is what lets a strict TypeScript host write `createChart({ type: 'waffle' })` without a compile error. A gate check derives the registered names from the modules themselves and fails when one is missing from this union, so it cannot drift.</p>
+    <p class="type-def"><code>type ChartExtensionType = 'alluvial' | 'arc' | 'barRace' | 'bubblemap' | 'bump' | 'calendar' | 'choropleth' | 'decomposition' | 'diverging' | 'dumbbell' | 'fan' | 'forceTree' | 'hexbin' | 'hexmap' | 'icicle' | 'markermap' | 'motion' | 'nightingale' | 'pack' | 'parallel' | 'pictorial' | 'polarArea' | 'polarScatter' | 'pyramid' | 'radialBar' | 'ridgeline' | 'roc' | 'rose' | 'serpentine' | 'slope' | 'spiral' | 'splom' | 'tree' | 'venn' | 'voronoiTreemap' | 'waffle' | 'wordCloud'</code></p>
+    <h4 id="type-ChartFill">ChartFill</h4>
+    <p class="section-note">A gradient or pattern fill for a chart mark (BACKLOG-0001669).</p>
+    <p class="type-def"><code>type ChartFill = <a href="#type-ChartGradientFill">ChartGradientFill</a> | <a href="#type-ChartPatternFill">ChartPatternFill</a></code></p>
     <h4 id="type-ChartLabelPosition">ChartLabelPosition</h4>
     <p class="section-note">Where a chart data label sits relative to its mark.</p>
     <p class="type-def"><code>type ChartLabelPosition = 'outside' | 'inside' | 'auto'</code></p>
     <h4 id="type-ChartMeasureType">ChartMeasureType</h4>
     <p class="section-note">The mark a combo chart's measure draws with.</p>
     <p class="type-def"><code>type ChartMeasureType = 'bar' | 'line' | 'area'</code></p>
+    <h4 id="type-ChartPictorialOptions">ChartPictorialOptions</h4>
+    <p class="section-note">The options of a `pictorial` chart (BACKLOG-0001658). `mode` is `'fill'` (the default: one silhouette cut into horizontal bands sized by each stage's value) or `'repeat'` (an isotype row of icons per category). `shape` is an icon name from the grid's icon registry or an SVG path string (path data only; anything else is refused and the built-in figure is drawn). `unit` is what one icon stands for in `'repeat'` mode; unset, a round number that fits the widest row on one line.</p>
+    <p class="type-def"><code>type ChartPictorialOptions = { mode?: 'fill' | 'repeat'; shape?: string; unit?: number; }</code></p>
+    <h4 id="type-ChartPolarOptions">ChartPolarOptions</h4>
+    <p class="section-note">Options for the polar chart types, set as `ChartSpec.polar` (BACKLOG-0001649, 0001650, 0001651). `polarArea` gives every category an equal angle and draws its wedge's radius from the measure; `radialBar` draws one ring per category, swept in proportion to its value; `polarScatter` places each row by an angle and a radius. `startAngle` and `endAngle` (on the spec, in degrees clockwise from twelve o'clock) set where the angular range begins and ends; `max` fixes the outer ring or a full track.</p>
+    <p class="type-def"><code>type ChartPolarOptions = { scale?: 'sqrt' | 'linear'; sort?: 'asc' | 'desc'; multi?: 'rings' | 'stacked'; track?: boolean; angle?: 'degrees' | 'category' | 'hourOfDay' | 'dayOfWeek' | 'month'; colour?: string; }</code></p>
     <h4 id="type-ChartRadiusOptions">ChartRadiusOptions</h4>
     <p class="section-note">The object form of {@link ChartSpec.radius} (BACKLOG-0001647): a pie or donut whose slice radii come from a second measure. `fn` maps that measure to a radius — `'sqrt'` (the default, area-true: area grows as the measure) or `'linear'` — and `min` is the smallest share of the full radius a slice may shrink to, from 0 to 1.</p>
     <p class="type-def"><code>type ChartRadiusOptions = { col: string; fn?: 'sqrt' | 'linear'; min?: number; }</code></p>
@@ -2476,7 +2700,16 @@
     <p class="type-def"><code>type ChartScale = 'auto' | 'linear' | 'time' | 'band' | 'category'</code></p>
     <h4 id="type-ChartSchemeName">ChartSchemeName</h4>
     <p class="section-note">A built-in colour scheme's name, as `scheme: '…'` or `registerScheme`'s first argument names one of `SCHEMES` — `'default'` (Okabe–Ito, checked against the common colour-vision deficiencies), `'bright'`, `'earth'` and `'mono'` (checked to survive a greyscale print). A host's own `registerScheme` name is a plain `string` alongside these, so `scheme` also accepts one it is not enumerable here.</p>
-    <p class="type-def"><code>type ChartSchemeName = 'default' | 'bright' | 'earth' | 'mono'</code></p>
+    <p class="type-def"><code>type ChartSchemeName = 'default' | 'bright' | 'earth' | 'mono' | 'patterns'</code></p>
+    <h4 id="type-ChartSerpentineOptions">ChartSerpentineOptions</h4>
+    <p class="section-note">The options of a `serpentine` timeline (BACKLOG-0001659). `rows` is the number of rows the time axis is folded into; unset it follows the plot's size. `ticks: false` removes the calendar ticks along the path.</p>
+    <p class="type-def"><code>type ChartSerpentineOptions = { rows?: number; ticks?: boolean; }</code></p>
+    <h4 id="type-ChartSpiralOptions">ChartSpiralOptions</h4>
+    <p class="section-note">The options of a `spiral` timeline (BACKLOG-0001660). `period` is one turn: `'day'`, `'week'` (from Monday) or `'year'` — calendar periods, UTC — or a duration (`'28d'`, `'12h'`, `'90m'`, `'45s'`, `'2w'`) or a number of milliseconds, counted from the epoch; default `'week'`. `mode` is `'points'` (the default), `'bars'` or `'spans'`; `barBy` says whether a bar's value is its `'length'` (the default) or its `'thickness'`.</p>
+    <p class="type-def"><code>type ChartSpiralOptions = { period?: 'day' | 'week' | 'year' | string | number; mode?: 'points' | 'bars' | 'spans'; barBy?: 'length' | 'thickness'; }</code></p>
+    <h4 id="type-ChartStagesOptions">ChartStagesOptions</h4>
+    <p class="section-note">The options of a `pyramid` chart (BACKLOG-0001657). `inverted` points the apex down. `area` makes each slice's *area* proportional to its value instead of its height. `gap` is the space between slices in pixels (default 2; area is exact with `gap: 0`). `labels` is where each slice's stage, value and share are written: `'auto'` (the default: inside where the text fits, beside it with a leader where it does not), `'inside'`, `'beside'`, or `false` for none (the legend then names the stages).</p>
+    <p class="type-def"><code>type ChartStagesOptions = { inverted?: boolean; area?: boolean; gap?: number; labels?: 'auto' | 'inside' | 'beside' | false; }</code></p>
     <h4 id="type-ChartTrendMethod">ChartTrendMethod</h4>
     <p class="section-note">A trend or forecast overlay method (BACKLOG-0000952). Each name has aliases: `linear` (also `lr`, `ols`, `regression`); `movingAverage` (also `ma`, `sma`, `rolling`); `exponential` (also `ewma`, `ses`, `holt`, `smoothing`).</p>
     <p class="type-def"><code>type ChartTrendMethod = 'linear' | 'movingAverage' | 'exponential' | 'lr' | 'ols' | 'regression' | 'ma' | 'sma' | 'rolling' | 'ewma' | 'ses' | 'holt' | 'smoothing'</code></p>
@@ -2494,7 +2727,7 @@
     <p class="type-def"><code>type ChartZoomRange = [string | number, string | number]</code></p>
     <h4 id="type-ChartZoomReason">ChartZoomReason</h4>
     <p class="section-note">What moved a zoom, as reported by the `zoom` event.</p>
-    <p class="type-def"><code>type ChartZoomReason = 'button' | 'wheel' | 'key' | 'pan' | 'reset' | 'api'</code></p>
+    <p class="type-def"><code>type ChartZoomReason = 'button' | 'wheel' | 'key' | 'pan' | 'reset' | 'api' | 'group'</code></p>
     <h4 id="type-ColumnExportLookup">ColumnExportLookup</h4>
     <p class="section-note">How a lookup column leaves in an export: its label, its stored value, or both.</p>
     <p class="type-def"><code>type ColumnExportLookup = 'label' | 'value' | 'columns'</code></p>
@@ -2934,7 +3167,7 @@
     <p class="type-def"><code>type MaintenanceExactness = 'maintained' | 'rescan'</code></p>
     <h4 id="type-MapProjection">MapProjection</h4>
     <p class="section-note">A geomap's named projection; a caller may also supply a projection function directly.</p>
-    <p class="type-def"><code>type MapProjection = 'equalEarth' | 'robinson' | 'mercator' | 'equirectangular' | 'albers' | 'transverseMercator' | 'britishNationalGrid'</code></p>
+    <p class="type-def"><code>type MapProjection = 'equalEarth' | 'robinson' | 'mercator' | 'equirectangular' | 'albers' | 'transverseMercator' | 'britishNationalGrid' | 'orthographic' | 'globe'</code></p>
     <h4 id="type-MapViewCamera">MapViewCamera</h4>
     <p class="section-note">A camera: centre `[lng, lat]`, zoom, pitch and bearing in degrees.</p>
     <p class="type-def"><code>type MapViewCamera = { center?: [number, number]; zoom?: number; pitch?: number; bearing?: number }</code></p>

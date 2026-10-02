@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.85.0</p>
+    <p class="rail__sub">Developer guide · v1.86.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.85.0</span>
+        <span class="chip">Version 1.86.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1676,7 +1676,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.85.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.86.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -7244,6 +7244,41 @@ createChart({
       taking the tab with it.</p>
     </div>
 
+    <h3 id="chart-animation-guide">Charts that move with the feed</h3>
+    <p class="lead-in">
+      A chart plays its marks in when it first draws, and plays every change the grid makes from
+      the old picture to the new: a bar that stays moves and grows, a new one grows in, a gone one
+      shrinks out. On a live feed that is the difference between a chart you can follow and one
+      that flickers.
+    </p>
+    <div class="example">
+      <p class="example__label">The defaults, and the knobs</p>
+      <pre><code>createChart({ grid, container, type: 'bar', x: 'desk', y: 'pnl' });   <span class="cmt">// animation: true</span>
+
+createChart({
+  grid, container, type: 'bar', x: 'desk', y: 'pnl',
+  animation: { duration: 250, easing: 'ease-in-out', entry: false, update: true, budget: 1000 },
+});
+
+chart.provenance().animation;   <span class="cmt">// { animated, reason, marks, budget }</span></code></pre>
+    </div>
+    <div class="why">
+      <p><strong>A new update retargets; it never queues.</strong> Ten updates a second against a
+      400&nbsp;ms <code>duration</code> would be a backlog four seconds deep if each one waited its
+      turn. Instead a draw that lands mid-play starts from where the marks are on screen and heads
+      for the latest data, so the picture is never more than one play behind the grid and never
+      jumps. <code>easing</code> shapes each play; <code>entry</code> and <code>update</code> turn
+      the first drawing's reveal and the change transitions off separately.</p>
+      <p><strong>Past the <code>budget</code>, the final state at once.</strong> Moving every mark
+      costs every frame, in proportion to the marks. A chart of more than 2,000 marks by default is
+      written at its final state and says so (<code>reason: 'budget'</code>), rather than turning a
+      busy feed into dropped frames.</p>
+      <p><strong>Nothing reads the in-between.</strong> The tooltip, the crosshair, the drag handles,
+      <code>chart.data()</code> and exports all read the final drawing; reduced motion, an automated
+      browser and a headless render get no play at all, and the end of a play is the same document
+      the unanimated chart draws. The reference's charts section has the details.</p>
+    </div>
+
     <h2 id="router-websocket-guide">Data Router: a live WebSocket feed</h2>
     <p class="lead-in">
       <code>createDataRouter</code> is built for a continuous live feed &mdash; ordering,
@@ -9096,6 +9131,47 @@ createGrid(el, {
       uses: the grid is handed to the charts module, never imported by it.</p>
     </div>
 
+    <h3 id="chart-cursor">A crosshair across one chart, or across several</h3>
+    <p class="lead-in">
+      <code>cursor: true</code> puts a hairline on a cartesian chart that follows the pointer, snaps
+      to the nearest <strong>reading</strong> rather than the nearest pixel, is labelled at the axis in
+      the axis's own format, and opens a tooltip listing every series at that x. The object form
+      adds <code>y</code> (a horizontal hairline), <code>snap: 'none'</code>, <code>labels</code>,
+      <code>tooltip: 'single'</code> and the two that make it a dashboard tool:
+      <code>group</code> and <code>rowHover</code>.
+    </p>
+    <p>
+      Charts that share a <code>group</code> share the cursor <strong>by value</strong>. Hover one
+      at 14:05 and every other chart in the group puts its hairline at 14:05 &mdash; on its own
+      scale, with its own values &mdash; and a chart that does not cover 14:05 shows nothing, not its
+      nearest edge. The charts may be bound to different grids and have different ranges.
+      <code>zoom: true</code> inside the cursor option carries one chart's zoom to the others that
+      also set it; it is off unless asked for. <code>rowHover: true</code> moves the cursor to the x
+      of the grid row under the pointer, so hovering a row of the table points at the same moment on
+      the chart.
+    </p>
+    <div class="example">
+      <p class="example__label">Two charts of one incident, and a table that points into them</p>
+      <pre><code><span class="kw">const</span> cpu = createChart({
+  grid: metrics, container: '#cpu', type: 'line', x: 'at', y: 'cpu',
+  cursor: { group: 'incident', rowHover: <span class="kw">true</span> },
+});
+<span class="kw">const</span> errors = createChart({
+  grid: logs, container: '#errors', type: 'bar', x: 'at', y: 'errors',
+  cursor: { group: 'incident', tooltip: 'single' },
+});
+cpu.on('cursor:move', ({ x, values, source }) =&gt; status.set(x, values, source));
+cpu.cursor.set(<span class="kw">new</span> Date('2026-10-01T14:05:00Z'));   <span class="cmt">// errors follows</span></code></pre>
+    </div>
+    <div class="why">
+      <p><strong>Why by value.</strong> A cursor shared by pixel points at two different moments the
+      instant either chart is resized or zoomed, which is worse than none. The group carries what the
+      reader pointed at &mdash; a category or an instant &mdash; and each chart finds it in its own
+      scale. The arrow keys, <kbd>Home</kbd>, <kbd>End</kbd> and <kbd>Esc</kbd> drive the cursor while
+      the chart has focus, and every deliberate move is read out through a polite live region as the
+      tooltip's text.</p>
+    </div>
+
     <h3 id="chart-drawing">Letting a reader draw on a chart</h3>
     <p class="lead-in">
       A chart's <code>annotations</code> state a standard the author of the dashboard chose — a
@@ -9989,6 +10065,7 @@ grid.import.apply(preview);</code></pre>
           <tr><td class="name">adoptLatticeStyles</td><td class="desc">Make a host's shadow root see Lattice's styles, and keep it seeing them. The theme, each module's injected stylesheet and the grid's <em>growing</em> generated one are mirrored into the root as constructable stylesheets and kept level with their sources, so a class compiled later still arrives; a sheet that cannot be read as text (cross-origin, or carrying <code>@import</code>) is cloned into the root as a link instead. Every Lattice element calls it for its own root on connect, so this is for a host that mounts Lattice inside a shadow root by other means. Returns the undo.</td></tr>
           <tr><td class="name">defineUnit</td><td class="desc">Add one unit to a system, or override one of ours under the same name.</td></tr>
           <tr><td class="name">registerChartType</td><td class="desc">Register an extension chart type so <code>createChart({ type })</code> can draw it (BACKLOG-0000886). Extension types ship as their own opt-in modules (e.g. <code>modules/chart-ridgeline</code>), so the base charts bundle does not grow for a type a caller never imports — you pay only for the charts you use. <code>registeredChartTypes()</code> lists what is registered.</td></tr>
+          <tr><td class="name">createFrameClock</td><td class="desc">Make the clock the animated chart types run on (BACKLOG-0001663): a time, a play state and a speed. Pass the same clock as <code>clock</code> to a <code>barRace</code> and a <code>motion</code> chart (<code>modules/chart-barrace</code>, <code>modules/chart-motion</code>) and they play, pause and scrub together; <code>clock.subscribe</code> lets a host move its own filter with it.</td></tr>
           <tr><td class="name">registerModules</td><td class="desc">Install optional modules once, for every grid on the page.</td></tr>
           <tr><td class="name">registerScheme</td><td class="desc">Add a colour scheme, or replace one of ours under the same name.</td></tr>
           <tr><td class="name">restoreStateWithin</td><td class="desc">Put it back afterwards.</td></tr>
@@ -10166,6 +10243,7 @@ grid.import.apply(preview);</code></pre>
           <tr><td class="name">activate</td><td class="desc">Tabs. Switch the active tab, gated by <code>beforeTabChange</code>. Returns (or resolves to) whether the switch happened.</td></tr>
           <tr><td class="name">isMounted</td><td class="desc">Tabs. Whether a tab's grid has been created yet.</td></tr>
           <tr><td class="name">ascend</td><td class="desc">Charts. Go up one level, on a drillable hierarchy.</td></tr>
+          <tr><td class="name">fitToSelection</td><td class="desc">Charts. Turn a globe (<code>projection: 'orthographic'</code>) to the middle of the grid's selected rows; true when it turned, false on a flat map or an empty selection (BACKLOG-1665).</td></tr>
           <tr><td class="name">toSVG</td><td class="desc">Charts. The chart as standalone SVG markup, empty string before the first draw.</td></tr>
           <tr><td class="name">toPNG</td><td class="desc">Charts. Rasterise the chart through the browser; resolves to <code>null</code> where there is no canvas or <code>Image</code>.</td></tr>
           <tr><td class="name">applyQuery</td><td class="desc">AI. Apply a reviewed ask-your-data query result &mdash; the confirm path &mdash; re-gated at the same seam the initial query was.</td></tr>
@@ -11518,6 +11596,25 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
       bare. Light DOM keeps every documented theming route working unchanged.</p>
     </div>
 
+    <h2 id="chart-responsive-guide">Chart responsive rules</h2>
+    <p class="lead-in">
+      <code>responsive</code> on a chart is <code>'auto'</code> or an array of rules, each evaluated against
+      the chart's own container. See <a href="API.html#chart-responsive">responsive rules</a> for the
+      executed example.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td class="name">maxWidth</td><td class="desc">Matches while the container is at most this many pixels wide (inclusive; an active rule holds 4 px further).</td></tr>
+          <tr><td class="name">minWidth</td><td class="desc">Matches while the container is at least this many pixels wide.</td></tr>
+          <tr><td class="name">maxHeight</td><td class="desc">Matches while the container is at most this many pixels tall.</td></tr>
+          <tr><td class="name">minHeight</td><td class="desc">Matches while the container is at least this many pixels tall.</td></tr>
+          <tr><td class="name">set</td><td class="desc">The chart options laid over the base while every bound given holds; plain objects such as <code>legend</code> and <code>axis</code> merge key by key, anything else replaces.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
     <h2 id="deckgl-guide">deck.gl</h2>
     <p class="lead-in">
       <code>bindDeck(grid, options)</code> (<code>modules/deckgl</code>) draws a grid's rows with
@@ -12055,7 +12152,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.85.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.86.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

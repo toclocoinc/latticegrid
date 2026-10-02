@@ -5,7 +5,7 @@ dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it, and Angular has compiled components of its
 own at `@toclocoinc/lattice-grid/angular` — inside this package, not beside it.
 
-Version 1.85.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.86.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -378,7 +378,7 @@ the page already imported rather than carrying a second copy.
 
 ### Chart-type extensions
 
-Eighteen additional chart types ship as separate, tree-shakeable modules. Each
+Twenty-three additional chart types ship as separate, tree-shakeable modules. Each
 one **self-registers** its type onto the charts module's shared registry the
 moment it is loaded — so load the base charts module first, load the extension
 for its side effect, then name the type in `createChart`.
@@ -419,15 +419,30 @@ the UMD build), and registers the `type` shown.
 | `chart-dumbbell` → `dumbbell` | Dumbbell / connected-dot plot. |
 | `chart-fan` → `fan` | Fan / forecast chart. |
 | `chart-hexbin` → `hexbin` | Hexbin / 2D-density plot. |
+| `chart-forcetree` → `forceTree` | Force-directed tree: a hierarchy as a settled graph, root at the centre. |
 | `chart-hexmap` → `hexmap` | Hexbin map. |
 | `chart-icicle` → `icicle` | Icicle chart. |
 | `chart-markermap` → `markermap` | Marker map: a labelled figure per location, filled from the value column's conditional-formatting rules. |
+| `chart-pack` → `pack` | Packed circles: a hierarchy as circles in circles, with zoom. |
 | `chart-parallel` → `parallel` | Parallel coordinates. |
+| `chart-polararea` → `polarArea` (also `nightingale`, `rose`) | Polar area / Nightingale rose: equal angles, the measure as the radius. |
+| `chart-polarscatter` → `polarScatter` | Polar scatter: points by angle (degrees, category, hour, weekday or month) and radius. |
+| `chart-radialbar` → `radialBar` | Radial bar: one ring per category, swept in proportion to its value. |
 | `chart-ridgeline` → `ridgeline` | Ridgeline (joy) plot. |
 | `chart-roc` → `roc` | ROC / PR / calibration curves. |
 | `chart-slope` → `slope` | Slope chart. |
 | `chart-splom` → `splom` | Scatter-plot matrix. |
+| `chart-tree` → `tree` | Node-link tree: tidy, radial or dendrogram. |
+| `chart-voronoi` → `voronoiTreemap` | Voronoi treemap: a hierarchy as nested cells whose areas are fitted to the values. |
 | `chart-waffle` → `waffle` | Waffle / dot-matrix chart. |
+| `chart-pictorial` → `pictorial` | Pictorial chart: one silhouette cut into bands by value, or an isotype row of icons per category. |
+| `chart-pyramid` → `pyramid` | Funnel-family pyramid: ordered stages as slices of one triangle. |
+| `chart-serpentine` → `serpentine` | Serpentine timeline: the time axis folded into rows joined by half-circle turns. |
+| `chart-spiral` → `spiral` | Spiral timeline: one turn per day, week, year or duration, so the same phase lines up on one angle. |
+| `chart-wordcloud` → `wordCloud` | Word cloud: words sized by frequency, from a word column or tokenised free text. |
+| `chart-venn` → `venn` | Venn diagram: two or three sets with area-proportional circles and counted regions. |
+| `chart-barrace` → `barRace` | Bar chart race: the top N categories per frame, animated, with play / pause / scrub. |
+| `chart-motion` → `motion` | Motion chart: bubbles by x, y, size and colour moving through time. |
 
 ---
 

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.85.0, charts module type declarations
+ * Lattice Grid 1.86.0, charts module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -147,7 +147,8 @@ export interface ChartTypeDefinition {
   draw: (ctx: object) => object;
   /**
    * Turns the grid and spec into the bound data `draw` receives. Omitted, the base's
-   * by-series binder is used.
+   * by-series binder is used. The bound data may carry `notices` — `{ id, message }`
+   * each — which the chart says once, by name, as a developer-facing warning.
    */
   bind?: (grid: Grid, spec: ChartSpec) => object;
   /**
@@ -157,6 +158,25 @@ export interface ChartTypeDefinition {
   freeform?: boolean;
   /** Whether the spec's `labels` option applies to this type. Default false. */
   labelled?: boolean;
+  /**
+   * Set it when the type draws a hierarchy: the base binds the grid's grouping, a `parentId`
+   * column or a `path` column into one tree and hands it to `draw` as `bound.root`
+   * (0001652).
+   */
+  hierarchical?: boolean;
+  /**
+   * With `hierarchical`: a row counts one when the spec names no `y`, so a hierarchy with no
+   * measure still has a size.
+   */
+  count?: boolean;
+  /**
+   * Set it when the type plays its own motion (a race, a fold): the base's animator then
+   * leaves its marks alone. A type that leaves it unset is animated by
+   * the base — its keyed `rect`, `circle`, `line`, `path` and `text` marks move, grow in
+   * and shrink out like a built-in type's. `ctx.helpers.frameLoop` and `ctx.helpers.tween`
+   * are the engine's own frame loop and interpolation, for a type that plays its own.
+   */
+  animates?: boolean;
 }
 /**
  * Register an extension chart type so `createChart({ type })` can draw it. Extension types ship as their own opt-in modules, so the

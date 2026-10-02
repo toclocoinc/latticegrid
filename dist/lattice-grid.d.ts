@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.85.0, type declarations
+ * Lattice Grid 1.86.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -12915,6 +12915,23 @@ export type ChartType =
   | 'sankey' | 'chord' | 'network' | 'stream' | 'marimekko' | 'violin' | 'gantt';
 
 /**
+ * Every chart type an opt-in `lattice-grid/modules/chart-*` module registers,
+ * aliases included. Importing the module is what makes the
+ * type draw; naming it here is what lets a strict TypeScript host write
+ * `createChart({ type: 'waffle' })` without a compile error. A gate check
+ * derives the registered names from the modules themselves and fails when one
+ * is missing from this union, so it cannot drift.
+ */
+export type ChartExtensionType =
+  | 'alluvial' | 'arc' | 'barRace' | 'bubblemap' | 'bump' | 'calendar'
+  | 'choropleth' | 'decomposition' | 'diverging' | 'dumbbell' | 'fan'
+  | 'forceTree' | 'hexbin' | 'hexmap' | 'icicle' | 'markermap' | 'motion'
+  | 'nightingale' | 'pack' | 'parallel' | 'pictorial' | 'polarArea'
+  | 'polarScatter' | 'pyramid' | 'radialBar' | 'ridgeline' | 'roc' | 'rose'
+  | 'serpentine' | 'slope' | 'spiral' | 'splom' | 'tree' | 'venn' | 'voronoiTreemap' | 'waffle'
+  | 'wordCloud';
+
+/**
  * A built-in colour scheme's name, as `scheme: '…'` or `registerScheme`'s
  * first argument names one of `SCHEMES` — `'default'` (Okabe–Ito, checked
  * against the common colour-vision deficiencies), `'bright'`, `'earth'` and
@@ -12922,7 +12939,7 @@ export type ChartType =
  * `registerScheme` name is a plain `string` alongside these, so `scheme` also
  * accepts one it is not enumerable here.
  */
-export type ChartSchemeName = 'default' | 'bright' | 'earth' | 'mono';
+export type ChartSchemeName = 'default' | 'bright' | 'earth' | 'mono' | 'patterns';
 
 /**
  * A full colour scheme, the object every built-in `SCHEMES` entry is and the
@@ -12933,8 +12950,8 @@ export type ChartSchemeName = 'default' | 'bright' | 'earth' | 'mono';
  * although the runtime already accepted and used exactly that shape.
  */
 export interface ChartScheme {
-  /** The categorical palette, one colour per series. */
-  series: string[];
+  /** The categorical palette, one colour or {@link ChartFill} per series. */
+  series: Array<string | ChartFill>;
   /** The sequential ramp's ends, low value then high — a heatmap, calendar, hexbin or hexmap's magnitude colour. */
   sequential?: [string, string] | string[];
   /** The diverging ramp's three stops: low, the neutral midpoint, high. */
@@ -12997,6 +13014,54 @@ export type ChartCurveOptions = {
 };
 
 /**
+ * Options for the polar chart types, set as `ChartSpec.polar`
+ * (0001650, 0001651).
+ *
+ * `polarArea` gives every category an equal angle and draws its wedge's radius
+ * from the measure; `radialBar` draws one ring per category, swept in
+ * proportion to its value; `polarScatter` places each row by an angle and a
+ * radius. `startAngle` and `endAngle` (on the spec, in degrees clockwise from
+ * twelve o'clock) set where the angular range begins and ends; `max` fixes the
+ * outer ring or a full track.
+ */
+export type ChartPolarOptions = {
+  /**
+   * `polarArea` only: how the measure becomes a radius. `'sqrt'` (the default)
+   * is area-true — the value goes into the wedge's area, so a doubled value
+   * looks doubled; `'linear'` draws the radius from the value directly.
+   */
+  scale?: 'sqrt' | 'linear';
+  /**
+   * `radialBar` only: orders the rings by value. `'asc'` puts the smallest
+   * innermost and `'desc'` the largest; unset keeps the grid's own order.
+   */
+  sort?: 'asc' | 'desc';
+  /**
+   * `radialBar` only: with several series or `measures`, `'rings'` (the
+   * default) draws them as adjacent rings inside each category's band and
+   * `'stacked'` runs them end to end in one ring.
+   */
+  multi?: 'rings' | 'stacked';
+  /** `radialBar` only: `false` hides the faint full track behind each ring. */
+  track?: boolean;
+  /**
+   * `polarScatter` only: what the `x` column means as an angle. `'degrees'` is
+   * a numeric bearing (wrapped into one turn); `'category'` spreads the
+   * distinct values evenly round the circle in the order they first appear;
+   * `'hourOfDay'`, `'dayOfWeek'` (Monday first) and `'month'` read a time
+   * column as a position in that cycle, in the grid's `timeZone` or UTC. Unset,
+   * a numeric column is `'degrees'`, a `datetime`/`timestamp` column
+   * `'hourOfDay'`, a `date` column `'dayOfWeek'` and anything else `'category'`.
+   */
+  angle?: 'degrees' | 'category' | 'hourOfDay' | 'dayOfWeek' | 'month';
+  /**
+   * `polarScatter` only: a column that colours the dots — a number from the
+   * scheme's sequential ramp, anything else by category.
+   */
+  colour?: string;
+};
+
+/**
  * The object form of {@link ChartSpec.radius}: a pie or donut
  * whose slice radii come from a second measure. `fn` maps that measure to a
  * radius — `'sqrt'` (the default, area-true: area grows as the measure) or
@@ -13010,6 +13075,75 @@ export type ChartRadiusOptions = {
   fn?: 'sqrt' | 'linear';
   /** The minimum outer radius, as a share of the full radius (0..1, default 0). */
   min?: number;
+};
+
+/**
+ * The object form of {@link ChartSpec.directed}: how a directed
+ * chord draws its flows. `style` is how a ribbon ends at its target — `'taper'`
+ * (the default: it narrows to 40% of the width it left with) or `'arrow'` (it
+ * closes into an arrow head whose tip sits on the ring). `arc` is what a node's
+ * arc length measures — `'out'` (the default: what the node sends; a node that
+ * only receives keeps a small floor so it stays on the ring) or `'inout'` (what
+ * it sends plus what it receives).
+ */
+export type ChartDirectedOptions = {
+  style?: 'taper' | 'arrow';
+  arc?: 'out' | 'inout';
+};
+
+/**
+ * The options of a `pyramid` chart. `inverted` points the
+ * apex down. `area` makes each slice's *area* proportional to its value instead
+ * of its height. `gap` is the space between slices in pixels (default 2; area is
+ * exact with `gap: 0`). `labels` is where each slice's stage, value and share
+ * are written: `'auto'` (the default: inside where the text fits, beside it
+ * with a leader where it does not), `'inside'`, `'beside'`, or `false` for none
+ * (the legend then names the stages).
+ */
+export type ChartStagesOptions = {
+  inverted?: boolean;
+  area?: boolean;
+  gap?: number;
+  labels?: 'auto' | 'inside' | 'beside' | false;
+};
+
+/**
+ * The options of a `pictorial` chart. `mode` is `'fill'` (the
+ * default: one silhouette cut into horizontal bands sized by each stage's
+ * value) or `'repeat'` (an isotype row of icons per category). `shape` is an
+ * icon name from the grid's icon registry or an SVG path string (path data only;
+ * anything else is refused and the built-in figure is drawn). `unit` is what one
+ * icon stands for in `'repeat'` mode; unset, a round number that fits the
+ * widest row on one line.
+ */
+export type ChartPictorialOptions = {
+  mode?: 'fill' | 'repeat';
+  shape?: string;
+  unit?: number;
+};
+
+/**
+ * The options of a `serpentine` timeline. `rows` is the
+ * number of rows the time axis is folded into; unset it follows the plot's size.
+ * `ticks: false` removes the calendar ticks along the path.
+ */
+export type ChartSerpentineOptions = {
+  rows?: number;
+  ticks?: boolean;
+};
+
+/**
+ * The options of a `spiral` timeline. `period` is one turn:
+ * `'day'`, `'week'` (from Monday) or `'year'` — calendar periods, UTC — or a
+ * duration (`'28d'`, `'12h'`, `'90m'`, `'45s'`, `'2w'`) or a number of
+ * milliseconds, counted from the epoch; default `'week'`. `mode` is `'points'`
+ * (the default), `'bars'` or `'spans'`; `barBy` says whether a bar's value is its
+ * `'length'` (the default) or its `'thickness'`.
+ */
+export type ChartSpiralOptions = {
+  period?: 'day' | 'week' | 'year' | string | number;
+  mode?: 'points' | 'bars' | 'spans';
+  barBy?: 'length' | 'thickness';
 };
 
 export interface ChartMeasure {
@@ -13337,7 +13471,7 @@ export type ChartZoomAxes = 'x' | 'y' | 'xy';
 /** When the zoom toolbar is shown: on hover and keyboard focus, always, or never. */
 export type ChartZoomButtons = 'hover' | 'always' | 'none';
 /** What moved a zoom, as reported by the `zoom` event. */
-export type ChartZoomReason = 'button' | 'wheel' | 'key' | 'pan' | 'reset' | 'api';
+export type ChartZoomReason = 'button' | 'wheel' | 'key' | 'pan' | 'reset' | 'api' | 'group';
 /**
  * A visible range, as two ends in the axis's own units: two categories on a
  * band axis, two readings on a continuous one, and epoch milliseconds on a time
@@ -13394,6 +13528,111 @@ export interface ChartViewportFilterOptions {
   /** Milliseconds to wait after a pan or zoom settles before writing; the default is 150. */
   debounce?: number;
 }
+/**
+ * The object form of {@link ChartSpec.animation}: how a chart's entry and
+ * its updates play.
+ */
+export interface ChartAnimationOptions {
+  /** How long an entry or an update plays, in milliseconds. Default 400; `0` draws the final state at once. */
+  duration?: number;
+  /**
+   * The curve the play follows: `'linear'`, `'ease-in'`, `'ease-out'` (the default) or
+   * `'ease-in-out'`, or a function from 0..1 to 0..1 (held to exactly 0 and 1 at the ends).
+   */
+  easing?: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out' | ((t: number) => number);
+  /**
+   * Play the first drawing in: bars and columns grow from the baseline, lines and areas draw
+   * left to right, pie and donut slices sweep open, points scale and fade in. Default true.
+   */
+  entry?: boolean;
+  /**
+   * Play a change in the grid (a filter, a sort, a row update, live data) from the old
+   * drawing to the new, keyed by series and category: a mark that stays moves and grows,
+   * an entering mark grows in, a leaving one shrinks out, and the axes re-tick smoothly.
+   * Default true.
+   */
+  update?: boolean;
+  /**
+   * The most marks a draw animates. Past it the chart draws its final state at once and
+   * {@link ChartProvenance.animation} says `reason: 'budget'`. Default 2000.
+   */
+  budget?: number;
+}
+/** What the last draw did about animation: {@link ChartProvenance.animation}. */
+export interface ChartAnimationProvenance {
+  /** Whether the draw played an entry or an update. */
+  animated: boolean;
+  /**
+   * Why: `'entry'` or `'update'` when it played; otherwise `'disabled'` (`animation: false`,
+   * or `entry`/`update` off), `'reduced-motion'`, `'automation'` (`navigator.webdriver`),
+   * `'no-window'` (headless), `'own-motion'` (a type that plays its own), `'budget'`,
+   * (`'automation'` also covers a jsdom or happy-dom test DOM, which names itself in its user agent),
+   * `'view-change'` (a resize or a zoom, which draw at once), `'unchanged'` or `'not-drawn'`.
+   */
+  reason: string;
+  /** How many marks the drawing has, as counted against the budget. */
+  marks: number;
+  /** The budget in force. */
+  budget: number;
+}
+/**
+ * The object form of {@link ChartSpec.cursor}: a crosshair that follows the
+ * pointer over a cartesian chart.
+ */
+export interface ChartCursorOptions {
+  /** Draw the hairline across the category or time axis, snapped to a reading. Default true. */
+  x?: boolean;
+  /** Draw the hairline across the measure axis, following the pointer. Default false. */
+  y?: boolean;
+  /**
+   * `'nearest'` (the default) snaps the x hairline to the nearest reading in the data;
+   * `'none'` puts it under the pointer, and labels the value there.
+   */
+  snap?: 'nearest' | 'none';
+  /** Label the hairlines at the axes, in the axis's own format. Default true. */
+  labels?: boolean;
+  /**
+   * `'shared'` (the default) lists every series at the x; `'single'` lists only the series
+   * nearest the pointer; `false` draws no tooltip.
+   */
+  tooltip?: 'shared' | 'single' | false;
+  /**
+   * Charts that name the same group share the cursor by x value, not by pixel: hovering one
+   * puts the hairline at the same category or instant on every other, and on none whose range
+   * does not cover it. Works across charts bound to different grids.
+   */
+  group?: string;
+  /**
+   * With a `group`, carry this chart's x zoom to the other members that also set `zoom: true`
+   * (and a reset with it). Off by default; needs {@link ChartSpec.zoom} on each chart.
+   */
+  zoom?: boolean;
+  /** Move the cursor to the x of the grid row the pointer is over. Off by default. */
+  rowHover?: boolean;
+}
+/** What {@link Chart.cursor.get} and `cursor:move` report about where the cursor is. */
+export interface ChartCursorPosition {
+  /** The x of the reading it is at: a category, a number or a date as the column holds it. */
+  x: unknown;
+  /** A stable string for that x. */
+  key: string;
+  /** The x as the column's own cell text words it. */
+  label: string;
+}
+/** The host's handle on a chart's crosshair. */
+export interface ChartCursorApi {
+  /**
+   * Put the cursor at this x: a category on a category axis, a number or a `Date` on a
+   * continuous one (the nearest reading, unless the cursor says `snap: 'none'`). Shows the
+   * hairline and the shared tooltip and raises `cursor:move` with `source: 'api'`. Returns
+   * false when the chart has no cursor or the x is not on it.
+   */
+  set(x: unknown): boolean;
+  /** Take the cursor away, raising `cursor:leave`. */
+  clear(): void;
+  /** Where the cursor is, or null when it is not showing. */
+  get(): ChartCursorPosition | null;
+}
 /** The host's handle on a chart's zoom. */
 export interface ChartZoomApi {
   /**
@@ -13411,6 +13650,18 @@ export interface ChartState {
   annotations?: ChartAnnotationItem[];
   /** The visible range per axis; absent when the chart is showing everything. */
   zoom?: ChartZoomState;
+}
+/** What a `cursor:move` handler receives. */
+export interface ChartCursorMoveEvent extends ChartEvent, ChartCursorPosition {
+  /** One entry per series at the x: its label, its value as the chart words it, and the number. */
+  values: { series: string; value: string; raw: number | null }[];
+  /** What moved it. */
+  source: 'pointer' | 'keyboard' | 'api' | 'row' | 'group';
+}
+/** What a `cursor:leave` handler receives. */
+export interface ChartCursorLeaveEvent extends ChartEvent {
+  /** What took it away. */
+  source: 'pointer' | 'api' | 'row' | 'group';
 }
 /** What a `zoom` handler receives. */
 export interface ChartZoomEvent extends ChartEvent {
@@ -13442,6 +13693,56 @@ export interface ChartAnnotationReadout {
   /** The signed percentage change between the two y anchors; `null` when the first is zero. */
   changePercent?: number | null;
 }
+/**
+ * How a chart's marks may be dragged to edit the grid.
+ */
+export interface ChartEditable {
+  /**
+   * Which axis a drag moves along: `'y'` the measure (default), `'x'` the category value of
+   * a scatter or bubble point on a numeric x axis, or `'xy'` both at once. A pie or donut
+   * slice and a floating bar's ends move along their value only.
+   */
+  axis?: 'y' | 'x' | 'xy';
+  /** The keyboard step in the measure's units (Shift takes ten). Default: a round 1% of the axis. */
+  step?: number;
+  /** The lowest value a drag or a key can reach. */
+  min?: number;
+  /** The highest value a drag or a key can reach. */
+  max?: number;
+  /**
+   * Round a drag to a quantum: `true` rounds to `step` (counted from `min`, or 0); a number
+   * rounds to that. Off by default, when a drag is continuous to about a pixel's worth.
+   */
+  snap?: boolean | number;
+  /**
+   * How a new total is shared when a mark is several rows (a bar summing a category).
+   * `'proportional'` scales every row by the same factor (equal shares when the total was
+   * zero); `'first'` puts the whole difference on the first row. Needs a measure reduced
+   * with `sum` or `avg`. Off by default: an aggregated mark is not draggable, and an attempt
+   * is warned by name (`chart:editable:aggregated`). The rows are written in one undo step;
+   * if any is refused, none is kept.
+   */
+  distribute?: 'proportional' | 'first';
+}
+
+/** What a chart's `edit` and `editRejected` handlers receive. */
+export interface ChartEditEvent extends ChartEvent {
+  /** The rows the edit wrote to. */
+  rowKeys: string[];
+  /** The column of the first value written. */
+  colId: string;
+  /** The value the mark was dragged to. */
+  value: number;
+  /** The value it had. */
+  oldValue: number;
+  /** Every cell written (several, for a distributed total or an `'xy'` drag). */
+  writes: Array<{ key: string; colId: string; value: number }>;
+  /** For `editRejected`: why the grid refused it (`'validation'`, a veto reason, `'readOnly'`). */
+  reason?: string;
+  /** For `editRejected`: the grid's own message, shown under the plot. */
+  message?: string;
+}
+
 /** What an `annotation:added`, `annotation:changed` or `annotation:removed` handler receives. */
 export interface ChartAnnotationEvent extends ChartEvent {
   /** The drawing that was added, changed or removed, as plain JSON. */
@@ -13593,8 +13894,20 @@ export type CorrelationMethod = 'pearson' | 'spearman' | 'kendall';
 /** A geomap's named projection; a caller may also supply a projection function directly. */
 export type MapProjection =
   'equalEarth' | 'robinson' | 'mercator' | 'equirectangular' | 'albers'
-  | 'transverseMercator' | 'britishNationalGrid';
+  | 'transverseMercator' | 'britishNationalGrid' | 'orthographic' | 'globe';
 export interface ChartSpec {
+  /**
+   * Option changes at container breakpoints. An array of
+   * `{ maxWidth?, minWidth?, maxHeight?, minHeight?, set }` evaluated against the chart's own
+   * container (not the viewport) in order, later rules winning; `'auto'` is the built-in rules
+   * (below 400 px: legend at the bottom, axis titles hidden, three value-axis ticks; below
+   * 250 px: no legend), and an array may include `'auto'` and then override it. When a rule
+   * starts or stops matching the chart redraws with the merged options and, with none
+   * matching, the base options come back. A rule that is within 4 px of its edge keeps its
+   * state, so a container on a boundary does not flicker. Options passed to `update()` become
+   * the new base. Raises `responsive`.
+   */
+  responsive?: 'auto' | Array<'auto' | ChartResponsiveOptions>;
   /**
    * The grid the chart draws. It reads the grid's filtered rows and redraws when they
    * change, so the chart follows the table without being told to.
@@ -13607,9 +13920,11 @@ export interface ChartSpec {
   container: Element | string;
   /**
    * Which chart to draw. A name the base bundle does not know is looked up in the extension
-   * registry, so an opt-in chart module's type works here once imported.
+   * registry, so an opt-in chart module's type works here once imported. The built-in
+   * names and every shipped extension name are suggested; a host's own
+   * `registerChartType` name is also accepted as a plain string.
    */
-  type: ChartType;
+  type: ChartType | ChartExtensionType | (string & {});
   /** The category column. */
   x?: string;
   /**
@@ -13668,11 +13983,11 @@ export interface ChartSpec {
    * as a marker across the bar.
    */
   target?: string;
-  /** Row label and dates, for gantt. */
+  /** Row label and dates, for gantt; also the column naming each event of a `serpentine` timeline. */
   label?: string;
-  /** The start-date column, for a gantt chart. */
+  /** The start-date column, for a gantt chart and for the spans of a `serpentine` or `spiral` timeline. */
   start?: string;
-  /** The end-date column, for a gantt chart. */
+  /** The end-date column, for a gantt chart and for the spans of a `serpentine` or `spiral` timeline. */
   end?: string;
   /** A heading above the plot, drawn in the figure's caption alongside any `subtitle`. */
   title?: string;
@@ -13681,8 +13996,11 @@ export interface ChartSpec {
    * — the shape every built-in scheme already is, so a host can override the
    * ramps and semantic colours alongside the palette in one value. The
    * built-in names are {@link ChartSchemeName} (`'default'`, `'bright'`,
-   * `'earth'`, `'mono'`); a name registered with `registerScheme` is a plain
-   * string alongside them.
+   * `'earth'`, `'mono'`, `'patterns'`); a name registered with `registerScheme`
+   * is a plain string alongside them. An array entry or a map value may also be
+   * a {@link ChartFill} — a gradient or a pattern — and
+   * `'patterns'` is the built-in scheme that tells series apart by texture as
+   * well as hue, the colour-blind-safe option.
    *
     * The map is the form that survives a filter: a pie or donut keys it on the
     * category (`x`) value, a chart with a `series` column keys it on the
@@ -13704,7 +14022,24 @@ export interface ChartSpec {
     * object naming at least one of `series`/`sequential`/`diverging`/`positive`/`negative`
     * is a scheme override, not a map of category names to colours.
     */
-  scheme?: ChartSchemeName | string | string[] | Record<string, string> | ChartScheme;
+  scheme?: ChartSchemeName | string | Array<string | ChartFill> | Record<string, string | ChartFill> | ChartScheme;
+  /**
+   * A fill per mark, read per row on the bar family,
+   * lollipops, scatter and bubble points: a column id or `{ col }` whose cell
+   * holds a {@link ChartFill}, a pattern name (`'hatch'`, drawn in the series
+   * colour) or a CSS colour; or a function of the point returning the same.
+   * Nothing (null, an empty cell) leaves the mark in its series colour. A fill
+   * object here applies to every mark. It outranks a conditional-formatting
+   * rule colour and a `scheme` name map.
+   */
+  fill?: string | { col: string } | ChartFill | ((point: { label: string; x: unknown; y: unknown; rowKey: unknown }) => ChartFill | string | null | undefined);
+  /**
+   * Draw pictures where a `line`, `scatter`, `bubble` or `markermap` would draw
+   * dots. See {@link ChartMarkerOptions}. On a `line` every
+   * reading wears the marker; a cartesian chart's tooltip still resolves by
+   * category, a `markermap` hit-tests the picture's box.
+   */
+  marker?: ChartMarkerOptions;
   /**
    * A shorthand that overrides only the resolved scheme's sequential ramp —
    * the colour a heatmap, calendar, hexbin or hexmap's magnitude comes from —
@@ -13915,6 +14250,21 @@ export interface ChartSpec {
    * and adds no controls.
    */
   zoom?: boolean | ChartZoomOptions;
+  /**
+   * A crosshair. `true` draws a vertical hairline that follows the pointer,
+   * snapped to the nearest reading in the data, labelled at the axis in the axis's own format,
+   * with a tooltip listing every series' value at that x. The object form
+   * ({@link ChartCursorOptions}) adds a horizontal hairline (`y`), turns snapping off, picks
+   * the tooltip's form, and puts the chart in a `group` whose members share the cursor by x
+   * value — time or category, matched by value rather than pixel, across charts bound to
+   * different grids — with optional zoom sync and `rowHover` to follow the grid's row under the
+   * pointer. The arrow keys along the category axis, Home, End and Escape drive it while the
+   * chart has focus, and every move is read out through a polite live region. Drive it from the
+   * host with {@link Chart.cursor}; it reports `cursor:move` and `cursor:leave`. Accepted on
+   * the cartesian types (line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter,
+   * bubble, candlestick, ohlc) and on combo; any other type warns and draws no cursor.
+   */
+  cursor?: boolean | ChartCursorOptions;
   /** Bins for a histogram; the default is twelve. */
   buckets?: number;
   /** A diverging colour ramp, for heatmap and geomap. */
@@ -14016,11 +14366,30 @@ export interface ChartSpec {
   /**
    * The map projection a geomap draws through: `'equalEarth'`
    * (the default for a world), `'robinson'`, `'mercator'`, `'equirectangular'`,
-   * `'albers'`, `'transverseMercator'`, or a projection function of the
-   * caller's own `(lon: number, lat: number) => [number, number]`. Left unset,
+   * `'albers'`, `'transverseMercator'`, `'orthographic'` (alias `'globe'` — the
+   * visible hemisphere of the sphere, on `choropleth`, `markermap` and `bubblemap`; see
+   * {@link ChartSpec.rotate}), or a projection function of the caller's own `(lon: number, lat: number) => [number, number]`. Left unset,
    * a geometry pack draws through the projection it declares.
    */
   projection?: MapProjection | ((lon: number, lat: number) => [number, number]);
+  /**
+   * Where a globe is facing: `[longitude, latitude]` in degrees of the point at
+   * the centre of the disc, for `projection: 'orthographic'` (alias `'globe'`) on `choropleth`,
+   * `markermap` and `bubblemap`. Default `[0, 0]`. Dragging turns the globe away from it and
+   * `0` (or the reset control) turns it back. Ignored by every flat projection.
+   */
+  rotate?: [number, number];
+  /**
+   * Whether a globe draws the outline of the sphere. Default true; `false` leaves
+   * only the land and the markers. Ignored by every flat projection.
+   */
+  sphere?: boolean;
+  /**
+   * Turn a globe to what is selected: `'selection'` rotates a
+   * `projection: 'orthographic'` map to the middle of the rows the grid selects each time the
+   * selection changes. {@link Chart.fitToSelection} does the same on demand.
+   */
+  fitTo?: 'selection';
   /**
    * Parameters for the projections that take them: `parallels` and `centre`
    * for `albers`, `centre` for `transverseMercator`.
@@ -14029,7 +14398,7 @@ export interface ChartSpec {
   /**
    * A lon/lat reference grid under a geomap's regions, off by default. Only drawn over a geometry pack's fitted
    * projection — the schematic continents have no fitted projection to draw
-   * one against. `step` is the spacing between lines in degrees (default 30).
+   * one against (a globe draws it always). `step` is the spacing between lines in degrees (default 30).
    */
   graticule?: boolean | { step?: number };
   /**
@@ -14042,7 +14411,7 @@ export interface ChartSpec {
    * every type that draws a `shapes` pack: `markermap`, `bubblemap`,
    * `choropleth`'s own backdrop pack, `hexmap` and `geomap`.
    */
-  basemap?: { fill?: string; stroke?: string; strokeWidth?: number };
+  basemap?: { fill?: string | ChartFill; stroke?: string; strokeWidth?: number };
   /** One chart per distinct value of this column. */
   multiples?: string;
   /** Draw to canvas past this many points. */
@@ -14073,6 +14442,106 @@ export interface ChartSpec {
   /** Clicking a mark filters the grid to it. */
   filterOnClick?: boolean;
   /**
+   * The hierarchy types — `forceTree`, `pack`, `tree`, `voronoiTreemap` — read a hierarchy from a column that
+   * names each row's parent: the column holds the parent's `id`. A row with
+   * no parent, an unknown parent or a parent that leads back to itself hangs off the root, so a
+   * bad row costs its place in the tree and never the drawing. Without `parentId` or `path` the
+   * hierarchy is the grid's own grouping.
+   */
+  parentId?: string;
+  /**
+   * The column a `parentId` refers to: the row's own identity. Defaults to the row key. Used by
+   * the hierarchy types.
+   */
+  id?: string;
+  /**
+   * The hierarchy types read a hierarchy from one column holding each row's whole path
+   * (`Europe/France/Paris`), split on `pathSeparator`; rows that share a start share a branch.
+   */
+  path?: string;
+  /** What `path` is split on. Default `'/'`. */
+  pathSeparator?: string;
+  /**
+   * How the hierarchy types colour a node: `'depth'` (the default — one colour per level) or a
+   * column id, in which case a node takes the value that column has on its first row and the
+   * legend names the values.
+   */
+  colourBy?: 'depth' | string;
+  /**
+   * `tree` and `forceTree`: how many levels start open. A node beyond it starts folded; a click
+   * folds or opens a branch (0001655). Default: every level.
+   */
+  expandDepth?: number;
+  /**
+   * `tree`: which way the levels run — `'top-down'` (the default), `'left-right'` or `'radial'`.
+   */
+  orientation?: 'top-down' | 'left-right' | 'radial';
+  /** `tree`: the shape of the line from a node to its parent. Default `'elbow'`. */
+  linkShape?: 'straight' | 'elbow' | 'curved';
+  /**
+   * `tree`: draw a dendrogram — the leaves in one row at the deepest level, each branch over the
+   * middle of its children.
+   */
+  cluster?: boolean;
+  /**
+   * `tree`: drag to pan, the wheel and `+` / `-` to zoom, `0` to reset. On by default; `false`
+   * leaves the wheel and the drag to the page.
+   */
+  panZoom?: boolean;
+  /** `pack`: the gap between sibling circles in pixels. Default 3. */
+  padding?: number;
+  /**
+   * `voronoiTreemap`: the shape the cells fill — `'circle'` (the default) or a polygon as `[x, y]`
+   * points in any units, y down as on screen, scaled to fit the plot. A polygon is filled as its
+   * convex hull; fewer than three usable points fall back to the circle.
+   */
+  clip?: 'circle' | [number, number][];
+  /**
+   * `voronoiTreemap`: the largest error any leaf's area may keep, as a share of the area its value
+   * should have. Default 0.01, under 1%.
+   */
+  tolerance?: number;
+  /**
+   * The hierarchy types animate a fold, an unfold or a zoom unless the reader prefers reduced
+   * motion; `false` turns the animation off whatever they prefer (0001653,
+   * 0001655).
+   */
+  animate?: boolean;
+  /**
+   * Drag a mark to edit the row behind it. `true` drags along the value
+   * axis; an object says which axis, the step, the limits and what to do with a mark that is
+   * several rows (see {@link ChartEditable}).
+   *
+   * Works on a line, step or area point, a bar or horizontal bar's end, both ends of a
+   * floating bar, a scatter or bubble point and a pie or donut slice's edge. Dragging
+   * shows the live value, formatted by the measure's column; releasing writes it with
+   * `grid.edit.setCells` and the gated `'user'` origin, so the column's validation, a
+   * `beforeEdit` veto, `edit.enabled` and read-only columns and rows, the undo stack,
+   * change tracking and router write-back apply exactly as they do to a cell edit. A
+   * refused edit puts the mark back and shows the grid's own message under the plot; the
+   * chart redraws from the grid's `cell:changed`, never from the dragged number. Marks are
+   * focusable sliders for the keyboard (arrows by `step`, Enter commits, Escape cancels).
+   * A mark that stands for several rows is not draggable unless
+   * {@link ChartEditable.distribute} is set. <small>(optional)</small>
+   */
+  editable?: boolean | ChartEditable;
+  /**
+   * How the chart plays its marks in and between draws. `true` (the
+   * default) plays an entry on the first drawing — bars grow from the baseline, lines draw
+   * left to right, slices sweep, points scale in — and plays every change in the grid from
+   * the old drawing to the new, keyed by series and category so a bar that stays moves
+   * rather than being redrawn. `false` draws the final state at once. The object form
+   * ({@link ChartAnimationOptions}) sets the duration, the easing, entry and update apart,
+   * and the mark budget.
+   *
+   * Reduced motion, an automated browser (`navigator.webdriver`), a jsdom or happy-dom test
+   * DOM, a headless render and an export always get the final state at once, and the end state is identical to the
+   * unanimated drawing, attribute for attribute. A draw that lands mid-play retargets from
+   * where the marks are; nothing queues. A resize or a zoom draws at once.
+   * <small>(optional)</small>
+   */
+  animation?: boolean | ChartAnimationOptions;
+  /**
    * Stack the series rather than drawing them side by side. On a `combo` it
    * stacks the bar measures; line and area measures stay
    * outside the stack on the same scale and are drawn after the columns.
@@ -14100,10 +14569,15 @@ export interface ChartSpec {
   /**
    * A pie or donut's first slice, in degrees clockwise from twelve o'clock, 0
    * being the top. Default 0; a partial circle uses the
-   * container's height rather than half of it.
+   * container's height rather than half of it. A `polarArea`, `radialBar` or
+   * `polarScatter` reads it as where its angular range starts.
    */
   startAngle?: number;
-  /** A pie or donut's last slice, in degrees clockwise from twelve o'clock. Default 360. */
+  /**
+   * A pie or donut's last slice, in degrees clockwise from twelve o'clock. Default 360. A `polarArea` reads it the same way; a
+   * `radialBar` reads it as the end of its full track, 270 degrees from the
+   * start by default.
+   */
   endAngle?: number;
   /**
    * Drive a pie or donut's slice radii from a second measure, the angle still
@@ -14113,6 +14587,14 @@ export interface ChartSpec {
    * shows both measures, and the legend is unchanged.
    */
   radius?: ChartRadiusOptions;
+  /**
+   * Options for the opt-in polar chart types `polarArea` (alias `nightingale`,
+   * `rose`), `radialBar` and `polarScatter` (0001650,
+   * 0001651). Ignored by every other type. `startAngle`, `endAngle`, `max`,
+   * `min`, `stack`, `size` and `series` read as they do elsewhere; the rest
+   * are in {@link ChartPolarOptions}.
+   */
+  polar?: ChartPolarOptions;
   /**
    * Draw a `bar` or `horizontalBar` as lollipops rather than solid columns: a stem from the baseline up to the value, with a dot at
    * the value. Everything else the bar family does is unchanged — several
@@ -14147,6 +14629,39 @@ export interface ChartSpec {
    * and labels the axis in percent. The axis labels are always absolute.
    */
   pyramid?: { scale?: 'shared' | 'independent'; percent?: boolean };
+  /**
+   * Draw a `chord` as a *directed* flow: A to B and B to A
+   * stay two ribbons, each wide at its source arc and narrowing (or ending in an
+   * arrow tip) at its target; an arc's length is what the node sends, or with
+   * `arc: 'inout'` what it sends plus receives; colours follow the source and the
+   * tooltip names the direction and the value. `true` takes the defaults; an
+   * object is {@link ChartDirectedOptions}. Unset, the chord draws exactly as it
+   * always has.
+   */
+  directed?: boolean | ChartDirectedOptions;
+  /**
+   * A `pyramid` chart's options: {@link ChartStagesOptions}.
+   * The pyramid takes the funnel's input — `x` the stage, `y` the measure — and
+   * is the funnel's stages as slices of one triangle (not `populationPyramid`).
+   */
+  stages?: ChartStagesOptions;
+  /**
+   * A `pictorial` chart's options: {@link ChartPictorialOptions}.
+   * `x` is the category and `y` the measure.
+   */
+  pictorial?: ChartPictorialOptions;
+  /**
+   * A `serpentine` timeline's options: {@link ChartSerpentineOptions}.
+   * `x` is the date column for points, or `start` and `end` for spans; `label`
+   * names an event and `series` colours by a column.
+   */
+  serpentine?: ChartSerpentineOptions;
+  /**
+   * A `spiral` timeline's options: {@link ChartSpiralOptions}.
+   * `x` is the date column and `y` an optional value; `start` and `end` give the
+   * spans of `mode: 'spans'`; `series` colours by a column.
+   */
+  spiral?: ChartSpiralOptions;
   /** An alias for `y`, where "the measure" reads better than "the y axis". */
   measure?: string;
   /** Bubble charts: the column driving the radius, and the largest it may be. */
@@ -14176,7 +14691,13 @@ export interface ChartSpec {
    * colour alone.
    */
   values?: boolean;
-  /** Network layouts: how many relaxation passes to run. */
+  /**
+   * Network layouts: how many relaxation passes to run. On a `forceTree`, the ticks the
+   * layout settles for — 220 for the first layout and 90 when a fold or a drag resumes
+   * it unless set; the ticks it used are reported by the drawing. On a
+   * `voronoiTreemap`, the relaxations each level gets before its last fit of the weights — 10
+   * unless set; more rounds the cells off further and never changes how closely the areas fit.
+   */
   iterations?: number;
   /**
    * The nodes of a `network`, named by the host rather than inferred from the
@@ -14221,6 +14742,107 @@ export interface ChartSpec {
    * (0.95 for 95%).
    */
   confidence?: number;
+  /**
+   * A `wordCloud`'s free-text column: every row's text is split
+   * into words and counted, instead of reading one word per row from `x`.
+   */
+  text?: string;
+  /** A `wordCloud`'s stop words: `true` (built-in English), `false`, or your own list. Tokenising only; defaults to `true` there. */
+  stopWords?: boolean | string[];
+  /** A `wordCloud` folds case before counting. Default `true` when tokenising `text`, `false` for a word column in `x`. */
+  lowerCase?: boolean;
+  /** A `wordCloud` leaves out words whose total is below this. Default 1. */
+  minCount?: number;
+  /** A `wordCloud` draws at most this many words, the biggest first; the rest are counted in `provenance().dropped`. Default 150. */
+  maxWords?: number;
+  /** A `wordCloud`'s font size in pixels for the smallest word. Default 12. */
+  minSize?: number;
+  /** A `wordCloud`'s font size in pixels for the biggest word. Default 48. */
+  maxSize?: number;
+  /** A `wordCloud`'s angles in degrees: one angle, a list to choose among, or `'random'`. Default 0. */
+  rotate?: number | number[] | 'random';
+  /**
+   * A `wordCloud`'s placement seed, or a `voronoiTreemap`'s starting sites; the
+   * same data and seed draw the same picture. Default 1.
+   */
+  seed?: number;
+  /** The column whose value colours each mark of a `wordCloud` or `motion` chart. */
+  colour?: string;
+  /** A `venn`'s membership as boolean columns, two or three of them. */
+  sets?: string[];
+  /** A `venn`'s membership as one multi-value column (an array, or text split by `separator`). */
+  set?: string;
+  /** A `venn` over `set`: which values are the sets. Default: every distinct value (refused above three). */
+  members?: string[];
+  /** A `venn` over `set` holding text: the character that separates the values in a cell. */
+  separator?: string;
+  /** The time column of a `barRace` or `motion` chart: each distinct value is a frame. */
+  time?: string;
+  /** A `motion` chart's entity column: one bubble per distinct value. */
+  entity?: string;
+  /** A `barRace`'s number of bars. Default 10. */
+  topN?: number;
+  /** An animated chart starts playing when drawn. */
+  autoplay?: boolean;
+  /** An animated chart's playback speed in multiples of normal. Default 1. */
+  speed?: number;
+  /** An animated chart starts again at the end of its run. */
+  loop?: boolean;
+  /** An animated chart's reduced-motion override; unset, `prefers-reduced-motion` decides. */
+  reducedMotion?: boolean;
+  /**
+   * An animated chart's clock. Pass one {@link FrameClock} to a `barRace` and a
+   * `motion` chart and they play, pause and scrub together.
+   */
+  clock?: FrameClock;
+  /** A `barRace`'s value-to-text function for the bar ends and the axis. */
+  format?: (value: number) => string;
+  /**
+   * A `motion` chart's trails: `true` draws the path so far of every entity the
+   * grid has selected, an array of entity names draws those.
+   */
+  trails?: boolean | string[];
+  /** A `motion` chart's axis scales, `'linear'` or `'log'` each. A log axis leaves out readings at or below zero and counts them in `provenance().dropped`. */
+  scale?: { x?: 'linear' | 'log'; y?: 'linear' | 'log' };
+}
+
+/**
+ * The clock the animated chart types (`barRace`, `motion`) run on. `createFrameClock()` from either module makes one; handing
+ * the same clock to several charts as `spec.clock` gives them one time.
+ */
+export interface FrameClock {
+  /** The earliest time any registered chart has, in the time column's own units (epoch milliseconds for dates). */
+  readonly min: number;
+  /** The latest. */
+  readonly max: number;
+  /** Where the clock stands. */
+  readonly time: number;
+  /** How far through the run, 0 to 1. */
+  readonly fraction: number;
+  /** Whether it is playing. */
+  readonly playing: boolean;
+  /** The speed in multiples of normal. */
+  readonly speed: number;
+  /** Whether motion is reduced, so playback steps whole frames. */
+  readonly reduced: boolean;
+  /** Move to a time, clamped to the run. */
+  seek(time: number): FrameClock;
+  /** Move to a fraction of the run, 0 to 1. */
+  seekFraction(fraction: number): FrameClock;
+  /** Move by whole frames; negative goes back. */
+  step(by?: number): FrameClock;
+  /** Start playing; from the end, from the beginning. */
+  play(): FrameClock;
+  /** Stop where it is. */
+  pause(): FrameClock;
+  /** Play, or pause when playing. */
+  toggle(): FrameClock;
+  /** Set the speed multiple. */
+  setSpeed(speed: number): FrameClock;
+  /** Be told whenever the clock changes; returns a function that stops listening. */
+  subscribe(listener: (clock: FrameClock) => void): () => void;
+  /** Stop and let go of every listener. */
+  destroy(): void;
 }
 
 /**
@@ -14306,6 +14928,8 @@ export interface ChartDatumEvent extends ChartEvent {
   path?: unknown[];
   /** How deep the mark sits below the drawn root, on a hierarchy. */
   depth?: number;
+  /** Which drawn node, on `forceTree`, `pack`, `tree` and `voronoiTreemap` — its position in the drawing's node list. */
+  index?: number;
   /** A histogram bin's lower bound, present only on a bin. */
   from?: number;
   /** A histogram bin's upper bound, present only on a bin. */
@@ -14348,6 +14972,57 @@ export interface ChartFocusEvent extends ChartEvent {
   value: number | null;
   /** The mark's position in the drawn order. */
   index: number;
+}
+
+/**
+ * One responsive rule: `set` is laid over the chart's options while the
+ * chart's own container satisfies every bound given. Bounds are inclusive pixel sizes of the
+ * container, not the viewport.
+ */
+export interface ChartResponsiveOptions {
+  /** Matches while the container is at most this wide. */
+  maxWidth?: number;
+  /** Matches while the container is at least this wide. */
+  minWidth?: number;
+  /** Matches while the container is at most this tall. */
+  maxHeight?: number;
+  /** Matches while the container is at least this tall. */
+  minHeight?: number;
+  /**
+   * Any chart option, merged over the base options: plain objects (`legend`, `axis`) merge key
+   * by key, anything else replaces. Read at draw time, so `title`, `subtitle` and `footnote`,
+   * which are built once, do not change.
+   */
+  set: Partial<ChartSpec>;
+}
+
+/** One entry of {@link Chart.responsive} and of the `responsive` event's `active` list. */
+export interface ChartActiveRule {
+  /** The rule's position in the resolved list (`'auto'` expands to two rules). */
+  index: number;
+  /** True for one of the built-in rules `responsive: 'auto'` stands for. */
+  auto: boolean;
+  /** The rule's `maxWidth`, as given. */
+  maxWidth?: number;
+  /** The rule's `minWidth`, as given. */
+  minWidth?: number;
+  /** The rule's `maxHeight`, as given. */
+  maxHeight?: number;
+  /** The rule's `minHeight`, as given. */
+  minHeight?: number;
+}
+
+/**
+ * `responsive`: the set of matching rules changed, after the redraw it caused.
+ * Raised when a rule starts or stops matching, and once at the first draw when any rule matches.
+ */
+export interface ChartResponsiveEvent extends ChartEvent {
+  /** The rules matching now, in the order they apply; empty when the base options are back. */
+  active: ChartActiveRule[];
+  /** The container's width in pixels at the change. */
+  width?: number;
+  /** The container's height in pixels at the change. */
+  height?: number;
 }
 
 /**
@@ -14464,7 +15139,17 @@ export type ChartEventName =
   /** A drawn annotation was deleted. */
   | 'annotation:removed'
   /** The visible range changed: a control, the wheel, a key, a pan, a reset or the host API. */
-  | 'zoom';
+  | 'zoom'
+  /** The crosshair moved: the pointer, the keyboard, the host API, a grid row or another chart in its group. */
+  | 'cursor:move'
+  /** The crosshair went away: the pointer left the plot, Escape, `cursor.clear()` or the group's pointer left. */
+  | 'cursor:leave'
+  /** A mark was dragged (or keyed) to a new value and the grid accepted the edit. */
+  | 'edit'
+  /** A drag or key edit was refused by the grid, and the mark went back. */
+  | 'editRejected'
+  /** The `responsive` rules matching the container changed, and the chart redrew with them. */
+  | 'responsive';
 
 /** What a handler receives, per chart event. */
 export interface ChartEventPayloads {
@@ -14492,6 +15177,16 @@ export interface ChartEventPayloads {
   'annotation:removed': ChartAnnotationEvent;
   /** The range now drawn, and what moved it. */
   zoom: ChartZoomEvent;
+  /** Where the crosshair is and every series' value there. */
+  'cursor:move': ChartCursorMoveEvent;
+  /** Why the crosshair went. */
+  'cursor:leave': ChartCursorLeaveEvent;
+  /** The edit the grid accepted. */
+  edit: ChartEditEvent;
+  /** The edit the grid refused, with its reason and message. */
+  editRejected: ChartEditEvent;
+  /** The rules now active, and the container size they were evaluated at. */
+  responsive: ChartResponsiveEvent;
 }
 
 /** A live chart. */
@@ -14539,6 +15234,29 @@ export interface ChartProvenance {
    * largest / smallest (0 when there are none).
    */
   ramp?: { scale: 'linear' | 'log' | 'quantile'; auto: boolean; ratio: number };
+  /**
+   * What an extension chart type left out and said so: a
+   * `wordCloud`'s words that were wanted and not drawn, a `motion` chart's readings
+   * a log axis cannot place.
+   */
+  dropped?: number;
+  /** A `wordCloud`'s split of `dropped`: beyond `maxWords`, and no room left in the plot. */
+  droppedBy?: { maxWords: number; noRoom: number };
+  /**
+   * A `venn`'s fit: `exact` for two sets (`error` 0), and for
+   * three the largest gap between a region's drawn share and its share of the
+   * rows, with each region's own in `regionErrors`.
+   */
+  venn?: {
+    sets: number; exact: boolean; error: number; regionErrors: Record<string, number>; outside: number;
+  };
+  /** How many frames an animated chart (`barRace`, `motion`) has: the distinct values of its time column. */
+  frames?: number;
+  /**
+   * What the last draw did about animation: whether it played, why or why
+   * not, and the marks counted against {@link ChartAnimationOptions.budget}.
+   */
+  animation: ChartAnimationProvenance;
   /** Each measure's column, reduction and where it was computed. */
   measures: Array<{
     col: string | null;
@@ -14574,6 +15292,11 @@ export interface Chart {
   provenance(): ChartProvenance;
   /** Go up one level, on a drillable hierarchy. */
   ascend(levels?: number): void;
+  /**
+   * Turn a globe (`projection: 'orthographic'`) to the middle of the grid's selected rows. Returns true when it turned; false on a flat map, an empty selection or
+   * a selection with no position. See {@link ChartSpec.fitTo}.
+   */
+  fitToSelection(): boolean;
   /**
    * Register an event handler; returns a function that unsubscribes. A handler that throws
    * is reported to the console and the rest still run. What each event carries is
@@ -14624,6 +15347,16 @@ export interface Chart {
    * warns rather than silently doing nothing.
    */
   readonly zoom: ChartZoomApi;
+  /**
+   * The host's handle on the crosshair: `set(x)`, `clear()` and `get()`.
+   * See {@link ChartSpec.cursor}.
+   */
+  readonly cursor: ChartCursorApi;
+  /**
+   * The `responsive` rules matching the chart's container right now; empty
+   * when none match or the chart has none.
+   */
+  readonly responsive: ChartActiveRule[];
   /**
    * Point the chart at a replacement grid after the one it was bound to was destroyed. The chart keeps its spec and element, drops its subscriptions to the
    * dead grid, subscribes to the new one and redraws from it. Binding to the grid it already
@@ -16681,4 +17414,58 @@ export interface RowFormConfig {
    * does not trap Tab.
    */
   container?: HTMLElement | string | (() => HTMLElement | string | null);
+}
+
+/**
+ * A linear or radial gradient fill, accepted anywhere a chart
+ * takes a colour for a filled mark — a bar, an area, a pie or donut slice, a
+ * treemap cell, a band, a map's land (`basemap.fill`). `stops` are
+ * `[offset, colour]` pairs, offset 0 to 1. A line or an outline is stroked in
+ * the gradient's first colour: a gradient across a hairline paints nothing.
+ */
+export interface ChartGradientFill {
+  /** `'linear'` along `angle`, or `'radial'` from the centre out. */
+  gradient: 'linear' | 'radial';
+  /** A linear gradient's direction in CSS degrees: 0 bottom-to-top, 90 left-to-right, 180 (default) top-to-bottom. */
+  angle?: number;
+  /** At least two `[offset, colour]` stops. */
+  stops: Array<[number, string]>;
+}
+
+/**
+ * A repeating pattern fill: the colour-blind-safe way to tell
+ * series apart without relying on hue. `colour` is also the solid fallback an
+ * export that cannot carry definitions paints.
+ */
+export interface ChartPatternFill {
+  /** The motif: diagonal lines, two crossing line sets, dots, or a square grid. */
+  pattern: 'hatch' | 'crosshatch' | 'dots' | 'grid';
+  /** The ink colour; the series colour when unset. */
+  colour?: string;
+  /** The tile's background; transparent when unset. */
+  background?: string;
+  /** The tile size in pixels. Default 8. */
+  size?: number;
+  /** The pattern's rotation in degrees. Default 45 for a hatch or crosshatch, 0 otherwise. */
+  angle?: number;
+}
+
+/** A gradient or pattern fill for a chart mark. */
+export type ChartFill = ChartGradientFill | ChartPatternFill;
+
+/**
+ * Pictures as markers on a line, scatter or bubble chart and on a `markermap`.
+ */
+export interface ChartMarkerOptions {
+  /**
+   * What to draw at each point: an icon name from the grid's icon registry (the
+   * one a network node's `icon` uses), an image URL (`https`, `http`, `blob`, a
+   * relative path or a `data:image/...` URI), `{ col }` to read either from a
+   * column per row, or a function of the point. A URL is loaded once and
+   * cached; one that is refused (`javascript:`, a non-image `data:`) or fails
+   * to load leaves the default marker for those points, with a named warning.
+   */
+  image: string | { col: string } | ((point: { label: string; x: unknown; y: unknown; rowKey: unknown }) => string | null | undefined);
+  /** The marker's size in pixels, 6 to 64. Default 16. */
+  size?: number;
 }

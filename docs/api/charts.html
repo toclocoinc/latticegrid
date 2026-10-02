@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Charts API Reference — Lattice Grid 1.85.0</title>
+<title>Charts API Reference — Lattice Grid 1.86.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -392,13 +392,29 @@
         <a class="rail__sub-link" href="#regression-diagnostics">Regression diagnostics</a>
         <a class="rail__sub-link" href="#network-map">Network diagrams &mdash; icon nodes, links coloured by their value</a>
         <a class="rail__sub-link" href="#chart-extension-types">Extension chart types — pay only for what you draw</a>
+        <a class="rail__sub-link" href="#chart-polar">Polar charts &mdash; a Nightingale rose, a radial bar and a polar scatter</a>
+        <a class="rail__sub-link" href="#chart-flow-funnel-time">Flow, funnel and timeline charts &mdash; a directed chord, a pyramid, a pictorial, a serpentine and a spiral</a>
+        <a class="rail__sub-link" href="#chart-wordcloud">Word cloud &mdash; words sized by how much there is of them</a>
+        <a class="rail__sub-link" href="#chart-venn">Venn &mdash; two or three sets, with the counts to prove it</a>
+        <a class="rail__sub-link" href="#chart-barrace">Bar chart race &mdash; the top N at each moment, animated</a>
+        <a class="rail__sub-link" href="#chart-motion">Motion chart &mdash; bubbles moving through time</a>
         <a class="rail__sub-link" href="#chart-markermap">Map markers &mdash; a figure per location, coloured by its own rule</a>
         <a class="rail__sub-link" href="#chart-geometry-maps">Maps from a geometry column</a>
+        <a class="rail__sub-link" href="#chart-globe">A globe &mdash; the built-in maps on an orthographic projection</a>
+        <a class="rail__sub-link" href="#chart-hierarchy">A hierarchy as a graph, as circles, or as a tree &mdash; forceTree, pack, tree</a>
+        <a class="rail__sub-link" href="#chart-cursor">A crosshair &mdash; a cursor that follows the pointer, and the same cursor on every chart in a group</a>
+        <a class="rail__sub-link" href="#chart-drag-edit">Drag a mark to edit the row behind it</a>
+        <a class="rail__sub-link" href="#chart-fills">Gradient and pattern fills, and images as markers</a>
+        <a class="rail__sub-link" href="#chart-voronoi">A hierarchy as fitted Voronoi cells &mdash; voronoiTreemap</a>
+        <a class="rail__sub-link" href="#chart-responsive">Responsive rules &mdash; a chart that changes shape at its container&rsquo;s breakpoints</a>
+        <a class="rail__sub-link" href="#chart-animation">Animation &mdash; an entry that grows in, and updates that move rather than redraw</a>
         <a class="rail__sub-link" href="#chart-annotate">Drawing on a chart &mdash; a tool rail anchored in the data</a>
         <a class="rail__sub-link" href="#chart-zoom">Zooming a chart &mdash; five controls, the wheel, and a rolling window</a>
         <a class="rail__sub-link" href="#chart-volume-pane">A price-and-volume pane &mdash; candles over volume on one x axis</a>
         <a href="#ref-charts-reference">Type reference</a>
         <a class="rail__sub-link" href="#type-Chart">Chart</a>
+        <a class="rail__sub-link" href="#type-ChartSpec">ChartSpec</a>
+        <a class="rail__sub-link" href="#type-FrameClock">FrameClock</a>
       </div>
       <div class="rail__group">
         <span class="rail__label">Pages</span>
@@ -1527,6 +1543,480 @@ grid.destroy();
   typeof hexmap.drawHexMap, typeof hexmap.bindHexMap,
 ].join(' | ');</code></pre>
 
+    <h3 id="chart-polar">Polar charts &mdash; a Nightingale rose, a radial bar and a polar scatter</h3>
+    <p>Three opt-in modules draw a measure as a distance from a centre and a category (or a time, or a bearing) as an angle. Each is imported after the base charts module, registers its type by name, and is paid for only by the page that imports it. Each follows the grid's filter, answers a hover with a tooltip, takes the keyboard (one tab stop, the arrows between marks) and carries the accessible data table every chart has, and its marks, axes and legend use the same colour tokens, so they read in the light and dark themes alike. A <code>scheme</code> given as a bare array or as a name map colours them like every other type. The options that are particular to them are set in one <code>polar</code> object on the spec; <code>startAngle</code>, <code>endAngle</code>, <code>max</code>, <code>min</code>, <code>stack</code>, <code>size</code> and <code>series</code> mean what they mean elsewhere.</p>
+    <p><strong>Polar area / Nightingale rose</strong> (<code>modules/chart-polararea</code>, <code>drawPolarArea</code>; <code>type: 'polarArea'</code>, with the aliases <code>'nightingale'</code> and <code>'rose'</code>) gives every <code>x</code> category the same angle and draws the wedge's radius from <code>y</code>. The default scale is <strong>area-true</strong>: the eye reads a wedge by its area, so the radius is the square root of the value and a value four times another reaches twice as far; <code>polar: { scale: 'linear' }</code> draws the radius from the value directly, for a reader who accepts the exaggeration. The radial axis labels the values in the column's own format &mdash; its rings bunch towards the edge on the square-root scale, which is the scale being drawn. With a <code>series</code> column or <code>measures</code>, <code>stack: true</code> stacks the series within each wedge (the classic Nightingale form, each segment's cumulative value taken through the scale so the areas stay true); without it each series gets its own sub-wedge. <code>startAngle</code> and <code>endAngle</code> (degrees clockwise from twelve o'clock) open the rose into a fan, and <code>max</code> pins the outer ring.</p>
+    <pre data-run="js" data-expect="4 wedges of 90 degrees | radius ratios 1.00 2.00 3.00 4.00 | function" data-covers="export:drawPolarArea export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 600, height: 400 });
+const panel = document.createElement('div');
+panel.rect = { width: 600, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+// Importing the module registers `polarArea` (and `nightingale`, `rose`);
+// its drawer is drawPolarArea.
+const polarArea = await import('../packages/modules/chart-polararea/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'month', type: 'text' }, { field: 'deaths', type: 'number' }],
+  rows: [
+    { id: 'jan', month: 'Jan', deaths: 100 }, { id: 'feb', month: 'Feb', deaths: 400 },
+    { id: 'mar', month: 'Mar', deaths: 900 }, { id: 'apr', month: 'Apr', deaths: 1600 },
+  ],
+});
+const chart = createChart({ grid, container: panel, type: 'polarArea', x: 'month', y: 'deaths' });
+
+// Each wedge carries its angle range and its reach, in degrees and pixels.
+const wedges = [];
+const walk = (node) =&gt; {
+  for (const child of node.children || []) {
+    if (String(child.getAttribute('class') || '').includes('__slice')) wedges.push(child);
+    walk(child);
+  }
+};
+walk(chart.element);
+const span = (w) =&gt; Number(w.getAttribute('data-end')) - Number(w.getAttribute('data-start'));
+const reach = wedges.map((w) =&gt; Number(w.getAttribute('data-radius')));
+chart.destroy();
+// 100, 400, 900 and 1600 are 1, 4, 9 and 16 times the first: the radii are 1, 2, 3 and 4.
+return `${wedges.length} wedges of ${span(wedges[0])} degrees | radius ratios ${reach.map((r) =&gt; (r / reach[0]).toFixed(2)).join(' ')} | ${typeof polarArea.drawPolarArea}`;</code></pre>
+
+    <p><strong>Radial bar</strong> (<code>modules/chart-radialbar</code>, <code>drawRadialBar</code>; <code>type: 'radialBar'</code>) draws one ring per <code>x</code> category, innermost first, each an arc from <code>startAngle</code> (default 0, twelve o'clock) whose sweep is <code>value / max</code> of the full sweep. The full sweep is <code>endAngle - startAngle</code> and defaults to <strong>270 degrees</strong>; a faint full <strong>track</strong> behind each ring is that whole sweep, so the ring reads against what it is a part of (<code>polar: { track: false }</code> hides them). <code>max</code> defaults to the largest value, so the longest ring fills its track; set it to read against a target. The ring's label sits at the start of the ring, in the open quarter. <code>polar: { sort: 'asc' | 'desc' }</code> orders the rings by value (smallest or largest innermost); unset keeps the grid's own order. With <code>measures</code> or a <code>series</code> column the measures are adjacent rings inside each category's band, or with <code>polar: { multi: 'stacked' }</code> end to end in one ring. Only the angle is an honest encoding &mdash; an outer ring is longer for the same sweep &mdash; which is why every ring shares one <code>max</code> and the tracks are drawn.</p>
+    <pre data-run="js" data-expect="sweeps 67.5 135 202.5 270 | rings A B C D | function" data-covers="export:drawRadialBar"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 600, height: 400 });
+const panel = document.createElement('div');
+panel.rect = { width: 600, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+const radialBar = await import('../packages/modules/chart-radialbar/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'team', type: 'text' }, { field: 'score', type: 'number' }],
+  rows: [
+    { id: 'a', team: 'A', score: 10 }, { id: 'b', team: 'B', score: 20 },
+    { id: 'c', team: 'C', score: 30 }, { id: 'd', team: 'D', score: 40 },
+  ],
+});
+// max is the largest score, 40, and the default sweep is 270 degrees.
+const chart = createChart({ grid, container: panel, type: 'radialBar', x: 'team', y: 'score' });
+
+const arcs = [];
+const names = [];
+const walk = (node) =&gt; {
+  for (const child of node.children || []) {
+    const cls = String(child.getAttribute('class') || '');
+    if (cls.includes('__radialbar-arc')) arcs.push(child);
+    if (cls.includes('__radialbar-label')) names.push(child.textContent);
+    walk(child);
+  }
+};
+walk(chart.element);
+const sweep = (a) =&gt; Number(a.getAttribute('data-end')) - Number(a.getAttribute('data-start'));
+chart.destroy();
+return `sweeps ${arcs.map(sweep).join(' ')} | rings ${names.join(' ')} | ${typeof radialBar.drawRadialBar}`;</code></pre>
+
+    <p><strong>Polar scatter</strong> (<code>modules/chart-polarscatter</code>, <code>drawPolarScatter</code>, <code>bindPolarScatter</code>; <code>type: 'polarScatter'</code>) places each row by an <strong>angle</strong> from the <code>x</code> column and a <strong>radius</strong> from <code>y</code>, with an optional <code>size</code> column (the dot's area), a <code>series</code> column (colour by category, with a legend) or <code>polar: { colour: 'column' }</code> (a number is drawn from the scheme's ramp, anything else by category). What the angle column <em>means</em> is stated with <code>polar.angle</code> rather than guessed, because the same number is a bearing in one chart and an hour in another. Every form is measured clockwise from twelve o'clock plus <code>startAngle</code>:</p>
+    <ul>
+      <li><code>'degrees'</code> &mdash; a numeric column of degrees; any value wraps into one turn, so 370 is 10.</li>
+      <li><code>'category'</code> &mdash; the distinct values, in the order they first appear, spread evenly round the circle, one spoke each.</li>
+      <li><code>'hourOfDay'</code> &mdash; a time column read as the time of day, midnight at the top; 06:30 is 6.5 / 24 of a turn.</li>
+      <li><code>'dayOfWeek'</code> &mdash; a time column read as its day of the week, Monday first, the time of day kept within its day.</li>
+      <li><code>'month'</code> &mdash; a time column read as its month, January first, the day of the month kept within it.</li>
+    </ul>
+    <p>A time may be an epoch in milliseconds, a <code>Date</code> or a date string, and is read in the grid's <code>timeZone</code> when it has one and in UTC otherwise. Left unset the angle is <code>'degrees'</code> for a numeric column, <code>'hourOfDay'</code> for a <code>datetime</code> or <code>timestamp</code> column, <code>'dayOfWeek'</code> for a <code>date</code> column and <code>'category'</code> for anything else. A row whose value does not read as that angle (or whose radius is absent) is not drawn at an invented one: it is counted in <code>chart.data().unplaced</code>. The angular axis is labelled for the form chosen (degrees every 30, hours every three, the weekday and month names in the grid's locale, a label per category) and the radial axis in the radius column's format. <code>angleOf(value, kind, { timeZone })</code> is the same reading, exported for a host that wants to place its own marks against the one convention.</p>
+    <p>The selection goes back to the grid as a cartesian scatter's does. With <code>selection: true</code> a click on a dot selects its row and the grid's selection dims the other dots; with <code>brush: 'select'</code> a drag across the plot selects every row whose dot lies in the dragged band (the <code>brush</code> event carries the <code>rowKeys</code> and can be vetoed with <code>preventDefault()</code>). A polar plot has no value range to filter by or to zoom into, so <code>'filter'</code> and <code>'zoom'</code> are refused by name rather than ignored.</p>
+    <pre data-run="js" data-expect="bearings 90 180 10 | hours 90 | selected b | unplaced 1 | function" data-covers="export:drawPolarScatter export:bindPolarScatter export:angleOf"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 600, height: 400 });
+const panel = document.createElement('div');
+panel.rect = { width: 600, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+const polarScatter = await import('../packages/modules/chart-polarscatter/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  selection: { mode: 'multiple' },
+  columns: [{ field: 'bearing', type: 'number' }, { field: 'speed', type: 'number' }],
+  rows: [
+    { id: 'a', bearing: 90, speed: 10 }, { id: 'b', bearing: 180, speed: 20 },
+    { id: 'c', bearing: 370, speed: 30 }, { id: 'd', bearing: 'calm', speed: 0 },
+  ],
+});
+const chart = createChart({
+  grid, container: panel, type: 'polarScatter', x: 'bearing', y: 'speed', selection: true,
+  polar: { angle: 'degrees' },
+});
+
+// Where each dot landed: its bearing clockwise from the top, from the centre.
+const centre = (() =&gt; {
+  let found = null;
+  const walk = (node) =&gt; {
+    for (const child of node.children || []) {
+      if (child.getAttribute('data-cx') !== null) found = child;
+      walk(child);
+    }
+  };
+  walk(chart.element);
+  return { x: Number(found.getAttribute('data-cx')), y: Number(found.getAttribute('data-cy')) };
+})();
+const dots = [];
+const walk = (node) =&gt; {
+  for (const child of node.children || []) {
+    if (String(child.getAttribute('class') || '').includes('__point')) dots.push(child);
+    walk(child);
+  }
+};
+walk(chart.element);
+const bearing = (d) =&gt; {
+  const dx = Number(d.getAttribute('cx')) - centre.x;
+  const dy = Number(d.getAttribute('cy')) - centre.y;
+  return Math.round(((Math.atan2(dx, -dy) * 180) / Math.PI + 360) % 360);
+};
+
+// A click on a dot selects its row in the grid.
+const plot = panel.querySelector('.lat-chartview__plot');
+plot.rect = { left: 0, top: 0, width: 600, height: 400 };
+plot.dispatchEvent(new TestEvent('click', {
+  clientX: Number(dots[1].getAttribute('cx')), clientY: Number(dots[1].getAttribute('cy')),
+}));
+
+// A time column can be read as an angle too: noon is half way round the day.
+const hour = polarScatter.angleOf(Date.UTC(2024, 0, 1, 6), 'hourOfDay');
+const bound = polarScatter.bindPolarScatter(grid, { x: 'bearing', y: 'speed', polar: { angle: 'degrees' } });
+const selected = grid.selection.keys().join(',');
+chart.destroy();
+return `bearings ${dots.map(bearing).join(' ')} | hours ${hour} | selected ${selected} | unplaced ${bound.unplaced} | ${typeof polarScatter.drawPolarScatter}`;</code></pre>
+
+    <h3 id="chart-flow-funnel-time">Flow, funnel and timeline charts &mdash; a directed chord, a pyramid, a pictorial, a serpentine and a spiral</h3>
+    <p>Five more ways to read the same rows. Each of the four new types is its own opt-in module on the registry seam: import <code>modules/charts</code>, then the one you draw, and it registers itself (<code>chart-pyramid</code>, <code>chart-pictorial</code>, <code>chart-serpentine</code>, <code>chart-spiral</code>; each ships ESM, UMD and CJS builds like the other extension types). All four follow the grid &mdash; a filter redraws them from the rows left &mdash; read the scheme as a bare array or a title map, show a tooltip, take roving keyboard focus over their marks, and write the accessible data table; with <code>selection: true</code> a click on a mark selects the rows behind it in the grid, and the grid's selection dims the marks it leaves out.</p>
+
+    <h4 id="chart-chord-directed">Directed chord (<code>directed</code>)</h4>
+    <p>The chord keeps its flows keyed by direction: A to B and B to A are two ribbons, never one. <code>directed: true</code> draws them as such &mdash; each ribbon leaves its source arc at the full width of its value and arrives narrower (<code>style: 'taper'</code>, the default, narrows to 40% of the source width) or closes into an arrow head whose tip sits on the ring (<code>style: 'arrow'</code>). A node's arc is what it <em>sends</em> (<code>arc: 'out'</code>, the default; a node that only receives keeps a small floor so it stays on the ring) or what it sends plus what it receives (<code>arc: 'inout'</code>). Colours follow the source, the tooltip names the direction (<code>A &rarr; B</code>) and the value, a node's tooltip gives what it sends (&rarr;) and receives (&larr;), and the accessible table lists the flows. Unset, the chord draws exactly as before. A ribbon's <code>data-sweep</code> is its width at the source in degrees: the quantity that is proportional to the value.</p>
+    <pre data-run="js" data-expect="A to B is 3.0x B to A | 5 ribbons" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 600, height: 400 });
+const panel = document.createElement('div');
+panel.rect = { width: 600, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+const flows = [['A', 'B', 30], ['B', 'A', 10], ['A', 'C', 20], ['C', 'B', 15], ['B', 'C', 5]];
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'from', type: 'text' }, { field: 'to', type: 'text' }, { field: 'v', type: 'number' }],
+  rows: flows.map(([from, to, v], i) =&gt; ({ id: 'r' + i, from, to, v })),
+});
+// `directed: true` keeps A to B and B to A as two ribbons: each leaves its source
+// arc at the width of its value and narrows toward its target.
+const chart = createChart({ grid, container: panel, type: 'chord', source: 'from', target: 'to', y: 'v', directed: true });
+const sweep = {};
+for (const node of panel.querySelectorAll('path')) {
+  if (node.getAttribute('data-link')) sweep[node.getAttribute('data-link')] = Number(node.getAttribute('data-sweep'));
+}
+chart.destroy();
+grid.destroy();
+return `A to B is ${(sweep['A-&gt;B'] / sweep['B-&gt;A']).toFixed(1)}x B to A | ${Object.keys(sweep).length} ribbons`;</code></pre>
+
+    <h4 id="chart-pyramid">Pyramid (<code>modules/chart-pyramid</code>)</h4>
+    <p><code>type: 'pyramid'</code> takes the funnel's input &mdash; <code>x</code> the stage, <code>y</code> the measure &mdash; and draws the stages as stacked slices of one triangle, the first on top: apex up by default, <code>stages: { inverted: true }</code> for apex down. A slice's <strong>height</strong> is proportional to its value; <code>stages: { area: true }</code> makes its <strong>area</strong> proportional instead (the slice boundaries then sit where the triangle's cumulative area reaches each share). <code>gap</code> is the space between slices (default 2 px; both readings are exact with <code>gap: 0</code>). <code>labels</code> places each slice's stage, value and share <code>'inside'</code>, <code>'beside'</code> (with a leader), <code>'auto'</code> (the default: inside where the text fits) or <code>false</code> (the legend then names the stages). Not <code>populationPyramid</code>, which is two mirrored bar sets.</p>
+    <pre data-run="js" data-expect="function | 4 stages | 1.00 0.60 0.30 0.10" data-covers="export:drawPyramid export:bindPyramid"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 600, height: 400 });
+const panel = document.createElement('div');
+panel.rect = { width: 600, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+const { drawPyramid, bindPyramid } = await import('../packages/modules/chart-pyramid/index.js');
+const stages = [['Visit', 1000], ['Signup', 600], ['Trial', 300], ['Paid', 100]];
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'stage', type: 'text' }, { field: 'n', type: 'number' }],
+  rows: stages.map(([stage, n], i) =&gt; ({ id: 's' + i, stage, n })),
+});
+// Importing the module registers `pyramid`; slice heights follow the values.
+const bound = bindPyramid(grid, { x: 'stage', y: 'n' });
+const chart = createChart({ grid, container: panel, type: 'pyramid', x: 'stage', y: 'n' });
+const heights = [...panel.querySelectorAll('path')]
+  .filter((n) =&gt; n.getAttribute('data-stage') !== null)
+  .map((n) =&gt; Number(n.getAttribute('data-height')));
+chart.destroy();
+grid.destroy();
+return `${typeof drawPyramid} | ${bound.stages.length} stages | ${heights.map((h) =&gt; (h / heights[0]).toFixed(2)).join(' ')}`;</code></pre>
+
+    <h4 id="chart-pictorial">Pictorial (<code>modules/chart-pictorial</code>)</h4>
+    <p><code>type: 'pictorial'</code> tells quantity with a picture. <code>pictorial: { mode: 'fill' }</code> (the default) splits one silhouette into horizontal bands sized by each stage's value; <code>mode: 'repeat'</code> draws an isotype row of icons per category, one icon standing for <code>unit</code> (a round number that fits the widest row when unset), the last one clipped to the fraction left over. <code>shape</code> is an icon name from the grid's icon registry (<code>grid.icons</code>) or an SVG path string. A path string is <strong>path data only</strong> &mdash; commands, numbers and separators; markup, quotes, <code>url(</code> and any word are refused, and the chart falls back to the built-in figure and says so once (the <code>chart:*:notice:*</code> warning). Bands and the partial icon are cut with <code>clip-path: inset()</code> against the shape's own measured bounding box.</p>
+    <pre data-run="js" data-expect="function | 7 5 3 icons | refused true so default" data-covers="export:drawPictorial export:bindPictorial"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 600, height: 400 });
+const panel = document.createElement('div');
+panel.rect = { width: 600, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+const { drawPictorial, bindPictorial } = await import('../packages/modules/chart-pictorial/index.js');
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'stage', type: 'text' }, { field: 'n', type: 'number' }],
+  rows: [{ id: 'a', stage: 'Visit', n: 35 }, { id: 'b', stage: 'Signup', n: 22 }, { id: 'c', stage: 'Trial', n: 12.5 }],
+});
+// One icon is 5 people; 12.5 is two and a half icons, the last one clipped.
+const chart = createChart({
+  grid, container: panel, type: 'pictorial', x: 'stage', y: 'n',
+  pictorial: { mode: 'repeat', shape: 'M0 0H10V10H0Z', unit: 5 },
+});
+const icons = [...panel.querySelectorAll('g')]
+  .filter((n) =&gt; n.getAttribute('data-icons') !== null)
+  .map((n) =&gt; n.getAttribute('data-icons'));
+// A path string is path data only: markup is refused and the built-in figure drawn.
+const refused = bindPictorial(grid, { x: 'stage', y: 'n', pictorial: { shape: '&lt;svg onload=alert(1)&gt;' } });
+chart.destroy();
+grid.destroy();
+return `${typeof drawPictorial} | ${icons.join(' ')} icons | refused ${refused.shape.rejected} so ${refused.shape.source}`;</code></pre>
+
+    <h4 id="chart-serpentine">Serpentine timeline (<code>modules/chart-serpentine</code>)</h4>
+    <p><code>type: 'serpentine'</code> folds a long time axis into <code>serpentine.rows</code> rows (unset: from the plot's size) joined by half-circle turns, each row running the opposite way to the one above. Time runs along the <em>whole</em> path, turns included, so an event's distance round the path is proportional to its date everywhere, and an event on a turn sits on the curve. <code>x</code> is the date column for points; <code>start</code> and <code>end</code> give spans, which follow the path round the turns; <code>label</code> names an event, <code>series</code> colours by a column, and calendar ticks run along the path (<code>serpentine: { ticks: false }</code> removes them). Rows with no readable date are left off and said once.</p>
+    <pre data-run="js" data-expect="function | 12 events | 12 markers | 4 on a turn" data-covers="export:drawSerpentine export:bindSerpentine"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 600, height: 400 });
+const panel = document.createElement('div');
+panel.rect = { width: 600, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+const { drawSerpentine, bindSerpentine } = await import('../packages/modules/chart-serpentine/index.js');
+const rows = [];
+for (let i = 0; i &lt; 12; i++) {
+  rows.push({ id: 'e' + i, at: new Date(Date.UTC(2026, i, 10)).toISOString().slice(0, 10), name: 'Event ' + i });
+}
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'at', type: 'date' }, { field: 'name', type: 'text' }],
+  rows,
+});
+// A year folded into three rows joined by half-circle turns: time runs along the
+// whole path, so an event on a turn is as far round it as its date says.
+const bound = bindSerpentine(grid, { x: 'at', label: 'name' });
+const chart = createChart({ grid, container: panel, type: 'serpentine', x: 'at', label: 'name', serpentine: { rows: 3 } });
+const markers = [...panel.querySelectorAll('circle')].filter((n) =&gt; n.getAttribute('data-t') !== null);
+const onTurn = markers.filter((n) =&gt; n.getAttribute('data-turn') === 'true').length;
+chart.destroy();
+grid.destroy();
+return `${typeof drawSerpentine} | ${bound.events.length} events | ${markers.length} markers | ${onTurn} on a turn`;</code></pre>
+
+    <h4 id="chart-spiral">Spiral timeline (<code>modules/chart-spiral</code>)</h4>
+    <p><code>type: 'spiral'</code> winds time onto an Archimedean spiral with one turn per <code>spiral.period</code> &mdash; <code>'day'</code>, <code>'week'</code> (from Monday) or <code>'year'</code> (calendar periods, UTC), or a duration such as <code>'28d'</code>, <code>'12h'</code> or a number of milliseconds &mdash; so the same point of every period lands on one angle, a turn further out each time. <code>x</code> is the date column and <code>y</code> an optional value. <code>mode: 'points'</code> (default; dots sized by <code>y</code>), <code>'bars'</code> (a radial bar whose <code>barBy: 'length'</code> or <code>'thickness'</code> is the value) or <code>'spans'</code> (<code>start</code>/<code>end</code>, a stroke along the spiral for however many turns it takes). There is one tinted <strong>band</strong> per period, labelled with its start while there are few enough, and angular labels for the period's subdivisions: hours for a day, weekdays for a week, months for a year, quarters of a custom period. Phase 0 is twelve o'clock and time runs clockwise.</p>
+    <pre data-run="js" data-expect="function | 8 readings | 06:00 at 90 degrees | 4 bands" data-covers="export:drawSpiral export:bindSpiral"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 600, height: 400 });
+const panel = document.createElement('div');
+panel.rect = { width: 600, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+const { drawSpiral, bindSpiral } = await import('../packages/modules/chart-spiral/index.js');
+const rows = [];
+for (let day = 0; day &lt; 4; day++) {
+  for (const hour of [6, 18]) {
+    rows.push({ id: day + '-' + hour, at: new Date(Date.UTC(2026, 2, 2 + day, hour)).toISOString(), v: hour });
+  }
+}
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'at', type: 'datetime' }, { field: 'v', type: 'number' }],
+  rows,
+});
+// One turn per day: 06:00 on every day is on the same ray, a turn further out.
+const bound = bindSpiral(grid, { x: 'at', y: 'v' });
+const chart = createChart({ grid, container: panel, type: 'spiral', x: 'at', y: 'v', spiral: { period: 'day' } });
+const dots = [...panel.querySelectorAll('circle')].filter((n) =&gt; n.getAttribute('data-angle') !== null);
+const sixAm = dots.filter((n, i) =&gt; i % 2 === 0).map((n) =&gt; n.getAttribute('data-angle'));
+const bands = [...panel.querySelectorAll('path')].filter((n) =&gt; n.getAttribute('data-period') !== null).length;
+chart.destroy();
+grid.destroy();
+return `${typeof drawSpiral} | ${bound.events.length} readings | 06:00 at ${[...new Set(sixAm)].join(',')} degrees | ${bands} bands`;</code></pre>
+    <h3 id="chart-wordcloud">Word cloud &mdash; words sized by how much there is of them</h3>
+    <p><code>modules/chart-wordcloud</code> registers <code>wordCloud</code>. It reads either a <strong>word column</strong> in <code>x</code> with a value in <code>y</code> (one word per distinct value, sized by the sum of <code>y</code>), or a <strong>free-text column</strong> in <code>text</code>, which it splits into words and counts &mdash; lower-cased (<code>lowerCase</code>), with the built-in English stop words removed (<code>stopWords: true</code> by default there; <code>false</code> or your own array also work), and words below <code>minCount</code> left out. A word's font size is the <strong>square root</strong> of its weight, mapped onto <code>minSize</code>&ndash;<code>maxSize</code> (12 and 48 pixels).</p>
+    <p>Words are placed on a seeded Archimedean spiral from the centre, biggest first, each at the first spot where it is inside the plot and clear of every word already placed, so <strong>no two word boxes overlap</strong>, and the same data and <code>seed</code> always draw the same picture. <code>rotate</code> takes <code>0</code>, a list such as <code>[0, 90]</code>, or <code>'random'</code>. Colour comes from the scheme (a bare array or a <code>{ word: colour }</code> map) or from a <code>colour</code> column.</p>
+    <p><strong>A word that does not fit is never dropped silently.</strong> <code>chart.provenance().dropped</code> counts the words that were wanted and not drawn (<code>droppedBy</code> splits them into beyond <code>maxWords</code> and no room), and the same count is written under the picture and in the accessible table. Clicking a word <strong>filters the grid to the rows that contain it</strong> &mdash; whole words only, so <q>cat</q> does not match <q>concatenate</q> &mdash; or, with <code>selection: true</code>, selects them; <code>filterOnClick: false</code> turns the click off. The cloud follows the grid's own filters. The pieces are exported for a host that wants them on their own: <code>bindWordCloud(grid, spec)</code> reads the words and counts, <code>tokenise(text)</code> splits text, <code>layoutWords(words, plot, opts)</code> is the spiral placement (<code>opts.measure</code> takes your own text-width function; in a browser the chart measures with the real font), <code>sizeFor(weight, lo, hi, minSize, maxSize)</code> is the square-root size rule, <code>wordFilter(bound, spec, word)</code> is the filter a click applies, <code>seededRandom(seed)</code> is the generator <code>rotate: 'random'</code> draws from, and <code>STOP_WORDS</code> is the built-in list.</p>
+    <pre data-run="js" data-expect="dog 3, lazy 3, brown 2 / dropped 0 / Don't|panic|42|times / function / 30 true true matches 3/0" data-covers="export:drawWordCloud export:tokenise export:bindWordCloud export:layoutWords export:sizeFor export:wordFilter export:seededRandom export:STOP_WORDS"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 800, height: 500 });
+const panel = document.createElement('div');
+panel.rect = { width: 800, height: 500, top: 0, left: 0 };
+root.appendChild(panel);
+
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+// Importing the module registers `wordCloud`; its drawer is drawWordCloud.
+const cloud = await import('../packages/modules/chart-wordcloud/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'comment', type: 'text' }],
+  rows: [
+    { id: 'a', comment: 'The quick brown fox jumps over the lazy dog' },
+    { id: 'b', comment: 'A fast brown dog and a quick fox' },
+    { id: 'c', comment: 'Lazy lazy afternoon for the dog' },
+  ],
+});
+// Free text: every comment is split into words and counted; "the", "a" and
+// "for" are dropped by the built-in stop list.
+const chart = createChart({ grid, container: panel, type: 'wordCloud', text: 'comment', seed: 3 });
+
+const words = chart.data().words.map((w) =&gt; w.word + ' ' + w.weight);
+const drawn = chart.provenance();
+// Tokenising on its own, with no chart:
+const split = cloud.tokenise("Don't panic, 42 times!").join('|');
+// The pieces on their own: the binding, the spiral placement, the size rule, the click's
+// filter, the seeded generator and the stop list.
+const bound = cloud.bindWordCloud(grid, { text: 'comment' });
+const laid = cloud.layoutWords(bound.words.slice(0, 3), { left: 0, top: 0, right: 400, bottom: 300 },
+  { minSize: 12, maxSize: 40, rotate: 0, seed: 1 });
+const parts = [
+  cloud.sizeFor(25, 1, 81, 10, 50),
+  cloud.seededRandom(7)() === cloud.seededRandom(7)(),
+  cloud.STOP_WORDS.includes('the'),
+  cloud.wordFilter(bound, {}, 'dog').op,
+  laid.placed.length + '/' + laid.unplaced.length,
+];
+return [words.slice(0, 3).join(', '), 'dropped ' + drawn.dropped, split, typeof cloud.drawWordCloud, parts.join(' ')].join(' / ');</code></pre>
+
+    <h3 id="chart-venn">Venn &mdash; two or three sets, with the counts to prove it</h3>
+    <p><code>modules/chart-venn</code> registers <code>venn</code>. Membership is either <strong>boolean columns</strong> (<code>sets: ['admin', 'billing']</code>: a row is in a set when its column is true) or <strong>one multi-value column</strong> (<code>set: 'tags'</code>, an array or text split by <code>separator</code>, with <code>members</code> naming the sets to compare). Each circle's <strong>area is proportional to its set's size</strong> and the distance between circles is fitted to how many rows are in both. For two sets the fit is exact (<code>chart.provenance().venn.error</code> is 0); three circles cannot always give all seven regions their own proportional area, so the layout is a deterministic best fit and <code>provenance().venn.error</code> reports the largest gap, over the regions, between a region's share of the drawn union and its share of the rows, with each region's own in <code>regionErrors</code>.</p>
+    <p>Every region's count is counted off the grid's own (filtered) rows and written in it; rows in no set are counted apart (<code>chart.data().nonMembers</code>) and printed under the picture. <strong>Clicking a region filters the grid to exactly the rows of that region</strong> &mdash; in those sets and in none of the others &mdash; or, with <code>selection: true</code>, selects them; <code>filterOnClick: false</code> turns the click off. <code>bindVenn(grid, spec)</code> reads the membership and counts the regions, <code>distanceFor(r1, r2, overlap)</code> solves the centre distance for an overlap area, <code>regionFilter(bound, mask)</code> is the filter a click applies, and <code>MAX_SETS</code> is 3.</p>
+    <p><strong>More than three sets are refused by name.</strong> Four circles cannot each have a region of their own, and a picture that dropped one would invent the answer, so the chart shows its empty state and says once why: <q>a venn chart draws two or three sets and was given 4</q>. The way out it points at is an <strong>UpSet-style</strong> chart: group the grid by the membership columns and draw a bar chart of the row count per combination, which scales to any number of sets.</p>
+    <pre data-run="js" data-expect="Admin 30, Billing 20, Admin + Billing 12 / outside 5 / exact true / overlap 12 / total 62 / touch 7 / filter 2 / max 3" data-covers="export:drawVenn export:fitCircles export:lensArea export:bindVenn export:distanceFor export:regionFilter export:MAX_SETS"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 600, height: 420 });
+const panel = document.createElement('div');
+panel.rect = { width: 600, height: 420, top: 0, left: 0 };
+root.appendChild(panel);
+
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+// Importing the module registers `venn`; its drawer is drawVenn.
+const venn = await import('../packages/modules/chart-venn/index.js');
+
+// Who has which role: 30 admins only, 20 billing only, 12 both, 5 neither.
+const rows = [];
+const add = (n, admin, billing) =&gt; { for (let i = 0; i &lt; n; i++) rows.push({ id: 'r' + rows.length, admin, billing }); };
+add(30, true, false); add(20, false, true); add(12, true, true); add(5, false, false);
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'admin', type: 'boolean' }, { field: 'billing', type: 'boolean' }],
+  rows,
+});
+
+const chart = createChart({ grid, container: panel, type: 'venn', sets: ['admin', 'billing'] });
+
+// Every region's count is taken from the rows; the two-set overlap is exact.
+const bound = chart.data();
+const counts = bound.regions.map((r) =&gt; r.names.join(' + ') + ' ' + r.count).join(', ');
+const fit = chart.provenance().venn;
+const [a, b] = venn.fitCircles(bound).circles;
+const lens = venn.lensArea(a.r, b.r, Math.hypot(b.x - a.x, b.y - a.y));
+const again = venn.bindVenn(grid, { sets: ['admin', 'billing'] });
+return [
+  counts, 'outside ' + bound.nonMembers, 'exact ' + fit.exact, 'overlap ' + Math.round(lens),
+  'total ' + again.total, 'touch ' + venn.distanceFor(3, 4, 0),
+  'filter ' + venn.regionFilter(bound, 3).conditions.length, 'max ' + venn.MAX_SETS,
+].join(' / ');</code></pre>
+
+    <h3 id="chart-barrace">Bar chart race &mdash; the top N at each moment, animated</h3>
+    <p><code>modules/chart-barrace</code> registers <code>barRace</code>: <code>x</code> is the category, <code>time</code> the time column (a year, a date, an ISO string) and <code>y</code> the value. Every distinct time is a <strong>frame</strong>; the chart draws the top <code>topN</code> (10) categories of the frame the clock stands at, and <strong>between two frames the values and the ranks are interpolated</strong>, so a bar grows, shrinks and slides past its neighbour instead of jumping. A category with no row at a frame between two it does have is interpolated across the gap; before its first and after its last row it is absent and grows in from, or shrinks out to, below the board.</p>
+    <p>The time is written large behind the bars and there is a real control strip beside the plot: a play / pause button, a speed button (0.5&times; to 4&times;), a scrubber (an <code>&lt;input type="range"&gt;</code>, so the arrow keys, Home and End work and it is announced with the frame's name) and the current time. Under <code>prefers-reduced-motion: reduce</code> (or <code>reducedMotion: true</code>) playback steps a whole frame at a time and a scrub lands on the nearest frame: nothing is tweened. A click on a bar selects that category's rows at the frame, and <q>Select frame rows</q> selects every row the visible bars stand for. The race reads the grid's rows, so it follows the grid's filters. <code>autoplay</code>, <code>speed</code>, <code>loop</code> and <code>format</code> are the other options; <code>bindBarRace(grid, spec)</code> is the binding on its own, with <code>ranking(frame)</code> and <code>barsAt(position)</code> for the numbers behind the picture.</p>
+    <p><strong>One time across charts.</strong> The grid's own scrubber moves the grid through its change log, which is not a column of the data, so the race runs on its own clock: <code>createFrameClock()</code> makes one, and passing the same clock as <code>clock</code> to this chart and to a <a href="#chart-motion">motion chart</a> makes them play, pause and scrub together; <code>clock.subscribe</code> lets a host move its own filter with it. <strong>Cost:</strong> binding is one pass over the rows and each frame's ranking is computed the first time it is needed and kept, so scrubbing never re-ranks &mdash; 200 categories over 100 frames bind in about 250 ms (mostly reading the cells) and rank all 100 frames in about 5 ms. The tween is one small function, <code>tween</code> in <code>charts/frames.js</code>, which the general chart animation engine will take over.</p>
+    <pre data-run="js" data-expect="2000 ABC / 2003 DBA / A value 125 rank 0.5 / scrubbed to DBA / frames 4" data-covers="export:drawBarRace export:createFrameClock export:bindBarRace"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 800, height: 500 });
+const panel = document.createElement('div');
+panel.rect = { width: 800, height: 500, top: 0, left: 0 };
+root.appendChild(panel);
+
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+// Importing the module registers `barRace`; its drawer is drawBarRace.
+const race = await import('../packages/modules/chart-barrace/index.js');
+
+const sizes = { A: [100, 120, 130, 140], B: [80, 110, 150, 190], C: [60, 70, 80, 90], D: [10, 20, 30, 200] };
+const rows = [];
+for (const [name, values] of Object.entries(sizes)) {
+  values.forEach((pop, i) =&gt; rows.push({ id: name + i, country: name, year: 2000 + i, pop }));
+}
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'country', type: 'text' }, { field: 'year', type: 'number' }, { field: 'pop', type: 'number' }],
+  rows,
+});
+
+// One clock; handing the same one to a motion chart would make the two play as one.
+const clock = race.createFrameClock({ reducedMotion: false, schedule: { request: () =&gt; 0, cancel: () =&gt; {} } });
+const chart = createChart({
+  grid, container: panel, type: 'barRace', x: 'country', time: 'year', y: 'pop', topN: 3, clock,
+});
+
+const bound = chart.data();
+const order = (frame) =&gt; bound.ranking(frame).map((e) =&gt; e.category).join('');
+// Halfway between 2001 and 2002, A and B are crossing: both half way between ranks 0 and 1.
+const mid = Object.fromEntries(bound.barsAt(1.5).map((b) =&gt; [b.category, b]));
+clock.seek(2003);
+const painted = [...panel.querySelectorAll('rect')].filter((n) =&gt; n.getAttribute('data-category')).map((n) =&gt; n.getAttribute('data-category')).join('');
+const again = race.bindBarRace(grid, { x: 'country', time: 'year', y: 'pop', topN: 3 });
+return ['2000 ' + order(0), '2003 ' + order(3), 'A value ' + mid.A.value + ' rank ' + mid.A.rank, 'scrubbed to ' + painted,
+  'frames ' + again.frames.labels.length].join(' / ');</code></pre>
+
+    <h3 id="chart-motion">Motion chart &mdash; bubbles moving through time</h3>
+    <p><code>modules/chart-motion</code> registers <code>motion</code>: one bubble per <code>entity</code>, placed by two numeric columns (<code>x</code>, <code>y</code>), sized by <code>size</code> (radius by the square root, so area follows the value) and coloured by <code>colour</code> (one scheme colour per distinct value; a legend click hides a category), gliding through the frames of <code>time</code>. Between two frames position and size are interpolated; an entity with no row at a frame between two it does have is interpolated across the gap, and is absent before its first and after its last row.</p>
+    <p>The axes are <strong>fixed over the whole run</strong> &mdash; the extents of every reading &mdash; so a bubble moving is the only thing that moves. <code>scale: { x: 'log', y: 'linear' }</code> picks each axis; a log axis labels 1-2-5 of each power of ten, and a reading at or below zero cannot sit on it, so it is left out and counted in <code>chart.provenance().dropped</code>. <strong>Trails:</strong> <code>trails: true</code> draws the path so far of every entity the grid has selected (a click on a bubble selects that entity's rows, so clicking one gives it a trail), and <code>trails: ['Chad', 'Peru']</code> names entities outright. <strong>Hover</strong> shows that entity's values at the frame on screen; <strong>click</strong> selects its rows in the grid; with <code>selection: true</code> the other bubbles dim.</p>
+    <p>The controls, the large time label, the reduced-motion behaviour (whole frames, nothing tweened) and the clock are the <a href="#chart-barrace">bar chart race</a>'s: pass the same <code>createFrameClock()</code> to both as <code>clock</code> and they play, pause and scrub as one. The chart reads the grid's rows, so it follows the grid's filters; <code>bindMotion(grid, spec)</code> is the binding on its own, with <code>positionsAt(position)</code> for every entity's reading at a frame.</p>
+    <pre data-run="js" data-expect="Aland 100,50; Cland 10,40 / half Aland 150,52.5; Cland 15,45 / trails 1 / dropped 0 / 10 20 50 100 200 500 1000 / readings 2" data-covers="export:drawMotion export:logTicks export:bindMotion"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 800, height: 500 });
+const panel = document.createElement('div');
+panel.rect = { width: 800, height: 500, top: 0, left: 0 };
+root.appendChild(panel);
+
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+// Importing the module registers `motion`; its drawer is drawMotion.
+const motion = await import('../packages/modules/chart-motion/index.js');
+
+const data = {
+  Aland: { region: 'north', income: [100, 200, 400], life: [50, 55, 60], pop: [10, 12, 14] },
+  Cland: { region: 'south', income: [10, 20, 40], life: [40, 50, 60], pop: [1, 2, 3] },
+};
+const rows = [];
+for (const [country, d] of Object.entries(data)) {
+  for (let i = 0; i &lt; 3; i++) {
+    rows.push({ id: country + i, country, year: 2000 + i, region: d.region, income: d.income[i], life: d.life[i], pop: d.pop[i] });
+  }
+}
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  selection: { mode: 'multiple' },
+  columns: [
+    { field: 'country', type: 'text' }, { field: 'year', type: 'number' }, { field: 'region', type: 'text' },
+    { field: 'income', type: 'number' }, { field: 'life', type: 'number' }, { field: 'pop', type: 'number' },
+  ],
+  rows,
+});
+
+const clock = motion.createFrameClock({ reducedMotion: false, schedule: { request: () =&gt; 0, cancel: () =&gt; {} } });
+const chart = createChart({
+  grid, container: panel, type: 'motion',
+  entity: 'country', time: 'year', x: 'income', y: 'life', size: 'pop', colour: 'region',
+  scale: { x: 'log' }, trails: true, clock,
+});
+
+// The reading of every country at a frame, and half way between two frames.
+const at = (p) =&gt; chart.data().positionsAt(p).map((r) =&gt; r.entity + ' ' + r.x + ',' + r.y).join('; ');
+grid.selection.set(['Aland0']);        // selecting a country gives it a trail
+clock.seek(2001.5);
+const trail = panel.querySelectorAll('polyline').length;
+const alone = motion.bindMotion(grid, { entity: 'country', time: 'year', x: 'income', y: 'life' });
+return [at(0), 'half ' + at(0.5), 'trails ' + trail, 'dropped ' + chart.provenance().dropped, motion.logTicks(10, 1000).join(' '),
+  'readings ' + alone.positionsAt(0).length].join(' / ');</code></pre>
+
+
     <h3 id="chart-markermap">Map markers &mdash; a figure per location, coloured by its own rule</h3>
     <p><code>modules/chart-markermap</code> registers <code>markermap</code>: one marker per row, placed by <code>lon</code>/<code>lat</code> over a geometry pack's outlines, showing the row's <code>label</code> and its <code>value</code> beside the dot. Two things come from the grid rather than from the chart, and that is the whole point of the type. The <strong>number</strong> is the value column's own formatted cell text, so a percentage, a currency or a unit reads on the map exactly as it reads in the table. The <strong>colour</strong> is whatever <code>grid.formatting.styleFor(valueColumn, value)</code> returns for that row &mdash; the rule's <code>background</code>, or its <code>color</code> where it sets no background &mdash; so a red / amber / green availability wall is one rule set on one column plus one chart configuration. There is deliberately no chart-level thresholds option and no colour column: the rules are the one source, and a legend lists the rules that actually fired, with each rule's own swatch.</p>
     <p>With <code>shapes</code> it draws the pack's regions underneath, through the pack's own <code>projection</code>, and pans and zooms exactly as a <a href="#geometry-packs">geomap</a> of that pack does; without <code>shapes</code> the markers fall back to the projection alone. A row whose coordinates are absent, non-numeric or outside &plusmn;180 / &plusmn;90 draws no marker and is counted in <code>chart.data().unplaced</code>, which the map also writes under itself. Labels are deconflicted by trying four positions in a fixed order &mdash; right of the dot, then left, then above, then below &mdash; and a label with nowhere to go is dropped rather than overprinted; <code>labels: false</code> turns them all off on a dense map and leaves the tooltip, which carries the name, the value, the coordinates and the status. With <code>selection: true</code> a click on a marker selects that row in the grid, and the grid's selection emphasises the marker.</p>
@@ -1655,6 +2145,658 @@ chart.destroy();
     <h4 id="chart-map-viewport">A map over a paged relation asks the engine for its view, and caps what it draws (GEO-6)</h4>
     <p><strong>Over a paged pushdown source, a map draws the rows in its view, not the grid's page.</strong> A <code>markermap</code>, <code>bubblemap</code> or <code>choropleth</code> beside a grid holding 200 rows of 35,000 draws the 35,000 &mdash; or as many as are in view &mdash; not the 200. When the grid holds fewer rows than match, the map asks the source itself: a count through <a href="grid.html#pushdown"><code>source.aggregate()</code></a>, then the rows through the adapter's own <code>execute</code> &mdash; the grid's filter and quick search applied, no range window, capped at <code>spec.viewportCap</code> rows (default 20,000) &mdash; and, once the reader has panned or zoomed, a condition for the box on screen: a <code>withinBbox</code> on a <code>geometry</code> column (pushed as <code>ST_CoveredBy</code> by a spatial <code>duckdbAdapter</code>), or a <code>between</code> pair on <code>lon</code>/<code>lat</code>. The fetched rows are the map's own: nothing is injected into the grid, which keeps its page. A pan or a zoom asks again, aborting the request it supersedes, and the map keeps drawing its last answer under the new view until the next one lands. <code>spec.aggregate</code> governs this exactly as it governs a grouped chart: <code>'auto'</code> asks only when the grid holds a window, <code>'engine'</code> asks whenever the source can and is refused by name when it cannot, <code>'client'</code> never asks. A projection without an invertible pair of scales (<code>equalEarth</code>, <code>robinson</code>, the conics) cannot name its box, so the map asks for the whole filtered relation, still capped.</p>
     <p><strong>Past the cap, density rather than a random subset.</strong> When more rows than <code>viewportCap</code> fall inside the view, a marker or bubble map draws square density cells, each filled by its count through the chart's ramp with a ramp legend: over a paged source the engine counts them (GEO-2's spatial <code>buckets</code>, <code>{ col, bucket: 'grid', size }</code>, so a <code>geometry</code> column), and over rows the browser already holds the chart counts the same cells itself &mdash; 35,000 opaque bubbles at world scale are a blob whichever side counted them. The cell size follows the box the map is about to draw &mdash; the view, else a box the grid's filters hold on the map's column, else the data's own extent &mdash; so that box's longer side is 24 to 47 cells across (a power of two of degrees; a box is never binned at the world's size once one is known), and zooming in until the view holds no more than the cap returns to the rows. When the box the map draws changes by more than <strong>2&times;</strong> in either axis, narrower or wider, the map refits its projection to the new box before drawing, so a few streets' points spread across the plot rather than bunching in the middle of a city's frame: a box set on the map from outside (a <code>withinBbox</code> through <code>grid.filters.set()</code> with <code>viewportFilter</code> on), or, at the initial view, the extent of the rows the grid's filters now keep (which also refits when it moves off the frame). A smaller change, and every pan, keeps the frame and moves the map under it. &ldquo;Reset view&rdquo; returns to the fit of the data. A <code>choropleth</code> has no honest density form, and an engine map that cannot bin (a <code>lon</code>/<code>lat</code> map, or an adapter without the <code>grid</code> bucket) has none either: past the cap each is refused by name (<code>chart:viewportCap:over:*</code>) and draws none of its rows, with the reason under the map. <code>chart.provenance().viewport</code> reports the rows drawn, how many matched the view, the cap, whether it was binned and how many cells, why nothing was drawn, the box, and whether the engine or the browser counted; the accessible summary says which, for example &ldquo;12,480 points in this view, fetched from the data engine&rdquo;.</p>
+    <h3 id="chart-globe">A globe &mdash; the built-in maps on an orthographic projection</h3>
+    <p><code>projection: 'orthographic'</code> (alias <code>'globe'</code>) draws a <code>choropleth</code>, <code>markermap</code> or <code>bubblemap</code> as the hemisphere that faces the viewer, rather than a flat map: it is an option on the existing types, not a new module. Features on the far side are not drawn and cannot be hit; a polygon that crosses the horizon is cut there and closed along it, so land runs right to the edge of the disc. <code>rotate: [lon, lat]</code> is the point at the centre of the disc (default <code>[0, 0]</code>); <strong>drag</strong> turns the globe, <strong>wheel</strong>, <code>+</code> and <code>-</code> zoom in on it, Shift+arrows turn it from the keyboard and <code>0</code> returns it to <code>rotate</code>. There is no inertia, so nothing moves after the pointer lets go and reduced-motion preferences have nothing to switch off. The sphere's outline is drawn unless <code>sphere: false</code>; <code>graticule: true</code> (or <code>{ step }</code>) draws the meridians and parallels, clipped at the horizon like everything else.</p>
+    <p><code>fitTo: 'selection'</code> turns the globe to the middle of the rows the grid selects each time the selection changes, and <code>chart.fitToSelection()</code> does it once; it returns false when there is nothing to turn to. With <code>viewportFilter</code> the visible hemisphere is the filter: one <code>withinDistance</code> condition on the geometry column, a quarter of the Earth's circumference from the centre of the disc, rewritten as the globe turns, so every other viewer of the grid shows exactly the rows on the visible side. A globe that places rows by <code>lon</code>/<code>lat</code> has no single column to write that condition on, says so once and writes nothing. A globe has no <code>annotate</code> rail, because it has no pair of longitude/latitude axes to anchor one in.</p>
+    <pre data-run="js" data-expect="facing: fra ldn nyc | after rotate: syd tok | turned to selection: syd" data-covers="export:createChart method:charts.fitToSelection"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { document, root } = createTestDom({ width: 600, height: 400 });
+<span class="kw">const</span> panel = document.createElement('div');
+panel.rect = { width: 600, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+
+<span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createChart } = <span class="kw">await</span> import('../packages/modules/charts/index.js');
+<span class="kw">await</span> import('../packages/modules/chart-markermap/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'site' }, { field: 'lng', type: 'number' }, { field: 'lat', type: 'number' }],
+  rows: [
+    { id: 'ldn', site: 'London', lng: -0.13, lat: 51.5 },
+    { id: 'fra', site: 'Frankfurt', lng: 8.68, lat: 50.11 },
+    { id: 'nyc', site: 'New York', lng: -74.0, lat: 40.71 },
+    { id: 'syd', site: 'Sydney', lng: 151.2, lat: -33.87 },
+    { id: 'tok', site: 'Tokyo', lng: 139.7, lat: 35.7 },
+  ],
+  selection: { mode: 'multiple' },
+});
+
+<span class="cmt">// Facing Europe: Sydney and Tokyo are on the far side, so they are not drawn.</span>
+<span class="kw">const</span> chart = createChart({
+  grid, container: panel, type: 'markermap', lon: 'lng', lat: 'lat',
+  projection: 'orthographic', rotate: [10, 20],
+});
+<span class="kw">const</span> drawn = () =&gt; {
+  <span class="kw">const</span> rows = [];
+  <span class="kw">const</span> walk = (node) =&gt; {
+    <span class="kw">for</span> (<span class="kw">const</span> child <span class="kw">of</span> node.children || []) {
+      <span class="kw">if</span> (String(child.getAttribute('class') || '').includes('markermap-dot')) rows.push(child.getAttribute('data-row'));
+      walk(child);
+    }
+  };
+  walk(chart.element);
+  <span class="kw">return</span> rows.sort().join(' ');
+};
+<span class="kw">const</span> facing = drawn();
+chart.update({ rotate: [140, 10] });
+<span class="kw">const</span> rotated = drawn();
+chart.update({ rotate: [10, 20] });
+grid.selection.set(['syd']);
+<span class="kw">const</span> turned = chart.fitToSelection() ? (chart.draw(), drawn().includes('syd') ? 'syd' : 'missed') : 'no';
+chart.destroy();
+<span class="kw">return</span> `facing: ${facing} | after rotate: ${rotated} | turned to selection: ${turned}`;</code></pre>
+
+    <h3 id="chart-hierarchy">A hierarchy as a graph, as circles, or as a tree &mdash; <code>forceTree</code>, <code>pack</code>, <code>tree</code></h3>
+    <p>Three opt-in chart modules draw a hierarchy, each as its own import so a page pays only for the one it uses: <code>modules/chart-forcetree</code> registers <code>forceTree</code>, <code>modules/chart-pack</code> registers <code>pack</code> and <code>modules/chart-tree</code> registers <code>tree</code>. All three read the hierarchy the way every hierarchy chart reads it &mdash; <strong>from a <code>parentId</code> column</strong> (each row names its parent by that parent's <code>id</code> column, or by row key when no <code>id</code> is given), <strong>from a <code>path</code> column</strong> (<code>Europe/France/Paris</code>, split on <code>pathSeparator</code>, default <code>/</code>), <strong>or from the grid's own grouping</strong>. A row whose parent is empty, unknown or leads back to itself hangs off the root, so one bad row costs its place in the tree and never the drawing. <code>y</code> sizes the nodes (a branch is the sum of its leaves); with no <code>y</code> a row counts one. Colour is by depth, or by a column with <code>colourBy</code>, and <code>scheme</code> takes a bare array or a title map as on every chart. Every one follows the grid's filter, so a hidden row leaves the picture; with <code>selection: true</code> a click selects the rows at or beneath the node, and a selection made on the grid dims the nodes that hold none of it. The keyboard walks the nodes with the arrow keys and Enter does what a click does, every node is announced with its path, and the accessible data table lists every node as <code>CEO &rsaquo; Engineering &rsaquo; Web</code>.</p>
+    <p><strong><code>forceTree</code></strong> is a force-directed graph whose only links are parent to child: the root is pinned at the centre and the rest settle around it under the network chart's force layout. It settles in a bounded number of ticks &mdash; <code>iterations</code>, 220 for the first layout and 90 when a fold or a drag resumes it &mdash; and then stops; nothing keeps simulating behind the chart. A click folds or opens a branch; a node can be dragged and stays where it is dropped. <strong><code>pack</code></strong> is circles inside circles: a leaf's <em>area</em> is proportional to its value, a branch is the circle that holds its children, siblings never overlap (<code>padding</code> sets the gap) and the packing is deterministic, so the same rows draw the same picture. A click on a branch &mdash; or on a leaf, which goes to the branch that holds it &mdash; zooms into it, and a click on the circle that fills the view zooms back out; names are written inside the circles they fit. <strong><code>tree</code></strong> is a tidy (Reingold&ndash;Tilford) node-link tree: <code>orientation</code> is <code>'top-down'</code> (the default), <code>'left-right'</code> or <code>'radial'</code>, <code>linkShape</code> is <code>'straight'</code>, <code>'elbow'</code> (the default) or <code>'curved'</code>, and <code>cluster: true</code> draws a dendrogram with the leaves in one row at the deepest level. No two nodes at a level overlap, a click folds or opens a branch and the layout is recomputed, <code>expandDepth</code> starts the deeper branches closed, and <code>labels: true</code> writes each node's value after its name. A tree too big for the plot is drawn to fit and can be zoomed: the wheel and <code>+</code>/<code>-</code> zoom, a drag pans, <code>0</code> resets (<code>panZoom: false</code> leaves them to the page).</p>
+    <p>A fold, an unfold and a zoom are animated, unless the reader prefers reduced motion &mdash; then they jump &mdash; or <code>animate: false</code>.</p>
+    <pre data-run="js" data-expect="forceTree: 8 nodes 7 links, folded to 6 | pack: 5 leaves, zoomed to 3 circles | tree: dendrogram aligns the leaves true, plain tree false, folded to 6 nodes" data-covers="export:createChart export:drawForceTree export:drawPack export:drawTree"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createChart } = <span class="kw">await</span> import('../packages/modules/charts/index.js');
+<span class="kw">const</span> { drawForceTree } = <span class="kw">await</span> import('../packages/modules/chart-forcetree/index.js');
+<span class="kw">const</span> { drawPack } = <span class="kw">await</span> import('../packages/modules/chart-pack/index.js');
+<span class="kw">const</span> { drawTree } = <span class="kw">await</span> import('../packages/modules/chart-tree/index.js');
+
+<span class="kw">const</span> { document, root } = createTestDom({ width: 600, height: 420 });
+<span class="kw">const</span> panel = () =&gt; {
+  <span class="kw">const</span> div = document.createElement('div');
+  div.rect = { width: 600, height: 420, top: 0, left: 0 };
+  root.appendChild(div);
+  <span class="kw">return</span> div;
+};
+<span class="cmt">// An org chart: each row names its boss. The three types register when their modules are imported.</span>
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'name' }, { field: 'boss' }, { field: 'heads', type: 'number' }],
+  rows: [
+    { id: 'ceo', boss: '', name: 'CEO', heads: 1 },
+    { id: 'eng', boss: 'ceo', name: 'Engineering', heads: 6 },
+    { id: 'web', boss: 'eng', name: 'Web', heads: 9 },
+    { id: 'data', boss: 'eng', name: 'Data', heads: 5 },
+    { id: 'ops', boss: 'ceo', name: 'Operations', heads: 4 },
+    { id: 'infra', boss: 'ops', name: 'Infra', heads: 7 },
+    { id: 'supp', boss: 'ops', name: 'Support', heads: 3 },
+    { id: 'cfo', boss: 'ceo', name: 'CFO', heads: 2 },
+  ],
+});
+<span class="kw">const</span> spec = { grid, parentId: 'boss', label: 'name', y: 'heads', animate: false };
+
+<span class="cmt">// What was drawn: the circles (and the lines between them) in a chart.</span>
+<span class="kw">const</span> drawn = (chart, cls) =&gt; {
+  <span class="kw">const</span> out = [];
+  <span class="kw">const</span> walk = (node) =&gt; {
+    <span class="kw">for</span> (<span class="kw">const</span> child <span class="kw">of</span> node.children || []) {
+      <span class="kw">if</span> (String(child.getAttribute('class') || '').split(' ').some((c) =&gt; c.endsWith('__' + cls))) {
+        out.push({ x: +child.getAttribute('cx'), y: +child.getAttribute('cy'), r: +child.getAttribute('r'), branch: String(child.getAttribute('class')).includes('hbranch') });
+      }
+      walk(child);
+    }
+  };
+  walk(chart.element);
+  <span class="kw">return</span> out;
+};
+<span class="kw">const</span> click = (host, at) =&gt; {
+  <span class="kw">const</span> plot = host.querySelector('.lat-chartview__plot');
+  plot.rect = { left: 0, top: 0, width: 600, height: 420 };
+  plot.dispatchEvent({ type: 'click', clientX: at.x, clientY: at.y, bubbles: true });
+};
+
+<span class="cmt">// forceTree: eight nodes and seven parent-to-child links; a click folds Engineering away.</span>
+<span class="kw">const</span> hostA = panel();
+<span class="kw">const</span> force = createChart({ ...spec, container: hostA, type: 'forceTree' });
+<span class="kw">const</span> forceNodes = drawn(force, 'hnode').length;
+<span class="kw">const</span> forceLinks = drawn(force, 'hlink').length;
+click(hostA, drawn(force, 'hnode')[1]); <span class="cmt">// Engineering, the first child of the root</span>
+<span class="kw">const</span> folded = drawn(force, 'hnode').length;
+
+<span class="cmt">// pack: five leaves; a click on the biggest (Web) zooms into the branch that holds it.</span>
+<span class="kw">const</span> hostB = panel();
+<span class="kw">const</span> pack = createChart({ ...spec, container: hostB, type: 'pack' });
+<span class="kw">const</span> circles = drawn(pack, 'hnode');
+<span class="kw">const</span> leaves = circles.filter((c) =&gt; !c.branch).length;
+click(hostB, circles.filter((c) =&gt; !c.branch).sort((a, b) =&gt; b.r - a.r)[0]);
+<span class="kw">const</span> zoomed = drawn(pack, 'hnode').length;
+
+<span class="cmt">// tree: a dendrogram lines the leaves up, so the CFO is level with the engineers it sits above;</span>
+<span class="cmt">// a plain tree leaves the CFO one level down, where its depth puts it.</span>
+<span class="kw">const</span> level = (chart) =&gt; { <span class="kw">const</span> c = drawn(chart, 'hnode'); <span class="kw">return</span> Math.round(c[7].y) === Math.round(c[2].y); };
+<span class="kw">const</span> hostC = panel();
+<span class="kw">const</span> dendrogram = createChart({ ...spec, container: hostC, type: 'tree', cluster: true, panZoom: false });
+<span class="kw">const</span> hostD = panel();
+<span class="kw">const</span> plain = createChart({ ...spec, container: hostD, type: 'tree', panZoom: false });
+<span class="kw">const</span> aligned = level(dendrogram);
+<span class="kw">const</span> notAligned = level(plain);
+click(hostD, drawn(plain, 'hnode')[1]);
+<span class="kw">const</span> treeFolded = drawn(plain, 'hnode').length;
+[force, pack, dendrogram, plain].forEach((chart) =&gt; chart.destroy());
+<span class="kw">const</span> drawers = [drawForceTree, drawPack, drawTree].every((fn) =&gt; <span class="kw">typeof</span> fn === 'function');
+<span class="kw">return</span> `forceTree: ${forceNodes} nodes ${forceLinks} links, folded to ${folded} | pack: ${leaves} leaves, zoomed to ${zoomed} circles | tree: dendrogram aligns the leaves ${aligned}, plain tree ${notAligned}, folded to ${treeFolded} nodes`;</code></pre>
+
+    <h3 id="chart-cursor">A crosshair &mdash; a cursor that follows the pointer, and the same cursor on every chart in a group</h3>
+    <p><code>cursor: true</code> puts a vertical hairline on a <code>line</code>, <code>step</code>, <code>area</code>, <code>rangeArea</code>, <code>bar</code>, <code>horizontalBar</code>, <code>waterfall</code>, <code>scatter</code>, <code>bubble</code>, <code>candlestick</code>, <code>ohlc</code> or <code>combo</code> chart that follows the pointer and <strong>snaps to the nearest reading in the data</strong>, not the nearest pixel. A label at the axis end of the hairline words the x as the axis does (its <code>axis.x.format</code>, else the column's <code>format.pattern</code> and time zone, else the full-precision date or number), and the tooltip lists <strong>every series' value at that x</strong> &mdash; open, high, low and close on a candlestick. The object form changes any of it: <code>y: true</code> adds a horizontal hairline that follows the pointer with its own label in the measure axis's format (and the right axis's, on a dual-axis chart); <code>snap: 'none'</code> puts the hairline under the pointer and labels the value there; <code>labels: false</code> drops the labels; <code>tooltip: 'single'</code> lists only the series nearest the pointer and <code>tooltip: false</code> lists none.</p>
+    <p><strong>Groups share the cursor by value, not by pixel.</strong> Charts that name the same <code>cursor.group</code> show the cursor together: hovering one at 14:05 puts a hairline at 14:05 on every other, wherever 14:05 falls in that chart's own plot, with that chart's values in its tooltip. A category axis matches the category by key; a time or number axis matches the value and, with <code>snap: 'nearest'</code>, lands on that chart's nearest reading. <strong>A chart whose range does not cover the value shows nothing</strong> rather than pinning the cursor to its edge. The charts may be bound to different grids and have different ranges. Zoom is not shared unless asked: set <code>cursor.zoom: true</code> (and <code>zoom: true</code>) on each member and a zoom, pan or reset of one is applied to the others, reported there as a <code>zoom</code> event with <code>reason: 'group'</code>.</p>
+    <p><strong>Keyboard and screen readers.</strong> While the chart has focus, <kbd>&larr;</kbd> and <kbd>&rarr;</kbd> (<kbd>&uarr;</kbd> and <kbd>&darr;</kbd> on a <code>horizontalBar</code>) move the cursor one reading, <kbd>Home</kbd> and <kbd>End</kbd> go to the first and last, and <kbd>Esc</kbd> removes it; the other pair of arrows still walks the marks. Every deliberate move (keyboard, <code>set()</code>, row hover) is read out through a polite live region as the shared tooltip's text &mdash; &ldquo;Tue: one 11, two 110, three 1,001&rdquo; &mdash; while a sweeping pointer is not, so a mouse user with a screen reader is not read a sentence per pixel.</p>
+    <p><strong>Drive it, and listen to it.</strong> <code>chart.cursor.set(x)</code> puts the cursor at a category, number or date (false when the chart cannot place it), <code>chart.cursor.clear()</code> takes it away and <code>chart.cursor.get()</code> says where it is. <code>cursor:move</code> carries <code>x</code>, <code>label</code>, <code>values</code> (each series' text and raw number) and a <code>source</code> of <code>pointer</code>, <code>keyboard</code>, <code>api</code>, <code>row</code> or <code>group</code>; <code>cursor:leave</code> says what took it away. <code>cursor.rowHover: true</code> moves the cursor to the x of the grid row the pointer is over (through the grid's <code>cell:mouseover</code>), and a mouse-out removes it. A chart redrawing under a held cursor keeps it at the same x. Asked for on any other type, or on small multiples, <code>cursor</code> warns once (<code>chart:*:cursor:type</code>, <code>chart:*:cursor:multiples</code>) and draws none.</p>
+    <pre data-run="js" data-expect="b follows 6 via group@6 | b at 2: nothing | rows 2 | row hover d | keys c | hairlines 2 | zoom 2-4" data-covers="export:createChart config:ChartCursorOptions.group config:ChartCursorOptions.rowHover config:ChartCursorOptions.snap config:ChartCursorOptions.x config:ChartCursorOptions.y config:ChartCursorOptions.zoom"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 600, height: 400 });
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const mount = () => {
+  const panel = document.createElement('div');
+  panel.rect = { width: 600, height: 400, top: 0, left: 0 };
+  root.appendChild(panel);
+  return panel;
+};
+const readings = (xs) => createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 't', type: 'number' }, { field: 'cpu', type: 'number' }],
+  rows: xs.map((t, i) =&gt; ({ id: 'r' + i, t, cpu: t * 2 })),
+});
+
+// Two charts of one incident: different grids, different ranges, one group.
+const a = createChart({
+  grid: readings([1, 2, 3, 4, 5, 6, 7, 8]), container: mount(), type: 'line', x: 't', y: 'cpu',
+  axis: { x: { scale: 'linear' } }, cursor: { group: 'incident' },
+});
+const panelB = mount();
+const b = createChart({
+  grid: readings([5, 6, 7, 8, 9, 10, 11, 12]), container: panelB, type: 'line', x: 't', y: 'cpu',
+  axis: { x: { scale: 'linear' } }, cursor: { group: 'incident' },
+});
+const heard = [];
+b.on('cursor:move', (e) =&gt; heard.push(e.source + '@' + e.x));
+
+a.cursor.set(6);                      // b follows by value
+const followed = b.cursor.get().x;
+const rows = panelB.querySelectorAll('.lat-chartview__tooltip-row').length;
+a.cursor.set(2);                      // b does not cover 2
+const outside = b.cursor.get();
+
+// A grid row drives the cursor, and so do the arrow keys.
+const names = createHeadlessGrid({
+  rowKey: 'id', columns: [{ field: 'k' }, { field: 'v', type: 'number' }],
+  rows: ['a', 'b', 'c', 'd'].map((k, i) =&gt; ({ id: 'n' + i, k, v: i + 1 })),
+});
+const c = createChart({ grid: names, container: mount(), type: 'bar', x: 'k', y: 'v', cursor: { rowHover: true } });
+names.emit('cell:mouseover', { key: 'n3' });
+const hovered = c.cursor.get().x;
+c.cursor.clear();
+const plot = c.element.querySelector('.lat-chartview__plot');
+for (let i = 0; i &lt; 3; i++) plot.dispatchEvent(new TestEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+const keyed = c.cursor.get().x;
+
+// Both hairlines, unsnapped, under a pointer; and a zoom carried across a group.
+const panelF = mount();
+const free = createChart({
+  grid: readings([1, 2, 3, 4]), container: panelF, type: 'line', x: 't', y: 'cpu',
+  axis: { x: { scale: 'linear' } }, cursor: { x: true, y: true, snap: 'none' },
+});
+free.element.querySelector('.lat-chartview__plot').dispatchEvent(new TestEvent('pointermove', { clientX: 300, clientY: 200 }));
+const hairlines = panelF.querySelectorAll('.lat-chartview__cursor-line').length;
+const zoomed = (grid) =&gt; createChart({
+  grid, container: mount(), type: 'line', x: 't', y: 'cpu', zoom: true,
+  axis: { x: { scale: 'linear' } }, cursor: { group: 'zoomed', zoom: true },
+});
+const z1 = zoomed(readings([1, 2, 3, 4, 5, 6]));
+const z2 = zoomed(readings([1, 2, 3, 4, 5, 6]));
+z1.zoom.set([2, 4]);
+const carried = z2.state().zoom.x.range.join('-');
+for (const chart of [a, b, c, free, z1, z2]) chart.destroy();
+return `b follows ${followed} via ${heard[0]} | b at 2: ${outside === null ? 'nothing' : 'shown'} | rows ${rows} | row hover ${hovered} | keys ${keyed} | hairlines ${hairlines} | zoom ${carried}`;</code></pre>
+
+    <h3 id="chart-drag-edit">Drag a mark to edit the row behind it</h3>
+    <p><code>editable: true</code> lets a reader change the data by moving the chart. Drag a bar&rsquo;s end, a line or area point, a scatter point, either end of a floating bar or the edge of a pie or donut slice, and the value is written back to the <strong>grid</strong> &mdash; through the same door a cell edit takes, not through a copy the chart keeps. While the mark is held the chart shows the value it would write, formatted by the measure&rsquo;s column (a currency column reads <code>&pound;1,250</code>); on release it issues the edit with <code>grid.edit.setCells()</code> and the gated <code>'user'</code> origin. So everything that guards a cell guards the mark: the column&rsquo;s <code>validation</code>, a <code>beforeEdit</code> handler&rsquo;s veto, <code>edit.enabled</code> (a read-only column, a read-only row), the undo stack, change tracking and router write-back. The chart then redraws from the grid&rsquo;s <code>cell:changed</code>, which is also what happens when the same edit is made in the table or undone with <code>grid.edit.undo()</code>.</p>
+    <p>An edit the grid refuses springs the mark back to where the data has it and says why in a status line under the plot: the grid&rsquo;s own validation message (&ldquo;Must be at most 100.&rdquo;), the reason a <code>beforeEdit</code> handler gave to <code>preventDefault(reason)</code> (&ldquo;That change was not applied: frozen by finance&rdquo;), or a plain &ldquo;That change was not applied.&rdquo; for a read-only cell. The chart raises <code>edit</code> when the grid accepted a write and <code>editRejected</code> (with <code>reason</code> and <code>message</code>) when it did not.</p>
+    <p>Pass an object to say more: <code>axis</code> is <code>'y'</code> (the measure, the default), <code>'x'</code> (a scatter or bubble point on a numeric x axis) or <code>'xy'</code> (both, which writes two cells in one undo step); <code>min</code> and <code>max</code> limit what can be written; <code>snap</code> rounds a drag to a quantum (<code>true</code> rounds to <code>step</code>, a number rounds to that), where an unsnapped drag is continuous to about a pixel&rsquo;s worth; <code>step</code> is the keyboard increment. A drag may run past the end of the axis &mdash; the tallest bar sits at the top of its plot &mdash; and the axis rescales after the edit. A pie or donut slice is dragged by its leading edge and writes the slice&rsquo;s value so that the redrawn edge lies under the pointer: the slice takes its share from every other slice at once, since a pie&rsquo;s angles are shares of the whole.</p>
+    <p><strong>A mark that is several rows is not draggable.</strong> A bar that sums a category has no single cell to write, so its handle is drawn inert (dashed, <code>aria-disabled</code>) and an attempt is answered, by name, in the console (<code>chart:editable:aggregated</code>) and in the status line &mdash; never by quietly doing nothing. <code>editable.distribute</code> says how a new total is shared out: <code>'proportional'</code> scales every row by one factor (equal shares when the total was zero) and <code>'first'</code> puts the whole difference on the first row. It needs a measure reduced with <code>sum</code> or <code>avg</code> (another reduction is refused by name, <code>chart:editable:distribute</code>), writes the rows in one undo step, and keeps none of them if the grid refuses any one: a total shared across only some of its rows is not a thing anyone meant.</p>
+    <p><strong>The keyboard and touch.</strong> Every handle is a focusable <code>slider</code> with one tab stop for the lot. On a vertical chart Up and Down change the value by <code>step</code> (Shift takes ten) and Left and Right move to the neighbouring mark; on a horizontal bar the two pairs swap; on an <code>'xy'</code> scatter the arrows move along x and y and Page Up and Page Down move between marks. Enter commits through the same path as a drag, Escape puts the value back, and Home and End go to the first and last mark. A finger drags like a pointer: the handles turn off the browser&rsquo;s own touch panning, and the grab area is larger for touch. A drag does not also count as a click, so it never filters or drills the chart.</p>
+    <p><strong>What cannot be dragged, said by name.</strong> A stacked or percent chart has no single value at the end of a mark, small multiples and the other chart types have no handles, a floating bar on a time axis is edited in the grid, and a chart of more than 2,000 marks draws handles on the first 2,000 (<code>chart:editable:type</code>, <code>chart:editable:axis</code>, <code>chart:editable:cap</code>). The handles are not part of an export: <code>toSVG()</code> leaves them out.</p>
+    <pre data-run="js" data-expect="keyboard wrote 55 | vetoed: That change was not applied: frozen by finance, still 55 | invalid: Must be at most 100., still 55 | undone: 40" data-covers="export:createChart"><code><span class="kw">const</span> { createTestDom, TestEvent, flushFrames } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { document, root } = createTestDom({ width: 700, height: 400 });
+<span class="kw">const</span> panel = document.createElement('div');
+panel.rect = { width: 700, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+
+<span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createChart } = <span class="kw">await</span> import('../packages/modules/charts/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'region' },
+    { field: 'sales', type: 'number', edit: { enabled: true }, validation: { max: 100 } },
+  ],
+  rows: [
+    { id: 'n', region: 'North', sales: 10 },
+    { id: 'e', region: 'East', sales: 40 },
+    { id: 's', region: 'South', sales: 80 },
+  ],
+});
+
+<span class="cmt">// Every bar's end is a handle; the keyboard moves it by `step` and Enter commits.</span>
+<span class="kw">const</span> chart = createChart({ grid, container: panel, type: 'bar', x: 'region', y: 'sales', editable: { step: 5 } });
+<span class="kw">const</span> handles = () => {
+  <span class="kw">const</span> found = [];
+  <span class="kw">const</span> walk = (node) => {
+    <span class="kw">for</span> (<span class="kw">const</span> child <span class="kw">of</span> node.children || []) {
+      <span class="kw">if</span> (String(child.getAttribute('class') || '').includes('edit-handle')) found.push(child);
+      walk(child);
+    }
+  };
+  walk(chart.element);
+  <span class="kw">return</span> found;
+};
+<span class="kw">const</span> key = (node, name) =&gt; node.dispatchEvent(new TestEvent('keydown', { key: name }));
+<span class="kw">const</span> status = () =&gt; {
+  <span class="kw">let</span> text = '';
+  <span class="kw">const</span> walk = (node) =&gt; {
+    <span class="kw">for</span> (<span class="kw">const</span> child <span class="kw">of</span> node.children || []) {
+      <span class="kw">if</span> (String(child.getAttribute('class') || '').includes('edit-status')) text = child.textContent;
+      walk(child);
+    }
+  };
+  walk(chart.element);
+  <span class="kw">return</span> text;
+};
+<span class="cmt">// The grid answers on the next turn, and the chart redraws from it on the next frame.</span>
+<span class="kw">const</span> settle = <span class="kw">async</span> () =&gt; { <span class="kw">await</span> <span class="kw">new</span> Promise((done) =&gt; setImmediate(done)); flushFrames(); };
+
+<span class="kw">let</span> east = handles()[1];
+<span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; 3; i++) key(east, 'ArrowUp');
+key(east, 'Enter');
+<span class="kw">await</span> settle();
+<span class="kw">const</span> wrote = grid.rows.value('e', 'sales');
+
+<span class="cmt">// A beforeEdit handler vetoes it: the grid keeps 55 and the chart says why.</span>
+<span class="kw">const</span> off = grid.on('beforeEdit', (event) =&gt; event.preventDefault('frozen by finance'));
+east = handles()[1];
+key(east, 'ArrowDown');
+key(east, 'Enter');
+<span class="kw">await</span> settle();
+<span class="kw">const</span> vetoed = `vetoed: ${status()}, still ${grid.rows.value('e', 'sales')}`;
+off();
+
+<span class="cmt">// The column's own validation speaks for itself.</span>
+east = handles()[1];
+<span class="kw">for</span> (<span class="kw">let</span> i = 0; i &lt; 10; i++) key(east, 'ArrowUp');
+key(east, 'Enter');
+<span class="kw">await</span> settle();
+<span class="kw">const</span> invalid = `invalid: ${status()}, still ${grid.rows.value('e', 'sales')}`;
+
+<span class="cmt">// One undo restores the grid, and the chart follows.</span>
+grid.edit.undo();
+chart.destroy();
+<span class="kw">return</span> `keyboard wrote ${wrote} | ${vetoed} | ${invalid} | undone: ${grid.rows.value('e', 'sales')}`;</code></pre>
+
+    <h3 id="chart-fills">Gradient and pattern fills, and images as markers</h3>
+    <p><strong>Anywhere a chart takes a colour for a filled mark, it takes a fill object.</strong> A bar, an area, a pie or donut slice, a treemap cell, a band, and a map's land (<code>basemap.fill</code>) accept <code>{ gradient: 'linear', angle, stops: [[0, c1], [1, c2]] }</code>, <code>{ gradient: 'radial', stops }</code> or <code>{ pattern: 'hatch' | 'crosshatch' | 'dots' | 'grid', colour, background, size, angle }</code>. The <code>angle</code> of a linear gradient is in CSS degrees (180, the default, runs top to bottom; 90 left to right); a hatch defaults to 45 degrees and a <code>size</code> of 8 pixels. Put one in a <code>scheme</code> array (<code>scheme: [{ gradient: 'linear', stops }, '#d55e00']</code>), in a title map (<code>scheme: { Offline: { pattern: 'hatch', colour: '#a4262c' } }</code>) or in a registered scheme, exactly where a colour would go; per row, <code>fill</code> takes a column id, <code>{ col }</code> or a function of the point &mdash; what it answers is a fill object, a pattern name drawn in the series colour (<code>'hatch'</code>) or a CSS colour, and nothing leaves the series colour. A per-row <code>fill</code> applies to the bar family, lollipops, scatter and bubble points, and outranks a conditional-formatting rule colour.</p>
+    <p><strong>Definitions are written once per chart, and cannot clash.</strong> Each chart owns one <code>&lt;defs&gt;</code>, every id carries a per-chart prefix (<code>lattice-fill-&lt;chart&gt;-&lt;n&gt;</code>), and a mark's fill is <code>url(#id) #solid</code>: the colour after the reference is the SVG paint fallback, so an export that cannot carry definitions paints the solid &mdash; a gradient's first stop, a pattern's <code>colour</code> &mdash; rather than nothing. Legend and tooltip swatches show the fill itself, as CSS. Gradients and patterns are for filled marks: a <code>stroke</code> or a text fill takes the solid fallback, because a gradient across a hairline has no bounding box to paint, so a line series given a gradient draws in its first colour. An area drawn with a fill object is drawn at full opacity, since the fill carries its own. A fill object with no usable stops, or a pattern the module does not know, is said once (<code>chart:fill:invalid:*</code>) and drawn as a solid colour.</p>
+    <p><strong>A pattern is the colour-blind-safe option.</strong> <code>scheme: 'patterns'</code> is the default hues each in its own texture &mdash; hatch, dots, crosshatch, a reverse hatch, a grid &mdash; so a series is told apart by pattern as well as hue, and survives a greyscale print.</p>
+    <pre data-run="js" data-expect="3 bars | 3 definitions | the plain bar falls back to #0072b2" data-covers="export:createChart"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { document, root } = createTestDom({ width: 600, height: 400 });
+<span class="kw">const</span> panel = document.createElement('div');
+panel.rect = { width: 600, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+
+<span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createChart } = <span class="kw">await</span> import('../packages/modules/charts/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'team' }, { field: 'hours', type: 'number' }, { field: 'look' }],
+  rows: [
+    { id: 'a', team: 'Platform', hours: 32, look: 'hatch' },
+    { id: 'b', team: 'Data', hours: 18, look: null },
+    { id: 'c', team: 'Mobile', hours: 25, look: 'dots' },
+  ],
+});
+
+<span class="cmt">// A gradient for the series, and a texture for the rows that name one.</span>
+<span class="kw">const</span> chart = createChart({
+  grid, container: panel, type: 'bar', x: 'team', y: 'hours',
+  scheme: [{ gradient: 'linear', stops: [[0, '#0072b2'], [1, '#56b4e9']] }],
+  fill: 'look',
+});
+<span class="kw">const</span> find = (tag) =&gt; {
+  <span class="kw">const</span> found = [];
+  <span class="kw">const</span> walk = (node) =&gt; {
+    <span class="kw">for</span> (<span class="kw">const</span> child <span class="kw">of</span> node.children || []) {
+      <span class="kw">if</span> (String(child.tagName).toLowerCase() === tag) found.push(child);
+      walk(child);
+    }
+  };
+  walk(chart.element);
+  <span class="kw">return</span> found;
+};
+<span class="kw">const</span> bars = find('rect').filter((n) =&gt; String(n.getAttribute('class') || '').includes('__bar'));
+<span class="kw">const</span> paints = bars.map((n) =&gt; n.getAttribute('fill'));
+<span class="kw">const</span> defined = find('lineargradient').length + find('pattern').length;
+chart.destroy();
+<span class="kw">return</span> `${bars.length} bars | ${defined} definitions | the plain bar falls back to ${paints[1].split(') ')[1]}`;</code></pre>
+    <p><strong>Pictures where a dot would be.</strong> <code>marker: { image, size }</code> draws an image at each point of a <code>line</code>, <code>scatter</code> or <code>bubble</code> chart, and at each site of a <code>markermap</code>. <code>image</code> is an <strong>icon name</strong> from the grid's own registry (the same icons a network node's <code>icon</code> uses, including anything the host adds with <code>registerIcon</code>), a <strong>URL</strong>, <code>{ col }</code> to read either per row, or a function of the point. A URL is loaded once per page and remembered; until it has loaded, and if it never does, the point keeps the default dot &mdash; a failure is said once, by URL (<code>chart:marker:image-failed:*</code>), and never leaves a gap. Only <code>http</code>, <code>https</code>, <code>blob</code>, relative and <code>data:image/&hellip;</code> URLs are drawn; <code>javascript:</code> and any other <code>data:</code> are refused by name (<code>chart:marker:unsafe-url:*</code>) and the point keeps its dot. <code>size</code> is in pixels, 6 to 64 (default 16). On a <code>line</code> every reading wears the marker. A <code>markermap</code> hit-tests the picture's box rather than a circle; the tooltip of a cartesian chart still resolves by category. An image marker on an exported SVG keeps its URL, so a standalone file shows it only where that URL can be fetched.</p>
+    <pre data-run="js" data-expect="2 pictures, 1 default dot" data-covers="export:createChart config:ChartMarkerOptions.image config:ChartMarkerOptions.size"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { document, root } = createTestDom({ width: 600, height: 400 });
+<span class="kw">const</span> panel = document.createElement('div');
+panel.rect = { width: 600, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+
+<span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createChart } = <span class="kw">await</span> import('../packages/modules/charts/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'x', type: 'number' }, { field: 'y', type: 'number' }, { field: 'logo' }],
+  rows: [
+    { id: 'a', x: 1, y: 4, logo: 'https://example.com/a.png' },
+    { id: 'b', x: 2, y: 7, logo: 'javascript:alert(1)' },   <span class="cmt">// refused: keeps its dot</span>
+    { id: 'c', x: 3, y: 5, logo: 'https://example.com/c.png' },
+  ],
+});
+<span class="kw">const</span> chart = createChart({
+  grid, container: panel, type: 'scatter', x: 'x', y: 'y',
+  marker: { image: { col: 'logo' }, size: 20 },
+});
+<span class="kw">const</span> count = (test) =&gt; {
+  <span class="kw">let</span> n = 0;
+  <span class="kw">const</span> walk = (node) =&gt; {
+    <span class="kw">for</span> (<span class="kw">const</span> child <span class="kw">of</span> node.children || []) { <span class="kw">if</span> (test(child)) n++; walk(child); }
+  };
+  walk(chart.element);
+  <span class="kw">return</span> n;
+};
+<span class="kw">const</span> pictures = count((n) =&gt; String(n.tagName).toLowerCase() === 'image');
+<span class="kw">const</span> dots = count((n) =&gt; String(n.getAttribute('class') || '').includes('__point'));
+chart.destroy();
+<span class="kw">return</span> `${pictures} pictures, ${dots} default dot`;</code></pre>
+
+    <h3 id="chart-voronoi">A hierarchy as fitted Voronoi cells &mdash; <code>voronoiTreemap</code></h3>
+    <p>The opt-in module <code>modules/chart-voronoi</code> registers <code>voronoiTreemap</code>: a treemap whose cells are the regions of a weighted (power) Voronoi diagram instead of rectangles. The shape &mdash; a circle by default, or any convex polygon given as <code>clip: [[x, y], &hellip;]</code> in any units, y down, scaled to fit the plot (a non-convex outline is filled as its convex hull, and fewer than three usable points fall back to the circle) &mdash; is split into one cell per top-level branch, each branch's cell into one per child, down to the leaves. It reads the hierarchy as every hierarchy chart does: a <code>parentId</code> column, a <code>path</code> column or the grid's grouping, with <code>y</code> sizing the leaves (a row counts one with no <code>y</code>) and the grid's filter applied.</p>
+    <p><strong>The areas are fitted, not approximated.</strong> Each level starts from seeded sites spread over its shape, relaxes them towards the centres of their cells (which keeps the cells round), and then fits the weights by damped Newton steps until every cell is within the tolerance of its target area; each level is fitted to a share of the tolerance, so that compounded down the tree every leaf is drawn within <code>tolerance</code> &mdash; 1% by default &mdash; of its value's share of the whole. <code>iterations</code> sets the relaxations per level (10 by default; more rounds the cells off further and never changes how closely the areas fit), and <code>seed</code> the starting sites: the same rows and seed draw the same picture to the last digit. The fitting runs on the main thread, once per change of the data: the layout is kept against a signature of the values and options, so a resize, a theme change or any other redraw only rescales it. Measured on the release machine, 500 leaves take about 300&nbsp;ms flat and about 100&nbsp;ms as 20 branches of 25 in Chrome (the first draw, fit included), and about 320&nbsp;ms and 90&nbsp;ms in Node; a hierarchy keeps each level small, which is what keeps it fast.</p>
+    <p>A leaf takes its top-level branch's colour, so the branches read as regions (<code>colourBy</code> colours by a column instead, and <code>scheme</code> takes a bare array or a title map); the border between two cells is drawn in the background colour and is thicker the higher up the tree they part, so the gap between two departments is wider than the gap between two teams, in either theme. A leaf is named at its centre when the whole name fits inside its cell. The tooltip names the cell with its path and its share, the arrow keys walk the cells and announce each with its path, the data table lists every cell as <code>Engineering &rsaquo; Web</code>, and with <code>selection: true</code> a click (or Enter) selects the rows at or beneath the cell while a selection made on the grid dims the cells that hold none of it. The drawing reports what the fitting reached as <code>fit</code>: the worst cell's error, whether every level met its tolerance, and the milliseconds it took.</p>
+    <pre data-run="js" data-expect="5 leaves, worst area error under 1%: true | same rows, same picture: true | click selects web | drawer true" data-covers="export:createChart export:drawVoronoiTreemap"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+const { drawVoronoiTreemap } = await import('../packages/modules/chart-voronoi/index.js');
+
+const { document, root } = createTestDom({ width: 600, height: 420 });
+const panel = () =&gt; {
+  const div = document.createElement('div');
+  div.rect = { width: 600, height: 420, top: 0, left: 0 };
+  root.appendChild(div);
+  return div;
+};
+// Head count by team, as a path column. Importing the module registers voronoiTreemap.
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  selection: { mode: 'multiple' },
+  columns: [{ field: 'team' }, { field: 'heads', type: 'number' }],
+  rows: [
+    { id: 'web', team: 'Engineering/Web', heads: 9 },
+    { id: 'data', team: 'Engineering/Data', heads: 5 },
+    { id: 'infra', team: 'Operations/Infra', heads: 7 },
+    { id: 'supp', team: 'Operations/Support', heads: 3 },
+    { id: 'cfo', team: 'Finance', heads: 2 },
+  ],
+});
+const spec = { grid, type: 'voronoiTreemap', path: 'team', y: 'heads', selection: true };
+
+// The cells that were drawn: each leaf's outline, read back off the path data.
+const leaves = (chart) =&gt; {
+  const out = [];
+  const walk = (node) =&gt; {
+    for (const child of node.children || []) {
+      const cls = String(child.getAttribute('class') || '');
+      if (cls.includes('__vcell') &amp;&amp; !cls.includes('__vbranch')) {
+        const xy = String(child.getAttribute('d')).match(/-?[\d.]+/g).map(Number);
+        let twice = 0;
+        let cx = 0;
+        let cy = 0;
+        for (let i = 0; i &lt; xy.length; i += 2) {
+          const j = (i + 2) % xy.length;
+          const cross = xy[i] * xy[j + 1] - xy[j] * xy[i + 1];
+          twice += cross;
+          cx += (xy[i] + xy[j]) * cross;
+          cy += (xy[i + 1] + xy[j + 1]) * cross;
+        }
+        out.push({ d: child.getAttribute('d'), area: Math.abs(twice) / 2, x: cx / (3 * twice), y: cy / (3 * twice) });
+      }
+      walk(child);
+    }
+  };
+  walk(chart.element);
+  return out;
+};
+
+// Every leaf's area is its share of the whole, to within 1%.
+const host = panel();
+const chart = createChart({ ...spec, container: host });
+const cells = leaves(chart);
+const whole = cells.reduce((sum, c) =&gt; sum + c.area, 0);
+const values = [9, 5, 7, 3, 2];
+const worst = Math.max(...cells.map((c, i) =&gt; Math.abs(c.area / whole - values[i] / 26) / (values[i] / 26)));
+
+// The same rows and seed draw the same picture.
+const again = createChart({ ...spec, container: panel() });
+const same = leaves(again).map((c) =&gt; c.d).join() === cells.map((c) =&gt; c.d).join();
+
+// A click on a cell selects the rows beneath it.
+const plot = host.querySelector('.lat-chartview__plot');
+plot.rect = { left: 0, top: 0, width: 600, height: 420 };
+plot.dispatchEvent({ type: 'click', clientX: cells[0].x, clientY: cells[0].y, bubbles: true });
+[chart, again].forEach((c) =&gt; c.destroy());
+const drawer = typeof drawVoronoiTreemap === 'function';
+return `${cells.length} leaves, worst area error under 1%: ${worst &lt; 0.01} | same rows, same picture: ${same} | click selects ${grid.selection.keys().join()} | drawer ${drawer}`;</code></pre>
+
+    <h3 id="chart-responsive">Responsive rules &mdash; a chart that changes shape at its container&rsquo;s breakpoints</h3>
+    <p>A chart that reads well at 640&nbsp;px is cluttered at 300: the legend eats the width, the axis titles crowd the plot, the ticks collide. <code>responsive</code> is a list of rules, each a size condition and the options to lay over the chart while it holds: <code>{ maxWidth?, minWidth?, maxHeight?, minHeight?, set }</code>. The sizes are the chart&rsquo;s <em>own container</em>, watched as it resizes, not the viewport &mdash; so a chart in a narrow dashboard panel or layout window on a wide screen takes the narrow rules. Bounds are inclusive pixels, a rule needs every bound it gives, rules apply in order and a later rule wins. <code>set</code> takes any chart option; plain objects (<code>legend</code>, <code>axis</code>) merge key by key and anything else replaces. <code>title</code>, <code>subtitle</code> and <code>footnote</code> are built once and do not respond.</p>
+    <p>When a rule starts or stops matching the chart redraws with the merged options, and with none matching the base options are back exactly: the rules are always laid over what you set, never over the previous result, so a chart resized a thousand times is the chart resized once. Options you change later with <code>chart.update()</code> become the new base and the rules re-apply on top. A rule that is already active holds for 4&nbsp;px past its edge, so a container sitting on a boundary does not flicker. Each change raises <code>responsive</code> after the redraw, with the rules now active (<code>{ active: [{ index, auto, ...bounds }], width, height }</code>), and <code>chart.responsive</code> reads them at any time.</p>
+    <p><code>responsive: 'auto'</code> is a ready-made set: below 400&nbsp;px the legend moves to the bottom, axis titles are hidden and the value axes take three ticks; below 250&nbsp;px the legend goes too. It never switches on what you turned off (<code>legend: false</code> and <code>axis: false</code> stay off), and an explicit list of tick values is kept. The built-ins are ordinary rules listed first, so they are overridable: <code>responsive: ['auto', { maxWidth: 400, set: { legend: { position: 'top' } } }]</code> is the defaults with your own rule on top, and your rule wins.</p>
+    <pre data-run="js" data-expect="600px: bottom 2 titles | 380px: bottom 0 titles | 230px: no legend | back: bottom 2 titles | events 3 | rule override: top" data-covers="export:createChart config:ChartResponsiveOptions.set config:ChartResponsiveOptions.maxWidth config:ChartResponsiveOptions.minWidth config:ChartResponsiveOptions.maxHeight config:ChartResponsiveOptions.minHeight"><code><span class="kw">const</span> { createTestDom, triggerResize, flushFrames } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { document, root } = createTestDom({ width: 1600, height: 900 });
+<span class="kw">const</span> panel = document.createElement('div');
+panel.rect = { width: 600, height: 360, top: 0, left: 0 };
+root.appendChild(panel);
+
+<span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createChart } = <span class="kw">await</span> import('../packages/modules/charts/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'q', type: 'text' }, { field: 'region', type: 'text' }, { field: 'sales', type: 'number' }],
+  rows: [
+    { id: 'a', q: 'Q1', region: 'North', sales: 40 }, { id: 'b', q: 'Q1', region: 'South', sales: 25 },
+    { id: 'c', q: 'Q2', region: 'North', sales: 55 }, { id: 'd', q: 'Q2', region: 'South', sales: 35 },
+  ],
+});
+<span class="kw">const</span> changes = [];
+<span class="kw">const</span> chart = createChart({
+  grid, container: panel, type: 'bar', x: 'q', y: 'sales', series: 'region',
+  axis: { x: { title: 'Quarter' }, y: { title: 'Sales' } },
+  responsive: 'auto',
+});
+chart.on('responsive', (e) =&gt; changes.push(e.active.length));
+
+<span class="kw">const</span> look = () =&gt; {
+  <span class="kw">const</span> legend = panel.querySelector('.lat-chartview__legend');
+  <span class="kw">const</span> titles = panel.querySelectorAll('.lat-chartview__axis-title').length;
+  <span class="kw">return</span> legend.children.length ? `${legend.getAttribute('data-position')} ${titles} titles` : 'no legend';
+};
+<span class="kw">const</span> resize = (width) =&gt; {
+  panel.rect = { width, height: 360, top: 0, left: 0 };
+  triggerResize();
+  flushFrames();
+};
+<span class="kw">const</span> wide = look();
+resize(380);
+<span class="kw">const</span> narrow = look();
+resize(230);
+<span class="kw">const</span> tiny = look();
+resize(600);
+<span class="kw">const</span> back = look();
+
+<span class="kw">const</span> events = changes.length;
+<span class="cmt">// Your own rule after 'auto' wins over the built-in one. The second rule is a</span>
+<span class="cmt">// short, wide strip and does not match here: every bound it gives must hold.</span>
+chart.update({
+  responsive: [
+    'auto',
+    { maxWidth: 400, set: { legend: { position: 'top' } } },
+    { minWidth: 1000, minHeight: 100, maxHeight: 200, set: { legend: false } },
+  ],
+});
+resize(380);
+<span class="kw">const</span> override = panel.querySelector('.lat-chartview__legend').getAttribute('data-position');
+chart.destroy();
+<span class="kw">return</span> `600px: ${wide} | 380px: ${narrow} | 230px: ${tiny} | back: ${back} | events ${events} | rule override: ${override}`;</code></pre>
+
+    <h3 id="chart-animation">Animation &mdash; an entry that grows in, and updates that move rather than redraw</h3>
+    <p>A chart plays its marks in when it first draws and plays every change in the grid from the old drawing to the new. <code>animation</code> is on by default: bars and columns grow from the baseline, lines and areas draw left to right, pie and donut slices sweep open, and points scale and fade in. When the rows change &mdash; a filter, a sort, a row update, live data &mdash; the marks interpolate from where they were to where they now belong, matched by <strong>identity</strong> (a series and a category, a slice&rsquo;s label path), not by position: a bar that stays moves and grows rather than being redrawn, a bar whose category arrives grows in, a bar whose category leaves shrinks out, and the axis re-ticks smoothly, each tick label moving to where its number now sits. <code>animation: false</code> draws the final state at once.</p>
+<pre><code><span class="cmt">// The defaults: a 400 ms ease-out entry and update.</span>
+createChart({ grid, container: '#sales', type: 'bar', x: 'region', y: 'sales' });
+
+<span class="cmt">// Slower, linear, and no entry; or no animation at all.</span>
+createChart({ grid, container: '#trend', type: 'line', x: 'month', y: 'sales',
+  animation: { duration: 800, easing: 'linear', entry: false } });
+createChart({ grid, container: '#static', type: 'pie', x: 'region', y: 'sales', animation: false });</code></pre>
+    <p>The object form takes <code>duration</code> (milliseconds, default 400; <code>0</code> is no play), <code>easing</code> (<code>'linear'</code>, <code>'ease-in'</code>, <code>'ease-out'</code>, <code>'ease-in-out'</code> or a function of 0..1), <code>entry</code> and <code>update</code> (each <code>true</code> by default) and <code>budget</code>. A value the chart cannot read is named once in the console (<code>chart:*:animation:invalid</code>) and the default plays in its place.</p>
+    <p><strong>The end state is the same document.</strong> A play writes the final drawing first, puts each mark back where it was, and plays it forward; at the end every attribute it touched is written back exactly as the unanimated draw wrote it, so an animated chart and the same chart with <code>animation: false</code> end identical, attribute for attribute. Everything that reads the chart&rsquo;s data &mdash; the tooltip, the hit test, the crosshair, the drag handles, the accessible table, <code>chart.data()</code> &mdash; reads the final drawing from the moment the draw returns; only the paint is in between, so a crosshair or a handle never sits at a stale position. <code>toSVG()</code> and <code>toPNG()</code> always export the final picture, finishing a play in progress.</p>
+    <p><strong>Who gets no movement.</strong> <code>prefers-reduced-motion: reduce</code>, an automated browser (<code>navigator.webdriver</code>, which Playwright, Puppeteer, Selenium and headless Chrome set, so an end-to-end test reads final geometry straight after a draw), a jsdom or happy-dom test DOM (which name themselves in the user agent), and a render with no window (Node, a server, the test DOM) all draw the final state at once. So does a resize or a zoom, which is the reader moving the view rather than the data changing. <code>chart.provenance().animation</code> says what the last draw did and why: <code>{ animated, reason, marks, budget }</code>, where <code>reason</code> is <code>'entry'</code>, <code>'update'</code>, <code>'disabled'</code>, <code>'reduced-motion'</code>, <code>'automation'</code>, <code>'no-window'</code>, <code>'own-motion'</code>, <code>'budget'</code> or <code>'view-change'</code>.</p>
+    <p><strong>Live data does not queue, and big charts do not stutter.</strong> A draw that lands mid-play retargets from where the marks are on screen &mdash; no jump back to either end &mdash; and there is only ever one play per chart, so a feed at ten updates a second shows marks heading for the latest data rather than working through a backlog. Above <code>budget</code> marks (default 2,000) a draw is written at its final state at once and <code>provenance().animation.reason</code> is <code>'budget'</code>: the per-frame cost of moving every mark grows with the number of marks, and the budget is set where a frame stays well inside its 16&nbsp;ms in a real browser.</p>
+    <p><strong>One engine for every type.</strong> Every chart in a window plays on one <code>requestAnimationFrame</code> loop, and every in-between value goes through one interpolation. The built-in types are animated by mark kind &mdash; a <code>rect</code>&rsquo;s box, a <code>circle</code>&rsquo;s centre and radius, a <code>line</code>&rsquo;s ends, a slice&rsquo;s angles, a path&rsquo;s numbers when its commands match (a line that gains a point is drawn at its new shape at once rather than morphed through shapes the data never had), a label&rsquo;s position. An <a href="#chart-extension-types">extension type</a> adopts it by drawing its marks through the toolkit&rsquo;s <code>Pool</code> with a stable key (<code>pool.next(tag, className, key)</code>) or <code>data-series</code>/<code>data-point</code>: the base then animates it with no code of its own. A type that plays its own motion &mdash; the <a href="#chart-barrace">bar chart race</a>, the <a href="#chart-motion">motion chart</a>, the <a href="#chart-hierarchy">hierarchy</a> folds &mdash; declares <code>animates: true</code> in <code>registerChartType</code> and plays on the same loop and interpolation, handed to it as <code>ctx.helpers.frameLoop</code> and <code>ctx.helpers.tween</code>. Those types honour <code>animation: false</code> too: a fold jumps and a race steps whole frames.</p>
+    <p>The example runs in Node against a stand-in window whose frames it steps by hand, to read the play frame by frame: the entry starts from the baseline and is half grown half way through, and a change to East shrinks the same element rather than replacing it.</p>
+    <pre data-run="js" data-expect="entry: 0% then 52% then settled true | update: East shrinking true, settled true | budget 2000" data-covers="export:createChart method:charts.provenance config:ChartAnimationOptions.duration config:ChartAnimationOptions.easing"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+// A stand-in window whose frames are stepped by hand, so the play can be read frame by frame.
+// In a page the chart uses the real one; with no window at all it draws the final state.
+let now = 0;
+let queue = [];
+const view = Object.create(globalThis, { navigator: { value: { webdriver: false } } });
+view.requestAnimationFrame = (fn) =&gt; queue.push(fn);
+view.cancelAnimationFrame = () =&gt; {};
+view.matchMedia = () =&gt; ({ matches: false });
+const step = (ms) =&gt; {
+  for (let t = 0; t &lt; ms; t += 16) {
+    now += 16;
+    const due = queue;
+    queue = [];
+    for (const fn of due) fn(now);
+  }
+};
+
+const { document, root } = createTestDom({ width: 600, height: 300 });
+document.defaultView = view;
+const panel = () =&gt; {
+  const el = document.createElement('div');
+  el.rect = { width: 600, height: 300, top: 0, left: 0 };
+  root.appendChild(el);
+  return el;
+};
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'region' }, { field: 'sales', type: 'number' }],
+  rows: [
+    { id: 'n', region: 'North', sales: 40 },
+    { id: 'e', region: 'East', sales: 100 },
+    { id: 's', region: 'South', sales: 70 },
+  ],
+});
+
+// The same chart twice: one plays, one draws its final state at once.
+const spec = { grid, type: 'bar', x: 'region', y: 'sales' };
+const played = createChart({ ...spec, container: panel(), animation: { duration: 400, easing: 'linear' } });
+const still = createChart({ ...spec, container: panel(), animation: false });
+
+const bars = (chart) =&gt; [...chart.element.querySelectorAll('.lat-chartview__bar')];
+const east = (chart) =&gt; bars(chart).find((b) =&gt; b.getAttribute('data-pool-key').endsWith(':East'));
+const share = () =&gt; Math.round((100 * east(played).getAttribute('height')) / east(still).getAttribute('height'));
+const same = () =&gt; bars(played).map((b) =&gt; b.getAttribute('height')).join() === bars(still).map((b) =&gt; b.getAttribute('height')).join();
+
+// The entry: the bars grow from the baseline.
+const entry = played.provenance().animation.reason;
+step(16);
+const start = share();
+step(200);
+const half = share();
+step(400);
+const settled = same();
+
+// A change in the grid plays from the old drawing: East shrinks, it is not redrawn.
+const element = east(played);
+grid.rows.apply({ update: [{ id: 'e', sales: 50 }] });
+flushFrames();
+step(16);
+const update = played.provenance().animation.reason;
+step(200);
+const shrinking = share() &gt; 100 &amp;&amp; east(played) === element;
+step(400);
+
+const budget = played.provenance().animation.budget;
+const result = `${entry}: ${start}% then ${half}% then settled ${settled} | ${update}: East shrinking ${shrinking}, settled ${same()} | budget ${budget}`;
+played.destroy();
+still.destroy();
+return result;</code></pre>
+
+    <p>The three switches, run the same way: <code>entry: false</code> draws the first picture at once and still plays changes, <code>update: false</code> plays the entry and draws every change at once, and a <code>budget</code> below the number of marks means the chart never plays.</p>
+    <pre data-run="js" data-expect="first draw: disabled, entry, budget | after a change: update, disabled, budget" data-covers="export:createChart method:charts.provenance config:ChartAnimationOptions.entry config:ChartAnimationOptions.update config:ChartAnimationOptions.budget"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+// A stand-in window, as above: frames that run only when asked.
+let queue = [];
+const view = Object.create(globalThis, { navigator: { value: { webdriver: false } } });
+view.requestAnimationFrame = (fn) =&gt; queue.push(fn);
+view.cancelAnimationFrame = () =&gt; {};
+view.matchMedia = () =&gt; ({ matches: false });
+const frame = () =&gt; { const due = queue; queue = []; for (const fn of due) fn(performance.now()); };
+
+const { document, root } = createTestDom({ width: 600, height: 300 });
+document.defaultView = view;
+const panel = () =&gt; {
+  const el = document.createElement('div');
+  el.rect = { width: 600, height: 300, top: 0, left: 0 };
+  root.appendChild(el);
+  return el;
+};
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'region' }, { field: 'sales', type: 'number' }],
+  rows: [
+    { id: 'n', region: 'North', sales: 40 },
+    { id: 'e', region: 'East', sales: 100 },
+    { id: 's', region: 'South', sales: 70 },
+  ],
+});
+const chart = (animation) =&gt; createChart({ grid, container: panel(), type: 'bar', x: 'region', y: 'sales', animation });
+
+// entry: false draws the first picture at once; update: false draws every change at once;
+// a budget of 2 marks is less than three bars, so this chart never plays.
+const noEntry = chart({ entry: false });
+const noUpdate = chart({ update: false });
+const tight = chart({ budget: 2 });
+const first = [noEntry, noUpdate, tight].map((c) =&gt; c.provenance().animation.reason);
+
+grid.rows.apply({ update: [{ id: 'e', sales: 50 }] });
+flushFrames();
+frame();
+const second = [noEntry, noUpdate, tight].map((c) =&gt; c.provenance().animation.reason);
+
+for (const c of [noEntry, noUpdate, tight]) c.destroy();
+return `first draw: ${first.join(', ')} | after a change: ${second.join(', ')}`;</code></pre>
+
     <h3 id="chart-annotate">Drawing on a chart &mdash; a tool rail anchored in the data</h3>
     <p>The declarative <code>annotations</code> above are written by whoever built the dashboard and state a <em>standard</em> the data is judged against. <code>annotate</code> is the other half: it gives whoever is <strong>reading</strong> the chart a tool rail to state an <em>observation</em> on it &mdash; this trend, this level, this retracement, this note. Set <code>annotate: true</code> for the whole rail on the left, or an object to narrow it: <code>tools</code> picks which buttons appear (always in rail order, so two charts never read differently), <code>rail</code> is <code>left</code>, <code>top</code> or <code>none</code> (the tools and the pointer behaviour without the strip, for a host driving them from its own toolbar), and <code>readOnly</code> paints what is in the state and refuses every change &mdash; including the rail, because a strip of buttons that do nothing is worse than no strip.</p>
     <p>Eleven tools: <strong>select/move</strong>, <strong>trend line</strong> (two points), <strong>horizontal line</strong> and <strong>vertical line</strong> (one value, labelled with it), <strong>parallel channel</strong> (two parallel lines and a fill), <strong>Fibonacci retracement</strong> (0, 23.6, 38.2, 50, 61.8, 78.6 and 100&nbsp;% between two points, each level labelled with its own value), <strong>arrow</strong>, <strong>text</strong>, <strong>callout</strong> (a label with a leader to a reading), <strong>note</strong> (a pin), and <strong>delete</strong>. Available on the cartesian types &mdash; line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble &mdash; and on combo and candlestick; asking for it on any other type warns and draws no rail rather than silently doing nothing.</p>
@@ -1891,6 +3033,9 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
         <tbody>
           <tr><td class="name">freeform</td><td class="type">boolean</td><td class="desc">Set it when the type lays itself out across the whole frame instead of drawing inside the axis gutters. <small>(optional)</small></td></tr>
           <tr><td class="name">labelled</td><td class="type">boolean</td><td class="desc">Whether the spec's `labels` option applies to this type. Default false. <small>(optional)</small></td></tr>
+          <tr><td class="name">hierarchical</td><td class="type">boolean</td><td class="desc">Set it when the type draws a hierarchy: the base binds the grid's grouping, a `parentId` column or a `path` column into one tree and hands it to `draw` as `bound.root` (BACKLOG-0000886, 0001652). <small>(optional)</small></td></tr>
+          <tr><td class="name">count</td><td class="type">boolean</td><td class="desc">With `hierarchical`: a row counts one when the spec names no `y`, so a hierarchy with no measure still has a size (BACKLOG-0001652). <small>(optional)</small></td></tr>
+          <tr><td class="name">animates</td><td class="type">boolean</td><td class="desc">Set it when the type plays its own motion (a race, a fold): the base's animator then leaves its marks alone (BACKLOG-0001666). A type that leaves it unset is animated by the base — its keyed `rect`, `circle`, `line`, `path` and `text` marks move, grow in and shrink out like a built-in type's. `ctx.helpers.frameLoop` and `ctx.helpers.tween` are the engine's own frame loop and interpolation, for a type that plays its own. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -1899,7 +3044,7 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">draw</td><td class="type">(ctx: object) =&gt; object</td><td class="desc"><code>ctx: object</code></td><td class="type"><code>=&gt; object</code></td><td class="desc">Draws the type. It is handed the same context a built-in drawer gets — the plot rectangle, the bound data, the SVG groups, the scheme, the typography and the spec — plus `helpers`, the base's own element, scale, axis and pool primitives, and returns what it drew.</td></tr>
-          <tr><td class="name">bind</td><td class="type">(grid: <a href="grid.html#type-Grid">Grid</a>, spec: <a href="#type-ChartSpec">ChartSpec</a>) =&gt; object</td><td class="desc"><code>grid: <a href="grid.html#type-Grid">Grid</a></code><br><code>spec: <a href="#type-ChartSpec">ChartSpec</a></code></td><td class="type"><code>=&gt; object</code></td><td class="desc">Turns the grid and spec into the bound data `draw` receives. Omitted, the base's by-series binder is used. <small>(optional)</small></td></tr>
+          <tr><td class="name">bind</td><td class="type">(grid: <a href="grid.html#type-Grid">Grid</a>, spec: <a href="#type-ChartSpec">ChartSpec</a>) =&gt; object</td><td class="desc"><code>grid: <a href="grid.html#type-Grid">Grid</a></code><br><code>spec: <a href="#type-ChartSpec">ChartSpec</a></code></td><td class="type"><code>=&gt; object</code></td><td class="desc">Turns the grid and spec into the bound data `draw` receives. Omitted, the base's by-series binder is used. The bound data may carry `notices` — `{ id, message }` each — which the chart says once, by name, as a developer-facing warning. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -1911,6 +3056,8 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
         <tbody>
           <tr><td class="name">element</td><td class="type">HTMLElement</td><td class="desc">The chart's root element — the wrapper the chart built inside the container, which holds the heading, the SVG, the legend and the accessible table. The `&lt;svg&gt;` is a descendant of it, not this element. <small>(read-only)</small></td></tr>
           <tr><td class="name">zoom</td><td class="type"><a href="types.html#type-ChartZoomApi">ChartZoomApi</a></td><td class="desc">Drive the chart's zoom from a host's own controls: `set` shows a range and `reset` shows everything again, each raising `zoom` and returning whether the view moved (BACKLOG-0001473). Calling either on a chart with no `zoom` warns rather than silently doing nothing. <small>(read-only)</small></td></tr>
+          <tr><td class="name">cursor</td><td class="type"><a href="types.html#type-ChartCursorApi">ChartCursorApi</a></td><td class="desc">The host's handle on the crosshair (BACKLOG-0001667): `set(x)`, `clear()` and `get()`. See {@link ChartSpec.cursor}. <small>(read-only)</small></td></tr>
+          <tr><td class="name">responsive</td><td class="type"><a href="types.html#type-ChartActiveRule">ChartActiveRule</a>[]</td><td class="desc">The `responsive` rules matching the chart's container right now (BACKLOG-0001668); empty when none match or the chart has none. <small>(read-only)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -1924,6 +3071,7 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">data</td><td class="type">(): object | null</td><td class="desc">&mdash;</td><td class="type"><code>object | null</code></td><td class="desc">The data the chart last bound.</td></tr>
           <tr><td class="name">provenance</td><td class="type">(): <a href="types.html#type-ChartProvenance">ChartProvenance</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="types.html#type-ChartProvenance">ChartProvenance</a></code></td><td class="desc">How the figures the chart is drawing were computed (GEO-5): by a pushdown source's engine over the whole matching relation, or from the rows the grid has loaded — never a mixture — with the reason for a client chart and each measure's split in the shape `source.aggregate()` reports it. See {@link ChartSpec.aggregate}.</td></tr>
           <tr><td class="name">ascend</td><td class="type">(levels?: number): void</td><td class="desc"><code>levels?: number</code></td><td class="type"><code>void</code></td><td class="desc">Go up one level, on a drillable hierarchy.</td></tr>
+          <tr><td class="name">fitToSelection</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">Turn a globe (`projection: 'orthographic'`) to the middle of the grid's selected rows (BACKLOG-1665). Returns true when it turned; false on a flat map, an empty selection or a selection with no position. See {@link ChartSpec.fitTo}.</td></tr>
           <tr><td class="name">on</td><td class="type">(event: <a href="types.html#type-ChartEventName">ChartEventName</a>, handler: (payload: <a href="types.html#type-ChartEventPayloads">ChartEventPayloads</a>[<a href="types.html#type-ChartEventName">ChartEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>event: <a href="types.html#type-ChartEventName">ChartEventName</a></code><br><code>handler: (payload: <a href="types.html#type-ChartEventPayloads">ChartEventPayloads</a>[<a href="types.html#type-ChartEventName">ChartEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Register an event handler; returns a function that unsubscribes. A handler that throws is reported to the console and the rest still run. What each event carries is {@link ChartEventPayloads}; the handler is declared with the widest of them, so narrow on the name inside it.</td></tr>
           <tr><td class="name">emit</td><td class="type">(event: <a href="types.html#type-ChartEventName">ChartEventName</a>, payload?: object): object</td><td class="desc"><code>event: <a href="types.html#type-ChartEventName">ChartEventName</a></code><br><code>payload?: object</code></td><td class="type"><code>object</code></td><td class="desc">Fire an event at the subscribers and at the matching `on&lt;Event&gt;` in the spec, and return the payload the handlers saw — which is how a caller reads back what a handler changed.</td></tr>
           <tr><td class="name">toSVG</td><td class="type">(opts?: object): string</td><td class="desc"><code>opts?: object</code></td><td class="type"><code>string</code></td><td class="desc">The chart as standalone SVG markup, empty string before the first draw. Pass `{ inlineStyles: true }` to copy the computed styles onto a clone, which is what an SVG loaded as an image needs to look like the chart on screen.</td></tr>
@@ -1953,17 +3101,24 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">annotation:changed</td><td class="desc">A drawn annotation was moved, re-anchored or its text edited.</td><td class="type"><a href="types.html#type-ChartAnnotationEvent">ChartAnnotationEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">annotation:removed</td><td class="desc">A drawn annotation was deleted.</td><td class="type"><a href="types.html#type-ChartAnnotationEvent">ChartAnnotationEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">zoom</td><td class="desc">The visible range changed: a control, the wheel, a key, a pan, a reset or the host API.</td><td class="type"><a href="types.html#type-ChartZoomEvent">ChartZoomEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">cursor:move</td><td class="desc">The crosshair moved: the pointer, the keyboard, the host API, a grid row or another chart in its group.</td><td class="type"><a href="types.html#type-ChartCursorMoveEvent">ChartCursorMoveEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">cursor:leave</td><td class="desc">The crosshair went away: the pointer left the plot, Escape, `cursor.clear()` or the group's pointer left.</td><td class="type"><a href="types.html#type-ChartCursorLeaveEvent">ChartCursorLeaveEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">edit</td><td class="desc">A mark was dragged (or keyed) to a new value and the grid accepted the edit (BACKLOG-0001670).</td><td class="type"><a href="types.html#type-ChartEditEvent">ChartEditEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">editRejected</td><td class="desc">A drag or key edit was refused by the grid, and the mark went back (BACKLOG-0001670).</td><td class="type"><a href="types.html#type-ChartEditEvent">ChartEditEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">responsive</td><td class="desc">The `responsive` rules matching the container changed, and the chart redrew with them.</td><td class="type"><a href="types.html#type-ChartResponsiveEvent">ChartResponsiveEvent</a></td><td class="desc">no</td></tr>
         </tbody>
       </table>
     </div>
     <h4 id="type-ChartSpec">ChartSpec</h4>
+    <h5 id="type-ChartSpec-properties">Properties</h5>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
+          <tr><td class="name">responsive</td><td class="type">'auto' | Array&lt;'auto' | <a href="types.html#type-ChartResponsiveOptions">ChartResponsiveOptions</a>&gt;</td><td class="desc">Option changes at container breakpoints (BACKLOG-0001668). An array of `{ maxWidth?, minWidth?, maxHeight?, minHeight?, set }` evaluated against the chart's own container (not the viewport) in order, later rules winning; `'auto'` is the built-in rules (below 400 px: legend at the bottom, axis titles hidden, three value-axis ticks; below 250 px: no legend), and an array may include `'auto'` and then override it. When a rule starts or stops matching the chart redraws with the merged options and, with none matching, the base options come back. A rule that is within 4 px of its edge keeps its state, so a container on a boundary does not flicker. Options passed to `update()` become the new base. Raises `responsive`. <small>(optional)</small></td></tr>
           <tr><td class="name">grid</td><td class="type"><a href="grid.html#type-Grid">Grid</a></td><td class="desc">The grid the chart draws. It reads the grid's filtered rows and redraws when they change, so the chart follows the table without being told to.</td></tr>
           <tr><td class="name">container</td><td class="type">Element | string</td><td class="desc">Where to draw: an element, or a CSS selector resolved against the grid's document. The chart builds its own root inside it.</td></tr>
-          <tr><td class="name">type</td><td class="type"><a href="types.html#type-ChartType">ChartType</a></td><td class="desc">Which chart to draw. A name the base bundle does not know is looked up in the extension registry, so an opt-in chart module's type works here once imported.</td></tr>
+          <tr><td class="name">type</td><td class="type"><a href="types.html#type-ChartType">ChartType</a> | <a href="types.html#type-ChartExtensionType">ChartExtensionType</a> | (string &amp; {})</td><td class="desc">Which chart to draw. A name the base bundle does not know is looked up in the extension registry, so an opt-in chart module's type works here once imported. The built-in names and every shipped extension name are suggested; a host's own `registerChartType` name is also accepted as a plain string.</td></tr>
           <tr><td class="name">x</td><td class="type">string</td><td class="desc">The category column. <small>(optional)</small></td></tr>
           <tr><td class="name">y</td><td class="type">string | [string, string]</td><td class="desc">The measure column, for the types that take one. On a `floatingBar` or `horizontalFloatingBar` it is the low/high pair of columns the bar spans between (BACKLOG-0001643): `[lowCol, highCol]`. <small>(optional)</small></td></tr>
           <tr><td class="name">series</td><td class="type">string</td><td class="desc">Splits the measure into one series per distinct value. <small>(optional)</small></td></tr>
@@ -1974,11 +3129,13 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">volumePane</td><td class="type"><a href="types.html#type-ChartVolumePaneOptions">ChartVolumePaneOptions</a></td><td class="desc">The volume pane's geometry, when `volume` is set (BACKLOG-0001468). <small>(optional)</small></td></tr>
           <tr><td class="name">source</td><td class="type">string</td><td class="desc">Endpoints, for sankey, chord and network. <small>(optional)</small></td></tr>
           <tr><td class="name">target</td><td class="type">string</td><td class="desc">The column naming the link's destination, beside `source`. On a `bullet` (BACKLOG-0001642) it is instead the column holding each row's target, drawn as a marker across the bar. <small>(optional)</small></td></tr>
-          <tr><td class="name">label</td><td class="type">string</td><td class="desc">Row label and dates, for gantt. <small>(optional)</small></td></tr>
-          <tr><td class="name">start</td><td class="type">string</td><td class="desc">The start-date column, for a gantt chart. <small>(optional)</small></td></tr>
-          <tr><td class="name">end</td><td class="type">string</td><td class="desc">The end-date column, for a gantt chart. <small>(optional)</small></td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">Row label and dates, for gantt; also the column naming each event of a `serpentine` timeline (BACKLOG-0001659). <small>(optional)</small></td></tr>
+          <tr><td class="name">start</td><td class="type">string</td><td class="desc">The start-date column, for a gantt chart and for the spans of a `serpentine` or `spiral` timeline. <small>(optional)</small></td></tr>
+          <tr><td class="name">end</td><td class="type">string</td><td class="desc">The end-date column, for a gantt chart and for the spans of a `serpentine` or `spiral` timeline. <small>(optional)</small></td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">A heading above the plot, drawn in the figure's caption alongside any `subtitle`. <small>(optional)</small></td></tr>
-          <tr><td class="name">scheme</td><td class="type"><a href="types.html#type-ChartSchemeName">ChartSchemeName</a> | string | string[] | Record&lt;string, string&gt; | <a href="#type-ChartScheme">ChartScheme</a></td><td class="desc">A named scheme, an array of colours, a `{ [name]: colour }` map (BACKLOG-0001453), or a full {@link ChartScheme} object (BACKLOG-0001471) — the shape every built-in scheme already is, so a host can override the ramps and semantic colours alongside the palette in one value. The built-in names are {@link ChartSchemeName} (`'default'`, `'bright'`, `'earth'`, `'mono'`); a name registered with `registerScheme` is a plain string alongside them. The map is the form that survives a filter: a pie or donut keys it on the category (`x`) value, a chart with a `series` column keys it on the series value, and a single-series bar or column — no `series` — keys it on the `x` category instead. On the measure-based types — a bar or combo given several `measures`, a `radar` and a `candlestick` — the map keys on the measure's `title`, falling back to its column, so `{ 'Committed revenue': '#1f4d5c' }` colours that measure on a combo the same way it does on a bar (BACKLOG-0001638). A bare array (`scheme: ['#1f4d5c', '#b4701a']`) is the shorthand for `{ series: [...] }` and colours series in measure order on every type, exactly as explicit (BACKLOG-0001638). A name absent from the map falls back to the ordered scheme by its position among the *other unmapped* names, so `{ Operational: 'green' }` keeps every other category exactly as it was whichever ones a filter removes — an ordered array reassigns every colour after the gap. A map and an array `palette` do not combine; given both, the map wins and the array is ignored, once, with a warning. A {@link ChartScheme} object and a map are told apart by content: an object naming at least one of `series`/`sequential`/`diverging`/`positive`/`negative` is a scheme override, not a map of category names to colours. <small>(optional)</small></td></tr>
+          <tr><td class="name">scheme</td><td class="type"><a href="types.html#type-ChartSchemeName">ChartSchemeName</a> | string | Array&lt;string | <a href="types.html#type-ChartFill">ChartFill</a>&gt; | Record&lt;string, string | <a href="types.html#type-ChartFill">ChartFill</a>&gt; | <a href="#type-ChartScheme">ChartScheme</a></td><td class="desc">A named scheme, an array of colours, a `{ [name]: colour }` map (BACKLOG-0001453), or a full {@link ChartScheme} object (BACKLOG-0001471) — the shape every built-in scheme already is, so a host can override the ramps and semantic colours alongside the palette in one value. The built-in names are {@link ChartSchemeName} (`'default'`, `'bright'`, `'earth'`, `'mono'`, `'patterns'`); a name registered with `registerScheme` is a plain string alongside them. An array entry or a map value may also be a {@link ChartFill} (BACKLOG-0001669) — a gradient or a pattern — and `'patterns'` is the built-in scheme that tells series apart by texture as well as hue, the colour-blind-safe option. The map is the form that survives a filter: a pie or donut keys it on the category (`x`) value, a chart with a `series` column keys it on the series value, and a single-series bar or column — no `series` — keys it on the `x` category instead. On the measure-based types — a bar or combo given several `measures`, a `radar` and a `candlestick` — the map keys on the measure's `title`, falling back to its column, so `{ 'Committed revenue': '#1f4d5c' }` colours that measure on a combo the same way it does on a bar (BACKLOG-0001638). A bare array (`scheme: ['#1f4d5c', '#b4701a']`) is the shorthand for `{ series: [...] }` and colours series in measure order on every type, exactly as explicit (BACKLOG-0001638). A name absent from the map falls back to the ordered scheme by its position among the *other unmapped* names, so `{ Operational: 'green' }` keeps every other category exactly as it was whichever ones a filter removes — an ordered array reassigns every colour after the gap. A map and an array `palette` do not combine; given both, the map wins and the array is ignored, once, with a warning. A {@link ChartScheme} object and a map are told apart by content: an object naming at least one of `series`/`sequential`/`diverging`/`positive`/`negative` is a scheme override, not a map of category names to colours. <small>(optional)</small></td></tr>
+          <tr><td class="name">fill</td><td class="type">string | { col: string } | <a href="types.html#type-ChartFill">ChartFill</a> | ((point: { label: string; x: unknown; y: unknown; rowKey: unknown }) =&gt; <a href="types.html#type-ChartFill">ChartFill</a> | string | null | undefined)</td><td class="desc">A fill per mark, read per row (BACKLOG-0001669) on the bar family, lollipops, scatter and bubble points: a column id or `{ col }` whose cell holds a {@link ChartFill}, a pattern name (`'hatch'`, drawn in the series colour) or a CSS colour; or a function of the point returning the same. Nothing (null, an empty cell) leaves the mark in its series colour. A fill object here applies to every mark. It outranks a conditional-formatting rule colour and a `scheme` name map. <small>(optional)</small></td></tr>
+          <tr><td class="name">marker</td><td class="type"><a href="types.html#type-ChartMarkerOptions">ChartMarkerOptions</a></td><td class="desc">Draw pictures where a `line`, `scatter`, `bubble` or `markermap` would draw dots (BACKLOG-0001669). See {@link ChartMarkerOptions}. On a `line` every reading wears the marker; a cartesian chart's tooltip still resolves by category, a `markermap` hit-tests the picture's box. <small>(optional)</small></td></tr>
           <tr><td class="name">ramp</td><td class="type">[string, string] | string[] | <a href="types.html#type-ChartRampOptions">ChartRampOptions</a></td><td class="desc">A shorthand that overrides only the resolved scheme's sequential ramp — the colour a heatmap, calendar, hexbin or hexmap's magnitude comes from — leaving the palette, the diverging ramp and the semantic colours as the scheme (named or default) already set them (BACKLOG-0001471). Two colours, low value then high; a longer array is read by its first and last stop. The object form, {@link ChartRampOptions}, also takes the `scale` a value is placed along the ramp by — `'linear'`, `'log'` or `'quantile'`, chosen from the values when unset (BACKLOG-0001516). <small>(optional)</small></td></tr>
           <tr><td class="name">emphasis</td><td class="type">string[]</td><td class="desc">Draw these series (by their own value, the same name `scheme`'s map keys on) with a heavier stroke, full opacity and on top of the rest; every other series draws thinner and muted (BACKLOG-0001472). Applies to `line`, `area` and the line half of `combo`/`pareto`. The fixed style pair is themeable through `--lattice-chart-emphasis-width` and `--lattice-chart-muted-opacity`. An entry in {@link ChartSpec.seriesStyle} for the same name wins over this. <small>(optional)</small></td></tr>
           <tr><td class="name">seriesStyle</td><td class="type">Record&lt;string, { width?: number; dash?: number[] }&gt;</td><td class="desc">An explicit stroke width and/or dash pattern for a named series (BACKLOG-0001472), keyed the same way {@link ChartSpec.emphasis} is. Wins over `emphasis` for a series named in both. Applies to `line`, `area` and the line half of `combo`/`pareto`. <small>(optional)</small></td></tr>
@@ -2001,6 +3158,7 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">annotations</td><td class="type"><a href="types.html#type-ChartAnnotation">ChartAnnotation</a>[]</td><td class="desc">The declarative annotation layer: reference and target lines, shaded bands and callouts, each naming the axis it reads and each described into the accessible table as a sentence. A value may be a constant or `compute`d from the data it annotates, so it follows the chart as the grid is filtered. <small>(optional)</small></td></tr>
           <tr><td class="name">annotate</td><td class="type">boolean | <a href="types.html#type-ChartAnnotateOptions">ChartAnnotateOptions</a></td><td class="desc">Add a drawing rail to a cartesian chart, so a reader can mark it up (BACKLOG-0001474): trend lines, horizontal and vertical levels, parallel channels, Fibonacci retracements, arrows, text, callouts and notes. `true` is the whole rail on the left; the object form narrows the tools, moves or hides the strip, or makes the chart read-only. Every drawing is anchored in data, lives in {@link Chart.state}, and is reported by `annotation:added`, `annotation:changed` and `annotation:removed`. Accepted on the cartesian types (line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble) and on combo and candlestick; any other type warns and draws no rail. <small>(optional)</small></td></tr>
           <tr><td class="name">zoom</td><td class="type">boolean | <a href="types.html#type-ChartZoomOptions">ChartZoomOptions</a></td><td class="desc">Let a reader look closer (BACKLOG-0001473). `true` is the whole thing with its defaults: a toolbar of five buttons — zoom in, zoom out, pan left, pan right, reset — fading in at the bottom edge of the plot on hover and on keyboard focus, the wheel zooming about the pointer, a drag panning the visible range, `+` and `-` while the chart is focused, and a double-click resetting. The object form narrows all of that. The view composes with a rolling `axis.x.window`: the window is the maximum extent, the zoom is a range inside it, and a view at the newest end keeps the newest reading at the right edge as rows arrive. It lives in {@link Chart.state}, is reported by `zoom`, and is drivable through {@link Chart.zoom}. Accepted on the cartesian types (line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble, candlestick) and on combo; any other type warns and adds no controls. <small>(optional)</small></td></tr>
+          <tr><td class="name">cursor</td><td class="type">boolean | <a href="types.html#type-ChartCursorOptions">ChartCursorOptions</a></td><td class="desc">A crosshair (BACKLOG-0001667). `true` draws a vertical hairline that follows the pointer, snapped to the nearest reading in the data, labelled at the axis in the axis's own format, with a tooltip listing every series' value at that x. The object form ({@link ChartCursorOptions}) adds a horizontal hairline (`y`), turns snapping off, picks the tooltip's form, and puts the chart in a `group` whose members share the cursor by x value — time or category, matched by value rather than pixel, across charts bound to different grids — with optional zoom sync and `rowHover` to follow the grid's row under the pointer. The arrow keys along the category axis, Home, End and Escape drive it while the chart has focus, and every move is read out through a polite live region. Drive it from the host with {@link Chart.cursor}; it reports `cursor:move` and `cursor:leave`. Accepted on the cartesian types (line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble, candlestick, ohlc) and on combo; any other type warns and draws no cursor. <small>(optional)</small></td></tr>
           <tr><td class="name">buckets</td><td class="type">number</td><td class="desc">Bins for a histogram; the default is twelve. <small>(optional)</small></td></tr>
           <tr><td class="name">diverging</td><td class="type">boolean</td><td class="desc">A diverging colour ramp, for heatmap and geomap. <small>(optional)</small></td></tr>
           <tr><td class="name">shapes</td><td class="type">unknown</td><td class="desc">Country outlines, for a geomap drawing countries rather than continents. Either GeoJSON, an object of code to SVG path data, or a geometry {@link GeoPack} imported from an optional `modules/geo-*` package (BACKLOG-0001321) — as the pack itself, or as `{ pack: id }` once its module has been imported and registered. <small>(optional)</small></td></tr>
@@ -2012,10 +3170,13 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">viewportCap</td><td class="type">number</td><td class="desc">The most rows a `markermap`, `bubblemap` or `choropleth` draws for one view (GEO-6); default 20,000. Over a grid on a paged pushdown source that holds only a window of its rows, the map asks the source's engine for the rows inside its current view — the grid's filters and quick search, plus a `withinBbox` on a `geometry` column or a `between` pair on `lon`/`lat` for the box once the reader has panned or zoomed — through the adapter's `execute`, capped at this many rows, instead of drawing the grid's page; the grid keeps its page and the map its own set, a pan or zoom asks again (aborting the request it supersedes), and the last drawing stays up until the answer lands. {@link ChartSpec.aggregate} governs this as it governs a grouped chart. When more rows than the cap fall inside the view — from the engine, or from rows the browser holds — a marker or bubble map draws square density cells instead, counted by the engine (GEO-2's spatial `buckets`, `geometry` columns only) or in the browser, at a size derived from the zoom; zooming in until the view holds no more than the cap returns to the rows. A `choropleth`, and an engine map that cannot bin (a `lon`/`lat` map, or an adapter without the `grid` bucket), is refused by name past the cap and draws none of its rows. {@link Chart.provenance} reports it as `viewport`, and the accessible summary says which happened. <small>(optional)</small></td></tr>
           <tr><td class="name">value</td><td class="type">string</td><td class="desc">The measure a `markermap` writes beside each dot and colours it by. Its text is the column's own formatted cell text and its colour is whatever the column's conditional-formatting rules give that value, so a map and the table beside it say the same thing about the same number. <small>(optional)</small></td></tr>
           <tr><td class="name">layer</td><td class="type">string</td><td class="desc">Which layer of a multi-layer geometry pack to draw — the UK pack, for instance, ships `regions`, `local-authorities` and `constituencies` together (BACKLOG-0001321). Ignored for a single-layer pack. <small>(optional)</small></td></tr>
-          <tr><td class="name">projection</td><td class="type"><a href="types.html#type-MapProjection">MapProjection</a> | ((lon: number, lat: number) =&gt; [number, number])</td><td class="desc">The map projection a geomap draws through (BACKLOG-0001321): `'equalEarth'` (the default for a world), `'robinson'`, `'mercator'`, `'equirectangular'`, `'albers'`, `'transverseMercator'`, or a projection function of the caller's own `(lon: number, lat: number) =&gt; [number, number]`. Left unset, a geometry pack draws through the projection it declares. <small>(optional)</small></td></tr>
+          <tr><td class="name">projection</td><td class="type"><a href="types.html#type-MapProjection">MapProjection</a> | ((lon: number, lat: number) =&gt; [number, number])</td><td class="desc">The map projection a geomap draws through (BACKLOG-0001321): `'equalEarth'` (the default for a world), `'robinson'`, `'mercator'`, `'equirectangular'`, `'albers'`, `'transverseMercator'`, `'orthographic'` (alias `'globe'` — the visible hemisphere of the sphere, on `choropleth`, `markermap` and `bubblemap`; see {@link ChartSpec.rotate}), or a projection function of the caller's own `(lon: number, lat: number) =&gt; [number, number]`. Left unset, a geometry pack draws through the projection it declares. <small>(optional)</small></td></tr>
+          <tr><td class="name">rotate</td><td class="type">[number, number]</td><td class="desc">Where a globe is facing (BACKLOG-1665): `[longitude, latitude]` in degrees of the point at the centre of the disc, for `projection: 'orthographic'` (alias `'globe'`) on `choropleth`, `markermap` and `bubblemap`. Default `[0, 0]`. Dragging turns the globe away from it and `0` (or the reset control) turns it back. Ignored by every flat projection. <small>(optional)</small></td></tr>
+          <tr><td class="name">sphere</td><td class="type">boolean</td><td class="desc">Whether a globe draws the outline of the sphere (BACKLOG-1665). Default true; `false` leaves only the land and the markers. Ignored by every flat projection. <small>(optional)</small></td></tr>
+          <tr><td class="name">fitTo</td><td class="type">'selection'</td><td class="desc">Turn a globe to what is selected (BACKLOG-1665): `'selection'` rotates a `projection: 'orthographic'` map to the middle of the rows the grid selects each time the selection changes. {@link Chart.fitToSelection} does the same on demand. <small>(optional)</small></td></tr>
           <tr><td class="name">projectionOptions</td><td class="type">{ parallels?: [number, number]; centre?: [number, number] }</td><td class="desc">Parameters for the projections that take them: `parallels` and `centre` for `albers`, `centre` for `transverseMercator` (BACKLOG-0001321). <small>(optional)</small></td></tr>
-          <tr><td class="name">graticule</td><td class="type">boolean | { step?: number }</td><td class="desc">A lon/lat reference grid under a geomap's regions, off by default (BACKLOG-0001321 part 2). Only drawn over a geometry pack's fitted projection — the schematic continents have no fitted projection to draw one against. `step` is the spacing between lines in degrees (default 30). <small>(optional)</small></td></tr>
-          <tr><td class="name">basemap</td><td class="type">{ fill?: string; stroke?: string; strokeWidth?: number }</td><td class="desc">Override the land a `shapes` pack draws with (BACKLOG-0001508), one colour or width at a time: `fill` and `stroke` as any CSS colour, `strokeWidth` in pixels. Unset, each takes its theme token — `--lattice-chart-basemap-fill`, `--lattice-chart-basemap-stroke`, `--lattice-chart-basemap-stroke-width` — whose defaults are legible against the plot in both themes without a host doing anything. Applies to every type that draws a `shapes` pack: `markermap`, `bubblemap`, `choropleth`'s own backdrop pack, `hexmap` and `geomap`. <small>(optional)</small></td></tr>
+          <tr><td class="name">graticule</td><td class="type">boolean | { step?: number }</td><td class="desc">A lon/lat reference grid under a geomap's regions, off by default (BACKLOG-0001321 part 2). Only drawn over a geometry pack's fitted projection — the schematic continents have no fitted projection to draw one against (a globe draws it always). `step` is the spacing between lines in degrees (default 30). <small>(optional)</small></td></tr>
+          <tr><td class="name">basemap</td><td class="type">{ fill?: string | <a href="types.html#type-ChartFill">ChartFill</a>; stroke?: string; strokeWidth?: number }</td><td class="desc">Override the land a `shapes` pack draws with (BACKLOG-0001508), one colour or width at a time: `fill` and `stroke` as any CSS colour, `strokeWidth` in pixels. Unset, each takes its theme token — `--lattice-chart-basemap-fill`, `--lattice-chart-basemap-stroke`, `--lattice-chart-basemap-stroke-width` — whose defaults are legible against the plot in both themes without a host doing anything. Applies to every type that draws a `shapes` pack: `markermap`, `bubblemap`, `choropleth`'s own backdrop pack, `hexmap` and `geomap`. <small>(optional)</small></td></tr>
           <tr><td class="name">multiples</td><td class="type">string</td><td class="desc">One chart per distinct value of this column. <small>(optional)</small></td></tr>
           <tr><td class="name">canvas</td><td class="type">boolean | number</td><td class="desc">Draw to canvas past this many points. <small>(optional)</small></td></tr>
           <tr><td class="name">downsample</td><td class="type">number</td><td class="desc">How many points to reduce a dense line or scatter series to before drawing. Reduction keeps the first point, the last, and the ones that carry the outline. Unset, the target is the plot's width in pixels; a series is only reduced once it exceeds half again that target. <small>(optional)</small></td></tr>
@@ -2026,15 +3187,37 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">selection</td><td class="type">boolean</td><td class="desc">Draw the grid's selected rows emphasised, and follow the selection. <small>(optional)</small></td></tr>
           <tr><td class="name">drill</td><td class="type">boolean</td><td class="desc">Clicking a group drills into it. <small>(optional)</small></td></tr>
           <tr><td class="name">filterOnClick</td><td class="type">boolean</td><td class="desc">Clicking a mark filters the grid to it. <small>(optional)</small></td></tr>
+          <tr><td class="name">parentId</td><td class="type">string</td><td class="desc">The hierarchy types — `forceTree`, `pack`, `tree`, `voronoiTreemap` — read a hierarchy from a column that names each row's parent (BACKLOG-0001652): the column holds the parent's `id`. A row with no parent, an unknown parent or a parent that leads back to itself hangs off the root, so a bad row costs its place in the tree and never the drawing. Without `parentId` or `path` the hierarchy is the grid's own grouping. <small>(optional)</small></td></tr>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The column a `parentId` refers to: the row's own identity. Defaults to the row key. Used by the hierarchy types. <small>(optional)</small></td></tr>
+          <tr><td class="name">path</td><td class="type">string</td><td class="desc">The hierarchy types read a hierarchy from one column holding each row's whole path (`Europe/France/Paris`), split on `pathSeparator`; rows that share a start share a branch (BACKLOG-0001652). <small>(optional)</small></td></tr>
+          <tr><td class="name">pathSeparator</td><td class="type">string</td><td class="desc">What `path` is split on. Default `'/'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">colourBy</td><td class="type">'depth' | string</td><td class="desc">How the hierarchy types colour a node: `'depth'` (the default — one colour per level) or a column id, in which case a node takes the value that column has on its first row and the legend names the values (BACKLOG-0001652). <small>(optional)</small></td></tr>
+          <tr><td class="name">expandDepth</td><td class="type">number</td><td class="desc">`tree` and `forceTree`: how many levels start open. A node beyond it starts folded; a click folds or opens a branch (BACKLOG-0001652, 0001655). Default: every level. <small>(optional)</small></td></tr>
+          <tr><td class="name">orientation</td><td class="type">'top-down' | 'left-right' | 'radial'</td><td class="desc">`tree`: which way the levels run — `'top-down'` (the default), `'left-right'` or `'radial'` (BACKLOG-0001655). <small>(optional)</small></td></tr>
+          <tr><td class="name">linkShape</td><td class="type">'straight' | 'elbow' | 'curved'</td><td class="desc">`tree`: the shape of the line from a node to its parent. Default `'elbow'` (BACKLOG-0001655). <small>(optional)</small></td></tr>
+          <tr><td class="name">cluster</td><td class="type">boolean</td><td class="desc">`tree`: draw a dendrogram — the leaves in one row at the deepest level, each branch over the middle of its children (BACKLOG-0001655). <small>(optional)</small></td></tr>
+          <tr><td class="name">panZoom</td><td class="type">boolean</td><td class="desc">`tree`: drag to pan, the wheel and `+` / `-` to zoom, `0` to reset. On by default; `false` leaves the wheel and the drag to the page (BACKLOG-0001655). <small>(optional)</small></td></tr>
+          <tr><td class="name">padding</td><td class="type">number</td><td class="desc">`pack`: the gap between sibling circles in pixels. Default 3 (BACKLOG-0001653). <small>(optional)</small></td></tr>
+          <tr><td class="name">clip</td><td class="type">'circle' | [number, number][]</td><td class="desc">`voronoiTreemap`: the shape the cells fill — `'circle'` (the default) or a polygon as `[x, y]` points in any units, y down as on screen, scaled to fit the plot. A polygon is filled as its convex hull; fewer than three usable points fall back to the circle (BACKLOG-0001654). <small>(optional)</small></td></tr>
+          <tr><td class="name">tolerance</td><td class="type">number</td><td class="desc">`voronoiTreemap`: the largest error any leaf's area may keep, as a share of the area its value should have. Default 0.01, under 1% (BACKLOG-0001654). <small>(optional)</small></td></tr>
+          <tr><td class="name">animate</td><td class="type">boolean</td><td class="desc">The hierarchy types animate a fold, an unfold or a zoom unless the reader prefers reduced motion; `false` turns the animation off whatever they prefer (BACKLOG-0001652, 0001653, 0001655). <small>(optional)</small></td></tr>
+          <tr><td class="name">editable</td><td class="type">boolean | <a href="types.html#type-ChartEditable">ChartEditable</a></td><td class="desc">Drag a mark to edit the row behind it (BACKLOG-0001670). `true` drags along the value axis; an object says which axis, the step, the limits and what to do with a mark that is several rows (see {@link ChartEditable}). Works on a line, step or area point, a bar or horizontal bar's end, both ends of a floating bar, a scatter or bubble point and a pie or donut slice's edge. Dragging shows the live value, formatted by the measure's column; releasing writes it with `grid.edit.setCells` and the gated `'user'` origin, so the column's validation, a `beforeEdit` veto, `edit.enabled` and read-only columns and rows, the undo stack, change tracking and router write-back apply exactly as they do to a cell edit. A refused edit puts the mark back and shows the grid's own message under the plot; the chart redraws from the grid's `cell:changed`, never from the dragged number. Marks are focusable sliders for the keyboard (arrows by `step`, Enter commits, Escape cancels). A mark that stands for several rows is not draggable unless {@link ChartEditable.distribute} is set. &lt;small&gt;(optional)&lt;/small&gt; <small>(optional)</small></td></tr>
+          <tr><td class="name">animation</td><td class="type">boolean | <a href="types.html#type-ChartAnimationOptions">ChartAnimationOptions</a></td><td class="desc">How the chart plays its marks in and between draws (BACKLOG-0001666). `true` (the default) plays an entry on the first drawing — bars grow from the baseline, lines draw left to right, slices sweep, points scale in — and plays every change in the grid from the old drawing to the new, keyed by series and category so a bar that stays moves rather than being redrawn. `false` draws the final state at once. The object form ({@link ChartAnimationOptions}) sets the duration, the easing, entry and update apart, and the mark budget. Reduced motion, an automated browser (`navigator.webdriver`), a jsdom or happy-dom test DOM, a headless render and an export always get the final state at once, and the end state is identical to the unanimated drawing, attribute for attribute. A draw that lands mid-play retargets from where the marks are; nothing queues. A resize or a zoom draws at once. &lt;small&gt;(optional)&lt;/small&gt; <small>(optional)</small></td></tr>
           <tr><td class="name">stack</td><td class="type">boolean | 'percent'</td><td class="desc">Stack the series rather than drawing them side by side. On a `combo` it stacks the bar measures (BACKLOG-0001636); line and area measures stay outside the stack on the same scale and are drawn after the columns. `'percent'` stacks to 100% (BACKLOG-0001644): a `bar`, `horizontalBar`, `area` or `combo` with two or more series draws each column as the whole plot height, split into each series' share of the column, and the measure axis runs 0 to 100 rather than 0 to the tallest total. A column that mixes signs has no meaningful "share of the whole", so shares are taken against the sum of the parts' absolute values; the tooltip still reads the real value, with its share beside it. <small>(optional)</small></td></tr>
           <tr><td class="name">curve</td><td class="type">boolean | <a href="types.html#type-ChartCurve">ChartCurve</a> | <a href="types.html#type-ChartCurveOptions">ChartCurveOptions</a> | Record&lt;string, <a href="types.html#type-ChartCurve">ChartCurve</a> | <a href="types.html#type-ChartCurveOptions">ChartCurveOptions</a>&gt;</td><td class="desc">On a histogram, `true` overlays a kernel density curve. On a `line`, an `area` (and the line half of a `combo`/`pareto`), it names how the series connects its readings (BACKLOG-0001645): a {@link ChartCurve} name (`'linear'`, `'monotone'`, `'catmullRom'`, `'step'`), a {@link ChartCurveOptions} object (`{ type, tension, mode }`), or a map keyed by series label — the same name {@link ChartSpec.emphasis} keys on — giving each series its own curve. Markers, tooltips and hit-testing stay on the real readings whatever the curve. <small>(optional)</small></td></tr>
-          <tr><td class="name">startAngle</td><td class="type">number</td><td class="desc">A pie or donut's first slice, in degrees clockwise from twelve o'clock, 0 being the top (BACKLOG-0001646). Default 0; a partial circle uses the container's height rather than half of it. <small>(optional)</small></td></tr>
-          <tr><td class="name">endAngle</td><td class="type">number</td><td class="desc">A pie or donut's last slice, in degrees clockwise from twelve o'clock (BACKLOG-0001646). Default 360. <small>(optional)</small></td></tr>
+          <tr><td class="name">startAngle</td><td class="type">number</td><td class="desc">A pie or donut's first slice, in degrees clockwise from twelve o'clock, 0 being the top (BACKLOG-0001646). Default 0; a partial circle uses the container's height rather than half of it. A `polarArea`, `radialBar` or `polarScatter` reads it as where its angular range starts. <small>(optional)</small></td></tr>
+          <tr><td class="name">endAngle</td><td class="type">number</td><td class="desc">A pie or donut's last slice, in degrees clockwise from twelve o'clock (BACKLOG-0001646). Default 360. A `polarArea` reads it the same way; a `radialBar` reads it as the end of its full track, 270 degrees from the start by default. <small>(optional)</small></td></tr>
           <tr><td class="name">radius</td><td class="type"><a href="types.html#type-ChartRadiusOptions">ChartRadiusOptions</a></td><td class="desc">Drive a pie or donut's slice radii from a second measure, the angle still coming from `y` (BACKLOG-0001647): `{ col, fn?, min? }`. `fn` is `'sqrt'` (area-true, default) or `'linear'`; `min` is the smallest share of the full radius a slice may shrink to. The donut's hole is respected, the tooltip shows both measures, and the legend is unchanged. <small>(optional)</small></td></tr>
+          <tr><td class="name">polar</td><td class="type"><a href="types.html#type-ChartPolarOptions">ChartPolarOptions</a></td><td class="desc">Options for the opt-in polar chart types `polarArea` (alias `nightingale`, `rose`), `radialBar` and `polarScatter` (BACKLOG-0001649, 0001650, 0001651). Ignored by every other type. `startAngle`, `endAngle`, `max`, `min`, `stack`, `size` and `series` read as they do elsewhere; the rest are in {@link ChartPolarOptions}. <small>(optional)</small></td></tr>
           <tr><td class="name">mark</td><td class="type">'lollipop'</td><td class="desc">Draw a `bar` or `horizontalBar` as lollipops rather than solid columns (BACKLOG-0001640): a stem from the baseline up to the value, with a dot at the value. Everything else the bar family does is unchanged — several measures sit side by side, sorting and the `axis` block apply, `scheme` forms colour the dots and stems, and the tooltip and grid binding read the same points. Reuses the bar code path rather than a second implementation, which is why it is a mark on the bar type and not a type of its own. <small>(optional)</small></td></tr>
           <tr><td class="name">ranges</td><td class="type">(number | string)[]</td><td class="desc">A `bullet` chart's qualitative bands (BACKLOG-0001642): the bands' upper edges in ascending order, each either a number (the same for every row) or the name of a column holding that edge per row. `[60, 85, 100]` shades the scale from its minimum to 60, 60 to 85 and 85 to 100 — the same reading the `bullet` cell renderer gives its `bands`. Ignored by every other type. <small>(optional)</small></td></tr>
           <tr><td class="name">bullet</td><td class="type">{ orientation?: 'horizontal' | 'vertical'; scale?: 'shared' | 'row' }</td><td class="desc">A `bullet` chart's layout (BACKLOG-0001642). `orientation` is `'horizontal'` (the default: one row per KPI, the value running along x) or `'vertical'`. `scale` is `'shared'` (the default: every row is read against one scale and one axis, so bars compare across KPIs) or `'row'` (each KPI has its own scale, as a bullet cell has, and no shared axis is drawn). `min` and `max` on the chart pin the scale's ends. <small>(optional)</small></td></tr>
           <tr><td class="name">pyramid</td><td class="type">{ scale?: 'shared' | 'independent'; percent?: boolean }</td><td class="desc">A `populationPyramid`'s options (BACKLOG-0001641). `scale` is `'shared'` (the default: one symmetric scale serves both halves, so equal bars are equal lengths) or `'independent'` (each half is scaled to its own largest bar). `percent: true` draws each bar as its share of the whole population and labels the axis in percent. The axis labels are always absolute. <small>(optional)</small></td></tr>
+          <tr><td class="name">directed</td><td class="type">boolean | <a href="types.html#type-ChartDirectedOptions">ChartDirectedOptions</a></td><td class="desc">Draw a `chord` as a *directed* flow (BACKLOG-0001656): A to B and B to A stay two ribbons, each wide at its source arc and narrowing (or ending in an arrow tip) at its target; an arc's length is what the node sends, or with `arc: 'inout'` what it sends plus receives; colours follow the source and the tooltip names the direction and the value. `true` takes the defaults; an object is {@link ChartDirectedOptions}. Unset, the chord draws exactly as it always has. <small>(optional)</small></td></tr>
+          <tr><td class="name">stages</td><td class="type"><a href="types.html#type-ChartStagesOptions">ChartStagesOptions</a></td><td class="desc">A `pyramid` chart's options (BACKLOG-0001657): {@link ChartStagesOptions}. The pyramid takes the funnel's input — `x` the stage, `y` the measure — and is the funnel's stages as slices of one triangle (not `populationPyramid`). <small>(optional)</small></td></tr>
+          <tr><td class="name">pictorial</td><td class="type"><a href="types.html#type-ChartPictorialOptions">ChartPictorialOptions</a></td><td class="desc">A `pictorial` chart's options (BACKLOG-0001658): {@link ChartPictorialOptions}. `x` is the category and `y` the measure. <small>(optional)</small></td></tr>
+          <tr><td class="name">serpentine</td><td class="type"><a href="types.html#type-ChartSerpentineOptions">ChartSerpentineOptions</a></td><td class="desc">A `serpentine` timeline's options (BACKLOG-0001659): {@link ChartSerpentineOptions}. `x` is the date column for points, or `start` and `end` for spans; `label` names an event and `series` colours by a column. <small>(optional)</small></td></tr>
+          <tr><td class="name">spiral</td><td class="type"><a href="types.html#type-ChartSpiralOptions">ChartSpiralOptions</a></td><td class="desc">A `spiral` timeline's options (BACKLOG-0001660): {@link ChartSpiralOptions}. `x` is the date column and `y` an optional value; `start` and `end` give the spans of `mode: 'spans'`; `series` colours by a column. <small>(optional)</small></td></tr>
           <tr><td class="name">measure</td><td class="type">string</td><td class="desc">An alias for `y`, where "the measure" reads better than "the y axis". <small>(optional)</small></td></tr>
           <tr><td class="name">size</td><td class="type">string</td><td class="desc">Bubble charts: the column driving the radius, and the largest it may be. <small>(optional)</small></td></tr>
           <tr><td class="name">maxRadius</td><td class="type">number</td><td class="desc">The largest bubble radius in pixels. Clamped to between 6 and 28, and 22 when unset; the smallest bubble is always 3. <small>(optional)</small></td></tr>
@@ -2044,7 +3227,7 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">columns</td><td class="type">string[]</td><td class="desc">Correlogram: which columns to correlate, how, and whether to print them. <small>(optional)</small></td></tr>
           <tr><td class="name">method</td><td class="type"><a href="types.html#type-CorrelationMethod">CorrelationMethod</a> <small class="literals">'pearson' | 'spearman' | 'kendall'</small></td><td class="desc">Which correlation a correlogram computes. `spearman` uses the rank coefficient; anything else — including `kendall`, which is not implemented — uses Pearson. The figures come from the grid's own statistics, so the matrix cannot disagree with them. <small>(optional)</small></td></tr>
           <tr><td class="name">values</td><td class="type">boolean</td><td class="desc">Print each coefficient inside its correlogram cell. On by default, and dropped anyway where the cells are too small for the text to fit; set `false` to leave the matrix as colour alone. <small>(optional)</small></td></tr>
-          <tr><td class="name">iterations</td><td class="type">number</td><td class="desc">Network layouts: how many relaxation passes to run. <small>(optional)</small></td></tr>
+          <tr><td class="name">iterations</td><td class="type">number</td><td class="desc">Network layouts: how many relaxation passes to run. On a `forceTree`, the ticks the layout settles for — 220 for the first layout and 90 when a fold or a drag resumes it unless set (BACKLOG-0001652); the ticks it used are reported by the drawing. On a `voronoiTreemap`, the relaxations each level gets before its last fit of the weights — 10 unless set; more rounds the cells off further and never changes how closely the areas fit (BACKLOG-0001654). <small>(optional)</small></td></tr>
           <tr><td class="name">nodes</td><td class="type"><a href="types.html#type-ChartNode">ChartNode</a>[]</td><td class="desc">The nodes of a `network`, named by the host rather than inferred from the rows: an icon per device, a label, and a position the layout must honour. A node listed here that appears in no row is still drawn. A node in the rows that is not listed here takes the chart's `icon` default and its own id as its label. <small>(optional)</small></td></tr>
           <tr><td class="name">icon</td><td class="type">string</td><td class="desc">The default glyph for a `network` node that names none of its own: any name in the grid's icon registry (see {@link Grid.icons}). Unset, a node with no icon is a plain disc. <small>(optional)</small></td></tr>
           <tr><td class="name">linkWidth</td><td class="type">number</td><td class="desc">A `network` link's stroke width in pixels, fixed. Unset, width follows the link's value as a share of the heaviest link, as it always has. <small>(optional)</small></td></tr>
@@ -2052,9 +3235,44 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">baseline</td><td class="type">number</td><td class="desc">How many leading readings fix a control chart's limits. The rest of the series is then judged against them, which is how a step change shows up as a run of violations instead of dragging the centre line to the middle. Unset, the whole series sets the limits. <small>(optional)</small></td></tr>
           <tr><td class="name">rules</td><td class="type"><a href="types.html#type-ControlChartRuleSet">ControlChartRuleSet</a> <small class="literals">'westernElectric' | 'nelson'</small></td><td class="desc">Which run-rule set a control chart's violations are judged against. Defaults to `westernElectric`. <small>(optional)</small></td></tr>
           <tr><td class="name">confidence</td><td class="type">number</td><td class="desc">The level of the capability interval printed with a capability chart, as a fraction (0.95 for 95%). <small>(optional)</small></td></tr>
+          <tr><td class="name">text</td><td class="type">string</td><td class="desc">A `wordCloud`'s free-text column (BACKLOG-0001661): every row's text is split into words and counted, instead of reading one word per row from `x`. <small>(optional)</small></td></tr>
+          <tr><td class="name">stopWords</td><td class="type">boolean | string[]</td><td class="desc">A `wordCloud`'s stop words: `true` (built-in English), `false`, or your own list. Tokenising only; defaults to `true` there. <small>(optional)</small></td></tr>
+          <tr><td class="name">lowerCase</td><td class="type">boolean</td><td class="desc">A `wordCloud` folds case before counting. Default `true` when tokenising `text`, `false` for a word column in `x`. <small>(optional)</small></td></tr>
+          <tr><td class="name">minCount</td><td class="type">number</td><td class="desc">A `wordCloud` leaves out words whose total is below this. Default 1. <small>(optional)</small></td></tr>
+          <tr><td class="name">maxWords</td><td class="type">number</td><td class="desc">A `wordCloud` draws at most this many words, the biggest first; the rest are counted in `provenance().dropped`. Default 150. <small>(optional)</small></td></tr>
+          <tr><td class="name">minSize</td><td class="type">number</td><td class="desc">A `wordCloud`'s font size in pixels for the smallest word. Default 12. <small>(optional)</small></td></tr>
+          <tr><td class="name">maxSize</td><td class="type">number</td><td class="desc">A `wordCloud`'s font size in pixels for the biggest word. Default 48. <small>(optional)</small></td></tr>
+          <tr><td class="name">rotate</td><td class="type">number | number[] | 'random'</td><td class="desc">A `wordCloud`'s angles in degrees: one angle, a list to choose among, or `'random'`. Default 0. <small>(optional)</small></td></tr>
+          <tr><td class="name">seed</td><td class="type">number</td><td class="desc">A `wordCloud`'s placement seed, or a `voronoiTreemap`'s starting sites (BACKLOG-0001654); the same data and seed draw the same picture. Default 1. <small>(optional)</small></td></tr>
+          <tr><td class="name">colour</td><td class="type">string</td><td class="desc">The column whose value colours each mark of a `wordCloud` or `motion` chart. <small>(optional)</small></td></tr>
+          <tr><td class="name">sets</td><td class="type">string[]</td><td class="desc">A `venn`'s membership as boolean columns, two or three of them. <small>(optional)</small></td></tr>
+          <tr><td class="name">set</td><td class="type">string</td><td class="desc">A `venn`'s membership as one multi-value column (an array, or text split by `separator`). <small>(optional)</small></td></tr>
+          <tr><td class="name">members</td><td class="type">string[]</td><td class="desc">A `venn` over `set`: which values are the sets. Default: every distinct value (refused above three). <small>(optional)</small></td></tr>
+          <tr><td class="name">separator</td><td class="type">string</td><td class="desc">A `venn` over `set` holding text: the character that separates the values in a cell. <small>(optional)</small></td></tr>
+          <tr><td class="name">time</td><td class="type">string</td><td class="desc">The time column of a `barRace` or `motion` chart: each distinct value is a frame. <small>(optional)</small></td></tr>
+          <tr><td class="name">entity</td><td class="type">string</td><td class="desc">A `motion` chart's entity column: one bubble per distinct value. <small>(optional)</small></td></tr>
+          <tr><td class="name">topN</td><td class="type">number</td><td class="desc">A `barRace`'s number of bars. Default 10. <small>(optional)</small></td></tr>
+          <tr><td class="name">autoplay</td><td class="type">boolean</td><td class="desc">An animated chart starts playing when drawn. <small>(optional)</small></td></tr>
+          <tr><td class="name">speed</td><td class="type">number</td><td class="desc">An animated chart's playback speed in multiples of normal. Default 1. <small>(optional)</small></td></tr>
+          <tr><td class="name">loop</td><td class="type">boolean</td><td class="desc">An animated chart starts again at the end of its run. <small>(optional)</small></td></tr>
+          <tr><td class="name">reducedMotion</td><td class="type">boolean</td><td class="desc">An animated chart's reduced-motion override; unset, `prefers-reduced-motion` decides. <small>(optional)</small></td></tr>
+          <tr><td class="name">clock</td><td class="type"><a href="#type-FrameClock">FrameClock</a></td><td class="desc">An animated chart's clock. Pass one {@link FrameClock} to a `barRace` and a `motion` chart and they play, pause and scrub together. <small>(optional)</small></td></tr>
+          <tr><td class="name">trails</td><td class="type">boolean | string[]</td><td class="desc">A `motion` chart's trails: `true` draws the path so far of every entity the grid has selected, an array of entity names draws those. <small>(optional)</small></td></tr>
+          <tr><td class="name">scale</td><td class="type">{ x?: 'linear' | 'log'; y?: 'linear' | 'log' }</td><td class="desc">A `motion` chart's axis scales, `'linear'` or `'log'` each. A log axis leaves out readings at or below zero and counts them in `provenance().dropped`. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
+    <h5 id="type-ChartSpec-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">format</td><td class="type">(value: number) =&gt; string</td><td class="desc"><code>value: number</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">A `barRace`'s value-to-text function for the bar ends and the axis. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-ChartSpec-events">Events</h5>
+    <p class="section-note">No events.</p>
     <h4 id="type-RegressionModel">RegressionModel</h4>
     <p class="section-note">A fitted multi-predictor linear model and its diagnostics (BACKLOG-0000792).</p>
     <div class="table-wrap">
@@ -2104,7 +3322,7 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">series</td><td class="type">string[]</td><td class="desc">The categorical palette, one colour per series.</td></tr>
+          <tr><td class="name">series</td><td class="type">Array&lt;string | <a href="types.html#type-ChartFill">ChartFill</a>&gt;</td><td class="desc">The categorical palette, one colour or {@link ChartFill} per series.</td></tr>
           <tr><td class="name">sequential</td><td class="type">[string, string] | string[]</td><td class="desc">The sequential ramp's ends, low value then high — a heatmap, calendar, hexbin or hexmap's magnitude colour. <small>(optional)</small></td></tr>
           <tr><td class="name">diverging</td><td class="type">[string, string, string]</td><td class="desc">The diverging ramp's three stops: low, the neutral midpoint, high. <small>(optional)</small></td></tr>
           <tr><td class="name">positive</td><td class="type">string</td><td class="desc">The colour for a positive or gain reading (a waterfall, a candlestick). <small>(optional)</small></td></tr>
@@ -2112,6 +3330,42 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
         </tbody>
       </table>
     </div>
+    <h4 id="type-FrameClock">FrameClock</h4>
+    <p class="section-note">The clock the animated chart types (`barRace`, `motion`) run on (BACKLOG-0001663). `createFrameClock()` from either module makes one; handing the same clock to several charts as `spec.clock` gives them one time.</p>
+    <h5 id="type-FrameClock-properties">Properties</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc">The earliest time any registered chart has, in the time column's own units (epoch milliseconds for dates). <small>(read-only)</small></td></tr>
+          <tr><td class="name">max</td><td class="type">number</td><td class="desc">The latest. <small>(read-only)</small></td></tr>
+          <tr><td class="name">time</td><td class="type">number</td><td class="desc">Where the clock stands. <small>(read-only)</small></td></tr>
+          <tr><td class="name">fraction</td><td class="type">number</td><td class="desc">How far through the run, 0 to 1. <small>(read-only)</small></td></tr>
+          <tr><td class="name">playing</td><td class="type">boolean</td><td class="desc">Whether it is playing. <small>(read-only)</small></td></tr>
+          <tr><td class="name">speed</td><td class="type">number</td><td class="desc">The speed in multiples of normal. <small>(read-only)</small></td></tr>
+          <tr><td class="name">reduced</td><td class="type">boolean</td><td class="desc">Whether motion is reduced, so playback steps whole frames. <small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-FrameClock-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">seek</td><td class="type">(time: number): <a href="#type-FrameClock">FrameClock</a></td><td class="desc"><code>time: number</code></td><td class="type"><code><a href="#type-FrameClock">FrameClock</a></code></td><td class="desc">Move to a time, clamped to the run.</td></tr>
+          <tr><td class="name">seekFraction</td><td class="type">(fraction: number): <a href="#type-FrameClock">FrameClock</a></td><td class="desc"><code>fraction: number</code></td><td class="type"><code><a href="#type-FrameClock">FrameClock</a></code></td><td class="desc">Move to a fraction of the run, 0 to 1.</td></tr>
+          <tr><td class="name">step</td><td class="type">(by?: number): <a href="#type-FrameClock">FrameClock</a></td><td class="desc"><code>by?: number</code></td><td class="type"><code><a href="#type-FrameClock">FrameClock</a></code></td><td class="desc">Move by whole frames; negative goes back.</td></tr>
+          <tr><td class="name">play</td><td class="type">(): <a href="#type-FrameClock">FrameClock</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-FrameClock">FrameClock</a></code></td><td class="desc">Start playing; from the end, from the beginning.</td></tr>
+          <tr><td class="name">pause</td><td class="type">(): <a href="#type-FrameClock">FrameClock</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-FrameClock">FrameClock</a></code></td><td class="desc">Stop where it is.</td></tr>
+          <tr><td class="name">toggle</td><td class="type">(): <a href="#type-FrameClock">FrameClock</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-FrameClock">FrameClock</a></code></td><td class="desc">Play, or pause when playing.</td></tr>
+          <tr><td class="name">setSpeed</td><td class="type">(speed: number): <a href="#type-FrameClock">FrameClock</a></td><td class="desc"><code>speed: number</code></td><td class="type"><code><a href="#type-FrameClock">FrameClock</a></code></td><td class="desc">Set the speed multiple.</td></tr>
+          <tr><td class="name">subscribe</td><td class="type">(listener: (clock: <a href="#type-FrameClock">FrameClock</a>) =&gt; void): () =&gt; void</td><td class="desc"><code>listener: (clock: <a href="#type-FrameClock">FrameClock</a>) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Be told whenever the clock changes; returns a function that stops listening.</td></tr>
+          <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Stop and let go of every listener.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-FrameClock-events">Events</h5>
+    <p class="section-note">No events.</p>
 
     <footer>
       Lattice Grid API reference &middot; Copyright &copy; 2026 TOCLOCO Inc.
