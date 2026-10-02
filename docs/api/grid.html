@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.84.0</title>
+<title>Grid API Reference — Lattice Grid 1.85.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -397,6 +397,7 @@
         <a href="#grid-methods">Grid methods</a>
         <a href="#rows">grid.rows</a>
         <a href="#columns">grid.columns</a>
+        <a class="rail__sub-link" href="#columns-panel-bands">Header bands in the Columns tool panel</a>
         <a href="#selection">grid.selection</a>
         <a href="#filters">grid.filters</a>
         <a href="#sort">grid.sort</a>
@@ -1854,7 +1855,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.84.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.85.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -1938,6 +1939,10 @@ grid.overlay.hide();</code></pre>
         </tbody>
       </table>
     </div>
+
+    <h3 id="columns-panel-bands">Header bands in the Columns tool panel</h3>
+    <p>The <code>columns</code> tool panel lists every header band (BACKLOG-0001679) in header order, with its columns nested under it and nested bands nested again, so a band made in the header, by dragging onto a heading's centre third or from the column menu's <strong>Group with adjacent column</strong>, can be seen and undone from the panel too. Each band row has a collapse toggle, a tri-state checkbox that shows or hides every column in the band (mixed while only some are showing; columns with <code>lockVisible</code> are left alone), and <strong>Rename</strong> and <strong>Dissolve band</strong>, which call <code>grid.columns.renameGroup</code> and <code>grid.columns.dissolveGroup</code> exactly as the column menu does. Dissolving leaves the columns where they are and asks for no confirmation, as the menu does not; Undo restores the band.</p>
+    <p>Drag a column onto a band row, or onto a column of another band, to join it (<code>groupColumns</code> with <code>groupId</code>); drag a banded column onto a column outside the band to take it out (<code>ungroupColumn</code>, one level up). The panel does not form a new band from a drop on a loose column: that gesture belongs to the header. Keyboard: the band row is focusable, <kbd>Enter</kbd> collapses or expands it, <kbd>Delete</kbd> dissolves it, <kbd>&uarr;</kbd>/<kbd>&darr;</kbd> walk the list. The panel repaints on the same events as the rest of the panel, so a band edit from either side shows on the other (a panel the keyboard is inside is left alone until focus leaves, as every panel is); collapsed bands stay collapsed across a repaint. The search box filters inside bands and keeps a band while any of its columns, or its own title, matches. Each band is a <code>role="group"</code> named by its title.</p>
     <h2 id="selection">grid.selection</h2>
     <div class="table-wrap">
       <table>
@@ -2464,7 +2469,7 @@ createDevtools({ grid });          <span class="cmt">// Ctrl+Shift+D collapses i
     <h2 id="facets">grid.facets</h2>
     <p>A distribution chart in each column heading, which is also a filter control. Clicking a bar filters to that bucket; dragging across bars on an ordered column filters to the range. As filters are applied, the other columns' charts recount, so a dataset can be explored by clicking through headings rather than opening a dialog.</p>
     <p><strong>Off by default.</strong> The band roughly doubles the header's height, which is a cost no grid should pay without being asked.</p>
-    <pre><code>facets: { enabled: true }                <span class="cmt">// grid-wide</span>
+    <pre><code>facets: true                                <span class="cmt">// grid-wide (same as { enabled: true })</span>
 
 <span class="cmt">// per column, layered over the grid's settings</span>
 { field: 'price', type: 'number', facet: { strategy: 'quantile', buckets: 16 } }
@@ -6616,6 +6621,13 @@ createGrid(el, {
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.2 2.9 13.1 13.8M8 3.2c3.3 0 6 3 6.6 4.5a9.4 9.4 0 0 1-1.9 2.4M5 4.2A9 9 0 0 0 1.4 7.7C2 9.3 4.7 12.3 8 12.3c.9 0 1.7-.2 2.5-.5M6.3 6a2.5 2.5 0 0 0 3.4 3.5"></path></svg>eyeOff</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 2.5h8v8M2.5 5.5h8v8h-8Z"></path></svg>copy</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2.5h12v8H2Z"></path><path d="M8 10.5v3"></path><path d="M6 13.5h4"></path></svg>present</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M3 2h10v12H3ZM5 4v4h2.5V4ZM8.5 4v4H11V4ZM5 9.5V11h6V9.5Z"></path></svg>cabinet</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M8 4.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7ZM8 6.8a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4ZM1.5 7.2h3v1.6h-3ZM11.5 7.2h3v1.6h-3Z"></path></svg>splice</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M8 1.5 14.5 6v1H1.5V6ZM3 8h2v5H3ZM7 8h2v5H7ZM11 8h2v5h-2ZM1.5 13.5h13V15h-13Z"></path></svg>exchange</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M7.2 1.5h1.6V15H7.2ZM3 3.5h10V5H3ZM4.5 7h7v1.4h-7Z"></path></svg>pole</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M2.5 3.5h11v9h-11ZM4.5 5.5v5h7v-5ZM6 7h4v1.5H6Z"></path></svg>chamber</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M8 1.8 14.5 7.5h-2V14h-9V7.5h-2ZM6.8 10.4V14h2.4v-3.6Z"></path></svg>premises</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M5.2 1.5h5.6L14.5 5.2v5.6L10.8 14.5H5.2L1.5 10.8V5.2ZM5.4 9.4 6.6 10.6 8 9.2 9.4 10.6 10.6 9.4 9.2 8 10.6 6.6 9.4 5.4 8 6.8 6.6 5.4 5.4 6.6 6.8 8Z"></path></svg>fault</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d=""></path></svg>blank</span>
     </div>
     <!-- icon-gallery:end -->

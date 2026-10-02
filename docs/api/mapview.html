@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Map view API Reference — Lattice Grid 1.84.0</title>
+<title>Map view API Reference — Lattice Grid 1.85.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -388,6 +388,7 @@
       <div class="rail__group">
         <span class="rail__label">On this page</span>
         <a href="#mapview">The map view</a>
+        <a class="rail__sub-link" href="#mapview-network">The network map: routes from rows, dashes, icons</a>
         <a href="#ref-mapview-reference">Type reference</a>
         <a class="rail__sub-link" href="#type-MapView">MapView</a>
       </div>
@@ -448,15 +449,116 @@ const map = createMapView(grid, {
   color: { field: 'status', map: { live: '#2e7d32', build: '#f9a825', planned: '#90a4ae' } },
   buildings: true,
 });</code></pre>
-    <p><strong>deck.gl and MapLibre stay yours.</strong> The module imports neither and ships no dependency. Load MapLibre GL and deck.gl on the page (their UMD builds set the globals <code>maplibregl</code> and <code>deck</code>), or pass them as <code>libs: { deck, maplibregl }</code>. The map is a MapLibre map, and the rows are deck.gl layers on it through deck's <code>MapboxOverlay</code> in interleaved mode, so deck's columns and MapLibre's 3D buildings share one depth buffer and hide each other correctly. If either library is missing, <code>mapview:libs</code> warns, naming which one, and the map's box is left empty.</p>
-    <p><strong>Where the rows are.</strong> <code>geometry</code> is <code>{ lat, lng }</code> (or <code>lon</code>), <code>{ geojson }</code> &mdash; a GeoJSON <code>Geometry</code> or <code>Feature</code>, as an object or its JSON text, or WKT or WKB &mdash; or <code>{ path }</code>, an array of <code>[lng, lat]</code> pairs or its JSON text. A row whose place is blank or cannot be read is skipped and counted: <code>provenance()</code> returns <code>{ drawn, skipped, matched, layers }</code>, the rows drawn, the rows with no usable place, the rows the grid matched, and the count drawn by each layer kind.</p>
+    <p><strong>deck.gl and MapLibre stay yours.</strong> The module imports neither and ships no dependency. Load MapLibre GL and deck.gl on the page (their UMD builds set the globals <code>maplibregl</code> and <code>deck</code>), or pass them as <code>libs: { deck, maplibregl }</code>. The map is a MapLibre map, and the rows are deck.gl layers on it through deck's <code>MapboxOverlay</code> in interleaved mode, so deck's routes, areas, columns and points and MapLibre's 3D buildings share one depth buffer: a building in front of a route hides it at pitch 45 to 60. (deck.gl 9.1 reads the camera's depth planes under the names Mapbox GL uses, <code>transform._nearZ</code> and <code>_farZ</code>, and MapLibre GL 4.x names them <code>nearZ</code> and <code>farZ</code>; the module aliases them so the two agree. Looking straight down, at pitch 0, a roof is nearer the camera than anything under it, so a route under a building's footprint is hidden by its roof there too.) If either library is missing, <code>mapview:libs</code> warns, naming which one, and the map's box is left empty.</p>
+    <p><strong>Where the rows are.</strong> <code>geometry</code> is <code>{ lat, lng }</code> (or <code>lon</code>), <code>{ geojson }</code> &mdash; a GeoJSON <code>Geometry</code> or <code>Feature</code>, as an object or its JSON text, or WKT or WKB &mdash; or <code>{ path }</code>, an array of <code>[lng, lat]</code> pairs or its JSON text &mdash; or, for a network, <code>{ lat, lng, route: { by, order } }</code> or <code>{ from: { lat, lng }, to: { lat, lng } }</code> (see <a href="#mapview-network">The network map</a>). A row whose place is blank or cannot be read is skipped and counted: <code>provenance()</code> returns <code>{ drawn, skipped, matched, layers }</code>, the rows drawn, the rows with no usable place, the rows the grid matched, and the count drawn by each layer kind.</p>
     <p><strong>How they look.</strong> A row is drawn by the layer for its geometry: a point is a marker (deck's <code>ScatterplotLayer</code>), or an extruded column (<code>ColumnLayer</code>) when an <code>elevation</code> is given; a polygon is an area (<code>GeoJsonLayer</code>), extruded when an <code>elevation</code> is given; a line is a route (<code>PathLayer</code>). <code>layer</code> picks the kind for the rows of its geometry, and <code>setLayer()</code> switches it live. <code>elevation</code> is a numeric column or one number, in metres, multiplied by <code>elevationScale</code>. <code>color</code> is one colour; <code>{ field, map }</code>, a colour per value (any value not in <code>map</code> takes the next colour of the charts palette); or <code>{ field, scale: 'ramp', domain, colours, rampScale }</code>, a number placed along a ramp by the charts module's own scale code, exactly as a heat map places it. Unset, rows take the grid theme's accent, and selected rows its focus colour. <code>radius</code> (a marker's, in metres) and <code>width</code> (a route's, in pixels) are a column or a number; a <code>column</code> layer draws every column at one radius, so only a number applies to it. <code>flow: true</code> (or <code>{ speed, trail }</code>) animates a flow along the routes; it stops while the page is hidden and is drawn still for a reader who prefers reduced motion.</p>
     <p><strong>Which rows: the grid's.</strong> The map draws the rows the grid shows after its filters and quick search &mdash; and, when it is grouped, every leaf row of the grouped result, whether or not its group is collapsed, because collapsing a group hides its rows from the table, not from the data. It is the same row path as <a href="deckgl.html#deckgl">the deck.gl adapter</a>: a paged pushdown grid's map draws the rows inside the map's view, asked of the engine, up to <code>viewportCap</code>. A burst of grid changes costs one redraw, on the next animation frame.</p>
     <p><strong>Selection, both ways.</strong> A grid selection draws the selected rows in the highlight colour and flies the map to them: to the row, or to the box of several. <code>flyTo(key)</code> or <code>flyTo([keys])</code> does the same from code. A click on a feature selects its row in the grid (<code>selection: 'single'</code> or <code>'multiple'</code>; a grid that cannot take it warns <code>mapview:selection</code>), opens any collapsed group the row sits in, and scrolls it into view. Hovering a feature shows the <code>tooltip</code> columns (default the first three visible columns that do not hold the place; <code>false</code> for none), each as the grid's own display text for that cell, so a formatted value reads identically on the map and in the grid.</p>
     <p><strong>The basemap and buildings.</strong> <code>basemap</code> is a MapLibre style URL or style object; the default is OpenFreeMap's keyless positron, or its dark style for a dark theme. <code>buildings: true</code> adds 3D buildings from the style's OpenMapTiles <code>building</code> layer (<code>render_height</code>, <code>render_min_height</code>), coloured for the light or dark theme; a style with no vector source warns <code>mapview:buildings</code>. The first view fits the drawn rows; <code>view: { center, zoom, pitch, bearing }</code> sets it instead. <code>theme</code> is <code>light</code> or <code>dark</code>, by default the grid's own.</p>
     <p><strong>Where the map goes.</strong> <code>mode: 'container'</code> (the default when <code>container</code>, an element or a selector, is given) fills that element. <code>'split'</code> (the default without one) puts the map beside the grid in the grid's own host, with a divider a pointer drags and the arrow keys move. <code>'tab'</code> shows the grid and the map as two tabs. <code>'popout'</code> opens the map in a separate browser window that runs on this page's libraries; when the browser blocks the popup, it opens in a floating panel instead, moved by its title bar, resized from its corner and closed by its button. <code>destroy()</code> removes the map, its layers and every listener, and puts the grid back where it was.</p>
-    <p><strong>Events.</strong> <code>on(name, fn)</code> returns the unsubscribe and <code>off(name, fn)</code> removes a listener: <code>feature:click</code> (<code>{ key, row }</code>), <code>feature:hover</code> (<code>{ key, row, lines }</code>), <code>draw</code> (<code>{ provenance }</code>), <code>load</code> (the basemap style loaded) and <code>close</code> (the reader closed a popped-out map). <code>update(options)</code> changes options and redraws now; <code>layers()</code> returns the deck.gl layers last handed to the map.</p>
+    <p><strong>Events.</strong> <code>on(name, fn)</code> returns the unsubscribe and <code>off(name, fn)</code> removes a listener: <code>feature:click</code> (<code>{ key, row }</code>, and for a route <code>route</code> and <code>keys</code>), <code>feature:hover</code> (<code>{ key, row, lines }</code>), <code>draw</code> (<code>{ provenance }</code>), <code>load</code> (the basemap style loaded) and <code>close</code> (the reader closed a popped-out map). <code>update(options)</code> changes options and redraws now; <code>layers()</code> returns the deck.gl layers last handed to the map.</p>
     <p>The <code>mapView</code> key in a grid's own configuration is not offered: the grid has no means for a module to add a configuration key, so the map view is made by <code>createMapView(grid, options)</code> once the grid exists.</p>
+    <h3 id="mapview-network">The network map: routes from rows, dashes, icons</h3>
+    <p>A fibre, pipe or power network is usually not one row per line: it is a table of points, each row one vertex of a route, plus the cabinets and joints that sit on it. The map view draws that table as it is. The recipe below puts the routes, their vertex rows and the cabinet points in one view: routes assembled from the vertex rows, coloured and dashed by their status, cabinets as icons on badges, all readable in the 3D presentation among extruded buildings.</p>
+    <pre><code>createMapView(grid, {
+  container: '#map',
+  geometry: { lat: 'lat', lng: 'lng', route: { by: 'routeId', order: 'seq' } },
+  color: { field: 'status', map: { live: '#2e9d4f', planned: '#1f6fd1', backbone: '#d62828', proposed: '#d62828' } },
+  dash: { field: 'status', map: { proposed: 'dashed', planned: 'dotted', live: 'solid' } },
+  width: 4,
+  icon: { field: 'kind', map: { cabinet: 'cabinet', splice: 'splice', exchange: 'exchange' }, size: 26, badge: 'diamond' },
+  legend: true,
+  buildings: true,                                       <span class="cmt">// the default 3D presentation: pitched, with extruded buildings</span>
+});</code></pre>
+    <p><strong>Routes from rows.</strong> With <code>route: { by, order }</code>, every row that has a place and a non-blank <code>by</code> value is one vertex of the route that value names. Each route is one line through its vertices in <code>order</code> (numbers as numbers, anything else as text, a blank last; without <code>order</code>, the grid's row order). A route whose rows are given in any order is still drawn in sequence. The rule that tells a vertex from a point is the route id: <strong>a row belongs to a route only when it has a route id</strong>. A row with a blank route id (null or empty) is not a vertex; it stays a point &mdash; a cabinet, a splice &mdash; and is drawn as one, so vertex rows and cabinet rows share a grid. A vertex row is never also drawn as a point.</p>
+    <p>A route's colour, width, dash and elevation are route-level: the value in the route's <em>first</em> vertex row (in sequence order), or, with <code>route: { aggregate }</code>, the <code>last</code>, <code>min</code> or <code>max</code> across its rows. A route with fewer than two usable vertices (a vertex row with no usable place does not count) is skipped, and counted: <code>provenance()</code> adds <code>routes</code>, <code>routesSkipped</code> and <code>routesRebuilt</code>, and the skipped route's rows are in <code>skipped</code>, so <code>drawn + skipped</code> is every matched row. The segment form, <code>{ from: { lat, lng }, to: { lat, lng } }</code>, draws each row as one line from its <code>from</code> to its <code>to</code>, with no route id; a row missing an end is skipped.</p>
+    <p><strong>Live.</strong> A filter, an edit, an add or a delete of a vertex row assembles again only that route: every other route is reused as it was, and <code>provenance().routesRebuilt</code> says how many were assembled on the last draw. Clicking a route selects every one of its rows in the grid (the grid needs <code>selection: 'multiple'</code> to hold them all), and selecting any of a route's rows draws the route in the highlight colour. Hovering a route shows its route id first, then the tooltip columns of its first row, each in the grid's own formatted text.</p>
+    <p><strong>Dashed lines.</strong> <code>dash</code> is <code>'dashed'</code> or <code>'dotted'</code> for every line, <code>[dash, gap]</code> in pixels, or <code>{ field, map }</code> naming a pattern per value (a value not named is solid). The pattern is in pixels and keeps its length on screen as the camera zooms and pitches. Dashes are drawn by deck.gl's <code>PathStyleExtension</code>, which the page supplies with deck (the standalone <code>deck.gl</code> bundle exports it); without it <code>mapview:dash</code> warns and the lines are solid. <code>legend: true</code> draws the legend in the map's box. When the colour rule and the dash rule key on the <strong>same field</strong> (<code>color: { field: 'status', map }</code> and <code>dash: { field: 'status', map: { proposed: 'dashed' } }</code>) the legend has <strong>one entry per value</strong>, its sample a short line in that value's colour and dash pattern (a solid value is a solid line); a value drawn only as points is a square swatch. When they key on <strong>different fields</strong> the legend keeps two sections, each titled by its field's column header. <code>legend()</code> returns <code>{ sections, colours, dashes }</code>: <code>sections</code> is what is drawn (<code>{ field, title, merged, entries: [{ label, colour, dash, line }] }</code>), <code>colours</code> and <code>dashes</code> are the two rules' own entries (BACKLOG-0001681).</p>
+    <p><strong>Icon markers.</strong> <code>icon: { field, map, default, size, anchor, badge }</code> draws point rows with deck's <code>IconLayer</code> instead of circles. A point's icon is <code>map[value]</code>, else <code>default</code>; the glyphs are the grid's icon registry &mdash; the same one a network chart's node icons use &mdash; which now includes <code>cabinet</code>, <code>splice</code>, <code>exchange</code>, <code>pole</code>, <code>chamber</code>, <code>premises</code> and <code>fault</code>, or an SVG path, an icon definition, or an image URL. Registry glyphs are tinted by the <code>color</code> mapping, or, with <code>badge: 'circle' | 'square' | 'diamond'</code>, drawn white on a badge of that colour with a white ring (the red diamonds of a network map); the badge is what picks, hovers and selects, as a point does. Every icon is packed once into one atlas at 64 pixels a glyph, sharp at 2x, and repacked only when a point asks for an icon the atlas does not hold. An unknown name warns <code>mapview:icon:&lt;name&gt;</code> and its point is a circle.</p>
+    <p><strong>Readable in 3D.</strong> Routes are drawn in pixels, between 2 and 30 pixels wide whatever the <code>width</code>, so they stay clear at street level, and 2 m above the ground (points 4 m, when routes are in view) so a route does not z-fight the basemap at pitch 45 to 60. Icons are billboards that always face the camera and keep their pixel size; they are not depth-tested, so an icon is drawn whole over the ground, the routes and the extruded buildings &mdash; a cabinet inside a building's footprint is never hidden by it. The draw order is polygons, then routes (and their flow), then columns, then points, then icons: points over lines over areas.</p>
+    <div class="example">
+      <p class="example__label">A network map: routes assembled from vertex rows in sequence order, dashed by status, a route selecting all its rows, and an edit assembling one route again</p>
+      <pre data-run="js" data-expect="2 routes | 51.88,51.882,51.884 | proposed 10/6 + live solid | cabinet | a1,a2,a3 | 1" data-covers="config:MapViewOptions.geometry config:MapViewOptions.dash config:MapViewOptions.icon config:MapViewOptions.legend method:mapview.legend method:mapview.layers method:mapview.provenance"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createMapView } = await import('../packages/modules/mapview/index.js');
+
+const dom = createTestDom();
+const el = dom.document.createElement('div');
+dom.root.appendChild(el);
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  selection: 'multiple',
+  columns: [{ field: 'id' }, { field: 'routeId' }, { field: 'seq', type: 'number' }, { field: 'status' }, { field: 'kind' },
+    { field: 'lat', type: 'number' }, { field: 'lng', type: 'number' }],
+  rows: [
+    // Two routes, their vertex rows out of order, and a cabinet that is on no route.
+    { id: 'a3', routeId: 'R1', seq: 3, status: 'live', lat: 51.884, lng: 0.904 },
+    { id: 'a1', routeId: 'R1', seq: 1, status: 'live', lat: 51.880, lng: 0.900 },
+    { id: 'a2', routeId: 'R1', seq: 2, status: 'live', lat: 51.882, lng: 0.901 },
+    { id: 'b2', routeId: 'R2', seq: 2, status: 'proposed', lat: 51.889, lng: 0.909 },
+    { id: 'b1', routeId: 'R2', seq: 1, status: 'proposed', lat: 51.885, lng: 0.905 },
+    { id: 'c1', routeId: null, seq: null, status: 'live', kind: 'cabinet', lat: 51.882, lng: 0.901 },
+  ],
+});
+
+// The icon atlas is drawn on a canvas, which a page has. This stand-in canvas just accepts the drawing.
+const make = dom.document.createElement.bind(dom.document);
+dom.document.createElement = (tag) =&gt; {
+  const el = make(tag);
+  if (tag === 'canvas') {
+    el.getContext = () =&gt; new Proxy({}, { get: () =&gt; () =&gt; {} });
+    el.toDataURL = () =&gt; 'data:image/png;base64,atlas';
+  }
+  return el;
+};
+globalThis.Path2D ??= class { constructor(d) { this.d = d; } };
+
+// Stand-ins for the page's deck.gl and MapLibre, as above; PathStyleExtension is
+// what draws the dashes, and the page's deck supplies it.
+const layer = (kind) =&gt; class { constructor(props) { this.props = props; this.kind = kind; } };
+const deck = {
+  ScatterplotLayer: layer('point'), ColumnLayer: layer('column'), GeoJsonLayer: layer('polygon'),
+  PathLayer: layer('path'), TripsLayer: layer('flow'), IconLayer: layer('icon'), PathStyleExtension: layer('dash'),
+  MapboxOverlay: class { constructor(p) { this.props = p; } setProps(p) { Object.assign(this.props, p); } },
+};
+const maplibregl = {
+  Map: class {
+    on() {} off() {} addControl() {} removeControl() {} remove() {} resize() {} setStyle() {}
+    getZoom() { return 12; } getBounds() { return null; } getStyle() { return { sources: {} }; }
+    getLayer() {} addLayer() {} jumpTo() {} fitBounds() {} flyTo() {}
+  },
+};
+
+const map = createMapView(grid, {
+  container: el,
+  libs: { deck, maplibregl },
+  geometry: { lat: 'lat', lng: 'lng', route: { by: 'routeId', order: 'seq' } },
+  color: { field: 'status', map: { live: '#2e9d4f', proposed: '#d62828' } },
+  dash: { field: 'status', map: { proposed: 'dashed', live: 'solid' } },
+  width: 4,
+  icon: { field: 'kind', map: { cabinet: 'cabinet' }, size: 26, badge: 'diamond' },
+  legend: true,
+});
+const routes = map.layers().find((l) =&gt; l.kind === 'path');
+const r1 = routes.props.data.find((d) =&gt; d.item.route === 'R1');
+const seen = [
+  `${map.provenance().routes} routes`,
+  routes.props.getPath(r1).map((p) =&gt; p[1]).join(','),            // in seq order, not row order
+  map.legend().dashes.map((d) =&gt; `${d.label} ${d.dash ? d.dash.join('/') : 'solid'}`).join(' + '),       // dash and gap, in pixels
+  map.layers().find((l) =&gt; l.kind === 'icon').props.data.map((d) =&gt; d.icon).join(),                 // the cabinet is an icon
+];
+
+map.overlay.props.onClick({ object: r1 });                         // a route selects all its rows
+seen.push(grid.selection.keys().sort().join());
+
+grid.rows.apply({ update: [{ id: 'b1', lat: 51.8855 }] });         // an edit assembles one route again
+flushFrames();
+seen.push(map.provenance().routesRebuilt);
+
+map.destroy();
+return seen.join(' | ');</code></pre>
+    </div>
+
     <div class="example">
       <p class="example__label">Rows to the map, a filter followed, a selection flown to, the grid's own text on hover, a click selecting, a layer switched, and destroy</p>
       <pre data-run="js" data-expect="30 column fit | 10 | fly 0.89,51.89 | live $950 | p8 | point | fit | jump 14 10 | 0" data-covers="export:createMapView config:MapViewOptions.geometry config:MapViewOptions.container config:MapViewOptions.mode config:MapViewOptions.layer config:MapViewOptions.elevation config:MapViewOptions.elevationScale config:MapViewOptions.color config:MapViewOptions.radius config:MapViewOptions.width config:MapViewOptions.flow config:MapViewOptions.buildings config:MapViewOptions.basemap config:MapViewOptions.view config:MapViewOptions.theme config:MapViewOptions.tooltip config:MapViewOptions.libs config:MapViewOptions.viewportCap method:mapview.update method:mapview.flyTo method:mapview.setLayer method:mapview.provenance method:mapview.layers method:mapview.on method:mapview.off method:mapview.destroy"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
@@ -552,6 +654,18 @@ return seen.join(' | ');</code></pre>
     <h2 id="ref-mapview-reference">Type reference</h2>
     <p class="section-note">Generated from the type declarations, so it always matches the release. Each surface lists its properties, its methods and the events it raises as three tables; an option or value type lists its members once.</p>
     <h3 id="ref-module-mapview">The map view</h3>
+    <h4 id="type-MapViewRoute">MapViewRoute</h4>
+    <p class="section-note">Routes assembled from ordinary rows (BACKLOG-0001677): with `geometry: { lat, lng, route }` every row that has a place AND a non-blank value in the `by` column is one vertex of the route that value names, and each route is drawn as one line through its vertices in `order` (numbers as numbers, anything else as text; a blank last; rows with equal values in the order the grid shows them; no `order`: the grid's order). A row with a blank `by` is not a vertex: it stays a point (a cabinet, a splice) and is drawn as one. A vertex row is never also drawn as a point. A route's colour, width, dash and elevation are route-level: read from the route's first vertex row (in sequence order), or from `aggregate` across its rows.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">by</td><td class="type">string</td><td class="desc">The column holding each vertex row's route id.</td></tr>
+          <tr><td class="name">order</td><td class="type">string</td><td class="desc">The column holding each vertex's position in its route. <small>(optional)</small></td></tr>
+          <tr><td class="name">aggregate</td><td class="type">'first' | 'last' | 'min' | 'max'</td><td class="desc">How a route-level style column is read across the route's rows: `first` (default), `last`, or `min` / `max` (numbers as numbers, anything else as text). An unknown value warns `mapview:route`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-MapViewOptions">MapViewOptions</h4>
     <p class="section-note">What {@link createMapView} takes.</p>
     <div class="table-wrap">
@@ -566,13 +680,16 @@ return seen.join(' | ');</code></pre>
           <tr><td class="name">elevationScale</td><td class="type">number</td><td class="desc">A multiplier on `elevation`. Default 1. <small>(optional)</small></td></tr>
           <tr><td class="name">color</td><td class="type"><a href="types.html#type-MapViewColour">MapViewColour</a></td><td class="desc">How rows are coloured. Default the grid theme's accent. <small>(optional)</small></td></tr>
           <tr><td class="name">radius</td><td class="type">string | number</td><td class="desc">A marker's radius in metres: a numeric column or one number (default 30). A `column` layer draws every column at one radius, so only a number applies to it. <small>(optional)</small></td></tr>
-          <tr><td class="name">width</td><td class="type">string | number</td><td class="desc">A route's width in pixels: a numeric column or one number. Default 3. <small>(optional)</small></td></tr>
+          <tr><td class="name">width</td><td class="type">string | number</td><td class="desc">A route's width in pixels: a numeric column or one number. Default 3. A route is always drawn between 2 and 30 pixels wide whatever its width, wide enough to read at street level among extruded buildings, and drawn 2 m above the ground (4 m for points when routes are in view) so it does not z-fight the basemap at pitch. <small>(optional)</small></td></tr>
+          <tr><td class="name">dash</td><td class="type"><a href="types.html#type-MapViewDash">MapViewDash</a></td><td class="desc">Dash lines by value or all alike; see {@link MapViewDash}. The legend shows each pattern the map names. <small>(optional)</small></td></tr>
+          <tr><td class="name">icon</td><td class="type"><a href="types.html#type-MapViewIcon">MapViewIcon</a></td><td class="desc">Icon markers for point rows; see {@link MapViewIcon}. <small>(optional)</small></td></tr>
+          <tr><td class="name">legend</td><td class="type">boolean</td><td class="desc">Show a legend in the map's box: a swatch for each colour the `color` rule maps and a sample line for each pattern `dash` names. Default off; `legend()` returns the same entries as data. <small>(optional)</small></td></tr>
           <tr><td class="name">flow</td><td class="type"><a href="types.html#type-MapViewFlow">MapViewFlow</a></td><td class="desc">Animate a flow along the routes. Stops while the page is hidden, and is drawn still when the reader prefers reduced motion. <small>(optional)</small></td></tr>
           <tr><td class="name">buildings</td><td class="type">boolean</td><td class="desc">Add 3D buildings from the basemap's OpenMapTiles `building` layer (`render_height`, `render_min_height`), coloured for the light or dark theme. Off by default. A style with no vector source warns `mapview:buildings`. <small>(optional)</small></td></tr>
           <tr><td class="name">basemap</td><td class="type">string | Record&lt;string, unknown&gt;</td><td class="desc">A MapLibre style URL or style object. Default OpenFreeMap's keyless positron, or its dark style for a dark theme. <small>(optional)</small></td></tr>
           <tr><td class="name">view</td><td class="type"><a href="types.html#type-MapViewCamera">MapViewCamera</a></td><td class="desc">The initial camera. Default: fitted to the drawn rows. <small>(optional)</small></td></tr>
           <tr><td class="name">theme</td><td class="type">'light' | 'dark' | 'auto'</td><td class="desc">`light` or `dark`; default the grid's own (`data-theme` above it, `auto` read from the reader's colour-scheme preference). <small>(optional)</small></td></tr>
-          <tr><td class="name">tooltip</td><td class="type">string[] | false</td><td class="desc">The columns the hover tooltip shows, each as the grid's own formatted cell text. Default the grid's first three visible columns that do not hold the place; `false` for no tooltip. <small>(optional)</small></td></tr>
+          <tr><td class="name">tooltip</td><td class="type">string[] | false</td><td class="desc">The columns the hover tooltip shows, each as the grid's own formatted cell text. Default the grid's first three visible columns that do not hold the place; `false` for no tooltip. A route's tooltip leads with its route id and shows its first row's cells. <small>(optional)</small></td></tr>
           <tr><td class="name">libs</td><td class="type">{ deck?: unknown; maplibregl?: unknown }</td><td class="desc">The page's deck.gl and MapLibre GL. Default the globals `deck` and `maplibregl` their UMD builds set. Either missing: the map is left empty and `mapview:libs` warns, naming which. <small>(optional)</small></td></tr>
           <tr><td class="name">viewportCap</td><td class="type">number</td><td class="desc">On a paged pushdown grid, the most rows fetched for the map's view; as {@link ChartSpec.viewportCap}, default 20,000. <small>(optional)</small></td></tr>
         </tbody>
@@ -584,10 +701,13 @@ return seen.join(' | ');</code></pre>
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">drawn</td><td class="type">number</td><td class="desc">The rows drawn.</td></tr>
-          <tr><td class="name">skipped</td><td class="type">number</td><td class="desc">The rows the grid shows that have no usable place, so were not drawn.</td></tr>
+          <tr><td class="name">drawn</td><td class="type">number</td><td class="desc">The rows drawn (every vertex row of a drawn route counts).</td></tr>
+          <tr><td class="name">skipped</td><td class="type">number</td><td class="desc">The rows the grid shows that have no usable place, so were not drawn; with `route`, also the vertex rows of a route skipped for having fewer than two usable vertices, so `drawn + skipped` is every matched row.</td></tr>
           <tr><td class="name">matched</td><td class="type">number</td><td class="desc">The rows the grid matched.</td></tr>
-          <tr><td class="name">layers</td><td class="type">Partial&lt;Record&lt;<a href="types.html#type-MapViewLayer">MapViewLayer</a>, number&gt;&gt;</td><td class="desc">The rows drawn by each layer kind.</td></tr>
+          <tr><td class="name">layers</td><td class="type">Partial&lt;Record&lt;<a href="types.html#type-MapViewLayer">MapViewLayer</a> | 'icon', number&gt;&gt;</td><td class="desc">The items drawn by each layer kind (a route is one path); `icon` counts the points drawn as icons, `point` the circles.</td></tr>
+          <tr><td class="name">routes</td><td class="type">number</td><td class="desc">With `geometry.route`: the routes drawn. <small>(optional)</small></td></tr>
+          <tr><td class="name">routesSkipped</td><td class="type">number</td><td class="desc">With `geometry.route`: the routes skipped for having fewer than two usable vertices. <small>(optional)</small></td></tr>
+          <tr><td class="name">routesRebuilt</td><td class="type">number</td><td class="desc">With `geometry.route`: the routes assembled from their rows on the last draw. A route none of whose vertex rows (or route-level style columns) changed is reused, so an edit, add, delete or filter of one vertex row assembles one route, not all of them. <small>(optional)</small></td></tr>
           <tr><td class="name">computed</td><td class="type">'client' | 'engine'</td><td class="desc">`client` when the grid held the rows, `engine` when a paged source's engine answered for the view.</td></tr>
         </tbody>
       </table>
@@ -598,7 +718,7 @@ return seen.join(' | ');</code></pre>
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">feature:click</td><td class="type">{ key: string | number; row: Record&lt;string, unknown&gt; | null }</td><td class="desc">A feature was clicked; its row is now selected in the grid.</td></tr>
+          <tr><td class="name">feature:click</td><td class="type">{ key: string | number; row: Record&lt;string, unknown&gt; | null; route?: string; keys?: Array&lt;string | number&gt; }</td><td class="desc">A feature was clicked; its row is now selected in the grid. A route selects every one of its rows: `key` is its first row's key, `route` its id and `keys` all its rows' keys.</td></tr>
           <tr><td class="name">feature:hover</td><td class="type">{ key: string | number | null; row: Record&lt;string, unknown&gt; | null; lines: Array&lt;{ column: string; title: string; text: string }&gt; }</td><td class="desc">The pointer moved onto a feature (`key` null when it left one); `lines` are the tooltip's.</td></tr>
           <tr><td class="name">draw</td><td class="type">{ provenance: <a href="#type-MapViewProvenance">MapViewProvenance</a> }</td><td class="desc">The layers were redrawn.</td></tr>
           <tr><td class="name">load</td><td class="type">{ map: unknown }</td><td class="desc">The basemap style loaded (at first, and after a basemap or theme change).</td></tr>
@@ -628,7 +748,8 @@ return seen.join(' | ');</code></pre>
           <tr><td class="name">flyTo</td><td class="type">(keys: string | number | Array&lt;string | number&gt;): void</td><td class="desc"><code>keys: string | number | Array&lt;string | number&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Fly to one row, or fit the map to several.</td></tr>
           <tr><td class="name">setLayer</td><td class="type">(layer: <a href="types.html#type-MapViewLayer">MapViewLayer</a>): void</td><td class="desc"><code>layer: <a href="types.html#type-MapViewLayer">MapViewLayer</a></code></td><td class="type"><code>void</code></td><td class="desc">Draw the rows of one geometry with this layer kind.</td></tr>
           <tr><td class="name">provenance</td><td class="type">(): <a href="#type-MapViewProvenance">MapViewProvenance</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-MapViewProvenance">MapViewProvenance</a></code></td><td class="desc">What the map drew last: rows drawn, skipped and matched, and per layer.</td></tr>
-          <tr><td class="name">layers</td><td class="type">(): unknown[]</td><td class="desc">&mdash;</td><td class="type"><code>unknown[]</code></td><td class="desc">The deck.gl layers last handed to the map.</td></tr>
+          <tr><td class="name">layers</td><td class="type">(): unknown[]</td><td class="desc">&mdash;</td><td class="type"><code>unknown[]</code></td><td class="desc">The deck.gl layers last handed to the map, in draw order: areas, routes, columns, points, icons.</td></tr>
+          <tr><td class="name">legend</td><td class="type">(): { colours: Array&lt;{ label: string; colour: number[] }&gt;; dashes: Array&lt;{ label: string; dash: [number, number] | null }&gt;; sections: Array&lt;{ field: string | null; title: string; merged: boolean; entries: Array&lt;{ label: string; colour: number[] | null; dash: [number, number] | null; line: boolean }&gt;; }&gt;; }</td><td class="desc">&mdash;</td><td class="type"><code>{ colours: Array&lt;{ label: string; colour: number[] }&gt;; dashes: Array&lt;{ label: string; dash: [number, number] | null }&gt;; sections: Array&lt;{ field: string | null; title: string; merged: boolean; entries: Array&lt;{ label: string; colour: number[] | null; dash: [number, number] | null; line: boolean }&gt;; }&gt;; }</code></td><td class="desc">What the legend shows, as data. `sections` is what is drawn: one merged section when the colour and dash rules key on the same field (an entry per value, `line` true for a value drawn as a line, its sample in that value's colour and `dash`; false for a point-only value, a square), else one section per rule titled by its field's header (BACKLOG-0001681). `colours` and `dashes` are the two rules' own entries (`null` dash is solid).</td></tr>
           <tr><td class="name">on</td><td class="type">(name: <a href="types.html#type-MapViewEventName">MapViewEventName</a>, fn: (event: <a href="#type-MapViewEventPayloads">MapViewEventPayloads</a>[<a href="types.html#type-MapViewEventName">MapViewEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>name: <a href="types.html#type-MapViewEventName">MapViewEventName</a></code><br><code>fn: (event: <a href="#type-MapViewEventPayloads">MapViewEventPayloads</a>[<a href="types.html#type-MapViewEventName">MapViewEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Listen for an event; returns the unsubscribe. An unknown name warns `mapview:event:&lt;name&gt;`.</td></tr>
           <tr><td class="name">off</td><td class="type">(name: <a href="types.html#type-MapViewEventName">MapViewEventName</a>, fn: (event: <a href="#type-MapViewEventPayloads">MapViewEventPayloads</a>[<a href="types.html#type-MapViewEventName">MapViewEventName</a>]) =&gt; void): void</td><td class="desc"><code>name: <a href="types.html#type-MapViewEventName">MapViewEventName</a></code><br><code>fn: (event: <a href="#type-MapViewEventPayloads">MapViewEventPayloads</a>[<a href="types.html#type-MapViewEventName">MapViewEventName</a>]) =&gt; void</code></td><td class="type"><code>void</code></td><td class="desc">Stop listening for an event.</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Remove the map, its layers and every listener, and put the grid back where it was.</td></tr>
@@ -640,7 +761,7 @@ return seen.join(' | ');</code></pre>
       <table>
         <thead><tr><th>Event</th><th>When</th><th>Payload</th><th>Cancellable</th></tr></thead>
         <tbody>
-          <tr><td class="name">feature:click</td><td class="desc"></td><td class="type">{ key: string | number; row: Record&lt;string, unknown&gt; | null }</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">feature:click</td><td class="desc"></td><td class="type">{ key: string | number; row: Record&lt;string, unknown&gt; | null; route?: string; keys?: Array&lt;string | number&gt; }</td><td class="desc">&mdash;</td></tr>
           <tr><td class="name">feature:hover</td><td class="desc"></td><td class="type">{ key: string | number | null; row: Record&lt;string, unknown&gt; | null; lines: Array&lt;{ column: string; title: string; text: string }&gt; }</td><td class="desc">&mdash;</td></tr>
           <tr><td class="name">draw</td><td class="desc"></td><td class="type">{ provenance: <a href="#type-MapViewProvenance">MapViewProvenance</a> }</td><td class="desc">no</td></tr>
           <tr><td class="name">load</td><td class="desc"></td><td class="type">{ map: unknown }</td><td class="desc">&mdash;</td></tr>

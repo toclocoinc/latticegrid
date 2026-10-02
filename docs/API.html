@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.84.0</p>
+    <p class="rail__sub">API reference · v1.85.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -568,7 +568,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.84.0</span>
+      <span class="chip">Version 1.85.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3147,7 +3147,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.84.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.85.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -3233,6 +3233,10 @@ grid.overlay.hide();</code></pre>
         </tbody>
       </table>
     </div>
+
+    <h3 id="columns-panel-bands">Header bands in the Columns tool panel</h3>
+    <p>The <code>columns</code> tool panel lists every header band (BACKLOG-0001679) in header order, with its columns nested under it and nested bands nested again, so a band made in the header, by dragging onto a heading's centre third or from the column menu's <strong>Group with adjacent column</strong>, can be seen and undone from the panel too. Each band row has a collapse toggle, a tri-state checkbox that shows or hides every column in the band (mixed while only some are showing; columns with <code>lockVisible</code> are left alone), and <strong>Rename</strong> and <strong>Dissolve band</strong>, which call <code>grid.columns.renameGroup</code> and <code>grid.columns.dissolveGroup</code> exactly as the column menu does. Dissolving leaves the columns where they are and asks for no confirmation, as the menu does not; Undo restores the band.</p>
+    <p>Drag a column onto a band row, or onto a column of another band, to join it (<code>groupColumns</code> with <code>groupId</code>); drag a banded column onto a column outside the band to take it out (<code>ungroupColumn</code>, one level up). The panel does not form a new band from a drop on a loose column: that gesture belongs to the header. Keyboard: the band row is focusable, <kbd>Enter</kbd> collapses or expands it, <kbd>Delete</kbd> dissolves it, <kbd>&uarr;</kbd>/<kbd>&darr;</kbd> walk the list. The panel repaints on the same events as the rest of the panel, so a band edit from either side shows on the other (a panel the keyboard is inside is left alone until focus leaves, as every panel is); collapsed bands stay collapsed across a repaint. The search box filters inside bands and keeps a band while any of its columns, or its own title, matches. Each band is a <code>role="group"</code> named by its title.</p>
 
     <h2 id="selection">grid.selection</h2>
     <div class="table-wrap">
@@ -3774,7 +3778,7 @@ createDevtools({ grid });          <span class="cmt">// Ctrl+Shift+D collapses i
     <h2 id="facets">grid.facets</h2>
     <p>A distribution chart in each column heading, which is also a filter control. Clicking a bar filters to that bucket; dragging across bars on an ordered column filters to the range. As filters are applied, the other columns' charts recount, so a dataset can be explored by clicking through headings rather than opening a dialog.</p>
     <p><strong>Off by default.</strong> The band roughly doubles the header's height, which is a cost no grid should pay without being asked.</p>
-    <pre><code>facets: { enabled: true }                <span class="cmt">// grid-wide</span>
+    <pre><code>facets: true                                <span class="cmt">// grid-wide (same as { enabled: true })</span>
 
 <span class="cmt">// per column, layered over the grid's settings</span>
 { field: 'price', type: 'number', facet: { strategy: 'quantile', buckets: 16 } }
@@ -7552,7 +7556,7 @@ createStat({
     </p>
 
     <h2 id="chartsmodule">The charts module</h2>
-    <p><code>modules/charts</code> draws thirty-five chart types from the grid's own data. It is optional and imports nothing from the grid (the grid is handed in) so the bundle carries the drawing and none of the grid, and a page that never charts never loads it.</p>
+    <p><code>modules/charts</code> draws forty-two chart types from the grid's own data. It is optional and imports nothing from the grid (the grid is handed in) so the bundle carries the drawing and none of the grid, and a page that never charts never loads it.</p>
     <pre><code>import { createChart } from '@toclocoinc/lattice-grid/modules/charts';
 
 const chart = createChart({
@@ -7590,12 +7594,13 @@ return [p.source, p.pending, p.measures[0].computed, p.reason].join(' | ');</cod
       <table>
         <thead><tr><th>Family</th><th>Types</th><th>Takes</th></tr></thead>
         <tbody>
-          <tr><td class="sig">Cartesian</td><td><code>line</code>, <code>step</code>, <code>area</code>, <code>rangeArea</code>, <code>bar</code>, <code>horizontalBar</code>, <code>waterfall</code>, <code>scatter</code>, <code>bubble</code></td><td><code>x</code>, <code>y</code>, optional <code>series</code></td></tr>
+          <tr><td class="sig">Cartesian</td><td><code>line</code>, <code>step</code>, <code>area</code>, <code>rangeArea</code>, <code>bar</code>, <code>horizontalBar</code>, <code>waterfall</code>, <code>floatingBar</code>, <code>horizontalFloatingBar</code>, <code>scatter</code>, <code>bubble</code></td><td><code>x</code>, <code>y</code>, optional <code>series</code>; a <code>floatingBar</code> takes <code>y</code> as a <code>[lowCol, highCol]</code> pair</td></tr>
+          <tr><td class="sig">Comparison</td><td><code>populationPyramid</code>, <code>bullet</code></td><td>a <code>populationPyramid</code> takes <code>x</code> and <code>y</code> split by a <code>series</code> of two values, or <code>x</code> and two <code>measures</code> (left, right); a <code>bullet</code> takes <code>x</code>, <code>y</code>, optional <code>target</code> and <code>ranges</code></td></tr>
           <tr><td class="sig">Two axes</td><td><code>combo</code>, <code>pareto</code></td><td><code>x</code>, <code>measures</code></td></tr>
           <tr><td class="sig">Distribution</td><td><code>histogram</code>, <code>boxplot</code></td><td><code>y</code> alone</td></tr>
           <tr><td class="sig">Matrix</td><td><code>heatmap</code></td><td><code>x</code>, <code>y</code>, <code>series</code></td></tr>
           <tr><td class="sig">Part to whole</td><td><code>pie</code>, <code>donut</code>, <code>sunburst</code>, <code>treemap</code></td><td><code>x</code>, <code>y</code>; or the grid's grouping, see below</td></tr>
-          <tr><td class="sig">Specialist</td><td><code>radar</code>, <code>gauge</code>, <code>funnel</code>, <code>candlestick</code></td><td>varies; candlestick takes four <code>measures</code> in open, high, low, close order</td></tr>
+          <tr><td class="sig">Specialist</td><td><code>radar</code>, <code>gauge</code>, <code>funnel</code>, <code>candlestick</code>, <code>ohlc</code></td><td>varies; candlestick and ohlc take four <code>measures</code> in open, high, low, close order</td></tr>
           <tr><td class="sig">Geographic</td><td><code>geomap</code></td><td><code>x</code> as an ISO code, <code>y</code> as the value</td></tr>
           <tr><td class="sig">Flow</td><td><code>sankey</code>, <code>chord</code>, <code>network</code></td><td><code>source</code>, <code>target</code>, <code>y</code>; a <code>network</code> also takes <code>nodes</code> &mdash; see <a href="#network-map">Network diagrams</a></td></tr>
           <tr><td class="sig">Over time</td><td><code>stream</code>, <code>marimekko</code>, <code>violin</code>, <code>gantt</code></td><td>varies; gantt takes <code>label</code>, <code>start</code>, <code>end</code></td></tr>
@@ -7635,8 +7640,14 @@ return [p.source, p.pending, p.measures[0].computed, p.reason].join(' | ');</cod
           <tr><td class="name">fit</td><td class="type">boolean | 'line'</td><td class="desc">A least-squares line through a scatter or bubble chart, one per series. <code>true</code> draws it with its R&sup2;; <code>'line'</code> draws the line alone. Only where the x axis is numeric: on a band scale a slope would be a slope through the order the categories happened to be listed in.</td></tr>
           <tr><td class="name">trend</td><td class="type">boolean | string | <a href="#type-ChartTrend">ChartTrend</a> | array</td><td class="desc">Trend and forecast overlays (BACKLOG-0000952): a <code>linear</code> least-squares line, a <code>movingAverage</code>, or <code>exponential</code> smoothing, one per series. <code>true</code> draws a single linear trend; a method name or a <code>{ method, forecast, window, kind, alpha, beta }</code> object configures one; an array draws several. The maths matches the core stats engine to the last digit (a parity test asserts it) but is computed locally to keep the charts bundle lean. For the linear method, <code>forecast: n</code> projects the line <code>n</code> steps past the data as a dashed forecast; a moving average and a smoothed level have no slope to project, so <code>forecast</code> is ignored for them and the fact is said in the accessible description. The trend layer (the fitted line, the forecast line, its band and the R² label) may extend past the plot into the chart's margin, but it is bounded by the chart box, the chart's own <code>&lt;svg&gt;</code>: a forecast that reaches past the chart's edge is cut off there rather than painted over the content beside it (BACKLOG-0001120).</td></tr>
           <tr><td class="name">error</td><td class="type">boolean | object</td><td class="desc">Whiskers showing the uncertainty in each mark, computed from the readings the chart can see behind it. <code>{ of }</code> takes a symmetric margin from a column instead; <code>{ confidence }</code> sets the level. A mark the chart sees only one value for gets none, and the chart says so.</td></tr>
-          <tr><td class="name">stack</td><td class="type">boolean</td><td class="desc">Stack the series rather than drawing them side by side. On a <code>combo</code> it stacks the bar measures; line and area measures stay outside the stack and are drawn after the columns (BACKLOG-0001636).</td></tr>
-          <tr><td class="name">curve</td><td class="type">boolean</td><td class="desc">Overlay a kernel density curve on a histogram, which shows which features are in the data and which are in the binning.</td></tr>
+          <tr><td class="name">stack</td><td class="type">boolean | 'percent'</td><td class="desc">Stack the series rather than drawing them side by side. On a <code>combo</code> it stacks the bar measures; line and area measures stay outside the stack and are drawn after the columns (BACKLOG-0001636). <code>'percent'</code> stacks to 100% (BACKLOG-0001644): a <code>bar</code>, <code>horizontalBar</code>, <code>area</code> or <code>combo</code> with two or more series draws each column as the whole plot height split into each series' share, the measure axis reads 0% to 100%, and the tooltip shows each series' share beside its real value.</td></tr>
+          <tr><td class="name">curve</td><td class="type">boolean | string | object</td><td class="desc">On a histogram, <code>true</code> overlays a kernel density curve, which shows which features are in the data and which are in the binning. On a <code>line</code>, an <code>area</code> or the line half of a <code>combo</code>/<code>pareto</code>, it names how the series connects its readings (BACKLOG-0001645): <code>'linear'</code> (default), <code>'monotone'</code>, <code>'catmullRom'</code> or <code>'step'</code>; <code>{ type, tension?, mode? }</code> adds the Catmull&ndash;Rom <code>tension</code> (0..1) or the step's <code>mode</code> (<code>'after'</code>, <code>'before'</code>, <code>'middle'</code>); a map keyed by series label (or measure title on a combo) gives each its own.</td></tr>
+          <tr><td class="name">startAngle / endAngle</td><td class="type">number</td><td class="desc">A pie or donut's sweep, in degrees clockwise from twelve o'clock (0 is the top; BACKLOG-0001646). Defaults 0 and 360. A partial arc is sized to use the container's height, so <code>-90</code> to <code>90</code> is a semi-circle that fills the box rather than half of it; labels and the legend follow the arc.</td></tr>
+          <tr><td class="name">radius</td><td class="type">object</td><td class="desc">A pie or donut's slice radii from a second measure (BACKLOG-0001647): <code>{ col, fn?, min? }</code>. The angle still comes from <code>y</code>; each slice's outer radius is scaled from <code>col</code>, area-true (<code>fn: 'sqrt'</code>, the default) or <code>'linear'</code>, never below <code>min</code> (0..1) of the full radius. A donut keeps its hole; the tooltip shows both measures.</td></tr>
+          <tr><td class="name">mark</td><td class="type">'lollipop'</td><td class="desc">Draw a <code>bar</code> or <code>horizontalBar</code> as lollipops (BACKLOG-0001640) — a stem from the baseline to the value with a dot at the value, instead of a solid column. Everything else the bar family does is unchanged: several measures sit side by side, sorting and the <code>axis</code> block apply, <code>scheme</code> forms colour the dots and stems, and the tooltip and grid binding read the same points.</td></tr>
+          <tr><td class="name">ranges</td><td class="type">(number | string)[]</td><td class="desc">A <code>bullet</code>'s qualitative bands (BACKLOG-0001642): the bands' <em>upper edges</em>, ascending, each a number (the same for every row) or a column name (per row). <code>[60, 85, 100]</code> shades the scale from its minimum to 60, 60 to 85 and 85 to 100 &mdash; the same reading the <code>bullet</code> cell renderer gives its <code>bands</code>. The actual is a bar from the scale's minimum to the value, the target (the <code>target</code> column) a marker across the band, and everything is clamped to the scale, exactly as in the cell. The value and the target read through their own columns' formats.</td></tr>
+          <tr><td class="name">bullet</td><td class="type">{ orientation?, scale? }</td><td class="desc">A <code>bullet</code>'s layout: <code>orientation</code> <code>'horizontal'</code> (default, one row per KPI) or <code>'vertical'</code>; <code>scale</code> <code>'shared'</code> (default: every row against one scale and axis, so bars compare across KPIs) or <code>'row'</code> (each KPI on its own scale, as a cell has, with no shared axis). <code>min</code> and <code>max</code> pin the scale's ends.</td></tr>
+          <tr><td class="name">pyramid</td><td class="type">{ scale?, percent? }</td><td class="desc">A <code>populationPyramid</code>'s options (BACKLOG-0001641): <code>scale</code> <code>'shared'</code> (default: one symmetric scale serves both halves, so equal bars are equal lengths) or <code>'independent'</code> (each half scaled to its own largest bar); <code>percent: true</code> draws each bar as its share of the whole population and labels the axis in percent. The first half (the first <code>series</code> value, or the first measure) is drawn on the left. The axis labels are always absolute, never negative, and the tooltip reads the real value.</td></tr>
           <tr><td class="name">diverging</td><td class="type">boolean</td><td class="desc">Colour a heatmap outward from zero rather than along a single ramp.</td></tr>
           <tr><td class="name">downsample</td><td class="type">number</td><td class="desc">Reduce to at most this many points per series before drawing, keeping the extremes so a spike is not lost.</td></tr>
           <tr><td class="name">tooltip</td><td class="type">boolean</td><td class="desc"><code>false</code> turns the hover tooltip off.</td></tr>
@@ -7680,6 +7691,177 @@ const chart = createChart({
 });
 const ticks = [...container.querySelectorAll('.lat-chartview__legend-ramp-tick')].map((n) =&gt; n.textContent);
 return [chart.provenance().ramp.scale, ticks.join(' ')].join(' | ');</code></pre>
+    <h4 id="chart-bars-set">Bars of every kind &mdash; 100% stacks, lollipops, floating bars, pyramids and bullets</h4>
+    <p><code>stack: 'percent'</code> stacks a <code>bar</code>, <code>horizontalBar</code>, <code>area</code> or <code>combo</code> to 100%: every column is the full height and the axis reads 0% to 100%. <code>mark: 'lollipop'</code> is a mark on <code>bar</code> and <code>horizontalBar</code> rather than a type of its own, because it changes only how a value is drawn &mdash; the slot, the baseline, the sort and the axis are the bar's. A <code>floatingBar</code> (and <code>horizontalFloatingBar</code>) is a type, because it changes <em>what is drawn</em>: its measure is a <code>y: [lowCol, highCol]</code> pair and the axis must cover every span, on a number or a date axis. A <code>populationPyramid</code> mirrors two halves (<code>y</code> split by a <code>series</code> of two values, or two <code>measures</code>) about a central axis, with absolute axis labels. A <code>bullet</code> is the <code>bullet</code> cell renderer's picture across rows: <code>ranges</code> are the bands' upper edges, the actual a bar from the scale's minimum, the <code>target</code> column a perpendicular marker, so a KPI reads the same in a cell and in a chart. Each follows the grid's filter and selection, takes every <code>scheme</code> form, has the accessible table and keyboard stops, and follows the light and dark themes.</p>
+    <pre data-run="js" data-expect="true | 94.1%" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 600, height: 320 });
+const container = document.createElement('div');
+container.rect = { width: 600, height: 320, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'month', type: 'text' },
+    { field: 'committed', type: 'number', title: 'Committed revenue' },
+    { field: 'assumed', type: 'number', title: 'Assumed extensions' },
+  ],
+  rows: [
+    { id: 'a', month: 'Oct', committed: 120000, assumed: 0 },
+    { id: 'b', month: 'Nov', committed: 111000, assumed: 7000 },
+  ],
+});
+
+// stack: 'percent' makes every column the same (100%) height, split by share.
+const chart = createChart({
+  grid, container, type: 'bar', x: 'month', stack: 'percent',
+  measures: [
+    { col: 'committed', fn: 'sum', title: 'Committed revenue' },
+    { col: 'assumed', fn: 'sum', title: 'Assumed extensions' },
+  ],
+});
+const bars = [...container.querySelectorAll('.lat-chartview__bar')];
+const committed = bars.filter((b) => b.getAttribute('data-series') === '0');
+const assumed = bars.filter((b) => b.getAttribute('data-series') === '1');
+// November's column splits 111,000:7,000 into a 94.1%:5.9% share.
+const novTotal = Number(committed[1].getAttribute('height')) + Number(assumed[1].getAttribute('height'));
+const share = Math.round((Number(committed[1].getAttribute('height')) / novTotal) * 1000) / 10;
+// October (assumed = 0) fills the same full height: both columns are 100%.
+const same = Math.abs(Number(committed[0].getAttribute('height')) - novTotal) &lt; 2;
+grid.destroy();
+return `${same} | ${share}%`;</code></pre>
+    <pre data-run="js" data-expect="2 stems, 2 dots, 0 bars | true" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 600, height: 300 });
+const container = document.createElement('div');
+container.rect = { width: 600, height: 300, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'region', type: 'text' },
+    { field: 'actual', type: 'number', title: 'Actual' },
+  ],
+  rows: [
+    { id: 'a', region: 'North', actual: 40 },
+    { id: 'b', region: 'South', actual: 70 },
+  ],
+});
+
+// mark: 'lollipop' swaps the bar family's solid column for a stem and a dot.
+const chart = createChart({
+  grid, container, type: 'bar', x: 'region', y: 'actual', mark: 'lollipop',
+});
+const stems = container.querySelectorAll('.lat-chartview__lollipop-stem').length;
+const dots = container.querySelectorAll('.lat-chartview__lollipop-dot').length;
+const bars = container.querySelectorAll('.lat-chartview__bar').length;
+// The higher value's dot sits higher up the plot (a smaller y).
+const ys = [...container.querySelectorAll('.lat-chartview__lollipop-dot')].map((n) =&gt; Number(n.getAttribute('cy')));
+grid.destroy();
+return `${stems} stems, ${dots} dots, ${bars} bars | ${ys[1] &lt; ys[0]}`;</code></pre>
+    <pre data-run="js" data-expect="1.5" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 600, height: 300 });
+const container = document.createElement('div');
+container.rect = { width: 600, height: 300, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'band', type: 'text' },
+    { field: 'low', type: 'number' },
+    { field: 'high', type: 'number' },
+  ],
+  rows: [
+    { id: 'a', band: 'A', low: 10, high: 30 },
+    { id: 'b', band: 'B', low: 20, high: 50 },
+  ],
+});
+
+// A floatingBar spans between a low and a high column: y is the [low, high] pair.
+const chart = createChart({
+  grid, container, type: 'floatingBar', x: 'band', y: ['low', 'high'],
+});
+const bars = [...container.querySelectorAll('.lat-chartview__float')];
+const heights = bars.map((b) =&gt; Number(b.getAttribute('height')));
+grid.destroy();
+return (heights[1] / heights[0]).toFixed(1);</code></pre>
+    <pre data-run="js" data-expect="4 bars; male 0-19 is 1.33x female" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 600, height: 300 });
+const container = document.createElement('div');
+container.rect = { width: 600, height: 300, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'age', type: 'text' },
+    { field: 'male', type: 'number', title: 'Male' },
+    { field: 'female', type: 'number', title: 'Female' },
+  ],
+  rows: [
+    { id: 'a', age: '0-19', male: 40, female: 30 },
+    { id: 'b', age: '20-39', male: 20, female: 25 },
+  ],
+});
+
+// A populationPyramid mirrors two measures about a central axis on one
+// symmetric scale (pyramid: { scale: 'independent' } gives each half its own).
+const chart = createChart({
+  grid, container, type: 'populationPyramid', x: 'age',
+  measures: [{ col: 'male', fn: 'sum' }, { col: 'female', fn: 'sum' }],
+});
+const bars = [...container.querySelectorAll('.lat-chartview__pyramid-bar')];
+const widths = bars.map((b) =&gt; Number(b.getAttribute('width')));
+grid.destroy();
+// Bars draw male first, then female: widths[0] is male 0-19, widths[2] female 0-19.
+return `${bars.length} bars; male 0-19 is ${(widths[0] / widths[2]).toFixed(2)}x female`;</code></pre>
+    <pre data-run="js" data-expect="6 bands, 2 bars, 2 targets; 70 vs 20 = 3.5x" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 600, height: 300 });
+const container = document.createElement('div');
+container.rect = { width: 600, height: 300, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'kpi', type: 'text' },
+    { field: 'actual', type: 'number', title: 'Actual' },
+    { field: 'target', type: 'number', title: 'Target' },
+  ],
+  rows: [
+    { id: 'a', kpi: 'Revenue', actual: 70, target: 80 },
+    { id: 'b', kpi: 'Margin', actual: 20, target: 25 },
+  ],
+});
+
+// A bullet: ranges are the bands' upper edges (as the bullet cell's bands are),
+// the actual a bar from the scale minimum and the target a perpendicular marker.
+const chart = createChart({
+  grid, container, type: 'bullet', x: 'kpi', y: 'actual', target: 'target',
+  ranges: [50, 80, 100], min: 0, max: 100,
+});
+const bars = [...container.querySelectorAll('.lat-chartview__bullet-bar')];
+const bands = container.querySelectorAll('.lat-chartview__bullet-band').length;
+const targets = container.querySelectorAll('.lat-chartview__bullet-target').length;
+const w = bars.map((b) =&gt; Number(b.getAttribute('width')));
+grid.destroy();
+return `${bands} bands, ${bars.length} bars, ${targets} targets; 70 vs 20 = ${(w[0] / w[1]).toFixed(1)}x`;</code></pre>
     <p class="section-note">
       <strong>A reduction over no readings is a gap, not a zero (BACKLOG-0001088).</strong>
       <code>sum</code>, <code>avg</code>/<code>mean</code>, <code>min</code>, <code>max</code>,
@@ -7907,6 +8089,113 @@ const bands = container.querySelectorAll('.lat-chartview__gauge-band').length;
 const needle = container.querySelector('.lat-chartview__gauge-needle').getAttribute('stroke');
 const reading = container.querySelector('.lat-chartview__gauge-reading').textContent;
 return [bands, needle, reading].join(' | ');</code></pre>
+    <p class="section-note">
+      <strong>A line or area can be smoothed or stepped</strong> (BACKLOG-0001645).
+      <code>curve: 'monotone'</code> draws a cubic that never rises above or falls below the
+      readings it joins; <code>'catmullRom'</code> is a spline whose <code>tension</code> you set;
+      <code>'step'</code> holds a value until the next reading (<code>mode</code> chooses where it
+      changes). Markers, the tooltip and hit-testing stay on the real readings, an area fills
+      under the curve, and a stacked area stays nested. Give <code>curve</code> a map keyed by
+      series label to curve one series and leave another straight. With no <code>curve</code> the
+      output is unchanged.
+    </p>
+    <pre data-run="js" data-expect="true | true" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 420, height: 420 });
+const container = document.createElement('div');
+container.rect = { width: 420, height: 420, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'day' }, { field: 'sales', type: 'number' }],
+  rows: [
+    { id: 'a', day: 'Mon', sales: 3 }, { id: 'b', day: 'Tue', sales: 9 },
+    { id: 'c', day: 'Wed', sales: 4 }, { id: 'd', day: 'Thu', sales: 8 },
+  ],
+});
+const chart = createChart({
+  grid, container, type: 'line', x: 'day', y: 'sales', curve: 'monotone',
+});
+const d = container.querySelector('.lat-chartview__line').getAttribute('d');
+return [d.includes('C'), d.startsWith('M')].join(' | ');</code></pre>
+    <p class="section-note">
+      <strong>A pie or donut can be a partial arc</strong> (BACKLOG-0001646).
+      <code>startAngle</code> and <code>endAngle</code> are degrees clockwise from twelve o&rsquo;clock,
+      where 0 is the top, so <code>startAngle: -90, endAngle: 90</code> is the upper half. A
+      partial arc is scaled to fill the container, which makes a semi-circle use the box&rsquo;s
+      full height; labels, the legend and hit-testing follow the arcs. The default is the full
+      circle, unchanged.
+    </p>
+    <p class="section-note">
+      <strong>A pie or donut can vary each slice&rsquo;s radius</strong> (BACKLOG-0001647).
+      <code>radius: { col: 'margin' }</code> keeps the angle from <code>y</code> and sets each
+      slice&rsquo;s outer radius from a second measure, area-true by default
+      (<code>fn: 'linear'</code> for a plain proportion), with <code>min</code> as the smallest
+      share of the full radius. A donut keeps its hole, and the tooltip names both measures.
+    </p>
+    <pre data-run="js" data-expect="2" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 420, height: 420 });
+const container = document.createElement('div');
+container.rect = { width: 420, height: 420, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'region' }, { field: 'revenue', type: 'number' },
+    { field: 'margin', type: 'number' },
+  ],
+  rows: [
+    { id: 'a', region: 'North', revenue: 60, margin: 40 },
+    { id: 'b', region: 'South', revenue: 40, margin: 10 },
+  ],
+});
+const chart = createChart({
+  grid, container, type: 'donut', x: 'region', y: 'revenue',
+  startAngle: -90, endAngle: 90, radius: { col: 'margin' },
+});
+const slices = container.querySelectorAll('.lat-chartview__slice').length;
+return slices;</code></pre>
+    <p class="section-note">
+      <strong>An OHLC chart draws a candlestick&rsquo;s inputs as bars</strong> (BACKLOG-0001648).
+      <code>type: 'ohlc'</code> takes the same four <code>measures</code> (open, high, low, close)
+      and draws a high&ndash;low line with an open tick to the left and a close tick to the right,
+      coloured up or down as a candlestick is. It is a type of its own rather than a candlestick
+      style so that it can be switched to and from by <code>type</code> alone. <code>volume</code>,
+      the time axis, <code>annotations</code> and the drawing rail work as they do on a
+      candlestick.
+    </p>
+    <pre data-run="js" data-expect="4 | 0" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 420, height: 420 });
+const container = document.createElement('div');
+container.rect = { width: 420, height: 420, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'day' }, { field: 'open', type: 'number' }, { field: 'high', type: 'number' },
+    { field: 'low', type: 'number' }, { field: 'close', type: 'number' },
+  ],
+  rows: [
+    { id: 'a', day: 'Mon', open: 10, high: 14, low: 9, close: 13 },
+    { id: 'b', day: 'Tue', open: 13, high: 15, low: 11, close: 12 },
+  ],
+});
+const chart = createChart({
+  grid, container, type: 'ohlc', x: 'day', measures: ['open', 'high', 'low', 'close'],
+});
+return [container.querySelectorAll('.lat-chartview__ohlc-tick').length,
+  container.querySelectorAll('.lat-chartview__candle').length].join(' | ');</code></pre>
 
     <h3>The chart</h3>
     <div class="table-wrap">
@@ -9129,7 +9418,7 @@ customers.load([{ id: 'C1', kind: 'customer', customerId: 'C1', name: 'Acme' }])
 g.destroy(); router.destroy();
 <span class="kw">return</span> [held, released, name].join(' | ');</code></pre>
 
-    <p><strong>COLLECT join and join arrays (v14, BACKLOG-0001607).</strong> A <code>join</code> may be <em>one</em> spec or an <em>array</em> applied in order, and a spec with <code>many: true</code> is a <strong>collect join</strong> instead of a lookup: it gathers <em>every</em> row of <code>from</code> whose <code>foreignKey</code> equals the left row's <code>localKey</code> (defaults to the source's <code>rowKey</code>) into an array written under <code>as</code>, mapping each by <code>select(fromRow, leftRow)</code> (default the whole row), with optional <code>distinct</code> and <code>sort</code> (<code>true</code> for the default ascending order, or a <code>compareFn</code>). <code>missing</code> works as for a lookup, on the collected array: <code>passthrough</code> (default) yields <code>[]</code> when nothing matches, <code>null</code> yields <code>null</code>, and <code>hold</code> withholds the row until at least one match arrives. Because a join reads <code>from</code>'s rows <em>after</em> that source's own joins, the graph chains into a <strong>multi-level join</strong> &mdash; a country rename re-enriches its addresses, which re-collect their companies &mdash; live everywhere by keyed diff, touching only the affected rows and recomputed from the base row so it stays idempotent. A declaration that would close a cycle (a source collecting from a source that transitively collects from it) is refused by name (<code>router:join-cycle</code>) rather than recursing.</p>
+    <p><strong>COLLECT join and join arrays (v14, BACKLOG-0001607).</strong> A <code>join</code> may be <em>one</em> spec or an <em>array</em> applied in order, and a spec with <code>many: true</code> is a <strong>collect join</strong> instead of a lookup: it gathers <em>every</em> row of <code>from</code> whose <code>foreignKey</code> equals the left row's <code>localKey</code> (defaults to the source's <code>rowKey</code>) into an array written under <code>as</code>, mapping each by <code>select</code> (default the whole row): a <em>list</em> of field names collects objects with just those fields, a <code>{ from: to }</code> <em>rename map</em> collects objects with the renamed fields, a single field-name <em>string</em> collects the bare values, and a <code>select(fromRow, leftRow)</code> <em>function</em> returns whatever you like; a field the collected rows do not have is collected as <code>undefined</code> and warns once by name (<code>data-router:collect-select-field:*</code>), with optional <code>distinct</code> and <code>sort</code> (<code>true</code> for the default ascending order, or a <code>compareFn</code>). <code>missing</code> works as for a lookup, on the collected array: <code>passthrough</code> (default) yields <code>[]</code> when nothing matches, <code>null</code> yields <code>null</code>, and <code>hold</code> withholds the row until at least one match arrives. Because a join reads <code>from</code>'s rows <em>after</em> that source's own joins, the graph chains into a <strong>multi-level join</strong> &mdash; a country rename re-enriches its addresses, which re-collect their companies &mdash; live everywhere by keyed diff, touching only the affected rows and recomputed from the base row so it stays idempotent. A declaration that would close a cycle (a source collecting from a source that transitively collects from it) is refused by name (<code>router:join-cycle</code>) rather than recursing.</p>
     <h3 id="datarouter-collect-example">A multi-level COLLECT join into a <code>list</code> column, executed</h3>
     <p class="section-note">An address looks up its country's name; a company collects its addresses' names &mdash; distinct and
     sorted &mdash; into a <code>list</code> column. Run headless on every build.</p>
@@ -10834,15 +11123,116 @@ const map = createMapView(grid, {
   color: { field: 'status', map: { live: '#2e7d32', build: '#f9a825', planned: '#90a4ae' } },
   buildings: true,
 });</code></pre>
-    <p><strong>deck.gl and MapLibre stay yours.</strong> The module imports neither and ships no dependency. Load MapLibre GL and deck.gl on the page (their UMD builds set the globals <code>maplibregl</code> and <code>deck</code>), or pass them as <code>libs: { deck, maplibregl }</code>. The map is a MapLibre map, and the rows are deck.gl layers on it through deck's <code>MapboxOverlay</code> in interleaved mode, so deck's columns and MapLibre's 3D buildings share one depth buffer and hide each other correctly. If either library is missing, <code>mapview:libs</code> warns, naming which one, and the map's box is left empty.</p>
-    <p><strong>Where the rows are.</strong> <code>geometry</code> is <code>{ lat, lng }</code> (or <code>lon</code>), <code>{ geojson }</code> &mdash; a GeoJSON <code>Geometry</code> or <code>Feature</code>, as an object or its JSON text, or WKT or WKB &mdash; or <code>{ path }</code>, an array of <code>[lng, lat]</code> pairs or its JSON text. A row whose place is blank or cannot be read is skipped and counted: <code>provenance()</code> returns <code>{ drawn, skipped, matched, layers }</code>, the rows drawn, the rows with no usable place, the rows the grid matched, and the count drawn by each layer kind.</p>
+    <p><strong>deck.gl and MapLibre stay yours.</strong> The module imports neither and ships no dependency. Load MapLibre GL and deck.gl on the page (their UMD builds set the globals <code>maplibregl</code> and <code>deck</code>), or pass them as <code>libs: { deck, maplibregl }</code>. The map is a MapLibre map, and the rows are deck.gl layers on it through deck's <code>MapboxOverlay</code> in interleaved mode, so deck's routes, areas, columns and points and MapLibre's 3D buildings share one depth buffer: a building in front of a route hides it at pitch 45 to 60. (deck.gl 9.1 reads the camera's depth planes under the names Mapbox GL uses, <code>transform._nearZ</code> and <code>_farZ</code>, and MapLibre GL 4.x names them <code>nearZ</code> and <code>farZ</code>; the module aliases them so the two agree. Looking straight down, at pitch 0, a roof is nearer the camera than anything under it, so a route under a building's footprint is hidden by its roof there too.) If either library is missing, <code>mapview:libs</code> warns, naming which one, and the map's box is left empty.</p>
+    <p><strong>Where the rows are.</strong> <code>geometry</code> is <code>{ lat, lng }</code> (or <code>lon</code>), <code>{ geojson }</code> &mdash; a GeoJSON <code>Geometry</code> or <code>Feature</code>, as an object or its JSON text, or WKT or WKB &mdash; or <code>{ path }</code>, an array of <code>[lng, lat]</code> pairs or its JSON text &mdash; or, for a network, <code>{ lat, lng, route: { by, order } }</code> or <code>{ from: { lat, lng }, to: { lat, lng } }</code> (see <a href="#mapview-network">The network map</a>). A row whose place is blank or cannot be read is skipped and counted: <code>provenance()</code> returns <code>{ drawn, skipped, matched, layers }</code>, the rows drawn, the rows with no usable place, the rows the grid matched, and the count drawn by each layer kind.</p>
     <p><strong>How they look.</strong> A row is drawn by the layer for its geometry: a point is a marker (deck's <code>ScatterplotLayer</code>), or an extruded column (<code>ColumnLayer</code>) when an <code>elevation</code> is given; a polygon is an area (<code>GeoJsonLayer</code>), extruded when an <code>elevation</code> is given; a line is a route (<code>PathLayer</code>). <code>layer</code> picks the kind for the rows of its geometry, and <code>setLayer()</code> switches it live. <code>elevation</code> is a numeric column or one number, in metres, multiplied by <code>elevationScale</code>. <code>color</code> is one colour; <code>{ field, map }</code>, a colour per value (any value not in <code>map</code> takes the next colour of the charts palette); or <code>{ field, scale: 'ramp', domain, colours, rampScale }</code>, a number placed along a ramp by the charts module's own scale code, exactly as a heat map places it. Unset, rows take the grid theme's accent, and selected rows its focus colour. <code>radius</code> (a marker's, in metres) and <code>width</code> (a route's, in pixels) are a column or a number; a <code>column</code> layer draws every column at one radius, so only a number applies to it. <code>flow: true</code> (or <code>{ speed, trail }</code>) animates a flow along the routes; it stops while the page is hidden and is drawn still for a reader who prefers reduced motion.</p>
     <p><strong>Which rows: the grid's.</strong> The map draws the rows the grid shows after its filters and quick search &mdash; and, when it is grouped, every leaf row of the grouped result, whether or not its group is collapsed, because collapsing a group hides its rows from the table, not from the data. It is the same row path as <a href="#deckgl">the deck.gl adapter</a>: a paged pushdown grid's map draws the rows inside the map's view, asked of the engine, up to <code>viewportCap</code>. A burst of grid changes costs one redraw, on the next animation frame.</p>
     <p><strong>Selection, both ways.</strong> A grid selection draws the selected rows in the highlight colour and flies the map to them: to the row, or to the box of several. <code>flyTo(key)</code> or <code>flyTo([keys])</code> does the same from code. A click on a feature selects its row in the grid (<code>selection: 'single'</code> or <code>'multiple'</code>; a grid that cannot take it warns <code>mapview:selection</code>), opens any collapsed group the row sits in, and scrolls it into view. Hovering a feature shows the <code>tooltip</code> columns (default the first three visible columns that do not hold the place; <code>false</code> for none), each as the grid's own display text for that cell, so a formatted value reads identically on the map and in the grid.</p>
     <p><strong>The basemap and buildings.</strong> <code>basemap</code> is a MapLibre style URL or style object; the default is OpenFreeMap's keyless positron, or its dark style for a dark theme. <code>buildings: true</code> adds 3D buildings from the style's OpenMapTiles <code>building</code> layer (<code>render_height</code>, <code>render_min_height</code>), coloured for the light or dark theme; a style with no vector source warns <code>mapview:buildings</code>. The first view fits the drawn rows; <code>view: { center, zoom, pitch, bearing }</code> sets it instead. <code>theme</code> is <code>light</code> or <code>dark</code>, by default the grid's own.</p>
     <p><strong>Where the map goes.</strong> <code>mode: 'container'</code> (the default when <code>container</code>, an element or a selector, is given) fills that element. <code>'split'</code> (the default without one) puts the map beside the grid in the grid's own host, with a divider a pointer drags and the arrow keys move. <code>'tab'</code> shows the grid and the map as two tabs. <code>'popout'</code> opens the map in a separate browser window that runs on this page's libraries; when the browser blocks the popup, it opens in a floating panel instead, moved by its title bar, resized from its corner and closed by its button. <code>destroy()</code> removes the map, its layers and every listener, and puts the grid back where it was.</p>
-    <p><strong>Events.</strong> <code>on(name, fn)</code> returns the unsubscribe and <code>off(name, fn)</code> removes a listener: <code>feature:click</code> (<code>{ key, row }</code>), <code>feature:hover</code> (<code>{ key, row, lines }</code>), <code>draw</code> (<code>{ provenance }</code>), <code>load</code> (the basemap style loaded) and <code>close</code> (the reader closed a popped-out map). <code>update(options)</code> changes options and redraws now; <code>layers()</code> returns the deck.gl layers last handed to the map.</p>
+    <p><strong>Events.</strong> <code>on(name, fn)</code> returns the unsubscribe and <code>off(name, fn)</code> removes a listener: <code>feature:click</code> (<code>{ key, row }</code>, and for a route <code>route</code> and <code>keys</code>), <code>feature:hover</code> (<code>{ key, row, lines }</code>), <code>draw</code> (<code>{ provenance }</code>), <code>load</code> (the basemap style loaded) and <code>close</code> (the reader closed a popped-out map). <code>update(options)</code> changes options and redraws now; <code>layers()</code> returns the deck.gl layers last handed to the map.</p>
     <p>The <code>mapView</code> key in a grid's own configuration is not offered: the grid has no means for a module to add a configuration key, so the map view is made by <code>createMapView(grid, options)</code> once the grid exists.</p>
+    <h3 id="mapview-network">The network map: routes from rows, dashes, icons</h3>
+    <p>A fibre, pipe or power network is usually not one row per line: it is a table of points, each row one vertex of a route, plus the cabinets and joints that sit on it. The map view draws that table as it is. The recipe below puts the routes, their vertex rows and the cabinet points in one view: routes assembled from the vertex rows, coloured and dashed by their status, cabinets as icons on badges, all readable in the 3D presentation among extruded buildings.</p>
+    <pre><code>createMapView(grid, {
+  container: '#map',
+  geometry: { lat: 'lat', lng: 'lng', route: { by: 'routeId', order: 'seq' } },
+  color: { field: 'status', map: { live: '#2e9d4f', planned: '#1f6fd1', backbone: '#d62828', proposed: '#d62828' } },
+  dash: { field: 'status', map: { proposed: 'dashed', planned: 'dotted', live: 'solid' } },
+  width: 4,
+  icon: { field: 'kind', map: { cabinet: 'cabinet', splice: 'splice', exchange: 'exchange' }, size: 26, badge: 'diamond' },
+  legend: true,
+  buildings: true,                                       <span class="cmt">// the default 3D presentation: pitched, with extruded buildings</span>
+});</code></pre>
+    <p><strong>Routes from rows.</strong> With <code>route: { by, order }</code>, every row that has a place and a non-blank <code>by</code> value is one vertex of the route that value names. Each route is one line through its vertices in <code>order</code> (numbers as numbers, anything else as text, a blank last; without <code>order</code>, the grid's row order). A route whose rows are given in any order is still drawn in sequence. The rule that tells a vertex from a point is the route id: <strong>a row belongs to a route only when it has a route id</strong>. A row with a blank route id (null or empty) is not a vertex; it stays a point &mdash; a cabinet, a splice &mdash; and is drawn as one, so vertex rows and cabinet rows share a grid. A vertex row is never also drawn as a point.</p>
+    <p>A route's colour, width, dash and elevation are route-level: the value in the route's <em>first</em> vertex row (in sequence order), or, with <code>route: { aggregate }</code>, the <code>last</code>, <code>min</code> or <code>max</code> across its rows. A route with fewer than two usable vertices (a vertex row with no usable place does not count) is skipped, and counted: <code>provenance()</code> adds <code>routes</code>, <code>routesSkipped</code> and <code>routesRebuilt</code>, and the skipped route's rows are in <code>skipped</code>, so <code>drawn + skipped</code> is every matched row. The segment form, <code>{ from: { lat, lng }, to: { lat, lng } }</code>, draws each row as one line from its <code>from</code> to its <code>to</code>, with no route id; a row missing an end is skipped.</p>
+    <p><strong>Live.</strong> A filter, an edit, an add or a delete of a vertex row assembles again only that route: every other route is reused as it was, and <code>provenance().routesRebuilt</code> says how many were assembled on the last draw. Clicking a route selects every one of its rows in the grid (the grid needs <code>selection: 'multiple'</code> to hold them all), and selecting any of a route's rows draws the route in the highlight colour. Hovering a route shows its route id first, then the tooltip columns of its first row, each in the grid's own formatted text.</p>
+    <p><strong>Dashed lines.</strong> <code>dash</code> is <code>'dashed'</code> or <code>'dotted'</code> for every line, <code>[dash, gap]</code> in pixels, or <code>{ field, map }</code> naming a pattern per value (a value not named is solid). The pattern is in pixels and keeps its length on screen as the camera zooms and pitches. Dashes are drawn by deck.gl's <code>PathStyleExtension</code>, which the page supplies with deck (the standalone <code>deck.gl</code> bundle exports it); without it <code>mapview:dash</code> warns and the lines are solid. <code>legend: true</code> draws the legend in the map's box. When the colour rule and the dash rule key on the <strong>same field</strong> (<code>color: { field: 'status', map }</code> and <code>dash: { field: 'status', map: { proposed: 'dashed' } }</code>) the legend has <strong>one entry per value</strong>, its sample a short line in that value's colour and dash pattern (a solid value is a solid line); a value drawn only as points is a square swatch. When they key on <strong>different fields</strong> the legend keeps two sections, each titled by its field's column header. <code>legend()</code> returns <code>{ sections, colours, dashes }</code>: <code>sections</code> is what is drawn (<code>{ field, title, merged, entries: [{ label, colour, dash, line }] }</code>), <code>colours</code> and <code>dashes</code> are the two rules' own entries (BACKLOG-0001681).</p>
+    <p><strong>Icon markers.</strong> <code>icon: { field, map, default, size, anchor, badge }</code> draws point rows with deck's <code>IconLayer</code> instead of circles. A point's icon is <code>map[value]</code>, else <code>default</code>; the glyphs are the grid's icon registry &mdash; the same one a network chart's node icons use &mdash; which now includes <code>cabinet</code>, <code>splice</code>, <code>exchange</code>, <code>pole</code>, <code>chamber</code>, <code>premises</code> and <code>fault</code>, or an SVG path, an icon definition, or an image URL. Registry glyphs are tinted by the <code>color</code> mapping, or, with <code>badge: 'circle' | 'square' | 'diamond'</code>, drawn white on a badge of that colour with a white ring (the red diamonds of a network map); the badge is what picks, hovers and selects, as a point does. Every icon is packed once into one atlas at 64 pixels a glyph, sharp at 2x, and repacked only when a point asks for an icon the atlas does not hold. An unknown name warns <code>mapview:icon:&lt;name&gt;</code> and its point is a circle.</p>
+    <p><strong>Readable in 3D.</strong> Routes are drawn in pixels, between 2 and 30 pixels wide whatever the <code>width</code>, so they stay clear at street level, and 2 m above the ground (points 4 m, when routes are in view) so a route does not z-fight the basemap at pitch 45 to 60. Icons are billboards that always face the camera and keep their pixel size; they are not depth-tested, so an icon is drawn whole over the ground, the routes and the extruded buildings &mdash; a cabinet inside a building's footprint is never hidden by it. The draw order is polygons, then routes (and their flow), then columns, then points, then icons: points over lines over areas.</p>
+    <div class="example">
+      <p class="example__label">A network map: routes assembled from vertex rows in sequence order, dashed by status, a route selecting all its rows, and an edit assembling one route again</p>
+      <pre data-run="js" data-expect="2 routes | 51.88,51.882,51.884 | proposed 10/6 + live solid | cabinet | a1,a2,a3 | 1" data-covers="config:MapViewOptions.geometry config:MapViewOptions.dash config:MapViewOptions.icon config:MapViewOptions.legend method:mapview.legend method:mapview.layers method:mapview.provenance"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createMapView } = await import('../packages/modules/mapview/index.js');
+
+const dom = createTestDom();
+const el = dom.document.createElement('div');
+dom.root.appendChild(el);
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  selection: 'multiple',
+  columns: [{ field: 'id' }, { field: 'routeId' }, { field: 'seq', type: 'number' }, { field: 'status' }, { field: 'kind' },
+    { field: 'lat', type: 'number' }, { field: 'lng', type: 'number' }],
+  rows: [
+    // Two routes, their vertex rows out of order, and a cabinet that is on no route.
+    { id: 'a3', routeId: 'R1', seq: 3, status: 'live', lat: 51.884, lng: 0.904 },
+    { id: 'a1', routeId: 'R1', seq: 1, status: 'live', lat: 51.880, lng: 0.900 },
+    { id: 'a2', routeId: 'R1', seq: 2, status: 'live', lat: 51.882, lng: 0.901 },
+    { id: 'b2', routeId: 'R2', seq: 2, status: 'proposed', lat: 51.889, lng: 0.909 },
+    { id: 'b1', routeId: 'R2', seq: 1, status: 'proposed', lat: 51.885, lng: 0.905 },
+    { id: 'c1', routeId: null, seq: null, status: 'live', kind: 'cabinet', lat: 51.882, lng: 0.901 },
+  ],
+});
+
+// The icon atlas is drawn on a canvas, which a page has. This stand-in canvas just accepts the drawing.
+const make = dom.document.createElement.bind(dom.document);
+dom.document.createElement = (tag) =&gt; {
+  const el = make(tag);
+  if (tag === 'canvas') {
+    el.getContext = () =&gt; new Proxy({}, { get: () =&gt; () =&gt; {} });
+    el.toDataURL = () =&gt; 'data:image/png;base64,atlas';
+  }
+  return el;
+};
+globalThis.Path2D ??= class { constructor(d) { this.d = d; } };
+
+// Stand-ins for the page's deck.gl and MapLibre, as above; PathStyleExtension is
+// what draws the dashes, and the page's deck supplies it.
+const layer = (kind) =&gt; class { constructor(props) { this.props = props; this.kind = kind; } };
+const deck = {
+  ScatterplotLayer: layer('point'), ColumnLayer: layer('column'), GeoJsonLayer: layer('polygon'),
+  PathLayer: layer('path'), TripsLayer: layer('flow'), IconLayer: layer('icon'), PathStyleExtension: layer('dash'),
+  MapboxOverlay: class { constructor(p) { this.props = p; } setProps(p) { Object.assign(this.props, p); } },
+};
+const maplibregl = {
+  Map: class {
+    on() {} off() {} addControl() {} removeControl() {} remove() {} resize() {} setStyle() {}
+    getZoom() { return 12; } getBounds() { return null; } getStyle() { return { sources: {} }; }
+    getLayer() {} addLayer() {} jumpTo() {} fitBounds() {} flyTo() {}
+  },
+};
+
+const map = createMapView(grid, {
+  container: el,
+  libs: { deck, maplibregl },
+  geometry: { lat: 'lat', lng: 'lng', route: { by: 'routeId', order: 'seq' } },
+  color: { field: 'status', map: { live: '#2e9d4f', proposed: '#d62828' } },
+  dash: { field: 'status', map: { proposed: 'dashed', live: 'solid' } },
+  width: 4,
+  icon: { field: 'kind', map: { cabinet: 'cabinet' }, size: 26, badge: 'diamond' },
+  legend: true,
+});
+const routes = map.layers().find((l) =&gt; l.kind === 'path');
+const r1 = routes.props.data.find((d) =&gt; d.item.route === 'R1');
+const seen = [
+  `${map.provenance().routes} routes`,
+  routes.props.getPath(r1).map((p) =&gt; p[1]).join(','),            // in seq order, not row order
+  map.legend().dashes.map((d) =&gt; `${d.label} ${d.dash ? d.dash.join('/') : 'solid'}`).join(' + '),       // dash and gap, in pixels
+  map.layers().find((l) =&gt; l.kind === 'icon').props.data.map((d) =&gt; d.icon).join(),                 // the cabinet is an icon
+];
+
+map.overlay.props.onClick({ object: r1 });                         // a route selects all its rows
+seen.push(grid.selection.keys().sort().join());
+
+grid.rows.apply({ update: [{ id: 'b1', lat: 51.8855 }] });         // an edit assembles one route again
+flushFrames();
+seen.push(map.provenance().routesRebuilt);
+
+map.destroy();
+return seen.join(' | ');</code></pre>
+    </div>
+
     <div class="example">
       <p class="example__label">Rows to the map, a filter followed, a selection flown to, the grid's own text on hover, a click selecting, a layer switched, and destroy</p>
       <pre data-run="js" data-expect="30 column fit | 10 | fly 0.89,51.89 | live $950 | p8 | point | fit | jump 14 10 | 0" data-covers="export:createMapView config:MapViewOptions.geometry config:MapViewOptions.container config:MapViewOptions.mode config:MapViewOptions.layer config:MapViewOptions.elevation config:MapViewOptions.elevationScale config:MapViewOptions.color config:MapViewOptions.radius config:MapViewOptions.width config:MapViewOptions.flow config:MapViewOptions.buildings config:MapViewOptions.basemap config:MapViewOptions.view config:MapViewOptions.theme config:MapViewOptions.tooltip config:MapViewOptions.libs config:MapViewOptions.viewportCap method:mapview.update method:mapview.flyTo method:mapview.setLayer method:mapview.provenance method:mapview.layers method:mapview.on method:mapview.off method:mapview.destroy"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
@@ -12065,6 +12455,13 @@ createGrid(el, {
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.2 2.9 13.1 13.8M8 3.2c3.3 0 6 3 6.6 4.5a9.4 9.4 0 0 1-1.9 2.4M5 4.2A9 9 0 0 0 1.4 7.7C2 9.3 4.7 12.3 8 12.3c.9 0 1.7-.2 2.5-.5M6.3 6a2.5 2.5 0 0 0 3.4 3.5"></path></svg>eyeOff</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 2.5h8v8M2.5 5.5h8v8h-8Z"></path></svg>copy</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2.5h12v8H2Z"></path><path d="M8 10.5v3"></path><path d="M6 13.5h4"></path></svg>present</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M3 2h10v12H3ZM5 4v4h2.5V4ZM8.5 4v4H11V4ZM5 9.5V11h6V9.5Z"></path></svg>cabinet</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M8 4.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7ZM8 6.8a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4ZM1.5 7.2h3v1.6h-3ZM11.5 7.2h3v1.6h-3Z"></path></svg>splice</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M8 1.5 14.5 6v1H1.5V6ZM3 8h2v5H3ZM7 8h2v5H7ZM11 8h2v5h-2ZM1.5 13.5h13V15h-13Z"></path></svg>exchange</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M7.2 1.5h1.6V15H7.2ZM3 3.5h10V5H3ZM4.5 7h7v1.4h-7Z"></path></svg>pole</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M2.5 3.5h11v9h-11ZM4.5 5.5v5h7v-5ZM6 7h4v1.5H6Z"></path></svg>chamber</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M8 1.8 14.5 7.5h-2V14h-9V7.5h-2ZM6.8 10.4V14h2.4v-3.6Z"></path></svg>premises</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M5.2 1.5h5.6L14.5 5.2v5.6L10.8 14.5H5.2L1.5 10.8V5.2ZM5.4 9.4 6.6 10.6 8 9.2 9.4 10.6 10.6 9.4 9.2 8 10.6 6.6 9.4 5.4 8 6.8 6.6 5.4 5.4 6.6 6.8 8Z"></path></svg>fault</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d=""></path></svg>blank</span>
     </div>
     <!-- icon-gallery:end -->
@@ -18518,7 +18915,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">container</td><td class="type">Element | string</td><td class="desc">Where to draw: an element, or a CSS selector resolved against the grid's document. The chart builds its own root inside it.</td></tr>
           <tr><td class="name">type</td><td class="type"><a href="#type-ChartType">ChartType</a></td><td class="desc">Which chart to draw. A name the base bundle does not know is looked up in the extension registry, so an opt-in chart module's type works here once imported.</td></tr>
           <tr><td class="name">x</td><td class="type">string</td><td class="desc">The category column. <small>(optional)</small></td></tr>
-          <tr><td class="name">y</td><td class="type">string</td><td class="desc">The measure column, for the types that take one. <small>(optional)</small></td></tr>
+          <tr><td class="name">y</td><td class="type">string | [string, string]</td><td class="desc">The measure column, for the types that take one. On a `floatingBar` or `horizontalFloatingBar` it is the low/high pair of columns the bar spans between (BACKLOG-0001643): `[lowCol, highCol]`. <small>(optional)</small></td></tr>
           <tr><td class="name">series</td><td class="type">string</td><td class="desc">Splits the measure into one series per distinct value. <small>(optional)</small></td></tr>
           <tr><td class="name">rows</td><td class="type">object[] | ((grid: <a href="#type-Grid">Grid</a>) =&gt; object[])</td><td class="desc">The exact rows to chart, overriding the grid's own walk — an array, or a function returning one at draw time. `chartRange` uses it to bind a chart to the band of rows a selected range covers rather than the whole grid. <small>(optional)</small></td></tr>
           <tr><td class="name">aggregate</td><td class="type">'auto' | 'engine' | 'client'</td><td class="desc">Where the chart's aggregate is computed (GEO-5). `'auto'`, the default, asks the grid's pushdown source — `source.aggregate()`, with x (and `series`) as the `GROUP BY` and the measures as its aggregates, the grid's filter and quick search applied — when the source's adapter declares the `group` capability and the grid holds only a window of the matching rows; otherwise it reduces the loaded rows, as a chart always has. `'engine'` asks the source whenever it can, and is refused by name (a `[lattice]` warning and `provenance().refused`) when it cannot; `'client'` always reduces the loaded rows. One chart is never a mixture: if any measure would be computed client-side, every one is. Applies to the grouped types (`line`, `step`, `area`, `bar`, `horizontalBar`, `waterfall`, `combo`, `pareto`, `heatmap`, `radar`, `funnel`, `stream`, `marimekko`); the source's `aggregates` config must route the reductions to the engine. {@link Chart.provenance} reports which happened and why. <small>(optional)</small></td></tr>
@@ -18526,7 +18923,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">volume</td><td class="type">string</td><td class="desc">A candlestick's volume pane (BACKLOG-0001468): the column holding each period's traded volume, summed per period. The candlestick then draws a price pane and a volume pane in one svg, on one x scale with one x axis at the bottom, so `axis.x.window`, `axis.x.min`/`max`, `zoom`, `annotate` and the measurers act on both panes together, and one tooltip reads both. Each volume bar takes its candle's up or down colour, and the volume axis sits on the price axis's side. The column is bound as the fifth measure, so it appears in `chart.data()` and the accessible table and is the volume a measurer sums. Any other chart type, or a column the grid does not have, warns and draws no pane. <small>(optional)</small></td></tr>
           <tr><td class="name">volumePane</td><td class="type"><a href="#type-ChartVolumePaneOptions">ChartVolumePaneOptions</a></td><td class="desc">The volume pane's geometry, when `volume` is set (BACKLOG-0001468). <small>(optional)</small></td></tr>
           <tr><td class="name">source</td><td class="type">string</td><td class="desc">Endpoints, for sankey, chord and network. <small>(optional)</small></td></tr>
-          <tr><td class="name">target</td><td class="type">string</td><td class="desc">The column naming the link's destination, beside `source`. <small>(optional)</small></td></tr>
+          <tr><td class="name">target</td><td class="type">string</td><td class="desc">The column naming the link's destination, beside `source`. On a `bullet` (BACKLOG-0001642) it is instead the column holding each row's target, drawn as a marker across the bar. <small>(optional)</small></td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc">Row label and dates, for gantt. <small>(optional)</small></td></tr>
           <tr><td class="name">start</td><td class="type">string</td><td class="desc">The start-date column, for a gantt chart. <small>(optional)</small></td></tr>
           <tr><td class="name">end</td><td class="type">string</td><td class="desc">The end-date column, for a gantt chart. <small>(optional)</small></td></tr>
@@ -18579,8 +18976,15 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">selection</td><td class="type">boolean</td><td class="desc">Draw the grid's selected rows emphasised, and follow the selection. <small>(optional)</small></td></tr>
           <tr><td class="name">drill</td><td class="type">boolean</td><td class="desc">Clicking a group drills into it. <small>(optional)</small></td></tr>
           <tr><td class="name">filterOnClick</td><td class="type">boolean</td><td class="desc">Clicking a mark filters the grid to it. <small>(optional)</small></td></tr>
-          <tr><td class="name">stack</td><td class="type">boolean</td><td class="desc">Stack the series rather than drawing them side by side. On a `combo` it stacks the bar measures (BACKLOG-0001636); line and area measures stay outside the stack on the same scale and are drawn after the columns. <small>(optional)</small></td></tr>
-          <tr><td class="name">curve</td><td class="type">boolean</td><td class="desc">Overlay a kernel density curve on a histogram. <small>(optional)</small></td></tr>
+          <tr><td class="name">stack</td><td class="type">boolean | 'percent'</td><td class="desc">Stack the series rather than drawing them side by side. On a `combo` it stacks the bar measures (BACKLOG-0001636); line and area measures stay outside the stack on the same scale and are drawn after the columns. `'percent'` stacks to 100% (BACKLOG-0001644): a `bar`, `horizontalBar`, `area` or `combo` with two or more series draws each column as the whole plot height, split into each series' share of the column, and the measure axis runs 0 to 100 rather than 0 to the tallest total. A column that mixes signs has no meaningful "share of the whole", so shares are taken against the sum of the parts' absolute values; the tooltip still reads the real value, with its share beside it. <small>(optional)</small></td></tr>
+          <tr><td class="name">curve</td><td class="type">boolean | <a href="#type-ChartCurve">ChartCurve</a> | <a href="#type-ChartCurveOptions">ChartCurveOptions</a> | Record&lt;string, <a href="#type-ChartCurve">ChartCurve</a> | <a href="#type-ChartCurveOptions">ChartCurveOptions</a>&gt;</td><td class="desc">On a histogram, `true` overlays a kernel density curve. On a `line`, an `area` (and the line half of a `combo`/`pareto`), it names how the series connects its readings (BACKLOG-0001645): a {@link ChartCurve} name (`'linear'`, `'monotone'`, `'catmullRom'`, `'step'`), a {@link ChartCurveOptions} object (`{ type, tension, mode }`), or a map keyed by series label — the same name {@link ChartSpec.emphasis} keys on — giving each series its own curve. Markers, tooltips and hit-testing stay on the real readings whatever the curve. <small>(optional)</small></td></tr>
+          <tr><td class="name">startAngle</td><td class="type">number</td><td class="desc">A pie or donut's first slice, in degrees clockwise from twelve o'clock, 0 being the top (BACKLOG-0001646). Default 0; a partial circle uses the container's height rather than half of it. <small>(optional)</small></td></tr>
+          <tr><td class="name">endAngle</td><td class="type">number</td><td class="desc">A pie or donut's last slice, in degrees clockwise from twelve o'clock (BACKLOG-0001646). Default 360. <small>(optional)</small></td></tr>
+          <tr><td class="name">radius</td><td class="type"><a href="#type-ChartRadiusOptions">ChartRadiusOptions</a></td><td class="desc">Drive a pie or donut's slice radii from a second measure, the angle still coming from `y` (BACKLOG-0001647): `{ col, fn?, min? }`. `fn` is `'sqrt'` (area-true, default) or `'linear'`; `min` is the smallest share of the full radius a slice may shrink to. The donut's hole is respected, the tooltip shows both measures, and the legend is unchanged. <small>(optional)</small></td></tr>
+          <tr><td class="name">mark</td><td class="type">'lollipop'</td><td class="desc">Draw a `bar` or `horizontalBar` as lollipops rather than solid columns (BACKLOG-0001640): a stem from the baseline up to the value, with a dot at the value. Everything else the bar family does is unchanged — several measures sit side by side, sorting and the `axis` block apply, `scheme` forms colour the dots and stems, and the tooltip and grid binding read the same points. Reuses the bar code path rather than a second implementation, which is why it is a mark on the bar type and not a type of its own. <small>(optional)</small></td></tr>
+          <tr><td class="name">ranges</td><td class="type">(number | string)[]</td><td class="desc">A `bullet` chart's qualitative bands (BACKLOG-0001642): the bands' upper edges in ascending order, each either a number (the same for every row) or the name of a column holding that edge per row. `[60, 85, 100]` shades the scale from its minimum to 60, 60 to 85 and 85 to 100 — the same reading the `bullet` cell renderer gives its `bands`. Ignored by every other type. <small>(optional)</small></td></tr>
+          <tr><td class="name">bullet</td><td class="type">{ orientation?: 'horizontal' | 'vertical'; scale?: 'shared' | 'row' }</td><td class="desc">A `bullet` chart's layout (BACKLOG-0001642). `orientation` is `'horizontal'` (the default: one row per KPI, the value running along x) or `'vertical'`. `scale` is `'shared'` (the default: every row is read against one scale and one axis, so bars compare across KPIs) or `'row'` (each KPI has its own scale, as a bullet cell has, and no shared axis is drawn). `min` and `max` on the chart pin the scale's ends. <small>(optional)</small></td></tr>
+          <tr><td class="name">pyramid</td><td class="type">{ scale?: 'shared' | 'independent'; percent?: boolean }</td><td class="desc">A `populationPyramid`'s options (BACKLOG-0001641). `scale` is `'shared'` (the default: one symmetric scale serves both halves, so equal bars are equal lengths) or `'independent'` (each half is scaled to its own largest bar). `percent: true` draws each bar as its share of the whole population and labels the axis in percent. The axis labels are always absolute. <small>(optional)</small></td></tr>
           <tr><td class="name">measure</td><td class="type">string</td><td class="desc">An alias for `y`, where "the measure" reads better than "the y axis". <small>(optional)</small></td></tr>
           <tr><td class="name">size</td><td class="type">string</td><td class="desc">Bubble charts: the column driving the radius, and the largest it may be. <small>(optional)</small></td></tr>
           <tr><td class="name">maxRadius</td><td class="type">number</td><td class="desc">The largest bubble radius in pixels. Clamped to between 6 and 28, and 22 when unset; the smallest bubble is always 3. <small>(optional)</small></td></tr>
@@ -18736,7 +19140,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">as</td><td class="type">string</td><td class="desc">A COLLECT join's destination field: the collected array is written here. Required for a collect join; without it the join is ignored with a warning. <small>(optional)</small></td></tr>
           <tr><td class="name">aggregate</td><td class="type">Record&lt;string, <a href="#type-RouterJoinAggregate">RouterJoinAggregate</a>&gt;</td><td class="desc">A ROLLUP-ONTO-PARENT join (v15, BACKLOG-0001609): a `many: true` join with an `aggregate` map instead of `as`. Each named result is computed over the matching children and written onto the parent row. Omit `as` when `aggregate` is set. <small>(optional)</small></td></tr>
           <tr><td class="name">fields</td><td class="type">string[] | Record&lt;string, string&gt; | ((lookupRow: <a href="#type-RouterRecord">RouterRecord</a> | null, leftRow: <a href="#type-RouterRecord">RouterRecord</a>) =&gt; unknown)</td><td class="desc">Which lookup fields to carry onto the row: a list of names, a `{ from: to }` rename map, or a `fn(lookupRow, leftRow)` returning the fields to merge. With none, rows pass through unenriched and the router warns. <small>(optional)</small></td></tr>
-          <tr><td class="name">select</td><td class="type">string[] | Record&lt;string, string&gt; | ((lookupRow: <a href="#type-RouterRecord">RouterRecord</a> | null, leftRow: <a href="#type-RouterRecord">RouterRecord</a>) =&gt; unknown)</td><td class="desc">An alias for `fields`, read when `fields` is absent. For a COLLECT join it is also the per-row mapping: `fn(fromRow, leftRow)` returning the value to collect (defaults to the whole from-row). <small>(optional)</small></td></tr>
+          <tr><td class="name">select</td><td class="type">string[] | Record&lt;string, string&gt; | ((lookupRow: <a href="#type-RouterRecord">RouterRecord</a> | null, leftRow: <a href="#type-RouterRecord">RouterRecord</a>) =&gt; unknown)</td><td class="desc">An alias for `fields`, read when `fields` is absent. For a COLLECT join it is also the per-row mapping: a list of names (objects with just those fields), a `{ from: to }` rename map, a single field name (the bare values), or `fn(fromRow, leftRow)` returning the value to collect (defaults to the whole from-row). A field the rows lack warns once. A lookup join reads a list, a map or a function; a single string is not a lookup form. <small>(optional)</small></td></tr>
           <tr><td class="name">distinct</td><td class="type">boolean</td><td class="desc">A COLLECT join: de-duplicate the collected values. Defaults to false. <small>(optional)</small></td></tr>
           <tr><td class="name">sort</td><td class="type">boolean | ((a: unknown, b: unknown) =&gt; number)</td><td class="desc">A COLLECT join: order the collected array — `true` for the default ascending order (numbers numerically, everything else by string), or a `compareFn`. Defaults to no sort. <small>(optional)</small></td></tr>
           <tr><td class="name">missing</td><td class="type"><a href="#type-RouterJoinMissing">RouterJoinMissing</a> <small class="literals">'hold' | 'passthrough' | 'null'</small></td><td class="desc">What happens while the match has not arrived: `hold` keeps the row from viewers until it does, `passthrough` sends it unenriched (a collect join sets `as` to `[]`), `null` fills the declared fields with null (a collect join sets `as` to null). Defaults to `passthrough`, which an unrecognised value also falls back to, with a warning. <small>(optional)</small></td></tr>
@@ -19567,6 +19971,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h5 id="type-LeafletBinding-events">Events</h5>
     <p class="section-note">No events.</p>
     <h3 id="ref-module-mapview">The map view</h3>
+    <h4 id="type-MapViewRoute">MapViewRoute</h4>
+    <p class="section-note">Routes assembled from ordinary rows (BACKLOG-0001677): with `geometry: { lat, lng, route }` every row that has a place AND a non-blank value in the `by` column is one vertex of the route that value names, and each route is drawn as one line through its vertices in `order` (numbers as numbers, anything else as text; a blank last; rows with equal values in the order the grid shows them; no `order`: the grid's order). A row with a blank `by` is not a vertex: it stays a point (a cabinet, a splice) and is drawn as one. A vertex row is never also drawn as a point. A route's colour, width, dash and elevation are route-level: read from the route's first vertex row (in sequence order), or from `aggregate` across its rows.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">by</td><td class="type">string</td><td class="desc">The column holding each vertex row's route id.</td></tr>
+          <tr><td class="name">order</td><td class="type">string</td><td class="desc">The column holding each vertex's position in its route. <small>(optional)</small></td></tr>
+          <tr><td class="name">aggregate</td><td class="type">'first' | 'last' | 'min' | 'max'</td><td class="desc">How a route-level style column is read across the route's rows: `first` (default), `last`, or `min` / `max` (numbers as numbers, anything else as text). An unknown value warns `mapview:route`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-MapViewOptions">MapViewOptions</h4>
     <p class="section-note">What {@link createMapView} takes.</p>
     <div class="table-wrap">
@@ -19581,13 +19997,16 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">elevationScale</td><td class="type">number</td><td class="desc">A multiplier on `elevation`. Default 1. <small>(optional)</small></td></tr>
           <tr><td class="name">color</td><td class="type"><a href="#type-MapViewColour">MapViewColour</a></td><td class="desc">How rows are coloured. Default the grid theme's accent. <small>(optional)</small></td></tr>
           <tr><td class="name">radius</td><td class="type">string | number</td><td class="desc">A marker's radius in metres: a numeric column or one number (default 30). A `column` layer draws every column at one radius, so only a number applies to it. <small>(optional)</small></td></tr>
-          <tr><td class="name">width</td><td class="type">string | number</td><td class="desc">A route's width in pixels: a numeric column or one number. Default 3. <small>(optional)</small></td></tr>
+          <tr><td class="name">width</td><td class="type">string | number</td><td class="desc">A route's width in pixels: a numeric column or one number. Default 3. A route is always drawn between 2 and 30 pixels wide whatever its width, wide enough to read at street level among extruded buildings, and drawn 2 m above the ground (4 m for points when routes are in view) so it does not z-fight the basemap at pitch. <small>(optional)</small></td></tr>
+          <tr><td class="name">dash</td><td class="type"><a href="#type-MapViewDash">MapViewDash</a></td><td class="desc">Dash lines by value or all alike; see {@link MapViewDash}. The legend shows each pattern the map names. <small>(optional)</small></td></tr>
+          <tr><td class="name">icon</td><td class="type"><a href="#type-MapViewIcon">MapViewIcon</a></td><td class="desc">Icon markers for point rows; see {@link MapViewIcon}. <small>(optional)</small></td></tr>
+          <tr><td class="name">legend</td><td class="type">boolean</td><td class="desc">Show a legend in the map's box: a swatch for each colour the `color` rule maps and a sample line for each pattern `dash` names. Default off; `legend()` returns the same entries as data. <small>(optional)</small></td></tr>
           <tr><td class="name">flow</td><td class="type"><a href="#type-MapViewFlow">MapViewFlow</a></td><td class="desc">Animate a flow along the routes. Stops while the page is hidden, and is drawn still when the reader prefers reduced motion. <small>(optional)</small></td></tr>
           <tr><td class="name">buildings</td><td class="type">boolean</td><td class="desc">Add 3D buildings from the basemap's OpenMapTiles `building` layer (`render_height`, `render_min_height`), coloured for the light or dark theme. Off by default. A style with no vector source warns `mapview:buildings`. <small>(optional)</small></td></tr>
           <tr><td class="name">basemap</td><td class="type">string | Record&lt;string, unknown&gt;</td><td class="desc">A MapLibre style URL or style object. Default OpenFreeMap's keyless positron, or its dark style for a dark theme. <small>(optional)</small></td></tr>
           <tr><td class="name">view</td><td class="type"><a href="#type-MapViewCamera">MapViewCamera</a></td><td class="desc">The initial camera. Default: fitted to the drawn rows. <small>(optional)</small></td></tr>
           <tr><td class="name">theme</td><td class="type">'light' | 'dark' | 'auto'</td><td class="desc">`light` or `dark`; default the grid's own (`data-theme` above it, `auto` read from the reader's colour-scheme preference). <small>(optional)</small></td></tr>
-          <tr><td class="name">tooltip</td><td class="type">string[] | false</td><td class="desc">The columns the hover tooltip shows, each as the grid's own formatted cell text. Default the grid's first three visible columns that do not hold the place; `false` for no tooltip. <small>(optional)</small></td></tr>
+          <tr><td class="name">tooltip</td><td class="type">string[] | false</td><td class="desc">The columns the hover tooltip shows, each as the grid's own formatted cell text. Default the grid's first three visible columns that do not hold the place; `false` for no tooltip. A route's tooltip leads with its route id and shows its first row's cells. <small>(optional)</small></td></tr>
           <tr><td class="name">libs</td><td class="type">{ deck?: unknown; maplibregl?: unknown }</td><td class="desc">The page's deck.gl and MapLibre GL. Default the globals `deck` and `maplibregl` their UMD builds set. Either missing: the map is left empty and `mapview:libs` warns, naming which. <small>(optional)</small></td></tr>
           <tr><td class="name">viewportCap</td><td class="type">number</td><td class="desc">On a paged pushdown grid, the most rows fetched for the map's view; as {@link ChartSpec.viewportCap}, default 20,000. <small>(optional)</small></td></tr>
         </tbody>
@@ -19599,10 +20018,13 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">drawn</td><td class="type">number</td><td class="desc">The rows drawn.</td></tr>
-          <tr><td class="name">skipped</td><td class="type">number</td><td class="desc">The rows the grid shows that have no usable place, so were not drawn.</td></tr>
+          <tr><td class="name">drawn</td><td class="type">number</td><td class="desc">The rows drawn (every vertex row of a drawn route counts).</td></tr>
+          <tr><td class="name">skipped</td><td class="type">number</td><td class="desc">The rows the grid shows that have no usable place, so were not drawn; with `route`, also the vertex rows of a route skipped for having fewer than two usable vertices, so `drawn + skipped` is every matched row.</td></tr>
           <tr><td class="name">matched</td><td class="type">number</td><td class="desc">The rows the grid matched.</td></tr>
-          <tr><td class="name">layers</td><td class="type">Partial&lt;Record&lt;<a href="#type-MapViewLayer">MapViewLayer</a>, number&gt;&gt;</td><td class="desc">The rows drawn by each layer kind.</td></tr>
+          <tr><td class="name">layers</td><td class="type">Partial&lt;Record&lt;<a href="#type-MapViewLayer">MapViewLayer</a> | 'icon', number&gt;&gt;</td><td class="desc">The items drawn by each layer kind (a route is one path); `icon` counts the points drawn as icons, `point` the circles.</td></tr>
+          <tr><td class="name">routes</td><td class="type">number</td><td class="desc">With `geometry.route`: the routes drawn. <small>(optional)</small></td></tr>
+          <tr><td class="name">routesSkipped</td><td class="type">number</td><td class="desc">With `geometry.route`: the routes skipped for having fewer than two usable vertices. <small>(optional)</small></td></tr>
+          <tr><td class="name">routesRebuilt</td><td class="type">number</td><td class="desc">With `geometry.route`: the routes assembled from their rows on the last draw. A route none of whose vertex rows (or route-level style columns) changed is reused, so an edit, add, delete or filter of one vertex row assembles one route, not all of them. <small>(optional)</small></td></tr>
           <tr><td class="name">computed</td><td class="type">'client' | 'engine'</td><td class="desc">`client` when the grid held the rows, `engine` when a paged source's engine answered for the view.</td></tr>
         </tbody>
       </table>
@@ -19613,7 +20035,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">feature:click</td><td class="type">{ key: string | number; row: Record&lt;string, unknown&gt; | null }</td><td class="desc">A feature was clicked; its row is now selected in the grid.</td></tr>
+          <tr><td class="name">feature:click</td><td class="type">{ key: string | number; row: Record&lt;string, unknown&gt; | null; route?: string; keys?: Array&lt;string | number&gt; }</td><td class="desc">A feature was clicked; its row is now selected in the grid. A route selects every one of its rows: `key` is its first row's key, `route` its id and `keys` all its rows' keys.</td></tr>
           <tr><td class="name">feature:hover</td><td class="type">{ key: string | number | null; row: Record&lt;string, unknown&gt; | null; lines: Array&lt;{ column: string; title: string; text: string }&gt; }</td><td class="desc">The pointer moved onto a feature (`key` null when it left one); `lines` are the tooltip's.</td></tr>
           <tr><td class="name">draw</td><td class="type">{ provenance: <a href="#type-MapViewProvenance">MapViewProvenance</a> }</td><td class="desc">The layers were redrawn.</td></tr>
           <tr><td class="name">load</td><td class="type">{ map: unknown }</td><td class="desc">The basemap style loaded (at first, and after a basemap or theme change).</td></tr>
@@ -19643,7 +20065,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">flyTo</td><td class="type">(keys: string | number | Array&lt;string | number&gt;): void</td><td class="desc"><code>keys: string | number | Array&lt;string | number&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Fly to one row, or fit the map to several.</td></tr>
           <tr><td class="name">setLayer</td><td class="type">(layer: <a href="#type-MapViewLayer">MapViewLayer</a>): void</td><td class="desc"><code>layer: <a href="#type-MapViewLayer">MapViewLayer</a></code></td><td class="type"><code>void</code></td><td class="desc">Draw the rows of one geometry with this layer kind.</td></tr>
           <tr><td class="name">provenance</td><td class="type">(): <a href="#type-MapViewProvenance">MapViewProvenance</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-MapViewProvenance">MapViewProvenance</a></code></td><td class="desc">What the map drew last: rows drawn, skipped and matched, and per layer.</td></tr>
-          <tr><td class="name">layers</td><td class="type">(): unknown[]</td><td class="desc">&mdash;</td><td class="type"><code>unknown[]</code></td><td class="desc">The deck.gl layers last handed to the map.</td></tr>
+          <tr><td class="name">layers</td><td class="type">(): unknown[]</td><td class="desc">&mdash;</td><td class="type"><code>unknown[]</code></td><td class="desc">The deck.gl layers last handed to the map, in draw order: areas, routes, columns, points, icons.</td></tr>
+          <tr><td class="name">legend</td><td class="type">(): { colours: Array&lt;{ label: string; colour: number[] }&gt;; dashes: Array&lt;{ label: string; dash: [number, number] | null }&gt;; sections: Array&lt;{ field: string | null; title: string; merged: boolean; entries: Array&lt;{ label: string; colour: number[] | null; dash: [number, number] | null; line: boolean }&gt;; }&gt;; }</td><td class="desc">&mdash;</td><td class="type"><code>{ colours: Array&lt;{ label: string; colour: number[] }&gt;; dashes: Array&lt;{ label: string; dash: [number, number] | null }&gt;; sections: Array&lt;{ field: string | null; title: string; merged: boolean; entries: Array&lt;{ label: string; colour: number[] | null; dash: [number, number] | null; line: boolean }&gt;; }&gt;; }</code></td><td class="desc">What the legend shows, as data. `sections` is what is drawn: one merged section when the colour and dash rules key on the same field (an entry per value, `line` true for a value drawn as a line, its sample in that value's colour and `dash`; false for a point-only value, a square), else one section per rule titled by its field's header (BACKLOG-0001681). `colours` and `dashes` are the two rules' own entries (`null` dash is solid).</td></tr>
           <tr><td class="name">on</td><td class="type">(name: <a href="#type-MapViewEventName">MapViewEventName</a>, fn: (event: <a href="#type-MapViewEventPayloads">MapViewEventPayloads</a>[<a href="#type-MapViewEventName">MapViewEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>name: <a href="#type-MapViewEventName">MapViewEventName</a></code><br><code>fn: (event: <a href="#type-MapViewEventPayloads">MapViewEventPayloads</a>[<a href="#type-MapViewEventName">MapViewEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Listen for an event; returns the unsubscribe. An unknown name warns `mapview:event:&lt;name&gt;`.</td></tr>
           <tr><td class="name">off</td><td class="type">(name: <a href="#type-MapViewEventName">MapViewEventName</a>, fn: (event: <a href="#type-MapViewEventPayloads">MapViewEventPayloads</a>[<a href="#type-MapViewEventName">MapViewEventName</a>]) =&gt; void): void</td><td class="desc"><code>name: <a href="#type-MapViewEventName">MapViewEventName</a></code><br><code>fn: (event: <a href="#type-MapViewEventPayloads">MapViewEventPayloads</a>[<a href="#type-MapViewEventName">MapViewEventName</a>]) =&gt; void</code></td><td class="type"><code>void</code></td><td class="desc">Stop listening for an event.</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Remove the map, its layers and every listener, and put the grid back where it was.</td></tr>
@@ -19655,7 +20078,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Event</th><th>When</th><th>Payload</th><th>Cancellable</th></tr></thead>
         <tbody>
-          <tr><td class="name">feature:click</td><td class="desc"></td><td class="type">{ key: string | number; row: Record&lt;string, unknown&gt; | null }</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">feature:click</td><td class="desc"></td><td class="type">{ key: string | number; row: Record&lt;string, unknown&gt; | null; route?: string; keys?: Array&lt;string | number&gt; }</td><td class="desc">&mdash;</td></tr>
           <tr><td class="name">feature:hover</td><td class="desc"></td><td class="type">{ key: string | number | null; row: Record&lt;string, unknown&gt; | null; lines: Array&lt;{ column: string; title: string; text: string }&gt; }</td><td class="desc">&mdash;</td></tr>
           <tr><td class="name">draw</td><td class="desc"></td><td class="type">{ provenance: <a href="#type-MapViewProvenance">MapViewProvenance</a> }</td><td class="desc">no</td></tr>
           <tr><td class="name">load</td><td class="desc"></td><td class="type">{ map: unknown }</td><td class="desc">&mdash;</td></tr>
@@ -24823,6 +25246,12 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h4 id="type-ChartAxisSide">ChartAxisSide</h4>
     <p class="section-note">Which measure axis a chart annotation reads: left, right, or the secondary y2.</p>
     <p class="type-def"><code>type ChartAxisSide = 'left' | 'right' | 'y2'</code></p>
+    <h4 id="type-ChartCurve">ChartCurve</h4>
+    <p class="section-note">How a line or area series connects its readings (BACKLOG-0001645). `'linear'` (the default) draws straight segments, `'monotone'` a cubic that never overshoots the data, `'catmullRom'` a spline with a `tension`, and `'step'` a level that holds a value until the next reading.</p>
+    <p class="type-def"><code>type ChartCurve = 'linear' | 'monotone' | 'catmullRom' | 'step'</code></p>
+    <h4 id="type-ChartCurveOptions">ChartCurveOptions</h4>
+    <p class="section-note">The object form of {@link ChartSpec.curve} (BACKLOG-0001645): a curve with its own settings. `tension` (0..1, default 1) is the Catmull–Rom spline's pull toward its points; `mode` (`'after'`, the default; `'before'` or `'middle'`) is where a step changes level between two readings.</p>
+    <p class="type-def"><code>type ChartCurveOptions = { type: <a href="#type-ChartCurve">ChartCurve</a>; tension?: number; mode?: 'before' | 'after' | 'middle'; }</code></p>
     <h4 id="type-ChartEventName">ChartEventName</h4>
     <p class="section-note">The events a chart raises. A chart's own, not the grid's: `grid.on` takes {@link EventName} and knows nothing about these. There is no `point:click`, `point:hover` or `series:toggle`; the events are the flat names below, and `click` is the one most callers want — it is how a click on a mark becomes a filter on the grid. Every payload carries `type`, `chart` and `grid` ({@link ChartEvent}); what else arrives is {@link ChartEventPayloads}. A handler that throws is reported to the console and the rest still run. Each event also fires the matching `on&lt;Event&gt;` in the spec (`onClick`, `onDraw`, …) before the subscribers. `click` and `brush` are the two events the chart acts on, and both carry a `preventDefault` a handler can call to take the action over; the rest are notifications.</p>
     <p class="type-def"><code>type ChartEventName = 'click' | 'hover' | 'leave' | 'focus' | 'draw' | 'drill' | 'brush' | 'legend' | 'annotation:added' | 'annotation:changed' | 'annotation:removed' | 'zoom'</code></p>
@@ -24832,6 +25261,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h4 id="type-ChartMeasureType">ChartMeasureType</h4>
     <p class="section-note">The mark a combo chart's measure draws with.</p>
     <p class="type-def"><code>type ChartMeasureType = 'bar' | 'line' | 'area'</code></p>
+    <h4 id="type-ChartRadiusOptions">ChartRadiusOptions</h4>
+    <p class="section-note">The object form of {@link ChartSpec.radius} (BACKLOG-0001647): a pie or donut whose slice radii come from a second measure. `fn` maps that measure to a radius — `'sqrt'` (the default, area-true: area grows as the measure) or `'linear'` — and `min` is the smallest share of the full radius a slice may shrink to, from 0 to 1.</p>
+    <p class="type-def"><code>type ChartRadiusOptions = { col: string; fn?: 'sqrt' | 'linear'; min?: number; }</code></p>
     <h4 id="type-ChartScale">ChartScale</h4>
     <p class="section-note">How a chart axis's scale is chosen, rather than taken from the column's type.</p>
     <p class="type-def"><code>type ChartScale = 'auto' | 'linear' | 'time' | 'band' | 'category'</code></p>
@@ -24843,7 +25275,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="type-def"><code>type ChartTrendMethod = 'linear' | 'movingAverage' | 'exponential' | 'lr' | 'ols' | 'regression' | 'ma' | 'sma' | 'rolling' | 'ewma' | 'ses' | 'holt' | 'smoothing'</code></p>
     <h4 id="type-ChartType">ChartType</h4>
     <p class="section-note">One of the thirty chart types `createChart` accepts.</p>
-    <p class="type-def"><code>type ChartType = 'line' | 'step' | 'area' | 'rangeArea' | 'bar' | 'horizontalBar' | 'waterfall' | 'scatter' | 'bubble' | 'forest' | 'combo' | 'pareto' | 'histogram' | 'boxplot' | 'heatmap' | 'qq' | 'ecdf' | 'lorenz' | 'correlogram' | 'control' | 'capability' | 'movingRange' | 'pie' | 'donut' | 'sunburst' | 'treemap' | 'radar' | 'gauge' | 'funnel' | 'candlestick' | 'geomap' | 'sankey' | 'chord' | 'network' | 'stream' | 'marimekko' | 'violin' | 'gantt'</code></p>
+    <p class="type-def"><code>type ChartType = 'line' | 'step' | 'area' | 'rangeArea' | 'bar' | 'horizontalBar' | 'waterfall' | 'floatingBar' | 'horizontalFloatingBar' | 'populationPyramid' | 'bullet' | 'scatter' | 'bubble' | 'forest' | 'combo' | 'pareto' | 'histogram' | 'boxplot' | 'heatmap' | 'qq' | 'ecdf' | 'lorenz' | 'correlogram' | 'control' | 'capability' | 'movingRange' | 'pie' | 'donut' | 'sunburst' | 'treemap' | 'radar' | 'gauge' | 'funnel' | 'candlestick' | 'ohlc' | 'geomap' | 'sankey' | 'chord' | 'network' | 'stream' | 'marimekko' | 'violin' | 'gantt'</code></p>
     <h4 id="type-ChartZoomAxes">ChartZoomAxes</h4>
     <p class="section-note">Which axes a zoom acts on; the default is the x axis alone.</p>
     <p class="type-def"><code>type ChartZoomAxes = 'x' | 'y' | 'xy'</code></p>
@@ -25110,7 +25542,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="type-def"><code>type IconDefinition = string | string[] | { viewBox?: string; paths?: string[]; path?: string; paint?: <a href="#type-Paint">Paint</a>; }</code></p>
     <h4 id="type-IconName">IconName</h4>
     <p class="section-note">A glyph name from the icon sprite registry (`packages/dom/src/cell/icons.js`). The union below is every built-in name, generated from `iconNames()` so an editor can autocomplete and typo-check them — see `test/icon-name-type-drift.test.js`, which fails if this list and the registry ever disagree. It is deliberately **not closed**: the registry is extensible at runtime via `registerIcon`, `registerIcons`, `config.icons` and `grid.icons`, and `(string &amp; {})` widens the type so a custom registered name still typechecks without losing autocomplete on the built-ins. A name the registry has never heard of — built-in or custom — draws a blank glyph and warns once at runtime; it is not a type error.</p>
-    <p class="type-def"><code>type IconName = 'chevronRight' | 'chevronDown' | 'chevronUp' | 'chevronLeft' | 'check' | 'dash' | 'close' | 'plus' | 'minus' | 'info' | 'success' | 'warning' | 'danger' | 'clock' | 'lock' | 'link' | 'external' | 'filter' | 'pause' | 'play' | 'chart' | 'palette' | 'undo' | 'redo' | 'columns' | 'download' | 'restore' | 'spreadsheet' | 'print' | 'maximise' | 'minimise' | 'views' | 'search' | 'pencil' | 'trash' | 'share' | 'pin' | 'sortAsc' | 'sortDesc' | 'menu' | 'drag' | 'star' | 'heart' | 'circleFilled' | 'square' | 'bolt' | 'flag' | 'arrow' | 'highlight' | 'eraser' | 'thumbUp' | 'eye' | 'eyeOff' | 'copy' | 'present' | 'blank' | (string &amp; {})</code></p>
+    <p class="type-def"><code>type IconName = 'chevronRight' | 'chevronDown' | 'chevronUp' | 'chevronLeft' | 'check' | 'dash' | 'close' | 'plus' | 'minus' | 'info' | 'success' | 'warning' | 'danger' | 'clock' | 'lock' | 'link' | 'external' | 'filter' | 'pause' | 'play' | 'chart' | 'palette' | 'undo' | 'redo' | 'columns' | 'download' | 'restore' | 'spreadsheet' | 'print' | 'maximise' | 'minimise' | 'views' | 'search' | 'pencil' | 'trash' | 'share' | 'pin' | 'sortAsc' | 'sortDesc' | 'menu' | 'drag' | 'star' | 'heart' | 'circleFilled' | 'square' | 'bolt' | 'flag' | 'arrow' | 'highlight' | 'eraser' | 'thumbUp' | 'eye' | 'eyeOff' | 'copy' | 'present' | 'cabinet' | 'splice' | 'exchange' | 'pole' | 'chamber' | 'premises' | 'fault' | 'blank' | (string &amp; {})</code></p>
     <h4 id="type-IconSetKind">IconSetKind</h4>
     <p class="section-note">A built-in glyph set for an icon-set formatting rule.</p>
     <p class="type-def"><code>type IconSetKind = 'arrows' | 'trafficLights' | 'ratings'</code></p>
@@ -25304,6 +25736,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">How rows are coloured: one colour (a CSS hex or `rgb()` colour, or `[r, g, b, a?]`); a category per value of a column (`map` names the colour of each value, and any other value takes the next colour of the charts palette); or a number placed along a ramp by the charts module's own scale code, between the `colours` stops (default the default scheme's sequential ramp), over `domain` (default the drawn values' range), on a `rampScale` (`linear`, `log` or `quantile`; chosen from the values when unset, as a heat map's is).</p>
     <p class="type-def"><code>type MapViewColour = string | number[] | { field: string; map?: Record&lt;string, string | number[]&gt; } | { field: string; scale: 'ramp'; domain?: [number, number]; colours?: string[]; rampScale?: 'linear' | 'log' | 'quantile'; }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewDash">MapViewDash</h4>
+    <p class="section-note">How lines are dashed: one pattern for every line, or a pattern per value of a column (`map`; a value it does not name is drawn solid). The pattern is in pixels and holds its length on screen while the camera zooms and pitches. Needs deck.gl's `PathStyleExtension` on the page's deck (the full `deck.gl` bundle has it); without it `mapview:dash` warns and lines are solid. A pattern that is none of these warns `mapview:dash:spec`.</p>
+    <p class="type-def"><code>type MapViewDash = <a href="#type-MapViewDashPattern">MapViewDashPattern</a> | { field: string; map: Record&lt;string, <a href="#type-MapViewDashPattern">MapViewDashPattern</a>&gt; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewDashPattern">MapViewDashPattern</h4>
+    <p class="section-note">A line pattern as `[dash, gap]` in pixels, or a name: `solid`, `dashed` (10 px dash, 6 px gap) or `dotted` (2 px dash, 5 px gap).</p>
+    <p class="type-def"><code>type MapViewDashPattern = 'solid' | 'dashed' | 'dotted' | [number, number]</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewEnd">MapViewEnd</h4>
+    <p class="section-note">One end of a segment row: the columns holding its latitude and longitude (`lng`, or `lon`).</p>
+    <p class="type-def"><code>type MapViewEnd = { lat: string; lng: string } | { lat: string; lon: string }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
     <h4 id="type-MapViewEventName">MapViewEventName</h4>
     <p class="section-note">The events a map view emits.</p>
     <p class="type-def"><code>type MapViewEventName = 'feature:click' | 'feature:hover' | 'draw' | 'load' | 'close'</code></p>
@@ -25313,8 +25757,16 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="type-def"><code>type MapViewFlow = boolean | { speed?: number; trail?: number }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
     <h4 id="type-MapViewGeometry">MapViewGeometry</h4>
-    <p class="section-note">Where a row's place is read from (BACKLOG-0001639): a latitude and a longitude column (`lng`, or `lon`); a GeoJSON column (a `Geometry` or a `Feature`, as an object or its JSON text, or WKT or WKB); or a path column holding an array of `[lng, lat]` pairs (or its JSON text).</p>
-    <p class="type-def"><code>type MapViewGeometry = { lat: string; lng: string } | { lat: string; lon: string } | { geojson: string } | { path: string }</code></p>
+    <p class="section-note">Where a row's place is read from (BACKLOG-0001639): a latitude and a longitude column (`lng`, or `lon`), optionally with a `route` to join rows into lines; a `from` and a `to` (each a latitude and a longitude column) for a row that is one segment; a GeoJSON column (a `Geometry` or a `Feature`, as an object or its JSON text, or WKT or WKB); or a path column holding an array of `[lng, lat]` pairs (or its JSON text).</p>
+    <p class="type-def"><code>type MapViewGeometry = { lat: string; lng: string; route?: <a href="#type-MapViewRoute">MapViewRoute</a> } | { lat: string; lon: string; route?: <a href="#type-MapViewRoute">MapViewRoute</a> } | { from: <a href="#type-MapViewEnd">MapViewEnd</a>; to: <a href="#type-MapViewEnd">MapViewEnd</a> } | { geojson: string } | { path: string }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewIcon">MapViewIcon</h4>
+    <p class="section-note">Icon markers for point rows (BACKLOG-0001677). A point's icon is `map[value of field]`, else `default`; with a `field` and no `map` the value is itself the icon. A point with no icon is drawn as a circle. A name that is no glyph, path or URL warns `mapview:icon:&lt;name&gt;`; with no canvas to draw on, `mapview:icons`. Registry glyphs are tinted by the `color` mapping (an image URL is drawn as it is). In 3D an icon is a billboard: it always faces the camera, is drawn whole at ground level over the routes and the extruded buildings (it is not depth-tested, so a building never hides it), and keeps its pixel size at every zoom. All the icons live in one atlas, packed once and again only when a point asks for an icon it does not hold.</p>
+    <p class="type-def"><code>type MapViewIcon = <a href="#type-MapViewIconRef">MapViewIconRef</a> | { field?: string; map?: Record&lt;string, <a href="#type-MapViewIconRef">MapViewIconRef</a>&gt;; default?: <a href="#type-MapViewIconRef">MapViewIconRef</a>; size?: string | number; anchor?: 'center' | 'bottom' | 'top' | 'left' | 'right'; badge?: boolean | 'circle' | 'square' | 'diamond'; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewIconRef">MapViewIconRef</h4>
+    <p class="section-note">An icon for a point row: the name of a glyph of the grid's icon registry (`grid.icons`: `cabinet`, `splice`, `exchange`, `pole`, `chamber`, `premises`, `fault` and the rest, and any you register), an SVG path (in a 16 x 16 box), an icon definition (`{ viewBox, paths }`), or an image URL.</p>
+    <p class="type-def"><code>type MapViewIconRef = string | { viewBox?: string; paths?: string[]; path?: string; paint?: 'stroke' | 'fill' }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
     <h4 id="type-MapViewLayer">MapViewLayer</h4>
     <p class="section-note">The layer kinds a map view draws a row with.</p>
@@ -25634,7 +26086,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.84.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.85.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

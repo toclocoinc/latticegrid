@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.84.0</title>
+<title>Types API Reference — Lattice Grid 1.85.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -2453,6 +2453,12 @@
     <h4 id="type-ChartAxisSide">ChartAxisSide</h4>
     <p class="section-note">Which measure axis a chart annotation reads: left, right, or the secondary y2.</p>
     <p class="type-def"><code>type ChartAxisSide = 'left' | 'right' | 'y2'</code></p>
+    <h4 id="type-ChartCurve">ChartCurve</h4>
+    <p class="section-note">How a line or area series connects its readings (BACKLOG-0001645). `'linear'` (the default) draws straight segments, `'monotone'` a cubic that never overshoots the data, `'catmullRom'` a spline with a `tension`, and `'step'` a level that holds a value until the next reading.</p>
+    <p class="type-def"><code>type ChartCurve = 'linear' | 'monotone' | 'catmullRom' | 'step'</code></p>
+    <h4 id="type-ChartCurveOptions">ChartCurveOptions</h4>
+    <p class="section-note">The object form of {@link ChartSpec.curve} (BACKLOG-0001645): a curve with its own settings. `tension` (0..1, default 1) is the Catmull–Rom spline's pull toward its points; `mode` (`'after'`, the default; `'before'` or `'middle'`) is where a step changes level between two readings.</p>
+    <p class="type-def"><code>type ChartCurveOptions = { type: <a href="#type-ChartCurve">ChartCurve</a>; tension?: number; mode?: 'before' | 'after' | 'middle'; }</code></p>
     <h4 id="type-ChartEventName">ChartEventName</h4>
     <p class="section-note">The events a chart raises. A chart's own, not the grid's: `grid.on` takes {@link EventName} and knows nothing about these. There is no `point:click`, `point:hover` or `series:toggle`; the events are the flat names below, and `click` is the one most callers want — it is how a click on a mark becomes a filter on the grid. Every payload carries `type`, `chart` and `grid` ({@link ChartEvent}); what else arrives is {@link ChartEventPayloads}. A handler that throws is reported to the console and the rest still run. Each event also fires the matching `on&lt;Event&gt;` in the spec (`onClick`, `onDraw`, …) before the subscribers. `click` and `brush` are the two events the chart acts on, and both carry a `preventDefault` a handler can call to take the action over; the rest are notifications.</p>
     <p class="type-def"><code>type ChartEventName = 'click' | 'hover' | 'leave' | 'focus' | 'draw' | 'drill' | 'brush' | 'legend' | 'annotation:added' | 'annotation:changed' | 'annotation:removed' | 'zoom'</code></p>
@@ -2462,6 +2468,9 @@
     <h4 id="type-ChartMeasureType">ChartMeasureType</h4>
     <p class="section-note">The mark a combo chart's measure draws with.</p>
     <p class="type-def"><code>type ChartMeasureType = 'bar' | 'line' | 'area'</code></p>
+    <h4 id="type-ChartRadiusOptions">ChartRadiusOptions</h4>
+    <p class="section-note">The object form of {@link ChartSpec.radius} (BACKLOG-0001647): a pie or donut whose slice radii come from a second measure. `fn` maps that measure to a radius — `'sqrt'` (the default, area-true: area grows as the measure) or `'linear'` — and `min` is the smallest share of the full radius a slice may shrink to, from 0 to 1.</p>
+    <p class="type-def"><code>type ChartRadiusOptions = { col: string; fn?: 'sqrt' | 'linear'; min?: number; }</code></p>
     <h4 id="type-ChartScale">ChartScale</h4>
     <p class="section-note">How a chart axis's scale is chosen, rather than taken from the column's type.</p>
     <p class="type-def"><code>type ChartScale = 'auto' | 'linear' | 'time' | 'band' | 'category'</code></p>
@@ -2473,7 +2482,7 @@
     <p class="type-def"><code>type ChartTrendMethod = 'linear' | 'movingAverage' | 'exponential' | 'lr' | 'ols' | 'regression' | 'ma' | 'sma' | 'rolling' | 'ewma' | 'ses' | 'holt' | 'smoothing'</code></p>
     <h4 id="type-ChartType">ChartType</h4>
     <p class="section-note">One of the thirty chart types `createChart` accepts.</p>
-    <p class="type-def"><code>type ChartType = 'line' | 'step' | 'area' | 'rangeArea' | 'bar' | 'horizontalBar' | 'waterfall' | 'scatter' | 'bubble' | 'forest' | 'combo' | 'pareto' | 'histogram' | 'boxplot' | 'heatmap' | 'qq' | 'ecdf' | 'lorenz' | 'correlogram' | 'control' | 'capability' | 'movingRange' | 'pie' | 'donut' | 'sunburst' | 'treemap' | 'radar' | 'gauge' | 'funnel' | 'candlestick' | 'geomap' | 'sankey' | 'chord' | 'network' | 'stream' | 'marimekko' | 'violin' | 'gantt'</code></p>
+    <p class="type-def"><code>type ChartType = 'line' | 'step' | 'area' | 'rangeArea' | 'bar' | 'horizontalBar' | 'waterfall' | 'floatingBar' | 'horizontalFloatingBar' | 'populationPyramid' | 'bullet' | 'scatter' | 'bubble' | 'forest' | 'combo' | 'pareto' | 'histogram' | 'boxplot' | 'heatmap' | 'qq' | 'ecdf' | 'lorenz' | 'correlogram' | 'control' | 'capability' | 'movingRange' | 'pie' | 'donut' | 'sunburst' | 'treemap' | 'radar' | 'gauge' | 'funnel' | 'candlestick' | 'ohlc' | 'geomap' | 'sankey' | 'chord' | 'network' | 'stream' | 'marimekko' | 'violin' | 'gantt'</code></p>
     <h4 id="type-ChartZoomAxes">ChartZoomAxes</h4>
     <p class="section-note">Which axes a zoom acts on; the default is the x axis alone.</p>
     <p class="type-def"><code>type ChartZoomAxes = 'x' | 'y' | 'xy'</code></p>
@@ -2740,7 +2749,7 @@
     <p class="type-def"><code>type IconDefinition = string | string[] | { viewBox?: string; paths?: string[]; path?: string; paint?: <a href="#type-Paint">Paint</a>; }</code></p>
     <h4 id="type-IconName">IconName</h4>
     <p class="section-note">A glyph name from the icon sprite registry (`packages/dom/src/cell/icons.js`). The union below is every built-in name, generated from `iconNames()` so an editor can autocomplete and typo-check them — see `test/icon-name-type-drift.test.js`, which fails if this list and the registry ever disagree. It is deliberately **not closed**: the registry is extensible at runtime via `registerIcon`, `registerIcons`, `config.icons` and `grid.icons`, and `(string &amp; {})` widens the type so a custom registered name still typechecks without losing autocomplete on the built-ins. A name the registry has never heard of — built-in or custom — draws a blank glyph and warns once at runtime; it is not a type error.</p>
-    <p class="type-def"><code>type IconName = 'chevronRight' | 'chevronDown' | 'chevronUp' | 'chevronLeft' | 'check' | 'dash' | 'close' | 'plus' | 'minus' | 'info' | 'success' | 'warning' | 'danger' | 'clock' | 'lock' | 'link' | 'external' | 'filter' | 'pause' | 'play' | 'chart' | 'palette' | 'undo' | 'redo' | 'columns' | 'download' | 'restore' | 'spreadsheet' | 'print' | 'maximise' | 'minimise' | 'views' | 'search' | 'pencil' | 'trash' | 'share' | 'pin' | 'sortAsc' | 'sortDesc' | 'menu' | 'drag' | 'star' | 'heart' | 'circleFilled' | 'square' | 'bolt' | 'flag' | 'arrow' | 'highlight' | 'eraser' | 'thumbUp' | 'eye' | 'eyeOff' | 'copy' | 'present' | 'blank' | (string &amp; {})</code></p>
+    <p class="type-def"><code>type IconName = 'chevronRight' | 'chevronDown' | 'chevronUp' | 'chevronLeft' | 'check' | 'dash' | 'close' | 'plus' | 'minus' | 'info' | 'success' | 'warning' | 'danger' | 'clock' | 'lock' | 'link' | 'external' | 'filter' | 'pause' | 'play' | 'chart' | 'palette' | 'undo' | 'redo' | 'columns' | 'download' | 'restore' | 'spreadsheet' | 'print' | 'maximise' | 'minimise' | 'views' | 'search' | 'pencil' | 'trash' | 'share' | 'pin' | 'sortAsc' | 'sortDesc' | 'menu' | 'drag' | 'star' | 'heart' | 'circleFilled' | 'square' | 'bolt' | 'flag' | 'arrow' | 'highlight' | 'eraser' | 'thumbUp' | 'eye' | 'eyeOff' | 'copy' | 'present' | 'cabinet' | 'splice' | 'exchange' | 'pole' | 'chamber' | 'premises' | 'fault' | 'blank' | (string &amp; {})</code></p>
     <h4 id="type-IconSetKind">IconSetKind</h4>
     <p class="section-note">A built-in glyph set for an icon-set formatting rule.</p>
     <p class="type-def"><code>type IconSetKind = 'arrows' | 'trafficLights' | 'ratings'</code></p>
@@ -2934,6 +2943,18 @@
     <p class="section-note">How rows are coloured: one colour (a CSS hex or `rgb()` colour, or `[r, g, b, a?]`); a category per value of a column (`map` names the colour of each value, and any other value takes the next colour of the charts palette); or a number placed along a ramp by the charts module's own scale code, between the `colours` stops (default the default scheme's sequential ramp), over `domain` (default the drawn values' range), on a `rampScale` (`linear`, `log` or `quantile`; chosen from the values when unset, as a heat map's is).</p>
     <p class="type-def"><code>type MapViewColour = string | number[] | { field: string; map?: Record&lt;string, string | number[]&gt; } | { field: string; scale: 'ramp'; domain?: [number, number]; colours?: string[]; rampScale?: 'linear' | 'log' | 'quantile'; }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewDash">MapViewDash</h4>
+    <p class="section-note">How lines are dashed: one pattern for every line, or a pattern per value of a column (`map`; a value it does not name is drawn solid). The pattern is in pixels and holds its length on screen while the camera zooms and pitches. Needs deck.gl's `PathStyleExtension` on the page's deck (the full `deck.gl` bundle has it); without it `mapview:dash` warns and lines are solid. A pattern that is none of these warns `mapview:dash:spec`.</p>
+    <p class="type-def"><code>type MapViewDash = <a href="#type-MapViewDashPattern">MapViewDashPattern</a> | { field: string; map: Record&lt;string, <a href="#type-MapViewDashPattern">MapViewDashPattern</a>&gt; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewDashPattern">MapViewDashPattern</h4>
+    <p class="section-note">A line pattern as `[dash, gap]` in pixels, or a name: `solid`, `dashed` (10 px dash, 6 px gap) or `dotted` (2 px dash, 5 px gap).</p>
+    <p class="type-def"><code>type MapViewDashPattern = 'solid' | 'dashed' | 'dotted' | [number, number]</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewEnd">MapViewEnd</h4>
+    <p class="section-note">One end of a segment row: the columns holding its latitude and longitude (`lng`, or `lon`).</p>
+    <p class="type-def"><code>type MapViewEnd = { lat: string; lng: string } | { lat: string; lon: string }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
     <h4 id="type-MapViewEventName">MapViewEventName</h4>
     <p class="section-note">The events a map view emits.</p>
     <p class="type-def"><code>type MapViewEventName = 'feature:click' | 'feature:hover' | 'draw' | 'load' | 'close'</code></p>
@@ -2943,8 +2964,16 @@
     <p class="type-def"><code>type MapViewFlow = boolean | { speed?: number; trail?: number }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
     <h4 id="type-MapViewGeometry">MapViewGeometry</h4>
-    <p class="section-note">Where a row's place is read from (BACKLOG-0001639): a latitude and a longitude column (`lng`, or `lon`); a GeoJSON column (a `Geometry` or a `Feature`, as an object or its JSON text, or WKT or WKB); or a path column holding an array of `[lng, lat]` pairs (or its JSON text).</p>
-    <p class="type-def"><code>type MapViewGeometry = { lat: string; lng: string } | { lat: string; lon: string } | { geojson: string } | { path: string }</code></p>
+    <p class="section-note">Where a row's place is read from (BACKLOG-0001639): a latitude and a longitude column (`lng`, or `lon`), optionally with a `route` to join rows into lines; a `from` and a `to` (each a latitude and a longitude column) for a row that is one segment; a GeoJSON column (a `Geometry` or a `Feature`, as an object or its JSON text, or WKT or WKB); or a path column holding an array of `[lng, lat]` pairs (or its JSON text).</p>
+    <p class="type-def"><code>type MapViewGeometry = { lat: string; lng: string; route?: <a href="mapview.html#type-MapViewRoute">MapViewRoute</a> } | { lat: string; lon: string; route?: <a href="mapview.html#type-MapViewRoute">MapViewRoute</a> } | { from: <a href="#type-MapViewEnd">MapViewEnd</a>; to: <a href="#type-MapViewEnd">MapViewEnd</a> } | { geojson: string } | { path: string }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewIcon">MapViewIcon</h4>
+    <p class="section-note">Icon markers for point rows (BACKLOG-0001677). A point's icon is `map[value of field]`, else `default`; with a `field` and no `map` the value is itself the icon. A point with no icon is drawn as a circle. A name that is no glyph, path or URL warns `mapview:icon:&lt;name&gt;`; with no canvas to draw on, `mapview:icons`. Registry glyphs are tinted by the `color` mapping (an image URL is drawn as it is). In 3D an icon is a billboard: it always faces the camera, is drawn whole at ground level over the routes and the extruded buildings (it is not depth-tested, so a building never hides it), and keeps its pixel size at every zoom. All the icons live in one atlas, packed once and again only when a point asks for an icon it does not hold.</p>
+    <p class="type-def"><code>type MapViewIcon = <a href="#type-MapViewIconRef">MapViewIconRef</a> | { field?: string; map?: Record&lt;string, <a href="#type-MapViewIconRef">MapViewIconRef</a>&gt;; default?: <a href="#type-MapViewIconRef">MapViewIconRef</a>; size?: string | number; anchor?: 'center' | 'bottom' | 'top' | 'left' | 'right'; badge?: boolean | 'circle' | 'square' | 'diamond'; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewIconRef">MapViewIconRef</h4>
+    <p class="section-note">An icon for a point row: the name of a glyph of the grid's icon registry (`grid.icons`: `cabinet`, `splice`, `exchange`, `pole`, `chamber`, `premises`, `fault` and the rest, and any you register), an SVG path (in a 16 x 16 box), an icon definition (`{ viewBox, paths }`), or an image URL.</p>
+    <p class="type-def"><code>type MapViewIconRef = string | { viewBox?: string; paths?: string[]; path?: string; paint?: 'stroke' | 'fill' }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
     <h4 id="type-MapViewLayer">MapViewLayer</h4>
     <p class="section-note">The layer kinds a map view draws a row with.</p>

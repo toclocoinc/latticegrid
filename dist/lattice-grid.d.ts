@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.84.0, type declarations
+ * Lattice Grid 1.85.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -998,6 +998,7 @@ export type IconName =
   | 'pin' | 'sortAsc' | 'sortDesc' | 'menu' | 'drag'
   | 'star' | 'heart' | 'circleFilled' | 'square' | 'bolt' | 'flag'
   | 'arrow' | 'highlight' | 'eraser' | 'thumbUp' | 'eye' | 'eyeOff' | 'copy' | 'present'
+  | 'cabinet' | 'splice' | 'exchange' | 'pole' | 'chamber' | 'premises' | 'fault'
   | 'blank'
   | (string & {});
 
@@ -12904,12 +12905,13 @@ export function resolveCatalogue(tag?: string): Record<string, unknown> | null;
 export type ChartType =
   | 'line' | 'step' | 'area' | 'rangeArea'
   | 'bar' | 'horizontalBar' | 'waterfall'
+  | 'floatingBar' | 'horizontalFloatingBar' | 'populationPyramid' | 'bullet'
   | 'scatter' | 'bubble' | 'forest'
   | 'combo' | 'pareto'
   | 'histogram' | 'boxplot' | 'heatmap'
   | 'qq' | 'ecdf' | 'lorenz' | 'correlogram' | 'control' | 'capability' | 'movingRange'
   | 'pie' | 'donut' | 'sunburst' | 'treemap'
-  | 'radar' | 'gauge' | 'funnel' | 'candlestick' | 'geomap'
+  | 'radar' | 'gauge' | 'funnel' | 'candlestick' | 'ohlc' | 'geomap'
   | 'sankey' | 'chord' | 'network' | 'stream' | 'marimekko' | 'violin' | 'gantt';
 
 /**
@@ -12973,6 +12975,43 @@ export interface ChartRampOptions {
 export type ChartMeasureType = 'bar' | 'line' | 'area';
 /** The left or right side of a chart: a measure axis, or a combo measure's side. */
 export type Side = 'left' | 'right';
+
+/**
+ * How a line or area series connects its readings.
+ * `'linear'` (the default) draws straight segments, `'monotone'` a cubic that
+ * never overshoots the data, `'catmullRom'` a spline with a `tension`, and
+ * `'step'` a level that holds a value until the next reading.
+ */
+export type ChartCurve = 'linear' | 'monotone' | 'catmullRom' | 'step';
+
+/**
+ * The object form of {@link ChartSpec.curve}: a curve with its
+ * own settings. `tension` (0..1, default 1) is the Catmull–Rom spline's pull
+ * toward its points; `mode` (`'after'`, the default; `'before'` or `'middle'`)
+ * is where a step changes level between two readings.
+ */
+export type ChartCurveOptions = {
+  type: ChartCurve;
+  tension?: number;
+  mode?: 'before' | 'after' | 'middle';
+};
+
+/**
+ * The object form of {@link ChartSpec.radius}: a pie or donut
+ * whose slice radii come from a second measure. `fn` maps that measure to a
+ * radius — `'sqrt'` (the default, area-true: area grows as the measure) or
+ * `'linear'` — and `min` is the smallest share of the full radius a slice may
+ * shrink to, from 0 to 1.
+ */
+export type ChartRadiusOptions = {
+  /** The column whose value drives each slice's outer radius. */
+  col: string;
+  /** `'sqrt'` (area-true, default) or `'linear'`. */
+  fn?: 'sqrt' | 'linear';
+  /** The minimum outer radius, as a share of the full radius (0..1, default 0). */
+  min?: number;
+};
+
 export interface ChartMeasure {
   /** The column reduced for this measure. */
   col: string;
@@ -13573,8 +13612,12 @@ export interface ChartSpec {
   type: ChartType;
   /** The category column. */
   x?: string;
-  /** The measure column, for the types that take one. */
-  y?: string;
+  /**
+   * The measure column, for the types that take one. On a `floatingBar` or
+   * `horizontalFloatingBar` it is the low/high pair of columns the bar spans
+   * between: `[lowCol, highCol]`.
+   */
+  y?: string | [string, string];
   /** Splits the measure into one series per distinct value. */
   series?: string;
   /**
@@ -13619,7 +13662,11 @@ export interface ChartSpec {
   volumePane?: ChartVolumePaneOptions;
   /** Endpoints, for sankey, chord and network. */
   source?: string;
-  /** The column naming the link's destination, beside `source`. */
+  /**
+   * The column naming the link's destination, beside `source`. On a `bullet`
+   * it is instead the column holding each row's target, drawn
+   * as a marker across the bar.
+   */
   target?: string;
   /** Row label and dates, for gantt. */
   label?: string;
@@ -14029,10 +14076,77 @@ export interface ChartSpec {
    * Stack the series rather than drawing them side by side. On a `combo` it
    * stacks the bar measures; line and area measures stay
    * outside the stack on the same scale and are drawn after the columns.
+   *
+   * `'percent'` stacks to 100%: a `bar`, `horizontalBar`,
+   * `area` or `combo` with two or more series draws each column as the whole
+   * plot height, split into each series' share of the column, and the measure
+   * axis runs 0 to 100 rather than 0 to the tallest total. A column that mixes
+   * signs has no meaningful "share of the whole", so shares are taken against
+   * the sum of the parts' absolute values; the tooltip still reads the real
+   * value, with its share beside it.
    */
-  stack?: boolean;
-  /** Overlay a kernel density curve on a histogram. */
-  curve?: boolean;
+  stack?: boolean | 'percent';
+  /**
+   * On a histogram, `true` overlays a kernel density curve. On a `line`, an
+   * `area` (and the line half of a `combo`/`pareto`), it names how the series
+   * connects its readings: a {@link ChartCurve} name
+   * (`'linear'`, `'monotone'`, `'catmullRom'`, `'step'`), a
+   * {@link ChartCurveOptions} object (`{ type, tension, mode }`), or a map keyed
+   * by series label — the same name {@link ChartSpec.emphasis} keys on — giving
+   * each series its own curve. Markers, tooltips and hit-testing stay on the
+   * real readings whatever the curve.
+   */
+  curve?: boolean | ChartCurve | ChartCurveOptions | Record<string, ChartCurve | ChartCurveOptions>;
+  /**
+   * A pie or donut's first slice, in degrees clockwise from twelve o'clock, 0
+   * being the top. Default 0; a partial circle uses the
+   * container's height rather than half of it.
+   */
+  startAngle?: number;
+  /** A pie or donut's last slice, in degrees clockwise from twelve o'clock. Default 360. */
+  endAngle?: number;
+  /**
+   * Drive a pie or donut's slice radii from a second measure, the angle still
+   * coming from `y`: `{ col, fn?, min? }`. `fn` is `'sqrt'`
+   * (area-true, default) or `'linear'`; `min` is the smallest share of the full
+   * radius a slice may shrink to. The donut's hole is respected, the tooltip
+   * shows both measures, and the legend is unchanged.
+   */
+  radius?: ChartRadiusOptions;
+  /**
+   * Draw a `bar` or `horizontalBar` as lollipops rather than solid columns: a stem from the baseline up to the value, with a dot at
+   * the value. Everything else the bar family does is unchanged — several
+   * measures sit side by side, sorting and the `axis` block apply, `scheme`
+   * forms colour the dots and stems, and the tooltip and grid binding read the
+   * same points. Reuses the bar code path rather than a second implementation,
+   * which is why it is a mark on the bar type and not a type of its own.
+   */
+  mark?: 'lollipop';
+  /**
+   * A `bullet` chart's qualitative bands: the bands' upper
+   * edges in ascending order, each either a number (the same for every row) or
+   * the name of a column holding that edge per row. `[60, 85, 100]` shades the
+   * scale from its minimum to 60, 60 to 85 and 85 to 100 — the same reading the
+   * `bullet` cell renderer gives its `bands`. Ignored by every other type.
+   */
+  ranges?: (number | string)[];
+  /**
+   * A `bullet` chart's layout. `orientation` is
+   * `'horizontal'` (the default: one row per KPI, the value running along x) or
+   * `'vertical'`. `scale` is `'shared'` (the default: every row is read against
+   * one scale and one axis, so bars compare across KPIs) or `'row'` (each KPI
+   * has its own scale, as a bullet cell has, and no shared axis is drawn).
+   * `min` and `max` on the chart pin the scale's ends.
+   */
+  bullet?: { orientation?: 'horizontal' | 'vertical'; scale?: 'shared' | 'row' };
+  /**
+   * A `populationPyramid`'s options. `scale` is `'shared'`
+   * (the default: one symmetric scale serves both halves, so equal bars are
+   * equal lengths) or `'independent'` (each half is scaled to its own largest
+   * bar). `percent: true` draws each bar as its share of the whole population
+   * and labels the axis in percent. The axis labels are always absolute.
+   */
+  pyramid?: { scale?: 'shared' | 'independent'; percent?: boolean };
   /** An alias for `y`, where "the measure" reads better than "the y axis". */
   measure?: string;
   /** Bubble charts: the column driving the radius, and the largest it may be. */

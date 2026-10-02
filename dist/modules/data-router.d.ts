@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.84.0, data-router module type declarations
+ * Lattice Grid 1.85.0, data-router module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -298,8 +298,10 @@ export interface RouterJoin {
   fields?: string[] | Record<string, string> | ((lookupRow: RouterRecord | null, leftRow: RouterRecord) => unknown);
   /**
    * An alias for `fields`, read when `fields` is absent. For a COLLECT join it is also
-   * the per-row mapping: `fn(fromRow, leftRow)` returning the value to collect (defaults
-   * to the whole from-row).
+   * the per-row mapping: a list of names (objects with just those fields), a `{ from: to }`
+   * rename map, a single field name (the bare values), or `fn(fromRow, leftRow)` returning
+   * the value to collect (defaults to the whole from-row). A field the rows lack warns once.
+   * A lookup join reads a list, a map or a function; a single string is not a lookup form.
    */
   select?: string[] | Record<string, string> | ((lookupRow: RouterRecord | null, leftRow: RouterRecord) => unknown);
   /** A COLLECT join: de-duplicate the collected values. Defaults to false. */

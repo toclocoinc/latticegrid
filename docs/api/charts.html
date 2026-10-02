@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Charts API Reference — Lattice Grid 1.84.0</title>
+<title>Charts API Reference — Lattice Grid 1.85.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -446,7 +446,7 @@
     </p>
 
     <h2 id="chartsmodule">The charts module</h2>
-    <p><code>modules/charts</code> draws thirty-five chart types from the grid's own data. It is optional and imports nothing from the grid (the grid is handed in) so the bundle carries the drawing and none of the grid, and a page that never charts never loads it.</p>
+    <p><code>modules/charts</code> draws forty-two chart types from the grid's own data. It is optional and imports nothing from the grid (the grid is handed in) so the bundle carries the drawing and none of the grid, and a page that never charts never loads it.</p>
     <pre><code>import { createChart } from '@toclocoinc/lattice-grid/modules/charts';
 
 const chart = createChart({
@@ -484,12 +484,13 @@ return [p.source, p.pending, p.measures[0].computed, p.reason].join(' | ');</cod
       <table>
         <thead><tr><th>Family</th><th>Types</th><th>Takes</th></tr></thead>
         <tbody>
-          <tr><td class="sig">Cartesian</td><td><code>line</code>, <code>step</code>, <code>area</code>, <code>rangeArea</code>, <code>bar</code>, <code>horizontalBar</code>, <code>waterfall</code>, <code>scatter</code>, <code>bubble</code></td><td><code>x</code>, <code>y</code>, optional <code>series</code></td></tr>
+          <tr><td class="sig">Cartesian</td><td><code>line</code>, <code>step</code>, <code>area</code>, <code>rangeArea</code>, <code>bar</code>, <code>horizontalBar</code>, <code>waterfall</code>, <code>floatingBar</code>, <code>horizontalFloatingBar</code>, <code>scatter</code>, <code>bubble</code></td><td><code>x</code>, <code>y</code>, optional <code>series</code>; a <code>floatingBar</code> takes <code>y</code> as a <code>[lowCol, highCol]</code> pair</td></tr>
+          <tr><td class="sig">Comparison</td><td><code>populationPyramid</code>, <code>bullet</code></td><td>a <code>populationPyramid</code> takes <code>x</code> and <code>y</code> split by a <code>series</code> of two values, or <code>x</code> and two <code>measures</code> (left, right); a <code>bullet</code> takes <code>x</code>, <code>y</code>, optional <code>target</code> and <code>ranges</code></td></tr>
           <tr><td class="sig">Two axes</td><td><code>combo</code>, <code>pareto</code></td><td><code>x</code>, <code>measures</code></td></tr>
           <tr><td class="sig">Distribution</td><td><code>histogram</code>, <code>boxplot</code></td><td><code>y</code> alone</td></tr>
           <tr><td class="sig">Matrix</td><td><code>heatmap</code></td><td><code>x</code>, <code>y</code>, <code>series</code></td></tr>
           <tr><td class="sig">Part to whole</td><td><code>pie</code>, <code>donut</code>, <code>sunburst</code>, <code>treemap</code></td><td><code>x</code>, <code>y</code>; or the grid's grouping, see below</td></tr>
-          <tr><td class="sig">Specialist</td><td><code>radar</code>, <code>gauge</code>, <code>funnel</code>, <code>candlestick</code></td><td>varies; candlestick takes four <code>measures</code> in open, high, low, close order</td></tr>
+          <tr><td class="sig">Specialist</td><td><code>radar</code>, <code>gauge</code>, <code>funnel</code>, <code>candlestick</code>, <code>ohlc</code></td><td>varies; candlestick and ohlc take four <code>measures</code> in open, high, low, close order</td></tr>
           <tr><td class="sig">Geographic</td><td><code>geomap</code></td><td><code>x</code> as an ISO code, <code>y</code> as the value</td></tr>
           <tr><td class="sig">Flow</td><td><code>sankey</code>, <code>chord</code>, <code>network</code></td><td><code>source</code>, <code>target</code>, <code>y</code>; a <code>network</code> also takes <code>nodes</code> &mdash; see <a href="#network-map">Network diagrams</a></td></tr>
           <tr><td class="sig">Over time</td><td><code>stream</code>, <code>marimekko</code>, <code>violin</code>, <code>gantt</code></td><td>varies; gantt takes <code>label</code>, <code>start</code>, <code>end</code></td></tr>
@@ -529,8 +530,14 @@ return [p.source, p.pending, p.measures[0].computed, p.reason].join(' | ');</cod
           <tr><td class="name">fit</td><td class="type">boolean | 'line'</td><td class="desc">A least-squares line through a scatter or bubble chart, one per series. <code>true</code> draws it with its R&sup2;; <code>'line'</code> draws the line alone. Only where the x axis is numeric: on a band scale a slope would be a slope through the order the categories happened to be listed in.</td></tr>
           <tr><td class="name">trend</td><td class="type">boolean | string | <a href="types.html#type-ChartTrend">ChartTrend</a> | array</td><td class="desc">Trend and forecast overlays (BACKLOG-0000952): a <code>linear</code> least-squares line, a <code>movingAverage</code>, or <code>exponential</code> smoothing, one per series. <code>true</code> draws a single linear trend; a method name or a <code>{ method, forecast, window, kind, alpha, beta }</code> object configures one; an array draws several. The maths matches the core stats engine to the last digit (a parity test asserts it) but is computed locally to keep the charts bundle lean. For the linear method, <code>forecast: n</code> projects the line <code>n</code> steps past the data as a dashed forecast; a moving average and a smoothed level have no slope to project, so <code>forecast</code> is ignored for them and the fact is said in the accessible description. The trend layer (the fitted line, the forecast line, its band and the R² label) may extend past the plot into the chart's margin, but it is bounded by the chart box, the chart's own <code>&lt;svg&gt;</code>: a forecast that reaches past the chart's edge is cut off there rather than painted over the content beside it (BACKLOG-0001120).</td></tr>
           <tr><td class="name">error</td><td class="type">boolean | object</td><td class="desc">Whiskers showing the uncertainty in each mark, computed from the readings the chart can see behind it. <code>{ of }</code> takes a symmetric margin from a column instead; <code>{ confidence }</code> sets the level. A mark the chart sees only one value for gets none, and the chart says so.</td></tr>
-          <tr><td class="name">stack</td><td class="type">boolean</td><td class="desc">Stack the series rather than drawing them side by side. On a <code>combo</code> it stacks the bar measures; line and area measures stay outside the stack and are drawn after the columns (BACKLOG-0001636).</td></tr>
-          <tr><td class="name">curve</td><td class="type">boolean</td><td class="desc">Overlay a kernel density curve on a histogram, which shows which features are in the data and which are in the binning.</td></tr>
+          <tr><td class="name">stack</td><td class="type">boolean | 'percent'</td><td class="desc">Stack the series rather than drawing them side by side. On a <code>combo</code> it stacks the bar measures; line and area measures stay outside the stack and are drawn after the columns (BACKLOG-0001636). <code>'percent'</code> stacks to 100% (BACKLOG-0001644): a <code>bar</code>, <code>horizontalBar</code>, <code>area</code> or <code>combo</code> with two or more series draws each column as the whole plot height split into each series' share, the measure axis reads 0% to 100%, and the tooltip shows each series' share beside its real value.</td></tr>
+          <tr><td class="name">curve</td><td class="type">boolean | string | object</td><td class="desc">On a histogram, <code>true</code> overlays a kernel density curve, which shows which features are in the data and which are in the binning. On a <code>line</code>, an <code>area</code> or the line half of a <code>combo</code>/<code>pareto</code>, it names how the series connects its readings (BACKLOG-0001645): <code>'linear'</code> (default), <code>'monotone'</code>, <code>'catmullRom'</code> or <code>'step'</code>; <code>{ type, tension?, mode? }</code> adds the Catmull&ndash;Rom <code>tension</code> (0..1) or the step's <code>mode</code> (<code>'after'</code>, <code>'before'</code>, <code>'middle'</code>); a map keyed by series label (or measure title on a combo) gives each its own.</td></tr>
+          <tr><td class="name">startAngle / endAngle</td><td class="type">number</td><td class="desc">A pie or donut's sweep, in degrees clockwise from twelve o'clock (0 is the top; BACKLOG-0001646). Defaults 0 and 360. A partial arc is sized to use the container's height, so <code>-90</code> to <code>90</code> is a semi-circle that fills the box rather than half of it; labels and the legend follow the arc.</td></tr>
+          <tr><td class="name">radius</td><td class="type">object</td><td class="desc">A pie or donut's slice radii from a second measure (BACKLOG-0001647): <code>{ col, fn?, min? }</code>. The angle still comes from <code>y</code>; each slice's outer radius is scaled from <code>col</code>, area-true (<code>fn: 'sqrt'</code>, the default) or <code>'linear'</code>, never below <code>min</code> (0..1) of the full radius. A donut keeps its hole; the tooltip shows both measures.</td></tr>
+          <tr><td class="name">mark</td><td class="type">'lollipop'</td><td class="desc">Draw a <code>bar</code> or <code>horizontalBar</code> as lollipops (BACKLOG-0001640) — a stem from the baseline to the value with a dot at the value, instead of a solid column. Everything else the bar family does is unchanged: several measures sit side by side, sorting and the <code>axis</code> block apply, <code>scheme</code> forms colour the dots and stems, and the tooltip and grid binding read the same points.</td></tr>
+          <tr><td class="name">ranges</td><td class="type">(number | string)[]</td><td class="desc">A <code>bullet</code>'s qualitative bands (BACKLOG-0001642): the bands' <em>upper edges</em>, ascending, each a number (the same for every row) or a column name (per row). <code>[60, 85, 100]</code> shades the scale from its minimum to 60, 60 to 85 and 85 to 100 &mdash; the same reading the <code>bullet</code> cell renderer gives its <code>bands</code>. The actual is a bar from the scale's minimum to the value, the target (the <code>target</code> column) a marker across the band, and everything is clamped to the scale, exactly as in the cell. The value and the target read through their own columns' formats.</td></tr>
+          <tr><td class="name">bullet</td><td class="type">{ orientation?, scale? }</td><td class="desc">A <code>bullet</code>'s layout: <code>orientation</code> <code>'horizontal'</code> (default, one row per KPI) or <code>'vertical'</code>; <code>scale</code> <code>'shared'</code> (default: every row against one scale and axis, so bars compare across KPIs) or <code>'row'</code> (each KPI on its own scale, as a cell has, with no shared axis). <code>min</code> and <code>max</code> pin the scale's ends.</td></tr>
+          <tr><td class="name">pyramid</td><td class="type">{ scale?, percent? }</td><td class="desc">A <code>populationPyramid</code>'s options (BACKLOG-0001641): <code>scale</code> <code>'shared'</code> (default: one symmetric scale serves both halves, so equal bars are equal lengths) or <code>'independent'</code> (each half scaled to its own largest bar); <code>percent: true</code> draws each bar as its share of the whole population and labels the axis in percent. The first half (the first <code>series</code> value, or the first measure) is drawn on the left. The axis labels are always absolute, never negative, and the tooltip reads the real value.</td></tr>
           <tr><td class="name">diverging</td><td class="type">boolean</td><td class="desc">Colour a heatmap outward from zero rather than along a single ramp.</td></tr>
           <tr><td class="name">downsample</td><td class="type">number</td><td class="desc">Reduce to at most this many points per series before drawing, keeping the extremes so a spike is not lost.</td></tr>
           <tr><td class="name">tooltip</td><td class="type">boolean</td><td class="desc"><code>false</code> turns the hover tooltip off.</td></tr>
@@ -574,6 +581,177 @@ const chart = createChart({
 });
 const ticks = [...container.querySelectorAll('.lat-chartview__legend-ramp-tick')].map((n) =&gt; n.textContent);
 return [chart.provenance().ramp.scale, ticks.join(' ')].join(' | ');</code></pre>
+    <h4 id="chart-bars-set">Bars of every kind &mdash; 100% stacks, lollipops, floating bars, pyramids and bullets</h4>
+    <p><code>stack: 'percent'</code> stacks a <code>bar</code>, <code>horizontalBar</code>, <code>area</code> or <code>combo</code> to 100%: every column is the full height and the axis reads 0% to 100%. <code>mark: 'lollipop'</code> is a mark on <code>bar</code> and <code>horizontalBar</code> rather than a type of its own, because it changes only how a value is drawn &mdash; the slot, the baseline, the sort and the axis are the bar's. A <code>floatingBar</code> (and <code>horizontalFloatingBar</code>) is a type, because it changes <em>what is drawn</em>: its measure is a <code>y: [lowCol, highCol]</code> pair and the axis must cover every span, on a number or a date axis. A <code>populationPyramid</code> mirrors two halves (<code>y</code> split by a <code>series</code> of two values, or two <code>measures</code>) about a central axis, with absolute axis labels. A <code>bullet</code> is the <code>bullet</code> cell renderer's picture across rows: <code>ranges</code> are the bands' upper edges, the actual a bar from the scale's minimum, the <code>target</code> column a perpendicular marker, so a KPI reads the same in a cell and in a chart. Each follows the grid's filter and selection, takes every <code>scheme</code> form, has the accessible table and keyboard stops, and follows the light and dark themes.</p>
+    <pre data-run="js" data-expect="true | 94.1%" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 600, height: 320 });
+const container = document.createElement('div');
+container.rect = { width: 600, height: 320, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'month', type: 'text' },
+    { field: 'committed', type: 'number', title: 'Committed revenue' },
+    { field: 'assumed', type: 'number', title: 'Assumed extensions' },
+  ],
+  rows: [
+    { id: 'a', month: 'Oct', committed: 120000, assumed: 0 },
+    { id: 'b', month: 'Nov', committed: 111000, assumed: 7000 },
+  ],
+});
+
+// stack: 'percent' makes every column the same (100%) height, split by share.
+const chart = createChart({
+  grid, container, type: 'bar', x: 'month', stack: 'percent',
+  measures: [
+    { col: 'committed', fn: 'sum', title: 'Committed revenue' },
+    { col: 'assumed', fn: 'sum', title: 'Assumed extensions' },
+  ],
+});
+const bars = [...container.querySelectorAll('.lat-chartview__bar')];
+const committed = bars.filter((b) => b.getAttribute('data-series') === '0');
+const assumed = bars.filter((b) => b.getAttribute('data-series') === '1');
+// November's column splits 111,000:7,000 into a 94.1%:5.9% share.
+const novTotal = Number(committed[1].getAttribute('height')) + Number(assumed[1].getAttribute('height'));
+const share = Math.round((Number(committed[1].getAttribute('height')) / novTotal) * 1000) / 10;
+// October (assumed = 0) fills the same full height: both columns are 100%.
+const same = Math.abs(Number(committed[0].getAttribute('height')) - novTotal) &lt; 2;
+grid.destroy();
+return `${same} | ${share}%`;</code></pre>
+    <pre data-run="js" data-expect="2 stems, 2 dots, 0 bars | true" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 600, height: 300 });
+const container = document.createElement('div');
+container.rect = { width: 600, height: 300, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'region', type: 'text' },
+    { field: 'actual', type: 'number', title: 'Actual' },
+  ],
+  rows: [
+    { id: 'a', region: 'North', actual: 40 },
+    { id: 'b', region: 'South', actual: 70 },
+  ],
+});
+
+// mark: 'lollipop' swaps the bar family's solid column for a stem and a dot.
+const chart = createChart({
+  grid, container, type: 'bar', x: 'region', y: 'actual', mark: 'lollipop',
+});
+const stems = container.querySelectorAll('.lat-chartview__lollipop-stem').length;
+const dots = container.querySelectorAll('.lat-chartview__lollipop-dot').length;
+const bars = container.querySelectorAll('.lat-chartview__bar').length;
+// The higher value's dot sits higher up the plot (a smaller y).
+const ys = [...container.querySelectorAll('.lat-chartview__lollipop-dot')].map((n) =&gt; Number(n.getAttribute('cy')));
+grid.destroy();
+return `${stems} stems, ${dots} dots, ${bars} bars | ${ys[1] &lt; ys[0]}`;</code></pre>
+    <pre data-run="js" data-expect="1.5" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 600, height: 300 });
+const container = document.createElement('div');
+container.rect = { width: 600, height: 300, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'band', type: 'text' },
+    { field: 'low', type: 'number' },
+    { field: 'high', type: 'number' },
+  ],
+  rows: [
+    { id: 'a', band: 'A', low: 10, high: 30 },
+    { id: 'b', band: 'B', low: 20, high: 50 },
+  ],
+});
+
+// A floatingBar spans between a low and a high column: y is the [low, high] pair.
+const chart = createChart({
+  grid, container, type: 'floatingBar', x: 'band', y: ['low', 'high'],
+});
+const bars = [...container.querySelectorAll('.lat-chartview__float')];
+const heights = bars.map((b) =&gt; Number(b.getAttribute('height')));
+grid.destroy();
+return (heights[1] / heights[0]).toFixed(1);</code></pre>
+    <pre data-run="js" data-expect="4 bars; male 0-19 is 1.33x female" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 600, height: 300 });
+const container = document.createElement('div');
+container.rect = { width: 600, height: 300, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'age', type: 'text' },
+    { field: 'male', type: 'number', title: 'Male' },
+    { field: 'female', type: 'number', title: 'Female' },
+  ],
+  rows: [
+    { id: 'a', age: '0-19', male: 40, female: 30 },
+    { id: 'b', age: '20-39', male: 20, female: 25 },
+  ],
+});
+
+// A populationPyramid mirrors two measures about a central axis on one
+// symmetric scale (pyramid: { scale: 'independent' } gives each half its own).
+const chart = createChart({
+  grid, container, type: 'populationPyramid', x: 'age',
+  measures: [{ col: 'male', fn: 'sum' }, { col: 'female', fn: 'sum' }],
+});
+const bars = [...container.querySelectorAll('.lat-chartview__pyramid-bar')];
+const widths = bars.map((b) =&gt; Number(b.getAttribute('width')));
+grid.destroy();
+// Bars draw male first, then female: widths[0] is male 0-19, widths[2] female 0-19.
+return `${bars.length} bars; male 0-19 is ${(widths[0] / widths[2]).toFixed(2)}x female`;</code></pre>
+    <pre data-run="js" data-expect="6 bands, 2 bars, 2 targets; 70 vs 20 = 3.5x" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 600, height: 300 });
+const container = document.createElement('div');
+container.rect = { width: 600, height: 300, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'kpi', type: 'text' },
+    { field: 'actual', type: 'number', title: 'Actual' },
+    { field: 'target', type: 'number', title: 'Target' },
+  ],
+  rows: [
+    { id: 'a', kpi: 'Revenue', actual: 70, target: 80 },
+    { id: 'b', kpi: 'Margin', actual: 20, target: 25 },
+  ],
+});
+
+// A bullet: ranges are the bands' upper edges (as the bullet cell's bands are),
+// the actual a bar from the scale minimum and the target a perpendicular marker.
+const chart = createChart({
+  grid, container, type: 'bullet', x: 'kpi', y: 'actual', target: 'target',
+  ranges: [50, 80, 100], min: 0, max: 100,
+});
+const bars = [...container.querySelectorAll('.lat-chartview__bullet-bar')];
+const bands = container.querySelectorAll('.lat-chartview__bullet-band').length;
+const targets = container.querySelectorAll('.lat-chartview__bullet-target').length;
+const w = bars.map((b) =&gt; Number(b.getAttribute('width')));
+grid.destroy();
+return `${bands} bands, ${bars.length} bars, ${targets} targets; 70 vs 20 = ${(w[0] / w[1]).toFixed(1)}x`;</code></pre>
     <p class="section-note">
       <strong>A reduction over no readings is a gap, not a zero (BACKLOG-0001088).</strong>
       <code>sum</code>, <code>avg</code>/<code>mean</code>, <code>min</code>, <code>max</code>,
@@ -801,6 +979,113 @@ const bands = container.querySelectorAll('.lat-chartview__gauge-band').length;
 const needle = container.querySelector('.lat-chartview__gauge-needle').getAttribute('stroke');
 const reading = container.querySelector('.lat-chartview__gauge-reading').textContent;
 return [bands, needle, reading].join(' | ');</code></pre>
+    <p class="section-note">
+      <strong>A line or area can be smoothed or stepped</strong> (BACKLOG-0001645).
+      <code>curve: 'monotone'</code> draws a cubic that never rises above or falls below the
+      readings it joins; <code>'catmullRom'</code> is a spline whose <code>tension</code> you set;
+      <code>'step'</code> holds a value until the next reading (<code>mode</code> chooses where it
+      changes). Markers, the tooltip and hit-testing stay on the real readings, an area fills
+      under the curve, and a stacked area stays nested. Give <code>curve</code> a map keyed by
+      series label to curve one series and leave another straight. With no <code>curve</code> the
+      output is unchanged.
+    </p>
+    <pre data-run="js" data-expect="true | true" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 420, height: 420 });
+const container = document.createElement('div');
+container.rect = { width: 420, height: 420, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'day' }, { field: 'sales', type: 'number' }],
+  rows: [
+    { id: 'a', day: 'Mon', sales: 3 }, { id: 'b', day: 'Tue', sales: 9 },
+    { id: 'c', day: 'Wed', sales: 4 }, { id: 'd', day: 'Thu', sales: 8 },
+  ],
+});
+const chart = createChart({
+  grid, container, type: 'line', x: 'day', y: 'sales', curve: 'monotone',
+});
+const d = container.querySelector('.lat-chartview__line').getAttribute('d');
+return [d.includes('C'), d.startsWith('M')].join(' | ');</code></pre>
+    <p class="section-note">
+      <strong>A pie or donut can be a partial arc</strong> (BACKLOG-0001646).
+      <code>startAngle</code> and <code>endAngle</code> are degrees clockwise from twelve o&rsquo;clock,
+      where 0 is the top, so <code>startAngle: -90, endAngle: 90</code> is the upper half. A
+      partial arc is scaled to fill the container, which makes a semi-circle use the box&rsquo;s
+      full height; labels, the legend and hit-testing follow the arcs. The default is the full
+      circle, unchanged.
+    </p>
+    <p class="section-note">
+      <strong>A pie or donut can vary each slice&rsquo;s radius</strong> (BACKLOG-0001647).
+      <code>radius: { col: 'margin' }</code> keeps the angle from <code>y</code> and sets each
+      slice&rsquo;s outer radius from a second measure, area-true by default
+      (<code>fn: 'linear'</code> for a plain proportion), with <code>min</code> as the smallest
+      share of the full radius. A donut keeps its hole, and the tooltip names both measures.
+    </p>
+    <pre data-run="js" data-expect="2" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 420, height: 420 });
+const container = document.createElement('div');
+container.rect = { width: 420, height: 420, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'region' }, { field: 'revenue', type: 'number' },
+    { field: 'margin', type: 'number' },
+  ],
+  rows: [
+    { id: 'a', region: 'North', revenue: 60, margin: 40 },
+    { id: 'b', region: 'South', revenue: 40, margin: 10 },
+  ],
+});
+const chart = createChart({
+  grid, container, type: 'donut', x: 'region', y: 'revenue',
+  startAngle: -90, endAngle: 90, radius: { col: 'margin' },
+});
+const slices = container.querySelectorAll('.lat-chartview__slice').length;
+return slices;</code></pre>
+    <p class="section-note">
+      <strong>An OHLC chart draws a candlestick&rsquo;s inputs as bars</strong> (BACKLOG-0001648).
+      <code>type: 'ohlc'</code> takes the same four <code>measures</code> (open, high, low, close)
+      and draws a high&ndash;low line with an open tick to the left and a close tick to the right,
+      coloured up or down as a candlestick is. It is a type of its own rather than a candlestick
+      style so that it can be switched to and from by <code>type</code> alone. <code>volume</code>,
+      the time axis, <code>annotations</code> and the drawing rail work as they do on a
+      candlestick.
+    </p>
+    <pre data-run="js" data-expect="4 | 0" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 420, height: 420 });
+const container = document.createElement('div');
+container.rect = { width: 420, height: 420, top: 0, left: 0 };
+root.appendChild(container);
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { field: 'day' }, { field: 'open', type: 'number' }, { field: 'high', type: 'number' },
+    { field: 'low', type: 'number' }, { field: 'close', type: 'number' },
+  ],
+  rows: [
+    { id: 'a', day: 'Mon', open: 10, high: 14, low: 9, close: 13 },
+    { id: 'b', day: 'Tue', open: 13, high: 15, low: 11, close: 12 },
+  ],
+});
+const chart = createChart({
+  grid, container, type: 'ohlc', x: 'day', measures: ['open', 'high', 'low', 'close'],
+});
+return [container.querySelectorAll('.lat-chartview__ohlc-tick').length,
+  container.querySelectorAll('.lat-chartview__candle').length].join(' | ');</code></pre>
 
     <h3>The chart</h3>
     <div class="table-wrap">
@@ -1680,7 +1965,7 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">container</td><td class="type">Element | string</td><td class="desc">Where to draw: an element, or a CSS selector resolved against the grid's document. The chart builds its own root inside it.</td></tr>
           <tr><td class="name">type</td><td class="type"><a href="types.html#type-ChartType">ChartType</a></td><td class="desc">Which chart to draw. A name the base bundle does not know is looked up in the extension registry, so an opt-in chart module's type works here once imported.</td></tr>
           <tr><td class="name">x</td><td class="type">string</td><td class="desc">The category column. <small>(optional)</small></td></tr>
-          <tr><td class="name">y</td><td class="type">string</td><td class="desc">The measure column, for the types that take one. <small>(optional)</small></td></tr>
+          <tr><td class="name">y</td><td class="type">string | [string, string]</td><td class="desc">The measure column, for the types that take one. On a `floatingBar` or `horizontalFloatingBar` it is the low/high pair of columns the bar spans between (BACKLOG-0001643): `[lowCol, highCol]`. <small>(optional)</small></td></tr>
           <tr><td class="name">series</td><td class="type">string</td><td class="desc">Splits the measure into one series per distinct value. <small>(optional)</small></td></tr>
           <tr><td class="name">rows</td><td class="type">object[] | ((grid: <a href="grid.html#type-Grid">Grid</a>) =&gt; object[])</td><td class="desc">The exact rows to chart, overriding the grid's own walk — an array, or a function returning one at draw time. `chartRange` uses it to bind a chart to the band of rows a selected range covers rather than the whole grid. <small>(optional)</small></td></tr>
           <tr><td class="name">aggregate</td><td class="type">'auto' | 'engine' | 'client'</td><td class="desc">Where the chart's aggregate is computed (GEO-5). `'auto'`, the default, asks the grid's pushdown source — `source.aggregate()`, with x (and `series`) as the `GROUP BY` and the measures as its aggregates, the grid's filter and quick search applied — when the source's adapter declares the `group` capability and the grid holds only a window of the matching rows; otherwise it reduces the loaded rows, as a chart always has. `'engine'` asks the source whenever it can, and is refused by name (a `[lattice]` warning and `provenance().refused`) when it cannot; `'client'` always reduces the loaded rows. One chart is never a mixture: if any measure would be computed client-side, every one is. Applies to the grouped types (`line`, `step`, `area`, `bar`, `horizontalBar`, `waterfall`, `combo`, `pareto`, `heatmap`, `radar`, `funnel`, `stream`, `marimekko`); the source's `aggregates` config must route the reductions to the engine. {@link Chart.provenance} reports which happened and why. <small>(optional)</small></td></tr>
@@ -1688,7 +1973,7 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">volume</td><td class="type">string</td><td class="desc">A candlestick's volume pane (BACKLOG-0001468): the column holding each period's traded volume, summed per period. The candlestick then draws a price pane and a volume pane in one svg, on one x scale with one x axis at the bottom, so `axis.x.window`, `axis.x.min`/`max`, `zoom`, `annotate` and the measurers act on both panes together, and one tooltip reads both. Each volume bar takes its candle's up or down colour, and the volume axis sits on the price axis's side. The column is bound as the fifth measure, so it appears in `chart.data()` and the accessible table and is the volume a measurer sums. Any other chart type, or a column the grid does not have, warns and draws no pane. <small>(optional)</small></td></tr>
           <tr><td class="name">volumePane</td><td class="type"><a href="types.html#type-ChartVolumePaneOptions">ChartVolumePaneOptions</a></td><td class="desc">The volume pane's geometry, when `volume` is set (BACKLOG-0001468). <small>(optional)</small></td></tr>
           <tr><td class="name">source</td><td class="type">string</td><td class="desc">Endpoints, for sankey, chord and network. <small>(optional)</small></td></tr>
-          <tr><td class="name">target</td><td class="type">string</td><td class="desc">The column naming the link's destination, beside `source`. <small>(optional)</small></td></tr>
+          <tr><td class="name">target</td><td class="type">string</td><td class="desc">The column naming the link's destination, beside `source`. On a `bullet` (BACKLOG-0001642) it is instead the column holding each row's target, drawn as a marker across the bar. <small>(optional)</small></td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc">Row label and dates, for gantt. <small>(optional)</small></td></tr>
           <tr><td class="name">start</td><td class="type">string</td><td class="desc">The start-date column, for a gantt chart. <small>(optional)</small></td></tr>
           <tr><td class="name">end</td><td class="type">string</td><td class="desc">The end-date column, for a gantt chart. <small>(optional)</small></td></tr>
@@ -1741,8 +2026,15 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">selection</td><td class="type">boolean</td><td class="desc">Draw the grid's selected rows emphasised, and follow the selection. <small>(optional)</small></td></tr>
           <tr><td class="name">drill</td><td class="type">boolean</td><td class="desc">Clicking a group drills into it. <small>(optional)</small></td></tr>
           <tr><td class="name">filterOnClick</td><td class="type">boolean</td><td class="desc">Clicking a mark filters the grid to it. <small>(optional)</small></td></tr>
-          <tr><td class="name">stack</td><td class="type">boolean</td><td class="desc">Stack the series rather than drawing them side by side. On a `combo` it stacks the bar measures (BACKLOG-0001636); line and area measures stay outside the stack on the same scale and are drawn after the columns. <small>(optional)</small></td></tr>
-          <tr><td class="name">curve</td><td class="type">boolean</td><td class="desc">Overlay a kernel density curve on a histogram. <small>(optional)</small></td></tr>
+          <tr><td class="name">stack</td><td class="type">boolean | 'percent'</td><td class="desc">Stack the series rather than drawing them side by side. On a `combo` it stacks the bar measures (BACKLOG-0001636); line and area measures stay outside the stack on the same scale and are drawn after the columns. `'percent'` stacks to 100% (BACKLOG-0001644): a `bar`, `horizontalBar`, `area` or `combo` with two or more series draws each column as the whole plot height, split into each series' share of the column, and the measure axis runs 0 to 100 rather than 0 to the tallest total. A column that mixes signs has no meaningful "share of the whole", so shares are taken against the sum of the parts' absolute values; the tooltip still reads the real value, with its share beside it. <small>(optional)</small></td></tr>
+          <tr><td class="name">curve</td><td class="type">boolean | <a href="types.html#type-ChartCurve">ChartCurve</a> | <a href="types.html#type-ChartCurveOptions">ChartCurveOptions</a> | Record&lt;string, <a href="types.html#type-ChartCurve">ChartCurve</a> | <a href="types.html#type-ChartCurveOptions">ChartCurveOptions</a>&gt;</td><td class="desc">On a histogram, `true` overlays a kernel density curve. On a `line`, an `area` (and the line half of a `combo`/`pareto`), it names how the series connects its readings (BACKLOG-0001645): a {@link ChartCurve} name (`'linear'`, `'monotone'`, `'catmullRom'`, `'step'`), a {@link ChartCurveOptions} object (`{ type, tension, mode }`), or a map keyed by series label — the same name {@link ChartSpec.emphasis} keys on — giving each series its own curve. Markers, tooltips and hit-testing stay on the real readings whatever the curve. <small>(optional)</small></td></tr>
+          <tr><td class="name">startAngle</td><td class="type">number</td><td class="desc">A pie or donut's first slice, in degrees clockwise from twelve o'clock, 0 being the top (BACKLOG-0001646). Default 0; a partial circle uses the container's height rather than half of it. <small>(optional)</small></td></tr>
+          <tr><td class="name">endAngle</td><td class="type">number</td><td class="desc">A pie or donut's last slice, in degrees clockwise from twelve o'clock (BACKLOG-0001646). Default 360. <small>(optional)</small></td></tr>
+          <tr><td class="name">radius</td><td class="type"><a href="types.html#type-ChartRadiusOptions">ChartRadiusOptions</a></td><td class="desc">Drive a pie or donut's slice radii from a second measure, the angle still coming from `y` (BACKLOG-0001647): `{ col, fn?, min? }`. `fn` is `'sqrt'` (area-true, default) or `'linear'`; `min` is the smallest share of the full radius a slice may shrink to. The donut's hole is respected, the tooltip shows both measures, and the legend is unchanged. <small>(optional)</small></td></tr>
+          <tr><td class="name">mark</td><td class="type">'lollipop'</td><td class="desc">Draw a `bar` or `horizontalBar` as lollipops rather than solid columns (BACKLOG-0001640): a stem from the baseline up to the value, with a dot at the value. Everything else the bar family does is unchanged — several measures sit side by side, sorting and the `axis` block apply, `scheme` forms colour the dots and stems, and the tooltip and grid binding read the same points. Reuses the bar code path rather than a second implementation, which is why it is a mark on the bar type and not a type of its own. <small>(optional)</small></td></tr>
+          <tr><td class="name">ranges</td><td class="type">(number | string)[]</td><td class="desc">A `bullet` chart's qualitative bands (BACKLOG-0001642): the bands' upper edges in ascending order, each either a number (the same for every row) or the name of a column holding that edge per row. `[60, 85, 100]` shades the scale from its minimum to 60, 60 to 85 and 85 to 100 — the same reading the `bullet` cell renderer gives its `bands`. Ignored by every other type. <small>(optional)</small></td></tr>
+          <tr><td class="name">bullet</td><td class="type">{ orientation?: 'horizontal' | 'vertical'; scale?: 'shared' | 'row' }</td><td class="desc">A `bullet` chart's layout (BACKLOG-0001642). `orientation` is `'horizontal'` (the default: one row per KPI, the value running along x) or `'vertical'`. `scale` is `'shared'` (the default: every row is read against one scale and one axis, so bars compare across KPIs) or `'row'` (each KPI has its own scale, as a bullet cell has, and no shared axis is drawn). `min` and `max` on the chart pin the scale's ends. <small>(optional)</small></td></tr>
+          <tr><td class="name">pyramid</td><td class="type">{ scale?: 'shared' | 'independent'; percent?: boolean }</td><td class="desc">A `populationPyramid`'s options (BACKLOG-0001641). `scale` is `'shared'` (the default: one symmetric scale serves both halves, so equal bars are equal lengths) or `'independent'` (each half is scaled to its own largest bar). `percent: true` draws each bar as its share of the whole population and labels the axis in percent. The axis labels are always absolute. <small>(optional)</small></td></tr>
           <tr><td class="name">measure</td><td class="type">string</td><td class="desc">An alias for `y`, where "the measure" reads better than "the y axis". <small>(optional)</small></td></tr>
           <tr><td class="name">size</td><td class="type">string</td><td class="desc">Bubble charts: the column driving the radius, and the largest it may be. <small>(optional)</small></td></tr>
           <tr><td class="name">maxRadius</td><td class="type">number</td><td class="desc">The largest bubble radius in pixels. Clamped to between 6 and 28, and 22 when unset; the smallest bubble is always 3. <small>(optional)</small></td></tr>

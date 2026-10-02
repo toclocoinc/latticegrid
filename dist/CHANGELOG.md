@@ -9,6 +9,50 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.85.0] - 2026-10-02
+
+### Added
+
+- **`mark: 'lollipop'` draws a bar or horizontalBar as a stem and a dot** (BACKLOG-0001640). Each category gets a stem from the baseline to the value with a dot at the value, in place of the solid column, reusing the bar code path so several measures sit side by side, sorting and the `axis` block apply, `scheme` forms colour the dots and stems, and the tooltip and grid binding read the same points.
+
+- **`type: 'populationPyramid'` draws two halves mirrored about a central axis** (BACKLOG-0001641). One row per age band, the left half extending left and the right half right, from `y` split by a two-valued `series` column or from two `measures` (left, right). One symmetric scale serves both halves by default (`pyramid: { scale: 'independent' }` gives each its own), the axis labels are always absolute (a bar 30 to the left reads 30, never -30), `pyramid: { percent: true }` draws each bar as its share of the whole population, the legend names both sides, and the tooltip reads the real value. Named `populationPyramid` so it cannot be confused with a funnel-style pyramid.
+
+- **`type: 'bullet'` is now a chart, one row per KPI** (BACKLOG-0001642). Until now a bullet existed only as a cell renderer. The chart keeps the cell's meaning: `ranges` are the qualitative bands' upper edges (numbers, or column names for per-row bands), the actual is a narrow bar from the scale's minimum, the `target` column a perpendicular marker, and everything is clamped to the scale. Rows read against one shared scale and axis by default (`bullet: { scale: 'row' }` gives each KPI its own), it runs horizontally or `bullet: { orientation: 'vertical' }`, and the value, target and bands are formatted by their own columns.
+
+- **`floatingBar` and `horizontalFloatingBar` draw a bar between a low and a high column** (BACKLOG-0001643). The measure is a from/to pair given as `y: [lowCol, highCol]`, the bar spans exactly between the two, the value axis covers every span (a span below zero included), and the tooltip and accessible table read both ends. The value axis may be numeric or a date, and a `series` column draws several spans side by side. Distinct from a dumbbell (which marks two points) and a waterfall (a running total).
+
+- **`stack: 'percent'` stacks a bar, horizontalBar, area or combo to 100%** (BACKLOG-0001644). The cartesian drawer already honoured the value but `types.d.ts` declared only `stack?: boolean`, the combo drawer never read it, and the tooltip reported no share, so the option was undocumented and half-wired.
+  - The measure axis reads 0% to 100%, each column fills the whole plot height and splits into each series' share of the column total, and the tooltip shows the real value with its share beside it.
+  - A combo honours `'percent'` for its bar measures; line and area measures stay outside the stack on the same share scale.
+
+- A line or area chart can be smoothed or stepped. `curve` takes `'linear'` (the default, unchanged), `'monotone'` (a curve that never rises above or falls below the readings it joins), `'catmullRom'` with a `tension`, or `'step'` (`before`, `after` or `middle`), on the whole chart or per series, and on the line measures of a combo. Markers, the tooltip and hover stay on the real readings, an area fills under the curve and stacked areas stay nested (BACKLOG-0001645).
+
+- A pie or donut can be a partial arc. `startAngle` and `endAngle` are degrees clockwise from twelve o'clock (0 is the top); a semi-circle from -90 to 90 now fills the container's height instead of half of it, with labels, the legend and hover following the arcs. With neither set the full circle is drawn as before (BACKLOG-0001646).
+
+- A pie or donut can vary each slice's radius from a second measure. `radius: { col, fn?, min? }` keeps the angle from the main measure and scales the outer radius from `col`, area-true by default (`fn: 'linear'` for a plain proportion), never below `min` of the full radius. A donut keeps its hole, the legend is unchanged and the tooltip shows both measures (BACKLOG-0001647).
+
+- An `ohlc` chart type draws open, high, low and close as bars: a high-low line with an open tick on the left and a close tick on the right, coloured up or down as a candlestick is. It takes the same four measures and works with the volume pane, the time axis and annotations; a candlestick now draws annotations too (BACKLOG-0001648).
+
+- Map View now draws a network map from ordinary rows. `geometry: { lat, lng, route: { by: 'routeId', order: 'seq' } }` joins the rows that carry a route id into one line per route, in sequence order, and rows with no route id stay points, so vertex rows and cabinets share one grid. A route's colour, width and dash come from its first row (or `last`, `min`, `max`); a route with fewer than two usable vertices is skipped and counted in `provenance()`. Editing, adding, deleting or filtering a vertex row assembles only that route again, clicking a route selects all its rows in the grid, and selecting a row highlights its route. A row that is one segment is drawn with `geometry: { from: { lat, lng }, to: { lat, lng } }` (BACKLOG-0001677).
+
+- Map View lines can be dashed. `dash` takes `'dashed'`, `'dotted'`, `[dash, gap]` in pixels, or `{ field, map }` to pick the pattern by value (proposed dashed, planned dotted, live solid); the pattern holds its length on screen while the camera zooms and pitches, and `legend: true` (or `legend()`) shows each pattern. Dashes need deck.gl's `PathStyleExtension` on the page; without it `mapview:dash` warns and lines are solid (BACKLOG-0001677).
+
+- Map View points can be icons. `icon: { field, map, default, size, anchor, badge }` draws point rows with glyphs from the grid's icon registry, tinted by `color` or on a coloured `badge` (circle, square, diamond) like the diamonds of a network map. `cabinet`, `splice`, `exchange`, `pole`, `chamber`, `premises` and `fault` join the built-in icons. In 3D an icon is a billboard drawn whole over the routes and the extruded buildings, never hidden inside one (BACKLOG-0001677).
+
+- Map View routes read clearly at street level in 3D: drawn 2 to 30 pixels wide, widened with the camera pitch so they stay as thick on screen at pitch 45 to 60, and lifted 2 m so they do not z-fight the basemap. The draw order is areas, then routes, then columns, points and icons, so a point is always over a line and a line over an area (BACKLOG-0001677).
+
+- **The Columns panel shows header bands, so a band made by accident in the header can be found and undone from the panel** (BACKLOG-0001679). Dragging a heading onto another heading's centre third forms a band that used to be invisible in the Columns tool panel and removable only from the header. The panel now lists each band in header order with its columns nested under it (nested bands nested again), a collapse toggle, a tri-state checkbox that shows or hides every column in the band, and Rename and Dissolve band, which leaves the columns in place. Drag a column onto a band to join it or onto a loose column to leave it, collapse with Enter and dissolve with Delete from the keyboard, and the column search keeps a band while any column in it matches. The panel follows band changes from the header live, and a screen reader hears each band as a group with its title. The search box now keeps what you typed across a repaint.
+
+### Fixed
+
+- **`facets: true` now turns the header histograms on** (BACKLOG-0001676). The boolean form is declared in the types, but only `facets: { enabled: true }` drew the histograms and `true` showed nothing, with no warning. Both spellings now go through one normaliser, so `true` is exactly `{ enabled: true }` and `false` is disabled. The docs example uses the shorter form.
+
+- Map View in 3D: routes, areas, columns and points were painted across the face of a 3D building standing in front of them, so a cable route behind a 90 m building read as a line floating through it. They are now hidden by buildings in front of them at any pitch; icon markers stay on top, whole, as before. The module gives deck.gl the camera's depth planes under the names it reads (MapLibre GL 4.x names them `nearZ`/`farZ`, deck.gl 9.1 reads `_nearZ`/`_farZ`), so deck and MapLibre write comparable depth.
+
+- Map View legend listed a value twice when `color` and `dash` keyed on the same field (a colour swatch for 'proposed' and a separate black dash entry). Now one entry per value, its swatch a short line in that value's colour and dash pattern (point-only values stay squares); different fields keep two sections titled by each field's header. `legend()` gains `sections` (BACKLOG-0001681).
+
+- **A collect join now honours a `select` list or rename map** (BACKLOG-0001682). `select: ['id', 'city']` on a `many: true` join with `as` was silently ignored and the whole child rows were collected; only the function form worked. A list now collects objects with just those fields, a `{ from: to }` map collects objects with the renamed fields, and a single field name collects the bare values. A field the collected rows do not have warns once by name (`data-router:collect-select-field:*`) instead of collecting `undefined` silently. The function form and lookup joins are unchanged.
+
 ## [1.84.0] - 2026-10-02
 
 ### Added

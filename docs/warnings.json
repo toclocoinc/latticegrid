@@ -1,5 +1,5 @@
 {
-  "version": "1.84.0",
+  "version": "1.85.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 618,
+  "count": 627,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -248,9 +248,9 @@
       "module": "charts",
       "severity": "warn",
       "since": "1.74.0",
-      "message": "\"volume\" adds a volume pane under a candlestick's price pane, and this chart's type is {type}, so no volume pane was drawn. Set type: 'candlestick', or draw the volume as its own bar chart.",
-      "meaning": "`volume` was set on a chart whose type is not `candlestick`. A volume pane is drawn under a candlestick's price pane on the same x axis; no other type has a price pane to put it under, so the option was refused rather than accepted and silently ignored.",
-      "fix": "Set `type: 'candlestick'` with four `measures` (open, high, low, close), or remove `volume` and draw the volume as its own `bar` chart.",
+      "message": "\"volume\" adds a volume pane under a candlestick's (or an ohlc's) price pane, and this chart's type is {type}, so no volume pane was drawn. Set type: 'candlestick' or 'ohlc', or draw the volume as its own bar chart.",
+      "meaning": "`volume` was set on a chart whose type is not `candlestick` or `ohlc`. A volume pane is drawn under a candlestick's price pane on the same x axis; no other type has a price pane to put it under, so the option was refused rather than accepted and silently ignored.",
+      "fix": "Set `type: 'candlestick'` or `'ohlc'` with four `measures` (open, high, low, close), or remove `volume` and draw the volume as its own `bar` chart.",
       "docs": "api/charts.html#chart-volume-pane"
     },
     {
@@ -258,7 +258,7 @@
       "module": "charts",
       "severity": "warn",
       "since": "1.74.0",
-      "message": "\"volume\" names {col}, which is not a column of this grid, so the candlestick was drawn without a volume pane. Name the column that holds each period's traded volume by its id.",
+      "message": "\"volume\" names {col}, which is not a column of this grid, so the chart was drawn without a volume pane. Name the column that holds each period's traded volume by its id.",
       "meaning": "A candlestick's `volume` named a column the grid does not have. A pane of empty bars under a 0-to-1 axis would read as a session in which nothing traded, so the candlestick was drawn with its price pane alone.",
       "fix": "Name the grid column that holds each period's traded volume, by its column id.",
       "docs": "api/charts.html#chart-volume-pane"
@@ -3570,6 +3570,17 @@
       "docs": "api/data-router.html#datarouter-example"
     },
     {
+      "id": "data-router:collect-select-field:*",
+      "module": "data-router",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "a collect join's `select` names \"{name}\", which the collected rows do not have; it is collected as undefined.",
+      "meaning": "A collect join with a `select` list, rename map or field name reads each named field off every collected row. This one is absent from the row (it is not a field of the from-source after its own joins), so the collected value is undefined. It is almost always a misspelt name.",
+      "fix": "Name a field the from-source's rows carry (including fields added by that source's own joins), or use a select function.",
+      "snippet": "join: { from: 'address', foreignKey: 'companyId', many: true, as: 'addresses', select: ['street', 'city'] }",
+      "docs": "api/data-router.html#datarouter-collect-example"
+    },
+    {
       "id": "data-router:join-no-as",
       "module": "data-router",
       "severity": "warn",
@@ -6500,6 +6511,72 @@
       "docs": "API.html#mapview"
     },
     {
+      "id": "mapview:route",
+      "module": "mapview",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "createMapView: route.aggregate {value} is not an aggregate; a route's style is read from its first row. Use {aggregates}.",
+      "meaning": "`geometry.route.aggregate` says how a route's colour, width, dash and elevation columns are read across the route's vertex rows. The value is none of `first`, `last`, `min` or `max`, so the route's first row is used.",
+      "fix": "Use `first`, `last`, `min` or `max`, or leave `aggregate` out.",
+      "snippet": "geometry: { lat: 'lat', lng: 'lng', route: { by: 'routeId', order: 'seq', aggregate: 'max' } }",
+      "docs": "API.html#mapview"
+    },
+    {
+      "id": "mapview:dash",
+      "module": "mapview",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "createMapView: dash is set but deck.gl has no PathStyleExtension (the page's deck.gl build does not export it); the lines are drawn solid. Load deck.gl's full bundle, or pass it as options.libs.deck.",
+      "meaning": "Dashed lines are drawn by deck.gl's `PathStyleExtension`. The deck.gl the page supplied does not export it (the standalone `deck.gl` bundle does; a build assembled from `@deck.gl/core` and `@deck.gl/layers` alone does not), so every route is drawn solid.",
+      "fix": "Load the full deck.gl bundle, or pass a deck that includes `PathStyleExtension` as `libs.deck`.",
+      "snippet": "<script src=\"https://cdn.jsdelivr.net/npm/deck.gl@9.1.0/dist.min.js\"></script>",
+      "docs": "API.html#mapview"
+    },
+    {
+      "id": "mapview:dash:spec",
+      "module": "mapview",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "createMapView: dash {value} is not a line style; the lines are drawn solid. Use \"dashed\", \"dotted\", [dash, gap] in pixels, or { field, map } naming one of those per value.",
+      "meaning": "The `dash` option, or a pattern in its `map`, is not `solid`, `dashed`, `dotted` or a `[dash, gap]` pair of positive numbers in pixels. The lines it governs are drawn solid.",
+      "fix": "Name a pattern the option accepts.",
+      "snippet": "dash: { field: 'status', map: { proposed: 'dashed', planned: [2, 5], live: 'solid' } }",
+      "docs": "API.html#mapview"
+    },
+    {
+      "id": "mapview:icon",
+      "module": "mapview",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "createMapView: icon is neither an icon name nor { field, map, default, size, anchor }; points are drawn as circles.",
+      "meaning": "The `icon` option is not an icon name or an icon options object, or its `field` is not a column of the grid, so it names no icon for a point. Points are drawn as circles.",
+      "fix": "Pass an icon name, or `{ field, map, default }` naming a column of the grid.",
+      "snippet": "icon: { field: 'kind', map: { cabinet: 'cabinet', splice: 'splice' }, default: 'pole' }",
+      "docs": "API.html#mapview"
+    },
+    {
+      "id": "mapview:icon:*",
+      "module": "mapview",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "createMapView: icon \"{name}\" is not a glyph of the grid's icon registry, an SVG path or an image URL; the points that ask for it are drawn as circles.",
+      "meaning": "A point asked for an icon that is not registered on the grid (`grid.icons`), is not SVG path data and is not an image URL (or an image that failed to load). Those points are drawn as circles.",
+      "fix": "Use a registered glyph (`cabinet`, `splice`, `exchange`, `pole`, `chamber`, `premises`, `fault`, or one you registered), an SVG path, or an image URL.",
+      "snippet": "icon: { field: 'kind', map: { cabinet: 'cabinet' } }",
+      "docs": "API.html#mapview"
+    },
+    {
+      "id": "mapview:icons",
+      "module": "mapview",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "createMapView: icon is set but there is no canvas to draw the icon atlas on; points are drawn as circles.",
+      "meaning": "Icons are packed into one canvas atlas for deck.gl's `IconLayer`. This document offers no 2D canvas (or no `Path2D`), so the atlas could not be drawn and points are drawn as circles.",
+      "fix": "Run the map in a browser document with canvas support.",
+      "snippet": "icon: 'cabinet'",
+      "docs": "API.html#mapview"
+    },
+    {
       "id": "mapview:event:*",
       "module": "mapview",
       "severity": "warn",
@@ -6519,6 +6596,28 @@
       "meaning": "A listener added with `on()` threw. The map view caught it so the other listeners and the map keep working.",
       "fix": "Fix the listener; the error message names what went wrong.",
       "docs": "API.html#mapview"
+    },
+    {
+      "id": "chart:floating:y-pair",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "a floating bar needs a from/to pair of columns, given as y: [lowCol, highCol]. It was given {y}, so it drew nothing.",
+      "meaning": "A `floatingBar` or `horizontalFloatingBar` was given a single column (or no `y` at all). A floating bar spans between two values per category, so without a pair there is nothing to draw between and the chart is left empty.",
+      "fix": "Give `y` the two columns the bar spans, low first: `y: ['low', 'high']`. For one value measured from a baseline use a `bar` instead.",
+      "snippet": "createChart({ grid, container, type: 'floatingBar', x: 'band', y: ['low', 'high'] });",
+      "docs": "API.html#chart-bars-set"
+    },
+    {
+      "id": "chart:pyramid:halves",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.85.0",
+      "message": "a populationPyramid needs exactly two halves: a y column split by a series column holding two values, or measures: [left, right]. It found {count}, so it draws the first two.",
+      "meaning": "A `populationPyramid` mirrors two halves about a central axis, but its binding produced a different number: the `series` column held one value or more than two, or fewer than two `measures` were given. With one half it draws that half alone; with more than two it draws the first two.",
+      "fix": "Split `y` by a `series` column holding exactly two values (the first is drawn on the left), or name the two columns: `measures: [{ col: 'male' }, { col: 'female' }]`. Filter the grid to two values if the column holds more.",
+      "snippet": "createChart({ grid, container, type: 'populationPyramid', x: 'age', measures: [{ col: 'male' }, { col: 'female' }] });",
+      "docs": "API.html#chart-bars-set"
     }
   ]
 }
