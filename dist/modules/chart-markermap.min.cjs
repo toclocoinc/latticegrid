@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.2, chart-markermap module
+ * Lattice Grid 1.86.3, chart-markermap module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Charts API Reference — Lattice Grid 1.86.2</title>
+<title>Charts API Reference — Lattice Grid 1.86.3</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -410,6 +410,7 @@
         <a class="rail__sub-link" href="#chart-animation">Animation &mdash; an entry that grows in, and updates that move rather than redraw</a>
         <a class="rail__sub-link" href="#chart-annotate">Drawing on a chart &mdash; a tool rail anchored in the data</a>
         <a class="rail__sub-link" href="#chart-measure-tool">Measuring on a chart &mdash; Δx, Δy, percentage and slope</a>
+        <a class="rail__sub-link" href="#chart-pen">Freehand drawing on a chart &mdash; the pen tool</a>
         <a class="rail__sub-link" href="#chart-zoom">Zooming a chart &mdash; five controls, the wheel, and a rolling window</a>
         <a class="rail__sub-link" href="#chart-zoom-follow">The grid following the zoom &mdash; viewportFilter on a cartesian chart</a>
         <a class="rail__sub-link" href="#chart-volume-pane">A price-and-volume pane &mdash; candles over volume on one x axis</a>
@@ -2970,6 +2971,40 @@ return `tools ${rail.children.length}; ${saved.annotations[0].kind} day ${a.x.to
 
     <h3 id="chart-measure-tool">Measuring on a chart &mdash; Δx, Δy, percentage and slope</h3>
     <p><code>measure</code> is the chart's ruler. Set <code>measure: true</code> and a one-button rail appears (or, beside <code>annotate</code>, the same <code>measure</code> tool joins its rail even when <code>annotate.tools</code> left it out). Press the button, or <code>M</code> with the chart focused, then press, drag and release between two points: a band is drawn corner to corner with a readout &mdash; <strong>&Delta;x</strong> (an elapsed time such as <code>3 d 4 h</code> on a time axis, a count of categories stepped over on a category axis, the plain difference on a numeric one), <strong>&Delta;y</strong> in the y axis's own format, the <strong>percentage change</strong> (left out when the start is zero) and the <strong>slope</strong> (&Delta;y per day on a time axis, per category, or per x unit; left out when &Delta;x is zero).</p>
+    <p><strong>One measure button, three axes (BACKLOG-0001717).</strong> The rail has a single <code>measure</code> button. <code>measure: { axes: 'x' | 'y' | 'xy' }</code> says what it measures: <code>'xy'</code> (the default) is the point-to-point ruler described above; <code>'x'</code> draws the x bracket and reads the span between its ends (a bar or point count, elapsed time, and the summed <code>volume</code> column on a candlestick); <code>'y'</code> draws the y bracket and reads the signed change and percentage. The older tool names <code>measure-x</code>, <code>measure-y</code> and <code>measure-xy</code> are <strong>deprecated</strong>: listed in <code>annotate: { tools: [...] }</code> they become the one <code>measure</code> button with the matching axes and a one-time developer warning; saved items of those kinds restore and render unchanged, without a warning.</p>
+    <pre data-run="js" data-expect="buttons measure; measure-y; change 39" data-covers="export:createChart config:ChartMeasureOptions.axes"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 640, height: 400 });
+const panel = document.createElement('div');
+panel.rect = { width: 640, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'day',
+  columns: [{ field: 'day', type: 'number' }, { field: 'price', type: 'number' }],
+  rows: Array.from({ length: 20 }, (v, i) =&gt; ({ day: i, price: 100 + i * 4 })),
+});
+
+const reported = [];
+const chart = createChart({
+  grid, container: panel, type: 'line', x: 'day', y: 'price',
+  measure: { axes: 'y', snap: false },        // one button; reads the signed change and percentage
+});
+chart.on('annotation:added', (e) =&gt; reported.push(e));
+
+const plot = panel.querySelector('.lat-chartview__plot');
+plot.rect = { left: 0, top: 0, width: 640, height: 400 };
+const buttons = [...panel.querySelectorAll('[data-tool]')].map((b) =&gt; b.getAttribute('data-tool'));
+panel.querySelector('[data-tool="measure"]').dispatchEvent(new TestEvent('click', {}));
+const send = (type, x, y) =&gt; plot.dispatchEvent(new TestEvent(type, { clientX: x, clientY: y }));
+send('pointerdown', 100, 300);
+send('pointermove', 400, 120);
+send('pointerup', 400, 120);
+
+const [added] = reported;
+return `buttons ${buttons.join()}; ${added.item.kind}; change ${Math.round(added.readout.change)}`;</code></pre>
     <p>Both ends <strong>snap</strong> to the nearest data point within 24 pixels; <code>measure: { snap: false }</code> keeps exactly what the pointer is over. On a dual-axis chart the axis <em>under the start point</em> is the one measured &mdash; a press in the left half of the plot reads the left axis, in the right half the right &mdash; and the readout is worded in that axis's format. A measurement is <strong>transient</strong> until pinned: Escape or the next drag clears it. Press <code>Enter</code>, or click on the band, to <strong>pin</strong> it (or set <code>pin: true</code> to pin on release); a pinned measurement is an ordinary drawing of kind <code>measure</code> with two data anchors &mdash; it follows zoom and pan, lives in <code>chart.state()</code> and is reported by <code>annotation:added</code> with a <code>readout</code> (<code>dx</code>, <code>dxKind</code>, <code>duration</code>, <code>change</code>, <code>changePercent</code>, <code>slope</code>, <code>slopeUnit</code>).</p>
     <div class="note"><p><strong>The keyboard has the whole tool.</strong> With the chart focused, <code>M</code> turns it on and puts a start marker at the reading nearest the middle; Left and Right step along the x positions, Up and Down along the readings at one x; <code>Enter</code> fixes the start, the arrows then move the end, and <code>Enter</code> again pins; Escape clears it and a second Escape leaves the tool. Each step is spoken through a polite live region (<em>Measurement: &Delta;x 3 d 4 h, &Delta;y -30 (-25%), Slope -9.474 per day</em>), the same text the band is labelled with. The readout labels are catalogue keys (<code>chart.annotate.measure.*</code>); English only until translated.</p></div>
     <pre data-run="js" data-expect="Δx 3 d 4 h | Δy -30 (-25%) | Slope -9.474 per day; pinned 1 time -30" data-covers="export:createChart config:ChartMeasureOptions.snap config:ChartMeasureOptions.pin"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
@@ -3011,6 +3046,45 @@ const lines = [...plot.querySelectorAll('text')]
   .map((n) =&gt; n.textContent);
 const [added] = reported;
 return `${lines.join(' | ')}; pinned ${chart.state().annotations.length} ${added.readout.dxKind} ${added.readout.change}`;</code></pre>
+
+    <h3 id="chart-pen">Freehand drawing on a chart &mdash; the <code>pen</code> tool</h3>
+    <p>The rail's <strong>pen</strong> draws a freehand stroke: press, drag, release. The stroke is <strong>stored in data coordinates</strong> &mdash; each point is an <code>{ x, y }</code> reading (the x value; the y on the axis the stroke was drawn over, and on a dual-axis chart the side it <em>started</em> on, stored as <code>axis: 'right'</code>) &mdash; so it re-projects exactly on a zoom, a pan, a resize and a responsive rule. The points are <strong>simplified</strong> on release (Ramer&ndash;Douglas&ndash;Peucker, within one pixel of what was drawn) and the path is smoothed when painted. Touch and stylus input draw the same way as the mouse. A stroke is selected with the select tool, moved as one piece, deleted like any drawing, saved in <code>chart.state()</code> and restored by <code>chart.setState()</code>, and raises <code>annotation:added</code>, <code>annotation:changed</code> and <code>annotation:removed</code>.</p>
+    <p><code>annotate: { pen: { colour, width } }</code> sets the colour (a plain CSS colour value) and width in pixels (up to 24) for new strokes; the defaults follow the theme, light and dark. A stroke carries its own <code>colour</code> and <code>width</code> in the state. In the accessible table each stroke is listed as <em>Freehand drawing from x0 to x1</em>. <strong>There is no keyboard drawing</strong> &mdash; a freehand stroke is a pointer gesture, so the tool is not driven from the keyboard; the list in the table is how a reader who cannot see it is told it is there.</p>
+    <pre data-run="js" data-expect="pen 4px #c0392b; simplified true; data x true; reported pen" data-covers="export:createChart config:ChartAnnotateOptions.pen config:ChartPenOptions.colour config:ChartPenOptions.width"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 640, height: 400 });
+const panel = document.createElement('div');
+panel.rect = { width: 640, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'day',
+  columns: [{ field: 'day', type: 'number' }, { field: 'price', type: 'number' }],
+  rows: Array.from({ length: 20 }, (v, i) =&gt; ({ day: i, price: 100 + i * 4 })),
+});
+
+const reported = [];
+const chart = createChart({
+  grid, container: panel, type: 'line', x: 'day', y: 'price',
+  annotate: { pen: { colour: '#c0392b', width: 4 } },
+});
+chart.on('annotation:added', (e) =&gt; reported.push(e.item.kind));
+
+const plot = panel.querySelector('.lat-chartview__plot');
+plot.rect = { left: 0, top: 0, width: 640, height: 400 };
+panel.querySelector('[data-tool="pen"]').dispatchEvent(new TestEvent('click', {}));
+
+const wave = Array.from({ length: 40 }, (v, i) =&gt; [80 + i * 12, 200 + Math.round(Math.sin(i / 3) * 40)]);
+const send = (type, p) =&gt; plot.dispatchEvent(new TestEvent(type, { clientX: p[0], clientY: p[1] }));
+send('pointerdown', wave[0]);
+wave.slice(1).forEach((p) =&gt; send('pointermove', p));
+send('pointerup', wave[wave.length - 1]);
+
+const [stroke] = chart.state().annotations;
+const inData = stroke.anchors.every((a) =&gt; a.x &gt;= 0 &amp;&amp; a.x &lt;= 19);
+return `${stroke.kind} ${stroke.width}px ${stroke.colour}; simplified ${stroke.anchors.length &lt; wave.length}; data x ${inData}; reported ${reported.join()}`;</code></pre>
 
     <h3 id="chart-zoom">Zooming a chart &mdash; five controls, the wheel, and a rolling window</h3>
     <p><code>brush: 'zoom'</code> lets a reader drag a range out of a chart. It then leaves them there: no controls, no wheel, no pan, and no way back but a full reset. <code>zoom</code> is the whole interaction instead. <code>zoom: true</code> is the defaults; the object form narrows them: <code>axes</code> is <code>x</code> (the default), <code>y</code> or <code>xy</code>; <code>buttons</code> is <code>hover</code> (the default), <code>always</code> or <code>none</code>; <code>wheel</code> and <code>pan</code> switch those two gestures off; <code>step</code> is how much of the visible span one press of a control is worth (0.25 by default, so zoom in shows three quarters of what was shown and a pan moves by a quarter of it); and <code>min</code> is the narrowest the view may go, as a share of the full extent.</p>

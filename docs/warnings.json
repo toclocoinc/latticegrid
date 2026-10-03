@@ -1,5 +1,5 @@
 {
-  "version": "1.86.2",
+  "version": "1.86.3",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 658,
+  "count": 660,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -200,6 +200,17 @@
       "meaning": "A chart's `annotate.tools` listed one or more names that are not drawing tools, so those entries select nothing. The rail is still built from whichever names were recognised, which is why a mistyped tool shows as a missing button rather than as an error.",
       "fix": "Use the tool names as declared: select, trendLine, horizontalLine, verticalLine, channel, fibonacci, arrow, text, callout, note, delete. Omit `tools` entirely for the whole rail.",
       "snippet": "createChart({ grid, container, type: 'line', annotate: { tools: ['select', 'trendLine', 'delete'] } });",
+      "docs": "api/charts.html#chart-annotate"
+    },
+    {
+      "id": "chart:annotate:tools:legacy:*",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.3",
+      "message": "chart annotate.tools lists {names}, which {verb} deprecated: the rail has one \"measure\" tool now. Use \"measure\" with measure: { axes: 'x' | 'y' | 'xy' }.",
+      "meaning": "A chart's `annotate.tools` named one of the old measure tools (measure-x, measure-y, measure-xy). They still work as aliases for the single `measure` tool with the matching axes, so the rail shows one measure button; saved annotations of the old kinds restore without this warning.",
+      "fix": "List `measure` in `annotate.tools` and choose the axes with the chart option `measure: { axes: 'x' | 'y' | 'xy' }` (default 'xy').",
+      "snippet": "createChart({ grid, container, type: 'line', annotate: { tools: ['select', 'measure', 'delete'] }, measure: { axes: 'x' } });",
       "docs": "api/charts.html#chart-annotate"
     },
     {
@@ -6914,6 +6925,17 @@
       "docs": "api/charts.html#chartsmodule",
       "severity": "warn",
       "since": "1.86.1"
+    },
+    {
+      "id": "column.timeZone",
+      "module": "core",
+      "message": "`timeZone` is not a column option, so it had no effect on column \"{column}\". A date column stores, displays, sorts and filters in the grid-level `timeZone` (else the viewer's); set `timeZone` on the grid, not the column.",
+      "meaning": "A column definition carried `timeZone`, which is not a column setting and does nothing. A grid works in one zone: the grid-level `timeZone`, else the viewer's.",
+      "fix": "Remove `timeZone` from the column and set it on the grid.",
+      "snippet": "createGrid(el, { timeZone: 'Europe/London', columns: [{ field: 'at', type: 'datetime' }] });",
+      "docs": "api/grid.html#columns",
+      "severity": "warn",
+      "since": "1.86.3"
     },
     {
       "id": "column.cell.autoHeight",

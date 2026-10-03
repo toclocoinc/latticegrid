@@ -9,6 +9,41 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.86.3] - 2026-10-03
+
+### Breaking
+
+- `grid.rows.matchCount()` returns `null` while the source is still counting the matches, where it returned the loaded window (100–200 rows after a filter change on a 2.96M-row DuckDB source) until the engine's filtered total arrived. A host that does arithmetic on it should check `rows.totalPending()` or wait for `source:total`, which fires with `{ total }` when the number lands; the status bar, the filter announcement, the KPI count tile and the AI view facts treat `null` as "counting" instead of showing a figure. A source that answers with its total or holds every row never returns `null`.
+
+- The same `null` now covers the gap before the first page of a new filter, sort or pivot lands (`rows.totalPending()` is true from the change), where `matchCount()` and `totalCount()` read the 100-row page-size estimate. The status bar says "Counting rows…" for it. `rows.count()` is unchanged: it is the display count, documented as the loaded rows plus an open-ended page estimate on a windowed source.
+
+### Added
+
+- The chart tool rail has a freehand `pen` (BACKLOG-0001718): press, drag and release draws a smoothed stroke stored in DATA coordinates (the y on the axis it started over, on a dual-axis chart), so it re-projects exactly on zoom, pan, resize and responsive rules. Points are simplified to within one pixel; `annotate: { pen: { colour, width } }` sets the defaults, and a stroke is selected, moved, deleted, saved in `chart.state()`, restored, reported by `annotation:added`/`changed`/`removed`, and listed in the accessible table as "Freehand drawing from x to x". There is no keyboard drawing.
+
+### Changed
+
+- A grid works in one time zone: every datetime column stores, displays, sorts and filters in the grid-level `timeZone`, else the viewer's. The code that read a per-column `timeZone` (value storage, group buckets and the datetime filter mirror and menu) is gone, and a `timeZone` on a column keeps warning once as an unknown key, now naming the grid-level setting. The docs state the single-zone rule.
+
+- The chart rail showed four overlapping measure buttons (`measure-x`, `measure-y`, `measure-xy` and `measure`). It now shows one `measure` button, and `measure: { axes: 'x' | 'y' | 'xy' }` (default `'xy'`) picks what it measures (BACKLOG-0001717).
+  - The old names stay accepted in `annotate: { tools: [...] }` (mapped to `measure` with the matching axes, with a one-time `[lattice]` developer warning); deprecated, documented in the charts guide. Saved items of those kinds restore and render unchanged, without a warning.
+
+### Fixed
+
+- Tooling: the core DOM-purity check in `tools/check.js` matched the word `window` by text, so an object key `{ window: 1 }` was reported as a DOM reference (which forced the `historyWindow` rename in 1043) while a real `window.document` slipped through when the comment above it ended in a full stop. It now reads tokens (`tools/purity.js`): keys, `x.window`, `#window` and declared locals or parameters are not the global, a free reference is, and the verdict does not depend on what a comment ends with. Re-audit of `packages/core` found no hidden DOM reference; `historyWindow` is kept.
+
+- Tooling: a call site that drops the change flag a `WhereModel` mutator returns (`clear()`, `remove()`, `reapply()`, `register()`, `invalidateCell()`, `invalidateRow()`), the shape behind BACKLOG-0001248, is now caught by a test (`tools/flagguard.js`) instead of passing silently. A deliberate discard must be written `void model.method()` with a `flag-ignored(where): <reason>` comment; the one such site in `grid.js` (a dropped cached verdict) now says so. `WhereModel` still emits nothing.
+
+- Chart-decomposition panels clipped their left y-axis tick labels (`100`, `-12,345`) against the chart's edge on the forecast demo at 1440x900. Each panel now reserves a left gutter for the widest of its tick labels in the axis format, shared so the panels stay aligned on one x, in both themes and at narrow widths.
+
+- Chart measure tool: a `measure` with `axes: 'x'` (or the old `measure-x` name) on a continuous time axis gave an empty readout on `annotation:added` because the points it spans were found by reading each category through `Number()`, which cannot parse an ISO date. It now reads the span as moments and gives the count and the duration, as the point-to-point readout does. Moving a restored drawing (a trend line, a measure) on a time axis left its x unchanged when the saved anchors were ISO strings or `Date`s; it now moves by the dragged amount whatever form the anchor was saved in.
+
+- A highlight that expired did not fire `highlight:changed`, so a host mirroring `grid.highlight.list()` kept showing a flash that had ended; expiry now announces the change once per sweep. A validation error cleared because a corrected value passed did not fire `validation:cleared`, so a host counting errors never saw the cell clear; the event now fires for that cell, once.
+
+### Internal
+
+- Tooling: the change-flag guard (`tools/flagguard.js`, BACKLOG-0001255) now also watches `DetailModel`, `HighlightModel` and `ValidationModel`, whose `open`/`close`/`toggle`, `add`/`clear`/`sweep` and `clear` return a change flag. Eleven call sites dropped it; each was checked and all announce through the model's own `onChange` or event (`detail:toggled`, `highlight:changed`, `validation:cleared`), so none was a lost state announcement. Each is now `void` with a `flag-ignored(<model>): <reason>` comment, and a new discard fails the guard by name.
+
 ## [1.86.2] - 2026-10-03
 
 ### Breaking

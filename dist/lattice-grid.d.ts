@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.2, type declarations
+ * Lattice Grid 1.86.3, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -8498,6 +8498,11 @@ export interface RowsApi {
    * How many rows the grid is displaying, including group headings, footers
    * and the grand total, and including optimistic rows an in-flight write has
    * added.
+   *
+   * On a windowed source this is the loaded rows plus an open-ended page
+   * estimate while the total is unknown, so the scrollbar can grow; it is not
+   * the match total. Use {@link RowsApi.matchCount}, which is `null` while the
+   * total is pending (from a filter, sort or pivot change until the answer).
    */
   count(): number;
   /**
@@ -8517,8 +8522,17 @@ export interface RowsApi {
    * both, and only one of them is going to become a number.
    */
   totalPending(): boolean;
-  /** Data rows matching the filters, excluding group, footer and total rows. */
-  matchCount(): number;
+  /**
+   * Data rows matching the filters, excluding group, footer and total rows.
+   *
+   * `null` while the source is still counting the matches: a
+   * filtered query against a pushdown engine delivers its first page before its
+   * exact total, and until it lands the rows loaded are a window, never the
+   * count. {@link RowsApi.totalPending} is true for that span and the
+   * `source:total` event fires with `{ total }` when the number arrives. A
+   * source that answers with its total, or holds every row, never returns null.
+   */
+  matchCount(): number | null;
   /**
    * How much of the data a figure computed from this grid covers, so a
    * statistic over a windowed source can say it is approximate.
@@ -13471,13 +13485,14 @@ export type ChartAxisSide = 'left' | 'right' | 'y2';
 /** A tool on a chart's drawing rail. */
 export type ChartAnnotationToolName =
   | 'select' | 'trendLine' | 'horizontalLine' | 'verticalLine'
-  | 'channel' | 'fibonacci' | 'arrow'
-  | 'measure-x' | 'measure-y' | 'measure-xy' | 'measure'
-  | 'text' | 'callout' | 'note' | 'delete';
+  | 'channel' | 'fibonacci' | 'arrow' | 'pen'
+  | 'measure' | 'text' | 'callout' | 'note' | 'delete'
+  /** @deprecated Aliases for `measure` with `measure: { axes }`; accepted in `annotate.tools`. */
+  | 'measure-x' | 'measure-y' | 'measure-xy';
 /** What a drawn chart annotation is; the drawing tools, less `select` and `delete`. */
 export type ChartAnnotationItemKind =
   | 'trendLine' | 'horizontalLine' | 'verticalLine'
-  | 'channel' | 'fibonacci' | 'arrow'
+  | 'channel' | 'fibonacci' | 'arrow' | 'pen'
   | 'measure-x' | 'measure-y' | 'measure-xy' | 'measure'
   | 'text' | 'callout' | 'note';
 /** Where a chart's drawing rail sits, or `none` for the tools without the strip. */
@@ -13520,12 +13535,34 @@ export interface ChartAnnotationItem {
    * axis and for every other kind.
    */
   axis?: 'right';
+  /**
+   * A `pen` stroke's width in pixels; absent for the themed width.
+   * A stroke's `anchors` are its simplified points, in data coordinates, two or more.
+   */
+  width?: number;
+}
+/**
+ * The freehand `pen` tool's defaults; a stroke may carry its own `colour` and
+ * `width`.
+ */
+export interface ChartPenOptions {
+  /** A CSS colour for new strokes (a plain value: no semicolons or braces); default the theme's foreground. */
+  colour?: string;
+  /** The stroke width in pixels for new strokes, up to 24; default 2. */
+  width?: number;
 }
 /**
  * The point-to-point measure tool's own settings; the spec's `measure` takes
  * `true` for the defaults or this object.
  */
 export interface ChartMeasureOptions {
+  /**
+   * What the one `measure` tool measures: `'xy'` (default) the point-to-point
+   * Δx, Δy, percentage and slope; `'x'` the span between two x readings; `'y'` the signed change
+   * and percentage between two y readings. The older `measure-x`, `measure-y` and `measure-xy`
+   * names in `annotate.tools` map to this, with a one-time warning.
+   */
+  axes?: 'x' | 'y' | 'xy';
   /**
    * Snap each end of a measurement to the nearest data point within 24 pixels (on the axis the
    * measurement was started over); `false` keeps exactly what the pointer is over. Default `true`.
@@ -13566,6 +13603,8 @@ export interface ChartAnnotateOptions {
   readOnly?: boolean;
   /** How a measurer's volume figure is found. */
   measure?: ChartAnnotateMeasure;
+  /** The freehand pen's colour and width defaults. */
+  pen?: ChartPenOptions;
 }
 /**
  * Zooming a cartesian chart.

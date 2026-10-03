@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.86.2</title>
+<title>Types API Reference — Lattice Grid 1.86.3</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -682,6 +682,7 @@
           <tr><td class="name">rail</td><td class="type"><a href="#type-ChartAnnotateRail">ChartAnnotateRail</a> <small class="literals">'left' | 'top' | 'none'</small></td><td class="desc">Where the rail sits; `none` keeps the drawings and the pointer tools without the strip. <small>(optional)</small></td></tr>
           <tr><td class="name">readOnly</td><td class="type">boolean</td><td class="desc">Draw what is in the state and refuse every change, including the rail itself. <small>(optional)</small></td></tr>
           <tr><td class="name">measure</td><td class="type"><a href="#type-ChartAnnotateMeasure">ChartAnnotateMeasure</a></td><td class="desc">How a measurer's volume figure is found (BACKLOG-0001475). <small>(optional)</small></td></tr>
+          <tr><td class="name">pen</td><td class="type"><a href="#type-ChartPenOptions">ChartPenOptions</a></td><td class="desc">The freehand pen's colour and width defaults (BACKLOG-0001718). <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -744,6 +745,7 @@
           <tr><td class="name">colour</td><td class="type">string</td><td class="desc">A CSS colour overriding the themed default. <small>(optional)</small></td></tr>
           <tr><td class="name">readOnly</td><td class="type">boolean</td><td class="desc">When true this one drawing cannot be moved, edited or deleted. <small>(optional)</small></td></tr>
           <tr><td class="name">axis</td><td class="type">'right'</td><td class="desc">Which y axis a point-to-point `measure` was taken against (BACKLOG-0001708): `'right'` on a dual-axis chart when it was started over the right-hand axis. Absent for the left (or only) axis and for every other kind. <small>(optional)</small></td></tr>
+          <tr><td class="name">width</td><td class="type">number</td><td class="desc">A `pen` stroke's width in pixels (BACKLOG-0001718); absent for the themed width. A stroke's `anchors` are its simplified points, in data coordinates, two or more. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -1111,6 +1113,7 @@
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
+          <tr><td class="name">axes</td><td class="type">'x' | 'y' | 'xy'</td><td class="desc">What the one `measure` tool measures (BACKLOG-0001717): `'xy'` (default) the point-to-point Δx, Δy, percentage and slope; `'x'` the span between two x readings; `'y'` the signed change and percentage between two y readings. The older `measure-x`, `measure-y` and `measure-xy` names in `annotate.tools` map to this, with a one-time warning. <small>(optional)</small></td></tr>
           <tr><td class="name">snap</td><td class="type">boolean</td><td class="desc">Snap each end of a measurement to the nearest data point within 24 pixels (on the axis the measurement was started over); `false` keeps exactly what the pointer is over. Default `true`. <small>(optional)</small></td></tr>
           <tr><td class="name">pin</td><td class="type">boolean</td><td class="desc">Pin every measurement as soon as it is released, rather than leaving it transient until Enter or a click on it. Default `false`. <small>(optional)</small></td></tr>
         </tbody>
@@ -1141,6 +1144,17 @@
           <tr><td class="name">background</td><td class="type">string</td><td class="desc">The tile's background; transparent when unset. <small>(optional)</small></td></tr>
           <tr><td class="name">size</td><td class="type">number</td><td class="desc">The tile size in pixels. Default 8. <small>(optional)</small></td></tr>
           <tr><td class="name">angle</td><td class="type">number</td><td class="desc">The pattern's rotation in degrees. Default 45 for a hatch or crosshatch, 0 otherwise. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartPenOptions">ChartPenOptions</h4>
+    <p class="section-note">The freehand `pen` tool's defaults (BACKLOG-0001718); a stroke may carry its own `colour` and `width`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">colour</td><td class="type">string</td><td class="desc">A CSS colour for new strokes (a plain value: no semicolons or braces); default the theme's foreground. <small>(optional)</small></td></tr>
+          <tr><td class="name">width</td><td class="type">number</td><td class="desc">The stroke width in pixels for new strokes, up to 24; default 2. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -2669,7 +2683,7 @@
     <p class="type-def"><code>type ChartAnnotationCompute = 'mean' | 'avg' | 'median' | 'min' | 'max'</code></p>
     <h4 id="type-ChartAnnotationItemKind">ChartAnnotationItemKind</h4>
     <p class="section-note">What a drawn chart annotation is; the drawing tools, less `select` and `delete`.</p>
-    <p class="type-def"><code>type ChartAnnotationItemKind = 'trendLine' | 'horizontalLine' | 'verticalLine' | 'channel' | 'fibonacci' | 'arrow' | 'measure-x' | 'measure-y' | 'measure-xy' | 'measure' | 'text' | 'callout' | 'note'</code></p>
+    <p class="type-def"><code>type ChartAnnotationItemKind = 'trendLine' | 'horizontalLine' | 'verticalLine' | 'channel' | 'fibonacci' | 'arrow' | 'pen' | 'measure-x' | 'measure-y' | 'measure-xy' | 'measure' | 'text' | 'callout' | 'note'</code></p>
     <h4 id="type-ChartAnnotationKind">ChartAnnotationKind</h4>
     <p class="section-note">What kind of chart annotation this is.</p>
     <p class="type-def"><code>type ChartAnnotationKind = 'line' | 'target' | 'band' | 'callout' | 'event'</code></p>
@@ -2678,7 +2692,7 @@
     <p class="type-def"><code>type ChartAnnotationOrient = 'horizontal' | 'vertical'</code></p>
     <h4 id="type-ChartAnnotationToolName">ChartAnnotationToolName</h4>
     <p class="section-note">A tool on a chart's drawing rail.</p>
-    <p class="type-def"><code>type ChartAnnotationToolName = 'select' | 'trendLine' | 'horizontalLine' | 'verticalLine' | 'channel' | 'fibonacci' | 'arrow' | 'measure-x' | 'measure-y' | 'measure-xy' | 'measure' | 'text' | 'callout' | 'note' | 'delete'</code></p>
+    <p class="type-def"><code>type ChartAnnotationToolName = 'select' | 'trendLine' | 'horizontalLine' | 'verticalLine' | 'channel' | 'fibonacci' | 'arrow' | 'pen' | 'measure' | 'text' | 'callout' | 'note' | 'delete' | 'measure-x' | 'measure-y' | 'measure-xy'</code></p>
     <h4 id="type-ChartAxisSide">ChartAxisSide</h4>
     <p class="section-note">Which measure axis a chart annotation reads: left, right, or the secondary y2.</p>
     <p class="type-def"><code>type ChartAxisSide = 'left' | 'right' | 'y2'</code></p>
