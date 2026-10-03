@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.3, chart-ridgeline module
+ * Lattice Grid 1.86.4, chart-ridgeline module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

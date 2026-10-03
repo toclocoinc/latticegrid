@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.3, type declarations
+ * Lattice Grid 1.86.4, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -14297,7 +14297,8 @@ export interface ChartSpec {
    * needle's stroke width in pixels (`width`) and the central pin's radius as a
    * fraction of the gauge radius (`pin`). With a needle the value arc is not
    * drawn, and the needle takes the colour of the band the value falls in — or
-   * the series colour without bands.
+   * the series colour without bands. The reading and its caption move off the
+   * pin into the dial's opening, where no needle position crosses them.
    */
   needle?: boolean | { width?: number; pin?: number };
   /**
@@ -14488,7 +14489,9 @@ export interface ChartSpec {
    * Either GeoJSON, an object of code to SVG path data, or a geometry
    * {@link GeoPack} imported from an optional `modules/geo-*` package
    * — as the pack itself, or as `{ pack: id }` once its
-   * module has been imported and registered.
+   * module has been imported and registered. On a `markermap` or `bubblemap`
+   * the pack is the basemap; without one they draw the geomap's schematic
+   * continent outline under their points, fitted to the data's extent.
    */
   shapes?: unknown;
   /**
@@ -14645,6 +14648,13 @@ export interface ChartSpec {
    * `choropleth`'s own backdrop pack, `hexmap` and `geomap`.
    */
   basemap?: { fill?: string | ChartFill; stroke?: string; strokeWidth?: number };
+  /**
+   * Whether a `markermap` or `bubblemap` with no `shapes` pack draws the
+   * schematic continent outline under its points. On by
+   * default; `false` keeps the blank plane. Ignored with a `shapes` pack (the
+   * pack is the basemap), on a globe, and by every other type.
+   */
+  outline?: boolean;
   /** One chart per distinct value of this column. */
   multiples?: string;
   /** Draw to canvas past this many points. */
@@ -14877,6 +14887,15 @@ export interface ChartSpec {
    * `min` and `max` on the chart pin the scale's ends.
    */
   bullet?: { orientation?: 'horizontal' | 'vertical'; scale?: 'shared' | 'row' };
+  /**
+   * A `waterfall`'s options. A waterfall draws one step per
+   * category, the last included. `total` adds a closing-total bar as an extra
+   * category after the last one, drawn from the baseline to the running total:
+   * `true` labels it with the catalogue's word for a total (`Total`), a string
+   * labels it with that string. With no `total` there is no closing bar. A
+   * waterfall with a total bands its x axis. Ignored by every other type.
+   */
+  waterfall?: { total?: boolean | string };
   /**
    * A `populationPyramid`'s options. `scale` is `'shared'`
    * (the default: one symmetric scale serves both halves, so equal bars are
@@ -15937,14 +15956,18 @@ export interface SourceErrorEvent extends GridEvent {
 }
 
 /**
- * `source:total`: a deferred exact total landed.
+ * `source:total`: a remote source's exact total became known or changed.
  *
- * A pushdown source whose count has to read data — a filtered query against a
- * remote Parquet file, where counting costs a second and a page costs a tenth
- * of one — delivers the rows as soon as the page settles and counts afterwards.
- * This is the count arriving: the number is exact, it fires once per query, and
- * until it does `grid.rows.totalCount()` is `null` and `grid.rows.totalPending()`
- * is `true`. A query whose total arrives with its rows never fires it.
+ * It fires once each time the known total goes from unknown, or still being
+ * counted, to a number, or from one number to another — whether the number was
+ * declared with the first page or arrived after it. A pushdown source whose
+ * count has to read data — a filtered query against a remote Parquet file,
+ * where counting costs a second and a page costs a tenth of one — delivers the
+ * rows as soon as the page settles and counts afterwards; until the count lands
+ * `grid.rows.totalCount()` is `null` and `grid.rows.totalPending()` is `true`.
+ * A refresh, or a filter, sort, quick-search, grouping or pivot change, starts
+ * the cycle again and fires once more, even when the new total equals the old
+ * one. It never fires twice for one settle.
  */
 export interface SourceTotalEvent extends GridEvent {
   /** The exact number of rows the query matches. Never an estimate. */

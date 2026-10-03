@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.86.3</title>
+<title>Grid API Reference — Lattice Grid 1.86.4</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -1856,7 +1856,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.86.3'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.86.4'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -12821,7 +12821,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       </table>
     </div>
     <h4 id="type-SourceTotalEvent">SourceTotalEvent</h4>
-    <p class="section-note">`source:total`: a deferred exact total landed (BACKLOG-0001078). A pushdown source whose count has to read data — a filtered query against a remote Parquet file, where counting costs a second and a page costs a tenth of one — delivers the rows as soon as the page settles and counts afterwards. This is the count arriving: the number is exact, it fires once per query, and until it does `grid.rows.totalCount()` is `null` and `grid.rows.totalPending()` is `true`. A query whose total arrives with its rows never fires it.</p>
+    <p class="section-note">`source:total`: a remote source's exact total became known or changed (BACKLOG-0001078, BACKLOG-0001820). It fires once each time the known total goes from unknown, or still being counted, to a number, or from one number to another — whether the number was declared with the first page or arrived after it. A pushdown source whose count has to read data — a filtered query against a remote Parquet file, where counting costs a second and a page costs a tenth of one — delivers the rows as soon as the page settles and counts afterwards; until the count lands `grid.rows.totalCount()` is `null` and `grid.rows.totalPending()` is `true`. A refresh, or a filter, sort, quick-search, grouping or pivot change, starts the cycle again and fires once more, even when the new total equals the old one. It never fires twice for one settle.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>

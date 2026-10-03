@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.3, data-router module type declarations
+ * Lattice Grid 1.86.4, data-router module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

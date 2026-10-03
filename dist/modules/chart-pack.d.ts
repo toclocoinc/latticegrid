@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.3, chart-pack module type declarations
+ * Lattice Grid 1.86.4, chart-pack module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
