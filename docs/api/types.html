@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.86.1</title>
+<title>Types API Reference — Lattice Grid 1.86.2</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -739,10 +739,11 @@
         <tbody>
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">Unique within the process; assigned when the drawing is made or restored.</td></tr>
           <tr><td class="name">kind</td><td class="type"><a href="#type-ChartAnnotationItemKind">ChartAnnotationItemKind</a></td><td class="desc">Which shape this is.</td></tr>
-          <tr><td class="name">anchors</td><td class="type"><a href="#type-ChartAnnotationAnchor">ChartAnnotationAnchor</a>[]</td><td class="desc">The data points the shape is built from: one for a horizontal line, a vertical line, a text label or a note; two for a trend line, an arrow, a callout (the reading, then the box), a retracement, or a measurer (BACKLOG-0001475 — the span's two ends, or a rectangle's two opposite corners for `measure-xy`); three for a parallel channel (the base line, then the offset of the parallel one). An item with fewer than its kind needs is refused with a warning rather than half-drawn.</td></tr>
+          <tr><td class="name">anchors</td><td class="type"><a href="#type-ChartAnnotationAnchor">ChartAnnotationAnchor</a>[]</td><td class="desc">The data points the shape is built from: one for a horizontal line, a vertical line, a text label or a note; two for a trend line, an arrow, a callout (the reading, then the box), a retracement, or a measurer (BACKLOG-0001475 — the span's two ends, or a rectangle's two opposite corners for `measure-xy`, and the two ends of a point-to-point `measure`); three for a parallel channel (the base line, then the offset of the parallel one). An item with fewer than its kind needs is refused with a warning rather than half-drawn.</td></tr>
           <tr><td class="name">text</td><td class="type">string</td><td class="desc">The label, for `text`, `callout` and `note`. <small>(optional)</small></td></tr>
           <tr><td class="name">colour</td><td class="type">string</td><td class="desc">A CSS colour overriding the themed default. <small>(optional)</small></td></tr>
           <tr><td class="name">readOnly</td><td class="type">boolean</td><td class="desc">When true this one drawing cannot be moved, edited or deleted. <small>(optional)</small></td></tr>
+          <tr><td class="name">axis</td><td class="type">'right'</td><td class="desc">Which y axis a point-to-point `measure` was taken against (BACKLOG-0001708): `'right'` on a dual-axis chart when it was started over the right-hand axis. Absent for the left (or only) axis and for every other kind. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -759,6 +760,11 @@
           <tr><td class="name">volume</td><td class="type">number</td><td class="desc">The sum of the volume column (see {@link ChartAnnotateMeasure}) across the x span. <small>(optional)</small></td></tr>
           <tr><td class="name">change</td><td class="type">number</td><td class="desc">The signed change between the two y anchors. <small>(optional)</small></td></tr>
           <tr><td class="name">changePercent</td><td class="type">number | null</td><td class="desc">The signed percentage change between the two y anchors; `null` when the first is zero. <small>(optional)</small></td></tr>
+          <tr><td class="name">dx</td><td class="type">number</td><td class="desc">A point-to-point `measure`'s signed Δx (BACKLOG-0001708): milliseconds on a time axis, the number of categories stepped over on a category axis, the plain difference on a numeric one. <small>(optional)</small></td></tr>
+          <tr><td class="name">dxKind</td><td class="type">'time' | 'category' | 'number'</td><td class="desc">What `dx` counts: `'time'`, `'category'` or `'number'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">duration</td><td class="type">{ unit: 'd' | 'h' | 'min' | 's' | 'ms'; count: number }[]</td><td class="desc">On a time axis, `elapsedMs` as its two largest units, e.g. `[{ unit: 'd', count: 3 }, { unit: 'h', count: 4 }]`. <small>(optional)</small></td></tr>
+          <tr><td class="name">slope</td><td class="type">number</td><td class="desc">A point-to-point `measure`'s slope: Δy per day on a time axis, per category, or per x unit; absent when Δx is zero. <small>(optional)</small></td></tr>
+          <tr><td class="name">slopeUnit</td><td class="type">'day' | 'category' | 'unit'</td><td class="desc">What `slope` is per: `'day'`, `'category'` or `'unit'`. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -806,7 +812,7 @@
           <tr><td class="name">values</td><td class="type">unknown[]</td><td class="desc">The category values the drag covered, on a category axis.</td></tr>
           <tr><td class="name">range</td><td class="type">{ from: unknown; to: unknown } | null</td><td class="desc">The numeric or time bounds the drag covered, on a continuous axis, or null.</td></tr>
           <tr><td class="name">axis</td><td class="type">string</td><td class="desc">Which axis was dragged: `x`, `y` or `y2`.</td></tr>
-          <tr><td class="name">column</td><td class="type">string | null</td><td class="desc">The grid column the range names — the measure's on a value axis, the dimension's on `x`.</td></tr>
+          <tr><td class="name">column</td><td class="type">string | null</td><td class="desc">The grid column the range names — the dimension's on `x`, and on a value axis the measure's behind that axis (`y2`: the right axis's), or `null` when that axis carries more than one measure column.</td></tr>
           <tr><td class="name">defaultPrevented</td><td class="type">boolean</td><td class="desc">True once a handler has called `preventDefault`. Absent until then — a handler may also set it directly, which the chart honours the same way. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -1099,6 +1105,17 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-ChartMeasureOptions">ChartMeasureOptions</h4>
+    <p class="section-note">The point-to-point measure tool's own settings (BACKLOG-0001708); the spec's `measure` takes `true` for the defaults or this object.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">snap</td><td class="type">boolean</td><td class="desc">Snap each end of a measurement to the nearest data point within 24 pixels (on the axis the measurement was started over); `false` keeps exactly what the pointer is over. Default `true`. <small>(optional)</small></td></tr>
+          <tr><td class="name">pin</td><td class="type">boolean</td><td class="desc">Pin every measurement as soon as it is released, rather than leaving it transient until Enter or a click on it. Default `false`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ChartNode">ChartNode</h4>
     <p class="section-note">One node of a `network` chart, as the host declares it. `x` and `y` are fractions of the plot, 0 to 1, measured from its top-left. A node giving both is **pinned** there and takes no part in the force simulation; the rest are laid out around it, deterministically. Giving only one of the two is not a position and the node is laid out.</p>
     <div class="table-wrap">
@@ -1217,12 +1234,12 @@
       </table>
     </div>
     <h4 id="type-ChartViewportFilterOptions">ChartViewportFilterOptions</h4>
-    <p class="section-note">Narrows {@link ChartSpec.viewportFilter} (BACKLOG-0000004, GEO-4).</p>
+    <p class="section-note">Narrows {@link ChartSpec.viewportFilter} (BACKLOG-0000004, GEO-4, BACKLOG-0001707).</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">column</td><td class="type">string</td><td class="desc">Write the condition to a different geometry column than the one this chart places its own rows from — always a `withinBbox` on that column, whatever the map itself is placed by. Defaults to `geometry`, or has no effect naming a column when the map places rows by `lon`/`lat` (the pair is always written to those two columns). <small>(optional)</small></td></tr>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">On a map: write the condition to a different geometry column than the one this chart places its own rows from — always a `withinBbox` on that column, whatever the map itself is placed by. Defaults to `geometry`, or has no effect naming a column when the map places rows by `lon`/`lat` (the pair is always written to those two columns). On a cartesian chart: the column the x range is written to; defaults to the chart's `x`. <small>(optional)</small></td></tr>
           <tr><td class="name">debounce</td><td class="type">number</td><td class="desc">Milliseconds to wait after a pan or zoom settles before writing; the default is 150. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -1273,7 +1290,7 @@
         <tbody>
           <tr><td class="name">x</td><td class="type"><a href="#type-ChartZoomRange">ChartZoomRange</a> | null</td><td class="desc">The x range now drawn, in the axis's own units; the full extent when nothing is zoomed.</td></tr>
           <tr><td class="name">y</td><td class="type"><a href="#type-ChartZoomRange">ChartZoomRange</a> | null</td><td class="desc">The measure range now drawn, present only when `zoom.axes` includes the y axis. <small>(optional)</small></td></tr>
-          <tr><td class="name">reason</td><td class="type"><a href="#type-ChartZoomReason">ChartZoomReason</a> <small class="literals">'button' | 'wheel' | 'key' | 'pan' | 'reset' | 'api' | 'group'</small></td><td class="desc">What moved it.</td></tr>
+          <tr><td class="name">reason</td><td class="type"><a href="#type-ChartZoomReason">ChartZoomReason</a> <small class="literals">'button' | 'wheel' | 'key' | 'pan' | 'pinch' | 'reset' | 'api' | 'group' | 'filter'</small></td><td class="desc">What moved it.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2652,7 +2669,7 @@
     <p class="type-def"><code>type ChartAnnotationCompute = 'mean' | 'avg' | 'median' | 'min' | 'max'</code></p>
     <h4 id="type-ChartAnnotationItemKind">ChartAnnotationItemKind</h4>
     <p class="section-note">What a drawn chart annotation is; the drawing tools, less `select` and `delete`.</p>
-    <p class="type-def"><code>type ChartAnnotationItemKind = 'trendLine' | 'horizontalLine' | 'verticalLine' | 'channel' | 'fibonacci' | 'arrow' | 'measure-x' | 'measure-y' | 'measure-xy' | 'text' | 'callout' | 'note'</code></p>
+    <p class="type-def"><code>type ChartAnnotationItemKind = 'trendLine' | 'horizontalLine' | 'verticalLine' | 'channel' | 'fibonacci' | 'arrow' | 'measure-x' | 'measure-y' | 'measure-xy' | 'measure' | 'text' | 'callout' | 'note'</code></p>
     <h4 id="type-ChartAnnotationKind">ChartAnnotationKind</h4>
     <p class="section-note">What kind of chart annotation this is.</p>
     <p class="type-def"><code>type ChartAnnotationKind = 'line' | 'target' | 'band' | 'callout' | 'event'</code></p>
@@ -2661,7 +2678,7 @@
     <p class="type-def"><code>type ChartAnnotationOrient = 'horizontal' | 'vertical'</code></p>
     <h4 id="type-ChartAnnotationToolName">ChartAnnotationToolName</h4>
     <p class="section-note">A tool on a chart's drawing rail.</p>
-    <p class="type-def"><code>type ChartAnnotationToolName = 'select' | 'trendLine' | 'horizontalLine' | 'verticalLine' | 'channel' | 'fibonacci' | 'arrow' | 'measure-x' | 'measure-y' | 'measure-xy' | 'text' | 'callout' | 'note' | 'delete'</code></p>
+    <p class="type-def"><code>type ChartAnnotationToolName = 'select' | 'trendLine' | 'horizontalLine' | 'verticalLine' | 'channel' | 'fibonacci' | 'arrow' | 'measure-x' | 'measure-y' | 'measure-xy' | 'measure' | 'text' | 'callout' | 'note' | 'delete'</code></p>
     <h4 id="type-ChartAxisSide">ChartAxisSide</h4>
     <p class="section-note">Which measure axis a chart annotation reads: left, right, or the secondary y2.</p>
     <p class="type-def"><code>type ChartAxisSide = 'left' | 'right' | 'y2'</code></p>
@@ -2729,8 +2746,8 @@
     <p class="section-note">A visible range, as two ends in the axis's own units: two categories on a band axis, two readings on a continuous one, and epoch milliseconds on a time axis — which is what survives `JSON.stringify` and comes back the same.</p>
     <p class="type-def"><code>type ChartZoomRange = [string | number, string | number]</code></p>
     <h4 id="type-ChartZoomReason">ChartZoomReason</h4>
-    <p class="section-note">What moved a zoom, as reported by the `zoom` event.</p>
-    <p class="type-def"><code>type ChartZoomReason = 'button' | 'wheel' | 'key' | 'pan' | 'reset' | 'api' | 'group'</code></p>
+    <p class="section-note">What moved a zoom, as reported by the `zoom` event. `pinch` is a two-finger pinch on a touch screen; `filter` is the grid's filter moving the view of a chart whose grid follows it ({@link ChartSpec.viewportFilter}): the chart's condition cleared in the grid (the zoom resets), or put back by an undo or a redo (the view returns to it) (BACKLOG-0001707).</p>
+    <p class="type-def"><code>type ChartZoomReason = 'button' | 'wheel' | 'key' | 'pan' | 'pinch' | 'reset' | 'api' | 'group' | 'filter'</code></p>
     <h4 id="type-ColumnExportLookup">ColumnExportLookup</h4>
     <p class="section-note">How a lookup column leaves in an export: its label, its stored value, or both.</p>
     <p class="type-def"><code>type ColumnExportLookup = 'label' | 'value' | 'columns'</code></p>

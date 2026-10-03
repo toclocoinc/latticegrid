@@ -1,5 +1,5 @@
 {
-  "version": "1.86.1",
+  "version": "1.86.2",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 653,
+  "count": 658,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -355,9 +355,64 @@
       "since": "1.72.0",
       "message": "\"zoom\" narrows a chart's own axes and {type} has none to narrow, so no zoom was added. The types that take one are {types}.",
       "meaning": "`zoom` was set on a chart type that has no pair of continuous axes to narrow — a pie, a treemap, a Sankey, a geomap. No controls were added, and the option was reported rather than accepted in silence, because a caller who sets an option and sees nothing cannot tell a broken option from a broken chart.",
-      "fix": "Set `zoom` on a cartesian type: line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble, candlestick or combo. A geomap carries its own pan and zoom already.",
+      "fix": "Set `zoom` on a cartesian type: line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble, candlestick, ohlc, combo or heatmap. A geomap carries its own pan and zoom already.",
       "snippet": "createChart({ grid, container, type: 'line', x: 'day', y: 'price', zoom: true });",
       "docs": "api/charts.html#chart-zoom"
+    },
+    {
+      "id": "chart:*:zoom:heatmap:axes",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.87.0",
+      "message": "a heatmap zooms its columns (the x axis) only; its rows are a band of series with no measure axis behind them, so zoom.axes {value} zoomed x alone. Leave zoom.axes at its default, x.",
+      "meaning": "`zoom.axes` on a heatmap named `y` or `xy`. A heatmap's columns are a band of categories like a bar chart's and zoom to a contiguous run of them; its rows are its series, another band, with no measure axis to narrow. The zoom was added on the columns rather than dropped.",
+      "fix": "Leave `zoom.axes` at its default, `'x'`, on a heatmap.",
+      "snippet": "createChart({ grid, container, type: 'heatmap', x: 'day', measures: ['north', 'south'], zoom: true });",
+      "docs": "api/charts.html#chart-zoom"
+    },
+    {
+      "id": "chart:*:viewportFilter:zoom",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.87.0",
+      "message": "\"viewportFilter\" on a {type} chart filters the grid to the range the chart is zoomed to, and this chart has no zoom, so the grid was left alone. Set zoom: true as well.",
+      "meaning": "`viewportFilter` on a cartesian chart makes the grid follow the chart's visible range, and the range only moves when the chart can be zoomed. With no `zoom` there is nothing to follow, so no condition was written rather than the option being accepted in silence.",
+      "fix": "Set `zoom: true` (or a `zoom` object) beside `viewportFilter`.",
+      "snippet": "createChart({ grid, container, type: 'line', x: 'day', y: 'price', zoom: true, viewportFilter: true });",
+      "docs": "api/charts.html#chart-zoom-follow"
+    },
+    {
+      "id": "chart:*:viewportFilter:y",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.87.0",
+      "message": "\"viewportFilter\" filtered the grid by the x range only: this {type} chart's measure axis shows values combined over several rows at one x rather than any one row's value, so its y zoom narrows the picture but not the grid. A scatter or bubble with one row per point filters by y as well.",
+      "meaning": "The chart is zoomed on its measure axis and its grid follows the zoom, but the y values drawn are reductions (a sum, a mean) over the rows at each x, so there is no row value to filter by. The grid was filtered to the x range alone.",
+      "fix": "Nothing, if the x range is what you want the grid to follow. To filter by y as well, chart one row per point: a `scatter` or `bubble` whose x is unique per row.",
+      "snippet": "createChart({ grid, container, type: 'scatter', x: 'risk', y: 'return', zoom: { axes: 'xy' }, viewportFilter: true });",
+      "docs": "api/charts.html#chart-zoom-follow"
+    },
+    {
+      "id": "chart:*:brush:aggregate",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.2",
+      "message": "a brush on the {axis} axis would filter rows by \"{column}\", but the marks on that axis are totals over several rows (or counts), and a range of totals says nothing about which rows lie in it, so no filter was written. Brush the x axis, or chart one row per mark.",
+      "meaning": "`brush: { mode: 'filter', axis: 'y' | 'y2' }` filters the measure behind the dragged axis, which only means something when each mark is one row's own value. Here a mark stands for several rows, or the reduction is a count, so a range of the drawn values cannot be turned into a condition on rows; nothing was written rather than a filter on numbers no row holds.",
+      "fix": "Brush the x axis (the default), or chart one row per mark: a scatter, or a line whose x is unique per row with a `sum`, `avg`, `min` or `max` reduction.",
+      "snippet": "createChart({ grid, container, type: 'scatter', x: 'risk', y: 'return', brush: { mode: 'filter', axis: 'y' } });",
+      "docs": "api/charts.html"
+    },
+    {
+      "id": "chart:*:brush:measures",
+      "module": "charts",
+      "severity": "warn",
+      "since": "1.86.2",
+      "message": "a brush on the {axis} axis filters the measure behind it, and this chart has {count} measure column(s) there ({columns}), so no filter was written. Brush an axis that carries one measure.",
+      "meaning": "A value-axis `brush: 'filter'` writes one `between` on the measure column behind the dragged axis. That axis carries several measure columns (or none), so there is no single column the range belongs to, and nothing was written.",
+      "fix": "Put one measure on the axis you brush (`axis: 'right'` on a measure moves it to `y2`), or brush the x axis.",
+      "snippet": "createChart({ grid, container, type: 'line', x: 'day', measures: ['price', { col: 'volume', axis: 'right' }], brush: { mode: 'filter', axis: 'y2' } });",
+      "docs": "api/charts.html"
     },
     {
       "id": "chart:zoom:range",

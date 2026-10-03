@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.86.1</p>
+    <p class="rail__sub">Developer guide · v1.86.2</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.86.1</span>
+        <span class="chip">Version 1.86.2</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1676,7 +1676,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.86.1'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.86.2'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -1874,6 +1874,40 @@ grid.rows.refresh({ rows, columns: ['owner'], force: true });
       <code>grid.columns.fit()</code> distributes the viewport width across visible columns, and
       <code>autoSize</code> measures content.
     </p>
+    <h3 id="autosize-on-double-click">Double-click a heading to autosize</h3>
+    <p class="lead-in">
+      Double-clicking a column heading &mdash; or the resize edge on its right &mdash; sizes the column to
+      its content, the same result as <code>grid.columns.autoSize(id)</code> (BACKLOG-0001703): the
+      heading is measured with the rows the grid has mounted, and the column's <code>min</code> and
+      <code>max</code> clamp it. A column with <code>layout.resizable: false</code> ignores it. The
+      keyboard form is <kbd>Alt</kbd>+<kbd>Enter</kbd> on a focused heading. The width goes through the
+      resize gate, so <code>beforeColumnResize</code> can veto it; it is on the undo timeline and in the
+      saved state like any resize, and the <code>column:resized</code> event carries
+      <code>autoSize: true</code>.
+    </p>
+    <p>
+      <strong>The sort does not change.</strong> A single click on a heading still sorts at once &mdash;
+      there is no timer to wait out. The first click of a double-click sorts as usual and the grid
+      remembers the sort as it stood before it; the second click does nothing; the
+      <code>dblclick</code> then restores that sort. So a double-click ends with the sort exactly as it
+      was (none, ascending or descending), though <code>sort:changed</code> fires twice on the way.
+      A host that wants the old behaviour turns the gesture off per column, or for every column through
+      <code>columnDefaults</code>:
+    </p>
+    <div class="example">
+      <p class="example__label">Turn it off</p>
+      <pre data-run="js" data-expect="a false | b true" data-covers="config:autoSizeOnDoubleClick"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+<span class="cmt">// On by default; false in columnDefaults.layout turns it off everywhere,</span>
+<span class="cmt">// and a column's own layout wins over the default.</span>
+const grid = createHeadlessGrid({
+  columnDefaults: { layout: { autoSizeOnDoubleClick: false } },
+  columns: [{ field: 'a' }, { field: 'b', layout: { autoSizeOnDoubleClick: true } }],
+  rows: [{ a: 1, b: 2 }],
+});
+const on = (id) =&gt; grid.columns.get(id).layout.autoSizeOnDoubleClick !== false;
+return `a ${on('a')} | b ${on('b')}`;</code></pre>
+    </div>
+
     <p>The width <code>fit()</code> distributes is the space the cells actually occupy: the body
       viewport&rsquo;s client width, read when you call it. When the grid has enough rows to
       scroll vertically, that width excludes the scrollbar, so the columns end flush with it
@@ -5685,8 +5719,14 @@ columns: [
       cancellable <code>beforeEdit</code> event: a failing value cancels the commit, marks the cell
       with the same accessible invalid state an editor rejection uses, and fires
       <code>validation:failed</code>. Correcting the value clears the mark and fires
-      <code>validation:cleared</code>. Only a user edit is gated — a host API write is the authority
-      and is never self-vetoed.
+      <code>validation:cleared</code>. Every <strong>user-origin</strong> write is gated, whichever way
+      it arrives (BACKLOG-0001701): a typed edit, a clipboard paste, the fill handle and Ctrl+D,
+      <code>grid.edit.setCells(…, { origin: 'user' })</code> (and <code>pasteInto</code>,
+      <code>fill</code>, <code>bulkSet</code> given the same <code>origin</code>) and a chart drag-to-edit.
+      A refused cell is skipped with the grid's own message, as a typed edit is; the other cells of a
+      paste still land. A write with any other origin — the default <code>'api'</code>, or
+      <code>'form'</code> — keeps its behaviour: a host API write is the authority and is never
+      self-vetoed.
     </p>
     <div class="example">
       <p class="example__label">Rules as data</p>
@@ -8097,7 +8137,9 @@ grid.annotate.use(null);                     <span class="cmt">// hand the grid 
           <tr><td class="name"><kbd>Home</kbd> <span class="sep">or</span> <kbd>End</kbd></td><td class="desc">First / last cell of the row</td></tr>
           <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>Home</kbd> <span class="sep">or</span> <kbd>Ctrl</kbd>+<kbd>End</kbd></td><td class="desc">First cell of the first row / last cell of the last row</td></tr>
           <tr><td class="name"><kbd>PageUp</kbd> <span class="sep">or</span> <kbd>PageDown</kbd></td><td class="desc">Move one viewport of rows</td></tr>
-          <tr><td class="name"><kbd>Tab</kbd> <span class="sep">or</span> <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td class="desc">Next / previous cell, wrapping across rows</td></tr>
+          <tr><td class="name"><kbd>Tab</kbd> <span class="sep">or</span> <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td class="desc">Leave the grid for the next / previous focusable element (arrows move between cells)</td></tr>
+          <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td class="desc">Undo the last edit, paste, fill or clear</td></tr>
+          <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>Y</kbd> <span class="sep">or</span> <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></td><td class="desc">Redo the step that was undone</td></tr>
           <tr><td class="name"><kbd>Enter</kbd></td><td class="desc">Start editing the focused cell</td></tr>
           <tr><td class="name"><kbd>Space</kbd></td><td class="desc">Toggle selection of the focused row</td></tr>
           <tr><td class="name"><kbd>Escape</kbd></td><td class="desc">Cancel the current edit or drag</td></tr>
@@ -8113,6 +8155,7 @@ grid.annotate.use(null);                     <span class="cmt">// hand the grid 
           <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>ArrowLeft</kbd> <span class="sep">or</span> <kbd>Ctrl</kbd>+<kbd>ArrowRight</kbd></td><td class="desc">First / last heading</td></tr>
           <tr><td class="name"><kbd>Enter or Space</kbd></td><td class="desc">Sort by the column, Shift to add to the sort</td></tr>
           <tr><td class="name"><kbd>Alt</kbd>+<kbd>ArrowLeft</kbd> <span class="sep">or</span> <kbd>Alt</kbd>+<kbd>ArrowRight</kbd></td><td class="desc">Resize the column, Ctrl for a coarse step</td></tr>
+          <tr><td class="name"><kbd>Alt</kbd>+<kbd>Enter</kbd></td><td class="desc">Size the column to its content</td></tr>
           <tr><td class="name"><kbd>Shift</kbd>+<kbd>ArrowLeft</kbd> <span class="sep">or</span> <kbd>Shift</kbd>+<kbd>ArrowRight</kbd></td><td class="desc">Move the column</td></tr>
           <tr><td class="name"><kbd>Alt</kbd>+<kbd>ArrowDown</kbd></td><td class="desc">Open the column menu</td></tr>
           <tr><td class="name"><kbd>ArrowDown or Escape</kbd></td><td class="desc">Return focus to the data</td></tr>
@@ -8418,6 +8461,52 @@ grid.edit.pasteInto(text);                        <span class="cmt">// Excel's t
       Off by default keeps every existing grid's paste behaviour exactly as it was.</p>
     </div>
 
+    <h3 id="clear-on-delete">Clearing cells with Delete</h3>
+    <p class="lead-in">
+      <kbd>Delete</kbd> or <kbd>Backspace</kbd> on a focused cell that is not being edited clears it;
+      with a cell range selected it clears every editable cell of the range as <strong>one undo
+      step</strong> (BACKLOG-0001702). It is a user edit through the ordinary path, not a shortcut
+      around it: read-only columns and rows are skipped, <code>beforeEdit</code> can veto the clear,
+      a column's declarative <a href="#declarative-validation"><code>validation</code></a> judges the
+      empty value exactly as it judges a typed empty one (<code>required</code> refuses it with the
+      grid's own message; the shape rules &mdash; <code>min</code>, <code>max</code>,
+      <code>pattern</code>, <code>oneOf</code> &mdash; skip a blank, so they let it through), and change tracking, undo and write-back see each cell. The cleared value is
+      <code>null</code> &mdash; the empty value of every column type (a text column's own parse reads
+      the empty string as <code>null</code> as well). A screen reader hears &ldquo;N cells
+      cleared&rdquo;. The cell menu's <em>Clear cells</em> takes the same path.
+    </p>
+    <div class="example">
+      <p class="example__label">Turn the key off</p>
+      <pre data-run="js" data-expect="default true | off false" data-covers="config:EditConfig.clearOnDelete method:edit.clearOnDelete"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const columns = [{ field: 'name', edit: true }];
+const rows = [{ name: 'a' }];
+<span class="cmt">// On by default. false leaves Delete and Backspace alone.</span>
+const on = createHeadlessGrid({ columns, rows, edit: { enabled: true } });
+const off = createHeadlessGrid({ columns, rows, edit: { enabled: true, clearOnDelete: false } });
+return `default ${on.edit.clearOnDelete} | off ${off.edit.clearOnDelete}`;</code></pre>
+    </div>
+
+    <h3 id="undo-shortcuts">Undo and redo from the keyboard</h3>
+    <p class="lead-in">
+      <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Z</kbd> undoes and <kbd>Ctrl</kbd>+<kbd>Y</kbd> or
+      <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> redoes a step of the grid's history
+      &mdash; the same timeline as <code>grid.edit.undo()</code>, so a typed edit, a paste, a fill and a
+      Delete clear are one step each (BACKLOG-0001710). It works while focus is in the grid and no cell
+      editor is open: an open editor keeps the browser's own text undo. A screen reader hears what was
+      undone or redone. The keys do nothing when there is no history (<code>undoDepth: 0</code>, or nothing
+      recorded). <code>edit.undoShortcuts: false</code> leaves them alone.
+    </p>
+    <div class="example">
+      <p class="example__label">Turn the keys off</p>
+      <pre data-run="js" data-expect="default true | off false" data-covers="config:EditConfig.undoShortcuts method:edit.undoShortcuts"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const columns = [{ field: 'name', edit: true }];
+const rows = [{ name: 'a' }];
+<span class="cmt">// On by default. false leaves Ctrl+Z / Ctrl+Y to the page.</span>
+const on = createHeadlessGrid({ columns, rows, edit: { enabled: true } });
+const off = createHeadlessGrid({ columns, rows, edit: { enabled: true, undoShortcuts: false } });
+return `default ${on.edit.undoShortcuts} | off ${off.edit.undoShortcuts}`;</code></pre>
+    </div>
+
     <h2 id="keyboard">Keyboard</h2>
     <p class="lead-in">
       Press <kbd>?</kbd> in the grid to see this list in the product. The overlay is generated from
@@ -8434,9 +8523,10 @@ grid.edit.pasteInto(text);                        <span class="cmt">// Excel's t
           <tr><td class="sig">Shift + arrows</td><td class="desc">Extend the range.</td></tr>
           <tr><td class="sig">Ctrl/Cmd + Shift + arrows</td><td class="desc">Open a second range at the focused cell, keeping the first; further presses extend it.</td></tr>
           <tr><td class="sig">Ctrl/Cmd + C, V, D</td><td class="desc">Copy, paste, fill down.</td></tr>
-          <tr><td class="sig">Delete / Backspace</td><td class="desc">Clear the selected cells.</td></tr>
+          <tr><td class="sig">Delete / Backspace</td><td class="desc">Clear the focused cell, or every editable cell of the selected range as one undo step (<a href="#clear-on-delete"><code>edit.clearOnDelete</code></a>).</td></tr>
+          <tr><td class="sig">Ctrl/Cmd + Z, Ctrl + Y or Ctrl/Cmd + Shift + Z</td><td class="desc">Undo, redo (<a href="#undo-shortcuts"><code>edit.undoShortcuts</code></a>).</td></tr>
           <tr><td class="sig">Enter</td><td class="desc">Start editing; commit and step down.</td></tr>
-          <tr><td class="sig">Tab</td><td class="desc">Commit and step across.</td></tr>
+          <tr><td class="sig">Tab</td><td class="desc">While editing, commit and step across. Not editing, leave the grid for the next focusable element on the page; Shift+Tab goes to the previous one.</td></tr>
           <tr><td class="sig">Escape</td><td class="desc">Cancel the edit; restore a maximised grid once nothing else wants it. Coming back from full screen, whether by Escape or the rail's restore button, puts focus back on the cell you were on, not on the page.</td></tr>
           <tr><td class="sig">Ctrl/Cmd + F</td><td class="desc">Open the <a href="#find">find bar</a>; in it, Enter / Shift+Enter step through the matches and Escape closes.</td></tr>
           <tr><td class="sig">Space</td><td class="desc">Toggle the row's selection.</td></tr>
@@ -9241,6 +9331,18 @@ board.update({ annotate: { readOnly: <span class="kw">true</span> } });</code></
       projection follows the swapped axes, so the same drag anchors to the same readings either way
       round.</p>
     </div>
+
+    <h3 id="chart-measure-tool">The point-to-point measure tool</h3>
+    <p class="lead-in">
+      <code>measure</code> (BACKLOG-0001708) is a fourth measuring tool: <code>measure: true</code> on the
+      spec, a <code>measure</code> button on the rail, or the <code>M</code> key with the chart focused.
+      Drag between two points for a band with &Delta;x (a duration such as <code>3 d 4 h</code>, a count
+      of categories, or the numeric difference), &Delta;y in the y axis's own format, the percentage
+      change and the slope. Ends snap to data points (<code>measure: { snap: false }</code> to turn that
+      off), a dual-axis chart measures against the axis under the start point, and a measurement is
+      transient until pinned with Enter, a click on it or <code>pin: true</code>. The full description,
+      the keyboard model and a runnable example are in the chart guide in <code>API.html</code>.
+    </p>
 
     <h3 id="chart-measure">Measurers: a span with a readout</h3>
     <p class="lead-in">
@@ -12181,7 +12283,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.86.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.86.2 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.1, type declarations
+ * Lattice Grid 1.86.2, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1881,6 +1881,17 @@ export interface ColumnLayoutSpec {
    */
   resizable?: boolean;
   /**
+   * Whether a double-click on this column's heading (or its resize edge), or
+   * `Alt+Enter` on the focused heading, sizes the column to its content, as
+   * `columns.autoSize(id)` does. True by default; set it in
+   * `columnDefaults.layout` to turn the gesture off for every column. A column
+   * with `resizable: false` ignores it either way. A single click still sorts at
+   * once; a double-click leaves the sort as it was before the first click (the
+   * first click sorts, and the double-click puts the sort back), so `sort:changed`
+   * fires twice for the gesture.
+   */
+  autoSizeOnDoubleClick?: boolean;
+  /**
    * Whether the user may drag this column to another position. True by
    * default; a move of a column that says `false` is ignored and warns once.
    */
@@ -2668,7 +2679,14 @@ export interface Condition {
    * The column's type, which decides how both sides are normalised before
    * comparison — a `date` or `dateString` condition brings the value and the
    * operand to the same calendar day first, so a `Date`, an epoch number and
-   * an ISO string all line up.
+   * an ISO string all line up. A `datetime` condition compares the full wall
+   * clock, date and time to the millisecond: a zone-less operand
+   * (`'2024-01-04T13:03'`) is read as written, and an instant (a `Date`, epoch
+   * milliseconds, an ISO string with `Z` or an offset) as the wall clock it
+   * reads in the grid's `timeZone`, else the viewer's — the zone the column
+   * stored its own values in. A condition with no `type` takes
+   * its column's, so on a `datetime` column it compares the full wall clock
+   * too.
    */
   type?: TypeName;
   /**
@@ -3831,6 +3849,29 @@ export interface EditConfig {
    * that set through the ordinary edit path, cancel commits nothing.
    */
   pastePreview?: boolean;
+  /**
+   * Whether Delete / Backspace on a focused cell that is not being edited clears
+   * it, and on a selected cell range clears every editable cell of the range as
+   * one undo step. On by default; `false` leaves the keys
+   * alone. The clear is a user-origin edit through the ordinary path: read-only
+   * columns and rows are skipped, `beforeEdit` can veto it, a column's
+   * `validation` (`required`, a `oneOf` without an empty option) refuses it with
+   * the grid's own message, and change tracking, undo and write-back apply. The
+   * cleared value is `null` — the empty value of every column type; a text
+   * column's own parse reads the empty string as `null` too. A screen reader
+   * hears "N cells cleared".
+   */
+  clearOnDelete?: boolean;
+  /**
+   * Whether Ctrl/Cmd+Z undoes and Ctrl+Y or Ctrl/Cmd+Shift+Z redoes the grid's
+   * history (`grid.edit.undo()` / `redo()`: edits, pastes, fills, clears and the
+   * query changes on the same timeline) while focus is in the grid and no cell
+   * editor is open — an open editor keeps its own text undo.
+   * On by default; `false` leaves the keys alone. Each gesture is one step, the
+   * outcome is announced to screen readers, and the keys do nothing when there is
+   * no history (`undoDepth: 0`).
+   */
+  undoShortcuts?: boolean;
 }
 
 export interface PendingWrite {
@@ -8701,9 +8742,11 @@ export interface ColumnsApi {
    * showing, heading included. It measures the rows the renderer has mounted
    * rather than the whole dataset, and settles any pending frame first so a
    * call made straight after `rows.load()` sees the rows and not just the
-   * header.
+   * header. The `column:resized` event it raises carries `autoSize: true`. `opts.origin: 'user'` — what a double-click on a heading
+   * passes — sends each column through `columns.resize`, so `beforeColumnResize`
+   * can veto it and it is on the undo timeline like any resize.
    */
-  autoSize(ids?: string | string[]): void;
+  autoSize(ids?: string | string[], opts?: { origin?: 'api' | 'user' }): void;
   /**
    * Size the visible resizable columns so that every column the grid draws,
    * together, exactly fills the width the cells occupy: the body viewport's
@@ -9226,6 +9269,13 @@ export interface EditApi {
    * `edit.enabled` — a cell's inline-editing switch, not a ban on writing the
    * column at all — while every other refusal (permission, the advisory lock,
    * parse, validate) still applies; nothing but the row form passes it.
+   *
+   * Declarative `column.validation` is part of the `beforeEdit`
+   * gate, so it applies to every `'user'`/`'ai'` write — a typed edit, a paste, a
+   * fill, `setCells(…, { origin: 'user' })`, a chart drag-to-edit — and a refused
+   * cell is skipped with the grid's own validation message. A write with any other
+   * origin (the default `'api'`, `'form'`) keeps its behaviour: the host is the
+   * authority, `beforeEdit` and `column.validation` do not run.
    */
   setCells(
     writes: { key: string; colId: string; value: unknown }[],
@@ -9237,7 +9287,7 @@ export interface EditApi {
    * 740). Defaults to the selected range; read-only and non-editable cells are
    * skipped and every write runs the normal parse/validate path.
    */
-  bulkSet(value: unknown, opts?: { cells?: { key: string; colId: string }[] }): number;
+  bulkSet(value: unknown, opts?: { cells?: { key: string; colId: string }[]; origin?: 'api' | 'ai' | 'user' }): number | Promise<number>;
   /**
    * Fill a selected range from its leading edge as one undoable step (§12, card
    * 740). The default copies the anchor across the range (Excel's Ctrl+D and its
@@ -9245,16 +9295,22 @@ export interface EditApi {
    * the first one or two cells of each line, falling back to a copy for types
    * with no series. `direction` defaults to `'down'`.
    */
-  fill(opts?: { direction?: 'down' | 'up' | 'left' | 'right'; series?: boolean; range?: CellRange }): number;
+  fill(opts?: { direction?: 'down' | 'up' | 'left' | 'right'; series?: boolean; range?: CellRange; origin?: 'api' | 'ai' | 'user' }): number | Promise<number>;
   /**
    * Paste tab-separated text anchored at a cell, as one undoable step. Excel's
    * shape rules apply: a single value fills the whole target, a smaller block
    * tiles to fill it, and a block taller than the rows available is clipped
-   * rather than creating rows. Returns how many cells were written.
+   * rather than creating rows. Returns how many cells were written. `opts.origin`
+   * is the `setCells` origin: a paste made in the grid passes `'user'`, which routes each cell through `beforeEdit` and the column's
+   * declarative `validation`; the default `'api'` does not.
    */
-  pasteInto(anchor: { key: string; colId: string }, text: string, extent?: { rows?: number; columns?: number }): number;
+  pasteInto(anchor: { key: string; colId: string }, text: string, extent?: { rows?: number; columns?: number }, opts?: { origin?: 'api' | 'ai' | 'user' }): number | Promise<number>;
   /** Whether a bulk paste is previewed before it commits (`edit.pastePreview`, §12). */
   readonly pastePreview: boolean;
+  /** Whether Delete / Backspace clears the focused or selected cells (`edit.clearOnDelete`). */
+  readonly clearOnDelete: boolean;
+  /** Whether Ctrl/Cmd+Z and Ctrl+Y undo and redo from the keyboard (`edit.undoShortcuts`). */
+  readonly undoShortcuts: boolean;
   /**
    * Compute what a paste would change, without committing (§12). The engine
    * behind `edit.pastePreview`: `changes` are the accepted writes with their old
@@ -13416,13 +13472,13 @@ export type ChartAxisSide = 'left' | 'right' | 'y2';
 export type ChartAnnotationToolName =
   | 'select' | 'trendLine' | 'horizontalLine' | 'verticalLine'
   | 'channel' | 'fibonacci' | 'arrow'
-  | 'measure-x' | 'measure-y' | 'measure-xy'
+  | 'measure-x' | 'measure-y' | 'measure-xy' | 'measure'
   | 'text' | 'callout' | 'note' | 'delete';
 /** What a drawn chart annotation is; the drawing tools, less `select` and `delete`. */
 export type ChartAnnotationItemKind =
   | 'trendLine' | 'horizontalLine' | 'verticalLine'
   | 'channel' | 'fibonacci' | 'arrow'
-  | 'measure-x' | 'measure-y' | 'measure-xy'
+  | 'measure-x' | 'measure-y' | 'measure-xy' | 'measure'
   | 'text' | 'callout' | 'note';
 /** Where a chart's drawing rail sits, or `none` for the tools without the strip. */
 export type ChartAnnotateRail = 'left' | 'top' | 'none';
@@ -13447,7 +13503,7 @@ export interface ChartAnnotationItem {
    * vertical line, a text label or a note; two for a trend line, an arrow, a
    * callout (the reading, then the box), a retracement, or a measurer
    * (or a rectangle's two opposite
-   * corners for `measure-xy`); three for a parallel channel (the base line,
+   * corners for `measure-xy`, and the two ends of a point-to-point `measure`); three for a parallel channel (the base line,
    * then the offset of the parallel one). An item with fewer than its kind
    * needs is refused with a warning rather than half-drawn.
    */
@@ -13458,11 +13514,33 @@ export interface ChartAnnotationItem {
   colour?: string;
   /** When true this one drawing cannot be moved, edited or deleted. */
   readOnly?: boolean;
+  /**
+   * Which y axis a point-to-point `measure` was taken against: `'right'` on a
+   * dual-axis chart when it was started over the right-hand axis. Absent for the left (or only)
+   * axis and for every other kind.
+   */
+  axis?: 'right';
+}
+/**
+ * The point-to-point measure tool's own settings; the spec's `measure` takes
+ * `true` for the defaults or this object.
+ */
+export interface ChartMeasureOptions {
+  /**
+   * Snap each end of a measurement to the nearest data point within 24 pixels (on the axis the
+   * measurement was started over); `false` keeps exactly what the pointer is over. Default `true`.
+   */
+  snap?: boolean;
+  /**
+   * Pin every measurement as soon as it is released, rather than leaving it transient until
+   * Enter or a click on it. Default `false`.
+   */
+  pin?: boolean;
 }
 /**
  * Where a `measure-x` or `measure-xy` readout's volume figure comes from.
  */
-export interface ChartAnnotateMeasure {
+export interface ChartAnnotateMeasure extends ChartMeasureOptions {
   /**
    * The column to sum between a measurer's two x anchors. Left unset, a
    * candlestick with a fifth bound measure beyond open, high, low and close
@@ -13503,8 +13581,14 @@ export interface ChartAnnotateOptions {
 export type ChartZoomAxes = 'x' | 'y' | 'xy';
 /** When the zoom toolbar is shown: on hover and keyboard focus, always, or never. */
 export type ChartZoomButtons = 'hover' | 'always' | 'none';
-/** What moved a zoom, as reported by the `zoom` event. */
-export type ChartZoomReason = 'button' | 'wheel' | 'key' | 'pan' | 'reset' | 'api' | 'group';
+/**
+ * What moved a zoom, as reported by the `zoom` event. `pinch` is a two-finger
+ * pinch on a touch screen; `filter` is the grid's filter moving the view of a
+ * chart whose grid follows it ({@link ChartSpec.viewportFilter}): the chart's
+ * condition cleared in the grid (the zoom resets), or put back by an undo or a
+ * redo (the view returns to it).
+ */
+export type ChartZoomReason = 'button' | 'wheel' | 'key' | 'pan' | 'pinch' | 'reset' | 'api' | 'group' | 'filter';
 /**
  * A visible range, as two ends in the axis's own units: two categories on a
  * band axis, two readings on a continuous one, and epoch milliseconds on a time
@@ -13551,11 +13635,12 @@ export interface ChartZoomOptions {
 /** Narrows {@link ChartSpec.viewportFilter} (GEO-4). */
 export interface ChartViewportFilterOptions {
   /**
-   * Write the condition to a different geometry column than the one this
-   * chart places its own rows from — always a `withinBbox` on that column,
+   * On a map: write the condition to a different geometry column than the one
+   * this chart places its own rows from — always a `withinBbox` on that column,
    * whatever the map itself is placed by. Defaults to `geometry`, or has no
    * effect naming a column when the map places rows by `lon`/`lat` (the pair
-   * is always written to those two columns).
+   * is always written to those two columns). On a cartesian chart: the column
+   * the x range is written to; defaults to the chart's `x`.
    */
   column?: string;
   /** Milliseconds to wait after a pan or zoom settles before writing; the default is 150. */
@@ -13740,6 +13825,19 @@ export interface ChartAnnotationReadout {
   change?: number;
   /** The signed percentage change between the two y anchors; `null` when the first is zero. */
   changePercent?: number | null;
+  /**
+   * A point-to-point `measure`'s signed Δx: milliseconds on a time axis, the
+   * number of categories stepped over on a category axis, the plain difference on a numeric one.
+   */
+  dx?: number;
+  /** What `dx` counts: `'time'`, `'category'` or `'number'`. */
+  dxKind?: 'time' | 'category' | 'number';
+  /** On a time axis, `elapsedMs` as its two largest units, e.g. `[{ unit: 'd', count: 3 }, { unit: 'h', count: 4 }]`. */
+  duration?: { unit: 'd' | 'h' | 'min' | 's' | 'ms'; count: number }[];
+  /** A point-to-point `measure`'s slope: Δy per day on a time axis, per category, or per x unit; absent when Δx is zero. */
+  slope?: number;
+  /** What `slope` is per: `'day'`, `'category'` or `'unit'`. */
+  slopeUnit?: 'day' | 'category' | 'unit';
 }
 /**
  * How a chart's marks may be dragged to edit the grid.
@@ -14188,10 +14286,21 @@ export interface ChartSpec {
   };
   /**
    * Dragging across the plot. `true` or `'filter'` writes a range condition into
-   * the grid; `'zoom'` changes only this chart's own domain; `'select'` selects
-   * the rows under the drag. The object form names which axis the drag acts on —
+   * the grid as the chart's own: it carries
+   * `meta: { owner: 'chart-brush', chart }`, the next brush replaces it and
+   * nothing else, and every other filter — one the user set on the same column
+   * included — is kept and ANDed with it; one `filters.set`, so one undo step.
+   * Escape on the focused chart, or a drag over nothing, takes the brush's
+   * condition off and leaves the rest. `'zoom'` changes only this chart's own
+   * domain; `'select'` selects the rows under the drag. The object form names which axis the drag acts on —
    * `axis: 'y'` or `'y2'` brushes a value axis, which on a dual-axis chart must
-   * say which one it means.
+   * say which one it means. With `'filter'`, a value-axis
+   * brush writes a `between` on the measure column behind that axis — the right
+   * axis's measure for `y2` — and only when each mark there is
+   * one row's own value: one measure column on the axis, a reduction that keeps
+   * a single value (sum, mean, median, min, max, first, last; not a count) and
+   * no mark standing for several rows. Otherwise it warns once
+   * (`chart:*:brush:aggregate`, `chart:*:brush:measures`) and writes nothing.
    */
   brush?: boolean | 'filter' | 'zoom' | 'select'
     | { mode: 'filter' | 'zoom' | 'select'; axis?: 'x' | 'y' | 'y2' };
@@ -14307,8 +14416,13 @@ export interface ChartSpec {
    * the right edge as rows arrive. It lives in {@link Chart.state}, is reported
    * by `zoom`, and is drivable through {@link Chart.zoom}. Accepted on the
    * cartesian types (line, step, area, rangeArea, bar, horizontalBar,
-   * waterfall, scatter, bubble, candlestick) and on combo; any other type warns
-   * and adds no controls.
+   * waterfall, scatter, bubble, candlestick, ohlc), on combo and on heatmap
+   * (its columns only); any other type warns and adds no controls. A time or
+   * numeric x zooms a range of values; a category x (and a heatmap's columns)
+   * zooms to a contiguous run of categories. On a touch screen a two-finger
+   * pinch zooms about the point between the fingers, and `0` resets from the
+   * keyboard. With {@link ChartSpec.viewportFilter} the grid
+   * follows the visible range.
    */
   zoom?: boolean | ChartZoomOptions;
   /**
@@ -14386,7 +14500,26 @@ export interface ChartSpec {
    * panel on the same column — pans and zooms the map to it instead of being
    * overwritten. "Reset view" and destroying the chart both remove the
    * condition; a map with nothing to pan (no `shapes` and no `geometry`
-   * column) never writes one. Ignored on any other type.
+   * column) never writes one.
+   *
+   * On a cartesian chart with {@link ChartSpec.zoom} the
+   * grid follows the chart's visible range instead: once a pan or zoom settles
+   * (the same debounce), the chart writes ONE condition per zoomed axis to
+   * `grid.filters` — `between` the first and last reading in view on a time or
+   * numeric x (`gte` the first when the view is at the newest end, so rows that
+   * arrive later still reach the grid), `in` the visible categories on a
+   * category x — each as its own single-column branch, so the column's filter
+   * menu shows it and its Clear removes it. A scatter or bubble zoomed in y,
+   * with one row per point, adds a `between` on the measure column; a y zoom
+   * anywhere else filters by x alone and warns. The condition carries
+   * `meta: { owner: 'chart-view', chart, axis }`, and only a condition carrying
+   * this chart's mark is ever replaced or removed: a condition the user set on
+   * the same column is kept and ANDed with it. Zooming back out to everything,
+   * reset, turning the option off or destroying the chart removes it. It is a
+   * filter like any other: undoable, and two-way — clear it in the grid and the
+   * chart resets its zoom, undo or redo it and the chart's view follows, each
+   * reported as `zoom` with `reason: 'filter'`. Without `zoom` it warns and
+   * writes nothing. Ignored on any other type.
    */
   viewportFilter?: boolean | ChartViewportFilterOptions;
   /**
@@ -14515,7 +14648,15 @@ export interface ChartSpec {
   selection?: boolean;
   /** Clicking a group drills into it. */
   drill?: boolean;
-  /** Clicking a mark filters the grid to it. */
+  /**
+   * Clicking a mark filters the grid to it: an `eq` on the mark's column, as the
+   * chart's own condition. It carries
+   * `meta: { owner: 'chart-click', chart }`; a click on another mark replaces it
+   * and nothing else, every other filter — one the user set on the same column
+   * included — is kept and ANDed with it, and a second click on the same mark,
+   * or Escape on the focused chart, takes it off again. One `filters.set` each,
+   * so one undo step.
+   */
   filterOnClick?: boolean;
   /**
    * The hierarchy types — `forceTree`, `pack`, `tree`, `voronoiTreemap` — read a hierarchy from a column that
@@ -14738,8 +14879,19 @@ export interface ChartSpec {
    * spans of `mode: 'spans'`; `series` colours by a column.
    */
   spiral?: ChartSpiralOptions;
-  /** An alias for `y`, where "the measure" reads better than "the y axis". */
-  measure?: string;
+  /**
+   * A string is an alias for `y`, where "the measure" reads better than "the y axis". `true` or
+   * {@link ChartMeasureOptions} instead turns on the point-to-point measure tool
+   * on its own, with a one-button rail (or alongside `annotate`'s rail, adding the tool to it): drag
+   * between two points, or press `M` and use the arrows with the chart focused, for a band with
+   * Δx (a duration on a time axis, a count of categories on a category axis, the difference on a
+   * numeric one), Δy in the y axis's own format, the percentage change and the slope. Ends snap to
+   * data points; on a dual-axis chart the axis under the start point is the one measured. A
+   * measurement is transient (cleared by Escape or the next drag) until pinned with Enter, a click
+   * on it, or `pin: true`; a pinned one is data-anchored, in {@link Chart.state}, and reported by
+   * `annotation:added` with its readout. Accepted on the same chart types as `annotate`.
+   */
+  measure?: string | boolean | ChartMeasureOptions;
   /** Bubble charts: the column driving the radius, and the largest it may be. */
   size?: string;
   /**
@@ -15164,7 +15316,11 @@ export interface ChartBrushEvent extends ChartEvent {
   range: { from: unknown; to: unknown } | null;
   /** Which axis was dragged: `x`, `y` or `y2`. */
   axis: string;
-  /** The grid column the range names — the measure's on a value axis, the dimension's on `x`. */
+  /**
+   * The grid column the range names — the dimension's on `x`, and on a value axis
+   * the measure's behind that axis (`y2`: the right axis's), or `null` when that
+   * axis carries more than one measure column.
+   */
   column: string | null;
   /**
    * Stop the chart acting on this brush — no zoom, no filter. It takes no
@@ -16220,6 +16376,12 @@ export interface ColumnResizedEvent extends GridEvent {
   colId?: string;
   /** Its new width, in pixels. */
   width: number;
+  /**
+   * True when the width came from `columns.autoSize` — the API call, a double
+   * click on the heading, or `Alt+Enter` on it — rather than a drag or an
+   * explicit `columns.resize`.
+   */
+  autoSize?: boolean;
 }
 
 /** `column:visible`: columns were shown or hidden. */

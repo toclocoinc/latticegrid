@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Charts API Reference — Lattice Grid 1.86.1</title>
+<title>Charts API Reference — Lattice Grid 1.86.2</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -409,7 +409,9 @@
         <a class="rail__sub-link" href="#chart-responsive">Responsive rules &mdash; a chart that changes shape at its container&rsquo;s breakpoints</a>
         <a class="rail__sub-link" href="#chart-animation">Animation &mdash; an entry that grows in, and updates that move rather than redraw</a>
         <a class="rail__sub-link" href="#chart-annotate">Drawing on a chart &mdash; a tool rail anchored in the data</a>
+        <a class="rail__sub-link" href="#chart-measure-tool">Measuring on a chart &mdash; Δx, Δy, percentage and slope</a>
         <a class="rail__sub-link" href="#chart-zoom">Zooming a chart &mdash; five controls, the wheel, and a rolling window</a>
+        <a class="rail__sub-link" href="#chart-zoom-follow">The grid following the zoom &mdash; viewportFilter on a cartesian chart</a>
         <a class="rail__sub-link" href="#chart-volume-pane">A price-and-volume pane &mdash; candles over volume on one x axis</a>
         <a href="#ref-charts-reference">Type reference</a>
         <a class="rail__sub-link" href="#type-Chart">Chart</a>
@@ -831,6 +833,15 @@ grid.destroy();
       draws: a line, area or step on one is drawn through the band centres, and its labels are
       thinned to the pitch the font can be read at rather than one per row
       (<code>axis.x.every</code> overrides the count).
+    </p>
+    <p class="section-note">
+      <strong>A date or time x runs oldest to newest, whatever the grid is sorted by</strong>
+      (BACKLOG-0001699). A chart whose <code>x</code> is a date, datetime, timestamp or
+      dateString column (or <code>Date</code> values, or <code>axis: { x: { scale: 'time' } }</code>)
+      orders its points by x ascending, so a grid sorted newest-first no longer draws its axis
+      backwards. This covers line, area, step, bar, candlestick, the multi-measure types, and the
+      <code>fan</code> and <code>decomposition</code> chart modules. A category x keeps following
+      the grid's row order, which is the order you chose.
     </p>
     <p class="section-note">
       <strong>A <code>candlestick</code> or a <code>bar</code> bands its x by default, and sits on
@@ -2636,6 +2647,54 @@ plot.dispatchEvent({ type: 'click', clientX: cells[0].x, clientY: cells[0].y, bu
 const drawer = typeof drawVoronoiTreemap === 'function';
 return `${cells.length} leaves, worst area error under 1%: ${worst &lt; 0.01} | same rows, same picture: ${same} | click selects ${grid.selection.keys().join()} | drawer ${drawer}`;</code></pre>
 
+    <p><strong>Drill down.</strong> With <code>drill: true</code>, a click on a group &mdash; any cell that sits inside a branch of the level on show &mdash; redraws the chart as a Voronoi treemap of that branch's children alone, re-fitted to the whole shape within the same <code>tolerance</code> and grown out of the cell that was clicked. Deeper levels drill again. A breadcrumb (<em>All &rsaquo; Engineering &rsaquo; &hellip;</em>) names the path: click a crumb, or press Escape or Backspace, to go up a level. A cell that is a direct child of the level on show with nothing inside it is a leaf, and a click on it still selects its rows with <code>selection: true</code>. From the keyboard, Enter on a focused branch outline drills into it and Enter on a leaf selects. The <code>drill</code> event fires with the path from the top (<code>{ path: ['Engineering'], label: 'Engineering' }</code>, and an empty path on the way back to the top); the chart's accessible name and data table describe the level on show, with paths from the top. Drilling is the chart's own view: it never filters the grid. The new level grows out of the clicked cell over the chart's animation, and jumps under reduced motion or <code>animation: false</code>; going up always jumps.</p>
+    <pre data-run="js" data-expect="4 cells, drilled to 2 | events Engineering, top | back to 4" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+await import('../packages/modules/chart-voronoi/index.js');
+
+const { document, root } = createTestDom({ width: 600, height: 420 });
+const host = document.createElement('div');
+host.rect = { width: 600, height: 420, top: 0, left: 0 };
+root.appendChild(host);
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'team' }, { field: 'heads', type: 'number' }],
+  rows: [
+    { id: 'web', team: 'Engineering/Web', heads: 9 },
+    { id: 'data', team: 'Engineering/Data', heads: 5 },
+    { id: 'infra', team: 'Operations/Infra', heads: 7 },
+    { id: 'supp', team: 'Operations/Support', heads: 3 },
+  ],
+});
+// drill: true makes a click on a group zoom into it; animation: false jumps.
+const chart = createChart({ grid, container: host, type: 'voronoiTreemap', path: 'team', y: 'heads', drill: true, animation: false });
+const plot = host.querySelector('.lat-chartview__plot');
+plot.rect = { left: 0, top: 0, width: 600, height: 420 };
+const events = [];
+chart.on('drill', (d) =&gt; events.push(d.path.join('/') || 'top'));
+
+// The cells drawn, and their centres, read off the path data.
+const cells = () =&gt; [...host.querySelectorAll('path.lat-chartview__vcell')]
+  .filter((el) =&gt; !String(el.getAttribute('class')).includes('__vbranch'))
+  .map((el) =&gt; {
+    const xy = String(el.getAttribute('d')).match(/-?[\d.]+/g).map(Number);
+    let x = 0;
+    let y = 0;
+    for (let i = 0; i &lt; xy.length; i += 2) { x += xy[i]; y += xy[i + 1]; }
+    return { x: x / (xy.length / 2), y: y / (xy.length / 2) };
+  });
+const before = cells().length;
+// Click a cell inside Engineering: the chart redraws as Engineering's two teams.
+const first = cells()[0];
+plot.dispatchEvent({ type: 'click', clientX: first.x, clientY: first.y, bubbles: true });
+const inside = cells().length;
+// Escape goes back up.
+host.querySelector('svg').dispatchEvent({ type: 'keydown', key: 'Escape', bubbles: true });
+const after = cells().length;
+chart.destroy();
+return `${before} cells, drilled to ${inside} | events ${events.join(', ')} | back to ${after}`;</code></pre>
+
     <h3 id="chart-responsive">Responsive rules &mdash; a chart that changes shape at its container&rsquo;s breakpoints</h3>
     <p>A chart that reads well at 640&nbsp;px is cluttered at 300: the legend eats the width, the axis titles crowd the plot, the ticks collide. <code>responsive</code> is a list of rules, each a size condition and the options to lay over the chart while it holds: <code>{ maxWidth?, minWidth?, maxHeight?, minHeight?, set }</code>. The sizes are the chart&rsquo;s <em>own container</em>, watched as it resizes, not the viewport &mdash; so a chart in a narrow dashboard panel or layout window on a wide screen takes the narrow rules. Bounds are inclusive pixels, a rule needs every bound it gives, rules apply in order and a later rule wins. <code>set</code> takes any chart option; plain objects (<code>legend</code>, <code>axis</code>) merge key by key and anything else replaces. <code>title</code>, <code>subtitle</code> and <code>footnote</code> are built once and do not respond.</p>
     <p>When a rule starts or stops matching the chart redraws with the merged options, and with none matching the base options are back exactly: the rules are always laid over what you set, never over the previous result, so a chart resized a thousand times is the chart resized once. Options you change later with <code>chart.update()</code> become the new base and the rules re-apply on top. A rule that is already active holds for 4&nbsp;px past its edge, so a container sitting on a boundary does not flicker. Each change raises <code>responsive</code> after the redraw, with the rules now active (<code>{ active: [{ index, auto, ...bounds }], width, height }</code>), and <code>chart.responsive</code> reads them at any time.</p>
@@ -2909,11 +2968,55 @@ return `tools ${rail.children.length}; ${saved.annotations[0].kind} day ${a.x.to
   + `${before} then ${after}; anchors kept ${kept}; reported ${reported.join(',')}; `
   + `read-only ${shown} drawn and ${rails}`;</code></pre>
 
+    <h3 id="chart-measure-tool">Measuring on a chart &mdash; Δx, Δy, percentage and slope</h3>
+    <p><code>measure</code> is the chart's ruler. Set <code>measure: true</code> and a one-button rail appears (or, beside <code>annotate</code>, the same <code>measure</code> tool joins its rail even when <code>annotate.tools</code> left it out). Press the button, or <code>M</code> with the chart focused, then press, drag and release between two points: a band is drawn corner to corner with a readout &mdash; <strong>&Delta;x</strong> (an elapsed time such as <code>3 d 4 h</code> on a time axis, a count of categories stepped over on a category axis, the plain difference on a numeric one), <strong>&Delta;y</strong> in the y axis's own format, the <strong>percentage change</strong> (left out when the start is zero) and the <strong>slope</strong> (&Delta;y per day on a time axis, per category, or per x unit; left out when &Delta;x is zero).</p>
+    <p>Both ends <strong>snap</strong> to the nearest data point within 24 pixels; <code>measure: { snap: false }</code> keeps exactly what the pointer is over. On a dual-axis chart the axis <em>under the start point</em> is the one measured &mdash; a press in the left half of the plot reads the left axis, in the right half the right &mdash; and the readout is worded in that axis's format. A measurement is <strong>transient</strong> until pinned: Escape or the next drag clears it. Press <code>Enter</code>, or click on the band, to <strong>pin</strong> it (or set <code>pin: true</code> to pin on release); a pinned measurement is an ordinary drawing of kind <code>measure</code> with two data anchors &mdash; it follows zoom and pan, lives in <code>chart.state()</code> and is reported by <code>annotation:added</code> with a <code>readout</code> (<code>dx</code>, <code>dxKind</code>, <code>duration</code>, <code>change</code>, <code>changePercent</code>, <code>slope</code>, <code>slopeUnit</code>).</p>
+    <div class="note"><p><strong>The keyboard has the whole tool.</strong> With the chart focused, <code>M</code> turns it on and puts a start marker at the reading nearest the middle; Left and Right step along the x positions, Up and Down along the readings at one x; <code>Enter</code> fixes the start, the arrows then move the end, and <code>Enter</code> again pins; Escape clears it and a second Escape leaves the tool. Each step is spoken through a polite live region (<em>Measurement: &Delta;x 3 d 4 h, &Delta;y -30 (-25%), Slope -9.474 per day</em>), the same text the band is labelled with. The readout labels are catalogue keys (<code>chart.annotate.measure.*</code>); English only until translated.</p></div>
+    <pre data-run="js" data-expect="Δx 3 d 4 h | Δy -30 (-25%) | Slope -9.474 per day; pinned 1 time -30" data-covers="export:createChart config:ChartMeasureOptions.snap config:ChartMeasureOptions.pin"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 640, height: 400 });
+const panel = document.createElement('div');
+panel.rect = { width: 640, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const start = Date.UTC(2026, 0, 1);
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'at', type: 'datetime' }, { field: 'price', type: 'number', total: 'sum' }],
+  rows: [100, 120, 90, 150, 130, 160].map((price, i) =&gt; ({ id: `r${i}`, at: new Date(start + i * 76 * 3600000), price })),
+});
+
+const reported = [];
+const chart = createChart({
+  grid, container: panel, type: 'line', x: 'at', y: 'price',
+  axis: { x: { scale: 'time' } }, measure: { snap: true, pin: false },
+});
+chart.on('annotation:added', (e) =&gt; reported.push(e));
+
+const plot = panel.querySelector('.lat-chartview__plot');
+plot.rect = { left: 0, top: 0, width: 640, height: 400 };
+const press = (key) =&gt; plot.dispatchEvent(new TestEvent('keydown', { key, target: plot }));
+
+// With the chart focused: M, an arrow to the start, Enter, an arrow to the end, Enter.
+press('m');
+press('ArrowLeft');
+press('Enter');
+press('ArrowRight');
+press('Enter');
+
+const lines = [...plot.querySelectorAll('text')]
+  .filter((n) =&gt; String(n.getAttribute('class') || '').includes('__drawn-label'))
+  .map((n) =&gt; n.textContent);
+const [added] = reported;
+return `${lines.join(' | ')}; pinned ${chart.state().annotations.length} ${added.readout.dxKind} ${added.readout.change}`;</code></pre>
+
     <h3 id="chart-zoom">Zooming a chart &mdash; five controls, the wheel, and a rolling window</h3>
     <p><code>brush: 'zoom'</code> lets a reader drag a range out of a chart. It then leaves them there: no controls, no wheel, no pan, and no way back but a full reset. <code>zoom</code> is the whole interaction instead. <code>zoom: true</code> is the defaults; the object form narrows them: <code>axes</code> is <code>x</code> (the default), <code>y</code> or <code>xy</code>; <code>buttons</code> is <code>hover</code> (the default), <code>always</code> or <code>none</code>; <code>wheel</code> and <code>pan</code> switch those two gestures off; <code>step</code> is how much of the visible span one press of a control is worth (0.25 by default, so zoom in shows three quarters of what was shown and a pan moves by a quarter of it); and <code>min</code> is the narrowest the view may go, as a share of the full extent.</p>
-    <p>Five buttons &mdash; <strong>zoom in</strong>, <strong>zoom out</strong>, <strong>pan left</strong>, <strong>pan right</strong>, <strong>reset</strong> &mdash; fade in at the bottom edge of the plot on hover <em>and on keyboard focus</em>. The wheel zooms about the pointer, so the reading under it stays under it; dragging a zoomed plot pans it; <code>+</code> and <code>-</code> zoom while the chart itself is focused; and a double-click resets. A configured <code>brush</code> keeps the drag &mdash; brushing is an explicit opt-in and panning is the resting gesture &mdash; so adding <code>zoom</code> to a chart that already brushes takes nothing away. Available on the cartesian types &mdash; line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble, candlestick &mdash; and on combo; asking for it on any other type warns and adds no controls rather than silently doing nothing.</p>
+    <p>Five buttons &mdash; <strong>zoom in</strong>, <strong>zoom out</strong>, <strong>pan left</strong>, <strong>pan right</strong>, <strong>reset</strong> &mdash; fade in at the bottom edge of the plot on hover <em>and on keyboard focus</em>. The wheel zooms about the pointer, so the reading under it stays under it; dragging a zoomed plot pans it; on a touch screen a two-finger pinch zooms about the point between the fingers (the plot takes <code>touch-action: none</code> while it can zoom, so the page does not take the pinch); <code>+</code> and <code>-</code> zoom while the chart itself is focused, <code>0</code> resets, and so does a double-click. A configured <code>brush</code> keeps the drag &mdash; brushing is an explicit opt-in and panning is the resting gesture &mdash; so adding <code>zoom</code> to a chart that already brushes takes nothing away. Available on the cartesian types &mdash; line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble, candlestick, ohlc &mdash; on combo, and on heatmap, whose columns zoom like a bar chart&rsquo;s categories (its rows are a band with no measure behind them, so <code>axes</code> other than <code>x</code> warns there); asking for it on any other type warns and adds no controls rather than silently doing nothing. A time or numeric x zooms a range of values; a category x &mdash; and a bar or candlestick over dates, which draws them in bands &mdash; zooms to a contiguous run of categories; <code>axes: 'xy'</code> on a scatter or bubble zooms both axes, and a horizontal bar pans its categories with a vertical drag, the way they run.</p>
     <div class="note"><p><strong>A zoom composes with a rolling <code>axis.x.window</code>: the window is the maximum extent and the zoom is a range inside it.</strong> A view sitting at the newest end keeps the newest reading at the right edge as rows arrive and the window advances &mdash; which is what somebody watching a live feed wants &mdash; and a view the reader has <em>panned back from</em> stays exactly where they left it rather than being dragged forward. On a category axis the zoom counts categories, because the gaps between two bands are not values; the range is then stated as two of the chart&rsquo;s own categories.</p></div>
-    <p>The view lives in <code>chart.state()</code> beside the drawings, as plain JSON that survives <code>JSON.stringify</code>, and comes back through <code>chart.setState()</code> &mdash; silently, because reloading a saved view is not a zoom anybody performed. Every move is reported as <code>zoom</code> with the range now drawn and what moved it (<code>button</code>, <code>wheel</code>, <code>key</code>, <code>pan</code>, <code>reset</code> or <code>api</code>), and <code>chart.zoom.set(range)</code> and <code>chart.zoom.reset()</code> drive the same view from a host&rsquo;s own toolbar. Every control is a real button carrying its accessible name from the message catalogue, the strip is one tab stop with the arrows moving within it, and a control that cannot act &mdash; pan on an un-zoomed chart, zoom in at <code>min</code> &mdash; is <code>disabled</code> rather than silently dead.</p>
+    <p>The view lives in <code>chart.state()</code> beside the drawings, as plain JSON that survives <code>JSON.stringify</code>, and comes back through <code>chart.setState()</code> &mdash; silently, because reloading a saved view is not a zoom anybody performed. Every move is reported as <code>zoom</code> with the range now drawn and what moved it (<code>button</code>, <code>wheel</code>, <code>key</code>, <code>pan</code>, <code>pinch</code>, <code>reset</code>, <code>api</code>, <code>group</code> or <code>filter</code>), and <code>chart.zoom.set(range)</code> and <code>chart.zoom.reset()</code> drive the same view from a host&rsquo;s own toolbar. Every control is a real button carrying its accessible name from the message catalogue, the strip is one tab stop with the arrows moving within it, and a control that cannot act &mdash; pan on an un-zoomed chart, zoom in at <code>min</code> &mdash; is <code>disabled</code> rather than silently dead.</p>
     <pre><code>createChart({
   grid, container, type: 'candlestick', x: 'at', measures: ['open', 'high', 'low', 'close'],
   axis: { x: { window: { kind: 'time', span: 300000 } } },  <span class="cmt">// five minutes is the most you can see</span>
@@ -2992,6 +3095,70 @@ chart.destroy();
 copy.destroy();
 return `axis ${full} then ${closer} then ${panned}; day 5 at ${share} of the plot; `
   + `moves ${moves.join(',')}; restored ${same} silently ${seen.length === 0}`;</code></pre>
+
+    <h3 id="chart-zoom-follow">The grid following the zoom &mdash; <code>viewportFilter</code> on a cartesian chart</h3>
+    <p>A zoom on its own only changes the picture. <code>viewportFilter</code> &mdash; the same option a map uses to filter its grid to the box on screen &mdash; makes the <strong>grid follow the visible range</strong>: once a pan or zoom settles (<code>debounce</code>, 150&nbsp;ms by default), the chart writes one condition to <code>grid.filters</code>, so the table, a KPI and every other chart over the same grid show exactly the rows inside the view. It needs <code>zoom</code> (without it the option warns, <code>chart:*:viewportFilter:zoom</code>, and writes nothing) and is off by default.</p>
+    <ul>
+      <li><strong>Time and numeric x:</strong> <code>between</code> the first and last reading in view, inclusive, written as the grid stores them. A view sitting at the newest end is written <code>gte</code> its first reading instead, so a live feed&rsquo;s new rows still reach the grid. <code>viewportFilter.column</code> writes the range to another column than <code>x</code>.</li>
+      <li><strong>Category x</strong> (and a bar, candlestick or heatmap over dates, drawn in bands): <code>in</code> the visible categories.</li>
+      <li><strong>Scatter and bubble zoomed in y</strong> (<code>axes: 'xy'</code>), when each point is one row: a second <code>between</code> on the measure column. A y zoom anywhere else &mdash; a line&rsquo;s y is a total over the rows at one x, and so is a scatter&rsquo;s when rows share an x &mdash; filters by x alone and says so once (<code>chart:*:viewportFilter:y</code>).</li>
+    </ul>
+    <p><strong>One condition per axis, owned by the chart.</strong> Each is its own single-column branch of the filter tree, so the column&rsquo;s filter menu shows it and its Clear removes it, and each carries <code>meta: { owner: 'chart-view', chart, axis }</code>. The next pan or zoom replaces it; zooming back out to everything, reset, <code>viewportFilter: false</code> and <code>chart.destroy()</code> remove it. <strong>The rule for a filter you set yourself:</strong> the chart only ever replaces or removes a condition carrying its own mark. A condition you put on the same column &mdash; from the menu, the tool panel or <code>filters.set</code> &mdash; stays exactly as you wrote it and is ANDed with the chart&rsquo;s, so the grid shows the rows both admit; when the chart&rsquo;s condition goes, yours is still there. (The column menu edits a column&rsquo;s filter as a whole, so clearing or replacing the column there removes the chart&rsquo;s condition too, which resets the chart&rsquo;s zoom.)</p>
+    <p><strong>Two-way, and undoable.</strong> The condition is a filter like any other: <code>grid.history.undo()</code> takes it off and <code>redo()</code> puts it back. Clear it in the grid &mdash; the menu, the tool panel, <code>filters.clear()</code>, an undo &mdash; and the chart resets its zoom; an undo or a redo that puts one of the chart&rsquo;s conditions back moves the chart&rsquo;s view to it. Both are reported as <code>zoom</code> with <code>reason: 'filter'</code>, and carried to a <code>cursor.group</code> with <code>cursor.zoom</code> like any other zoom. Grouped charts keep zooming together; a chart over the same grid narrows because the grid did.</p>
+    <pre><code>const line = createChart({
+  grid, container, type: 'line', x: 'day', y: 'price',
+  zoom: true,
+  viewportFilter: true,                  <span class="cmt">// or { debounce: 300, column: 'tradeDate' }</span>
+});
+line.on('zoom', ({ x, reason }) =&gt; {     <span class="cmt">// reason 'filter' when the grid moved the chart</span>
+  status.textContent = `${grid.rows.count()} rows in ${x[0]}..${x[1]}`;
+});</code></pre>
+    <pre data-run="js" data-expect="rows 21 then 6 (days 5..10); yours kept true and ANDed 5; cleared in the grid: zoom gone true, reason filter, rows 21" data-covers="export:createChart config:ChartViewportFilterOptions.debounce"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+const { document, root } = createTestDom({ width: 640, height: 400 });
+const panel = document.createElement('div');
+panel.rect = { width: 640, height: 400, top: 0, left: 0 };
+root.appendChild(panel);
+
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'day',
+  columns: [{ field: 'day', type: 'number' }, { field: 'price', type: 'number', total: 'sum' }],
+  rows: Array.from({ length: 21 }, (v, i) =&gt; ({ day: i, price: 100 + i * 4 })),
+});
+const count = () =&gt; { let n = 0; grid.rows.forEach(() =&gt; { n++; }); return n; };
+const settle = async () =&gt; { await new Promise((r) =&gt; setTimeout(r, 5)); flushFrames(); };
+
+const chart = createChart({
+  grid, container: panel, type: 'line', x: 'day', y: 'price',
+  zoom: true, viewportFilter: { debounce: 0 },
+});
+const reasons = [];
+chart.on('zoom', (e) =&gt; reasons.push(e.reason));
+const before = count();
+
+chart.zoom.set([5, 10]);
+await settle();
+const followed = count();
+const [first, last] = grid.filters.get().conditions[0].value;
+
+// A filter of your own on the same column is kept, and ANDed with the chart's.
+const yours = { col: 'day', op: 'notIn', value: [7] };
+grid.filters.set({ op: 'and', conditions: [...grid.filters.get().conditions, yours] });
+await settle();
+const kept = grid.filters.get().conditions.some((c) =&gt; c.col === 'day' &amp;&amp; c.op === 'notIn');
+const both = count();
+
+// Clear the whole filter in the grid: the chart resets its zoom.
+grid.filters.set(null);
+flushFrames();
+const gone = chart.state().zoom === undefined;
+await settle();
+
+chart.destroy();
+return `rows ${before} then ${followed} (days ${first}..${last}); yours kept ${kept} and ANDed ${both}; `
+  + `cleared in the grid: zoom gone ${gone}, reason ${reasons.at(-1)}, rows ${count()}`;</code></pre>
 
     <h3 id="chart-volume-pane">A price-and-volume pane &mdash; candles over volume on one x axis</h3>
     <p>A trading screen reads price candles with the volume traded in each period underneath, in one chart: one x axis, one window, one zoom, one tooltip. <code>volume</code> on a candlestick draws exactly that &mdash; a price pane and a volume pane in one svg &mdash; rather than two stacked charts that share an <code>x</code> and a <code>window</code> and have to be kept in step by hand. <code>volume</code> names the column holding each period&rsquo;s traded volume, summed per period; <code>volumePane.height</code> is the volume pane&rsquo;s share of the plot&rsquo;s height, <code>0.25</code> by default.</p>
@@ -3185,7 +3352,7 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">ticks</td><td class="type">number | unknown[]</td><td class="desc">Tick values drawn round a gauge's arc (BACKLOG-0001637). Values outside `min`/`max` are dropped. <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">boolean | <a href="types.html#type-ChartLabels">ChartLabels</a></td><td class="desc">Print the value beside each mark. `true` takes the defaults; the object form sets the position, the format and the minimum gap. Only the chart types that support labels honour it. <small>(optional)</small></td></tr>
           <tr><td class="name">axis</td><td class="type">{ x?: string | <a href="types.html#type-ChartAxis">ChartAxis</a>; y?: string | <a href="types.html#type-ChartAxis">ChartAxis</a>; y2?: string | <a href="types.html#type-ChartAxis">ChartAxis</a>; right?: string | <a href="types.html#type-ChartAxis">ChartAxis</a>; }</td><td class="desc">Per-axis configuration. Each side is a title string or an object of `{ title, min, max, ticks, format, grid, labels }`. `y2` (or `right`) configures the second measure axis of a dual-axis or combo chart (BACKLOG-0000743); a dual-axis chart labels both axes by default so it cannot silently mislead. <small>(optional)</small></td></tr>
-          <tr><td class="name">brush</td><td class="type">boolean | 'filter' | 'zoom' | 'select' | { mode: 'filter' | 'zoom' | 'select'; axis?: 'x' | 'y' | 'y2' }</td><td class="desc">Dragging across the plot. `true` or `'filter'` writes a range condition into the grid; `'zoom'` changes only this chart's own domain; `'select'` selects the rows under the drag. The object form names which axis the drag acts on — `axis: 'y'` or `'y2'` brushes a value axis, which on a dual-axis chart must say which one it means (BACKLOG-0000743). <small>(optional)</small></td></tr>
+          <tr><td class="name">brush</td><td class="type">boolean | 'filter' | 'zoom' | 'select' | { mode: 'filter' | 'zoom' | 'select'; axis?: 'x' | 'y' | 'y2' }</td><td class="desc">Dragging across the plot. `true` or `'filter'` writes a range condition into the grid as the chart's own (BACKLOG-0001711): it carries `meta: { owner: 'chart-brush', chart }`, the next brush replaces it and nothing else, and every other filter — one the user set on the same column included — is kept and ANDed with it; one `filters.set`, so one undo step. Escape on the focused chart, or a drag over nothing, takes the brush's condition off and leaves the rest. `'zoom'` changes only this chart's own domain; `'select'` selects the rows under the drag. The object form names which axis the drag acts on — `axis: 'y'` or `'y2'` brushes a value axis, which on a dual-axis chart must say which one it means (BACKLOG-0000743). With `'filter'`, a value-axis brush writes a `between` on the measure column behind that axis — the right axis's measure for `y2` (BACKLOG-0001712) — and only when each mark there is one row's own value: one measure column on the axis, a reduction that keeps a single value (sum, mean, median, min, max, first, last; not a count) and no mark standing for several rows. Otherwise it warns once (`chart:*:brush:aggregate`, `chart:*:brush:measures`) and writes nothing. <small>(optional)</small></td></tr>
           <tr><td class="name">font</td><td class="type">object</td><td class="desc">The type scale, as a base size in pixels or an object naming any of the roles (`size`, `small`, `title`, `axisTitle`, `family`, `weight`). Anything left out is derived from the base, so setting one size rescales the chart rather than leaving one label out of step. The base defaults to 12. <small>(optional)</small></td></tr>
           <tr><td class="name">margin</td><td class="type">number | { top?: number; right?: number; bottom?: number; left?: number }</td><td class="desc">Space in pixels around the plot: a number for every side, or an object for the ones it names. It is the floor the axis-label gutters are added to, so widening the left margin buys room beyond what the labels already needed. Defaults to 8. <small>(optional)</small></td></tr>
           <tr><td class="name">fit</td><td class="type">boolean | 'line'</td><td class="desc">A least-squares line through a scatter or bubble chart, one per series. `true` draws the line and its R²; `'line'` draws the line alone. Only where the x axis is numeric: on a band scale the positions are categories in an arbitrary order, and a slope through them would be a slope through the order they happened to be listed in. <small>(optional)</small></td></tr>
@@ -3196,7 +3363,7 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">reference</td><td class="type">{ value: number; label?: string; axis?: 'left' | 'right'; colour?: string }[]</td><td class="desc">Reference lines, placed on the chart's value axis: horizontal on a bar, line, area or candlestick, vertical on a `horizontalBar`, whose value axis runs left to right. On a candlestick they span the price pane (not the volume pane) and sit above the gridlines and below the candles. On a dual-axis bar or line chart (see {@link ChartMeasure.axis}) a line naming `axis: 'right'` is placed on the right-hand scale, so it means what the right axis says rather than landing at the same number on the scale it does not belong to. `colour` is any CSS colour (the current text colour when omitted). <small>(optional)</small></td></tr>
           <tr><td class="name">annotations</td><td class="type"><a href="types.html#type-ChartAnnotation">ChartAnnotation</a>[]</td><td class="desc">The declarative annotation layer: reference and target lines, shaded bands and callouts, each naming the axis it reads and each described into the accessible table as a sentence. A value may be a constant or `compute`d from the data it annotates, so it follows the chart as the grid is filtered. <small>(optional)</small></td></tr>
           <tr><td class="name">annotate</td><td class="type">boolean | <a href="types.html#type-ChartAnnotateOptions">ChartAnnotateOptions</a></td><td class="desc">Add a drawing rail to a cartesian chart, so a reader can mark it up (BACKLOG-0001474): trend lines, horizontal and vertical levels, parallel channels, Fibonacci retracements, arrows, text, callouts and notes. `true` is the whole rail on the left; the object form narrows the tools, moves or hides the strip, or makes the chart read-only. Every drawing is anchored in data, lives in {@link Chart.state}, and is reported by `annotation:added`, `annotation:changed` and `annotation:removed`. Accepted on the cartesian types (line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble) and on combo and candlestick; any other type warns and draws no rail. <small>(optional)</small></td></tr>
-          <tr><td class="name">zoom</td><td class="type">boolean | <a href="types.html#type-ChartZoomOptions">ChartZoomOptions</a></td><td class="desc">Let a reader look closer (BACKLOG-0001473). `true` is the whole thing with its defaults: a toolbar of five buttons — zoom in, zoom out, pan left, pan right, reset — fading in at the bottom edge of the plot on hover and on keyboard focus, the wheel zooming about the pointer, a drag panning the visible range, `+` and `-` while the chart is focused, and a double-click resetting. The object form narrows all of that. The view composes with a rolling `axis.x.window`: the window is the maximum extent, the zoom is a range inside it, and a view at the newest end keeps the newest reading at the right edge as rows arrive. It lives in {@link Chart.state}, is reported by `zoom`, and is drivable through {@link Chart.zoom}. Accepted on the cartesian types (line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble, candlestick) and on combo; any other type warns and adds no controls. <small>(optional)</small></td></tr>
+          <tr><td class="name">zoom</td><td class="type">boolean | <a href="types.html#type-ChartZoomOptions">ChartZoomOptions</a></td><td class="desc">Let a reader look closer (BACKLOG-0001473). `true` is the whole thing with its defaults: a toolbar of five buttons — zoom in, zoom out, pan left, pan right, reset — fading in at the bottom edge of the plot on hover and on keyboard focus, the wheel zooming about the pointer, a drag panning the visible range, `+` and `-` while the chart is focused, and a double-click resetting. The object form narrows all of that. The view composes with a rolling `axis.x.window`: the window is the maximum extent, the zoom is a range inside it, and a view at the newest end keeps the newest reading at the right edge as rows arrive. It lives in {@link Chart.state}, is reported by `zoom`, and is drivable through {@link Chart.zoom}. Accepted on the cartesian types (line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble, candlestick, ohlc), on combo and on heatmap (its columns only); any other type warns and adds no controls. A time or numeric x zooms a range of values; a category x (and a heatmap's columns) zooms to a contiguous run of categories. On a touch screen a two-finger pinch zooms about the point between the fingers, and `0` resets from the keyboard (BACKLOG-0001707). With {@link ChartSpec.viewportFilter} the grid follows the visible range. <small>(optional)</small></td></tr>
           <tr><td class="name">cursor</td><td class="type">boolean | <a href="types.html#type-ChartCursorOptions">ChartCursorOptions</a></td><td class="desc">A crosshair (BACKLOG-0001667). `true` draws a vertical hairline that follows the pointer, snapped to the nearest reading in the data, labelled at the axis in the axis's own format, with a tooltip listing every series' value at that x. The object form ({@link ChartCursorOptions}) adds a horizontal hairline (`y`), turns snapping off, picks the tooltip's form, and puts the chart in a `group` whose members share the cursor by x value — time or category, matched by value rather than pixel, across charts bound to different grids — with optional zoom sync and `rowHover` to follow the grid's row under the pointer. The arrow keys along the category axis, Home, End and Escape drive it while the chart has focus, and every move is read out through a polite live region. Drive it from the host with {@link Chart.cursor}; it reports `cursor:move` and `cursor:leave`. Accepted on the cartesian types (line, step, area, rangeArea, bar, horizontalBar, waterfall, scatter, bubble, candlestick, ohlc) and on combo; any other type warns and draws no cursor. <small>(optional)</small></td></tr>
           <tr><td class="name">buckets</td><td class="type">number</td><td class="desc">Bins for a histogram; the default is twelve. <small>(optional)</small></td></tr>
           <tr><td class="name">diverging</td><td class="type">boolean</td><td class="desc">A diverging colour ramp, for heatmap and geomap. <small>(optional)</small></td></tr>
@@ -3205,7 +3372,7 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">lon</td><td class="type">string</td><td class="desc">The longitude column, for the types that place a row by where it is rather than by a code: `markermap`, `bubblemap`, `hexmap` and `choropleth`. Degrees east, -180 to 180; a row outside that, or with no reading, is left off the map and counted. Given together with {@link ChartSpec.geometry}, both are refused by name — a row is placed by one or the other. <small>(optional)</small></td></tr>
           <tr><td class="name">lat</td><td class="type">string</td><td class="desc">The latitude column, beside {@link ChartSpec.lon}. Degrees north, -90 to 90, on the same terms. <small>(optional)</small></td></tr>
           <tr><td class="name">geometry</td><td class="type">string</td><td class="desc">A `geometry` column (the opt-in `modules/geometry`, GEO-3) to place each row from, instead of {@link ChartSpec.lon}/{@link ChartSpec.lat} — on `markermap`, `bubblemap` and `choropleth`. A Point row is a marker (or a `choropleth` feature) at its own coordinates; a LineString, Polygon or Multi* row is placed at its planar centroid, in degrees, the same one the column's own type reports. `choropleth` draws each Polygon/MultiPolygon row as its own shape, filled by {@link ChartSpec.y} through the chart's ramp; a Point row on a `choropleth` draws as a marker instead, filled the same way. A cell the column refused at ingest, or whose bounding box leaves the globe, is counted rather than drawn at the origin. Given together with `lon`/`lat`, both are refused by name. <small>(optional)</small></td></tr>
-          <tr><td class="name">viewportFilter</td><td class="type">boolean | <a href="types.html#type-ChartViewportFilterOptions">ChartViewportFilterOptions</a></td><td class="desc">Turn a map's own pan and zoom into a filter on its grid (BACKLOG-0000004, GEO-4): whenever the reader pans or zooms `markermap`, `bubblemap` or `choropleth` (a drag, the wheel, or the keyboard — the same gestures {@link ChartSpec.geometry}/`shapes` already draw a pack through), the chart writes ONE condition to `grid.filters` for the box now on screen, replacing the previous one rather than stacking it, so every other viewer over the same grid — another chart, a KPI, the table — narrows with the map, and a pushdown source does the narrowing in the engine. A `geometry`-column map writes a single `withinBbox`; a `lon`/`lat` map writes a pair of `between` conditions, one per column, joined by `and`. `true` is the whole feature at its default 150 ms debounce, on the column the map already places rows from; the object form narrows either. Two-way: a matching condition set from outside — a saved view, a host, a sibling panel on the same column — pans and zooms the map to it instead of being overwritten. "Reset view" and destroying the chart both remove the condition; a map with nothing to pan (no `shapes` and no `geometry` column) never writes one. Ignored on any other type. <small>(optional)</small></td></tr>
+          <tr><td class="name">viewportFilter</td><td class="type">boolean | <a href="types.html#type-ChartViewportFilterOptions">ChartViewportFilterOptions</a></td><td class="desc">Turn a map's own pan and zoom into a filter on its grid (BACKLOG-0000004, GEO-4): whenever the reader pans or zooms `markermap`, `bubblemap` or `choropleth` (a drag, the wheel, or the keyboard — the same gestures {@link ChartSpec.geometry}/`shapes` already draw a pack through), the chart writes ONE condition to `grid.filters` for the box now on screen, replacing the previous one rather than stacking it, so every other viewer over the same grid — another chart, a KPI, the table — narrows with the map, and a pushdown source does the narrowing in the engine. A `geometry`-column map writes a single `withinBbox`; a `lon`/`lat` map writes a pair of `between` conditions, one per column, joined by `and`. `true` is the whole feature at its default 150 ms debounce, on the column the map already places rows from; the object form narrows either. Two-way: a matching condition set from outside — a saved view, a host, a sibling panel on the same column — pans and zooms the map to it instead of being overwritten. "Reset view" and destroying the chart both remove the condition; a map with nothing to pan (no `shapes` and no `geometry` column) never writes one. On a cartesian chart with {@link ChartSpec.zoom} (BACKLOG-0001707) the grid follows the chart's visible range instead: once a pan or zoom settles (the same debounce), the chart writes ONE condition per zoomed axis to `grid.filters` — `between` the first and last reading in view on a time or numeric x (`gte` the first when the view is at the newest end, so rows that arrive later still reach the grid), `in` the visible categories on a category x — each as its own single-column branch, so the column's filter menu shows it and its Clear removes it. A scatter or bubble zoomed in y, with one row per point, adds a `between` on the measure column; a y zoom anywhere else filters by x alone and warns. The condition carries `meta: { owner: 'chart-view', chart, axis }`, and only a condition carrying this chart's mark is ever replaced or removed: a condition the user set on the same column is kept and ANDed with it. Zooming back out to everything, reset, turning the option off or destroying the chart removes it. It is a filter like any other: undoable, and two-way — clear it in the grid and the chart resets its zoom, undo or redo it and the chart's view follows, each reported as `zoom` with `reason: 'filter'`. Without `zoom` it warns and writes nothing. Ignored on any other type. <small>(optional)</small></td></tr>
           <tr><td class="name">viewportCap</td><td class="type">number</td><td class="desc">The most rows a `markermap`, `bubblemap` or `choropleth` draws for one view (GEO-6); default 20,000. Over a grid on a paged pushdown source that holds only a window of its rows, the map asks the source's engine for the rows inside its current view — the grid's filters and quick search, plus a `withinBbox` on a `geometry` column or a `between` pair on `lon`/`lat` for the box once the reader has panned or zoomed — through the adapter's `execute`, capped at this many rows, instead of drawing the grid's page; the grid keeps its page and the map its own set, a pan or zoom asks again (aborting the request it supersedes), and the last drawing stays up until the answer lands. {@link ChartSpec.aggregate} governs this as it governs a grouped chart. When more rows than the cap fall inside the view — from the engine, or from rows the browser holds — a marker or bubble map draws square density cells instead, counted by the engine (GEO-2's spatial `buckets`, `geometry` columns only) or in the browser, at a size derived from the zoom; zooming in until the view holds no more than the cap returns to the rows. A `choropleth`, and an engine map that cannot bin (a `lon`/`lat` map, or an adapter without the `grid` bucket), is refused by name past the cap and draws none of its rows. {@link Chart.provenance} reports it as `viewport`, and the accessible summary says which happened. <small>(optional)</small></td></tr>
           <tr><td class="name">value</td><td class="type">string</td><td class="desc">The measure a `markermap` writes beside each dot and colours it by. Its text is the column's own formatted cell text and its colour is whatever the column's conditional-formatting rules give that value, so a map and the table beside it say the same thing about the same number. <small>(optional)</small></td></tr>
           <tr><td class="name">layer</td><td class="type">string</td><td class="desc">Which layer of a multi-layer geometry pack to draw — the UK pack, for instance, ships `regions`, `local-authorities` and `constituencies` together (BACKLOG-0001321). Ignored for a single-layer pack. <small>(optional)</small></td></tr>
@@ -3226,7 +3393,7 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">tooltipHost</td><td class="type">HTMLElement</td><td class="desc">Where the hover tooltip node lives. Defaults to `document.body`, so a host that blurs, transforms or clips the chart cannot hide it; a chart mounted inside a shadow root defaults to that shadow root instead, so the root's stylesheets still reach the tooltip (a transform or filter on the shadow host then moves it: give an element outside to host it there). It is removed when the chart is destroyed. <small>(optional)</small></td></tr>
           <tr><td class="name">selection</td><td class="type">boolean</td><td class="desc">Draw the grid's selected rows emphasised, and follow the selection. A click on a mark that stands for rows selects them: a marker on a marker map, a network's node or link, an extension's items, a `pie`, `donut` or `sunburst` slice, a `treemap` tile (every row at or beneath it), and a `chord` ribbon or arc (BACKLOG-0001692). Marks the selection leaves out are dimmed. <small>(optional)</small></td></tr>
           <tr><td class="name">drill</td><td class="type">boolean</td><td class="desc">Clicking a group drills into it. <small>(optional)</small></td></tr>
-          <tr><td class="name">filterOnClick</td><td class="type">boolean</td><td class="desc">Clicking a mark filters the grid to it. <small>(optional)</small></td></tr>
+          <tr><td class="name">filterOnClick</td><td class="type">boolean</td><td class="desc">Clicking a mark filters the grid to it: an `eq` on the mark's column, as the chart's own condition (BACKLOG-0001712). It carries `meta: { owner: 'chart-click', chart }`; a click on another mark replaces it and nothing else, every other filter — one the user set on the same column included — is kept and ANDed with it, and a second click on the same mark, or Escape on the focused chart, takes it off again. One `filters.set` each, so one undo step. <small>(optional)</small></td></tr>
           <tr><td class="name">parentId</td><td class="type">string</td><td class="desc">The hierarchy types — `forceTree`, `pack`, `tree`, `voronoiTreemap` — read a hierarchy from a column that names each row's parent (BACKLOG-0001652): the column holds the parent's `id`. A row with no parent, an unknown parent or a parent that leads back to itself hangs off the root, so a bad row costs its place in the tree and never the drawing. Without `parentId` or `path` the hierarchy is the grid's own grouping. <small>(optional)</small></td></tr>
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">The column a `parentId` refers to: the row's own identity. Defaults to the row key. Used by the hierarchy types. <small>(optional)</small></td></tr>
           <tr><td class="name">path</td><td class="type">string</td><td class="desc">The hierarchy types read a hierarchy from one column holding each row's whole path (`Europe/France/Paris`), split on `pathSeparator`; rows that share a start share a branch (BACKLOG-0001652). <small>(optional)</small></td></tr>
@@ -3258,7 +3425,7 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">pictorial</td><td class="type"><a href="types.html#type-ChartPictorialOptions">ChartPictorialOptions</a></td><td class="desc">A `pictorial` chart's options (BACKLOG-0001658): {@link ChartPictorialOptions}. `x` is the category and `y` the measure. <small>(optional)</small></td></tr>
           <tr><td class="name">serpentine</td><td class="type"><a href="types.html#type-ChartSerpentineOptions">ChartSerpentineOptions</a></td><td class="desc">A `serpentine` timeline's options (BACKLOG-0001659): {@link ChartSerpentineOptions}. `x` is the date column for points, or `start` and `end` for spans; `label` names an event and `series` colours by a column. <small>(optional)</small></td></tr>
           <tr><td class="name">spiral</td><td class="type"><a href="types.html#type-ChartSpiralOptions">ChartSpiralOptions</a></td><td class="desc">A `spiral` timeline's options (BACKLOG-0001660): {@link ChartSpiralOptions}. `x` is the date column and `y` an optional value; `start` and `end` give the spans of `mode: 'spans'`; `series` colours by a column. <small>(optional)</small></td></tr>
-          <tr><td class="name">measure</td><td class="type">string</td><td class="desc">An alias for `y`, where "the measure" reads better than "the y axis". <small>(optional)</small></td></tr>
+          <tr><td class="name">measure</td><td class="type">string | boolean | <a href="types.html#type-ChartMeasureOptions">ChartMeasureOptions</a></td><td class="desc">A string is an alias for `y`, where "the measure" reads better than "the y axis". `true` or {@link ChartMeasureOptions} instead turns on the point-to-point measure tool (BACKLOG-0001708) on its own, with a one-button rail (or alongside `annotate`'s rail, adding the tool to it): drag between two points, or press `M` and use the arrows with the chart focused, for a band with Δx (a duration on a time axis, a count of categories on a category axis, the difference on a numeric one), Δy in the y axis's own format, the percentage change and the slope. Ends snap to data points; on a dual-axis chart the axis under the start point is the one measured. A measurement is transient (cleared by Escape or the next drag) until pinned with Enter, a click on it, or `pin: true`; a pinned one is data-anchored, in {@link Chart.state}, and reported by `annotation:added` with its readout. Accepted on the same chart types as `annotate`. <small>(optional)</small></td></tr>
           <tr><td class="name">size</td><td class="type">string</td><td class="desc">Bubble charts: the column driving the radius, and the largest it may be. <small>(optional)</small></td></tr>
           <tr><td class="name">maxRadius</td><td class="type">number</td><td class="desc">The largest bubble radius in pixels. Clamped to between 6 and 28, and 22 when unset; the smallest bubble is always 3. <small>(optional)</small></td></tr>
           <tr><td class="name">min</td><td class="type">number</td><td class="desc">Fix the measure axis rather than taking it from the data. <small>(optional)</small></td></tr>

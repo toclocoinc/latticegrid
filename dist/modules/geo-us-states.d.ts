@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.1, geo-us-states module type declarations
+ * Lattice Grid 1.86.2, geo-us-states module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
