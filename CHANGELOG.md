@@ -9,6 +9,14 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.86.6] - 2026-10-04
+
+### Fixed
+
+- **A chord's ring drew small in a wide pane, collapsed in a slightly tall one, and long node names could paint past the chart** (BACKLOG-0001829). The ring now takes the smaller of two limits — half the plot's width less the room its side labels need (capped at 90 px, as before) and half the plot's height less one line of text — so it fills a wide pane up to its height and a tall pane up to its width. A name longer than the room left beside the ring is cut with an ellipsis; the whole name stays in the tooltip and the accessible table. At ordinary chart sizes every label sits inside the chart; in very small panes (around 250 px and below) the ring shrinks further, down to a 10 px floor, to keep its labels inside.
+
+- **With `edit: { start: 'single' }`, an accidental second click on the cell already being edited keeps that editor open, focused and holding whatever was typed** (BACKLOG-0001832). A restart on the same cell — a stray double, triple or quadruple click, or a host calling `grid.edit.start` twice — is treated as the click it already answered: the model reports the session as already open, and the editor already mounted there keeps its focus rather than being torn down and remounted. Moving to a different cell still commits the one left behind and opens the next, exactly as before.
+
 ## [1.86.5] - 2026-10-04
 
 ### Fixed

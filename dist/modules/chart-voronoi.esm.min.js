@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.5, chart-voronoi module
+ * Lattice Grid 1.86.6, chart-voronoi module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

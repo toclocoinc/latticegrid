@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.5, angular module type declarations
+ * Lattice Grid 1.86.6, angular module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
