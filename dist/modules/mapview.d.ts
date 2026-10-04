@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.4, mapview module type declarations
+ * Lattice Grid 1.86.5, mapview module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

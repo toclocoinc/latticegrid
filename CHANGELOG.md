@@ -9,6 +9,16 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.86.5] - 2026-10-04
+
+### Fixed
+
+- **A hexbin's x tick labels sat on its bottom row of hexagons, and a fan's and a Gantt's tick labels ran past the chart's bottom edge** (BACKLOG-0001827). All three draw their bottom x ticks from a scale inside their own drawing, so the layout set aside only a bare margin under the plot: the hexbin's "50K…" ticks were painted over the hexagons, and a fan's and a Gantt's ticks touched or crossed the pane's bottom. The plot now reserves a line of labels for them, and a hexbin clears its hexagons by the same six-pixel gap the other axes use, so at 320, 480 and 1200 px, light and dark, the tick labels sit below the plot and inside the chart root.
+
+- **Tree, force-tree, capability and control chart labels overprinted the marks they name** (BACKLOG-0001828). A tree's "Executive", "Engineering" and "Operations" names wrote over each other and the links around the root, and a force-tree's branch names over the links at the plot's edges; a capability chart's "Target" sat on the curve and a control chart's "CL" on the last points at tile height. At 320, 480 and 1200 px, light and dark, no hierarchy name now touches a link, a node or another name — one with no clear side is left out — and the capability and control rule labels sit clear of the data, beside the rule end-aligned.
+
+- **The in-cell editor was inset inside the cell's padding instead of filling the whole cell** (BACKLOG-0001831). `.lat-editor-host`'s `padding: 0` and `.lat-cell`'s `padding-inline`/`padding-block` were the same specificity on the same element — `celledit.js` adds the editing class to the cell itself, it does not wrap it — so whichever rule the built stylesheet happened to concatenate later won, and the cell's padding stayed live under the editor. The editor's own input then added its matching padding on top, double-insetting the typed text inside a visibly padded box rather than the cell's full border box. The host's padding reset is now scoped to `.lat-cell.lat-editor-host`, one class more specific than `.lat-cell` alone, so it wins by specificity rather than by source order.
+
 ## [1.86.4] - 2026-10-03
 
 ### Breaking
