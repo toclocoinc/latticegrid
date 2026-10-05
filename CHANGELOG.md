@@ -9,6 +9,18 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.86.7] - 2026-10-05
+
+### Fixed
+
+- **A facet refresh a filter, sort or pivot change triggered could still reach a pushdown engine ahead of the grid's own new page and count** (BACKLOG-0001824). BACKLOG-0001819 made the grid's first page and count run ahead of queued facet and statistics work, but only tracked whether *any* page had ever been requested, not whether one had been requested for the *current* query — so after the very first load, a facet query the same change triggered could ask before the grid's own next request was even dispatched, with nothing of the grid's in flight yet to wait for. The gate now re-arms on every filter, sort and pivot change, the same way it already did at construction, bounded by the same one-second cap as before.
+
+- **A ridgeline's and a diverging chart's own x tick labels now stay inside the chart** (BACKLOG-0001834). Both drawers paint their x axis by hand rather than through the shared continuous-axis drawer, so BACKLOG-0001821's end-tick rule and BACKLOG-0001827's reserved bottom row never reached them: a ridgeline's last label could run past the chart's right edge, and a diverging chart's labels, drawn into a freeform layout that reserved no row at all, sat against the chart's bottom edge.
+  - A ridgeline and a diverging chart now drop a tick's label, not its gridline or mark, when the label would cross the chart's own edge, the same rule every other continuous axis already keeps to.
+  - A diverging chart's freeform layout now reserves one line for its tick labels, the same way a Gantt's does.
+
+- **The Gantt module resolves a task's mapped id field in every lookup, not just scheduling** (BACKLOG-0001859). When a host maps the id field (`fields: { id: 'taskId' }` or `rowKey`), the scheduler already read identity through the resolved id, but three raw-task lookups still read a literal `id` and so found nothing on such a plan: `deleteTask` kept the task, the split view's inline editor opened blank and committed an empty value over the task's own name, and the split view's row geometry fell back to default heights for every row. A single controller resolver (`readId` / `taskById`) now backs all three, along with the earned-value, MSPDI export and split-geometry raw-task maps, and a test scans the whole module so a literal raw-task `id` read cannot come back.
+
 ## [1.86.6] - 2026-10-04
 
 ### Fixed

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.6, chart-bump module
+ * Lattice Grid 1.86.7, chart-bump module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
