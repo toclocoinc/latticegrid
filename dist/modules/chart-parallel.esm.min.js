@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.7, chart-parallel module
+ * Lattice Grid 1.87.0, chart-parallel module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

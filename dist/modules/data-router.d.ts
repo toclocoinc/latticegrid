@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.7, data-router module type declarations
+ * Lattice Grid 1.87.0, data-router module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -555,6 +555,214 @@ export interface RouterMetrics {
   throughput: number;
 }
 
+/** Narrow an `explain()` call to one source and/or one route. Omit both for the whole report. */
+export interface ExplainOptions {
+  /** A registered source id (v9, `addSource`'s id). */
+  source?: string;
+  /** A route's target (an `attach` grid, a `subscribe`/`alert`/`monitor` handler), its partition value, or its `label`. */
+  route?: unknown;
+}
+
+/** `explain()` narrowed to one source and/or one route (whichever `ExplainOptions` named); the unnamed side is omitted. */
+export interface ExplainNarrowed {
+  /** The named source's report, or null when the id is unknown or nothing has settled yet. Present only when `{ source }` was passed. */
+  source?: ExplainSourceReport | null;
+  /** The named route's report, or null when it cannot be resolved. Present only when `{ route }` was passed. */
+  route?: ExplainRouteReport | null;
+}
+
+/** Up to 5 sample offending values, with the total count they were drawn from (never more are retained). */
+export interface ExplainSamples { count: number; samples: unknown[] }
+
+/**
+ * One `fields` coercion's figures for a source's most recent settle (v18): how many values coerced cleanly, how many turned null
+ * or invalid, and up to 5 of the actual offending raw values.
+ */
+export interface ExplainFieldReport { coerced: number; invalid: number; samples: unknown[] }
+
+/** One `unnest` spec's figures for a source's most recent settle (v18): parent rows read, child rows (upserts and deletes) emitted. */
+export interface ExplainUnnestReport { parentRowsIn: number; childRowsOut: number }
+
+/**
+ * One `join`/`collect`/rollup-onto-parent/`relateRows` figure for a source's
+ * most recent settle (v18). `unmatched.left` is this
+ * source's own rows whose key found nothing on the `from` side (the actual
+ * offending key values, up to 5); `unmatched.right` is `from`-side rows no
+ * left row currently points at — both are how `explain()` answers "why does
+ * my grid show 0 rows" when a join silently drops everything. `duplicates`
+ * (lookup joins only) is how many left rows matched MORE than one `from`
+ * row by key — the last one registered wins silently, so this is the
+ * signal that a lookup join's assumed 1:1 key is not.
+ */
+export interface ExplainJoinReport {
+  /** 'lookup' (one row), 'collect' (an array), 'rollup' (aggregated onto the parent), or 'relateRows' (a standalone delete rule). */
+  kind: 'lookup' | 'collect' | 'rollup' | 'relateRows';
+  /** The `from`/`parent` source id this join or rule reads. */
+  from: string;
+  /** The field a collect join wrote its array under, or null for every other kind. */
+  as: string | null;
+  /** How many of this source's rows found at least one matching `from` row. */
+  matched: number;
+  /** Keys that found nothing, on each side of the join — the actual offending values, up to 5 samples each. */
+  unmatched: { left: ExplainSamples; right: ExplainSamples };
+  /** Lookup joins only: left rows that matched more than one `from` row by key (the last one registered silently wins). */
+  duplicates: ExplainSamples;
+}
+
+/** One source's full `explain()` report for its most recent settle (v18). */
+export interface ExplainSourceReport {
+  /** The source id (`addSource`'s id, or an `unnest` spec's `as`). */
+  source: string;
+  /** Rows this settle loaded (a `load()` snapshot), applied (an `apply()`/`push()` upsert) and removed. */
+  rows: { loaded: number; applied: number; removed: number };
+  /** One entry per declared `fields` coercion, keyed by field name. */
+  fields: Record<string, ExplainFieldReport>;
+  /** One entry per `unnest` spec, keyed by its `as`. */
+  unnest: Record<string, ExplainUnnestReport>;
+  /** One entry per `join`/collect/rollup-onto-parent, plus any `relateRows` rule naming this source as the child. */
+  joins: ExplainJoinReport[];
+  /** A `spread` join's rows touched (enriched) and re-emitted (actually changed) this settle. */
+  spread: { touched: number; reemitted: number };
+  /** Rows of THIS source's dependents (sources that join from it) touched and re-emitted by this settle's cascade. */
+  cascade: { touched: number; reemitted: number };
+  /** Wall-clock ms this settle spent ingesting/enriching this source (includes any unnest expansion it triggered). */
+  timingMs: number;
+}
+
+/** One route's (or `alert`/`monitor`'s) full `explain()` report for its most recent settle (v18). */
+export interface ExplainRouteReport {
+  /** The route's `label` when set, else its partition value, else an opaque stable id (never a live grid/handler reference — this is JSON-safe). */
+  route: unknown;
+  /** The route's `label`, or null. */
+  label: string | null;
+  /** `alert`/`monitor` only: which kind this is. Absent for a grid/`subscribe` route. */
+  kind?: 'alert' | 'monitor';
+  /** Rows this settle's `when` predicate routed here, and how many matched no route at all (router-wide, duplicated on every route's report). */
+  when: { routed: number; unrouted: number };
+  /** Rows in (the route's partition) and out (after `filter` and any cross-grid link/graph predicate). */
+  filter: { in: number; out: number };
+  /** Rows transform ran over, in and out (a transform never drops a row). Null for an `alert`/`monitor` (it has none). */
+  transform: { in: number; out: number } | null;
+  /** How many rows this settle's `sort` ordered (0 when the route has no `sort`). Null for an `alert`/`monitor`. */
+  sort: { count: number } | null;
+  /** Null for a non-rollup route (or an `alert`/`monitor`); otherwise rows in, summary rows out, and the group count. */
+  rollup: { in: number; out: number; groups: number } | null;
+  /** Rows written to the grid this settle, by kind. Null for an `alert`/`monitor` (it renders nothing). */
+  write: { add: number; update: number; remove: number } | null;
+  /** Wall-clock ms this settle spent in this route's `materialize()` (0 for an `alert`/`monitor`, which never materializes). */
+  timingMs: number;
+}
+
+/**
+ * The whole `explain()` report for the most recent settle (v18) — one `load`/`apply`/`push` and everything it cascaded
+ * into. Narrow with `{ source }`/`{ route }` for just one part; this is what
+ * comes back when neither is passed. Fully JSON-serialisable (every id is a
+ * string, label or number — never a live grid/handler reference) and safe
+ * to `JSON.stringify`/parse and compare.
+ */
+export interface ExplainReport {
+  /** One entry per registered source, keyed by its id. */
+  sources: Record<string, ExplainSourceReport>;
+  /** One entry per route (grid/`subscribe`, then `alert`/`monitor`), in attach order. */
+  routes: ExplainRouteReport[];
+  /** How many records this settle matched no route (same figure as `metrics()`'s `unrouted` and each route report's `when.unrouted`). */
+  unrouted: number;
+  /** Wall-clock ms the whole settle took, start to finish. */
+  timingMs: number;
+}
+
+/**
+ * One step of a traced row's path (v19): the shape varies by
+ * `kind`, mirroring the pipeline stage `explain()` already counts in
+ * aggregate — this is the same accounting, kept per row instead of summed.
+ */
+export type TraceStep =
+  /** `fields`/`map` coercion: every declared field this settle touched, before and after. */
+  | { kind: 'fields'; changes: { field: string; before: unknown; after: unknown }[] }
+  /** `unnest`: the parent row's key this child was expanded from. */
+  | { kind: 'unnest'; parentKey: unknown }
+  /** A lookup or rollup-onto-parent join: the foreign key looked up, and whether it matched. */
+  | { kind: 'join'; from: string; matchedKey: unknown; matched: boolean }
+  /** A collect join: the foreign key looked up, and whether it matched. */
+  | { kind: 'collect'; from: string; matchedKey: unknown; matched: boolean }
+  /** A standalone `relateRows` rule: the parent key this child matched. */
+  | { kind: 'relate'; parentKey: unknown; matchedKey: unknown }
+  /** A route-level `rollup` (`groupBy`/`aggregate`): the group this row joined, and the group's size. */
+  | { kind: 'rollup'; groupKey: unknown; memberCount: number }
+  /** A `spread` join: the attribute source it read from. */
+  | { kind: 'spread'; origin: string }
+  /** A re-enrichment triggered by a change elsewhere: the source whose change triggered it. */
+  | { kind: 'cascade'; origin: string }
+  /** The route's `filter` (or a cross-grid link/graph predicate): whether this row passed. */
+  | { kind: 'filter'; passed: boolean }
+  /** The route's `sort`: ran over this row (a sort never drops a row). */
+  | { kind: 'sort'; passed: true }
+  /** The route's `transform`: ran over this row (a transform never drops a row). */
+  | { kind: 'transform'; passed: true }
+  /** The terminal write: which route, which op, and the seq it carried (when the router has one). */
+  | { kind: 'route'; label: string | null; op: 'add' | 'update'; seq: number | undefined };
+
+/** `router.trace(gridOrLabel, rowKey)`'s result for a row the store still holds (v19). */
+export interface TraceResult {
+  /** Always true for a row the store still holds — the `known: false` case is `TraceNotTraced`. */
+  known: true;
+  /** The source row(s) the path began from: the source id and the row's identity as that source knows it. */
+  source: { id: string; key: unknown }[];
+  /** Every step the row passed, in order. */
+  steps: TraceStep[];
+  /** The route that delivered it (its `label`), or null if it never reached one. */
+  route: { label: string | null } | null;
+  /** The write it produced and the seq it carried, or null if it never reached one. */
+  write: { op: 'add' | 'update'; seq: number | undefined } | null;
+}
+
+/** The named reasons `trace.missing()` can report a row dropped for (v19). */
+export type TraceMissingReason =
+  | 'predicate-false' | 'filter-rejected' | 'join-no-partner' | 'deduped-stale-seq'
+  | 'removed-by-cascade' | 'coerced-invalid-key' | 'not-yet-flushed' | 'unrouted';
+
+/** `trace.missing()`'s result for a row the store still holds (v19). */
+export interface TraceMissingResult {
+  /** Always true for a row the store still holds — the `known: false` case is `TraceNotTraced`. */
+  known: true;
+  /** Whether the row is, right now, in the grid asked about (or any grid, when none was named). */
+  present: boolean;
+  /** A human-readable explanation. */
+  message: string;
+  /** The reason code, when `present` is false. */
+  reason?: TraceMissingReason;
+  /** `predicate-false` only: the route whose predicate rejected it. */
+  label?: string | null;
+  /** `join-no-partner` only: the key looked up and the source it looked in. */
+  key?: unknown;
+  /** `join-no-partner`/`removed-by-cascade` only: the source (or parent key) it looked in/followed. */
+  source?: string;
+  /** `removed-by-cascade` only: the parent row's key whose removal cascaded the delete to this row. */
+  parentKey?: unknown;
+  /** Present when the row IS in the grid: which route. */
+  route?: { label: string | null };
+}
+
+/** What `router.trace()`/`trace.missing()` answer for a row outside the bounded store — never a guess (v19). */
+export interface TraceNotTraced { known: false; reason: 'not-traced' }
+
+/**
+ * `router.trace` (v19): a callable — `trace(gridOrLabel,
+ * rowKey)` — with `enable`/`disable`/`missing` attached, the same shape
+ * `on`'s unsubscribe or a timer's controller takes when a capability needs
+ * more than one entry point.
+ */
+export interface RouterTraceApi {
+  /** Follow one row's path. `gridOrLabel` is reserved (see `DataRouter.trace`'s doc). */
+  (gridOrLabel: unknown, rowKey: unknown): TraceResult | TraceNotTraced;
+  /** Turn tracing on. */
+  enable(): void;
+  /** Turn tracing off. */
+  disable(): void;
+  /** Why `sourceKey` on source `sourceRef` is not (or is) in a grid; narrow to one route's predicate with `gridOrLabel`. */
+  missing(sourceRef: unknown, sourceKey: unknown, gridOrLabel?: unknown): TraceMissingResult | TraceNotTraced;
+}
+
 /**
  * One entry of `lastQueryPlan()` (v7): a `where` route's fetch, or the single
  * `base` fetch that fed every route without a `where`. `pushedFilter` says
@@ -719,6 +927,28 @@ export interface DataRouter {
   /** A cheap point-in-time snapshot of the router's runtime (v10); throughput is measured since the previous read. */
   metrics(): RouterMetrics;
   /**
+   * Explain the most recent settle (v18): what the last
+   * `load`/`apply`/`push` (and every cascade it triggered) did, per source
+   * and per route — rows in/out at each pipeline step, which join/unnest/
+   * spread/cascade keys matched or didn't (up to 5 sample offending values),
+   * the grid writes produced, and the wall-clock ms each step took. Where
+   * `metrics()` answers "how much, how fast", this answers "what happened,
+   * and where did my rows go". Always current (the counters it reads run
+   * whether or not this is ever called); pass `{ source }` and/or `{ route }`
+   * to narrow to just that part.
+   */
+  explain(opts?: ExplainOptions): ExplainReport | ExplainNarrowed;
+  /**
+   * Trace one row's path through the router (v19), and —
+   * via `trace.missing()` — why an input row is NOT in a grid. Off by
+   * default (`{ trace: true }` on `createDataRouter`, or `trace.enable()`;
+   * `trace.disable()` turns it off); while off, each step pays one boolean
+   * check. Recording is bounded (`traceLimit`, default 10,000 rows; oldest
+   * dropped first) — a row outside the store answers {@link TraceNotTraced}
+   * rather than a guess.
+   */
+  trace: RouterTraceApi;
+  /**
    * Subscribe to a router event (v10): the periodic `metrics` emit — the timer runs only
    * while a listener is registered — or a `fields:changed` emit when a spread join's field
    * set for a route changes (v16). What each carries is {@link RouterEventPayloads}.
@@ -880,6 +1110,10 @@ export interface DataRouterOptions {
    * demand.
    */
   metricsInterval?: number;
+  /** Turn trace recording on from the start (v19), equivalent to calling `trace.enable()` immediately. Off by default. */
+  trace?: boolean;
+  /** The trace store's bound, oldest row dropped first (v19). 10,000 by default. */
+  traceLimit?: number;
 }
 
 /** Create a data router that partitions one stream to many grids. */

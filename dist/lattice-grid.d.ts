@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.7, type declarations
+ * Lattice Grid 1.87.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -5008,8 +5008,20 @@ export interface GridConfig {
    * `allowPivot` and `allowTotal`.
    */
   toolPanel?: boolean | {
-    /** Built-in names: `columns`, `filters`, `views`, `quick`, `formatting`. */
-    panels?: ToolPanelName[];
+    /**
+     * Which panels to offer, each given one of three ways: a built-in name
+     * (`columns`, `filters`, `views`, `quick`, `formatting`, `statistics`,
+     * `regression`, `compare`, `insights`); an object naming a built-in and
+     * giving it props, a title or an icon of its own (`{ name: 'regression',
+     * props: { predictors: ['x1', 'x2'], response: 'y' } }`); or a panel
+     * constructor of your own (§18.5: `init`, `element`, optional `refresh`
+     * and `destroy`) — bare, or as an object's `name` to give it props too.
+     * Entry props win over any config-derived props (`views`, `insights`,
+     * `regression`) for the same panel. An unrecognised name warns once and
+     * is dropped rather than rendering an empty tab.
+     */
+    panels?: (ToolPanelName | Function
+      | { name: ToolPanelName | Function; props?: object; title?: string; icon?: string })[];
     openPanel?: string;
     /** Which edge to dock against. `left` is the icon rail; default `right`. */
     side?: ToolPanelSide;
@@ -5040,6 +5052,13 @@ export interface GridConfig {
      */
     annotate?: boolean;
   };
+  /**
+   * The model the `regression` tool panel fits when no `props` were given on
+   * its own `toolPanel.panels` entry — `grid.set('regression',
+   * spec)` repaints an open panel with the new model. Panel-entry props still
+   * win when both are given.
+   */
+  regression?: RegressionSpec;
   /**
    * A drag-and-drop group-by strip above the column header — the pattern AG
    * Grid calls the row-group panel. Drag a column heading into it to group by
@@ -14133,6 +14152,31 @@ export interface ChartSpec {
    */
   rows?: object[] | ((grid: Grid) => object[]);
   /**
+   * Turns off the reduction a `scatter` or `bubble` binds by default: without it, rows that tie on `x` share one point,
+   * reduced by the measure's aggregation (`sum` unless the column says
+   * otherwise) — right for a chart *of* the grid's totals, wrong for one
+   * meant to show the rows themselves, where tied x's are common (a
+   * regression diagnostic plotted against a predictor rounded to a few
+   * decimals, for one) and the reduction draws a point nothing in the data
+   * is. `perRow: true` draws one mark per row instead, however many share an
+   * x. Not the same option as {@link ChartSpec.aggregate} below, which
+   * decides *where* a reduction runs, not whether one runs at all.
+   *
+   * A `scatter` or `bubble` normally thins its marks to roughly one per
+   * horizontal pixel once a series outgrows the plot, so a dense cloud does
+   * not overplot itself; `perRow` turns that off too, up to 20,000 rows, so a
+   * diagnostic plot of a few thousand real, tied rows draws every one of
+   * them whatever the pane's width. Past 20,000 the usual density thinning
+   * resumes — a chart of hundreds of thousands of rows must still render —
+   * but the reduction keeps whichever rows are the largest by `|y|`, by `x`
+   * or by `size` regardless of the bucket they would otherwise land in, so a
+   * diagnostic's outliers are never the ones a thinned draw drops. The fit
+   * line, its confidence band and the R² beside it are computed from every
+   * bound row either way, never from whatever a draw happened to thin down
+   * to — an explicit {@link ChartSpec.downsample} included.
+   */
+  perRow?: boolean;
+  /**
    * Where the chart's aggregate is computed (GEO-5). `'auto'`, the default,
    * asks the grid's pushdown source — `source.aggregate()`, with x (and
    * `series`) as the `GROUP BY` and the measures as its aggregates, the grid's
@@ -14954,7 +14998,11 @@ export interface ChartSpec {
   size?: string;
   /**
    * The largest bubble radius in pixels. Clamped to between 6 and 28, and 22 when unset;
-   * the smallest bubble is always 3.
+   * the smallest bubble is always 3. Also capped by the plot's own size,
+   * at a sixth of its shorter side, so a caller cannot ask for a bubble bigger than the panel
+   * drawing it; a mark a scaled radius would still draw past the plot's edge — the point with
+   * the most leverage is as likely to sit at the domain's own end as anywhere else — is shrunk
+   * further, just enough to stay inside the clip.
    */
   maxRadius?: number;
   /** Fix the measure axis rather than taking it from the data. */

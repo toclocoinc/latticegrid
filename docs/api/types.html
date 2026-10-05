@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.86.7</title>
+<title>Types API Reference — Lattice Grid 1.87.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -3506,6 +3506,14 @@
     <h4 id="type-TotalName">TotalName</h4>
     <p class="section-note">The built-in aggregations, used for group totals, the footer row and pivot values. `countValues` counts the non-blank ones; `first` and `last` take the value at the ends of the group in its current order. Anything registered as a custom total is also valid here.</p>
     <p class="type-def"><code>type TotalName = 'sum' | 'min' | 'max' | 'avg' | 'count' | 'first' | 'last' | 'countValues' | (string &amp; {})</code></p>
+    <h4 id="type-TraceMissingReason">TraceMissingReason</h4>
+    <p class="section-note">The named reasons `trace.missing()` can report a row dropped for (v19, BACKLOG-0001838).</p>
+    <p class="type-def"><code>type TraceMissingReason = 'predicate-false' | 'filter-rejected' | 'join-no-partner' | 'deduped-stale-seq' | 'removed-by-cascade' | 'coerced-invalid-key' | 'not-yet-flushed' | 'unrouted'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
+    <h4 id="type-TraceStep">TraceStep</h4>
+    <p class="section-note">One step of a traced row's path (v19, BACKLOG-0001838): the shape varies by `kind`, mirroring the pipeline stage `explain()` already counts in aggregate — this is the same accounting, kept per row instead of summed.</p>
+    <p class="type-def"><code>type TraceStep = { kind: 'fields'; changes: { field: string; before: unknown; after: unknown }[] } | { kind: 'unnest'; parentKey: unknown } | { kind: 'join'; from: string; matchedKey: unknown; matched: boolean } | { kind: 'collect'; from: string; matchedKey: unknown; matched: boolean } | { kind: 'relate'; parentKey: unknown; matchedKey: unknown } | { kind: 'rollup'; groupKey: unknown; memberCount: number } | { kind: 'spread'; origin: string } | { kind: 'cascade'; origin: string } | { kind: 'filter'; passed: boolean } | { kind: 'sort'; passed: true } | { kind: 'transform'; passed: true } | { kind: 'route'; label: string | null; op: 'add' | 'update'; seq: number | undefined }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
     <h4 id="type-TypeName">TypeName</h4>
     <p class="section-note">What kind of value a column holds, which is what decides how it is parsed, sorted, filtered, aligned and formatted before you configure anything else. The first few are inferred from the data. Everything after them is asked for by name on the column, because a number is a number until you say it is a bitrate, a decibel, an IPv4 address or a duration.</p>
     <p class="type-def"><code>type TypeName = 'text' | 'number' | 'boolean' | 'date' | 'dateString' | 'object' | 'lookup' | 'image'</code></p>

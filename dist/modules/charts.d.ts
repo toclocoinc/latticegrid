@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.7, charts module type declarations
+ * Lattice Grid 1.87.0, charts module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -71,12 +71,18 @@ export function deriveRangeSpec(
  * the residual and QQ plots draw over.
  *
  * The presets that map onto grid columns come back as drawable specs: `fit`
- * (the fit line with its confidence band), `residualsFitted`, `qq`, and
+ * (the fit line with its confidence band), `residualsFitted`, `qq`,
  * `multicollinearity` (a correlogram over the predictors, with the model's
- * `vif` alongside). The three that need a per-row or per-coefficient quantity
- * the grid has no column for — `scaleLocation`, `residualsLeverage`,
- * `coefficientForest` — come back with a null `spec` and a stable `reason`,
- * rather than silently dropped.
+ * `vif` alongside), and `residualsLeverage` — a bubble sized by Cook's
+ * distance over the `stdResidual`, `leverage` and `cooksD` fit-shadow
+ * columns, once those are named (a plain scatter without `cooksD`; a null
+ * `spec` and `'needs-leverage-and-standardised-residual-columns'` without
+ * both of the other two). `scaleLocation` and `coefficientForest` need a
+ * per-row or per-coefficient quantity no grid column holds — √|standardised
+ * residual| is a transform, and a coefficient is not a row at all — so both
+ * are drawn from explicit points computed off the model itself and are
+ * drawable whenever the model has them, with a null `spec` and a stable
+ * `reason` only when it does not.
  */
 export function regressionPlots(
   grid: Grid,

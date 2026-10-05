@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.86.7, geo-europe-nuts module
+ * Lattice Grid 1.87.0, geo-europe-nuts module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

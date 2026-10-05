@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Data router API Reference — Lattice Grid 1.86.7</title>
+<title>Data router API Reference — Lattice Grid 1.87.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -395,6 +395,7 @@
         <a class="rail__sub-link" href="#datarouter-v7-example">Query-slice routing, executed</a>
         <a class="rail__sub-link" href="#datarouter-v9-example">Fan-in from two feeds, executed</a>
         <a class="rail__sub-link" href="#datarouter-v11-example">A JOIN with a late lookup, executed</a>
+        <a class="rail__sub-link" href="#datarouter-explain-example">Explain reveals an unmatched join key, executed</a>
         <a class="rail__sub-link" href="#datarouter-collect-example">A multi-level COLLECT join into a list column, executed</a>
         <a class="rail__sub-link" href="#datarouter-rollup-parent-example">A rollup-onto-parent join, executed</a>
         <a class="rail__sub-link" href="#datarouter-fields-example">Field coercion feeding a typed grid, executed</a>
@@ -532,6 +533,7 @@ router.load(snapshot);                        <span class="cmt">// every viewer 
           <tr><td class="sig">metrics()</td><td class="desc"><strong>v10 (BACKLOG-0000932):</strong> a cheap point-in-time observability snapshot &mdash; per-route row counts and throughput (rows/sec since the previous read), per-source rates and totals (fan-in), and the global <code>unrouted</code> / <code>dropped</code> / <code>buffered</code> / <code>lag</code> figures. Throughput is sampled over the interval since the last <code>metrics()</code> call or emit. Each entry in <code>routes[]</code> also carries its <code>label</code> and, when the route declares a backpressure policy, a <code>backpressure: { pending, coalesced }</code> object &mdash; <code>pending</code> is the held backlog since the last flush (the route's lag) and <code>coalesced</code> the cumulative change-events it has absorbed into deferred refreshes (<code>null</code> when the route has no policy).</td></tr>
           <tr><td class="sig">on('metrics', handler)</td><td class="desc"><strong>v10:</strong> subscribe to the periodic <code>metrics</code> emit (the <code>metricsInterval</code> ms, default 1000; <code>0</code> disables it). The timer runs only while at least one listener is registered and stops when the last is removed. Returns an unsubscribe function.</td></tr>
           <tr><td class="sig">mountDevtools(el)</td><td class="desc"><strong>v10:</strong> mount an opt-in, DOM-touching live panel (in the module's own <code>devtools.js</code>, so the core stays DOM-free) that renders <code>metrics()</code> into <code>el</code> and re-renders on each <code>on('metrics')</code> emit &mdash; so the panel's cadence is the router's <code>metricsInterval</code>, not a setting of its own. Returns a controller with <code>refresh()</code>, which forces an immediate re-render, and <code>destroy()</code>, which unsubscribes and removes the panel from the DOM. The same panel is available without a router: <code>mountRouterDevtools(router, el)</code> is a named export of <code>modules/data-router/devtools.js</code>, and <code>mountDevtools</code> is a one-line wrapper over it. Off unless called.</td></tr>
+          <tr><td class="sig">explain({ source?, route? })</td><td class="desc"><strong>v18 (BACKLOG-0001837):</strong> where <code>metrics()</code> reports throughput, <code>explain()</code> reports <em>why</em> &mdash; what the most recent <strong>settle</strong> (one <code>load</code>/<code>apply</code>/<code>push</code> and every cascade it triggered) did, per source and per route: rows loaded/applied/removed, per-field coercion (coerced/invalid counts and up to 5 sample offending values), <code>unnest</code> parent-rows-in/child-rows-out, every <code>join</code>/<code>collect</code>/rollup-onto-parent/<code>relateRows</code>'s matched count and unmatched keys on <em>each side</em> (with samples) and duplicate matches (with samples), a <code>spread</code> join's rows touched/re-emitted, a dependent source's cascade touched/re-emitted, and &mdash; per route &mdash; its <code>when</code>/<code>filter</code>/<code>transform</code>/<code>sort</code>/<code>rollup</code> in/out counts, the grid writes produced, its <code>label</code>, and wall-clock ms per step. Pass <code>{ source: id }</code> and/or <code>{ route: labelOrGridOrHandler }</code> to narrow to just that part; omit both for the whole report. The counters and 5-slot sample buffers it reads run unconditionally (so the report is always current); building the report itself is the only cost paid by calling this. The result is plain JSON-serialisable data &mdash; see <code>ExplainReport</code> in the type appendix.</td></tr>
           <tr><td class="sig">persist({ key?, debounce?, storage?, indexedDB?, dbName?, storeName? })</td><td class="desc"><strong>v12 (BACKLOG-0000961):</strong> turn on durable persistence &mdash; snapshot the keyed store and the time-travel ring to a durable async key/value store so an offline reload or a browser refresh resumes exactly where it left off. The default backend is <strong>IndexedDB</strong> (native, no dependency), opened lazily and guarded so private-mode or blocked storage degrades to in-memory with a one-time warning rather than throwing. Writes a coalesced snapshot after each <code>load</code>/<code>apply</code> (debounced by <code>debounce</code> ms, default 250; <code>0</code> is eager). Pass <code>storage</code> &mdash; any object with async <code>get(key)</code>/<code>set(key, value)</code> &mdash; to use another backend (a server, a test double). Opt-in and off by default.</td></tr>
           <tr><td class="sig">restore()</td><td class="desc"><strong>v12:</strong> resume from the durable snapshot. Read the last persisted state and apply it &mdash; <code>load</code> the live head through the ordinary keyed diff (so grids attached before this call repaint only what differs), restore the resume checkpoint and, when the snapshot carried a time-travel ring, restore buffering and the ring so <code>scrubTo</code>/<code>replay</code>/<code>live</code> work straight after a reload. Call it once, after attaching the grids. <code>async</code>; resolves <code>true</code> when a snapshot was found and applied, <code>false</code> when persistence is off/degraded or nothing was stored.</td></tr>
           <tr><td class="sig">flushPersist() / persisting</td><td class="desc"><strong>v12:</strong> flush any pending durable write now (<code>async</code>; cancels the debounce and resolves once the write settles &mdash; for a <code>beforeunload</code> handler, a deterministic checkpoint, or a test), and whether durable persistence is on and not degraded to in-memory.</td></tr>
@@ -892,6 +894,50 @@ customers.load([{ id: 'C1', kind: 'customer', customerId: 'C1', name: 'Acme' }])
 
 g.destroy(); router.destroy();
 <span class="kw">return</span> [held, released, name].join(' | ');</code></pre>
+
+    <p><strong>Explain: why does my grid show 0 rows? (v18, BACKLOG-0001837).</strong> <code>metrics()</code> says how many rows moved; it cannot say <em>why</em> a row never arrived. <code>explain()</code> can: it reports the most recent settle's join matches and misses by the <em>actual key values</em>, not just a count. The classic trap below looks like a type mismatch at a glance &mdash; a string <code>'42'</code> next to a number <code>42</code> &mdash; and it is worth knowing the router <em>already</em> treats those as the same key (both sides of a join key are coerced to a string before they are compared, so a numeric id and its numeral-string twin match fine). What actually breaks a join is a difference in <em>representation</em>: here, the upstream feed hands the order back with a stray leading space on the id. <code>explain({ source })</code>'s <code>unmatched.left.samples</code> names the exact offending value, so the space is visible the moment you look &mdash; nothing about "0 rows" has to be guessed. <code>trace.missing()</code> (v19, BACKLOG-0001838) answers the SAME question for one named row, by a reason CODE rather than a count to read: pass the row's own source and key (not the join key) and it names exactly which lookup failed and why.</p>
+    <h3 id="datarouter-explain-example">Explain reveals an unmatched join key, executed</h3>
+    <p class="section-note">An order's <code>customerId</code> carries a stray space its feed never stripped. The join's
+    <code>missing: 'hold'</code> withholds the row entirely &mdash; the grid shows nothing &mdash;
+    <code>explain()</code> names the exact value that failed to match, and <code>trace.missing('orders', 'O1')</code>
+    says the same thing for that one row: <code>join-no-partner</code>, with the key it looked up and the source it
+    looked in. Run headless on every build.</p>
+    <pre data-run="js" data-expect="0 | 0 | 1 | [ 42] | join-no-partner | [ 42] | customers | true" data-covers="export:createDataRouter method:data-router.addSource method:data-router.attach method:data-router.explain config:ExplainOptions.route config:DataRouterOptions.trace config:DataRouterOptions.traceLimit"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="kw">const</span> cols = [{ id: 'id', field: 'id' }, { id: 'customerId', field: 'customerId' }, { id: 'name', field: 'name' }];
+<span class="kw">const</span> g = createHeadlessGrid({ rowKey: 'id', columns: cols });
+<span class="cmt">// traceLimit bounds the per-row lineage store trace() reads from — well above</span>
+<span class="cmt">// this example's two rows, so nothing here is evicted.</span>
+<span class="kw">const</span> router = createDataRouter({ rowKey: 'id', trace: true, traceLimit: 50 });
+router.attach(g, (row) => row.kind === 'order');
+
+<span class="kw">const</span> customers = router.addSource('customers');
+<span class="kw">const</span> orders = router.addSource('orders', {
+  join: { from: 'customers', localKey: 'customerId', foreignKey: 'id', fields: ['name'], missing: 'hold' },
+});
+
+customers.load([{ id: 42, name: 'Acme Corp', kind: 'customer' }]);
+<span class="cmt">// Looks like a string vs a number — the router already normalises THAT. The</span>
+<span class="cmt">// real break is the leading space the feed left on the id.</span>
+orders.load([{ id: 'O1', customerId: ' 42', kind: 'order' }]);
+
+<span class="kw">const</span> rowsShown = g.rows.count();                       <span class="cmt">// 0 — held, nothing to see</span>
+
+<span class="kw">const</span> report = router.explain({ source: 'orders' }).source;
+<span class="kw">const</span> join = report.joins[0];
+<span class="kw">const</span> offendingKey = `[${join.unmatched.left.samples[0]}]`; <span class="cmt">// "[ 42]" — the space, made visible</span>
+
+<span class="cmt">// trace.missing() answers the same question for the one row that was held —</span>
+<span class="cmt">// 'orders'/'O1' is the row's OWN identity, not the join key it looked up.</span>
+<span class="kw">const</span> missing = router.trace.missing('orders', 'O1');
+<span class="kw">const</span> missingKey = `[${missing.key}]`;
+
+<span class="cmt">// Narrow to one route (here, by the grid it feeds) for just that route's report.</span>
+<span class="kw">const</span> routeReported = router.explain({ route: g }).route !== <span class="kw">null</span>;
+
+g.destroy(); router.destroy();
+<span class="kw">return</span> [rowsShown, join.matched, join.unmatched.left.count, offendingKey, missing.reason, missingKey, missing.source, routeReported].join(' | ');</code></pre>
 
     <p><strong>COLLECT join and join arrays (v14, BACKLOG-0001607).</strong> A <code>join</code> may be <em>one</em> spec or an <em>array</em> applied in order, and a spec with <code>many: true</code> is a <strong>collect join</strong> instead of a lookup: it gathers <em>every</em> row of <code>from</code> whose <code>foreignKey</code> equals the left row's <code>localKey</code> (defaults to the source's <code>rowKey</code>) into an array written under <code>as</code>, mapping each by <code>select</code> (default the whole row): a <em>list</em> of field names collects objects with just those fields, a <code>{ from: to }</code> <em>rename map</em> collects objects with the renamed fields, a single field-name <em>string</em> collects the bare values, and a <code>select(fromRow, leftRow)</code> <em>function</em> returns whatever you like; a field the collected rows do not have is collected as <code>undefined</code> and warns once by name (<code>data-router:collect-select-field:*</code>), with optional <code>distinct</code> and <code>sort</code> (<code>true</code> for the default ascending order, or a <code>compareFn</code>). <code>missing</code> works as for a lookup, on the collected array: <code>passthrough</code> (default) yields <code>[]</code> when nothing matches, <code>null</code> yields <code>null</code>, and <code>hold</code> withholds the row until at least one match arrives. Because a join reads <code>from</code>'s rows <em>after</em> that source's own joins, the graph chains into a <strong>multi-level join</strong> &mdash; a country rename re-enriches its addresses, which re-collect their companies &mdash; live everywhere by keyed diff, touching only the affected rows and recomputed from the base row so it stays idempotent. A declaration that would close a cycle (a source collecting from a source that transitively collects from it) is refused by name (<code>router:join-cycle</code>) rather than recursing.</p>
     <h3 id="datarouter-collect-example">A multi-level COLLECT join into a <code>list</code> column, executed</h3>
@@ -1647,6 +1693,136 @@ companyGrid.destroy(); addressGrid.destroy(); router.destroy();
         </tbody>
       </table>
     </div>
+    <h4 id="type-ExplainOptions">ExplainOptions</h4>
+    <p class="section-note">Narrow an `explain()` call to one source and/or one route. Omit both for the whole report.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">source</td><td class="type">string</td><td class="desc">A registered source id (v9, `addSource`'s id). <small>(optional)</small></td></tr>
+          <tr><td class="name">route</td><td class="type">unknown</td><td class="desc">A route's target (an `attach` grid, a `subscribe`/`alert`/`monitor` handler), its partition value, or its `label`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ExplainNarrowed">ExplainNarrowed</h4>
+    <p class="section-note">`explain()` narrowed to one source and/or one route (whichever `ExplainOptions` named); the unnamed side is omitted.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">source</td><td class="type"><a href="#type-ExplainSourceReport">ExplainSourceReport</a> | null</td><td class="desc">The named source's report, or null when the id is unknown or nothing has settled yet. Present only when `{ source }` was passed. <small>(optional)</small></td></tr>
+          <tr><td class="name">route</td><td class="type"><a href="#type-ExplainRouteReport">ExplainRouteReport</a> | null</td><td class="desc">The named route's report, or null when it cannot be resolved. Present only when `{ route }` was passed. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ExplainJoinReport">ExplainJoinReport</h4>
+    <p class="section-note">One `join`/`collect`/rollup-onto-parent/`relateRows` figure for a source's most recent settle (v18, BACKLOG-0001837). `unmatched.left` is this source's own rows whose key found nothing on the `from` side (the actual offending key values, up to 5); `unmatched.right` is `from`-side rows no left row currently points at — both are how `explain()` answers "why does my grid show 0 rows" when a join silently drops everything. `duplicates` (lookup joins only) is how many left rows matched MORE than one `from` row by key — the last one registered wins silently, so this is the signal that a lookup join's assumed 1:1 key is not.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">kind</td><td class="type">'lookup' | 'collect' | 'rollup' | 'relateRows'</td><td class="desc">'lookup' (one row), 'collect' (an array), 'rollup' (aggregated onto the parent), or 'relateRows' (a standalone delete rule).</td></tr>
+          <tr><td class="name">from</td><td class="type">string</td><td class="desc">The `from`/`parent` source id this join or rule reads.</td></tr>
+          <tr><td class="name">as</td><td class="type">string | null</td><td class="desc">The field a collect join wrote its array under, or null for every other kind.</td></tr>
+          <tr><td class="name">matched</td><td class="type">number</td><td class="desc">How many of this source's rows found at least one matching `from` row.</td></tr>
+          <tr><td class="name">unmatched</td><td class="type">{ left: ExplainSamples; right: ExplainSamples }</td><td class="desc">Keys that found nothing, on each side of the join — the actual offending values, up to 5 samples each.</td></tr>
+          <tr><td class="name">duplicates</td><td class="type">ExplainSamples</td><td class="desc">Lookup joins only: left rows that matched more than one `from` row by key (the last one registered silently wins).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ExplainSourceReport">ExplainSourceReport</h4>
+    <p class="section-note">One source's full `explain()` report for its most recent settle (v18, BACKLOG-0001837).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">source</td><td class="type">string</td><td class="desc">The source id (`addSource`'s id, or an `unnest` spec's `as`).</td></tr>
+          <tr><td class="name">rows</td><td class="type">{ loaded: number; applied: number; removed: number }</td><td class="desc">Rows this settle loaded (a `load()` snapshot), applied (an `apply()`/`push()` upsert) and removed.</td></tr>
+          <tr><td class="name">fields</td><td class="type">Record&lt;string, ExplainFieldReport&gt;</td><td class="desc">One entry per declared `fields` coercion, keyed by field name.</td></tr>
+          <tr><td class="name">unnest</td><td class="type">Record&lt;string, ExplainUnnestReport&gt;</td><td class="desc">One entry per `unnest` spec, keyed by its `as`.</td></tr>
+          <tr><td class="name">joins</td><td class="type"><a href="#type-ExplainJoinReport">ExplainJoinReport</a>[]</td><td class="desc">One entry per `join`/collect/rollup-onto-parent, plus any `relateRows` rule naming this source as the child.</td></tr>
+          <tr><td class="name">spread</td><td class="type">{ touched: number; reemitted: number }</td><td class="desc">A `spread` join's rows touched (enriched) and re-emitted (actually changed) this settle.</td></tr>
+          <tr><td class="name">cascade</td><td class="type">{ touched: number; reemitted: number }</td><td class="desc">Rows of THIS source's dependents (sources that join from it) touched and re-emitted by this settle's cascade.</td></tr>
+          <tr><td class="name">timingMs</td><td class="type">number</td><td class="desc">Wall-clock ms this settle spent ingesting/enriching this source (includes any unnest expansion it triggered).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ExplainRouteReport">ExplainRouteReport</h4>
+    <p class="section-note">One route's (or `alert`/`monitor`'s) full `explain()` report for its most recent settle (v18, BACKLOG-0001837).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">route</td><td class="type">unknown</td><td class="desc">The route's `label` when set, else its partition value, else an opaque stable id (never a live grid/handler reference — this is JSON-safe).</td></tr>
+          <tr><td class="name">label</td><td class="type">string | null</td><td class="desc">The route's `label`, or null.</td></tr>
+          <tr><td class="name">kind</td><td class="type">'alert' | 'monitor'</td><td class="desc">`alert`/`monitor` only: which kind this is. Absent for a grid/`subscribe` route. <small>(optional)</small></td></tr>
+          <tr><td class="name">when</td><td class="type">{ routed: number; unrouted: number }</td><td class="desc">Rows this settle's `when` predicate routed here, and how many matched no route at all (router-wide, duplicated on every route's report).</td></tr>
+          <tr><td class="name">filter</td><td class="type">{ in: number; out: number }</td><td class="desc">Rows in (the route's partition) and out (after `filter` and any cross-grid link/graph predicate).</td></tr>
+          <tr><td class="name">transform</td><td class="type">{ in: number; out: number } | null</td><td class="desc">Rows transform ran over, in and out (a transform never drops a row). Null for an `alert`/`monitor` (it has none).</td></tr>
+          <tr><td class="name">sort</td><td class="type">{ count: number } | null</td><td class="desc">How many rows this settle's `sort` ordered (0 when the route has no `sort`). Null for an `alert`/`monitor`.</td></tr>
+          <tr><td class="name">rollup</td><td class="type">{ in: number; out: number; groups: number } | null</td><td class="desc">Null for a non-rollup route (or an `alert`/`monitor`); otherwise rows in, summary rows out, and the group count.</td></tr>
+          <tr><td class="name">write</td><td class="type">{ add: number; update: number; remove: number } | null</td><td class="desc">Rows written to the grid this settle, by kind. Null for an `alert`/`monitor` (it renders nothing).</td></tr>
+          <tr><td class="name">timingMs</td><td class="type">number</td><td class="desc">Wall-clock ms this settle spent in this route's `materialize()` (0 for an `alert`/`monitor`, which never materializes).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ExplainReport">ExplainReport</h4>
+    <p class="section-note">The whole `explain()` report for the most recent settle (v18, BACKLOG-0001837) — one `load`/`apply`/`push` and everything it cascaded into. Narrow with `{ source }`/`{ route }` for just one part; this is what comes back when neither is passed. Fully JSON-serialisable (every id is a string, label or number — never a live grid/handler reference) and safe to `JSON.stringify`/parse and compare.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">sources</td><td class="type">Record&lt;string, <a href="#type-ExplainSourceReport">ExplainSourceReport</a>&gt;</td><td class="desc">One entry per registered source, keyed by its id.</td></tr>
+          <tr><td class="name">routes</td><td class="type"><a href="#type-ExplainRouteReport">ExplainRouteReport</a>[]</td><td class="desc">One entry per route (grid/`subscribe`, then `alert`/`monitor`), in attach order.</td></tr>
+          <tr><td class="name">unrouted</td><td class="type">number</td><td class="desc">How many records this settle matched no route (same figure as `metrics()`'s `unrouted` and each route report's `when.unrouted`).</td></tr>
+          <tr><td class="name">timingMs</td><td class="type">number</td><td class="desc">Wall-clock ms the whole settle took, start to finish.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-TraceResult">TraceResult</h4>
+    <p class="section-note">`router.trace(gridOrLabel, rowKey)`'s result for a row the store still holds (v19, BACKLOG-0001838).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">known</td><td class="type">true</td><td class="desc">Always true for a row the store still holds — the `known: false` case is `TraceNotTraced`.</td></tr>
+          <tr><td class="name">source</td><td class="type">{ id: string; key: unknown }[]</td><td class="desc">The source row(s) the path began from: the source id and the row's identity as that source knows it.</td></tr>
+          <tr><td class="name">steps</td><td class="type"><a href="types.html#type-TraceStep">TraceStep</a>[]</td><td class="desc">Every step the row passed, in order.</td></tr>
+          <tr><td class="name">route</td><td class="type">{ label: string | null } | null</td><td class="desc">The route that delivered it (its `label`), or null if it never reached one.</td></tr>
+          <tr><td class="name">write</td><td class="type">{ op: 'add' | 'update'; seq: number | undefined } | null</td><td class="desc">The write it produced and the seq it carried, or null if it never reached one.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-TraceMissingResult">TraceMissingResult</h4>
+    <p class="section-note">`trace.missing()`'s result for a row the store still holds (v19, BACKLOG-0001838).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">known</td><td class="type">true</td><td class="desc">Always true for a row the store still holds — the `known: false` case is `TraceNotTraced`.</td></tr>
+          <tr><td class="name">present</td><td class="type">boolean</td><td class="desc">Whether the row is, right now, in the grid asked about (or any grid, when none was named).</td></tr>
+          <tr><td class="name">message</td><td class="type">string</td><td class="desc">A human-readable explanation.</td></tr>
+          <tr><td class="name">reason</td><td class="type"><a href="types.html#type-TraceMissingReason">TraceMissingReason</a></td><td class="desc">The reason code, when `present` is false. <small>(optional)</small></td></tr>
+          <tr><td class="name">label</td><td class="type">string | null</td><td class="desc">`predicate-false` only: the route whose predicate rejected it. <small>(optional)</small></td></tr>
+          <tr><td class="name">key</td><td class="type">unknown</td><td class="desc">`join-no-partner` only: the key looked up and the source it looked in. <small>(optional)</small></td></tr>
+          <tr><td class="name">source</td><td class="type">string</td><td class="desc">`join-no-partner`/`removed-by-cascade` only: the source (or parent key) it looked in/followed. <small>(optional)</small></td></tr>
+          <tr><td class="name">parentKey</td><td class="type">unknown</td><td class="desc">`removed-by-cascade` only: the parent row's key whose removal cascaded the delete to this row. <small>(optional)</small></td></tr>
+          <tr><td class="name">route</td><td class="type">{ label: string | null }</td><td class="desc">Present when the row IS in the grid: which route. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RouterTraceApi">RouterTraceApi</h4>
+    <p class="section-note">`router.trace` (v19, BACKLOG-0001838): a callable — `trace(gridOrLabel, rowKey)` — with `enable`/`disable`/`missing` attached, the same shape `on`'s unsubscribe or a timer's controller takes when a capability needs more than one entry point.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">enable</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Turn tracing on.</td></tr>
+          <tr><td class="name">disable</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Turn tracing off.</td></tr>
+          <tr><td class="name">missing</td><td class="type">(sourceRef: unknown, sourceKey: unknown, gridOrLabel?: unknown): <a href="#type-TraceMissingResult">TraceMissingResult</a> | TraceNotTraced</td><td class="desc"><code>sourceRef: unknown</code><br><code>sourceKey: unknown</code><br><code>gridOrLabel?: unknown</code></td><td class="type"><code><a href="#type-TraceMissingResult">TraceMissingResult</a> | TraceNotTraced</code></td><td class="desc">Why `sourceKey` on source `sourceRef` is not (or is) in a grid; narrow to one route's predicate with `gridOrLabel`.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-RouterQueryAdapter">RouterQueryAdapter</h4>
     <p class="section-note">A pushdown adapter `query()` can source the router from (v7): anything with an `execute(query, request)` returning rows, and optional `capabilities` the planner consults to decide what it may push down.</p>
     <div class="table-wrap">
@@ -1698,6 +1874,7 @@ companyGrid.destroy(); addressGrid.destroy(); router.destroy();
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
+          <tr><td class="name">trace</td><td class="type"><a href="#type-RouterTraceApi">RouterTraceApi</a></td><td class="desc">Trace one row's path through the router (v19, BACKLOG-0001838), and — via `trace.missing()` — why an input row is NOT in a grid. Off by default (`{ trace: true }` on `createDataRouter`, or `trace.enable()`; `trace.disable()` turns it off); while off, each step pays one boolean check. Recording is bounded (`traceLimit`, default 10,000 rows; oldest dropped first) — a row outside the store answers {@link TraceNotTraced} rather than a guess.</td></tr>
           <tr><td class="name">unrouted</td><td class="type">number</td><td class="desc">How many records matched no route since the last `load` or `query`, running for deltas. <small>(read-only)</small></td></tr>
           <tr><td class="name">dropped</td><td class="type">number</td><td class="desc">How many stale or duplicate deltas the dedupe gate dropped since creation (v3). <small>(read-only)</small></td></tr>
           <tr><td class="name">persisting</td><td class="type">boolean</td><td class="desc">Whether durable persistence is on and not degraded to in-memory (v12). <small>(read-only)</small></td></tr>
@@ -1733,6 +1910,7 @@ companyGrid.destroy(); addressGrid.destroy(); router.destroy();
           <tr><td class="name">relateRows</td><td class="type">(o: { child: string | <a href="#type-RouterSourceHandle">RouterSourceHandle</a>; parent: string | <a href="#type-RouterSourceHandle">RouterSourceHandle</a>; foreignKey: <a href="types.html#type-RouterKey">RouterKey</a>; onParentDelete?: <a href="types.html#type-RouterParentDelete">RouterParentDelete</a>; writeBack?: boolean }): <a href="#type-DataRouter">DataRouter</a></td><td class="desc"><code>o: { child: string | <a href="#type-RouterSourceHandle">RouterSourceHandle</a>; parent: string | <a href="#type-RouterSourceHandle">RouterSourceHandle</a>; foreignKey: <a href="types.html#type-RouterKey">RouterKey</a>; onParentDelete?: <a href="types.html#type-RouterParentDelete">RouterParentDelete</a>; writeBack?: boolean }</code></td><td class="type"><code><a href="#type-DataRouter">DataRouter</a></code></td><td class="desc">Declare a parent→child delete rule without a join (v18, BACKLOG-0001612): deleting a `parent` row cascades (`onParentDelete: 'cascade'`) or orphans (`'orphan'`) the `child` rows whose `foreignKey` matches, or does nothing (`'keep'`, the default). `writeBack` (default false) routes each cascaded delete through the router's `onWrite` so the host persists it.</td></tr>
           <tr><td class="name">fieldsOf</td><td class="type">(ref: unknown): string[]</td><td class="desc"><code>ref: unknown</code></td><td class="type"><code>string[]</code></td><td class="desc">The spread field names a route currently carries (v16, BACKLOG-0001611): with a `spread` join, each EAV attribute row becomes its own field on the parent, and this reports the names a host can turn into grid columns. Pass the route's target (an `attach` grid or a `subscribe` handler), its partition value, or its `label`. Returns the names in first-seen order — an empty array for an unknown route, a route with no spread fields, or a router with no spread join. Pair it with the `fields:changed` event to add or drop columns as attributes appear and disappear.</td></tr>
           <tr><td class="name">metrics</td><td class="type">(): <a href="#type-RouterMetrics">RouterMetrics</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-RouterMetrics">RouterMetrics</a></code></td><td class="desc">A cheap point-in-time snapshot of the router's runtime (v10); throughput is measured since the previous read.</td></tr>
+          <tr><td class="name">explain</td><td class="type">(opts?: <a href="#type-ExplainOptions">ExplainOptions</a>): <a href="#type-ExplainReport">ExplainReport</a> | <a href="#type-ExplainNarrowed">ExplainNarrowed</a></td><td class="desc"><code>opts?: <a href="#type-ExplainOptions">ExplainOptions</a></code></td><td class="type"><code><a href="#type-ExplainReport">ExplainReport</a> | <a href="#type-ExplainNarrowed">ExplainNarrowed</a></code></td><td class="desc">Explain the most recent settle (v18, BACKLOG-0001837): what the last `load`/`apply`/`push` (and every cascade it triggered) did, per source and per route — rows in/out at each pipeline step, which join/unnest/ spread/cascade keys matched or didn't (up to 5 sample offending values), the grid writes produced, and the wall-clock ms each step took. Where `metrics()` answers "how much, how fast", this answers "what happened, and where did my rows go". Always current (the counters it reads run whether or not this is ever called); pass `{ source }` and/or `{ route }` to narrow to just that part.</td></tr>
           <tr><td class="name">on</td><td class="type">(event: <a href="types.html#type-RouterEventName">RouterEventName</a>, handler: (snapshot: <a href="#type-RouterEventPayloads">RouterEventPayloads</a>[<a href="types.html#type-RouterEventName">RouterEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>event: <a href="types.html#type-RouterEventName">RouterEventName</a></code><br><code>handler: (snapshot: <a href="#type-RouterEventPayloads">RouterEventPayloads</a>[<a href="types.html#type-RouterEventName">RouterEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Subscribe to a router event (v10): the periodic `metrics` emit — the timer runs only while a listener is registered — or a `fields:changed` emit when a spread join's field set for a route changes (v16). What each carries is {@link RouterEventPayloads}. Returns the unsubscribe.</td></tr>
           <tr><td class="name">mountDevtools</td><td class="type">(el: unknown): RouterDevtoolsPanel</td><td class="desc"><code>el: unknown</code></td><td class="type"><code>RouterDevtoolsPanel</code></td><td class="desc">Mount the live devtools panel into `el` (v10); it re-renders on each `metrics` emit.</td></tr>
           <tr><td class="name">lastSeq</td><td class="type">(): number | undefined</td><td class="desc">&mdash;</td><td class="type"><code>number | undefined</code></td><td class="desc">The highest seq applied — the resume point to request the feed from after a dropped socket (v3).</td></tr>
@@ -1781,6 +1959,8 @@ companyGrid.destroy(); addressGrid.destroy(); router.destroy();
           <tr><td class="name">time</td><td class="type"><a href="types.html#type-RouterKey">RouterKey</a></td><td class="desc">Where a record carries its timestamp — a property name or a function. It is the axis `scrubTo` and `replay` move along when time-travel is buffering. <small>(optional)</small></td></tr>
           <tr><td class="name">config</td><td class="type"><a href="#type-RouterConfig">RouterConfig</a></td><td class="desc">A whole router described as data — routes, links, buffering — applied through `configure()` as soon as the router is built. <small>(optional)</small></td></tr>
           <tr><td class="name">metricsInterval</td><td class="type">number</td><td class="desc">How often, in milliseconds, to emit the `metrics` event. 1000 by default; `0` stops the timer and leaves `metrics()` to be read on demand. <small>(optional)</small></td></tr>
+          <tr><td class="name">trace</td><td class="type">boolean</td><td class="desc">Turn trace recording on from the start (v19, BACKLOG-0001838), equivalent to calling `trace.enable()` immediately. Off by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">traceLimit</td><td class="type">number</td><td class="desc">The trace store's bound, oldest row dropped first (v19). 10,000 by default. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
