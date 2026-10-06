@@ -1,5 +1,5 @@
 {
-  "version": "1.88.0",
+  "version": "1.88.1",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -181,14 +181,14 @@
       "docs": "api/charts.html#chartsmodule"
     },
     {
-      "id": "chart.axis.band.thinned",
+      "id": "chart.axis.band.every.impossible",
       "module": "charts",
       "severity": "warn",
-      "since": "1.74.0",
-      "message": "{hidden} of {total} band labels were hidden: even the smallest font (--lattice-chart-tick-min) could not make them all fit. Set axis.x.every or axis.y.every to choose which ones show.",
-      "meaning": "A banded axis (a category axis's rotated labels, or the upright band labels down the side) shrank its label font toward the `--lattice-chart-tick-min` floor to try to draw every band without hiding any, and even the floor was still wider than a band. The axis fell back to showing every nth label instead, and this is that fallback, reported once — which bands are shown is otherwise indistinguishable from a caller's own `every`.",
-      "fix": "Give the axis more room, lower `--lattice-chart-tick-min`, or set `axis.x.every`/`axis.y.every` yourself to choose exactly which labels are kept.",
-      "snippet": "createChart({ grid, container, type: 'heatmap', axis: { y: { every: 1 } } });",
+      "since": "1.88.1",
+      "message": "axis.x.every/axis.y.every is set to {every}, which on {total} band(s) never shows a second label no matter how much room the axis is given. Lower it, or drop it to let the axis thin automatically.",
+      "meaning": "A banded axis (a category axis's rotated labels, or the upright band labels down the side) was given an explicit `axis.x.every`/`axis.y.every` at least as long as the axis's own band count, so the stride can never land on a second band and only the first is ever drawn. Unlike ordinary responsive thinning — which a narrow pane forces and which never warns, because the hidden categories are still named in full in the chart's accessible table — this outcome is fixed by the number itself, not by the plot's size, so no amount of room fixes it. Reported once.",
+      "fix": "Lower `axis.x.every`/`axis.y.every` below the number of bands, or drop it entirely to let the axis choose a stride that fits.",
+      "snippet": "createChart({ grid, container, type: 'heatmap', axis: { y: { every: 100 } } });",
       "docs": "api/charts.html#chartsmodule"
     },
     {

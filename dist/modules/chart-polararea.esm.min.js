@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.88.0, chart-polararea module
+ * Lattice Grid 1.88.1, chart-polararea module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

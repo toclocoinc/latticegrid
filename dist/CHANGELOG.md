@@ -9,6 +9,14 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.88.1] - 2026-10-06
+
+### Fixed
+
+- **A band chart's responsive label thinning in a narrow pane stops logging a `[lattice]` console warning** (BACKLOG-0001895). A crowded category axis (or the upright row labels down a horizontal bar's or heatmap's side) shrinking toward its font floor and then showing every nth label is ordinary responsive layout, not a misconfiguration — every category it does not draw is still named in full in the chart's accessible table — but it warned under `chart.axis.band.thinned` on every single render, which a host with any normal responsive layout saw on every load with nothing to fix. A band chart with 30 categories now logs nothing at 320, 400 or 480 px. The one case that still warns, once, by name (`chart.axis.band.every.impossible`), is a caller's own `axis.x.every`/`axis.y.every` set to a stride at least as long as the axis itself, which can never show a second label no matter how much room the axis is given — a fact about the configured number, not about the plot's size. <!-- not-breaking: removes console noise a host's working code could not have depended on; the drawn output is unchanged -->
+
+- **A filter set from code on a pushdown/remote grid now reaches the engine even when it names a column the grid does not display** (BACKLOG-0001896). A server-delegated source (a DuckDB, OData, GraphQL, Elasticsearch or any `createPushdownSource` grid) resolves columns the grid never declared — a value it filters on but does not show as a column. Setting such a filter from code, e.g. `grid.filters.set({ col: 'dep_hour', op: 'lt', value: 6 })` where `dep_hour` is a real column of the data but not a grid column, silently did nothing: the condition was pruned as an "unknown column", no `WHERE` reached the engine, the match count stayed at the full row total, and nothing narrowed. The unknown-column refusal exists to stop the in-browser filter kernel reading "no column to test" as "match every row", but that hazard only exists for a grid that evaluates the filter itself over its own columnar store (a `memory` or `stream` source); a server-delegated grid sends the condition to an engine that knows the column. The prune is now scoped to the stores that can fail open, so a `<`, `<=`, `>`, `>=` (or any) filter on an undeclared-but-real column pushes to the engine as a bound clause and lands its rows and count. A `memory`/`stream` grid still refuses a genuinely unknown column exactly as before.
+
 ## [1.88.0] - 2026-10-06
 
 ### Breaking

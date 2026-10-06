@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.88.0, dashboard module type declarations
+ * Lattice Grid 1.88.1, dashboard module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
