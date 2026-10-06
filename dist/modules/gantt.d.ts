@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.88.1, gantt module type declarations
+ * Lattice Grid 1.88.2, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -30,6 +30,47 @@ export type GanttCalendar =
 export type GanttBarLabel = 'name' | 'percent' | 'dates' | 'none';
 /** The Gantt timeline's zoom: a named level, or raw pixels-per-day. */
 export type GanttZoom = 'day' | 'week' | 'month' | 'quarter';
+
+/** A row the task tooltip card can show; `tooltip.fields` picks and orders them. */
+export type GanttTooltipField = 'start' | 'end' | 'duration' | 'percentComplete' | 'effort' | 'resources' | 'cost' | 'slack';
+
+/**
+ * What a host's own `tooltip` render function is given: the same scheduled
+ * task `label`'s own function gets, plus a `{ t, formatDate, dateAxis,
+ * rawTask }` context — `t` the resolved translator, `formatDate` the SAME
+ * locale-formatted-date helper the default card's Start/End/Date rows use,
+ * `dateAxis` the view's own option, and `rawTask` the host's original task
+ * object (for a custom field the scheduled shape does not carry).
+ */
+export interface GanttTooltipContext {
+  /** The Gantt's message function: resolves a catalogue key (such as `gantt.tip.start`) in the active locale, with `{name}` parameters filled in. */
+  t: (key: string, params?: Record<string, unknown>) => string;
+  /** Formats a schedule day number as a date in the grid/plan locale, the way the built-in card shows Start and End (e.g. "May 1, 2026"). */
+  formatDate: (day: number) => string;
+  /** Whether the view draws a date axis (the view's own `dateAxis` option); when false, days are plain numbers. */
+  dateAxis: boolean;
+  /** The host's original task object for this bar, for custom fields the scheduled shape does not carry; null if it cannot be found. */
+  rawTask: GanttTask | null;
+}
+
+/**
+ * The task tooltip: a positioned card on hover and
+ * keyboard focus, anchored to the bar, in both `mount` and `mountSplit`.
+ *
+ * `true` (the default) draws the built-in card: the task name as a title,
+ * then labelled Start/End/Duration/Complete rows (dates in the grid/plan
+ * locale, e.g. "May 1, 2026"; "Duration: 152 days"), plus Effort, Assigned,
+ * Cost and Slack when the task has them. A milestone shows a single Date
+ * row instead. `{ fields }` picks and orders the rows (ignored for a
+ * milestone, which always shows just its Date). `false` turns the tooltip
+ * off. A function renders the host's own content — a `string` (always text)
+ * or a `Node`/`HTMLElement` (the host's own DOM, attached as it is; task
+ * data put into it should still be set as text, never `innerHTML`).
+ */
+export type GanttTooltip =
+  | boolean
+  | { fields?: GanttTooltipField[] }
+  | ((task: GanttScheduledTask, ctx: GanttTooltipContext) => string | HTMLElement | null | undefined);
 
 /**
  * A task in a Gantt plan. Give a `duration` or a `start`+`end` (a day-number,
@@ -1349,8 +1390,11 @@ export interface Gantt {
     zoom?: GanttZoom | number;
     /** Scroll so the today line is in view after drawing. */
     scrollToToday?: boolean;
-    /** Show a hover tooltip (dates/duration/%/slack); default true. */
-    tooltip?: boolean;
+    /**
+     * The task tooltip: a positioned card on hover and
+     * keyboard focus, anchored to the bar. Default true. See {@link GanttTooltip}.
+     */
+    tooltip?: GanttTooltip;
     /** Group tasks into swimlanes by a task property name or `fn(task)`. */
     groupBy?: string | ((task: GanttTask) => unknown);
     /** Keyboard editing + focusable bars + ARIA announcements (default true). */
@@ -1429,6 +1473,12 @@ export interface Gantt {
      * (default 6). Same meaning and default as `mount`'s.
      */
     resizeZone?: number;
+    /**
+     * The task tooltip: the SAME positioned card `mount`
+     * draws, anchored to the hovered or keyboard-focused bar. Default true.
+     * See {@link GanttTooltip}.
+     */
+    tooltip?: GanttTooltip;
     /**
      * A `{ t(key, params) }` resolver for the view's own text — the live
      * region's edit announcements. Omit it and a gantt bound to a grid borrows

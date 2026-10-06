@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.88.1, chart-serpentine module
+ * Lattice Grid 1.88.2, chart-serpentine module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

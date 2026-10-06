@@ -9,6 +9,16 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.88.2] - 2026-10-06
+
+### Added
+
+- **The Gantt task bar now shows a positioned tooltip card on hover and keyboard focus, in both `mount` and `mountSplit`** (BACKLOG-0001921). A card anchored to the bar — above it by default, flipping below or sideways to stay inside the view, with an arrow at the bar — replaces the plain view's old one-line "a · b · c" reading, whose `left`/`top` were in fact never set at all: it always drew at the plot's corner, a positioning bug fixed in the same change (the split view had no task tooltip whatsoever). The default content is the task name as a title, then labelled Start/End/Duration/Complete rows (dates in the grid's own locale, e.g. "May 1, 2026"; "Duration: 152 days"), plus Effort, Assigned, Cost and Slack when the task has them; a milestone shows a single Date row instead. `tooltip: { fields }` picks and orders the rows (`'start'`, `'end'`, `'duration'`, `'percentComplete'`, `'effort'`, `'resources'`, `'cost'`, `'slack'`); `tooltip: (task, ctx) => string | Node` renders a host's own content — a string is always text, a Node is attached as it is, and `ctx.formatDate` is the same locale formatter the default rows use; `tooltip: false` turns it off, as `tooltip: false` already did on `mount`. The hovered or keyboard-focused bar's `aria-description` always matches the card's own text exactly. Dismissed on pointer leave, blur, Escape or scroll; suppressed mid-drag, the existing rule. Themed through the same `--lattice-*` tokens as the rest of the view, in light and dark, rather than the fixed dark chip it used to be.
+
+### Fixed
+
+- **`mountSplit`'s timeline bars vanished below the first screenful once the split view scrolled vertically** (BACKLOG-0001923). The grid and timeline panes sat side by side in one scroller, each stretched to the view's own height; the grid's overflow stayed `visible` and simply painted past that height, but the timeline pane also needed `overflow-x:auto` for its own horizontal scrollbar, and a browser forces a lone `visible` axis paired with any non-`visible` axis to clip too — so a row past the first screenful was in the DOM but unreachable, however far down the pane was scrolled. The grid body and the time body are now each their own vertical scroller, their `scrollTop` kept in step by a guarded two-way mirror, so every row scrolls into view aligned with its table row, and the timeline's horizontal scrollbar stays at the bottom of the viewport rather than drifting under the last row.
+
 ## [1.88.1] - 2026-10-06
 
 ### Fixed
