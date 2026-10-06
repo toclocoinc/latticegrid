@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.87.0</title>
+<title>Types API Reference — Lattice Grid 1.88.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -2973,20 +2973,24 @@
     <p class="type-def"><code>type GanttCalendar = 'weekends' | { workdays?: number[]; holidays?: Array&lt;string | number | Date&gt; }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
     <h4 id="type-GanttConstraintType">GanttConstraintType</h4>
-    <p class="section-note">A scheduling constraint: pin the start, pin the finish, or schedule as late as possible.</p>
-    <p class="type-def"><code>type GanttConstraintType = 'must-start-on' | 'must-finish-on' | 'as-late-as-possible' | 'MSO' | 'MFO' | 'ALAP'</code></p>
+    <p class="section-note">A scheduling constraint: pin a date, floor/ceiling a start or finish, or schedule as late as possible.</p>
+    <p class="type-def"><code>type GanttConstraintType = 'as-soon-as-possible' | 'must-start-on' | 'must-finish-on' | 'as-late-as-possible' | 'start-no-earlier-than' | 'start-no-later-than' | 'finish-no-earlier-than' | 'finish-no-later-than' | 'ASAP' | 'MSO' | 'MFO' | 'ALAP' | 'SNET' | 'SNLT' | 'FNET' | 'FNLT'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
     <h4 id="type-GanttEventName">GanttEventName</h4>
     <p class="section-note">The events a Gantt controller raises. The controller's own, not a grid's: `grid.on` takes {@link EventName} and knows nothing about these, and a grid-bound Gantt follows the grid's events itself rather than re-publishing them. `on()` takes a name and a listener and warns about nothing, so a misspelt name is a subscription that never fires. The seven `before…` events are cancellable ({@link GanttBeforeEvent}); each has a matching `&lt;action&gt;:cancelled` that fires when a handler refuses, carrying the same context plus the reason. `schedule` and `error` are the recompute's own pair and are raised on every recompute, whatever caused it.</p>
-    <p class="type-def"><code>type GanttEventName = 'schedule' | 'error' | 'beforeTaskEdit' | 'beforeTaskMove' | 'beforeTaskResize' | 'beforeProgressChange' | 'beforeMilestoneMove' | 'beforeDependencyCreate' | 'beforeTaskDelete' | 'taskEdit:cancelled' | 'taskMove:cancelled' | 'taskResize:cancelled' | 'progressChange:cancelled' | 'milestoneMove:cancelled' | 'dependencyCreate:cancelled' | 'taskDelete:cancelled'</code></p>
+    <p class="type-def"><code>type GanttEventName = 'schedule' | 'error' | 'beforeTaskEdit' | 'beforeTaskMove' | 'beforeTaskResize' | 'beforeProgressChange' | 'beforeMilestoneMove' | 'beforeDependencyCreate' | 'beforeTaskDelete' | 'taskEdit:cancelled' | 'taskMove:cancelled' | 'taskResize:cancelled' | 'progressChange:cancelled' | 'milestoneMove:cancelled' | 'dependencyCreate:cancelled' | 'taskDelete:cancelled' | 'history'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
     <h4 id="type-GanttLinkType">GanttLinkType</h4>
     <p class="section-note">One of the four dependency link types (finish-to-start, start-to-start, finish-to-finish, start-to-finish).</p>
     <p class="type-def"><code>type GanttLinkType = 'FS' | 'SS' | 'FF' | 'SF'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
     <h4 id="type-GanttResourceSpec">GanttResourceSpec</h4>
-    <p class="section-note">Resource capacities for over-allocation detection and leveling (BACKLOG-0000948): either a list of resources with a capacity (max concurrent units, default 1) or a name→capacity map.</p>
-    <p class="type-def"><code>type GanttResourceSpec = Array&lt;{ id?: string; name?: string; resource?: string; capacity?: number; maxUnits?: number; max?: number; units?: number }&gt; | Record&lt;string, number&gt;</code></p>
+    <p class="section-note">Resource capacities for over-allocation detection and leveling (BACKLOG-0000948): either a list of resources or a name→capacity map. A resource may carry its own working `calendar` (BACKLOG-0001861), in which case load, workload, over-allocation and `level()` measure it against THAT: zero capacity on a day it does not work, and `capacity` is read **in hours per day** (defaulting to that weekday's `hoursPerDay`). A resource with no calendar keeps the historical unitless `capacity` (max concurrent units, default 1), treated as a fraction of the plan `hoursPerDay`. A resource may also carry cost data (BACKLOG-0001866): `rate` (per hour, for the default `type: 'work'`, or per unit of an assignment's `units` for `type: 'material'`), dated `rates` changes, and `type` — `'cost'` charges its flat `cost` once per assignment, independent of hours or units. `gantt.cost()`/`earnedValue()`/the histogram's `unit: 'cost'` read this; a resource with none of `rate`/`rates`/`cost` costs nothing, so a plan with no rate data is unaffected.</p>
+    <p class="type-def"><code>type GanttResourceSpec = Array&lt;{ id?: string; name?: string; resource?: string; capacity?: number; maxUnits?: number; max?: number; units?: number; calendar?: <a href="gantt.html#type-GanttResourceCalendar">GanttResourceCalendar</a>; rate?: number; rates?: <a href="gantt.html#type-GanttResourceRateChange">GanttResourceRateChange</a>[]; type?: 'work' | 'material' | 'cost'; cost?: number; }&gt; | Record&lt;string, number&gt;</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
+    <h4 id="type-GanttSchedulingMode">GanttSchedulingMode</h4>
+    <p class="section-note">A task's scheduling mode (BACKLOG-0001862): which quantity of `effort = duration × Σ units × hours per day` is held when another changes. `fixedDuration` (the default) holds the duration; `fixedEffort` holds the effort so more units shorten the duration; `fixedUnits` holds the units so a bigger effort lengthens the duration.</p>
+    <p class="type-def"><code>type GanttSchedulingMode = 'fixedDuration' | 'fixedEffort' | 'fixedUnits'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
     <h4 id="type-GanttZoom">GanttZoom</h4>
     <p class="section-note">The Gantt timeline's zoom: a named level, or raw pixels-per-day.</p>

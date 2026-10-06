@@ -1,5 +1,5 @@
 {
-  "version": "1.87.0",
+  "version": "1.88.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 660,
+  "count": 663,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -5066,6 +5066,16 @@
       "docs": "api/gantt.html#tasks"
     },
     {
+      "id": "gantt-histogram-squeeze",
+      "module": "gantt",
+      "severity": "warn",
+      "since": "1.88.0",
+      "message": "gantt: the histogram band needs the split view at least {needed}px tall to show its bars alongside the workload band (it is {height}px); showing its header only until there is room.",
+      "meaning": "The split view is too short to fit the timeline, the workload band and the histogram's bars together, so the histogram band is collapsed to its header row.",
+      "fix": "Give the split view more height, or drop the histogram or workload band.",
+      "docs": "api/gantt.html#plan"
+    },
+    {
       "id": "gantt-level-mapped-start",
       "module": "gantt",
       "severity": "warn",
@@ -6978,6 +6988,26 @@
       "docs": "api/adapters.html#webcomponent-v2",
       "severity": "warn",
       "since": "1.86.1"
+    },
+    {
+      "id": "gantt-print-no-split",
+      "module": "gantt",
+      "severity": "warn",
+      "since": "1.88.0",
+      "message": "gantt: print() needs a mounted split view (mountSplit); the plain view has no table or bands to print.",
+      "meaning": "`gantt.print()` prints the split view: its table, timeline and any workload or histogram band. It was called while the plain view (or nothing) was mounted, so there is no table to page.",
+      "fix": "Mount the split view with `gantt.mountSplit(el, opts)` before calling `print()`, or use `toSVG()` / `toPNG()` for a picture of the plain view.",
+      "docs": "api/gantt.html"
+    },
+    {
+      "id": "gantt-print-not-drawn",
+      "module": "gantt",
+      "severity": "warn",
+      "since": "1.88.0",
+      "message": "gantt: print() called before anything was drawn; nothing to print.",
+      "meaning": "The split view had not drawn its first frame yet when `print()` was called, so there was no laid-out plan to page.",
+      "fix": "Call `print()` after the view has rendered, for example from a user action or after `mountSplit` returns and the schedule has settled.",
+      "docs": "api/gantt.html"
     }
   ]
 }

@@ -1,14 +1,25 @@
 /*!
- * Lattice Grid 1.87.0, gantt module type declarations
+ * Lattice Grid 1.88.0, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 /** One of the four dependency link types (finish-to-start, start-to-start, finish-to-finish, start-to-finish). */
 export type GanttLinkType = 'FS' | 'SS' | 'FF' | 'SF';
 
-/** A scheduling constraint: pin the start, pin the finish, or schedule as late as possible. */
+/** A scheduling constraint: pin a date, floor/ceiling a start or finish, or schedule as late as possible. */
 export type GanttConstraintType =
-  | 'must-start-on' | 'must-finish-on' | 'as-late-as-possible' | 'MSO' | 'MFO' | 'ALAP';
+  | 'as-soon-as-possible' | 'must-start-on' | 'must-finish-on' | 'as-late-as-possible'
+  | 'start-no-earlier-than' | 'start-no-later-than' | 'finish-no-earlier-than' | 'finish-no-later-than'
+  | 'ASAP' | 'MSO' | 'MFO' | 'ALAP' | 'SNET' | 'SNLT' | 'FNET' | 'FNLT';
+
+/**
+ * A task's scheduling mode: which quantity of
+ * `effort = duration × Σ units × hours per day` is held when another changes.
+ * `fixedDuration` (the default) holds the duration; `fixedEffort` holds the
+ * effort so more units shorten the duration; `fixedUnits` holds the units so a
+ * bigger effort lengthens the duration.
+ */
+export type GanttSchedulingMode = 'fixedDuration' | 'fixedEffort' | 'fixedUnits';
 
 /** A working-time calendar: a Monday–Friday preset, or explicit working weekdays and holidays. */
 export type GanttCalendar =
@@ -84,15 +95,17 @@ export interface GanttTask {
   /** The planned window as one object, read when `baselineStart`/`baselineEnd` are absent. */
   baseline?: { start?: number | string | Date; end?: number | string | Date };
   /**
-   * Pins or pulls the task: must-start-on and must-finish-on place it on
-   * `constraintDate`, as-late-as-possible pulls it into its late window, consuming its
-   * float. A constraint date earlier than the predecessors allow is reported in
-   * `schedule.conflicts` and the feasible date is used instead.
+   * Pins, floors or ceilings the task. `must-start-on`/`must-finish-on` place it on
+   * `constraintDate`; `start-no-earlier-than`/`finish-no-earlier-than` only delay it;
+   * `start-no-later-than`/`finish-no-later-than` are a ceiling the schedule reports in
+   * `schedule.conflicts` rather than obeying; `as-late-as-possible` pulls it into its
+   * late window; `as-soon-as-possible` is the explicit spelling of the default. Each
+   * code (`MSO`, `SNET`, …) is accepted too.
    */
   constraint?: GanttConstraintType;
   /**
-   * The date the constraint pins to — a day-number, ISO date or `Date`. Unused by
-   * as-late-as-possible.
+   * The date the constraint applies to — a day-number, ISO date or `Date`. Unused by
+   * `as-late-as-possible` and `as-soon-as-possible`.
    */
   constraintDate?: number | string | Date;
   /**
@@ -135,13 +148,35 @@ export interface GanttTask {
    * writes ISO dates back.
    */
   work?: number | Array<{ date: number | string | Date; hours: number }>;
+  /**
+   * The task's scheduling mode; defaults to the plan's
+   * `schedulingMode`, then `'fixedDuration'`. Under `fixedEffort` the duration
+   * is derived from the effort and the assigned resources' hours; under
+   * `fixedUnits`/`fixedDuration` the stated duration is kept.
+   */
+  schedulingMode?: GanttSchedulingMode;
+  /**
+   * Whether adding a resource keeps the effort by splitting the units. Only meaningful on a `fixedDuration` task; defaults to
+   * the plan's `effortDriven`.
+   */
+  effortDriven?: boolean;
+  /**
+   * The task's total effort (work) in hours, the `W` in
+   * `effort = duration × Σ units × hours per day`. A scalar `work`/`hours` is
+   * read as the same value; a `work` CONTOUR array contributes its summed hours.
+   * Required for a `fixedEffort` task to drive its duration.
+   */
+  effort?: number;
   /** Leveling priority: a higher value is delayed last (default 0). */
   priority?: number;
   /** An explicit row height (px) for the split view; applied to both panels. */
   height?: number;
   /**
-   * The budgeted cost (BAC) for earned-value analysis. When
-   * omitted the task's duration is used as the budget, giving schedule-only EVM.
+   * The budgeted cost (BAC) for earned-value analysis and
+   * the task's own fixed cost for `gantt.cost()`. When
+   * omitted, `earnedValue()`'s BAC falls back to the rate-derived cost from
+   * the task's resource assignments when any resolved to a rate, else to
+   * the task's duration, giving schedule-only EVM.
    */
   cost?: number;
   /**
@@ -151,11 +186,62 @@ export interface GanttTask {
 }
 
 /**
- * Resource capacities for over-allocation detection and leveling: either a list of resources with a capacity (max
- * concurrent units, default 1) or a name→capacity map.
+ * A single resource's working calendar. Anything it leaves
+ * out is inherited from the plan calendar, so a resource that states only
+ * `holidays` keeps the plan's working week.
+ */
+export interface GanttResourceCalendar {
+  /** The resource's working weekdays, 0=Sunday … 6=Saturday; defaults to the plan's. */
+  workingDays?: number[];
+  /**
+   * The resource's working hours in a day: a flat number, or a per-weekday map
+   * (`{ 1: 7.5, 5: 4 }`). Defaults to the plan's `hoursPerDay`. This sizes the
+   * resource's own capacity, not the task's effort (which stays in plan days).
+   */
+  hoursPerDay?: number | Record<number, number>;
+  /**
+   * Leave and holidays: ISO date strings, `Date`s, plan day-numbers, or
+   * inclusive `{ from, to }` ranges. A day here is non-working for the resource.
+   */
+  holidays?: Array<string | number | Date | { from: string | number | Date; to: string | number | Date }>;
+}
+
+/**
+ * A resource's dated rate change: from `from` onward the
+ * rate in force is `rate`, replacing whatever was in force before it. `from`
+ * is a day-number, ISO date or `Date`.
+ */
+export interface GanttResourceRateChange {
+  /** The day the new rate takes effect, inclusive — a day-number, ISO date or `Date`. */
+  from: number | string | Date;
+  /** The rate in force from `from` onward, replacing whatever was in force before it. */
+  rate: number;
+}
+
+/**
+ * Resource capacities for over-allocation detection and leveling: either a list of resources or a name→capacity map.
+ *
+ * A resource may carry its own working `calendar`, in which
+ * case load, workload, over-allocation and `level()` measure it against THAT:
+ * zero capacity on a day it does not work, and `capacity` is read **in hours
+ * per day** (defaulting to that weekday's `hoursPerDay`). A resource with no
+ * calendar keeps the historical unitless `capacity` (max concurrent units,
+ * default 1), treated as a fraction of the plan `hoursPerDay`.
+ *
+ * A resource may also carry cost data: `rate` (per hour,
+ * for the default `type: 'work'`, or per unit of an assignment's `units`
+ * for `type: 'material'`), dated `rates` changes, and `type` — `'cost'`
+ * charges its flat `cost` once per assignment, independent of hours or
+ * units. `gantt.cost()`/`earnedValue()`/the histogram's `unit: 'cost'` read
+ * this; a resource with none of `rate`/`rates`/`cost` costs nothing, so a
+ * plan with no rate data is unaffected.
  */
 export type GanttResourceSpec =
-  | Array<{ id?: string; name?: string; resource?: string; capacity?: number; maxUnits?: number; max?: number; units?: number }>
+  | Array<{
+    id?: string; name?: string; resource?: string; capacity?: number; maxUnits?: number; max?: number; units?: number;
+    calendar?: GanttResourceCalendar;
+    rate?: number; rates?: GanttResourceRateChange[]; type?: 'work' | 'material' | 'cost'; cost?: number;
+  }>
   | Record<string, number>;
 
 /**
@@ -236,6 +322,21 @@ export interface GanttScheduledTask {
   percentComplete: number | null;
   /** The id of this task's summary, or null at the top level. */
   parent: string | null;
+  /**
+   * The scheduling mode the task was computed under, present
+   * only when the task takes part in effort-driven scheduling. A plain
+   * fixed-duration plan carries no such field.
+   */
+  schedulingMode?: GanttSchedulingMode;
+  /** Whether the task is effort-driven; present only on effort-scheduled tasks. */
+  effortDriven?: boolean;
+  /**
+   * The task's effort in hours, `duration × Σ units × hours
+   * per day`. Present only on effort-scheduled tasks.
+   */
+  effort?: number | null;
+  /** The task's total assigned units; present only on effort-scheduled tasks. */
+  units?: number;
   /** True when the task has children, and so was derived from them rather than scheduled. */
   isSummary: boolean;
   /** True when the task's duration is zero — a point in the plan. */
@@ -264,14 +365,19 @@ export interface GanttScheduledTask {
 export interface GanttConflict {
   /** The task whose constraint could not be honoured. */
   id: string;
-  /** The constraint that was refused, as its normalised code (`MSO` or `MFO`). */
+  /** The constraint that was refused, as its normalised code (`MSO`, `MFO`, `SNLT` or `FNLT`). */
   type: string;
-  /** The date the constraint asked for, as a day-number, or null when it named none. */
-  at: number | null;
+  /** The date the constraint asked for, as a day-number, snapped to a working day. */
+  date: number;
   /**
-   * The earliest start the predecessors actually allow — the day the engine used instead.
-   * It never places a task before its predecessors.
+   * The start (for `MSO`/`SNLT`) or finish (for `MFO`/`FNLT`) the engine actually
+   * scheduled instead. It never places a task before its predecessors, and never
+   * silently moves it to satisfy a start/finish-no-later-than ceiling.
    */
+  scheduled: number;
+  /** The same date as `date`; kept so hosts written before 1.88 keep working. */
+  at: number;
+  /** The earliest START the predecessors allow (for every constraint type); kept from before 1.88. */
   earliestFeasible: number;
 }
 
@@ -423,9 +529,36 @@ export interface GanttViolation {
 
 /** The four link types, in documented order. */
 export const LINK_TYPES: readonly GanttLinkType[];
+/**
+ * Every scheduling constraint type the Gantt understands, in MS Project order: ASAP, MSO, MFO, ALAP and the four bounds SNET, SNLT, FNET, FNLT.
+ */
+export const CONSTRAINT_TYPES: readonly GanttConstraintType[];
+
+/** The three scheduling modes, in documented order. */
+export const SCHEDULING_MODES: readonly GanttSchedulingMode[];
 
 /** Error codes the scheduler reports (rather than throwing) on bad input. */
 export const SCHEDULE_ERROR: Record<string, string>;
+
+/**
+ * Resolve any spelling of a scheduling mode (a host phrase like `'fixed-effort'`
+ * or a canonical name) to its canonical {@link GanttSchedulingMode}, or `null`
+ * when the value names none.
+ */
+export function resolveSchedulingMode(value: unknown): GanttSchedulingMode | null;
+
+/**
+ * Reconcile one effort edit into the task's duration, units and effort under its
+ * scheduling mode — the one rule the API, the split editor and
+ * the workload band funnel effort edits through, holding
+ * `effort = duration × units × hours per day`. `edit.field` names what changed
+ * (`'duration'`, `'effort'`, `'units'`, `'addResource'` or `'removeResource'`),
+ * `edit.value` the new value and `edit.units` the booking added or removed.
+ */
+export function reconcileEffort(
+  state: { mode: GanttSchedulingMode; effortDriven?: boolean; duration: number; units: number; hoursPerDay: number },
+  edit: { field: 'duration' | 'effort' | 'units' | 'addResource' | 'removeResource'; value?: number; units?: number },
+): { duration: number; units: number; effort: number };
 
 /**
  * Compute the CPM schedule for a set of tasks and dependencies: forward and
@@ -433,7 +566,7 @@ export const SCHEDULE_ERROR: Record<string, string>;
  * and the zero-float critical path, with summaries derived from their children,
  * milestones scheduled as points, and dependency cycles refused (never looped).
  */
-export function computeSchedule(tasks: GanttTask[], deps?: GanttDependency[], options?: { projectStart?: number | string | Date; deadline?: number | string | Date; calendar?: GanttCalendar | null }): GanttSchedule;
+export function computeSchedule(tasks: GanttTask[], deps?: GanttDependency[], options?: { projectStart?: number | string | Date; deadline?: number | string | Date; calendar?: GanttCalendar | null; schedulingMode?: GanttSchedulingMode; effortDriven?: boolean; hoursPerDay?: number; resourceHours?: Map<string, number> }): GanttSchedule;
 
 /** The tasks placed earlier than their earliest feasible start (manual validation). */
 export function findViolations(tasks: GanttTask[], schedule: GanttSchedule): GanttViolation[];
@@ -520,8 +653,114 @@ export interface GanttEarnedValue {
 export function computeEarnedValue(
   tasks: GanttTask[],
   schedule: GanttSchedule,
-  options?: { statusDate?: number | string | Date; costField?: string; actualCostField?: string },
+  options?: {
+    statusDate?: number | string | Date; costField?: string; actualCostField?: string;
+    /**
+     * `cost.js`'s per-task rate-derived cost, keyed by id,
+     * read as the BAC for a leaf with no explicit `cost`. `createGantt`'s own
+     * `earnedValue()` computes and supplies this; a direct caller may pass
+     * its own `computeCost` result the same way.
+     */
+    rateCosts?: Map<string, { cost: number; hasRate: boolean }>;
+  },
 ): GanttEarnedValue;
+
+/** One task's resource-rate cost figures. */
+export interface GanttCostRow {
+  /** The task the row is for. */
+  id: string;
+  /** The task's name. */
+  name: string;
+  /** True for a summary row, whose figures are the sums of its descendant leaves. */
+  isSummary: boolean;
+  /** True for a zero-duration task. */
+  isMilestone: boolean;
+  /** The task's total cost: `rateCost + fixedCost`. */
+  cost: number;
+  /**
+   * The rate-derived component: `Σ` a `'work'` resource's assignment effort
+   * times the rate in force each day, a `'material'` resource's units times
+   * its rate, and a `'cost'` resource's flat amount per assignment.
+   */
+  rateCost: number;
+  /** The task's own explicit `cost` field (0 when it states none). */
+  fixedCost: number;
+  /**
+   * Whether any assignment anywhere under this task resolved to a rate at
+   * all. `false` on a plan with no resource rate data, which is what keeps
+   * `earnedValue()`'s BAC fallback from ever substituting for a genuinely
+   * unrated task.
+   */
+  hasRate: boolean;
+}
+
+/** The resource-rate cost result for a scheduled plan. */
+export interface GanttCostResult {
+  /** Whether the cost could be computed. False when there is no successful schedule. */
+  ok: boolean;
+  /** Why the cost was refused — `NO_SCHEDULE` when the plan has not scheduled. */
+  error?: { code: string; message: string };
+  /** Every task keyed by id (leaf, summary and derived). */
+  byTask?: Map<string, GanttCostRow>;
+  /** The same rows in schedule order. */
+  rows?: GanttCostRow[];
+  /** The project total, rolled up as a money sum of the leaves. */
+  project?: { cost: number; rateCost: number; fixedCost: number; hasRate: boolean };
+}
+
+/**
+ * Compute resource-rate cost for a scheduled plan: a
+ * resource's hourly `rate` (its dated `rates` changes honoured day by day),
+ * a `'material'` resource's cost per unit, or a `'cost'` resource's flat
+ * amount per assignment, plus each task's own fixed `cost` field — per
+ * task, rolled up to summaries and the project.
+ */
+export function computeCost(
+  tasks: GanttTask[],
+  schedule: GanttSchedule,
+  options?: {
+    resources?: GanttResourceSpec;
+    resourceRates?: Map<string, { type: 'work' | 'material' | 'cost'; rate: number | null; rates: { from: number; rate: number }[]; cost: number | null }>;
+    hoursPerDay?: number;
+    isWorking?: ((day: number) => boolean) | null;
+    costField?: string;
+    fields?: object;
+  },
+): GanttCostResult;
+
+/** One cumulative S-curve point: the value of each curve as of a bucket date. */
+export interface GanttSCurvePoint {
+  /**
+   * The bucket END as a day-number — the cumulative value "as of" this date. The final
+   * point is the project finish, where `pv` equals the total budget.
+   */
+  date: number;
+  /** Planned Value: the budget planned to be done by this date (linear spread). */
+  pv: number;
+  /** Earned Value: the budget actually earned by this date (from %complete). */
+  ev: number;
+  /** Actual Cost: what the work performed cost, all recognised at the status date. */
+  ac: number;
+}
+
+/**
+ * Compute the cumulative S-curve — one `{ date, pv, ev, ac }`
+ * point per time bucket from the project start to the project finish. Built from
+ * the same per-task inputs {@link computeEarnedValue} reads: PV spreads each leaf's
+ * budget linearly over its planned (baseline, else scheduled) window; EV places
+ * completed work at the task's finish and in-progress work at the status date; AC is
+ * taken at the status date. Returns an empty array without a successful schedule.
+ */
+export function computeSCurve(
+  tasks: GanttTask[],
+  schedule: GanttSchedule,
+  options?: {
+    statusDate?: number | string | Date;
+    bucket?: 'day' | 'week' | 'month';
+    costField?: string;
+    actualCostField?: string;
+  },
+): GanttSCurvePoint[];
 
 /**
  * Why a schedule was refused.
@@ -731,7 +970,9 @@ export type GanttEventName =
   /** A `beforeDependencyCreate` handler refused the links. */
   | 'dependencyCreate:cancelled'
   /** A `beforeTaskDelete` handler refused the delete. */
-  | 'taskDelete:cancelled';
+  | 'taskDelete:cancelled'
+  /** The undo/redo timeline changed — an edit was recorded, undone, redone or cleared. */
+  | 'history';
 
 /** What a handler receives, per Gantt event. */
 export interface GanttEventPayloads {
@@ -767,6 +1008,101 @@ export interface GanttEventPayloads {
   'dependencyCreate:cancelled': GanttDependencyCreateCancelledEvent;
   /** The task that was not deleted, and why. */
   'taskDelete:cancelled': GanttTaskDeleteCancelledEvent;
+  /** The undo/redo timeline's new state. */
+  history: GanttHistoryEvent;
+}
+
+/**
+ * The payload of the `history` event, fired whenever the
+ * session undo/redo timeline changes — an edit recorded, an undo, a redo, or
+ * a clear. A host wires its undo and redo controls off `canUndo`/`canRedo`
+ * and can show `label` in a toast ("Undone: move").
+ */
+export interface GanttHistoryEvent {
+  /** Whether there is now an edit that `undo()` would reverse. */
+  canUndo: boolean;
+  /** Whether there is now an edit that `redo()` would re-apply. */
+  canRedo: boolean;
+  /**
+   * A short label for the action that triggered this event — e.g. `'move'`,
+   * `'resize'`, `'link'`, `'delete'`, `'level'`, `'add'` — or `null` after a
+   * clear. English and stable (host-facing data, not an announced string).
+   */
+  label: string | null;
+}
+
+/**
+ * The view `mountSplit` returns: the task grid, timeline and (when asked
+ * for) the resource workload/histogram bands, joined in one scroll surface.
+ * Only the methods a host drives directly off the handle are typed here —
+ * everything else (what it draws) is reached through the controller.
+ */
+export interface GanttSplitView {
+  /** The view's root element. */
+  readonly element: unknown;
+  /** The resolved split-view options this view was (re)built with. */
+  readonly options: object;
+  /** The single vertical scroller (grid + timeline). */
+  readonly scroller: unknown;
+  /** The last computed row geometry: one `{ id, top, height }` per visible row. */
+  rowGeometry(): Array<{ id: string; top: number; height: number }>;
+  /** A copy of the collapsed summary task ids. */
+  readonly collapsed: Set<string>;
+  /** Toggle a summary row's collapsed state and redraw. */
+  toggle(id: string): void;
+  /** A copy of the workload band's expanded resource keys. */
+  readonly expandedResources: Set<string>;
+  /** Expand or collapse a resource's per-task sub-rows in the workload band, and redraw. */
+  toggleResource(resource: string): void;
+  /**
+   * The unit the workload band (and, when mounted, the histogram band) is
+   * currently drawing in.
+   */
+  getWorkloadUnit(): 'hours' | 'percent' | 'cost';
+  /**
+   * Switch the workload and histogram bands to hours, percent-of-capacity or
+   * cost, redraw, and announce the change
+   * in the live region. Round-trips through the controller's
+   * `getState`/`setState`. A no-op when neither band is mounted.
+   */
+  setWorkloadUnit(unit: 'hours' | 'percent' | 'cost'): void;
+  /**
+   * Serialise this split view — the left panel, the timeline and whichever
+   * bands are mounted — to a standalone SVG string, drawn
+   * with a fixed palette independent of the mounted theme. `''` before
+   * anything has been drawn.
+   */
+  toSVG(svgOpts?: { range?: { from?: number | string | Date; to?: number | string | Date } }): string;
+  /**
+   * This split view as a PNG: `toSVG` rasterised through a
+   * canvas. Makes no network request. `null` when nothing is drawn or there
+   * is no canvas to rasterise with.
+   */
+  toPNG(pngOpts?: {
+    range?: { from?: number | string | Date; to?: number | string | Date };
+    scale?: number;
+    background?: string;
+  }): Promise<Blob | null>;
+  /**
+   * Print this split view — the table, the timeline, and the workload and
+   * histogram bands when mounted — paged and scaled: the
+   * table header and timeline header repeat on every page and no row is
+   * split across a page boundary. Opens the browser's own print path over a
+   * standalone document; "PDF" is whatever the browser's print dialog
+   * offers ("Save as PDF") — no server, no dependency. Always prints in a
+   * fixed, print-safe light palette, independent of the mounted theme.
+   */
+  print(printOpts?: {
+    paper?: 'A4' | 'Letter' | 'A3';
+    orientation?: 'landscape' | 'portrait';
+    fitToWidth?: boolean;
+    scale?: number;
+    title?: string | false;
+    header?: string | ((page: number, pages: number) => string) | false;
+    footer?: string | ((page: number, pages: number) => string) | false;
+  }): boolean;
+  /** Detach the view. The host still owns the container. */
+  destroy(): void;
 }
 
 /** A headless Gantt controller: holds the model, recomputes on edits, emits changes. */
@@ -823,8 +1159,16 @@ export interface Gantt {
    * back. Conversely, a `start` or `duration` in the patch re-times an
    * existing contour rather than discarding it — a move keeps its shape, a
    * resize stretches it across the new span at the same daily levels.
+   *
+   * `assignments` replaces the task's whole roster in ONE edit
+   * — what the split view's assignment picker commits — so several adds,
+   * removes and units changes are a single change event. It reschedules as a
+   * `units` edit to the roster's total under the task's `schedulingMode`
+   * (`units` is 1 for 100%); on a fixed-duration, effort-driven task a changed
+   * set of resources splits the held total as `addResource` does. An empty
+   * roster clears the assignments and leaves the duration alone.
    */
-  applyEdit(patch: { id: string | number; start?: number; end?: number; duration?: number; percentComplete?: number; work?: number | Array<{ date: number | string | Date; hours: number }> }, editOpts?: { writeBack?: boolean }): GanttSchedule;
+  applyEdit(patch: { id: string | number; start?: number; end?: number; duration?: number; percentComplete?: number; work?: number | Array<{ date: number | string | Date; hours: number }>; effort?: number; units?: number; addResource?: string | { resource?: string; name?: string; id?: string; units?: number }; removeResource?: string | { resource?: string; name?: string; id?: string }; assignments?: Array<{ resource: string; units?: number }> }, editOpts?: { writeBack?: boolean }): GanttSchedule;
   /**
    * Recompute the schedule now and return it. On success it emits `schedule` and
    * refreshes the resource load; on a cycle or bad input it emits `error` and leaves the
@@ -841,6 +1185,21 @@ export interface Gantt {
    * optionally overriding the capacities for this call.
    */
   resources(loadOpts?: { resources?: GanttResourceSpec; defaultCapacity?: number }): GanttResourceLoad;
+  /**
+   * The resource load as it WOULD be if a task carried the given roster: the same load calculation over the current schedule with
+   * that one task's assignments swapped, so a picker can warn of an
+   * over-allocation before anything is committed. The model is not touched and
+   * nothing is emitted.
+   */
+  previewAssignments(taskId: string | number, roster: Array<{ resource: string; units?: number }>): GanttResourceLoad;
+  /**
+   * Compute resource-rate cost for the current plan: a
+   * resource's hourly `rate` (its dated `rates` changes honoured day by
+   * day), a `'material'` resource's cost per unit, or a `'cost'`
+   * resource's flat amount per assignment, plus each task's own fixed
+   * `cost` field — per task, rolled up to summaries and the project.
+   */
+  cost(costOpts?: { costField?: string }): GanttCostResult;
   /**
    * Resolve resource over-allocation by shifting tasks later — resource
    * leveling. Honours the CPM dependencies and the
@@ -864,6 +1223,40 @@ export interface Gantt {
    * the working-time calendar, serialised with the computed schedule.
    */
   toMSPDI(xmlOpts?: { hoursPerDay?: number; projectName?: string }): string;
+  /** The plan's own title, from `createGantt({ title })`; `null` when none was given. */
+  readonly title: string | null;
+  /**
+   * Serialise the mounted view to a standalone SVG string:
+   * the plain view's chart, or the split view's table, timeline and
+   * whichever bands are mounted. `''` when nothing is mounted or drawn.
+   */
+  toSVG(svgOpts?: { range?: { from?: number | string | Date; to?: number | string | Date } }): string;
+  /**
+   * The mounted view as a PNG. `null` when nothing is
+   * mounted or drawn, or there is no canvas to rasterise with.
+   */
+  toPNG(pngOpts?: {
+    range?: { from?: number | string | Date; to?: number | string | Date };
+    scale?: number;
+    background?: string;
+  }): Promise<Blob | null>;
+  /**
+   * Print the mounted SPLIT view — paged and scaled, with the table header
+   * and timeline header repeating on every page — through the browser's
+   * own print path; "PDF" is the browser's own print-to-
+   * PDF, no server and no dependency. Needs a split view (`mountSplit`):
+   * the plain view has no table or bands to print, and this warns once and
+   * returns `false` without one.
+   */
+  print(printOpts?: {
+    paper?: 'A4' | 'Letter' | 'A3';
+    orientation?: 'landscape' | 'portrait';
+    fitToWidth?: boolean;
+    scale?: number;
+    title?: string | false;
+    header?: string | ((page: number, pages: number) => string) | false;
+    footer?: string | ((page: number, pages: number) => string) | false;
+  }): boolean;
   /**
    * The live consumer surface, mirroring `grid.rows.apply`, so a Data Router
    * can drive the Gantt like any other view. Keyed by the controller's rowKey.
@@ -881,6 +1274,32 @@ export interface Gantt {
   on(event: GanttEventName, fn: (payload: GanttEventPayloads[GanttEventName]) => void): () => void;
   /** Remove a listener registered with `on`. */
   off(event: GanttEventName, fn: (payload: GanttEventPayloads[GanttEventName]) => void): void;
+  /**
+   * Undo the most recent plan edit, restoring the exact
+   * prior plan — tasks, dependencies, assignments and work contours — and
+   * re-running scheduling to the identical result. A coalesced drag and a
+   * whole `level()` run each undo as one step. Emits `schedule` (views
+   * redraw) and `history`. Returns `false` when there is nothing to undo.
+   * History is session only: it is cleared by `setTasks`/`setState` and lost
+   * on reload, and is NOT part of `getState`/`setState`.
+   */
+  undo(): boolean;
+  /**
+   * Redo the most recently undone edit. Returns `false`
+   * when there is nothing to redo; the redo branch is discarded the moment a
+   * new edit is made.
+   */
+  redo(): boolean;
+  /** Whether there is an edit to undo. */
+  canUndo(): boolean;
+  /** Whether there is an edit to redo. */
+  canRedo(): boolean;
+  /**
+   * Forget the whole undo/redo timeline and emit `history`.
+   * History is also cleared by `setTasks`/`setState` and lost on reload; this
+   * is the explicit reset after loading a fresh plan through `rows.apply`.
+   */
+  clearHistory(): void;
   /**
    * Render the plan into a container as an SVG timeline (bars, dependency
    * arrows, critical-path highlight, today line, non-working shading,
@@ -987,6 +1406,14 @@ export interface Gantt {
      */
     evm?: boolean | { statusDate?: number | string | Date; costField?: string; actualCostField?: string };
     /**
+     * The S-curve status-date progress line: a vertical line
+     * at the status date that jogs, at each task row, to that task's actual
+     * progress point (start + %complete × duration). `true` uses the today line
+     * (or the project finish); an object sets the status date explicitly. The
+     * same status date drives the `plannedPercentComplete` column.
+     */
+    progressLine?: boolean | { statusDate?: number | string | Date };
+    /**
      * Whether the plan can be edited: pointer drags on the timeline and the
      * left panel's inline cell editors (default true). Same meaning and
      * default as `mount`'s.
@@ -1014,10 +1441,15 @@ export interface Gantt {
      * the avatars, `'progress'` the % ring (edits `percentComplete`), `'evm'`
      * an earned-value `metric`, and `'start'`/`'end'`/`'duration'` the
      * scheduled window — an ISO date, an ISO date, and a whole number of days,
-     * each of which edits the plan through the same path a bar drag takes. A column with no `kind` shows the raw task's `key`
-     * and edits it only with `editable: true`.
+     * each of which edits the plan through the same path a bar drag takes. `'effort'` (hours) and `'units'` (a percentage, 100 =
+     * one full-time resource) are the optional effort-driven columns; each edits through `applyEdit`, so the task
+     * reschedules per its `schedulingMode`. A bare string names a built-in
+     * column, so `['name', 'duration', 'effort', 'units']` is enough. On an
+     * editable plan the assignee cell opens the assignment picker. A column
+     * with no `kind` shows the raw task's `key` and edits it only with
+     * `editable: true`.
      */
-    columns?: Array<{ key: string; title?: string; width?: number; kind?: 'name' | 'assignee' | 'progress' | 'evm' | 'start' | 'end' | 'duration' | 'number'; metric?: 'bac' | 'pv' | 'ev' | 'ac' | 'sv' | 'cv' | 'spi' | 'cpi'; digits?: number; editable?: boolean; editField?: string; render?: (task: GanttScheduledTask, ctx: { rawTask: GanttTask; depth: number }) => unknown }>;
+    columns?: Array<'name' | 'start' | 'end' | 'duration' | 'assignee' | 'progress' | 'effort' | 'units' | { key: string; title?: string; width?: number; kind?: 'name' | 'assignee' | 'progress' | 'evm' | 'plannedPercentComplete' | 'start' | 'end' | 'duration' | 'effort' | 'units' | 'number'; metric?: 'bac' | 'pv' | 'ev' | 'ac' | 'sv' | 'cv' | 'spi' | 'cpi'; digits?: number; editable?: boolean; editField?: string; render?: (task: GanttScheduledTask, ctx: { rawTask: GanttTask; depth: number }) => unknown }>;
     /**
      * A resource workload band beneath the split view:
      * one row per resource on the left and, on the right, that resource's
@@ -1063,8 +1495,67 @@ export interface Gantt {
       decimals?: number;
       /** Draw the totals row and totals column; default true. */
       totals?: boolean;
+      /**
+       * `'hours'` (default; an existing page is unchanged) draws booked
+       * hours; `'percent'` draws hours as a share of the resource's own
+       * available hours that bucket — `booked ÷ available × 100`, the SAME
+       * available-hours figure the over-capacity highlight already uses
+       * (the per-resource calendar included), falling back to hours for a
+       * resource with no known capacity; a bucket with a KNOWN zero (a
+       * part-timer's non-working day, a week wholly on leave) reads "–",
+       * never `Infinity`/`NaN`. An `<button
+       * aria-pressed>` switch in the band's header toggles it (and the
+       * histogram band's, when one is mounted) live; the same switch is
+       * reachable off the view as `setWorkloadUnit`/`getWorkloadUnit`.
+       * Editing in percent mode writes HOURS: typing `50` books half the
+       * resource's available hours in that bucket, through the identical
+       * `applyEdit` path an hours edit uses. `'cost'` draws hours × the
+       * resource's rate in force each day, read off the
+       * SAME `computeWorkload` pass, falling back to hours for a resource
+       * with no rate data; cost has no capacity concept, so there is no
+       * over-highlight or capacity line in this unit.
+       */
+      unit?: 'hours' | 'percent' | 'cost';
     };
-  }): unknown;
+    /**
+     * A resource histogram band beneath the split view, below the workload
+     * band when both are mounted: one row per resource,
+     * drawn as bars per time bucket rather than a table of numbers, with a
+     * capacity line and a hover/focus tooltip. `true` takes the defaults
+     * below; an object overrides them; omitted, no band is drawn.
+     *
+     * The bars come from the SAME derivation the workload band uses
+     * (`computeWorkload`, driven off `work`/`hours`/`assignments` exactly as
+     * documented on `workload` above) — this is a second PICTURE of the same
+     * numbers, not a second source of them. The non-stacked bar for a bucket
+     * over capacity carries both the normal fill up to capacity and the
+     * over-allocation fill above it; `stacked: 'task'` additionally splits
+     * the within-capacity portion into one coloured segment per contributing
+     * task, still capped by the one over-allocation segment on top. An
+     * accessible table (resource, period, hours/percent, capacity,
+     * over-allocated) is rebuilt alongside the bars on every redraw.
+     *
+     * Mounted alongside `workload` at a fixed `height`, the two bands share
+     * it rather than squeezing the timeline: the timeline keeps at least
+     * half the view, the bands shrink in proportion when both do not
+     * otherwise fit, and — rather than ever reading as an unreadably thin
+     * sliver of bars — the histogram collapses to its header strip (with a
+     * console warning naming the height it needs) when even its
+     * proportional share would leave too little room for the plot.
+     */
+    histogram?: boolean | {
+      /** Which resources to draw, and in what order; omitted draws every resource `computeWorkload` finds, Unassigned last. */
+      resources?: string[];
+      /** `'hours'` (default) draws raw hours; `'percent'` draws hours as a percentage of capacity, falling back to `'hours'` for a resource with no capacity; `'cost'` draws hours × rate, falling back to `'hours'` for a resource with no rate data, with no capacity line in this unit. */
+      unit?: 'hours' | 'percent' | 'cost';
+      /** `'task'` stacks one segment per contributing task; `false` (default) draws one solid bar per bucket. */
+      stacked?: 'task' | false;
+      /** The band's total height in pixels; default 160. */
+      height?: number;
+      /** A band row's height in pixels; default 48. */
+      rowHeight?: number;
+    };
+  }): GanttSplitView;
   /**
    * Capture a baseline (planned) snapshot of the current schedule as HOST data
    * (this does not mutate the tasks). Store it and feed it back as
@@ -1077,6 +1568,21 @@ export interface Gantt {
    * duration when no cost is given; AC comes from `actualCost`.
    */
   earnedValue(evmOpts?: { statusDate?: number | string | Date; costField?: string; actualCostField?: string }): GanttEarnedValue;
+  /**
+   * Compute the cumulative S-curve for the current plan — one
+   * `{ date, pv, ev, ac }` point per time bucket from the project start to the
+   * project finish. The same arithmetic `earnedValue` performs, evaluated over
+   * time: PV climbs to the total budget at the finish, EV and AC stop at the
+   * status date.
+   */
+  sCurve(scurveOpts?: { statusDate?: number | string | Date; bucket?: 'day' | 'week' | 'month'; costField?: string; actualCostField?: string }): GanttSCurvePoint[];
+  /**
+   * Mount a cumulative PV/EV/AC S-curve chart: three lines, a
+   * vertical status-date marker, a legend with the project SPI and CPI, and a
+   * visually hidden table of the points. Redraws on every schedule recompute;
+   * the returned view's `refresh()` redraws it now and `destroy()` detaches it.
+   */
+  mountSCurve(container: unknown, scurveOpts?: { width?: number; height?: number; bucket?: 'day' | 'week' | 'month'; statusDate?: number | string | Date; costField?: string; actualCostField?: string }): { refresh(): void; destroy(): void };
   /** Detach the mounted view, if any. The host still owns the container. */
   unmount(): void;
   /** The mounted view, or null. */
@@ -1114,10 +1620,39 @@ export function createGantt(opts?: {
   resources?: GanttResourceSpec;
   /** The capacity for a resource with none stated (default 1 = one full-time booking). */
   defaultCapacity?: number;
+  /**
+   * The plan's hours in a full working day. It
+   * sizes a resource calendar's hours capacity against a full-time day and is
+   * the default the workload band assumes, so the over-allocation marks and the
+   * band agree on what "full" means.
+   */
+  hoursPerDay?: number;
+  /**
+   * The plan's default scheduling mode, inherited by any task
+   * that names none. The default is `'fixedDuration'`, so a plan that sets
+   * neither this nor a per-task `schedulingMode` schedules exactly as before.
+   */
+  schedulingMode?: GanttSchedulingMode;
+  /**
+   * The plan's default effort-driven flag: on a fixed-duration
+   * task, adding a resource then splits the units and keeps the effort rather
+   * than adding units. Inherited by any task that sets no `effortDriven`.
+   */
+  effortDriven?: boolean;
   autoSchedule?: boolean;
+  /** The plan's own title: `print()`'s default header when a call names no title of its own. */
+  title?: string;
   grid?: unknown;
+  /**
+   * How many session undo steps to keep; default 100. Each
+   * user or API edit is one step (a drag coalesces into one, a whole
+   * `level()` run is one); older steps fall off the bottom. History is
+   * session only — cleared by `setTasks`/`setState`, lost on reload, and not
+   * part of `getState`/`setState`.
+   */
+  historyDepth?: number;
   /** Map task fields to grid column ids to enable drag write-back. */
-  columns?: { start?: string; end?: string; duration?: string };
+  columns?: { start?: string; end?: string; duration?: string; percentComplete?: string; name?: string; assignments?: string; effort?: string; units?: string };
   /**
    * Task identity for the live `rows.apply` surface (a field or fn, returning
    * a string or number); default 'id'. Composite (`string[]`) keys are

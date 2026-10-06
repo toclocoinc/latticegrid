@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.87.0, type declarations
+ * Lattice Grid 1.88.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -14176,6 +14176,13 @@ export interface ChartSpec {
    * to — an explicit {@link ChartSpec.downsample} included.
    */
   perRow?: boolean;
+  /**
+   * Row keys that thinning must always keep drawn. `regressionPlots` fills
+   * it with the model's own outliers (top residual, Cook's D and leverage rows, and every
+   * flagged row) so a thinned diagnostic chart never drops them. Ignored unless the scatter
+   * is thinned.
+   */
+  keepRows?: Array<string | number>;
   /**
    * Where the chart's aggregate is computed (GEO-5). `'auto'`, the default,
    * asks the grid's pushdown source — `source.aggregate()`, with x (and

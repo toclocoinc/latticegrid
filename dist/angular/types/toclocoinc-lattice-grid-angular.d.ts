@@ -1184,6 +1184,8 @@ declare class LatticeGanttComponent extends LatticeViewerBase<Gantt> {
     readonly schedule: EventEmitter<any>;
     /** The viewer's `error` event. */
     readonly error: EventEmitter<any>;
+    /** The viewer's `history` event: undo/redo availability after each change (BACKLOG-0001864). */
+    readonly history: EventEmitter<any>;
     /**
      * The live inputs, by the names the viewer tables use.
      * @returns the live props that are set
@@ -1198,7 +1200,7 @@ declare class LatticeGanttComponent extends LatticeViewerBase<Gantt> {
      */
     protected mount(element: HTMLElement, config: Props): Gantt;
     static ɵfac: i0.ɵɵFactoryDeclaration<LatticeGanttComponent, never>;
-    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeGanttComponent, "lattice-gantt", never, { "config": { "alias": "config"; "required": false; }; "tasks": { "alias": "tasks"; "required": false; }; "dependencies": { "alias": "dependencies"; "required": false; }; }, { "schedule": "schedule"; "error": "error"; }, never, never, true, never>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeGanttComponent, "lattice-gantt", never, { "config": { "alias": "config"; "required": false; }; "tasks": { "alias": "tasks"; "required": false; }; "dependencies": { "alias": "dependencies"; "required": false; }; }, { "schedule": "schedule"; "error": "error"; "history": "history"; }, never, never, true, never>;
 }
 
 /**
