@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.88.3, chart-forcetree module type declarations
+ * Lattice Grid 1.88.4, chart-forcetree module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

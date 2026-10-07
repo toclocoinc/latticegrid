@@ -809,7 +809,22 @@ const VIEWER_EVENTS$1 = Object.freeze({
 
     chart: Object.freeze(['click', 'hover', 'leave', 'draw', 'legend']),
 
-    gantt: Object.freeze(['schedule', 'error', 'history', 'columnResize']),
+    gantt: Object.freeze([
+        'schedule', 'error', 'history', 'columnResize', 'workload:click', 'task:filtered', 'draw', 'dependencies',
+        'cell:click', 'zoomChange', 'visibleRangeChange',
+        'taskExpand', 'taskCollapse', 'resourceExpand', 'resourceCollapse', 'selectionChange',
+
+        'rowMove',
+        'taskAdd', 'taskRemove', 'taskUpdate', 'dependencyAdd', 'dependencyRemove', 'dependencyUpdate',
+        'assignmentChange', 'datesChanged', 'change',
+        'schedulingConflict',
+
+        'taskDragStart', 'taskDrag', 'taskResizeStart', 'taskPartialResize', 'taskResizeEnd',
+        'percentBarDragStart', 'percentBarDrag', 'percentBarDrop',
+        'taskClick', 'taskDblClick', 'taskMouseOver', 'taskMouseOut',
+
+        'dirtyChange',
+    ]),
     layout: Object.freeze([
         'layout:changed', 'window:moved', 'window:resized', 'window:closed',
         'beforeWindowClose', 'windowClose:cancelled',
@@ -2713,6 +2728,78 @@ class LatticeGanttComponent extends LatticeViewerBase {
         this.history = new EventEmitter();
 
         this.columnResize = new EventEmitter();
+
+        this.workloadClick = new EventEmitter();
+
+        this.taskFiltered = new EventEmitter();
+
+        this.draw = new EventEmitter();
+
+        this.dependenciesChanged = new EventEmitter();
+
+        this.cellClick = new EventEmitter();
+
+        this.taskExpand = new EventEmitter();
+
+        this.taskCollapse = new EventEmitter();
+
+        this.resourceExpand = new EventEmitter();
+
+        this.resourceCollapse = new EventEmitter();
+
+        this.selectionChange = new EventEmitter();
+
+        this.rowMove = new EventEmitter();
+
+        this.schedulingConflict = new EventEmitter();
+
+        this.taskAdd = new EventEmitter();
+
+        this.taskRemove = new EventEmitter();
+
+        this.taskUpdate = new EventEmitter();
+
+        this.dependencyAdd = new EventEmitter();
+
+        this.dependencyRemove = new EventEmitter();
+
+        this.dependencyUpdate = new EventEmitter();
+
+        this.assignmentChange = new EventEmitter();
+
+        this.datesChanged = new EventEmitter();
+
+        this.change = new EventEmitter();
+
+        this.taskDragStart = new EventEmitter();
+
+        this.taskDrag = new EventEmitter();
+
+        this.taskResizeStart = new EventEmitter();
+
+        this.taskPartialResize = new EventEmitter();
+
+        this.taskResizeEnd = new EventEmitter();
+
+        this.percentBarDragStart = new EventEmitter();
+
+        this.percentBarDrag = new EventEmitter();
+
+        this.percentBarDrop = new EventEmitter();
+
+        this.taskClick = new EventEmitter();
+
+        this.taskDblClick = new EventEmitter();
+
+        this.taskMouseOver = new EventEmitter();
+
+        this.taskMouseOut = new EventEmitter();
+
+        this.zoomChange = new EventEmitter();
+
+        this.visibleRangeChange = new EventEmitter();
+
+        this.dirtyChange = new EventEmitter();
     }
 
     liveProps() {
@@ -2729,7 +2816,7 @@ class LatticeGanttComponent extends LatticeViewerBase {
         return createGantt({ ...config, element });
     }
     static { this.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeGanttComponent, deps: null, target: i0.ɵɵFactoryTarget.Component }); }
-    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeGanttComponent, isStandalone: true, selector: "lattice-gantt", inputs: { config: "config", tasks: "tasks", dependencies: "dependencies" }, outputs: { schedule: "schedule", error: "error", history: "history", columnResize: "columnResize" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
+    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeGanttComponent, isStandalone: true, selector: "lattice-gantt", inputs: { config: "config", tasks: "tasks", dependencies: "dependencies" }, outputs: { schedule: "schedule", error: "error", history: "history", columnResize: "columnResize", workloadClick: "workload-click", taskFiltered: "task-filtered", draw: "draw", dependenciesChanged: "dependencies", cellClick: "cell-click", taskExpand: "taskExpand", taskCollapse: "taskCollapse", resourceExpand: "resourceExpand", resourceCollapse: "resourceCollapse", selectionChange: "selectionChange", rowMove: "rowMove", schedulingConflict: "schedulingConflict", taskAdd: "taskAdd", taskRemove: "taskRemove", taskUpdate: "taskUpdate", dependencyAdd: "dependencyAdd", dependencyRemove: "dependencyRemove", dependencyUpdate: "dependencyUpdate", assignmentChange: "assignmentChange", datesChanged: "datesChanged", change: "change", taskDragStart: "taskDragStart", taskDrag: "taskDrag", taskResizeStart: "taskResizeStart", taskPartialResize: "taskPartialResize", taskResizeEnd: "taskResizeEnd", percentBarDragStart: "percentBarDragStart", percentBarDrag: "percentBarDrag", percentBarDrop: "percentBarDrop", taskClick: "taskClick", taskDblClick: "taskDblClick", taskMouseOver: "taskMouseOver", taskMouseOut: "taskMouseOut", zoomChange: "zoomChange", visibleRangeChange: "visibleRangeChange", dirtyChange: "dirtyChange" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
 }
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeGanttComponent, decorators: [{
             type: Component,
@@ -2747,6 +2834,82 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
             }], history: [{
                 type: Output
             }], columnResize: [{
+                type: Output
+            }], workloadClick: [{
+                type: Output,
+                args: ['workload-click']
+            }], taskFiltered: [{
+                type: Output,
+                args: ['task-filtered']
+            }], draw: [{
+                type: Output
+            }], dependenciesChanged: [{
+                type: Output,
+                args: ['dependencies']
+            }], cellClick: [{
+                type: Output,
+                args: ['cell-click']
+            }], taskExpand: [{
+                type: Output
+            }], taskCollapse: [{
+                type: Output
+            }], resourceExpand: [{
+                type: Output
+            }], resourceCollapse: [{
+                type: Output
+            }], selectionChange: [{
+                type: Output
+            }], rowMove: [{
+                type: Output
+            }], schedulingConflict: [{
+                type: Output
+            }], taskAdd: [{
+                type: Output
+            }], taskRemove: [{
+                type: Output
+            }], taskUpdate: [{
+                type: Output
+            }], dependencyAdd: [{
+                type: Output
+            }], dependencyRemove: [{
+                type: Output
+            }], dependencyUpdate: [{
+                type: Output
+            }], assignmentChange: [{
+                type: Output
+            }], datesChanged: [{
+                type: Output
+            }], change: [{
+                type: Output
+            }], taskDragStart: [{
+                type: Output
+            }], taskDrag: [{
+                type: Output
+            }], taskResizeStart: [{
+                type: Output
+            }], taskPartialResize: [{
+                type: Output
+            }], taskResizeEnd: [{
+                type: Output
+            }], percentBarDragStart: [{
+                type: Output
+            }], percentBarDrag: [{
+                type: Output
+            }], percentBarDrop: [{
+                type: Output
+            }], taskClick: [{
+                type: Output
+            }], taskDblClick: [{
+                type: Output
+            }], taskMouseOver: [{
+                type: Output
+            }], taskMouseOut: [{
+                type: Output
+            }], zoomChange: [{
+                type: Output
+            }], visibleRangeChange: [{
+                type: Output
+            }], dirtyChange: [{
                 type: Output
             }] } });
 

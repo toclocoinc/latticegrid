@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.88.3, type declarations
+ * Lattice Grid 1.88.4, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1522,6 +1522,8 @@ export interface TooltipParams {
   column: Column;
   /** The cell's value. */
   value: unknown;
+  /** The cell's record — the same `p.data` a cell renderer reads, so tooltip code written like a cell render works unchanged. */
+  data: unknown;
   /** The cell's formatted text. */
   text: string;
   /** The cell element the tooltip is anchored to. */
@@ -1924,7 +1926,7 @@ export interface ColumnHeaderSpec {
    * label element itself and return nothing, or return an `Element` (attached
    * for you) or a `string` (used as the heading text).
    */
-  render?: string | RendererCtor;
+  render?: string | RendererCtor | HeaderRenderFn;
   /** Props passed to `render` as `params.props`. */
   props?: Record<string, unknown>;
   /**
@@ -1945,6 +1947,44 @@ export interface ColumnHeaderSpec {
    */
   align?: Align;
 }
+
+/**
+ * What a heading renderer is handed, for `header.render` on a column and on a
+ * column group alike — the same shape the two share.
+ *
+ * The renderer is called as `render(label, params)`: `label` is the heading
+ * element to fill, and `params` carries everything else. A leaf column gets
+ * `column` and `colId`; a band heading gets `group` and `groupId` instead.
+ * Either way the renderer may append to `label` itself and return nothing, or
+ * return an `Element` (attached for you) or a `string` (used as the heading
+ * text).
+ */
+export interface HeaderParams {
+  /** The resolved column whose heading is being drawn. Absent on a band heading, which gets `group` instead. */
+  column?: ResolvedColumn;
+  /** The column's id, for the common case where that is all the renderer needs. Absent on a band heading. */
+  colId?: string;
+  /** The column group whose band heading is being drawn. Absent on a leaf column, which gets `column` instead. */
+  group?: ColumnGroup;
+  /** The band's id, which is its `title` when no `id` was given. Absent on a leaf column. */
+  groupId?: string;
+  /** The heading text the stock rendering would have used. */
+  title: string;
+  /** The heading text again, so a renderer written like a cell renderer can read `params.value`. */
+  value: string;
+  /** Whatever `header.props` holds, passed through — always an object, empty when the column or band declared none. */
+  props: Record<string, unknown>;
+  /** The grid instance, so a heading can read the rest of the grid. */
+  grid: Grid;
+  /** The document the heading element lives in, for building new nodes. */
+  document: Document;
+}
+
+/**
+ * The short form of a heading renderer: a function handed the heading element
+ * to fill and the {@link HeaderParams} above.
+ */
+export type HeaderRenderFn = (label: HTMLElement, params: HeaderParams) => HTMLElement | string | void;
 
 /** How a lookup column leaves in an export: its label, its stored value, or both. */
 export type ColumnExportLookup = 'label' | 'value' | 'columns';
@@ -2410,7 +2450,7 @@ export interface ColumnGroup {
    * Presentation for the band's own heading cell: a custom renderer, the props
    * handed to it, and classes to add.
    */
-  header?: { render?: string | RendererCtor; props?: Record<string, unknown>; class?: string | string[] };
+  header?: { render?: string | RendererCtor | HeaderRenderFn; props?: Record<string, unknown>; class?: string | string[] };
   /**
    * The header histogram of every column under this band, as a default: `true`
    * turns it on with the grid's settings, `false` off, an object overrides
@@ -3751,6 +3791,35 @@ export interface SelectionConfig {
 }
 
 /**
+ * Why a grid is empty when it shows its `emptyMessage`.
+ *
+ * `'noData'` is an empty dataset; `'filtered'` is a non-empty dataset whose
+ * rows are all hidden by the current filters; `'loading'` is a count that has
+ * not arrived yet, and is never delivered to the message — the grid waits for
+ * one of the other two rather than guessing.
+ */
+export type EmptyMessageReason = 'noData' | 'filtered' | 'loading';
+
+/**
+ * What the `emptyMessage` callback is handed: why the grid is
+ * empty, plus the two numbers that let a host put the reason in its own words.
+ */
+export interface EmptyMessageContext {
+  /** Why the grid is empty: `'noData'` or `'filtered'`. */
+  reason: EmptyMessageReason;
+  /** The unfiltered row count, or `null` while the source cannot say. */
+  total: number | null;
+  /** The number of display rows, zero while this message is shown. */
+  visible: number;
+}
+
+/**
+ * The empty-state message: a fixed string, or a function that
+ * returns one — or a DOM node — from the reason the grid is empty.
+ */
+export type EmptyMessage = string | ((ctx: EmptyMessageContext) => string | Node);
+
+/**
  * Loading feedback for a windowed source (paged, pushdown or remote): the
  * automatic overlay shown while the first fetch is in flight
  * and the per-row shimmer or spinner a page still in flight
@@ -4642,8 +4711,40 @@ export interface GridConfig {
    * memory-backed grid.
    */
   loading?: LoadingConfig;
-  /** Offer a full-screen control. */
-  maximise?: boolean;
+  /**
+   * What an empty grid says in place of its rows.
+   *
+   * Shown through the ordinary overlay whenever the grid has no visible rows,
+   * and hidden the moment rows arrive. Omitted, the grid says the catalogue's
+   * `overlay.noRows` for an empty dataset and `overlay.noResults` when every
+   * row is filtered out; a string replaces both with one sentence; a function
+   * can tell the two apart — and return a node instead of text — from the
+   * reason it is handed. Never shown while a fetch or a deferred count is
+   * still in flight.
+   */
+  emptyMessage?: EmptyMessage;
+  /**
+   * Offer a full-screen control. `false` removes the rail button and
+   * `grid.maximise`, for an application with its own full-screen mode; an
+   * object tunes how the grid fills the screen.
+   */
+  maximise?: boolean | {
+    /**
+     * The layer the maximised grid sits at, as a CSS `z-index` value. Defaults
+     * to the `--lattice-maximise-z` token, which is deliberately far below the
+     * ceiling so an application's toasts, dialogs and popups can still open
+     * above it. Lower it to tuck the grid under a specific host layer.
+     */
+    zIndex?: number | string;
+    /**
+     * An element to fill instead of the browser viewport. The grid is moved
+     * into this element and sized to it, so a host can "maximise" inside its
+     * own modal, panel or split region rather than the whole window. The
+     * element should be `position: relative` (or otherwise positioned) so the
+     * grid fills it rather than a further ancestor.
+     */
+    container?: HTMLElement;
+  };
   /** Extra functions a formula may call, on top of the built-in library. */
   formulaFunctions?: Record<string, (args: unknown[]) => unknown>;
   /**
@@ -5419,7 +5520,11 @@ export interface GridState {
   selection?: string[];
   /**
    * Where the body was scrolled to. Absent on a headless grid, which has no
-   * scroll position worth saving.
+   * scroll position worth saving, and omitted from `state.get()` unless it is
+   * called with `{ scroll: true }` — scroll is transient UI
+   * state, not view state, so a saved view never carries it. `state.apply()`
+   * restores it only when this key is present *and* `apply` is called with
+   * `{ scroll: true }`.
    */
   scroll?: { top: number; left: number };
   /** The page being shown and its size. Absent when the grid does not page. */
@@ -8722,11 +8827,17 @@ export interface ColumnsApi {
   showTagged(tags?: string | string[] | null): string[];
   /** The tags currently being shown, empty when all are. */
   activeTags(): string[];
-  /** Show columns by id. Recorded on the undo timeline. */
+  /**
+   * Show columns by id. Recorded on the undo timeline. Several single calls
+   * made in the same tick — to this, to `hide`, or to both — coalesce the
+   * renderer's column layout the same way `resize` does;
+   * `column:visible` still fires synchronously for every call.
+   */
   show(ids: string | string[]): void;
   /**
    * Hide columns by id. `beforeColumnHide` can cancel it, and a column marked
-   * `layout.lockVisible` refuses and warns.
+   * `layout.lockVisible` refuses and warns. Coalesces with other same-tick
+   * resize/show/hide/pin calls the way `resize` does.
    */
   hide(ids: string | string[]): void;
   /**
@@ -8754,15 +8865,35 @@ export interface ColumnsApi {
   moveGroup(groupId: string, to: number): void;
   /**
    * Freeze a column against the start or the end edge, or pass `null` to
-   * return it to the scrolling body. Recorded on the undo timeline.
+   * return it to the scrolling body. Recorded on the undo timeline. Also
+   * takes a batch — an array of ids sharing one `side`, or a map of id to
+   * side (`columns.pin({ a: 'start', b: null })`) — which is one history
+   * entry and one `column:pinned`. Coalesces with other
+   * same-tick resize/show/hide/pin calls the way `resize` does.
    */
-  pin(id: string, side: Edge | null): void;
+  pin(id: string | string[] | Record<string, Edge | null>, side?: Edge | null): void;
   /**
    * Set a column's width in pixels, clamped to its `min` and `max`. A column
    * marked `resizable: false` refuses and warns. An explicit width clears the
    * column's `flex`, so the next layout pass does not undo it.
+   *
+   * Also takes a batch — a map of id to width (`columns.resize({ a: 120, b:
+   * 80 })`) or an array of `[id, width]` pairs or `{ id, width }` objects —
+   * which is one history entry and one `column:resized` naming every id that
+   * resized, each still clamped to its own column.
+   *
+   * Several single calls (to this, or to `show`/`hide`/`pin`) made in the
+   * same tick coalesce the renderer's column layout: the first pays for its
+   * own pass, same as a lone call always has, and every call after it that
+   * tick waits for one more pass on the next frame instead of paying for its
+   * own — 420 single resizes blocked the main thread for 6.2 s before this,
+   * 25 ms after. That coalescing is the DOM layout only: `column:resized`
+   * fires synchronously for every call, in the order called, and the width
+   * this method just set is already the one `columns.get()` and
+   * `state.get()` report — reading the *rendered* column's own width right
+   * after a call may still show the old one until the renderer catches up.
    */
-  resize(id: string, px: number): void;
+  resize(id: string | Record<string, number> | Array<[string, number] | { id: string; width: number }>, px?: number): void;
   /**
    * Set, change or clear a column's decoration at runtime (§8.7). Pass `null` to
    * clear it back to plain text. Presentation config: it is not on the undo
@@ -10884,14 +11015,23 @@ export interface StateApi {
    * Capture the grid's current view — sort, filters, column order, widths, visibility,
    * grouping and the rest — as a plain, JSON-safe object. Columns the reader is not
    * permitted to see are stripped, because the presence of a column is itself information.
+   *
+   * Omits the scroll position unless `opts.scroll` is `true`: it is
+   * transient UI state, not view state, so a saved view or a host persisting this does
+   * not reopen the grid scrolled to wherever it happened to be when captured.
    */
-  get(): GridState;
+  get(opts?: { scroll?: boolean }): GridState;
   /**
    * Restore a captured state, skipping the sections named in `skip`. Nothing throws: a
    * section that cannot be applied is listed in the report with a reason. The whole restore
    * is one logical change, so it makes one undo entry and one state event.
+   *
+   * A `scroll` key in `state` is only restored when `opts.scroll` is `true`
+   * — otherwise it is left alone even when present, which is what keeps
+   * an old persisted state or a view saved before scroll was excluded from `get()` from
+   * reopening the grid scrolled away from the top.
    */
-  apply(state: GridState, opts?: { skip?: (keyof GridState)[] }): StateApplyReport;
+  apply(state: GridState, opts?: { skip?: (keyof GridState)[]; scroll?: boolean }): StateApplyReport;
   /**
    * The grid as configured, without `config.state` — captured once, before
    * that seed is applied, so a view opened through `config.state` is never
@@ -12713,6 +12853,14 @@ export function elasticsearchAdapter(options: {
 
 export function createGrid(element: HTMLElement, config?: GridConfig): Grid;
 export function createHeadlessGrid(config?: HeadlessGridConfig): Grid;
+
+/**
+ * Construct and initialise an editor in one call, honouring `cancelBeforeStart`
+ * so a read-only cell never opens one (§11.2). `registry` is the module registry
+ * whose `editors` map names the custom editors to look up; without it only the
+ * built-in editors resolve. Returns null when the editor refused to open.
+ */
+export function createEditor(params: EditorParams, registry?: { editors?: Record<string, unknown> }): Editor | null;
 
 /**
  * House-wide defaults, merged beneath every grid built afterwards.
@@ -16499,6 +16647,12 @@ export interface ColumnResizedEvent extends GridEvent {
    * explicit `columns.resize`.
    */
   autoSize?: boolean;
+  /**
+   * Every id a batch `columns.resize` call resized, in place of `id`/`width`.
+   */
+  ids?: string[];
+  /** Each id's new width, for a batch call. */
+  widths?: Record<string, number>;
 }
 
 /** `column:visible`: columns were shown or hidden. */
@@ -16511,15 +16665,23 @@ export interface ColumnVisibleEvent extends GridEvent {
 
 /** `column:pinned`: a column was pinned to a side, or unpinned. */
 export interface ColumnPinnedEvent extends GridEvent {
-  /** The column that was pinned. */
-  id: string;
+  /**
+   * The column that was pinned, for a single-id call. A batch call reports
+   * `ids` instead.
+   */
+  id?: string;
   /**
    * Which side it is pinned to now, or null when it was unpinned. The sides are
    * the writing-direction ones {@link ColumnApi#pin} takes — `'start'` and
    * `'end'` — not left and right, so a right-to-left grid reports the same value
-   * for the same gesture.
+   * for the same gesture. Only set for a single-id call; a batch call reports
+   * `pins` instead.
    */
-  side: Edge | null;
+  side?: Edge | null;
+  /** Every id a batch `columns.pin` call pinned, in place of `id`/`side`. */
+  ids?: string[];
+  /** Each id's new side, for a batch call. */
+  pins?: Record<string, Edge | null>;
 }
 
 /** `column:grouped`: the row grouping changed. */

@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.88.3</title>
+<title>Grid API Reference — Lattice Grid 1.88.4</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -727,7 +727,7 @@
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">statusBar</td><td class="type">boolean | { panels }</td><td class="desc">Composable panels along the bottom. Default set: <code>rowCount</code>, <code>selectedCount</code>, <code>aggregation</code>, <code>comments</code>, <code>updates</code>, <code>progress</code>. Each is silent when it has nothing to report.</td></tr>
-          <tr><td class="name">maximise</td><td class="type">boolean</td><td class="dflt">true</td><td class="desc"><code>false</code> removes the rail button and <code>grid.maximise</code>, for an application with its own full-screen mode.</td></tr>
+          <tr><td class="name">maximise</td><td class="type">boolean | { zIndex, container }</td><td class="dflt">true</td><td class="desc"><code>false</code> removes the rail button and <code>grid.maximise</code>, for an application with its own full-screen mode. An object tunes how it fills: <code>zIndex</code> is the CSS layer the maximised grid sits at, defaulting to the <code>--lattice-maximise-z</code> token (1000, far below the ceiling) so a host's toasts, dialogs and popups open above it — lower it to tuck the grid under a specific layer. <code>container</code> is an element to fill instead of the browser viewport, for a host that wants "maximise" to mean its own modal or panel; that element should be <code>position: relative</code>.</td></tr>
           <tr><td class="name">toolPanel</td><td class="type">boolean | object</td><td class="desc">Side dock. <code>panels</code>: <code>columns</code>, <code>filters</code>, <code>views</code>, <code>quick</code>, <code>formatting</code>, <code>statistics</code>, <code>regression</code> — each a bare name, an object giving it <code>props</code>/<code>title</code>/<code>icon</code>, or a constructor of your own (BACKLOG-0001885). The <code>regression</code> panel falls back to the grid's own <code>regression</code> option when its entry carries no props. <code>side: 'left'</code> makes it the icon rail, which also turns on <code>actions</code> (<code>undo</code>, <code>redo</code>, <code>pause</code>, <code>restore</code>, <code>maximise</code>, then the export group: <code>export</code>, <code>excel</code>, <code>clipboard</code>, <code>print</code>: nine in all, and an array takes these names rather than the button labels) and <code>icons</code>. An explicit array <em>replaces</em> that list rather than extending it; a bare <code>'-'</code> in it renders a divider between groups. <code>exportName</code> names the CSV. <code>annotate</code> is a three-state option, not a boolean flag. <code>annotate: true</code> adds the native annotation tools — <code>pen</code>, <code>arrow</code>, <code>rect</code>, <code>highlight</code> — to the rail as toggle buttons (pressed while in use, pressed again to exit), and they stay put whether or not a presentation is running. <code>annotate: false</code> opts OUT: none of the four tools are ever added, presentation or not. Omitting <code>annotate</code> keeps the default: the tools are off until a presentation starts, appear for its duration, and leave when it ends.</td></tr>
           <tr><td class="name">groupPanel</td><td class="type">boolean | object</td><td class="desc">A drag-and-drop group-by strip above the column header — the row-group panel. Drag a heading into it to group by that column; the active groups show as removable, reorderable chips, and reordering the chips changes the nesting order. It is keyboard-operable — arrows move between chips, <code>Shift</code> with an arrow reorders, <code>Delete</code> ungroups, and an add control groups any column — and every change is announced through the live region. Off by default and non-breaking; it drives the same model as <code>grid.columns.group()</code> and reimplements nothing. The object form takes <code>hint</code>, the placeholder shown while nothing is grouped.</td></tr>
           <tr><td class="name">kpis</td><td class="type"><a href="#type-StatConfig">StatConfig</a>[]</td><td class="desc">A built-in KPI/stat strip: a labelled band of stat tiles the grid places for you above the column header. Each entry is a <code>createStat</code> spec — <code>of</code>, <code>fn</code>, <code>title</code>, <code>interval</code>, <code>footer</code>, <code>format</code> and the rest, minus <code>grid</code> and <code>container</code>, which the grid supplies — so a strip tile and a hand-placed one are the same object. The tiles follow the grid's filters, recomputing on every change like a stand-alone stat does. Off by default and non-breaking; it reuses <code>createStat</code> and reimplements no compute.</td></tr>
@@ -1856,7 +1856,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.88.3'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.88.4'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -1925,8 +1925,8 @@ grid.overlay.hide();</code></pre>
           <tr><td class="sig">get(id)</td><td class="type"><a href="#type-ResolvedColumn">ResolvedColumn</a></td><td class="desc"></td></tr>
           <tr><td class="sig">show(ids) / hide(ids)</td><td class="type">void</td><td class="desc"></td></tr>
           <tr><td class="sig">move(id, to)</td><td class="type">void</td><td class="desc">Index into the full column order.</td></tr>
-          <tr><td class="sig">pin(id, side)</td><td class="type">void</td><td class="desc"><code>'start'</code>, <code>'end'</code> or <code>null</code>.</td></tr>
-          <tr><td class="sig">resize(id, px)</td><td class="type">void</td><td class="desc"></td></tr>
+          <tr><td class="sig">pin(id, side)</td><td class="type">void</td><td class="desc"><code>'start'</code>, <code>'end'</code> or <code>null</code>. Also takes a batch — an id array or a map of id to side — one history entry, one <code>column:pinned</code> (BACKLOG-0001972).</td></tr>
+          <tr><td class="sig">resize(id, px)</td><td class="type">void</td><td class="desc">Also takes a batch — a map of id to width, or an array of pairs — one history entry, one <code>column:resized</code>; several single calls made in the same tick, to this or to <code>show</code>/<code>hide</code>/<code>pin</code>, coalesce the renderer's layout the same way (BACKLOG-0001972, see below).</td></tr>
           <tr><td class="sig">autoSize(ids)</td><td class="type">void</td><td class="desc">Fit each column to its rendered content.</td></tr>
           <tr><td class="sig">fit()</td><td class="type">void</td><td class="desc">Size the visible resizable columns so that every column the grid draws, together, exactly fills the body viewport's client width at the moment of the call: without the vertical scrollbar when there is one, the full inner width when there is not. Columns it does not size (<code>resizable: false</code>, and the grid's selection checkbox, detail expander, group and tree columns) keep their width and are taken out first; the rest share what is left in proportion to their widths, within each <code>min</code>/<code>max</code>. If that is less than their minimums, each goes to its minimum, never below, and the grid scrolls horizontally, with a warning. One-shot: it sets fixed widths (a <code>flex</code> column included) and does not follow later size changes; call it again after a resize or after late rows bring a scrollbar in.</td></tr>
           <tr><td class="sig">group(ids)</td><td class="type">void</td><td class="desc">Set the row-group columns, in order.</td></tr>
@@ -1939,6 +1939,41 @@ grid.overlay.hide();</code></pre>
           <tr><td class="sig">apply(state)</td><td class="type"><a href="adapters.html#type-StateApplyReport">StateApplyReport</a></td><td class="desc">Restore it. Never throws and never refuses: a saved view written against an older column set applies as much of itself as still makes sense, and the returned <code>{ applied, skipped }</code> names what it could not use and why. Columns added since the view was saved appear in their declared state, after the ones it names. See <a href="../api-detail.html#views-guide">Saved views</a>.</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="example">
+      <p class="example__label"><code>resize</code>, <code>show</code>, <code>hide</code> and <code>pin</code> take a batch, and coalesce (BACKLOG-0001972)</p>
+      <pre data-run="js" data-expect="resized a,b|c|d; widths 120/80/90/70; visible a,c,d,e; pinned c,d" data-covers="method:columns.resize method:columns.show method:columns.hide method:columns.pin"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  rows: [{ id: 1 }],
+  columns: ['a', 'b', 'c', 'd', 'e'].map((id) =&gt; ({ id, field: id, layout: { width: 100 } })),
+});
+
+const resized = [];
+grid.on('column:resized', (e) =&gt; resized.push(e.ids ? e.ids.join(',') : e.id));
+
+// A map of id to width is one call, one history entry, one event naming
+// every id. Two more single calls land in the same tick — on a real
+// renderer the three would coalesce into one relayout on the next frame
+// instead of three, but `column:resized` still fires once per call, here
+// and for `show`/`hide`/`pin` below, and every width read back is already
+// the new one.
+grid.columns.resize({ a: 120, b: 80 });
+grid.columns.resize('c', 90);
+grid.columns.resize('d', 70);
+
+grid.columns.hide(['a', 'b']);
+grid.columns.show('a');
+grid.columns.pin(['c', 'd'], 'start');
+
+const widths = ['a', 'b', 'c', 'd'].map((id) =&gt; grid.columns.get(id).layout.width).join('/');
+const visible = grid.columns.visible().map((c) =&gt; c.id).join(',');
+const pinned = grid.columns.all().filter((c) =&gt; c.layout.pin).map((c) =&gt; c.id).join(',');
+grid.destroy();
+
+return `resized ${resized.join('|')}; widths ${widths}; visible ${visible}; pinned ${pinned}`;</code></pre>
     </div>
 
     <h3 id="columns-panel-bands">Header bands in the Columns tool panel</h3>
@@ -2307,14 +2342,35 @@ grid.import.apply(preview);
       <table>
         <thead><tr><th>Method</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">get()</td><td class="type"><a href="#type-GridState">GridState</a></td><td class="desc">Versioned and serialisable: <code>columns</code>, <code>columnOrder</code>, <code>filters</code>, <code>quick</code>, <code>sort</code>, <code>group</code>, <code>pivot</code>, <code>expanded</code>, <code>selection</code>, <code>scroll</code>, <code>pagination</code>.</td></tr>
-          <tr><td class="sig">apply(state, opts?)</td><td class="type">object</td><td class="desc">Restore a view. Returns a report of anything it could not apply (a column that no longer exists, for instance) rather than failing silently.</td></tr>
+          <tr><td class="sig">get(opts?)</td><td class="type"><a href="#type-GridState">GridState</a></td><td class="desc">Versioned and serialisable: <code>columns</code>, <code>columnOrder</code>, <code>filters</code>, <code>quick</code>, <code>sort</code>, <code>group</code>, <code>pivot</code>, <code>expanded</code>, <code>selection</code>, <code>pagination</code>. <code>scroll</code> is omitted unless called with <code>{ scroll: true }</code> (BACKLOG-0001971) &mdash; it is transient UI state, not view state, so a saved view does not reopen the grid scrolled to wherever it was when captured.</td></tr>
+          <tr><td class="sig">apply(state, opts?)</td><td class="type">object</td><td class="desc">Restore a view. Returns a report of anything it could not apply (a column that no longer exists, for instance) rather than failing silently. A <code>scroll</code> key in <code>state</code> is restored only when <code>opts.scroll</code> is also <code>true</code>; otherwise it is left alone even when present.</td></tr>
           <tr><td class="sig">baseline()</td><td class="type"><a href="#type-GridState">GridState</a> | null</td><td class="desc">The state the grid started in, captured once <em>after</em> <code>config.state</code> and any default view, so the baseline is the grid you shipped, not the one before your own configuration ran.</td></tr>
           <tr><td class="sig">reset()</td><td class="type">object | null</td><td class="desc">Put the grid back to that baseline, as <strong>one</strong> undo entry. Clears anything the baseline does not mention, including the quick filter.</td></tr>
           <tr><td class="sig">modified()</td><td class="type">boolean</td><td class="desc">Whether anything has changed since construction. Lets a "restore" control disable itself rather than offering an action that would do nothing.</td></tr>
         </tbody>
       </table>
     </div>
+    <p><strong>Scroll is opt-in, on both sides</strong> (BACKLOG-0001971). It is transient UI state, not view state, so a saved view, the baseline and <code>serialiseState</code>'s diff never carry it: <code>get()</code> omits it unless called with <code>{ scroll: true }</code>, and <code>apply()</code> restores a <code>scroll</code> key only when it is present <em>and</em> <code>apply</code> is also called with <code>{ scroll: true }</code> &mdash; so an old persisted state that still has one does not reopen the grid scrolled away from the top.</p>
+    <pre data-run="js" data-expect="false,true,true,true" data-covers="method:state"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ id: 'n', field: 'n' }],
+  rows: [{ id: '1', n: 'a' }],
+});
+
+<span class="kw">const</span> hasScrollByDefault = 'scroll' in grid.state.get();
+<span class="kw">const</span> hasScrollOptedIn = 'scroll' in grid.state.get({ scroll: true });
+
+<span class="kw">const</span> ignored = grid.state.apply({ version: 2, scroll: { top: 220, left: 0 } });
+<span class="kw">const</span> scrollIgnored = !ignored.applied.includes('scroll');
+
+<span class="kw">const</span> applied = grid.state.apply({ version: 2, scroll: { top: 220, left: 0 } }, { scroll: true });
+<span class="kw">const</span> scrollApplied = applied.applied.includes('scroll');
+
+<span class="kw">const</span> result = [hasScrollByDefault, hasScrollOptedIn, scrollIgnored, scrollApplied].join(',');
+grid.destroy();
+<span class="kw">return</span> result;</code></pre>
     <h2 id="history">grid.history</h2>
     <p>Undo across the whole grid, not only edits. Sorts, filters, column moves, grouping, an applied view and a restore all record an entry, and each carries a label written for a button: <code>"sort by Region"</code>, not <code>"sort"</code>.</p>
     <div class="table-wrap">
@@ -3549,6 +3605,31 @@ return `diff ${before}; vetoed kept ${vetoed}; approved wrote ${approved}`;</cod
         </tbody>
       </table>
     </div>
+
+    <div class="example">
+      <p class="example__label">An <code>emptyMessage</code> that tells an empty dataset from one the filters emptied</p>
+      <pre data-run="js" data-expect="before hidden | filtered No rows match those filters" data-covers="config:GridConfig.emptyMessage"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid } = await import('../packages/dom/src/index.js');
+
+const dom = createTestDom({ width: 400, height: 200 });
+const grid = createGrid(dom.root, {
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'region' }],
+  rows: [{ id: '1', region: 'north' }, { id: '2', region: 'south' }],
+  emptyMessage: (ctx) =&gt; ctx.reason === 'filtered' ? 'No rows match those filters' : 'No rows yet',
+});
+flushFrames();
+const before = dom.root.querySelector('[data-overlay="empty"]') ? 'showing' : 'hidden';
+
+grid.filters.set({ col: 'region', op: 'eq', value: 'nowhere' });
+flushFrames();
+const emptyEl = dom.root.querySelector('[data-overlay="empty"]');
+const filtered = emptyEl ? emptyEl.querySelector('.lat-overlay-message')?.textContent : undefined;
+
+grid.destroy();
+return `before ${before} | filtered ${filtered}`;
+</code></pre>
+    </div>
     <h2 id="maximise">grid.maximise</h2>
     <p>Fills the browser window with the grid, and puts it back. The rail's last button is
     this; <code>grid.maximise</code> is the same thing, so an application can bind its own
@@ -3582,6 +3663,44 @@ grid.maximise.exit();</code></pre>
     exactly as it was found, because the element being restyled is <em>yours</em>. While maximised the element
     carries <code>.lat-maximised</code> and <code>&lt;body&gt;</code> carries <code>.lat-maximised-host</code>,
     as hooks for your own CSS.</p></div>
+
+    <div class="note"><p><strong>Putting your own toasts, dialogs and popups above a maximised grid.</strong>
+    The grid sits at the <code>--lattice-maximise-z</code> token — <code>1000</code> by default, deliberately
+    far below the old near-ceiling value, so your chrome does not have to win a z-index arms race. Place the
+    toast or dialog one layer above it and it covers the grid:</p>
+    <pre><code>.my-toast { z-index: calc(var(--lattice-maximise-z) + 1); }</code></pre>
+    <p>Or lower the grid itself — per grid with <code>maximise: { zIndex: 500 }</code>, or site-wide by
+    overriding the token (<code>.lattice { --lattice-maximise-z: 500; }</code>). Either way the grid's own
+    popups — the column menu, the cell editor, the filter popup and the cell tooltip — keep opening above the
+    maximised grid, because they are inside it or read the same token one step above it. <code>maximise:
+    { container: el }</code> fills <code>el</code> instead of the viewport, for a host that wants maximise to
+    mean its own modal or panel; the element should be <code>position: relative</code> so the grid fills it.</p></div>
+
+    <pre data-run="js" data-expect="z 500 pos absolute in-panel true active true; z 1000 pos fixed in-body true active true" data-covers="config:maximise method:maximise.enter method:maximise.exit method:maximise.active"><code><span class="kw">const</span> { createTestDom, flushFrames } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createGrid } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+<span class="kw">const</span> { document } = createTestDom({ width: 800, height: 400 });
+<span class="kw">const</span> host = () =&gt; { <span class="kw">const</span> el = document.createElement('div'); el.style.cssText = 'width:400px;height:200px'; document.body.appendChild(el); <span class="kw">return</span> el; };
+
+<span class="cmt">// `container` fills a host element rather than the viewport; `zIndex` sets the layer.</span>
+<span class="kw">const</span> panel = document.createElement('div');
+panel.style.position = 'relative';
+document.body.appendChild(panel);
+<span class="kw">const</span> h1 = host();
+<span class="kw">const</span> one = createGrid(h1, { rowKey: 'id', rows: [{ id: 1, name: 'a' }], columns: [{ field: 'name' }], maximise: { zIndex: 500, container: panel } });
+flushFrames();
+one.maximise.enter();
+<span class="kw">const</span> a = `z ${h1.style.zIndex} pos ${h1.style.position} in-panel ${panel.contains(h1)} active ${one.maximise.active()}`;
+one.maximise.exit();
+
+<span class="cmt">// The default is the --lattice-maximise-z token (1000) and fills the viewport.</span>
+<span class="kw">const</span> h2 = host();
+<span class="kw">const</span> two = createGrid(h2, { rowKey: 'id', rows: [{ id: 1, name: 'a' }], columns: [{ field: 'name' }], maximise: <span class="kw">true</span> });
+flushFrames();
+two.maximise.enter();
+<span class="kw">const</span> b = `z ${h2.style.zIndex} pos ${h2.style.position} in-body ${h2.parentNode === document.body} active ${two.maximise.active()}`;
+two.maximise.exit();
+two.destroy();
+<span class="kw">return</span> `${a}; ${b}`;</code></pre>
     <h2 id="licence">grid.licence</h2>
     <p><strong>There is one Lattice Grid and every copy is feature-identical.</strong> No community
     edition, no pro tier, no feature held back behind a key. A licence removes the trial watermark;
@@ -7844,16 +7963,16 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">tags</td><td class="type">(): string[]</td><td class="desc">&mdash;</td><td class="type"><code>string[]</code></td><td class="desc">Every distinct column tag, in the order first declared.</td></tr>
           <tr><td class="name">showTagged</td><td class="type">(tags?: string | string[] | null): string[]</td><td class="desc"><code>tags?: string | string[] | null</code></td><td class="type"><code>string[]</code></td><td class="desc">Show only the columns carrying one of these tags. **Columns with no tags are never hidden.** Pass nothing to show every tagged column again. Returns the ids that were hidden.</td></tr>
           <tr><td class="name">activeTags</td><td class="type">(): string[]</td><td class="desc">&mdash;</td><td class="type"><code>string[]</code></td><td class="desc">The tags currently being shown, empty when all are.</td></tr>
-          <tr><td class="name">show</td><td class="type">(ids: string | string[]): void</td><td class="desc"><code>ids: string | string[]</code></td><td class="type"><code>void</code></td><td class="desc">Show columns by id. Recorded on the undo timeline.</td></tr>
-          <tr><td class="name">hide</td><td class="type">(ids: string | string[]): void</td><td class="desc"><code>ids: string | string[]</code></td><td class="type"><code>void</code></td><td class="desc">Hide columns by id. `beforeColumnHide` can cancel it, and a column marked `layout.lockVisible` refuses and warns.</td></tr>
+          <tr><td class="name">show</td><td class="type">(ids: string | string[]): void</td><td class="desc"><code>ids: string | string[]</code></td><td class="type"><code>void</code></td><td class="desc">Show columns by id. Recorded on the undo timeline. Several single calls made in the same tick — to this, to `hide`, or to both — coalesce the renderer's column layout the same way `resize` does (BACKLOG-0001972); `column:visible` still fires synchronously for every call.</td></tr>
+          <tr><td class="name">hide</td><td class="type">(ids: string | string[]): void</td><td class="desc"><code>ids: string | string[]</code></td><td class="type"><code>void</code></td><td class="desc">Hide columns by id. `beforeColumnHide` can cancel it, and a column marked `layout.lockVisible` refuses and warns. Coalesces with other same-tick resize/show/hide/pin calls the way `resize` does (BACKLOG-0001972).</td></tr>
           <tr><td class="name">move</td><td class="type">(id: string, to: number): void</td><td class="desc"><code>id: string</code><br><code>to: number</code></td><td class="type"><code>void</code></td><td class="desc">Move a column to a display position. `beforeColumnMove` can cancel it; a column that is not movable or is position-locked refuses and warns.</td></tr>
           <tr><td class="name">groupColumns</td><td class="type">(ids: string | string[], opts?: { title?: string; at?: number; groupId?: string; id?: string }): string | null</td><td class="desc"><code>ids: string | string[]</code><br><code>opts?: { title?: string; at?: number; groupId?: string; id?: string }</code></td><td class="type"><code>string | null</code></td><td class="desc">Wrap leaf columns in a banded header, or add them to an existing band (BACKLOG-0000739). Header banding, not row grouping (see {@link group}); the band is a {@link ColumnGroup} node so a drag-, keyboard- or config-built band is the same tree, and it round-trips through a saved view. Emits `columngroup:changed`. Pass `groupId` to add to the band already carrying that id, or `id` (BACKLOG-0000985) to create a new band with a caller-chosen stable id you can reference later; `groupId` wins if both are given and an `id` already in use warns and no-ops.</td></tr>
           <tr><td class="name">ungroupColumn</td><td class="type">(id: string): void</td><td class="desc"><code>id: string</code></td><td class="type"><code>void</code></td><td class="desc">Take a leaf out of its band; a band emptied by the move is dissolved.</td></tr>
           <tr><td class="name">renameGroup</td><td class="type">(groupId: string, title: string): void</td><td class="desc"><code>groupId: string</code><br><code>title: string</code></td><td class="type"><code>void</code></td><td class="desc">Rename a banded header.</td></tr>
           <tr><td class="name">dissolveGroup</td><td class="type">(groupId: string): void</td><td class="desc"><code>groupId: string</code></td><td class="type"><code>void</code></td><td class="desc">Dissolve a band, returning its columns to the enclosing level in place.</td></tr>
           <tr><td class="name">moveGroup</td><td class="type">(groupId: string, to: number): void</td><td class="desc"><code>groupId: string</code><br><code>to: number</code></td><td class="type"><code>void</code></td><td class="desc">Move a whole band among its siblings, its columns travelling as a block.</td></tr>
-          <tr><td class="name">pin</td><td class="type">(id: string, side: <a href="types.html#type-Edge">Edge</a> | null): void</td><td class="desc"><code>id: string</code><br><code>side: <a href="types.html#type-Edge">Edge</a> | null</code></td><td class="type"><code>void</code></td><td class="desc">Freeze a column against the start or the end edge, or pass `null` to return it to the scrolling body. Recorded on the undo timeline.</td></tr>
-          <tr><td class="name">resize</td><td class="type">(id: string, px: number): void</td><td class="desc"><code>id: string</code><br><code>px: number</code></td><td class="type"><code>void</code></td><td class="desc">Set a column's width in pixels, clamped to its `min` and `max`. A column marked `resizable: false` refuses and warns. An explicit width clears the column's `flex`, so the next layout pass does not undo it.</td></tr>
+          <tr><td class="name">pin</td><td class="type">(id: string | string[] | Record&lt;string, <a href="types.html#type-Edge">Edge</a> | null&gt;, side?: <a href="types.html#type-Edge">Edge</a> | null): void</td><td class="desc"><code>id: string | string[] | Record&lt;string, <a href="types.html#type-Edge">Edge</a> | null&gt;</code><br><code>side?: <a href="types.html#type-Edge">Edge</a> | null</code></td><td class="type"><code>void</code></td><td class="desc">Freeze a column against the start or the end edge, or pass `null` to return it to the scrolling body. Recorded on the undo timeline. Also takes a batch — an array of ids sharing one `side`, or a map of id to side (`columns.pin({ a: 'start', b: null })`) — which is one history entry and one `column:pinned` (BACKLOG-0001972). Coalesces with other same-tick resize/show/hide/pin calls the way `resize` does.</td></tr>
+          <tr><td class="name">resize</td><td class="type">(id: string | Record&lt;string, number&gt; | Array&lt;[string, number] | { id: string; width: number }&gt;, px?: number): void</td><td class="desc"><code>id: string | Record&lt;string, number&gt; | Array&lt;[string, number] | { id: string; width: number }&gt;</code><br><code>px?: number</code></td><td class="type"><code>void</code></td><td class="desc">Set a column's width in pixels, clamped to its `min` and `max`. A column marked `resizable: false` refuses and warns. An explicit width clears the column's `flex`, so the next layout pass does not undo it. Also takes a batch — a map of id to width (`columns.resize({ a: 120, b: 80 })`) or an array of `[id, width]` pairs or `{ id, width }` objects — which is one history entry and one `column:resized` naming every id that resized, each still clamped to its own column (BACKLOG-0001972). Several single calls (to this, or to `show`/`hide`/`pin`) made in the same tick coalesce the renderer's column layout: the first pays for its own pass, same as a lone call always has, and every call after it that tick waits for one more pass on the next frame instead of paying for its own — 420 single resizes blocked the main thread for 6.2 s before this, 25 ms after. That coalescing is the DOM layout only: `column:resized` fires synchronously for every call, in the order called, and the width this method just set is already the one `columns.get()` and `state.get()` report — reading the *rendered* column's own width right after a call may still show the old one until the renderer catches up.</td></tr>
           <tr><td class="name">decorate</td><td class="type">(id: string, decoration: <a href="types.html#type-DecorationName">DecorationName</a> | <a href="#type-DecorationSpec">DecorationSpec</a> | null, opts?: { variant?: <a href="types.html#type-VariantSpec">VariantSpec</a> }): void</td><td class="desc"><code>id: string</code><br><code>decoration: <a href="types.html#type-DecorationName">DecorationName</a> | <a href="#type-DecorationSpec">DecorationSpec</a> | null</code><br><code>opts?: { variant?: <a href="types.html#type-VariantSpec">VariantSpec</a> }</code></td><td class="type"><code>void</code></td><td class="desc">Set, change or clear a column's decoration at runtime (§8.7). Pass `null` to clear it back to plain text. Presentation config: it is not on the undo timeline and is not carried in a saved view — use `grid.formatting` for durable, view-persisted conditional styling.</td></tr>
           <tr><td class="name">autoSize</td><td class="type">(ids?: string | string[], opts?: { origin?: 'api' | 'user' }): void</td><td class="desc"><code>ids?: string | string[]</code><br><code>opts?: { origin?: 'api' | 'user' }</code></td><td class="type"><code>void</code></td><td class="desc">Size the named columns (or all of them) to the content they are actually showing, heading included. It measures the rows the renderer has mounted rather than the whole dataset, and settles any pending frame first so a call made straight after `rows.load()` sees the rows and not just the header. The `column:resized` event it raises carries `autoSize: true` (BACKLOG-0001703). `opts.origin: 'user'` — what a double-click on a heading passes — sends each column through `columns.resize`, so `beforeColumnResize` can veto it and it is on the undo timeline like any resize.</td></tr>
           <tr><td class="name">fit</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Size the visible resizable columns so that every column the grid draws, together, exactly fills the width the cells occupy: the body viewport's client width at the moment of the call, which excludes the vertical scrollbar when the grid draws one and is the full inner width when it does not. Columns it does not size keep their width and are taken out of that width first: `resizable: false` columns and the grid's own selection checkbox, detail expander, group and tree columns. The rest share what is left in proportion to their current widths, within each `min`/`max`. If that leaves less than their minimums, each is set to its minimum — the 40px floor when a column's own `min` does not set one of its own, an explicit `min: 0` included — never below, the grid scrolls horizontally, and a `[lattice]` warning says so. Rows given to `createGrid` or `rows.load()` before the call are counted. One-shot: it sets fixed widths once (a `flex` column included) and does not follow later changes; after a resize, rows arriving later bring a vertical scrollbar in, or a column group is expanded or un-grouped, call it again.</td></tr>
@@ -8126,8 +8245,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">get</td><td class="type">(): <a href="#type-GridState">GridState</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-GridState">GridState</a></code></td><td class="desc">Capture the grid's current view — sort, filters, column order, widths, visibility, grouping and the rest — as a plain, JSON-safe object. Columns the reader is not permitted to see are stripped, because the presence of a column is itself information.</td></tr>
-          <tr><td class="name">apply</td><td class="type">(state: <a href="#type-GridState">GridState</a>, opts?: { skip?: (keyof <a href="#type-GridState">GridState</a>)[] }): <a href="adapters.html#type-StateApplyReport">StateApplyReport</a></td><td class="desc"><code>state: <a href="#type-GridState">GridState</a></code><br><code>opts?: { skip?: (keyof <a href="#type-GridState">GridState</a>)[] }</code></td><td class="type"><code><a href="adapters.html#type-StateApplyReport">StateApplyReport</a></code></td><td class="desc">Restore a captured state, skipping the sections named in `skip`. Nothing throws: a section that cannot be applied is listed in the report with a reason. The whole restore is one logical change, so it makes one undo entry and one state event.</td></tr>
+          <tr><td class="name">get</td><td class="type">(opts?: { scroll?: boolean }): <a href="#type-GridState">GridState</a></td><td class="desc"><code>opts?: { scroll?: boolean }</code></td><td class="type"><code><a href="#type-GridState">GridState</a></code></td><td class="desc">Capture the grid's current view — sort, filters, column order, widths, visibility, grouping and the rest — as a plain, JSON-safe object. Columns the reader is not permitted to see are stripped, because the presence of a column is itself information. Omits the scroll position unless `opts.scroll` is `true` (BACKLOG-0001971): it is transient UI state, not view state, so a saved view or a host persisting this does not reopen the grid scrolled to wherever it happened to be when captured.</td></tr>
+          <tr><td class="name">apply</td><td class="type">(state: <a href="#type-GridState">GridState</a>, opts?: { skip?: (keyof <a href="#type-GridState">GridState</a>)[]; scroll?: boolean }): <a href="adapters.html#type-StateApplyReport">StateApplyReport</a></td><td class="desc"><code>state: <a href="#type-GridState">GridState</a></code><br><code>opts?: { skip?: (keyof <a href="#type-GridState">GridState</a>)[]; scroll?: boolean }</code></td><td class="type"><code><a href="adapters.html#type-StateApplyReport">StateApplyReport</a></code></td><td class="desc">Restore a captured state, skipping the sections named in `skip`. Nothing throws: a section that cannot be applied is listed in the report with a reason. The whole restore is one logical change, so it makes one undo entry and one state event. A `scroll` key in `state` is only restored when `opts.scroll` is `true` (BACKLOG-0001971) — otherwise it is left alone even when present, which is what keeps an old persisted state or a view saved before scroll was excluded from `get()` from reopening the grid scrolled away from the top.</td></tr>
           <tr><td class="name">baseline</td><td class="type">(): <a href="#type-GridState">GridState</a> | null</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-GridState">GridState</a> | null</code></td><td class="desc">The grid as configured, without `config.state` — captured once, before that seed is applied, so a view opened through `config.state` is never itself mistaken for the default `reset()` returns to.</td></tr>
           <tr><td class="name">reset</td><td class="type">(): <a href="adapters.html#type-StateApplyReport">StateApplyReport</a> | null</td><td class="desc">&mdash;</td><td class="type"><code><a href="adapters.html#type-StateApplyReport">StateApplyReport</a> | null</code></td><td class="desc">Put the grid back the way it started, as one undoable step.</td></tr>
           <tr><td class="name">modified</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">Whether anything has changed since construction.</td></tr>
@@ -9103,7 +9222,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">state</td><td class="type"><a href="#type-GridState">GridState</a></td><td class="desc">Sort, filters, grouping, widths and the rest, restored at construction. Takes precedence over a saved view flagged `isDefault`: when both are present, this wins outright and the default view is never applied — the active view id stays `null`. <small>(optional)</small></td></tr>
           <tr><td class="name">licence</td><td class="type">string</td><td class="desc">Your licence key. Without one the grid renders in full and watermarks off localhost. <small>(optional)</small></td></tr>
           <tr><td class="name">loading</td><td class="type"><a href="#type-LoadingConfig">LoadingConfig</a></td><td class="desc">Loading feedback for a windowed source: the automatic initial-load overlay (BACKLOG-0001563) and the per-row shimmer or spinner a page still in flight draws instead of a blank row (BACKLOG-0001562). Unread by a memory-backed grid. <small>(optional)</small></td></tr>
-          <tr><td class="name">maximise</td><td class="type">boolean</td><td class="desc">Offer a full-screen control. <small>(optional)</small></td></tr>
+          <tr><td class="name">emptyMessage</td><td class="type"><a href="types.html#type-EmptyMessage">EmptyMessage</a></td><td class="desc">What an empty grid says in place of its rows (BACKLOG-0001973). Shown through the ordinary overlay whenever the grid has no visible rows, and hidden the moment rows arrive. Omitted, the grid says the catalogue's `overlay.noRows` for an empty dataset and `overlay.noResults` when every row is filtered out; a string replaces both with one sentence; a function can tell the two apart — and return a node instead of text — from the reason it is handed. Never shown while a fetch or a deferred count is still in flight. <small>(optional)</small></td></tr>
+          <tr><td class="name">maximise</td><td class="type">boolean | { /** * The layer the maximised grid sits at, as a CSS `z-index` value. Defaults * to the `--lattice-maximise-z` token, which is deliberately far below the * ceiling so an application's toasts, dialogs and popups can still open * above it. Lower it to tuck the grid under a specific host layer. */ zIndex?: number | string; /** * An element to fill instead of the browser viewport. The grid is moved * into this element and sized to it, so a host can "maximise" inside its * own modal, panel or split region rather than the whole window. The * element should be `position: relative` (or otherwise positioned) so the * grid fills it rather than a further ancestor. */ container?: HTMLElement; }</td><td class="desc">Offer a full-screen control. `false` removes the rail button and `grid.maximise`, for an application with its own full-screen mode; an object tunes how the grid fills the screen. <small>(optional)</small></td></tr>
           <tr><td class="name">formulaFunctions</td><td class="type">Record&lt;string, (args: unknown[]) =&gt; unknown&gt;</td><td class="desc">Extra functions a formula may call, on top of the built-in library. <small>(optional)</small></td></tr>
           <tr><td class="name">allowUnsafeTemplates</td><td class="type">boolean</td><td class="desc">Permit raw HTML from a template without sanitising it. Off, and worth leaving off: a template usually interpolates data, and data is where injected markup arrives from. <small>(optional)</small></td></tr>
           <tr><td class="name">updates</td><td class="type">{ logLimit?: number; logRows?: number; /** * When a queued batch applies. `frame` (default) lands on a paint * boundary, which is what makes one repaint per batch reliable; * `microtask` at the end of the current task; `interval` on the coalescing * window; `manual` only when you call `grid.updates.flush()`. */ flush?: <a href="types.html#type-UpdatesFlushMode">UpdatesFlushMode</a>; /** Queued rows that force an early flush regardless of strategy. */ maxQueued?: number; /** Milliseconds one flush may spend before deferring the rest. */ budgetMs?: number; }</td><td class="desc">Caps on the change log behind `grid.updates` and `grid.timeline`. Two caps, because an entry is not a fixed size: `logLimit` bounds how many changes are kept (default 2000) and `logRows` bounds the rows they account for between them (default 100,000). A feed delivering large batches reaches the second long before the first, and without it the log is unbounded in bytes while looking bounded in entries. <small>(optional)</small></td></tr>
@@ -9239,7 +9359,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">openByDefault</td><td class="type">boolean</td><td class="desc">Whether a collapsible band starts open. Open unless set to `false`; once the user has toggled it, their choice stands. <small>(optional)</small></td></tr>
           <tr><td class="name">showWhen</td><td class="type"><a href="types.html#type-ShowWhen">ShowWhen</a> <small class="literals">'open' | 'closed' | 'always'</small></td><td class="desc">When this node is shown relative to the enclosing collapsible band: `'open'`, `'closed'`, or `'always'` (the default). This is how a band shows a detailed set of columns when open and a single summary column when closed. A leaf column may declare it too. <small>(optional)</small></td></tr>
           <tr><td class="name">marryChildren</td><td class="type">boolean</td><td class="desc">Keep this band's columns together: a move that would take one of them out of the band's run, or drop a column from outside into it, is refused with a warning. Off by default, in which case a drag, a keyboard move or the column menu may separate them. <small>(optional)</small></td></tr>
-          <tr><td class="name">header</td><td class="type">{ render?: string | <a href="types.html#type-RendererCtor">RendererCtor</a>; props?: Record&lt;string, unknown&gt;; class?: string | string[] }</td><td class="desc">Presentation for the band's own heading cell: a custom renderer, the props handed to it, and classes to add. <small>(optional)</small></td></tr>
+          <tr><td class="name">header</td><td class="type">{ render?: string | <a href="types.html#type-RendererCtor">RendererCtor</a> | <a href="types.html#type-HeaderRenderFn">HeaderRenderFn</a>; props?: Record&lt;string, unknown&gt;; class?: string | string[] }</td><td class="desc">Presentation for the band's own heading cell: a custom renderer, the props handed to it, and classes to add. <small>(optional)</small></td></tr>
           <tr><td class="name">facet</td><td class="type"><a href="#type-ColumnFacetConfig">ColumnFacetConfig</a> | boolean</td><td class="desc">The header histogram of every column under this band, as a default: `true` turns it on with the grid's settings, `false` off, an object overrides them. A column's own `facet` wins over it, and an inner band's over an outer one's. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -9657,7 +9777,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">facets</td><td class="type">string[]</td><td class="desc">The ids of the columns whose histogram is open. Always present when the grid has a facet model, for the same reason `redaction` is. <small>(optional)</small></td></tr>
           <tr><td class="name">expanded</td><td class="type">string[]</td><td class="desc">The keys of the group and tree rows that were open. <small>(optional)</small></td></tr>
           <tr><td class="name">selection</td><td class="type">string[]</td><td class="desc">The keys of the selected rows. <small>(optional)</small></td></tr>
-          <tr><td class="name">scroll</td><td class="type">{ top: number; left: number }</td><td class="desc">Where the body was scrolled to. Absent on a headless grid, which has no scroll position worth saving. <small>(optional)</small></td></tr>
+          <tr><td class="name">scroll</td><td class="type">{ top: number; left: number }</td><td class="desc">Where the body was scrolled to. Absent on a headless grid, which has no scroll position worth saving, and omitted from `state.get()` unless it is called with `{ scroll: true }` (BACKLOG-0001971) — scroll is transient UI state, not view state, so a saved view never carries it. `state.apply()` restores it only when this key is present *and* `apply` is called with `{ scroll: true }`. <small>(optional)</small></td></tr>
           <tr><td class="name">pagination</td><td class="type">{ page: number; pageSize: number }</td><td class="desc">The page being shown and its size. Absent when the grid does not page. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -9672,6 +9792,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">delay</td><td class="type">number</td><td class="desc">Milliseconds the first fetch must be outstanding before the automatic overlay shows. Default 150 — long enough that an instant answer (a memory-backed source, or a paged/remote one whose first page is already cached) never flashes it. <small>(optional)</small></td></tr>
           <tr><td class="name">banner</td><td class="type">boolean</td><td class="desc">Set `false` to keep the pre-1.79 behaviour: no automatic overlay on the grid's first fetch. `grid.overlay.show`/`hide` are unaffected either way. <small>(optional)</small></td></tr>
           <tr><td class="name">rowDelay</td><td class="type">number</td><td class="desc">Milliseconds a row must stay unloaded before it draws its loading treatment (a shimmer per cell, or a spinner for a tall unloaded block). Default 150, matching `delay`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-EmptyMessageContext">EmptyMessageContext</h4>
+    <p class="section-note">What the `emptyMessage` callback is handed (BACKLOG-0001973): why the grid is empty, plus the two numbers that let a host put the reason in its own words.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">reason</td><td class="type"><a href="types.html#type-EmptyMessageReason">EmptyMessageReason</a> <small class="literals">'noData' | 'filtered' | 'loading'</small></td><td class="desc">Why the grid is empty: `'noData'` or `'filtered'`.</td></tr>
+          <tr><td class="name">total</td><td class="type">number | null</td><td class="desc">The unfiltered row count, or `null` while the source cannot say.</td></tr>
+          <tr><td class="name">visible</td><td class="type">number</td><td class="desc">The number of display rows, zero while this message is shown.</td></tr>
         </tbody>
       </table>
     </div>
@@ -10305,7 +10437,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">template</td><td class="type">string</td><td class="desc">Not read by the header renderer; use `render` to draw a custom heading. <small>(optional)</small></td></tr>
-          <tr><td class="name">render</td><td class="type">string | <a href="types.html#type-RendererCtor">RendererCtor</a></td><td class="desc">A custom heading renderer: a function, or a component (a class with a `render` method). A string names a registered renderer. Either form draws the same two ways and they are interchangeable — it may append to the passed label element itself and return nothing, or return an `Element` (attached for you) or a `string` (used as the heading text). <small>(optional)</small></td></tr>
+          <tr><td class="name">render</td><td class="type">string | <a href="types.html#type-RendererCtor">RendererCtor</a> | <a href="types.html#type-HeaderRenderFn">HeaderRenderFn</a></td><td class="desc">A custom heading renderer: a function, or a component (a class with a `render` method). A string names a registered renderer. Either form draws the same two ways and they are interchangeable — it may append to the passed label element itself and return nothing, or return an `Element` (attached for you) or a `string` (used as the heading text). <small>(optional)</small></td></tr>
           <tr><td class="name">props</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Props passed to `render` as `params.props`. <small>(optional)</small></td></tr>
           <tr><td class="name">class</td><td class="type">string | string[]</td><td class="desc">A class, or classes, added to the heading cell. A string may hold several space-separated tokens (`'a b'`), each applied individually. <small>(optional)</small></td></tr>
           <tr><td class="name">tooltip</td><td class="type">string</td><td class="desc">Hover text for the heading, set as its `title`. On a movable column it takes the place of the drag hint. For structured or live content, put it in the heading with `header.render`, or on the cells with `cell.tooltip`. <small>(optional)</small></td></tr>
@@ -10364,6 +10496,24 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">bucketFn</td><td class="type">(handle: unknown, indices: Uint32Array | null, count: number) =&gt; <a href="#type-FacetBounds">FacetBounds</a></td><td class="desc"><code>handle: unknown</code><br><code>indices: Uint32Array | null</code><br><code>count: number</code></td><td class="type"><code>=&gt; <a href="#type-FacetBounds">FacetBounds</a></code></td><td class="desc">Replace the built-in bucketing entirely. <small>(optional)</small></td></tr>
           <tr><td class="name">format</td><td class="type">(bucket: <a href="#type-FacetBucket">FacetBucket</a>, count: number, unfiltered: number) =&gt; string</td><td class="desc"><code>bucket: <a href="#type-FacetBucket">FacetBucket</a></code><br><code>count: number</code><br><code>unfiltered: number</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">Label a bucket for its tooltip and accessible name. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-HeaderParams">HeaderParams</h4>
+    <p class="section-note">What a heading renderer is handed, for `header.render` on a column and on a column group alike — the same shape the two share (BACKLOG-0001974). The renderer is called as `render(label, params)`: `label` is the heading element to fill, and `params` carries everything else. A leaf column gets `column` and `colId`; a band heading gets `group` and `groupId` instead. Either way the renderer may append to `label` itself and return nothing, or return an `Element` (attached for you) or a `string` (used as the heading text).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">column</td><td class="type"><a href="#type-ResolvedColumn">ResolvedColumn</a></td><td class="desc">The resolved column whose heading is being drawn. Absent on a band heading, which gets `group` instead. <small>(optional)</small></td></tr>
+          <tr><td class="name">colId</td><td class="type">string</td><td class="desc">The column's id, for the common case where that is all the renderer needs. Absent on a band heading. <small>(optional)</small></td></tr>
+          <tr><td class="name">group</td><td class="type"><a href="#type-ColumnGroup">ColumnGroup</a></td><td class="desc">The column group whose band heading is being drawn. Absent on a leaf column, which gets `column` instead. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupId</td><td class="type">string</td><td class="desc">The band's id, which is its `title` when no `id` was given. Absent on a leaf column. <small>(optional)</small></td></tr>
+          <tr><td class="name">title</td><td class="type">string</td><td class="desc">The heading text the stock rendering would have used.</td></tr>
+          <tr><td class="name">value</td><td class="type">string</td><td class="desc">The heading text again, so a renderer written like a cell renderer can read `params.value`.</td></tr>
+          <tr><td class="name">props</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Whatever `header.props` holds, passed through — always an object, empty when the column or band declared none.</td></tr>
+          <tr><td class="name">grid</td><td class="type"><a href="#type-Grid">Grid</a></td><td class="desc">The grid instance, so a heading can read the rest of the grid.</td></tr>
+          <tr><td class="name">document</td><td class="type">Document</td><td class="desc">The document the heading element lives in, for building new nodes.</td></tr>
         </tbody>
       </table>
     </div>
@@ -10995,6 +11145,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">colId</td><td class="type">string</td><td class="desc">The column the cell belongs to.</td></tr>
           <tr><td class="name">column</td><td class="type"><a href="#type-Column">Column</a></td><td class="desc">The resolved column.</td></tr>
           <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The cell's value.</td></tr>
+          <tr><td class="name">data</td><td class="type">unknown</td><td class="desc">The cell's record — the same `p.data` a cell renderer reads, so tooltip code written like a cell render works unchanged.</td></tr>
           <tr><td class="name">text</td><td class="type">string</td><td class="desc">The cell's formatted text.</td></tr>
           <tr><td class="name">cell</td><td class="type">HTMLElement</td><td class="desc">The cell element the tooltip is anchored to.</td></tr>
           <tr><td class="name">grid</td><td class="type"><a href="#type-Grid">Grid</a></td><td class="desc">The grid.</td></tr>
@@ -11592,8 +11743,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The column that was pinned.</td></tr>
-          <tr><td class="name">side</td><td class="type"><a href="types.html#type-Edge">Edge</a> | null</td><td class="desc">Which side it is pinned to now, or null when it was unpinned. The sides are the writing-direction ones {@link ColumnApi#pin} takes — `'start'` and `'end'` — not left and right, so a right-to-left grid reports the same value for the same gesture.</td></tr>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The column that was pinned, for a single-id call. A batch call reports `ids` instead (BACKLOG-0001972). <small>(optional)</small></td></tr>
+          <tr><td class="name">side</td><td class="type"><a href="types.html#type-Edge">Edge</a> | null</td><td class="desc">Which side it is pinned to now, or null when it was unpinned. The sides are the writing-direction ones {@link ColumnApi#pin} takes — `'start'` and `'end'` — not left and right, so a right-to-left grid reports the same value for the same gesture. Only set for a single-id call; a batch call reports `pins` instead. <small>(optional)</small></td></tr>
+          <tr><td class="name">ids</td><td class="type">string[]</td><td class="desc">Every id a batch `columns.pin` call pinned, in place of `id`/`side` (BACKLOG-0001972). <small>(optional)</small></td></tr>
+          <tr><td class="name">pins</td><td class="type">Record&lt;string, <a href="types.html#type-Edge">Edge</a> | null&gt;</td><td class="desc">Each id's new side, for a batch call (BACKLOG-0001972). <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -11631,6 +11784,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">colId</td><td class="type">string</td><td class="desc">The column that was resized, on the header-drag route. <small>(optional)</small></td></tr>
           <tr><td class="name">width</td><td class="type">number</td><td class="desc">Its new width, in pixels.</td></tr>
           <tr><td class="name">autoSize</td><td class="type">boolean</td><td class="desc">True when the width came from `columns.autoSize` — the API call, a double click on the heading, or `Alt+Enter` on it — rather than a drag or an explicit `columns.resize` (BACKLOG-0001703). <small>(optional)</small></td></tr>
+          <tr><td class="name">ids</td><td class="type">string[]</td><td class="desc">Every id a batch `columns.resize` call resized, in place of `id`/`width` (BACKLOG-0001972). <small>(optional)</small></td></tr>
+          <tr><td class="name">widths</td><td class="type">Record&lt;string, number&gt;</td><td class="desc">Each id's new width, for a batch call (BACKLOG-0001972). <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>

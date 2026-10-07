@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.88.3</p>
+    <p class="rail__sub">Developer guide · v1.88.4</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.88.3</span>
+        <span class="chip">Version 1.88.4</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1676,7 +1676,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.88.3'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.88.4'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -2494,6 +2494,36 @@ columns: [{ field: 'history', cell: { render: 'sparkline' } }],</code></pre>
     </div>
 
     <div class="example">
+      <p class="example__label">A heading renderer, and the <code>HeaderParams</code> it is handed</p>
+      <pre><code><span class="cmt">// `header.render` takes the same two shapes a cell renderer does, for a</span>
+<span class="cmt">// column or for a band. It is called as `render(label, params)` and may</span>
+<span class="cmt">// write into `label` itself, or return an Element or a string.</span>
+{ field: 'unitPrice', header: {
+  props: { unit: 'kg' },
+  render: (label, p) =&gt; {
+    <span class="cmt">// p is a HeaderParams. A leaf column supplies p.column and p.colId;</span>
+    label.textContent = `${p.title} (${p.props.unit})`;
+  },
+} },
+
+<span class="cmt">// A band heading gets the same shape, with the group in place of the column.</span>
+{ id: 'measures', title: 'Measures', header: {
+  render: (label, p) =&gt; {
+    label.textContent = `${p.title} — ${p.group.columns.length} columns`;
+  },
+}, columns: [ ... ] },</code></pre>
+    </div>
+    <div class="why">
+      <p>The renderer is handed a <code>HeaderParams</code>. A leaf column supplies
+      <code>column</code> and <code>colId</code>; a band supplies <code>group</code> and
+      <code>groupId</code>; and both supply <code>title</code>, <code>value</code> (the heading
+      text, twice, so a renderer written like a cell renderer can read <code>p.value</code>),
+      <code>props</code>, <code>grid</code> and <code>document</code>. It may append to
+      <code>label</code> itself and return nothing, or return an <code>Element</code> (attached
+      for you) or a <code>string</code> (used as the heading text).</p>
+    </div>
+
+    <div class="example">
       <p class="example__label">Templates, and what <code>allowUnsafeTemplates</code> permits</p>
       <pre><code>cell: { template: '&lt;span class="sku"&gt;{{ value }}&lt;/span&gt;' }   <span class="cmt">// escaped</span>
 
@@ -2738,6 +2768,17 @@ grid.destroy();
 <span class="kw">return</span> `banner ${banner} | row shimmer ${shimmer} | after ${after}`;
 </code></pre>
     </div>
+
+    <h3 id="empty-message">What an empty grid says</h3>
+    <p class="lead-in">
+      A grid with no visible rows — an empty dataset, or a dataset whose rows are all filtered out —
+      shows an <code>emptyMessage</code> through the ordinary overlay, and takes it down the moment
+      rows arrive. Omitted, the grid says the catalogue's <code>overlay.noRows</code> for an empty
+      dataset and <code>overlay.noResults</code> when the filters emptied it. A string replaces both
+      with one sentence; a function can tell the two apart from the <code>reason</code> it is handed
+      (<code>'noData'</code> or <code>'filtered'</code>) and may return a DOM node instead of text.
+      The message is never shown while a fetch or a deferred count is still in flight.
+    </p>
 
     <h3 id="url-source-guide">Straight from a URL, with <code>createUrlSource</code></h3>
     <p class="lead-in">
@@ -10369,12 +10410,17 @@ grid.import.apply(preview);</code></pre>
           <tr><td class="name">readonly</td><td class="desc">Calendar. Whether a scope (the whole calendar, a day, or a card) is readonly.</td></tr>
           <tr><td class="name">setTasks</td><td class="desc">Gantt. Replace the whole task list (copied in) and recompute, returning the new schedule. Ignored with a warning after <code>destroy()</code>.</td></tr>
           <tr><td class="name">setDependencies</td><td class="desc">Gantt. Replace the link list and recompute. Adding a link is gated on <code>beforeDependencyCreate</code>, so this returns <code>undefined</code> on a veto, or a promise when a handler defers; a pure removal or reorder applies straight away.</td></tr>
+          <tr><td class="name">deleteDependency</td><td class="desc">Gantt. Remove one dependency link, by its <code>from</code>/<code>to</code>/<code>type</code> identity (BACKLOG-0001936) &mdash; what a selected link's Delete key and the split view's link editor both call. Gated on <code>beforeDependencyDelete</code>, so this returns <code>undefined</code> on a veto or when no link matches, or a promise when a handler defers.</td></tr>
           <tr><td class="name">captureBaseline</td><td class="desc">Gantt. Capture a baseline (planned) snapshot of the current schedule as host data. Store it and feed it back as <code>baselineStart</code>/<code>baselineEnd</code> task fields to get variance and ghost bars.</td></tr>
           <tr><td class="name">undo</td><td class="desc">Gantt. Undo the most recent plan edit (BACKLOG-0001864), restoring the exact prior plan &mdash; tasks, dependencies, assignments and work contours &mdash; and re-running scheduling to the identical result; a coalesced drag and a whole <code>level()</code> run each undo as one step. Returns <code>false</code> when there is nothing to undo. History is session only.</td></tr>
           <tr><td class="name">redo</td><td class="desc">Gantt. Redo the most recently undone edit (BACKLOG-0001864); the redo branch is discarded the moment a new edit is made. Returns <code>false</code> when there is nothing to redo.</td></tr>
           <tr><td class="name">canUndo</td><td class="desc">Gantt. Whether there is an edit to undo (BACKLOG-0001864) &mdash; drive a toolbar button off it, together with the <code>history</code> event.</td></tr>
           <tr><td class="name">canRedo</td><td class="desc">Gantt. Whether there is an edit to redo (BACKLOG-0001864).</td></tr>
           <tr><td class="name">clearHistory</td><td class="desc">Gantt. Forget the whole session undo/redo timeline (BACKLOG-0001864) and emit <code>history</code>. History is also cleared by <code>setTasks</code>/<code>setState</code> and lost on reload, and is not part of <code>getState</code>/<code>setState</code>.</td></tr>
+          <tr><td class="name">gantt.select</td><td class="desc">Gantt. Select one or more tasks by id (BACKLOG-0001995) — the task selection is the table's row selection, extended to the timeline bars. Adds to the current selection (the inverse of <code>gantt.deselect</code>), the last id becoming the range anchor, and fires one <code>selectionChange</code> with <code>cause: 'api'</code>. The mounted view paints the selected rows and bars with a theme token; the selection survives redraws, zoom and filters.</td></tr>
+          <tr><td class="name">gantt.deselect</td><td class="desc">Gantt. Deselect one or more tasks by id (BACKLOG-0001995), leaving the rest &mdash; call <code>gantt.deselect(gantt.selected())</code> to clear. Fires one <code>selectionChange</code> with <code>cause: 'api'</code> when the selection changes.</td></tr>
+          <tr><td class="name">gantt.selected</td><td class="desc">Gantt. The selected task ids in selection order (BACKLOG-0001995), including tasks a collapse or filter has hidden &mdash; they stay selected.</td></tr>
+          <tr><td class="name">gantt.selectedHidden</td><td class="desc">Gantt. The selected task ids that are not currently visible (BACKLOG-0001995): still selected, but collapsed under a summary row or filtered out. A click, a Ctrl/Shift click, an arrow key or the API all raise <code>selectionChange</code>; expanding or collapsing a summary row raises the vetoable <code>beforeTaskExpand</code>/<code>beforeTaskCollapse</code> then <code>taskExpand</code>/<code>taskCollapse</code>, and the workload band's resource rows raise <code>resourceExpand</code>/<code>resourceCollapse</code>.</td></tr>
           <tr><td class="name">earnedValue</td><td class="desc">Gantt. PV/EV/AC and the derived SV/CV/SPI/CPI per task, rolled up to summaries and the project (BACKLOG-0000958).</td></tr>
           <tr><td class="name">sCurve</td><td class="desc">Gantt. The same earned-value arithmetic over time: one cumulative <code>{ date, pv, ev, ac }</code> point per bucket from the project start to the finish, where the final PV equals the total budget (BACKLOG-0001867).</td></tr>
           <tr><td class="name">mountSCurve</td><td class="desc">Gantt. Mount the S-curve chart (three series, a status-date marker, a legend with SPI/CPI and a hidden table of points); the returned handle's <code>refresh()</code> redraws it and <code>destroy()</code> detaches it (BACKLOG-0001867).</td></tr>
@@ -10382,12 +10428,14 @@ grid.import.apply(preview);</code></pre>
           <tr><td class="name">resources</td><td class="desc">Gantt. Compute the resource load and over-allocations on demand, optionally overriding the capacities for this call (BACKLOG-0000948).</td></tr>
           <tr><td class="name">mountSplit</td><td class="desc">Gantt. Mount the resource-load split view beneath the plan — as a table (<code>workload</code>, BACKLOG-0001281) or as bars with a capacity line (<code>histogram</code>, BACKLOG-0001860) — in hours or, per bucket, as a percent of the resource's own available hours (<code>unit</code>, BACKLOG-0001879), switchable live off the band's own <code>&lt;button aria-pressed&gt;</code> or <code>view.setWorkloadUnit()</code>.</td></tr>
           <tr><td class="name">previewAssignments</td><td class="desc">Gantt. The resource load as it would be if one task carried a given roster, from the same calculation as <code>resources()</code>; the split view's assignment picker uses it to warn of an over-allocation before it commits (BACKLOG-0001868). Nothing is changed or emitted.</td></tr>
+          <tr><td class="name">previewEdit</td><td class="desc">Gantt. Dry-runs a <code>start</code> or <code>duration</code> edit and returns the schedule it would produce, without changing the model, emitting or writing back; both views call it on every drag frame so dependency arrows follow the bar and the successors the scheduler will push are previewed (BACKLOG-0001934). <code>null</code> when it cannot be scheduled.</td></tr>
           <tr><td class="name">mountSplit</td><td class="desc">Gantt. Mount the resource-load split view beneath the plan; display-only, it reports hours rather than accepting them (BACKLOG-0001281) — as a table (<code>workload</code>) or as bars with a capacity line (<code>histogram</code>, BACKLOG-0001860).</td></tr>
           <tr><td class="name">toCSV</td><td class="desc">Gantt and charts. On a Gantt, export the scheduled tasks as CSV (<code>{ dates: true }</code> writes ISO dates). On a chart, the numbers it is drawing as CSV &mdash; one column per series, one row per category.</td></tr>
           <tr><td class="name">toMSPDI</td><td class="desc">Gantt. Export the current plan as Microsoft Project (MSPDI) XML: tasks, dependencies, constraints, baseline, resources and assignments, plus the working-time calendar (BACKLOG-0000950).</td></tr>
           <tr><td class="name">toSVG</td><td class="desc">Gantt. Serialise the mounted view — the plain chart, or the split view's table, timeline and whichever bands are mounted — to a standalone SVG string, drawn with a fixed, theme-independent palette (BACKLOG-0001863).</td></tr>
           <tr><td class="name">toPNG</td><td class="desc">Gantt. The mounted view as a PNG: <code>toSVG</code> rasterised through a canvas, resolving to <code>null</code> where there is no canvas to rasterise with (BACKLOG-0001863).</td></tr>
           <tr><td class="name">print</td><td class="desc">Gantt. Print the mounted split view — paged to a chosen paper and orientation, fit to the page width or at a fixed scale, the table header and timeline header repeating on every page and no row split across one — through the browser's own print path (<code>paper</code>, <code>orientation</code>, <code>fitToWidth</code>/<code>scale</code>, <code>title</code>, <code>header</code>/<code>footer</code>); always in a print-safe light palette, whatever theme is mounted (BACKLOG-0001863).</td></tr>
+          <tr><td class="name">moveRow</td><td class="desc">Gantt. Move or re-parent one row — a name-column drag handle, a drop onto another row, Alt+Up/Down or Tab/Shift+Tab all funnel through this, gated on the cancellable <code>beforeRowMove</code> and writing the live re-parent path (BACKLOG-0001933) as one undo step (BACKLOG-0001937).</td></tr>
           <tr><td class="name">visibleNodes</td><td class="desc">KPI. The nodes on screen for a tree strip: the roots, plus the children of every open branch.</td></tr>
           <tr><td class="name">activate</td><td class="desc">Tabs. Switch the active tab, gated by <code>beforeTabChange</code>. Returns (or resolves to) whether the switch happened.</td></tr>
           <tr><td class="name">isMounted</td><td class="desc">Tabs. Whether a tab's grid has been created yet.</td></tr>
@@ -10404,6 +10452,51 @@ grid.import.apply(preview);</code></pre>
         </tbody>
       </table>
     </div>
+
+    <h3 id="gantt-task-filter">Gantt split view: filtering the task table, executed</h3>
+    <p class="section-note">With the task table mounted as a grid, a filter hides the tasks that do not match and the
+    timeline follows (BACKLOG-0001976). A match keeps its ancestors, marked <code>lat-gantt-split__row--ancestor</code>;
+    the plan itself is never touched, so the undo stack stays empty. <code>gantt.scrollToTask(id)</code> on a task the
+    filter hides returns <code>false</code>, leaves the filter alone and fires <code>task:filtered</code> with <code>{ id }</code>.</p>
+    <pre data-run="js" data-expect="2 | false | a | 0" data-covers="method:gantt.scrollToTask method:gantt.mountSplit"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid } = await import('../packages/dom/src/index.js');
+const { createGantt } = await import('../packages/modules/gantt/index.js');
+
+const { root } = createTestDom();
+const gantt = createGantt({ tasks: [
+  { id: 'a', name: 'Design', duration: 5, assignee: 'Ann' },
+  { id: 'b', name: 'Build', duration: 8, assignee: 'Bob' },
+  { id: 'c', name: 'Ship', duration: 1, assignee: 'Bob' },
+] });
+const view = gantt.mountSplit(root, { createGrid });
+const filtered = [];
+gantt.on('task:filtered', (e) =&gt; filtered.push(e.id));
+
+view.grids.tasks.filters.set({ col: 'assignee', op: 'eq', value: 'Bob' });
+const rows = view.rowGeometry().length;          // Build and Ship
+const scrolled = gantt.scrollToTask('a');        // Design is filtered out: false, filter untouched
+
+return [rows, scrolled, filtered.join(','), gantt.canUndo() ? 1 : 0].join(' | ');</code></pre>
+
+    <h3 id="gantt-rowmove">Gantt split view: reordering and re-parenting rows, executed</h3>
+    <p class="section-note">A name-column drag handle, a drop onto another row, Alt+Up/Down (reorder among
+    siblings) and Tab/Shift+Tab (indent/outdent) all funnel through <code>gantt.moveRow(id, { parent, index })</code>
+    (BACKLOG-0001937): cancellable through <code>beforeRowMove</code>, and once allowed, one <code>rowMove</code> and
+    one undo step, by the live re-parent path (BACKLOG-0001933).</p>
+    <pre data-run="js" data-expect="c first | undone back to a,b,c | veto kept b under a: false" data-covers="method:gantt.moveRow"><code>const { createGantt } = await import('../packages/modules/gantt/index.js');
+
+const gantt = createGantt({ tasks: [{ id: 'a', duration: 2 }, { id: 'b', duration: 2 }, { id: 'c', duration: 2 }] });
+gantt.moveRow('c', { parent: null, index: 0 });             // one rowMove, one undo step
+const first = gantt.schedule.order[0];
+gantt.undo();
+const restored = gantt.schedule.order.join(',');
+
+gantt.on('beforeRowMove', (e) =&gt; e.preventDefault('locked'));
+gantt.moveRow('b', { parent: 'a' });                        // vetoed: the model stays put
+const kept = gantt.schedule.tasks.get('b').parent === 'a';
+gantt.destroy();
+
+return `${first} first | undone back to ${restored} | veto kept b under a: ${kept}`;</code></pre>
 
     <h3 id="gantt-print">Gantt split view: toSVG, toPNG and print, executed</h3>
     <p class="section-note">The split view serialised to SVG, rasterised to PNG (<code>null</code> here — this
@@ -12332,7 +12425,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.88.3 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.88.4 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

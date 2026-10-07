@@ -1,5 +1,5 @@
 {
-  "version": "1.88.3",
+  "version": "1.88.4",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 663,
+  "count": 671,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -5044,6 +5044,16 @@
       "docs": "api/gantt.html#ganttmodule"
     },
     {
+      "id": "gantt-edit-loadonly-*",
+      "module": "gantt",
+      "severity": "warn",
+      "since": "1.88.4",
+      "message": "gantt: applyEdit on load-only task \"{id}\" ignored; load-only bookings are not editable.",
+      "meaning": "`applyEdit()` named a task flagged `loadOnly: true` (BACKLOG-0001940). A load-only booking states another project's load, not a plan to edit: it has no bar, no contour and no CPM placement to write a patch back to, so the call is refused and the previous schedule is returned unchanged.",
+      "fix": "Edit the booking in the project it actually belongs to, or stop flagging it `loadOnly` if it should be a real, editable task in this plan.",
+      "docs": "api/gantt.html#plan"
+    },
+    {
       "id": "gantt-edit-mapped-field",
       "module": "gantt",
       "severity": "warn",
@@ -5106,6 +5116,56 @@
       "fix": "Give the lag once: either in the type shorthand or in `lag`.",
       "snippet": "dependencies: [{ from: 'a', to: 'b', type: 'FS', lag: 2 }]",
       "docs": "api/gantt.html#plan"
+    },
+    {
+      "id": "gantt-loadonly-dependency",
+      "module": "gantt",
+      "severity": "warn",
+      "since": "1.88.4",
+      "message": "gantt: a dependency naming a load-only task is ignored; load-only bookings take no part in scheduling.",
+      "meaning": "A dependency named a task flagged `loadOnly: true` (BACKLOG-0001940) as its `from` or `to`. A load-only booking is kept out of the CPM engine entirely — it states another project's load, not a plan to schedule — so it cannot be a predecessor or successor; the dependency is dropped before scheduling and the rest of the plan schedules normally.",
+      "fix": "Remove the dependency, or stop flagging the task `loadOnly` if it genuinely belongs in this plan's dependency graph.",
+      "docs": "api/gantt.html#plan"
+    },
+    {
+      "id": "gantt-move-cycle-*",
+      "module": "gantt",
+      "severity": "warn",
+      "since": "1.88.4",
+      "message": "gantt: moveRow refused — \"{newParent}\" is \"{id}\"'s own descendant.",
+      "meaning": "`moveRow()` asked a task to become a child of one of its own descendants (or of itself), which would cycle the tree. The move is refused before anything is gated or applied, and the previous schedule is returned unchanged.",
+      "fix": "Drop the row onto a task that is not already inside its own subtree.",
+      "docs": "api/gantt.html#tasks"
+    },
+    {
+      "id": "gantt-move-loadonly-*",
+      "module": "gantt",
+      "severity": "warn",
+      "since": "1.88.4",
+      "message": "gantt: moveRow on load-only task \"{id}\" ignored; load-only bookings are not editable.",
+      "meaning": "`moveRow()` named a task flagged `loadOnly: true` (BACKLOG-0001940). A load-only booking states another project's load, not a plan to edit: it has no place in this plan's own WBS tree to move to, so the call is refused and the previous schedule is returned unchanged.",
+      "fix": "Reorder or re-parent the booking in the project it actually belongs to.",
+      "docs": "api/gantt.html#plan"
+    },
+    {
+      "id": "gantt-move-unknown-*",
+      "module": "gantt",
+      "severity": "warn",
+      "since": "1.88.4",
+      "message": "gantt: moveRow for unknown task \"{id}\" ignored.",
+      "meaning": "`moveRow()` named a task the plan does not hold. Nothing moved, no before-event was raised, and the previous schedule was returned.",
+      "fix": "Check the id against the plan's tasks.",
+      "docs": "api/gantt.html#tasks"
+    },
+    {
+      "id": "gantt-move-unknown-parent-*",
+      "module": "gantt",
+      "severity": "warn",
+      "since": "1.88.4",
+      "message": "gantt: moveRow for \"{id}\" names unknown parent \"{newParent}\", ignored.",
+      "meaning": "`moveRow()`'s `target.parent` named a task the plan does not hold. Nothing moved, no before-event was raised, and the previous schedule was returned.",
+      "fix": "Check the parent id against the plan's tasks, or pass `null` to move the row to the root.",
+      "docs": "api/gantt.html#tasks"
     },
     {
       "id": "gantt-mspdi-not-project",
@@ -7008,6 +7068,28 @@
       "meaning": "The split view had not drawn its first frame yet when `print()` was called, so there was no laid-out plan to page.",
       "fix": "Call `print()` after the view has rendered, for example from a user action or after `mountSplit` returns and the schedule has settled.",
       "docs": "api/gantt.html"
+    },
+    {
+      "id": "gantt.marker.*",
+      "module": "gantt",
+      "severity": "warn",
+      "since": "1.88.4",
+      "message": "gantt: marker {i} has no drawable date or from/to range; it is skipped.",
+      "meaning": "A `markers` entry for a Gantt timeline could not be drawn: it was not an object, or its `date` (or its `from`/`to` range) was missing or not a day-number, an ISO date string or a `Date`. The marker is skipped and the rest of the plan draws normally.",
+      "fix": "Give each marker a `date`, or a `from`/`to` pair, as a day-number, an ISO `YYYY-MM-DD` string or a `Date`.",
+      "snippet": "gantt.mount(el, { markers: [{ date: '2026-06-01', label: 'Go-live' }] });",
+      "docs": "api/gantt.html#ganttmodule"
+    },
+    {
+      "id": "gantt.workloadExternal.*",
+      "module": "gantt",
+      "severity": "warn",
+      "since": "1.88.4",
+      "message": "gantt: workload.external entry {i} has no resource or no drawable start/end; it is skipped.",
+      "meaning": "A `workload.external` entry (BACKLOG-0001940) could not be booked: it was not an object, named no `resource`, or its `start`/`end` was missing or not a day-number, an ISO date string or a `Date`. The entry is skipped and the rest of the bookings and the plan draw normally.",
+      "fix": "Give each entry a `resource` and a `start`/`end`, as a day-number, an ISO `YYYY-MM-DD` string or a `Date`.",
+      "snippet": "mountSplit(el, { workload: { external: [{ resource: 'Ann', start: '2026-06-01', end: '2026-06-08', hours: 16, label: 'Project Phoenix' }] } });",
+      "docs": "api/gantt.html#plan"
     }
   ]
 }

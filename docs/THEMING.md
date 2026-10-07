@@ -32,7 +32,7 @@ finds:
 | `--lattice-*` fallback-only, no built-in default, no JS setter — a real, undocumented escape hatch | 28 |
 | `--lattice-*` fallback-only, set by the grid’s own JS at runtime — read, don’t set | 10 |
 | `--lat-*` geometry helper, declared, state-class-driven | 5 |
-| **Public total (this page)** | **172** |
+| **Public total (this page)** | **173** |
 | `--lat-*` internal computed alias of `--lattice-scrollbar-size` (prefixed, but never a preset’s to set) | 2 |
 | `--lat-*` internal per-cell/per-instance data (a bar fill %, a swatch colour...) set inline by JS per cell, never a theme default (prefixed, but not a token) | 11 |
 | Internal, unprefixed component-local plumbing (`--bl`, `--br`, `--dimmed`, `--focused`, `--hovered`, ... — named, not enumerated here) | ~50 |
@@ -46,7 +46,8 @@ spike’s "no renames needed" finding still held). BACKLOG-0001573 moved
 `--lattice-duration` from the fallback-only row above to a declared default,
 renamed it `--lattice-motion-duration`, and added `--lattice-motion-easing`
 beside it, for a net +1: **171**. BACKLOG-0001582 added
-`--lattice-cell-border-width`, for a net +1: **172**.
+`--lattice-cell-border-width`, for a net +1: **172**. BACKLOG-0001966 added
+`--lattice-control-size`, for a net +1: **173**.
 
 ## Public vs internal
 
@@ -262,6 +263,7 @@ Legend: **MUST** — a preset claiming to match a design system sets this or the
 | `--lattice-bar-min-width` | `48px` | `48px` | `48px` | `48px` | bar/progress decoration minimum width | leave |
 | `--lattice-dot-size` | `calc(8px * var(--lattice-scale))` | `calc(8px * var(--lattice-scale))` | `calc(8px * var(--lattice-scale))` | `calc(8px * var(--lattice-scale))` | dot decoration diameter | leave |
 | `--lattice-icon-size` | `16px` | `16px` | `16px` | `16px` | cell/header icon size | leave |
+| `--lattice-control-size` | `16px` | `16px` | `16px` | `16px` | the selection/value checkbox, a radio, a switch — in-cell controls stay this fixed size while the row and its padding scale with density | MAY |
 | `--lattice-decoration-edge-width` | `3px` | `3px` | `3px` | `3px` | bar/progress decoration edge stroke | leave |
 
 ### Per-feature / misc (declared)
@@ -274,6 +276,7 @@ Legend: **MUST** — a preset claiming to match a design system sets this or the
 | `--lattice-focus-width` | `2px` | `2px` | `3px` | `2px` | the focus ring’s thickness | MAY |
 | `--lattice-hscroll-sign` | `-1` | `-1` | `-1` | `-1` | internal RTL horizontal-scroll direction flip | leave |
 | `--lattice-icon-filter` | `url("data:image/svg+xml,…")` (an inline chevron mask; see the literal in `structure.css`) | `url("data:image/svg+xml,…")` (an inline chevron mask; see the literal in `structure.css`) | `url("data:image/svg+xml,…")` (an inline chevron mask; see the literal in `structure.css`) | `url("data:image/svg+xml,…")` (an inline chevron mask; see the literal in `structure.css`) | the built-in chevron icon’s mask shape (colour comes from `currentColor`/foreground) | leave |
+| `--lattice-maximise-z` | `1000` | `1000` | `1000` | `1000` | the layer a maximised grid sits at (BACKLOG-0001965); far below the ceiling so a host’s toasts, dialogs and popups open above it. The grid’s own portalled popups sit one above it while maximised | MAY |
 | `--lattice-target-min` | `var(--lattice-icon-size)` | `var(--lattice-icon-size)` | `var(--lattice-icon-size)` | `var(--lattice-icon-size)` | minimum touch-target size floor (accessibility) | leave |
 | `--lattice-presence-range-alpha` | `12%` | `12%` | `12%` | `12%` | a collaborator’s selected-range fill opacity | leave |
 
@@ -421,6 +424,7 @@ The two fenced blocks below are what `test/theming-contract-doc.test.js` diffs a
 --lattice-comment-panel-bg
 --lattice-comment-panel-width
 --lattice-comment-size
+--lattice-control-size
 --lattice-danger
 --lattice-decoration-edge-width
 --lattice-density-scale
@@ -480,6 +484,7 @@ The two fenced blocks below are what `test/theming-contract-doc.test.js` diffs a
 --lattice-invalid-border
 --lattice-line-height
 --lattice-link-color
+--lattice-maximise-z
 --lattice-motion-duration
 --lattice-motion-easing
 --lattice-muted

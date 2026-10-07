@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.88.3</title>
+<title>Types API Reference — Lattice Grid 1.88.4</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -2883,6 +2883,12 @@
     <h4 id="type-EditStartGesture">EditStartGesture</h4>
     <p class="section-note">Which gesture opens a cell editor.</p>
     <p class="type-def"><code>type EditStartGesture = 'single' | 'double' | 'key'</code></p>
+    <h4 id="type-EmptyMessage">EmptyMessage</h4>
+    <p class="section-note">The empty-state message (BACKLOG-0001973): a fixed string, or a function that returns one — or a DOM node — from the reason the grid is empty.</p>
+    <p class="type-def"><code>type EmptyMessage = string | ((ctx: <a href="grid.html#type-EmptyMessageContext">EmptyMessageContext</a>) =&gt; string | Node)</code></p>
+    <h4 id="type-EmptyMessageReason">EmptyMessageReason</h4>
+    <p class="section-note">Why a grid is empty when it shows its `emptyMessage` (BACKLOG-0001973). `'noData'` is an empty dataset; `'filtered'` is a non-empty dataset whose rows are all hidden by the current filters; `'loading'` is a count that has not arrived yet, and is never delivered to the message — the grid waits for one of the other two rather than guessing.</p>
+    <p class="type-def"><code>type EmptyMessageReason = 'noData' | 'filtered' | 'loading'</code></p>
     <h4 id="type-ErrorBoundKind">ErrorBoundKind</h4>
     <p class="section-note">How an approximate reduction's error bound holds: every run, in expectation, or to rounding.</p>
     <p class="type-def"><code>type ErrorBoundKind = 'deterministic' | 'probabilistic' | 'exact'</code></p>
@@ -2968,25 +2974,45 @@
     <p class="section-note">What a Gantt bar's own label shows: the task name, its percent, its dates, or nothing.</p>
     <p class="type-def"><code>type GanttBarLabel = 'name' | 'percent' | 'dates' | 'none'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
+    <h4 id="type-GanttBarLabelPosition">GanttBarLabelPosition</h4>
+    <p class="section-note">Where a Gantt bar's own label sits: `inside` centres it on the bar when it fits, `right` keeps it just past the bar's right edge, and `auto` chooses — inside when it fits, right when it does not.</p>
+    <p class="type-def"><code>type GanttBarLabelPosition = 'inside' | 'right' | 'auto'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
     <h4 id="type-GanttCalendar">GanttCalendar</h4>
     <p class="section-note">A working-time calendar: a Monday–Friday preset, or explicit working weekdays and holidays.</p>
     <p class="type-def"><code>type GanttCalendar = 'weekends' | { workdays?: number[]; holidays?: Array&lt;string | number | Date&gt; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
+    <h4 id="type-GanttChangeCause">GanttChangeCause</h4>
+    <p class="section-note">The cause of one committed data-change: who or what moved it (BACKLOG-0001984).</p>
+    <p class="type-def"><code>type GanttChangeCause = 'user' | 'pushed' | 'api' | 'undo' | 'redo'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
+    <h4 id="type-GanttChangeKind">GanttChangeKind</h4>
+    <p class="section-note">The kind of one entry inside a {@link GanttChangeBatchEvent} (BACKLOG-0001984).</p>
+    <p class="type-def"><code>type GanttChangeKind = 'taskAdd' | 'taskRemove' | 'taskUpdate' | 'dependencyAdd' | 'dependencyRemove' | 'dependencyUpdate' | 'assignmentChange'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
     <h4 id="type-GanttConstraintType">GanttConstraintType</h4>
     <p class="section-note">A scheduling constraint: pin a date, floor/ceiling a start or finish, or schedule as late as possible.</p>
     <p class="type-def"><code>type GanttConstraintType = 'as-soon-as-possible' | 'must-start-on' | 'must-finish-on' | 'as-late-as-possible' | 'start-no-earlier-than' | 'start-no-later-than' | 'finish-no-earlier-than' | 'finish-no-later-than' | 'ASAP' | 'MSO' | 'MFO' | 'ALAP' | 'SNET' | 'SNLT' | 'FNET' | 'FNLT'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
+    <h4 id="type-GanttContextMenu">GanttContextMenu</h4>
+    <p class="section-note">The split view's context menu (BACKLOG-0001945): the host supplies the items for a task's row or bar, and the view shows them in the grid's own menu component. Return `null`/`undefined` (or an empty array) to suppress the menu for that task. The function receives the host's ORIGINAL task object (the same shape `createGantt` took, not the scheduled shape) and the DOM event that asked for the menu — a pointer `contextmenu` event on the row/bar, or `null` when the request came from the keyboard (the Menu key / Shift+F10), where there is no pointer position. `event.preventDefault()` is already called for you; the native menu does not open. Each item's `action` is called with the item (as the grid does) and a `ctx` of `{ task, event, view }` — `task` the same original task, `event` the same DOM event, and `view` the `GanttSplitView` instance the menu belongs to.</p>
+    <p class="type-def"><code>type GanttContextMenu = ((task: <a href="gantt.html#type-GanttTask">GanttTask</a>, event: Event | null) =&gt; <a href="grid.html#type-MenuItem">MenuItem</a>[] | null | undefined) | null</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
+    <h4 id="type-GanttCriticalStyle">GanttCriticalStyle</h4>
+    <p class="section-note">How a critical bar is marked: recoloured, or outlined over its own fill.</p>
+    <p class="type-def"><code>type GanttCriticalStyle = 'fill' | 'outline'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
     <h4 id="type-GanttEventName">GanttEventName</h4>
-    <p class="section-note">The events a Gantt controller raises. The controller's own, not a grid's: `grid.on` takes {@link EventName} and knows nothing about these, and a grid-bound Gantt follows the grid's events itself rather than re-publishing them. `on()` takes a name and a listener and warns about nothing, so a misspelt name is a subscription that never fires. The seven `before…` events are cancellable ({@link GanttBeforeEvent}); each has a matching `&lt;action&gt;:cancelled` that fires when a handler refuses, carrying the same context plus the reason. `schedule` and `error` are the recompute's own pair and are raised on every recompute, whatever caused it.</p>
-    <p class="type-def"><code>type GanttEventName = 'schedule' | 'error' | 'beforeTaskEdit' | 'beforeTaskMove' | 'beforeTaskResize' | 'beforeProgressChange' | 'beforeMilestoneMove' | 'beforeDependencyCreate' | 'beforeTaskDelete' | 'taskEdit:cancelled' | 'taskMove:cancelled' | 'taskResize:cancelled' | 'progressChange:cancelled' | 'milestoneMove:cancelled' | 'dependencyCreate:cancelled' | 'taskDelete:cancelled' | 'history' | 'columnResize'</code></p>
+    <p class="section-note">The events a Gantt controller raises. The controller's own, not a grid's: `grid.on` takes {@link EventName} and knows nothing about these, and a grid-bound Gantt follows the grid's events itself rather than re-publishing them. `on()` takes a name and a listener and warns about nothing, so a misspelt name is a subscription that never fires. The fourteen `before…` events are cancellable ({@link GanttBeforeEvent}); each has a matching `&lt;action&gt;:cancelled` that fires when a handler refuses, carrying the same context plus the reason. `schedule` and `error` are the recompute's own pair and are raised on every recompute, whatever caused it.</p>
+    <p class="type-def"><code>type GanttEventName = 'schedule' | 'error' | 'beforeTaskEdit' | 'beforeTaskMove' | 'beforeTaskResize' | 'beforeProgressChange' | 'beforeMilestoneMove' | 'beforeDependencyCreate' | 'beforeTaskDelete' | 'beforeDependencyDelete' | 'beforeRowMove' | 'taskEdit:cancelled' | 'taskMove:cancelled' | 'taskResize:cancelled' | 'progressChange:cancelled' | 'milestoneMove:cancelled' | 'dependencyCreate:cancelled' | 'taskDelete:cancelled' | 'dependencyDelete:cancelled' | 'rowMove:cancelled' | 'dependencies' | 'history' | 'columnResize' | 'workload:click' | 'cell:click' | 'task:filtered' | 'draw' | 'beforeTaskExpand' | 'beforeTaskCollapse' | 'taskExpand' | 'taskCollapse' | 'taskExpand:cancelled' | 'taskCollapse:cancelled' | 'resourceExpand' | 'resourceCollapse' | 'selectionChange' | 'rowMove' | 'schedulingConflict' | 'taskAdd' | 'taskRemove' | 'taskUpdate' | 'dependencyAdd' | 'dependencyRemove' | 'dependencyUpdate' | 'assignmentChange' | 'datesChanged' | 'change' | 'ready' | 'beforeTaskDrag' | 'taskDragStart' | 'taskDrag' | 'taskDrag:cancelled' | 'beforeTaskResizeStart' | 'taskResizeStart' | 'taskPartialResize' | 'taskResizeEnd' | 'beforePercentBarDrag' | 'percentBarDragStart' | 'percentBarDrag' | 'percentBarDrop' | 'percentBarDrag:cancelled' | 'taskClick' | 'taskDblClick' | 'taskMouseOver' | 'taskMouseOut' | 'zoomChange' | 'visibleRangeChange' | 'dirtyChange'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
     <h4 id="type-GanttLinkType">GanttLinkType</h4>
     <p class="section-note">One of the four dependency link types (finish-to-start, start-to-start, finish-to-finish, start-to-finish).</p>
     <p class="type-def"><code>type GanttLinkType = 'FS' | 'SS' | 'FF' | 'SF'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
     <h4 id="type-GanttResourceSpec">GanttResourceSpec</h4>
-    <p class="section-note">Resource capacities for over-allocation detection and leveling (BACKLOG-0000948): either a list of resources or a name→capacity map. A resource may carry its own working `calendar` (BACKLOG-0001861), in which case load, workload, over-allocation and `level()` measure it against THAT: zero capacity on a day it does not work, and `capacity` is read **in hours per day** (defaulting to that weekday's `hoursPerDay`). A resource with no calendar keeps the historical unitless `capacity` (max concurrent units, default 1), treated as a fraction of the plan `hoursPerDay`. A resource may also carry cost data (BACKLOG-0001866): `rate` (per hour, for the default `type: 'work'`, or per unit of an assignment's `units` for `type: 'material'`), dated `rates` changes, and `type` — `'cost'` charges its flat `cost` once per assignment, independent of hours or units. `gantt.cost()`/`earnedValue()`/the histogram's `unit: 'cost'` read this; a resource with none of `rate`/`rates`/`cost` costs nothing, so a plan with no rate data is unaffected.</p>
-    <p class="type-def"><code>type GanttResourceSpec = Array&lt;{ id?: string; name?: string; resource?: string; capacity?: number; maxUnits?: number; max?: number; units?: number; calendar?: <a href="gantt.html#type-GanttResourceCalendar">GanttResourceCalendar</a>; rate?: number; rates?: <a href="gantt.html#type-GanttResourceRateChange">GanttResourceRateChange</a>[]; type?: 'work' | 'material' | 'cost'; cost?: number; }&gt; | Record&lt;string, number&gt;</code></p>
+    <p class="section-note">Resource capacities for over-allocation detection and leveling (BACKLOG-0000948): either a list of resources or a name→capacity map. A resource may carry its own working `calendar` (BACKLOG-0001861), in which case load, workload, over-allocation and `level()` measure it against THAT: zero capacity on a day it does not work, and `capacity` is read **in hours per day** (defaulting to that weekday's `hoursPerDay`). A resource with no calendar keeps the historical unitless `capacity` (max concurrent units, default 1), treated as a fraction of the plan `hoursPerDay`. A resource may also carry cost data (BACKLOG-0001866): `rate` (per hour, for the default `type: 'work'`, or per unit of an assignment's `units` for `type: 'material'`), dated `rates` changes, and `type` — `'cost'` charges its flat `cost` once per assignment, independent of hours or units. `gantt.cost()`/`earnedValue()`/the histogram's `unit: 'cost'` read this; a resource with none of `rate`/`rates`/`cost` costs nothing, so a plan with no rate data is unaffected. A resource may also carry an `avatar` image URL (BACKLOG-0001977), drawn as a round picture in the split view's assignee column, workload band resource rows and assignment picker — `alt` text is the resource's name, and a resource without one, or whose image fails to load, keeps its initials glyph.</p>
+    <p class="type-def"><code>type GanttResourceSpec = Array&lt;{ id?: string; name?: string; resource?: string; avatar?: string; capacity?: number; maxUnits?: number; max?: number; units?: number; calendar?: <a href="gantt.html#type-GanttResourceCalendar">GanttResourceCalendar</a>; rate?: number; rates?: <a href="gantt.html#type-GanttResourceRateChange">GanttResourceRateChange</a>[]; type?: 'work' | 'material' | 'cost'; cost?: number; }&gt; | Record&lt;string, number&gt;</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
     <h4 id="type-GanttSchedulingMode">GanttSchedulingMode</h4>
     <p class="section-note">A task's scheduling mode (BACKLOG-0001862): which quantity of `effort = duration × Σ units × hours per day` is held when another changes. `fixedDuration` (the default) holds the duration; `fixedEffort` holds the effort so more units shorten the duration; `fixedUnits` holds the units so a bigger effort lengthens the duration.</p>
@@ -2998,11 +3024,23 @@
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
     <h4 id="type-GanttTooltipField">GanttTooltipField</h4>
     <p class="section-note">A row the task tooltip card can show (BACKLOG-0001921); `tooltip.fields` picks and orders them.</p>
-    <p class="type-def"><code>type GanttTooltipField = 'start' | 'end' | 'duration' | 'percentComplete' | 'effort' | 'resources' | 'cost' | 'slack'</code></p>
+    <p class="type-def"><code>type GanttTooltipField = 'start' | 'end' | 'duration' | 'percentComplete' | 'effort' | 'resources' | 'cost' | 'slack' | 'deadline'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
     <h4 id="type-GanttZoom">GanttZoom</h4>
     <p class="section-note">The Gantt timeline's zoom: a named level, or raw pixels-per-day.</p>
     <p class="type-def"><code>type GanttZoom = 'day' | 'week' | 'month' | 'quarter'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
+    <h4 id="type-GanttZoomCause">GanttZoomCause</h4>
+    <p class="section-note">What changed the split view's zoom (BACKLOG-0002005): a host `setZoom`/`fitZoom` (`'api'`), the view's own zoom control (`'control'`), or a future pinch/wheel gesture (`'gesture'`).</p>
+    <p class="type-def"><code>type GanttZoomCause = 'api' | 'control' | 'gesture'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
+    <h4 id="type-GanttZoomLevel">GanttZoomLevel</h4>
+    <p class="section-note">One level of the split view's built-in zoom control (BACKLOG-0001963): a preset, or `fit`, which zooms to show the whole plan.</p>
+    <p class="type-def"><code>type GanttZoomLevel = <a href="#type-GanttZoom">GanttZoom</a> | 'fit'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
+    <h4 id="type-GanttZoomValue">GanttZoomValue</h4>
+    <p class="section-note">The level a `zoomChange` moved from or to (BACKLOG-0002005): a preset, `fit` (the control's fit-to-plan), or `custom` for a raw pixels-per-day.</p>
+    <p class="type-def"><code>type GanttZoomValue = <a href="#type-GanttZoom">GanttZoom</a> | 'fit' | 'custom'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/gantt</code>.</small></p>
     <h4 id="type-GeometryFormatPattern">GeometryFormatPattern</h4>
     <p class="section-note">What a `geometry` cell shows: `'summary'` (the default) is a line a person reads — `Point 51.5074°N 0.1278°W`, `Polygon, 14 vertices, 2.31 km²` — with numbers in the grid's locale; `'wkt'` is the Well-Known Text; `'geojson'` is the GeoJSON geometry as JSON text.</p>
@@ -3020,6 +3058,9 @@
     <h4 id="type-HeaderControlsVisibility">HeaderControlsVisibility</h4>
     <p class="section-note">When the per-column header controls — the sort arrow, the filter funnel and the menu button — are shown, as a grid-level default (BACKLOG-0000982). See {@link GridConfig.headerControls}.</p>
     <p class="type-def"><code>type HeaderControlsVisibility = 'hover' | 'always' | 'hidden' | 'none'</code></p>
+    <h4 id="type-HeaderRenderFn">HeaderRenderFn</h4>
+    <p class="section-note">The short form of a heading renderer: a function handed the heading element to fill and the {@link HeaderParams} above.</p>
+    <p class="type-def"><code>type HeaderRenderFn = (label: HTMLElement, params: <a href="grid.html#type-HeaderParams">HeaderParams</a>) =&gt; HTMLElement | string | void</code></p>
     <h4 id="type-HistoryDirection">HistoryDirection</h4>
     <p class="section-note">Which way the undo/redo stack moved.</p>
     <p class="type-def"><code>type HistoryDirection = 'undo' | 'redo'</code></p>

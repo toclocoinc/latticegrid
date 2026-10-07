@@ -1188,6 +1188,84 @@ declare class LatticeGanttComponent extends LatticeViewerBase<Gantt> {
     readonly history: EventEmitter<any>;
     /** The split view's `columnResize` event: a column border or the table/timeline divider settled a drag or keyboard resize (BACKLOG-0001924). */
     readonly columnResize: EventEmitter<any>;
+    /** The workload band's `workload:click` event: a bucket cell was clicked, with that bucket's bookings (BACKLOG-0001942). */
+    readonly workloadClick: EventEmitter<any>;
+    /** The split view's `task:filtered` event: `scrollToTask` named a task the task table's filter hides (BACKLOG-0001976). */
+    readonly taskFiltered: EventEmitter<any>;
+    /** The viewer's `draw` event: once after every completed paint, coalesced across synchronous invalidations (BACKLOG-0001960). */
+    readonly draw: EventEmitter<any>;
+    /**
+     * The viewer's `dependencies` event: the links added and/or removed by a
+     * change that was just allowed through (BACKLOG-0001936). Named
+     * `dependenciesChanged` on the class — `dependencies` itself is already the
+     * `[dependencies]` input above — but still bound under the event's own name,
+     * since an Angular input and output may share one public binding name.
+     */
+    readonly dependenciesChanged: EventEmitter<any>;
+    /** The split view's `cell:click` event: a task-table cell was clicked, with the task, column key and cell element (BACKLOG-0001946). */
+    readonly cellClick: EventEmitter<any>;
+    /** The viewer's `taskExpand` event: a summary row expanded its children (BACKLOG-0001982). */
+    readonly taskExpand: EventEmitter<any>;
+    /** The viewer's `taskCollapse` event: a summary row collapsed its children (BACKLOG-0001982). */
+    readonly taskCollapse: EventEmitter<any>;
+    /** The viewer's `resourceExpand` event: a workload-band resource row expanded its sub-rows (BACKLOG-0001982). */
+    readonly resourceExpand: EventEmitter<any>;
+    /** The viewer's `resourceCollapse` event: a workload-band resource row collapsed its sub-rows (BACKLOG-0001982). */
+    readonly resourceCollapse: EventEmitter<any>;
+    /** The viewer's `selectionChange` event: the task selection changed, with what it gained, lost and why (BACKLOG-0001995). */
+    readonly selectionChange: EventEmitter<any>;
+    /** The viewer's `rowMove` event: a row moved or was re-parented — a drag, Alt+Up/Down or Tab/Shift+Tab, once allowed through `beforeRowMove` (BACKLOG-0001937). */
+    readonly rowMove: EventEmitter<any>;
+    /** The viewer's `schedulingConflict` event: the conflict set changed — a cycle, constraint, lock or deadline was added or resolved (BACKLOG-0002004). */
+    readonly schedulingConflict: EventEmitter<any>;
+    /** The committed-change `taskAdd` event: a task a change added (BACKLOG-0001984). */
+    readonly taskAdd: EventEmitter<any>;
+    /** The committed-change `taskRemove` event: a task a change removed (BACKLOG-0001984). */
+    readonly taskRemove: EventEmitter<any>;
+    /** The committed-change `taskUpdate` event: a task a change altered, with a field-level diff (BACKLOG-0001984). */
+    readonly taskUpdate: EventEmitter<any>;
+    /** The committed-change `dependencyAdd` event: a link a change added (BACKLOG-0001984). */
+    readonly dependencyAdd: EventEmitter<any>;
+    /** The committed-change `dependencyRemove` event: a link a change removed (BACKLOG-0001984). */
+    readonly dependencyRemove: EventEmitter<any>;
+    /** The committed-change `dependencyUpdate` event: a link a change altered in place (BACKLOG-0001984). */
+    readonly dependencyUpdate: EventEmitter<any>;
+    /** The committed-change `assignmentChange` event: a task's roster a change altered (BACKLOG-0001984). */
+    readonly assignmentChange: EventEmitter<any>;
+    /** The committed-change `datesChanged` event: the date-only projection of a change (BACKLOG-0001961). */
+    readonly datesChanged: EventEmitter<any>;
+    /** The committed-change `change` event: the ONE batch per action, every individual event as an array (BACKLOG-0001984). */
+    readonly change: EventEmitter<any>;
+    /** The viewer's `taskDragStart` event: a move drag of a bar or milestone started (BACKLOG-0001985). */
+    readonly taskDragStart: EventEmitter<any>;
+    /** The viewer's `taskDrag` event: one move drag frame, with the landing position and pushed successors (BACKLOG-0001986). */
+    readonly taskDrag: EventEmitter<any>;
+    /** The viewer's `taskResizeStart` event: a bar resize started (BACKLOG-0001987). */
+    readonly taskResizeStart: EventEmitter<any>;
+    /** The viewer's `taskPartialResize` event: one resize drag frame (BACKLOG-0001987). */
+    readonly taskPartialResize: EventEmitter<any>;
+    /** The viewer's `taskResizeEnd` event: a bar resize was released (BACKLOG-0001987). */
+    readonly taskResizeEnd: EventEmitter<any>;
+    /** The viewer's `percentBarDragStart` event: a progress-handle drag started (BACKLOG-0001988). */
+    readonly percentBarDragStart: EventEmitter<any>;
+    /** The viewer's `percentBarDrag` event: one progress-handle drag frame, in snapped percent (BACKLOG-0001988). */
+    readonly percentBarDrag: EventEmitter<any>;
+    /** The viewer's `percentBarDrop` event: a progress-handle drag was released (BACKLOG-0001988). */
+    readonly percentBarDrop: EventEmitter<any>;
+    /** The viewer's `taskClick` event: a bar, milestone or summary bar was clicked (BACKLOG-0001989). */
+    readonly taskClick: EventEmitter<any>;
+    /** The viewer's `taskDblClick` event: a bar, milestone or summary bar was double-clicked; cancellable (BACKLOG-0001990). */
+    readonly taskDblClick: EventEmitter<any>;
+    /** The viewer's `taskMouseOver` event: the pointer or focus entered a task (BACKLOG-0001992). */
+    readonly taskMouseOver: EventEmitter<any>;
+    /** The viewer's `taskMouseOut` event: the pointer or focus left a task (BACKLOG-0001992). */
+    readonly taskMouseOut: EventEmitter<any>;
+    /** The split view's `zoomChange` event: the time scale changed, with the level before and after and the cause (BACKLOG-0002005). */
+    readonly zoomChange: EventEmitter<any>;
+    /** The split view's `visibleRangeChange` event: the dates under the timeline edges changed, once per animation frame (BACKLOG-0002005). */
+    readonly visibleRangeChange: EventEmitter<any>;
+    /** The dirty-tracking flag flip: `hasChanges` went from false to true or back (BACKLOG-0002003). */
+    readonly dirtyChange: EventEmitter<any>;
     /**
      * The live inputs, by the names the viewer tables use.
      * @returns the live props that are set
@@ -1202,7 +1280,7 @@ declare class LatticeGanttComponent extends LatticeViewerBase<Gantt> {
      */
     protected mount(element: HTMLElement, config: Props): Gantt;
     static ɵfac: i0.ɵɵFactoryDeclaration<LatticeGanttComponent, never>;
-    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeGanttComponent, "lattice-gantt", never, { "config": { "alias": "config"; "required": false; }; "tasks": { "alias": "tasks"; "required": false; }; "dependencies": { "alias": "dependencies"; "required": false; }; }, { "schedule": "schedule"; "error": "error"; "history": "history"; "columnResize": "columnResize"; }, never, never, true, never>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeGanttComponent, "lattice-gantt", never, { "config": { "alias": "config"; "required": false; }; "tasks": { "alias": "tasks"; "required": false; }; "dependencies": { "alias": "dependencies"; "required": false; }; }, { "schedule": "schedule"; "error": "error"; "history": "history"; "columnResize": "columnResize"; "workloadClick": "workload-click"; "taskFiltered": "task-filtered"; "draw": "draw"; "dependenciesChanged": "dependencies"; "cellClick": "cell-click"; "taskExpand": "taskExpand"; "taskCollapse": "taskCollapse"; "resourceExpand": "resourceExpand"; "resourceCollapse": "resourceCollapse"; "selectionChange": "selectionChange"; "rowMove": "rowMove"; "schedulingConflict": "schedulingConflict"; "taskAdd": "taskAdd"; "taskRemove": "taskRemove"; "taskUpdate": "taskUpdate"; "dependencyAdd": "dependencyAdd"; "dependencyRemove": "dependencyRemove"; "dependencyUpdate": "dependencyUpdate"; "assignmentChange": "assignmentChange"; "datesChanged": "datesChanged"; "change": "change"; "taskDragStart": "taskDragStart"; "taskDrag": "taskDrag"; "taskResizeStart": "taskResizeStart"; "taskPartialResize": "taskPartialResize"; "taskResizeEnd": "taskResizeEnd"; "percentBarDragStart": "percentBarDragStart"; "percentBarDrag": "percentBarDrag"; "percentBarDrop": "percentBarDrop"; "taskClick": "taskClick"; "taskDblClick": "taskDblClick"; "taskMouseOver": "taskMouseOver"; "taskMouseOut": "taskMouseOut"; "zoomChange": "zoomChange"; "visibleRangeChange": "visibleRangeChange"; "dirtyChange": "dirtyChange"; }, never, never, true, never>;
 }
 
 /**
