@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.88.2, chart-polarscatter module type declarations
+ * Lattice Grid 1.88.3, chart-polarscatter module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

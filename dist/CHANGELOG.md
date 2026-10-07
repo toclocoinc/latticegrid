@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.88.3] - 2026-10-07
+
+### Added
+
+- **The Gantt split view's table columns, and the table/timeline divider, are now resizable** (BACKLOG-0001924). Each `__colhead` carries a draggable right border with a col-resize cursor; once focused (by pointer or Tab), the arrow keys step it 8px a press, 32px with Shift. `minWidth`/`maxWidth` on a column spec clamp how far it goes, and `resizable: false` omits its border entirely. The table/timeline divider (`gridWidth`) is the same gesture. A settled drag or keystroke on either fires exactly one `columnResize` event (`{ key, width, widths }`, the divider reporting `key: 'grid'`), and every width — the divider's included — round-trips through the controller's `getState`/`setState` via the view's new `getColumnWidths()`/`setColumnWidths()`, so a host can persist a resize across a reload. Rows, bars and the workload/histogram bands stay aligned throughout, since both panels and both bands size off the same column widths the drag is updating. Declared in every framework adapter (React, Vue, Svelte, Angular).
+
 ## [1.88.2] - 2026-10-06
 
 ### Added

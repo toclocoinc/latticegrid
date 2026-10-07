@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.88.2, gantt module type declarations
+ * Lattice Grid 1.88.3, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1013,7 +1013,9 @@ export type GanttEventName =
   /** A `beforeTaskDelete` handler refused the delete. */
   | 'taskDelete:cancelled'
   /** The undo/redo timeline changed — an edit was recorded, undone, redone or cleared. */
-  | 'history';
+  | 'history'
+  /** A split-view column border or the table/timeline divider finished a drag or keyboard resize. Fired once per gesture, never mid-drag. */
+  | 'columnResize';
 
 /** What a handler receives, per Gantt event. */
 export interface GanttEventPayloads {
@@ -1051,6 +1053,27 @@ export interface GanttEventPayloads {
   'taskDelete:cancelled': GanttTaskDeleteCancelledEvent;
   /** The undo/redo timeline's new state. */
   history: GanttHistoryEvent;
+  /** The settled column/divider width, and a snapshot of every width. */
+  columnResize: GanttColumnResizeEvent;
+}
+
+/**
+ * The payload of the `columnResize` event, fired once a
+ * split-view column-border or table/timeline-divider drag or keyboard
+ * resize settles — never mid-drag, so one gesture is exactly one event.
+ */
+export interface GanttColumnResizeEvent {
+  /** The column `key` that was resized, or `'grid'` for the table/timeline divider. */
+  key: string;
+  /** The settled width, in pixels, after the column's/divider's own `minWidth`/`maxWidth` clamp. */
+  width: number;
+  /**
+   * Every left-panel column's current rendered width, keyed by its own
+   * `key`, plus the divider's own width under `'grid'` — a full snapshot a
+   * host can persist directly, e.g. alongside `gantt.getState()`'s own
+   * `columnWidths` (which carries the same shape, minus `grid`).
+   */
+  widths: Record<string, number>;
 }
 
 /**
@@ -1107,6 +1130,20 @@ export interface GanttSplitView {
    * `getState`/`setState`. A no-op when neither band is mounted.
    */
   setWorkloadUnit(unit: 'hours' | 'percent' | 'cost'): void;
+  /**
+   * Every left-panel column's current rendered width, keyed by column
+   * `key` — every column, not merely a resized one, so
+   * restoring this exact snapshot reproduces the layout on screen.
+   * Round-trips through the controller's `getState`/`setState`.
+   */
+  getColumnWidths(): Record<string, number>;
+  /**
+   * Restore column widths from {@link getColumnWidths}.
+   * Each is clamped to that column's own `minWidth`/`maxWidth` and skipped
+   * for an unknown key or a `resizable: false` column, then the view
+   * redraws.
+   */
+  setColumnWidths(widths: Record<string, number>): void;
   /**
    * Serialise this split view — the left panel, the timeline and whichever
    * bands are mounted — to a standalone SVG string, drawn
@@ -1498,8 +1535,26 @@ export interface Gantt {
      * editable plan the assignee cell opens the assignment picker. A column
      * with no `kind` shows the raw task's `key` and edits it only with
      * `editable: true`.
+     *
+     * Every column header carries a draggable right border with a
+     * col-resize cursor: a pointer drag, or arrow keys
+     * once the border itself is focused (8px a press, 32px with Shift).
+     * `minWidth`/`maxWidth` clamp how far it goes; `resizable: false` omits
+     * the border entirely. The table/timeline divider (`gridWidth`) is the
+     * same gesture; a settled drag or keystroke on either fires exactly one
+     * `columnResize`, and every width — the divider's included, under the
+     * key `'grid'` — round-trips through `getState`/`setState`.
      */
-    columns?: Array<'name' | 'start' | 'end' | 'duration' | 'assignee' | 'progress' | 'effort' | 'units' | { key: string; title?: string; width?: number; kind?: 'name' | 'assignee' | 'progress' | 'evm' | 'plannedPercentComplete' | 'start' | 'end' | 'duration' | 'effort' | 'units' | 'number'; metric?: 'bac' | 'pv' | 'ev' | 'ac' | 'sv' | 'cv' | 'spi' | 'cpi'; digits?: number; editable?: boolean; editField?: string; render?: (task: GanttScheduledTask, ctx: { rawTask: GanttTask; depth: number }) => unknown }>;
+    columns?: Array<'name' | 'start' | 'end' | 'duration' | 'assignee' | 'progress' | 'effort' | 'units' | {
+      key: string; title?: string; width?: number; kind?: 'name' | 'assignee' | 'progress' | 'evm' | 'plannedPercentComplete' | 'start' | 'end' | 'duration' | 'effort' | 'units' | 'number'; metric?: 'bac' | 'pv' | 'ev' | 'ac' | 'sv' | 'cv' | 'spi' | 'cpi'; digits?: number; editable?: boolean; editField?: string;
+      /** The narrowest this column can be dragged/keyed to; default 80 for `kind: 'name'`, 40 otherwise. */
+      minWidth?: number;
+      /** The widest this column can be dragged/keyed to; default unbounded. */
+      maxWidth?: number;
+      /** `false` omits the resize border on this column's header; default true. */
+      resizable?: boolean;
+      render?: (task: GanttScheduledTask, ctx: { rawTask: GanttTask; depth: number }) => unknown;
+    }>;
     /**
      * A resource workload band beneath the split view:
      * one row per resource on the left and, on the right, that resource's

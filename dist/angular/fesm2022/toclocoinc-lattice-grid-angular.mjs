@@ -809,7 +809,7 @@ const VIEWER_EVENTS$1 = Object.freeze({
 
     chart: Object.freeze(['click', 'hover', 'leave', 'draw', 'legend']),
 
-    gantt: Object.freeze(['schedule', 'error', 'history']),
+    gantt: Object.freeze(['schedule', 'error', 'history', 'columnResize']),
     layout: Object.freeze([
         'layout:changed', 'window:moved', 'window:resized', 'window:closed',
         'beforeWindowClose', 'windowClose:cancelled',
@@ -2711,6 +2711,8 @@ class LatticeGanttComponent extends LatticeViewerBase {
         this.error = new EventEmitter();
 
         this.history = new EventEmitter();
+
+        this.columnResize = new EventEmitter();
     }
 
     liveProps() {
@@ -2727,7 +2729,7 @@ class LatticeGanttComponent extends LatticeViewerBase {
         return createGantt({ ...config, element });
     }
     static { this.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeGanttComponent, deps: null, target: i0.ɵɵFactoryTarget.Component }); }
-    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeGanttComponent, isStandalone: true, selector: "lattice-gantt", inputs: { config: "config", tasks: "tasks", dependencies: "dependencies" }, outputs: { schedule: "schedule", error: "error", history: "history" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
+    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeGanttComponent, isStandalone: true, selector: "lattice-gantt", inputs: { config: "config", tasks: "tasks", dependencies: "dependencies" }, outputs: { schedule: "schedule", error: "error", history: "history", columnResize: "columnResize" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
 }
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeGanttComponent, decorators: [{
             type: Component,
@@ -2743,6 +2745,8 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
             }], error: [{
                 type: Output
             }], history: [{
+                type: Output
+            }], columnResize: [{
                 type: Output
             }] } });
 
