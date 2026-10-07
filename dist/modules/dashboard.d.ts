@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.88.4, dashboard module type declarations
+ * Lattice Grid 1.89.0, dashboard module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -133,13 +133,17 @@ export interface DashboardGridSource {
 export type DashboardSource = DashboardRowsSource | DashboardPushdownSource | DashboardRouterSource | DashboardGridSource;
 
 /**
- * A link: the rows selected in the `from` grid panel filter the `to` panel.
- * Over one Data Router it is a `router.relate()` edge; otherwise a named
- * `filters.where()` predicate on the target's grid. Two pushdown sources with
- * no router between them, or two routers, are refused by name.
+ * A link: the rows selected in the `from` panel's own grid filter the `to`
+ * panel. `from` is any panel with a grid to select on — a `grid` panel's
+ * rows, or a chart, KPI, calendar or map panel's own
+ * headless grid, which a click on a mark with `options.selection` set
+ * selects into exactly as a grid row's selection does. Over one Data Router
+ * it is a `router.relate()` edge; otherwise a named `filters.where()`
+ * predicate on the target's grid. Two pushdown sources with no router
+ * between them, or two routers, are refused by name.
  */
 export interface DashboardLink {
-  /** The grid panel whose selection drives the link. */
+  /** The panel whose selection drives the link. */
   from: string;
   /** The panel it filters. */
   to: string;
@@ -230,6 +234,20 @@ export interface DashboardView {
 }
 
 /** A built dashboard. */
+/**
+ * A keyed config diff for {@link Dashboard.applyConfig}:
+ * the panel equivalent of a keyed row diff. `add`/`update` carry a panel and
+ * its optional window placement; `remove` carries panel ids.
+ */
+export interface DashboardConfigChange {
+  /** Widgets to create, each a panel and its optional window placement. */
+  add?: Array<{ panel: DashboardPanel; window?: { xPos?: number; yPos?: number; xSize?: number; ySize?: number; [option: string]: unknown } }>;
+  /** Widgets to re-render in place, each a panel and an optional new window placement. */
+  update?: Array<{ panel: DashboardPanel; window?: { xPos?: number; yPos?: number; xSize?: number; ySize?: number; [option: string]: unknown } }>;
+  /** Panel ids to remove. */
+  remove?: string[];
+}
+
 export interface Dashboard {
   /** The element it is mounted on. */
   readonly el: HTMLElement;
@@ -247,6 +265,16 @@ export interface Dashboard {
    * proposal or restores a stored spec. Returns what was refused.
    */
   apply(spec: DashboardSpec): DashboardProblem[];
+  /**
+   * Apply a keyed config diff to the live dashboard, the way a grid applies a
+   * keyed row diff to `grid.rows.apply`: add the new
+   * widgets, re-render ONLY the updated ones in place, and remove the gone
+   * ones — so an untouched widget keeps its viewer and is never rebuilt. This
+   * is how the Designer drives a dashboard from a Data Router. An `update` of
+   * an absent panel adds it; an `add` of a present one re-renders it; a panel
+   * that views a rebuilt or removed panel's grid goes with it.
+   */
+  applyConfig(change: DashboardConfigChange): { added: number; updated: number; removed: number };
   /** The built panels' ids, in spec order. */
   panels(): string[];
   /** One built panel, or null. */

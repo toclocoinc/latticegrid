@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.88.4</p>
+    <p class="rail__sub">Developer guide · v1.89.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.88.4</span>
+        <span class="chip">Version 1.89.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1676,7 +1676,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.88.4'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.89.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -12001,12 +12001,49 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
           <tr><td class="name">validateDashboardSpec</td><td class="desc">Every problem in a spec, by path (<code>panels[2].kind</code>), without building it.</td></tr>
           <tr><td class="name">spec</td><td class="desc">The dashboard as built: panels, sources by id, the links that were made, and each window where it now is. Rebuilding from it gives the same dashboard.</td></tr>
           <tr><td class="name">apply</td><td class="desc">Tear down and build another spec in place: how a proposal is accepted or a stored spec restored.</td></tr>
+          <tr><td class="name">applyConfig</td><td class="desc">Apply a keyed config diff — <code>{ add, update, remove }</code> of panels — the way a grid applies a keyed row diff to <code>grid.rows.apply</code>: add new widgets, re-render only the updated ones in place, remove the gone ones, so an untouched widget keeps its viewer. This is how the Designer's config routing (<code>designer.configRouter</code>) drives a dashboard from a Data Router.</td></tr>
           <tr><td class="name">panels / panel</td><td class="desc">The built panel ids; one panel's element, grid and viewer.</td></tr>
           <tr><td class="name">problems</td><td class="desc">What the last build refused or reported: <code>{ id, path, message }</code>.</td></tr>
           <tr><td class="name">propose</td><td class="desc">Ask the AI callback for a spec over one source's columns; resolves to <code>{ spec, warnings }</code> and builds nothing.</td></tr>
           <tr><td class="name">saveView / views / applyView</td><td class="desc">The spec and every grid panel's state as one named view, the saved views, and restoring one.</td></tr>
           <tr><td class="name">present / step / stopPresenting</td><td class="desc">Step through the panels one at a time with the layout's maximise.</td></tr>
           <tr><td class="name">destroy</td><td class="desc">Remove the links, every viewer, grid and router attachment the dashboard made, and the layout.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="designer-guide">The Designer</h2>
+    <p class="lead-in">
+      <code>createDesigner(el, options)</code> (<code>modules/designer</code>) is a dashboard designer whose state is the
+      <a href="#dashboard-guide">dashboard spec</a> extended with pages, and whose view mode is <code>createDashboard</code>
+      itself. The state is plain JSON, <code>{ schemaVersion, pages, selectedPageId, panels }</code>, and every key it does
+      not know is carried, so <code>setState(getState())</code> is the identity. See <a href="API.html#designer">The Designer</a>
+      for the state reference and an executed example.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td class="name">createDesigner</td><td class="desc">Build a designer into an element. Options: <code>mode</code> (<code>'edit'</code> or <code>'view'</code>), <code>state</code>, <code>sources</code> (the host's live data, by id), <code>factories</code> (as <code>createDashboard</code> takes them), <code>messages</code>, <code>historyDepth</code> (how many undo steps to keep, <code>100</code> by default), <code>keepPagesAlive</code> (keep every visited page built across selection changes; by default a page is disposed when left), <code>theme</code>, and <code>relationships</code> and <code>llm</code> (kept on <code>designer.context</code> for the designer features that read them), and <code>guardrails</code>, which is live on <code>designer.guardrails</code>.</td></tr>
+          <tr><td class="name">getState / setState</td><td class="desc">A copy of the state; replace it. An equal state changes nothing and sends no event.</td></tr>
+          <tr><td class="name">migrate</td><td class="desc">Migrate a state to this version and report what changed — <code>{ ok, reason, from, to, applied, changes, state }</code> — with <code>{ dryRun: true }</code> reporting without applying. A plain spec is wrapped into a one-page state; a newer <code>schemaVersion</code> is refused by name.</td></tr>
+          <tr><td class="name">mode / setMode</td><td class="desc">The mode now in force; switch it. View mode is <code>createDashboard</code> and nothing else. Edit mode makes the windows movable and resizable and writes each placement into the page's <code>spec.layout.windows</code>. The change is announced.</td></tr>
+          <tr><td class="name">pages / selectPage</td><td class="desc">The pages' ids and titles; build one page on the canvas. An unknown id is refused and returns <code>false</code>.</td></tr>
+          <tr><td class="name">addPage / renamePage / movePage / removePage</td><td class="desc"><code>addPage({ title?, duplicate?, id? })</code> adds a blank page or a copy of another and selects it, returning the new id (or <code>null</code>); <code>renamePage(id, title)</code>, <code>movePage(id, delta)</code> (signed positions, clamped) and <code>removePage(id)</code> rename, reorder and delete, returning <code>false</code> when there is no such page or the change is a no-op. Each is one undoable <code>state</code> change and is refused by name when <code>guardrails.pages</code> disallows the operation. Removing the selected page selects its neighbour.</td></tr>
+          <tr><td class="name">on / onStateUpdated</td><td class="desc"><code>on('state', fn)</code> is sent once for each change, with <code>{ state, cause }</code>; <code>onStateUpdated(fn)</code> is the same. <code>on('mode', fn)</code> is sent on a mode change, and <code>on('page', fn)</code> is sent with <code>{ id, page, previousId, type }</code> when the selected page changes.</td></tr>
+          <tr><td class="name">problems</td><td class="desc">Every page's spec problems, <code>{ page, path, message }</code>, from the dashboard's own validator. Never throws.</td></tr>
+          <tr><td class="name">getProperty / setProperty</td><td class="desc"><code>mode</code>, <code>state</code>, <code>selectedPageId</code> and <code>guardrails</code> by name; <code>setProperty('mode', 'view')</code> switches live. Another name is refused and returns <code>undefined</code> or <code>false</code>.</td></tr>
+          <tr><td class="name">undo / redo / canUndo / canRedo</td><td class="desc">Undo the most recent committed change, restoring the exact previous state and firing <code>state</code> with cause <code>undo</code>; <code>redo()</code> re-applies it (cause <code>redo</code>); <code>canUndo()</code>/<code>canRedo()</code> say whether either is possible. A drag or a slider scrub coalesces into one step, the depth is <code>historyDepth</code> (default <code>100</code>), and <code>setState()</code> clears the history unless it passes <code>{ keepHistory: true }</code>. In edit mode the chrome shows Undo and Redo buttons, and Ctrl/Cmd + Z, Ctrl/Cmd + Shift + Z and Ctrl/Cmd + Y drive them, scoped to the designer so a grid widget's own Ctrl+Z is never stolen.</td></tr>
+          <tr><td class="name">guardrails / setGuardrails</td><td class="desc">The live guardrails handle: the normalised value plus the <code>allows*</code> predicates, <code>refuse</code> and <code>restrictPanel</code>. A restricted choice is hidden — not disabled — and a change that would add one is refused by the guardrail's name. A state that already contains a restricted panel still renders it: locked with a badge in edit mode, exploration-only in view mode. <code>setGuardrails(value)</code> (or <code>setProperty('guardrails', value)</code>) replaces them at run time and rebuilds the canvas; a non-object is refused by name.</td></tr>
+          <tr><td class="name">chrome / commands</td><td class="desc">The extension points: a region above the canvas, shown in edit mode, and a command registry whose commands change the state only through <code>commit(state, cause)</code>.</td></tr>
+          <tr><td class="name">theme / setTheme</td><td class="desc">The theme name on the designer root (<code>null</code> when it follows the page), and a live switch: <code>'light'</code>, <code>'dark'</code>, <code>'auto'</code> (follows the system) or <code>'high-contrast'</code>. The same as the <code>theme</code> option. The chrome uses only theme tokens, so the four presets restyle it. See <a href="API.html#designer-a11y">Theme and accessibility</a>.</td></tr>
+          <tr><td class="name">announce / audit</td><td class="desc"><code>announce(text)</code> says a message in the polite live region, the same text twice included. <code>audit()</code> checks the chrome for unnamed controls, an unnamed dialog, a stray tab, extra tab stops, duplicate ids and a missing live region; an empty list passes.</td></tr>
+          <tr><td class="name">shortcuts / regions</td><td class="desc">The documented keyboard map (<code>register({ id, keys, description, run })</code>, <code>list()</code>) and the focus regions F6 cycles (<code>register(name, el, { order })</code>, <code>list()</code>, <code>focus(name)</code>).</td></tr>
+          <tr><td class="name">selectWidget / selectedWidget</td><td class="desc">On the canvas, a widget is selected by click, or by tabbing to it and pressing Enter; <code>selectWidget(id)</code> does the same programmatically (<code>null</code> clears it), and <code>selectedWidget()</code> is the selection the properties panel binds to, <code>{ id, panel }</code>. The selected widget is ringed, focused and given the accessible name <code>'Chart: Revenue by region, selected'</code>, and a <code>select</code> event fires.</td></tr>
+          <tr><td class="name">removeWidget / addWidget</td><td class="desc">Remove a widget (its panel and its window) — the Delete key and the window's close control do the same — or add one, each one undoable state change. Dragging, resizing and the keyboard move/resize write the exact cell placement back into the page spec, one state event per gesture, and rebuild no other panel.</td></tr>
+          <tr><td class="name">properties</td><td class="desc">The properties panel for the selected widget, generated from capability metadata (BACKLOG-0001843): source, field-to-role mapping with aggregation, a chart type switch that keeps compatible roles and reports the dropped ones, and formatting. A chart type's editor comes from the charts registry's <code>chartEditorModel(type)</code>; the other widget kinds' from the registry's <code>widgetEditorModel(kind)</code>. Each control is one commit (one <code>state</code> event, undoable); an invalid value is refused inline by the viewer's own message.</td></tr>
+          <tr><td class="name">pushdown</td><td class="desc">Designing over <code>kind: 'pushdown'</code> sources (BACKLOG-0001855): <code>fields(id)</code> / <code>describe(id)</code> read a source's fields from its adapter's <code>describe()</code> or schema with the engine's types mapped, never from a sampled page; <code>provenance(panelId)</code> says whether a widget's figures were computed in the engine or the client (its info badge shows the same); <code>refusals(id)</code> / <code>refusal(id, { aggregation | step })</code> name what the adapter cannot do, with the reason, and the properties panel disables it. The option <code>pushdownDebounceMs</code> (150 by default) holds the engine questions of a rebuilt canvas until edits go quiet, so a burst of edits asks the engine once, for the final state.</td></tr>
+          <tr><td class="name">destroy</td><td class="desc">Tear down the canvas's dashboard and the designer's elements. Nothing is left outside <code>el</code>, and no listener on <code>window</code> or <code>document</code>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -12425,7 +12462,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.88.4 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.89.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

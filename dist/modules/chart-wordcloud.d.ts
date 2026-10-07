@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.88.4, chart-wordcloud module type declarations
+ * Lattice Grid 1.89.0, chart-wordcloud module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

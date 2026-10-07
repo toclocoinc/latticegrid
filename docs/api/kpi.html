@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>KPI API Reference — Lattice Grid 1.88.4</title>
+<title>KPI API Reference — Lattice Grid 1.89.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -415,6 +415,7 @@
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
         <a href="dashboard.html">Dashboard composition</a>
+        <a href="designer.html">The Designer</a>
         <a href="ai.html">The AI narrative and insights layer</a>
         <a href="presets.html">Design-system presets</a>
         <a href="mock-socket.html">The mock socket</a>
@@ -437,7 +438,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 22 pages</a></span>
+      <span class="chip"><a href="index.html">All 23 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -912,7 +913,7 @@ kpi.rows.apply({ add: [{ id: 'e1', severity: 3 }, { id: 'e2', severity: 2 }] });
           <tr><td class="name">fields</td><td class="type">string[]</td><td class="desc">Extra columns of the bound `grid` to project onto the rows a tile `filter` sees, beyond the fields the tiles themselves declare. A grid-bound panel hands a filter a projection, not a whole grid row, so a filter over a column no tile names would otherwise read `undefined` and report a confident zero. Ignored on a panel over a plain `rows` array. <small>(optional)</small></td></tr>
           <tr><td class="name">tiles</td><td class="type"><a href="types.html#type-KPITile">KPITile</a>[]</td><td class="desc">The tiles to show, in display order: aggregate stat tiles, or clock tiles. <small>(optional)</small></td></tr>
           <tr><td class="name">columns</td><td class="type">number</td><td class="desc">How many tile columns to aim for. Tiles shrink to fit rather than overflow the host, so a narrow panel settles on fewer. Unset, the layout fits as many as the width allows. <small>(optional)</small></td></tr>
-          <tr><td class="name">ariaLabel</td><td class="type">string</td><td class="desc">The panel's accessible name. Unset, the panel carries none. <small>(optional)</small></td></tr>
+          <tr><td class="name">ariaLabel</td><td class="type">string</td><td class="desc">The panel's accessible name. Unset, the panel names itself — "KPI: {tile labels}", or "KPI" when there are no tiles — so its `role="group"` is never left unnamed (BACKLOG-0001931). <small>(optional)</small></td></tr>
           <tr><td class="name">nullText</td><td class="type">string</td><td class="desc">The placeholder printed where a tile has no number — an unknown tile, or one whose aggregation returned nothing. Defaults to an em dash. <small>(optional)</small></td></tr>
           <tr><td class="name">maxAge</td><td class="type">number</td><td class="desc">How long, in milliseconds, the panel keeps grading what it holds after its feed last spoke. Past it, with nothing recent, every stat tile reports `unknown` with a null value whatever its own membership, so a silent feed cannot read as a healthy zero under `lowerIsBetter` cut points (or as an alarm under `higherIsBetter` ones); each tile carries `stale: true` and the panel captions it "No recent data". Grading resumes the moment the feed speaks again. The same word, and the same meaning, `SourceConfig.maxAge` carries for a rolling window. Unset, the panel judges no freshness at all: an empty panel still reports `unknown`, and everything else is graded however old it is. <small>(optional)</small></td></tr>
           <tr><td class="name">ageBy</td><td class="type">string | ((row: <a href="types.html#type-KPIRow">KPIRow</a>) =&gt; unknown)</td><td class="desc">Which clock `maxAge` reads: a column id (or dotted path), or a function of the row, naming the data's own time — on a grid-bound panel it is projected onto the rows for you. Omitted, `maxAge` measures **arrival** instead: when rows last reached this panel, through `rows.apply`, `setRows`, or the bound grid announcing that its own rows changed. A filter, a sort, an expansion and a `refresh()` are not arrivals, so a live feed whose rows are all filtered out of view reports the empty panel's `unknown` rather than a silence. The same option, with the same two meanings, `SourceConfig.ageBy` has. Without `maxAge` it reads nothing and says so once. <small>(optional)</small></td></tr>

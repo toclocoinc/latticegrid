@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.88.4, layout module type declarations
+ * Lattice Grid 1.89.0, layout module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -538,6 +538,17 @@ export interface Layout {
   minimise(id: string): boolean;
   /** Leave whichever display mode a window is in; `false` when it was in none. */
   restore(id: string): boolean;
+  /**
+   * Select a window, or clear the selection with `null` — the programmatic
+   * half of a selection a host draws its own chrome around (the Designer's
+   * properties panel). At most one is selected; selecting a second clears the
+   * first. The selected frame carries `data-selected="true"`, is ringed with
+   * the accent token and focused, and the id now selected (or `null`) is
+   * returned. A selected window that is closed is deselected.
+   */
+  select(id: string | null): string | null;
+  /** The id of the currently selected window, or `null`. */
+  selected(): string | null;
   /** The id of the window filling the host, or `null`. At most one. */
   maximised(): string | null;
   /** The ids of every currently minimised window, in mount order. */

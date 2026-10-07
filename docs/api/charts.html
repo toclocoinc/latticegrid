@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Charts API Reference — Lattice Grid 1.88.4</title>
+<title>Charts API Reference — Lattice Grid 1.89.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -437,6 +437,7 @@
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
         <a href="dashboard.html">Dashboard composition</a>
+        <a href="designer.html">The Designer</a>
         <a href="ai.html">The AI narrative and insights layer</a>
         <a href="presets.html">Design-system presets</a>
         <a href="mock-socket.html">The mock socket</a>
@@ -459,7 +460,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 22 pages</a></span>
+      <span class="chip"><a href="index.html">All 23 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3358,6 +3359,56 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
         <tbody>
           <tr><td class="name">draw</td><td class="type">(ctx: object) =&gt; object</td><td class="desc"><code>ctx: object</code></td><td class="type"><code>=&gt; object</code></td><td class="desc">Draws the type. It is handed the same context a built-in drawer gets — the plot rectangle, the bound data, the SVG groups, the scheme, the typography and the spec — plus `helpers`, the base's own element, scale, axis and pool primitives, and returns what it drew.</td></tr>
           <tr><td class="name">bind</td><td class="type">(grid: <a href="grid.html#type-Grid">Grid</a>, spec: <a href="#type-ChartSpec">ChartSpec</a>) =&gt; object</td><td class="desc"><code>grid: <a href="grid.html#type-Grid">Grid</a></code><br><code>spec: <a href="#type-ChartSpec">ChartSpec</a></code></td><td class="type"><code>=&gt; object</code></td><td class="desc">Turns the grid and spec into the bound data `draw` receives. Omitted, the base's by-series binder is used. The bound data may carry `notices` — `{ id, message }` each — which the chart says once, by name, as a developer-facing warning. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartRole">ChartRole</h4>
+    <p class="section-note">One data channel a chart type binds, for a generated editor (BACKLOG-0001843): the stable channel name, the kind of field it takes, and the flags an editor reads. Carries no human label — that is the consuming UI's own i18n.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">role</td><td class="type">string</td><td class="desc">The channel name (`x`, `y`, `series`, `measures`, `size`, …).</td></tr>
+          <tr><td class="name">accepts</td><td class="type">'dimension' | 'measure' | 'field'</td><td class="desc">The kind of field it binds.</td></tr>
+          <tr><td class="name">path</td><td class="type">string</td><td class="desc">The spec-options path the field is written to, when it differs from `role`. <small>(optional)</small></td></tr>
+          <tr><td class="name">required</td><td class="type">boolean</td><td class="desc">Whether the type cannot draw without it. <small>(optional)</small></td></tr>
+          <tr><td class="name">repeatable</td><td class="type">boolean</td><td class="desc">Whether more than one field may be bound. <small>(optional)</small></td></tr>
+          <tr><td class="name">aggregated</td><td class="type">boolean</td><td class="desc">Whether it carries an aggregation (a measure). <small>(optional)</small></td></tr>
+          <tr><td class="name">bucketable</td><td class="type">boolean</td><td class="desc">Whether a date in it may be bucketed by period. <small>(optional)</small></td></tr>
+          <tr><td class="name">aggPath</td><td class="type">string</td><td class="desc">The sibling path an aggregation is written to, when it is not stored with the field (a KPI tile's `aggregation`). <small>(optional)</small></td></tr>
+          <tr><td class="name">entryKey</td><td class="type">string</td><td class="desc">For a repeatable role whose entries are objects, the key the field is written to (a grid column's `field`). <small>(optional)</small></td></tr>
+          <tr><td class="name">entryOptions</td><td class="type"><a href="#type-ChartOption">ChartOption</a>[]</td><td class="desc">The options each entry carries, named by their path inside the entry (a grid column's `layout.width`). <small>(optional)</small></td></tr>
+          <tr><td class="name">orderable</td><td class="type">boolean</td><td class="desc">Whether the entries' order is meaningful, so an editor offers to move one earlier or later. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartOption">ChartOption</h4>
+    <p class="section-note">One formatting option a chart type honours, for a generated editor (BACKLOG-0001843): the dotted spec path and the control's machine-readable type, enum or range.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The dotted path into the chart spec (`title`, `axis.x.title`).</td></tr>
+          <tr><td class="name">type</td><td class="type">'string' | 'boolean' | 'number' | 'enum' | 'list'</td><td class="desc">The control kind; `list` is an ordered list of strings, such as a palette's colours.</td></tr>
+          <tr><td class="name">values</td><td class="type">Array&lt;string | boolean&gt;</td><td class="desc">The choices, for an enum (a choice may be `true`, as `stack: true` is). <small>(optional)</small></td></tr>
+          <tr><td class="name">default</td><td class="type">string | boolean | number</td><td class="desc">What the chart does when the option is unset, so a control shows the effective value. <small>(optional)</small></td></tr>
+          <tr><td class="name">format</td><td class="type">'number' | 'date' | 'colour'</td><td class="desc">What a string or list holds, when it is a format mask or a colour rather than free text. <small>(optional)</small></td></tr>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc">The least a number may be. <small>(optional)</small></td></tr>
+          <tr><td class="name">max</td><td class="type">number</td><td class="desc">The most a number may be. <small>(optional)</small></td></tr>
+          <tr><td class="name">step</td><td class="type">number</td><td class="desc">The number's step. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ChartEditorModel">ChartEditorModel</h4>
+    <p class="section-note">The full generated-editor model for a chart type (BACKLOG-0001843).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">string</td><td class="desc">The chart type.</td></tr>
+          <tr><td class="name">roles</td><td class="type"><a href="#type-ChartRole">ChartRole</a>[]</td><td class="desc">Its data channels, in editor order.</td></tr>
+          <tr><td class="name">options</td><td class="type"><a href="#type-ChartOption">ChartOption</a>[]</td><td class="desc">Its formatting options, in editor order.</td></tr>
+          <tr><td class="name">aggregations</td><td class="type">ReadonlyArray&lt;string&gt;</td><td class="desc">The aggregations a measure role offers.</td></tr>
         </tbody>
       </table>
     </div>

@@ -1,5 +1,5 @@
 {
-  "version": "1.88.4",
+  "version": "1.89.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 671,
+  "count": 703,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -5707,6 +5707,16 @@
       "docs": "api/layout.html#layout"
     },
     {
+      "id": "layout.select.unknown.*",
+      "module": "layout",
+      "severity": "warn",
+      "since": "1.89.0",
+      "message": "layout: select(\"{id}\") — no such window; the selection was kept.",
+      "meaning": "`layout.select(id)` named a window the layout does not hold, so the selection did not change and the call returned the id still selected (or `null`). The warning is raised once per unknown id.",
+      "fix": "Check the id against `layout.windows()`, or pass `null` to clear the selection.",
+      "docs": "api/layout.html#layout"
+    },
+    {
       "id": "layout.setInteractive.*",
       "module": "layout",
       "severity": "warn",
@@ -6546,6 +6556,347 @@
       "fix": "Name the view.",
       "snippet": "dashboard.saveView('East, biggest first');",
       "docs": "API.html#dashboard"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.88.0",
+      "id": "designer:mode",
+      "message": "createDesigner: mode {mode} is not edit or view; the designer opened in view mode.",
+      "meaning": "A designer opens in edit mode (the canvas interactive) or view mode (createDashboard and nothing else). The mode given was neither, so it opened in view mode.",
+      "fix": "Pass `mode: edit` or `mode: view`, or leave it out for view mode.",
+      "snippet": "createDesigner(el, { mode: edit, state, sources, factories });",
+      "docs": "API.html#designer"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:route:refused:*",
+      "message": "designer: the routed widget {id} is not allowed here, so it was refused — the same answer the {reason} guardrail gives an authored widget.",
+      "meaning": "Config arrived through the Data Router for a widget a guardrail restricts. A routed widget is refused by name the same way an authored one is (BACKLOG-0001897, BACKLOG-0001846), so it was not created.",
+      "fix": "Widen the guardrail, or stop the server routing a widget the guardrail forbids.",
+      "snippet": "designer.configRouter.connect(router, { page });",
+      "docs": "API.html#designer"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:route:unreachable:*:*",
+      "message": "designer: the widget {id}'s {role} role binds {field}, and no declared relationship reaches {source} from {from}; the field was left out of its route.",
+      "meaning": "A widget's data route (BACKLOG-0001898) is compiled from its own fields and a field it bound names another source, but no declared relationship joins the widget's own source to that one. The field is left out of the route rather than guessed at.",
+      "fix": "Declare a relationship joining the two sources, or bind a field the widget's own source has.",
+      "snippet": "relationships: [{ from: orders.customerId, to: customers.id, type: many-to-one }]",
+      "docs": "API.html#designer-data-routes"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:route:no-adapter",
+      "message": "designer: issueQuery needs an adapter with an execute(query) function (or executeGroupedAggregates for a grouped route); nothing was asked.",
+      "meaning": "issueQuery (BACKLOG-0001898) asks a pushdown adapter for a route's data. The adapter given has neither function, so nothing was asked and an empty result was returned.",
+      "fix": "Pass the source's own pushdown adapter, the one createPushdownSource({ adapter }) was given.",
+      "snippet": "await issueQuery(route, source.adapter);",
+      "docs": "API.html#designer-data-routes"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:config-router:connect",
+      "message": "designer.configRouter.connect: the first argument is not a Data Router (no subscribe); nothing was connected.",
+      "meaning": "connect subscribes the designer to a Data Router's slice of config. The value given was not a router (it has no subscribe), so nothing was connected (BACKLOG-0001897).",
+      "fix": "Pass a Data Router from createDataRouter.",
+      "snippet": "designer.configRouter.connect(createDataRouter({ key: page, rowKey: id }));",
+      "docs": "API.html#designer"
+    },
+    {
+      "id": "designer:state",
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.88.0",
+      "message": "designer.setState: the state is not an object ({type}); the state was kept.",
+      "meaning": "setState replaces the designer's state with a state object, `{ schemaVersion, pages, selectedPageId, panels }`. The value given was not an object, so nothing changed, no event was sent and false was returned.",
+      "fix": "Pass a state object, such as one `designer.getState()` or a `state` event returned.",
+      "snippet": "designer.setState(JSON.parse(saved));",
+      "docs": "API.html#designer"
+    },
+    {
+      "id": "designer:state:newer",
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.88.0",
+      "message": "designer: the state's schemaVersion {from} is newer than this designer's {version}; the state was refused, nothing was loaded.",
+      "meaning": "A state carries a schemaVersion, and a designer loads every older version by running it through its migrations. The state's version is newer than the designer's, so rather than half-load a state it does not fully understand, the designer refused it: nothing was loaded and false was returned.",
+      "fix": "Open the state with the designer that wrote it, or save it back at an older schemaVersion.",
+      "snippet": "designer.setState(savedState);",
+      "docs": "API.html#designer"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.88.0",
+      "id": "designer:set-mode",
+      "message": "designer.setMode: {mode} is not edit or view; the mode was kept.",
+      "meaning": "setMode switches between edit and view mode. The value given was neither, so the designer stayed in the mode it was in.",
+      "fix": "Pass `edit` or `view`.",
+      "snippet": "designer.setMode(edit);",
+      "docs": "API.html#designer"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.88.0",
+      "id": "designer:page:*",
+      "message": "designer.selectPage: there is no page {id}; the selection was kept.",
+      "meaning": "selectPage selects a page by id, and no page in the state has that id, so the selected page and the canvas were left as they were and false was returned.",
+      "fix": "Select one of the ids `designer.pages()` lists.",
+      "snippet": "designer.selectPage(designer.pages()[0].id);",
+      "docs": "API.html#designer"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:page:add",
+      "message": "designer.addPage: adding a page is not allowed by guardrails.pages.add; nothing was added.",
+      "meaning": "addPage adds a page, and the guardrails the designer was created with set pages.add to false, so the command declined and returned null.",
+      "fix": "Allow page additions in the guardrails (guardrails.pages.add), or call addPage only when they are allowed.",
+      "snippet": "createDesigner(el, { guardrails: { pages: { add: true } } });",
+      "docs": "API.html#designer-pages"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:page:rename",
+      "message": "designer.renamePage: renaming a page is not allowed by guardrails.pages.rename; nothing was changed.",
+      "meaning": "renamePage renames a page, and the guardrails the designer was created with set pages.rename to false, so the command declined and returned false.",
+      "fix": "Allow renames in the guardrails (guardrails.pages.rename), or call renamePage only when they are allowed.",
+      "snippet": "createDesigner(el, { guardrails: { pages: { rename: true } } });",
+      "docs": "API.html#designer-pages"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:page:reorder",
+      "message": "designer.movePage: reordering a page is not allowed by guardrails.pages.reorder; nothing was moved.",
+      "meaning": "movePage reorders a page, and the guardrails the designer was created with set pages.reorder to false, so the command declined and returned false.",
+      "fix": "Allow reordering in the guardrails (guardrails.pages.reorder), or call movePage only when it is allowed.",
+      "snippet": "createDesigner(el, { guardrails: { pages: { reorder: true } } });",
+      "docs": "API.html#designer-pages"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:page:remove",
+      "message": "designer.removePage: removing a page is not allowed by guardrails.pages.remove; nothing was removed.",
+      "meaning": "removePage removes a page, and the guardrails the designer was created with set pages.remove to false, so the command declined and returned false.",
+      "fix": "Allow removal in the guardrails (guardrails.pages.remove), or call removePage only when it is allowed.",
+      "snippet": "createDesigner(el, { guardrails: { pages: { remove: true } } });",
+      "docs": "API.html#designer-pages"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.88.0",
+      "id": "designer:command",
+      "message": "designer.commands.register: a command is a string name and a function; nothing was registered.",
+      "meaning": "A command is registered under a string name with the function that runs it. One of the two was missing or the wrong type, so nothing was registered.",
+      "fix": "Pass a name and a function `(ctx, ...args) => …`.",
+      "snippet": "designer.commands.register(renamePage, (ctx, id, title) => ctx.commit(next, renamePage));",
+      "docs": "API.html#designer"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.88.0",
+      "id": "designer:command:*",
+      "message": "designer.commands.run: there is no command {name}; nothing was run.",
+      "meaning": "commands.run runs a registered command by name, and no command is registered under that name, so nothing ran and undefined was returned.",
+      "fix": "Register the command first, or run one `designer.commands.list()` names.",
+      "snippet": "designer.commands.run(selectPage, p2);",
+      "docs": "API.html#designer"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:derived:from",
+      "message": "designer.addDerivedGrid: `from` must be a source or panel id; nothing was added.",
+      "meaning": "A derived grid is built from a parent source or panel, named by id on `from`. No usable id was given, so no derived grid was added.",
+      "fix": "Pass `from` as the id of a source or an existing panel, for example addDerivedGrid({ from: orders }).",
+      "snippet": "designer.commands.run(addDerivedGrid, { from: orders, steps: [{ kind: group, by: rep }] });",
+      "docs": "API.html#designer-derived"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:derived:step:*",
+      "message": "designer.addDerivedStep: {step} is not a filter, group, pivot, join, sort or topN step; nothing was added.",
+      "meaning": "A derived grid's steps are filter, group, pivot, join, sort and topN. The step given named none of these, or was malformed, so it was refused and the grid was left as it was.",
+      "fix": "Give a step whose kind is one of filter, group, pivot, join, sort or topN, with the fields that kind needs.",
+      "snippet": "designer.commands.run(addDerivedStep, id, { kind: group, by: rep, measures: [{ of: amount, fn: sum }] });",
+      "docs": "API.html#designer-derived"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:derived:pushdown:*:*",
+      "message": "designer.addDerivedStep: the {kind} step is refused: {reason}; nothing was added.",
+      "meaning": "The derived grid reads a pushdown source whose adapter cannot answer this step (or one of its aggregations) in the engine. Computing it would mean working over the loaded window, which is a page of the relation and not the relation, so the step was refused by name and the grid was left as it was.",
+      "fix": "Use a step the adapter can answer (designer.pushdown.refusals(sourceId) lists what it cannot), or declare the capability on the adapter if it does support it.",
+      "snippet": "designer.pushdown.refusals(orders).map((r) => r.name + : + r.reason);",
+      "docs": "API.html#designer-pushdown"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:relationship:*:*",
+      "message": "designer: a relationship names \"source.field\" on both `from` and `to`; {from} -> {to} was ignored.",
+      "meaning": "A relationship joins one source's field to another's, and the data panel compiles it to a data-router join. One side was not written as source.field, so the relationship was left out and nothing was joined on it.",
+      "fix": "Write both sides as source.field, for example orders.customerId and customers.id.",
+      "snippet": "relationships: [{ from: orders.customerId, to: customers.id, type: many-to-one }]",
+      "docs": "API.html#designer-data-panel"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:drop-field:*:*",
+      "message": "designer: there is no visible field {field} on source {source}; nothing was added.",
+      "meaning": "The dropField command adds a widget for a field the data panel shows. The source has no such field, or the guardrails hide it, so nothing was added and the command returned false.",
+      "fix": "Drop a field the data panel lists, or allow it in the guardrails.",
+      "snippet": "designer.commands.run(dropField, { sourceId: sales, fieldId: amount });",
+      "docs": "API.html#designer-data-panel"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.88.0",
+      "id": "designer:property:*",
+      "message": "designer.getProperty/setProperty: there is no property {name}; nothing was read or changed. The properties are mode, state, selectedPageId, guardrails.",
+      "meaning": "getProperty and setProperty reach the designer's mode, state, selected page and guardrails by name. The name given is none of them, so getProperty returned undefined, or setProperty changed nothing and returned false.",
+      "fix": "Name one of mode, state, selectedPageId or guardrails.",
+      "snippet": "designer.setProperty(mode, view);",
+      "docs": "API.html#designer"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:theme",
+      "message": "designer theme: {value} is not a theme name such as light, dark, auto or high-contrast; the theme was kept.",
+      "meaning": "The designer's theme is the data-theme on its root. The value given was not a non-empty string, so the theme in force was left as it was.",
+      "fix": "Pass a theme name, or null to follow the page.",
+      "snippet": "designer.setTheme(dark);",
+      "docs": "API.html#designer-a11y"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:shortcut",
+      "message": "designer.shortcuts.register: a shortcut is { id, keys, description, run? } with string id, keys and description; nothing was registered.",
+      "meaning": "The designer keeps one documented keyboard shortcut map, and every entry needs an id, the keys as shown to the user and a description. One was missing or not a string, so nothing was registered.",
+      "fix": "Pass all three strings, and a run function if the key should do something.",
+      "snippet": "designer.shortcuts.register({ id: palette.open, keys: Alt+Shift+P, description: Open the palette, run });",
+      "docs": "API.html#designer-a11y"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:region",
+      "message": "designer.regions.register: a region is a string name and an element; nothing was registered.",
+      "meaning": "F6 cycles the designer's focus regions, each a named element. The name or the element was missing, so nothing was registered.",
+      "fix": "Pass a name and the region's element.",
+      "snippet": "designer.regions.register(palette, paletteEl, { order: 10 });",
+      "docs": "API.html#designer-a11y"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:addPanel",
+      "message": "designer addPanel: there is no page with a spec to add to; nothing was added.",
+      "meaning": "The addPanel command adds a widget to the selected page's spec. The state has no selected page, or its spec is not an object, so nothing was added and null was returned.",
+      "fix": "Select a page whose spec is an object first.",
+      "snippet": "designer.commands.run(addPanel, { kind: html });",
+      "docs": "API.html#designer-a11y"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:guardrails",
+      "message": "designer.setGuardrails: the guardrails are not an object ({type}); the guardrails were kept.",
+      "meaning": "setGuardrails (and setProperty('guardrails', value)) replace the guardrails at run time with an object, or clear them with undefined. The value given was neither, so nothing changed, no render happened and false was returned.",
+      "fix": "Pass a guardrails object, or undefined to clear them.",
+      "snippet": "designer.setGuardrails({ widgets: ['grid'] });",
+      "docs": "API.html#designer"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:assist",
+      "message": "designer.assist: there is no AI on this designer (options.llm); nothing was asked. Pass llm as the same ask() createAI takes, or as an object with ask and sendSampleRows to opt into sample rows.",
+      "meaning": "propose() asks a model through the host's own callback, and the designer was created without one, so it declined: no request was made and the result's spec is null.",
+      "fix": "Pass llm as the ask() callback (or llm: { ask, sendSampleRows }) in createDesigner's options.",
+      "snippet": "createDesigner(el, { llm: ask, sources, factories });",
+      "docs": "API.html#designer-assist"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:assist:accept",
+      "message": "designer.assist.accept: there is no page and no proposal to accept; nothing was applied.",
+      "meaning": "The acceptProposal command ran without a selected page whose spec is an object, or without a proposal, so nothing changed.",
+      "fix": "Accept only while a proposal is pending on a page whose spec is an object.",
+      "snippet": "designer.assist.accept();",
+      "docs": "API.html#designer-assist"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:assist:ai",
+      "message": "designer.assist: the guardrails disable the AI assistant (guardrails.ai: false); nothing was asked.",
+      "meaning": "The guardrails the designer was created with set ai to false, so propose() declined before asking the model.",
+      "fix": "Set guardrails.ai to true (the default), or leave it out.",
+      "snippet": "createDesigner(el, { guardrails: { ai: true }, llm: ask });",
+      "docs": "API.html#designer-assist"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:assist:reply",
+      "message": "designer.assist: the model's reply was not a proposal; nothing was shown. Return a JSON object with a panels array, or an object whose structured, spec or text carries that JSON.",
+      "meaning": "propose() could not read a proposal out of what ask() resolved to: it was not a JSON object with a panels array, nor an object whose structured, spec or text carried one, so nothing was shown and the result's spec is null.",
+      "fix": "Have the model return { panels: [...] }, or wrap that JSON in { structured }, { spec } or { text }.",
+      "snippet": "const { ok, spec, warnings } = await designer.assist.propose(prompt);",
+      "docs": "API.html#designer-assist"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.89.0",
+      "id": "designer:assist:source",
+      "message": "designer.assist: there is no source the guardrails allow with any fields; nothing was asked.",
+      "meaning": "The assistant asks over one source's columns, and every source the designer has is either hidden by the guardrails or has no field the guardrails allow, so nothing was asked and the result's spec is null.",
+      "fix": "Give the designer a source the guardrails allow with at least one allowed field.",
+      "snippet": "createDesigner(el, { sources: { sales: { kind: 'rows', rows } }, guardrails: { sources: ['sales'] } });",
+      "docs": "API.html#designer-assist"
     },
     {
       "id": "chart:grid-destroyed",

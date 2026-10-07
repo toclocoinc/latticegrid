@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.88.4, kpi module type declarations
+ * Lattice Grid 1.89.0, kpi module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -504,7 +504,10 @@ export interface KPIConfig {
    * allows.
    */
   columns?: number;
-  /** The panel's accessible name. Unset, the panel carries none. */
+  /**
+   * The panel's accessible name. Unset, the panel names itself — "KPI: {tile labels}",
+   * or "KPI" when there are no tiles — so its `role="group"` is never left unnamed.
+   */
   ariaLabel?: string;
   /**
    * The placeholder printed where a tile has no number — an unknown tile, or one whose

@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Layout API Reference — Lattice Grid 1.88.4</title>
+<title>Layout API Reference — Lattice Grid 1.89.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -410,6 +410,7 @@
         <a href="calendar.html">The calendar viewer</a>
         <a href="tabs.html">The tabbed grid</a>
         <a href="dashboard.html">Dashboard composition</a>
+        <a href="designer.html">The Designer</a>
         <a href="ai.html">The AI narrative and insights layer</a>
         <a href="presets.html">Design-system presets</a>
         <a href="mock-socket.html">The mock socket</a>
@@ -432,7 +433,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 22 pages</a></span>
+      <span class="chip"><a href="index.html">All 23 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -487,7 +488,7 @@ createGrid(layout.payload('pipeline'), { rowKey: 'id', rows, columns });</code><
     </div>
     <h3 id="layout-live-example">Placement, compaction and a saved arrangement, executed</h3>
     <p class="section-note"><code>createLayout</code> needs a real host element, the same way <code>createGrid</code> does, so this executed example reaches for the same in-tree DOM test double the suite runs the renderer against headlessly (<code>packages/dom/src/renderer/testdom.js</code>). <code>demo/layout.html</code> is the browser version, with a real grid, chart and KPI rail in three windows that you can drag, resize with the keyboard, close, save and restore.</p>
-    <pre data-run="js" data-expect="a@1,1 b@3,1|a@3,1 b@3,2|a@1,1 b@3,1|a-body" data-covers="export:createLayout"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+    <pre data-run="js" data-expect="a@1,1 b@3,1|a@3,1 b@3,2|a@1,1 b@3,1|a-body|a" data-covers="export:createLayout method:layout.select method:layout.selected"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
 <span class="kw">const</span> { root } = createTestDom();
 <span class="kw">const</span> { createLayout } = <span class="kw">await</span> import('../packages/modules/layout/index.js');
 
@@ -503,15 +504,18 @@ createGrid(layout.payload('pipeline'), { rowKey: 'id', rows, columns });</code><
 <span class="kw">const</span> placed = shape();                        <span class="cmt">// B landed in the first free cell: 3,1</span>
 <span class="kw">const</span> saved = JSON.parse(JSON.stringify(layout.getLayout()));
 
-layout.move('a', { xPos: 3, yPos: 1 });        <span class="cmt">// drop A on top of B</span>
+layout.move('a', { xPos: 3, yPos: 1 });        <span class="cmt">// drop A on top of B; one layout:changed fires</span>
 <span class="kw">const</span> pushed = shape();                        <span class="cmt">// B is pushed down to 3,2</span>
 
 layout.setLayout(saved);                       <span class="cmt">// the saved arrangement round-trips</span>
 <span class="kw">const</span> restored = shape();
 
+layout.select('a');                            <span class="cmt">// programmatic select: rings and focuses A</span>
+<span class="kw">const</span> sel = layout.selected();                 <span class="cmt">// read the selection back: 'a'</span>
+
 <span class="kw">const</span> payload = layout.payload('a').id;        <span class="cmt">// the container you fill: 'a-body'</span>
 layout.destroy();
-<span class="kw">return</span> [placed, pushed, restored, payload].join('|');</code></pre>
+<span class="kw">return</span> [placed, pushed, restored, payload, sel].join('|');</code></pre>
     <h2 id="ref-layout-reference">Type reference</h2>
     <p class="section-note">Generated from the type declarations, so it always matches the release. Each surface lists its properties, its methods and the events it raises as three tables; an option or value type lists its members once.</p>
     <h3 id="ref-module-layout">The dashboard layout</h3>
@@ -796,6 +800,8 @@ layout.destroy();
           <tr><td class="name">maximise</td><td class="type">(id: string): boolean</td><td class="desc"><code>id: string</code></td><td class="type"><code>boolean</code></td><td class="desc">Blow one window up to fill the layout host, hiding the rest. It fills the **host element**, not the browser window, so there is no `position: fixed` (whose containing block is the nearest ancestor carrying a `transform` or a `contain`, which is why the same rule fills the screen on one page and lands in a 300px box on the next), no reparenting and nothing that can disturb the page around the dashboard. **Nothing moves**: no compaction runs, no placement changes, and the payload container is the same DOM node throughout. **Escape restores it**, from anywhere inside the layout — a focused grid body cell or column heading included — unless a payload has already claimed the key: an open cell editor, filter menu or column menu closes first, and the next Escape restores the window. Afterwards focus lands on the window's maximise control. A minimised window is expanded first, and maximising a second window restores the first.</td></tr>
           <tr><td class="name">minimise</td><td class="type">(id: string): boolean</td><td class="desc"><code>id: string</code></td><td class="type"><code>boolean</code></td><td class="desc">Collapse one window to a single row: its payload is hidden and its chrome stays, carrying the control that brings it back. On screen it becomes one row and the windows below pull up into the space under `compact: 'vertical'`. In the arrangement nothing moves at all — the collapse is a projection of it — so `restore()` gives back exactly the arrangement that was there, in **any** order and with any number of other windows still collapsed. A window with `chrome: false` is refused, with a warning naming it.</td></tr>
           <tr><td class="name">restore</td><td class="type">(id: string): boolean</td><td class="desc"><code>id: string</code></td><td class="type"><code>boolean</code></td><td class="desc">Leave whichever display mode a window is in; `false` when it was in none.</td></tr>
+          <tr><td class="name">select</td><td class="type">(id: string | null): string | null</td><td class="desc"><code>id: string | null</code></td><td class="type"><code>string | null</code></td><td class="desc">Select a window, or clear the selection with `null` — the programmatic half of a selection a host draws its own chrome around (the Designer's properties panel). At most one is selected; selecting a second clears the first. The selected frame carries `data-selected="true"`, is ringed with the accent token and focused, and the id now selected (or `null`) is returned. A selected window that is closed is deselected.</td></tr>
+          <tr><td class="name">selected</td><td class="type">(): string | null</td><td class="desc">&mdash;</td><td class="type"><code>string | null</code></td><td class="desc">The id of the currently selected window, or `null`.</td></tr>
           <tr><td class="name">maximised</td><td class="type">(): string | null</td><td class="desc">&mdash;</td><td class="type"><code>string | null</code></td><td class="desc">The id of the window filling the host, or `null`. At most one.</td></tr>
           <tr><td class="name">minimised</td><td class="type">(): string[]</td><td class="desc">&mdash;</td><td class="type"><code>string[]</code></td><td class="desc">The ids of every currently minimised window, in mount order.</td></tr>
           <tr><td class="name">getLayout</td><td class="type">(): <a href="#type-LayoutSnapshot">LayoutSnapshot</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-LayoutSnapshot">LayoutSnapshot</a></code></td><td class="desc">The full current arrangement. **A mode is not an arrangement**: this reports the *underlying* placement of a maximised or minimised window — where it will be when restored — never the geometry it is drawn at.</td></tr>

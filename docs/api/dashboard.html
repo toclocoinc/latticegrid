@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Dashboard API Reference — Lattice Grid 1.88.4</title>
+<title>Dashboard API Reference — Lattice Grid 1.89.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -409,6 +409,7 @@
         <a href="calendar.html">The calendar viewer</a>
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
+        <a href="designer.html">The Designer</a>
         <a href="ai.html">The AI narrative and insights layer</a>
         <a href="presets.html">Design-system presets</a>
         <a href="mock-socket.html">The mock socket</a>
@@ -431,7 +432,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 22 pages</a></span>
+      <span class="chip"><a href="index.html">All 23 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -518,6 +519,41 @@ seen.push(JSON.stringify(dashboard.spec()) === JSON.stringify(once));
 dashboard.destroy();                                 // every viewer, grid and window
 seen.push(el.children.length);
 return seen.join(' | ');                             // 5 | 0 | north | true | 0</code></pre>
+    </div>
+    <div class="example">
+      <p class="example__label">A keyed config diff, applied widget by widget — the panel equivalent of <code>grid.rows.apply</code> (how the Designer routes config)</p>
+      <pre data-run="js" data-expect="1 | a,b,c | true | b,c" data-covers="method:dashboard.applyConfig"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid, createHeadlessGrid } = await import('../packages/dom/src/index.js');
+const { createLayout } = await import('../packages/modules/layout/index.js');
+const { createDashboard } = await import('../packages/modules/dashboard/index.js');
+
+const { document, root } = createTestDom({ width: 1000, height: 600 });
+const el = document.createElement('div');
+root.appendChild(el);
+
+const rows = [{ id: 1, region: 'north' }, { id: 2, region: 'south' }];
+const dashboard = createDashboard(el, {
+  sources: { sales: { kind: 'rows', rows, rowKey: 'id' } },
+  panels: [
+    { id: 'a', kind: 'grid', source: 'sales' },
+    { id: 'b', kind: 'grid', source: 'sales' },
+  ],
+}, { createGrid, createHeadlessGrid, createLayout });
+const gridA = dashboard.panel('a').grid;              // keep a handle on an untouched widget
+
+// Add a widget, then re-render ONE widget in place. 'a' is never rebuilt.
+const added = dashboard.applyConfig({ add: [{ panel: { id: 'c', kind: 'html', options: { text: 'new' } } }] });
+const afterAdd = dashboard.panels().join(',');        // a,b,c
+dashboard.applyConfig({ update: [{ panel: { id: 'b', kind: 'grid', source: 'sales', options: { selection: 'single' } } }] });
+const untouched = dashboard.panel('a').grid === gridA;
+
+// Remove a widget; the others stay.
+dashboard.applyConfig({ remove: ['a'] });
+const afterRemove = dashboard.panels().join(',');     // b,c
+
+const out = [added.added, afterAdd, untouched, afterRemove];
+dashboard.destroy();
+return out.join(' | ');                               // 1 | a,b,c | true | b,c</code></pre>
     </div>
     <div class="example">
       <p class="example__label">Mixed sources, the Leaflet and deck.gl bindings, a selection filtering a chart, and a link refused by name</p>
@@ -726,12 +762,12 @@ return seen.join(' | ');                              // id,region,sales | 2 | 1
       </table>
     </div>
     <h4 id="type-DashboardLink">DashboardLink</h4>
-    <p class="section-note">A link: the rows selected in the `from` grid panel filter the `to` panel. Over one Data Router it is a `router.relate()` edge; otherwise a named `filters.where()` predicate on the target's grid. Two pushdown sources with no router between them, or two routers, are refused by name.</p>
+    <p class="section-note">A link: the rows selected in the `from` panel's own grid filter the `to` panel. `from` is any panel with a grid to select on — a `grid` panel's rows, or (BACKLOG-0001851) a chart, KPI, calendar or map panel's own headless grid, which a click on a mark with `options.selection` set selects into exactly as a grid row's selection does. Over one Data Router it is a `router.relate()` edge; otherwise a named `filters.where()` predicate on the target's grid. Two pushdown sources with no router between them, or two routers, are refused by name.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">from</td><td class="type">string</td><td class="desc">The grid panel whose selection drives the link.</td></tr>
+          <tr><td class="name">from</td><td class="type">string</td><td class="desc">The panel whose selection drives the link.</td></tr>
           <tr><td class="name">to</td><td class="type">string</td><td class="desc">The panel it filters.</td></tr>
           <tr><td class="name">on</td><td class="type">string | { from: string; to: string } | ((selected: Array&lt;Record&lt;string, unknown&gt;&gt;) =&gt; (row: Record&lt;string, unknown&gt;) =&gt; boolean)</td><td class="desc">The relation: a column both sides share, `{ from, to }` naming each side's column, or (over one router) the router's own relation function.</td></tr>
         </tbody>
@@ -807,8 +843,19 @@ return seen.join(' | ');                              // id,region,sales | 2 | 1
         </tbody>
       </table>
     </div>
+    <h4 id="type-DashboardConfigChange">DashboardConfigChange</h4>
+    <p class="section-note">A keyed config diff for {@link Dashboard.applyConfig} (BACKLOG-0001897): the panel equivalent of a keyed row diff. `add`/`update` carry a panel and its optional window placement; `remove` carries panel ids.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">add</td><td class="type">Array&lt;{ panel: <a href="#type-DashboardPanel">DashboardPanel</a>; window?: { xPos?: number; yPos?: number; xSize?: number; ySize?: number; [option: string]: unknown } }&gt;</td><td class="desc">Widgets to create, each a panel and its optional window placement. <small>(optional)</small></td></tr>
+          <tr><td class="name">update</td><td class="type">Array&lt;{ panel: <a href="#type-DashboardPanel">DashboardPanel</a>; window?: { xPos?: number; yPos?: number; xSize?: number; ySize?: number; [option: string]: unknown } }&gt;</td><td class="desc">Widgets to re-render in place, each a panel and an optional new window placement. <small>(optional)</small></td></tr>
+          <tr><td class="name">remove</td><td class="type">string[]</td><td class="desc">Panel ids to remove. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-Dashboard">Dashboard</h4>
-    <p class="section-note">A built dashboard.</p>
     <h5 id="type-Dashboard-properties">Properties</h5>
     <div class="table-wrap">
       <table>
@@ -827,6 +874,7 @@ return seen.join(' | ');                              // id,region,sales | 2 | 1
         <tbody>
           <tr><td class="name">spec</td><td class="type">(): <a href="#type-DashboardSpec">DashboardSpec</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-DashboardSpec">DashboardSpec</a></code></td><td class="desc">The dashboard as built — its panels, the sources by id, the links that were made and each window's live placement — as a spec that rebuilds it.</td></tr>
           <tr><td class="name">apply</td><td class="type">(spec: <a href="#type-DashboardSpec">DashboardSpec</a>): <a href="#type-DashboardProblem">DashboardProblem</a>[]</td><td class="desc"><code>spec: <a href="#type-DashboardSpec">DashboardSpec</a></code></td><td class="type"><code><a href="#type-DashboardProblem">DashboardProblem</a>[]</code></td><td class="desc">Tear down and build this spec in its place: how a host accepts a proposal or restores a stored spec. Returns what was refused.</td></tr>
+          <tr><td class="name">applyConfig</td><td class="type">(change: <a href="#type-DashboardConfigChange">DashboardConfigChange</a>): { added: number; updated: number; removed: number }</td><td class="desc"><code>change: <a href="#type-DashboardConfigChange">DashboardConfigChange</a></code></td><td class="type"><code>{ added: number; updated: number; removed: number }</code></td><td class="desc">Apply a keyed config diff to the live dashboard, the way a grid applies a keyed row diff to `grid.rows.apply` (BACKLOG-0001897): add the new widgets, re-render ONLY the updated ones in place, and remove the gone ones — so an untouched widget keeps its viewer and is never rebuilt. This is how the Designer drives a dashboard from a Data Router. An `update` of an absent panel adds it; an `add` of a present one re-renders it; a panel that views a rebuilt or removed panel's grid goes with it.</td></tr>
           <tr><td class="name">panels</td><td class="type">(): string[]</td><td class="desc">&mdash;</td><td class="type"><code>string[]</code></td><td class="desc">The built panels' ids, in spec order.</td></tr>
           <tr><td class="name">panel</td><td class="type">(id: string): <a href="#type-DashboardPanelHandle">DashboardPanelHandle</a> | null</td><td class="desc"><code>id: string</code></td><td class="type"><code><a href="#type-DashboardPanelHandle">DashboardPanelHandle</a> | null</code></td><td class="desc">One built panel, or null.</td></tr>
           <tr><td class="name">problems</td><td class="type">(): <a href="#type-DashboardProblem">DashboardProblem</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-DashboardProblem">DashboardProblem</a>[]</code></td><td class="desc">Everything the last build refused or reported.</td></tr>

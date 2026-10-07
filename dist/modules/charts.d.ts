@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.88.4, charts module type declarations
+ * Lattice Grid 1.89.0, charts module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -193,4 +193,78 @@ export interface ChartTypeDefinition {
 export function registerChartType(name: string, def: ChartTypeDefinition): void;
 /** Every registered extension chart-type name, in registration order. */
 export function registeredChartTypes(): string[];
+
+/**
+ * One data channel a chart type binds, for a generated editor:
+ * the stable channel name, the kind of field it takes, and the flags an editor
+ * reads. Carries no human label — that is the consuming UI's own i18n.
+ */
+export interface ChartRole {
+  /** The channel name (`x`, `y`, `series`, `measures`, `size`, …). */
+  role: string;
+  /** The kind of field it binds. */
+  accepts: 'dimension' | 'measure' | 'field';
+  /** The spec-options path the field is written to, when it differs from `role`. */
+  path?: string;
+  /** Whether the type cannot draw without it. */
+  required?: boolean;
+  /** Whether more than one field may be bound. */
+  repeatable?: boolean;
+  /** Whether it carries an aggregation (a measure). */
+  aggregated?: boolean;
+  /** Whether a date in it may be bucketed by period. */
+  bucketable?: boolean;
+  /** The sibling path an aggregation is written to, when it is not stored with the field (a KPI tile's `aggregation`). */
+  aggPath?: string;
+  /** For a repeatable role whose entries are objects, the key the field is written to (a grid column's `field`). */
+  entryKey?: string;
+  /** The options each entry carries, named by their path inside the entry (a grid column's `layout.width`). */
+  entryOptions?: ChartOption[];
+  /** Whether the entries' order is meaningful, so an editor offers to move one earlier or later. */
+  orderable?: boolean;
+}
+
+/**
+ * One formatting option a chart type honours, for a generated editor: the dotted spec path and the control's machine-readable
+ * type, enum or range.
+ */
+export interface ChartOption {
+  /** The dotted path into the chart spec (`title`, `axis.x.title`). */
+  name: string;
+  /** The control kind; `list` is an ordered list of strings, such as a palette's colours. */
+  type: 'string' | 'boolean' | 'number' | 'enum' | 'list';
+  /** The choices, for an enum (a choice may be `true`, as `stack: true` is). */
+  values?: Array<string | boolean>;
+  /** What the chart does when the option is unset, so a control shows the effective value. */
+  default?: string | boolean | number;
+  /** What a string or list holds, when it is a format mask or a colour rather than free text. */
+  format?: 'number' | 'date' | 'colour';
+  /** The least a number may be. */
+  min?: number;
+  /** The most a number may be. */
+  max?: number;
+  /** The number's step. */
+  step?: number;
+}
+
+/** The full generated-editor model for a chart type. */
+export interface ChartEditorModel {
+  /** The chart type. */
+  type: string;
+  /** Its data channels, in editor order. */
+  roles: ChartRole[];
+  /** Its formatting options, in editor order. */
+  options: ChartOption[];
+  /** The aggregations a measure role offers. */
+  aggregations: ReadonlyArray<string>;
+}
+
+/**
+ * The editor model for a chart type: its roles, its options and the
+ * aggregations a measure role offers. One call is everything
+ * a properties panel needs to generate a type's editor from the registry,
+ * never from the panel. An unknown type takes the by-series default, so every
+ * registered type has a non-empty editor.
+ */
+export function chartEditorModel(type: string): ChartEditorModel;
 export { Chart };
