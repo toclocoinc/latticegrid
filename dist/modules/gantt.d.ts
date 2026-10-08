@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.89.1, gantt module type declarations
+ * Lattice Grid 1.90.0, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -37,6 +37,46 @@ export type GanttSchedulingMode = 'fixedDuration' | 'fixedEffort' | 'fixedUnits'
 export type GanttCalendar =
   | 'weekends'
   | { workdays?: number[]; holidays?: Array<string | number | Date> };
+
+/**
+ * A named working calendar, the value of an entry in the
+ * `calendars` option: the plan calendar's shape, with the resource-calendar and
+ * exception spellings accepted. A member left out is inherited from the plan calendar.
+ */
+export interface GanttNamedCalendar {
+  /** The working weekdays, 0=Sunday … 6=Saturday; defaults to the plan's. */
+  workdays?: number[];
+  /** The same as `workdays`, in the resource-calendar spelling. */
+  workingDays?: number[];
+  /** Days off: ISO dates, `Date`s, day-numbers or inclusive `{ from, to }` ranges; defaults to the plan's. */
+  holidays?: Array<string | number | Date | { from: string | number | Date; to: string | number | Date }>;
+  /** The same as `holidays`, named as exceptions to the working week. */
+  exceptions?: Array<string | number | Date | { from: string | number | Date; to: string | number | Date }>;
+  /** The working hours in a day: a flat number or a per-weekday map; defaults to the plan's `hoursPerDay`. */
+  hoursPerDay?: number | Record<number, number>;
+}
+
+/**
+ * What a task's or resource's `calendar` may be: a calendar spec
+ * stated inline, the `'weekends'` preset, or the id of an entry in the `calendars` option.
+ * An id that names none refuses the schedule with an `unknown-calendar` error.
+ */
+export type GanttCalendarRef = 'weekends' | string | GanttNamedCalendar;
+
+/** The named calendars a plan offers its tasks and resources, keyed by calendar id. */
+export type GanttCalendars = Record<string, GanttNamedCalendar>;
+
+/** One resolved calendar in a schedule: the working time a task was scheduled under. */
+export interface GanttResolvedCalendar {
+  /** The calendar id the tasks report in `calendar`. */
+  id: string;
+  /** The working weekdays, 0=Sunday … 6=Saturday. */
+  workdays: number[];
+  /** The days off, as day-numbers. */
+  holidays: number[];
+  /** Whether a calendar day-number is a working day under this calendar. */
+  isWorking(day: number): boolean;
+}
 
 /** What a Gantt bar's own label shows: the task name, its percent, its dates, or nothing. */
 export type GanttBarLabel = 'name' | 'percent' | 'dates' | 'none';
@@ -204,6 +244,13 @@ export interface GanttTask {
    */
   colour?: string;
   /**
+   * The task's own working calendar: a spec in the plan calendar's
+   * shape, or the id of an entry in the `calendars` option. Its duration and lags count
+   * that calendar's working days, its bar is shaded by it, and the workload band and
+   * `level()` book the days it works. A task without one follows the plan calendar.
+   */
+  calendar?: GanttCalendarRef;
+  /**
    * Where the task is placed — a day-number, an ISO date or a `Date`. It is a floor, not
    * a pin: the forward pass never starts the task earlier, but a predecessor may push it
    * later. Use a `constraint` to pin it.
@@ -298,6 +345,30 @@ export interface GanttTask {
   /** An alternative spelling of `locked: true`, read the same way; any other value is ignored. */
   constraintMode?: 'hard';
   /**
+   * Takes the task out of the schedule's arithmetic while keeping it listed and drawn,
+   * muted: it is skipped by the CPM passes, the project finish, the
+   * critical path, summary rollups, the workload band, cost and earned value. A link
+   * through it is bridged rather than broken — `A -> B(inactive) -> C` schedules `C`
+   * from `A` directly — and it keeps its OWN dates/duration rather than losing them, so
+   * its bar still draws where it was last placed. Round-trips through MSPDI as `<Active>`
+   * (`0` is inactive). Never drawn with the unscheduled marker at once —
+   * inactive wins when a task is both.
+   */
+  inactive?: boolean;
+  /**
+   * Refuses every user-driven edit on the task: pointer and keyboard
+   * drag, resize, progress drag, a dependency create/delete touching it, and a
+   * task-table cell edit on it — each refused before its own `before*` event fires,
+   * with the paired `:cancelled` event carrying reason `'readOnly'`. Unlike `locked`,
+   * this says nothing about the scheduler (a predecessor still pushes the task, unless
+   * it is also locked) and nothing about the host's own code — `applyEdit`,
+   * `setDependencies` and `deleteDependency` called directly still work. See also the
+   * plan-level `readOnlyWhen` (on `createGantt`), which refuses by rule without setting
+   * this on every task. The row and bar carry a `--readonly` class and an
+   * accessible description.
+   */
+  readOnly?: boolean;
+  /**
    * Who is booked on the task: one name or a list. Each name is a full-time booking
    * (units 1) for resource load, over-allocation and the split view's avatars. Ignored
    * when `assignments` is present.
@@ -379,6 +450,16 @@ export interface GanttTask {
    * The actual cost incurred (ACWP) for earned-value analysis. Left out, the task's cost variance/CPI are `null`.
    */
   actualCost?: number;
+  /**
+   * A WBS outline code to honour verbatim, rather than
+   * deriving one from the task's position in the tree — what `importMSPDI`
+   * sets from a source plan's own `<WBS>` so a non-standard code
+   * round-trips through `exportMSPDI` unchanged. Prefixed onto this task's
+   * own children exactly as a derived code would be. Omit it (the normal
+   * case) to have the task's code derived fresh on every compute from `1`,
+   * `1.1`, `1.2`, `2`, … — see `GanttScheduledTask.wbs`.
+   */
+  wbs?: string;
 }
 
 /**
@@ -453,7 +534,7 @@ export interface GanttResourceRateChange {
 export type GanttResourceSpec =
   | Array<{
     id?: string; name?: string; resource?: string; avatar?: string; capacity?: number; maxUnits?: number; max?: number; units?: number;
-    calendar?: GanttResourceCalendar;
+    calendar?: GanttResourceCalendar | GanttCalendarRef;
     rate?: number; rates?: GanttResourceRateChange[]; type?: 'work' | 'material' | 'cost'; cost?: number;
   }>
   | Record<string, number>;
@@ -514,6 +595,12 @@ export interface GanttScheduledTask {
    */
   ef: number | null;
   /**
+   * The id of the calendar the task was scheduled under: its own
+   * calendar's id, `'plan'` when it follows the plan calendar. Present only on a plan
+   * that uses the `calendars` option or a task `calendar`.
+   */
+  calendar?: string;
+  /**
    * Late start: the latest the task can begin without pushing the project finish (or the
    * deadline) out. Null on an unscheduled task.
    */
@@ -538,6 +625,15 @@ export interface GanttScheduledTask {
    */
   unscheduled?: true;
   /**
+   * True when the task is inactive: kept and listed, drawn muted, with
+   * its OWN `es`/`ef`/`duration` (not computed by the CPM passes), null `ls`/`lf`/
+   * `totalFloat` (it has no float — it is not part of the network) and never critical. Out
+   * of the project finish, the critical path, summary rollups, the workload band, cost and
+   * earned value; a link through it is bridged so a predecessor still reaches its
+   * successor. Absent on an active task.
+   */
+  inactive?: true;
+  /**
    * True when the total float is zero or negative. A summary is critical when any child
    * is; an as-late-as-possible task is always marked critical.
    */
@@ -550,6 +646,17 @@ export interface GanttScheduledTask {
   percentComplete: number | null;
   /** The id of this task's summary, or null at the top level. */
   parent: string | null;
+  /**
+   * The task's WBS outline code — `1`, `1.1`, `1.2`, `2`,
+   * … — derived from its position among its plan siblings and recomputed
+   * fresh every time the schedule recomputes, so a reorder, an indent /
+   * outdent, an add or a delete always reads the current number rather
+   * than a stale one. A task whose own `wbs` field supplied a code (an
+   * MSPDI import that carried one) reads that verbatim instead, and its
+   * own children are still numbered under it. Look a task up by its code
+   * with `gantt.taskByWbs(code)`.
+   */
+  wbs: string;
   /**
    * The scheduling mode the task was computed under, present
    * only when the task takes part in effort-driven scheduling. A plain
@@ -672,6 +779,15 @@ export interface GanttSchedule {
   conflicts?: GanttConflict[];
   /** Whether a working-time calendar was applied. */
   calendar?: boolean;
+  /**
+   * Every reason the schedule was refused; `error` is the first. An
+   * unknown calendar id on a task or resource is listed here by name, one entry each.
+   */
+  errors?: GanttScheduleError[];
+  /**
+   * The calendars the plan's tasks were scheduled under, keyed by calendar id. Present only when a task follows a calendar other than the plan's.
+   */
+  calendars?: Map<string, GanttResolvedCalendar>;
   /**
    * The ids of the unscheduled tasks, in input order: leaves with no
    * duration or dates, and summaries of only such leaves. Empty when every task is scheduled.
@@ -840,7 +956,7 @@ export function isTaskLocked(raw: object, lockWhen?: (task: object) => boolean):
  * and the zero-float critical path, with summaries derived from their children,
  * milestones scheduled as points, and dependency cycles refused (never looped).
  */
-export function computeSchedule(tasks: GanttTask[], deps?: GanttDependency[], options?: { projectStart?: number | string | Date; deadline?: number | string | Date; calendar?: GanttCalendar | null; schedulingMode?: GanttSchedulingMode; effortDriven?: boolean; hoursPerDay?: number; resourceHours?: Map<string, number>; lockWhen?: (task: GanttTask) => boolean; honourDates?: boolean }): GanttSchedule;
+export function computeSchedule(tasks: GanttTask[], deps?: GanttDependency[], options?: { projectStart?: number | string | Date; deadline?: number | string | Date; calendar?: GanttCalendar | null; calendars?: GanttCalendars; resources?: GanttResourceSpec; schedulingMode?: GanttSchedulingMode; effortDriven?: boolean; hoursPerDay?: number; resourceHours?: Map<string, number>; lockWhen?: (task: GanttTask) => boolean; honourDates?: boolean }): GanttSchedule;
 
 /** The tasks placed earlier than their earliest feasible start (manual validation). */
 export function findViolations(tasks: GanttTask[], schedule: GanttSchedule): GanttViolation[];
@@ -1045,8 +1161,8 @@ export function computeSCurve(
 export interface GanttScheduleError {
   /**
    * What was wrong: `cycle`, `duplicate-id`, `bad-duration`, `unknown-task`,
-   * `unknown-parent`, `parent-cycle`, `self-dependency`, `bad-link-type` or
-   * `dep-across-hierarchy`.
+   * `unknown-parent`, `parent-cycle`, `self-dependency`, `bad-link-type`,
+   * `dep-across-hierarchy` or `unknown-calendar`.
    */
   code: string;
   /** The failure in one English sentence, naming the task or link it is about. */
@@ -1059,6 +1175,10 @@ export interface GanttScheduleError {
   from?: string;
   /** A rejected dependency's successor, on `dep-across-hierarchy`. */
   to?: string;
+  /** The calendar id nothing defines, on `unknown-calendar`. */
+  calendar?: string;
+  /** Whether the `task` or the `resource` named that calendar, on `unknown-calendar`. */
+  owner?: 'task' | 'resource';
 }
 
 /**
@@ -1251,6 +1371,41 @@ export interface GanttTaskDeleteCancelledEvent {
 }
 
 /**
+ * Tasks about to be pasted: the payload of `beforeTaskPaste`. Raised by `pasteTasks` and the Ctrl/Cmd+V key.
+ */
+export interface GanttTaskPasteEvent extends GanttBeforeEvent {
+  /** The new tasks about to be inserted, with their new ids, in plan order; copies a handler may read but not change. */
+  tasks: GanttTask[];
+  /** The links about to be re-created between the new tasks. */
+  dependencies: GanttDependency[];
+  /** Where they land: below a task, or as the children of one (`below` is `null` when appending at the end). */
+  target: { below: string | null } | { childOf: string };
+  /** Whether the tasks came from the Gantt clipboard (`tasks`) or from tab-separated text (`text`). */
+  source: 'tasks' | 'text';
+  /** Always `user`. */
+  origin: string;
+}
+
+/**
+ * Tasks that were not pasted: the payload of `taskPaste:cancelled`. A
+ * notification, so it carries no `preventDefault`.
+ */
+export interface GanttTaskPasteCancelledEvent {
+  /** The new tasks that were not inserted. */
+  tasks: GanttTask[];
+  /** The links that were not re-created. */
+  dependencies: GanttDependency[];
+  /** Where they would have landed. */
+  target: { below: string | null } | { childOf: string };
+  /** Whether the tasks came from the Gantt clipboard or from text. */
+  source: 'tasks' | 'text';
+  /** Always `user`. */
+  origin: string;
+  /** The reason given to `preventDefault`, `'prevented'` when none was, or `'stale'`. */
+  reason: string;
+}
+
+/**
  * A row about to move or re-parent: the payload of `beforeRowMove`. A name-column drag handle, a drop onto another row,
  * Alt+Up/Down (reorder among siblings) and Tab/Shift+Tab (indent/outdent)
  * all gate on this.
@@ -1367,6 +1522,10 @@ export type GanttEventName =
   | 'dependencyCreate:cancelled'
   /** A `beforeTaskDelete` handler refused the delete. */
   | 'taskDelete:cancelled'
+  /** Tasks are about to be pasted — Ctrl/Cmd+V or `pasteTasks`; cancellable. */
+  | 'beforeTaskPaste'
+  /** A `beforeTaskPaste` handler refused the paste. */
+  | 'taskPaste:cancelled'
   /** A `beforeDependencyDelete` handler refused the removal. */
   | 'dependencyDelete:cancelled'
   /** A `beforeRowMove` handler refused the move. */
@@ -1506,6 +1665,10 @@ export interface GanttEventPayloads {
   'dependencyCreate:cancelled': GanttDependencyCreateCancelledEvent;
   /** The task that was not deleted, and why. */
   'taskDelete:cancelled': GanttTaskDeleteCancelledEvent;
+  /** The tasks about to be pasted, with `preventDefault` to stop them. */
+  beforeTaskPaste: GanttTaskPasteEvent;
+  /** The paste that was not applied, and why. */
+  'taskPaste:cancelled': GanttTaskPasteCancelledEvent;
   /** The link that was not removed, and why. */
   'dependencyDelete:cancelled': GanttDependencyDeleteCancelledEvent;
   /** The move that was not applied, and why. */
@@ -2650,6 +2813,12 @@ export interface Gantt {
   readonly autoSchedule: boolean;
   /** The grid this controller is bound to, or null for a standalone plan. */
   readonly grid: unknown;
+  /**
+   * The resolved week-start weekday (0-6): the
+   * plan's own `weekStartDay` option, else the bound grid's locale default
+   * (Monday for en-GB and most locales, Sunday for en-US), else Sunday.
+   */
+  readonly weekStartDay: number;
   /** The over-allocations from the latest schedule. */
   readonly overAllocations: GanttOverAllocation[];
   /** The latest resource-load report, or null before a successful schedule. */
@@ -2721,6 +2890,13 @@ export interface Gantt {
    * previous schedule in place.
    */
   compute(): GanttSchedule;
+  /**
+   * The raw task carrying a given WBS outline code, or
+   * `null` when none does, or before any successful schedule. Reads the
+   * latest schedule's derived codes, so it reflects the plan's current
+   * order rather than a code a since-moved task used to carry.
+   */
+  taskByWbs(code: string): GanttTask | null;
   /**
    * The tasks placed earlier than CPM allows — the "manual with validation" flag. Empty
    * when every placement is feasible, and when there is no successful schedule.
@@ -2902,6 +3078,35 @@ export interface Gantt {
    */
   selectedHidden(): string[];
   /**
+   * Copy tasks and their subtrees to the Gantt clipboard:
+   * every field with assignments, and the links between two copied tasks (a
+   * link to an outside task is dropped on paste). The tab-separated text form
+   * (name, start, end, duration, percent) is also written to the system
+   * clipboard where the browser allows it. Ctrl/Cmd+C does the same on the
+   * selection.
+   * @param ids the task ids to copy
+   * @returns the text form, or `null` when nothing was copied
+   */
+  copyTasks(ids: Array<string | number>): string | null;
+  /**
+   * Cut tasks and their subtrees: copy, then remove them and their links as
+   * one undo step. Refused when `beforeTaskDelete` is
+   * vetoed. Ctrl/Cmd+X does the same on the selection.
+   * @param ids the task ids to cut
+   * @returns the text form, or `null` when nothing was cut
+   */
+  cutTasks(ids: Array<string | number>): string | null;
+  /**
+   * Paste the Gantt clipboard as new tasks with new ids, below a task or as
+   * its children, as one undo step, gated on `beforeTaskPaste`. With no target it pastes below the last selected task,
+   * else at the end of the plan. `text` pastes tab-separated rows (name,
+   * start, end, duration, percent) instead. Ctrl/Cmd+V pastes below the
+   * focused row, Ctrl/Cmd+Shift+V as its children.
+   * @param target where to paste, and optionally the text to paste
+   * @returns the new ids (empty on a veto), `null` when there is nothing to paste, or a Promise of either when a handler deferred
+   */
+  pasteTasks(target?: { below?: string | number; childOf?: string | number; text?: string }): string[] | null | Promise<string[] | null>;
+  /**
    * Scroll a task's row into view in the mounted split view;
    * the same as `scrollToTask` on the view `mountSplit` returned. A task the
    * task table's filter hides is not revealed: it returns `false` and fires
@@ -3077,6 +3282,15 @@ export interface Gantt {
      */
     locale?: string;
     /**
+     * The weekday the week starts on (0-6):
+     * drives the header's week band, the week zoom level's column starts
+     * and the workload/histogram week buckets, all through one resolver so
+     * they can't disagree. Left unset, it falls back to `locale`'s own
+     * default (Monday for en-GB and most locales, Sunday for en-US) via
+     * `Intl.Locale`'s `weekInfo`, else a small table, else Sunday.
+     */
+    weekStartDay?: number;
+    /**
      * How the built-in `start` and `end` columns format their dates: a token pattern (`'dd/MM/yyyy'`) or a function. The
      * function receives the grid’s format params — `value` is the stored ISO
      * date, with the grid’s `locale` alongside. Overrides the
@@ -3137,7 +3351,10 @@ export interface Gantt {
      * the task’s total float in whole working days, read-only. `'unscheduled'`
      * is a read-only boolean column that marks the tasks with
      * no dates or duration yet; on a real grid table it filters like any
-     * boolean column. A bare string names a built-in
+     * boolean column. `'wbs'` is a read-only column
+     * showing each task's derived outline code (`1`, `1.1`, `1.2`, `2`, …),
+     * sortable on a real grid table under the same tree-aware sort
+     * as every other column. A bare string names a built-in
      * column, so `['name', 'duration', 'effort', 'units']` is enough. On an
      * editable plan the assignee cell opens the assignment picker. A column
      * with no `kind` shows the raw task’s `key` and edits it only with
@@ -3152,8 +3369,8 @@ export interface Gantt {
      * `columnResize`, and every width — the divider’s included, under the
      * key `'grid'` — round-trips through `getState`/`setState`.
      */
-    columns?: Array<'name' | 'start' | 'end' | 'duration' | 'assignee' | 'progress' | 'effort' | 'units' | 'slack' | 'deadline' | 'unscheduled' | {
-      key: string; title?: string; width?: number; kind?: 'name' | 'assignee' | 'progress' | 'evm' | 'plannedPercentComplete' | 'start' | 'end' | 'duration' | 'effort' | 'units' | 'slack' | 'deadline' | 'unscheduled' | 'number'; metric?: 'bac' | 'pv' | 'ev' | 'ac' | 'sv' | 'cv' | 'spi' | 'cpi'; digits?: number; editable?: boolean; editField?: string; dateFormat?: string | ((p: { value: unknown; locale?: string }) => string);
+    columns?: Array<'name' | 'start' | 'end' | 'duration' | 'assignee' | 'progress' | 'effort' | 'units' | 'slack' | 'deadline' | 'unscheduled' | 'earlyStart' | 'lateStart' | 'lateFinish' | 'baselineStart' | 'baselineEnd' | 'variance' | 'note' | 'sequence' | 'constraint' | 'constraintDate' | 'wbs' | 'predecessors' | 'successors' | {
+      key: string; title?: string; width?: number; kind?: 'name' | 'assignee' | 'progress' | 'evm' | 'plannedPercentComplete' | 'start' | 'end' | 'duration' | 'effort' | 'units' | 'slack' | 'deadline' | 'unscheduled' | 'earlyStart' | 'lateStart' | 'lateFinish' | 'baselineStart' | 'baselineEnd' | 'variance' | 'note' | 'sequence' | 'constraint' | 'constraintDate' | 'wbs' | 'predecessors' | 'successors' | 'number'; metric?: 'bac' | 'pv' | 'ev' | 'ac' | 'sv' | 'cv' | 'spi' | 'cpi'; digits?: number; editable?: boolean; editField?: string; dateFormat?: string | ((p: { value: unknown; locale?: string }) => string);
       /** The narrowest this column can be dragged/keyed to; default 80 for `kind: 'name'`, 40 otherwise. */
       minWidth?: number;
       /** The widest this column can be dragged/keyed to; default unbounded. */
@@ -3170,8 +3387,13 @@ export interface Gantt {
      * scroll locked to the timeline.
      */
     createGrid?: (element: unknown, config: GridConfig) => Grid;
-    /** Further grid configuration every table grid is created with, e.g. `{ theme, locale }`. */
-    gridConfig?: Partial<GridConfig>;
+    /**
+     * Further grid configuration every table grid is created with, e.g. `{ theme, locale }`.
+     * The split view builds its tables with no cell ranges and no fill handle (the task table keeps row
+     * selection and editing); this is laid over those defaults, so `{ selection: { ranges: true, fillHandle: true } }`
+     * restores both. `band` is laid over it again for the workload and histogram band tables only.
+     */
+    gridConfig?: Partial<GridConfig> & { band?: Partial<GridConfig> };
     /**
      * Draw a small corner mark (theme token
      * `--lattice-dirty-mark`) on every built-in task-table cell whose field
@@ -3406,6 +3628,20 @@ export function createGantt(opts?: {
   deadline?: number | string | Date;
   /** A working-time calendar: skip weekends/holidays, durations in working days. */
   calendar?: GanttCalendar | null;
+  /**
+   * The weekday the week starts on (0-6), read by
+   * `toMSPDI` and exposed back as `gantt.weekStartDay`. Left unset, it falls
+   * back to the bound `grid`'s locale default (Monday for en-GB and most
+   * locales, Sunday for en-US) via `Intl.Locale`'s `weekInfo`, else a small
+   * table, else Sunday.
+   */
+  weekStartDay?: number;
+  /**
+   * Named working calendars, `{ id: spec }`, which a task's or resource's
+   * `calendar` can name instead of stating a spec. An id that is not here refuses the
+   * schedule with an `unknown-calendar` error.
+   */
+  calendars?: GanttCalendars;
   /** Resource capacities for over-allocation detection and leveling. */
   resources?: GanttResourceSpec;
   /** The capacity for a resource with none stated (default 1 = one full-time booking). */
@@ -3438,6 +3674,16 @@ export function createGantt(opts?: {
    * refused.
    */
   lockWhen?: (task: GanttTask) => boolean;
+  /**
+   * Refuses every user-driven edit on every task this returns true for
+   * — the plan-wide counterpart to a per-task `readOnly: true`. A common rule is
+   * `(task) => task.percentComplete === 100`. Unlike `lockWhen`, this never touches the
+   * schedule — a predecessor still pushes a read-only task — and never touches
+   * `applyEdit`/`setDependencies`/`deleteDependency` called directly from code; it only
+   * refuses pointer/keyboard drag, resize, progress drag, a dependency create/delete
+   * touching the task, and a task-table cell edit on it.
+   */
+  readOnlyWhen?: (task: GanttTask) => boolean;
   autoSchedule?: boolean;
   /**
    * Honour the host's stored task dates: on `setTasks` and
@@ -3526,6 +3772,13 @@ export interface GanttMSPDIModel {
    * preset or explicit workdays and holidays. Null writes no calendar.
    */
   calendar?: GanttCalendar | null;
+  /** The named calendars tasks and resources may reference; each is written as its own calendar. */
+  calendars?: GanttCalendars;
+  /**
+   * The project's week start (0-6), written as
+   * MSPDI's own `<WeekStartDay>`. Omitted writes no element.
+   */
+  weekStartDay?: number;
   /**
    * A computed schedule, so the written start and finish dates are the scheduled ones.
    * Without it (or with a failed one) the tasks' own placements are used.
@@ -3547,6 +3800,10 @@ export function importMSPDI(xml: string, opts?: { hoursPerDay?: number }): {
   resources: Array<{ id: string; name: string; capacity: number }>;
   projectStart?: number;
   calendar?: null | { workdays: number[]; holidays: number[] };
+  /** The project's week-start weekday (0-6), read from MSPDI's `WeekStartDay`. */
+  weekStartDay?: number;
+  /** The calendars tasks reference, keyed by calendar name; each task names its own in `calendar`. */
+  calendars?: GanttCalendars;
 };
 
 /**

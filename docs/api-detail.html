@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.89.1</p>
+    <p class="rail__sub">Developer guide · v1.90.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.89.1</span>
+        <span class="chip">Version 1.90.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1676,7 +1676,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.89.1'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.90.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -10421,6 +10421,9 @@ grid.import.apply(preview);</code></pre>
           <tr><td class="name">gantt.deselect</td><td class="desc">Gantt. Deselect one or more tasks by id (BACKLOG-0001995), leaving the rest &mdash; call <code>gantt.deselect(gantt.selected())</code> to clear. Fires one <code>selectionChange</code> with <code>cause: 'api'</code> when the selection changes.</td></tr>
           <tr><td class="name">gantt.selected</td><td class="desc">Gantt. The selected task ids in selection order (BACKLOG-0001995), including tasks a collapse or filter has hidden &mdash; they stay selected.</td></tr>
           <tr><td class="name">gantt.selectedHidden</td><td class="desc">Gantt. The selected task ids that are not currently visible (BACKLOG-0001995): still selected, but collapsed under a summary row or filtered out. A click, a Ctrl/Shift click, an arrow key or the API all raise <code>selectionChange</code>; expanding or collapsing a summary row raises the vetoable <code>beforeTaskExpand</code>/<code>beforeTaskCollapse</code> then <code>taskExpand</code>/<code>taskCollapse</code>, and the workload band's resource rows raise <code>resourceExpand</code>/<code>resourceCollapse</code>.</td></tr>
+          <tr><td class="name">gantt.copyTasks</td><td class="desc">Gantt. Copy tasks with their subtrees to the Gantt clipboard (BACKLOG-0002012): every field with assignments, plus the links between two copied tasks; a link to an outside task is dropped on paste. Returns the tab-separated text form (name, start, end, duration, percent), also written to the system clipboard. Ctrl/Cmd+C does the same on the selection.</td></tr>
+          <tr><td class="name">gantt.cutTasks</td><td class="desc">Gantt. Copy tasks and their subtrees, then remove them and their links as one undo step (BACKLOG-0002012); refused when <code>beforeTaskDelete</code> is vetoed. Ctrl/Cmd+X does the same on the selection.</td></tr>
+          <tr><td class="name">gantt.pasteTasks</td><td class="desc">Gantt. Paste the clipboard as new tasks with new ids, <code>{ below: id }</code> or <code>{ childOf: id }</code>, as one undo step (BACKLOG-0002012). The vetoable <code>beforeTaskPaste</code> carries the tasks about to be inserted; a veto raises <code>taskPaste:cancelled</code>. <code>text</code> pastes tab-separated rows instead. Ctrl/Cmd+V pastes below the focused row, Ctrl/Cmd+Shift+V as its children.</td></tr>
           <tr><td class="name">earnedValue</td><td class="desc">Gantt. PV/EV/AC and the derived SV/CV/SPI/CPI per task, rolled up to summaries and the project (BACKLOG-0000958).</td></tr>
           <tr><td class="name">sCurve</td><td class="desc">Gantt. The same earned-value arithmetic over time: one cumulative <code>{ date, pv, ev, ac }</code> point per bucket from the project start to the finish, where the final PV equals the total budget (BACKLOG-0001867).</td></tr>
           <tr><td class="name">mountSCurve</td><td class="desc">Gantt. Mount the S-curve chart (three series, a status-date marker, a legend with SPI/CPI and a hidden table of points); the returned handle's <code>refresh()</code> redraws it and <code>destroy()</code> detaches it (BACKLOG-0001867).</td></tr>
@@ -10436,6 +10439,7 @@ grid.import.apply(preview);</code></pre>
           <tr><td class="name">toPNG</td><td class="desc">Gantt. The mounted view as a PNG: <code>toSVG</code> rasterised through a canvas, resolving to <code>null</code> where there is no canvas to rasterise with (BACKLOG-0001863).</td></tr>
           <tr><td class="name">print</td><td class="desc">Gantt. Print the mounted split view — paged to a chosen paper and orientation, fit to the page width or at a fixed scale, the table header and timeline header repeating on every page and no row split across one — through the browser's own print path (<code>paper</code>, <code>orientation</code>, <code>fitToWidth</code>/<code>scale</code>, <code>title</code>, <code>header</code>/<code>footer</code>); always in a print-safe light palette, whatever theme is mounted (BACKLOG-0001863).</td></tr>
           <tr><td class="name">moveRow</td><td class="desc">Gantt. Move or re-parent one row — a name-column drag handle, a drop onto another row, Alt+Up/Down or Tab/Shift+Tab all funnel through this, gated on the cancellable <code>beforeRowMove</code> and writing the live re-parent path (BACKLOG-0001933) as one undo step (BACKLOG-0001937).</td></tr>
+          <tr><td class="name">taskByWbs</td><td class="desc">Gantt. The raw task carrying a given WBS outline code (BACKLOG-0002008) — <code>'1'</code>, <code>'1.1'</code>, <code>'1.2'</code>, <code>'2'</code>, &hellip; — or <code>null</code> when none does. Reads the latest schedule's own derived codes, so the lookup always reflects the plan's current order rather than a code a since-moved task used to carry.</td></tr>
           <tr><td class="name">visibleNodes</td><td class="desc">KPI. The nodes on screen for a tree strip: the roots, plus the children of every open branch.</td></tr>
           <tr><td class="name">activate</td><td class="desc">Tabs. Switch the active tab, gated by <code>beforeTabChange</code>. Returns (or resolves to) whether the switch happened.</td></tr>
           <tr><td class="name">isMounted</td><td class="desc">Tabs. Whether a tab's grid has been created yet.</td></tr>
@@ -10497,6 +10501,27 @@ const kept = gantt.schedule.tasks.get('b').parent === 'a';
 gantt.destroy();
 
 return `${first} first | undone back to ${restored} | veto kept b under a: ${kept}`;</code></pre>
+
+    <h3 id="gantt-wbs">Gantt: WBS outline codes, executed</h3>
+    <p class="section-note">Every scheduled task carries a derived <code>wbs</code> string from its position in
+    the tree, renumbering on every reorder, indent/outdent, add or delete with nothing written onto the task itself
+    (BACKLOG-0002008). <code>gantt.taskByWbs(code)</code> resolves a task by its current code, reading the latest
+    schedule rather than a code a since-moved task used to carry.</p>
+    <pre data-run="js" data-expect="before b | after b | stale now a | missing null" data-covers="method:gantt.taskByWbs"><code>const { createGantt } = await import('../packages/modules/gantt/index.js');
+
+const gantt = createGantt({ tasks: [
+  { id: 'p', name: 'Phase 1' },
+  { id: 'a', name: 'A', parent: 'p', duration: 2 },
+  { id: 'b', name: 'B', parent: 'p', duration: 2 },
+] });
+const before = gantt.taskByWbs('1.2').id;
+gantt.moveRow('b', { parent: 'p', index: 0 });               // b renumbers to 1.1, a to 1.2
+const after = gantt.taskByWbs('1.1').id;
+const stale = gantt.taskByWbs('1.2').id;
+const missing = gantt.taskByWbs('9.9');
+gantt.destroy();
+
+return `before ${before} | after ${after} | stale now ${stale} | missing ${missing}`;</code></pre>
 
     <h3 id="gantt-print">Gantt split view: toSVG, toPNG and print, executed</h3>
     <p class="section-note">The split view serialised to SVG, rasterised to PNG (<code>null</code> here — this
@@ -12462,7 +12487,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.89.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.90.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>
