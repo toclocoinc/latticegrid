@@ -363,6 +363,23 @@ The calendar module (`modules/calendar`, BACKLOG-0001592, time grid BACKLOG-0001
 | `--lattice-calendar-span-lane-height` | `22px` | the height of one span-bar lane in a day-grid week row (overlapping spans stack into lanes) |
 | `--lattice-calendar-all-day-min-height` | `20px` | an all-day row cell's minimum height |
 
+### Designer editing chrome (BACKLOG-0002081/0002085/0002086)
+
+The Designer module's editing chrome (rails, panels and the properties form) draws from one fixed type scale and one spacing step, plus three surface roles for the neutral page and the panel (card) it floats. The type and spacing are intentionally *not* multiplied by `--lattice-density-scale` — the editing chrome stays at a legible 13–16 px whatever density the grid runs at — so they are declared as literals, light and dark alike. The four presets set the type-scale and spacing tokens (`checkPresetCompleteness` does not require them, but they are part of each preset for fidelity); the three surface roles default to existing theme-aware colour tokens, so they follow a preset and a dark/high-contrast/terminal theme with no per-theme restatement.
+
+| Token | Default | Affects | Marking |
+|---|---|---|---|
+| `--lattice-designer-font-title` | `16px/24px` | panel and rail titles (the largest chrome type) | MAY |
+| `--lattice-designer-font-heading` | `14px/20px` | section and group headers (weight `--lattice-header-font-weight`) | MAY |
+| `--lattice-designer-font-body` | `13px/18px` | labels, values, list items and controls | MAY |
+| `--lattice-designer-space-1` | `4px` | the tightest chrome gap/padding step | MAY |
+| `--lattice-designer-space-2` | `8px` | the default chrome gap/padding step | MAY |
+| `--lattice-designer-space-3` | `12px` | a section's padding step | MAY |
+| `--lattice-designer-space-4` | `16px` | the widest chrome padding step | MAY |
+| `--lattice-designer-page-bg` | `var(--lattice-surface)` | the neutral page the rails and canvas sit on | MAY |
+| `--lattice-designer-panel-bg` | `var(--lattice-background)` | a rail/panel (card) surface | MAY |
+| `--lattice-designer-panel-border` | `var(--lattice-border-color)` | a rail/panel (card) border | MAY |
+
 ## Internal, off-contract
 
 ### `--lat-*` internal computed aliases
@@ -428,6 +445,16 @@ The two fenced blocks below are what `test/theming-contract-doc.test.js` diffs a
 --lattice-danger
 --lattice-decoration-edge-width
 --lattice-density-scale
+--lattice-designer-font-body
+--lattice-designer-font-heading
+--lattice-designer-font-title
+--lattice-designer-page-bg
+--lattice-designer-panel-bg
+--lattice-designer-panel-border
+--lattice-designer-space-1
+--lattice-designer-space-2
+--lattice-designer-space-3
+--lattice-designer-space-4
 --lattice-detail-active-background
 --lattice-detail-background
 --lattice-detail-marker

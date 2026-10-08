@@ -9,6 +9,21 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.89.1] - 2026-10-08
+
+### Fixed
+
+- **The Designer's editing screen was unstyled below the toolbar** (BACKLOG-0002081). The rails, palette, data and properties panels fell through to browser defaults — oversized headings over tiny rows, no borders, sections clipped mid-word, the canvas squeezed out of a 1,150px window. The editing screen is now a set of bordered panels on a neutral page background: each rail is a card with a fixed header and a collapse control, the left rail stacks Palette and Data as their own scroll regions split by a draggable divider with Assist as a compact section below (collapsed by default), a collapsed rail is a 32px strip, and the canvas keeps a minimum width of 480px and is never clipped.
+  - The top bar's buttons and tabs carry explicit padding and gaps, so their labels stay separated instead of running together.
+
+- **The Designer's properties panel was an unstyled column of controls** (BACKLOG-0002085). Labels ran into their values, checkboxes jammed onto one line, text inputs had no visible box, and headings were duplicated. The panel is now a form: collapsible Widget, Data, Formatting and Interactions sections, each property on its own row with its label in a fixed-width left column and its control — with visible input, select and toggle chrome — on the right, every boolean a labelled switch on its own row, empty inputs showing their box and a placeholder, and long values truncated with a title tooltip.
+
+- **The Designer chrome had one font size and weight for nearly everything** (BACKLOG-0002086). The chrome now draws from one fixed type scale and spacing step — the tokens `--lattice-designer-font-title` (16/24), `-font-heading` (14/20, weight 600), `-font-body` (13/18) and `-space-1`..`-space-4` (4/8/12/16), set light and dark in all four presets and documented in the theming token contract — applied to every heading, label and item, so titles, section headers and rows read as a hierarchy. No chrome rule sets a literal font size.
+  - The chrome's rules are scoped under the designer root and set font, margin, padding and box-sizing explicitly on its headings, buttons, inputs and lists, so they hold up under a host's own element styles rather than falling through to browser defaults.
+
+- A derived grid built from a declared source that is not shown as a widget stayed blank — its `from` named a grid that was never built. The Designer now creates (and owns) a headless grid over the source, so the derived grid and any chart over it show the right rows for any step (filter, group, pivot, join, top-N), through `setState(getState())` round-trips and page switches (BACKLOG-0002087).
+  - A derived grid whose `from` names neither a widget nor a declared source is refused by name in the step list and in `problems()`, instead of being left silently blank.
+
 ## [1.89.0] - 2026-10-07
 
 ### Added
