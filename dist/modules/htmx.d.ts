@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.90.0, htmx module type declarations
+ * Lattice Grid 1.91.0, htmx module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -105,6 +105,43 @@ export function autoInit(root?: ParentNode): Grid[];
 export function autoInitCalendar(root?: ParentNode): unknown[];
 /** The marker attribute `autoInitCalendar` scans for: `data-lattice-calendar`. */
 export const CALENDAR_ATTR: string;
+/**
+ * Build a Gantt on every uninitialised `[data-lattice-gantt]` element under
+ * `root`, mounted over the server-rendered `<table>` that
+ * element wraps — one `<tr>` per task, one `<th data-field>` per task field.
+ * The Gantt twin of {@link autoInit} and {@link autoInitCalendar}: idempotent
+ * (an element already carrying `.__latticeGantt` is skipped), and the factory
+ * is resolved from {@link registerGantt} / the script-tag global rather than
+ * inlined into the htmx bundle, so a page with htmx and no Gantt pays nothing.
+ */
+export function autoInitGantt(root?: ParentNode): unknown[];
+/** The marker attribute `autoInitGantt` scans for: `data-lattice-gantt`. */
+export const GANTT_ATTR: string;
+/**
+ * The bubbling DOM event re-raised on the host for every committed change —
+ * `lattice:gantt-change`, with `{ kind, id, task, changes }` in `detail`.
+ */
+export const GANTT_CHANGE_EVENT: string;
+/**
+ * Register the Gantt factory the adapter builds with. The page's own Gantt
+ * module calls this once on load; a page loading both may instead rely on the
+ * script-tag global (`globalThis.LatticeGridGantt.createGantt`).
+ */
+export function registerGantt(factory: Function): void;
+/**
+ * Destroy every Gantt within an element htmx is about to detach. Runs before
+ * the grid cleanup pass so a Gantt's inner task-table grid is released by the
+ * Gantt itself, never left half-alive.
+ */
+export function destroyGanttWithin(root: ParentNode): number;
+/** Write every live Gantt's view state into `data-lattice-gantt-state` and swap its original table back in. */
+export function saveGanttStateWithin(root: ParentNode): number;
+/** Rebuild Gantts onto a restored subtree and reapply their saved view state. */
+export function restoreGanttStateWithin(root: ParentNode, scan?: Function): number;
+/** Undo the table swaps `saveGanttStateWithin` queued (called a microtask after history save). */
+export function restoreSwappedGantts(): void;
+/** Wire document-level `data-lattice-row` out-of-band task updates for Gantts. */
+export function driveGanttOobUpdates(opts?: { doc?: Document }): () => void;
 /**
  * Wire the htmx lifecycle events on a document: grids are built in each
  * swapped-in fragment, released before htmx detaches one, and their view

@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.90.0</p>
+    <p class="rail__sub">Developer guide · v1.91.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.90.0</span>
+        <span class="chip">Version 1.91.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -829,7 +829,7 @@ createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so out
 <span class="cmt">// The individual factories are there too, if you want only one:</span>
 <span class="cmt">// createLatticeGrid, createLatticeKPI, createLatticeChart, createLatticeKanban,</span>
 <span class="cmt">// createLatticeCalendar, createLatticeGantt, createLatticeLayout, createLatticeTabs,</span>
-<span class="cmt">// createLatticeGridContext, createLatticeRouter, createLatticeViewer.</span>
+<span class="cmt">// createLatticeDesigner, createLatticeGridContext, createLatticeRouter, createLatticeViewer.</span>
 <span class="kw">const</span> L = createLatticeReact({
   React, ReactDOM, createGrid, createKPI, createChart, createTabs, createDataRouter,
 });
@@ -864,9 +864,13 @@ createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so out
       its own tab strip, because the tabs module builds its tabs' grids itself and a grid built that
       way is not a component.       <code>createLatticeKPI</code>, <code>createLatticeChart</code>,
       <code>createLatticeKanban</code>, <code>createLatticeCalendar</code>, <code>createLatticeGantt</code>,
-      <code>createLatticeLayout</code> and <code>createLatticeTabs</code> each return one component;
+      <code>createLatticeLayout</code>, <code>createLatticeTabs</code> and
+      <code>createLatticeDesigner</code> each return one component;
       <code>createLatticeViewer</code> is the generic behind them, for anything not yet named, and
-      <code>createViewerController</code> is the framework-free lifecycle underneath.</p>
+      <code>createViewerController</code> is the framework-free lifecycle underneath.
+      <code>createLatticeDesigner</code> is the designer's own component: its <code>state</code> is
+      controlled when the host passes it, and it is driven through the framework-free
+      <code>createDesignerController</code>, the same lifecycle shape the viewer table uses.</p>
       <p><strong>A viewer finds its grid through context, not a ref.</strong> A KPI panel and a chart
       are built <em>against</em> a grid instance, and that instance does not exist until after the
       first render. Writing to a ref re-renders nobody, so a sibling never learns the grid arrived.
@@ -1018,7 +1022,7 @@ createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so out
 <span class="cmt">// The individual factories are there too, if you want only one:</span>
 <span class="cmt">// createLatticeGrid, createLatticeKPI, createLatticeChart, createLatticeKanban,</span>
 <span class="cmt">// createLatticeCalendar, createLatticeGantt, createLatticeLayout, createLatticeTabs,</span>
-<span class="cmt">// createLatticeGridContext, createLatticeRouter, createLatticeViewer.</span>
+<span class="cmt">// createLatticeDesigner, createLatticeGridContext, createLatticeRouter, createLatticeViewer.</span>
 <span class="kw">export const</span> L = createLatticeVue({
   vue, createGrid, createKPI, createChart, createTabs, createDataRouter,
 });</code></pre>
@@ -1056,7 +1060,8 @@ L.provideLatticeRouter(ROUTER_CONFIG);
       grids itself and a grid built that way is not a component.
       <code>createLatticeKPI</code>, <code>createLatticeChart</code>,
       <code>createLatticeKanban</code>, <code>createLatticeCalendar</code>, <code>createLatticeGantt</code>,
-      <code>createLatticeLayout</code> and <code>createLatticeTabs</code> each return one component
+      <code>createLatticeLayout</code>, <code>createLatticeTabs</code> and
+      <code>createLatticeDesigner</code> each return one component
       definition; <code>createLatticeViewer</code> is the generic behind them, for anything not yet
       named, and <code>createViewerController</code> is the framework-free lifecycle underneath.
       Everything is built with <code>defineComponent</code> and render functions, so no template
@@ -1418,6 +1423,29 @@ autoInit(document);</code></pre>
       "&lt;grid id&gt;"</code> string in the config — resolved through
       <code>element.__lattice</code>. <code>CALENDAR_ATTR</code> names the marker
       (<code>data-lattice-calendar</code>).</p>
+      <p id="htmx-guide-gantt"><strong>The Gantt initialises through
+      <code>data-lattice-gantt</code> over its server-rendered task table.</strong>
+      <code>autoInitGantt</code> builds the split view on every
+      <code>[data-lattice-gantt]</code> element it has not already built one for
+      (idempotent, like <code>autoInit</code> and <code>autoInitCalendar</code>): the
+      element wraps a plain <code>&lt;table&gt;</code> whose <code>&lt;th data-field&gt;</code>
+      cells name the left-hand columns and whose <code>&lt;tr&gt;</code>/<code>&lt;td&gt;</code>
+      cells are the tasks, so without JavaScript it still reads as a table, and one
+      <code>htmx:load</code> turns it into the split view. Because the Gantt engine is
+      not inlined into the htmx bundle, the page hands the adapter its factory first —
+      <code>registerGantt(createGantt)</code> from the page's own Gantt module, or the
+      script-tag global <code>globalThis.LatticeGridGantt.createGantt</code> the module's
+      UMD build publishes — so a page with htmx and no Gantt pays nothing for it. Every
+      committed change (move, resize, progress, cell edit, link, add, delete, row move)
+      is re-raised as a bubbling <code>lattice:gantt-change</code> on the host with
+      <code>{ kind, id, task, changes }</code>, and an out-of-band
+      <code>data-lattice-row="&lt;task id&gt;"</code> fragment patches that task through
+      the Gantt's own <code>rows.apply</code>. Browser history carries the view the same
+      way a grid's does: on <code>htmx:beforeHistorySave</code> the original table is
+      swapped back in for the snapshot, <code>restoreGanttStateWithin</code> re-reads it
+      and reapplies zoom, visible range, scroll, collapsed rows and column widths on a
+      cache hit, and <code>restoreSwappedGantts</code> puts the rendered plan back once
+      htmx has snapshotted.</p>
       <p id="htmx-guide-rebind"><strong>Viewers re-bind across a swap.</strong> A chart or
       KPI panel bound to a grid inside a swapped-out subtree would otherwise keep pointing
       at the grid <code>htmx:beforeCleanupElement</code> just destroyed, and throw on its
@@ -1676,7 +1704,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.90.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.91.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -5850,9 +5878,10 @@ grid.edit.deleteRows();</code></pre>
       in an odd slot after a scroll, and a logical-index stripe keeps a row shaded consistently across
       a scroll and across the left-pinned, centre and right-pinned segments of the same row. Group
       headings, group footers and the grand total are structure rather than data, so they are never
-      striped. The stripe uses the theme's <code>--lattice-surface-alt</code> token, which every
+      striped. The stripe uses the theme's <code>--lattice-row-stripe</code> token — dedicated to the
+      stripe, so it can be themed apart from <code>--lattice-surface-alt</code> — which every
       palette defines, so dark, high-contrast and terminal are correct without any extra rule, and
-      both selection and hover still win over it.
+      selection, hover and the diff states (added, changed) still win over it.
     </p>
 
     <h2 id="vertical-align">Vertical alignment</h2>
@@ -10226,6 +10255,7 @@ grid.import.apply(preview);</code></pre>
           <tr><td class="name">createLayout</td><td class="desc">Create a reconfigurable dashboard layout (module <code>layout</code>): a cell grid inside an element, and a set of windows on it that a user can move, resize and close by drag <em>or</em> by keyboard &mdash; the surface a customer would otherwise reach for GridStack to get. It is <strong>payload-agnostic</strong>: a window body is a <code>div</code> with an <code>id</code> that the module creates, sizes and never reads, so it imports no engine code at all (not even <code>createGrid</code>) and the whole module is about 17,500 bytes gzipped on the built bundle, of which roughly 2KB is the shared module runtime. <code>columns</code>/<code>rows</code> divide the element; <code>overflowX</code> and <code>overflowY</code> are <em>independent</em> axes, each <code>'static'</code> (tracks divide the container with <code>minmax(0, 1fr)</code>) or <code>'scroll'</code> (tracks take a fixed <code>columnWidth</code>/<code>rowHeight</code> and the canvas extends past the viewport, so a column keeps the size it asked for &mdash; measured: shrinking a 600px host to 300px leaves a 200px column at 200px). Spacing takes a real CSS length: a number of pixels, or <code>'200px'</code>, <code>'25%'</code>, <code>'1fr'</code>, <code>'2rem'</code>; anything else is refused by name and replaced by the default, because the value reaches an inline style. Windows are placed by 1-based <code>xPos</code>/<code>yPos</code>/<code>xSize</code>/<code>ySize</code>, or auto-placed in the first free cell; <code>chrome</code> defaults on, and <code>closable</code>/<code>movable</code>/<code>resizable</code> all default <em>off</em>, so a fixed dashboard is fixed without opting out. <code>corners: 'rounded'</code> (the default, today's look) is themed via <code>--lattice-layout-radius</code>, a token scoped to this module rather than the shared <code>--lattice-radius</code> every other module reads; <code>corners: 'square'</code> zeroes the radius on the window, its title bar, the minimised strip and the maximised frame &mdash; all the same frame element in a different state, so one rule reaches every one of them &mdash; with no other visual change, and a window's own <code>corners</code> overrides the layout's. <code>compact: 'vertical'</code> pushes displaced windows down then pulls them up (<code>window:moved</code> carries both <code>to</code> and <code>landed</code>); <code>'none'</code> keeps every window where it is put. <code>closable</code>/<code>movable</code>/<code>resizable</code> each also take a <em>layout-level</em> default of the same name, which a window's own boolean overrides, and <code>setInteractive(true|false|{movable, resizable, closable})</code> changes that default at runtime &mdash; the &ldquo;Edit layout&rdquo; button &mdash; without destroying the layout or any payload in it, with <code>getInteractive()</code> reading it back. Locking always wins and unlocking never overrides an opt-out: <code>setInteractive(false)</code> pins a window that declared <code>movable: true</code>, while <code>setInteractive(true)</code> leaves a window that declared <code>movable: false</code> pinned. The config key and the method are deliberately different: <code>movable: false</code> in the config states the <em>default</em> for windows that declare nothing and takes nothing away from one that opted in, whereas <code>setInteractive(false)</code> is an <em>active lock</em>. <code>getInteractive()</code> is three-valued &mdash; <code>undefined</code> for unset, <code>true</code>, or <code>false</code> for a lock &mdash; and a key carrying <code>undefined</code> is treated as absent, so <code>setInteractive(getInteractive())</code> is a no-op in every state. It moves both halves of the enforcement, the rendered handles <em>and</em> the pointer and keyboard gesture checks, and fires no event because a mode is not an arrangement &mdash; <code>getLayout()</code> neither carries it nor restores it. A locked layout is not a read-only dashboard: what is inside a window is configured with that payload's own settings. <code>maximise(id)</code>, <code>minimise(id)</code> and <code>restore(id)</code> are the display modes, with <code>maximised()</code> and <code>minimised()</code> reading them back: maximise fills the <em>layout host</em> rather than the browser window (no <code>position: fixed</code>, whose containing block is the nearest ancestor with a <code>transform</code> or a <code>contain</code>; no reparenting; nothing that can disturb the page around the dashboard), hides the other windows, runs <strong>no compaction at all</strong> and keeps the payload container as the very same DOM node &mdash; and <kbd>Escape</kbd> restores it from anywhere inside the layout. <code>minimise</code> draws a window as a single row and hides its payload while its chrome stays to carry the way back, so the windows below pull up on screen; in the arrangement nothing moves at all, because the collapse is a projection of the dashboard rather than a change to it, so restoring gives back exactly the arrangement that was there in <em>any</em> order and with any number of other windows still collapsed. A <code>chrome: false</code> window is refused by name. Both controls are opt-in per window (<code>maximisable</code>, <code>minimisable</code>) with a layout-level default of the same name, and <code>setInteractive()</code> deliberately does not touch either: a mode is not an arrangement, so neither appears in <code>getLayout()</code>, which reports the underlying placement in both states. Keyboard parity with the drag: a focusable handle per window running the kanban board's grab/move/drop/cancel model, with a polite live region announcing grabbed, every tentative position, dropped, cancelled and reverted. It owns exactly <strong>one</strong> <code>ResizeObserver</code> for the whole layout, over two targets, and tells payloads their new content box through <code>window:resized</code> &mdash; it never calls into a payload, because it cannot know what one is. Events: <code>window:moved</code>, <code>window:resized</code>, <code>window:closed</code>, <code>layout:changed</code>, the cancellable <code>beforeWindowMove</code>/<code>beforeWindowResize</code>/<code>beforeWindowClose</code> and their <code>*:cancelled</code> pairs; drag progress is not emitted per frame. <code>getLayout()</code>/<code>setLayout()</code> round-trip the arrangement as plain JSON, and <code>getState()</code>/<code>setState()</code> are the versioned pair. Closing a window does <strong>not</strong> destroy its payload &mdash; the container is handed back on <code>window:closed</code> and the host owns that lifecycle. UMD global <code>LatticeGridLayout</code>.</td></tr>
           <tr><td class="name">createDevtools</td><td class="desc">Mount the devtools panel against a grid, including its accessibility checks.</td></tr>
           <tr><td class="name">createGantt</td><td class="desc">Create a project-planning Gantt controller (module <code>gantt</code>) over a task list and a dependency list. A CPM engine (<code>computeSchedule</code>) computes each task's early/late start and finish, its slack and the zero-float critical path, honouring the four link types (<code>LINK_TYPES</code>: FS/SS/FF/SF) with lag, and recomputes on every edit — emitting <code>schedule</code> or, on a dependency cycle or bad input, <code>error</code> (a code from <code>SCHEDULE_ERROR</code>). Milestones are zero-duration points; summary (WBS) tasks are derived from their children (earliest start, latest finish, weighted progress) rather than scheduled; <code>findViolations</code> flags a task placed earlier than its predecessors allow, and <code>toISODate</code> maps an engine day-number back to a calendar date.</td></tr>
+          <tr><td class="name">createResourceView</td><td class="desc">Create a standalone resource-load band (module <code>gantt</code>, BACKLOG-0001949): the workload band on its own, with <code>resources</code> and <code>bookings</code> and no task Gantt, no plan and no CPM — a resource-availability view by department, portfolio or scenario. It reuses the split view's workload band rather than forking it (<code>createGantt</code> with no tasks, then <code>mountSplit</code> in a resource-only mode that hides the task table and the timeline bars and fills the view with the band), so day/week/month/quarter buckets with the scale header and zoom, hours/percent/cost units with utilisation thresholds, expand-to-bookings, the <code>workload:click</code> bucket event, its own grid-backed column definitions and width round-trip, and SVG export all come across unchanged. Bookings are <code>{ resource, start, end, units | hours, label, group }</code> (the <code>workload.external</code> shape); <code>setBookings</code> applies a changed set live, and the time-bucket columns never carry a grid control. UMD global via the <code>gantt</code> module.</td></tr>
           <tr><td class="name">createLatticeGridElement</td><td class="desc">Build the element class without registering it, for a custom registry.</td></tr>
           <tr><td class="name">createMessages</td><td class="desc">Build a message catalogue. A partial set lays over the built-in British English one.</td></tr>
           <tr><td class="name">defineLatticeGrid</td><td class="desc">Register &amp;lt;lattice-grid&amp;gt;, or your own tag name.</td></tr>
@@ -10423,6 +10453,10 @@ grid.import.apply(preview);</code></pre>
           <tr><td class="name">gantt.selectedHidden</td><td class="desc">Gantt. The selected task ids that are not currently visible (BACKLOG-0001995): still selected, but collapsed under a summary row or filtered out. A click, a Ctrl/Shift click, an arrow key or the API all raise <code>selectionChange</code>; expanding or collapsing a summary row raises the vetoable <code>beforeTaskExpand</code>/<code>beforeTaskCollapse</code> then <code>taskExpand</code>/<code>taskCollapse</code>, and the workload band's resource rows raise <code>resourceExpand</code>/<code>resourceCollapse</code>.</td></tr>
           <tr><td class="name">gantt.copyTasks</td><td class="desc">Gantt. Copy tasks with their subtrees to the Gantt clipboard (BACKLOG-0002012): every field with assignments, plus the links between two copied tasks; a link to an outside task is dropped on paste. Returns the tab-separated text form (name, start, end, duration, percent), also written to the system clipboard. Ctrl/Cmd+C does the same on the selection.</td></tr>
           <tr><td class="name">gantt.cutTasks</td><td class="desc">Gantt. Copy tasks and their subtrees, then remove them and their links as one undo step (BACKLOG-0002012); refused when <code>beforeTaskDelete</code> is vetoed. Ctrl/Cmd+X does the same on the selection.</td></tr>
+          <tr><td class="name">gantt.addTask</td><td class="desc">Gantt. Add a task <code>{ above | below | child | successorOf | predecessorOf: id }</code> another, as one undo step (BACKLOG-0002000). The vetoable <code>beforeTaskAdd</code> carries the task about to be inserted; a veto raises <code>taskAdd:cancelled</code>. A successor or predecessor is linked finish-to-start. Insert adds below the focused row, Shift+Insert as its child.</td></tr>
+          <tr><td class="name">gantt.convertToMilestone</td><td class="desc">Gantt. Turn a task into a zero-duration milestone, as one undo step (BACKLOG-0002000). The vetoable <code>beforeMilestoneConvert</code> gates it; a veto raises <code>milestoneConvert:cancelled</code>. A summary is refused.</td></tr>
+          <tr><td class="name">gantt.convertToTask</td><td class="desc">Gantt. Turn a milestone back into an ordinary task of one day (or <code>duration</code>), as one undo step (BACKLOG-0002000), gated on <code>beforeMilestoneConvert</code>.</td></tr>
+          <tr><td class="name">gantt.deleteTask</td><td class="desc">Gantt. Delete a task and its links, as one undo step, gated on the vetoable <code>beforeTaskDelete</code>; the Delete key and the default menu's "Delete task" call it. A read-only task refuses an interface-driven delete (BACKLOG-0002000).</td></tr>
           <tr><td class="name">gantt.pasteTasks</td><td class="desc">Gantt. Paste the clipboard as new tasks with new ids, <code>{ below: id }</code> or <code>{ childOf: id }</code>, as one undo step (BACKLOG-0002012). The vetoable <code>beforeTaskPaste</code> carries the tasks about to be inserted; a veto raises <code>taskPaste:cancelled</code>. <code>text</code> pastes tab-separated rows instead. Ctrl/Cmd+V pastes below the focused row, Ctrl/Cmd+Shift+V as its children.</td></tr>
           <tr><td class="name">earnedValue</td><td class="desc">Gantt. PV/EV/AC and the derived SV/CV/SPI/CPI per task, rolled up to summaries and the project (BACKLOG-0000958).</td></tr>
           <tr><td class="name">sCurve</td><td class="desc">Gantt. The same earned-value arithmetic over time: one cumulative <code>{ date, pv, ev, ac }</code> point per bucket from the project start to the finish, where the final PV equals the total budget (BACKLOG-0001867).</td></tr>
@@ -12060,6 +12094,7 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
           <tr><td class="name">getProperty / setProperty</td><td class="desc"><code>mode</code>, <code>state</code>, <code>selectedPageId</code> and <code>guardrails</code> by name; <code>setProperty('mode', 'view')</code> switches live. Another name is refused and returns <code>undefined</code> or <code>false</code>.</td></tr>
           <tr><td class="name">undo / redo / canUndo / canRedo</td><td class="desc">Undo the most recent committed change, restoring the exact previous state and firing <code>state</code> with cause <code>undo</code>; <code>redo()</code> re-applies it (cause <code>redo</code>); <code>canUndo()</code>/<code>canRedo()</code> say whether either is possible. A drag or a slider scrub coalesces into one step, the depth is <code>historyDepth</code> (default <code>100</code>), and <code>setState()</code> clears the history unless it passes <code>{ keepHistory: true }</code>. In edit mode the chrome shows Undo and Redo buttons, and Ctrl/Cmd + Z, Ctrl/Cmd + Shift + Z and Ctrl/Cmd + Y drive them, scoped to the designer so a grid widget's own Ctrl+Z is never stolen.</td></tr>
           <tr><td class="name">guardrails / setGuardrails</td><td class="desc">The live guardrails handle: the normalised value plus the <code>allows*</code> predicates, <code>refuse</code> and <code>restrictPanel</code>. A restricted choice is hidden — not disabled — and a change that would add one is refused by the guardrail's name. A state that already contains a restricted panel still renders it: locked with a badge in edit mode, exploration-only in view mode. <code>setGuardrails(value)</code> (or <code>setProperty('guardrails', value)</code>) replaces them at run time and rebuilds the canvas; a non-object is refused by name.</td></tr>
+          <tr><td class="name">setSources / sources</td><td class="desc">Give a running designer new data without rebuilding it (BACKLOG-0002089). <code>setSources(sources)</code> replaces the whole map in place: an id that is gone is dropped, every other is written through, and every widget, derived grid and calculated field reading a changed source re-derives — a pushdown source re-queries. <code>sources.update(id, { rows } | { apply: { add, update, remove } })</code> patches one <code>kind: 'rows'</code> source's rows by its <code>rowKey</code>, exactly as <code>grid.rows.apply</code> patches a grid. Neither touches the selected page or widget, the undo history, or the open panels; a field a panel named that the source no longer carries is reported in <code>problems()</code> by name, never thrown.</td></tr>
           <tr><td class="name">chrome / commands</td><td class="desc">The extension points: a region above the canvas, shown in edit mode, and a command registry whose commands change the state only through <code>commit(state, cause)</code>.</td></tr>
           <tr><td class="name">theme / setTheme</td><td class="desc">The theme name on the designer root (<code>null</code> when it follows the page), and a live switch: <code>'light'</code>, <code>'dark'</code>, <code>'auto'</code> (follows the system) or <code>'high-contrast'</code>. The same as the <code>theme</code> option. The chrome uses only theme tokens, so the four presets restyle it. See <a href="API.html#designer-a11y">Theme and accessibility</a>.</td></tr>
           <tr><td class="name">announce / audit</td><td class="desc"><code>announce(text)</code> says a message in the polite live region, the same text twice included. <code>audit()</code> checks the chrome for unnamed controls, an unnamed dialog, a stray tab, extra tab stops, duplicate ids and a missing live region; an empty list passes.</td></tr>
@@ -12487,7 +12522,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.90.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.91.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

@@ -9,6 +9,7 @@ import { createKanban } from '@toclocoinc/lattice-grid/modules/kanban';
 import { createKPI } from '@toclocoinc/lattice-grid/modules/kpi';
 import { createLayout } from '@toclocoinc/lattice-grid/modules/layout';
 import { createTabs } from '@toclocoinc/lattice-grid/modules/tabs';
+import { createDesigner, DesignerOptions, Designer as Designer$1, DesignerStateEvent, DesignerModeEvent, DesignerPageEvent, DesignerSelectEvent } from '@toclocoinc/lattice-grid/modules/designer';
 
 /**
  * The Lattice factories, handed to Angular through dependency injection.
@@ -51,6 +52,8 @@ type GanttFactory = typeof createGantt;
 type LayoutFactory = typeof createLayout;
 /** The tab-strip factory, from `@toclocoinc/lattice-grid/modules/tabs`. */
 type TabsFactory = typeof createTabs;
+/** The designer factory, from `@toclocoinc/lattice-grid/modules/designer`. */
+type DesignerFactory = typeof createDesigner;
 /** The Data Router factory, from `@toclocoinc/lattice-grid/modules/data-router`. */
 type DataRouterFactory = typeof createDataRouter;
 /**
@@ -83,6 +86,9 @@ interface Layout extends ReturnType<LayoutFactory> {
 }
 /** The live tab strip. */
 interface Tabs extends ReturnType<TabsFactory> {
+}
+/** The live designer. */
+interface Designer extends ReturnType<DesignerFactory> {
 }
 /** The live Data Router. */
 interface DataRouter extends ReturnType<DataRouterFactory> {
@@ -117,6 +123,9 @@ type TabsFactoryConfig = Parameters<TabsFactory>[1];
 /** The tab strip's configuration object. */
 interface TabsConfig extends TabsFactoryConfig {
 }
+/** The designer's configuration object. */
+interface DesignerConfig extends NonNullable<Parameters<DesignerFactory>[1]> {
+}
 /** The Data Router's options object. */
 interface DataRouterOptions extends NonNullable<Parameters<DataRouterFactory>[0]> {
 }
@@ -145,6 +154,8 @@ interface LatticeFactories {
     createLayout?: LayoutFactory;
     /** `createTabs`, for `<lattice-tabs>`. */
     createTabs?: TabsFactory;
+    /** `createDesigner`, for `<lattice-designer>`. */
+    createDesigner?: DesignerFactory;
     /** `createDataRouter`, for `provideLatticeRouter()`. */
     createDataRouter?: DataRouterFactory;
 }
@@ -760,6 +771,15 @@ declare const VIEWER_EVENTS: Readonly<Record<string, readonly string[]>>;
 declare function dashedName(event: string): string;
 /** A bag of bound values on their way into a viewer or the grid. */
 type Props = Record<string, unknown>;
+/** Every event the designer emits, in declaration order. */
+declare const DESIGNER_EVENTS: readonly string[];
+/**
+ * The callback name a designer event maps to: `state` → `onStateChange`,
+ * `mode` → `onMode`, `page` → `onPage`, `select` → `onSelect`.
+ * @param event the designer event name
+ * @returns the handler key the controller dispatches through
+ */
+declare function designerHandlerName(event: string): string;
 
 /**
  * The payload of a viewer event.
@@ -1204,6 +1224,18 @@ declare class LatticeGanttComponent extends LatticeViewerBase<Gantt> {
     readonly dependenciesChanged: EventEmitter<any>;
     /** The split view's `cell:click` event: a task-table cell was clicked, with the task, column key and cell element (BACKLOG-0001946). */
     readonly cellClick: EventEmitter<any>;
+    /** The viewer's `workloadCellClick` event: a workload-band bucket cell or histogram bar was clicked (BACKLOG-0001996). */
+    readonly workloadCellClick: EventEmitter<any>;
+    /** The viewer's `workloadCellDblClick` event: a workload cell or histogram bar was double-clicked; cancellable (BACKLOG-0001996). */
+    readonly workloadCellDblClick: EventEmitter<any>;
+    /** The viewer's `workloadCellContextMenu` event: a workload cell or histogram bar was right-clicked; cancellable (BACKLOG-0001996). */
+    readonly workloadCellContextMenu: EventEmitter<any>;
+    /** The viewer's `workloadCellHover` event: the pointer or focus entered a workload cell or histogram bar (BACKLOG-0001996). */
+    readonly workloadCellHover: EventEmitter<any>;
+    /** The viewer's `workloadCellHoverEnd` event: the pointer or focus left a workload cell or histogram bar (BACKLOG-0001996). */
+    readonly workloadCellHoverEnd: EventEmitter<any>;
+    /** The viewer's `workloadResourceClick` event: a workload-band resource-name cell was clicked (BACKLOG-0001996). */
+    readonly workloadResourceClick: EventEmitter<any>;
     /** The viewer's `taskExpand` event: a summary row expanded its children (BACKLOG-0001982). */
     readonly taskExpand: EventEmitter<any>;
     /** The viewer's `taskCollapse` event: a summary row collapsed its children (BACKLOG-0001982). */
@@ -1216,6 +1248,8 @@ declare class LatticeGanttComponent extends LatticeViewerBase<Gantt> {
     readonly selectionChange: EventEmitter<any>;
     /** The viewer's `rowMove` event: a row moved or was re-parented — a drag, Alt+Up/Down or Tab/Shift+Tab, once allowed through `beforeRowMove` (BACKLOG-0001937). */
     readonly rowMove: EventEmitter<any>;
+    /** The viewer's `rowDrop` event: a row dropped into a new position — `rowMove` plus `position`/`target` (Bryntum `gridRowDrop`, BACKLOG-0001993). */
+    readonly rowDrop: EventEmitter<any>;
     /** The viewer's `schedulingConflict` event: the conflict set changed — a cycle, constraint, lock or deadline was added or resolved (BACKLOG-0002004). */
     readonly schedulingConflict: EventEmitter<any>;
     /** The committed-change `taskAdd` event: a task a change added (BACKLOG-0001984). */
@@ -1260,12 +1294,48 @@ declare class LatticeGanttComponent extends LatticeViewerBase<Gantt> {
     readonly taskMouseOver: EventEmitter<any>;
     /** The viewer's `taskMouseOut` event: the pointer or focus left a task (BACKLOG-0001992). */
     readonly taskMouseOut: EventEmitter<any>;
+    /** The viewer's `taskContextMenu` event: a right-click or the Menu key / Shift+F10 on a task; cancellable (BACKLOG-0001980). */
+    readonly taskContextMenu: EventEmitter<any>;
+    /** The viewer's `linkClick` event: a single click on a dependency link's arrow (BACKLOG-0001980). */
+    readonly linkClick: EventEmitter<any>;
+    /** The viewer's `linkDblClick` event: a double click (or Enter/Space) on a dependency link; cancellable (BACKLOG-0001980). */
+    readonly linkDblClick: EventEmitter<any>;
+    /** The viewer's `linkContextMenu` event: a context-menu request on a dependency link; cancellable (BACKLOG-0001980). */
+    readonly linkContextMenu: EventEmitter<any>;
+    /** The viewer's `linkHover` event: the pointer entered a dependency link's arrow (BACKLOG-0001980). */
+    readonly linkHover: EventEmitter<any>;
+    /** The viewer's `tooltipShow` event: a task tooltip is about to be shown; vetoable (BACKLOG-0001980). */
+    readonly tooltipShow: EventEmitter<any>;
+    /** The viewer's `tooltipHide` event: a shown task tooltip was hidden (BACKLOG-0001980). */
+    readonly tooltipHide: EventEmitter<any>;
+    /** The viewer's `cellDblClick` event: a task-table cell was double-clicked (BACKLOG-0001981). */
+    readonly cellDblClick: EventEmitter<any>;
+    /** The viewer's `cellContextMenu` event: a task-table cell's context menu was requested (BACKLOG-0001981). */
+    readonly cellContextMenu: EventEmitter<any>;
+    /** The viewer's `cellEditStart` event: a task-table cell's editor opened (BACKLOG-0001981). */
+    readonly cellEditStart: EventEmitter<any>;
+    /** The viewer's `cellEditCommit` event: a task-table cell's edit committed, with the old and new value (BACKLOG-0001981). */
+    readonly cellEditCommit: EventEmitter<any>;
+    /** The viewer's `cellEditCancel` event: a task-table cell's edit was abandoned — Escape, or a vetoed commit (BACKLOG-0001981). */
+    readonly cellEditCancel: EventEmitter<any>;
+    /** The viewer's `rowClick` event: a task-table row was clicked (BACKLOG-0001981). */
+    readonly rowClick: EventEmitter<any>;
+    /** The viewer's `rowDblClick` event: a task-table row was double-clicked (BACKLOG-0001981). */
+    readonly rowDblClick: EventEmitter<any>;
     /** The split view's `zoomChange` event: the time scale changed, with the level before and after and the cause (BACKLOG-0002005). */
     readonly zoomChange: EventEmitter<any>;
     /** The split view's `visibleRangeChange` event: the dates under the timeline edges changed, once per animation frame (BACKLOG-0002005). */
     readonly visibleRangeChange: EventEmitter<any>;
+    /** The split view's `scroll` event: the viewport scrolled, with the settled offsets, once per animation frame (BACKLOG-0001983). */
+    readonly scroll: EventEmitter<any>;
+    /** The viewer's `viewMount` event: the view mounted and painted its first frame (BACKLOG-0001983). */
+    readonly viewMount: EventEmitter<any>;
+    /** The viewer's `viewDestroy` event: the view was torn down (BACKLOG-0001983). */
+    readonly viewDestroy: EventEmitter<any>;
     /** The dirty-tracking flag flip: `hasChanges` went from false to true or back (BACKLOG-0002003). */
     readonly dirtyChange: EventEmitter<any>;
+    /** The split view's `dataBand:change` event: a data band rewrote a task's series after a reschedule or a cell edit (BACKLOG-0001958). */
+    readonly dataBandChange: EventEmitter<any>;
     /**
      * The live inputs, by the names the viewer tables use.
      * @returns the live props that are set
@@ -1280,7 +1350,7 @@ declare class LatticeGanttComponent extends LatticeViewerBase<Gantt> {
      */
     protected mount(element: HTMLElement, config: Props): Gantt;
     static ɵfac: i0.ɵɵFactoryDeclaration<LatticeGanttComponent, never>;
-    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeGanttComponent, "lattice-gantt", never, { "config": { "alias": "config"; "required": false; }; "tasks": { "alias": "tasks"; "required": false; }; "dependencies": { "alias": "dependencies"; "required": false; }; }, { "schedule": "schedule"; "error": "error"; "history": "history"; "columnResize": "columnResize"; "workloadClick": "workload-click"; "taskFiltered": "task-filtered"; "draw": "draw"; "dependenciesChanged": "dependencies"; "cellClick": "cell-click"; "taskExpand": "taskExpand"; "taskCollapse": "taskCollapse"; "resourceExpand": "resourceExpand"; "resourceCollapse": "resourceCollapse"; "selectionChange": "selectionChange"; "rowMove": "rowMove"; "schedulingConflict": "schedulingConflict"; "taskAdd": "taskAdd"; "taskRemove": "taskRemove"; "taskUpdate": "taskUpdate"; "dependencyAdd": "dependencyAdd"; "dependencyRemove": "dependencyRemove"; "dependencyUpdate": "dependencyUpdate"; "assignmentChange": "assignmentChange"; "datesChanged": "datesChanged"; "change": "change"; "taskDragStart": "taskDragStart"; "taskDrag": "taskDrag"; "taskResizeStart": "taskResizeStart"; "taskPartialResize": "taskPartialResize"; "taskResizeEnd": "taskResizeEnd"; "percentBarDragStart": "percentBarDragStart"; "percentBarDrag": "percentBarDrag"; "percentBarDrop": "percentBarDrop"; "taskClick": "taskClick"; "taskDblClick": "taskDblClick"; "taskMouseOver": "taskMouseOver"; "taskMouseOut": "taskMouseOut"; "zoomChange": "zoomChange"; "visibleRangeChange": "visibleRangeChange"; "dirtyChange": "dirtyChange"; }, never, never, true, never>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeGanttComponent, "lattice-gantt", never, { "config": { "alias": "config"; "required": false; }; "tasks": { "alias": "tasks"; "required": false; }; "dependencies": { "alias": "dependencies"; "required": false; }; }, { "schedule": "schedule"; "error": "error"; "history": "history"; "columnResize": "columnResize"; "workloadClick": "workload-click"; "taskFiltered": "task-filtered"; "draw": "draw"; "dependenciesChanged": "dependencies"; "cellClick": "cell-click"; "workloadCellClick": "workloadCellClick"; "workloadCellDblClick": "workloadCellDblClick"; "workloadCellContextMenu": "workloadCellContextMenu"; "workloadCellHover": "workloadCellHover"; "workloadCellHoverEnd": "workloadCellHoverEnd"; "workloadResourceClick": "workloadResourceClick"; "taskExpand": "taskExpand"; "taskCollapse": "taskCollapse"; "resourceExpand": "resourceExpand"; "resourceCollapse": "resourceCollapse"; "selectionChange": "selectionChange"; "rowMove": "rowMove"; "rowDrop": "rowDrop"; "schedulingConflict": "schedulingConflict"; "taskAdd": "taskAdd"; "taskRemove": "taskRemove"; "taskUpdate": "taskUpdate"; "dependencyAdd": "dependencyAdd"; "dependencyRemove": "dependencyRemove"; "dependencyUpdate": "dependencyUpdate"; "assignmentChange": "assignmentChange"; "datesChanged": "datesChanged"; "change": "change"; "taskDragStart": "taskDragStart"; "taskDrag": "taskDrag"; "taskResizeStart": "taskResizeStart"; "taskPartialResize": "taskPartialResize"; "taskResizeEnd": "taskResizeEnd"; "percentBarDragStart": "percentBarDragStart"; "percentBarDrag": "percentBarDrag"; "percentBarDrop": "percentBarDrop"; "taskClick": "taskClick"; "taskDblClick": "taskDblClick"; "taskMouseOver": "taskMouseOver"; "taskMouseOut": "taskMouseOut"; "taskContextMenu": "taskContextMenu"; "linkClick": "linkClick"; "linkDblClick": "linkDblClick"; "linkContextMenu": "linkContextMenu"; "linkHover": "linkHover"; "tooltipShow": "tooltipShow"; "tooltipHide": "tooltipHide"; "cellDblClick": "cellDblClick"; "cellContextMenu": "cellContextMenu"; "cellEditStart": "cellEditStart"; "cellEditCommit": "cellEditCommit"; "cellEditCancel": "cellEditCancel"; "rowClick": "rowClick"; "rowDblClick": "rowDblClick"; "zoomChange": "zoomChange"; "visibleRangeChange": "visibleRangeChange"; "scroll": "scroll"; "viewMount": "viewMount"; "viewDestroy": "viewDestroy"; "dirtyChange": "dirtyChange"; "dataBandChange": "dataBand-change"; }, never, never, true, never>;
 }
 
 /**
@@ -1323,6 +1393,74 @@ declare class LatticeLayoutComponent extends LatticeViewerBase<Layout> {
     protected mount(element: HTMLElement, config: Props): Layout;
     static ɵfac: i0.ɵɵFactoryDeclaration<LatticeLayoutComponent, never>;
     static ɵcmp: i0.ɵɵComponentDeclaration<LatticeLayoutComponent, "lattice-layout", never, { "config": { "alias": "config"; "required": false; }; }, { "layoutChanged": "layout-changed"; "windowMoved": "window-moved"; "windowResized": "window-resized"; "windowClosed": "window-closed"; "beforeWindowClose": "beforeWindowClose"; "windowCloseCancelled": "windowClose-cancelled"; }, never, never, true, never>;
+}
+
+declare class LatticeDesignerComponent implements OnChanges, OnDestroy {
+    /** The host element the designer is built into. */
+    private readonly elementRef;
+    /** Angular's zone, or its no-op under zoneless change detection. */
+    private readonly zone;
+    /** Whether this is a browser; nothing is built on the server. */
+    private readonly isBrowser;
+    /** The factories the application provided. */
+    private readonly latticeFactories;
+    /** This component's injector, for the render hook. */
+    private readonly injector;
+    /** The live controller, or null before the first render and after destroy. */
+    private controller;
+    /** Set by `ngOnDestroy`; nothing mounts after it. */
+    private torn;
+    /** One forwarder per designer event, built at mount. */
+    private handlers;
+    /** The mode the designer opens in; `'view'` by default. */
+    mode?: DesignerOptions['mode'];
+    /** The state it opens with (or a plain dashboard spec, migrated on load). */
+    state?: DesignerOptions['state'];
+    /** The named sources every page's panels may read, by id. */
+    sources?: DesignerOptions['sources'];
+    /** The relationships between sources' fields. */
+    relationships?: DesignerOptions['relationships'];
+    /** The guardrails limiting what an author may use. */
+    guardrails?: DesignerOptions['guardrails'];
+    /** The factories the designer's palette and chart editors read. */
+    factories?: DesignerOptions['factories'];
+    /** The host's model callback for the AI assistant. */
+    llm?: DesignerOptions['llm'];
+    /** The live designer, the moment it exists. */
+    readonly ready: EventEmitter<Designer$1>;
+    /** Fired as the designer is torn down, before it is destroyed. */
+    readonly destroyed: EventEmitter<void>;
+    /** The designer's `state` event, as a copy the host may echo. */
+    readonly stateChange: EventEmitter<DesignerStateEvent>;
+    /** The designer's `mode` event. */
+    readonly modeChange: EventEmitter<DesignerModeEvent>;
+    /** The designer's `page` event. */
+    readonly pageChange: EventEmitter<DesignerPageEvent>;
+    /** The designer's `select` event. */
+    readonly selectChange: EventEmitter<DesignerSelectEvent>;
+    /** Build the designer once the host element is in the page. */
+    constructor();
+    /** The live designer, or null before it is built and after it is destroyed. */
+    get instance(): Designer$1 | null;
+    /**
+     * The whole props bag: configuration and the event forwarders.
+     * @returns the props the controller is driven with
+     */
+    private props;
+    /**
+     * Build the designer and wire its events.
+     * @returns nothing
+     */
+    private build;
+    /**
+     * Push changed inputs into the live designer.
+     * @returns nothing
+     */
+    ngOnChanges(): void;
+    /** Destroy the designer with the component. */
+    ngOnDestroy(): void;
+    static ɵfac: i0.ɵɵFactoryDeclaration<LatticeDesignerComponent, never>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeDesignerComponent, "lattice-designer", never, { "mode": { "alias": "mode"; "required": false; }; "state": { "alias": "state"; "required": false; }; "sources": { "alias": "sources"; "required": false; }; "relationships": { "alias": "relationships"; "required": false; }; "guardrails": { "alias": "guardrails"; "required": false; }; "factories": { "alias": "factories"; "required": false; }; "llm": { "alias": "llm"; "required": false; }; }, { "ready": "ready"; "destroyed": "destroyed"; "stateChange": "stateChange"; "modeChange": "modeChange"; "pageChange": "pageChange"; "selectChange": "selectChange"; }, never, never, true, never>;
 }
 
 /**
@@ -1536,5 +1674,5 @@ declare function provideLatticeRouter(options?: DataRouterOptions): Provider[];
  */
 declare function eventProp(event: string): string;
 
-export { DEFAULT_GRID_NAME, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, eventProp, provideLattice, provideLatticeRouter, requireFactory };
-export type { Calendar, CalendarConfig, CalendarFactory, Chart, ChartConfig, ChartFactory, DataRouter, DataRouterFactory, DataRouterOptions, Gantt, GanttConfig, GanttFactory, GridFactory, KPI, KPIConfig, KPIFactory, Kanban, KanbanConfig, KanbanFactory, LatticeFactories, LatticeGridConfig, LatticePredicates, LatticeQuickFilter, LatticeRoute, LatticeRouteOptions, LatticeRowChange, LatticeViewerEvent, Layout, LayoutConfig, LayoutFactory, Tabs, TabsConfig, TabsFactory };
+export { DEFAULT_GRID_NAME, DESIGNER_EVENTS, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeDesignerComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, designerHandlerName, eventProp, provideLattice, provideLatticeRouter, requireFactory };
+export type { Calendar, CalendarConfig, CalendarFactory, Chart, ChartConfig, ChartFactory, DataRouter, DataRouterFactory, DataRouterOptions, Designer, DesignerConfig, DesignerFactory, Gantt, GanttConfig, GanttFactory, GridFactory, KPI, KPIConfig, KPIFactory, Kanban, KanbanConfig, KanbanFactory, LatticeFactories, LatticeGridConfig, LatticePredicates, LatticeQuickFilter, LatticeRoute, LatticeRouteOptions, LatticeRowChange, LatticeViewerEvent, Layout, LayoutConfig, LayoutFactory, Tabs, TabsConfig, TabsFactory };

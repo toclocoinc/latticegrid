@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.90.0, geo-uk module type declarations
+ * Lattice Grid 1.91.0, geo-uk module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

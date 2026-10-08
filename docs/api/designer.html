@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Designer API Reference — Lattice Grid 1.90.0</title>
+<title>Designer API Reference — Lattice Grid 1.91.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -485,8 +485,8 @@ designer.on('state', ({ state }) =&gt; saveState(state));</code></pre>
     <p><strong>Narrow designers.</strong> The layout follows the designer's own width, not the window's. From 1100&nbsp;px up both rails are inline. From 900 to 1099&nbsp;px the left rail is inline and the properties panel is an overlay drawer, so a selected widget never takes the canvas below 600&nbsp;px at 1000&nbsp;px wide. Below 900&nbsp;px both rails are overlay drawers, opened from buttons in the top bar; a drawer's open state is not saved. A drawer covers the canvas but never resizes it. <code>designer.rails.layout</code> says which of <code>'wide'</code>, <code>'narrow'</code> and <code>'compact'</code> is in force. A card that adds a panel mounts it in a rail slot rather than appending to the chrome.</p>
 
     <h3 id="designer-palette">The widget palette</h3>
-    <p><code>designer.palette</code> (BACKLOG-0001842) mounts in the left rail's <code>palette</code> section, beside the canvas: a search box, then the widgets (grid, KPI, text, and a map when a map factory is injected), the filter widgets (list, range, date range, search), and every chart type in collapsible groups by family &mdash; comparison, trend, composition, distribution, flow, hierarchy, geo, specialist and statistics. The chart list is the charts module's built-in types plus <code>registeredChartTypes()</code>, read each time, so a chart module a host loads appears with no designer change (and in the properties panel's type list too). A registered type claims its own family with <code>family</code> on its <code>registerChartType</code> definition; one that does not is a specialist. The guardrails hide what an author may not use. Collapsed, the rail is a 48&nbsp;px icon strip with one button per group; its state is <code>state.panels.palette</code> (<code>{ collapsed }</code>), and it never changes the canvas height.</p>
-    <p><strong>Adding.</strong> Click an entry, press Enter on it (the arrow keys move between entries), or drag it onto the canvas. This runs the <code>paletteAdd(kind, type)</code> command, which builds the default panel from the chosen source's fields, places it in the first free slot of a sensible size, and hands it to <code>addPanel</code> &mdash; one undoable step. A bar takes the first categorical field as <code>x</code> and the first numeric field as <code>y</code> (summed); a KPI sums the first numeric field; a grid shows every field; a trend chart takes a date field when there is one. A type whose required roles the source cannot fill is disabled, with the reason beside it (<em>needs a date field</em>). A filter widget is added to the page's <code>filters</code> list as <code>{ id, type, source, field }</code>. The text widget's label is &ldquo;Text&rdquo;.</p>
+    <p><code>designer.palette</code> (BACKLOG-0001842, regrouped and thumbnailed in BACKLOG-0002082) mounts in the left rail's <code>palette</code> section, beside the canvas: a search box, then the widgets (grid, KPI, text, and a map when a map factory is injected), the filter widgets (list, range, date range, search), and every chart type, each a tile in a reflowing grid (three per row at the rail's default width) with a 64x48 pictorial thumbnail of the type's shape over a one-line label. Every entry sits in one of eight collapsible groups with a count in its header &mdash; Widgets, Filters, and the six chart families Comparison, Trend, Part-to-whole, Value, Distribution and Relationship; Widgets, Filters and Comparison open by default, the rest start collapsed. The chart list is the charts module's built-in types plus <code>registeredChartTypes()</code>, read each time, so a chart module a host loads appears with no designer change (and in the properties panel's type list too), drawing its family's generic thumbnail, varied so two such types never draw identically. A registered type claims its own family with <code>family</code> on its <code>registerChartType</code> definition; one that does not falls to Relationship, the catch-all. The guardrails hide what an author may not use. Typing in the search box narrows every group to its matches and hides a group with none; Escape clears it. The arrow keys move focus tile to tile in document order (right/down forward, left/up back), reaching every tile regardless of how many sit on a row. Collapsed, the rail is a 48&nbsp;px icon strip with one button per group; the rail's own collapse is <code>state.panels.palette</code> (<code>{ collapsed }</code>), and each group's is <code>state.panels.palette.groups</code> (<code>{ [groupId]: open }</code>) &mdash; neither changes the canvas height, and neither is an undo step.</p>
+    <p><strong>Adding.</strong> Click an entry, press Enter on it, or drag it onto the canvas. This runs the <code>paletteAdd(kind, type)</code> command, which builds the default panel from the chosen source's fields, places it in the first free slot of a sensible size, and hands it to <code>addPanel</code> &mdash; one undoable step. A bar takes the first categorical field as <code>x</code> and the first numeric field as <code>y</code> (summed); a KPI sums the first numeric field; a grid shows every field; a trend chart takes a date field when there is one. A type whose required roles the source cannot fill is disabled, with the reason on its tile's title and accessible name (<em>needs a date field</em>) &mdash; the tile's visible label stays one line. A filter widget is added to the page's <code>filters</code> list as <code>{ id, type, source, field }</code>. The text widget's label is &ldquo;Text&rdquo;.</p>
     <div class="example">
       <p class="example__label">The palette lists a chart type registered at run time, disables what the source cannot fill, and adds a bar with its defaults</p>
       <pre data-run="js" data-expect="true | needs a date field | true | bar,region,sales | 1 | true" data-covers="export:createDesigner method:designer.palette"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
@@ -1144,6 +1144,67 @@ designer.destroy();
 return out.join(' | ');                              // chart | Revenue by region | Chart: Revenue by region, selected | chart | true | addWidget,removeWidget | chart,extra</code></pre>
     </div>
 
+    <p><strong>Live data (BACKLOG-0002089).</strong> A running designer is handed new data without rebuilding it. <code>designer.setSources(sources)</code> replaces the whole sources map in place: an id that is gone is dropped, every other is written through to the live map, and every widget, derived grid and calculated field reading a changed source re-derives &mdash; a pushdown source re-queries, because the next build resolves its definition through <code>createPushdownSource</code> fresh. <code>designer.sources.update(id, change)</code> patches one <code>kind: 'rows'</code> source without replacing its whole definition: <code>{ rows }</code> replaces its rows outright, <code>{ apply: { add, update, remove } }</code> patches them by the source's <code>rowKey</code>, exactly as <code>grid.rows.apply</code> patches a grid. Neither touches the designer's own state: the selected page and widget, the undo history and the open panels are all kept. A field a panel named that the source's new data no longer carries is never a throw &mdash; it is reported in <code>problems()</code> by name.</p>
+    <div class="example">
+      <p class="example__label">A grid and a derived grid over <code>orders</code>: setSources replaces its rows in place, sources.update patches one row, and a vanished field is reported by name</p>
+      <pre data-run="js" data-expect="10,20,30 | 400 | chart | true | 999 | 3 | true" data-covers="export:createDesigner method:designer.setSources"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid, createHeadlessGrid } = await import('../packages/dom/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+const { createLayout } = await import('../packages/modules/layout/index.js');
+const { createDesigner } = await import('../packages/modules/designer/index.js');
+const { compileDerived } = await import('../packages/modules/designer/derived.js');
+
+const { document, root } = createTestDom({ width: 1200, height: 800 });
+const el = document.createElement('div');
+root.appendChild(el);
+
+const orders = [{ id: 'o1', region: 'north', amount: 10 }, { id: 'o2', region: 'south', amount: 20 }, { id: 'o3', region: 'north', amount: 30 }];
+const compiled = compileDerived(
+  [{ kind: 'group', by: 'region', measures: [{ id: 'amount', of: 'amount', fn: 'sum' }] }],
+  { fromId: 'orders', fromLabel: 'Orders', columns: [{ id: 'region', type: 'text' }, { id: 'amount', type: 'number' }] },
+);
+const designer = createDesigner(el, {
+  mode: 'edit',
+  sources: { orders: { kind: 'rows', rows: orders, rowKey: 'id' } },
+  state: { schemaVersion: 1, selectedPageId: 'p1', panels: {}, pages: [
+    { id: 'p1', spec: { panels: [
+      { id: 'orders', kind: 'grid', title: 'Orders', source: 'orders' },
+      { id: 'd', kind: 'grid', title: 'By region', source: compiled.source, options: compiled.options },
+      { id: 'chart', kind: 'chart', title: 'Chart', source: 'grid:d', options: { type: 'bar', x: 'region', y: 'amount' } },
+      { id: 'direct', kind: 'chart', title: 'Direct', source: 'orders', options: { type: 'bar', x: 'region', y: 'amount' } } ] } } ] },
+  factories: { createGrid, createHeadlessGrid, createLayout, createChart },
+});
+flushFrames();
+const seen = [];
+
+// The rows read straight off the orders grid, before anything changes.
+seen.push(designer.dashboard.panel('orders').grid.rows.data().map((r) =&gt; r.amount).join(','));
+
+// setSources replaces the rows in place: the derived grid re-derives its totals.
+designer.selectWidget('chart');
+designer.setSources({ orders: { kind: 'rows', rows: [{ id: 'o1', region: 'north', amount: 100 }, { id: 'o2', region: 'south', amount: 200 }, { id: 'o3', region: 'north', amount: 300 }], rowKey: 'id' } });
+flushFrames();
+let total = 0;
+const d = designer.dashboard.panel('d').grid;
+for (let i = 0; i &lt; d.rows.count(); i++) { const r = d.rows.get(i); if (r && r.group && r.groupValue === 'north' && !r.grandTotal) total = r.totals.amount; }
+seen.push(total);                                    // 400 = 100 + 300, re-derived
+seen.push(designer.selectedWidget().id, designer.canUndo() === false);   // selection and undo history kept
+
+// sources.update patches one row, by rowKey, without touching the rest.
+designer.sources.update('orders', { apply: { update: [{ id: 'o1', amount: 999 }] } });
+flushFrames();
+seen.push(designer.dashboard.panel('orders').grid.rows.data().find((r) =&gt; r.id === 'o1').amount);
+seen.push(designer.dashboard.panel('orders').grid.rows.data().length);
+
+// The "direct" chart names "amount" directly on orders; rows with no amount at all vanish the field, reported, never thrown.
+designer.setSources({ orders: { kind: 'rows', rows: [{ id: 'o1', region: 'north' }, { id: 'o2', region: 'south' }], rowKey: 'id' } });
+flushFrames();
+seen.push(designer.problems().some((p) =&gt; p.message === 'field "amount" no longer exists on source "orders"'));
+
+designer.destroy();
+return seen.join(' | ');    // 10,20,30 | 400 | chart | true | 999 | 3 | true</code></pre>
+    </div>
+
     <p><strong>The properties panel (BACKLOG-0001843).</strong> Selecting a widget shows its properties &mdash; its source, its field-to-role mapping (a measure carrying one of sum, average, the extremes, the two counts or the median, or the widget's own reductions where it declares them), a chart type switch, and its formatting &mdash; in <code>designer.properties</code>, mounted in the chrome. <strong>The editor is generated from capability metadata, never hard-coded.</strong> <code>chartEditorModel(type)</code> (charts module) is one call that returns a chart type's <code>roles</code>, its <code>options</code> and the <code>aggregations</code> a measure offers; the non-chart widgets declare the same shape in the registry's <code>widgetEditorModel(kind)</code>. A new chart type or a new option therefore appears in the panel with no Designer change &mdash; where an option lacks metadata it is added to a registry, not here. Every control commits through the designer's one commit path, so each edit is a single <code>state</code> event and undo wraps it; an invalid value is committed and refused inline by the viewer's own message, not blocked at the control. A chart type switch keeps every role the new type still has and announces, in a live region, which roles it dropped.</p>
     <div class="example">
       <p class="example__label">A chart's editor generated from the registry: a measure with an aggregation, one event per edit, and a type switch that reports what it dropped</p>
@@ -1524,7 +1585,7 @@ return seen.join(' | ');</code></pre>
           <tr><td class="name">pages</td><td class="type"><a href="#type-DesignerPage">DesignerPage</a>[]</td><td class="desc">The pages, in order.</td></tr>
           <tr><td class="name">selectedPageId</td><td class="type">string | null</td><td class="desc">The page on the canvas, or null when there is none.</td></tr>
           <tr><td class="name">filters</td><td class="type"><a href="#type-DesignerFilter">DesignerFilter</a>[]</td><td class="desc">Filters that apply on every page (BACKLOG-0001851), on top of each page's own. <small>(optional)</small></td></tr>
-          <tr><td class="name">panels</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">The designer chrome's own state (later cards keep theirs here); may be empty. The editing screen keeps each rail's collapse as `{ left: { collapsed }, right: { collapsed } }`; a widget's cross-filter setting (BACKLOG-0001851) is `panels[panelId].clickFilter`.</td></tr>
+          <tr><td class="name">panels</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">The designer chrome's own state (later cards keep theirs here); may be empty. The editing screen keeps each rail's collapse as `{ left: { collapsed }, right: { collapsed } }`; the palette keeps its own collapse and its groups' (BACKLOG-0002082) as `panels.palette: { collapsed, groups: { [groupId]: boolean } }`; a widget's cross-filter setting (BACKLOG-0001851) is `panels[panelId].clickFilter`.</td></tr>
           <tr><td class="name">[key: string]</td><td class="type">unknown</td><td class="desc">Any other key is carried through `getState()` unchanged.</td></tr>
         </tbody>
       </table>
@@ -2007,7 +2068,7 @@ return seen.join(' | ');</code></pre>
           <tr><td class="name">kind</td><td class="type">'grid' | 'chart' | 'map' | 'kpi' | 'filter' | 'text'</td><td class="desc">`grid`, `chart`, `map`, `kpi`, `filter` or `text`.</td></tr>
           <tr><td class="name">type</td><td class="type">string</td><td class="desc">The chart type (`bar`), the filter type (`dateRange`), or the kind again.</td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc">The name shown, such as `Horizontal bar`.</td></tr>
-          <tr><td class="name">family</td><td class="type">string</td><td class="desc">`widgets`, `filters`, or a chart family: `comparison`, `trend`, `composition`, `distribution`, `flow`, `hierarchy`, `geo`, `specialist` or `statistics`.</td></tr>
+          <tr><td class="name">family</td><td class="type">string</td><td class="desc">`widgets`, `filters`, or a chart family (BACKLOG-0002082): `comparison`, `trend`, `partToWhole`, `value`, `distribution` or `relationship`.</td></tr>
           <tr><td class="name">disabled</td><td class="type">string | null</td><td class="desc">Why the chosen source cannot fill it (`needs a date field`), or null when it can be added.</td></tr>
         </tbody>
       </table>
@@ -2136,6 +2197,30 @@ return seen.join(' | ');</code></pre>
           <tr><td class="name">id</td><td class="type">string | null</td><td class="desc">The selected page's id, or null when there are no pages.</td></tr>
           <tr><td class="name">previousId</td><td class="type">string | null</td><td class="desc">The previously selected page's id, or null.</td></tr>
           <tr><td class="name">type</td><td class="type">'page'</td><td class="desc">The event name.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DesignerModeEvent">DesignerModeEvent</h4>
+    <p class="section-note">What a `mode` event carries.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">mode</td><td class="type"><a href="types.html#type-DesignerMode">DesignerMode</a> <small class="literals">'edit' | 'view'</small></td><td class="desc">The mode now in force.</td></tr>
+          <tr><td class="name">type</td><td class="type">'mode'</td><td class="desc">The event name.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DesignerEventPayloads">DesignerEventPayloads</h4>
+    <p class="section-note">What each designer event carries.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">state</td><td class="type"><a href="#type-DesignerStateEvent">DesignerStateEvent</a></td><td class="desc">The new state and what changed it.</td></tr>
+          <tr><td class="name">mode</td><td class="type"><a href="#type-DesignerModeEvent">DesignerModeEvent</a></td><td class="desc">The mode now in force.</td></tr>
+          <tr><td class="name">select</td><td class="type"><a href="#type-DesignerSelectEvent">DesignerSelectEvent</a></td><td class="desc">The widget now selected, or null.</td></tr>
+          <tr><td class="name">page</td><td class="type"><a href="#type-DesignerPageEvent">DesignerPageEvent</a></td><td class="desc">The page now selected.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2367,6 +2452,7 @@ return seen.join(' | ');</code></pre>
           <tr><td class="name">assist</td><td class="type"><a href="#type-DesignerAssist">DesignerAssist</a></td><td class="desc">The AI assistant (BACKLOG-0001852): propose a page, preview the checked result, and accept (one undo step) or reject it. <small>(read-only)</small></td></tr>
           <tr><td class="name">context</td><td class="type">Readonly&lt;{ sources: Record&lt;string, <a href="types.html#type-DashboardSource">DashboardSource</a> &amp; { fields?: <a href="#type-DesignerSourceField">DesignerSourceField</a>[] }&gt;; relationships: <a href="#type-DesignerRelationship">DesignerRelationship</a>[] | undefined; guardrails: <a href="#type-DesignerGuardrails">DesignerGuardrails</a> | undefined; llm: <a href="types.html#type-DesignerLlm">DesignerLlm</a> | undefined; }&gt;</td><td class="desc">The sources, relationships, guardrails and llm it was given. <small>(read-only)</small></td></tr>
           <tr><td class="name">guardrails</td><td class="type"><a href="#type-DesignerGuardrailsHandle">DesignerGuardrailsHandle</a></td><td class="desc">The live guardrails handle: the normalised value plus the `allows*` predicates. <small>(read-only)</small></td></tr>
+          <tr><td class="name">sources</td><td class="type"><a href="#type-DesignerSources">DesignerSources</a></td><td class="desc">Live updates to a declared source's data, in place (BACKLOG-0002089). <small>(read-only)</small></td></tr>
           <tr><td class="name">shortcuts</td><td class="type"><a href="#type-DesignerShortcuts">DesignerShortcuts</a></td><td class="desc">The documented keyboard shortcut map. <small>(read-only)</small></td></tr>
           <tr><td class="name">regions</td><td class="type"><a href="#type-DesignerRegions">DesignerRegions</a></td><td class="desc">The focus regions F6 cycles. <small>(read-only)</small></td></tr>
           <tr><td class="name">theme</td><td class="type">string | null</td><td class="desc">The theme name on the designer root, or null when it follows the page. <small>(read-only)</small></td></tr>
@@ -2388,6 +2474,7 @@ return seen.join(' | ');</code></pre>
           <tr><td class="name">setState</td><td class="type">(state: Partial&lt;<a href="#type-DesignerState">DesignerState</a>&gt; | <a href="dashboard.html#type-DashboardSpec">DashboardSpec</a>, options?: { keepHistory?: boolean }): boolean</td><td class="desc"><code>state: Partial&lt;<a href="#type-DesignerState">DesignerState</a>&gt; | <a href="dashboard.html#type-DashboardSpec">DashboardSpec</a></code><br><code>options?: { keepHistory?: boolean }</code></td><td class="type"><code>boolean</code></td><td class="desc">Replace the state, migrating an older one first; an equal state changes nothing and sends no event. Returns whether it changed. Clears the undo history unless `options.keepHistory` is set.</td></tr>
           <tr><td class="name">migrate</td><td class="type">(state: Partial&lt;<a href="#type-DesignerState">DesignerState</a>&gt; | <a href="dashboard.html#type-DashboardSpec">DashboardSpec</a>, options?: <a href="#type-DesignerMigrateOptions">DesignerMigrateOptions</a>): <a href="#type-DesignerMigrationReport">DesignerMigrationReport</a></td><td class="desc"><code>state: Partial&lt;<a href="#type-DesignerState">DesignerState</a>&gt; | <a href="dashboard.html#type-DashboardSpec">DashboardSpec</a></code><br><code>options?: <a href="#type-DesignerMigrateOptions">DesignerMigrateOptions</a></code></td><td class="type"><code><a href="#type-DesignerMigrationReport">DesignerMigrationReport</a></code></td><td class="desc">Migrate a state to this version and report what changed; with `dryRun`, report without applying. A newer state is refused.</td></tr>
           <tr><td class="name">setGuardrails</td><td class="type">(guardrails: <a href="#type-DesignerGuardrails">DesignerGuardrails</a> | undefined): boolean</td><td class="desc"><code>guardrails: <a href="#type-DesignerGuardrails">DesignerGuardrails</a> | undefined</code></td><td class="type"><code>boolean</code></td><td class="desc">Replace the guardrails at run time and rebuild the canvas; a non-object is refused. Returns whether they now apply.</td></tr>
+          <tr><td class="name">setSources</td><td class="type">(sources: Record&lt;string, <a href="types.html#type-DashboardSource">DashboardSource</a> &amp; { fields?: <a href="#type-DesignerSourceField">DesignerSourceField</a>[] }&gt;): boolean</td><td class="desc"><code>sources: Record&lt;string, <a href="types.html#type-DashboardSource">DashboardSource</a> &amp; { fields?: <a href="#type-DesignerSourceField">DesignerSourceField</a>[] }&gt;</code></td><td class="type"><code>boolean</code></td><td class="desc">Replace the whole sources map the designer reads, in place (BACKLOG-0002089): an id no longer present is dropped, every other id is written into the live map, so every widget, derived grid and calculated field reading a changed or removed source re-derives and a pushdown source re-queries. The designer's own state — the selected page and widget, the undo history, the open panels — is kept; a source whose field list changed is reported in `problems()` by name, never thrown. A value that is not an object is refused and the sources are kept.</td></tr>
           <tr><td class="name">setMode</td><td class="type">(mode: <a href="types.html#type-DesignerMode">DesignerMode</a>): <a href="types.html#type-DesignerMode">DesignerMode</a></td><td class="desc"><code>mode: <a href="types.html#type-DesignerMode">DesignerMode</a></code></td><td class="type"><code><a href="types.html#type-DesignerMode">DesignerMode</a></code></td><td class="desc">Switch mode, rebuilding the canvas and announcing it; returns the mode in force.</td></tr>
           <tr><td class="name">pages</td><td class="type">(): Array&lt;{ id: string; title: string | undefined }&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Array&lt;{ id: string; title: string | undefined }&gt;</code></td><td class="desc">The pages' ids and titles, in order.</td></tr>
           <tr><td class="name">selectPage</td><td class="type">(id: string): boolean</td><td class="desc"><code>id: string</code></td><td class="type"><code>boolean</code></td><td class="desc">Select a page and build it on the canvas; false when there is no such page.</td></tr>
@@ -2415,7 +2502,7 @@ return seen.join(' | ');</code></pre>
           <tr><td class="name">setProperty</td><td class="type">(name: string, value: unknown): boolean</td><td class="desc"><code>name: string</code><br><code>value: unknown</code></td><td class="type"><code>boolean</code></td><td class="desc">Any other property by name; false for a name that is not one.</td></tr>
           <tr><td class="name">problems</td><td class="type">(): <a href="#type-DesignerProblem">DesignerProblem</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-DesignerProblem">DesignerProblem</a>[]</code></td><td class="desc">Every page's spec problems. Never throws.</td></tr>
           <tr><td class="name">on</td><td class="type">(name: 'state', fn: (event: <a href="#type-DesignerStateEvent">DesignerStateEvent</a>) =&gt; void): () =&gt; void</td><td class="desc"><code>name: 'state'</code><br><code>fn: (event: <a href="#type-DesignerStateEvent">DesignerStateEvent</a>) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Every state change, once each.</td></tr>
-          <tr><td class="name">on</td><td class="type">(name: 'mode', fn: (event: { mode: <a href="types.html#type-DesignerMode">DesignerMode</a>; type: 'mode' }) =&gt; void): () =&gt; void</td><td class="desc"><code>name: 'mode'</code><br><code>fn: (event: { mode: <a href="types.html#type-DesignerMode">DesignerMode</a>; type: 'mode' }) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">A mode change.</td></tr>
+          <tr><td class="name">on</td><td class="type">(name: 'mode', fn: (event: <a href="#type-DesignerModeEvent">DesignerModeEvent</a>) =&gt; void): () =&gt; void</td><td class="desc"><code>name: 'mode'</code><br><code>fn: (event: <a href="#type-DesignerModeEvent">DesignerModeEvent</a>) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">A mode change.</td></tr>
           <tr><td class="name">on</td><td class="type">(name: 'select', fn: (event: <a href="#type-DesignerSelectEvent">DesignerSelectEvent</a>) =&gt; void): () =&gt; void</td><td class="desc"><code>name: 'select'</code><br><code>fn: (event: <a href="#type-DesignerSelectEvent">DesignerSelectEvent</a>) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">A canvas selection change (BACKLOG-0001841).</td></tr>
           <tr><td class="name">on</td><td class="type">(name: 'page', fn: (event: <a href="#type-DesignerPageEvent">DesignerPageEvent</a>) =&gt; void): () =&gt; void</td><td class="desc"><code>name: 'page'</code><br><code>fn: (event: <a href="#type-DesignerPageEvent">DesignerPageEvent</a>) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">A page became selected (BACKLOG-0001850).</td></tr>
           <tr><td class="name">onStateUpdated</td><td class="type">(fn: (event: <a href="#type-DesignerStateEvent">DesignerStateEvent</a>) =&gt; void): () =&gt; void</td><td class="desc"><code>fn: (event: <a href="#type-DesignerStateEvent">DesignerStateEvent</a>) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">The same as `on('state', fn)`.</td></tr>
@@ -2469,6 +2556,16 @@ return seen.join(' | ');</code></pre>
           <tr><td class="name">measures</td><td class="type">Array&lt;Record&lt;string, unknown&gt;&gt;</td><td class="desc">Per-measure provenance, where the widget reports it.</td></tr>
           <tr><td class="name">source</td><td class="type">string</td><td class="desc">The pushdown source the widget reads.</td></tr>
           <tr><td class="name">text</td><td class="type">string</td><td class="desc">The sentence the info badge shows as its tooltip.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DesignerSources">DesignerSources</h4>
+    <p class="section-note">Patch one declared source's data in place, without rebuilding the designer (BACKLOG-0002089): `designer.setSources` replaces the whole map.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">update</td><td class="type">(id: string, change: { rows: unknown[] } | { apply: <a href="types.html#type-RowChange">RowChange</a> }): boolean</td><td class="desc"><code>id: string</code><br><code>change: { rows: unknown[] } | { apply: <a href="types.html#type-RowChange">RowChange</a> }</code></td><td class="type"><code>boolean</code></td><td class="desc">Patch one `kind: 'rows'` source's rows: `{ rows }` replaces them outright; `{ apply: { add, update, remove, at } }` patches them by the source's `rowKey` (`'id'` when it declares none), exactly as `grid.rows.apply` patches a grid. Every widget, derived grid and calculated field reading the source re-derives; the designer's own state is kept. Refused by name (and the source kept) when `id` names no declared source, the source is not `kind: 'rows'`, or `change` is neither shape.</td></tr>
         </tbody>
       </table>
     </div>

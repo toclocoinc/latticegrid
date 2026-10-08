@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.90.0, svelte module type declarations
+ * Lattice Grid 1.91.0, svelte module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -17,6 +17,10 @@ import type {
 // type-only for the same reason the React adapter's block does: the
 // re-export below is a pure function, needing no second copy of its types.
 import type { MuiTheme as PresetsMuiTheme, MuiThemeResult as PresetsMuiThemeResult } from './presets.js';
+import type {
+  Designer, DesignerModeEvent, DesignerOptions, DesignerPageEvent,
+  DesignerSelectEvent, DesignerStateEvent,
+} from './designer.js';
 
 /**
  * A Svelte action: `use:lattice={config}`.
@@ -126,6 +130,32 @@ export type LatticeSvelteViewerProps<Events extends string = string> =
     onDestroyed?: () => void;
   };
 
+/** The designer's Svelte prop shape, for `Designer.svelte`. */
+export type LatticeSvelteDesignerProps = LatticeSvelteHostProps & {
+  /** The mode it opens in; `'view'` by default. A live input. */
+  mode?: DesignerOptions['mode'];
+  /** The state it opens with; a live, controlled input applied by identity. */
+  state?: DesignerOptions['state'];
+  /** The named sources every page's panels may read, by id. A live input. */
+  sources?: DesignerOptions['sources'];
+  /** The relationships between sources' fields; taken only at mount. */
+  relationships?: DesignerOptions['relationships'];
+  /** The guardrails limiting what an author may use. A live input. */
+  guardrails?: DesignerOptions['guardrails'];
+  /** The factories the palette and chart editors read; taken only at mount. */
+  factories?: DesignerOptions['factories'];
+  /** The host's model callback for the AI assistant; taken only at mount. */
+  llm?: DesignerOptions['llm'];
+  /** A committed change: `{ state, cause, type }`. */
+  onStateChange?: (payload: DesignerStateEvent) => void;
+  /** The mode changed. */
+  onMode?: (payload: DesignerModeEvent) => void;
+  /** A page became selected. */
+  onPage?: (payload: DesignerPageEvent) => void;
+  /** A canvas selection changed. */
+  onSelect?: (payload: DesignerSelectEvent) => void;
+};
+
 /** The registry `GridProvider.svelte` puts in context and every viewer reads. */
 export type LatticeSvelteGridRegistry = {
   /** Publish a grid under a name, or withdraw it with `null`. */
@@ -186,6 +216,20 @@ export function bindViewer(opts: {
   registry?: LatticeSvelteGridRegistry | null;
 }): {
   readonly instance: unknown;
+  sync: (props: Record<string, unknown>) => void;
+  destroy: () => void;
+};
+
+/**
+ * Own one designer — not a viewer, so not {@link bindViewer} — for the life
+ * of a component. `sync` builds it on the first call and pushes changed props
+ * after; the controlled `state` prop is applied by identity inside.
+ */
+export function bindDesigner(opts: {
+  createDesigner: (el: unknown, config: Record<string, unknown>) => unknown;
+  element: unknown;
+}): {
+  readonly instance: Designer | null;
   sync: (props: Record<string, unknown>) => void;
   destroy: () => void;
 };
@@ -283,4 +327,24 @@ export function createViewerController(opts: {
   update: (next: Record<string, unknown>) => void;
   destroy: () => void;
 };
+
+/** Every event the designer emits, in declaration order. */
+export const DESIGNER_EVENTS: readonly string[];
+/** `state` → `onStateChange`; the other designer events follow `on` + name. */
+export function designerHandlerName(event: string): string;
+/**
+ * The framework-free designer lifecycle every adapter drives an instance
+ * through: mount once, push changed props (state/mode by identity), destroy.
+ */
+export function createDesignerController(opts: {
+  createDesigner: (el: unknown, config: Record<string, unknown>) => unknown;
+  element: unknown;
+  props?: Record<string, unknown>;
+  name?: string;
+}): {
+  instance: unknown;
+  update: (next: Record<string, unknown>) => void;
+  destroy: () => void;
+};
+
 export default createLatticeAction;

@@ -811,10 +811,15 @@ const VIEWER_EVENTS$1 = Object.freeze({
 
     gantt: Object.freeze([
         'schedule', 'error', 'history', 'columnResize', 'workload:click', 'task:filtered', 'draw', 'dependencies',
-        'cell:click', 'zoomChange', 'visibleRangeChange',
+        'cell:click', 'zoomChange', 'visibleRangeChange', 'scroll', 'viewMount', 'viewDestroy',
+
+        'workloadCellClick', 'workloadCellDblClick', 'workloadCellContextMenu',
+        'workloadCellHover', 'workloadCellHoverEnd', 'workloadResourceClick',
         'taskExpand', 'taskCollapse', 'resourceExpand', 'resourceCollapse', 'selectionChange',
 
         'rowMove',
+
+        'rowDrop',
         'taskAdd', 'taskRemove', 'taskUpdate', 'dependencyAdd', 'dependencyRemove', 'dependencyUpdate',
         'assignmentChange', 'datesChanged', 'change',
         'schedulingConflict',
@@ -823,7 +828,14 @@ const VIEWER_EVENTS$1 = Object.freeze({
         'percentBarDragStart', 'percentBarDrag', 'percentBarDrop',
         'taskClick', 'taskDblClick', 'taskMouseOver', 'taskMouseOut',
 
+        'taskContextMenu', 'linkClick', 'linkDblClick', 'linkContextMenu', 'linkHover', 'tooltipShow', 'tooltipHide',
+
+        'cellDblClick', 'cellContextMenu', 'cellEditStart', 'cellEditCommit', 'cellEditCancel',
+        'rowClick', 'rowDblClick',
+
         'dirtyChange',
+
+        'dataBand:change',
     ]),
     layout: Object.freeze([
         'layout:changed', 'window:moved', 'window:resized', 'window:closed',
@@ -1017,6 +1029,157 @@ function createViewerController$1(opts) {
     };
 }
 
+const DESIGNER_EVENTS$1 = Object.freeze(['state', 'mode', 'page', 'select']);
+
+function designerHandlerName$1(event) {
+    const name = String(event);
+    if (name === 'state')
+        return 'onStateChange';
+    return `on${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+}
+
+const HANDLER_TO_EVENT = Object.freeze(Object.fromEntries(DESIGNER_EVENTS$1.flatMap((event) => {
+    const canonical = designerHandlerName$1(event);
+    return [[canonical, event], [canonical.toLowerCase(), event]];
+})));
+
+const DESIGNER_APPLY = Object.freeze({
+
+    sources: (designer, value) => { if (value && typeof value === 'object')
+        designer.setSources(value); },
+
+    guardrails: (designer, value) => { designer.setGuardrails(value); },
+});
+
+function partitionDesignerProps(props) {
+
+    const config = {};
+
+    const handlers = {};
+    for (const [key, value] of Object.entries(props || {})) {
+        const event = HANDLER_TO_EVENT[key];
+        if (event) {
+            handlers[designerHandlerName$1(event)] = value;
+            continue;
+        }
+        config[key] = value;
+    }
+    return { config, handlers };
+}
+
+function createDesignerController$1(opts) {
+    const createDesigner = opts.createDesigner;
+    const label = opts.name || 'designer';
+    if (typeof createDesigner !== 'function') {
+        throw new TypeError('createDesignerController needs a mount factory; pass the module\'s own factory in, '
+            + 'e.g. { createDesigner } from lattice-grid/modules/designer.');
+    }
+    const initial = partitionDesignerProps(opts.props || {});
+    const instance = createDesigner(opts.element, { ...initial.config });
+    if (!instance || typeof instance !== 'object') {
+        throw new TypeError('the designer factory returned no instance; nothing can be driven.');
+    }
+    let handlers = initial.handlers;
+    let config = initial.config;
+
+    let appliedState = Object.hasOwn(config, 'state') ? config.state : undefined;
+
+    let lastEmittedState;
+
+    let appliedMode = config.mode;
+    let destroyed = false;
+
+    const off = [];
+    if (typeof instance.on === 'function') {
+        for (const event of DESIGNER_EVENTS$1) {
+            const prop = designerHandlerName$1(event);
+
+            const stop = instance.on(event, (payload) => {
+                if (event === 'state')
+                    lastEmittedState = payload && payload.state;
+                if (event === 'mode')
+                    appliedMode = payload && payload.mode;
+                const fn = handlers[prop];
+                if (typeof fn === 'function')
+                    fn(payload);
+            });
+            if (typeof stop === 'function')
+                off.push(stop);
+        }
+    }
+    return {
+        instance,
+
+        update(next) {
+            if (destroyed)
+                return;
+            const parts = partitionDesignerProps(next || {});
+            handlers = parts.handlers;
+
+            const changed = {};
+            for (const [key, value] of Object.entries(parts.config)) {
+
+                if (!Object.is(config[key], value))
+                    changed[key] = value;
+            }
+            config = parts.config;
+            if (!Object.keys(changed).length)
+                return;
+
+            const unapplied = [];
+            for (const key of Object.keys(changed)) {
+                const value = changed[key];
+                if (key === 'state') {
+
+                    if (value !== undefined
+                        && !Object.is(value, appliedState)
+                        && !Object.is(value, lastEmittedState)) {
+                        instance.setState(value);
+                        appliedState = value;
+                    }
+                    continue;
+                }
+                if (key === 'mode') {
+                    if ((value === 'edit' || value === 'view') && !Object.is(value, appliedMode)) {
+                        instance.setMode(value);
+                        appliedMode = value;
+                    }
+                    continue;
+                }
+                const apply = DESIGNER_APPLY[key];
+                if (apply) {
+                    apply(instance, value);
+                    continue;
+                }
+                unapplied.push(key);
+            }
+            if (unapplied.length) {
+                warnOnce$1(`designer.mountOnly.${unapplied.join('.')}`, `${label}: ${unapplied.map((k) => `\`${k}\``).join(', ')} changed, but the designer `
+                    + `takes ${unapplied.length === 1 ? 'it' : 'them'} only when created — there is no live `
+                    + 'setter, and rebuilding it silently would throw away the author\'s undo history, '
+                    + 'selection and open panels. Nothing was applied and the designer was NOT rebuilt. '
+                    + 'Give the component a `key` that changes when this must take effect, so the rebuild '
+                    + 'is yours and visible, or drive the instance through the ref.');
+            }
+        },
+
+        destroy() {
+            if (destroyed)
+                return;
+            destroyed = true;
+            for (const stop of off) {
+                try {
+                    stop();
+                }
+                catch {  }
+            }
+            off.length = 0;
+            if (typeof instance.destroy === 'function')
+                instance.destroy();
+        },
+    };
+}
+
 const EVENT_NAMES = EVENT_NAMES$1;
 
 const VIEWER_EVENTS = VIEWER_EVENTS$1;
@@ -1037,6 +1200,16 @@ function viewerHandlerName(event) {
 
 function warnOnce(key, message) {
     warnOnce$1(key, message);
+}
+
+const DESIGNER_EVENTS = DESIGNER_EVENTS$1;
+
+function designerHandlerName(event) {
+    return designerHandlerName$1(event);
+}
+
+function createDesignerController(opts) {
+    return createDesignerController$1(opts);
 }
 
 function createGridController(opts) {
@@ -2739,6 +2912,18 @@ class LatticeGanttComponent extends LatticeViewerBase {
 
         this.cellClick = new EventEmitter();
 
+        this.workloadCellClick = new EventEmitter();
+
+        this.workloadCellDblClick = new EventEmitter();
+
+        this.workloadCellContextMenu = new EventEmitter();
+
+        this.workloadCellHover = new EventEmitter();
+
+        this.workloadCellHoverEnd = new EventEmitter();
+
+        this.workloadResourceClick = new EventEmitter();
+
         this.taskExpand = new EventEmitter();
 
         this.taskCollapse = new EventEmitter();
@@ -2750,6 +2935,8 @@ class LatticeGanttComponent extends LatticeViewerBase {
         this.selectionChange = new EventEmitter();
 
         this.rowMove = new EventEmitter();
+
+        this.rowDrop = new EventEmitter();
 
         this.schedulingConflict = new EventEmitter();
 
@@ -2795,11 +2982,47 @@ class LatticeGanttComponent extends LatticeViewerBase {
 
         this.taskMouseOut = new EventEmitter();
 
+        this.taskContextMenu = new EventEmitter();
+
+        this.linkClick = new EventEmitter();
+
+        this.linkDblClick = new EventEmitter();
+
+        this.linkContextMenu = new EventEmitter();
+
+        this.linkHover = new EventEmitter();
+
+        this.tooltipShow = new EventEmitter();
+
+        this.tooltipHide = new EventEmitter();
+
+        this.cellDblClick = new EventEmitter();
+
+        this.cellContextMenu = new EventEmitter();
+
+        this.cellEditStart = new EventEmitter();
+
+        this.cellEditCommit = new EventEmitter();
+
+        this.cellEditCancel = new EventEmitter();
+
+        this.rowClick = new EventEmitter();
+
+        this.rowDblClick = new EventEmitter();
+
         this.zoomChange = new EventEmitter();
 
         this.visibleRangeChange = new EventEmitter();
 
+        this.scroll = new EventEmitter();
+
+        this.viewMount = new EventEmitter();
+
+        this.viewDestroy = new EventEmitter();
+
         this.dirtyChange = new EventEmitter();
+
+        this.dataBandChange = new EventEmitter();
     }
 
     liveProps() {
@@ -2816,7 +3039,7 @@ class LatticeGanttComponent extends LatticeViewerBase {
         return createGantt({ ...config, element });
     }
     static { this.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeGanttComponent, deps: null, target: i0.ɵɵFactoryTarget.Component }); }
-    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeGanttComponent, isStandalone: true, selector: "lattice-gantt", inputs: { config: "config", tasks: "tasks", dependencies: "dependencies" }, outputs: { schedule: "schedule", error: "error", history: "history", columnResize: "columnResize", workloadClick: "workload-click", taskFiltered: "task-filtered", draw: "draw", dependenciesChanged: "dependencies", cellClick: "cell-click", taskExpand: "taskExpand", taskCollapse: "taskCollapse", resourceExpand: "resourceExpand", resourceCollapse: "resourceCollapse", selectionChange: "selectionChange", rowMove: "rowMove", schedulingConflict: "schedulingConflict", taskAdd: "taskAdd", taskRemove: "taskRemove", taskUpdate: "taskUpdate", dependencyAdd: "dependencyAdd", dependencyRemove: "dependencyRemove", dependencyUpdate: "dependencyUpdate", assignmentChange: "assignmentChange", datesChanged: "datesChanged", change: "change", taskDragStart: "taskDragStart", taskDrag: "taskDrag", taskResizeStart: "taskResizeStart", taskPartialResize: "taskPartialResize", taskResizeEnd: "taskResizeEnd", percentBarDragStart: "percentBarDragStart", percentBarDrag: "percentBarDrag", percentBarDrop: "percentBarDrop", taskClick: "taskClick", taskDblClick: "taskDblClick", taskMouseOver: "taskMouseOver", taskMouseOut: "taskMouseOut", zoomChange: "zoomChange", visibleRangeChange: "visibleRangeChange", dirtyChange: "dirtyChange" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
+    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeGanttComponent, isStandalone: true, selector: "lattice-gantt", inputs: { config: "config", tasks: "tasks", dependencies: "dependencies" }, outputs: { schedule: "schedule", error: "error", history: "history", columnResize: "columnResize", workloadClick: "workload-click", taskFiltered: "task-filtered", draw: "draw", dependenciesChanged: "dependencies", cellClick: "cell-click", workloadCellClick: "workloadCellClick", workloadCellDblClick: "workloadCellDblClick", workloadCellContextMenu: "workloadCellContextMenu", workloadCellHover: "workloadCellHover", workloadCellHoverEnd: "workloadCellHoverEnd", workloadResourceClick: "workloadResourceClick", taskExpand: "taskExpand", taskCollapse: "taskCollapse", resourceExpand: "resourceExpand", resourceCollapse: "resourceCollapse", selectionChange: "selectionChange", rowMove: "rowMove", rowDrop: "rowDrop", schedulingConflict: "schedulingConflict", taskAdd: "taskAdd", taskRemove: "taskRemove", taskUpdate: "taskUpdate", dependencyAdd: "dependencyAdd", dependencyRemove: "dependencyRemove", dependencyUpdate: "dependencyUpdate", assignmentChange: "assignmentChange", datesChanged: "datesChanged", change: "change", taskDragStart: "taskDragStart", taskDrag: "taskDrag", taskResizeStart: "taskResizeStart", taskPartialResize: "taskPartialResize", taskResizeEnd: "taskResizeEnd", percentBarDragStart: "percentBarDragStart", percentBarDrag: "percentBarDrag", percentBarDrop: "percentBarDrop", taskClick: "taskClick", taskDblClick: "taskDblClick", taskMouseOver: "taskMouseOver", taskMouseOut: "taskMouseOut", taskContextMenu: "taskContextMenu", linkClick: "linkClick", linkDblClick: "linkDblClick", linkContextMenu: "linkContextMenu", linkHover: "linkHover", tooltipShow: "tooltipShow", tooltipHide: "tooltipHide", cellDblClick: "cellDblClick", cellContextMenu: "cellContextMenu", cellEditStart: "cellEditStart", cellEditCommit: "cellEditCommit", cellEditCancel: "cellEditCancel", rowClick: "rowClick", rowDblClick: "rowDblClick", zoomChange: "zoomChange", visibleRangeChange: "visibleRangeChange", scroll: "scroll", viewMount: "viewMount", viewDestroy: "viewDestroy", dirtyChange: "dirtyChange", dataBandChange: "dataBand-change" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
 }
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeGanttComponent, decorators: [{
             type: Component,
@@ -2849,6 +3072,18 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
             }], cellClick: [{
                 type: Output,
                 args: ['cell-click']
+            }], workloadCellClick: [{
+                type: Output
+            }], workloadCellDblClick: [{
+                type: Output
+            }], workloadCellContextMenu: [{
+                type: Output
+            }], workloadCellHover: [{
+                type: Output
+            }], workloadCellHoverEnd: [{
+                type: Output
+            }], workloadResourceClick: [{
+                type: Output
             }], taskExpand: [{
                 type: Output
             }], taskCollapse: [{
@@ -2860,6 +3095,8 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
             }], selectionChange: [{
                 type: Output
             }], rowMove: [{
+                type: Output
+            }], rowDrop: [{
                 type: Output
             }], schedulingConflict: [{
                 type: Output
@@ -2905,12 +3142,49 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
                 type: Output
             }], taskMouseOut: [{
                 type: Output
+            }], taskContextMenu: [{
+                type: Output
+            }], linkClick: [{
+                type: Output
+            }], linkDblClick: [{
+                type: Output
+            }], linkContextMenu: [{
+                type: Output
+            }], linkHover: [{
+                type: Output
+            }], tooltipShow: [{
+                type: Output
+            }], tooltipHide: [{
+                type: Output
+            }], cellDblClick: [{
+                type: Output
+            }], cellContextMenu: [{
+                type: Output
+            }], cellEditStart: [{
+                type: Output
+            }], cellEditCommit: [{
+                type: Output
+            }], cellEditCancel: [{
+                type: Output
+            }], rowClick: [{
+                type: Output
+            }], rowDblClick: [{
+                type: Output
             }], zoomChange: [{
                 type: Output
             }], visibleRangeChange: [{
                 type: Output
+            }], scroll: [{
+                type: Output
+            }], viewMount: [{
+                type: Output
+            }], viewDestroy: [{
+                type: Output
             }], dirtyChange: [{
                 type: Output
+            }], dataBandChange: [{
+                type: Output,
+                args: ['dataBand-change']
             }] } });
 
 class LatticeLayoutComponent extends LatticeViewerBase {
@@ -2967,6 +3241,142 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
             }], windowCloseCancelled: [{
                 type: Output,
                 args: ['windowClose-cancelled']
+            }] } });
+
+class LatticeDesignerComponent {
+
+    constructor() {
+
+        this.elementRef = inject(ElementRef);
+
+        this.zone = inject(NgZone);
+
+        this.isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+
+        this.latticeFactories = inject(LATTICE_FACTORIES, { optional: true });
+
+        this.injector = inject(Injector);
+
+        this.controller = null;
+
+        this.torn = false;
+
+        this.handlers = {};
+
+        this.ready = new EventEmitter();
+
+        this.destroyed = new EventEmitter();
+
+        this.stateChange = new EventEmitter();
+
+        this.modeChange = new EventEmitter();
+
+        this.pageChange = new EventEmitter();
+
+        this.selectChange = new EventEmitter();
+        afterNextRender(() => this.build(), { injector: this.injector });
+    }
+
+    get instance() {
+        return this.controller ? this.controller.instance : null;
+    }
+
+    props() {
+        const out = { ...this.handlers };
+        if (this.mode !== undefined)
+            out['mode'] = this.mode;
+        if (this.state !== undefined)
+            out['state'] = this.state;
+        if (this.sources !== undefined)
+            out['sources'] = this.sources;
+        if (this.relationships !== undefined)
+            out['relationships'] = this.relationships;
+        if (this.guardrails !== undefined)
+            out['guardrails'] = this.guardrails;
+        if (this.factories !== undefined)
+            out['factories'] = this.factories;
+        if (this.llm !== undefined)
+            out['llm'] = this.llm;
+        return out;
+    }
+
+    build() {
+        if (this.controller || this.torn || !this.isBrowser)
+            return;
+        const element = this.elementRef.nativeElement;
+        if (!element)
+            return;
+        const createDesigner = requireFactory(this.latticeFactories, 'createDesigner', '@toclocoinc/lattice-grid/modules/designer', 'lattice-designer');
+
+        this.handlers = {};
+        for (const event of DESIGNER_EVENTS) {
+            const emitter = this[`${event}Change`];
+            if (!emitter)
+                continue;
+            this.handlers[designerHandlerName(event)] = (payload) => {
+                emitInZone(this.zone, emitter, payload);
+            };
+        }
+        const controller = this.zone.runOutsideAngular(() => createDesignerController({
+            createDesigner: (el, config) => createDesigner(el, config),
+            element,
+            props: this.props(),
+            name: 'lattice-designer',
+        }));
+        this.controller = controller;
+        emitInZone(this.zone, this.ready, controller.instance);
+    }
+
+    ngOnChanges() {
+        if (this.controller)
+            this.controller.update(this.props());
+    }
+
+    ngOnDestroy() {
+        this.torn = true;
+        const controller = this.controller;
+        this.controller = null;
+        if (!controller)
+            return;
+        emitInZone(this.zone, this.destroyed, undefined);
+        controller.destroy();
+    }
+    static { this.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeDesignerComponent, deps: [], target: i0.ɵɵFactoryTarget.Component }); }
+    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeDesignerComponent, isStandalone: true, selector: "lattice-designer", inputs: { mode: "mode", state: "state", sources: "sources", relationships: "relationships", guardrails: "guardrails", factories: "factories", llm: "llm" }, outputs: { ready: "ready", destroyed: "destroyed", stateChange: "stateChange", modeChange: "modeChange", pageChange: "pageChange", selectChange: "selectChange" }, usesOnChanges: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
+}
+i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeDesignerComponent, decorators: [{
+            type: Component,
+            args: [{ selector: 'lattice-designer', template: '', encapsulation: ViewEncapsulation.Emulated, styles: [":host{display:block}\n"] }]
+        }], ctorParameters: () => [], propDecorators: { mode: [{
+                type: Input
+            }], state: [{
+                type: Input
+            }], sources: [{
+                type: Input
+            }], relationships: [{
+                type: Input
+            }], guardrails: [{
+                type: Input
+            }], factories: [{
+                type: Input
+            }], llm: [{
+                type: Input
+            }], ready: [{
+                type: Output
+            }], destroyed: [{
+                type: Output
+            }], stateChange: [{
+                type: Output,
+                args: ['stateChange']
+            }], modeChange: [{
+                type: Output,
+                args: ['modeChange']
+            }], pageChange: [{
+                type: Output,
+                args: ['pageChange']
+            }], selectChange: [{
+                type: Output,
+                args: ['selectChange']
             }] } });
 
 class LatticeTabDirective {
@@ -3158,4 +3568,4 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
                 args: ['tabChange-cancelled']
             }] } });
 
-export { DEFAULT_GRID_NAME, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, eventProp, provideLattice, provideLatticeRouter, requireFactory };
+export { DEFAULT_GRID_NAME, DESIGNER_EVENTS, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeDesignerComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, designerHandlerName, eventProp, provideLattice, provideLatticeRouter, requireFactory };

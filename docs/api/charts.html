@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Charts API Reference — Lattice Grid 1.90.0</title>
+<title>Charts API Reference — Lattice Grid 1.91.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -393,6 +393,7 @@
         <a class="rail__sub-link" href="#network-map">Network diagrams &mdash; icon nodes, links coloured by their value</a>
         <a class="rail__sub-link" href="#chart-extension-types">Extension chart types — pay only for what you draw</a>
         <a class="rail__sub-link" href="#chart-polar">Polar charts &mdash; a Nightingale rose, a radial bar and a polar scatter</a>
+        <a class="rail__sub-link" href="#chart-scatter3d">3D scatter (modules/chart-scatter3d)</a>
         <a class="rail__sub-link" href="#chart-flow-funnel-time">Flow, funnel and timeline charts &mdash; a directed chord, a pyramid, a pictorial, a serpentine and a spiral</a>
         <a class="rail__sub-link" href="#chart-wordcloud">Word cloud &mdash; words sized by how much there is of them</a>
         <a class="rail__sub-link" href="#chart-venn">Venn &mdash; two or three sets, with the counts to prove it</a>
@@ -498,6 +499,30 @@ root.appendChild(container);
 const chart = createChart({ grid, container, type: 'bar', x: 'region', y: 'revenue' });
 const p = chart.provenance();
 return [p.source, p.pending, p.measures[0].computed, p.reason].join(' | ');</code></pre>
+    <p><strong>A measure can accumulate along the x order (<code>cumulative: true</code>, BACKLOG-0002090).</strong> <code>y: { col, cumulative: true }</code> (or, on a <code>combo</code>, a <code>measures</code> entry with the same flag) turns each category's own reduction into the sum of itself and every category before it — monthly amounts of 10, 20 and 30 draw 10, 30 and 60 — and restarts at the first category of every series a chart draws, so a <code>series</code> split or several <code>measures</code> never leak their totals into one another. Offered on <code>bar</code>, <code>line</code>, <code>area</code> and a <code>combo</code>'s measures; not on <code>waterfall</code>, which already draws its own running total from the plain measure. The tooltip, the data labels and the axis all read the running value, because it is the measure's own bound <code>y</code> rather than a drawing-time overlay; over a pushdown source it runs on the engine's own grouped answer, never on a page of the source's raw rows.</p>
+    <pre data-run="js" data-expect="10,30,60" data-covers="export:createChart"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid } = await import('../packages/dom/src/index.js');
+const { createChart } = await import('../packages/modules/charts/index.js');
+
+const { document, root } = createTestDom({ width: 400, height: 300 });
+const grid = createGrid(root, {
+  rowKey: 'id',
+  columns: [{ field: 'month' }, { field: 'amount', type: 'number' }],
+  rows: [
+    { id: 1, month: 'Jan', amount: 10 },
+    { id: 2, month: 'Feb', amount: 20 },
+    { id: 3, month: 'Mar', amount: 30 },
+  ],
+});
+
+const container = document.createElement('div');
+container.rect = { width: 400, height: 300, top: 0, left: 0 };
+root.appendChild(container);
+
+const chart = createChart({
+  grid, container, type: 'bar', x: 'month', y: { col: 'amount', cumulative: true },
+});
+return chart.data().series[0].points.map((p) => p.y).join(',');</code></pre>
 
     <h3>The types</h3>
     <div class="table-wrap">
@@ -1740,6 +1765,21 @@ const bound = polarScatter.bindPolarScatter(grid, { x: 'bearing', y: 'speed', po
 const selected = grid.selection.keys().join(',');
 chart.destroy();
 return `bearings ${dots.map(bearing).join(' ')} | hours ${hour} | selected ${selected} | unplaced ${bound.unplaced} | ${typeof polarScatter.drawPolarScatter}`;</code></pre>
+
+    <h3 id="chart-scatter3d">3D scatter (<code>modules/chart-scatter3d</code>)</h3>
+    <p><strong>3D scatter</strong> (<code>drawScatter3d</code>/<code>bindScatter3d</code>, <code>type: 'scatter3d'</code>) places each row at <code>(x, y, z)</code> — each a numeric column or a number, in metres or any Cartesian unit — as a marker you orbit, zoom and pan. <code>color</code> is a fixed colour or <code>{ field, stops, domain? }</code>: <code>stops</code> is a list of <code>[t, colour]</code> pairs (Plotly's <code>colorscale</code> shape, any number of stops), and <code>domain</code> pins the ramp's ends to a fixed ceiling so assessments stay comparable. <code>size</code> is a pixel radius or a numeric column, <code>shape</code> is <code>circle</code>, <code>diamond</code> or <code>square</code>, and <code>hover</code> is a column or a <code>(row) =&gt; text</code> function shown as free text. A second <code>series</code> can mark one point — a tower at the origin — in its own colour, name and shape, beside the ramp legend. The marks are painted on a canvas, so a few thousand points orbit and zoom without stutter.</p>
+    <pre data-run="js" data-expect="true | function | function | 2" data-covers="export:drawScatter3d export:bindScatter3d"><code>const charts = await import('../packages/modules/charts/index.js');
+const scatter3d = await import('../packages/modules/chart-scatter3d/index.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'x', type: 'number' }, { field: 'y', type: 'number' }, { field: 'z', type: 'number' }, { field: 'reading', type: 'number' }],
+  rows: [{ id: 'a', x: 1, y: 2, z: 3, reading: 10 }, { id: 'b', x: 4, y: 5, z: 6, reading: 20 }],
+});
+// Importing the module registers `scatter3d`; the binding reads x/y/z off the rows.
+const bound = scatter3d.bindScatter3d(grid, { x: 'x', y: 'y', z: 'z', color: { field: 'reading', stops: [[0, '#2ecc71'], [1, '#e74c3c']] } });
+grid.destroy();
+return [charts.registeredChartTypes().includes('scatter3d'), typeof scatter3d.drawScatter3d, typeof scatter3d.bindScatter3d, bound.points.length].join(' | ');</code></pre>
 
     <h3 id="chart-flow-funnel-time">Flow, funnel and timeline charts &mdash; a directed chord, a pyramid, a pictorial, a serpentine and a spiral</h3>
     <p>Five more ways to read the same rows. Each of the four new types is its own opt-in module on the registry seam: import <code>modules/charts</code>, then the one you draw, and it registers itself (<code>chart-pyramid</code>, <code>chart-pictorial</code>, <code>chart-serpentine</code>, <code>chart-spiral</code>; each ships ESM, UMD and CJS builds like the other extension types). All four follow the grid &mdash; a filter redraws them from the rows left &mdash; read the scheme as a bare array or a title map, show a tooltip, take roving keyboard focus over their marks, and write the accessible data table; with <code>selection: true</code> a click on a mark selects the rows behind it in the grid, and the grid's selection dims the marks it leaves out.</p>
@@ -3483,8 +3523,8 @@ return `${before}; volume under price ${volumeTop &gt; priceBottom}; ${falls} fa
           <tr><td class="name">grid</td><td class="type"><a href="grid.html#type-Grid">Grid</a></td><td class="desc">The grid the chart draws. It reads the grid's filtered rows and redraws when they change, so the chart follows the table without being told to.</td></tr>
           <tr><td class="name">container</td><td class="type">Element | string</td><td class="desc">Where to draw: an element, or a CSS selector resolved against the grid's document. The chart builds its own root inside it.</td></tr>
           <tr><td class="name">type</td><td class="type"><a href="types.html#type-ChartType">ChartType</a> | <a href="types.html#type-ChartExtensionType">ChartExtensionType</a> | (string &amp; {})</td><td class="desc">Which chart to draw. A name the base bundle does not know is looked up in the extension registry, so an opt-in chart module's type works here once imported. The built-in names and every shipped extension name are suggested; a host's own `registerChartType` name is also accepted as a plain string.</td></tr>
-          <tr><td class="name">x</td><td class="type">string</td><td class="desc">The category column. <small>(optional)</small></td></tr>
-          <tr><td class="name">y</td><td class="type">string | [string, string]</td><td class="desc">The measure column, for the types that take one. On a `floatingBar` or `horizontalFloatingBar` it is the low/high pair of columns the bar spans between (BACKLOG-0001643): `[lowCol, highCol]`. <small>(optional)</small></td></tr>
+          <tr><td class="name">x</td><td class="type">string | Array&lt;string | { field?: string; col?: string }&gt;</td><td class="desc">The category column. On the hierarchical types (pie, donut, sunburst, treemap) an array of column names — or `{ field }` / `{ col }` objects — names the hierarchy's levels top down (BACKLOG-0002088). <small>(optional)</small></td></tr>
+          <tr><td class="name">y</td><td class="type">string | [string, string] | <a href="types.html#type-ChartYMeasure">ChartYMeasure</a></td><td class="desc">The measure column, for the types that take one. On a `floatingBar` or `horizontalFloatingBar` it is the low/high pair of columns the bar spans between (BACKLOG-0001643): `[lowCol, highCol]`. The object form names its own reduction and, on `bar`, `line`, `area` and the measures of a `combo` (BACKLOG-0002090), whether it runs as a running total. <small>(optional)</small></td></tr>
           <tr><td class="name">series</td><td class="type">string</td><td class="desc">Splits the measure into one series per distinct value. <small>(optional)</small></td></tr>
           <tr><td class="name">rows</td><td class="type">object[] | ((grid: <a href="grid.html#type-Grid">Grid</a>) =&gt; object[])</td><td class="desc">The exact rows to chart, overriding the grid's own walk — an array, or a function returning one at draw time. `chartRange` uses it to bind a chart to the band of rows a selected range covers rather than the whole grid. Only rows the grid holds are charted — the objects `grid.rows.get(i)` and `grid.rows.byKey(key)` return — because every value is read back through the grid by the row's key. Any other object is left out and named once in a `[lattice]` warning (`chart:rows:not-grid-rows`); if none of the entries is a grid row the chart is empty rather than falling back to every row. <small>(optional)</small></td></tr>
           <tr><td class="name">perRow</td><td class="type">boolean</td><td class="desc">Turns off the reduction a `scatter` or `bubble` binds by default (BACKLOG-0001889): without it, rows that tie on `x` share one point, reduced by the measure's aggregation (`sum` unless the column says otherwise) — right for a chart *of* the grid's totals, wrong for one meant to show the rows themselves, where tied x's are common (a regression diagnostic plotted against a predictor rounded to a few decimals, for one) and the reduction draws a point nothing in the data is. `perRow: true` draws one mark per row instead, however many share an x. Not the same option as {@link ChartSpec.aggregate} below, which decides *where* a reduction runs, not whether one runs at all. A `scatter` or `bubble` normally thins its marks to roughly one per horizontal pixel once a series outgrows the plot, so a dense cloud does not overplot itself; `perRow` turns that off too, up to 20,000 rows, so a diagnostic plot of a few thousand real, tied rows draws every one of them whatever the pane's width. Past 20,000 the usual density thinning resumes — a chart of hundreds of thousands of rows must still render — but the reduction keeps whichever rows are the largest by `|y|`, by `x` or by `size` regardless of the bucket they would otherwise land in, so a diagnostic's outliers are never the ones a thinned draw drops. The fit line, its confidence band and the R² beside it are computed from every bound row either way, never from whatever a draw happened to thin down to — an explicit {@link ChartSpec.downsample} included. <small>(optional)</small></td></tr>

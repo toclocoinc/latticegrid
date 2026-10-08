@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.90.0, vue module type declarations
+ * Lattice Grid 1.91.0, vue module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -20,6 +20,10 @@ import type {
 // type-only for the same reason the React adapter's block does: the
 // re-export below is a pure function, needing no second copy of its types.
 import type { MuiTheme as PresetsMuiTheme, MuiThemeResult as PresetsMuiThemeResult } from './presets.js';
+import type {
+  Designer, DesignerModeEvent, DesignerOptions, DesignerPageEvent,
+  DesignerSelectEvent, DesignerStateEvent,
+} from './designer.js';
 
 /**
  * The event name a Vue template binds, as a type: `'cell:changed'` becomes
@@ -347,6 +351,47 @@ export function createLatticeTabs(deps: {
 }): LatticeVueComponent<LatticeVueTabsProps, LatticeVueViewerEmit<string>,
   LatticeVueViewerExposed>;
 
+/** The designer's Vue props. */
+export type LatticeVueDesignerProps = Record<string, unknown> & LatticeVueHostProps & {
+  /** The mode it opens in; `'view'` by default. A live input. */
+  mode?: DesignerOptions['mode'];
+  /** The state it opens with; a live, controlled input applied by identity. */
+  state?: DesignerOptions['state'];
+  /** The named sources every page's panels may read, by id. A live input. */
+  sources?: DesignerOptions['sources'];
+  /** The relationships between sources' fields; taken only at mount. */
+  relationships?: DesignerOptions['relationships'];
+  /** The guardrails limiting what an author may use. A live input. */
+  guardrails?: DesignerOptions['guardrails'];
+  /** The factories the palette and chart editors read; taken only at mount. */
+  factories?: DesignerOptions['factories'];
+  /** The host's model callback for the AI assistant; taken only at mount. */
+  llm?: DesignerOptions['llm'];
+} & LatticeVueListeners<'state' | 'mode' | 'page' | 'select',
+    DesignerStateEvent | DesignerModeEvent | DesignerPageEvent | DesignerSelectEvent>;
+
+/** What `<LatticeDesigner>` emits: its four events under their own names. */
+export type LatticeVueDesignerEmit = {
+  (event: 'state', payload: DesignerStateEvent): void;
+  (event: 'mode', payload: DesignerModeEvent): void;
+  (event: 'page', payload: DesignerPageEvent): void;
+  (event: 'select', payload: DesignerSelectEvent): void;
+};
+
+/**
+ * The designer as a Vue component.
+ *
+ * `state` is controlled: a new `:state` binding (by identity) is pushed in
+ * with `setState`, and every committed change comes back out through
+ * `@state` as a copy — echo it or not, the host decides. The live designer is
+ * reached through a template ref's `instance()`, as with the viewers.
+ */
+export function createLatticeDesigner(deps: {
+  vue: unknown;
+  createDesigner: (el: unknown, config: Record<string, unknown>) => unknown;
+}): LatticeVueComponent<LatticeVueDesignerProps, LatticeVueDesignerEmit,
+  LatticeVueViewerExposed<Designer>>;
+
 /** Where grids publish themselves so the viewers around them can find one. */
 export interface LatticeVueGridRegistry {
   /** A shallow ref of name → grid; replaced, never mutated, on each change. */
@@ -414,6 +459,7 @@ export function createLatticeVue(deps: {
   createGantt?: (opts: Record<string, unknown>) => unknown;
   createLayout?: (el: unknown, config: Record<string, unknown>) => unknown;
   createTabs?: (el: unknown, config: Record<string, unknown>) => unknown;
+  createDesigner?: (el: unknown, config: Record<string, unknown>) => unknown;
   createDataRouter?: (opts: Record<string, unknown>) => unknown;
 }): Record<string, unknown>;
 
@@ -450,4 +496,24 @@ export function createViewerController(opts: {
 };
 /** The name a grid publishes itself under when the host does not choose one. */
 export const DEFAULT_GRID_NAME: string;
+
+/** Every event the designer emits, in declaration order. */
+export const DESIGNER_EVENTS: readonly string[];
+/** `state` → `onStateChange`; the other designer events follow `on` + name. */
+export function designerHandlerName(event: string): string;
+/**
+ * The framework-free designer lifecycle every adapter drives an instance
+ * through: mount once, push changed props (state/mode by identity), destroy.
+ */
+export function createDesignerController(opts: {
+  createDesigner: (el: unknown, config: Record<string, unknown>) => unknown;
+  element: unknown;
+  props?: Record<string, unknown>;
+  name?: string;
+}): {
+  instance: unknown;
+  update: (next: Record<string, unknown>) => void;
+  destroy: () => void;
+};
+
 export default createLatticeGrid;

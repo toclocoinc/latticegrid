@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.90.0, gantt module type declarations
+ * Lattice Grid 1.91.0, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -13,6 +13,7 @@ import type {
   MenuItem,
   Option,
   createGrid,
+  defaults,
 } from '../lattice-grid.js';
 
 /** One of the four dependency link types (finish-to-start, start-to-start, finish-to-finish, start-to-finish). */
@@ -161,9 +162,18 @@ export type GanttTooltip =
  * with the item (as the grid does) and a `ctx` of `{ task, event, view }` —
  * `task` the same original task, `event` the same DOM event, and `view` the
  * `GanttSplitView` instance the menu belongs to.
+ *
+ * The third argument, `defaults`, is the built-in task
+ * menu: add task above / below, add subtask, add successor, add
+ * predecessor, convert to milestone (or back to a task) and delete, labelled
+ * from the message catalogue, with the actions on a read-only task disabled.
+ * Return it as is to keep it, filter it to hide items, reorder it, or spread
+ * it among your own. Pass `contextMenu: true` to install exactly the
+ * defaults.
  */
 export type GanttContextMenu =
-  | ((task: GanttTask, event: Event | null) => MenuItem[] | null | undefined)
+  | true
+  | ((task: GanttTask, event: Event | null, defaults: MenuItem[]) => MenuItem[] | null | undefined)
   | null;
 
 /**
@@ -1153,6 +1163,133 @@ export function computeSCurve(
 ): GanttSCurvePoint[];
 
 /**
+ * The options for {@link createResourceView}.
+ *
+ * The display options (`unit`, `thresholds`, `columns`, `labelWidth`,
+ * `showUnassigned`, `decimals`, `totals`, `hoursPerDay`) mean exactly what
+ * they do on `mountSplit`'s `workload` option — the standalone band reuses it.
+ */
+export interface GanttResourceViewInit {
+  /** The resources (`{ id, name, capacity, calendar, avatar, rate }`), the same shape `createGantt`'s `resources` takes. */
+  resources?: GanttResourceSpec;
+  /** The bookings to draw — a load with no task and no CPM behind it. See {@link GanttWorkloadExternal}. */
+  bookings?: GanttWorkloadExternal[];
+  /** The band's display unit: hours (default), percent of available, or cost. */
+  unit?: 'hours' | 'percent' | 'cost';
+  /** Utilisation thresholds colouring each bucket by how full it is; `{ at, className | colour }`, ascending. */
+  thresholds?: Array<{ at: number; className?: string; colour?: string; color?: string }>;
+  /** The band's own resource-table columns; needs `createGrid`. */
+  columns?: Array<string | GanttGridColumn | GanttBandColumn>;
+  /** The resource-name column width in pixels; defaults to the band's own label width. */
+  labelWidth?: number;
+  /** Draw the Unassigned row (bookings naming no resource); default true. */
+  showUnassigned?: boolean;
+  /**
+   * Group the resources by one of their fields (e.g. `'department'`, `'bu'`)
+   * or by a function of the resource spec: each group is a collapsible header
+   * row carrying the group's summed load and available hours (so thresholds
+   * and the percent unit read the group's utilisation), with its resources
+   * beneath it. Resources naming no group, and Unassigned, collect last.
+   */
+  groupBy?: string | ((resource: Record<string, unknown>) => unknown);
+  /** Maximum decimal places in a cell, trailing zeros dropped; default 1. */
+  decimals?: number;
+  /** Draw the totals row and totals column; default true. */
+  totals?: boolean;
+  /** Hours a full-time (`units: 1`) resource works in a working day; default 8. */
+  hoursPerDay?: number;
+  /** The bucket zoom: `'day'`/`'week'`/`'month'`/`'quarter'`, or a pixels-per-day number. */
+  zoom?: 'day' | 'week' | 'month' | 'quarter' | number;
+  /** A today marker on the scale. */
+  today?: number | string | Date;
+  /** The week's first weekday (0=Sunday…6=Saturday), driving week buckets and the header. */
+  weekStartDay?: number;
+  /** The working-time calendar the buckets' available hours are measured against. */
+  calendar?: GanttCalendar | null;
+  /** The host grid factory that backs the band's grid-mode table; without it the band draws as plain DOM rows. */
+  createGrid?: (container: unknown, options: unknown) => Grid;
+  /** Extra grid config for the band's resource table, exactly `mountSplit`'s `gridConfig`; the time-bucket columns are grid columns too but inert to it, so it can never give them header controls. */
+  gridConfig?: Record<string, unknown>;
+  /** The band's left (resource) panel width in pixels. */
+  gridWidth?: number;
+  /** A band row's height in pixels. */
+  rowHeight?: number;
+  /** The view's height in pixels. */
+  height?: number;
+  /** A resource histogram band drawn below the workload band. */
+  histogram?: boolean | object;
+  /** A message-catalogue override for the band's own strings. */
+  messages?: Record<string, unknown>;
+  /** The resource/booking field-name mapping. */
+  fields?: Record<string, string>;
+}
+
+/**
+ * A standalone resource-load band ({@link createResourceView}), the handle it
+ * returns.
+ */
+export interface GanttResourceView {
+  /** The underlying Gantt controller, for events and advanced access. */
+  gantt: Gantt;
+  /** The underlying split view in its resource-only mode. */
+  view: GanttSplitView;
+  /** The band's grid-mode table, or `null` without a grid factory. */
+  grid: Grid | null;
+  /** Apply a new set of bookings and redraw — the live add / update / remove. */
+  setBookings(bookings: GanttWorkloadExternal[]): void;
+  /** Switch the bucket zoom (`'day'`/`'week'`/`'month'`/`'quarter'` or pixels-per-day). */
+  setZoom(level: 'day' | 'week' | 'month' | 'quarter' | number): void;
+  /** Switch the display unit (hours, percent of available, or cost). */
+  setUnit(unit: 'hours' | 'percent' | 'cost'): void;
+  /** The current display unit. */
+  getUnit(): 'hours' | 'percent' | 'cost';
+  /** Expand or collapse a resource into its bookings (`''` for Unassigned). */
+  toggleResource(resource: string, opts?: { event?: unknown }): void;
+  /** Collapse or expand a `groupBy` group (`null` or `''` for the "no group" group). */
+  toggleGroup(group: string | null): void;
+  /** Every band column's current width, by key (`band:resource` etc). */
+  getColumnWidths(): Record<string, number>;
+  /** Restore band column widths from {@link getColumnWidths}. */
+  setColumnWidths(widths: Record<string, number>): void;
+  /** Export the band as an SVG string. */
+  toSVG(opts?: object): string;
+  /** Subscribe to a controller event — `workload:click` is the bucket-click event. */
+  on(event: string, fn: (payload: unknown) => void): void;
+  /** Unsubscribe a handler added with {@link on}. */
+  off(event: string, fn: (payload: unknown) => void): void;
+  /** Tear the view down and release the controller. */
+  destroy(): void;
+}
+
+/**
+ * Mount a standalone resource-load band — the workload band on its own, with
+ * resources and bookings and no task Gantt.
+ *
+ * DemandFlow's resource scheduler shows availability by department, BU,
+ * division and company, across portfolios and scenarios, with no plan behind
+ * it. `createResourceView` is that view: it builds a Gantt controller with no
+ * tasks and mounts the SAME workload band `mountSplit` draws, in a
+ * resource-only mode where the task table and the timeline bars are hidden and
+ * the band fills the view. Every band feature — day/week/month/quarter buckets
+ * with the split view's scale header and zoom, hours/percent/cost units with
+ * utilisation thresholds, expand-to-bookings, the `workload:click` bucket
+ * event, its own grid-backed column definitions and width round-trip, and the
+ * SVG export — is reached here unchanged; the band is reused, not forked.
+ *
+ * `bookings` are the band's load: `{ resource, start, end, units | hours,
+ * label, group }` with no task and no CPM, one resource per row, expandable
+ * into its own bookings grouped by `group` (one sub-row per group, summed).
+ * `groupBy` groups the resources by a field such as
+ * `department`, each group a collapsible row of the group's summed load.
+ * `setBookings` applies a changed set live.
+ *
+ * @param container the mount element (needs an `ownerDocument`)
+ * @param opts the view's options
+ * @returns the view handle, or `null` when the container is unusable
+ */
+export function createResourceView(container: unknown, opts?: GanttResourceViewInit): GanttResourceView | null;
+
+/**
  * Why a schedule was refused.
  *
  * The payload of the `error` event — the very object the failed
@@ -1371,6 +1508,75 @@ export interface GanttTaskDeleteCancelledEvent {
 }
 
 /**
+ * A task about to be added: the payload of `beforeTaskAdd`. Raised by `addTask`, Insert / Shift+Insert and the
+ * default menu's add items.
+ */
+export interface GanttTaskAddEvent extends GanttBeforeEvent {
+  /** The id the new task will take. */
+  id: string;
+  /** The task as it will be inserted, defaults filled in; a copy a handler may read but not change. */
+  task: GanttTask;
+  /** Where it goes: the one key given, with the anchor task's id; empty when appending. */
+  target: { above?: string; below?: string; child?: string; successorOf?: string; predecessorOf?: string };
+  /** The finish-to-start link created with it (a successor or predecessor), else `null`. */
+  dependency: GanttDependency | null;
+  /** Always `user`. */
+  origin: string;
+}
+
+/**
+ * A task that was not added: the payload of `taskAdd:cancelled`. A
+ * notification, so it carries no `preventDefault`.
+ */
+export interface GanttTaskAddCancelledEvent {
+  /** The id the task would have taken. */
+  id: string;
+  /** The task that was not inserted. */
+  task: GanttTask;
+  /** Where it would have gone. */
+  target: { above?: string; below?: string; child?: string; successorOf?: string; predecessorOf?: string };
+  /** The link that was not created, else `null`. */
+  dependency: GanttDependency | null;
+  /** Always `user`. */
+  origin: string;
+  /** The reason given to `preventDefault`, `'prevented'` when none was, `'readOnly'` for a read-only anchor, or `'stale'`. */
+  reason: string;
+}
+
+/**
+ * A task about to become a milestone or an ordinary task again: the payload
+ * of `beforeMilestoneConvert`.
+ */
+export interface GanttMilestoneConvertEvent extends GanttBeforeEvent {
+  /** The task being converted. */
+  id: string;
+  /** The task as it stands before, as a shallow copy. */
+  task: GanttTask;
+  /** The kind it becomes. */
+  to: 'milestone' | 'task';
+  /** Always `user`. */
+  origin: string;
+}
+
+/**
+ * A conversion that did not happen: the payload of
+ * `milestoneConvert:cancelled`. A notification, so it carries no
+ * `preventDefault`.
+ */
+export interface GanttMilestoneConvertCancelledEvent {
+  /** The task that stayed as it was. */
+  id: string;
+  /** The task itself. */
+  task: GanttTask;
+  /** The kind it would have become. */
+  to: 'milestone' | 'task';
+  /** Always `user`. */
+  origin: string;
+  /** The reason given to `preventDefault`, `'prevented'` when none was, `'summary'` for a summary, `'readOnly'` for a read-only task, or `'stale'`. */
+  reason: string;
+}
+
+/**
  * Tasks about to be pasted: the payload of `beforeTaskPaste`. Raised by `pasteTasks` and the Ctrl/Cmd+V key.
  */
 export interface GanttTaskPasteEvent extends GanttBeforeEvent {
@@ -1472,6 +1678,241 @@ export interface GanttRowMoveCancelledEvent {
   reason: string;
 }
 
+/** One point of a data band series: a dated value at any granularity. */
+export interface GanttDataBandPoint {
+  /** The point's date: an ISO date string, a `Date` or a day number. */
+  date: string | Date | number;
+  /** The value at that date. */
+  value: number;
+  /** An explicit exclusive end for `interpolate: 'spread'`; omitted, a point spreads to the next point's date. */
+  end?: string | Date | number;
+}
+
+/** The context a data band's `value` function, `format` function and `cellStyle` receive. */
+export interface GanttDataBandContext {
+  /** The band's id. */
+  band: string;
+  /** The task id (`value` only). */
+  id?: string;
+  /** The host task (`value` and `cellStyle` on a task row). */
+  task?: Record<string, unknown> | null;
+  /** The scheduled record (`value` only). */
+  rec?: GanttTask;
+  /** The bucket's first day as a day number (`value` only). */
+  start?: number;
+  /** The bucket's exclusive end as a day number (`value` only). */
+  end?: number;
+  /** The zoom level the buckets were cut at (`value` only). */
+  zoom?: string | null;
+  /** The bucket's start as an ISO date (`cellStyle` only). */
+  bucketStart?: string;
+  /** The bucket's exclusive end as an ISO date (`cellStyle` only). */
+  bucketEnd?: string;
+  /** Whether the cell is on the totals row (`cellStyle` only). */
+  isTotal?: boolean;
+  /** Whether the cell is on a summary row (`cellStyle` only). */
+  isSummary?: boolean;
+}
+
+/** One threshold of a data band: the highest `at` a cell's value reaches styles it. */
+export interface GanttDataBandThreshold {
+  /** The value from which this threshold applies. */
+  at: number;
+  /** A theme-token tone: `'ok'`, `'info'`, `'warn'` or `'danger'` (dark-mode safe). */
+  tone?: 'ok' | 'info' | 'warn' | 'danger';
+  /** A class added to the cell. */
+  className?: string;
+  /** A background colour of the host's own. */
+  colour?: string;
+}
+
+/**
+ * One linked data band under the split view: a measure per
+ * row per timeline bucket — forecast cost per task per week, say — laid out
+ * like the workload band and scroll- and zoom-locked to the timeline. The
+ * bucket cells carry no header controls under any configuration; the
+ * left-hand columns are a real grid when `createGrid` is injected.
+ */
+export interface GanttDataBand {
+  /** The band's id: names it in events, state and `getDataBandTable`. */
+  id: string;
+  /** The band's title, shown in its header strip. */
+  title?: string;
+  /** Which rows: the task tree (`'tasks'`, default, collapsing in step with the gantt), `'summaries'` only, `'resources'`, or a host grouping `fn(tasks) => [{ key, label, tasks: ids }]`. */
+  rows?: 'tasks' | 'summaries' | 'resources' | ((tasks: Array<Record<string, unknown>>, ctx: { band: string }) => Array<{ key: string; label?: string; tasks: string[] }>);
+  /** A leaf task's value for one bucket: `(task, bucketStart, bucketEnd, ctx)`, dates as ISO strings, end exclusive. */
+  value?: (task: Record<string, unknown>, bucketStart: string, bucketEnd: string, ctx: GanttDataBandContext) => number | null | undefined;
+  /** The task field carrying a `[{ date, value }]` series, re-bucketed to the zoom; used instead of `value`. */
+  series?: string;
+  /** How a series fills the days between its points: `'none'` (default) or `'spread'` (spread over its days, re-summed per bucket). */
+  interpolate?: 'none' | 'spread';
+  /** How children roll up to summaries, the totals row and column: `'sum'` (default), `'avg'`, `'last'`, `'min'`, `'max'` or a function. */
+  aggregate?: 'sum' | 'avg' | 'last' | 'min' | 'max' | ((values: number[], ctx: object) => number | null);
+  /** How a value displays: `'number'` (default), `'currency'`, `'percent'`, `{ type, currency, decimals }` or a function. */
+  format?: 'number' | 'currency' | 'percent' | { type: 'number' | 'currency' | 'percent'; currency?: string; decimals?: number } | ((value: number, ctx: object) => string);
+  /** The ISO currency code for `format: 'currency'`; default `'USD'`. */
+  currency?: string;
+  /** Fraction digits; defaults by format. */
+  decimals?: number;
+  /** The totals row and column: `true` (default) both, `false` neither, or `{ row, column }`. */
+  totals?: boolean | { row?: boolean; column?: boolean };
+  /** The band's height in pixels; default 160. */
+  height?: number;
+  /** A band row's height in pixels; default 26. */
+  rowHeight?: number;
+  /** The left-hand columns: `'name'`, `'total'`, overrides of them, grid columns and {@link GanttBandColumn}-style `{ value(row, ctx), render(row, ctx) }` columns. */
+  columns?: Array<string | GanttGridColumn | GanttBandColumn>;
+  /** Ascending thresholds that style a bucket cell by its value. */
+  thresholds?: GanttDataBandThreshold[];
+  /** A cell's own style: a class name, or `{ className, ...css }`. */
+  cellStyle?: (value: number | null, ctx: GanttDataBandContext) => string | Record<string, string | number> | null | undefined;
+  /** Double-click (or Enter/F2) a task cell to type its value into the `series`, through `beforeDataBandEdit`; series bands only. */
+  editable?: boolean;
+  /** What a moved or resized task does to its series: `'shift'` (default), `'stretch'` or `'keep'`. */
+  onReschedule?: 'shift' | 'stretch' | 'keep';
+  /** Start collapsed to the header strip. */
+  collapsed?: boolean;
+}
+
+/** The payload of `dataBand:change`: a task's series was rewritten for the host to save. */
+export interface GanttDataBandChangeEvent {
+  /** The band's id. */
+  band: string;
+  /** The task id. */
+  id: string;
+  /** The task, carrying the new series. */
+  task: Record<string, unknown>;
+  /** The series field. */
+  field: string;
+  /** The new series. */
+  series: GanttDataBandPoint[];
+  /** The series before the change. */
+  previous: GanttDataBandPoint[];
+  /** Why: `'shift'` or `'stretch'` after a reschedule, `'edit'` after a cell edit. */
+  reason: 'shift' | 'stretch' | 'edit';
+  /** The split view. */
+  view: GanttSplitView;
+  /** The originating DOM event, or `null`. */
+  event: unknown;
+}
+
+/** The payload of `beforeDataBandEdit`: a typed value about to be written into one bucket. */
+export interface GanttDataBandEditEvent extends GanttBeforeEvent {
+  /** The band's id. */
+  band: string;
+  /** The task id. */
+  id: string;
+  /** The task before the edit. */
+  task: Record<string, unknown>;
+  /** The series field. */
+  field: string;
+  /** The bucket's start, as an ISO date. */
+  bucketStart: string;
+  /** The bucket's exclusive end, as an ISO date. */
+  bucketEnd: string;
+  /** The typed value, or `null` to clear the bucket. */
+  value: number | null;
+  /** The bucket's value before the edit, or `null`. */
+  oldValue: number | null;
+  /** The series once the edit applies. */
+  series: GanttDataBandPoint[];
+  /** The series now. */
+  previous: GanttDataBandPoint[];
+  /** The split view. */
+  view: GanttSplitView;
+  /** The originating DOM event, or `null`. */
+  event: unknown;
+}
+
+/** The payload of `dataBandEdit:cancelled`: the refused edit and why. */
+export interface GanttDataBandEditCancelledEvent {
+  /** The band's id. */
+  band: string;
+  /** The task id. */
+  id: string;
+  /** The task, unchanged. */
+  task: Record<string, unknown>;
+  /** The series field. */
+  field: string;
+  /** The bucket's start, as an ISO date. */
+  bucketStart: string;
+  /** The bucket's exclusive end, as an ISO date. */
+  bucketEnd: string;
+  /** The value that was refused. */
+  value: number | null;
+  /** The bucket's value, unchanged. */
+  oldValue: number | null;
+  /** The series the edit would have written. */
+  series: GanttDataBandPoint[];
+  /** The series, unchanged. */
+  previous: GanttDataBandPoint[];
+  /** The split view. */
+  view: GanttSplitView;
+  /** The originating DOM event, or `null`. */
+  event: unknown;
+  /** The reason given to `preventDefault`, `'prevented'` when none was, or `'stale'`. */
+  reason: string;
+}
+
+/**
+ * The context a dropped row carries: the shared shape of
+ * `beforeRowDrop`, `rowDrop` and `rowDrop:cancelled`. It is `rowMove`'s
+ * payload plus where the row landed — `position` against `target` — the two
+ * fields that make `rowDrop` the Lattice name for Bryntum's `gridRowDrop`.
+ */
+export interface GanttRowDropContext {
+  /** The row being dropped, by id. */
+  id: string;
+  /** The task as the host supplied it (a shallow copy), or `null` when it is not a host task. */
+  rawTask: GanttTask | null;
+  /** The task as the scheduler placed it before the drop, or `null` without a schedule. */
+  task: GanttScheduledTask | null;
+  /** The view the drop happened in, or `null` for a headless `moveRow`. */
+  view: unknown;
+  /** Its parent before the drop, or `null` at the root. */
+  oldParent: string | null;
+  /** The parent it lands under once the drop applies, or `null` for the root. */
+  newParent: string | null;
+  /** Its 0-based index among its old parent's children, before the drop. */
+  oldIndex: number;
+  /** Its 0-based index among its new parent's children, once the drop applies. */
+  newIndex: number;
+  /** Where it lands relative to `target`: before or after it as a sibling, or inside it as a child. */
+  position: 'before' | 'after' | 'inside';
+  /** The row the drop anchors to — the row under the pointer, or the keyboard sibling/parent — or `null`. */
+  target: string | null;
+  /** Always `user`. */
+  origin: string;
+  /** The originating DOM event (a drop or a keypress), or `null`. */
+  event: unknown;
+}
+
+/**
+ * A table row about to be dropped in a new position: the payload of
+ * `beforeRowDrop`. The same gated, undoable drop as
+ * `beforeRowMove`, plus `position`/`target`. A name-column drag, Alt+Up/Down
+ * and Tab/Shift+Tab all gate on it; it is the vetoable gate of Bryntum's
+ * `gridRowDrop`.
+ */
+export interface GanttRowDropEvent extends GanttRowDropContext, GanttBeforeEvent {}
+
+/**
+ * A row that dropped into a new position: the payload of `rowDrop`. A notification — it carries no `preventDefault`; the
+ * veto was `beforeRowDrop`'s (or `beforeRowMove`'s) job. Fired once per drop
+ * alongside `rowMove`, with the same `id`/`oldParent`/`newParent`/`oldIndex`/
+ * `newIndex` plus `position`/`target`. It is the Lattice name for Bryntum's
+ * `gridRowDrop`.
+ */
+export interface GanttRowDroppedEvent extends GanttRowDropContext {}
+
+/**
+ * A row that was not dropped: the payload of `rowDrop:cancelled`. A notification, so it carries no `preventDefault`.
+ */
+export interface GanttRowDropCancelledEvent extends GanttRowDropContext {
+  /** The reason given to `preventDefault`, `'prevented'` when none was, or `'stale'`. */
+  reason: string;
+}
+
 /**
  * The events a Gantt controller raises.
  *
@@ -1508,6 +1949,8 @@ export type GanttEventName =
   | 'beforeDependencyDelete'
   /** A row is about to move or re-parent — a drag handle, a drop onto another row, Alt+Up/Down or Tab/Shift+Tab; cancellable. */
   | 'beforeRowMove'
+  /** A table row is about to be dropped in a new position — the drop-specific gate of `rowDrop`, carrying `position`/`target`; cancellable (Bryntum `gridRowDrop`). */
+  | 'beforeRowDrop'
   /** A `beforeTaskEdit` handler refused the edit. */
   | 'taskEdit:cancelled'
   /** A `beforeTaskMove` handler refused the move. */
@@ -1526,10 +1969,20 @@ export type GanttEventName =
   | 'beforeTaskPaste'
   /** A `beforeTaskPaste` handler refused the paste. */
   | 'taskPaste:cancelled'
+  /** A task is about to be added — `addTask`, Insert or the default menu; cancellable. */
+  | 'beforeTaskAdd'
+  /** A `beforeTaskAdd` handler (or a read-only anchor) refused the add. */
+  | 'taskAdd:cancelled'
+  /** A task is about to become a milestone or a task again; cancellable. */
+  | 'beforeMilestoneConvert'
+  /** A `beforeMilestoneConvert` handler (or a summary, or a read-only task) refused the conversion. */
+  | 'milestoneConvert:cancelled'
   /** A `beforeDependencyDelete` handler refused the removal. */
   | 'dependencyDelete:cancelled'
   /** A `beforeRowMove` handler refused the move. */
   | 'rowMove:cancelled'
+  /** A `beforeRowDrop` handler refused the drop. */
+  | 'rowDrop:cancelled'
   /** The dependency list changed — links were added, removed, or both, already allowed through whichever gate applied. */
   | 'dependencies'
   /** The undo/redo timeline changed — an edit was recorded, undone, redone or cleared. */
@@ -1538,11 +1991,49 @@ export type GanttEventName =
   | 'columnResize'
   /** A workload band bucket cell was clicked, with that bucket's resource, span and bookings. */
   | 'workload:click'
+  /** A workload-band bucket cell or histogram bar was clicked, with the resource, the half-open bucket span and its bookings (Bryntum `cellClick`). */
+  | 'workloadCellClick'
+  /** A workload-band bucket cell or histogram bar was double-clicked; `preventDefault` claims it so a host opens its own editor (Bryntum `cellDblClick`). */
+  | 'workloadCellDblClick'
+  /** A workload-band bucket cell or histogram bar was right-clicked; `preventDefault` suppresses the browser's own menu (Bryntum `cellContextMenu`). */
+  | 'workloadCellContextMenu'
+  /** The pointer or keyboard focus reached a workload-band bucket cell or histogram bar (Bryntum `cellMouseOver`). */
+  | 'workloadCellHover'
+  /** The pointer or keyboard focus left a workload-band bucket cell or histogram bar (Bryntum `cellMouseOut`). */
+  | 'workloadCellHoverEnd'
+  /** A workload-band resource-name cell was clicked (Bryntum `resourceClick`). */
+  | 'workloadResourceClick'
+  /** A data band rewrote a task's series — a reschedule shifted or stretched it, or an allowed cell edit wrote a bucket. */
+  | 'dataBand:change'
+  /** A data band cell edit is about to be written into the task's series; cancellable. */
+  | 'beforeDataBandEdit'
+  /** A `beforeDataBandEdit` handler refused the edit. */
+  | 'dataBandEdit:cancelled'
   /** A task-table cell was clicked, carrying the task, the column's key and the cell element. */
   | 'cell:click'
+  /** A task-table cell was clicked, with `id`/`rawTask`/`task` and the column/value/element (Bryntum `cellClick`). */
+  | 'cellClick'
+  /** A task-table cell was double-clicked (Bryntum `cellDblClick`). */
+  | 'cellDblClick'
+  /** A task-table cell's context menu was requested, by a right-click or the keyboard (Bryntum `cellContextMenu`). */
+  | 'cellContextMenu'
+  /** An editable task-table cell is about to open its editor — a double-click, Enter, F2 or a printable key; cancellable (Bryntum `beforeCellEditStart`). */
+  | 'beforeCellEditStart'
+  /** A task-table cell's editor opened, once allowed through `beforeCellEditStart` (Bryntum `cellEditStart`). */
+  | 'cellEditStart'
+  /** A `beforeCellEditStart` handler refused the open, or a key reached it while deferring. */
+  | 'cellEditStart:cancelled'
+  /** A task-table cell's edit committed, with the old and new value. */
+  | 'cellEditCommit'
+  /** A task-table cell's edit was abandoned — Escape, or a vetoed commit (Bryntum `cellEditCancel`). */
+  | 'cellEditCancel'
+  /** A task-table row was clicked, alongside `cellClick` for the cell under the pointer. */
+  | 'rowClick'
+  /** A task-table row was double-clicked, alongside `cellDblClick` for the cell under the pointer. */
+  | 'rowDblClick'
   /** `scrollToTask` named a task the task table's filter hides, so it did not scroll. */
   | 'task:filtered'
-  /** A completed paint of the timeline and bands, fired once per paint with the drawn range and zoom. */
+  /** A completed paint of the timeline and bands, fired once per paint with the drawn range and zoom (Bryntum `render`). */
   | 'draw'
   /** A summary row is about to expand its children; cancellable. */
   | 'beforeTaskExpand'
@@ -1564,6 +2055,8 @@ export type GanttEventName =
   | 'selectionChange'
   /** A row moved or was re-parented — a drag, Alt+Up/Down or Tab/Shift+Tab, once allowed through `beforeRowMove`. */
   | 'rowMove'
+  /** A row dropped into a new position — `rowMove` plus `position`/`target`, once allowed through `beforeRowDrop` (Bryntum `gridRowDrop`). */
+  | 'rowDrop'
   /** The scheduling-conflict set changed after a recompute — a cycle, constraint, lock or deadline was added or resolved. */
   | 'schedulingConflict'
   /** A task was added by a committed change, with its raw row, scheduled record and cause. */
@@ -1620,10 +2113,30 @@ export type GanttEventName =
   | 'taskMouseOver'
   /** The pointer left a bar, milestone or summary bar, or keyboard focus left one (Bryntum `taskMouseOut`). */
   | 'taskMouseOut'
-  /** The split view's time scale changed, with the level before and after and what drove it. */
+  /** A context-menu request on a bar, milestone or summary bar — a right-click or the Menu key / Shift+F10 on a focused row; cancellable (Bryntum `taskContextMenu`). */
+  | 'taskContextMenu'
+  /** A single click on a dependency link's arrow (Bryntum `dependencyClick`). */
+  | 'linkClick'
+  /** A double click on a dependency link's arrow, or Enter/Space on a focused one; cancellable, claiming it stops the link editor from opening (Bryntum `dependencyDblClick`). */
+  | 'linkDblClick'
+  /** A context-menu request on a dependency link's arrow; cancellable (Bryntum `dependencyContextMenu`). */
+  | 'linkContextMenu'
+  /** The pointer entered a dependency link's arrow (Bryntum `dependencyMouseOver`). */
+  | 'linkHover'
+  /** A tooltip is about to be shown for a task; cancellable, a veto keeps the built-in card from showing (Bryntum `taskTooltipShow`). */
+  | 'tooltipShow'
+  /** A shown tooltip was hidden (Bryntum `taskTooltipHide`). */
+  | 'tooltipHide'
+  /** The split view's time scale changed, with the level before and after and what drove it (Bryntum `zoomChange`). */
   | 'zoomChange'
-  /** The dates under the split view's timeline edges changed, coalesced to once per animation frame. */
+  /** The dates under the split view's timeline edges changed, coalesced to once per animation frame (Bryntum `visibleRangeChange`). */
   | 'visibleRangeChange'
+  /** The split view's viewport scrolled, with the settled offsets, coalesced to once per animation frame (Bryntum `scroll`). */
+  | 'scroll'
+  /** A view — the plain `mount` view or the `mountSplit` split view — mounted and painted its first frame (Bryntum `viewMount`). */
+  | 'viewMount'
+  /** A mounted view was torn down — a remount, `unmount()` or `destroy()` (Bryntum `viewDestroy`). */
+  | 'viewDestroy'
   /** Whether the plan differs from the committed baseline flipped: fires once on the transition, never on a second edit made while already dirty or a partial undo. */
   | 'dirtyChange';
 
@@ -1651,6 +2164,8 @@ export interface GanttEventPayloads {
   beforeDependencyDelete: GanttDependencyDeleteEvent;
   /** The row about to move or re-parent, with `preventDefault` to stop it. */
   beforeRowMove: GanttRowMoveEvent;
+  /** The row about to drop in a new position, with `preventDefault` to stop it. */
+  beforeRowDrop: GanttRowDropEvent;
   /** The edit that was not applied, and why. */
   'taskEdit:cancelled': GanttTaskEditCancelledEvent;
   /** The move that was not applied, and why. */
@@ -1669,10 +2184,20 @@ export interface GanttEventPayloads {
   beforeTaskPaste: GanttTaskPasteEvent;
   /** The paste that was not applied, and why. */
   'taskPaste:cancelled': GanttTaskPasteCancelledEvent;
+  /** The task about to be added, with `preventDefault` to stop it. */
+  beforeTaskAdd: GanttTaskAddEvent;
+  /** The add that was not applied, and why. */
+  'taskAdd:cancelled': GanttTaskAddCancelledEvent;
+  /** The conversion about to happen, with `preventDefault` to stop it. */
+  beforeMilestoneConvert: GanttMilestoneConvertEvent;
+  /** The conversion that was not applied, and why. */
+  'milestoneConvert:cancelled': GanttMilestoneConvertCancelledEvent;
   /** The link that was not removed, and why. */
   'dependencyDelete:cancelled': GanttDependencyDeleteCancelledEvent;
   /** The move that was not applied, and why. */
   'rowMove:cancelled': GanttRowMoveCancelledEvent;
+  /** The drop that was not applied, and why. */
+  'rowDrop:cancelled': GanttRowDropCancelledEvent;
   /** The links that were added and/or removed by the change that just applied. */
   dependencies: GanttDependenciesChangedEvent;
   /** The undo/redo timeline's new state. */
@@ -1681,8 +2206,46 @@ export interface GanttEventPayloads {
   columnResize: GanttColumnResizeEvent;
   /** The clicked workload bucket's resource, span and bookings. */
   'workload:click': GanttWorkloadClickEvent;
+  /** The clicked workload cell or histogram bar's resource, span and bookings. */
+  workloadCellClick: GanttWorkloadCellEvent;
+  /** The double-clicked workload cell or histogram bar, with `preventDefault` to claim it. */
+  workloadCellDblClick: GanttWorkloadCellDblClickEvent;
+  /** The right-clicked workload cell or histogram bar, with `preventDefault` to suppress the menu. */
+  workloadCellContextMenu: GanttWorkloadCellContextMenuEvent;
+  /** The workload cell or histogram bar the pointer or focus entered. */
+  workloadCellHover: GanttWorkloadCellEvent;
+  /** The workload cell or histogram bar the pointer or focus left. */
+  workloadCellHoverEnd: GanttWorkloadCellEvent;
+  /** The clicked workload-band resource-name cell's resource. */
+  workloadResourceClick: GanttWorkloadResourceClickEvent;
+  /** The task, band, field and the rewritten series, with why it was rewritten. */
+  'dataBand:change': GanttDataBandChangeEvent;
+  /** The data band cell edit about to apply, with `preventDefault` to stop it. */
+  beforeDataBandEdit: GanttDataBandEditEvent;
+  /** The data band cell edit that was refused, with the reason. */
+  'dataBandEdit:cancelled': GanttDataBandEditCancelledEvent;
   /** The clicked task-table cell's task, column key and cell element. */
   'cell:click': GanttCellClickEvent;
+  /** The clicked task-table cell's id, task, column key, value and element. */
+  cellClick: GanttCellPointerEvent;
+  /** The double-clicked task-table cell. */
+  cellDblClick: GanttCellDblClickEvent;
+  /** The task-table cell whose context menu was requested. */
+  cellContextMenu: GanttCellContextMenuEvent;
+  /** The task-table cell about to open its editor, with `preventDefault` to keep it closed. */
+  beforeCellEditStart: GanttBeforeCellEditStartEvent;
+  /** The task-table cell whose editor opened. */
+  cellEditStart: GanttCellEditStartEvent;
+  /** The open attempt that was refused, and why. */
+  'cellEditStart:cancelled': GanttCellEditStartCancelledEvent;
+  /** The task-table cell edit that committed, with the old and new value. */
+  cellEditCommit: GanttCellEditCommitEvent;
+  /** The task-table cell edit that was abandoned. */
+  cellEditCancel: GanttCellEditCancelEvent;
+  /** The clicked task-table row. */
+  rowClick: GanttRowClickEvent;
+  /** The double-clicked task-table row. */
+  rowDblClick: GanttRowDblClickEvent;
   /** The id of the filtered-out task `scrollToTask` was asked for. */
   'task:filtered': GanttTaskFilteredEvent;
   /** The completed paint's view, root element, drawn axis range and resolved zoom. */
@@ -1707,6 +2270,8 @@ export interface GanttEventPayloads {
   selectionChange: GanttSelectionChangeEvent;
   /** The row that moved or was re-parented, and where it landed. */
   rowMove: GanttRowMovedEvent;
+  /** The row that dropped into a new position, and where it landed. */
+  rowDrop: GanttRowDroppedEvent;
   /** The whole scheduling-conflict set, plus what this recompute added and resolved. */
   schedulingConflict: GanttSchedulingConflictEvent;
   /** The task that was added, its scheduled record and cause. */
@@ -1763,10 +2328,30 @@ export interface GanttEventPayloads {
   taskMouseOver: GanttTaskMouseEvent;
   /** The task the pointer or focus left, and which part. */
   taskMouseOut: GanttTaskMouseEvent;
+  /** The task context-menu request, with `preventDefault` to claim it. */
+  taskContextMenu: GanttTaskContextMenuEvent;
+  /** The clicked link's identity. */
+  linkClick: GanttLinkClickEvent;
+  /** The double-clicked (or Enter/Space-activated) link's identity, with `preventDefault` to claim it. */
+  linkDblClick: GanttLinkDblClickEvent;
+  /** The link context-menu request, with `preventDefault` to claim it. */
+  linkContextMenu: GanttLinkContextMenuEvent;
+  /** The hovered link's identity. */
+  linkHover: GanttLinkHoverEvent;
+  /** The tooltip about to be shown, with `preventDefault` to veto it. */
+  tooltipShow: GanttTooltipShowEvent;
+  /** The task whose tooltip was hidden. */
+  tooltipHide: GanttTooltipHideEvent;
   /** The split view's zoom before and after, and what drove the change. */
   zoomChange: GanttZoomChangeEvent;
   /** The dates now under the split view's timeline edges, and the resolved zoom. */
   visibleRangeChange: GanttVisibleRangeChangeEvent;
+  /** The split view's settled scroll offsets. */
+  scroll: GanttScrollEvent;
+  /** The view that mounted and painted its first frame. */
+  viewMount: GanttViewMountEvent;
+  /** The view that was torn down. */
+  viewDestroy: GanttViewDestroyEvent;
   /** Whether the plan now differs from the committed baseline. */
   dirtyChange: GanttDirtyChangeEvent;
 }
@@ -2032,6 +2617,100 @@ export interface GanttTaskPointerContext {
   event: unknown;
 }
 
+/**
+ * The context a task-table cell event carries: the
+ * shared shape of `cellClick`, `cellDblClick`, `cellContextMenu` and
+ * `beforeCellEditStart`. The table became a real Lattice grid; this maps its own cell events onto the controller
+ * with the task-centric payload every Gantt event carries, plus the
+ * column and value under the cell.
+ */
+export interface GanttCellPointerContext extends GanttTaskPointerContext {
+  /** The column's key: the host column's `key`/`id`, or a built-in column's id, or `null` for a row's empty tail. */
+  columnKey: string | null;
+  /** The cell's current value. */
+  value: unknown;
+  /** The cell element, or `null` for a keyboard context-menu with no element to anchor to. */
+  element: unknown;
+}
+
+/** A task-table cell was clicked: the payload of `cellClick`. */
+export interface GanttCellPointerEvent extends GanttCellPointerContext {}
+
+/**
+ * A task-table cell was double-clicked: the payload of
+ * `cellDblClick`. Fires alongside `beforeCellEditStart`/`cellEditStart`
+ * when the cell is editable.
+ */
+export interface GanttCellDblClickEvent extends GanttCellPointerContext {}
+
+/**
+ * A task-table cell's context menu was requested: the
+ * payload of `cellContextMenu`, by a right-click or the keyboard
+ * (Menu key / Shift+F10), in which case `event`/`element` are `null`.
+ */
+export interface GanttCellContextMenuEvent extends GanttCellPointerContext {}
+
+/**
+ * A task-table cell is about to open its editor: the
+ * payload of `beforeCellEditStart`, raised by a double-click, Enter, F2 or
+ * a printable key on an editable, non-read-only cell, before the grid's
+ * own editor opens. `preventDefault(reason)` keeps the cell closed for
+ * this gesture and fires the paired `cellEditStart:cancelled` with that
+ * reason, the same before-gate + `:cancelled` contract every other gated Gantt
+ * event follows. A programmatic `grid.edit.start()` raises no `before` gate.
+ */
+export interface GanttBeforeCellEditStartEvent extends GanttCellPointerContext, GanttBeforeEvent {}
+
+/**
+ * A task-table cell's editor opened: the payload of
+ * `cellEditStart`, once `beforeCellEditStart` allowed it (or for a
+ * programmatic `grid.edit.start`/the auto-advance to the next cell after a
+ * commit, neither of which raises the `before` gate).
+ */
+export interface GanttCellEditStartEvent extends GanttTaskPointerContext {
+  /** The column being edited. */
+  columnKey: string;
+}
+
+/**
+ * An open attempt that did not open an editor: the
+ * payload of `cellEditStart:cancelled`, fired when a `beforeCellEditStart`
+ * handler calls `preventDefault(reason)` or defers (a reason of
+ * `'deferred'`). The same context the gate carried, plus why.
+ */
+export interface GanttCellEditStartCancelledEvent extends GanttCellPointerContext {
+  /** Why the cell's editor did not open. */
+  reason: string;
+}
+
+/**
+ * A task-table cell's edit committed: the payload of
+ * `cellEditCommit`.
+ */
+export interface GanttCellEditCommitEvent extends GanttTaskPointerContext {
+  /** The column that was edited. */
+  columnKey: string | null;
+  /** The value before the commit. */
+  oldValue: unknown;
+  /** The value after the commit. */
+  newValue: unknown;
+}
+
+/**
+ * A task-table cell's edit was abandoned: the payload of
+ * `cellEditCancel` — Escape, or a commit a `beforeEdit` handler vetoed.
+ */
+export interface GanttCellEditCancelEvent extends GanttTaskPointerContext {
+  /** The column that was being edited, or `null`. */
+  columnKey: string | null;
+}
+
+/** A task-table row was clicked: the payload of `rowClick`, alongside the `cellClick` for the cell under the pointer. */
+export interface GanttRowClickEvent extends GanttTaskPointerContext {}
+
+/** A task-table row was double-clicked: the payload of `rowDblClick`, alongside the `cellDblClick` for the cell under the pointer. */
+export interface GanttRowDblClickEvent extends GanttTaskPointerContext {}
+
 /** A pointer position in client (viewport) pixels; `null` on a keyboard path. */
 export interface GanttPointerPosition {
   /** The client x. */
@@ -2236,6 +2915,97 @@ export interface GanttTaskMouseEvent extends GanttTaskPointerContext {
 }
 
 /**
+ * A context-menu request on a task: the payload of
+ * `taskContextMenu`, raised on a right-click or the Menu key / Shift+F10 on
+ * a focused row. `preventDefault()` claims it — the split view's built-in
+ * menu (when `contextMenu` is configured) is not opened, and the browser's
+ * own is suppressed either way — so a host shows its own instead.
+ */
+export interface GanttTaskContextMenuEvent extends GanttTaskPointerContext, GanttBeforeEvent {
+  /** Which part of the task's drawing the request landed on. */
+  part: 'bar' | 'progress' | 'label' | 'baseline' | 'milestone' | 'summary';
+}
+
+/**
+ * What every dependency-link pointer event carries: the
+ * link's identity — predecessor id, successor id, the normalised type and
+ * the lag in working days (0 when none, read back from
+ * `gantt.dependencies` since it is not drawn on the link itself) — the view
+ * it happened in, and the originating DOM event.
+ */
+export interface GanttLinkPointerContext {
+  /** The predecessor task's id. */
+  from: string;
+  /** The successor task's id. */
+  to: string;
+  /**
+   * The link's type, normalised to `'FS'`/`'SS'`/`'FF'`/`'SF'`. Named
+   * `linkType`, not `type`: every Gantt event payload's `type` is the
+   * EVENT's own name (`'linkClick'`, `'linkHover'`, …), so the link's own
+   * type is carried under a different key to avoid colliding with it.
+   */
+  linkType: string;
+  /** The link's lag in working days; 0 when none. */
+  lag: number;
+  /** The view the gesture happened in. */
+  view: unknown;
+  /** The originating DOM event (pointer or key), or `null` where there is none. */
+  event: unknown;
+}
+
+/** A single click on a dependency link: the payload of `linkClick`. */
+export interface GanttLinkClickEvent extends GanttLinkPointerContext {
+}
+
+/**
+ * A double click on a dependency link, or Enter/Space on a focused one
+ * about to open its type/lag editor: the payload of
+ * `linkDblClick`. `preventDefault()` claims it — on the keyboard route the
+ * editor is not opened at all; on either route the browser's own default
+ * (text selection) is suppressed — the same shape `taskDblClick` already
+ * established.
+ */
+export interface GanttLinkDblClickEvent extends GanttLinkPointerContext, GanttBeforeEvent {
+}
+
+/**
+ * A context-menu request on a dependency link: the
+ * payload of `linkContextMenu`. Neither view draws a menu of its own for a
+ * link, so `preventDefault()` only suppresses the browser's own, freeing a
+ * host to show its own instead.
+ */
+export interface GanttLinkContextMenuEvent extends GanttLinkPointerContext, GanttBeforeEvent {
+}
+
+/**
+ * The pointer entered a dependency link's drawing: the
+ * payload of `linkHover`, once per link — moving between the arrow's path
+ * and its arrowhead is not a re-entry.
+ */
+export interface GanttLinkHoverEvent extends GanttLinkPointerContext {
+}
+
+/**
+ * A tooltip about to be shown for a task: the payload of
+ * `tooltipShow`, raised once per distinct task shown (not on every pointer
+ * frame a view re-resolves the same hovered task's card on).
+ * `preventDefault()` vetoes it — the built-in card is not shown — so a
+ * host's own tooltip replaces it.
+ */
+export interface GanttTooltipShowEvent extends GanttTaskPointerContext, GanttBeforeEvent {
+  /** The tooltip's plain-text content, the same text an `aria-describedby` reader gets. */
+  text: string;
+}
+
+/**
+ * A shown tooltip was hidden: the payload of
+ * `tooltipHide`, raised only when a tooltip was actually showing — hiding
+ * an already-hidden tooltip raises nothing.
+ */
+export interface GanttTooltipHideEvent extends GanttTaskPointerContext {
+}
+
+/**
  * One normalised scheduling conflict: a single problem with
  * the current plan, named in host terms rather than the engine's. It is the
  * shape `gantt.schedulingConflicts` reports and each `schedulingConflict`
@@ -2420,6 +3190,83 @@ export interface GanttWorkloadClickEvent {
 }
 
 /**
+ * The payload of the workload-band cell events: fired on a
+ * click, double-click, context menu, hover or hover-end of a workload-band
+ * bucket cell or a histogram bar. It carries the resource and its display
+ * name, the half-open bucket span, the hours booked and available, the
+ * percent-of-capacity (when a capacity is known), the over-allocation flag,
+ * the unit the band is drawing in, and the tasks that booked there.
+ * `booked`/`available`/`task.hours` are always HOURS — whatever the unit.
+ * A per-task sub-row cell adds the task's `id`/`rawTask`/`task`; an aggregate
+ * resource cell leaves those `null`. None of these fire for the host's own
+ * `setTasks`/`rows.apply` loads.
+ */
+export interface GanttWorkloadCellEvent {
+  /** The resource the cell belongs to, or `null` for the Unassigned row. */
+  resource: string | null;
+  /** The resource's display name, or "Unassigned" for `resource: null`. */
+  resourceName: string;
+  /** The bucket's start, as an ISO date (`YYYY-MM-DD`). */
+  bucketStart: string;
+  /** The bucket's end (exclusive), as an ISO date (`YYYY-MM-DD`). */
+  bucketEnd: string;
+  /** The hours booked in this bucket (0 when empty). */
+  booked: number;
+  /** The resource's available hours in this bucket, or `null` when no capacity is known. */
+  available: number | null;
+  /** The booking as a percentage of capacity, or `null` when no capacity is known. */
+  percent: number | null;
+  /** Whether the booking exceeds the resource's available hours in this bucket. */
+  over: boolean;
+  /** The unit the band is drawing in: `'hours'`, `'percent'` or `'cost'`. */
+  unit: 'hours' | 'percent' | 'cost';
+  /** The tasks that booked in this bucket, with the hours and this assignment's units each contributed. */
+  tasks: Array<{ id: string; name: string; hours: number; units: number | null }>;
+  /** The task this sub-row belongs to, or `null` on an aggregate resource cell. */
+  id: string | null;
+  /** The task as the host supplied it (a shallow copy), or `null` when the cell names no task or the booking is load-only. */
+  rawTask: GanttTask | null;
+  /** The task as the scheduler placed it, or `null` without a schedule or a task. */
+  task: GanttScheduledTask | null;
+  /** The view the cell belongs to. */
+  view: unknown;
+  /** The originating DOM event (pointer, mouse, focus or key), or `null` where there is none. */
+  event: unknown;
+}
+
+/**
+ * A double click on a workload-band cell or histogram bar:
+ * the payload of `workloadCellDblClick`. Two `workloadCellClick` events
+ * precede it (one per click of the pair). `preventDefault()` claims it — the
+ * view runs no default of its own (the inline hours editor) and the
+ * browser's default is prevented — so a host opens its own editor instead.
+ */
+export interface GanttWorkloadCellDblClickEvent extends GanttWorkloadCellEvent, GanttBeforeEvent {}
+
+/**
+ * A context menu on a workload-band cell or histogram bar:
+ * the payload of `workloadCellContextMenu`. `preventDefault()` suppresses the
+ * browser's own menu so a host shows its own.
+ */
+export interface GanttWorkloadCellContextMenuEvent extends GanttWorkloadCellEvent, GanttBeforeEvent {}
+
+/**
+ * A click on a workload-band resource-name cell: the
+ * payload of `workloadResourceClick`, fired for an aggregate resource row
+ * (never a per-task sub-row or the totals row).
+ */
+export interface GanttWorkloadResourceClickEvent {
+  /** The resource, or `null` for the Unassigned row. */
+  resource: string | null;
+  /** The resource's display name, or "Unassigned" for `resource: null`. */
+  resourceName: string;
+  /** The view the cell belongs to. */
+  view: unknown;
+  /** The originating DOM event, or `null` where there is none. */
+  event: unknown;
+}
+
+/**
  * The payload of the `cell:click` event, fired when a cell
  * of the split view's task table is clicked: the task the row belongs to,
  * the column's key, and the cell element that was clicked. The key is the
@@ -2477,8 +3324,8 @@ export interface GanttDrawEvent {
  * The payload of the `zoomChange` event, fired once each
  * time the split view's time scale changes — a host `view.setZoom`/
  * `view.fitZoom` (`cause: 'api'`) or a click on the view's own zoom control
- * (`cause: 'control'`) — carrying the level before and after. A report, not
- * a gate.
+ * (`cause: 'control'`) — carrying the level before and after and the resolved
+ * pixels-per-day. A report, not a gate.
  */
 export interface GanttZoomChangeEvent {
   /** The view whose zoom changed — the `mountSplit` split view. */
@@ -2489,6 +3336,8 @@ export interface GanttZoomChangeEvent {
   to: GanttZoomValue;
   /** What drove the change: a host call (`'api'`), the built-in zoom control (`'control'`), or a future pinch/wheel gesture (`'gesture'`). */
   cause: GanttZoomCause;
+  /** The pixels-per-day the view resolved for the new level, exactly what the repaint drew with. */
+  pxPerDay: number;
 }
 
 /**
@@ -2507,6 +3356,46 @@ export interface GanttVisibleRangeChangeEvent {
   end: string;
   /** The resolved zoom level (`'day'`, `'week'`, `'month'`, `'quarter'`, or `'custom'` for a numeric pixels-per-day). */
   zoom: string;
+}
+
+/**
+ * The payload of the `scroll` event, fired by the split
+ * view at most once per animation frame while its viewport scrolls, with the
+ * offsets read from the settled position. A scroll that settles where it
+ * already was is silent. A report, not a gate.
+ */
+export interface GanttScrollEvent {
+  /** The view whose viewport scrolled — the `mountSplit` split view. */
+  view: unknown;
+  /** The viewport's vertical offset, in content pixels. */
+  top: number;
+  /** The viewport's horizontal offset, in content pixels. */
+  left: number;
+}
+
+/**
+ * The payload of the `viewMount` event, fired once by the
+ * plain `mount` view or the `mountSplit` split view after its first paint. A
+ * report, not a gate.
+ */
+export interface GanttViewMountEvent {
+  /** The view that mounted — the plain `mount` view or the `mountSplit` split view. */
+  view: unknown;
+  /** The view's root element, already attached and painted. */
+  element: unknown;
+}
+
+/**
+ * The payload of the `viewDestroy` event, fired once by a
+ * mounted view as it is torn down — a remount, `unmount()` or `destroy()` —
+ * before its root is removed, so `element` is still readable. A report, not
+ * a gate.
+ */
+export interface GanttViewDestroyEvent {
+  /** The view being torn down — the plain `mount` view or the `mountSplit` split view. */
+  view: unknown;
+  /** The view's root element, still attached at the moment the event fires. */
+  element: unknown;
 }
 
 /**
@@ -2695,6 +3584,17 @@ export interface GanttSplitView {
   /** Expand or collapse a resource's per-task sub-rows in the workload band, and redraw. */
   toggleResource(resource: string): void;
   /**
+   * Collapse or expand one `workload.groupBy` group of the workload band, and redraw. `null` or `''` names the "no group" group.
+   */
+  toggleWorkloadGroup(group: string | null): void;
+  /** The `workload.groupBy` group values currently collapsed. */
+  readonly collapsedWorkloadGroups: string[];
+  /**
+   * Replace the workload band's `external` bookings and redraw,
+   * the live add / update / remove the standalone resource view applies.
+   */
+  setWorkloadBookings(bookings: GanttWorkloadExternal[]): void;
+  /**
    * The unit the workload band (and, when mounted, the histogram band) is
    * currently drawing in.
    */
@@ -2737,6 +3637,17 @@ export interface GanttSplitView {
   getIssuesPanelState(): { open: boolean } | null;
   /** Restore the issues panel's open/collapsed flag from {@link getIssuesPanelState}. */
   setIssuesPanelState(state: { open?: boolean }): void;
+  /**
+   * Each data band's collapsed flag and grid state, by band id, or `null` when no data band is mounted. Round-trips
+   * through the controller's `getState`/`setState` under `dataBands`.
+   */
+  getDataBandState(): Record<string, { collapsed: boolean; table: GridState | null }> | null;
+  /** Restore {@link getDataBandState}'s output and redraw. */
+  setDataBandState(state: Record<string, { collapsed?: boolean; table?: GridState | null }>): void;
+  /** Collapse a data band to its header strip or open it; omit `collapsed` to toggle. Returns whether it is now collapsed. */
+  toggleDataBand(id: string, collapsed?: boolean): boolean;
+  /** A data band as a plain table — left-hand texts then one column per bucket with the raw values — for an Excel/CSV writer; `null` for an unknown id. */
+  getDataBandTable(id: string): { id: string; title: string; columns: Array<{ id: string; title: string }>; rows: Array<Array<string | number | null>> } | null;
   /** The real grids the tables are mounted as; each `null` when that table is not a grid. */
   readonly grids: { tasks: Grid | null; workload: Grid | null; histogram: Grid | null };
   /**
@@ -2883,7 +3794,7 @@ export interface Gantt {
    * among its new siblings are written through the live re-parent path
    * as one undo step, and `rowMove` fires.
    */
-  moveRow(taskId: string | number, target?: { parent?: string | number | null; index?: number; event?: unknown }): GanttSchedule | undefined | Promise<GanttSchedule | undefined>;
+  moveRow(taskId: string | number, target?: { parent?: string | number | null; index?: number; position?: 'before' | 'after' | 'inside'; target?: string | number | null; event?: unknown }): GanttSchedule | undefined | Promise<GanttSchedule | undefined>;
   /**
    * Recompute the schedule now and return it. On success it emits `schedule` and
    * refreshes the resource load; on a cycle or bad input it emits `error` and leaves the
@@ -3107,6 +4018,46 @@ export interface Gantt {
    */
   pasteTasks(target?: { below?: string | number; childOf?: string | number; text?: string }): string[] | null | Promise<string[] | null>;
   /**
+   * Add a task above, below, as a child of, as a successor of or as a
+   * predecessor of another, as one undo step, gated on the vetoable
+   * `beforeTaskAdd`. A successor or predecessor is linked
+   * finish-to-start. Omitted fields default: a catalogue name, a duration of
+   * 1, and the anchor's start (a successor is placed by its link). The new
+   * task is selected. Insert adds below the focused row, Shift+Insert as its
+   * child. An interface-driven call (`event` or `interactive`) on a read-only
+   * anchor is refused for child, successor and predecessor.
+   * @param task the new task's fields (canonical names); omit it for all defaults
+   * @param target where it goes; give one of the five keys, none appends
+   * @returns the new id, `null` on a veto or an unknown anchor, or a Promise of either when a handler deferred
+   */
+  addTask(task?: Partial<GanttTask>, target?: { above?: string | number; below?: string | number; child?: string | number; successorOf?: string | number; predecessorOf?: string | number; event?: unknown; interactive?: boolean }): string | null | Promise<string | null>;
+  /**
+   * Convert a task to a milestone — duration 0, drawn as a diamond — as one
+   * undo step, gated on the vetoable `beforeMilestoneConvert`. A summary is refused (`reason: 'summary'`).
+   * @param id the task id
+   * @param opts `interactive: true` marks a user-driven call, which a read-only task refuses
+   * @returns the recomputed schedule, `undefined` on a veto, or a Promise of either when a handler deferred
+   */
+  convertToMilestone(id: string | number, opts?: { event?: unknown; interactive?: boolean }): GanttSchedule | undefined | Promise<GanttSchedule | undefined>;
+  /**
+   * Convert a milestone back to an ordinary task of `duration` days (default
+   * 1) as one undo step, gated on `beforeMilestoneConvert`.
+   * @param id the task id
+   * @param opts the length it takes, and `interactive: true` for a user-driven call
+   * @returns the recomputed schedule, `undefined` on a veto, or a Promise of either when a handler deferred
+   */
+  convertToTask(id: string | number, opts?: { duration?: number; event?: unknown; interactive?: boolean }): GanttSchedule | undefined | Promise<GanttSchedule | undefined>;
+  /**
+   * Delete one task and every link touching it, as one undo step, gated on
+   * the vetoable `beforeTaskDelete`; the Delete key and the default menu's
+   * "Delete task" call it. A read-only task refuses an interface-driven call
+   * (`event` or `interactive`) with `reason: 'readOnly'`.
+   * @param id the task id
+   * @param opts `event`: the originating DOM event; `interactive: true` marks a user-driven call
+   * @returns the recomputed schedule, `undefined` on a veto, or a Promise of either when a handler deferred
+   */
+  deleteTask(id: string | number, opts?: { event?: unknown; interactive?: boolean }): GanttSchedule | undefined | Promise<GanttSchedule | undefined>;
+  /**
    * Scroll a task's row into view in the mounted split view;
    * the same as `scrollToTask` on the view `mountSplit` returned. A task the
    * task table's filter hides is not revealed: it returns `false` and fires
@@ -3134,6 +4085,15 @@ export interface Gantt {
     showArrows?: boolean;
     showCritical?: boolean;
     showProgress?: boolean;
+    /**
+     * Whether hovering a row or bar highlights that task's whole dependency
+     * chain — itself, every predecessor and every successor — across the rows,
+     * bars and links (default true). `false` turns the highlight off. The
+     * split view's `mountSplit` version also tells the three roles apart with
+     * theme-token colours and names the chain in the hovered bar's accessible
+     * description.
+     */
+    hoverChain?: boolean;
     dateAxis?: boolean;
     /**
      * The today line, as a plan day-number or a calendar date. A date is
@@ -3248,6 +4208,18 @@ export interface Gantt {
     showArrows?: boolean;
     showProgress?: boolean;
     showBaseline?: boolean;
+    /**
+     * Whether hovering a row or bar highlights that task's whole dependency
+     * chain: itself, every predecessor and every successor,
+     * across the left panel's rows, the timeline's bars and the links between
+     * them (default true). The highlight distinguishes the three roles with
+     * theme tokens — the hovered task in the accent colour, predecessors in
+     * the success colour, successors in the info colour — and the hovered
+     * bar's accessible description names the chain (`N predecessors, M
+     * successors`), so the highlight explains itself. `false` turns the
+     * highlight off entirely.
+     */
+    hoverChain?: boolean;
     /**
      * Whether to mark the zero-float critical path: critical
      * bars and links drawn in the critical colour. Default true; `false` marks
@@ -3444,6 +4416,14 @@ export interface Gantt {
       hoursPerDay?: number;
       /** The band’s height in pixels, taken from the view’s own `height`; default 160. */
       height?: number;
+      /**
+       * The band's maximum height in pixels: the band sizes
+       * to its rows (the header, one row per resource and sub-row, and the
+       * totals row) and caps at this many pixels, scrolling on its own past
+       * it instead of squeezing the plan — which always keeps at least half
+       * the view. Omitted, the band keeps its fixed `height`.
+       */
+      maxHeight?: number;
       /** A band row’s height in pixels; default 28. */
       rowHeight?: number;
       /** Maximum decimal places in a cell, trailing zeros dropped; default 1. */
@@ -3485,6 +4465,13 @@ export interface Gantt {
       /** Draw the Unassigned row (default true); `false` hides it. */
       showUnassigned?: boolean;
       /**
+       * Group the resource rows by a resource field (e.g. `'department'`) or
+       * a function of the resource spec: one collapsible
+       * header row per group, carrying the group's summed load and available
+       * hours, with that group's resources beneath it. Unset, no grouping.
+       */
+      groupBy?: string | ((resource: Record<string, unknown>) => unknown);
+      /**
        * Load-only bookings from other projects: hours
        * that count in this band, the histogram and the band’s own
        * over-allocation highlight, and are listed as "other project"
@@ -3503,6 +4490,14 @@ export interface Gantt {
        * carried as a title.
        */
       labelWidth?: number;
+      /**
+       * The hover/focus tooltip on a bucket cell: `false`
+       * hides it, and a function supplies the host's own content, receiving
+       * the cell payload ({@link GanttWorkloadCellEvent}) and returning a
+       * `string`, a DOM node, or `null` to show nothing. Omitted, the
+       * built-in card lists the contributing tasks.
+       */
+      tooltip?: boolean | ((payload: GanttWorkloadCellEvent) => string | Node | null | undefined);
     };
     /**
      * A resource histogram band beneath the split view, below the workload
@@ -3541,6 +4536,13 @@ export interface Gantt {
       stacked?: 'task' | false;
       /** The band’s total height in pixels; default 160. */
       height?: number;
+      /**
+       * The band's maximum height in pixels, exactly as the
+       * workload band's `maxHeight`: the band sizes to its rows and caps at
+       * this many pixels, scrolling on its own past it instead of squeezing
+       * the plan. Omitted, the band keeps its fixed `height`.
+       */
+      maxHeight?: number;
       /** A band row’s height in pixels; default 48. */
       rowHeight?: number;
       /**
@@ -3567,6 +4569,13 @@ export interface Gantt {
      * each one undo step. `false` (the default) draws no panel.
      */
     issuesPanel?: boolean;
+    /**
+     * Linked data bands under the gantt and the resource bands: each a measure per task (or summary, resource or
+     * host group) per timeline bucket, with totals, formats, thresholds,
+     * optional editing and a series that follows its task when it moves.
+     * See {@link GanttDataBand}.
+     */
+    dataBands?: GanttDataBand[];
   }): GanttSplitView;
   /**
    * Capture a baseline (planned) snapshot of the current schedule as HOST data

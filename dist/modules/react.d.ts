@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.90.0, react module type declarations
+ * Lattice Grid 1.91.0, react module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -22,6 +22,10 @@ import type {
 // re-export below is the pure function itself, and needs no help from a
 // second copy of its types.
 import type { MuiTheme as PresetsMuiTheme, MuiThemeResult as PresetsMuiThemeResult } from './presets.js';
+import type {
+  Designer, DesignerModeEvent, DesignerOptions, DesignerPageEvent,
+  DesignerSelectEvent, DesignerStateEvent,
+} from './designer.js';
 
 /**
  * The handler prop name one event maps to, as a type: `'cell:changed'`
@@ -350,6 +354,7 @@ export function createLatticeReact(deps: {
   createGantt?: (opts: Record<string, unknown>) => unknown;
   createLayout?: (el: unknown, config: Record<string, unknown>) => unknown;
   createTabs?: (el: unknown, config: Record<string, unknown>) => unknown;
+  createDesigner?: (el: unknown, config: Record<string, unknown>) => unknown;
   createDataRouter?: (opts: Record<string, unknown>) => unknown;
 }): Record<string, unknown>;
 
@@ -681,4 +686,77 @@ export function createViewerController(opts: {
 };
 /** The name a grid publishes itself under when the host does not choose one. */
 export const DEFAULT_GRID_NAME: string;
+
+/** The designer's React props. */
+export type LatticeDesignerProps = Record<string, unknown> & {
+  /** The mode it opens in; `'view'` by default. A live input. */
+  mode?: DesignerOptions['mode'];
+  /** The state it opens with; a live, controlled input applied by identity. */
+  state?: DesignerOptions['state'];
+  /** The named sources every page's panels may read, by id. A live input. */
+  sources?: DesignerOptions['sources'];
+  /** The relationships between sources' fields; taken only at mount. */
+  relationships?: DesignerOptions['relationships'];
+  /** The guardrails limiting what an author may use. A live input. */
+  guardrails?: DesignerOptions['guardrails'];
+  /** The factories the palette and chart editors read; taken only at mount. */
+  factories?: DesignerOptions['factories'];
+  /** The host's model callback for the AI assistant; taken only at mount. */
+  llm?: DesignerOptions['llm'];
+  /** A committed change: `{ state, cause, type }`. */
+  onStateChange?: (payload: DesignerStateEvent) => void;
+  /** The mode changed. */
+  onMode?: (payload: DesignerModeEvent) => void;
+  /** A page became selected. */
+  onPage?: (payload: DesignerPageEvent) => void;
+  /** A canvas selection changed. */
+  onSelect?: (payload: DesignerSelectEvent) => void;
+  /** Applied to the host element rather than to the designer. */
+  className?: string;
+  /** Applied to the host element rather than to the designer. */
+  style?: Record<string, unknown>;
+  /** Applied to the host element rather than to the designer. */
+  id?: string;
+};
+
+/** The live designer a `<LatticeDesigner>` ref exposes; `null` before mount. */
+export interface LatticeDesignerHandle {
+  /** The live designer the component built, or null before mount and after destroy. */
+  readonly instance: Designer | null;
+  /** The same designer, under its own name. */
+  readonly designer: Designer | null;
+}
+
+/**
+ * The designer as a React component.
+ *
+ * `state` is controlled: a new `state` prop (by identity) is pushed in with
+ * `setState`, and every committed change comes back out through
+ * `onStateChange` as a copy — echo it or not, the host decides. The component
+ * is safe to import on the server and mounts once under StrictMode.
+ */
+export function createLatticeDesigner(deps: {
+  React: unknown;
+  createDesigner: (el: unknown, config: Record<string, unknown>) => unknown;
+}): (props: LatticeDesignerProps & { ref?: unknown }) => unknown;
+
+/** Every event the designer emits, in declaration order. */
+export const DESIGNER_EVENTS: readonly string[];
+/** `state` → `onStateChange`; the other designer events follow `on` + name. */
+export function designerHandlerName(event: string): string;
+/**
+ * The framework-free designer lifecycle every adapter drives an instance
+ * through: mount once, push changed props (state/mode by identity), destroy.
+ */
+export function createDesignerController(opts: {
+  createDesigner: (el: unknown, config: Record<string, unknown>) => unknown;
+  element: unknown;
+  props?: Record<string, unknown>;
+  name?: string;
+}): {
+  instance: unknown;
+  update: (next: Record<string, unknown>) => void;
+  destroy: () => void;
+};
+
 export default createLatticeGrid;

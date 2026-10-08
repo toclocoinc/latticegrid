@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.90.0, type declarations
+ * Lattice Grid 1.91.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1946,6 +1946,21 @@ export interface ColumnHeaderSpec {
    * heading.
    */
   align?: Align;
+  /**
+   * Let the heading's title wrap onto further lines instead of being clipped
+   * to one. A newline in the title is honoured as a line
+   * break, long titles fold within the column's width, and the header row
+   * grows to the tallest wrapped title. Off by default.
+   */
+  wrap?: boolean;
+  /**
+   * Draw the heading's title vertically, reading bottom-to-top, for the many
+   * narrow columns of a RACI-style matrix. The title is
+   * rotated with `writing-mode`, the header row grows to the longest vertical
+   * title, and the sort, filter and menu controls stay reachable beneath it.
+   * Off by default (`'horizontal'`).
+   */
+  orientation?: 'horizontal' | 'vertical';
 }
 
 /**
@@ -4280,8 +4295,10 @@ export interface GridConfig {
    *
    * Off by default, and strictly opt-in: an existing grid must look exactly the
    * same on upgrade. When `true`, every other data row takes the theme's
-   * `--lattice-surface-alt` background, which every palette already defines, so
-   * dark, high-contrast and terminal stripe correctly without extra work.
+   * `--lattice-row-stripe` background — a token dedicated to the stripe, kept
+   * separate from `--lattice-surface-alt` so the two can be tuned independently
+   * — which every palette already defines, so dark, high-contrast and terminal
+   * stripe correctly without extra work.
    *
    * Parity follows the row's *logical* index, not its position in the DOM, so a
    * row keeps its stripe across a scroll even though the rows are recycled.
@@ -5365,6 +5382,16 @@ export interface ColumnState {
   flex?: number;
   /** Whether the column was hidden. */
   hidden?: boolean;
+  /**
+   * Whether the column's heading wraps its title onto further lines, present only when set on the column so the default
+   * stays configurable.
+   */
+  headerWrap?: boolean;
+  /**
+   * Whether the column's heading is drawn vertically, reading bottom-to-top, present only when set on the column so the default
+   * stays configurable.
+   */
+  headerOrientation?: 'horizontal' | 'vertical';
   /**
    * Which edge the column was frozen against, or `null` when it was in the
    * scrolling body.
@@ -13198,7 +13225,7 @@ export type ChartExtensionType =
   | 'forceTree' | 'hexbin' | 'hexmap' | 'icicle' | 'markermap' | 'motion'
   | 'nightingale' | 'pack' | 'parallel' | 'pictorial' | 'polarArea'
   | 'polarScatter' | 'pyramid' | 'radialBar' | 'ridgeline' | 'roc' | 'rose'
-  | 'serpentine' | 'slope' | 'spiral' | 'splom' | 'tree' | 'venn' | 'voronoiTreemap' | 'waffle'
+  | 'serpentine' | 'slope' | 'spiral' | 'splom' | 'scatter3d' | 'tree' | 'venn' | 'voronoiTreemap' | 'waffle'
   | 'wordCloud';
 
 /**
@@ -13432,7 +13459,30 @@ export interface ChartMeasure {
    * own `title`, then to `col`, when neither is set.
    */
   title?: string;
+  /**
+   * Accumulate this measure along the x order instead of drawing its own
+   * reduction on its own: the Nth category's drawn value is
+   * the sum of the first N. Restarts at the first category of every series a
+   * combo draws, so a running total in one measure never leaks into another's.
+   * Runs over the engine's own grouped answer when the chart is pushed down,
+   * never over a page of the source's raw rows. Default false.
+   */
+  cumulative?: boolean;
 }
+
+/**
+ * The object form of {@link ChartSpec.y}: a single measure column with its own
+ * reduction and whether it runs as a running total —
+ * the single-measure equivalent of {@link ChartMeasure.cumulative}.
+ */
+export type ChartYMeasure = {
+  /** The column reduced. */
+  col: string;
+  /** A reduction name, as the totals row uses; the column's own default when unset. */
+  fn?: TotalName;
+  /** Accumulate along the x order. See {@link ChartMeasure.cumulative}. Default false. */
+  cumulative?: boolean;
+};
 
 /** How a chart axis's scale is chosen, rather than taken from the column's type. */
 export type ChartScale = 'auto' | 'linear' | 'time' | 'band' | 'category';
@@ -14277,14 +14327,19 @@ export interface ChartSpec {
    * `registerChartType` name is also accepted as a plain string.
    */
   type: ChartType | ChartExtensionType | (string & {});
-  /** The category column. */
-  x?: string;
+  /**
+   * The category column. On the hierarchical types (pie, donut, sunburst,
+   * treemap) an array of column names — or `{ field }` / `{ col }` objects —
+   * names the hierarchy's levels top down.
+   */
+  x?: string | Array<string | { field?: string; col?: string }>;
   /**
    * The measure column, for the types that take one. On a `floatingBar` or
    * `horizontalFloatingBar` it is the low/high pair of columns the bar spans
-   * between: `[lowCol, highCol]`.
+   * between: `[lowCol, highCol]`. The object form names its
+   * own reduction and, on `bar`, `line`, `area` and the measures of a `combo`, whether it runs as a running total.
    */
-  y?: string | [string, string];
+  y?: string | [string, string] | ChartYMeasure;
   /** Splits the measure into one series per distinct value. */
   series?: string;
   /**

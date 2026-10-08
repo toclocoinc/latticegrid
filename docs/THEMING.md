@@ -82,7 +82,8 @@ Legend: **MUST** — a preset claiming to match a design system sets this or the
 | `--lattice-accent-contrast` | `#ffffff` | `#06101b` | `#000000` | `#06120a` | text drawn on the accent colour | MUST |
 | `--lattice-background` | `#ffffff` | `#14181c` | `#000000` | `#06120a` | body background | MUST |
 | `--lattice-surface` | `#f7f8f9` | `#1b2026` | `#000000` | `#06120a` | header, totals row, status bar background | MUST |
-| `--lattice-surface-alt` | `#fbfcfc` | `#171c21` | `#0d0d0d` | `#0a1a0f` | striped/alternate row background | MAY |
+| `--lattice-surface-alt` | `#fbfcfc` | `#171c21` | `#0d0d0d` | `#0a1a0f` | alternate surface: detail, group and full-width row fills | MAY |
+| `--lattice-row-stripe` | `#fbfcfc` | `#171c21` | `#0d0d0d` | `#0a1a0f` | zebra stripe on alternate data rows | MAY |
 | `--lattice-foreground` | `#1c2126` | `#e4e9ee` | `#ffffff` | `#7dfca4` | body text colour | MUST |
 | `--lattice-foreground-muted` | `#5b6670` | `#99a4ae` | `#c8c8c8` | `#3f9e5c` | secondary text: counts, placeholders | MAY |
 | `--lattice-border-color` | `#dfe3e6` | `#2a3138` | `#8a8a8a` | `#173a24` | the grid’s hairline borders | MUST |
@@ -543,6 +544,7 @@ The two fenced blocks below are what `test/theming-contract-doc.test.js` diffs a
 --lattice-redaction-filter
 --lattice-reverted-background
 --lattice-row-height
+--lattice-row-stripe
 --lattice-rowform-width
 --lattice-scale
 --lattice-scrollbar-radius

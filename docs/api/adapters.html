@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Adapters API Reference — Lattice Grid 1.90.0</title>
+<title>Adapters API Reference — Lattice Grid 1.91.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -398,6 +398,7 @@
         <a href="#dhtmlx-compat">dhtmlx Grid compatibility wrapper</a>
         <a href="#declarative-init">Declarative init, hydration &amp; state</a>
         <a href="#htmx-integration">htmx integration</a>
+        <a class="rail__sub-link" href="#gantt-hx-vals">Declaring a Gantt, and posting its changes</a>
         <a href="#ref-adapters-reference">Type reference</a>
         <a class="rail__sub-link" href="#type-LatticeViewerCommonProps">LatticeViewerCommonProps</a>
         <a class="rail__sub-link" href="#type-LatticeDataGridApi">LatticeDataGridApi</a>
@@ -552,6 +553,7 @@
           <tr><td class="name">createLatticeGantt</td><td class="sig">({ React, createGantt })</td><td class="desc">The Gantt. <code>tasks</code> and <code>dependencies</code> are live props.</td></tr>
           <tr><td class="name">createLatticeLayout</td><td class="sig">({ React, createLayout })</td><td class="desc">The layout. Windows are driven through the ref; its events arrive as <code>onLayoutChanged</code>, <code>onWindowMoved</code> and the rest.</td></tr>
           <tr><td class="name">createLatticeTabs</td><td class="sig">({ React, ReactDOM, createTabs, createGrid? })</td><td class="desc">The tab strip, with <strong>React-rendered tab content</strong>: a tab's <code>content</code> is a React element (or a function returning one) rendered into the strip's own panel through <code>createPortal</code>, so a tab's grid is a real <code>&lt;LatticeGrid&gt;</code> with props, a ref and the surrounding context. A tab with no <code>content</code> is left to the module, so the two kinds mix on one strip.</td></tr>
+          <tr><td class="name">createLatticeDesigner</td><td class="sig">({ React, createDesigner })</td><td class="desc">The designer. <code>mode</code>, <code>state</code>, <code>sources</code> and <code>guardrails</code> are live; <code>relationships</code>, <code>factories</code> and <code>llm</code> are mount-time &mdash; change the component's <code>key</code> to apply one. <code>state</code> is controlled when the host passes it: a new state (by identity) is pushed in with <code>setState</code>, and designer changes arrive through <code>onStateChange</code> as a copy, never as a write to the prop. The ref is the live <code>Designer</code> handle.</td></tr>
           <tr><td class="name">createLatticeGridContext</td><td class="sig">({ React })</td><td class="desc">Returns <code>{ LatticeGridProvider, useLatticeGrid }</code>. A grid-bound viewer needs the grid <em>instance</em>, which appears after the first render; a ref cannot help because writing to a ref re-renders nobody. Several grids may publish under one provider &mdash; <code>name</code> on the grid, <code>gridName</code> on the viewer.</td></tr>
           <tr><td class="name">createLatticeRouter</td><td class="sig">({ React, createDataRouter })</td><td class="desc">Returns <code>{ useLatticeRouter, LatticeRouterProvider, useRouter }</code>. The hook creates the router in an effect and destroys it in that effect's cleanup, so it returns <code>null</code> on the first render; the config is read once, because rebuilding would drop every attached grid and every row held.</td></tr>
           <tr><td class="name">createLatticeViewer</td><td class="sig">({ React, viewer, mount, … })</td><td class="desc">The generic behind all of the above, and the escape hatch for a viewer with no named factory yet.</td></tr>
@@ -560,6 +562,9 @@
           <tr><td class="name">VIEWER_EVENTS</td><td class="type">Record&lt;string, readonly string[]&gt;</td><td class="desc">Every event each non-grid viewer emits, keyed by viewer name.</td></tr>
           <tr><td class="name">VIEWER_APPLY</td><td class="type">Record&lt;string, Record&lt;string, Function&gt;&gt;</td><td class="desc">Which props each viewer can take <em>live</em>, and the instance call each becomes. Anything not listed is mount-time configuration.</td></tr>
           <tr><td class="name">viewerHandlerName</td><td class="type">(event) =&gt; string</td><td class="desc">A viewer event as its React prop: <code>card:move</code> becomes <code>onCardMove</code>.</td></tr>
+          <tr><td class="name">createDesignerController</td><td class="sig">({ createDesigner, element, props })</td><td class="desc">The framework-free designer lifecycle &mdash; mount once, push changed props into the live instance, destroy &mdash; shared by every adapter, with the controlled-<code>state</code> identity guard.</td></tr>
+          <tr><td class="name">DESIGNER_EVENTS</td><td class="type">readonly string[]</td><td class="desc">Every event the designer emits: <code>state</code>, <code>mode</code>, <code>page</code>, <code>select</code>.</td></tr>
+          <tr><td class="name">designerHandlerName</td><td class="type">(event) =&gt; string</td><td class="desc">A designer event as its callback prop: <code>state</code> becomes <code>onStateChange</code>, the rest <code>onMode</code>, <code>onPage</code>, <code>onSelect</code>.</td></tr>
           <tr><td class="name">DEFAULT_GRID_NAME</td><td class="type">string</td><td class="desc">The name a grid publishes itself under when you do not choose one: <code>default</code>.</td></tr>
         </tbody>
       </table>
@@ -611,6 +616,44 @@ controller.destroy();
 <span class="kw">return</span> `${components.length} components, ${A.viewerHandlerName('card:move')}, `
   + `${A.DEFAULT_GRID_NAME}, rows ${seen.join('/')}, `
   + `events ${A.VIEWER_EVENTS.kpi.length}/${Object.keys(A.VIEWER_APPLY).length}`;</code></pre>
+
+    <p>
+      <strong>The designer is not a viewer.</strong> It has no grid, so instead of
+      <code>createLatticeViewer</code> each framework wraps it directly &mdash;
+      <code>createLatticeDesigner({ React, createDesigner })</code> in React, the same in Vue,
+      and <code>bindDesigner</code> under <code>Designer.svelte</code> in Svelte. One
+      framework-free <code>createDesignerController</code> owns the lifecycle every adapter drives:
+      mount once, push changed props into the live instance, destroy. Its <code>state</code> prop is
+      <em>controlled</em> when the host passes it &mdash; a new state by identity is applied, and a
+      designer change comes back out as a copy through <code>onStateChange</code>, so echoing it
+      never loops.
+    </p>
+    <pre data-run="js" data-expect="state,mode,page,select, onStateChange, LatticeDesigner, state destroy destroy" data-covers="export:createDesignerController export:DESIGNER_EVENTS export:designerHandlerName export:createLatticeDesigner export:bindDesigner"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/react/index.js');
+<span class="kw">const</span> S = <span class="kw">await</span> import('../packages/modules/svelte/index.js');
+<span class="kw">const</span> D = <span class="kw">await</span> import('../packages/modules/shared/designer.js');
+
+<span class="cmt">// A stand-in for React; the adapter never imports it.</span>
+<span class="kw">const</span> React = { createElement: () =&gt; ({}), forwardRef: (f) =&gt; f, useRef: (v) =&gt; ({ current: v }), useEffect: () =&gt; {}, useImperativeHandle: () =&gt; {} };
+<span class="kw">const</span> calls = [];
+<span class="kw">const</span> designer = () =&gt; ({
+  on: () =&gt; () =&gt; {}, setState: () =&gt; calls.push('state'), setMode: () =&gt; calls.push('mode'),
+  setSources: () =&gt; calls.push('sources'), setGuardrails: () =&gt; calls.push('guardrails'),
+  destroy() { calls.push('destroy'); },
+});
+
+<span class="cmt">// The one framework-free controller: mount, apply a new state, destroy.</span>
+<span class="kw">const</span> c = D.createDesignerController({ createDesigner: designer, element: {}, props: { state: { pages: [] } } });
+c.update({ state: { pages: [{ id: 'a' }] } });
+c.destroy();
+
+<span class="cmt">// React's (and Vue's) component, and Svelte's binding helper, both build over</span>
+<span class="cmt">// the injected factory rather than importing the designer module.</span>
+<span class="kw">const</span> LatticeDesigner = A.createLatticeDesigner({ React, createDesigner: designer });
+<span class="kw">const</span> binding = S.bindDesigner({ createDesigner: designer, element: {} });
+binding.sync({ state: { pages: [] } });
+binding.destroy();
+
+<span class="kw">return</span> `${D.DESIGNER_EVENTS.join(',')}, ${D.designerHandlerName('state')}, ${LatticeDesigner.displayName}, ${calls.join(' ')}`;</code></pre>
 
     <p class="section-note">
       <strong>Live props versus mount-time props.</strong> The grid takes any changed configuration
@@ -942,6 +985,7 @@ L.provideLatticeRouter(ROUTER_CONFIG);
           <tr><td class="name">createLatticeGantt</td><td class="sig">({ vue, createGantt })</td><td class="desc">The Gantt. <code>tasks</code> and <code>dependencies</code> are live props.</td></tr>
           <tr><td class="name">createLatticeLayout</td><td class="sig">({ vue, createLayout })</td><td class="desc">The layout. Windows are driven through the exposed instance; its events arrive as <code>@layout-changed</code>, <code>@window-moved</code> and the rest.</td></tr>
           <tr><td class="name">createLatticeTabs</td><td class="sig">({ vue, createTabs, createGrid? })</td><td class="desc">The tab strip, with <strong>Vue-rendered tab content</strong>: a tab's content is a <strong>named slot</strong> &mdash; <code>&lt;template #overview&gt;</code> for a tab with <code>id: 'overview'</code>, or <code>&lt;template #tab-overview&gt;</code> &mdash; rendered into the strip's own panel through a <code>&lt;Teleport&gt;</code>, so a tab's grid is a real <code>LatticeGrid</code> with props, a ref and the surrounding <code>provide</code>s. A tab with no slot is left to the module, so the two kinds mix on one strip.</td></tr>
+          <tr><td class="name">createLatticeDesigner</td><td class="sig">({ vue, createDesigner })</td><td class="desc">The designer. <code>mode</code>, <code>state</code>, <code>sources</code> and <code>guardrails</code> are live; <code>relationships</code>, <code>factories</code> and <code>llm</code> are mount-time &mdash; change the component's <code>key</code> to apply one. <code>state</code> is controlled when bound: a new state (by identity) is pushed in, and designer changes are emitted as <code>@state</code>, <code>@mode</code>, <code>@page</code> and <code>@select</code>, never as a write to the prop. The template ref is the live <code>Designer</code> handle.</td></tr>
           <tr><td class="name">createLatticeGridContext</td><td class="sig">({ vue })</td><td class="desc">Returns <code>{ LatticeGridProvider, provideLatticeGrids, useLatticeGrid }</code>. A grid-bound viewer needs the grid <em>instance</em>, which appears after the first render; a template ref cannot help, because assigning to one re-renders nobody. Call <code>provideLatticeGrids()</code> in a parent's <code>setup</code>, or wrap the subtree in <code>&lt;LatticeGridProvider&gt;</code>. Several grids may publish under one registry &mdash; <code>name</code> on the grid, <code>grid-name</code> on the viewer.</td></tr>
           <tr><td class="name">createLatticeRouter</td><td class="sig">({ vue, createDataRouter })</td><td class="desc">Returns <code>{ provideLatticeRouter, useLatticeRouter, LatticeRouterProvider }</code>. <code>provideLatticeRouter(config)</code> is called in a component's <code>setup</code>: the router is built by the first grid under it that names a <code>route</code>, and destroyed when that component's scope is. The config is read once, because rebuilding would drop every attached grid and every row held.</td></tr>
           <tr><td class="name">createLatticeViewer</td><td class="sig">({ vue, viewer, mount, … })</td><td class="desc">The generic behind all of the above, and the escape hatch for a viewer with no named factory yet.</td></tr>
@@ -1124,6 +1168,7 @@ controller.destroy();
           <tr><td class="name">KPI, Chart, Kanban, Gantt, Layout</td><td class="sig">…/<wbr>svelte/<wbr>KPI.svelte, …</td><td class="desc">One viewer each, built once and updated in place. A grid-bound viewer waits for its grid rather than mounting empty, and a <em>different</em> grid rebuilds it. <code>bind:this</code> plus <code>instance()</code> hands you the live viewer.</td></tr>
           <tr><td class="name">Tabs.svelte</td><td class="sig">…/<wbr>svelte/<wbr>Tabs.svelte</td><td class="desc">The tab strip, with Svelte-rendered panels: a tab's content is a <code>{#snippet}</code> named after the tab's id, so a tab's grid is a real component with props, context and a reference. A tab with no snippet is left to the module, so configuration-driven tabs still work and the two kinds mix.</td></tr>
           <tr><td class="name">Router.svelte</td><td class="sig">…/<wbr>svelte/<wbr>Router.svelte</td><td class="desc">A Data Router in context, built by the first grid that names a <code>route</code> and destroyed with the component.</td></tr>
+          <tr><td class="name">Designer.svelte</td><td class="sig">…/<wbr>svelte/<wbr>Designer.svelte</td><td class="desc">The designer. <code>mode</code>, <code>state</code>, <code>sources</code> and <code>guardrails</code> are live; <code>relationships</code>, <code>factories</code> and <code>llm</code> are mount-time. <code>state</code> is controlled when passed. <code>bind:this</code> plus <code>instance()</code> hands you the live <code>Designer</code>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1139,6 +1184,8 @@ controller.destroy();
         <tbody>
           <tr><td class="name">bindGrid</td><td class="sig">({ createGrid, element, props, registry, router })</td><td class="desc">Owns one grid: builds it once, diffs props into it through <code>setAll</code>, registers <code>predicates</code> before it publishes, applies each new <code>rowUpdates</code> object through <code>rows.apply()</code>, attaches it to the router, and on <code>destroy</code> detaches and withdraws before destroying.</td></tr>
           <tr><td class="name">bindViewer</td><td class="sig">({ viewer, factory, element, registry })</td><td class="desc">Owns one KPI panel, chart, board, plan or layout. <code>sync(props)</code> builds it once everything it needs has arrived, pushes changed props into the live instance, and rebuilds it only when it is bound to a <em>different</em> grid.</td></tr>
+          <tr><td class="name">bindDesigner</td><td class="sig">({ createDesigner, element })</td><td class="desc">Owns one designer. <code>sync(props)</code> builds it once, then pushes changed props into the live instance; <code>destroy()</code> tears it down. Built over <code>createDesignerController</code>, the same lifecycle the other adapters drive.</td></tr>
+          <tr><td class="name">createDesignerController<br>DESIGNER_EVENTS<br>designerHandlerName</td><td class="sig">shared with React and Vue</td><td class="desc">The framework-free designer lifecycle, the four designer events, and the event-to-prop name mapping &mdash; re-exported here so a Svelte host can build its own component on the same footing.</td></tr>
           <tr><td class="name">bindTabs</td><td class="sig">({ createTabs, element, createGrid, onPanels })</td><td class="desc">Owns one tab strip and claims a panel for each tab the host rendered content for. <code>place(id, holder)</code> moves that tab's <code>display: contents</code> holder into the panel — Svelte has no portal, and moving one container is what keeps the subtree a genuine child of the component that declared it.</td></tr>
           <tr><td class="name">createGridRegistry</td><td class="sig">()</td><td class="desc">The registry <code>GridProvider.svelte</code> puts in context: <code>publish</code>, <code>get</code>, <code>names</code> and a <code>subscribe</code> a component turns into its own reactivity.</td></tr>
           <tr><td class="name">createRouterHandle</td><td class="sig">({ createDataRouter, config })</td><td class="desc">A Data Router built on the first grid that asks to be routed and destroyed with the component that provided it. <code>config</code> may be a function, read at build time.</td></tr>
@@ -1298,6 +1345,7 @@ bootstrapApplication(Dashboard, {
           <tr><td class="name">LatticeCalendarComponent</td><td class="sig">&lt;lattice-calendar&gt;</td><td class="desc">The calendar. <code>[rows]</code>, <code>[view]</code> and <code>[date]</code> are live inputs; grid-bound through the registry by default. The reschedule events arrive as <code>(beforeMove)</code> (cancel with <code>preventDefault(reason?)</code>) and <code>(card-move)</code>; call <code>move(key, to)</code> on the component.</td></tr>
           <tr><td class="name">LatticeGanttComponent</td><td class="sig">&lt;lattice-gantt&gt;</td><td class="desc">The plan. <code>[tasks]</code> and <code>[dependencies]</code> are live inputs. It takes an explicit <code>[grid]</code> but never adopts a published one.</td></tr>
           <tr><td class="name">LatticeLayoutComponent</td><td class="sig">&lt;lattice-layout&gt;</td><td class="desc">The dashboard layout. Windows are driven through the instance; its events arrive as <code>(layout-changed)</code>, <code>(window-moved)</code> and the rest.</td></tr>
+          <tr><td class="name">LatticeDesignerComponent</td><td class="sig">&lt;lattice-designer&gt;</td><td class="desc">The designer. <code>[mode]</code>, <code>[state]</code>, <code>[sources]</code> and <code>[guardrails]</code> are live inputs; <code>[relationships]</code>, <code>[factories]</code> and <code>[llm]</code> are mount-time. <code>[state]</code> is controlled when bound. The events are <code>(stateChange)</code>, <code>(modeChange)</code>, <code>(pageChange)</code> and <code>(selectChange)</code>; <code>(ready)</code> hands you the live <code>Designer</code>.</td></tr>
           <tr><td class="name">LatticeTabsComponent<br>LatticeTabDirective</td><td class="sig">&lt;lattice-tabs&gt;<br>ng-template[latticeTab]</td><td class="desc">The tab strip, with <strong>Angular-rendered tab content</strong>: a tab's content is an <code>&lt;ng-template latticeTab="id"&gt;</code> in your own template, rendered into the strip's panel through this component's <code>ViewContainerRef</code> &mdash; so a tab's grid is a real <code>&lt;lattice-grid&gt;</code> with inputs, a reference and your injectors above it. A tab with no template is left to the module, so configuration-driven grid tabs still work and the two kinds mix on one strip.</td></tr>
           <tr><td class="name">LatticeGridRegistry</td><td class="sig">inject(LatticeGridRegistry)</td><td class="desc">Where <code>&lt;lattice-grid name="…"&gt;</code> publishes itself and grid-bound viewers find it, as a signal per name &mdash; a panel declared before its grid exists mounts itself the moment the grid arrives. <code>providedIn: 'root'</code>; put it in a component's own <code>providers</code> to scope a registry to that subtree.</td></tr>
           <tr><td class="name">provideLattice</td><td class="sig">provideLattice({ …factories })</td><td class="desc">The factories the components build through. Give it the ones your application uses; a component whose factory is missing names the import and the provider call that fixes it.</td></tr>
@@ -1719,7 +1767,7 @@ grid.data.serialize(); <span class="cmt">// every row's data, in source order</s
       </table>
     </div>
     <h2 id="htmx-integration">htmx integration</h2>
-    <p class="section-note">One file. <code>modules/htmx</code> re-exports <code>createGrid</code>, <code>autoInit</code>, <code>hydrateTable</code>, <code>readTable</code>, <code>serialiseState</code> and <code>restoreState</code> alongside its own exports below, so a page using htmx integration never also loads the base bundle: that would mean two independent copies of the whole engine on one page. Registers on import: builds grids from <code>[data-lattice-grid]</code> elements or server-rendered <code>&lt;table&gt;</code>s, tears them down before htmx detaches a swapped-out subtree, and rebuilds them in newly-loaded content. <code>driveServerMode</code>/<code>driveInfiniteScroll</code> drive sort, filter and infinite scroll over plain htmx requests; <code>driveOobUpdates</code> applies out-of-band row updates in place. See <a href="../api-detail.html#htmx-guide">the guide</a> for the full request-lifecycle wiring and why infinite scroll uses two triggers.</p>
+    <p class="section-note">One file. <code>modules/htmx</code> re-exports <code>createGrid</code>, <code>autoInit</code>, <code>hydrateTable</code>, <code>readTable</code>, <code>serialiseState</code> and <code>restoreState</code> alongside its own exports below, so a page using htmx integration never also loads the base bundle: that would mean two independent copies of the whole engine on one page. Registers on import: builds grids from <code>[data-lattice-grid]</code> elements or server-rendered <code>&lt;table&gt;</code>s, calendars from <code>[data-lattice-calendar]</code>, Gantts from <code>[data-lattice-gantt]</code>, tears them down before htmx detaches a swapped-out subtree, and rebuilds them in newly-loaded content. <code>driveServerMode</code>/<code>driveInfiniteScroll</code> drive sort, filter and infinite scroll over plain htmx requests; <code>driveOobUpdates</code> applies out-of-band row updates in place. See <a href="../api-detail.html#htmx-guide">the guide</a> for the full request-lifecycle wiring and why infinite scroll uses two triggers.</p>
 
     <pre><code><span class="kw">import</span> { autoInit, driveServerMode, driveInfiniteScroll } <span class="kw">from</span> './dist/modules/htmx.esm.min.js';
 
@@ -1733,10 +1781,30 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="sig">driveServerMode(grid, trigger, opts?)</td><td class="desc">A sort or filter change fires a request on <code>trigger</code> carrying <code>offset</code>/<code>limit</code>/<code>sort</code>/<code>filters</code>; the response replaces the grid's rows. <code>opts.columns</code> for the HTML-fragment ingest path.</td></tr>
           <tr><td class="sig">driveInfiniteScroll(grid, sentinel, opts?)</td><td class="desc">Appends rows as the grid's own visible window nears the end of what's loaded. <code>sentinel</code>'s own <code>hx-trigger</code> names <code>revealed, lattice:scroll-near-end</code>, the first fires the initial chunk, the second every chunk after. <code>opts.threshold</code> (default 20) sets how many rows from the end counts as near.</td></tr>
           <tr><td class="sig">driveOobUpdates(grid, opts?)</td><td class="desc">Applies an out-of-band swap landing on <code>[data-lattice-row="&lt;key&gt;"]</code> to that row, in place: scroll, selection and filter state untouched.</td></tr>
-          <tr><td class="sig">Browser history</td><td class="desc"><code>serialiseState</code>/<code>restoreState</code> above, wired automatically to <code>htmx:beforeHistorySave</code>/<code>htmx:historyRestore</code> once this module is imported: browser back restores the prior sort, filter and scroll position.</td></tr>
+          <tr><td class="sig">autoInitGantt(root) / registerGantt(factory)</td><td class="desc">Builds a Gantt over every <code>[data-lattice-gantt]</code> element&#39;s server-rendered <code>&lt;table&gt;</code> — one <code>&lt;tr&gt;</code> per task, one <code>&lt;th data-field&gt;</code> per field. The factory is <em>not</em> inlined into the htmx bundle: register your own Gantt module with <code>registerGantt(createGantt)</code>, or load it as a script tag exposing <code>globalThis.LatticeGridGantt.createGantt</code>, so a page with htmx and no Gantt pays nothing. Config comes from the same sibling <code>data-lattice-config</code> script/attribute the grid reads, with a nested <code>split</code> object for the split view.</td></tr>
+          <tr><td class="sig">driveGanttOobUpdates(opts?)</td><td class="desc">Applies an out-of-band <code>[data-lattice-row="&lt;task id&gt;"]</code> fragment to that task through <code>gantt.rows.apply</code>, so htmx never writes raw HTML into the rendered plan — one reschedule, zoom/scroll/selection/collapse untouched.</td></tr>
+          <tr><td class="sig">GANTT_CHANGE_EVENT</td><td class="desc">Every committed change (move, resize, progress, cell edit, link, add, delete, row move) re-raises a bubbling <code>lattice:gantt-change</code> on the host with <code>detail</code> <code>{ kind, id, task, changes }</code> — <code>start</code>/<code>end</code> already converted to ISO dates — so <code>hx-trigger="lattice:gantt-change"</code> can POST it. See the <a href="#gantt-hx-vals">hx-vals recipe</a>.</td></tr>
+          <tr><td class="sig">Browser history</td><td class="desc"><code>serialiseState</code>/<code>restoreState</code> above, wired automatically to <code>htmx:beforeHistorySave</code>/<code>htmx:historyRestore</code> once this module is imported: browser back restores the prior sort, filter and scroll position — and a Gantt&#39;s zoom, visible range, scroll, collapsed rows and column widths.</td></tr>
         </tbody>
       </table>
     </div>
+
+    <h3 id="gantt-hx-vals">Declaring a Gantt, and posting its changes</h3>
+    <p class="section-note">A <code>data-lattice-gantt</code> element wraps the server-rendered task table — no JS needed to make the markup read as a table, and one <code>htmx:load</code> turns it into the split view. Because the Gantt engine is not inlined, the page loads the Gantt module itself, which publishes <code>globalThis.LatticeGridGantt.createGantt</code> that the adapter resolves. The <code>lattice:gantt-change</code> event re-raised for every edit carries the task id and the field-level changes (dates already ISO), so an <code>hx-trigger</code> posts exactly what changed.</p>
+    <pre><code><span class="cmt">&lt;!-- The table names the task table&#39;s columns; the rows are the tasks. --&gt;</span>
+&lt;div data-lattice-gantt hx-trigger="lattice:gantt-change from:body"
+     hx-post="/tasks/{id}" hx-vals='js:{ id: event.detail.id, kind: event.detail.kind, changes: JSON.stringify(event.detail.changes) }'&gt;
+  &lt;table&gt;
+    &lt;thead&gt;&lt;tr&gt;&lt;th data-field="name"&gt;Task&lt;/th&gt;&lt;th data-field="start"&gt;Start&lt;/th&gt;&lt;th data-field="end"&gt;End&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+    &lt;tbody&gt;
+      &lt;tr&gt;&lt;td&gt;Design&lt;/td&gt;&lt;td&gt;2026-09-28&lt;/td&gt;&lt;td&gt;2026-10-02&lt;/td&gt;&lt;/tr&gt;
+      &lt;tr&gt;&lt;td&gt;Build&lt;/td&gt;&lt;td&gt;2026-10-03&lt;/td&gt;&lt;td&gt;2026-10-09&lt;/td&gt;&lt;/tr&gt;
+    &lt;/tbody&gt;
+  &lt;/table&gt;
+&lt;/div&gt;
+<span class="cmt">&lt;!-- htmx, then the Gantt module (publishes the factory the adapter resolves). --&gt;</span>
+&lt;script src="/dist/modules/gantt.esm.min.js"&gt;&lt;/script&gt;
+&lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>
     <h2 id="ref-adapters-reference">Type reference</h2>
     <p class="section-note">Generated from the type declarations, so it always matches the release. Each surface lists its properties, its methods and the events it raises as three tables; an option or value type lists its members once.</p>
     <h3 id="ref-adapters">Framework adapters</h3>
@@ -2004,6 +2072,17 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
     </div>
     <h5 id="type-LatticeDataGridProps-events">Events</h5>
     <p class="section-note">No events.</p>
+    <h4 id="type-LatticeDesignerHandle">LatticeDesignerHandle</h4>
+    <p class="section-note">The live designer a `&lt;LatticeDesigner&gt;` ref exposes; `null` before mount.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">instance</td><td class="type"><a href="designer.html#type-Designer">Designer</a> | null</td><td class="desc">The live designer the component built, or null before mount and after destroy. <small>(read-only)</small></td></tr>
+          <tr><td class="name">designer</td><td class="type"><a href="designer.html#type-Designer">Designer</a> | null</td><td class="desc">The same designer, under its own name. <small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-LatticeVueGridExposed">LatticeVueGridExposed</h4>
     <p class="section-note">What a `&lt;LatticeGrid&gt;` template ref exposes; `grid()` is null before mount.</p>
     <div class="table-wrap">

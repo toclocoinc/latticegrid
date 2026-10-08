@@ -1,5 +1,5 @@
 {
-  "version": "1.90.0",
+  "version": "1.91.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 703,
+  "count": 710,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -575,10 +575,10 @@
       "module": "charts",
       "severity": "warn",
       "since": "1.55.0",
-      "message": "chart \"x\" expects one column id (a string) and was given an array [{ids}]. A chart takes one category column on \"x\". For a hierarchy, group the grid — grid.columns.group([...]) — and the hierarchical types (pie, donut, sunburst, treemap) read the grouping.",
-      "meaning": "`x` was an array. It is the shape a reader guesses for \"nest by these two\", and the chart has no such reading: the array reaches the grid's column lookup, which takes one id, so nothing resolves and the chart draws empty. The diagnostic is raised per chart and before the binding, so it precedes whatever the binding then makes of it.",
-      "fix": "Give `x` one column id. For a hierarchy, group the grid and use a hierarchical type, which reads the grouping rather than a list of columns.",
-      "snippet": "grid.columns.group(['region', 'product']);\ncreateChart({ grid, container, type: 'sunburst' });",
+      "message": "chart \"x\" expects one column id (a string) and was given an array [{ids}]. A chart takes one category column on \"x\"; only the hierarchical types (pie, donut, sunburst, treemap) read an array as their levels.",
+      "meaning": "`x` was an array on a type that does not read one. The hierarchical types (pie, donut, sunburst, treemap) read an array there as their levels top down, so for them it is not a mistake; a cartesian type has no such reading: the array reaches the grid's column lookup, which takes one id, so nothing resolves and the chart draws empty. The diagnostic is raised per chart and before the binding, so it precedes whatever the binding then makes of it.",
+      "fix": "Give `x` one column id. For a hierarchy, use a hierarchical type and name the levels in the array — `x: ['region', 'product']` — or group the grid and let the type read the grouping.",
+      "snippet": "createChart({ grid, container, type: 'sunburst', x: ['region', 'product'], y: 'charge' });",
       "docs": "api/charts.html#chartsmodule"
     },
     {
@@ -6899,6 +6899,61 @@
       "docs": "API.html#designer-assist"
     },
     {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.91.0",
+      "id": "designer:sources:set",
+      "message": "designer.setSources: the sources are not an object ({type}); the sources were kept.",
+      "meaning": "setSources replaces the whole sources map a designer reads, by id. The value given was not an object, so nothing changed and false was returned.",
+      "fix": "Pass an object of source definitions, by id.",
+      "snippet": "designer.setSources({ orders: { kind: 'rows', rows: nextRows, rowKey: 'id' } });",
+      "docs": "API.html#designer"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.91.0",
+      "id": "designer:sources:update:*",
+      "message": "designer.sources.update: there is no declared source {id}; nothing was changed.",
+      "meaning": "update patches one declared source by id, and no source in the designer's sources map has that id, so nothing changed and false was returned.",
+      "fix": "Pass an id `designer.context.sources` already carries, or declare it first with setSources.",
+      "snippet": "designer.sources.update('orders', { rows: nextRows });",
+      "docs": "API.html#designer"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.91.0",
+      "id": "designer:sources:update:kind:*",
+      "message": "designer.sources.update: source {id} is {kind}, not 'rows'; its rows cannot be patched. Use setSources to replace its definition instead.",
+      "meaning": "update patches the rows of a kind: 'rows' source in place. The named source is some other kind (pushdown, router, grid), which has no local rows array to patch, so nothing changed and false was returned.",
+      "fix": "Replace a non-rows source wholesale with setSources instead, which re-queries a pushdown source.",
+      "snippet": "designer.setSources({ orders: { kind: 'pushdown', adapter } });",
+      "docs": "API.html#designer"
+    },
+    {
+      "module": "designer",
+      "severity": "warn",
+      "since": "1.91.0",
+      "id": "designer:sources:update:change",
+      "message": "designer.sources.update: the change is neither { rows } nor { apply: { add, update, remove } }; nothing was changed.",
+      "meaning": "update's second argument replaces a source's rows outright ({ rows }) or patches them by key ({ apply }). The value given was neither shape, so nothing changed and false was returned.",
+      "fix": "Pass { rows: nextRows } or { apply: { add, update, remove } }.",
+      "snippet": "designer.sources.update('orders', { apply: { update: [{ id: 'o1', amount: 42 }] } });",
+      "docs": "API.html#designer"
+    },
+    {
+      "id": "designer.mountOnly.*",
+      "module": "shared",
+      "severity": "warn",
+      "since": "1.91.0",
+      "message": "{Designer}: `{props}` changed, but the designer takes {it|them} only when created — there is no live setter, and rebuilding it silently would throw away the author's undo history, selection and open panels. Nothing was applied and the designer was NOT rebuilt. Give the component a `key` that changes when this must take effect, so the rebuild is yours and visible, or drive the instance through the ref.",
+      "meaning": "A designer component (React, Vue, Svelte or Angular) was re-rendered with a prop the underlying designer only reads at construction — relationships, factories or llm. The adapter applies every prop the designer has a setter for (state, mode, sources, guardrails), and names what is left over. The component neither drops the change without saying so nor rebuilds behind your back, because rebuilding would throw away the author's undo history, selection and open panels; the message names exactly which props were left unapplied.",
+      "fix": "Give the component a `key` that changes when the new value must take effect, so the rebuild is explicit and the cost is visible; or take the ref and drive the live designer's own API instead of re-rendering.",
+      "snippet": "<LatticeDesigner key={schemaVersion} relationships={relationships} />",
+      "docs": "api/designer.html#designer"
+    },
+    {
       "id": "chart:grid-destroyed",
       "module": "charts",
       "severity": "warn",
@@ -7018,6 +7073,28 @@
       "fix": "Scope the hx-history-elt subtree to just the table (not the whole page), or cap htmx's historyCacheSize so fewer snapshots are kept.",
       "snippet": "<div hx-history-elt>\n  <table data-lattice-grid>…</table>\n</div>",
       "docs": "api-detail.html#htmx-guide-history"
+    },
+    {
+      "id": "htmx:gantt-no-table",
+      "module": "htmx",
+      "severity": "warn",
+      "since": "1.91.0",
+      "message": "autoInitGantt: data-lattice-gantt found no <table> to read; skipped.",
+      "meaning": "A [data-lattice-gantt] element must wrap a server-rendered <table> (one <tr> per task, one <th data-field> per field) for the adapter to mount the split view over; this one had no table, so nothing was built and the element was left as-is.",
+      "fix": "Put the task <table> inside the [data-lattice-gantt] element, or drop the marker if the element is not meant to hold a plan.",
+      "snippet": "<div data-lattice-gantt>\n  <table>…</table>\n</div>",
+      "docs": "api-detail.html#htmx-guide-gantt"
+    },
+    {
+      "id": "htmx:gantt-no-factory",
+      "module": "htmx",
+      "severity": "warn",
+      "since": "1.91.0",
+      "message": "autoInitGantt: no Gantt factory registered and no globalThis.LatticeGridGantt.createGantt; load the Gantt module first.",
+      "meaning": "The htmx adapter does not inline the Gantt engine, so it needs a factory: one registered with registerGantt(), or the script-tag global the Gantt module's UMD build publishes (globalThis.LatticeGridGantt.createGantt). Neither was present, so the table was left un-mounted.",
+      "fix": "Load the Gantt module and call registerGantt(createGantt), or load its UMD build as a <script> tag so globalThis.LatticeGridGantt.createGantt exists.",
+      "snippet": "import { registerGantt } from '@toclocoinc/lattice-grid/modules/htmx';\nimport { createGantt } from '@toclocoinc/lattice-grid/modules/gantt';\nregisterGantt(createGantt);",
+      "docs": "api-detail.html#htmx-guide-gantt"
     },
     {
       "id": "mapview:grid",

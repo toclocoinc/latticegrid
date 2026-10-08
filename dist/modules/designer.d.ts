@@ -1,10 +1,11 @@
 /*!
- * Lattice Grid 1.90.0, designer module type declarations
+ * Lattice Grid 1.91.0, designer module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 import type {
   FilterSet,
+  RowChange,
   defaults,
 } from '../lattice-grid.js';
 
@@ -89,7 +90,7 @@ export interface DesignerState {
   selectedPageId: string | null;
   /** Filters that apply on every page, on top of each page's own. */
   filters?: DesignerFilter[];
-  /** The designer chrome's own state (later cards keep theirs here); may be empty. The editing screen keeps each rail's collapse as `{ left: { collapsed }, right: { collapsed } }`; a widget's cross-filter setting is `panels[panelId].clickFilter`. */
+  /** The designer chrome's own state (later cards keep theirs here); may be empty. The editing screen keeps each rail's collapse as `{ left: { collapsed }, right: { collapsed } }`; the palette keeps its own collapse and its groups' as `panels.palette: { collapsed, groups: { [groupId]: boolean } }`; a widget's cross-filter setting is `panels[panelId].clickFilter`. */
   panels: Record<string, unknown>;
   /** Any other key is carried through `getState()` unchanged. */
   [key: string]: unknown;
@@ -696,7 +697,7 @@ export interface DesignerPaletteEntry {
   type: string;
   /** The name shown, such as `Horizontal bar`. */
   label: string;
-  /** `widgets`, `filters`, or a chart family: `comparison`, `trend`, `composition`, `distribution`, `flow`, `hierarchy`, `geo`, `specialist` or `statistics`. */
+  /** `widgets`, `filters`, or a chart family: `comparison`, `trend`, `partToWhole`, `value`, `distribution` or `relationship`. */
   family: string;
   /** Why the chosen source cannot fill it (`needs a date field`), or null when it can be added. */
   disabled: string | null;
@@ -814,6 +815,37 @@ export interface DesignerPageEvent {
   previousId: string | null;
   /** The event name. */
   type: 'page';
+}
+
+/** What a `mode` event carries. */
+export interface DesignerModeEvent {
+  /** The mode now in force. */
+  mode: DesignerMode;
+  /** The event name. */
+  type: 'mode';
+}
+
+/** Every event the designer emits, in the order its `on()` declares them. */
+export type DesignerEventName =
+  /** Every committed change to the state, once each. */
+  | 'state'
+  /** The mode changed. */
+  | 'mode'
+  /** A canvas selection changed. */
+  | 'select'
+  /** A page became selected. */
+  | 'page';
+
+/** What each designer event carries. */
+export interface DesignerEventPayloads {
+  /** The new state and what changed it. */
+  'state': DesignerStateEvent;
+  /** The mode now in force. */
+  'mode': DesignerModeEvent;
+  /** The widget now selected, or null. */
+  'select': DesignerSelectEvent;
+  /** The page now selected. */
+  'page': DesignerPageEvent;
 }
 
 /** What a command is handed. */
@@ -1092,6 +1124,8 @@ export interface Designer {
   }>;
   /** The live guardrails handle: the normalised value plus the `allows*` predicates. */
   readonly guardrails: DesignerGuardrailsHandle;
+  /** Live updates to a declared source's data, in place. */
+  readonly sources: DesignerSources;
   /** The documented keyboard shortcut map. */
   readonly shortcuts: DesignerShortcuts;
   /** The focus regions F6 cycles. */
@@ -1112,6 +1146,17 @@ export interface Designer {
   migrate(state: Partial<DesignerState> | DashboardSpec, options?: DesignerMigrateOptions): DesignerMigrationReport;
   /** Replace the guardrails at run time and rebuild the canvas; a non-object is refused. Returns whether they now apply. */
   setGuardrails(guardrails: DesignerGuardrails | undefined): boolean;
+  /**
+   * Replace the whole sources map the designer reads, in place:
+   * an id no longer present is dropped, every other id is written into the
+   * live map, so every widget, derived grid and calculated field reading a
+   * changed or removed source re-derives and a pushdown source re-queries.
+   * The designer's own state — the selected page and widget, the undo
+   * history, the open panels — is kept; a source whose field list changed
+   * is reported in `problems()` by name, never thrown. A value that is not
+   * an object is refused and the sources are kept.
+   */
+  setSources(sources: Record<string, DashboardSource & { fields?: DesignerSourceField[] }>): boolean;
   /** Switch mode, rebuilding the canvas and announcing it; returns the mode in force. */
   setMode(mode: DesignerMode): DesignerMode;
   /** The pages' ids and titles, in order. */
@@ -1190,7 +1235,7 @@ export interface Designer {
   /** Every state change, once each. */
   on(name: 'state', fn: (event: DesignerStateEvent) => void): () => void;
   /** A mode change. */
-  on(name: 'mode', fn: (event: { mode: DesignerMode; type: 'mode' }) => void): () => void;
+  on(name: 'mode', fn: (event: DesignerModeEvent) => void): () => void;
   /** A canvas selection change. */
   on(name: 'select', fn: (event: DesignerSelectEvent) => void): () => void;
   /** A page became selected. */
@@ -1243,6 +1288,24 @@ export interface DesignerPushdownProvenance {
   source: string;
   /** The sentence the info badge shows as its tooltip. */
   text: string;
+}
+
+/**
+ * Patch one declared source's data in place, without rebuilding the
+ * designer: `designer.setSources` replaces the whole map.
+ */
+export interface DesignerSources {
+  /**
+   * Patch one `kind: 'rows'` source's rows: `{ rows }` replaces them
+   * outright; `{ apply: { add, update, remove, at } }` patches them by the
+   * source's `rowKey` (`'id'` when it declares none), exactly as
+   * `grid.rows.apply` patches a grid. Every widget, derived grid and
+   * calculated field reading the source re-derives; the designer's own
+   * state is kept. Refused by name (and the source kept) when `id` names
+   * no declared source, the source is not `kind: 'rows'`, or `change` is
+   * neither shape.
+   */
+  update(id: string, change: { rows: unknown[] } | { apply: RowChange }): boolean;
 }
 
 /**
