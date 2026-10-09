@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.91.0</p>
+    <p class="rail__sub">Developer guide · v1.92.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.91.0</span>
+        <span class="chip">Version 1.92.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -564,13 +564,14 @@
     <h2 id="messages">Translating the grid</h2>
     <p class="section-note">Every string the grid renders or announces comes from a message catalogue. British English is the default; supply <code>messages</code> to replace some or all of it.</p>
 
-    <pre><code>import { createGrid, FR_FR } from '@toclocoinc/lattice-grid';
+    <pre><code>import { createGrid } from '@toclocoinc/lattice-grid';
+import '@toclocoinc/lattice-grid/locales/fr-FR';
 
-createGrid(element, { locale: 'fr-FR', messages: FR_FR });</code></pre>
+createGrid(element, { locale: 'fr-FR' });</code></pre>
 
     <p>Where <code>locale</code> is not set, the grid takes the language the page declares in its <code>lang</code> attribute. Overrides merge over the default, so translating part of the interface leaves the remainder in English rather than showing raw keys, and a key that is not in the catalogue is ignored with a warning.</p>
 
-    <p>Catalogues ship for twenty-one locales: British and American English, French (France and Canada), Italian, Spanish, Brazilian Portuguese, German, Dutch, Swedish, Danish, Norwegian, Finnish, Polish, Czech, Hungarian, Romanian, Ukrainian, Greek, Japanese and Arabic. Each is an export of the package, so importing one does not reduce what is bundled. <code>EN_US</code> is a partial overlay carrying only what differs from British English and merging over it. <code>AR_SA</code> is an alias for <code>AR</code> rather than a separate catalogue: Arabic ships pan-Arabic, and a region appears in a name only where two variants exist. For anything else, <code>resolveCatalogue(tag)</code> resolves a tag to a catalogue and falls back to the base language, so <code>ar-EG</code> and <code>es-MX</code> both find one. <code>FR_CA</code> is a complete catalogue that follows Quebec usage where it differs, a column there is <em>figée</em> rather than <em>épinglée</em>.</p>
+    <p>The core ships British English only; every other catalogue is its own entry point that registers itself when imported, so a build carries exactly the languages its imports ask for and nothing else. <code>@toclocoinc/lattice-grid/locales/fr-FR</code> registers French, <code>@toclocoinc/lattice-grid/locales/en-US</code> a partial overlay carrying only what differs from British English, and <code>@toclocoinc/lattice-grid/locales/all</code> every language at once. A region appears in a name only where two variants ship — English (<code>en-GB</code>, <code>en-US</code>) and French (<code>fr-FR</code>, <code>fr-CA</code>) — so <code>AR</code> is plain Arabic and <code>es-ES</code> plain Spanish. A tag resolves to its catalogue and falls back to the base language, so <code>fr-CA</code> finds French and <code>es-MX</code> finds Spanish once <code>es-ES</code> is imported. Setting a locale whose entry point was not imported keeps English and logs one warning naming the import to add. <code>FR_CA</code> is a complete catalogue that follows Quebec usage where it differs — a column there is <em>figée</em> rather than <em>épinglée</em>.</p>
 
     <p class="section-note">None of the translations has been reviewed by a native speaker. They are structurally complete and checked for placeholder integrity and plural coverage, but they are a starting point for review rather than finished copy.</p>
 
@@ -585,6 +586,8 @@ createGrid(element, { locale: 'fr-FR', messages: FR_FR });</code></pre>
     <p>Placeholders are named, so word order is yours to choose. The parameter called <code>count</code> selects the plural form, using the categories the language actually has: English needs two, French treats zero as singular, Arabic has six. Numbers are formatted for the locale automatically; do not format them yourself.</p>
 
     <p><code>MESSAGE_KEYS</code> lists every key. <code>auditCatalogue(yours)</code> returns what is missing and what is not a real key, which is the quickest way to check a translation before shipping it.</p>
+
+    <p><code>registerLocale(tag, catalogue)</code> registers a catalogue under a locale tag, the way the shipped per-locale entry points do: after <code>registerLocale('sv-SE', yours)</code>, a grid configured with <code>locale: 'sv-SE'</code> resolves to it without passing <code>messages</code>. Register before the grid is created; a registration after the grid has resolved its locale does not re-resolve it.</p>
 
     <h3>Keys seeded in English, awaiting translation</h3>
     <p>A key added after a catalogue was written ships in British English only until a translator supplies it; <code>Messages</code> merges every catalogue over the default, so the grid says it in English rather than showing the key. The shipped catalogues do not carry an English copy under the guise of a translation, and the build's completeness test lists exactly which keys are in this state. As of 1.55 the most recent additions are the strings that had shipped as template literals, untranslated in every locale (BACKLOG-0001106): the presence live region and roster note, <code>a11y.presence.refused</code>, <code>presence.someoneElse</code> and <code>presence.hidden</code>; the comment panel's changed-since note, <code>comments.valueMoved</code>; the facet band's accessible name, <code>facets.filter</code>; the heading tooltip that names a reduction, <code>header.totalOf</code>; the audit-mode tooltip, <code>diff.before</code> and <code>diff.empty</code>; the kanban list names, <code>kanban.columnCards</code> and <code>kanban.laneCards</code>, both plural objects selected by <code>count</code>; and the gantt lag label, <code>gantt.lag</code> and <code>gantt.lead</code>. Supply any of them in <code>messages</code> to translate it today.</p>
@@ -1704,7 +1707,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.91.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.92.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -12522,7 +12525,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.91.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.92.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

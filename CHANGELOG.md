@@ -9,6 +9,20 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.92.0] - 2026-10-09
+
+### Breaking
+
+- **Locale catalogues are no longer named exports of the main bundle** (BACKLOG-0001880): the core now ships British English only, so `import { FR_FR, EN_US, LOCALES, resolveCatalogue } from '@toclocoinc/lattice-grid'` yields `undefined` where it previously returned a catalogue, and a grid configured with `locale: 'fr-FR'` now renders English — with one warning naming the import to add — where it previously rendered French because every catalogue was bundled. Each catalogue is its own entry point: `import '@toclocoinc/lattice-grid/locales/fr-FR'` registers French, `import '@toclocoinc/lattice-grid/locales/all'` registers every language, and `messages` overrides are unchanged.
+  - **Unchanged.** `messages` (a partial catalogue laid over the default) works exactly as before, and a locale whose entry point was not imported falls back to English rather than throwing.
+  - `registerLocale(tag, catalogue)` is the new way to make a catalogue reachable by `locale`; the per-locale entry points are declared side-effectful so a bundler does not tree-shake their registration away.
+
+### Internal
+
+- **The pushdown planner is now shared through the source object instead of bundled into every viewer module** (BACKLOG-0001881). charts, map view, Leaflet, deck.gl and KPI each imported `source/pushdown.js` (and `filterwire.js` / `aggregates.js`) directly, so each shipped its own copy of the planner's rules; they now read `capabilitiesOf`, `planQuery`, `wireFilters`, `resolveAggregatePlan` and `STAT_PUSHDOWN` off the pushdown source the grid hands back. A page loading core + charts + map view downloads the planner once, in the core (`tools/bundle-analyze.js` shows `pushdown.js` in exactly one bundle, asserted by `test/bundle-no-duplicate-core.test.js`), and the viewer modules drop 10–13 KB gzip each — core grows ~130 B to carry the surface. Behaviour is unchanged: the source object is the same `createPushdownSource` result the viewers already read `aggregate()` from.
+
+- **KPI, AI and every viewer module stop bundling their own copy of the core utilities they use** (BACKLOG-0001882). KPI imported `source/memory.js` for the single `isPipelineSettle` predicate and so shipped the whole memory pipeline (filter/sort/group/total); it now reads the predicate from a tiny `source/settle.js`, and aggregates through the source object the grid hands back. AI imported `i18n/index.js` for a fallback string and so shipped the whole message catalogue; it now resolves that one message through the grid's own i18n (`planIntent` takes the message facade). The 36 KB `internal/util.js` is split into ten single-purpose files and a re-exporting barrel, so a module carries only the helper file it actually uses. `tools/bundle-analyze.js` shows `memory.js` and `catalogue.js` in the core alone (`test/bundle-no-duplicate-core.test.js` shrinks with it); the KPI module drops ~27 KB gzip and the AI module ~17 KB gzip. Behaviour is unchanged.
+
 ## [1.91.0] - 2026-10-08
 
 ### Breaking

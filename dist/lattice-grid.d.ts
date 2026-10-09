@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.91.0, type declarations
+ * Lattice Grid 1.92.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -446,9 +446,10 @@ export interface NumberFormat {
    * A partial message catalogue laid over the built-in British English one.
    *
    * Every valid key is listed in `MESSAGE_KEYS`; a key that is not is ignored
-   * with a warning. Import a bundled locale (`FR_FR`, `AR`, …) or supply your
-   * own object. Merged rather than replacing, so an incomplete translation
-   * leaves the remainder in English rather than showing raw keys.
+   * with a warning. Import a locale entry point (`import
+   * '@toclocoinc/lattice-grid/locales/fr-FR'`) or supply your own object.
+   * Merged rather than replacing, so an incomplete translation leaves the
+   * remainder in English rather than showing raw keys.
    */
   messages?: Record<string, string | Record<string, string>>;
   /**
@@ -4238,10 +4239,11 @@ export interface GridConfig {
   locale?: string;
   /**
    * A partial message catalogue laid over the one `locale` resolves — every
-   * string the grid renders or announces. Supply a bundled catalogue (`FR_FR`,
-   * `AR`, …) or your own object; overrides merge over the default rather than
-   * replacing it, so translating part of the interface leaves the remainder in
-   * English rather than showing raw keys. Every valid key is listed in
+   * string the grid renders or announces. Supply a bundled catalogue — import a
+   * locale entry point (`import '@toclocoinc/lattice-grid/locales/fr-FR'`) or
+   * your own object; overrides merge over the default rather than replacing
+   * it, so translating part of the interface leaves the remainder in English
+   * rather than showing raw keys. Every valid key is listed in
    * `MESSAGE_KEYS`; a key that is not is ignored with a warning.
    */
   messages?: Record<string, string | Record<string, string>>;
@@ -13130,34 +13132,16 @@ export const EN_GB: Record<string, string | Record<string, string>>;
 export const MESSAGE_KEYS: ReadonlyArray<string>;
 /** The locale the default catalogue is written in: 'en-GB'. */
 export const DEFAULT_LOCALE: string;
-/** Bundled catalogues, keyed by lower-cased BCP 47 tag. */
-export const LOCALES: Record<string, Record<string, string | Record<string, string>>>;
-export const EN_US: Record<string, string | Record<string, string>>;
-export const FR_FR: Record<string, string | Record<string, string>>;
-export const FR_CA: Record<string, string | Record<string, string>>;
-export const IT_IT: Record<string, string | Record<string, string>>;
-export const ES_ES: Record<string, string | Record<string, string>>;
-export const PT_BR: Record<string, string | Record<string, string>>;
-export const DE_DE: Record<string, string | Record<string, string>>;
-export const NL_NL: Record<string, string | Record<string, string>>;
-export const SV_SE: Record<string, string | Record<string, string>>;
-export const DA_DK: Record<string, string | Record<string, string>>;
-export const NB_NO: Record<string, string | Record<string, string>>;
-export const FI_FI: Record<string, string | Record<string, string>>;
-export const PL_PL: Record<string, string | Record<string, string>>;
-export const CS_CZ: Record<string, string | Record<string, string>>;
-export const HU_HU: Record<string, string | Record<string, string>>;
-export const RO_RO: Record<string, string | Record<string, string>>;
-export const UK_UA: Record<string, string | Record<string, string>>;
-export const EL_GR: Record<string, string | Record<string, string>>;
-export const JA_JP: Record<string, string | Record<string, string>>;
-export const AR: Record<string, string | Record<string, string>>;
 /**
- * Alias for {@link AR}. The Arabic catalogue is pan-Arabic rather than
- * Saudi-specific; the alias exists because the region-qualified name is the
- * common first guess, every other catalogue carrying one.
+ * Register a catalogue under a BCP 47 tag so `config.locale` resolves to it.
+ *
+ * Called by the per-locale entry points: importing
+ * `lattice-grid/locales/fr-FR` registers French, and the grid then renders
+ * fr-FR text when `locale: 'fr-FR'` is configured. The core ships British
+ * English only; every other language is one of these entry points, so a host
+ * pays for exactly the languages it imports.
  */
-export const AR_SA: Record<string, string | Record<string, string>>;
+export function registerLocale(tag: string, catalogue: Record<string, string | Record<string, string>>): boolean;
 
 /** A resolved message set. */
 export class Messages implements MessagesApi {
@@ -13178,8 +13162,6 @@ export function auditCatalogue(catalogue: Record<string, unknown>): { missing: s
 export function formatList(items: string[], locale?: string, type?: 'conjunction' | 'disjunction'): string;
 /** Resolve the locale: what was configured, then the document's `lang`, then the default. */
 export function resolveLocale(configured: string | undefined, declared?: string, fallback?: string): string;
-/** Find the catalogue for a tag, falling back to the base language. */
-export function resolveCatalogue(tag?: string): Record<string, unknown> | null;
 
 // ---------------------------------------------------------------------------
 // The optional modules (spec 20)

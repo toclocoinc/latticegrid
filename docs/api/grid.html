@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.91.0</title>
+<title>Grid API Reference — Lattice Grid 1.92.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -692,7 +692,7 @@
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">messages</td><td class="type">object</td><td class="dflt">en-GB</td><td class="desc">Replaces the grid's own text: labels, menus and screen-reader announcements. A partial catalogue laid over the built-in British English one, so anything you leave out stays in English. Twenty catalogues are bundled: <code>EN_GB</code>, <code>EN_US</code>, <code>FR_FR</code>, <code>FR_CA</code>, <code>IT_IT</code>, <code>ES_ES</code>, <code>PT_BR</code>, <code>DE_DE</code>, <code>NL_NL</code>, <code>SV_SE</code>, <code>DA_DK</code>, <code>NB_NO</code>, <code>FI_FI</code>, <code>PL_PL</code>, <code>CS_CZ</code>, <code>HU_HU</code>, <code>RO_RO</code>, <code>UK_UA</code>, <code>EL_GR</code>, <code>JA_JP</code> and <code>AR</code>. They are exports of the package, not separate files, so importing one does not reduce what is bundled. <code>EN_US</code> is a partial overlay carrying only what differs from British English. <code>AR_SA</code> is an alias for <code>AR</code>: the Arabic catalogue is pan-Arabic, and a region appears in a name only where two variants ship. <code>resolveCatalogue(tag)</code> finds the catalogue for any tag, so <code>resolveCatalogue('es-MX')</code> returns the Spanish one. Every key is listed in <code>MESSAGE_KEYS</code>; <code>auditCatalogue()</code> reports what a catalogue of your own is missing.</td></tr>
+          <tr><td class="name">messages</td><td class="type">object</td><td class="dflt">en-GB</td><td class="desc">Replaces the grid's own text: labels, menus and screen-reader announcements. A partial catalogue laid over the built-in British English one, so anything you leave out stays in English. The core ships British English only; every other catalogue is its own entry point. <code>import '@toclocoinc/lattice-grid/locales/fr-FR'</code> registers French, after which <code>locale: 'fr-FR'</code> resolves to it — and an untranslated region falls back to its base language, so <code>es-MX</code> finds Spanish once <code>es-ES</code> is imported. <code>import '@toclocoinc/lattice-grid/locales/all'</code> registers every language at once. Setting a locale whose entry point was not imported keeps English and logs one warning naming the import to add. Every key is listed in <code>MESSAGE_KEYS</code>; <code>auditCatalogue()</code> reports what a catalogue of your own is missing.</td></tr>
           <tr><td class="name">locale</td><td class="type">string</td><td class="dflt">runtime</td><td class="desc">BCP-47. Drives every formatter and one shared <code>Intl.Collator</code>.</td></tr>
           <tr><td class="name">direction</td><td class="type">'ltr' | 'rtl' | 'auto' <small class="literals"><a href="types.html#type-Direction">Direction</a></small></td><td class="dflt">auto</td><td class="desc">Writing direction. Left unset, it follows the element's computed <code>dir</code> and then the locale, so <code>locale: 'ar'</code> renders right to left without further configuration. Set it explicitly to override both.</td></tr>
           <tr><td class="name">theme</td><td class="type">'light' | 'dark' | 'auto' | 'high-contrast' | 'terminal' <small class="literals"><a href="types.html#type-Theme">Theme</a></small></td><td class="dflt">, </td><td class="desc">Stamped as <code>data-theme</code> on the grid's root. Unset follows the nearest <code>data-theme</code> on an ancestor, and is light when there is none; <code>'auto'</code> follows the viewer's <code>prefers-color-scheme</code>. See <a href="../api-detail.html#theming">Theming</a> and the full <a href="../THEMING.md">theme token contract</a>.</td></tr>
@@ -1868,7 +1868,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.91.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.92.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -7156,27 +7156,24 @@ grid.destroy();
     <h3 id="core-exports-example">Every core export, executed</h3>
     <p class="section-note">Named and resolved against the barrel on every build. A rename or a removal fails
     here rather than in a consumer&#39;s build.</p>
-    <pre data-run="js" data-expect="62" data-covers="export:AR export:AR_SA export:CS_CZ export:DA_DK export:DEFAULT_LOCALE export:DE_DE export:EL_GR export:EN_GB export:EN_US export:ES_ES export:FI_FI export:FR_CA export:FR_FR export:HU_HU export:IT_IT export:JA_JP export:LOCALES export:MESSAGE_KEYS export:NB_NO export:NL_NL export:NO_CAPABILITIES export:PL_PL export:PT_BR export:RO_RO export:SV_SE export:UK_UA export:UNIT_SYSTEMS export:applyResidual export:auditCatalogue export:compileRules export:createPushdownSource export:createRadixType export:createUnitType export:defineUnit export:dfqlAdapter export:duckdbAdapter export:evaluateFormula export:formatList export:formatUnit export:getVersion export:graphqlAdapter export:ingest export:ingestSync export:licenceInfo export:licenceState export:licenseInfo export:licenseState export:looksLikeFormula export:odataAdapter export:parseUnit export:planQuery export:referencesOf export:registerModules export:registerUnitSystem export:resolveCatalogue export:resolveLocale export:restAdapter export:restoreState export:serialiseState export:setLicence export:setLicense export:version"><code><span class="kw">const</span> core = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="40" data-covers="export:DEFAULT_LOCALE export:EN_GB export:MESSAGE_KEYS export:NO_CAPABILITIES export:UNIT_SYSTEMS export:applyResidual export:auditCatalogue export:compileRules export:createPushdownSource export:createRadixType export:createUnitType export:defineUnit export:dfqlAdapter export:duckdbAdapter export:evaluateFormula export:formatList export:formatUnit export:getVersion export:graphqlAdapter export:ingest export:ingestSync export:licenceInfo export:licenceState export:licenseInfo export:licenseState export:looksLikeFormula export:odataAdapter export:parseUnit export:planQuery export:referencesOf export:registerLocale export:registerModules export:registerUnitSystem export:resolveLocale export:restAdapter export:restoreState export:serialiseState export:setLicence export:setLicense export:version"><code><span class="kw">const</span> core = <span class="kw">await</span> import('../packages/core/src/index.js');
 
 <span class="cmt">// Every declared export of the core package, named and checked. A symbol</span>
-<span class="cmt">// that was renamed or dropped fails here, not in a consumer's build.</span>
+<span class="cmt">// that was renamed or dropped fails here, not in a consumer's build. Locale</span>
+<span class="cmt">// catalogues are no longer named here: each ships as its own entry point and</span>
+<span class="cmt">// registers itself on import (BACKLOG-0001880).</span>
 <span class="kw">const</span> declared = [
-  'AR', 'AR_SA', 'CS_CZ', 'DA_DK',
-  'DEFAULT_LOCALE', 'DE_DE', 'EL_GR', 'EN_GB',
-  'EN_US', 'ES_ES', 'FI_FI', 'FR_CA',
-  'FR_FR', 'HU_HU', 'IT_IT', 'JA_JP',
-  'LOCALES', 'MESSAGE_KEYS', 'NB_NO', 'NL_NL',
-  'NO_CAPABILITIES', 'PL_PL', 'PT_BR', 'RO_RO',
-  'SV_SE', 'UK_UA', 'UNIT_SYSTEMS', 'applyResidual',
+  'DEFAULT_LOCALE', 'EN_GB', 'MESSAGE_KEYS',
+  'NO_CAPABILITIES', 'UNIT_SYSTEMS', 'applyResidual',
   'auditCatalogue', 'compileRules', 'createPushdownSource', 'createRadixType',
   'createUnitType', 'defineUnit', 'dfqlAdapter', 'duckdbAdapter',
   'evaluateFormula', 'formatList', 'formatUnit', 'getVersion',
   'graphqlAdapter', 'ingest', 'ingestSync', 'licenceInfo',
-  'licenceState', 'licenseInfo', 'licenseState', 'looksLikeFormula', 'odataAdapter',
-  'parseUnit', 'planQuery', 'referencesOf', 'registerModules',
-  'registerUnitSystem', 'resolveCatalogue', 'resolveLocale', 'restAdapter',
-  'restoreState', 'serialiseState', 'setLicence', 'setLicense',
-  'version',
+  'licenceState', 'licenseInfo', 'licenseState', 'looksLikeFormula',
+  'odataAdapter', 'parseUnit', 'planQuery', 'referencesOf',
+  'registerLocale', 'registerModules', 'registerUnitSystem', 'resolveLocale',
+  'restAdapter', 'restoreState', 'serialiseState', 'setLicence',
+  'setLicense', 'version',
 ];
 
 <span class="kw">return</span> declared.filter((name) =&gt; core[name] !== <span class="kw">undefined</span>).length;</code></pre>
@@ -7498,7 +7495,10 @@ grid.destroy();
         <thead><tr><th>Name</th><th>Signature</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">DEFAULT_LOCALE</td><td class="type">string</td><td class="desc">The locale used when none is configured and none can be read from the page.</td></tr>
-          <tr><td class="name">LOCALES</td><td class="type">Record&lt;string, object&gt;</td><td class="desc">Every built-in catalogue, by locale name.</td></tr>
+          <tr><td class="name">EN_GB</td><td class="type">Record&lt;string, string | object&gt;</td><td class="desc">The built-in British English catalogue; the one every other locale falls back to for keys it does not carry.</td></tr>
+          <tr><td class="name">MESSAGE_KEYS</td><td class="type">ReadonlyArray&lt;string&gt;</td><td class="desc">Every key in the built-in catalogue, so a custom catalogue can be built against the real list.</td></tr>
+          <tr><td class="name">auditCatalogue</td><td class="type">(catalogue) =&gt; { missing, unknown }</td><td class="desc">Report which keys a custom catalogue is missing and which it invents, to check a translation before shipping it.</td></tr>
+          <tr><td class="name">registerLocale</td><td class="type">(tag, catalogue) =&gt; boolean</td><td class="desc">Register a catalogue for a locale tag. The per-locale entry points call this; <code>locale</code> then resolves to the registered catalogue.</td></tr>
           <tr><td class="name">resolveLocale</td><td class="type">(configured?, declared?, fallback?) =&gt; string</td><td class="desc">Settle which locale applies: what you configured, then what the page declares, then the fallback.</td></tr>
           <tr><td class="name">createMessages</td><td class="type">(opts?) =&gt; Messages</td><td class="desc">Build a message catalogue. A partial set lays over the built-in British English one.</td></tr>
           <tr><td class="name">Messages</td><td class="type">class</td><td class="desc">The catalogue itself. <code>t(key, params)</code> resolves one message; <code>configure()</code> replaces the set at runtime.</td></tr>
@@ -9211,7 +9211,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">edit</td><td class="type"><a href="#type-EditConfig">EditConfig</a> | boolean</td><td class="desc">Editing, and how a change is committed and validated. <small>(optional)</small></td></tr>
           <tr><td class="name">pagination</td><td class="type"><a href="#type-PaginationConfig">PaginationConfig</a> | boolean</td><td class="desc">Page the rows rather than scrolling them. <small>(optional)</small></td></tr>
           <tr><td class="name">locale</td><td class="type">string</td><td class="desc">The BCP-47 locale everything the grid formats and collates uses — numbers, dates, text ordering, and the message catalogue. Falls back to the page's own `&lt;html lang&gt;` and then to `en-GB`. <small>(optional)</small></td></tr>
-          <tr><td class="name">messages</td><td class="type">Record&lt;string, string | Record&lt;string, string&gt;&gt;</td><td class="desc">A partial message catalogue laid over the one `locale` resolves — every string the grid renders or announces. Supply a bundled catalogue (`FR_FR`, `AR`, …) or your own object; overrides merge over the default rather than replacing it, so translating part of the interface leaves the remainder in English rather than showing raw keys. Every valid key is listed in `MESSAGE_KEYS`; a key that is not is ignored with a warning. <small>(optional)</small></td></tr>
+          <tr><td class="name">messages</td><td class="type">Record&lt;string, string | Record&lt;string, string&gt;&gt;</td><td class="desc">A partial message catalogue laid over the one `locale` resolves — every string the grid renders or announces. Supply a bundled catalogue — import a locale entry point (`import '@toclocoinc/lattice-grid/locales/fr-FR'`) or your own object; overrides merge over the default rather than replacing it, so translating part of the interface leaves the remainder in English rather than showing raw keys. Every valid key is listed in `MESSAGE_KEYS`; a key that is not is ignored with a warning. <small>(optional)</small></td></tr>
           <tr><td class="name">direction</td><td class="type"><a href="types.html#type-Direction">Direction</a> <small class="literals">'ltr' | 'rtl' | 'auto'</small></td><td class="desc">Writing direction. An explicit `'ltr'` or `'rtl'` always wins. Omit it, or say `'auto'`, to settle it from the mount or the nearest ancestor carrying a `dir="ltr"`/`dir="rtl"` attribute, and only then from `locale`: `ar`, `he`, `fa` and the rest resolve to `rtl`. A page-level `dir="ltr"` therefore wins over an RTL locale — a host that wants RTL inside an LTR page sets `direction: 'rtl'` explicitly. In a right-to-left grid the logical alignments `start`/`end` mirror while the physical `left`/`right` do not (see {@link Align}). <small>(optional)</small></td></tr>
           <tr><td class="name">timeZone</td><td class="type">string</td><td class="desc">IANA zone every date column formats in, e.g. 'Europe/London' or 'UTC'. Omit to use each viewer's own zone. A column's own `format.timeZone` wins. <small>(optional)</small></td></tr>
           <tr><td class="name">theme</td><td class="type"><a href="types.html#type-Theme">Theme</a> <small class="literals">'light' | 'dark' | 'auto' | 'high-contrast' | 'terminal' | (string &amp; {})</small></td><td class="desc">The visual theme. Unset (the default) follows the nearest `data-theme` on an ancestor, and is light when there is none; see {@link Theme}. <small>(optional)</small></td></tr>
@@ -10225,7 +10225,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">zeroDisplay</td><td class="type">string</td><td class="desc">The text shown instead of a formatted zero — `'—'`, `'free'`. Zero is formatted normally when unset. Tested after `scale` is applied. <small>(optional)</small></td></tr>
           <tr><td class="name">nullDisplay</td><td class="type">string</td><td class="desc">The text shown for null, undefined, an empty string, and anything that is not a number. Empty by default. <small>(optional)</small></td></tr>
           <tr><td class="name">locale</td><td class="type">string</td><td class="desc">The locale for number, date and text formatting. The page's by default. <small>(optional)</small></td></tr>
-          <tr><td class="name">messages</td><td class="type">Record&lt;string, string | Record&lt;string, string&gt;&gt;</td><td class="desc">A partial message catalogue laid over the built-in British English one. Every valid key is listed in `MESSAGE_KEYS`; a key that is not is ignored with a warning. Import a bundled locale (`FR_FR`, `AR`, …) or supply your own object. Merged rather than replacing, so an incomplete translation leaves the remainder in English rather than showing raw keys. <small>(optional)</small></td></tr>
+          <tr><td class="name">messages</td><td class="type">Record&lt;string, string | Record&lt;string, string&gt;&gt;</td><td class="desc">A partial message catalogue laid over the built-in British English one. Every valid key is listed in `MESSAGE_KEYS`; a key that is not is ignored with a warning. Import a locale entry point (`import '@toclocoinc/lattice-grid/locales/fr-FR'`) or supply your own object. Merged rather than replacing, so an incomplete translation leaves the remainder in English rather than showing raw keys. <small>(optional)</small></td></tr>
           <tr><td class="name">scale</td><td class="type">number</td><td class="desc">A multiplier applied before formatting, for showing stored units in another magnitude — `0.001` to read a column of pounds as thousands. 1 by default. It changes only the display: sort, filter and totals still use the stored number. <small>(optional)</small></td></tr>
         </tbody>
       </table>
