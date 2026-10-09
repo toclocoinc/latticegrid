@@ -794,11 +794,14 @@ const VIEWER_EVENTS$1 = Object.freeze({
         'card:move', 'card:reverted', 'card:confirmed', 'selection:changed', 'column:collapse', 'card:add',
         'drag:start', 'drag:end', 'swimlane:collapse', 'swimlane:reorder', 'column:reorder',
         'filter:changed', 'sprint:changed', 'epic:changed', 'card:expand', 'card:drill', 'card:edit',
+
+        'cards:loaded',
         'card:sla',
         'beforeMove', 'beforeAdd', 'beforeEdit',
         'beforeLaneReorder', 'beforeColumnReorder', 'beforeColumnChange',
         'move:cancelled', 'add:cancelled', 'edit:cancelled',
         'laneReorder:cancelled', 'columnReorder:cancelled', 'columnChange:cancelled',
+        'history',
     ]),
     tabs: Object.freeze(['beforeTabChange', 'tab:changed', 'tabChange:cancelled']),
 
@@ -859,6 +862,8 @@ const VIEWER_APPLY$1 = Object.freeze({
         sprint: (board, value) => board.setSprint(value),
 
         epic: (board, value) => board.setEpic(value),
+
+        blockedFilter: (board, value) => board.setBlockedFilter(!!value),
 
         loading: (board, value) => board.setLoading(!!value),
 
@@ -2641,6 +2646,8 @@ class LatticeKanbanComponent extends LatticeViewerBase {
 
         this.cardSla = new EventEmitter();
 
+        this.cardsLoaded = new EventEmitter();
+
         this.beforeMove = new EventEmitter();
 
         this.beforeAdd = new EventEmitter();
@@ -2664,6 +2671,8 @@ class LatticeKanbanComponent extends LatticeViewerBase {
         this.columnReorderCancelled = new EventEmitter();
 
         this.columnChangeCancelled = new EventEmitter();
+
+        this.history = new EventEmitter();
     }
 
     liveProps() {
@@ -2676,6 +2685,8 @@ class LatticeKanbanComponent extends LatticeViewerBase {
             out['sprint'] = this.sprint;
         if (this.epic !== undefined)
             out['epic'] = this.epic;
+        if (this.blockedFilter !== undefined)
+            out['blockedFilter'] = this.blockedFilter;
         if (this.loading !== undefined)
             out['loading'] = this.loading;
         if (this.error !== undefined)
@@ -2688,7 +2699,7 @@ class LatticeKanbanComponent extends LatticeViewerBase {
         return createKanban(element, config);
     }
     static { this.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeKanbanComponent, deps: null, target: i0.ɵɵFactoryTarget.Component }); }
-    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeKanbanComponent, isStandalone: true, selector: "lattice-kanban", inputs: { config: "config", rows: "rows", quickFilter: "quickFilter", sprint: "sprint", epic: "epic", loading: "loading", error: "error" }, outputs: { cardClick: "card-click", cardDblclick: "card-dblclick", cardContextmenu: "card-contextmenu", cardMove: "card-move", cardReverted: "card-reverted", cardConfirmed: "card-confirmed", selectionChanged: "selection-changed", columnCollapse: "column-collapse", cardAdd: "card-add", dragStart: "drag-start", dragEnd: "drag-end", swimlaneCollapse: "swimlane-collapse", swimlaneReorder: "swimlane-reorder", columnReorder: "column-reorder", filterChanged: "filter-changed", sprintChanged: "sprint-changed", epicChanged: "epic-changed", cardExpand: "card-expand", cardDrill: "card-drill", cardEdit: "card-edit", cardSla: "card-sla", beforeMove: "beforeMove", beforeAdd: "beforeAdd", beforeEdit: "beforeEdit", beforeLaneReorder: "beforeLaneReorder", beforeColumnReorder: "beforeColumnReorder", beforeColumnChange: "beforeColumnChange", moveCancelled: "move-cancelled", addCancelled: "add-cancelled", editCancelled: "edit-cancelled", laneReorderCancelled: "laneReorder-cancelled", columnReorderCancelled: "columnReorder-cancelled", columnChangeCancelled: "columnChange-cancelled" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
+    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeKanbanComponent, isStandalone: true, selector: "lattice-kanban", inputs: { config: "config", rows: "rows", quickFilter: "quickFilter", sprint: "sprint", epic: "epic", blockedFilter: "blockedFilter", loading: "loading", error: "error" }, outputs: { cardClick: "card-click", cardDblclick: "card-dblclick", cardContextmenu: "card-contextmenu", cardMove: "card-move", cardReverted: "card-reverted", cardConfirmed: "card-confirmed", selectionChanged: "selection-changed", columnCollapse: "column-collapse", cardAdd: "card-add", dragStart: "drag-start", dragEnd: "drag-end", swimlaneCollapse: "swimlane-collapse", swimlaneReorder: "swimlane-reorder", columnReorder: "column-reorder", filterChanged: "filter-changed", sprintChanged: "sprint-changed", epicChanged: "epic-changed", cardExpand: "card-expand", cardDrill: "card-drill", cardEdit: "card-edit", cardSla: "card-sla", cardsLoaded: "cards-loaded", beforeMove: "beforeMove", beforeAdd: "beforeAdd", beforeEdit: "beforeEdit", beforeLaneReorder: "beforeLaneReorder", beforeColumnReorder: "beforeColumnReorder", beforeColumnChange: "beforeColumnChange", moveCancelled: "move-cancelled", addCancelled: "add-cancelled", editCancelled: "edit-cancelled", laneReorderCancelled: "laneReorder-cancelled", columnReorderCancelled: "columnReorder-cancelled", columnChangeCancelled: "columnChange-cancelled", history: "history" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
 }
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeKanbanComponent, decorators: [{
             type: Component,
@@ -2702,6 +2713,8 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
             }], sprint: [{
                 type: Input
             }], epic: [{
+                type: Input
+            }], blockedFilter: [{
                 type: Input
             }], loading: [{
                 type: Input
@@ -2770,6 +2783,9 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
             }], cardSla: [{
                 type: Output,
                 args: ['card-sla']
+            }], cardsLoaded: [{
+                type: Output,
+                args: ['cards-loaded']
             }], beforeMove: [{
                 type: Output
             }], beforeAdd: [{
@@ -2800,6 +2816,8 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
             }], columnChangeCancelled: [{
                 type: Output,
                 args: ['columnChange-cancelled']
+            }], history: [{
+                type: Output
             }] } });
 
 class LatticeCalendarComponent extends LatticeViewerBase {

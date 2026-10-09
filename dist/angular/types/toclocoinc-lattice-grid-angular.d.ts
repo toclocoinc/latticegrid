@@ -1022,6 +1022,8 @@ declare class LatticeKanbanComponent<TRow = unknown> extends LatticeViewerBase<K
     sprint?: unknown;
     /** The epic in view. A live input. */
     epic?: unknown;
+    /** Whether only blocked cards are shown (BACKLOG-0002106). A live input. */
+    blockedFilter?: boolean;
     /** Whether the board shows its loading placeholder. A live input. */
     loading?: boolean;
     /** An error message shown in place of the cards. A live input. */
@@ -1068,6 +1070,8 @@ declare class LatticeKanbanComponent<TRow = unknown> extends LatticeViewerBase<K
     readonly cardEdit: EventEmitter<any>;
     /** The viewer's `card:sla` event. */
     readonly cardSla: EventEmitter<any>;
+    /** The viewer's `cards:loaded` event. */
+    readonly cardsLoaded: EventEmitter<any>;
     /** The viewer's `beforeMove` event. */
     readonly beforeMove: EventEmitter<any>;
     /** The viewer's `beforeAdd` event. */
@@ -1092,6 +1096,8 @@ declare class LatticeKanbanComponent<TRow = unknown> extends LatticeViewerBase<K
     readonly columnReorderCancelled: EventEmitter<any>;
     /** The viewer's `columnChange:cancelled` event. */
     readonly columnChangeCancelled: EventEmitter<any>;
+    /** The viewer's `history` event (BACKLOG-0002108). */
+    readonly history: EventEmitter<any>;
     /**
      * The live inputs, by the names the viewer tables use.
      * @returns the live props that are set
@@ -1105,7 +1111,7 @@ declare class LatticeKanbanComponent<TRow = unknown> extends LatticeViewerBase<K
      */
     protected mount(element: HTMLElement, config: Props): Kanban;
     static ɵfac: i0.ɵɵFactoryDeclaration<LatticeKanbanComponent<any>, never>;
-    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeKanbanComponent<any>, "lattice-kanban", never, { "config": { "alias": "config"; "required": false; }; "rows": { "alias": "rows"; "required": false; }; "quickFilter": { "alias": "quickFilter"; "required": false; }; "sprint": { "alias": "sprint"; "required": false; }; "epic": { "alias": "epic"; "required": false; }; "loading": { "alias": "loading"; "required": false; }; "error": { "alias": "error"; "required": false; }; }, { "cardClick": "card-click"; "cardDblclick": "card-dblclick"; "cardContextmenu": "card-contextmenu"; "cardMove": "card-move"; "cardReverted": "card-reverted"; "cardConfirmed": "card-confirmed"; "selectionChanged": "selection-changed"; "columnCollapse": "column-collapse"; "cardAdd": "card-add"; "dragStart": "drag-start"; "dragEnd": "drag-end"; "swimlaneCollapse": "swimlane-collapse"; "swimlaneReorder": "swimlane-reorder"; "columnReorder": "column-reorder"; "filterChanged": "filter-changed"; "sprintChanged": "sprint-changed"; "epicChanged": "epic-changed"; "cardExpand": "card-expand"; "cardDrill": "card-drill"; "cardEdit": "card-edit"; "cardSla": "card-sla"; "beforeMove": "beforeMove"; "beforeAdd": "beforeAdd"; "beforeEdit": "beforeEdit"; "beforeLaneReorder": "beforeLaneReorder"; "beforeColumnReorder": "beforeColumnReorder"; "beforeColumnChange": "beforeColumnChange"; "moveCancelled": "move-cancelled"; "addCancelled": "add-cancelled"; "editCancelled": "edit-cancelled"; "laneReorderCancelled": "laneReorder-cancelled"; "columnReorderCancelled": "columnReorder-cancelled"; "columnChangeCancelled": "columnChange-cancelled"; }, never, never, true, never>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeKanbanComponent<any>, "lattice-kanban", never, { "config": { "alias": "config"; "required": false; }; "rows": { "alias": "rows"; "required": false; }; "quickFilter": { "alias": "quickFilter"; "required": false; }; "sprint": { "alias": "sprint"; "required": false; }; "epic": { "alias": "epic"; "required": false; }; "blockedFilter": { "alias": "blockedFilter"; "required": false; }; "loading": { "alias": "loading"; "required": false; }; "error": { "alias": "error"; "required": false; }; }, { "cardClick": "card-click"; "cardDblclick": "card-dblclick"; "cardContextmenu": "card-contextmenu"; "cardMove": "card-move"; "cardReverted": "card-reverted"; "cardConfirmed": "card-confirmed"; "selectionChanged": "selection-changed"; "columnCollapse": "column-collapse"; "cardAdd": "card-add"; "dragStart": "drag-start"; "dragEnd": "drag-end"; "swimlaneCollapse": "swimlane-collapse"; "swimlaneReorder": "swimlane-reorder"; "columnReorder": "column-reorder"; "filterChanged": "filter-changed"; "sprintChanged": "sprint-changed"; "epicChanged": "epic-changed"; "cardExpand": "card-expand"; "cardDrill": "card-drill"; "cardEdit": "card-edit"; "cardSla": "card-sla"; "cardsLoaded": "cards-loaded"; "beforeMove": "beforeMove"; "beforeAdd": "beforeAdd"; "beforeEdit": "beforeEdit"; "beforeLaneReorder": "beforeLaneReorder"; "beforeColumnReorder": "beforeColumnReorder"; "beforeColumnChange": "beforeColumnChange"; "moveCancelled": "move-cancelled"; "addCancelled": "add-cancelled"; "editCancelled": "edit-cancelled"; "laneReorderCancelled": "laneReorder-cancelled"; "columnReorderCancelled": "columnReorder-cancelled"; "columnChangeCancelled": "columnChange-cancelled"; "history": "history"; }, never, never, true, never>;
 }
 
 /**

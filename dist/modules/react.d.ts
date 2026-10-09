@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.94.0, react module type declarations
+ * Lattice Grid 1.95.0, react module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -195,6 +195,12 @@ export type LatticeKanbanProps<Row = unknown> =
     epic?: unknown;
     loading?: boolean;
     error?: string | null;
+    /** The row property that blocks a card — a boolean flag or a reason string. */
+    blockedProperty?: string;
+    /** The row property naming the keys of the cards that block each card. */
+    blockedByProperty?: string;
+    /** Initially filter to blocked cards only. */
+    blockedFilter?: boolean;
   };
 
 /** The calendar's React props. */

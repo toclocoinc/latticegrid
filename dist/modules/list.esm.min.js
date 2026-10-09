@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.94.0, list module
+ * Lattice Grid 1.95.0, list module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

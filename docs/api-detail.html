@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.94.0</p>
+    <p class="rail__sub">Developer guide · v1.95.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.94.0</span>
+        <span class="chip">Version 1.95.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1824,7 +1824,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.94.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.95.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -11039,6 +11039,42 @@ return ([
     </div>
 
     <div class="example">
+      <p class="example__label">Workflow rules: transitions and required fields, executed</p>
+      <pre data-run="js" data-expect="transition | require | 1" data-covers="config:transitions config:require method:kanban.move"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+const b = createKanban(null, {
+  rows: [
+    { id: 1, status: 'todo', title: 'A' },
+    { id: 2, status: 'doing', title: 'B', deployed: '2026-01-01' },
+  ],
+  rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'doing' }, { id: 'done' }],
+  card: { title: 'title' },
+  transitions: { todo: ['doing'], doing: ['done'] },
+  require: { done: [{ field: 'deployed', label: 'Deployed' }] },
+});
+let transition = 'no';
+try { await b.move(1, 'done'); } catch (err) { transition = /kanban\.transition/.test(err.message) ? 'transition' : err.message; }
+let required = 'no';
+await b.move(1, 'doing');
+try { await b.move(1, 'done'); } catch (err) { required = /kanban\.require/.test(err.message) ? 'require' : err.message; }
+const moved = (await b.move(2, 'done')).moved.length;
+return ([transition, required, moved].join(' | '));
+</code></pre>
+      <p>
+        <code>transitions</code> maps a source column to the columns a card may enter — <code>todo</code>
+        lists only <code>doing</code>, so a straight <code>todo → done</code> move is refused with a
+        <code>kanban.transition</code> error, while a source column absent from the map may move anywhere.
+        <code>require</code> maps a destination column to the fields a card must carry to enter it, so the
+        <code>doing → done</code> move of card 1 — allowed by the transition, but lacking
+        <code>deployed</code> — is refused with <code>kanban.require</code>, while card 2, which already
+        carries it, moves through. A drag over a disallowed column is marked not droppable and the
+        keyboard move skips it; a drop into a column with missing required fields opens a small form and
+        the move commits only when they are filled. Both maps may also be set per lane in
+        <code>config.lanes</code>.
+      </p>
+    </div>
+
+    <div class="example">
       <p class="example__label">Card aging / SLA: basis, thresholds, callbacks and the tick, executed</p>
       <pre data-run="js" data-expect="basis-column ok | basis-board breach | ignore-default null | ignore-false breach | hits warn:warn:w,breach:breach:br | age 3d | tick-fired true" data-covers="config:sla config:basis config:createdProperty config:enteredProperty config:ignoreDone config:now config:warn config:breach config:onWarn config:onBreach config:showAge config:useTransitionLog config:tick method:kanban.on"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
 const E = 1_700_000_000_000;
@@ -11340,6 +11376,46 @@ return (`count ${countTodo} | cards ${cardsCount} | setColumns ${columnsAfter} |
     </div>
 
     <div class="example">
+      <p class="example__label">Blocked cards and dependencies, executed</p>
+      <pre data-run="js" data-expect="c true Waiting on design | b a true | filter 2 | cleared false | toggled true | ready true" data-covers="config:blockedProperty config:blockedByProperty config:blockedFilter method:kanban.setBlocked method:kanban.toggleBlocked method:kanban.setBlockedFilter"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+const board = createKanban(null, {
+  rows: [
+    { id: 'a', status: 'todo', title: 'A' },
+    { id: 'b', status: 'todo', title: 'B', blockedBy: 'a' },
+    { id: 'c', status: 'doing', title: 'C', blocked: 'Waiting on design' },
+  ],
+  rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'doing' }, { id: 'done', done: true }],
+  blockedProperty: 'blocked', blockedByProperty: 'blockedBy', blockedFilter: true, card: { title: 'title' },
+});
+board.setBlockedFilter(false);
+const c = board.card('c');
+const badge = c.blocked + ' ' + c.blockedReason;
+const b = board.card('b');
+const deps = b.blockedBy.join(',') + ' ' + b.blocked;
+board.setBlockedFilter(true);
+const filter = board.model.cardsByKey.size;
+board.setBlockedFilter(false);
+await board.setBlocked('c', false);
+const cleared = board.card('c').explicitBlocked;
+await board.toggleBlocked('c', 'oops');
+const toggled = board.card('c').blocked;
+await board.move('a', 'done');
+const ready = board.card('b').ready;
+board.destroy();
+return (`c ${badge} | b ${deps} | filter ${filter} | cleared ${cleared} | toggled ${toggled} | ready ${ready}`);
+</code></pre>
+      <p>
+        <code>blockedProperty</code> names the field that blocks a card (a boolean or a reason
+        string); <code>blockedByProperty</code> names the keys of the cards blocking it. The
+        blocked filter (<code>setBlockedFilter</code>) shows only blocked cards, and
+        <code>setBlocked</code>/<code>toggleBlocked</code> write the property and raise
+        <code>card:edit</code>; a blocker moving into a done column flips the dependant to
+        <code>ready</code>.
+      </p>
+    </div>
+
+    <div class="example">
       <p class="example__label">Card pop-out and inline edit, executed</p>
       <pre data-run="js" data-expect="editable true | opened true | editing true" data-covers="method:kanban.isFieldEditable method:kanban.expand method:kanban.closeDetail method:kanban.editCard"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
 const { createKanban } = await import('../packages/modules/kanban/index.js');
@@ -11370,6 +11446,96 @@ return (`editable ${editable} | opened ${opened} | editing ${editing}`);
         starts inline edit on the same field, independent of the pop-out.
       </p>
     </div>
+
+    <h3 id="kanban-source-example">Server-side board (pushdown), executed</h3>
+    <p class="lead-in">
+      Bind a board to the same <code>source</code> object a grid takes &mdash;
+      <code>createPushdownSource({ adapter, pageSize, aggregates: { default: 'engine' }, edit: true })</code>
+      &mdash; and the column <strong>count</strong> and <strong>points sum</strong> read an engine
+      <code>GROUP BY</code> rather than the loaded page, cards load one <code>pageSize</code> at a time
+      with <code>board.loadMore(columnId)</code> fetching the next page as a column scrolls, the board
+      search and the pushable named filters run as engine predicates, and a move writes through the
+      source's update path and re-queries the affected columns. <code>board.reload()</code> re-reads every
+      column's first page and the engine totals. Flow analytics need a transition log the source supplies:
+      pass <code>transitionLog</code> to enable them; without one the board reports the flow features
+      unavailable. The example runs the whole path headless.
+    </p>
+    <pre data-run="js" data-expect="5 | 2 | true | true | 4 | true | true" data-covers="config:KanbanConfig.source config:KanbanConfig.pageSize config:KanbanConfig.transitionLog method:kanban.loadMore method:kanban.reload"><code>const { createKanban } = await import('../packages/modules/kanban/index.js');
+const { createPushdownSource } = await import('../packages/core/src/index.js');
+
+const rows = [
+  { id: 1, status: 'todo', points: 1, title: 'A' },
+  { id: 2, status: 'todo', points: 2, title: 'B' },
+  { id: 3, status: 'todo', points: 3, title: 'C' },
+  { id: 4, status: 'todo', points: 4, title: 'D' },
+  { id: 5, status: 'todo', points: 5, title: 'E' },
+  { id: 6, status: 'done', points: 6, title: 'F' },
+  { id: 7, status: 'done', points: 7, title: 'G' },
+];
+
+const adapter = {
+  capabilities: {
+    filter: true, operators: ['eq', 'and'], quick: true, range: true, total: true, group: true,
+    mutate: { update: true, returning: 'row' },
+  },
+  async execute(query) {
+    const tree = query.filters;
+    const eq = tree &amp;&amp; Array.isArray(tree.conditions) ? tree.conditions.find((c) =&gt; c.op === 'eq') : tree;
+    const col = eq &amp;&amp; eq.value;
+    const matched = rows.filter((r) =&gt; col === undefined || r.status === col);
+    const start = query.range ? query.range.start : 0;
+    const end = query.range ? Math.min(query.range.end, matched.length) : matched.length;
+    return { rows: matched.slice(start, end), total: matched.length };
+  },
+  async executeGroupedAggregates(query, groupBy, aggs) {
+    const by = new Map();
+    for (const r of rows) {
+      const keys = groupBy.map((g) =&gt; r[g]);
+      const k = JSON.stringify(keys);
+      if (!by.has(k)) by.set(k, { keys, rows: [] });
+      by.get(k).rows.push(r);
+    }
+    return [...by.values()].map(({ keys, rows: bucket }) =&gt; ({
+      keys,
+      level: groupBy.length,
+      values: Object.fromEntries(aggs.map((a) =&gt; [a.id,
+        a.fn === 'count' ? bucket.length : bucket.reduce((t, r) =&gt; t + r[a.col], 0)])),
+    }));
+  },
+  async mutate(op) {
+    const r = rows.find((x) =&gt; String(x.id) === op.key);
+    if (r) Object.assign(r, op.patch);
+    return { keys: [op.key], rows: [r] };
+  },
+};
+
+const source = createPushdownSource({ adapter, pageSize: 2, aggregates: { default: 'engine' }, edit: true });
+
+const board = createKanban(null, {
+  source,
+  rowKey: 'id',
+  columnProperty: 'status',
+  columns: [{ id: 'todo', title: 'To do', wipLimit: 2 }, { id: 'done', title: 'Done' }],
+  pointsProperty: 'points',
+  card: { title: 'title' },
+  pageSize: 2,
+  transitionLog: [],
+});
+
+await new Promise((r) =&gt; setTimeout(r, 20));
+
+const count = board.count('todo');
+const cards = board.column('todo').cards.length;
+const over = board.column('todo').over;
+const more = await board.loadMore('todo');
+const cardsAfter = board.column('todo').cards.length;
+const reloaded = await board.reload();
+const isBoard = reloaded === board;
+const flow = board.flowAvailable;
+
+board.destroy();
+return [count, cards, over, more, cardsAfter, isBoard, flow].join(' | ');
+</code></pre>
 
     <h3 id="layout-config-examples">Layout config keys, executed</h3>
     <p class="lead-in">
@@ -12642,7 +12808,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.94.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.95.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

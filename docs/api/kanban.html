@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Kanban API Reference — Lattice Grid 1.94.0</title>
+<title>Kanban API Reference — Lattice Grid 1.95.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -388,12 +388,17 @@
       <div class="rail__group">
         <span class="rail__label">On this page</span>
         <a href="#kanban">The board (kanban) view</a>
+        <a class="rail__sub-link" href="#kanban-blocked-example">Blocked cards and dependencies, executed</a>
         <a class="rail__sub-link" href="#kanban-example">A board, grouped and aggregated, executed</a>
         <a class="rail__sub-link" href="#kanban-move-example">Move, reorder and veto, executed</a>
+        <a class="rail__sub-link" href="#kanban-workflow-example">Workflow rules, executed</a>
         <a class="rail__sub-link" href="#kanban-swimlane-example">Swimlanes, collapse and search, executed</a>
+        <a class="rail__sub-link" href="#kanban-card-parts-example">Richer card parts, executed</a>
         <a class="rail__sub-link" href="#kanban-sprint-example">Sprint, backlog and epic rollup, executed</a>
         <a class="rail__sub-link" href="#kanban-live-example">Live, driven by a Data Router, executed</a>
         <a class="rail__sub-link" href="#kanban-rebind-example">Re-bound to a replacement grid, executed</a>
+        <a class="rail__sub-link" href="#kanban-undo-example">Undo and redo, executed</a>
+        <a class="rail__sub-link" href="#kanban-source-example">A server-side board, executed</a>
         <a href="#ref-kanban-reference">Type reference</a>
         <a class="rail__sub-link" href="#type-Kanban">Kanban</a>
       </div>
@@ -472,7 +477,7 @@ const board = createKanban(document.querySelector('#board'), {
           <tr><td class="sig">count(id) / points(id)</td><td class="desc">A column's card count, and its points sum from <code>pointsProperty</code>.</td></tr>
           <tr><td class="sig">cards() / card(key)</td><td class="desc">Every card model, or one by its key.</td></tr>
           <tr><td class="sig">rows.apply({ add, update, remove })</td><td class="desc">The keyed-diff consumer contract a grid shares, so the board is a drop-in Data Router target. Also <code>rows.forEach</code> and <code>rows.count</code>.</td></tr>
-          <tr><td class="sig">move(keys, toColumn, toIndex?)</td><td class="desc">Move one or more cards to a column (and, with <code>orderProperty</code>, to a position within it) — the entry point behind drag-and-drop and keyboard move. Runs <code>onBeforeMove</code> first, then writes through the grid's shipped write-back path.</td></tr>
+          <tr><td class="sig">move(keys, toColumn, toIndex?)</td><td class="desc">Move one or more cards to a column (and, with <code>orderProperty</code>, to a position within it) — the entry point behind drag-and-drop and keyboard move. Runs the <code>transitions</code>/<code>require</code> workflow rules first (a disallowed or missing-field move fails with a named <code>[lattice]</code> error), then <code>onBeforeMove</code>, then writes through the grid's shipped write-back path.</td></tr>
           <tr><td class="sig">select / selection / isSelected / clearSelection</td><td class="desc">Card selection: <code>select(keys, 'set'|'add'|'toggle'|'remove')</code>, the selected keys, a membership test, and a clear. Click selects; Ctrl/Cmd toggles; Shift extends within a column.</td></tr>
           <tr><td class="sig">collapseColumn(id) / collapseLane(id)</td><td class="desc">Collapse, expand or toggle a column or swimlane; emits <code>column:collapse</code> / <code>swimlane:collapse</code>. State survives a keyed-diff update.</td></tr>
           <tr><td class="sig">reorderColumns(order) / moveColumn(id, before)</td><td class="desc">Reorder the columns (also done by dragging a column header); emits <code>column:reorder</code>.</td></tr>
@@ -502,6 +507,50 @@ const board = createKanban(document.querySelector('#board'), {
     <p><strong>Scale, state and accessibility.</strong> <code>virtualize</code> renders only a scroll window of a tall column (with true-height spacers so the scrollbar stays honest), for boards of thousands of cards. <code>getState()</code>/<code>setState()</code> (and <code>config.state</code>) save and restore the collapsed columns and lanes, the column order, the quick filter and the sprint/epic selection, so a reopened board comes back as it was; <code>setLoading</code>/<code>setError</code> add loading and error states. Accessibility runs throughout: the board is a labelled group of labelled column lists, cards are a roving-tabindex focus ring (arrows to move focus, Enter to activate), the move is fully keyboard-driven (<kbd>Space</kbd> grab, arrows for column/position, <kbd>Alt</kbd>+<kbd>↑/↓</kbd> across swimlanes, <kbd>Space</kbd>/<kbd>Enter</kbd> drop, <kbd>Escape</kbd> cancel) with live-region announcements, and every affordance carries a name.</p>
     <p><strong>Card aging / SLA.</strong> A <code>sla</code> config ages each card and highlights the ones sitting too long. Thresholds are a raw millisecond count or a <code>{ days, hours, … }</code> spec, set globally as <code>{ warn, breach }</code>, per column (either <code>sla.columns[id]</code>, or a column def's own <code>sla</code>/<code>slaWarn</code>/<code>slaBreach</code>) and per swimlane (<code>sla.lanes[id]</code>); the most specific wins, lane&nbsp;&rarr;&nbsp;column&nbsp;&rarr;&nbsp;global. <code>basis</code> chooses whether the clock is time-in-current-column (default) or age-on-the-board, resolved from the flow transition log, an <code>enteredProperty</code>/<code>createdProperty</code> timestamp, or arrival. The view puts an age chip on aged cards (<code>showAge: 'always'</code> shows it on every card) and a highlight on breached ones. A rising crossing (ok&rarr;warn, warn&rarr;breach) fires the <code>card:sla</code> event <em>and</em> the <code>onWarn</code>/<code>onBreach(level, rows)</code> callbacks — the same <code>(signal, rows)</code> shape a <a href="data-router.html#datarouter">Data Router</a> <code>alert</code> route uses, so one handler serves both. It is reached at runtime as <code>board.sla</code>; done-column cards are exempt by default (<code>ignoreDone: false</code> opts them in), and an optional <code>tick</code> re-checks so a card that breaches by simply sitting still still lights up. Example: <code>createKanban(el, { …, sla: { warn: { days: 2 }, breach: { days: 4 }, onBreach: notify } })</code>.</p>
     <p><strong>Inline edit and add-card.</strong> A field is opted into inline edit with the object mapping form — <code>card: { title: { field: 'title', edit: true } }</code>. Double-clicking a card (or <code>editCard(key, field)</code>) edits it in place: <strong>grid-bound</strong>, through the grid's own field editor for that column via its public edit path, so the column's parse, validate and optimistic/confirm/revert all run; <strong>standalone</strong>, through a host <code>editor</code> factory (or a default input), reverting when <code>onCardEdit</code> rejects. A per-column add-card affordance (<code>config.addCard</code>) creates a card carrying the column's group value — from a host <code>onAddCard(columnId)</code>, or generated, or appended through <code>grid.edit.addRow</code> when bound — and opens it straight in inline edit on its title, so the user just types. The module imports nothing from the grid's DOM package: grid-bound edits ride the grid's public edit API, standalone edits use the host's editor, so a board-only page never pulls the grid in.</p>
+    <p><strong>Blocked cards and dependencies.</strong> A card can be blocked outright, or blocked <em>by</em> other cards. <code>blockedProperty</code> names a row field that blocks a card — a boolean flag, or a reason string whose non-empty value is the reason the blocked badge shows (with an icon and a warning-tone chip, and an accessible name, so it is never colour alone). <code>blockedByProperty</code> names the field holding the keys of the cards that block this one (a comma-separated string or an array); the card then shows a <strong>"blocked by N"</strong> list of focusable chips, each one focusing (opening) its blocking card, and flips to a <strong>ready</strong> state once every blocker is in a done column. A <strong>blocked filter</strong> — <code>setBlockedFilter(true)</code>, or <code>blockedFilter: true</code> at construction — shows only blocked cards (a card with an unresolved blocker counts as blocked). Blocking and unblocking run through <code>setBlocked(key, blocked, reason?)</code> (or <code>toggleBlocked(key)</code>), which raise <code>card:edit</code> with <code>field: 'blocked'</code> like any other edit, and a blocked card is refused any forward move (a move into a column to its right). The flow analytics record blocked intervals and report <code>board.flow.blockedTime()</code>, <code>board.flow.flowEfficiency()</code> (active time / cycle time) and <code>board.flow.blockedTimeByColumn()</code>, so a cycle time that was really time waiting on someone else stops looking like active work.</p>
+    <h3 id="kanban-blocked-example">Blocked cards and dependencies, executed</h3>
+    <p class="section-note">An explicit block with a reason, a dependency on another card, the blocked filter, and a blocker
+    resolving to <code>ready</code> — headless, run on every build.</p>
+    <pre data-run="js" data-expect="true Waiting on design | a true | 2 | false | true | true" data-covers="export:createKanban config:KanbanConfig.blockedProperty config:KanbanConfig.blockedByProperty config:KanbanConfig.blockedFilter method:kanban.setBlocked method:kanban.toggleBlocked method:kanban.setBlockedFilter"><code><span class="kw">const</span> { createKanban } = <span class="kw">await</span> import('../packages/modules/kanban/index.js');
+
+<span class="kw">const</span> board = createKanban(null, {
+  rows: [
+    { id: 'a', status: 'todo', title: 'A' },
+    { id: 'b', status: 'todo', title: 'B', blockedBy: 'a' },          <span class="cmt">// blocked by card a</span>
+    { id: 'c', status: 'doing', title: 'C', blocked: 'Waiting on design' }, <span class="cmt">// explicit reason</span>
+  ],
+  rowKey: 'id',
+  columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'doing' }, { id: 'done', done: true }],
+  blockedProperty: 'blocked',
+  blockedByProperty: 'blockedBy',
+  blockedFilter: true,                                    <span class="cmt">// start filtered to blocked cards</span>
+  card: { title: 'title' },
+});
+
+board.setBlockedFilter(false);                            <span class="cmt">// clear it (only b and c were shown)</span>
+<span class="kw">const</span> c = board.card('c');
+<span class="kw">const</span> badge = c.blocked + ' ' + c.blockedReason;         <span class="cmt">// true Waiting on design</span>
+<span class="kw">const</span> b = board.card('b');
+<span class="kw">const</span> deps = b.blockedBy.join(',') + ' ' + b.blocked;    <span class="cmt">// a true (a is not done yet)</span>
+
+board.setBlockedFilter(true);
+<span class="kw">const</span> filtered = board.model.cardsByKey.size;            <span class="cmt">// 2 (b and c)</span>
+board.setBlockedFilter(false);
+
+<span class="kw">await</span> board.setBlocked('c', false);                      <span class="cmt">// unblock C</span>
+<span class="kw">const</span> cleared = board.card('c').explicitBlocked;         <span class="cmt">// false</span>
+<span class="kw">await</span> board.toggleBlocked('c', 'oops');                 <span class="cmt">// re-block C</span>
+<span class="kw">const</span> toggled = board.card('c').blocked;                 <span class="cmt">// true</span>
+
+<span class="kw">await</span> board.move('a', 'done');                           <span class="cmt">// resolve B's blocker</span>
+<span class="kw">const</span> ready = board.card('b').ready;                     <span class="cmt">// true</span>
+
+board.destroy();
+<span class="kw">return</span> [badge, deps, filtered, cleared, toggled, ready].join(' | ');</code></pre>
+
+    <p><strong>Richer card parts.</strong> Beyond <code>title</code>/<code>subtitle</code>/<code>labels</code>, the <code>card</code> mapping takes four built-in parts, each optional and each folded into the card's accessible name: <code>assignee</code> — one or several people (a name, a comma-separated string, or an array of <code>{ name, avatar }</code> objects) drawn with the avatar component the Gantt has used since 1.88, image with an initials fallback coloured from the name, and a <code>+N</code> overflow beyond <code>max</code> (default 2); <code>due</code> — a date field shown in the grid's date format when bound, with a due-soon/overdue state and icon from a <code>dueSoon</code> day threshold (<code>card: { due: { field: 'due', dueSoon: 3 } }</code>); <code>progress</code> — a 0..1 fraction or 0..100 value as a thin bar; and <code>checklist</code> — a <code>{ done, total }</code> object or two named fields, shown as <code>3/5</code>. A bound grid's own formatters are reused, and board search matches assignee names. <code>density: 'compact'</code> tightens each card (less padding, no subtitle) so a column fits more cards; the default <code>'comfortable'</code> keeps the roomier card.</p>
+    <p><strong>Undo and redo.</strong> Every user move (a drag, a reorder, a lane change), add and inline edit is one undo step — a multi-card drag is one step, because it reaches <code>move()</code> once with every key it carries. <code>board.undo()</code> re-runs the inverse through the board's own write path (the workflow rules, the <code>onBeforeMove</code>/<code>onBeforeEdit</code> veto, the WIP rules and the confirm/revert pipeline still run, so a refused undo leaves the card and the history unchanged and logs a catalogued warning); <code>board.redo()</code> re-applies, and <code>canUndo()</code>/<code>canRedo()</code> report the stacks, with a <code>history</code> event (<code>{ canUndo, canRedo, label }</code>) on every change. <kbd>Ctrl/Cmd+Z</kbd> and <kbd>Ctrl/Cmd+Shift+Z</kbd> undo and redo while the board has focus (the shortcut stands aside inside a text field). <code>historyDepth</code> caps the steps kept (default 100, <code>0</code> turns undo off). On a <strong>grid-bound</strong> board the board shares the grid's timeline, so one Ctrl+Z order covers a grid edit and a board move; host loads through <code>rows.apply</code> are never undoable.</p>
     <h3 id="kanban-example">A board, grouped and aggregated, executed</h3>
     <p class="section-note">A DemandFlow-shaped set &mdash; statuses as columns, points, an empty configured column,
     a WIP limit, and one status outside the configured set &mdash; grouped headless, then a keyed diff applied
@@ -571,6 +620,52 @@ board.destroy();
 
 <span class="kw">return</span> [order, moved, vetoed].join(' | ');</code></pre>
 
+    <p><strong>Workflow rules.</strong> Two optional config maps make the board enforce a workflow
+    before a move persists, and both run <em>first</em> — before <code>onBeforeMove</code>, before the
+    write-back, before any confirm or revert. <code>transitions</code> maps a <em>source</em> column id to the
+    destination column ids it may move to (a list, or <code>'*'</code> for any); a source absent from the map
+    may move anywhere, so a board that never configures rules stays exactly as permissive as it was.
+    <code>require</code> maps a <em>destination</em> column id to the row properties a card must carry to enter
+    it (<code>{ field, label?, editor? }</code>). A drag over a disallowed column shows it not droppable
+    (<code>dropEffect</code> none, <code>aria-dropeffect="none"</code>) and the keyboard move skips it; a drop into
+    a column whose required fields are missing opens a small form, and the move commits only once the values
+    are filled (cancel reverts). A <em>programmatic</em> <code>board.move</code> honours the same rules and fails
+    with a catalogued <code>[lattice]</code> error naming the rule. Either map may also be declared on a lane
+    (<code>config.lanes[i].transitions</code> / <code>.require</code>), overriding the board per key.</p>
+
+    <h3 id="kanban-workflow-example">Workflow rules, executed</h3>
+    <p class="section-note">A transition map that gates movement between columns and a required field on
+    <code>done</code> — the refused programmatic moves name their rule, and a card that already carries the
+    required value moves through. Run headless on every build.</p>
+    <pre data-run="js" data-expect="transition | require | 1" data-covers="export:createKanban config:KanbanConfig.transitions config:KanbanConfig.require"><code><span class="kw">const</span> { createKanban } = <span class="kw">await</span> import('../packages/modules/kanban/index.js');
+
+<span class="kw">const</span> board = createKanban(null, {
+  rows: [
+    { id: 1, status: 'todo', title: 'A' },
+    { id: 2, status: 'doing', title: 'B', deployed: '2026-01-01' },
+  ],
+  rowKey: 'id',
+  columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'doing' }, { id: 'done' }],
+  card: { title: 'title' },
+  transitions: { todo: ['doing'], doing: ['done'] },   <span class="cmt">// todo may only reach doing</span>
+  require: { done: [{ field: 'deployed', label: 'Deployed' }] },
+});
+
+<span class="kw">let</span> transition = 'no';
+<span class="kw">try</span> { <span class="kw">await</span> board.move(1, 'done'); }                       <span class="cmt">// todo → done is not in todo's map</span>
+<span class="kw">catch</span> (err) { transition = /kanban\.transition/.test(err.message) ? 'transition' : err.message; }
+
+<span class="kw">let</span> required = 'no';
+<span class="kw">await</span> board.move(1, 'doing');                            <span class="cmt">// todo → doing is allowed</span>
+<span class="kw">try</span> { <span class="kw">await</span> board.move(1, 'done'); }                  <span class="cmt">// but done requires `deployed`</span>
+<span class="kw">catch</span> (err) { required = /kanban\.require/.test(err.message) ? 'require' : err.message; }
+
+<span class="kw">const</span> moved = (<span class="kw">await</span> board.move(2, 'done')).moved.length;  <span class="cmt">// 1 — card 2 already carries it</span>
+
+board.destroy();
+<span class="kw">return</span> [transition, required, moved].join(' | ');</code></pre>
+
     <h3 id="kanban-swimlane-example">Swimlanes, collapse and search, executed</h3>
     <p class="section-note">Lanes with per-lane aggregates, a collapsed column, a reorder, and a quick-filter —
     all headless, run on every build.</p>
@@ -602,6 +697,32 @@ board.setQuickFilter('reset');
 <span class="kw">const</span> shown = board.model.cardsByKey.size;             <span class="cmt">// 1 (only "Reset" matches)</span>
 
 <span class="kw">return</span> [lane, order, shown].join(' | ');</code></pre>
+
+    <h3 id="kanban-card-parts-example">Richer card parts, executed</h3>
+    <p class="section-note">Assignee avatars, a progress bar, a checklist count, an overdue due date, the
+    compact density and a search that matches an assignee's name — resolved headless, run on
+    every build.</p>
+    <pre data-run="js" data-expect="2 | 40 | 3/5 | overdue | 1" data-covers="export:createKanban config:KanbanConfig.density"><code><span class="kw">const</span> { createKanban } = <span class="kw">await</span> import('../packages/modules/kanban/index.js');
+
+<span class="kw">const</span> board = createKanban(null, {
+  rows: [
+    { id: 1, status: 'todo', title: 'Ship', assignee: [{ name: 'Ann' }, 'Bo Chen'], pct: 0.4, ck: { done: 3, total: 5 } },
+    { id: 2, status: 'todo', title: 'Late', assignee: ['Cy'], due: <span class="kw">new</span> Date(Date.now() - 86400000).toISOString() },
+  ],
+  rowKey: 'id',
+  columnProperty: 'status',
+  columns: [{ id: 'todo' }],
+  density: 'compact',
+  card: { title: 'title', assignee: 'assignee', progress: 'pct', checklist: 'ck', due: { field: 'due', dueSoon: 3 } },
+});
+
+<span class="kw">const</span> card = board.card(1);
+<span class="kw">const</span> overdue = board.card(2).due.state;                     <span class="cmt">// overdue</span>
+board.setQuickFilter('Ann');                                    <span class="cmt">// search matches an assignee name</span>
+<span class="kw">const</span> shown = board.model.cardsByKey.size;                    <span class="cmt">// 1 (only "Ship")</span>
+
+board.destroy();
+<span class="kw">return</span> [card.assignees.length, card.progressPct, card.checklist.done + '/' + card.checklist.total, overdue, shown].join(' | ');</code></pre>
 
     <h3 id="kanban-sprint-example">Sprint, backlog and epic rollup, executed</h3>
     <p class="section-note">A sprint view, the backlog, and an epic rollup with progress toward the done column —
@@ -680,6 +801,119 @@ board.rebind(replacement);
 <span class="kw">const</span> after = board.cards().map((c) =&gt; c.fields.title).join(',');    <span class="cmt">// X</span>
 
 <span class="kw">return</span> before + ' | ' + after;</code></pre>
+
+    <h3 id="kanban-undo-example">Undo and redo, executed</h3>
+    <p class="section-note">A move is one undo step: <code>undo()</code> returns the card to its column and position,
+    <code>redo()</code> re-applies it, and <code>canUndo()</code>/<code>canRedo()</code> report the stacks, capped by
+    <code>historyDepth</code>. Run headless on every build.</p>
+    <pre data-run="js" data-expect="done | yes/no | todo | done" data-covers="export:createKanban method:kanban.undo method:kanban.redo method:kanban.canUndo method:kanban.canRedo config:KanbanConfig.historyDepth"><code><span class="kw">const</span> { createKanban } = <span class="kw">await</span> import('../packages/modules/kanban/index.js');
+
+<span class="kw">const</span> board = createKanban(null, {
+  rows: [
+    { id: 'a', status: 'todo', ord: 1, title: 'A' },
+    { id: 'b', status: 'todo', ord: 2, title: 'B' },
+  ],
+  rowKey: 'id',
+  columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'done' }],
+  orderProperty: 'ord',
+  historyDepth: 5,                    <span class="cmt">// keep five undo steps (default 100)</span>
+});
+
+<span class="kw">await</span> board.move('a', 'done');                 <span class="cmt">// one undo step</span>
+<span class="kw">const</span> moved = board.card('a').columnId;        <span class="cmt">// done</span>
+<span class="kw">const</span> can = (board.canUndo() ? 'yes' : 'no') + '/' + (board.canRedo() ? 'yes' : 'no');  <span class="cmt">// yes/no</span>
+
+<span class="kw">await</span> board.undo();                           <span class="cmt">// a returns to todo, its position restored</span>
+<span class="kw">const</span> undone = board.card('a').columnId;       <span class="cmt">// todo</span>
+
+<span class="kw">await</span> board.redo();                           <span class="cmt">// re-apply the move</span>
+<span class="kw">const</span> redone = board.card('a').columnId;       <span class="cmt">// done</span>
+
+board.destroy();
+<span class="kw">return</span> [moved, can, undone, redone].join(' | ');</code></pre>
+
+    <h3 id="kanban-source-example">A server-side board, executed</h3>
+    <p class="section-note">A board bound to the same pushdown source a grid takes: the column count and
+    points sum come from an engine <code>GROUP BY</code>, cards load one <code>pageSize</code> at a time
+    (<code>loadMore</code> fetches the next page), and a move writes through the source's update path.
+    Run headless on every build.</p>
+    <pre data-run="js" data-expect="5 | 2 | true | true | 4 | true | true" data-covers="export:createKanban export:createPushdownSource config:KanbanConfig.source config:KanbanConfig.pageSize config:KanbanConfig.transitionLog method:kanban.loadMore method:kanban.reload"><code><span class="kw">const</span> { createKanban } = <span class="kw">await</span> import('../packages/modules/kanban/index.js');
+<span class="kw">const</span> { createPushdownSource } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> rows = [
+  { id: 1, status: 'todo', points: 1, title: 'A' },
+  { id: 2, status: 'todo', points: 2, title: 'B' },
+  { id: 3, status: 'todo', points: 3, title: 'C' },
+  { id: 4, status: 'todo', points: 4, title: 'D' },
+  { id: 5, status: 'todo', points: 5, title: 'E' },
+  { id: 6, status: 'done', points: 6, title: 'F' },
+  { id: 7, status: 'done', points: 7, title: 'G' },
+];
+
+<span class="cmt">// A mock pushdown adapter over rows: pages the fetch, groups the totals.</span>
+<span class="kw">const</span> adapter = {
+  capabilities: {
+    filter: true, operators: ['eq', 'and'], quick: true, range: true, total: true, group: true,
+    mutate: { update: true, returning: 'row' },
+  },
+  <span class="kw">async</span> execute(query) {
+    <span class="kw">const</span> tree = query.filters;
+    <span class="kw">const</span> eq = tree &amp;&amp; Array.isArray(tree.conditions) ? tree.conditions.find((c) =&gt; c.op === 'eq') : tree;
+    <span class="kw">const</span> col = eq &amp;&amp; eq.value;
+    <span class="kw">const</span> matched = rows.filter((r) =&gt; col === undefined || r.status === col);
+    <span class="kw">const</span> start = query.range ? query.range.start : 0;
+    <span class="kw">const</span> end = query.range ? Math.min(query.range.end, matched.length) : matched.length;
+    <span class="kw">return</span> { rows: matched.slice(start, end), total: matched.length };
+  },
+  <span class="kw">async</span> executeGroupedAggregates(query, groupBy, aggs) {
+    <span class="kw">const</span> by = <span class="kw">new</span> Map();
+    <span class="kw">for</span> (<span class="kw">const</span> r <span class="kw">of</span> rows) {
+      <span class="kw">const</span> keys = groupBy.map((g) =&gt; r[g]);
+      <span class="kw">const</span> k = JSON.stringify(keys);
+      <span class="kw">if</span> (!by.has(k)) by.set(k, { keys, rows: [] });
+      by.get(k).rows.push(r);
+    }
+    <span class="kw">return</span> [...by.values()].map(({ keys, rows: bucket }) =&gt; ({
+      keys,
+      level: groupBy.length,
+      values: Object.fromEntries(aggs.map((a) =&gt; [a.id,
+        a.fn === 'count' ? bucket.length : bucket.reduce((t, r) =&gt; t + r[a.col], 0)])),
+    }));
+  },
+  <span class="kw">async</span> mutate(op) {
+    <span class="kw">const</span> r = rows.find((x) =&gt; String(x.id) === op.key);
+    <span class="kw">if</span> (r) Object.assign(r, op.patch);
+    <span class="kw">return</span> { keys: [op.key], rows: [r] };
+  },
+};
+
+<span class="kw">const</span> source = createPushdownSource({ adapter, pageSize: 2, aggregates: { default: 'engine' }, edit: true });
+
+<span class="kw">const</span> board = createKanban(null, {
+  source,
+  rowKey: 'id',
+  columnProperty: 'status',
+  columns: [{ id: 'todo', title: 'To do', wipLimit: 2 }, { id: 'done', title: 'Done' }],
+  pointsProperty: 'points',
+  card: { title: 'title' },
+  pageSize: 2,
+  transitionLog: [],      <span class="cmt">// the source-supplied transition log enables flow analytics</span>
+});
+
+<span class="kw">await</span> <span class="kw">new</span> Promise((r) =&gt; setTimeout(r, 20));  <span class="cmt">// the construction load settles</span>
+
+<span class="kw">const</span> count = board.count('todo');                <span class="cmt">// 5 — the engine GROUP BY, not the 2 loaded</span>
+<span class="kw">const</span> cards = board.column('todo').cards.length;   <span class="cmt">// 2 — the first page</span>
+<span class="kw">const</span> over = board.column('todo').over;           <span class="cmt">// true — 5 &gt; the WIP limit of 2</span>
+<span class="kw">const</span> more = <span class="kw">await</span> board.loadMore('todo');        <span class="cmt">// true — another page was fetched</span>
+<span class="kw">const</span> cardsAfter = board.column('todo').cards.length;  <span class="cmt">// 4</span>
+<span class="kw">const</span> reloaded = <span class="kw">await</span> board.reload();          <span class="cmt">// reload re-queries the engine totals</span>
+<span class="kw">const</span> isBoard = reloaded === board;
+<span class="kw">const</span> flow = board.flowAvailable;                <span class="cmt">// true — the transitionLog is supplied</span>
+
+board.destroy();
+<span class="kw">return</span> [count, cards, over, more, cardsAfter, isBoard, flow].join(' | ');</code></pre>
     <h2 id="ref-kanban-reference">Type reference</h2>
     <p class="section-note">Generated from the type declarations, so it always matches the release. Each surface lists its properties, its methods and the events it raises as three tables; an option or value type lists its members once.</p>
     <h3 id="ref-module-kanban">The kanban module</h3>
@@ -699,6 +933,15 @@ board.rebind(replacement);
           <tr><td class="name">sprint</td><td class="type">unknown</td><td class="desc">The raw value of `sprintProperty`, used by the sprint selection. Undefined when no sprint property is configured. <small>(optional)</small></td></tr>
           <tr><td class="name">epic</td><td class="type">unknown</td><td class="desc">The raw value of `epicProperty`, used by the epic selection. Undefined when no epic property is configured. <small>(optional)</small></td></tr>
           <tr><td class="name">fields</td><td class="type">Record&lt;string, string&gt;</td><td class="desc">The card template's text, one entry per `card` mapping. A mapping that names a grid column is read through that column's own formatter, so it reads exactly as the cell does; anything missing is ''.</td></tr>
+          <tr><td class="name">blocked</td><td class="type">boolean</td><td class="desc">Whether the card is blocked (BACKLOG-0002106): its `blockedProperty` is set, or it still waits on a `blockedByProperty` blocker that is not in a done column. The flag the blocked filter and the forward-move guard read.</td></tr>
+          <tr><td class="name">explicitBlocked</td><td class="type">boolean</td><td class="desc">Whether the card's own `blockedProperty` marks it blocked — the flag behind the blocked badge and the flow analytics' blocked interval, independent of any blockers.</td></tr>
+          <tr><td class="name">blockedReason</td><td class="type">string</td><td class="desc">The reason the card is blocked: the `blockedProperty` value itself when it is a non-empty string, '' when the flag was a bare boolean or no reason was written.</td></tr>
+          <tr><td class="name">blockedBy</td><td class="type">unknown[]</td><td class="desc">The keys of the cards blocking this one, from `blockedByProperty`. Empty when the card has no blockers.</td></tr>
+          <tr><td class="name">ready</td><td class="type">boolean</td><td class="desc">Whether the card is ready (BACKLOG-0002106): it has blockers and every one of them is now in a done column, and it is not explicitly blocked itself.</td></tr>
+          <tr><td class="name">assignees</td><td class="type">{ name: string; avatar?: string | null }[]</td><td class="desc">The assignees resolved from the `assignee` mapping (BACKLOG-0002107): one entry per person, `{ name, avatar }`. Empty when the mapping is absent or the row has none; the names also feed the quick filter. <small>(optional)</small></td></tr>
+          <tr><td class="name">due</td><td class="type">{ text: string; ts: number | null; state: 'overdue' | 'soon' | null } | null</td><td class="desc">The due part (BACKLOG-0002107): the display text (the grid's date format when bound), the parsed timestamp, and the `'overdue'`/`'soon'` state (null when the value is not a parseable date). Null when the `due` mapping is absent. <small>(optional)</small></td></tr>
+          <tr><td class="name">progressPct</td><td class="type">number | null</td><td class="desc">The progress percent resolved from the `progress` mapping (BACKLOG-0002107), clamped to 0..100; null when the value is not a number. <small>(optional)</small></td></tr>
+          <tr><td class="name">checklist</td><td class="type">{ done: number; total: number } | null</td><td class="desc">The checklist count resolved from the `checklist` mapping (BACKLOG-0002107), or null when it is unmapped or neither side is numeric. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -739,6 +982,25 @@ board.rebind(replacement);
         </tbody>
       </table>
     </div>
+    <h4 id="type-KanbanRequiredField">KanbanRequiredField</h4>
+    <p class="section-note">A required-field rule (BACKLOG-0002103): the row property a card must carry before it may enter a column, shown in the fill-in form when missing.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">field</td><td class="type">string</td><td class="desc">The row property path to fill.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The form field's human label (host-localised); defaults to the property name. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">editor</td><td class="type">(ctx: { card: <a href="#type-KanbanCard">KanbanCard</a>; field: string; value: string; commit: (value: unknown) =&gt; void; cancel: () =&gt; void }) =&gt; <a href="#type-KanbanEditor">KanbanEditor</a></td><td class="desc"><code>ctx: { card: <a href="#type-KanbanCard">KanbanCard</a>; field: string; value: string; commit: (value: unknown) =&gt; void; cancel: () =&gt; void }</code></td><td class="type"><code>=&gt; <a href="#type-KanbanEditor">KanbanEditor</a></code></td><td class="desc">A custom editor factory for the form field; defaults to a text input. Same shape as a card field editor. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-KanbanCardMap">KanbanCardMap</h4>
     <p class="section-note">The field-to-property mapping that drives the card template.</p>
     <div class="table-wrap">
@@ -748,10 +1010,11 @@ board.rebind(replacement);
           <tr><td class="name">title</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">The card's headline text. <small>(optional)</small></td></tr>
           <tr><td class="name">subtitle</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">A second line under the title. <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">A comma-separated string rendered as one chip per label; blanks are skipped. <small>(optional)</small></td></tr>
-          <tr><td class="name">assignee</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">The person shown first in the card's meta row. <small>(optional)</small></td></tr>
-          <tr><td class="name">due</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">The due date, shown in the meta row as whatever text the mapping produces. <small>(optional)</small></td></tr>
+          <tr><td class="name">assignee</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a> | { field: string; max?: number }</td><td class="desc">One or several people, drawn as avatars (BACKLOG-0002107): the row property holds a single {@link KanbanAssignee}, an array of them, or a comma-separated string of names. Up to `max` (default 2) are drawn, the rest as a `+N` overflow. <small>(optional)</small></td></tr>
+          <tr><td class="name">due</td><td class="type"><a href="types.html#type-KanbanDueMap">KanbanDueMap</a></td><td class="desc">The due date (BACKLOG-0002107), with a due-soon/overdue state and icon. <small>(optional)</small></td></tr>
           <tr><td class="name">cover</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">An image URL drawn as a cover band across the top of the card. <small>(optional)</small></td></tr>
-          <tr><td class="name">progress</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">A progress bar over the card. The value is read as a percentage (0-100); a value that is not a number draws no bar. <small>(optional)</small></td></tr>
+          <tr><td class="name">progress</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">A progress bar over the card (BACKLOG-0002107). The value is a 0..1 fraction or a 0..100 percent (a trailing `%` is tolerated); a value that is not a number draws no bar. <small>(optional)</small></td></tr>
+          <tr><td class="name">checklist</td><td class="type"><a href="types.html#type-KanbanChecklistMap">KanbanChecklistMap</a></td><td class="desc">A checklist count on the card (BACKLOG-0002107), rendered as `3/5`. See {@link KanbanChecklistMap}. <small>(optional)</small></td></tr>
           <tr><td class="name">badges</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">A single badge chip at the end of the meta row. <small>(optional)</small></td></tr>
           <tr><td class="name">accent</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">A colour for the card's left border. Any CSS colour; an empty value leaves the border plain. <small>(optional)</small></td></tr>
           <tr><td class="name">[field: string]</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a> | undefined</td><td class="desc">Any other card slot the board's theme declares, mapped the same way as the named ones above. `undefined` is the honest value for a slot that is left unmapped.</td></tr>
@@ -885,6 +1148,9 @@ board.rebind(replacement);
           <tr><td class="name">cycleTime</td><td class="type">(): <a href="#type-KanbanFlowDurationStats">KanbanFlowDurationStats</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-KanbanFlowDurationStats">KanbanFlowDurationStats</a></code></td><td class="desc">Active-work-time summary: first-done minus first-start, over cards that finished and passed through a start column.</td></tr>
           <tr><td class="name">leadTime</td><td class="type">(): <a href="#type-KanbanFlowDurationStats">KanbanFlowDurationStats</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-KanbanFlowDurationStats">KanbanFlowDurationStats</a></code></td><td class="desc">Arrival-to-done-time summary: first-done minus arrival, over cards that finished.</td></tr>
           <tr><td class="name">cfd</td><td class="type">(opts?: { bucket?: string | number; from?: number; to?: number }): <a href="#type-KanbanFlowCfd">KanbanFlowCfd</a></td><td class="desc"><code>opts?: { bucket?: string | number; from?: number; to?: number }</code></td><td class="type"><code><a href="#type-KanbanFlowCfd">KanbanFlowCfd</a></code></td><td class="desc">The cumulative-flow series a stacked-area chart draws — one band per column, growing over time.</td></tr>
+          <tr><td class="name">blockedTime</td><td class="type">(): <a href="#type-KanbanFlowDurationStats">KanbanFlowDurationStats</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-KanbanFlowDurationStats">KanbanFlowDurationStats</a></code></td><td class="desc">The blocked-time summary (BACKLOG-0002106): how long each card has spent blocked, over cards with any transition. See {@link KanbanFlowDurationStats}.</td></tr>
+          <tr><td class="name">flowEfficiency</td><td class="type">(): <a href="#type-KanbanFlowDurationStats">KanbanFlowDurationStats</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-KanbanFlowDurationStats">KanbanFlowDurationStats</a></code></td><td class="desc">The flow-efficiency summary (BACKLOG-0002106): active time / cycle time per card, as 0..1 fractions over finished cards. See {@link KanbanFlowDurationStats}.</td></tr>
+          <tr><td class="name">blockedTimeByColumn</td><td class="type">(): { column: string; blockedMs: number; flowEfficiency: number | null }[]</td><td class="desc">&mdash;</td><td class="type"><code>{ column: string; blockedMs: number; flowEfficiency: number | null }[]</code></td><td class="desc">Blocked time and flow efficiency, aggregated per column (BACKLOG-0002106). Each card's blocked time is charged to the column it now sits in.</td></tr>
         </tbody>
       </table>
     </div>
@@ -896,6 +1162,9 @@ board.rebind(replacement);
         <tbody>
           <tr><td class="name">rows</td><td class="type"><a href="types.html#type-KanbanRow">KanbanRow</a>[]</td><td class="desc">The source rows, one per card. Use this or `grid`, not both — `rows` wins. <small>(optional)</small></td></tr>
           <tr><td class="name">grid</td><td class="type">unknown</td><td class="desc">A Lattice grid to bind to instead of `rows`: the board reads the grid's displayed rows through its own value pipeline and writes moves back through it. On a bound board `rows.apply` and `setRows` are ignored with a warning. <small>(optional)</small></td></tr>
+          <tr><td class="name">source</td><td class="type"><a href="types.html#type-SourceConfig">SourceConfig</a></td><td class="desc">A pushdown source the board binds to instead of `rows` or `grid` (BACKLOG-0002104): the result of `createPushdownSource`. The board asks the source's `fetch` for each column's cards one page at a time (loading the next as the column is scrolled), its `aggregate` for each column's count and points sum as an engine GROUP BY, and its `edit.commit` to persist a move. A `source` wins over `rows` and `grid`; use only one. <small>(optional)</small></td></tr>
+          <tr><td class="name">pageSize</td><td class="type">number</td><td class="desc">Cards fetched per column page on a source-bound board (BACKLOG-0002104). Default 50. Only meaningful with `source`. <small>(optional)</small></td></tr>
+          <tr><td class="name">transitionLog</td><td class="type">unknown[]</td><td class="desc">A persisted transition log the board hands to flow analytics on a source-bound board (BACKLOG-0002104). Without it `flowAvailable` is false and flow features report themselves unavailable rather than deriving from the loaded page. Only meaningful with `source`. <small>(optional)</small></td></tr>
           <tr><td class="name">rowKey</td><td class="type">string | ((row: <a href="types.html#type-KanbanRow">KanbanRow</a>) =&gt; string | number)</td><td class="desc">Card identity (a field or fn, returning a string or number); default 'id'. Composite (`string[]`) keys are core-grid-only: a board keys its own card identity from one value, so there is nothing for an array to join into here (BACKLOG-0001669). <small>(optional)</small></td></tr>
           <tr><td class="name">columnProperty</td><td class="type">string</td><td class="desc">The row property whose value puts a card in a column. Without it (and without `grid` or `columns`) the board warns and shows nothing. <small>(optional)</small></td></tr>
           <tr><td class="name">columns</td><td class="type"><a href="types.html#type-KanbanColumnDef">KanbanColumnDef</a>[]</td><td class="desc">The columns to show, as ids or `{ id, title, color, wipLimit, collapsed, done }`. Configured columns appear even when empty; a group value outside them still gets a column of its own, appended, so no card is dropped. <small>(optional)</small></td></tr>
@@ -905,15 +1174,20 @@ board.rebind(replacement);
           <tr><td class="name">orderProperty</td><td class="type">string</td><td class="desc">The row property that ranks cards within a column. Set it to make dropping a card at a position meaningful: a move then writes a new order value. Without it cards stay in arrival order. <small>(optional)</small></td></tr>
           <tr><td class="name">swimlaneProperty</td><td class="type">string</td><td class="desc">The row property that puts a card in a swimlane. Naming it does not switch on the lane layout — set `swimlanes` for that — but it does let a cross-lane drop write the lane back. <small>(optional)</small></td></tr>
           <tr><td class="name">swimlanes</td><td class="type">boolean</td><td class="desc">Render the 2D swimlane layout using `swimlaneProperty` (default false). <small>(optional)</small></td></tr>
-          <tr><td class="name">lanes</td><td class="type">(string | { id: string; title?: string })[]</td><td class="desc">Explicit lane definitions; otherwise lanes come from the distinct swimlane values. <small>(optional)</small></td></tr>
+          <tr><td class="name">lanes</td><td class="type">(string | <a href="types.html#type-KanbanLaneDef">KanbanLaneDef</a>)[]</td><td class="desc">Explicit lane definitions; otherwise lanes come from the distinct swimlane values. <small>(optional)</small></td></tr>
           <tr><td class="name">laneOrder</td><td class="type">string[]</td><td class="desc">An explicit lane order by id (also set by a lane-header-drag reorder). <small>(optional)</small></td></tr>
           <tr><td class="name">enforceWip</td><td class="type">boolean</td><td class="desc">Enforce `wipLimit` as a hard gate: a move that would exceed it is refused (default false). <small>(optional)</small></td></tr>
           <tr><td class="name">sprintProperty</td><td class="type">string</td><td class="desc">The row property holding a card's sprint, which `setSprint` and the sprint selection filter on. <small>(optional)</small></td></tr>
           <tr><td class="name">epicProperty</td><td class="type">string</td><td class="desc">The row property holding a card's epic, which `setEpic` and the epic selection filter on. <small>(optional)</small></td></tr>
+          <tr><td class="name">blockedProperty</td><td class="type">string</td><td class="desc">The row property that blocks a card (BACKLOG-0002106): a boolean flag, or a reason string whose non-empty value is the reason shown on the blocked badge. Truthy means blocked; empty/false means clear. <small>(optional)</small></td></tr>
+          <tr><td class="name">blockedByProperty</td><td class="type">string</td><td class="desc">The row property naming the keys of the cards that block this one (BACKLOG-0002106) — a comma-separated string or an array. Each key must be another card's `rowKey`; the card shows a "blocked by N" list of them, and is ready once they are all done. <small>(optional)</small></td></tr>
+          <tr><td class="name">blockedFilter</td><td class="type">boolean</td><td class="desc">Initially filter to blocked cards only (BACKLOG-0002106). The same flag `setBlockedFilter(on)` toggles at runtime. <small>(optional)</small></td></tr>
           <tr><td class="name">sprints</td><td class="type">(string | { id: unknown; title?: string })[]</td><td class="desc">A configurable sprint dataset: the canonical sprint list (order + titles), shown even when empty. <small>(optional)</small></td></tr>
           <tr><td class="name">sprint</td><td class="type">unknown</td><td class="desc">The initially selected sprint id, `Kanban.BACKLOG`, or undefined for all. <small>(optional)</small></td></tr>
           <tr><td class="name">epic</td><td class="type">unknown</td><td class="desc">The initially selected epic id, or undefined for all. <small>(optional)</small></td></tr>
           <tr><td class="name">doneColumns</td><td class="type">string[]</td><td class="desc">Column ids that count as "done" for a rollup's progress (also a column def's `done: true`). <small>(optional)</small></td></tr>
+          <tr><td class="name">transitions</td><td class="type">Record&lt;string, string[] | '*'&gt;</td><td class="desc">Workflow rules (BACKLOG-0002103): the moves each source column allows, as a list of destination column ids, or `'*'` for any. A source column absent from the map may move anywhere. A move against the map is refused — a drag shows the target as not droppable and a keyboard move skips it, while a programmatic move fails with a named `[lattice]` error. May also be declared per lane; a lane's entry overrides the board's per key. <small>(optional)</small></td></tr>
+          <tr><td class="name">require</td><td class="type">Record&lt;string, <a href="#type-KanbanRequiredField">KanbanRequiredField</a>[]&gt;</td><td class="desc">Workflow rules (BACKLOG-0002103): the row properties a card must carry before it may enter each destination column. A missing value opens the small fill-in form on a drag, and fails a programmatic move with a named `[lattice]` error. May also be declared per lane; a lane's entry overrides the board's per key. <small>(optional)</small></td></tr>
           <tr><td class="name">children</td><td class="type"><a href="#type-KanbanChildren">KanbanChildren</a></td><td class="desc">Card pop-out: a nested child grid or board (master-detail by composition). <small>(optional)</small></td></tr>
           <tr><td class="name">virtualize</td><td class="type">boolean | { rowHeight?: number; overscan?: number; threshold?: number; viewport?: number }</td><td class="desc">Card virtualization for tall columns: true, or `{ rowHeight, overscan, threshold, viewport }`. <small>(optional)</small></td></tr>
           <tr><td class="name">sla</td><td class="type"><a href="#type-KanbanSlaConfig">KanbanSlaConfig</a></td><td class="desc">Card aging / SLA highlighting (BACKLOG-0000960): warn/breach thresholds (globally, per column and/or per lane) that age each card and fire `card:sla` on a rising crossing. Opt-in; reached at runtime as {@link Kanban#sla}. See {@link KanbanSlaConfig}. <small>(optional)</small></td></tr>
@@ -922,9 +1196,11 @@ board.rebind(replacement);
           <tr><td class="name">quickFilter</td><td class="type">string</td><td class="desc">Quick-filter text matched case-insensitively across card fields. <small>(optional)</small></td></tr>
           <tr><td class="name">card</td><td class="type"><a href="#type-KanbanCardMap">KanbanCardMap</a></td><td class="desc">Maps the card template's slots — title, subtitle, labels, assignee, due, cover, progress, badges, accent — to row properties, and opts a slot into inline edit. Any other name is carried as an extra field on `KanbanCard.fields`. <small>(optional)</small></td></tr>
           <tr><td class="name">readonly</td><td class="type"><a href="types.html#type-KanbanReadonly">KanbanReadonly</a></td><td class="desc">Blocks edits and moves: `true` for the whole board, or a map singling out columns and cards by id and key. Default false. <small>(optional)</small></td></tr>
+          <tr><td class="name">historyDepth</td><td class="type">number</td><td class="desc">How many undo steps the board keeps (BACKLOG-0002108): every move, add and inline edit is one step, a multi-card drag included. Default 100; 0 turns undo off. A grid-bound board ignores this and shares the bound grid's history, so one Ctrl+Z order covers both views. <small>(optional)</small></td></tr>
           <tr><td class="name">ariaLabel</td><td class="type">string</td><td class="desc">The board's accessible name. Defaults to `Board`. <small>(optional)</small></td></tr>
           <tr><td class="name">emptyText</td><td class="type">string</td><td class="desc">The placeholder shown in a column with no cards. Empty by default, so the module ships no English of its own. <small>(optional)</small></td></tr>
           <tr><td class="name">selectable</td><td class="type">boolean</td><td class="desc">Whether card selection is enabled (default true). <small>(optional)</small></td></tr>
+          <tr><td class="name">density</td><td class="type"><a href="types.html#type-KanbanDensity">KanbanDensity</a> <small class="literals">'compact' | 'comfortable'</small></td><td class="desc">The card density (BACKLOG-0002107): `'compact'` tightens each card's padding and drops the subtitle; `'comfortable'` (the default) keeps the roomier card. <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">Record&lt;string, string&gt;</td><td class="desc">Host-localised words for the move announcements (grabbed/moved/dropped/reverted/cancelled). <small>(optional)</small></td></tr>
           <tr><td class="name">contextMenu</td><td class="type"><a href="#type-KanbanMenuItem">KanbanMenuItem</a>[] | ((card: <a href="#type-KanbanCard">KanbanCard</a>, selected: <a href="#type-KanbanCard">KanbanCard</a>[]) =&gt; <a href="#type-KanbanMenuItem">KanbanMenuItem</a>[])</td><td class="desc">A per-card context menu: items, or `fn(card, selectedCards)` returning items. Suppresses `card:contextmenu`. <small>(optional)</small></td></tr>
         </tbody>
@@ -1003,6 +1279,29 @@ board.rebind(replacement);
           <tr><td class="name">orders</td><td class="type">number[] | null</td><td class="desc">The new order values written to `orderProperty`, one per moved card — computed to sit between the neighbours at the drop point. Null when no order property is configured.</td></tr>
           <tr><td class="name">origin</td><td class="type"><a href="types.html#type-EventOrigin">EventOrigin</a> <small class="literals">'api' | 'user' | 'init' | 'ai'</small></td><td class="desc">Where the move came from: `'user'` for a drag or keyboard move, `'ai'` for an approved AI proposal, `'api'` for `board.move`.</td></tr>
           <tr><td class="name">lane</td><td class="type">unknown</td><td class="desc">The swimlane the cards were moved to, when the gesture named one and a swimlane property is configured. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KanbanHistoryStep">KanbanHistoryStep</h4>
+    <p class="section-note">The outcome of one board undo/redo step (BACKLOG-0002108).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">applied</td><td class="type">boolean</td><td class="desc">Whether the step actually applied; false is a vetoed step that left the stacks untouched.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The step's label: `'move'`, `'edit'` or `'add'`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KanbanHistoryEvent">KanbanHistoryEvent</h4>
+    <p class="section-note">`history`: the undo/redo stacks moved (BACKLOG-0002108).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">canUndo</td><td class="type">boolean</td><td class="desc">Whether there is a step to undo.</td></tr>
+          <tr><td class="name">canRedo</td><td class="type">boolean</td><td class="desc">Whether there is a step to redo.</td></tr>
+          <tr><td class="name">label</td><td class="type">string | null</td><td class="desc">The label of the next undo step, or null when there is none.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1344,6 +1643,19 @@ board.rebind(replacement);
         </tbody>
       </table>
     </div>
+    <h4 id="type-KanbanCardsLoadedEvent">KanbanCardsLoadedEvent</h4>
+    <p class="section-note">The payload of the `cards:loaded` event (BACKLOG-0002104): a page of cards has been fetched from the bound pushdown source for one column (and, in swimlane mode, one lane).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">The column the page loaded into.</td></tr>
+          <tr><td class="name">lane</td><td class="type">string</td><td class="desc">The lane the page loaded into, present only in swimlane mode. <small>(optional)</small></td></tr>
+          <tr><td class="name">keys</td><td class="type">unknown[]</td><td class="desc">The keys of the rows admitted by this page.</td></tr>
+          <tr><td class="name">more</td><td class="type">boolean</td><td class="desc">True when another page may still follow for this column (and lane).</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-KanbanEventPayloads">KanbanEventPayloads</h4>
     <p class="section-note">What a handler receives, per board event.</p>
     <div class="table-wrap">
@@ -1371,6 +1683,7 @@ board.rebind(replacement);
           <tr><td class="name">card:drill</td><td class="type"><a href="#type-KanbanCardDrillEvent">KanbanCardDrillEvent</a></td><td class="desc">The card, its child rows, and how deep the drill is.</td></tr>
           <tr><td class="name">card:edit</td><td class="type"><a href="#type-KanbanCardEditEvent">KanbanCardEditEvent</a></td><td class="desc">The card, the field, and the value written.</td></tr>
           <tr><td class="name">card:sla</td><td class="type"><a href="#type-KanbanSlaEvent">KanbanSlaEvent</a></td><td class="desc">The crossing: the level reached, the one before it, and the age behind it.</td></tr>
+          <tr><td class="name">cards:loaded</td><td class="type"><a href="#type-KanbanCardsLoadedEvent">KanbanCardsLoadedEvent</a></td><td class="desc">The column (and lane) a page of cards loaded into, the admitted keys, and whether another page follows.</td></tr>
           <tr><td class="name">beforeMove</td><td class="type"><a href="#type-KanbanBeforeMoveEvent">KanbanBeforeMoveEvent</a></td><td class="desc">The card about to move, with `preventDefault` to stop it.</td></tr>
           <tr><td class="name">beforeAdd</td><td class="type"><a href="#type-KanbanBeforeAddEvent">KanbanBeforeAddEvent</a></td><td class="desc">The column and seed about to be appended, with `preventDefault` to stop it.</td></tr>
           <tr><td class="name">beforeEdit</td><td class="type"><a href="#type-KanbanBeforeEditEvent">KanbanBeforeEditEvent</a></td><td class="desc">The field about to be written, with `preventDefault` to stop it.</td></tr>
@@ -1383,6 +1696,7 @@ board.rebind(replacement);
           <tr><td class="name">laneReorder:cancelled</td><td class="type"><a href="#type-KanbanOrderCancelledEvent">KanbanOrderCancelledEvent</a></td><td class="desc">The lane order that was not applied, and why.</td></tr>
           <tr><td class="name">columnReorder:cancelled</td><td class="type"><a href="#type-KanbanOrderCancelledEvent">KanbanOrderCancelledEvent</a></td><td class="desc">The column order that was not applied, and why.</td></tr>
           <tr><td class="name">columnChange:cancelled</td><td class="type"><a href="#type-KanbanColumnChangeCancelledEvent">KanbanColumnChangeCancelledEvent</a></td><td class="desc">The collapse that was not applied, and why.</td></tr>
+          <tr><td class="name">history</td><td class="type"><a href="#type-KanbanHistoryEvent">KanbanHistoryEvent</a></td><td class="desc">The undo/redo stacks moved (BACKLOG-0002108).</td></tr>
         </tbody>
       </table>
     </div>
@@ -1422,6 +1736,8 @@ board.rebind(replacement);
           <tr><td class="name">where</td><td class="type">(): string[]</td><td class="desc">&mdash;</td><td class="type"><code>string[]</code></td><td class="desc">The registered names, in registration order.</td></tr>
           <tr><td class="name">where</td><td class="type">(name: string, predicate: (row: <a href="types.html#type-KanbanRow">KanbanRow</a>, card: <a href="#type-KanbanCard">KanbanCard</a>) =&gt; boolean): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>name: string</code><br><code>predicate: (row: <a href="types.html#type-KanbanRow">KanbanRow</a>, card: <a href="#type-KanbanCard">KanbanCard</a>) =&gt; boolean</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Register or replace the predicate under `name`.</td></tr>
           <tr><td class="name">where</td><td class="type">(name: string, predicate: null): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>name: string</code><br><code>predicate: null</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Remove whatever is registered under `name`; a no-op if nothing was.</td></tr>
+          <tr><td class="name">engine</td><td class="type">(name: string, condition: <a href="grid.html#type-Condition">Condition</a> | <a href="grid.html#type-FilterGroup">FilterGroup</a>): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>name: string</code><br><code>condition: <a href="grid.html#type-Condition">Condition</a> | <a href="grid.html#type-FilterGroup">FilterGroup</a></code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Register, replace, remove (`null`) or list (no arguments) a named **engine** filter (BACKLOG-0002104): a pushable condition tree the board sends to a bound pushdown source as a WHERE predicate, so the engine narrows both the column counts and the loaded cards. The tree is never evaluated client-side; on a board with no `source` it is stored but does not narrow cards.</td></tr>
+          <tr><td class="name">engine</td><td class="type">(name: string, condition: null): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>name: string</code><br><code>condition: null</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Remove the engine filter registered under `name`; a no-op if nothing was.</td></tr>
           <tr><td class="name">reapply</td><td class="type">(name?: string): boolean</td><td class="desc"><code>name?: string</code></td><td class="type"><code>boolean</code></td><td class="desc">Re-run every named predicate (or one, by name) and re-render.</td></tr>
         </tbody>
       </table>
@@ -1438,6 +1754,8 @@ board.rebind(replacement);
           <tr><td class="name">rows</td><td class="type"><a href="#type-KanbanRows">KanbanRows</a></td><td class="desc">The keyed-diff consumer surface, the same shape a grid exposes — this is what makes a board a Data Router target.</td></tr>
           <tr><td class="name">sla</td><td class="type"><a href="#type-KanbanSla">KanbanSla</a></td><td class="desc">The card-aging / SLA monitor, present only when a `sla` config was supplied (BACKLOG-0000960). <small>(optional)</small></td></tr>
           <tr><td class="name">flow</td><td class="type"><a href="#type-KanbanFlow">KanbanFlow</a></td><td class="desc">Flow analytics over the board's transition log (BACKLOG-0000951): cycle time, lead time and the cumulative-flow diagram. Built automatically unless the config says `flow: false`. <small>(optional)</small></td></tr>
+          <tr><td class="name">flowAvailable</td><td class="type">boolean</td><td class="desc">Whether flow analytics can answer on this board (BACKLOG-0002104). False on a source-bound board with no source `transitionLog`, where the flow features report themselves unavailable rather than deriving from the loaded page. <small>(read-only)</small></td></tr>
+          <tr><td class="name">sourceBound</td><td class="type">boolean</td><td class="desc">Whether the board is bound to a pushdown source and owns its own paged data path (BACKLOG-0002104): counts/sums from an engine GROUP BY, cards fetched per column page, moves written through the source. <small>(read-only)</small></td></tr>
           <tr><td class="name">filters</td><td class="type"><a href="#type-KanbanFilters">KanbanFilters</a></td><td class="desc">Named card predicates, composed with AND (BACKLOG-0001229). See {@link KanbanFilters}.</td></tr>
           <tr><td class="name">BACKLOG</td><td class="type">unknown</td><td class="desc">The sentinel `setSprint` value that selects the backlog (cards with no sprint). <small>(read-only)</small></td></tr>
         </tbody>
@@ -1457,7 +1775,11 @@ board.rebind(replacement);
           <tr><td class="name">on</td><td class="type">(name: <a href="types.html#type-KanbanEventName">KanbanEventName</a>, fn: (event: <a href="#type-KanbanEventPayloads">KanbanEventPayloads</a>[<a href="types.html#type-KanbanEventName">KanbanEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>name: <a href="types.html#type-KanbanEventName">KanbanEventName</a></code><br><code>fn: (event: <a href="#type-KanbanEventPayloads">KanbanEventPayloads</a>[<a href="types.html#type-KanbanEventName">KanbanEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Register an event handler; returns a function that removes it. An unrecognised event name is warned about once, because it names a binding that could never fire. What each event carries is {@link KanbanEventPayloads}; the handler is declared with the widest of them, so narrow on the name inside it.</td></tr>
           <tr><td class="name">off</td><td class="type">(name: <a href="types.html#type-KanbanEventName">KanbanEventName</a>, fn: (event: <a href="#type-KanbanEventPayloads">KanbanEventPayloads</a>[<a href="types.html#type-KanbanEventName">KanbanEventName</a>]) =&gt; void): void</td><td class="desc"><code>name: <a href="types.html#type-KanbanEventName">KanbanEventName</a></code><br><code>fn: (event: <a href="#type-KanbanEventPayloads">KanbanEventPayloads</a>[<a href="types.html#type-KanbanEventName">KanbanEventName</a>]) =&gt; void</code></td><td class="type"><code>void</code></td><td class="desc">Remove a handler registered with `on`.</td></tr>
           <tr><td class="name">readonly</td><td class="type">(scope?: { column?: string; card?: unknown }): boolean</td><td class="desc"><code>scope?: { column?: string; card?: unknown }</code></td><td class="type"><code>boolean</code></td><td class="desc">Whether editing is blocked — for the whole board, or for the column or card named in the scope.</td></tr>
-          <tr><td class="name">move</td><td class="type">(keys: unknown | unknown[], toColumn: string, toIndex?: number | null, toLane?: string): Promise&lt;{ moved: unknown[]; reverted: boolean }&gt;</td><td class="desc"><code>keys: unknown | unknown[]</code><br><code>toColumn: string</code><br><code>toIndex?: number | null</code><br><code>toLane?: string</code></td><td class="type"><code>Promise&lt;{ moved: unknown[]; reverted: boolean }&gt;</code></td><td class="desc">Move one or more cards to a column (and, with an order property, to a position within it), through the `onBeforeMove` veto and the grid's shipped write-back path. The single entry point behind drag-and-drop and keyboard move.</td></tr>
+          <tr><td class="name">move</td><td class="type">(keys: unknown | unknown[], toColumn: string, toIndex?: number | null, toLane?: string, opts?: { origin?: 'user' | 'ai' }): Promise&lt;{ moved: unknown[]; reverted: boolean }&gt;</td><td class="desc"><code>keys: unknown | unknown[]</code><br><code>toColumn: string</code><br><code>toIndex?: number | null</code><br><code>toLane?: string</code><br><code>opts?: { origin?: 'user' | 'ai' }</code></td><td class="type"><code>Promise&lt;{ moved: unknown[]; reverted: boolean }&gt;</code></td><td class="desc">Move one or more cards to a column (and, with an order property, to a position within it), through the workflow rules, the `onBeforeMove` veto and the grid's shipped write-back path. The single entry point behind drag-and-drop and keyboard move. A move the workflow rules refuse (BACKLOG-0002103) rejects with a named `[lattice]` error rather than silently skipping — the interactive paths pre-check the same rules, so only a programmatic call can raise it.</td></tr>
+          <tr><td class="name">undo</td><td class="type">(): Promise&lt;<a href="#type-KanbanHistoryStep">KanbanHistoryStep</a> | null&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Promise&lt;<a href="#type-KanbanHistoryStep">KanbanHistoryStep</a> | null&gt;</code></td><td class="desc">Undo the last user change, re-running its inverse through the board's write path (so a `beforeMove`/`beforeEdit` veto still applies). A refused undo leaves the card and the history unchanged, with a catalogued warning. On a grid-bound board this delegates to the grid's history, so one undo order covers a grid edit and a board move (BACKLOG-0002108).</td></tr>
+          <tr><td class="name">redo</td><td class="type">(): Promise&lt;<a href="#type-KanbanHistoryStep">KanbanHistoryStep</a> | null&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Promise&lt;<a href="#type-KanbanHistoryStep">KanbanHistoryStep</a> | null&gt;</code></td><td class="desc">Redo the last undone change, re-running it through the board's write path (BACKLOG-0002108).</td></tr>
+          <tr><td class="name">canUndo</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">Whether there is a step to undo (BACKLOG-0002108).</td></tr>
+          <tr><td class="name">canRedo</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">Whether there is a step to redo (BACKLOG-0002108).</td></tr>
           <tr><td class="name">selection</td><td class="type">(): unknown[]</td><td class="desc">&mdash;</td><td class="type"><code>unknown[]</code></td><td class="desc">The selected card keys.</td></tr>
           <tr><td class="name">isSelected</td><td class="type">(key: unknown): boolean</td><td class="desc"><code>key: unknown</code></td><td class="type"><code>boolean</code></td><td class="desc">Whether a card is selected.</td></tr>
           <tr><td class="name">select</td><td class="type">(keys: unknown | unknown[], mode?: 'set' | 'add' | 'toggle' | 'remove'): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>keys: unknown | unknown[]</code><br><code>mode?: 'set' | 'add' | 'toggle' | 'remove'</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Change the selection: `set` (replace), `add`, `toggle` or `remove`.</td></tr>
@@ -1485,6 +1807,9 @@ board.rebind(replacement);
           <tr><td class="name">isFieldEditable</td><td class="type">(name: string): boolean</td><td class="desc"><code>name: string</code></td><td class="type"><code>boolean</code></td><td class="desc">Whether a mapped card field is opted into inline edit and writable.</td></tr>
           <tr><td class="name">editCard</td><td class="type">(key: unknown, name?: string): object | null</td><td class="desc"><code>key: unknown</code><br><code>name?: string</code></td><td class="type"><code>object | null</code></td><td class="desc">Start inline editing a card's field (the grid's own field editor when bound); no-op headless.</td></tr>
           <tr><td class="name">applyEdit</td><td class="type">(key: unknown, name: string, value: unknown): Promise&lt;boolean&gt;</td><td class="desc"><code>key: unknown</code><br><code>name: string</code><br><code>value: unknown</code></td><td class="type"><code>Promise&lt;boolean&gt;</code></td><td class="desc">Commit an inline edit through the write-back path (grid.edit.setCells when bound); emits `card:edit`.</td></tr>
+          <tr><td class="name">setBlocked</td><td class="type">(key: unknown, blocked: boolean, reason?: string): Promise&lt;boolean&gt;</td><td class="desc"><code>key: unknown</code><br><code>blocked: boolean</code><br><code>reason?: string</code></td><td class="type"><code>Promise&lt;boolean&gt;</code></td><td class="desc">Block or unblock a card (BACKLOG-0002106): write its `blockedProperty` — a reason string or `true` to block, `false` to clear — and emit `card:edit` with `field: 'blocked'`, like any edit. A `beforeEdit` veto or an `onCardEdit` returning false refuses/reverts the write.</td></tr>
+          <tr><td class="name">toggleBlocked</td><td class="type">(key: unknown, reason?: string): Promise&lt;boolean&gt;</td><td class="desc"><code>key: unknown</code><br><code>reason?: string</code></td><td class="type"><code>Promise&lt;boolean&gt;</code></td><td class="desc">Toggle a card's blocked flag; sugar for {@link Kanban#setBlocked} reading the card's current state.</td></tr>
+          <tr><td class="name">setBlockedFilter</td><td class="type">(on: boolean): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>on: boolean</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Show only blocked cards (`true`) or every card (`false`); emits `filter:changed`.</td></tr>
           <tr><td class="name">addCard</td><td class="type">(columnId: string, seed?: <a href="types.html#type-KanbanRow">KanbanRow</a>): unknown | Promise&lt;unknown&gt;</td><td class="desc"><code>columnId: string</code><br><code>seed?: <a href="types.html#type-KanbanRow">KanbanRow</a></code></td><td class="type"><code>unknown | Promise&lt;unknown&gt;</code></td><td class="desc">Add a card to a column and open it in inline edit; emits `card:add`. Returns the new key directly, or a Promise of it when `onAddCard` returns a Promise or a `beforeAdd` handler defers (BACKLOG-0001230); a rejected `onAddCard` Promise resolves this to `null` with no card added.</td></tr>
           <tr><td class="name">getState</td><td class="type">(): object</td><td class="desc">&mdash;</td><td class="type"><code>object</code></td><td class="desc">Serialise the restorable state: collapsed columns/lanes, order, filter, sprint/epic, selection.</td></tr>
           <tr><td class="name">setState</td><td class="type">(snapshot: object): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>snapshot: object</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Restore a state snapshot from {@link Kanban#getState}.</td></tr>
@@ -1493,6 +1818,8 @@ board.rebind(replacement);
           <tr><td class="name">setRows</td><td class="type">(rows: <a href="types.html#type-KanbanRow">KanbanRow</a>[]): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>rows: <a href="types.html#type-KanbanRow">KanbanRow</a>[]</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Replace the source rows and re-render, and make that array the board's source again so a later `refresh()` re-reads it. Ignored with a warning on a grid-bound board.</td></tr>
           <tr><td class="name">setColumns</td><td class="type">(defs: <a href="types.html#type-KanbanColumnDef">KanbanColumnDef</a>[]): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>defs: <a href="types.html#type-KanbanColumnDef">KanbanColumnDef</a>[]</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Replace the board's configured column set (BACKLOG-0001228). Keeps card placement and interaction state (collapsed columns, column order, quick filter, selection) for every column id that survives; a dropped id is not specially handled — a card whose value has nowhere configured to go re-derives an ad hoc column rather than becoming `unplaced` (the same "never silently drop a card" rule an unconfigured value already gets).</td></tr>
           <tr><td class="name">refresh</td><td class="type">(): <a href="#type-Kanban">Kanban</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Re-read the source and re-render: a bound grid's rows, or the configured array. Once rows have arrived through `rows.apply` nothing is re-read — the board regroups what it holds, so a routed feed is never thrown away.</td></tr>
+          <tr><td class="name">reload</td><td class="type">(): Promise&lt;<a href="#type-Kanban">Kanban</a>&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Promise&lt;<a href="#type-Kanban">Kanban</a>&gt;</code></td><td class="desc">Reload a source-bound board from its pushdown source (BACKLOG-0002104): drop the loaded pages and re-query the engine's column counts/sums, then fetch the first page of every column. On a client-side board this is `refresh()`. Called automatically at construction and after a search or filter change.</td></tr>
+          <tr><td class="name">loadMore</td><td class="type">(columnId: string, laneId?: string): Promise&lt;boolean&gt;</td><td class="desc"><code>columnId: string</code><br><code>laneId?: string</code></td><td class="type"><code>Promise&lt;boolean&gt;</code></td><td class="desc">Fetch the next page of cards for a column (and, in swimlane mode, a lane) on a source-bound board (BACKLOG-0002104). The column scroll hook calls this as the user nears the bottom; a no-op resolving `false` when the board is not source-bound, the column is exhausted, or a page is in flight.</td></tr>
           <tr><td class="name">rebind</td><td class="type">(grid: <a href="grid.html#type-Grid">Grid</a>): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>grid: <a href="grid.html#type-Grid">Grid</a></code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Point this board at a replacement grid (BACKLOG-0002099). The one call a page framework makes after its swap destroyed the grid the board was bound to: the board keeps its element, columns and interaction state, drops its subscriptions to the dead grid, subscribes to the new one and re-reads its rows. A no-op on a board not built over a grid, or already following the grid it is handed.</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Empty the element, remove only the class the board added, and stop the flow and SLA monitors. A bound grid is left alone — the host owns it.</td></tr>
         </tbody>
@@ -1524,6 +1851,7 @@ board.rebind(replacement);
           <tr><td class="name">card:drill</td><td class="desc">A card was expanded from inside an already-open detail.</td><td class="type"><a href="#type-KanbanCardDrillEvent">KanbanCardDrillEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">card:edit</td><td class="desc">An inline card edit was written.</td><td class="type"><a href="#type-KanbanCardEditEvent">KanbanCardEditEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">card:sla</td><td class="desc">A card crossed an ageing threshold — ok to warn, or ok/warn to breach.</td><td class="type"><a href="#type-KanbanSlaEvent">KanbanSlaEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">cards:loaded</td><td class="desc">A page of cards was fetched for a column (and lane), carrying the admitted keys and whether another page follows.</td><td class="type"><a href="#type-KanbanCardsLoadedEvent">KanbanCardsLoadedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">beforeMove</td><td class="desc">One card of a move is about to be applied; raised once per card, and cancellable.</td><td class="type"><a href="#type-KanbanBeforeMoveEvent">KanbanBeforeMoveEvent</a></td><td class="desc">yes</td></tr>
           <tr><td class="name">beforeAdd</td><td class="desc">A card is about to be appended; cancellable.</td><td class="type"><a href="#type-KanbanBeforeAddEvent">KanbanBeforeAddEvent</a></td><td class="desc">yes</td></tr>
           <tr><td class="name">beforeEdit</td><td class="desc">An inline card edit is about to be written; cancellable.</td><td class="type"><a href="#type-KanbanBeforeEditEvent">KanbanBeforeEditEvent</a></td><td class="desc">yes</td></tr>
@@ -1536,6 +1864,7 @@ board.rebind(replacement);
           <tr><td class="name">laneReorder:cancelled</td><td class="desc">A `beforeLaneReorder` handler refused the order.</td><td class="type"><a href="#type-KanbanOrderCancelledEvent">KanbanOrderCancelledEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">columnReorder:cancelled</td><td class="desc">A `beforeColumnReorder` handler refused the order.</td><td class="type"><a href="#type-KanbanOrderCancelledEvent">KanbanOrderCancelledEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">columnChange:cancelled</td><td class="desc">A `beforeColumnChange` handler refused the collapse or expand.</td><td class="type"><a href="#type-KanbanColumnChangeCancelledEvent">KanbanColumnChangeCancelledEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">history</td><td class="desc">The undo/redo stacks moved (BACKLOG-0002108).</td><td class="type"><a href="#type-KanbanHistoryEvent">KanbanHistoryEvent</a></td><td class="desc">no</td></tr>
         </tbody>
       </table>
     </div>

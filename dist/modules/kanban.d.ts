@@ -1,11 +1,14 @@
 /*!
- * Lattice Grid 1.94.0, kanban module type declarations
+ * Lattice Grid 1.95.0, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 import type {
+  Condition,
   EventOrigin,
+  FilterGroup,
   Grid,
+  SourceConfig,
 } from '../lattice-grid.js';
 
 /** A row backing a card: any object. Its column comes from `columnProperty` and its identity from `rowKey`. */
@@ -67,6 +70,54 @@ export interface KanbanCard {
    * does; anything missing is ''.
    */
   fields: Record<string, string>;
+  /**
+   * Whether the card is blocked: its `blockedProperty` is set, or it
+   * still waits on a `blockedByProperty` blocker that is not in a done column. The flag
+   * the blocked filter and the forward-move guard read.
+   */
+  blocked: boolean;
+  /**
+   * Whether the card's own `blockedProperty` marks it blocked — the flag behind the
+   * blocked badge and the flow analytics' blocked interval, independent of any blockers.
+   */
+  explicitBlocked: boolean;
+  /**
+   * The reason the card is blocked: the `blockedProperty` value itself when it is a
+   * non-empty string, '' when the flag was a bare boolean or no reason was written.
+   */
+  blockedReason: string;
+  /**
+   * The keys of the cards blocking this one, from `blockedByProperty`. Empty when the
+   * card has no blockers.
+   */
+  blockedBy: unknown[];
+  /**
+   * Whether the card is ready: it has blockers and every one of them
+   * is now in a done column, and it is not explicitly blocked itself.
+   */
+  ready: boolean;
+  /**
+   * The assignees resolved from the `assignee` mapping: one entry per
+   * person, `{ name, avatar }`. Empty when the mapping is absent or the row has none; the
+   * names also feed the quick filter.
+   */
+  assignees?: { name: string; avatar?: string | null }[];
+  /**
+   * The due part: the display text (the grid's date format when bound),
+   * the parsed timestamp, and the `'overdue'`/`'soon'` state (null when the value is not a
+   * parseable date). Null when the `due` mapping is absent.
+   */
+  due?: { text: string; ts: number | null; state: 'overdue' | 'soon' | null } | null;
+  /**
+   * The progress percent resolved from the `progress` mapping, clamped
+   * to 0..100; null when the value is not a number.
+   */
+  progressPct?: number | null;
+  /**
+   * The checklist count resolved from the `checklist` mapping, or null
+   * when it is unmapped or neither side is numeric.
+   */
+  checklist?: { done: number; total: number } | null;
 }
 
 /** A column with its cards and aggregates. `over` is true when `count` exceeds `wipLimit`. */
@@ -144,12 +195,64 @@ export interface KanbanEditor {
   destroy?: () => void;
 }
 
+/**
+ * A required-field rule: the row property a card must carry
+ * before it may enter a column, shown in the fill-in form when missing.
+ */
+export interface KanbanRequiredField {
+  /** The row property path to fill. */
+  field: string;
+  /** The form field's human label (host-localised); defaults to the property name. */
+  label?: string;
+  /**
+   * A custom editor factory for the form field; defaults to a text input.
+   * Same shape as a card field editor.
+   */
+  editor?: (ctx: { card: KanbanCard; field: string; value: string; commit: (value: unknown) => void; cancel: () => void }) => KanbanEditor;
+}
+
+/**
+ * A swimlane definition. A lane may also carry workflow-rule overrides: its `transitions`/`require` maps replace the board-level
+ * maps per key for cards in that lane.
+ */
+export type KanbanLaneDef = {
+  id: string;
+  title?: string;
+  /** The moves each source column allows, overriding the board's `transitions` per key. */
+  transitions?: Record<string, string[] | '*'>;
+  /** The required fields per destination column, overriding the board's `require` per key. */
+  require?: Record<string, KanbanRequiredField[]>;
+};
+
 /** A card field mapping: a property path, a function, or an object opting into inline edit. */
 export type KanbanFieldMap = string | ((row: KanbanRow) => unknown) | {
   field: string;
   edit?: boolean;
   editor?: (ctx: { card: KanbanCard; field: string; value: string; commit: (value: unknown) => void; cancel: () => void }) => KanbanEditor;
 };
+
+/**
+ * One assignee on a card: a name string, or an object carrying
+ * `name` (or `label`/`id`) and an optional `avatar` image URL. Drawn as the avatar
+ * component the Gantt has used since 1.88 — the picture when it has one, the initials
+ * glyph otherwise, coloured from the name, with a `+N` overflow.
+ */
+export type KanbanAssignee = string | { name?: string; label?: string; id?: string; avatar?: string | null };
+
+/**
+ * The due-date mapping: a property path/fn (as any other field), or an
+ * object `{ field, dueSoon }` where `dueSoon` is the number of days that counts as
+ * "due soon". The date is drawn in the grid's date format when bound to a date column,
+ * and coloured with an icon when overdue or due soon.
+ */
+export type KanbanDueMap = KanbanFieldMap | { field: string; dueSoon?: number };
+
+/**
+ * The checklist mapping: a property path/fn whose value is a
+ * `{ done, total }` object, or an object `{ done, total }` naming the two fields
+ * separately. Rendered as a `3/5` count.
+ */
+export type KanbanChecklistMap = KanbanFieldMap | { done: string; total: string };
 
 /** The field-to-property mapping that drives the card template. */
 export interface KanbanCardMap {
@@ -159,17 +262,27 @@ export interface KanbanCardMap {
   subtitle?: KanbanFieldMap;
   /** A comma-separated string rendered as one chip per label; blanks are skipped. */
   labels?: KanbanFieldMap;
-  /** The person shown first in the card's meta row. */
-  assignee?: KanbanFieldMap;
-  /** The due date, shown in the meta row as whatever text the mapping produces. */
-  due?: KanbanFieldMap;
+  /**
+   * One or several people, drawn as avatars: the row property holds a
+   * single {@link KanbanAssignee}, an array of them, or a comma-separated string of names.
+   * Up to `max` (default 2) are drawn, the rest as a `+N` overflow.
+   */
+  assignee?: KanbanFieldMap | { field: string; max?: number };
+  /** The due date, with a due-soon/overdue state and icon. */
+  due?: KanbanDueMap;
   /** An image URL drawn as a cover band across the top of the card. */
   cover?: KanbanFieldMap;
   /**
-   * A progress bar over the card. The value is read as a percentage (0-100); a value that
-   * is not a number draws no bar.
+   * A progress bar over the card. The value is a 0..1 fraction or a
+   * 0..100 percent (a trailing `%` is tolerated); a value that is not a number draws no
+   * bar.
    */
   progress?: KanbanFieldMap;
+  /**
+   * A checklist count on the card, rendered as `3/5`. See
+   * {@link KanbanChecklistMap}.
+   */
+  checklist?: KanbanChecklistMap;
   /** A single badge chip at the end of the meta row. */
   badges?: KanbanFieldMap;
   /**
@@ -190,6 +303,13 @@ export type KanbanReadonly = boolean | {
   columns?: Record<string, boolean>;
   cards?: Record<string, boolean>;
 };
+
+/**
+ * The card density: `'compact'` tightens each card's padding and drops
+ * the subtitle so a column fits more cards; `'comfortable'` (the default) keeps the roomier
+ * card.
+ */
+export type KanbanDensity = 'compact' | 'comfortable';
 
 /**
  * The payload of the three card pointer events — `card:click`, `card:dblclick`
@@ -408,6 +528,21 @@ export interface KanbanFlow {
    * column, growing over time.
    */
   cfd(opts?: { bucket?: string | number; from?: number; to?: number }): KanbanFlowCfd;
+  /**
+   * The blocked-time summary: how long each card has spent
+   * blocked, over cards with any transition. See {@link KanbanFlowDurationStats}.
+   */
+  blockedTime(): KanbanFlowDurationStats;
+  /**
+   * The flow-efficiency summary: active time / cycle time per
+   * card, as 0..1 fractions over finished cards. See {@link KanbanFlowDurationStats}.
+   */
+  flowEfficiency(): KanbanFlowDurationStats;
+  /**
+   * Blocked time and flow efficiency, aggregated per column.
+   * Each card's blocked time is charged to the column it now sits in.
+   */
+  blockedTimeByColumn(): { column: string; blockedMs: number; flowEfficiency: number | null }[];
 }
 
 /**
@@ -429,6 +564,26 @@ export interface KanbanConfig {
    * board `rows.apply` and `setRows` are ignored with a warning.
    */
   grid?: unknown;
+  /**
+   * A pushdown source the board binds to instead of `rows` or `grid`: the result of `createPushdownSource`. The board asks
+   * the source's `fetch` for each column's cards one page at a time (loading
+   * the next as the column is scrolled), its `aggregate` for each column's
+   * count and points sum as an engine GROUP BY, and its `edit.commit` to
+   * persist a move. A `source` wins over `rows` and `grid`; use only one.
+   */
+  source?: SourceConfig;
+  /**
+   * Cards fetched per column page on a source-bound board.
+   * Default 50. Only meaningful with `source`.
+   */
+  pageSize?: number;
+  /**
+   * A persisted transition log the board hands to flow analytics on a
+   * source-bound board. Without it `flowAvailable` is false
+   * and flow features report themselves unavailable rather than deriving from
+   * the loaded page. Only meaningful with `source`.
+   */
+  transitionLog?: unknown[];
   /**
    * Card identity (a field or fn, returning a string or number); default
    * 'id'. Composite (`string[]`) keys are core-grid-only: a board keys its
@@ -474,7 +629,7 @@ export interface KanbanConfig {
   /** Render the 2D swimlane layout using `swimlaneProperty` (default false). */
   swimlanes?: boolean;
   /** Explicit lane definitions; otherwise lanes come from the distinct swimlane values. */
-  lanes?: (string | { id: string; title?: string })[];
+  lanes?: (string | KanbanLaneDef)[];
   /** An explicit lane order by id (also set by a lane-header-drag reorder). */
   laneOrder?: string[];
   /** Enforce `wipLimit` as a hard gate: a move that would exceed it is refused (default false). */
@@ -491,6 +646,23 @@ export interface KanbanConfig {
    * on.
    */
   epicProperty?: string;
+  /**
+   * The row property that blocks a card: a boolean flag, or a reason
+   * string whose non-empty value is the reason shown on the blocked badge. Truthy means
+   * blocked; empty/false means clear.
+   */
+  blockedProperty?: string;
+  /**
+   * The row property naming the keys of the cards that block this one —
+   * a comma-separated string or an array. Each key must be another card's `rowKey`; the
+   * card shows a "blocked by N" list of them, and is ready once they are all done.
+   */
+  blockedByProperty?: string;
+  /**
+   * Initially filter to blocked cards only. The same flag
+   * `setBlockedFilter(on)` toggles at runtime.
+   */
+  blockedFilter?: boolean;
   /** A configurable sprint dataset: the canonical sprint list (order + titles), shown even when empty. */
   sprints?: (string | { id: unknown; title?: string })[];
   /** The initially selected sprint id, `Kanban.BACKLOG`, or undefined for all. */
@@ -499,6 +671,23 @@ export interface KanbanConfig {
   epic?: unknown;
   /** Column ids that count as "done" for a rollup's progress (also a column def's `done: true`). */
   doneColumns?: string[];
+  /**
+   * Workflow rules: the moves each source column allows,
+   * as a list of destination column ids, or `'*'` for any. A source column
+   * absent from the map may move anywhere. A move against the map is refused
+   * — a drag shows the target as not droppable and a keyboard move skips it,
+   * while a programmatic move fails with a named `[lattice]` error. May also
+   * be declared per lane; a lane's entry overrides the board's per key.
+   */
+  transitions?: Record<string, string[] | '*'>;
+  /**
+   * Workflow rules: the row properties a card must carry
+   * before it may enter each destination column. A missing value opens the
+   * small fill-in form on a drag, and fails a programmatic move with a named
+   * `[lattice]` error. May also be declared per lane; a lane's entry
+   * overrides the board's per key.
+   */
+  require?: Record<string, KanbanRequiredField[]>;
   /** Card pop-out: a nested child grid or board (master-detail by composition). */
   children?: KanbanChildren;
   /** Card virtualization for tall columns: true, or `{ rowHeight, overscan, threshold, viewport }`. */
@@ -537,6 +726,13 @@ export interface KanbanConfig {
    * cards by id and key. Default false.
    */
   readonly?: KanbanReadonly;
+  /**
+   * How many undo steps the board keeps: every move, add and
+   * inline edit is one step, a multi-card drag included. Default 100; 0 turns
+   * undo off. A grid-bound board ignores this and shares the bound grid's
+   * history, so one Ctrl+Z order covers both views.
+   */
+  historyDepth?: number;
   /** The board's accessible name. Defaults to `Board`. */
   ariaLabel?: string;
   /**
@@ -546,6 +742,11 @@ export interface KanbanConfig {
   emptyText?: string;
   /** Whether card selection is enabled (default true). */
   selectable?: boolean;
+  /**
+   * The card density: `'compact'` tightens each card's padding and drops
+   * the subtitle; `'comfortable'` (the default) keeps the roomier card.
+   */
+  density?: KanbanDensity;
   /** Host-localised words for the move announcements (grabbed/moved/dropped/reverted/cancelled). */
   labels?: Record<string, string>;
   /**
@@ -639,6 +840,24 @@ export interface KanbanMoveEvent {
   origin: EventOrigin;
   /** The swimlane the cards were moved to, when the gesture named one and a swimlane property is configured. */
   lane?: unknown;
+}
+
+/** The outcome of one board undo/redo step. */
+export interface KanbanHistoryStep {
+  /** Whether the step actually applied; false is a vetoed step that left the stacks untouched. */
+  applied: boolean;
+  /** The step's label: `'move'`, `'edit'` or `'add'`. */
+  label: string;
+}
+
+/** `history`: the undo/redo stacks moved. */
+export interface KanbanHistoryEvent {
+  /** Whether there is a step to undo. */
+  canUndo: boolean;
+  /** Whether there is a step to redo. */
+  canRedo: boolean;
+  /** The label of the next undo step, or null when there is none. */
+  label: string | null;
 }
 
 /** The members every cancellable board before-event carries. */
@@ -983,6 +1202,8 @@ export type KanbanEventName =
   | 'card:edit'
   /** A card crossed an ageing threshold — ok to warn, or ok/warn to breach. */
   | 'card:sla'
+  /** A page of cards was fetched for a column (and lane), carrying the admitted keys and whether another page follows. */
+  | 'cards:loaded'
   /** One card of a move is about to be applied; raised once per card, and cancellable. */
   | 'beforeMove'
   /** A card is about to be appended; cancellable. */
@@ -1006,7 +1227,25 @@ export type KanbanEventName =
   /** A `beforeColumnReorder` handler refused the order. */
   | 'columnReorder:cancelled'
   /** A `beforeColumnChange` handler refused the collapse or expand. */
-  | 'columnChange:cancelled';
+  | 'columnChange:cancelled'
+  /** The undo/redo stacks moved. */
+  | 'history';
+
+/**
+ * The payload of the `cards:loaded` event: a page of cards
+ * has been fetched from the bound pushdown source for one column (and, in
+ * swimlane mode, one lane).
+ */
+export interface KanbanCardsLoadedEvent {
+  /** The column the page loaded into. */
+  column: string;
+  /** The lane the page loaded into, present only in swimlane mode. */
+  lane?: string;
+  /** The keys of the rows admitted by this page. */
+  keys: unknown[];
+  /** True when another page may still follow for this column (and lane). */
+  more: boolean;
+}
 
 /** What a handler receives, per board event. */
 export interface KanbanEventPayloads {
@@ -1052,6 +1291,8 @@ export interface KanbanEventPayloads {
   'card:edit': KanbanCardEditEvent;
   /** The crossing: the level reached, the one before it, and the age behind it. */
   'card:sla': KanbanSlaEvent;
+  /** The column (and lane) a page of cards loaded into, the admitted keys, and whether another page follows. */
+  'cards:loaded': KanbanCardsLoadedEvent;
   /** The card about to move, with `preventDefault` to stop it. */
   beforeMove: KanbanBeforeMoveEvent;
   /** The column and seed about to be appended, with `preventDefault` to stop it. */
@@ -1076,6 +1317,8 @@ export interface KanbanEventPayloads {
   'columnReorder:cancelled': KanbanOrderCancelledEvent;
   /** The collapse that was not applied, and why. */
   'columnChange:cancelled': KanbanColumnChangeCancelledEvent;
+  /** The undo/redo stacks moved. */
+  history: KanbanHistoryEvent;
 }
 
 /** The keyed-diff consumer surface a board shares with a grid, so a Data Router routes to it directly. */
@@ -1109,6 +1352,17 @@ export interface KanbanFilters {
   where(name: string, predicate: (row: KanbanRow, card: KanbanCard) => boolean): Kanban;
   /** Remove whatever is registered under `name`; a no-op if nothing was. */
   where(name: string, predicate: null): Kanban;
+  /**
+   * Register, replace, remove (`null`) or list (no arguments) a named
+   * **engine** filter: a pushable condition tree the board
+   * sends to a bound pushdown source as a WHERE predicate, so the engine
+   * narrows both the column counts and the loaded cards. The tree is never
+   * evaluated client-side; on a board with no `source` it is stored but does
+   * not narrow cards.
+   */
+  engine(name: string, condition: Condition | FilterGroup): Kanban;
+  /** Remove the engine filter registered under `name`; a no-op if nothing was. */
+  engine(name: string, condition: null): Kanban;
   /** Re-run every named predicate (or one, by name) and re-render. */
   reapply(name?: string): boolean;
 }
@@ -1137,6 +1391,19 @@ export interface Kanban {
    * unless the config says `flow: false`.
    */
   flow?: KanbanFlow;
+  /**
+   * Whether flow analytics can answer on this board. False
+   * on a source-bound board with no source `transitionLog`, where the flow
+   * features report themselves unavailable rather than deriving from the
+   * loaded page.
+   */
+  readonly flowAvailable: boolean;
+  /**
+   * Whether the board is bound to a pushdown source and owns its own paged
+   * data path: counts/sums from an engine GROUP BY, cards
+   * fetched per column page, moves written through the source.
+   */
+  readonly sourceBound: boolean;
   /** The current columns in display order, each with its cards and aggregates. */
   columns(): KanbanColumn[];
   /** One column by id, or undefined when the board has no such column. */
@@ -1168,11 +1435,28 @@ export interface Kanban {
   readonly(scope?: { column?: string; card?: unknown }): boolean;
   /**
    * Move one or more cards to a column (and, with an order property, to a
-   * position within it), through the `onBeforeMove` veto and the grid's
-   * shipped write-back path. The single entry point behind drag-and-drop and
-   * keyboard move.
+   * position within it), through the workflow rules, the `onBeforeMove` veto
+   * and the grid's shipped write-back path. The single entry point behind
+   * drag-and-drop and keyboard move. A move the workflow rules refuse
+   * rejects with a named `[lattice]` error rather than
+   * silently skipping — the interactive paths pre-check the same rules, so
+   * only a programmatic call can raise it.
    */
-  move(keys: unknown | unknown[], toColumn: string, toIndex?: number | null, toLane?: string): Promise<{ moved: unknown[]; reverted: boolean }>;
+  move(keys: unknown | unknown[], toColumn: string, toIndex?: number | null, toLane?: string, opts?: { origin?: 'user' | 'ai' }): Promise<{ moved: unknown[]; reverted: boolean }>;
+  /**
+   * Undo the last user change, re-running its inverse through the board's write
+   * path (so a `beforeMove`/`beforeEdit` veto still applies). A refused undo
+   * leaves the card and the history unchanged, with a catalogued warning. On a
+   * grid-bound board this delegates to the grid's history, so one undo order
+   * covers a grid edit and a board move.
+   */
+  undo(): Promise<KanbanHistoryStep | null>;
+  /** Redo the last undone change, re-running it through the board's write path. */
+  redo(): Promise<KanbanHistoryStep | null>;
+  /** Whether there is a step to undo. */
+  canUndo(): boolean;
+  /** Whether there is a step to redo. */
+  canRedo(): boolean;
   /** The selected card keys. */
   selection(): unknown[];
   /** Whether a card is selected. */
@@ -1232,6 +1516,17 @@ export interface Kanban {
   /** Commit an inline edit through the write-back path (grid.edit.setCells when bound); emits `card:edit`. */
   applyEdit(key: unknown, name: string, value: unknown): Promise<boolean>;
   /**
+   * Block or unblock a card: write its `blockedProperty` — a
+   * reason string or `true` to block, `false` to clear — and emit `card:edit`
+   * with `field: 'blocked'`, like any edit. A `beforeEdit` veto or an
+   * `onCardEdit` returning false refuses/reverts the write.
+   */
+  setBlocked(key: unknown, blocked: boolean, reason?: string): Promise<boolean>;
+  /** Toggle a card's blocked flag; sugar for {@link Kanban#setBlocked} reading the card's current state. */
+  toggleBlocked(key: unknown, reason?: string): Promise<boolean>;
+  /** Show only blocked cards (`true`) or every card (`false`); emits `filter:changed`. */
+  setBlockedFilter(on: boolean): Kanban;
+  /**
    * Add a card to a column and open it in inline edit; emits `card:add`.
    * Returns the new key directly, or a Promise of it when `onAddCard`
    * returns a Promise or a `beforeAdd` handler defers; a
@@ -1266,6 +1561,22 @@ export interface Kanban {
    * it holds, so a routed feed is never thrown away.
    */
   refresh(): Kanban;
+  /**
+   * Reload a source-bound board from its pushdown source:
+   * drop the loaded pages and re-query the engine's column counts/sums, then
+   * fetch the first page of every column. On a client-side board this is
+   * `refresh()`. Called automatically at construction and after a search or
+   * filter change.
+   */
+  reload(): Promise<Kanban>;
+  /**
+   * Fetch the next page of cards for a column (and, in swimlane mode, a lane)
+   * on a source-bound board. The column scroll hook calls
+   * this as the user nears the bottom; a no-op resolving `false` when the
+   * board is not source-bound, the column is exhausted, or a page is in
+   * flight.
+   */
+  loadMore(columnId: string, laneId?: string): Promise<boolean>;
   /**
    * Point this board at a replacement grid. The one call a page
    * framework makes after its swap destroyed the grid the board was bound to: the board

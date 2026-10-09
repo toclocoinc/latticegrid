@@ -1,5 +1,5 @@
 {
-  "version": "1.94.0",
+  "version": "1.95.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 721,
+  "count": 734,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -5253,6 +5253,39 @@
       "docs": "api/gantt.html#plan"
     },
     {
+      "id": "kanban.filters.engine.fn:*",
+      "module": "kanban",
+      "severity": "warn",
+      "since": "1.95.0",
+      "message": "board.filters.engine(\"{name}\", condition) needs a condition tree; the filter was not registered. Pass null to remove a registered filter.",
+      "meaning": "`engine(name, condition)` registers a filter that the board compiles into the engine query, and the value passed was not an object condition tree, so there was nothing to compile and the filter was not registered. Any filter already registered under that name is still in force — the call did not replace it.",
+      "fix": "Pass an object condition tree, or `null` to remove the filter registered under that name.",
+      "snippet": "board.filters.engine('status', null);   // remove",
+      "docs": "api/kanban.html#kanban"
+    },
+    {
+      "id": "kanban.filters.engine.name",
+      "module": "kanban",
+      "severity": "warn",
+      "since": "1.95.0",
+      "message": "board.filters.engine(name, condition) needs a non-empty string name; the filter was not registered.",
+      "meaning": "An engine filter has to be registered under a name so it can be replaced or removed later. The name given was not a non-empty string, so nothing was registered and no query changed — the board still shows everything it showed before.",
+      "fix": "Give the filter a name of your choosing.",
+      "snippet": "board.filters.engine('mine', { field: 'assignee', op: 'eq', value: me });",
+      "docs": "api/kanban.html#kanban"
+    },
+    {
+      "id": "kanban.filters.engine.unsourced",
+      "module": "kanban",
+      "severity": "warn",
+      "since": "1.95.0",
+      "message": "an engine filter was registered on a board with no pushdown source: the condition tree is stored but does not narrow cards — bind a `source` (and use `board.filters.where` for client-side predicates).",
+      "meaning": "`engine()` compiles its condition into the pushdown query, which only exists when the board was created with a `source`. The tree was kept, so it is ready if a source is bound later, but until then the board does not narrow anything by it.",
+      "fix": "Create the board with a `source`, or register the predicate with `board.filters.where` to filter the loaded cards client-side.",
+      "snippet": "createKanban(el, { source, rowKey: 'id', columnProperty: 'status' });",
+      "docs": "api/kanban.html#kanban"
+    },
+    {
       "id": "kanban.filters.reapply:*",
       "module": "kanban",
       "severity": "warn",
@@ -5362,6 +5395,17 @@
       "docs": "api/kanban.html#kanban"
     },
     {
+      "id": "kanban:redo:vetoed",
+      "module": "kanban",
+      "severity": "warn",
+      "since": "1.95.0",
+      "message": "a redo was refused by a before-event handler or the write-back path; the card and history are unchanged.",
+      "meaning": "A redo re-runs the change through the board's own write path, and a `beforeMove`/`beforeEdit` handler (or the WIP gate) refused it on the way back in. The card stayed where it was and the redo step was not consumed, so the history is exactly as before the attempt.",
+      "fix": "Remove or relax the vetoing handler for that card, or re-apply the change manually once the gate would let it through.",
+      "snippet": "board.on('beforeMove', (ev) => { if (ev.to === 'done') ev.preventDefault('done is closed'); });",
+      "docs": "api/kanban.html#kanban"
+    },
+    {
       "id": "kanban:setRows-gridbound",
       "module": "kanban",
       "severity": "warn",
@@ -5382,6 +5426,69 @@
       "fix": "Set `warn` and/or `breach` (in milliseconds) globally, per column or per lane.",
       "snippet": "createKanban(el, { rows, columnProperty: 'status', sla: { warn: 3600000, breach: 86400000 } });",
       "docs": "api/kanban.html#kanban"
+    },
+    {
+      "id": "kanban:undo:vetoed",
+      "module": "kanban",
+      "severity": "warn",
+      "since": "1.95.0",
+      "message": "an undo was refused by a before-event handler or the write-back path; the card and history are unchanged.",
+      "meaning": "Undoing a move or edit writes back through the same path the original change used, so a `beforeMove`/`beforeEdit` handler (or the WIP gate) that refuses the inverse also refuses the undo. The card stayed where it was and the step was not popped, so the history is exactly as before the attempt.",
+      "fix": "Remove or relax the vetoing handler for that card, or leave the card where it is and undo a later step instead.",
+      "snippet": "board.on('beforeMove', (ev) => { if (ev.to === 'done') ev.preventDefault('done is closed'); });",
+      "docs": "api/kanban.html#kanban"
+    },
+    {
+      "id": "kanban:source:aggregates",
+      "module": "kanban",
+      "severity": "warn",
+      "since": "1.95.0",
+      "message": "the pushdown source routes the board's column count/sum aggregates client-side (its `aggregates` config defaults to client), so column totals cannot come from the engine. Create the source with `aggregates: { default: 'engine' }` for engine totals.",
+      "meaning": "A source-bound board asks the engine for each column's count and points sum, but the source is configured to run its aggregates client-side, so the engine never answers and the board would render zero totals it never asked for. The board says so once at construction rather than silently drawing empty columns.",
+      "fix": "Create the source with `aggregates: { default: 'engine' }` so the aggregate plan reaches the engine.",
+      "snippet": "createPushdownSource({ adapter, aggregates: { default: 'engine' } });",
+      "docs": "api/kanban.html#kanban-source-example"
+    },
+    {
+      "id": "kanban:source:page",
+      "module": "kanban",
+      "severity": "warn",
+      "since": "1.95.0",
+      "message": "the pushdown source failed to answer a column page: {error}.",
+      "meaning": "The engine query for the next page of cards in a column failed, so that column keeps the cards it already had and the page is marked exhausted — no further pages will be requested for it until the board reloads.",
+      "fix": "Look at the error the message carries and check the adapter's `execute` path for the paged query.",
+      "docs": "api/kanban.html#kanban-source-example"
+    },
+    {
+      "id": "kanban:source:rowkey",
+      "module": "kanban",
+      "severity": "warn",
+      "since": "1.95.0",
+      "message": "a row loaded from the pushdown source has no row key and was left out; check the board `rowKey` against the engine schema.",
+      "meaning": "A page from the engine carried a row the board could not key by its `rowKey`, so the board could not place, page or move it and left it out rather than showing a card it cannot identify.",
+      "fix": "Check that the board `rowKey` names a column the engine returns, and that every row has a value for it.",
+      "snippet": "createKanban(el, { source, rowKey: 'id', columnProperty: 'status' });",
+      "docs": "api/kanban.html#kanban-source-example"
+    },
+    {
+      "id": "kanban:source:totals",
+      "module": "kanban",
+      "severity": "warn",
+      "since": "1.95.0",
+      "message": "the pushdown source could not compute column totals in the engine (the no-mixed-provenance guard fell every aggregate client-side), so column counts and sums are unavailable rather than computed over the loaded page.",
+      "meaning": "The aggregate plan could not be answered by the engine, and the board refuses to fill the gap by counting only the cards it has loaded — that number would silently understate the column. Counts and sums stay unavailable until the source can answer the GROUP BY in the engine.",
+      "fix": "Configure the source so its aggregates run in the engine (`aggregates: { default: 'engine' }`), or fix the adapter's grouped-aggregate path.",
+      "docs": "api/kanban.html#kanban-source-example"
+    },
+    {
+      "id": "kanban:source:totals:error",
+      "module": "kanban",
+      "severity": "warn",
+      "since": "1.95.0",
+      "message": "the pushdown source failed to answer column totals: {error}.",
+      "meaning": "The engine GROUP BY for the column counts and sums threw, so no totals are available and the board keeps the ones it had (or none). The loaded cards are unaffected, but counts, WIP-limit state and SLA states that read the engine count are.",
+      "fix": "Look at the error the message carries and check the adapter's grouped-aggregate path.",
+      "docs": "api/kanban.html#kanban-source-example"
     },
     {
       "id": "kanban:unplaced:*",
@@ -5415,6 +5522,39 @@
       "fix": "Check that the column behind the property is editable and permitted for this user, and that the property path resolves to a real column id. A board over a read-only grid should be given `readonly` so the interaction is refused before the write is attempted.",
       "snippet": "columns: [{ id: 'status', edit: { enabled: true } }]",
       "docs": "api/kanban.html#kanban-move-example"
+    },
+    {
+      "id": "kanban:writeback-source",
+      "module": "kanban",
+      "severity": "warn",
+      "since": "1.95.0",
+      "message": "a card move did not persist: the bound pushdown source has no `edit.commit` (build it with `createPushdownSource({ edit: true })` over an adapter that declares `mutate.update`), so the card stayed where it was.",
+      "meaning": "A source-bound board persists a move by writing the column through the source's update path, and the source has no `edit.commit` to route the write through. The card was left where it was rather than moved without persistence.",
+      "fix": "Create the source with `edit: true` over an adapter that declares `mutate.update`, or make the board `readonly` so the move is refused before the write is attempted.",
+      "snippet": "createPushdownSource({ adapter, edit: true });",
+      "docs": "api/kanban.html#kanban-source-example"
+    },
+    {
+      "id": "kanban:blocked-writeback-noop",
+      "module": "kanban",
+      "severity": "warn",
+      "since": "1.95.0",
+      "message": "blocking/unblocking did not persist through the bound grid: writing \"{fieldPath}\" was refused (a read-only, non-editable, permission-blocked or unresolvable column).",
+      "meaning": "A block or unblock wrote the card's `blockedProperty` to the bound grid and the grid wrote no cells at all, so the card's blocked state did not change. The column behind the property is read-only, not editable, blocked by permissions, or not resolvable from the property path.",
+      "fix": "Check that the column behind `blockedProperty` is editable and permitted for this user, and that the property path resolves to a real column id.",
+      "snippet": "createKanban(el, { grid, blockedProperty: 'blocked' })",
+      "docs": "api/kanban.html#kanban-blocked-example"
+    },
+    {
+      "id": "kanban:blocked-move:*",
+      "module": "kanban",
+      "severity": "warn",
+      "since": "1.95.0",
+      "message": "a move of blocked card \"{card}\" into \"{column}\" was refused: a blocked card cannot move forward.",
+      "meaning": "A blocked card — or one still waiting on a blocker that is not done — was dropped onto a column to the right of where it sits, and the move was refused. Moving back, or reordering within its own column, stays allowed.",
+      "fix": "Resolve the block (clear `blockedProperty`, or move its blockers into a done column) before moving the card forward, or move it back to an earlier column.",
+      "snippet": "createKanban(el, { rows, columnProperty: 'status', blockedProperty: 'blocked' })",
+      "docs": "api/kanban.html#kanban-blocked-example"
     },
     {
       "id": "kpi:age-clock:*",
