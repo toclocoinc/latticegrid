@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.93.0, data-router module
+ * Lattice Grid 1.94.0, data-router module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

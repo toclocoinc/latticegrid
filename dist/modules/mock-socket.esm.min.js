@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.93.0, mock-socket module
+ * Lattice Grid 1.94.0, mock-socket module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

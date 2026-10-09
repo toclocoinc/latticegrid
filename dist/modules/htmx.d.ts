@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.93.0, htmx module type declarations
+ * Lattice Grid 1.94.0, htmx module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -74,15 +74,53 @@ import type {
 export function createGrid(element: Element, config: GridConfig): Grid;
 export function autoInit(root?: ParentNode): Grid[];
 /**
+ * The bubbling DOM event re-raised on a declarative grid's host for each
+ * committed edit — `lattice:grid-change`, with
+ * `{ key, field, oldValue, newValue }` in `detail` — so
+ * `hx-trigger="lattice:grid-change"` can POST it. Nothing fires for a
+ * programmatic `setRows`/`rows.apply` (those announce `rows:changed`).
+ */
+export const GRID_CHANGE_EVENT: string;
+/**
  * Build a calendar on every uninitialised `[data-lattice-calendar]` element
  * under `root`, bound to the grid named by its
  * `data-lattice-bind` attribute or a `grid: "<id>"` config string — the
- * calendar twin of {@link autoInit}. Idempotent: an element already carrying
- * `.__latticeCalendar` is skipped.
+ * calendar twin of {@link autoInit}. Row source precedence is bind, then a
+ * server-rendered `<table>` inside the element, then the
+ * config's own JSON rows. Idempotent: an element already carrying
+ * `.__latticeCalendar` is skipped. The calendar engine ships in the htmx
+ * bundle; {@link registerCalendar} may override the factory.
  */
 export function autoInitCalendar(root?: ParentNode): unknown[];
 /** The marker attribute `autoInitCalendar` scans for: `data-lattice-calendar`. */
 export const CALENDAR_ATTR: string;
+/**
+ * Register a calendar factory that overrides the bundled default. Optional:
+ * when not called, the adapter builds with the `createCalendar` inlined into
+ * the htmx bundle; when called, the registered factory wins.
+ */
+export function registerCalendar(factory: Function): void;
+/**
+ * The bubbling DOM event re-raised on a declarative calendar's host for each
+ * move or resize — `lattice:calendar-change`, with `{ id, start, end }` in
+ * `detail` (the event id and the new start/end as ISO strings) — so
+ * `hx-trigger="lattice:calendar-change"` can POST it.
+ */
+export const CALENDAR_CHANGE_EVENT: string;
+/**
+ * Destroy every calendar within an element htmx is about to detach, so the
+ * calendar releases its subscriptions to any bound grid before the grid
+ * cleanup pass destroys it.
+ */
+export function destroyCalendarWithin(root: ParentNode): number;
+/** Write every live calendar's view state into `data-lattice-calendar-state` and swap its original table back in. */
+export function saveCalendarStateWithin(root: ParentNode): number;
+/** Rebuild calendars onto a restored subtree and reapply their saved view state. */
+export function restoreCalendarStateWithin(root: ParentNode, scan?: Function): number;
+/** Undo the table swaps `saveCalendarStateWithin` queued (called a microtask after history save). */
+export function restoreSwappedCalendars(): void;
+/** Wire document-level `data-lattice-row` out-of-band event updates for calendars. */
+export function driveCalendarOobUpdates(opts?: { doc?: Document }): () => void;
 /**
  * Build a Gantt on every uninitialised `[data-lattice-gantt]` element under
  * `root`, mounted over the server-rendered `<table>` that
@@ -100,6 +138,15 @@ export const GANTT_ATTR: string;
  * `lattice:gantt-change`, with `{ kind, id, task, changes }` in `detail`.
  */
 export const GANTT_CHANGE_EVENT: string;
+/**
+ * The bubbling DOM event re-raised on the host once per user gesture or API
+ * transaction — `lattice:gantt-commit`, with
+ * `{ cause, primary: { id, kind }, changes: [{ id, kind, task, changes }] }`
+ * in `detail` (`primary` the task the gesture acted on) — so
+ * `hx-trigger="lattice:gantt-commit"` posts the whole edit in one request
+ * instead of a burst of `lattice:gantt-change` events.
+ */
+export const GANTT_COMMIT_EVENT: string;
 /**
  * Register the Gantt factory the adapter builds with. The page's own Gantt
  * module calls this once on load; a page loading both may instead rely on the
@@ -120,6 +167,42 @@ export function restoreGanttStateWithin(root: ParentNode, scan?: Function): numb
 export function restoreSwappedGantts(): void;
 /** Wire document-level `data-lattice-row` out-of-band task updates for Gantts. */
 export function driveGanttOobUpdates(opts?: { doc?: Document }): () => void;
+/**
+ * Build a Designer on every uninitialised `[data-lattice-designer]` element
+ * under `root`, from its config — the mode, saved state and
+ * guardrails — with live data read from the grid named by its
+ * `data-lattice-bind` attribute or a `grid: "<id>"` config string (renamed by
+ * `source: "<id>"`). Idempotent: an element already carrying
+ * `.__latticeDesigner` is skipped. The factory is resolved from
+ * {@link registerDesigner} / the script-tag global rather than inlined into
+ * the htmx bundle, so a page with htmx and no Designer pays nothing.
+ */
+export function autoInitDesigner(root?: ParentNode): unknown[];
+/** The marker attribute `autoInitDesigner` scans for: `data-lattice-designer`. */
+export const DESIGNER_ATTR: string;
+/**
+ * The bubbling DOM event re-raised on the host for every author change —
+ * `lattice:designer-change`, with `{ state, cause }` in `detail`.
+ */
+export const DESIGNER_CHANGE_EVENT: string;
+/**
+ * Register the Designer factory the adapter builds with. The page's own
+ * Designer module calls this once on load; a page loading both may instead
+ * rely on the script-tag global (`globalThis.LatticeGridDesigner.createDesigner`).
+ */
+export function registerDesigner(factory: Function): void;
+/**
+ * Destroy every Designer within an element htmx is about to detach. Runs
+ * before the grid cleanup pass so a Designer's inner widget grids are
+ * released by the Designer itself, never left half-alive.
+ */
+export function destroyDesignerWithin(root: ParentNode): number;
+/** Write every live Designer's state into `data-lattice-designer-state` and swap its rendered DOM out. */
+export function saveDesignerStateWithin(root: ParentNode): number;
+/** Rebuild Designers onto a restored subtree and reapply their saved state. */
+export function restoreDesignerStateWithin(root: ParentNode, scan?: Function): number;
+/** Undo the DOM swaps `saveDesignerStateWithin` queued (called a microtask after history save). */
+export function restoreSwappedDesigners(): void;
 /**
  * Build a map on every uninitialised `[data-lattice-map]` element under
  * `root`, bound to the grid named by its
@@ -180,6 +263,10 @@ export function destroyKanbanWithin(root: ParentNode): number;
 export function saveKanbanStateWithin(root: ParentNode): number;
 /** Rebuild boards onto a restored subtree and reapply their saved view state. */
 export function restoreKanbanStateWithin(root: ParentNode, scan?: Function): number;
+/** Undo the table swaps `saveKanbanStateWithin` queued (called a microtask after history save). */
+export function restoreSwappedKanbans(): void;
+/** Wire document-level `data-lattice-row` out-of-band card updates for boards. */
+export function driveKanbanOobUpdates(opts?: { doc?: Document }): () => void;
 /**
  * Wire the htmx lifecycle events on a document: grids are built in each
  * swapped-in fragment, released before htmx detaches one, and their view

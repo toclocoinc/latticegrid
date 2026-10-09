@@ -9,6 +9,49 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.94.0] - 2026-10-09
+
+### Breaking
+
+- **`mountSplit` no longer defaults to a fixed 420px height** (BACKLOG-0002119). A host that mounted the split view with no `height` and relied on the 420px default now sees the view fill its container when the container has a definite height — the rows scroll inside, and the view follows the container as it resizes — or size to its rows, capped at 600px, when it does not. The htmx `data-lattice-gantt` host behaves the same way.
+  - **Unchanged.** A numeric `height` is still written inline and the rows scroll inside it, and a host that already passed `height: null` still gets a view sized to its rows (now capped at 600px rather than unbounded).
+  - **Migrating.** Pass `height: 420` to keep the previous fixed 420px height.
+
+### Added
+
+- **A dashboard designer is declared from server-rendered state, cleaned up on swap and restored on Back** (BACKLOG-0002100). An htmx page marks an element `data-lattice-designer` and hands it a `data-lattice-config` script or attribute carrying the mode, the saved state and the guardrails; `autoInitDesigner` builds it on `htmx:load` (idempotent, factory resolved from `registerDesigner` or the `globalThis.LatticeGridDesigner.createDesigner` script-tag global, never inlined into the htmx bundle) and `destroyDesignerWithin` tears it down before htmx detaches it.
+  - **Bound to a grid by id**, through `data-lattice-bind` / a `grid: "<id>"` config string (renamed by `source: "<id>"`), the designer reads the grid's rows into a live source; when a swap replaces the grid, the re-bind pass writes the new grid's rows through `designer.sources.update`, keeping the designer's selection and undo history.
+  - **Author changes post.** Every author change re-raises a bubbling `lattice:designer-change` on the host with `{ state, cause }`, so `hx-trigger` can drive a POST; the selected page is part of the state.
+  - **Browser history** writes the state to `data-lattice-designer-state` and swaps the rendered designer out for the snapshot; on a cache hit `restoreDesignerStateWithin` rebuilds it and reapplies the state, selected page included.
+
+- **A grid built from `data-lattice-grid` markup applies `data-lattice-row` out-of-band fragments with no page code** (BACKLOG-0002113). The htmx adapter wires every grid it builds from markup on `htmx:load` — and re-wires one rebuilt on `htmx:historyRestore` — so an `hx-swap-oob` fragment for one row patches exactly that row in place, with scroll, selection and filter state untouched, the same promise the Gantt's own out-of-band updates already kept (BACKLOG-0002095).
+  - The automatic listener is scoped to its grid's host, so one grid never swallows another's fragment, and it is removed when the grid is destroyed: a swapped-out grid leaves no listener behind.
+  - An explicit `driveOobUpdates(grid)` call still works and is idempotent with the automatic wiring, so a row is never applied twice.
+
+- **Declarative grids and calendars now re-raise their changes for htmx to POST** (BACKLOG-0002115). A grid built from `[data-lattice-grid]` re-raises each committed cell edit as a bubbling `lattice:grid-change` DOM event on its host — `detail` `{ key, field, oldValue, newValue }` — and a `[data-lattice-calendar]` re-raises each move or resize as a bubbling `lattice:calendar-change` with `{ id, start, end }` (the event id and the new start/end as ISO strings). Both follow the Gantt's `lattice:gantt-change` shape, so `hx-trigger` can POST either exactly as it posts a plan change.
+  - `GRID_CHANGE_EVENT` and `CALENDAR_CHANGE_EVENT` name the events on the htmx entry, and the events reference documents the `hx-vals` recipe for each.
+  - A programmatic `rows.apply`/`rows.load` announces `rows:changed` on the grid's own bus and re-raises nothing, so a page reload never reads as an edit.
+
+- **A calendar or Kanban board hydrates straight from a server-rendered `<table>` inside it, no grid needed** (BACKLOG-0002116). `[data-lattice-calendar]` and `[data-lattice-kanban]` read the table exactly as the grid's own table hydration does — the `<th data-field>` cells name the fields, each `<tr>` is one event or card, and `data-type`/`data-format`/`data-lattice-row` are honoured the same way — then replace the table with the rendered view. An out-of-band `<tr data-lattice-row="<id>">` patches that one event or card through the view's own `rows.apply`, a swapped-in table rebuilds from it, and browser history saves and restores the view state with the original table swapped back in.
+  - **Precedence.** Where the rows come from, first wins: a bound grid (`data-lattice-bind`/`config.grid`), then a table inside the element, then the config's own JSON `rows`.
+  - **The calendar engine stays bundled.** `autoInitCalendar` builds with the `createCalendar` already inlined into the htmx bundle, exactly as before, so an existing page that declares a calendar keeps working unchanged; `registerCalendar(createCalendar)` remains as an optional override that wins when called.
+
+- **A Gantt re-raises one `lattice:gantt-commit` per user gesture or API transaction** (BACKLOG-0002120). The htmx adapter already re-raised every committed change as a `lattice:gantt-change`; a single drag that pushed successors fired a burst of them, so `hx-trigger="lattice:gantt-change"` posted several requests for one edit (and htmx's synchronous POST loses the event's `detail`). The host now also raises one bubbling `lattice:gantt-commit` per `change` batch — `detail` `{ cause, primary: { id, kind }, changes: [{ id, kind, task, changes }] }`, with `primary` the task the gesture acted on and `changes` every task it touched (the dragged task, pushed successors, and recalculated summaries) — so `hx-trigger="lattice:gantt-commit"` posts the whole edit once.
+  - `GANTT_COMMIT_EVENT` names the event on the htmx entry, and the events reference documents the `hx-vals` recipe for it.
+  - Per-task `lattice:gantt-change` events are unchanged.
+
+### Fixed
+
+- **A server-rendered `<table id="x" data-lattice-grid>` lost its `id` when it hydrated into a grid, so a calendar, Kanban board, map, chart or KPI tile bound to it by `data-lattice-bind="x"` never found the grid** (BACKLOG-0002112). The element that replaces a hydrated table now carries the table's `id`, and the grid stays findable by that id for the whole of its life — including after an hx swap replaces the table — so the documented "calendar view of a data grid" form binds as written.
+
+- **Restoring a Gantt over htmx history logged a `[lattice]` warning naming the split view's internal `__keep` column** (BACKLOG-0002114). *Recognise your own case: a `data-lattice-gantt` inside an `hx-history-elt`, navigate away, then Back.* The split view's hidden `__keep` column is its own tree-filter plumbing, never a user-facing column, so `getState()` keeps it out of the saved column widths and table states and the history snapshot holds only user-facing state; Back restores zoom, collapsed rows and filters silently. A snapshot saved before this fix, which still names `__keep`, also restores without warning — the resize of a `resizable: false` column is skipped rather than reported.
+
+- **The warnings-catalogue `requires-core` entries now link to their module's docs page, not a missing anchor** (BACKLOG-0002117). The 1.92.0 `chart:requires-core` entry (BACKLOG-0001881) pointed its `docs` field at `API.html#charts`, and its four siblings at `API.html#mapview` / `#leaflet` / `#deckgl` / `#kpi`, none of which resolve on the website warnings page. Each now uses the per-module form — `api/charts.html#chartsmodule`, `api/mapview.html#mapview`, `api/leaflet.html#leaflet`, `api/deckgl.html#deckgl`, `api/kpi.html#kpi` — so the warnings page lands on an anchor the module page actually has.
+
+- **A split Gantt plan narrower than its time pane drew a timeline only as wide as the bookings, so the date header, row backgrounds, separators, weekend shading and today line stopped early and a bar label near the plan's end was clipped** (BACKLOG-0002118). The domain now extends forward to fill the time pane — and far enough that every bar's outside label draws in full — at every zoom level, after a zoom change, and after the splitter or window resizes; a plan wider than the pane keeps its own width and scrolling, and fit-to-plan is unchanged.
+
+- **A Gantt split view's built-in zoom buttons reserved their width but still covered and cut the timeline date header** (BACKLOG-0002121). With `zoomControl` in its default header position the Day/Week/Month/Quarter/Fit buttons sit at the right of the header, but the date header was drawn as wide as the timeline body, so the band labels and day letters past that narrower pane painted under the buttons and were cut there, and a label whose period starts before the domain (a mid-month or mid-week project start) was cut at the left edge. The header now draws a label only when it fits in full inside the pane's own edges — the first and last labels are omitted rather than cut mid-word, the buttons keep their keyboard order and still change the zoom, and the timeline keeps its scroll lock with the bars.
+
 ## [1.93.0] - 2026-10-09
 
 ### Added

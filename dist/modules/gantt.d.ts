@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.93.0, gantt module type declarations
+ * Lattice Grid 1.94.0, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -2587,6 +2587,49 @@ export interface GanttChangeBatchEvent {
   view: unknown;
 }
 
+/** The kind of one entry in a `lattice:gantt-commit` / `lattice:gantt-change` detail. */
+export type GanttCommitChangeKind = 'add' | 'delete' | 'move' | 'resize' | 'progress' | 'cell-edit' | 'link' | 'row-move';
+
+/** The task a gesture acted on, named at the head of a `lattice:gantt-commit` detail. */
+export interface GanttCommitPrimary {
+  /** The primary task's id. */
+  id: string;
+  /** The kind of the primary task's change. */
+  kind: GanttCommitChangeKind;
+}
+
+/**
+ * One entry of a `lattice:gantt-commit` `changes` array: the same shape a
+ * `lattice:gantt-change` carries, gathered into the one commit.
+ */
+export interface GanttCommitChange {
+  /** The task id, or a link's identity key. */
+  id: string;
+  /** What kind of change it is. */
+  kind: GanttCommitChangeKind;
+  /** The raw task, or `null` for a link change. */
+  task: GanttTask | null;
+  /** The field-level diff (dates already ISO) or, for a link, the link itself. */
+  changes: Record<string, GanttFieldChange> | GanttDependency;
+}
+
+/**
+ * The `detail` of a `lattice:gantt-commit` DOM event: ONE
+ * per user gesture or API transaction, carrying the whole edit at once —
+ * `changes` lists every task the action changed (the primary task, the
+ * successors it pushed, and the summaries whose dates moved), so
+ * `hx-trigger="lattice:gantt-commit"` posts it in one request instead of a
+ * burst of `lattice:gantt-change` events.
+ */
+export interface GanttCommitDetail {
+  /** What caused the action: `'user'`/`'api'` for a gesture/transaction, `'undo'`/`'redo'` on a history replay. */
+  cause: GanttChangeCause;
+  /** The task the gesture acted on. */
+  primary: GanttCommitPrimary;
+  /** Every change the action produced, in the per-task `lattice:gantt-change` shape. */
+  changes: GanttCommitChange[];
+}
+
 /** The payload of `ready`: the first successful schedule. */
 export interface GanttReadyEvent {
   /** The first schedule the controller computed. */
@@ -4180,7 +4223,15 @@ export interface Gantt {
    * which is display-only — it reports hours, it does not accept them.
    */
   mountSplit(container: unknown, options?: {
-    height?: number;
+    /**
+     * The view's height in pixels. A number sets the root
+     * to exactly that many pixels and the rows scroll inside. Omitted (or
+     * `null`), the view fills its host container when the container has a
+     * definite height — the rows scroll inside and the view follows the
+     * container as it resizes — and otherwise sizes to its rows up to a
+     * sensible maximum.
+     */
+    height?: number | null;
     rowHeight?: number;
     headerHeight?: number;
     gridWidth?: number;

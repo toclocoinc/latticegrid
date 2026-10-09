@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Adapters API Reference — Lattice Grid 1.93.0</title>
+<title>Adapters API Reference — Lattice Grid 1.94.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -399,6 +399,11 @@
         <a href="#declarative-init">Declarative init, hydration &amp; state</a>
         <a href="#htmx-integration">htmx integration</a>
         <a class="rail__sub-link" href="#gantt-hx-vals">Declaring a Gantt, and posting its changes</a>
+        <a class="rail__sub-link" href="#gantt-commit-hx-vals">Posting a whole Gantt gesture at once</a>
+        <a class="rail__sub-link" href="#designer-hx-vals">Declaring a Designer, and posting its changes</a>
+        <a class="rail__sub-link" href="#grid-hx-vals">Posting a declarative grid&#39;s edits</a>
+        <a class="rail__sub-link" href="#calendar-hx-vals">Posting a declarative calendar&#39;s moves</a>
+        <a class="rail__sub-link" href="#calendar-view-of-a-data-grid">Declaring a calendar view of a data grid</a>
         <a class="rail__sub-link" href="#kanban-declarative">Declaring a Kanban board</a>
         <a class="rail__sub-link" href="#map-hx-vals">Declaring a map, bound to its grid</a>
         <a href="#ref-adapters-reference">Type reference</a>
@@ -1786,10 +1791,22 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="sig">autoInitGantt(root) / registerGantt(factory)</td><td class="desc">Builds a Gantt over every <code>[data-lattice-gantt]</code> element&#39;s server-rendered <code>&lt;table&gt;</code> — one <code>&lt;tr&gt;</code> per task, one <code>&lt;th data-field&gt;</code> per field. The factory is <em>not</em> inlined into the htmx bundle: register your own Gantt module with <code>registerGantt(createGantt)</code>, or load it as a script tag exposing <code>globalThis.LatticeGridGantt.createGantt</code>, so a page with htmx and no Gantt pays nothing. Config comes from the same sibling <code>data-lattice-config</code> script/attribute the grid reads, with a nested <code>split</code> object for the split view.</td></tr>
           <tr><td class="sig">driveGanttOobUpdates(opts?)</td><td class="desc">Applies an out-of-band <code>[data-lattice-row="&lt;task id&gt;"]</code> fragment to that task through <code>gantt.rows.apply</code>, so htmx never writes raw HTML into the rendered plan — one reschedule, zoom/scroll/selection/collapse untouched.</td></tr>
           <tr><td class="sig">GANTT_CHANGE_EVENT</td><td class="desc">Every committed change (move, resize, progress, cell edit, link, add, delete, row move) re-raises a bubbling <code>lattice:gantt-change</code> on the host with <code>detail</code> <code>{ kind, id, task, changes }</code> — <code>start</code>/<code>end</code> already converted to ISO dates — so <code>hx-trigger="lattice:gantt-change"</code> can POST it. See the <a href="#gantt-hx-vals">hx-vals recipe</a>.</td></tr>
+          <tr><td class="sig">GANTT_COMMIT_EVENT</td><td class="desc">One <code>lattice:gantt-commit</code> per user gesture or API transaction — a single bubbling event on the host carrying the whole edit in <code>detail</code> <code>{ cause, primary: { id, kind }, changes: [{ id, kind, task, changes }] }</code> (<code>primary</code> the task the gesture acted on) — so <code>hx-trigger="lattice:gantt-commit"</code> posts a drag that pushed successors once instead of a burst of <code>lattice:gantt-change</code> events. See the <a href="#gantt-commit-hx-vals">hx-vals recipe</a>.</td></tr>
+          <tr><td class="sig">autoInitDesigner(root) / registerDesigner(factory)</td><td class="desc">Builds a Designer over every <code>[data-lattice-designer]</code> element from its config — the mode, saved state and guardrails — with live data read from the grid named by its <code>data-lattice-bind</code> attribute or a <code>grid: "&lt;id&gt;"</code> config string (renamed by <code>source: "&lt;id&gt;"</code>). The factory is <em>not</em> inlined into the htmx bundle: register your own Designer module with <code>registerDesigner(createDesigner)</code>, or load it as a script tag exposing <code>globalThis.LatticeGridDesigner.createDesigner</code>, so a page with htmx and no Designer pays nothing. Config comes from the same sibling <code>data-lattice-config</code> script/attribute the grid reads.</td></tr>
+          <tr><td class="sig">DESIGNER_CHANGE_EVENT</td><td class="desc">Every author change (add, remove, move, resize, page switch, undo, redo, panel chrome) re-raises a bubbling <code>lattice:designer-change</code> on the host with <code>detail</code> <code>{ state, cause }</code> — the state includes the selected page — so <code>hx-trigger="lattice:designer-change"</code> can POST it. See the <a href="#designer-hx-vals">hx-vals recipe</a>.</td></tr>
+          <tr><td class="sig">GRID_CHANGE_EVENT</td><td class="desc">Every committed cell edit on a declarative <code>[data-lattice-grid]</code> re-raises a bubbling <code>lattice:grid-change</code> on the host with <code>detail</code> <code>{ key, field, oldValue, newValue }</code> — the row key, the edited column&#39;s field, and the old/new values — so <code>hx-trigger="lattice:grid-change"</code> can POST it. Nothing fires for a programmatic <code>rows.apply</code>/<code>rows.load</code> (those announce <code>rows:changed</code>, not <code>cell:changed</code>). See the <a href="#grid-hx-vals">hx-vals recipe</a>.</td></tr>
+          <tr><td class="sig">CALENDAR_CHANGE_EVENT</td><td class="desc">Every move or resize on a declarative <code>[data-lattice-calendar]</code> re-raises a bubbling <code>lattice:calendar-change</code> on the host with <code>detail</code> <code>{ id, start, end }</code> — the event id and the new start/end, already ISO strings — so <code>hx-trigger="lattice:calendar-change"</code> can POST it. See the <a href="#calendar-hx-vals">hx-vals recipe</a>.</td></tr>
           <tr><td class="sig">autoInitMap(root) / registerMapFactories({ mapview, chart, leaflet, deck })</td><td class="desc">Builds a map over every uninitialised <code>[data-lattice-map]</code> element, bound to a grid by <code>data-lattice-bind</code>/<code>config.grid</code> (BACKLOG-0002101). The config&#39;s <code>type</code> selects the viewer: <code>"mapview"</code> (the default) builds the 3D Map View, <code>"leaflet"</code>/<code>"deck"</code> the matching adapter, anything else a chart type (<code>markermap</code>, <code>geomap</code>, …). No map engine is inlined into the htmx bundle: register your own factories with <code>registerMapFactories</code>, or load the modules as script tags exposing <code>globalThis.LatticeGridMapView.createMapView</code>/<code>LatticeGrid.createChart</code>/<code>LatticeGridLeaflet.bindLeaflet</code>/<code>LatticeGridDeck.bindDeck</code>, so a page with htmx and no map pays nothing.</td></tr>
           <tr><td class="sig">destroyMapWithin(root)</td><td class="desc">Releases every map in a fragment before htmx detaches it — tile layers, observers and listeners — before the grid cleanup pass, so a map&#39;s own grid subscriptions are dropped by the viewer itself.</td></tr>
           <tr><td class="sig">saveMapStateWithin / restoreMapStateWithin</td><td class="desc">Carry a map&#39;s view state (centre, zoom, selected layer) across <code>htmx:beforeHistorySave</code>/<code>htmx:historyRestore</code> in a <code>data-lattice-map-state</code> attribute, re-applied through the published wrapper&#39;s <code>setState</code>.</td></tr>
           <tr><td class="sig">MAP_ATTR</td><td class="desc">The marker attribute <code>autoInitMap</code> scans for: <code>data-lattice-map</code>.</td></tr>
+          <tr><td class="sig">Browser history</td><td class="desc"><code>serialiseState</code>/<code>restoreState</code> above, wired automatically to <code>htmx:beforeHistorySave</code>/<code>htmx:historyRestore</code> once this module is imported: browser back restores the prior sort, filter and scroll position — a Gantt&#39;s zoom, visible range, scroll, collapsed rows and column widths, a Designer&#39;s full state including the selected page, and a map&#39;s centre, zoom and selected layer.</td></tr>
+          <tr><td class="sig">autoInitCalendar(root) / registerCalendar(factory)</td><td class="desc">Builds a calendar over every <code>[data-lattice-calendar]</code> element, bound to a grid by <code>data-lattice-bind</code>/<code>config.grid</code>, or hydrated straight from a server-rendered <code>&lt;table&gt;</code> inside the element (BACKLOG-0002116) — bind wins, then table, then JSON rows. The calendar engine is inlined into the htmx bundle, so a page that declares a calendar needs no other module; <code>registerCalendar(createCalendar)</code> optionally overrides the factory. Config comes from the same sibling <code>data-lattice-config</code> script/attribute the grid reads.</td></tr>
+          <tr><td class="sig">destroyCalendarWithin / saveCalendarStateWithin / restoreCalendarStateWithin</td><td class="desc">Tear a calendar down before htmx detaches its fragment, and carry its view state (view, date, first day, time-axis scroll) across <code>htmx:beforeHistorySave</code>/<code>htmx:historyRestore</code> — the original table is swapped back in for the snapshot, then <code>restoreSwappedCalendars()</code> puts the rendered view back a microtask later.</td></tr>
+          <tr><td class="sig">driveCalendarOobUpdates(opts?)</td><td class="desc">Applies an out-of-band <code>[data-lattice-row="&lt;event id&gt;"]</code> fragment to that event through <code>calendar.rows.apply</code>, so htmx never writes raw HTML into the rendered view — one reschedule, the view, date and scroll untouched. Wired by <code>attach()</code>.</td></tr>
+          <tr><td class="sig">autoInitKanban(root) / registerKanban(factory)</td><td class="desc">Builds a Kanban board over every <code>[data-lattice-kanban]</code> element, bound to a grid by <code>data-lattice-bind</code>/<code>config.grid</code>, or hydrated straight from a server-rendered <code>&lt;table&gt;</code> inside the element (BACKLOG-0002116) — bind wins, then table, then JSON rows. The factory is <em>not</em> inlined into the htmx bundle: register your own Kanban module with <code>registerKanban(createKanban)</code>, or load it as a script tag exposing <code>globalThis.LatticeGridKanban.createKanban</code>, so a page with htmx and no board pays nothing.</td></tr>
+          <tr><td class="sig">destroyKanbanWithin / saveKanbanStateWithin / restoreKanbanStateWithin</td><td class="desc">Tear a board down before htmx detaches its fragment, and carry its view state (collapsed columns and lanes, column order, quick filter, sprint/epic selection, selection) across <code>htmx:beforeHistorySave</code>/<code>htmx:historyRestore</code> — the original table is swapped back in for the snapshot, then <code>restoreSwappedKanbans()</code> puts the rendered board back a microtask later.</td></tr>
+          <tr><td class="sig">driveKanbanOobUpdates(opts?)</td><td class="desc">Applies an out-of-band <code>[data-lattice-row="&lt;card id&gt;"]</code> fragment to that card through <code>board.rows.apply</code>, so htmx never writes raw HTML into the rendered board — one move, collapsed columns and the sprint filter untouched. Wired by <code>attach()</code>.</td></tr>
           <tr><td class="sig">Browser history</td><td class="desc"><code>serialiseState</code>/<code>restoreState</code> above, wired automatically to <code>htmx:beforeHistorySave</code>/<code>htmx:historyRestore</code> once this module is imported: browser back restores the prior sort, filter and scroll position — and a Gantt&#39;s zoom, visible range, scroll, collapsed rows and column widths.</td></tr>
         </tbody>
       </table>
@@ -1812,8 +1829,113 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
 &lt;script src="/dist/modules/gantt.esm.min.js"&gt;&lt;/script&gt;
 &lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>
 
+    <h3 id="gantt-commit-hx-vals">Posting a whole Gantt gesture at once</h3>
+    <p class="section-note">Dragging one bar reschedules its successors and summaries, so <code>lattice:gantt-change</code> fires once per task touched — a burst htmx cannot post as one synchronous request (each queued request loses its <code>event</code>, so <code>js:</code> <code>hx-vals</code> come out empty). For that, the adapter also re-raises the controller&#39;s one-per-action batch as a single bubbling <code>lattice:gantt-commit</code>: <code>detail</code> <code>{ cause, primary: { id, kind }, changes: [{ id, kind, task, changes }] }</code>, where <code>primary</code> is the task the user dragged and <code>changes</code> lists every task the gesture moved. Point <code>hx-trigger</code> at it and post the whole edit once.</p>
+    <pre><code><span class="cmt">&lt;!-- The table names the task table&#39;s columns; the rows are the tasks. --&gt;</span>
+&lt;div data-lattice-gantt hx-trigger="lattice:gantt-commit from:body"
+     hx-post="/tasks/commit"
+     hx-vals='js:{ cause: event.detail.cause, id: event.detail.primary.id, changes: JSON.stringify(event.detail.changes) }'&gt;
+  &lt;table&gt;
+    &lt;thead&gt;&lt;tr&gt;&lt;th data-field="name"&gt;Task&lt;/th&gt;&lt;th data-field="start"&gt;Start&lt;/th&gt;&lt;th data-field="end"&gt;End&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+    &lt;tbody&gt;
+      &lt;tr&gt;&lt;td&gt;Design&lt;/td&gt;&lt;td&gt;2026-09-28&lt;/td&gt;&lt;td&gt;2026-10-02&lt;/td&gt;&lt;/tr&gt;
+      &lt;tr&gt;&lt;td&gt;Build&lt;/td&gt;&lt;td&gt;2026-10-03&lt;/td&gt;&lt;td&gt;2026-10-09&lt;/td&gt;&lt;/tr&gt;
+    &lt;/tbody&gt;
+  &lt;/table&gt;
+&lt;/div&gt;
+<span class="cmt">&lt;!-- The plan's dependencies (auto-scheduled, so a drag pushes successors). --&gt;</span>
+&lt;script type="application/json" data-lattice-config&gt;{
+  "projectStart": "2026-09-28",
+  "autoSchedule": true,
+  "dependencies": [{ "from": "a", "to": "b", "type": "FS" }],
+  "split": { "zoom": "day" }
+}&lt;/script&gt;
+<span class="cmt">&lt;!-- htmx, then the Gantt module (publishes the factory the adapter resolves). --&gt;</span>
+&lt;script src="/dist/modules/gantt.esm.min.js"&gt;&lt;/script&gt;
+    <h3 id="designer-hx-vals">Declaring a Designer, and posting its changes</h3>
+    <p class="section-note">A <code>data-lattice-designer</code> element builds a dashboard from its config — the mode, saved state and guardrails — with live data bound from a grid by <code>data-lattice-bind</code> (or <code>grid</code>/<code>source</code> in the config). Because the Designer engine is not inlined, the page loads the Designer module itself, which publishes <code>globalThis.LatticeGridDesigner.createDesigner</code> that the adapter resolves. The <code>lattice:designer-change</code> event re-raised for every author edit carries the whole state (including the selected page), so an <code>hx-trigger</code> posts exactly what changed.</p>
+    <pre><code><span class="cmt">&lt;!-- The grid the designer reads; swapped in and out by htmx like any other. --&gt;</span>
+&lt;div id="sales" data-lattice-grid&gt;&lt;/div&gt;
+&lt;script type="application/json" data-lattice-config&gt;{"columns":[{"field":"region"},{"field":"sales","type":"number"}],"rows":[{"id":"a","region":"north","sales":10},{"id":"b","region":"south","sales":20}],"rowKey":"id"}&lt;/script&gt;
+
+<span class="cmt">&lt;!-- The designer: mode, guardrails and saved state in the config; data bound to the grid. --&gt;</span>
+&lt;div data-lattice-designer data-lattice-bind="sales"
+     hx-trigger="lattice:designer-change from:body"
+     hx-post="/designers/main" hx-vals='js:{ state: JSON.stringify(event.detail.state), cause: event.detail.cause }'&gt;&lt;/div&gt;
+&lt;script type="application/json" data-lattice-config&gt;{
+  "mode": "edit",
+  "guardrails": { "maxPanels": 6 },
+  "state": {
+    "pages": [{ "id": "p1", "title": "Sales", "spec": { "layout": { "columns": 2 }, "panels": [
+      { "id": "table", "kind": "grid", "title": "Orders", "source": "sales" }
+    ] } }],
+    "selectedPageId": "p1",
+    "panels": {}
+  }
+}&lt;/script&gt;
+<span class="cmt">&lt;!-- htmx, then the Designer module (publishes the factory the adapter resolves). --&gt;</span>
+&lt;script src="/dist/modules/designer.esm.min.js"&gt;&lt;/script&gt;
+&lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>
+
+    <h3 id="grid-hx-vals">Posting a declarative grid&#39;s edits</h3>
+    <p class="section-note">A <code>data-lattice-grid</code> element is the grid&#39;s own declarative host: <code>autoInit</code> builds it, and <code>GRID_CHANGE_EVENT</code> re-raises each committed cell edit as a bubbling <code>lattice:grid-change</code> on that host. <code>detail</code> carries the row <code>key</code>, the edited column&#39;s <code>field</code> and the <code>oldValue</code>/<code>newValue</code>, so an <code>hx-trigger</code> posts exactly what changed. A programmatic <code>rows.apply</code>/<code>rows.load</code> posts nothing — it announces <code>rows:changed</code> on the grid&#39;s own bus, not <code>cell:changed</code>.</p>
+    <pre><code><span class="cmt">&lt;!-- The grid, built declaratively; hx-trigger posts each committed edit. --&gt;</span>
+&lt;div data-lattice-grid hx-trigger="lattice:grid-change from:body"
+     hx-post="/rows/{key}" hx-vals='js:{ key: event.detail.key, field: event.detail.field, oldValue: event.detail.oldValue, newValue: event.detail.newValue }'&gt;
+  &lt;script type="application/json" data-lattice-config&gt;{
+    "columns": [{ "field": "name" }, { "field": "status" }],
+    "rows": [{ "id": 1, "name": "Design", "status": "open" }],
+    "rowKey": "id"
+  }&lt;/script&gt;
+&lt;/div&gt;
+&lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>
+
+    <h3 id="calendar-hx-vals">Posting a declarative calendar&#39;s moves</h3>
+    <p class="section-note">A <code>data-lattice-calendar</code> element, bound to a grid by <code>data-lattice-bind</code> or a <code>grid</code> string, re-raises each move or resize as a bubbling <code>lattice:calendar-change</code> on the host — <code>detail</code> <code>{ id, start, end }</code> with the event id and the new start/end already ISO strings — so an <code>hx-trigger</code> posts the reschedule.</p>
+    <pre><code><span class="cmt">&lt;!-- The grid the calendar follows, then the calendar itself. --&gt;</span>
+&lt;div id="cal-source" data-lattice-grid&gt;&lt;/div&gt;
+&lt;script type="application/json" data-lattice-config&gt;{"columns":[{"field":"start"}],"rows":[{"id":"a","start":"2026-09-28 10:00"}],"rowKey":"id"}&lt;/script&gt;
+&lt;div data-lattice-calendar data-lattice-bind="cal-source" hx-trigger="lattice:calendar-change from:body"
+     hx-post="/events/{id}" hx-vals='js:{ id: event.detail.id, start: event.detail.start, end: event.detail.end }'&gt;&lt;/div&gt;
+&lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>
+
+    <h3 id="calendar-view-of-a-data-grid">Declaring a calendar view of a data grid</h3>
+    <p class="section-note">A server-rendered <code>&lt;table id="…" data-lattice-grid&gt;</code> hydrates into a grid whose host keeps the table's <code>id</code>, so a <code>data-lattice-calendar</code> beside it can bind by that id and draw one card per row. The calendar engine is inlined into the htmx bundle, so importing that one module builds the calendar — <code>registerCalendar(createCalendar)</code> is an optional override for an adapter that wants to swap in its own factory.</p>
+    <pre><code><span class="cmt">&lt;!-- The server-rendered table: its id is the grid the calendar binds to. --&gt;</span>
+&lt;table id="cal-grid" data-lattice-grid&gt;
+  &lt;thead&gt;&lt;tr&gt;&lt;th data-field="title"&gt;Title&lt;/th&gt;&lt;th data-field="start"&gt;Start&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;&lt;td&gt;Design&lt;/td&gt;&lt;td&gt;2026-09-28 10:00&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td&gt;Build&lt;/td&gt;&lt;td&gt;2026-09-29 11:00&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;td&gt;Ship&lt;/td&gt;&lt;td&gt;2026-09-30 12:00&lt;/td&gt;&lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+<span class="cmt">&lt;!-- The calendar, bound to that grid by id: one card per row, on its start day. --&gt;</span>
+&lt;div data-lattice-calendar data-lattice-bind="cal-grid" style="width:720px;height:400px"&gt;&lt;/div&gt;
+&lt;script type="application/json" data-lattice-config&gt;{"startProperty":"start","view":"month","date":"2026-09-30"}&lt;/script&gt;
+
+<span class="cmt">&lt;!-- htmx builds the calendar: its engine is inlined into the htmx module. --&gt;</span>
+&lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>
+
+    <p class="section-note">No grid needed: a calendar hydrates straight from the server-rendered <code>&lt;table&gt;</code> inside it (BACKLOG-0002116). The <code>&lt;th data-field&gt;</code> cells name the fields, each <code>&lt;tr&gt;</code> is one event, and <code>data-type</code>/<code>data-format</code> are honoured exactly as the grid's own table hydration honours them. <code>data-lattice-row</code> on a <code>&lt;tr&gt;</code> names the event id the calendar keys by (else the config's <code>rowKey</code> field, else <code>data-id</code>, else the row index); an out-of-band <code>&lt;tr data-lattice-row="…"&gt;</code> later patches that one event in place.</p>
+    <pre><code><span class="cmt">&lt;!-- The table is the data: the calendar replaces it, no grid in between. --&gt;</span>
+&lt;div data-lattice-calendar style="width:720px;height:400px"&gt;
+  &lt;table&gt;
+    &lt;thead&gt;&lt;tr&gt;&lt;th data-field="title"&gt;Title&lt;/th&gt;&lt;th data-field="start" data-type="datetime"&gt;Start&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+    &lt;tbody&gt;
+      &lt;tr data-lattice-row="d"&gt;&lt;td&gt;Design&lt;/td&gt;&lt;td&gt;2026-09-28 10:00&lt;/td&gt;&lt;/tr&gt;
+      &lt;tr data-lattice-row="b"&gt;&lt;td&gt;Build&lt;/td&gt;&lt;td&gt;2026-09-29 11:00&lt;/td&gt;&lt;/tr&gt;
+      &lt;tr data-lattice-row="s"&gt;&lt;td&gt;Ship&lt;/td&gt;&lt;td&gt;2026-09-30 12:00&lt;/td&gt;&lt;/tr&gt;
+    &lt;/tbody&gt;
+  &lt;/table&gt;
+&lt;/div&gt;
+&lt;script type="application/json" data-lattice-config&gt;{"startProperty":"start","view":"week"}&lt;/script&gt;
+
+<span class="cmt">&lt;!-- htmx builds the calendar: its engine is inlined into the htmx module. --&gt;</span>
+&lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>
     <h3 id="kanban-declarative">Declaring a Kanban board</h3>
-    <p class="section-note">A <code>data-lattice-kanban</code> element carries the board's config in the same sibling <code>data-lattice-config</code> script (or attribute) the grid reads, and names the grid it follows by <code>data-lattice-bind</code> or a <code>grid: "&lt;id&gt;"</code> string. Because the board engine is not inlined, the page loads the Kanban module itself, which publishes <code>globalThis.LatticeGridKanban.createKanban</code> that the adapter resolves. A board left on the page across a swap is re-pointed at the replacement grid through its own <code>rebind(grid)</code>, and its view state (collapsed columns and lanes, the sprint filter, the search) rides browser history.</p>
+    <p class="section-note">A <code>data-lattice-kanban</code> element carries the board's config in the same sibling <code>data-lattice-config</code> script (or attribute) the grid reads, and names the grid it follows by <code>data-lattice-bind</code> or a <code>grid: "&lt;id&gt;"</code> string — or hydrates straight from a server-rendered table inside it (below). Because the board engine is not inlined, the page loads the Kanban module itself, which publishes <code>globalThis.LatticeGridKanban.createKanban</code> that the adapter resolves. A board left on the page across a swap is re-pointed at the replacement grid through its own <code>rebind(grid)</code>, and its view state (collapsed columns and lanes, the sprint filter, the search) rides browser history.</p>
     <pre><code><span class="cmt">&lt;!-- The grid the board follows, named by data-lattice-bind below. --&gt;</span>
 &lt;div id="work" data-lattice-grid&gt;&lt;script type="application/json" data-lattice-config&gt;{…}&lt;/script&gt;&lt;/div&gt;
 
@@ -1825,6 +1947,24 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
     "card": { "title": "title", "subtitle": "assignee" }
   }&lt;/script&gt;
 &lt;/div&gt;
+<span class="cmt">&lt;!-- htmx, then the Kanban module (publishes the factory the adapter resolves). --&gt;</span>
+&lt;script src="/dist/modules/kanban.esm.min.js"&gt;&lt;/script&gt;
+&lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>
+
+    <p class="section-note">No grid needed either: a board hydrates straight from a server-rendered <code>&lt;table&gt;</code> inside it (BACKLOG-0002116) — the <code>&lt;th data-field&gt;</code> cells name the fields, each <code>&lt;tr&gt;</code> is one card, and the board replaces the table. <code>data-lattice-row</code> on a <code>&lt;tr&gt;</code> names the card id the board keys by (else the config's <code>rowKey</code> field, else <code>data-id</code>, else the row index); an out-of-band <code>&lt;tr data-lattice-row="…"&gt;</code> later patches that one card in place.</p>
+    <pre><code><span class="cmt">&lt;!-- The table is the data: the board replaces it, no grid in between. --&gt;</span>
+&lt;div data-lattice-kanban style="width:900px;height:420px"&gt;
+  &lt;table&gt;
+    &lt;thead&gt;&lt;tr&gt;&lt;th data-field="title"&gt;Title&lt;/th&gt;&lt;th data-field="status"&gt;Status&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+    &lt;tbody&gt;
+      &lt;tr data-lattice-row="a"&gt;&lt;td&gt;Alpha&lt;/td&gt;&lt;td&gt;todo&lt;/td&gt;&lt;/tr&gt;
+      &lt;tr data-lattice-row="b"&gt;&lt;td&gt;Beta&lt;/td&gt;&lt;td&gt;doing&lt;/td&gt;&lt;/tr&gt;
+      &lt;tr data-lattice-row="c"&gt;&lt;td&gt;Gamma&lt;/td&gt;&lt;td&gt;done&lt;/td&gt;&lt;/tr&gt;
+    &lt;/tbody&gt;
+  &lt;/table&gt;
+&lt;/div&gt;
+&lt;script type="application/json" data-lattice-config&gt;{"columnProperty":"status","columns":[{"id":"todo","title":"To do"},{"id":"doing","title":"Doing"},{"id":"done","title":"Done"}],"card":{"title":"title"}}&lt;/script&gt;
+
 <span class="cmt">&lt;!-- htmx, then the Kanban module (publishes the factory the adapter resolves). --&gt;</span>
 &lt;script src="/dist/modules/kanban.esm.min.js"&gt;&lt;/script&gt;
 &lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>

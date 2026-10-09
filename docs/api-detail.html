@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.93.0</p>
+    <p class="rail__sub">Developer guide · v1.94.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.93.0</span>
+        <span class="chip">Version 1.94.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1404,28 +1404,54 @@ autoInit(document);</code></pre>
       up what is new. A sibling <code>&lt;script type="application/json"
       data-lattice-config&gt;</code> supplies columns and options; without one, a
       <code>&lt;table&gt;</code> element is hydrated instead, reading its header row for
-      columns and its body rows for data, then replacing itself with the grid. Once
+      columns and its body rows for data, then replacing itself with the grid. The
+      element that replaces a hydrated table carries the table's <code>id</code>
+      (BACKLOG-0002112), so a viewer bound by that id — a calendar, Kanban board, map,
+      chart or KPI tile — finds the grid, including after a swap replaces the table.
+      Once
       imported, this module listens for htmx's own <code>htmx:beforeCleanupElement</code>
       and <code>htmx:load</code> and calls <code>grid.destroy()</code> / <code>autoInit</code>
       at the right moments automatically, a grid inside a swapped-out subtree is torn
       down before htmx detaches it; a grid inside newly-loaded content is built without
       re-scanning the whole page. A page with JavaScript disabled sees the plain
       <code>&lt;table&gt;</code>, still readable, since it is only ever replaced once the
-      grid has actually mounted.</p>
+      grid has actually mounted. A committed cell edit on a declarative grid is
+      re-raised as a bubbling <code>lattice:grid-change</code> on the host with
+      <code>{ key, field, oldValue, newValue }</code> (BACKLOG-0002115), so an
+      <code>hx-trigger</code> can POST it; a programmatic
+      <code>rows.apply</code>/<code>rows.load</code> announces
+      <code>rows:changed</code> on the grid&#39;s own bus and re-raises nothing.</p>
       <p><strong>Finding a live grid from its element</strong> works everywhere in this
       library, not just through <code>autoInit</code>: <code>element.__lattice</code> holds
       the instance for any element <code>createGrid</code> was called on, and is cleared
       when the grid is destroyed.</p>
-      <p><strong>The calendar viewer initialises through <code>data-lattice-calendar</code></strong>
-      the same declarative way (BACKLOG-0001595): <code>autoInitCalendar</code> builds a calendar
+      <p id="htmx-guide-calendar"><strong>The calendar viewer initialises through <code>data-lattice-calendar</code></strong>
+      the same declarative way (BACKLOG-0001595, BACKLOG-0002116): <code>autoInitCalendar</code> builds a calendar
       on every <code>[data-lattice-calendar]</code> element it has not already built one for
       (idempotent, like <code>autoInit</code>), reading its configuration from a sibling
       <code>&lt;script type="application/json" data-lattice-config&gt;</code> or a
       <code>data-lattice-config</code> attribute. A declared calendar binds a grid by id — a
       <code>data-lattice-bind="&lt;grid id&gt;"</code> attribute, or a <code>grid:
       "&lt;grid id&gt;"</code> string in the config — resolved through
-      <code>element.__lattice</code>. <code>CALENDAR_ATTR</code> names the marker
-      (<code>data-lattice-calendar</code>).</p>
+      <code>element.__lattice</code>; without a grid, it hydrates straight from a
+      server-rendered <code>&lt;table&gt;</code> inside the element (each
+      <code>&lt;tr&gt;</code> one event, the <code>&lt;th data-field&gt;</code> cells the
+      fields), replacing the table. The calendar engine is inlined into the htmx
+      bundle, so importing that one module builds the calendar;
+      <code>registerCalendar(createCalendar)</code> is an optional override for an
+      adapter that wants its own factory.
+      <code>CALENDAR_ATTR</code> names the marker (<code>data-lattice-calendar</code>). Every
+      move or resize is re-raised as a bubbling <code>lattice:calendar-change</code> on the
+      host with <code>{ id, start, end }</code> — the event id and the new start/end as ISO
+      strings — so an <code>hx-trigger</code> can POST the reschedule. An
+      out-of-band <code>data-lattice-row="&lt;event id&gt;"</code> fragment patches that event
+      through the calendar's own <code>rows.apply</code> (wired by
+      <code>driveCalendarOobUpdates</code>), and browser history carries the view the same way
+      a grid's does: on <code>htmx:beforeHistorySave</code> the original table is swapped back
+      in for the snapshot, <code>restoreCalendarStateWithin</code> re-reads it and reapplies the
+      view, date, first day and time-axis scroll on a cache hit, and
+      <code>restoreSwappedCalendars</code> puts the rendered view back once htmx has
+      snapshotted.</p>
       <p id="htmx-guide-gantt"><strong>The Gantt initialises through
       <code>data-lattice-gantt</code> over its server-rendered task table.</strong>
       <code>autoInitGantt</code> builds the split view on every
@@ -1449,6 +1475,33 @@ autoInit(document);</code></pre>
       and reapplies zoom, visible range, scroll, collapsed rows and column widths on a
       cache hit, and <code>restoreSwappedGantts</code> puts the rendered plan back once
       htmx has snapshotted.</p>
+      <p id="htmx-guide-designer"><strong>The Designer initialises through
+      <code>data-lattice-designer</code>, declared entirely from server-rendered
+      state.</strong> <code>autoInitDesigner</code> builds a dashboard designer on every
+      <code>[data-lattice-designer]</code> element it has not already built one for
+      (idempotent, like <code>autoInit</code>): the config — a sibling
+      <code>&lt;script type="application/json" data-lattice-config&gt;</code> or a
+      <code>data-lattice-config</code> attribute — carries the <code>mode</code>, the saved
+      <code>state</code> and the <code>guardrails</code>, plus any inline
+      <code>sources</code>. Live data is bound from a grid by id — a
+      <code>data-lattice-bind="&lt;grid id&gt;"</code> attribute, or a <code>grid:
+      "&lt;grid id&gt;"</code> string in the config (with <code>source: "&lt;id&gt;"</code>
+      renaming the source entry, which defaults to the grid id) — resolved through
+      <code>element.__lattice</code>. Because the Designer engine is not inlined into the
+      htmx bundle, the page hands the adapter its factory first —
+      <code>registerDesigner(createDesigner)</code> from the page's own Designer module, or
+      the script-tag global <code>globalThis.LatticeGridDesigner.createDesigner</code> the
+      module's UMD build publishes — so a page with htmx and no Designer pays nothing for
+      it. Every author change (add, remove, move, resize, page switch, undo, redo, panel
+      chrome) is re-raised as a bubbling <code>lattice:designer-change</code> on the host
+      with <code>{ state, cause }</code>, the state including the selected page. Browser
+      history carries it the way a grid's does: on <code>htmx:beforeHistorySave</code> the
+      state is written to <code>data-lattice-designer-state</code> and the rendered designer
+      swapped out for the snapshot, <code>restoreDesignerStateWithin</code> rebuilds it and
+      reapplies the state — selected page included — on a cache hit, and
+      <code>restoreSwappedDesigners</code> puts the rendered designer back once htmx has
+      snapshotted.</p>
+
       <p id="htmx-guide-kanban"><strong>The Kanban board initialises through
       <code>data-lattice-kanban</code> over its config.</strong>
       <code>autoInitKanban</code> builds a board on every
@@ -1461,17 +1514,24 @@ autoInit(document);</code></pre>
       <code>data-lattice-config</code> attribute, and a declared board binds a grid by id — a
       <code>data-lattice-bind="&lt;grid id&gt;"</code> attribute, or a <code>grid:
       "&lt;grid id&gt;"</code> string in the config — resolved through
-      <code>element.__lattice</code>. Because the board engine is not inlined into the htmx
+      <code>element.__lattice</code>; without a grid, it hydrates straight from a
+      server-rendered <code>&lt;table&gt;</code> inside the element (each
+      <code>&lt;tr&gt;</code> one card, the <code>&lt;th data-field&gt;</code> cells the
+      fields), replacing the table. Because the board engine is not inlined into the htmx
       bundle, the page hands the adapter its factory first — <code>registerKanban(createKanban)</code>
       from the page's own Kanban module, or the script-tag global
       <code>globalThis.LatticeGridKanban.createKanban</code> the module's UMD build publishes —
       so a page with htmx and no board pays nothing for it. <code>KANBAN_ATTR</code> names the
-      marker (<code>data-lattice-kanban</code>), and browser history carries the board's view
-      the same way a grid's does: <code>saveKanbanStateWithin</code> writes the view state to a
-      <code>data-lattice-kanban-state</code> attribute before the snapshot, and
+      marker (<code>data-lattice-kanban</code>), an out-of-band
+      <code>data-lattice-row="&lt;card id&gt;"</code> fragment patches that card through the
+      board's own <code>rows.apply</code> (wired by <code>driveKanbanOobUpdates</code>), and
+      browser history carries the board's view the same way a grid's does:
+      <code>saveKanbanStateWithin</code> writes the view state to a
+      <code>data-lattice-kanban-state</code> attribute before the snapshot,
       <code>restoreKanbanStateWithin</code> re-reads the config, rebuilds the board and reapplies
       the collapsed columns and lanes, the column order, the quick filter and the sprint/epic
-      selection on a cache hit.</p>
+      selection on a cache hit, and <code>restoreSwappedKanbans</code> puts the rendered board
+      back once htmx has snapshotted.</p>
       <p id="htmx-guide-map"><strong>A map initialises through
       <code>data-lattice-map</code>, bound to its grid.</strong>
       <code>autoInitMap</code> builds the configured map viewer on every
@@ -1510,11 +1570,14 @@ autoInit(document);</code></pre>
       matching <code>id</code>. On <code>htmx:load</code> the module builds the new grid,
       then walks the page for every <code>[data-lattice-bind]</code> container, resolves the
       named grid to the live instance now carrying that id, and calls
-      <code>viewer.rebind(grid)</code> — a chart, panel or calendar created by the page's own
-      code publishes itself on its container (<code>container.__latticeChart</code> /
-      <code>container.__latticeKpi</code> / <code>container.__latticeCalendar</code>), which is
-      how the two bundles find each other across the DOM. <code>rebind(grid)</code> is also a
-      public method on all three, for a host that swaps grids itself.</p>
+      <code>viewer.rebind(grid)</code> — a chart, panel, calendar or designer created by the
+      page's own code publishes itself on its container (<code>container.__latticeChart</code> /
+      <code>container.__latticeKpi</code> / <code>container.__latticeCalendar</code> /
+      <code>container.__latticeDesigner</code>), which is how the two bundles find each other
+      across the DOM. <code>rebind(grid)</code> is also a public method on all four, for a
+      host that swaps grids itself — for the designer it writes the new grid's rows through
+      <code>designer.sources.update</code> (BACKLOG-0002089), so the designer's selection and
+      undo history survive the swap.</p>
       <p id="htmx-guide-data-type"><strong>Column type precedence when hydrating a
       table.</strong> A <code>&lt;th data-type="..."&gt;</code> sets that column's
       <code>type</code> to any built-in type name (the seven base types plus the
@@ -1629,7 +1692,12 @@ driveInfiniteScroll(grid, document.getElementById('sentinel'), { columns: COLUMN
       watches for htmx's own out-of-band swaps landing on an element carrying
       <code>data-lattice-row="&lt;key&gt;"</code>, reads the swapped fragment as that row's
       cells, and applies it to the grid in place: scroll position, selection and
-      filter state are untouched, since nothing about the view is reloaded.</p>
+      filter state are untouched, since nothing about the view is reloaded. A grid
+      built from <code>[data-lattice-grid]</code> markup gets this wiring automatically on
+      <code>htmx:load</code> (and again after a browser-history restore), scoped to its
+      own host and removed when the grid is destroyed, so a declaratively built grid
+      needs no <code>driveOobUpdates</code> call in page code; an explicit call on such a
+      grid is idempotent with the automatic wiring, so a row is never applied twice.</p>
       <p id="htmx-guide-history"><strong>Browser history.</strong> On <code>htmx:beforeHistorySave</code>, every
       live grid's state (<code>serialiseState</code>: sort, filters, column order and
       widths, scroll position and selection, base64url-encoded and diffed against defaults
@@ -1756,7 +1824,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.93.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.94.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -12574,7 +12642,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.93.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.94.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>
