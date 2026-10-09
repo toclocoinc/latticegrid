@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.95.0, calendar module type declarations
+ * Lattice Grid 1.96.0, calendar module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -159,6 +159,8 @@ export interface CalendarConfig {
   dayMaxEvents?: number | false;
   /** Granular readonly (whole calendar, per day, per card). */
   readonly?: CalendarReadonly;
+  /** Select the card's row in a bound grid on click, so a cross-filter link can read it. */
+  selection?: boolean;
   /** The calendar's accessible name. Defaults to `Calendar`. */
   ariaLabel?: string;
   /** Host-localised labels: `today`, `week`, `month`, `more`, `event`, `eventSingular`, `calendar`. */

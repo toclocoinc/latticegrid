@@ -9,6 +9,22 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.96.0] - 2026-10-09
+
+### Added
+
+- The Designer's palette offers a Board widget (BACKLOG-0002105): a Kanban added over a source and configured in the properties panel.
+  - The properties panel binds the status field (columns), the card title, subtitle and labels fields, the points and swimlane fields, a declared column list with per-column WIP limits and colours, and a read-only toggle.
+  - A board follows page filters and cross-filtering like the other widgets, and a card click drives a cross-filter.
+  - The board's state round-trips through `getState`/`setState` and the dashboard spec, so a saved dashboard reloads the same board.
+
+- **The calendar viewer is a Designer palette widget** (BACKLOG-0002109). The Widgets family gains a **Calendar** tile (the heatmap chart is relabelled **Calendar heatmap** so the two read differently), and adding it over a source binds the first date field as the start, the second as the end, a text field as the card title and a category field as its colour. The properties panel edits the start, end, title and colour fields and the default view (day, week, month), working hours, read-only and event duration. The widget follows page filters, an event click drives a cross-filter through the bound grid's selection, and dragging an event writes the new dates back through the grid like a grid edit — the read-only option refuses it — and the state round-trips through the dashboard spec.
+  - **The viewer is editable by default.** The dashboard marks a calendar panel's start and end columns editable so a reschedule writes through; a host-declared `edit` on a column, or the widget's own `readonly` option, still refuses the move.
+
+- **A Gantt widget in the Designer** (BACKLOG-0002110). The palette's Widgets group offers a **Gantt** tile, labelled apart from the **Timeline bars** chart (the chart type formerly shown as `gantt`), that adds a `kind: 'gantt'` panel over a task source. It renders through the Gantt module — `createGantt` over the source's headless grid, then `mountSplit` with the grid's own `createGrid` for the task table — so the source's rows are the tasks, a page filter narrows the bars live, a drag writes back through the grid honouring its read-only and edit guardrails, and the split view fills its window and resizes with it.
+  - **Field bindings** map the source's columns to the Gantt's task properties (`id`, `name`, `start`, `end`/`duration`, `parent`, `dependencies`, `progress`, `assignee`) and are added automatically by name over a chosen source; the properties panel edits them, plus the split view's `columns`, default `zoom`, critical path, arrows, progress, workload band and read-only/editable.
+  - **A real viewer of its source**: the Gantt re-reads the grid on every row change, and its state (`zoom`, flags, column widths, table states) round-trips through `getState`/`setState` into a saved view and back, exactly like the calendar's own slot. A task click selects into the source grid's own selection, so a cross-filter link *from* the panel narrows another panel exactly as a chart or KPI click does.
+
 ## [1.95.0] - 2026-10-09
 
 ### Added

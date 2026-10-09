@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.95.0, designer module type declarations
+ * Lattice Grid 1.96.0, designer module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -248,7 +248,7 @@ export interface DesignerGuardrails {
   sources?: string[];
   /** Per-source field allow/deny, e.g. `{ sales: { allow: ['region'], deny: ['cost'] } }`; a deny wins over an allow. */
   fields?: Record<string, { allow?: string[]; deny?: string[] }>;
-  /** Only these panel kinds (`grid`, `chart`, `kpi`, `calendar`, `map`, `html`) may be added. */
+  /** Only these panel kinds (`grid`, `chart`, `kpi`, `calendar`, `map`, `html`, `board`) may be added. */
   widgets?: string[];
   /** The chart types allowed: concrete names (`['bar', 'line']`), or families (`{ families: ['bar'] }`). */
   chartTypes?: string[] | { families?: string[] };
@@ -691,8 +691,8 @@ export interface DesignerRail {
 export interface DesignerPaletteEntry {
   /** `kind:type`, such as `chart:bar`, `grid:grid` or `filter:range`. */
   id: string;
-  /** `grid`, `chart`, `map`, `kpi`, `filter` or `text`. */
-  kind: 'grid' | 'chart' | 'map' | 'kpi' | 'filter' | 'text';
+  /** `grid`, `chart`, `map`, `kpi`, `board`, `filter` or `text`. */
+  kind: 'grid' | 'chart' | 'map' | 'kpi' | 'board' | 'filter' | 'text';
   /** The chart type (`bar`), the filter type (`dateRange`), or the kind again. */
   type: string;
   /** The name shown, such as `Horizontal bar`. */
@@ -712,7 +712,7 @@ export interface DesignerPalette {
   /** Every entry the guardrails allow: the widgets, the filters, and each chart type from the base list and the registry, read at call time. */
   entries(): DesignerPaletteEntry[];
   /** Add a widget as a click on its entry does: the `paletteAdd` command. Returns the new id, or null when it is disabled, hidden or over the page's widget limit. */
-  add(kind: 'grid' | 'chart' | 'map' | 'kpi' | 'filter' | 'text', type?: string): string | null;
+  add(kind: 'grid' | 'chart' | 'map' | 'kpi' | 'board' | 'filter' | 'text', type?: string): string | null;
   /** Narrow the entries by free text, as the search box does. */
   setQuery(text: string): void;
   /** Read the registry, the guardrails and the sources again. */

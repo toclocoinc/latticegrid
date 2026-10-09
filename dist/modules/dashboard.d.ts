@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.95.0, dashboard module type declarations
+ * Lattice Grid 1.96.0, dashboard module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -47,13 +47,13 @@ export interface DashboardLayoutSpec {
 }
 
 /** What a panel shows. */
-export type DashboardPanelKind = 'grid' | 'chart' | 'kpi' | 'calendar' | 'map' | 'html';
+export type DashboardPanelKind = 'grid' | 'chart' | 'kpi' | 'calendar' | 'board' | 'gantt' | 'map' | 'html';
 
 /** One panel: a viewer in a window. */
 export interface DashboardPanel {
   /** A unique id; its window has the same id. */
   id: string;
-  /** Which viewer: a grid, a chart, a KPI panel, a map, or static html. */
+  /** Which viewer: a grid, a chart, a KPI panel, a calendar, a board, a Gantt, a map, or static html. */
   kind: DashboardPanelKind;
   /** The window's title, when its window entry declares none. */
   title?: string;
@@ -71,10 +71,14 @@ export interface DashboardPanel {
   binding?: 'chart' | 'leaflet' | 'deckgl';
   /**
    * The viewer's own options, passed to `createGrid`, `createChart`,
-   * `createKPI`, `bindLeaflet` or `bindDeck` unchanged — the dashboard adds
-   * only the element and the grid. A Leaflet panel's `map` and a deck.gl
-   * panel's `deck` may be a function of the panel's element that makes one.
-   * An `html` panel takes `{ html }` (the host's own markup) or `{ text }`.
+   * `createKPI`, `createCalendar`, `createGantt`, `bindLeaflet` or `bindDeck`
+   * unchanged — the dashboard adds only the element and the grid. A Gantt
+   * panel's options carry the controller's `fields`/`columns` mapping plus a
+   * nested `split` for `mountSplit`, and the dashboard feeds the source grid's
+   * displayed rows and re-reads them on every filter or row change. A Leaflet
+   * panel's `map` and a deck.gl panel's `deck` may be a function of the
+   * panel's element that makes one. An `html` panel takes `{ html }` (the
+   * host's own markup) or `{ text }`.
    */
   options?: Record<string, unknown>;
 }
@@ -168,8 +172,9 @@ export interface DashboardProblem {
  * The third argument of {@link createDashboard}: the factories the dashboard
  * builds with, and the AI callback. A factory not given here is looked up on
  * its script-tag global (`LatticeGrid`, `LatticeGridLayout`,
- * `LatticeGridKPI`, `LatticeGridLeaflet`, `LatticeGridDeck`); a panel whose
- * factory is on neither is refused by name.
+ * `LatticeGridKPI`, `LatticeGridCalendar`, `LatticeGridGantt`,
+ * `LatticeGridLeaflet`, `LatticeGridDeck`); a panel whose factory is on
+ * neither is refused by name.
  */
 export interface DashboardOptions {
   /** The grid's `createGrid`, for `grid` panels. */
@@ -186,6 +191,8 @@ export interface DashboardOptions {
   createKPI?: (el: HTMLElement, config: Record<string, unknown>) => unknown;
   /** The calendar module's `createCalendar`, for `calendar` panels. */
   createCalendar?: (el: HTMLElement, config: Record<string, unknown>) => unknown;
+  /** The Gantt module's `createGantt`, for `gantt` panels. */
+  createGantt?: (opts: Record<string, unknown>) => unknown;
   /** The Leaflet module's `bindLeaflet`, for `map` panels with `binding: 'leaflet'`. */
   bindLeaflet?: (grid: Grid, options: Record<string, unknown>) => unknown;
   /** The deck.gl module's `bindDeck`, for `map` panels with `binding: 'deckgl'`. */
@@ -207,7 +214,7 @@ export interface DashboardPanelHandle {
   el: HTMLElement;
   /** The grid it reads (a grid panel's own), or null. */
   grid: Grid | null;
-  /** What its factory returned: the grid, chart, KPI panel or binding; null for html. */
+  /** What its factory returned: the grid, chart, KPI panel, calendar, Gantt or binding; null for html. */
   viewer: unknown;
 }
 

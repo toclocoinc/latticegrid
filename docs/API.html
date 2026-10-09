@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.95.0</p>
+    <p class="rail__sub">API reference · v1.96.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -573,7 +573,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.95.0</span>
+      <span class="chip">Version 1.96.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3407,7 +3407,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.95.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.96.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -15482,7 +15482,7 @@ layout.destroy();
 <span class="kw">return</span> [placed, pushed, restored, payload, sel].join('|');</code></pre>
 
     <h2 id="dashboard">Dashboard composition</h2>
-    <p><code>modules/dashboard</code> describes a dashboard as data. One JSON spec names a <a href="#layout">layout</a>, the panels in it &mdash; a grid, a chart, a KPI panel, a map or static html &mdash; the source each panel reads and the links between them, and <code>createDashboard(el, spec, factories)</code> builds the wired page. <code>dashboard.spec()</code> hands the same spec back, with every window where the user has since dragged it, so a host can store, diff and version a dashboard like any other document. It is a composition layer and nothing more: there is no builder UI, no persistence and no users, and everything it draws is drawn by a module you already have.</p>
+    <p><code>modules/dashboard</code> describes a dashboard as data. One JSON spec names a <a href="#layout">layout</a>, the panels in it &mdash; a grid, a chart, a KPI panel, a board (Kanban), a map or static html &mdash; the source each panel reads and the links between them, and <code>createDashboard(el, spec, factories)</code> builds the wired page. <code>dashboard.spec()</code> hands the same spec back, with every window where the user has since dragged it, so a host can store, diff and version a dashboard like any other document. It is a composition layer and nothing more: there is no builder UI, no persistence and no users, and everything it draws is drawn by a module you already have.</p>
     <pre><code>import { createGrid, createHeadlessGrid } from '@toclocoinc/lattice-grid';
 import { createLayout } from '@toclocoinc/lattice-grid/modules/layout';
 import { createChart } from '@toclocoinc/lattice-grid/modules/charts';
@@ -15515,13 +15515,14 @@ const dashboard = createDashboard(document.querySelector('#dash'), {
     <p><strong>Refused by name.</strong> Every refusal is a line in <code>dashboard.problems()</code> (<code>{ id, path, message }</code>) and a console warning under a catalogued id: <code>dashboard:panel:&lt;id&gt;</code> for a panel that was not built, or was built but its viewer refused one of its options (heard from the viewer's own <code>[lattice]</code> warning, which quotes the option); <code>dashboard:link:&lt;from&gt;-&gt;&lt;to&gt;</code>; <code>dashboard:spec:&lt;path&gt;</code> for any other problem the validator finds; and <code>dashboard:spec</code>, <code>dashboard:el</code>, <code>dashboard:layout</code> when nothing could be built. <code>validateDashboardSpec(spec)</code> runs the same checks without building anything. <code>destroy()</code> removes the links, every viewer, grid and router attachment the dashboard made, and the layout.</p>
     <div class="example">
       <p class="example__label">Five panels from one spec, a chart narrowing with its grid, spec() rebuilding the same dashboard, and destroy</p>
-      <pre data-run="js" data-expect="6 | 0 | north | true | 0" data-covers="export:createDashboard config:DashboardOptions.createGrid config:DashboardOptions.createHeadlessGrid config:DashboardOptions.createLayout config:DashboardOptions.createChart config:DashboardOptions.createKPI config:DashboardOptions.createCalendar method:dashboard.panels method:dashboard.problems method:dashboard.panel method:dashboard.spec method:dashboard.apply method:dashboard.destroy"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+      <pre data-run="js" data-expect="6 | 0 | north | true | 0" data-covers="export:createDashboard config:DashboardOptions.createGrid config:DashboardOptions.createHeadlessGrid config:DashboardOptions.createLayout config:DashboardOptions.createChart config:DashboardOptions.createKPI config:DashboardOptions.createCalendar config:DashboardOptions.createGantt method:dashboard.panels method:dashboard.problems method:dashboard.panel method:dashboard.spec method:dashboard.apply method:dashboard.destroy"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
 const { createGrid, createHeadlessGrid } = await import('../packages/dom/src/index.js');
 const { createLayout } = await import('../packages/modules/layout/index.js');
 const { createChart } = await import('../packages/modules/charts/index.js');
 await import('../packages/modules/chart-markermap/index.js');
 const { createKPI } = await import('../packages/modules/kpi/index.js');
 const { createCalendar } = await import('../packages/modules/calendar/index.js');
+const { createGantt } = await import('../packages/modules/gantt/index.js');
 const { createDashboard } = await import('../packages/modules/dashboard/index.js');
 
 const { document, root } = createTestDom({ width: 1200, height: 800 });
@@ -15547,7 +15548,7 @@ const spec = {
     { id: 'note', kind: 'html', options: { text: 'Provisional figures.' } },
   ],
 };
-const dashboard = createDashboard(el, spec, { createGrid, createHeadlessGrid, createLayout, createChart, createKPI, createCalendar });
+const dashboard = createDashboard(el, spec, { createGrid, createHeadlessGrid, createLayout, createChart, createKPI, createCalendar, createGantt });
 const seen = [dashboard.panels().length, dashboard.problems().length];
 
 // The chart views the table's grid, so filtering the table narrows it.
@@ -28653,6 +28654,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">eventOrder</td><td class="type">string | ((a: <a href="#type-CalendarRow">CalendarRow</a>, b: <a href="#type-CalendarRow">CalendarRow</a>) =&gt; number)</td><td class="desc">Card stacking order within a day: a property path, or a comparator. <small>(optional)</small></td></tr>
           <tr><td class="name">dayMaxEvents</td><td class="type">number | false</td><td class="desc">The `+N more` overflow threshold per day. Default `false` (off). <small>(optional)</small></td></tr>
           <tr><td class="name">readonly</td><td class="type"><a href="#type-CalendarReadonly">CalendarReadonly</a></td><td class="desc">Granular readonly (whole calendar, per day, per card). <small>(optional)</small></td></tr>
+          <tr><td class="name">selection</td><td class="type">boolean</td><td class="desc">Select the card's row in a bound grid on click, so a cross-filter link can read it. <small>(optional)</small></td></tr>
           <tr><td class="name">ariaLabel</td><td class="type">string</td><td class="desc">The calendar's accessible name. Defaults to `Calendar`. <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">Record&lt;string, string&gt;</td><td class="desc">Host-localised labels: `today`, `week`, `month`, `more`, `event`, `eventSingular`, `calendar`. <small>(optional)</small></td></tr>
           <tr><td class="name">messages</td><td class="type">unknown</td><td class="desc">A message catalogue with `t(key, params)`, or a bound grid's is borrowed. <small>(optional)</small></td></tr>
@@ -29273,11 +29275,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">A unique id; its window has the same id.</td></tr>
-          <tr><td class="name">kind</td><td class="type"><a href="#type-DashboardPanelKind">DashboardPanelKind</a> <small class="literals">'grid' | 'chart' | 'kpi' | 'calendar' | 'map' | 'html'</small></td><td class="desc">Which viewer: a grid, a chart, a KPI panel, a map, or static html.</td></tr>
+          <tr><td class="name">kind</td><td class="type"><a href="#type-DashboardPanelKind">DashboardPanelKind</a> <small class="literals">'grid' | 'chart' | 'kpi' | 'calendar' | 'board' | 'gantt' | 'map' | 'html'</small></td><td class="desc">Which viewer: a grid, a chart, a KPI panel, a calendar, a board, a Gantt, a map, or static html.</td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">The window's title, when its window entry declares none. <small>(optional)</small></td></tr>
           <tr><td class="name">source</td><td class="type">string</td><td class="desc">The source it reads: a key of `sources`, or `grid:&lt;panel id&gt;` to view that grid panel's grid (it narrows when that grid is filtered). Required for `chart` and `map`; an `html` panel reads none. <small>(optional)</small></td></tr>
           <tr><td class="name">binding</td><td class="type">'chart' | 'leaflet' | 'deckgl'</td><td class="desc">For a `map` panel, what draws it: `'chart'` (a map chart such as `markermap` or `choropleth`, the default), `'leaflet'` (`bindLeaflet`) or `'deckgl'` (`bindDeck`), each needing its module on the page. <small>(optional)</small></td></tr>
-          <tr><td class="name">options</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">The viewer's own options, passed to `createGrid`, `createChart`, `createKPI`, `bindLeaflet` or `bindDeck` unchanged — the dashboard adds only the element and the grid. A Leaflet panel's `map` and a deck.gl panel's `deck` may be a function of the panel's element that makes one. An `html` panel takes `{ html }` (the host's own markup) or `{ text }`. <small>(optional)</small></td></tr>
+          <tr><td class="name">options</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">The viewer's own options, passed to `createGrid`, `createChart`, `createKPI`, `createCalendar`, `createGantt`, `bindLeaflet` or `bindDeck` unchanged — the dashboard adds only the element and the grid. A Gantt panel's options carry the controller's `fields`/`columns` mapping plus a nested `split` for `mountSplit`, and the dashboard feeds the source grid's displayed rows and re-reads them on every filter or row change. A Leaflet panel's `map` and a deck.gl panel's `deck` may be a function of the panel's element that makes one. An `html` panel takes `{ html }` (the host's own markup) or `{ text }`. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -29359,7 +29361,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       </table>
     </div>
     <h4 id="type-DashboardOptions">DashboardOptions</h4>
-    <p class="section-note">The third argument of {@link createDashboard}: the factories the dashboard builds with, and the AI callback. A factory not given here is looked up on its script-tag global (`LatticeGrid`, `LatticeGridLayout`, `LatticeGridKPI`, `LatticeGridLeaflet`, `LatticeGridDeck`); a panel whose factory is on neither is refused by name.</p>
+    <p class="section-note">The third argument of {@link createDashboard}: the factories the dashboard builds with, and the AI callback. A factory not given here is looked up on its script-tag global (`LatticeGrid`, `LatticeGridLayout`, `LatticeGridKPI`, `LatticeGridCalendar`, `LatticeGridGantt`, `LatticeGridLeaflet`, `LatticeGridDeck`); a panel whose factory is on neither is refused by name.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
@@ -29371,6 +29373,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">createLayout</td><td class="type">(el: HTMLElement, config: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>el: HTMLElement</code><br><code>config: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The layout module's `createLayout`. Without it nothing is built. <small>(optional)</small></td></tr>
           <tr><td class="name">createKPI</td><td class="type">(el: HTMLElement, config: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>el: HTMLElement</code><br><code>config: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The KPI module's `createKPI`, for `kpi` panels. <small>(optional)</small></td></tr>
           <tr><td class="name">createCalendar</td><td class="type">(el: HTMLElement, config: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>el: HTMLElement</code><br><code>config: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The calendar module's `createCalendar`, for `calendar` panels. <small>(optional)</small></td></tr>
+          <tr><td class="name">createGantt</td><td class="type">(opts: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>opts: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The Gantt module's `createGantt`, for `gantt` panels. <small>(optional)</small></td></tr>
           <tr><td class="name">bindLeaflet</td><td class="type">(grid: <a href="#type-Grid">Grid</a>, options: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>grid: <a href="#type-Grid">Grid</a></code><br><code>options: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The Leaflet module's `bindLeaflet`, for `map` panels with `binding: 'leaflet'`. <small>(optional)</small></td></tr>
           <tr><td class="name">bindDeck</td><td class="type">(grid: <a href="#type-Grid">Grid</a>, options: Record&lt;string, unknown&gt;) =&gt; unknown</td><td class="desc"><code>grid: <a href="#type-Grid">Grid</a></code><br><code>options: Record&lt;string, unknown&gt;</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The deck.gl module's `bindDeck`, for `map` panels with `binding: 'deckgl'`. <small>(optional)</small></td></tr>
           <tr><td class="name">ai</td><td class="type">((payload: Record&lt;string, unknown&gt;) =&gt; Promise&lt;unknown&gt;) | { ask: (payload: Record&lt;string, unknown&gt;) =&gt; Promise&lt;unknown&gt; }</td><td class="desc"><code>(payload: Record&lt;string, unknown&gt;) =&gt; Promise&lt;unknown&gt;</code></td><td class="type"><code>| { ask: (payload: Record&lt;string, unknown&gt;) =&gt; Promise&lt;unknown&gt; }</code></td><td class="desc">The AI callback `propose()` asks: the same `ask(payload)` `createAI` takes (or `{ ask }`). Without it `propose()` declines by name. <small>(optional)</small></td></tr>
@@ -29384,10 +29387,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">The panel id.</td></tr>
-          <tr><td class="name">kind</td><td class="type"><a href="#type-DashboardPanelKind">DashboardPanelKind</a> <small class="literals">'grid' | 'chart' | 'kpi' | 'calendar' | 'map' | 'html'</small></td><td class="desc">Its kind.</td></tr>
+          <tr><td class="name">kind</td><td class="type"><a href="#type-DashboardPanelKind">DashboardPanelKind</a> <small class="literals">'grid' | 'chart' | 'kpi' | 'calendar' | 'board' | 'gantt' | 'map' | 'html'</small></td><td class="desc">Its kind.</td></tr>
           <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The element its viewer was mounted in, inside its window.</td></tr>
           <tr><td class="name">grid</td><td class="type"><a href="#type-Grid">Grid</a> | null</td><td class="desc">The grid it reads (a grid panel's own), or null.</td></tr>
-          <tr><td class="name">viewer</td><td class="type">unknown</td><td class="desc">What its factory returned: the grid, chart, KPI panel or binding; null for html.</td></tr>
+          <tr><td class="name">viewer</td><td class="type">unknown</td><td class="desc">What its factory returned: the grid, chart, KPI panel, calendar, Gantt or binding; null for html.</td></tr>
         </tbody>
       </table>
     </div>
@@ -29619,7 +29622,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">sources</td><td class="type">string[]</td><td class="desc">Only these source ids may be used; omitted = every source. <small>(optional)</small></td></tr>
           <tr><td class="name">fields</td><td class="type">Record&lt;string, { allow?: string[]; deny?: string[] }&gt;</td><td class="desc">Per-source field allow/deny, e.g. `{ sales: { allow: ['region'], deny: ['cost'] } }`; a deny wins over an allow. <small>(optional)</small></td></tr>
-          <tr><td class="name">widgets</td><td class="type">string[]</td><td class="desc">Only these panel kinds (`grid`, `chart`, `kpi`, `calendar`, `map`, `html`) may be added. <small>(optional)</small></td></tr>
+          <tr><td class="name">widgets</td><td class="type">string[]</td><td class="desc">Only these panel kinds (`grid`, `chart`, `kpi`, `calendar`, `map`, `html`, `board`) may be added. <small>(optional)</small></td></tr>
           <tr><td class="name">chartTypes</td><td class="type">string[] | { families?: string[] }</td><td class="desc">The chart types allowed: concrete names (`['bar', 'line']`), or families (`{ families: ['bar'] }`). <small>(optional)</small></td></tr>
           <tr><td class="name">formatting</td><td class="type">'full' | 'basic' | 'none' | string[]</td><td class="desc">Formatting allowed: `'full'`, `'basic'` (everyday options), `'none'`, or the names of the options allowed. <small>(optional)</small></td></tr>
           <tr><td class="name">pages</td><td class="type">{ add?: boolean; remove?: boolean; rename?: boolean; reorder?: boolean }</td><td class="desc">Which page operations an author may do; each defaults to allowed. <small>(optional)</small></td></tr>
@@ -29996,7 +29999,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">`kind:type`, such as `chart:bar`, `grid:grid` or `filter:range`.</td></tr>
-          <tr><td class="name">kind</td><td class="type">'grid' | 'chart' | 'map' | 'kpi' | 'filter' | 'text'</td><td class="desc">`grid`, `chart`, `map`, `kpi`, `filter` or `text`.</td></tr>
+          <tr><td class="name">kind</td><td class="type">'grid' | 'chart' | 'map' | 'kpi' | 'board' | 'filter' | 'text'</td><td class="desc">`grid`, `chart`, `map`, `kpi`, `board`, `filter` or `text`.</td></tr>
           <tr><td class="name">type</td><td class="type">string</td><td class="desc">The chart type (`bar`), the filter type (`dateRange`), or the kind again.</td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc">The name shown, such as `Horizontal bar`.</td></tr>
           <tr><td class="name">family</td><td class="type">string</td><td class="desc">`widgets`, `filters`, or a chart family (BACKLOG-0002082): `comparison`, `trend`, `partToWhole`, `value`, `distribution` or `relationship`.</td></tr>
@@ -30020,7 +30023,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">entries</td><td class="type">(): <a href="#type-DesignerPaletteEntry">DesignerPaletteEntry</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-DesignerPaletteEntry">DesignerPaletteEntry</a>[]</code></td><td class="desc">Every entry the guardrails allow: the widgets, the filters, and each chart type from the base list and the registry, read at call time.</td></tr>
-          <tr><td class="name">add</td><td class="type">(kind: 'grid' | 'chart' | 'map' | 'kpi' | 'filter' | 'text', type?: string): string | null</td><td class="desc"><code>kind: 'grid' | 'chart' | 'map' | 'kpi' | 'filter' | 'text'</code><br><code>type?: string</code></td><td class="type"><code>string | null</code></td><td class="desc">Add a widget as a click on its entry does: the `paletteAdd` command. Returns the new id, or null when it is disabled, hidden or over the page's widget limit.</td></tr>
+          <tr><td class="name">add</td><td class="type">(kind: 'grid' | 'chart' | 'map' | 'kpi' | 'board' | 'filter' | 'text', type?: string): string | null</td><td class="desc"><code>kind: 'grid' | 'chart' | 'map' | 'kpi' | 'board' | 'filter' | 'text'</code><br><code>type?: string</code></td><td class="type"><code>string | null</code></td><td class="desc">Add a widget as a click on its entry does: the `paletteAdd` command. Returns the new id, or null when it is disabled, hidden or over the page's widget limit.</td></tr>
           <tr><td class="name">setQuery</td><td class="type">(text: string): void</td><td class="desc"><code>text: string</code></td><td class="type"><code>void</code></td><td class="desc">Narrow the entries by free text, as the search box does.</td></tr>
           <tr><td class="name">refresh</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Read the registry, the guardrails and the sources again.</td></tr>
           <tr><td class="name">collapse</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">Collapse to the icon strip.</td></tr>
@@ -33838,7 +33841,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="type-def"><code>type CurrencyDisplay = 'symbol' | 'code' | 'name' | 'narrowSymbol'</code></p>
     <h4 id="type-DashboardPanelKind">DashboardPanelKind</h4>
     <p class="section-note">What a panel shows.</p>
-    <p class="type-def"><code>type DashboardPanelKind = 'grid' | 'chart' | 'kpi' | 'calendar' | 'map' | 'html'</code></p>
+    <p class="type-def"><code>type DashboardPanelKind = 'grid' | 'chart' | 'kpi' | 'calendar' | 'board' | 'gantt' | 'map' | 'html'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/dashboard</code>.</small></p>
     <h4 id="type-DashboardSource">DashboardSource</h4>
     <p class="section-note">A named source.</p>
@@ -34727,7 +34730,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.95.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.96.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>
