@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.92.0, chart-polarscatter module
+ * Lattice Grid 1.93.0, chart-polarscatter module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

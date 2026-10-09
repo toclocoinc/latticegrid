@@ -1,5 +1,5 @@
 {
-  "version": "1.92.0",
+  "version": "1.93.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 716,
+  "count": 720,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -5761,6 +5761,17 @@
       "docs": "api/layout.html#layout"
     },
     {
+      "id": "layout.overlap.repaired",
+      "module": "layout",
+      "severity": "warn",
+      "since": "1.92.1",
+      "message": "layout: overlapping windows {ids} were moved to the next free cells to keep the layout valid.",
+      "meaning": "Two or more windows ended up on the same cells, and the layout could not leave them that way — a dashboard with overlapping windows draws one on top of the other, and `getLayout()` would record a placement that cannot be drawn. Under `compact: 'none'` a move or resize is stopped before it can overlap, but `config.windows` and `setLayout()` come from the developer, so the windows that overlap are repaired: the earlier ones (in the order given) keep their cells and the later ones move to the first free cells, in the same scan a window added without coordinates uses.",
+      "fix": "Give the named windows cells that do not share a row or a column with each other, or accept the repaired arrangement from `getLayout()` and persist it. The warning names the windows that moved, once per layout.",
+      "snippet": "createLayout(el, { compact: 'none', windows: [{ id: 'a', xPos: 1, yPos: 1, xSize: 6, ySize: 4 }, { id: 'b', xPos: 1, yPos: 1, xSize: 6, ySize: 4 }] });",
+      "docs": "api/layout.html#layout"
+    },
+    {
       "id": "react:mui-prop-unsupported:*",
       "module": "react",
       "severity": "warn",
@@ -7106,6 +7117,39 @@
       "fix": "Load the Gantt module and call registerGantt(createGantt), or load its UMD build as a <script> tag so globalThis.LatticeGridGantt.createGantt exists.",
       "snippet": "import { registerGantt } from '@toclocoinc/lattice-grid/modules/htmx';\nimport { createGantt } from '@toclocoinc/lattice-grid/modules/gantt';\nregisterGantt(createGantt);",
       "docs": "api-detail.html#htmx-guide-gantt"
+    },
+    {
+      "id": "htmx:map-no-factory:*",
+      "module": "htmx",
+      "severity": "warn",
+      "since": "1.93.0",
+      "message": "autoInitMap: no {kind} factory registered and no globalThis.{globalName}; load the map module first (or registerMapFactories).",
+      "meaning": "The htmx adapter does not inline any map engine, so a `data-lattice-map` element needs a factory for its viewer kind (`mapview`, `chart`, `leaflet` or `deck`): one registered with registerMapFactories(), or the script-tag global the matching module's UMD build publishes. Neither was present for this element's kind, so it was left un-built.",
+      "fix": "Load the module for the kind you declared and call registerMapFactories({ mapview: createMapView, chart: createChart, leaflet: bindLeaflet, deck: bindDeck }), or load its UMD build as a `<script>` tag so the globalThis.LatticeGrid*.createMapView / createChart / bindLeaflet / bindDeck exists.",
+      "snippet": "import { registerMapFactories } from '@toclocoinc/lattice-grid/modules/htmx';\nimport { createChart } from '@toclocoinc/lattice-grid/modules/charts';\nregisterMapFactories({ chart: createChart });",
+      "docs": "api-detail.html#htmx-guide-map"
+    },
+    {
+      "id": "htmx:map-no-grid",
+      "module": "htmx",
+      "severity": "warn",
+      "since": "1.93.0",
+      "message": "autoInitMap: data-lattice-map found no live grid for its data-lattice-bind/config.grid; skipped.",
+      "meaning": "A `[data-lattice-map]` element must be bound to a live grid so the viewer has rows to draw: either a `data-lattice-bind=\"<grid id>\"` attribute naming a grid host element that carries a live `__lattice`, or a `config.grid` string doing the same. Neither resolved to a live grid, so nothing was built and the element was left as-is.",
+      "fix": "Point the element at a hydrated grid — give the grid's host element a matching `id` and the map host a `data-lattice-bind` with that id, or put a `grid: \"<grid id>\"` key in the map's config.",
+      "snippet": "<div id=\"map\" data-lattice-map data-lattice-bind=\"grid\"></div>\n<script type=\"application/json\" data-lattice-config>{\"type\":\"markermap\",\"lon\":\"lng\",\"lat\":\"lat\"}</script>",
+      "docs": "api-detail.html#htmx-guide-map"
+    },
+    {
+      "id": "htmx:kanban-no-factory",
+      "module": "htmx",
+      "severity": "warn",
+      "since": "1.93.0",
+      "message": "autoInitKanban: no Kanban factory registered and no globalThis.LatticeGridKanban.createKanban; load the Kanban module first.",
+      "meaning": "The htmx adapter does not inline the Kanban engine, so it needs a factory: one registered with registerKanban(), or the script-tag global the Kanban module's UMD build publishes (globalThis.LatticeGridKanban.createKanban). Neither was present, so the element was left un-mounted.",
+      "fix": "Load the Kanban module and call registerKanban(createKanban), or load its UMD build as a <script> tag so globalThis.LatticeGridKanban.createKanban exists.",
+      "snippet": "import { registerKanban } from '@toclocoinc/lattice-grid/modules/htmx';\nimport { createKanban } from '@toclocoinc/lattice-grid/modules/kanban';\nregisterKanban(createKanban);",
+      "docs": "api-detail.html#htmx-guide-kanban"
     },
     {
       "id": "mapview:grid",

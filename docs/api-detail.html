@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.92.0</p>
+    <p class="rail__sub">Developer guide · v1.93.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.92.0</span>
+        <span class="chip">Version 1.93.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1449,6 +1449,55 @@ autoInit(document);</code></pre>
       and reapplies zoom, visible range, scroll, collapsed rows and column widths on a
       cache hit, and <code>restoreSwappedGantts</code> puts the rendered plan back once
       htmx has snapshotted.</p>
+      <p id="htmx-guide-kanban"><strong>The Kanban board initialises through
+      <code>data-lattice-kanban</code> over its config.</strong>
+      <code>autoInitKanban</code> builds a board on every
+      <code>[data-lattice-kanban]</code> element it has not already built one for
+      (idempotent, like <code>autoInit</code>, <code>autoInitCalendar</code> and
+      <code>autoInitGantt</code>): the element's configuration — <code>rows</code>,
+      <code>columns</code>, <code>columnProperty</code>, <code>card</code>,
+      <code>sprintProperty</code> and the rest — comes from a sibling
+      <code>&lt;script type="application/json" data-lattice-config&gt;</code> or a
+      <code>data-lattice-config</code> attribute, and a declared board binds a grid by id — a
+      <code>data-lattice-bind="&lt;grid id&gt;"</code> attribute, or a <code>grid:
+      "&lt;grid id&gt;"</code> string in the config — resolved through
+      <code>element.__lattice</code>. Because the board engine is not inlined into the htmx
+      bundle, the page hands the adapter its factory first — <code>registerKanban(createKanban)</code>
+      from the page's own Kanban module, or the script-tag global
+      <code>globalThis.LatticeGridKanban.createKanban</code> the module's UMD build publishes —
+      so a page with htmx and no board pays nothing for it. <code>KANBAN_ATTR</code> names the
+      marker (<code>data-lattice-kanban</code>), and browser history carries the board's view
+      the same way a grid's does: <code>saveKanbanStateWithin</code> writes the view state to a
+      <code>data-lattice-kanban-state</code> attribute before the snapshot, and
+      <code>restoreKanbanStateWithin</code> re-reads the config, rebuilds the board and reapplies
+      the collapsed columns and lanes, the column order, the quick filter and the sprint/epic
+      selection on a cache hit.</p>
+      <p id="htmx-guide-map"><strong>A map initialises through
+      <code>data-lattice-map</code>, bound to its grid.</strong>
+      <code>autoInitMap</code> builds the configured map viewer on every
+      <code>[data-lattice-map]</code> element it has not already built one for
+      (idempotent, like <code>autoInit</code>): the element reads its config from the
+      same <code>data-lattice-config</code> script or attribute a grid reads, and names
+      its grid with <code>data-lattice-bind="&lt;grid id&gt;"</code> or a
+      <code>config.grid</code> string, resolved through <code>element.__lattice</code>.
+      The config's <code>type</code> selects the viewer: <code>mapview</code> (the
+      default) builds the 3D Map View, <code>leaflet</code>/<code>deck</code> the
+      matching adapter, anything else a chart type (<code>markermap</code>,
+      <code>geomap</code>, &hellip;), with the remaining config keys passed through as
+      that viewer's options. Because no map engine is inlined into the htmx bundle, the
+      page hands the adapter its factories first — <code>registerMapFactories({ mapview,
+      chart, leaflet, deck })</code> from the page's own modules, or the script-tag
+      globals <code>globalThis.LatticeGridMapView.createMapView</code> /
+      <code>globalThis.LatticeGrid.createChart</code> /
+      <code>globalThis.LatticeGridLeaflet.bindLeaflet</code> /
+      <code>globalThis.LatticeGridDeck.bindDeck</code> — so a page with htmx and no map
+      pays nothing for it. The built viewer is published on its container as
+      <code>__latticeMap</code>, so a swap that replaces the grid re-binds a map left on
+      the page through <code>rebindViewersWithin</code>, and a swap that removes the map
+      releases its tile layers, observers and listeners. Browser history carries the
+      view: on <code>htmx:beforeHistorySave</code> the centre, zoom and selected layer
+      are written to a <code>data-lattice-map-state</code> attribute, and
+      <code>restoreMapStateWithin</code> reapplies them on a cache hit.</p>
       <p id="htmx-guide-rebind"><strong>Viewers re-bind across a swap.</strong> A chart or
       KPI panel bound to a grid inside a swapped-out subtree would otherwise keep pointing
       at the grid <code>htmx:beforeCleanupElement</code> just destroyed, and throw on its
@@ -1707,7 +1756,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.92.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.93.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -12525,7 +12574,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.92.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.93.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

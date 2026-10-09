@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Adapters API Reference — Lattice Grid 1.92.0</title>
+<title>Adapters API Reference — Lattice Grid 1.93.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -399,6 +399,8 @@
         <a href="#declarative-init">Declarative init, hydration &amp; state</a>
         <a href="#htmx-integration">htmx integration</a>
         <a class="rail__sub-link" href="#gantt-hx-vals">Declaring a Gantt, and posting its changes</a>
+        <a class="rail__sub-link" href="#kanban-declarative">Declaring a Kanban board</a>
+        <a class="rail__sub-link" href="#map-hx-vals">Declaring a map, bound to its grid</a>
         <a href="#ref-adapters-reference">Type reference</a>
         <a class="rail__sub-link" href="#type-LatticeViewerCommonProps">LatticeViewerCommonProps</a>
         <a class="rail__sub-link" href="#type-LatticeDataGridApi">LatticeDataGridApi</a>
@@ -1767,7 +1769,7 @@ grid.data.serialize(); <span class="cmt">// every row's data, in source order</s
       </table>
     </div>
     <h2 id="htmx-integration">htmx integration</h2>
-    <p class="section-note">One file. <code>modules/htmx</code> re-exports <code>createGrid</code>, <code>autoInit</code>, <code>hydrateTable</code>, <code>readTable</code>, <code>serialiseState</code> and <code>restoreState</code> alongside its own exports below, so a page using htmx integration never also loads the base bundle: that would mean two independent copies of the whole engine on one page. Registers on import: builds grids from <code>[data-lattice-grid]</code> elements or server-rendered <code>&lt;table&gt;</code>s, calendars from <code>[data-lattice-calendar]</code>, Gantts from <code>[data-lattice-gantt]</code>, tears them down before htmx detaches a swapped-out subtree, and rebuilds them in newly-loaded content. <code>driveServerMode</code>/<code>driveInfiniteScroll</code> drive sort, filter and infinite scroll over plain htmx requests; <code>driveOobUpdates</code> applies out-of-band row updates in place. See <a href="../api-detail.html#htmx-guide">the guide</a> for the full request-lifecycle wiring and why infinite scroll uses two triggers.</p>
+    <p class="section-note">One file. <code>modules/htmx</code> re-exports <code>createGrid</code>, <code>autoInit</code>, <code>hydrateTable</code>, <code>readTable</code>, <code>serialiseState</code> and <code>restoreState</code> alongside its own exports below, so a page using htmx integration never also loads the base bundle: that would mean two independent copies of the whole engine on one page. Registers on import: builds grids from <code>[data-lattice-grid]</code> elements or server-rendered <code>&lt;table&gt;</code>s, calendars from <code>[data-lattice-calendar]</code>, Gantts from <code>[data-lattice-gantt]</code>, maps from <code>[data-lattice-map]</code>, tears them down before htmx detaches a swapped-out subtree, and rebuilds them in newly-loaded content. <code>driveServerMode</code>/<code>driveInfiniteScroll</code> drive sort, filter and infinite scroll over plain htmx requests; <code>driveOobUpdates</code> applies out-of-band row updates in place. See <a href="../api-detail.html#htmx-guide">the guide</a> for the full request-lifecycle wiring and why infinite scroll uses two triggers.</p>
 
     <pre><code><span class="kw">import</span> { autoInit, driveServerMode, driveInfiniteScroll } <span class="kw">from</span> './dist/modules/htmx.esm.min.js';
 
@@ -1784,6 +1786,10 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="sig">autoInitGantt(root) / registerGantt(factory)</td><td class="desc">Builds a Gantt over every <code>[data-lattice-gantt]</code> element&#39;s server-rendered <code>&lt;table&gt;</code> — one <code>&lt;tr&gt;</code> per task, one <code>&lt;th data-field&gt;</code> per field. The factory is <em>not</em> inlined into the htmx bundle: register your own Gantt module with <code>registerGantt(createGantt)</code>, or load it as a script tag exposing <code>globalThis.LatticeGridGantt.createGantt</code>, so a page with htmx and no Gantt pays nothing. Config comes from the same sibling <code>data-lattice-config</code> script/attribute the grid reads, with a nested <code>split</code> object for the split view.</td></tr>
           <tr><td class="sig">driveGanttOobUpdates(opts?)</td><td class="desc">Applies an out-of-band <code>[data-lattice-row="&lt;task id&gt;"]</code> fragment to that task through <code>gantt.rows.apply</code>, so htmx never writes raw HTML into the rendered plan — one reschedule, zoom/scroll/selection/collapse untouched.</td></tr>
           <tr><td class="sig">GANTT_CHANGE_EVENT</td><td class="desc">Every committed change (move, resize, progress, cell edit, link, add, delete, row move) re-raises a bubbling <code>lattice:gantt-change</code> on the host with <code>detail</code> <code>{ kind, id, task, changes }</code> — <code>start</code>/<code>end</code> already converted to ISO dates — so <code>hx-trigger="lattice:gantt-change"</code> can POST it. See the <a href="#gantt-hx-vals">hx-vals recipe</a>.</td></tr>
+          <tr><td class="sig">autoInitMap(root) / registerMapFactories({ mapview, chart, leaflet, deck })</td><td class="desc">Builds a map over every uninitialised <code>[data-lattice-map]</code> element, bound to a grid by <code>data-lattice-bind</code>/<code>config.grid</code> (BACKLOG-0002101). The config&#39;s <code>type</code> selects the viewer: <code>"mapview"</code> (the default) builds the 3D Map View, <code>"leaflet"</code>/<code>"deck"</code> the matching adapter, anything else a chart type (<code>markermap</code>, <code>geomap</code>, …). No map engine is inlined into the htmx bundle: register your own factories with <code>registerMapFactories</code>, or load the modules as script tags exposing <code>globalThis.LatticeGridMapView.createMapView</code>/<code>LatticeGrid.createChart</code>/<code>LatticeGridLeaflet.bindLeaflet</code>/<code>LatticeGridDeck.bindDeck</code>, so a page with htmx and no map pays nothing.</td></tr>
+          <tr><td class="sig">destroyMapWithin(root)</td><td class="desc">Releases every map in a fragment before htmx detaches it — tile layers, observers and listeners — before the grid cleanup pass, so a map&#39;s own grid subscriptions are dropped by the viewer itself.</td></tr>
+          <tr><td class="sig">saveMapStateWithin / restoreMapStateWithin</td><td class="desc">Carry a map&#39;s view state (centre, zoom, selected layer) across <code>htmx:beforeHistorySave</code>/<code>htmx:historyRestore</code> in a <code>data-lattice-map-state</code> attribute, re-applied through the published wrapper&#39;s <code>setState</code>.</td></tr>
+          <tr><td class="sig">MAP_ATTR</td><td class="desc">The marker attribute <code>autoInitMap</code> scans for: <code>data-lattice-map</code>.</td></tr>
           <tr><td class="sig">Browser history</td><td class="desc"><code>serialiseState</code>/<code>restoreState</code> above, wired automatically to <code>htmx:beforeHistorySave</code>/<code>htmx:historyRestore</code> once this module is imported: browser back restores the prior sort, filter and scroll position — and a Gantt&#39;s zoom, visible range, scroll, collapsed rows and column widths.</td></tr>
         </tbody>
       </table>
@@ -1805,6 +1811,43 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
 <span class="cmt">&lt;!-- htmx, then the Gantt module (publishes the factory the adapter resolves). --&gt;</span>
 &lt;script src="/dist/modules/gantt.esm.min.js"&gt;&lt;/script&gt;
 &lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>
+
+    <h3 id="kanban-declarative">Declaring a Kanban board</h3>
+    <p class="section-note">A <code>data-lattice-kanban</code> element carries the board's config in the same sibling <code>data-lattice-config</code> script (or attribute) the grid reads, and names the grid it follows by <code>data-lattice-bind</code> or a <code>grid: "&lt;id&gt;"</code> string. Because the board engine is not inlined, the page loads the Kanban module itself, which publishes <code>globalThis.LatticeGridKanban.createKanban</code> that the adapter resolves. A board left on the page across a swap is re-pointed at the replacement grid through its own <code>rebind(grid)</code>, and its view state (collapsed columns and lanes, the sprint filter, the search) rides browser history.</p>
+    <pre><code><span class="cmt">&lt;!-- The grid the board follows, named by data-lattice-bind below. --&gt;</span>
+&lt;div id="work" data-lattice-grid&gt;&lt;script type="application/json" data-lattice-config&gt;{…}&lt;/script&gt;&lt;/div&gt;
+
+<span class="cmt">&lt;!-- The board: config carries rows/columns/card; the binding names the grid. --&gt;</span>
+&lt;div data-lattice-kanban data-lattice-bind="work"&gt;
+  &lt;script type="application/json" data-lattice-config&gt;{
+    "columnProperty": "status",
+    "columns": [{ "id": "todo", "title": "To do" }, { "id": "done", "title": "Done" }],
+    "card": { "title": "title", "subtitle": "assignee" }
+  }&lt;/script&gt;
+&lt;/div&gt;
+<span class="cmt">&lt;!-- htmx, then the Kanban module (publishes the factory the adapter resolves). --&gt;</span>
+&lt;script src="/dist/modules/kanban.esm.min.js"&gt;&lt;/script&gt;
+&lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>
+
+    <h3 id="map-hx-vals">Declaring a map, bound to its grid</h3>
+    <p class="section-note">A <code>data-lattice-map</code> element binds to a grid by id and draws one marker per row — no JS needed to make the markup read as a map, and one <code>htmx:load</code> builds it. The config&#39;s <code>type</code> selects the viewer; a chart type like <code>markermap</code> needs no CDN or WebGL, the <code>"mapview"</code> kind carries a <code>view</code> (centre and zoom) and a <code>layer</code> through htmx&#39;s history cache. Because the engines are not inlined, the page loads the one it uses itself, and <code>registerMapFactories</code> hands it to the adapter — the same seam <code>registerGantt</code> uses.</p>
+    <pre><code><span class="cmt">&lt;!-- The grid the map follows, named by id. --&gt;</span>
+&lt;div id="g" data-lattice-grid&gt;&lt;/div&gt;
+&lt;script type="application/json" data-lattice-config&gt;{"columns":[{"field":"site"},{"field":"lng","type":"number"},{"field":"lat","type":"number"}],"rows":[{"id":"ldn","site":"London","lng":-0.13,"lat":51.5}],"rowKey":"id"}&lt;/script&gt;
+
+<span class="cmt">&lt;!-- The map, bound to that grid; `type` names a chart type or the map view. --&gt;</span>
+&lt;div data-lattice-map data-lattice-bind="g" style="width:520px;height:360px"&gt;&lt;/div&gt;
+&lt;script type="application/json" data-lattice-config&gt;{"type":"markermap","lon":"lng","lat":"lat","label":"site"}&lt;/script&gt;
+
+<span class="cmt">&lt;!-- htmx, then the chart module (register its factory for the adapter). --&gt;</span>
+&lt;script type="importmap"&gt;{ "imports": { "@toclocoinc/lattice-grid/modules/charts": "/dist/modules/charts.esm.js" } }&lt;/script&gt;
+&lt;script src="/test/fixtures/htmx/htmx.min.js"&gt;&lt;/script&gt;
+&lt;script type="module"&gt;
+import { registerMapFactories } from "/dist/modules/htmx.esm.js";
+import { createChart } from "/dist/modules/charts.esm.js";
+import "/dist/modules/chart-markermap.esm.js";
+registerMapFactories({ chart: createChart });
+&lt;/script&gt;</code></pre>
     <h2 id="ref-adapters-reference">Type reference</h2>
     <p class="section-note">Generated from the type declarations, so it always matches the release. Each surface lists its properties, its methods and the events it raises as three tables; an option or value type lists its members once.</p>
     <h3 id="ref-adapters">Framework adapters</h3>

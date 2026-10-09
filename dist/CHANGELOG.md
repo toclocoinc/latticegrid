@@ -9,6 +9,33 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.93.0] - 2026-10-09
+
+### Added
+
+- **A Kanban board can be built declaratively for htmx, survives a swap, and restores on Back** (BACKLOG-0002099). A `data-lattice-kanban` element, configured from the same sibling `data-lattice-config` script or attribute the grid reads and bound to a grid by `data-lattice-bind` or a `grid: "<id>"` config string, is mounted as a board on `htmx:load` and destroyed on `htmx:beforeCleanupElement` — the Gantt's declarative shape (BACKLOG-0002095) and the calendar's (BACKLOG-0001595).
+  - The board engine is not inlined into the htmx bundle: the page registers its own Kanban module with `registerKanban(createKanban)` or loads it as a script tag exposing `globalThis.LatticeGridKanban.createKanban`, so a page with htmx and no board pays nothing for one.
+  - The board publishes `__latticeKanban` on its container and gains `rebind(grid)`, so the htmx module's re-bind pass (BACKLOG-0001588) re-points a board left on the page at the replacement grid a swap just built, keeping its element, columns and interaction state.
+  - Browser history saves and restores the board's view state — collapsed columns and lanes, column order, the quick filter, and the sprint/epic selection — through a `data-lattice-kanban-state` attribute read back on `htmx:historyRestore`.
+
+- **htmx declarative map** (BACKLOG-0002101): an element marked `data-lattice-map`, bound to a grid by `data-lattice-bind`/`config.grid`, is built as the configured map viewer on `htmx:load`, its config read from a `data-lattice-config` script/attribute exactly as the grid reads it.
+  - The config's `type` selects the viewer: `mapview` (the default) builds the 3D Map View, `leaflet`/`deck` the matching adapter, anything else a chart type (`markermap`, `geomap`, …), with the remaining config keys passed through as that viewer's options.
+  - The htmx bundle does **not** inline any map engine: the factories are resolved from `registerMapFactories({ mapview, chart, leaflet, deck })` or the script-tag globals `LatticeGridMapView.createMapView`/`LatticeGrid.createChart`/`LatticeGridLeaflet.bindLeaflet`/`LatticeGridDeck.bindDeck`, so a page with htmx and no map pays nothing for it.
+  - The built viewer is published on its container as `__latticeMap`, so a swap that replaces the grid re-binds a map left on the page through `rebindViewersWithin`, and a swap that removes the map releases its tile layers, observers and listeners.
+  - Browser history carries the map's view (centre, zoom, selected layer) across back/forward in a `data-lattice-map-state` attribute, re-applied on restore.
+
+### Fixed
+
+- **A resize in a `compact: 'none'` layout could grow a window over its neighbour and record the overlapping placement as valid** (BACKLOG-0002098). Under `'none'` a window is meant to stay exactly where it is put, so a resize now stops at the nearest neighbour's edge — the ghost shows the clamped size — and a move that would land on a neighbour snaps back to the last valid cell. Overlapping placements given to `config.windows` or `setLayout()` are repaired instead of kept: later windows move to the next free cells, with one warning naming them, and `getLayout()` never returns an overlapping arrangement.
+
+- **The plain split-view task table's header row spilled over the timeline's date header when its columns were wider than the table pane** (BACKLOG-0002102). *Recognise your own case: `mountSplit` without `createGrid`, the hand-built table, with columns too wide for `gridWidth`.* The header now clips to the table pane, which scrolls sideways with its body exactly as the grid-backed table does, so the `Duration`, `Assignee` and `%` headings stay inside the table pane instead of drawing over the timeline's date header.
+
+- **The plain split-view task table squeezed the task name column into a sliver that wrapped a word per line when the columns were wider than the pane** (BACKLOG-0002111). *Recognise your own case: `mountSplit` without `createGrid`, six columns in a 300px `gridWidth`.* The name column now keeps a 160px floor (overridable per column with `minWidth`) and is never shrunk below it to fit `gridWidth`; the date columns keep their declared widths, the pane scrolls sideways (header and body together) instead of compressing anything, each task name renders on one line with one trailing ellipsis — the full name in the cell's native `title` and accessible name — and every row stays `rowHeight`. Pass `wrapNames: true` to opt back into wrapping with rows that grow to fit.
+
+### Internal
+
+- **A shared machine can now cap the test suite's first-pass concurrency with `LATTICE_TEST_CONCURRENCY`** (BACKLOG-0001893). `tools/testsuite.js`'s combined `node --test` invocation ran with no `--test-concurrency` flag, so Node used `availableParallelism - 1` files at once — one full run occupied an i9's 16 cores and two overloaded it (load 27), with ops pinning full runs to 10 cores via `taskset` as a stopgap. Setting `LATTICE_TEST_CONCURRENCY=<n>` (a positive integer) sets the first pass's `--test-concurrency=n`; unset keeps today's default exactly, and an invalid value (`0`, negative, non-integer, or text) warns once and is ignored. The half-concurrency no-verdict retry halves the configured value, never below 1. Documented in the contributing guide beside the per-file budget.
+
 ## [1.92.0] - 2026-10-09
 
 ### Breaking

@@ -1,10 +1,11 @@
 /*!
- * Lattice Grid 1.92.0, kanban module type declarations
+ * Lattice Grid 1.93.0, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 import type {
   EventOrigin,
+  Grid,
 } from '../lattice-grid.js';
 
 /** A row backing a card: any object. Its column comes from `columnProperty` and its identity from `rowKey`. */
@@ -1265,6 +1266,14 @@ export interface Kanban {
    * it holds, so a routed feed is never thrown away.
    */
   refresh(): Kanban;
+  /**
+   * Point this board at a replacement grid. The one call a page
+   * framework makes after its swap destroyed the grid the board was bound to: the board
+   * keeps its element, columns and interaction state, drops its subscriptions to the dead
+   * grid, subscribes to the new one and re-reads its rows. A no-op on a board not built
+   * over a grid, or already following the grid it is handed.
+   */
+  rebind(grid: Grid): Kanban;
   /**
    * Empty the element, remove only the class the board added, and stop the flow and SLA
    * monitors. A bound grid is left alone — the host owns it.

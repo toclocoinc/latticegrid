@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Kanban API Reference — Lattice Grid 1.92.0</title>
+<title>Kanban API Reference — Lattice Grid 1.93.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -393,6 +393,7 @@
         <a class="rail__sub-link" href="#kanban-swimlane-example">Swimlanes, collapse and search, executed</a>
         <a class="rail__sub-link" href="#kanban-sprint-example">Sprint, backlog and epic rollup, executed</a>
         <a class="rail__sub-link" href="#kanban-live-example">Live, driven by a Data Router, executed</a>
+        <a class="rail__sub-link" href="#kanban-rebind-example">Re-bound to a replacement grid, executed</a>
         <a href="#ref-kanban-reference">Type reference</a>
         <a class="rail__sub-link" href="#type-Kanban">Kanban</a>
       </div>
@@ -656,6 +657,29 @@ router.apply([{ op: 'upsert', row: { id: 't1', kind: 'task', status: 'done', tit
 
 router.destroy();
 <span class="kw">return</span> [hydrated, afterDelta].join(' | ');</code></pre>
+
+    <h3 id="kanban-rebind-example">Re-bound to a replacement grid, executed</h3>
+    <p class="section-note">A grid-bound board, pointed at a replacement grid through <code>rebind(grid)</code> &mdash; the same call the htmx module's re-bind pass makes after a swap (BACKLOG-0002099). Run headless on every build.</p>
+    <pre data-run="js" data-expect="A | X" data-covers="export:createKanban method:kanban.rebind"><code><span class="kw">const</span> { createKanban } = <span class="kw">await</span> import('../packages/modules/kanban/index.js');
+<span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id', columns: [{ field: 'title' }, { field: 'status' }],
+  rows: [{ id: 1, title: 'A', status: 'todo' }],
+});
+<span class="kw">const</span> board = createKanban(null, {
+  grid, columnProperty: 'status', columns: [{ id: 'todo' }, { id: 'done' }], card: { title: 'title' },
+});
+<span class="kw">const</span> before = board.cards().map((c) =&gt; c.fields.title).join(',');   <span class="cmt">// A</span>
+
+<span class="kw">const</span> replacement = createHeadlessGrid({
+  rowKey: 'id', columns: [{ field: 'title' }, { field: 'status' }],
+  rows: [{ id: 2, title: 'X', status: 'todo' }],
+});
+board.rebind(replacement);
+<span class="kw">const</span> after = board.cards().map((c) =&gt; c.fields.title).join(',');    <span class="cmt">// X</span>
+
+<span class="kw">return</span> before + ' | ' + after;</code></pre>
     <h2 id="ref-kanban-reference">Type reference</h2>
     <p class="section-note">Generated from the type declarations, so it always matches the release. Each surface lists its properties, its methods and the events it raises as three tables; an option or value type lists its members once.</p>
     <h3 id="ref-module-kanban">The kanban module</h3>
@@ -1469,6 +1493,7 @@ router.destroy();
           <tr><td class="name">setRows</td><td class="type">(rows: <a href="types.html#type-KanbanRow">KanbanRow</a>[]): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>rows: <a href="types.html#type-KanbanRow">KanbanRow</a>[]</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Replace the source rows and re-render, and make that array the board's source again so a later `refresh()` re-reads it. Ignored with a warning on a grid-bound board.</td></tr>
           <tr><td class="name">setColumns</td><td class="type">(defs: <a href="types.html#type-KanbanColumnDef">KanbanColumnDef</a>[]): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>defs: <a href="types.html#type-KanbanColumnDef">KanbanColumnDef</a>[]</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Replace the board's configured column set (BACKLOG-0001228). Keeps card placement and interaction state (collapsed columns, column order, quick filter, selection) for every column id that survives; a dropped id is not specially handled — a card whose value has nowhere configured to go re-derives an ad hoc column rather than becoming `unplaced` (the same "never silently drop a card" rule an unconfigured value already gets).</td></tr>
           <tr><td class="name">refresh</td><td class="type">(): <a href="#type-Kanban">Kanban</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Re-read the source and re-render: a bound grid's rows, or the configured array. Once rows have arrived through `rows.apply` nothing is re-read — the board regroups what it holds, so a routed feed is never thrown away.</td></tr>
+          <tr><td class="name">rebind</td><td class="type">(grid: <a href="grid.html#type-Grid">Grid</a>): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>grid: <a href="grid.html#type-Grid">Grid</a></code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Point this board at a replacement grid (BACKLOG-0002099). The one call a page framework makes after its swap destroyed the grid the board was bound to: the board keeps its element, columns and interaction state, drops its subscriptions to the dead grid, subscribes to the new one and re-reads its rows. A no-op on a board not built over a grid, or already following the grid it is handed.</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Empty the element, remove only the class the board added, and stop the flow and SLA monitors. A bound grid is left alone — the host owns it.</td></tr>
         </tbody>
       </table>

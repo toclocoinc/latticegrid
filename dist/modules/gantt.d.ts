@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.92.0, gantt module type declarations
+ * Lattice Grid 1.93.0, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -4185,6 +4185,14 @@ export interface Gantt {
     headerHeight?: number;
     gridWidth?: number;
     indent?: number;
+    /**
+     * Whether a task name in the plain (no `createGrid`) table wraps onto
+     * further lines, growing its row to fit, instead of staying on one line
+     * with a trailing ellipsis. Off by default — the full
+     * name is still available on hover (native `title`) and to a screen
+     * reader (accessible name).
+     */
+    wrapNames?: boolean;
     zoom?: GanttZoom | number;
     /**
      * The built-in zoom control: a row of day / week /
@@ -4343,7 +4351,7 @@ export interface Gantt {
      */
     columns?: Array<'name' | 'start' | 'end' | 'duration' | 'assignee' | 'progress' | 'effort' | 'units' | 'slack' | 'deadline' | 'unscheduled' | 'earlyStart' | 'lateStart' | 'lateFinish' | 'baselineStart' | 'baselineEnd' | 'variance' | 'note' | 'sequence' | 'constraint' | 'constraintDate' | 'wbs' | 'predecessors' | 'successors' | {
       key: string; title?: string; width?: number; kind?: 'name' | 'assignee' | 'progress' | 'evm' | 'plannedPercentComplete' | 'start' | 'end' | 'duration' | 'effort' | 'units' | 'slack' | 'deadline' | 'unscheduled' | 'earlyStart' | 'lateStart' | 'lateFinish' | 'baselineStart' | 'baselineEnd' | 'variance' | 'note' | 'sequence' | 'constraint' | 'constraintDate' | 'wbs' | 'predecessors' | 'successors' | 'number'; metric?: 'bac' | 'pv' | 'ev' | 'ac' | 'sv' | 'cv' | 'spi' | 'cpi'; digits?: number; editable?: boolean; editField?: string; dateFormat?: string | ((p: { value: unknown; locale?: string }) => string);
-      /** The narrowest this column can be dragged/keyed to; default 80 for `kind: 'name'`, 40 otherwise. */
+      /** The narrowest this column can be dragged/keyed to; default 160 for `kind: 'name'`, 40 otherwise. */
       minWidth?: number;
       /** The widest this column can be dragged/keyed to; default unbounded. */
       maxWidth?: number;

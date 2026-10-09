@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.92.0, layout module type declarations
+ * Lattice Grid 1.93.0, layout module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -383,8 +383,12 @@ export interface LayoutConfig {
    * `'vertical'` pushes displaced windows down and then floats everything up,
    * `'horizontal'` pushes them right and then floats everything left — so
    * dragging a window out of a row closes the hole sideways — and `'none'`
-   * leaves every placement exactly where it was put. An unrecognised value
-   * warns once, naming what it got, and falls back to `'vertical'`.
+   * leaves every placement exactly where it was put: a resize stops at the
+   * nearest neighbour's edge and a move snaps back instead of overlapping, and
+   * overlapping placements given to `config.windows` or `setLayout()` are
+   * repaired to the next free cells with a warning. An
+   * unrecognised value warns once, naming what it got, and falls back to
+   * `'vertical'`.
    */
   compact?: LayoutCompaction;
   /**

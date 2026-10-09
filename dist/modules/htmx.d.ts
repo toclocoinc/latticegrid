@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.92.0, htmx module type declarations
+ * Lattice Grid 1.93.0, htmx module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -120,6 +120,66 @@ export function restoreGanttStateWithin(root: ParentNode, scan?: Function): numb
 export function restoreSwappedGantts(): void;
 /** Wire document-level `data-lattice-row` out-of-band task updates for Gantts. */
 export function driveGanttOobUpdates(opts?: { doc?: Document }): () => void;
+/**
+ * Build a map on every uninitialised `[data-lattice-map]` element under
+ * `root`, bound to the grid named by its
+ * `data-lattice-bind` attribute or a `grid: "<id>"` config string. The
+ * config's `type` selects the viewer — `"mapview"` (the default), a chart
+ * type such as `"markermap"`/`"bubblemap"`/`"choropleth"`, or `"leaflet"` /
+ * `"deck"` for the matching adapter when the page has loaded it. Idempotent:
+ * an element already carrying `.__latticeMap` is skipped, and the built
+ * viewer is published there, wrapped with `rebind(grid)` where it lacks one.
+ */
+export function autoInitMap(root?: ParentNode): unknown[];
+/** The marker attribute `autoInitMap` scans for: `data-lattice-map`. */
+export const MAP_ATTR: string;
+/**
+ * Register the map factories the adapter builds with, by viewer kind
+ * (`mapview`, `chart`, `leaflet`, `deck`). The page's own modules call this
+ * once on load; a page loading them as script tags may instead rely on the
+ * globals (`globalThis.LatticeGridMapView.createMapView`, and so on).
+ */
+export function registerMapFactories(factories: {
+  mapview?: Function; chart?: Function; leaflet?: Function; deck?: Function;
+}): void;
+/**
+ * Destroy every map within an element htmx is about to detach, releasing tile
+ * layers, observers and listeners. Runs before the grid cleanup pass so a
+ * map's own grid subscriptions are released by the viewer itself.
+ */
+export function destroyMapWithin(root: ParentNode): number;
+/** Write every live map's view state (centre, zoom, selected layer) into `data-lattice-map-state`. */
+export function saveMapStateWithin(root: ParentNode): number;
+/** Rebuild maps onto a restored subtree and reapply their saved view state. */
+export function restoreMapStateWithin(root: ParentNode, scan?: Function): number;
+/**
+ * Build a Kanban board on every uninitialised `[data-lattice-kanban]` element
+ * under `root`, bound to the grid named by its
+ * `data-lattice-bind` attribute or a `grid: "<id>"` config string — the board
+ * twin of {@link autoInitCalendar}. Idempotent: an element already carrying
+ * `.__latticeKanban` is skipped, and the factory is resolved from
+ * {@link registerKanban} / the script-tag global rather than inlined into the
+ * htmx bundle, so a page with htmx and no board pays nothing.
+ */
+export function autoInitKanban(root?: ParentNode): unknown[];
+/** The marker attribute `autoInitKanban` scans for: `data-lattice-kanban`. */
+export const KANBAN_ATTR: string;
+/**
+ * Register the board factory the adapter builds with. The page's own Kanban
+ * module calls this once on load; a page loading both may instead rely on the
+ * script-tag global (`globalThis.LatticeGridKanban.createKanban`).
+ */
+export function registerKanban(factory: Function): void;
+/**
+ * Destroy every board within an element htmx is about to detach, so the board
+ * releases its subscriptions to any bound grid before the grid cleanup pass
+ * destroys it.
+ */
+export function destroyKanbanWithin(root: ParentNode): number;
+/** Write every live board's view state into `data-lattice-kanban-state` for htmx's history snapshot. */
+export function saveKanbanStateWithin(root: ParentNode): number;
+/** Rebuild boards onto a restored subtree and reapply their saved view state. */
+export function restoreKanbanStateWithin(root: ParentNode, scan?: Function): number;
 /**
  * Wire the htmx lifecycle events on a document: grids are built in each
  * swapped-in fragment, released before htmx detaches one, and their view
