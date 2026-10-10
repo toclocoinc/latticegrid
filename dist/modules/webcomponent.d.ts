@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.98.1, webcomponent module type declarations
+ * Lattice Grid 1.98.2, webcomponent module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

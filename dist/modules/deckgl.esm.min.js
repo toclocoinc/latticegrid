@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.98.1, deckgl module
+ * Lattice Grid 1.98.2, deckgl module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

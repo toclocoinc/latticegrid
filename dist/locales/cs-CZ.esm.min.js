@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.98.1, cs-CZ locale
+ * Lattice Grid 1.98.2, cs-CZ locale
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

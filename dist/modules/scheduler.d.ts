@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.98.1, scheduler module type declarations
+ * Lattice Grid 1.98.2, scheduler module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -11,8 +11,8 @@ import type {
 /** A row backing a scheduler resource or event: any object. Its identity comes from `resourceKey`/`eventKey`. */
 type SchedulerRow = Record<string, unknown>;
 
-/** A scheduler zoom level name, or a bare pixels-per-day number. */
-type SchedulerZoom = 'hour' | 'day' | 'week' | 'month' | 'quarter' | number;
+/** A scheduler zoom level name (`'fit'` sizes px-per-day to the timeline width), or a bare pixels-per-day number. */
+type SchedulerZoom = 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'fit' | number;
 
 /** The field-to-property mapping naming the data each event and resource reads. */
 export interface SchedulerFields {
@@ -106,7 +106,7 @@ export interface SchedulerConfig {
   eventKey?: string;
   /** The left table's columns; defaults to name/role/capacity. */
   columns?: unknown[];
-  /** The zoom: a preset name or px-per-day. Default `'day'`. */
+  /** The zoom: a preset name (`'fit'` fills the timeline width), or px-per-day. Default `'day'`. */
   zoom?: SchedulerZoom;
   /** The anchor date the axis centres on. Default the earliest event start, else today. */
   date?: Date | string | number;
@@ -114,6 +114,8 @@ export interface SchedulerConfig {
   defaultDuration?: number;
   /** The row height in px. Default 34. */
   rowHeight?: number;
+  /** The resource pane's width in px (the left table). Default 300; drag the divider or use `setResourceWidth` to change it. */
+  resourceWidth?: number;
   /** BCP-47 locale for tick labels. */
   locale?: string;
   /** IANA time-zone name for tick labels. Default UTC. */
@@ -254,9 +256,9 @@ export interface Scheduler {
   refresh(): Scheduler;
   /** Replace every event and re-render, keyed by `eventKey`. */
   setEvents(events: SchedulerRow[]): Scheduler;
-  /** Change the zoom and re-render, firing `zoom:change`. */
+  /** Change the zoom and re-render, firing `zoom:change`. `'fit'` fills the timeline width. */
   setZoom(zoom: SchedulerZoom): Scheduler;
-  /** The current zoom `{ level, px }`. */
+  /** The current zoom `{ level, px }` — `level` is `'fit'` when zoomed to fit. */
   getZoom(): { level: string; px: number };
   /** Group the resources by a field or function, re-mounting the left grid. */
   setGroupBy(groupBy: string | ((resource: SchedulerRow) => unknown) | null): Scheduler;
@@ -266,6 +268,8 @@ export interface Scheduler {
   setResourceFilter(fn: ((resource: SchedulerRow) => unknown) | null): Scheduler;
   /** Set the event filter; `null` clears it. */
   setEventFilter(fn: ((event: SchedulerRow) => unknown) | null): Scheduler;
+  /** Resize the resource pane to a pixel width, clamped into the divider's range. */
+  setResourceWidth(width: number): Scheduler;
   /** Expand or collapse one group by its value. */
   toggleGroup(value: unknown): Scheduler;
   /** The editing controller: `move`, `reassign`, `resize`, `create`, `remove`, `undo`, `redo`. */
@@ -323,8 +327,8 @@ export interface Scheduler {
    * when the event key is unknown or the resource is unchanged.
    */
   reassign(key: unknown, resourceId: unknown): boolean;
-  /** Serialise the restorable view state: `{ version, zoom, scroll }`. */
-  getState(): { version: number; zoom: string; scroll: { left: number; top: number } };
+  /** Serialise the restorable view state: `{ version, zoom, scroll, resourceWidth }`. */
+  getState(): { version: number; zoom: string; scroll: { left: number; top: number }; resourceWidth: number };
   /** Reapply a state snapshot from {@link Scheduler.getState}. */
   setState(state: object): Scheduler;
   /** Tear the scheduler down. */

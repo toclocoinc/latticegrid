@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.98.1, mapview module
+ * Lattice Grid 1.98.2, mapview module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

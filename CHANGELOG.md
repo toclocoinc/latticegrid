@@ -9,6 +9,17 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.98.2] - 2026-10-10
+
+### Fixed
+
+- **The scheduler's resource pane keeps person names readable when resources are grouped** (BACKLOG-0002163). Grouping by team used a fixed 240px group column inside a fixed 300px pane, squeezing the person column down to a mid-word clip; the pane's width is now the documented `resourceWidth` option (default 300px) behind a draggable, keyboard-operable divider, and the group column honours its own column-width setting — or the 120px synthesised default — so every name stays fully visible, or ellipsises with the full name as its native title when the column is too narrow.
+  - `resourceWidth` sets the pane at mount, `setResourceWidth(px)` resizes it programmatically, and the divider is a `role="separator"` you can drag or arrow through (8px, or 32px with Shift), clamped to the pane's range and announcing its value to screen readers.
+  - The width is carried by `getState()`/`setState(state)` alongside the zoom and scroll.
+
+- **The scheduler's time-axis labels never overlap or clip, at any pixels-per-day** (BACKLOG-0002164). The day preset's 26px columns were narrower than the "Sun 4" labels painted on them, so neighbouring labels ran together; a bare px-per-day crossing the 18px mark into per-day labels collided the same way, and a whole-plan "Fit" topped out at 17px/day and could not fill a 1920px screen. The axis now picks a label granularity and format that fit the tightest column — shorter day names, every nth day, or week/month labels — and drops the one label that would run past the axis's right edge, so every zoom preset is legible in the stock theme at 1440 and 1920.
+  - `zoom: 'fit'` is a new preset that sizes the pixels-per-day to the timeline's width, so a plan's span fills it edge-to-edge; `getZoom()`, `getState()` and `zoom:change` report `'fit'` as the level.
+
 ## [1.98.1] - 2026-10-10
 
 ### Fixed
