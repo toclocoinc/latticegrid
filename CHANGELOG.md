@@ -9,6 +9,20 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.98.1] - 2026-10-10
+
+### Fixed
+
+- **Grid cell text that did not fit was clipped with no ellipsis and no `title`** (BACKLOG-0002155). A `.lat-cell` is a flex container, where `text-overflow` never applies, so plain values wrap in one `.lat-cell-text` span that carries the ellipsis, and a value that overflows writes its full formatted text as the cell's `title` (still its accessible name). Values that fit stay untitled; custom renderers returning elements are untouched.
+
+- **Out-of-band anchors a Kanban board or calendar keeps in its host squeezed the columns and overflowed a board that fits** (BACKLOG-0002156). A table-hydrated board or calendar preserves each empty `data-lattice-row` anchor the page wrote beside its table by re-appending them as flex items of the host, so a bare anchor and its flex gap took layout space — a three-column board that fits overflowed and showed a horizontal scrollbar unless the page marked every anchor `hidden`. The board and calendar now keep those anchors out of layout themselves, whatever markup the page uses, so the anchors need no styling and an out-of-band swap still patches the right card or event.
+
+- **The resource scheduler's left grid sat one row lower than the time axis** (BACKLOG-0002157). The grid was mounted inside the body below the header, so its rows (and its column header) started one header-height lower than the timeline lanes and a drag-reassign dropped onto the wrong person. The grid overlays the whole left column now, so its header lines up with the time header and every grid row shares its lane's top and height in flat, grouped, collapsed, zoomed and scrolled states.
+  - **Drag reassign lands on the person under the pointer.**
+  - **Collapsing a group keeps the panes in step.** After the grid is re-created (for example by `setGroupBy`), collapsing or expanding a group re-mirrors into the timeline instead of leaving the two panes showing different rows.
+
+- **The workload band flagged almost every whole-day booking as over-allocated** (BACKLOG-0002157). A whole-day event booked 24h per calendar day against a working day's `hoursPerDay`, so a bucket holding more than one whole-day assignment read over capacity. A whole-day event books `hoursPerDay` per working day now (a timed event still books its own wall-clock duration), so a bucket flags exactly when its booked load exceeds its capacity.
+
 ## [1.98.0] - 2026-10-10
 
 ### Breaking

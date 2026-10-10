@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.98.0, chart-pictorial module type declarations
+ * Lattice Grid 1.98.1, chart-pictorial module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
