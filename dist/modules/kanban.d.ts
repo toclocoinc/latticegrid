@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.97.0, kanban module type declarations
+ * Lattice Grid 1.98.0, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -310,6 +310,15 @@ export type KanbanReadonly = boolean | {
  * card.
  */
 export type KanbanDensity = 'compact' | 'comfortable';
+
+/**
+ * The column-width mode. A number fixes the width in pixels;
+ * `'fill'` (the default) shares the board width equally between the columns,
+ * never below {@link KanbanConfig.minColumnWidth}; `'auto'` keeps the natural
+ * fixed width the `--lattice-board-column-width` token declares (default
+ * 280px). The token, when the host sets it, still overrides the option.
+ */
+export type KanbanColumnWidth = number | 'fill' | 'auto';
 
 /**
  * The payload of the three card pointer events — `card:click`, `card:dblclick`
@@ -747,6 +756,19 @@ export interface KanbanConfig {
    * the subtitle; `'comfortable'` (the default) keeps the roomier card.
    */
   density?: KanbanDensity;
+  /**
+   * How wide each column is. A number fixes the width in
+   * pixels; `'fill'` (the default) shares the board width equally between the
+   * columns, never below `minColumnWidth` — so a board whose columns fit fills
+   * its host, and one whose columns do not fit keeps them at the minimum and
+   * scrolls; `'auto'` keeps the natural fixed width from the
+   * `--lattice-board-column-width` token (default 280px). The CSS token, when
+   * set, still overrides the option. Collapsed columns stay narrow strips and
+   * the rest take the space; the fill follows host resizes.
+   */
+  columnWidth?: KanbanColumnWidth;
+  /** The pixel floor `'fill'` never drops a column below (default 240). */
+  minColumnWidth?: number;
   /** Host-localised words for the move announcements (grabbed/moved/dropped/reverted/cancelled). */
   labels?: Record<string, string>;
   /**
@@ -1404,6 +1426,10 @@ export interface Kanban {
    * fetched per column page, moves written through the source.
    */
   readonly sourceBound: boolean;
+  /** The resolved column-width mode; see {@link KanbanConfig.columnWidth}. */
+  readonly columnWidth: KanbanColumnWidth;
+  /** The resolved minimum column width in px; see {@link KanbanConfig.minColumnWidth}. */
+  readonly minColumnWidth: number;
   /** The current columns in display order, each with its cards and aggregates. */
   columns(): KanbanColumn[];
   /** One column by id, or undefined when the board has no such column. */

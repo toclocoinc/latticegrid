@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Kanban API Reference — Lattice Grid 1.97.0</title>
+<title>Kanban API Reference — Lattice Grid 1.98.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -394,6 +394,7 @@
         <a class="rail__sub-link" href="#kanban-workflow-example">Workflow rules, executed</a>
         <a class="rail__sub-link" href="#kanban-swimlane-example">Swimlanes, collapse and search, executed</a>
         <a class="rail__sub-link" href="#kanban-card-parts-example">Richer card parts, executed</a>
+        <a class="rail__sub-link" href="#kanban-column-width-example">Column width, executed</a>
         <a class="rail__sub-link" href="#kanban-sprint-example">Sprint, backlog and epic rollup, executed</a>
         <a class="rail__sub-link" href="#kanban-live-example">Live, driven by a Data Router, executed</a>
         <a class="rail__sub-link" href="#kanban-rebind-example">Re-bound to a replacement grid, executed</a>
@@ -420,6 +421,7 @@
         <a href="scheduler.html">The resource scheduler</a>
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
+        <a href="shell.html">The shell module</a>
         <a href="dashboard.html">Dashboard composition</a>
         <a href="designer.html">The Designer</a>
         <a href="ai.html">The AI narrative and insights layer</a>
@@ -444,7 +446,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 24 pages</a></span>
+      <span class="chip"><a href="index.html">All 25 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -506,6 +508,7 @@ const board = createKanban(document.querySelector('#board'), {
     <p><strong>Sprint, epic and card pop-out.</strong> <code>setSprint(id)</code> shows one sprint, <code>showBacklog()</code> the cards with no sprint, and <code>sprints()</code> feeds a switcher; <code>setEpic(id)</code> narrows to an epic and <code>epicRollup()</code> (or <code>rollup(property)</code>) returns per-epic count, points and progress toward the <code>done</code> columns. A card can <strong>pop out a nested grid of its children</strong> — an epic's stories, a story's tasks, recursively. The child relationship is a <code>childrenProperty</code> (parent-id within the dataset) and/or a <code>loadChildren(card)</code> (per-card dataset or async fetch), and the child is a full composed <code>createGrid</code> (sort/filter/edit/write-back) — supplied as <code>children.factory</code> — opened in a <code>drawer</code> (default), <code>modal</code> or <code>inline</code>. With <code>children.asBoard</code> the child is itself a board, so it can pop its own children. This reuses the grid by composition and adds no grid-core coupling. <code>expand(key)</code> and the per-card drill affordance emit <code>card:expand</code>; a deeper open emits <code>card:drill</code>.</p>
     <p><strong>Live updates.</strong> Because the board consumes data through the same keyed-diff contract a grid does, a <a href="data-router.html#datarouter">Data Router</a> drives it directly — <code>router.attach(board, predicate)</code> — and one feed fans out to a grid, a kanban, a chart and a KPI tile at once. A live <code>rows.apply({ add, update, remove })</code> is applied as a keyed diff (an unchanged card keeps its model) and re-rendered <strong>preserving</strong> scroll, focus, selection, collapsed columns/lanes and any open pop-out, so a card can appear, move or update under the user without losing their place.</p>
     <p><strong>Scale, state and accessibility.</strong> <code>virtualize</code> renders only a scroll window of a tall column (with true-height spacers so the scrollbar stays honest), for boards of thousands of cards. <code>getState()</code>/<code>setState()</code> (and <code>config.state</code>) save and restore the collapsed columns and lanes, the column order, the quick filter and the sprint/epic selection, so a reopened board comes back as it was; <code>setLoading</code>/<code>setError</code> add loading and error states. Accessibility runs throughout: the board is a labelled group of labelled column lists, cards are a roving-tabindex focus ring (arrows to move focus, Enter to activate), the move is fully keyboard-driven (<kbd>Space</kbd> grab, arrows for column/position, <kbd>Alt</kbd>+<kbd>↑/↓</kbd> across swimlanes, <kbd>Space</kbd>/<kbd>Enter</kbd> drop, <kbd>Escape</kbd> cancel) with live-region announcements, and every affordance carries a name.</p>
+    <p><strong>Column width.</strong> A board used to take a fixed <code>--lattice-board-column-width</code> (default 280px) on every column, so a three-column board left a wide host mostly empty and a page that computed the token from the viewport overflowed its host with a horizontal scrollbar. The <code>columnWidth</code> option fixes that: <code>'fill'</code> (the default) shares the board width equally between the columns, never below <code>minColumnWidth</code> (240px), so a board that fits fills its host edge-to-edge and one that does not scrolls at the minimum; a number fixes every column at that many pixels; <code>'auto'</code> keeps the natural token width. Collapsed columns stay narrow strips and the remaining columns take the freed space, and the board follows its host's resize. Setting <code>--lattice-board-column-width</code> on the host element still overrides. The resolved values are read back at <code>board.columnWidth</code> and <code>board.minColumnWidth</code>.</p>
     <p><strong>Card aging / SLA.</strong> A <code>sla</code> config ages each card and highlights the ones sitting too long. Thresholds are a raw millisecond count or a <code>{ days, hours, … }</code> spec, set globally as <code>{ warn, breach }</code>, per column (either <code>sla.columns[id]</code>, or a column def's own <code>sla</code>/<code>slaWarn</code>/<code>slaBreach</code>) and per swimlane (<code>sla.lanes[id]</code>); the most specific wins, lane&nbsp;&rarr;&nbsp;column&nbsp;&rarr;&nbsp;global. <code>basis</code> chooses whether the clock is time-in-current-column (default) or age-on-the-board, resolved from the flow transition log, an <code>enteredProperty</code>/<code>createdProperty</code> timestamp, or arrival. The view puts an age chip on aged cards (<code>showAge: 'always'</code> shows it on every card) and a highlight on breached ones. A rising crossing (ok&rarr;warn, warn&rarr;breach) fires the <code>card:sla</code> event <em>and</em> the <code>onWarn</code>/<code>onBreach(level, rows)</code> callbacks — the same <code>(signal, rows)</code> shape a <a href="data-router.html#datarouter">Data Router</a> <code>alert</code> route uses, so one handler serves both. It is reached at runtime as <code>board.sla</code>; done-column cards are exempt by default (<code>ignoreDone: false</code> opts them in), and an optional <code>tick</code> re-checks so a card that breaches by simply sitting still still lights up. Example: <code>createKanban(el, { …, sla: { warn: { days: 2 }, breach: { days: 4 }, onBreach: notify } })</code>.</p>
     <p><strong>Inline edit and add-card.</strong> A field is opted into inline edit with the object mapping form — <code>card: { title: { field: 'title', edit: true } }</code>. Double-clicking a card (or <code>editCard(key, field)</code>) edits it in place: <strong>grid-bound</strong>, through the grid's own field editor for that column via its public edit path, so the column's parse, validate and optimistic/confirm/revert all run; <strong>standalone</strong>, through a host <code>editor</code> factory (or a default input), reverting when <code>onCardEdit</code> rejects. A per-column add-card affordance (<code>config.addCard</code>) creates a card carrying the column's group value — from a host <code>onAddCard(columnId)</code>, or generated, or appended through <code>grid.edit.addRow</code> when bound — and opens it straight in inline edit on its title, so the user just types. The module imports nothing from the grid's DOM package: grid-bound edits ride the grid's public edit API, standalone edits use the host's editor, so a board-only page never pulls the grid in.</p>
     <p><strong>Blocked cards and dependencies.</strong> A card can be blocked outright, or blocked <em>by</em> other cards. <code>blockedProperty</code> names a row field that blocks a card — a boolean flag, or a reason string whose non-empty value is the reason the blocked badge shows (with an icon and a warning-tone chip, and an accessible name, so it is never colour alone). <code>blockedByProperty</code> names the field holding the keys of the cards that block this one (a comma-separated string or an array); the card then shows a <strong>"blocked by N"</strong> list of focusable chips, each one focusing (opening) its blocking card, and flips to a <strong>ready</strong> state once every blocker is in a done column. A <strong>blocked filter</strong> — <code>setBlockedFilter(true)</code>, or <code>blockedFilter: true</code> at construction — shows only blocked cards (a card with an unresolved blocker counts as blocked). Blocking and unblocking run through <code>setBlocked(key, blocked, reason?)</code> (or <code>toggleBlocked(key)</code>), which raise <code>card:edit</code> with <code>field: 'blocked'</code> like any other edit, and a blocked card is refused any forward move (a move into a column to its right). The flow analytics record blocked intervals and report <code>board.flow.blockedTime()</code>, <code>board.flow.flowEfficiency()</code> (active time / cycle time) and <code>board.flow.blockedTimeByColumn()</code>, so a cycle time that was really time waiting on someone else stops looking like active work.</p>
@@ -724,6 +727,33 @@ board.setQuickFilter('Ann');                                    <span class="cmt
 
 board.destroy();
 <span class="kw">return</span> [card.assignees.length, card.progressPct, card.checklist.done + '/' + card.checklist.total, overdue, shown].join(' | ');</code></pre>
+
+    <h3 id="kanban-column-width-example">Column width, executed</h3>
+    <p class="section-note">The <code>columnWidth</code> and <code>minColumnWidth</code> options resolve to fill (default),
+    a fixed pixel width, auto, and a raised minimum — headless, run on every build.</p>
+    <pre data-run="js" data-expect="fill | 240 | 300 | auto | 200" data-covers="export:createKanban config:KanbanConfig.columnWidth config:KanbanConfig.minColumnWidth"><code><span class="kw">const</span> { createKanban } = <span class="kw">await</span> import('../packages/modules/kanban/index.js');
+
+<span class="kw">const</span> base = createKanban(null, {
+  rows: [], rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'doing' }, { id: 'done' }],
+});
+
+<span class="kw">const</span> fixed = createKanban(null, {
+  rows: [], rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }], columnWidth: 300,
+});
+
+<span class="kw">const</span> auto = createKanban(null, {
+  rows: [], rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }], columnWidth: 'auto',
+});
+
+<span class="kw">const</span> wide = createKanban(null, {
+  rows: [], rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }], minColumnWidth: 200,
+});
+
+<span class="kw">return</span> [base.columnWidth, base.minColumnWidth, fixed.columnWidth, auto.columnWidth, wide.minColumnWidth].join(' | ');</code></pre>
 
     <h3 id="kanban-sprint-example">Sprint, backlog and epic rollup, executed</h3>
     <p class="section-note">A sprint view, the backlog, and an epic rollup with progress toward the done column —
@@ -1202,6 +1232,8 @@ board.destroy();
           <tr><td class="name">emptyText</td><td class="type">string</td><td class="desc">The placeholder shown in a column with no cards. Empty by default, so the module ships no English of its own. <small>(optional)</small></td></tr>
           <tr><td class="name">selectable</td><td class="type">boolean</td><td class="desc">Whether card selection is enabled (default true). <small>(optional)</small></td></tr>
           <tr><td class="name">density</td><td class="type"><a href="types.html#type-KanbanDensity">KanbanDensity</a> <small class="literals">'compact' | 'comfortable'</small></td><td class="desc">The card density (BACKLOG-0002107): `'compact'` tightens each card's padding and drops the subtitle; `'comfortable'` (the default) keeps the roomier card. <small>(optional)</small></td></tr>
+          <tr><td class="name">columnWidth</td><td class="type"><a href="types.html#type-KanbanColumnWidth">KanbanColumnWidth</a> <small class="literals">number | 'fill' | 'auto'</small></td><td class="desc">How wide each column is (BACKLOG-0002153). A number fixes the width in pixels; `'fill'` (the default) shares the board width equally between the columns, never below `minColumnWidth` — so a board whose columns fit fills its host, and one whose columns do not fit keeps them at the minimum and scrolls; `'auto'` keeps the natural fixed width from the `--lattice-board-column-width` token (default 280px). The CSS token, when set, still overrides the option. Collapsed columns stay narrow strips and the rest take the space; the fill follows host resizes. <small>(optional)</small></td></tr>
+          <tr><td class="name">minColumnWidth</td><td class="type">number</td><td class="desc">The pixel floor `'fill'` never drops a column below (default 240). <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">Record&lt;string, string&gt;</td><td class="desc">Host-localised words for the move announcements (grabbed/moved/dropped/reverted/cancelled). <small>(optional)</small></td></tr>
           <tr><td class="name">contextMenu</td><td class="type"><a href="#type-KanbanMenuItem">KanbanMenuItem</a>[] | ((card: <a href="#type-KanbanCard">KanbanCard</a>, selected: <a href="#type-KanbanCard">KanbanCard</a>[]) =&gt; <a href="#type-KanbanMenuItem">KanbanMenuItem</a>[])</td><td class="desc">A per-card context menu: items, or `fn(card, selectedCards)` returning items. Suppresses `card:contextmenu`. <small>(optional)</small></td></tr>
         </tbody>
@@ -1757,6 +1789,8 @@ board.destroy();
           <tr><td class="name">flow</td><td class="type"><a href="#type-KanbanFlow">KanbanFlow</a></td><td class="desc">Flow analytics over the board's transition log (BACKLOG-0000951): cycle time, lead time and the cumulative-flow diagram. Built automatically unless the config says `flow: false`. <small>(optional)</small></td></tr>
           <tr><td class="name">flowAvailable</td><td class="type">boolean</td><td class="desc">Whether flow analytics can answer on this board (BACKLOG-0002104). False on a source-bound board with no source `transitionLog`, where the flow features report themselves unavailable rather than deriving from the loaded page. <small>(read-only)</small></td></tr>
           <tr><td class="name">sourceBound</td><td class="type">boolean</td><td class="desc">Whether the board is bound to a pushdown source and owns its own paged data path (BACKLOG-0002104): counts/sums from an engine GROUP BY, cards fetched per column page, moves written through the source. <small>(read-only)</small></td></tr>
+          <tr><td class="name">columnWidth</td><td class="type"><a href="types.html#type-KanbanColumnWidth">KanbanColumnWidth</a> <small class="literals">number | 'fill' | 'auto'</small></td><td class="desc">The resolved column-width mode (BACKLOG-0002153); see {@link KanbanConfig.columnWidth}. <small>(read-only)</small></td></tr>
+          <tr><td class="name">minColumnWidth</td><td class="type">number</td><td class="desc">The resolved minimum column width in px (BACKLOG-0002153); see {@link KanbanConfig.minColumnWidth}. <small>(read-only)</small></td></tr>
           <tr><td class="name">filters</td><td class="type"><a href="#type-KanbanFilters">KanbanFilters</a></td><td class="desc">Named card predicates, composed with AND (BACKLOG-0001229). See {@link KanbanFilters}.</td></tr>
           <tr><td class="name">BACKLOG</td><td class="type">unknown</td><td class="desc">The sentinel `setSprint` value that selects the backlog (cards with no sprint). <small>(read-only)</small></td></tr>
         </tbody>

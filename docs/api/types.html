@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.97.0</title>
+<title>Types API Reference — Lattice Grid 1.98.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -408,6 +408,7 @@
         <a href="scheduler.html">The resource scheduler</a>
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
+        <a href="shell.html">The shell module</a>
         <a href="dashboard.html">Dashboard composition</a>
         <a href="designer.html">The Designer</a>
         <a href="ai.html">The AI narrative and insights layer</a>
@@ -431,7 +432,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 24 pages</a></span>
+      <span class="chip"><a href="index.html">All 25 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3146,6 +3147,10 @@
     <p class="section-note">A column definition: an id string, or an object configuring one column.</p>
     <p class="type-def"><code>type KanbanColumnDef = string | { id: string; title?: string; color?: string; wipLimit?: number; collapsed?: boolean; sla?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a> | { warn?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a>; breach?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a> }; slaWarn?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a>; slaBreach?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a>; }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
+    <h4 id="type-KanbanColumnWidth">KanbanColumnWidth</h4>
+    <p class="section-note">The column-width mode (BACKLOG-0002153). A number fixes the width in pixels; `'fill'` (the default) shares the board width equally between the columns, never below {@link KanbanConfig.minColumnWidth}; `'auto'` keeps the natural fixed width the `--lattice-board-column-width` token declares (default 280px). The token, when the host sets it, still overrides the option.</p>
+    <p class="type-def"><code>type KanbanColumnWidth = number | 'fill' | 'auto'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
     <h4 id="type-KanbanDensity">KanbanDensity</h4>
     <p class="section-note">The card density (BACKLOG-0002107): `'compact'` tightens each card's padding and drops the subtitle so a column fits more cards; `'comfortable'` (the default) keeps the roomier card.</p>
     <p class="type-def"><code>type KanbanDensity = 'compact' | 'comfortable'</code></p>
@@ -3300,6 +3305,10 @@
     <h4 id="type-LatticeVueSchedulerProps">LatticeVueSchedulerProps</h4>
     <p class="section-note">The scheduler's Vue props (BACKLOG-0002128).</p>
     <p class="type-def"><code>type LatticeVueSchedulerProps = Record&lt;string, unknown&gt; &amp; <a href="#type-LatticeVueViewerCommonProps">LatticeVueViewerCommonProps</a> &amp; { resources?: <a href="scheduler.html#type-SchedulerConfig">SchedulerConfig</a>['resources']; events?: <a href="scheduler.html#type-SchedulerConfig">SchedulerConfig</a>['events']; zoom?: <a href="scheduler.html#type-SchedulerConfig">SchedulerConfig</a>['zoom']; } &amp; <a href="#type-LatticeVueListeners">LatticeVueListeners</a>&lt;'zoom-change', <a href="scheduler.html#type-SchedulerZoomChangeEvent">SchedulerZoomChangeEvent</a>&gt;</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/vue</code>.</small></p>
+    <h4 id="type-LatticeVueShellProps">LatticeVueShellProps</h4>
+    <p class="section-note">The shell's Vue props: the arrangement, the common ones, and its state event.</p>
+    <p class="type-def"><code>type LatticeVueShellProps = Record&lt;string, unknown&gt; &amp; <a href="#type-LatticeVueViewerCommonProps">LatticeVueViewerCommonProps</a> &amp; <a href="#type-LatticeVueListeners">LatticeVueListeners</a>&lt;'state-change', <a href="shell.html#type-ShellStateChangeEvent">ShellStateChangeEvent</a>&gt;</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/vue</code>.</small></p>
     <h4 id="type-LatticeVueTabsProps">LatticeVueTabsProps</h4>
     <p class="section-note">The tab strip's Vue props.</p>
@@ -3580,6 +3589,22 @@
     <h4 id="type-ShadowWithin">ShadowWithin</h4>
     <p class="section-note">Whether a rolling shadow is computed per group, or across the whole dataset.</p>
     <p class="type-def"><code>type ShadowWithin = 'group' | 'all'</code></p>
+    <h4 id="type-ShellContent">ShellContent</h4>
+    <p class="section-note">Anything `attach()` mounts: a Lattice view, a DOM element, or an HTML string (converted once and reused).</p>
+    <p class="type-def"><code>type ShellContent = HTMLElement | string | <a href="shell.html#type-ShellWidget">ShellWidget</a></code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/shell</code>.</small></p>
+    <h4 id="type-ShellEventName">ShellEventName</h4>
+    <p class="section-note">The events a shell raises, on `shell.on()` (BACKLOG-0002136, BACKLOG-0002137, BACKLOG-0002138, BACKLOG-0002139, BACKLOG-0002140). The shell's own, not a grid's: `grid.on` takes {@link EventName} and knows nothing about these. `on()` warns once on any other name, because a binding to an event that can never fire is a silent no-op. The cancellable `before*` events — `beforeCollapse`, `beforeExpand`, `beforeAddCell`, `beforeRemoveCell`, `beforeHide`, `beforeShow` and `beforeResizeStart` — run before the cell moves, on the same contract the grid core uses: call `preventDefault(reason?)` on the payload, or return `false`; a veto keeps the cell (or the two cells' sizes) unchanged. The past-tense events — `afterCollapse`, `afterExpand`, `afterAddCell`, `afterRemoveCell`, `afterHide`, `afterShow`, `resize`, `afterResizeEnd`, `tabChange` and `stateChange` — report a change already applied and carry no `preventDefault`.</p>
+    <p class="type-def"><code>type ShellEventName = 'beforeCollapse' | 'beforeExpand' | 'afterCollapse' | 'afterExpand' | 'beforeAddCell' | 'afterAddCell' | 'beforeRemoveCell' | 'afterRemoveCell' | 'beforeHide' | 'afterHide' | 'beforeShow' | 'afterShow' | 'tabChange' | 'stateChange' | 'beforeResizeStart' | 'resize' | 'afterResizeEnd'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/shell</code>.</small></p>
+    <h4 id="type-ShellSize">ShellSize</h4>
+    <p class="section-note">A cell size: pixels as a number, or any CSS length string such as `'30%'`.</p>
+    <p class="type-def"><code>type ShellSize = number | string</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/shell</code>.</small></p>
+    <h4 id="type-ShellType">ShellType</h4>
+    <p class="section-note">The separator between cells: thin lines, wide lines, an even gap, or none.</p>
+    <p class="type-def"><code>type ShellType = 'line' | 'wide' | 'space' | 'none'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/shell</code>.</small></p>
     <h4 id="type-ShowWhen">ShowWhen</h4>
     <p class="section-note">When a leaf column or a column group is shown, relative to an ancestor band's open state.</p>
     <p class="type-def"><code>type ShowWhen = 'open' | 'closed' | 'always'</code></p>

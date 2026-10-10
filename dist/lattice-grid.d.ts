@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.97.0, type declarations
+ * Lattice Grid 1.98.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -13117,6 +13117,9 @@ declare global {
   /** The resource scheduler's script-tag global. */
   // eslint-disable-next-line no-var -- an ambient global is only a global as a var
   var LatticeGridScheduler: typeof import('lattice-grid/modules/scheduler');
+  /** The shell module's script-tag global. */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridShell: typeof import('lattice-grid/modules/shell');
   /** The alarms module's script-tag global. */
   // eslint-disable-next-line no-var -- an ambient global is only a global as a var
   var LatticeGridAlarms: typeof import('lattice-grid/modules/alarms');
@@ -15935,6 +15938,10 @@ export interface Chart {
    */
   destroy(): void;
 }
+
+// ---------------------------------------------------------------------------
+// Shell
+// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // Event payloads

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.97.0, vue module type declarations
+ * Lattice Grid 1.98.0, vue module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -25,6 +25,8 @@ import type {
   DesignerSelectEvent, DesignerStateEvent,
 } from './designer.js';
 import type { SchedulerConfig, SchedulerZoomChangeEvent } from './scheduler.js';
+import type { ShellStateChangeEvent } from './shell.js';
+import type { KanbanColumnWidth } from './kanban.js';
 
 /**
  * The event name a Vue template binds, as a type: `'cell:changed'` becomes
@@ -239,6 +241,10 @@ export type LatticeVueKanbanProps<Row = unknown> =
     blockedByProperty?: string;
     /** Initially filter to blocked cards only. */
     blockedFilter?: boolean;
+    /** Column width: a number (px), `'fill'` (default) or `'auto'`. */
+    columnWidth?: KanbanColumnWidth;
+    /** The pixel floor `'fill'` never drops a column below (default 240). */
+    minColumnWidth?: number;
   };
 
 /** The calendar's Vue props. */
@@ -266,6 +272,10 @@ export type LatticeVueSchedulerProps = Record<string, unknown> & LatticeVueViewe
   events?: SchedulerConfig['events'];
   zoom?: SchedulerConfig['zoom'];
 } & LatticeVueListeners<'zoom-change', SchedulerZoomChangeEvent>;
+
+/** The shell's Vue props: the arrangement, the common ones, and its state event. */
+export type LatticeVueShellProps = Record<string, unknown> & LatticeVueViewerCommonProps
+  & LatticeVueListeners<'state-change', ShellStateChangeEvent>;
 
 /** One tab of a `<LatticeTabs>`; a slot named for its `id` makes it Vue's. */
 export interface LatticeVueTabSpec {
@@ -352,6 +362,17 @@ export function createLatticeLayout(deps: {
 export function createLatticeScheduler(deps: {
   vue: unknown; createScheduler: (el: unknown, config: Record<string, unknown>) => unknown;
 }): LatticeVueComponent<LatticeVueSchedulerProps, LatticeVueViewerEmit<string>,
+  LatticeVueViewerExposed>;
+
+/**
+ * The shell as a Vue component. Not grid-bound:
+ * `createShell(el, config)` takes its host element directly, so the component
+ * only re-emits `stateChange` as `@state-change` and exposes the live shell on
+ * a template ref's `instance()`.
+ */
+export function createLatticeShell(deps: {
+  vue: unknown; createShell: (el: unknown, config: Record<string, unknown>) => unknown;
+}): LatticeVueComponent<LatticeVueShellProps, LatticeVueViewerEmit<string>,
   LatticeVueViewerExposed>;
 
 /**

@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Adapters API Reference — Lattice Grid 1.97.0</title>
+<title>Adapters API Reference — Lattice Grid 1.98.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -437,6 +437,7 @@
         <a href="scheduler.html">The resource scheduler</a>
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
+        <a href="shell.html">The shell module</a>
         <a href="dashboard.html">Dashboard composition</a>
         <a href="designer.html">The Designer</a>
         <a href="ai.html">The AI narrative and insights layer</a>
@@ -460,7 +461,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 24 pages</a></span>
+      <span class="chip"><a href="index.html">All 25 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -580,7 +581,7 @@
       </table>
     </div>
 
-    <pre data-run="js" data-expect="10 components, onCardMove, default, rows 2, events 6/8" data-covers="export:createLatticeReact export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeCalendar export:createLatticeGantt export:createLatticeScheduler export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/react/index.js');
+    <pre data-run="js" data-expect="11 components, onCardMove, default, rows 2, events 6/9" data-covers="export:createLatticeReact export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeCalendar export:createLatticeGantt export:createLatticeScheduler export:createLatticeShell export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/react/index.js');
 
 <span class="cmt">// A stand-in for React and react-dom. The adapter never imports either, so a</span>
 <span class="cmt">// factory only needs the handful of names it destructures — which is exactly</span>
@@ -606,6 +607,7 @@
   A.createLatticeLayout({ React, createLayout: stub }),
   A.createLatticeTabs({ React, ReactDOM, createTabs: stub }),
   A.createLatticeViewer({ React, viewer: 'kpi', mount: stub }),
+  A.createLatticeShell({ React, createShell: stub }),
 ].filter((c) =&gt; typeof c === 'function');
 
 <span class="cmt">// The provider/hook pair and the router hook are built the same way.</span>
@@ -1210,7 +1212,7 @@ controller.destroy();
         </tbody>
       </table>
     </div>
-    <pre data-run="js" data-expect="config rowKey,onCellChanged; own main; registry main; grid dark; tabs one; viewers kpi,chart,kanban,calendar,gantt,layout,scheduler; router 1" data-covers="export:bindGrid export:bindViewer export:bindTabs export:createGridRegistry export:createRouterHandle export:adaptProps export:pickCallback export:viewerMount export:snippetTabIds export:VIEWER_BINDING export:GRID_REGISTRY_KEY export:ROUTER_KEY"><code><span class="kw">const</span> S = <span class="kw">await</span> import('../packages/modules/svelte/index.js');
+    <pre data-run="js" data-expect="config rowKey,onCellChanged; own main; registry main; grid dark; tabs one; viewers kpi,chart,kanban,calendar,gantt,layout,scheduler,shell; router 1" data-covers="export:bindGrid export:bindViewer export:bindTabs export:createGridRegistry export:createRouterHandle export:adaptProps export:pickCallback export:viewerMount export:snippetTabIds export:VIEWER_BINDING export:GRID_REGISTRY_KEY export:ROUTER_KEY"><code><span class="kw">const</span> S = <span class="kw">await</span> import('../packages/modules/svelte/index.js');
 
 <span class="cmt">// A component hands its props straight to the helpers. They keep the</span>
 <span class="cmt">// adapter's own props out of the instance and accept a callback under</span>
@@ -1772,7 +1774,7 @@ grid.data.serialize(); <span class="cmt">// every row's data, in source order</s
         <thead><tr><th>Export</th><th>Does</th></tr></thead>
         <tbody>
           <tr><td class="sig">autoInit(root)</td><td class="desc">Builds a grid on every <code>[data-lattice-grid]</code> element under <code>root</code> not already built: idempotent, safe to call again after new content arrives. Config comes from a sibling <code>&lt;script type="application/json" data-lattice-config&gt;</code>; without one, a <code>&lt;table&gt;</code> element is hydrated instead.</td></tr>
-          <tr><td class="sig">hydrateTable(table, config?)</td><td class="desc">Reads a <code>&lt;table&gt;</code>'s header row for column definitions and body rows for data (type-inferred per cell), then replaces the table with the grid. <code>config</code> (columns, rows, anything else) always wins over what was inferred. A <code>&lt;th data-edit&gt;</code> makes that column editable, <code>data-type</code>/<code>data-format</code> set its type/format, and a <code>&lt;tr data-lattice-row="…"&gt;</code> names the row key an out-of-band update later targets.</td></tr>
+          <tr><td class="sig">hydrateTable(table, config?)</td><td class="desc">Reads a <code>&lt;table&gt;</code>'s header row for column definitions and body rows for data (type-inferred per cell), then replaces the table with the grid. <code>config</code> (columns, rows, anything else) always wins over what was inferred. A <code>&lt;th data-edit&gt;</code> makes that column editable, <code>data-type</code>/<code>data-format</code> set its type/format, and a <code>&lt;tr data-lattice-row="…"&gt;</code> names the row key an out-of-band update later targets. <code>&lt;th data-width&gt;</code> (pixels or a percentage), <code>data-min-width</code>, <code>data-max-width</code> and <code>data-flex</code> size a hydrated column — the same <code>width</code>/<code>minWidth</code>/<code>maxWidth</code>/<code>flex</code> keys are accepted for hydrated columns in <code>data-lattice-config</code> — and with none given the columns flex to fill the host, wider for longer text.</td></tr>
           <tr><td class="sig">serialiseState(grid, opts?) / restoreState(grid, encoded, opts?)</td><td class="desc">A compact, URL-safe encoding of everything <code>grid.state</code> covers (sort, filters, column order and widths, selection) diffed against the grid's own defaults first, so an untouched grid encodes to a handful of characters. Scroll position is included or restored only with <code>{ scroll: true }</code> (BACKLOG-0001971); the <code>htmx</code> module's history mechanism passes it at both ends, so a browser back/forward still lands where the user scrolled to.</td></tr>
           <tr><td class="sig">&lt;meta name="lattice-license" content="…"&gt;</td><td class="desc">Read automatically when no <code>licence</code> is passed to <code>createGrid</code>, no imperative call required.</td></tr>
         </tbody>
@@ -1898,12 +1900,13 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
 
     <h3 id="table-grid-edits">A server table hydrating into an editable, postable grid</h3>
     <p class="section-note">A server-rendered <code>&lt;table data-lattice-grid&gt;</code> hydrates straight into a grid with no config script: the <code>&lt;th&gt;</code> cells name the columns (<code>data-field</code>, <code>data-type</code>, <code>data-format</code> honoured as above), and <code>&lt;th data-edit&gt;</code> makes a column editable (BACKLOG-0002130). A <code>&lt;tr data-lattice-row="…"&gt;</code> names the row key the out-of-band handler reads, so a later <code>hx-swap-oob</code> fragment can patch that row. Committed edits re-raise the same bubbling <code>lattice:grid-change</code> a config-built grid raises.</p>
+    <p class="section-note">Columns are sized from the table too (BACKLOG-0002152): <code>&lt;th data-width&gt;</code> fixes a width in pixels (or a percentage string), <code>data-min-width</code>/<code>data-max-width</code> bound it, and <code>data-flex</code> gives it a flex share of the leftover — the same <code>width</code>/<code>minWidth</code>/<code>maxWidth</code>/<code>flex</code> keys work on hydrated columns in the sibling <code>data-lattice-config</code>. With none given, hydrated columns fill the host width instead of the fixed 150px default: each column flexes in proportion to its longest text, with a sensible minimum, so a long heading is wider than a short one. Text that still does not fit ends in an ellipsis with its full value in the heading's <code>title</code>/accessible name, exactly as a declared grid.</p>
     <pre><code><span class="cmt">&lt;!-- The table is the whole grid: editable columns, row keys, edits posted back. --&gt;</span>
 &lt;table id="postable" data-lattice-grid hx-trigger="lattice:grid-change from:body"
        hx-post="/rows" hx-vals='js:{ key: event.detail.key, field: event.detail.field, newValue: event.detail.newValue }'&gt;
   &lt;thead&gt;&lt;tr&gt;
-    &lt;th data-field="id"&gt;ID&lt;/th&gt;
-    &lt;th data-field="title" data-edit&gt;Title&lt;/th&gt;
+    &lt;th data-field="id" data-width="90"&gt;ID&lt;/th&gt;
+    &lt;th data-field="title" data-flex="3" data-edit&gt;Title&lt;/th&gt;
     &lt;th data-field="status" data-edit&gt;Status&lt;/th&gt;
   &lt;/tr&gt;&lt;/thead&gt;
   &lt;tbody&gt;

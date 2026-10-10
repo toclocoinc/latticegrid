@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.97.0, react module type declarations
+ * Lattice Grid 1.98.0, react module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -27,6 +27,7 @@ import type {
   DesignerSelectEvent, DesignerStateEvent,
 } from './designer.js';
 import type { SchedulerConfig, SchedulerZoomChangeEvent } from './scheduler.js';
+import type { KanbanColumnWidth } from './kanban.js';
 
 /**
  * The handler prop name one event maps to, as a type: `'cell:changed'`
@@ -202,6 +203,10 @@ export type LatticeKanbanProps<Row = unknown> =
     blockedByProperty?: string;
     /** Initially filter to blocked cards only. */
     blockedFilter?: boolean;
+    /** Column width: a number (px), `'fill'` (default) or `'auto'`. */
+    columnWidth?: KanbanColumnWidth;
+    /** The pixel floor `'fill'` never drops a column below (default 240). */
+    minColumnWidth?: number;
   };
 
 /** The calendar's React props. */
@@ -321,6 +326,16 @@ export function createLatticeLayout(deps: {
 export function createLatticeScheduler(deps: {
   React: unknown; createScheduler: (el: unknown, config: Record<string, unknown>) => unknown;
 }): (props: LatticeSchedulerProps & { ref?: unknown }) => unknown;
+
+/**
+ * The shell as a React component. Not grid-bound:
+ * `createShell(el, config)` takes its host element directly, so the component
+ * only re-emits `stateChange` as `onStateChange` and exposes the live shell on
+ * a template ref's `instance`.
+ */
+export function createLatticeShell(deps: {
+  React: unknown; createShell: (el: unknown, config: Record<string, unknown>) => unknown;
+}): (props: Record<string, unknown> & { onStateChange?: (event: unknown) => void; ref?: unknown }) => unknown;
 
 /**
  * The tab strip, with React-rendered tab content.

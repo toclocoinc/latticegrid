@@ -9,6 +9,7 @@ import { createKanban } from '@toclocoinc/lattice-grid/modules/kanban';
 import { createKPI } from '@toclocoinc/lattice-grid/modules/kpi';
 import { createLayout } from '@toclocoinc/lattice-grid/modules/layout';
 import { createScheduler } from '@toclocoinc/lattice-grid/modules/scheduler';
+import { createShell } from '@toclocoinc/lattice-grid/modules/shell';
 import { createTabs } from '@toclocoinc/lattice-grid/modules/tabs';
 import { createDesigner, DesignerOptions, Designer as Designer$1, DesignerStateEvent, DesignerModeEvent, DesignerPageEvent, DesignerSelectEvent } from '@toclocoinc/lattice-grid/modules/designer';
 
@@ -53,6 +54,8 @@ type GanttFactory = typeof createGantt;
 type LayoutFactory = typeof createLayout;
 /** The resource scheduler factory, from `@toclocoinc/lattice-grid/modules/scheduler`. */
 type SchedulerFactory = typeof createScheduler;
+/** The shell factory, from `@toclocoinc/lattice-grid/modules/shell`. */
+type ShellFactory = typeof createShell;
 /** The tab-strip factory, from `@toclocoinc/lattice-grid/modules/tabs`. */
 type TabsFactory = typeof createTabs;
 /** The designer factory, from `@toclocoinc/lattice-grid/modules/designer`. */
@@ -89,6 +92,9 @@ interface Layout extends ReturnType<LayoutFactory> {
 }
 /** The live resource scheduler. */
 interface Scheduler extends ReturnType<SchedulerFactory> {
+}
+/** The live shell. */
+interface Shell extends ReturnType<ShellFactory> {
 }
 /** The live tab strip. */
 interface Tabs extends ReturnType<TabsFactory> {
@@ -127,6 +133,9 @@ interface LayoutConfig extends NonNullable<Parameters<LayoutFactory>[1]> {
 /** The resource scheduler's configuration object. */
 interface SchedulerConfig extends NonNullable<Parameters<SchedulerFactory>[1]> {
 }
+/** The shell's configuration object. */
+interface ShellConfig extends NonNullable<Parameters<ShellFactory>[1]> {
+}
 /** What `createTabs` takes, named so an interface can extend it. */
 type TabsFactoryConfig = Parameters<TabsFactory>[1];
 /** The tab strip's configuration object. */
@@ -163,6 +172,8 @@ interface LatticeFactories {
     createLayout?: LayoutFactory;
     /** `createScheduler`, for `<lattice-scheduler>`. */
     createScheduler?: SchedulerFactory;
+    /** `createShell`, for `<lattice-shell>`. */
+    createShell?: ShellFactory;
     /** `createTabs`, for `<lattice-tabs>`. */
     createTabs?: TabsFactory;
     /** `createDesigner`, for `<lattice-designer>`. */
@@ -1455,6 +1466,70 @@ declare class LatticeSchedulerComponent extends LatticeViewerBase<Scheduler> {
     static ɵcmp: i0.ɵɵComponentDeclaration<LatticeSchedulerComponent, "lattice-scheduler", never, { "config": { "alias": "config"; "required": false; }; }, { "zoomChange": "zoom-change"; "change": "change"; "beforeEventChange": "beforeEventChange"; "eventChangeCancelled": "eventChange-cancelled"; "eventChange": "event-change"; }, never, never, true, never>;
 }
 
+/**
+ * The shell, as an Angular component (BACKLOG-0002140).
+ *
+ * The shell owns the cells arranged inside it — it is the thing a host lays
+ * its other viewers out *in* — so it takes no grid of its own, and everything
+ * but its events is mount-time configuration.
+ */
+
+declare class LatticeShellComponent extends LatticeViewerBase<Shell> {
+    /** Which viewer's tables drive this component. */
+    protected readonly viewer = "shell";
+    /** The element name, for anything this component has to report. */
+    protected readonly label = "lattice-shell";
+    /** The shell arranges cells; it is not built against a grid. */
+    protected readonly takesGrid = false;
+    /** The factories the application provided. */
+    private readonly factories;
+    /** The shell's configuration: its `rows`/`cols` cells and separator. */
+    config?: ShellConfig;
+    /** The viewer's `beforeCollapse` event: a cell is about to fold to its header strip; cancellable. */
+    readonly beforeCollapse: EventEmitter<any>;
+    /** The viewer's `beforeExpand` event: a cell is about to open back to its previous size; cancellable. */
+    readonly beforeExpand: EventEmitter<any>;
+    /** The viewer's `afterCollapse` event: a cell folded to its header strip. */
+    readonly afterCollapse: EventEmitter<any>;
+    /** The viewer's `afterExpand` event: a cell opened back to its previous size. */
+    readonly afterExpand: EventEmitter<any>;
+    /** The viewer's `beforeAddCell` event: a cell is about to be added; cancellable. */
+    readonly beforeAddCell: EventEmitter<any>;
+    /** The viewer's `afterAddCell` event: a cell was added, already sized. */
+    readonly afterAddCell: EventEmitter<any>;
+    /** The viewer's `beforeRemoveCell` event: a cell is about to be removed; cancellable. */
+    readonly beforeRemoveCell: EventEmitter<any>;
+    /** The viewer's `afterRemoveCell` event: a cell and its subtree were removed. */
+    readonly afterRemoveCell: EventEmitter<any>;
+    /** The viewer's `beforeHide` event: a cell is about to be hidden; cancellable. */
+    readonly beforeHide: EventEmitter<any>;
+    /** The viewer's `afterHide` event: a cell hid, giving its space to its neighbours. */
+    readonly afterHide: EventEmitter<any>;
+    /** The viewer's `beforeShow` event: a cell is about to be shown; cancellable. */
+    readonly beforeShow: EventEmitter<any>;
+    /** The viewer's `afterShow` event: a cell showed, restoring its space. */
+    readonly afterShow: EventEmitter<any>;
+    /** The viewer's `stateChange` event: `setState()` applied a snapshot. */
+    readonly stateChange: EventEmitter<any>;
+    /** The viewer's `tabChange` event: a tabbed cell's active tab changed. */
+    readonly tabChange: EventEmitter<any>;
+    /** The viewer's `beforeResizeStart` event: a resize gesture is about to begin. */
+    readonly beforeResizeStart: EventEmitter<any>;
+    /** The viewer's `resize` event: two cells' sizes changed. */
+    readonly resize: EventEmitter<any>;
+    /** The viewer's `afterResizeEnd` event: a resize gesture ended. */
+    readonly afterResizeEnd: EventEmitter<any>;
+    /**
+     * Build the shell. `createShell(el, config)` takes its host element directly.
+     * @param element the host element
+     * @param config the assembled configuration
+     * @returns the shell
+     */
+    protected mount(element: HTMLElement, config: Props): Shell;
+    static ɵfac: i0.ɵɵFactoryDeclaration<LatticeShellComponent, never>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeShellComponent, "lattice-shell", never, { "config": { "alias": "config"; "required": false; }; }, { "beforeCollapse": "beforeCollapse"; "beforeExpand": "beforeExpand"; "afterCollapse": "afterCollapse"; "afterExpand": "afterExpand"; "beforeAddCell": "beforeAddCell"; "afterAddCell": "afterAddCell"; "beforeRemoveCell": "beforeRemoveCell"; "afterRemoveCell": "afterRemoveCell"; "beforeHide": "beforeHide"; "afterHide": "afterHide"; "beforeShow": "beforeShow"; "afterShow": "afterShow"; "stateChange": "stateChange"; "tabChange": "tabChange"; "beforeResizeStart": "beforeResizeStart"; "resize": "resize"; "afterResizeEnd": "afterResizeEnd"; }, never, never, true, never>;
+}
+
 declare class LatticeDesignerComponent implements OnChanges, OnDestroy {
     /** The host element the designer is built into. */
     private readonly elementRef;
@@ -1734,5 +1809,5 @@ declare function provideLatticeRouter(options?: DataRouterOptions): Provider[];
  */
 declare function eventProp(event: string): string;
 
-export { DEFAULT_GRID_NAME, DESIGNER_EVENTS, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeDesignerComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeSchedulerComponent, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, designerHandlerName, eventProp, provideLattice, provideLatticeRouter, requireFactory };
-export type { Calendar, CalendarConfig, CalendarFactory, Chart, ChartConfig, ChartFactory, DataRouter, DataRouterFactory, DataRouterOptions, Designer, DesignerConfig, DesignerFactory, Gantt, GanttConfig, GanttFactory, GridFactory, KPI, KPIConfig, KPIFactory, Kanban, KanbanConfig, KanbanFactory, LatticeFactories, LatticeGridConfig, LatticePredicates, LatticeQuickFilter, LatticeRoute, LatticeRouteOptions, LatticeRowChange, LatticeViewerEvent, Layout, LayoutConfig, LayoutFactory, Scheduler, SchedulerConfig, SchedulerFactory, Tabs, TabsConfig, TabsFactory };
+export { DEFAULT_GRID_NAME, DESIGNER_EVENTS, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeDesignerComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeSchedulerComponent, LatticeShellComponent, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, designerHandlerName, eventProp, provideLattice, provideLatticeRouter, requireFactory };
+export type { Calendar, CalendarConfig, CalendarFactory, Chart, ChartConfig, ChartFactory, DataRouter, DataRouterFactory, DataRouterOptions, Designer, DesignerConfig, DesignerFactory, Gantt, GanttConfig, GanttFactory, GridFactory, KPI, KPIConfig, KPIFactory, Kanban, KanbanConfig, KanbanFactory, LatticeFactories, LatticeGridConfig, LatticePredicates, LatticeQuickFilter, LatticeRoute, LatticeRouteOptions, LatticeRowChange, LatticeViewerEvent, Layout, LayoutConfig, LayoutFactory, Scheduler, SchedulerConfig, SchedulerFactory, Shell, ShellConfig, ShellFactory, Tabs, TabsConfig, TabsFactory };

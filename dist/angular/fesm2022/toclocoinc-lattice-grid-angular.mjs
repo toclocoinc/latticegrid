@@ -850,6 +850,16 @@ const VIEWER_EVENTS$1 = Object.freeze({
     ]),
 
     router: Object.freeze(['metrics', 'fields:changed']),
+
+    shell: Object.freeze([
+        'beforeCollapse', 'beforeExpand', 'afterCollapse', 'afterExpand',
+        'beforeAddCell', 'afterAddCell',
+        'beforeRemoveCell', 'afterRemoveCell',
+        'beforeHide', 'afterHide',
+        'beforeShow', 'afterShow',
+        'tabChange', 'stateChange',
+        'beforeResizeStart', 'resize', 'afterResizeEnd',
+    ]),
 });
 
 const VIEWER_APPLY$1 = Object.freeze({
@@ -901,6 +911,8 @@ const VIEWER_APPLY$1 = Object.freeze({
 
         zoom: (scheduler, value) => scheduler.setZoom(value),
     }),
+
+    shell: Object.freeze({}),
 });
 
 const VIEWER_BULK_UPDATE = Object.freeze({ chart: 'update' });
@@ -3319,6 +3331,101 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
                 args: ['event-change']
             }] } });
 
+class LatticeShellComponent extends LatticeViewerBase {
+    constructor() {
+        super(...arguments);
+
+        this.viewer = 'shell';
+
+        this.label = 'lattice-shell';
+
+        this.takesGrid = false;
+
+        this.factories = inject(LATTICE_FACTORIES, { optional: true });
+
+        this.beforeCollapse = new EventEmitter();
+
+        this.beforeExpand = new EventEmitter();
+
+        this.afterCollapse = new EventEmitter();
+
+        this.afterExpand = new EventEmitter();
+
+        this.beforeAddCell = new EventEmitter();
+
+        this.afterAddCell = new EventEmitter();
+
+        this.beforeRemoveCell = new EventEmitter();
+
+        this.afterRemoveCell = new EventEmitter();
+
+        this.beforeHide = new EventEmitter();
+
+        this.afterHide = new EventEmitter();
+
+        this.beforeShow = new EventEmitter();
+
+        this.afterShow = new EventEmitter();
+
+        this.stateChange = new EventEmitter();
+
+        this.tabChange = new EventEmitter();
+
+        this.beforeResizeStart = new EventEmitter();
+
+        this.resize = new EventEmitter();
+
+        this.afterResizeEnd = new EventEmitter();
+    }
+
+    mount(element, config) {
+        const createShell = requireFactory(this.factories, 'createShell', '@toclocoinc/lattice-grid/modules/shell', this.label);
+        return createShell(element, config);
+    }
+    static { this.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeShellComponent, deps: null, target: i0.ɵɵFactoryTarget.Component }); }
+    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeShellComponent, isStandalone: true, selector: "lattice-shell", inputs: { config: "config" }, outputs: { beforeCollapse: "beforeCollapse", beforeExpand: "beforeExpand", afterCollapse: "afterCollapse", afterExpand: "afterExpand", beforeAddCell: "beforeAddCell", afterAddCell: "afterAddCell", beforeRemoveCell: "beforeRemoveCell", afterRemoveCell: "afterRemoveCell", beforeHide: "beforeHide", afterHide: "afterHide", beforeShow: "beforeShow", afterShow: "afterShow", stateChange: "stateChange", tabChange: "tabChange", beforeResizeStart: "beforeResizeStart", resize: "resize", afterResizeEnd: "afterResizeEnd" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
+}
+i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeShellComponent, decorators: [{
+            type: Component,
+            args: [{ selector: 'lattice-shell', template: '', encapsulation: ViewEncapsulation.Emulated, styles: [":host{display:block}\n"] }]
+        }], propDecorators: { config: [{
+                type: Input
+            }], beforeCollapse: [{
+                type: Output
+            }], beforeExpand: [{
+                type: Output
+            }], afterCollapse: [{
+                type: Output
+            }], afterExpand: [{
+                type: Output
+            }], beforeAddCell: [{
+                type: Output
+            }], afterAddCell: [{
+                type: Output
+            }], beforeRemoveCell: [{
+                type: Output
+            }], afterRemoveCell: [{
+                type: Output
+            }], beforeHide: [{
+                type: Output
+            }], afterHide: [{
+                type: Output
+            }], beforeShow: [{
+                type: Output
+            }], afterShow: [{
+                type: Output
+            }], stateChange: [{
+                type: Output
+            }], tabChange: [{
+                type: Output
+            }], beforeResizeStart: [{
+                type: Output
+            }], resize: [{
+                type: Output
+            }], afterResizeEnd: [{
+                type: Output
+            }] } });
+
 class LatticeDesignerComponent {
 
     constructor() {
@@ -3644,4 +3751,4 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
                 args: ['tabChange-cancelled']
             }] } });
 
-export { DEFAULT_GRID_NAME, DESIGNER_EVENTS, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeDesignerComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeSchedulerComponent, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, designerHandlerName, eventProp, provideLattice, provideLatticeRouter, requireFactory };
+export { DEFAULT_GRID_NAME, DESIGNER_EVENTS, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeDesignerComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeSchedulerComponent, LatticeShellComponent, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, designerHandlerName, eventProp, provideLattice, provideLatticeRouter, requireFactory };

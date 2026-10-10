@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.97.0, gantt module type declarations
+ * Lattice Grid 1.98.0, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -775,7 +775,8 @@ export interface GanttSchedule {
   criticalPaths?: string[][];
   /**
    * The day the plan is anchored to — the `projectStart` option, or the calendar's first
-   * working day when one is set.
+   * working day when one is set. When no explicit `projectStart` is given, it is derived
+   * from the earliest task start so the timeline opens on the tasks.
    */
   projectStart?: number;
   /** The latest early finish across every task, as a calendar day-number. */
@@ -4690,7 +4691,7 @@ export interface Gantt {
 export function createGantt(opts?: {
   tasks?: GanttTask[];
   dependencies?: GanttDependency[];
-  /** The schedule anchor: a day-number, ISO date string or Date. It only sets the floor a task with no predecessor starts on; it does not change how the schedule is computed. */
+  /** The schedule anchor: a day-number, ISO date string or Date. It only sets the floor a task with no predecessor starts on; it does not change how the schedule is computed. When omitted, the project start is derived from the earliest task start. */
   projectStart?: number | string | Date;
   /** A project deadline (a day-number, ISO string or Date); tasks that cannot meet it get negative float. */
   deadline?: number | string | Date;

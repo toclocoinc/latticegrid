@@ -5,7 +5,7 @@ dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it, and Angular has compiled components of its
 own at `@toclocoinc/lattice-grid/angular` — inside this package, not beside it.
 
-Version 1.97.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.98.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -366,6 +366,7 @@ the UMD build or `.cjs` for CommonJS.
 | kpi | `@toclocoinc/lattice-grid/modules/kpi` | `modules/kpi.min.js` | `LatticeGridKPI` | A grid of stat tiles, each an aggregate over a dataset (`createKPI`). |
 | tabs | `@toclocoinc/lattice-grid/modules/tabs` | `modules/tabs.min.js` | `LatticeGridTabs` | A tab strip where each tab is its own full grid, optionally derived from another (`createTabs`). |
 | layout | `@toclocoinc/lattice-grid/modules/layout` | `modules/layout.min.js` | `LatticeGridLayout` | A reconfigurable dashboard: windows on a cell grid, moved and resized by drag or keyboard (`createLayout`). |
+| shell | `@toclocoinc/lattice-grid/modules/shell` | `modules/shell.min.js` | `LatticeGridShell` | A flexbox shell: cells nested as rows and columns to any depth, sized synchronously by CSS (`createShell`). |
 | ai | `@toclocoinc/lattice-grid/modules/ai` | `modules/ai.min.js` | `LatticeGridAI` | Bring-your-own-model narrative and insights grounded on computed figures (`createAI`). |
 | mock-socket | `@toclocoinc/lattice-grid/modules/mock-socket` | `modules/mock-socket.min.js` | `LatticeGridMockSocket` | A serverless stand-in for a live WebSocket feed (`MockWebSocket`, `opsFeed`). |
 | devtools | `@toclocoinc/lattice-grid/modules/devtools` | `modules/devtools.min.js` | `LatticeGrid` (extends it) | The in-page diagnostic panel, including the accessibility checks (`createDevtools`). |

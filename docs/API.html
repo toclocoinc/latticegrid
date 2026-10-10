@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.97.0</p>
+    <p class="rail__sub">API reference · v1.98.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -539,6 +539,8 @@
         <a class="rail__sub-link" href="#type-Tabs">Tabs</a>
         <a href="#ref-module-layout">The dashboard layout</a>
         <a class="rail__sub-link" href="#type-Layout">Layout</a>
+        <a href="#ref-module-shell">The shell module</a>
+        <a class="rail__sub-link" href="#type-Shell">Shell</a>
         <a href="#ref-module-dashboard">Dashboard composition</a>
         <a class="rail__sub-link" href="#type-Dashboard">Dashboard</a>
         <a href="#ref-module-designer">The Designer</a>
@@ -576,7 +578,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.97.0</span>
+      <span class="chip">Version 1.98.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -738,7 +740,7 @@
       </table>
     </div>
 
-    <pre data-run="js" data-expect="10 components, onCardMove, default, rows 2, events 6/8" data-covers="export:createLatticeReact export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeCalendar export:createLatticeGantt export:createLatticeScheduler export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/react/index.js');
+    <pre data-run="js" data-expect="11 components, onCardMove, default, rows 2, events 6/9" data-covers="export:createLatticeReact export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeCalendar export:createLatticeGantt export:createLatticeScheduler export:createLatticeShell export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/react/index.js');
 
 <span class="cmt">// A stand-in for React and react-dom. The adapter never imports either, so a</span>
 <span class="cmt">// factory only needs the handful of names it destructures — which is exactly</span>
@@ -764,6 +766,7 @@
   A.createLatticeLayout({ React, createLayout: stub }),
   A.createLatticeTabs({ React, ReactDOM, createTabs: stub }),
   A.createLatticeViewer({ React, viewer: 'kpi', mount: stub }),
+  A.createLatticeShell({ React, createShell: stub }),
 ].filter((c) =&gt; typeof c === 'function');
 
 <span class="cmt">// The provider/hook pair and the router hook are built the same way.</span>
@@ -1368,7 +1371,7 @@ controller.destroy();
         </tbody>
       </table>
     </div>
-    <pre data-run="js" data-expect="config rowKey,onCellChanged; own main; registry main; grid dark; tabs one; viewers kpi,chart,kanban,calendar,gantt,layout,scheduler; router 1" data-covers="export:bindGrid export:bindViewer export:bindTabs export:createGridRegistry export:createRouterHandle export:adaptProps export:pickCallback export:viewerMount export:snippetTabIds export:VIEWER_BINDING export:GRID_REGISTRY_KEY export:ROUTER_KEY"><code><span class="kw">const</span> S = <span class="kw">await</span> import('../packages/modules/svelte/index.js');
+    <pre data-run="js" data-expect="config rowKey,onCellChanged; own main; registry main; grid dark; tabs one; viewers kpi,chart,kanban,calendar,gantt,layout,scheduler,shell; router 1" data-covers="export:bindGrid export:bindViewer export:bindTabs export:createGridRegistry export:createRouterHandle export:adaptProps export:pickCallback export:viewerMount export:snippetTabIds export:VIEWER_BINDING export:GRID_REGISTRY_KEY export:ROUTER_KEY"><code><span class="kw">const</span> S = <span class="kw">await</span> import('../packages/modules/svelte/index.js');
 
 <span class="cmt">// A component hands its props straight to the helpers. They keep the</span>
 <span class="cmt">// adapter's own props out of the instance and accept a callback under</span>
@@ -1933,7 +1936,7 @@ grid.data.serialize(); <span class="cmt">// every row's data, in source order</s
         <thead><tr><th>Export</th><th>Does</th></tr></thead>
         <tbody>
           <tr><td class="sig">autoInit(root)</td><td class="desc">Builds a grid on every <code>[data-lattice-grid]</code> element under <code>root</code> not already built: idempotent, safe to call again after new content arrives. Config comes from a sibling <code>&lt;script type="application/json" data-lattice-config&gt;</code>; without one, a <code>&lt;table&gt;</code> element is hydrated instead.</td></tr>
-          <tr><td class="sig">hydrateTable(table, config?)</td><td class="desc">Reads a <code>&lt;table&gt;</code>'s header row for column definitions and body rows for data (type-inferred per cell), then replaces the table with the grid. <code>config</code> (columns, rows, anything else) always wins over what was inferred. A <code>&lt;th data-edit&gt;</code> makes that column editable, <code>data-type</code>/<code>data-format</code> set its type/format, and a <code>&lt;tr data-lattice-row="…"&gt;</code> names the row key an out-of-band update later targets.</td></tr>
+          <tr><td class="sig">hydrateTable(table, config?)</td><td class="desc">Reads a <code>&lt;table&gt;</code>'s header row for column definitions and body rows for data (type-inferred per cell), then replaces the table with the grid. <code>config</code> (columns, rows, anything else) always wins over what was inferred. A <code>&lt;th data-edit&gt;</code> makes that column editable, <code>data-type</code>/<code>data-format</code> set its type/format, and a <code>&lt;tr data-lattice-row="…"&gt;</code> names the row key an out-of-band update later targets. <code>&lt;th data-width&gt;</code> (pixels or a percentage), <code>data-min-width</code>, <code>data-max-width</code> and <code>data-flex</code> size a hydrated column — the same <code>width</code>/<code>minWidth</code>/<code>maxWidth</code>/<code>flex</code> keys are accepted for hydrated columns in <code>data-lattice-config</code> — and with none given the columns flex to fill the host, wider for longer text.</td></tr>
           <tr><td class="sig">serialiseState(grid, opts?) / restoreState(grid, encoded, opts?)</td><td class="desc">A compact, URL-safe encoding of everything <code>grid.state</code> covers (sort, filters, column order and widths, selection) diffed against the grid's own defaults first, so an untouched grid encodes to a handful of characters. Scroll position is included or restored only with <code>{ scroll: true }</code> (BACKLOG-0001971); the <code>htmx</code> module's history mechanism passes it at both ends, so a browser back/forward still lands where the user scrolled to.</td></tr>
           <tr><td class="sig">&lt;meta name="lattice-license" content="…"&gt;</td><td class="desc">Read automatically when no <code>licence</code> is passed to <code>createGrid</code>, no imperative call required.</td></tr>
         </tbody>
@@ -2060,12 +2063,13 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
 
     <h3 id="table-grid-edits">A server table hydrating into an editable, postable grid</h3>
     <p class="section-note">A server-rendered <code>&lt;table data-lattice-grid&gt;</code> hydrates straight into a grid with no config script: the <code>&lt;th&gt;</code> cells name the columns (<code>data-field</code>, <code>data-type</code>, <code>data-format</code> honoured as above), and <code>&lt;th data-edit&gt;</code> makes a column editable (BACKLOG-0002130). A <code>&lt;tr data-lattice-row="…"&gt;</code> names the row key the out-of-band handler reads, so a later <code>hx-swap-oob</code> fragment can patch that row. Committed edits re-raise the same bubbling <code>lattice:grid-change</code> a config-built grid raises.</p>
+    <p class="section-note">Columns are sized from the table too (BACKLOG-0002152): <code>&lt;th data-width&gt;</code> fixes a width in pixels (or a percentage string), <code>data-min-width</code>/<code>data-max-width</code> bound it, and <code>data-flex</code> gives it a flex share of the leftover — the same <code>width</code>/<code>minWidth</code>/<code>maxWidth</code>/<code>flex</code> keys work on hydrated columns in the sibling <code>data-lattice-config</code>. With none given, hydrated columns fill the host width instead of the fixed 150px default: each column flexes in proportion to its longest text, with a sensible minimum, so a long heading is wider than a short one. Text that still does not fit ends in an ellipsis with its full value in the heading's <code>title</code>/accessible name, exactly as a declared grid.</p>
     <pre><code><span class="cmt">&lt;!-- The table is the whole grid: editable columns, row keys, edits posted back. --&gt;</span>
 &lt;table id="postable" data-lattice-grid hx-trigger="lattice:grid-change from:body"
        hx-post="/rows" hx-vals='js:{ key: event.detail.key, field: event.detail.field, newValue: event.detail.newValue }'&gt;
   &lt;thead&gt;&lt;tr&gt;
-    &lt;th data-field="id"&gt;ID&lt;/th&gt;
-    &lt;th data-field="title" data-edit&gt;Title&lt;/th&gt;
+    &lt;th data-field="id" data-width="90"&gt;ID&lt;/th&gt;
+    &lt;th data-field="title" data-flex="3" data-edit&gt;Title&lt;/th&gt;
     &lt;th data-field="status" data-edit&gt;Status&lt;/th&gt;
   &lt;/tr&gt;&lt;/thead&gt;
   &lt;tbody&gt;
@@ -3454,7 +3458,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.97.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.98.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -13769,6 +13773,7 @@ const board = createKanban(document.querySelector('#board'), {
     <p><strong>Sprint, epic and card pop-out.</strong> <code>setSprint(id)</code> shows one sprint, <code>showBacklog()</code> the cards with no sprint, and <code>sprints()</code> feeds a switcher; <code>setEpic(id)</code> narrows to an epic and <code>epicRollup()</code> (or <code>rollup(property)</code>) returns per-epic count, points and progress toward the <code>done</code> columns. A card can <strong>pop out a nested grid of its children</strong> — an epic's stories, a story's tasks, recursively. The child relationship is a <code>childrenProperty</code> (parent-id within the dataset) and/or a <code>loadChildren(card)</code> (per-card dataset or async fetch), and the child is a full composed <code>createGrid</code> (sort/filter/edit/write-back) — supplied as <code>children.factory</code> — opened in a <code>drawer</code> (default), <code>modal</code> or <code>inline</code>. With <code>children.asBoard</code> the child is itself a board, so it can pop its own children. This reuses the grid by composition and adds no grid-core coupling. <code>expand(key)</code> and the per-card drill affordance emit <code>card:expand</code>; a deeper open emits <code>card:drill</code>.</p>
     <p><strong>Live updates.</strong> Because the board consumes data through the same keyed-diff contract a grid does, a <a href="#datarouter">Data Router</a> drives it directly — <code>router.attach(board, predicate)</code> — and one feed fans out to a grid, a kanban, a chart and a KPI tile at once. A live <code>rows.apply({ add, update, remove })</code> is applied as a keyed diff (an unchanged card keeps its model) and re-rendered <strong>preserving</strong> scroll, focus, selection, collapsed columns/lanes and any open pop-out, so a card can appear, move or update under the user without losing their place.</p>
     <p><strong>Scale, state and accessibility.</strong> <code>virtualize</code> renders only a scroll window of a tall column (with true-height spacers so the scrollbar stays honest), for boards of thousands of cards. <code>getState()</code>/<code>setState()</code> (and <code>config.state</code>) save and restore the collapsed columns and lanes, the column order, the quick filter and the sprint/epic selection, so a reopened board comes back as it was; <code>setLoading</code>/<code>setError</code> add loading and error states. Accessibility runs throughout: the board is a labelled group of labelled column lists, cards are a roving-tabindex focus ring (arrows to move focus, Enter to activate), the move is fully keyboard-driven (<kbd>Space</kbd> grab, arrows for column/position, <kbd>Alt</kbd>+<kbd>↑/↓</kbd> across swimlanes, <kbd>Space</kbd>/<kbd>Enter</kbd> drop, <kbd>Escape</kbd> cancel) with live-region announcements, and every affordance carries a name.</p>
+    <p><strong>Column width.</strong> A board used to take a fixed <code>--lattice-board-column-width</code> (default 280px) on every column, so a three-column board left a wide host mostly empty and a page that computed the token from the viewport overflowed its host with a horizontal scrollbar. The <code>columnWidth</code> option fixes that: <code>'fill'</code> (the default) shares the board width equally between the columns, never below <code>minColumnWidth</code> (240px), so a board that fits fills its host edge-to-edge and one that does not scrolls at the minimum; a number fixes every column at that many pixels; <code>'auto'</code> keeps the natural token width. Collapsed columns stay narrow strips and the remaining columns take the freed space, and the board follows its host's resize. Setting <code>--lattice-board-column-width</code> on the host element still overrides. The resolved values are read back at <code>board.columnWidth</code> and <code>board.minColumnWidth</code>.</p>
     <p><strong>Card aging / SLA.</strong> A <code>sla</code> config ages each card and highlights the ones sitting too long. Thresholds are a raw millisecond count or a <code>{ days, hours, … }</code> spec, set globally as <code>{ warn, breach }</code>, per column (either <code>sla.columns[id]</code>, or a column def's own <code>sla</code>/<code>slaWarn</code>/<code>slaBreach</code>) and per swimlane (<code>sla.lanes[id]</code>); the most specific wins, lane&nbsp;&rarr;&nbsp;column&nbsp;&rarr;&nbsp;global. <code>basis</code> chooses whether the clock is time-in-current-column (default) or age-on-the-board, resolved from the flow transition log, an <code>enteredProperty</code>/<code>createdProperty</code> timestamp, or arrival. The view puts an age chip on aged cards (<code>showAge: 'always'</code> shows it on every card) and a highlight on breached ones. A rising crossing (ok&rarr;warn, warn&rarr;breach) fires the <code>card:sla</code> event <em>and</em> the <code>onWarn</code>/<code>onBreach(level, rows)</code> callbacks — the same <code>(signal, rows)</code> shape a <a href="#datarouter">Data Router</a> <code>alert</code> route uses, so one handler serves both. It is reached at runtime as <code>board.sla</code>; done-column cards are exempt by default (<code>ignoreDone: false</code> opts them in), and an optional <code>tick</code> re-checks so a card that breaches by simply sitting still still lights up. Example: <code>createKanban(el, { …, sla: { warn: { days: 2 }, breach: { days: 4 }, onBreach: notify } })</code>.</p>
     <p><strong>Inline edit and add-card.</strong> A field is opted into inline edit with the object mapping form — <code>card: { title: { field: 'title', edit: true } }</code>. Double-clicking a card (or <code>editCard(key, field)</code>) edits it in place: <strong>grid-bound</strong>, through the grid's own field editor for that column via its public edit path, so the column's parse, validate and optimistic/confirm/revert all run; <strong>standalone</strong>, through a host <code>editor</code> factory (or a default input), reverting when <code>onCardEdit</code> rejects. A per-column add-card affordance (<code>config.addCard</code>) creates a card carrying the column's group value — from a host <code>onAddCard(columnId)</code>, or generated, or appended through <code>grid.edit.addRow</code> when bound — and opens it straight in inline edit on its title, so the user just types. The module imports nothing from the grid's DOM package: grid-bound edits ride the grid's public edit API, standalone edits use the host's editor, so a board-only page never pulls the grid in.</p>
     <p><strong>Blocked cards and dependencies.</strong> A card can be blocked outright, or blocked <em>by</em> other cards. <code>blockedProperty</code> names a row field that blocks a card — a boolean flag, or a reason string whose non-empty value is the reason the blocked badge shows (with an icon and a warning-tone chip, and an accessible name, so it is never colour alone). <code>blockedByProperty</code> names the field holding the keys of the cards that block this one (a comma-separated string or an array); the card then shows a <strong>"blocked by N"</strong> list of focusable chips, each one focusing (opening) its blocking card, and flips to a <strong>ready</strong> state once every blocker is in a done column. A <strong>blocked filter</strong> — <code>setBlockedFilter(true)</code>, or <code>blockedFilter: true</code> at construction — shows only blocked cards (a card with an unresolved blocker counts as blocked). Blocking and unblocking run through <code>setBlocked(key, blocked, reason?)</code> (or <code>toggleBlocked(key)</code>), which raise <code>card:edit</code> with <code>field: 'blocked'</code> like any other edit, and a blocked card is refused any forward move (a move into a column to its right). The flow analytics record blocked intervals and report <code>board.flow.blockedTime()</code>, <code>board.flow.flowEfficiency()</code> (active time / cycle time) and <code>board.flow.blockedTimeByColumn()</code>, so a cycle time that was really time waiting on someone else stops looking like active work.</p>
@@ -13987,6 +13992,33 @@ board.setQuickFilter('Ann');                                    <span class="cmt
 
 board.destroy();
 <span class="kw">return</span> [card.assignees.length, card.progressPct, card.checklist.done + '/' + card.checklist.total, overdue, shown].join(' | ');</code></pre>
+
+    <h3 id="kanban-column-width-example">Column width, executed</h3>
+    <p class="section-note">The <code>columnWidth</code> and <code>minColumnWidth</code> options resolve to fill (default),
+    a fixed pixel width, auto, and a raised minimum — headless, run on every build.</p>
+    <pre data-run="js" data-expect="fill | 240 | 300 | auto | 200" data-covers="export:createKanban config:KanbanConfig.columnWidth config:KanbanConfig.minColumnWidth"><code><span class="kw">const</span> { createKanban } = <span class="kw">await</span> import('../packages/modules/kanban/index.js');
+
+<span class="kw">const</span> base = createKanban(null, {
+  rows: [], rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'doing' }, { id: 'done' }],
+});
+
+<span class="kw">const</span> fixed = createKanban(null, {
+  rows: [], rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }], columnWidth: 300,
+});
+
+<span class="kw">const</span> auto = createKanban(null, {
+  rows: [], rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }], columnWidth: 'auto',
+});
+
+<span class="kw">const</span> wide = createKanban(null, {
+  rows: [], rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }], minColumnWidth: 200,
+});
+
+<span class="kw">return</span> [base.columnWidth, base.minColumnWidth, fixed.columnWidth, auto.columnWidth, wide.minColumnWidth].join(' | ');</code></pre>
 
     <h3 id="kanban-sprint-example">Sprint, backlog and epic rollup, executed</h3>
     <p class="section-note">A sprint view, the backlog, and an epic rollup with progress toward the done column —
@@ -15657,6 +15689,224 @@ layout.select('a');                            <span class="cmt">// programmatic
 <span class="kw">const</span> payload = layout.payload('a').id;        <span class="cmt">// the container you fill: 'a-body'</span>
 layout.destroy();
 <span class="kw">return</span> [placed, pushed, restored, payload, sel].join('|');</code></pre>
+
+    <h2 id="shell">The shell module</h2>
+    <p><code>modules/shell</code> is an opt-in layout container: a tree of <strong>cells nested as rows and columns to any depth</strong>, sized by pure CSS flexbox, in its own bundle that grows grid core by nothing. It replaces DHX Layout in DemandFlow and is a sold Lattice feature. The main owner pain it removes is <strong>asynchronous redraw</strong>: when <code>createShell(el, config)</code> returns, every cell element is already in the document and already sized — a fixed size is a <code>flex-basis</code>, <code>gravity</code> is a <code>flex-grow</code>, and min/max are the CSS <code>min-*</code>/<code>max-*</code> properties — so there is no <code>awaitRedraw()</code>, no deferred JS paint and no <code>requestAnimationFrame</code> to wait on. A third-party widget mounted into <code>getCell(id).el</code> on the very next line measures a non-zero size in the same synchronous task, and a window resize reflows by CSS alone, with no listener or timer in the module.</p>
+    <pre><code>import { createShell } from '@toclocoinc/lattice-grid/modules/shell';
+
+const shell = createShell(document.querySelector('#shell'), {
+  type: 'line',                  <span class="cmt">// separators: 'line' | 'wide' | 'space' | 'none'</span>
+  rows: [
+    { id: 'nav', width: 220 },   <span class="cmt">// fixed px, never grows</span>
+    { id: 'main', gravity: 1,    <span class="cmt">// takes the remaining space</span>
+      cols: [
+        { id: 'header', height: 40 },
+        { id: 'body', gravity: 1 },
+      ] },
+  ],
+});
+
+shell.getCell('body').el.appendChild(widget);  <span class="cmt">// already sized</span>
+shell.destroy();</code></pre>
+    <p><strong>One element per cell.</strong> A cell is the flex item of its parent and, when it declares nested <code>rows</code> or <code>cols</code>, the flex container of its children — <code>getCell(id).el</code> is that single element, so a leaf cell is a plain block a widget fills and a nested cell already lays its own children out. Every size is an inline style, never a class, so the geometry a test reads is the geometry a host gets: <code>width</code>/<code>height</code> take a pixel number or any CSS length string (<code>'30%'</code>, <code>'12rem'</code>, <code>'calc(…)'</code>); a cell with a fixed size never grows, and the <code>gravity</code> of the cells without one shares the space that is left after the fixed sizes are subtracted, in proportion. <code>minWidth</code>/<code>maxWidth</code>/<code>minHeight</code>/<code>maxHeight</code> clamp a cell exactly as the CSS properties do, <code>padding</code> pads the cell (its widget mounts inside the padding), <code>align</code> is the cell's <code>align-self</code>, and <code>css</code> is an object of camelCase properties or a string of declarations written straight onto the element — never parsed as HTML.</p>
+    <p><strong>Headers and collapse.</strong> A cell may carry a <code>header</code> — text, a custom element to mount, or an image via <code>headerImage</code>/<code>headerIcon</code> — drawn as a strip <code>headerHeight</code> tall (default 32) above the content, with the cell's padding pushed down into the content area so the header spans the cell edge-to-edge. A <code>collapsable</code> cell gets a collapse control in that strip and <code>collapse()</code>/<code>expand()</code>/<code>toggle()</code> on its handle; <code>collapsed: true</code> starts it folded. Folding writes one thing — the cell's own <code>flex-basis</code> becomes the strip height — so the neighbours take the space and <code>expand()</code> restores the exact previous size, with the content element back in flow and measurable on the very next line: the transition is one synchronous pass of inline styles, no animation and no deferred paint. A folded strip among <code>rows</code> runs its text vertically (<code>writing-mode: vertical-rl</code>) so a narrow strip still reads. The change is gated and reported: cancellable <code>beforeCollapse</code>/<code>beforeExpand</code> (a handler calls <code>preventDefault(reason?)</code> or returns <code>false</code>) precede the move, and <code>afterCollapse</code>/<code>afterExpand</code> follow it, all subscribed through <code>shell.on(name, fn)</code>. The control's accessible label is translated through <code>config.messages</code>, which the module resolves with its own English fallback.</p>
+    <p><strong>Separators are the shell's <code>type</code>, not markup.</strong> <code>'line'</code> draws a thin border between cells, <code>'wide'</code> a thick one, <code>'space'</code> an even gap, and <code>'none'</code> (the default) nothing — each reads a <code>--lattice-*</code> theme token with a literal fallback, so a shell inside a themed grid inherits the theme and one on a bare page still draws, dark mode included. The interactive pieces the module adds are the collapse control on a <code>collapsable</code> cell — a native <code>&lt;button&gt;</code>, so <kbd>Enter</kbd> and <kbd>Space</kbd> toggle it and its <code>aria-expanded</code>/<code>aria-label</code> announce the state — and the splitters below; <code>destroy()</code> empties the element, removes the class the module added, restores the host's own inline style and drops every cell record and splitter listener, and the host still owns the element.</p>
+<p><strong>State round-trips the whole arrangement, content untouched.</strong> <code>getState()</code> snapshots the separator, the root <code>padding</code>/<code>css</code> and every cell's sizes, <code>gravity</code>, min/max and mutable <code>collapsed</code>/<code>hidden</code>/<code>selected</code> flags as one JSON-able object. <code>setState(state)</code> re-resolves and re-mounts it through the very same path a fresh config takes, then moves the exact DOM nodes a host mounted into each cell back into the matching cell by id &mdash; re-parented, never cloned &mdash; and fires <code>stateChange</code> with the state now live; <code>on(name, fn)</code>/<code>off(name, fn)</code> subscribe to it. The same snapshot is what the htmx <code>data-lattice-shell</code> history save/restore carries, and what the React, Vue, Svelte and Angular shell components re-emit, so a save/restore round-trip reproduces the layout exactly while a host's widgets survive it.</p>
+    <p><strong>A cell marked <code>resizable: true</code> gets a splitter, not a separator.</strong> The splitter sits on the cell's trailing border and resizes that cell and its next sibling together, within both cells' <code>minWidth</code>/<code>maxWidth</code> (or <code>minHeight</code>/<code>maxHeight</code> on a column axis). It is a focusable <code>role="separator"</code> with <code>aria-valuenow</code>/<code>aria-valuemin</code>/<code>aria-valuemax</code>: drag it (mouse or touch) or focus it and use the arrow keys to step, Home/End to jump to the range, and double-click to restore the configured sizes. Every gesture runs through the shell's events — <code>beforeResizeStart</code> (cancellable: call <code>event.preventDefault(reason)</code> or return <code>false</code> to keep the sizes), then <code>resize</code> as it moves, then <code>afterResizeEnd</code> when it stops, each carrying the two cells' ids and their sizes — observed with <code>on(name, fn)</code> and detached with <code>off(name, fn)</code>.</p>
+    <p><strong>Content that never dies.</strong> <code>cell.attach(content)</code> takes a Lattice view (a grid, Gantt, scheduler, chart or layout), a DOM element or an HTML string (converted once), and the cell keeps the <em>same</em> element for its whole life: hide/show, collapse/expand, tab switches, resizes and moving the cell never re-render, <code>innerHTML</code> or destroy it, so a third-party widget's state and listeners persist. <code>cell.getWidget()</code> reads it, <code>cell.detach()</code> hands it back intact, and only <code>detach()</code> or <code>destroy()</code> releases it. Optional <code>onHidden</code>/<code>onVisible</code> hooks — in <code>attach</code>'s options or on a tab — fire when the content hides and shows, and an attached Lattice view is re-measured on becoming visible through its own <code>resize</code>/<code>refresh</code> method, never a DHX-era <code>paint()</code>. A cell may instead declare <code>tabs: [{ id, label, content? }]</code> to render a keyboard-operable tab strip (ARIA tabs, arrow keys) with one attached content per tab, each preserved across switches; <code>cell.getTab(id)</code> reaches a tab and <code>shell.on('tabChange', …)</code> fires <code>{ cellId, tabId, previousTabId }</code> on every switch.</p>
+    <p><strong>Live structure.</strong> The tree is not frozen at creation. <code>cell.hide()</code> sets the cell's flex item to <code>display:none</code>, so its space is handed to its neighbours by CSS reflow alone; <code>cell.show()</code> restores the exact <code>display</code> the cell was built with, and <code>cell.isVisible()</code> reads the current state — a cell may also start hidden with <code>hidden: true</code>. <code>shell.addCell(parentId, config, index?)</code> builds a new cell through the view's one synchronous pass, so its element is already in the document and sized when the call returns (mountable on the very next line), and <code>shell.removeCell(id)</code> removes a cell and its whole subtree live, releasing every piece of content inside it (detached, never destroyed) and handing the space back. <code>cell.progressShow()</code> overlays an indeterminate spinner on one cell without touching its size or content, <code>cell.progressHide()</code> clears it, and a cell declared <code>progressDefault: true</code> starts with the overlay on. Every mutation is gated by a cancellable <code>before*</code> event and announced by an <code>after*</code> event — <code>beforeHide</code>/<code>afterHide</code>, <code>beforeShow</code>/<code>afterShow</code>, <code>beforeAddCell</code>/<code>afterAddCell</code>, <code>beforeRemoveCell</code>/<code>afterRemoveCell</code> — and a handler that calls <code>event.preventDefault(reason)</code> or returns <code>false</code> vetoes the change, which then happens not at all.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">createShell(el, config)</td><td class="desc">Create a shell. <code>config</code> is <code>{ rows | cols, type, padding, css, messages }</code>; <code>rows</code> lays the top-level cells left-to-right, <code>cols</code> top-to-bottom (used when <code>rows</code> is absent), and <code>messages</code> supplies a <code>t(key, params)</code> catalogue for the collapse control's labels.</td></tr>
+          <tr><td class="sig">cell</td><td class="desc">Each cell: <code>id</code>, <code>width</code>/<code>height</code> (px or %), <code>gravity</code> (default 1), <code>minWidth</code>/<code>maxWidth</code>/<code>minHeight</code>/<code>maxHeight</code>, <code>padding</code>, <code>css</code>, <code>align</code>, a <code>header</code> (text, <code>headerIcon</code>, <code>headerImage</code> or a custom element) with <code>headerHeight</code>, <code>collapsable</code>/<code>collapsed</code>, <code>hidden</code>, <code>selected</code>, <code>progressDefault</code>, <code>resizable</code> (a splitter on the trailing border), nested <code>rows</code>/<code>cols</code>, or <code>tabs</code> for tabbed content.</td></tr>
+          <tr><td class="sig">getCell(id)</td><td class="desc">The cell handle <code>{ el, config, collapsed, getParent(), collapse(), expand(), toggle(), attach, detach, getWidget, getTab, hide, show, isVisible, progressShow, progressHide }</code> — <code>el</code> is the content element, <code>config</code> the normalised cell, <code>getParent()</code> the parent handle or <code>null</code> at the root. <code>undefined</code> for an unknown id.</td></tr>
+          <tr><td class="sig">attach(content, opts?)</td><td class="desc">Mount a Lattice view, a DOM element or an HTML string; the cell keeps the same element for its life. On a tabbed cell this attaches to the active tab. <code>opts</code> is <code>{ onHidden, onVisible }</code>.</td></tr>
+          <tr><td class="sig">detach()</td><td class="desc">Remove the cell's (or active tab's) content and hand it back intact. Returns <code>null</code> when nothing is attached.</td></tr>
+          <tr><td class="sig">getWidget()</td><td class="desc">The attached content — a view, element or the converted element of a string — or <code>null</code>.</td></tr>
+          <tr><td class="sig">getTab(id)</td><td class="desc">One tab of a tabbed cell: <code>{ id, label, el, active(), activate(), attach(), detach(), getWidget() }</code>. <code>undefined</code> on a non-tabbed cell or an unknown id.</td></tr>
+          <tr><td class="sig">getState()</td><td class="desc">The arrangement as one JSON-able snapshot: <code>{ version, type, padding, css, rows | cols }</code>, every cell carrying its sizes and mutable state. Exactly what <code>setState</code> accepts.</td></tr>
+          <tr><td class="sig">setState(state)</td><td class="desc">Apply a snapshot: re-resolve and re-mount the cells, move the host's mounted content back by id (the same nodes, never cloned), and fire <code>stateChange</code>.</td></tr>
+          <tr><td class="sig">hide() / show() / isVisible()</td><td class="desc">Hide the cell (<code>display:none</code>, so its space reflows to its neighbours) or show it again, restoring its exact display; <code>isVisible()</code> reads the state. A cell declared <code>hidden: true</code> starts hidden. <code>beforeHide</code>/<code>beforeShow</code> gate each, <code>afterHide</code>/<code>afterShow</code> announce it.</td></tr>
+          <tr><td class="sig">addCell(parentId, config, index?)</td><td class="desc">Add a cell to the tree live and synchronously — in the document and sized when it returns. <code>parentId</code> is the parent cell id (or <code>null</code> for the root); a leaf or tabbed cell is refused. <code>index</code> places it among the parent's children (the end when omitted).</td></tr>
+          <tr><td class="sig">removeCell(id)</td><td class="desc">Remove a cell and its whole subtree live, releasing every content inside it (detached, never destroyed) and returning the removed handle.</td></tr>
+          <tr><td class="sig">progressShow() / progressHide()</td><td class="desc">Overlay an indeterminate spinner on the cell — or clear it — without touching its size or content. <code>progressDefault: true</code> starts a cell with the overlay on.</td></tr>
+          <tr><td class="sig">forEach(fn)</td><td class="desc">Walk every cell in tree (document) order, handing each handle to <code>fn</code>.</td></tr>
+          <tr><td class="sig">on(name, fn)</td><td class="desc">Subscribe to a shell event — <code>beforeCollapse</code>/<code>afterCollapse</code>, <code>beforeExpand</code>/<code>afterExpand</code>, <code>beforeAddCell</code>/<code>afterAddCell</code>, <code>beforeRemoveCell</code>/<code>afterRemoveCell</code>, <code>beforeHide</code>/<code>afterHide</code>, <code>beforeShow</code>/<code>afterShow</code>, <code>tabChange</code>, <code>stateChange</code>, or a resize event — <code>beforeResizeStart</code> (cancellable), <code>resize</code>, <code>afterResizeEnd</code> — or to <code>'*'</code> for every past-tense event; returns an unsubscribe. A <code>before*</code> handler cancels by calling <code>preventDefault(reason?)</code> or returning <code>false</code>.</td></tr>
+          <tr><td class="sig">off(name, fn)</td><td class="desc">Remove a handler registered with <code>on</code>.</td></tr>
+          <tr><td class="sig">destroy()</td><td class="desc">Release every content, empty the element, remove only what the module added, and drop every cell record, splitter listener and handler. The host still owns the element and every content element again.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="shell-dhx-migration">DHX Layout migration</h3>
+    <p class="section-note">DemandFlow moves from dhtmlx Layout to <code>modules/shell</code>. The arrangement is the same shape — nested <code>rows</code>/<code>cols</code> of named cells — but the shell is synchronous, token-themed and state-serialisable where DHX Layout is an imperative widget API.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>DHX Layout</th><th>Lattice shell</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">new dhx.Layout(el, { rows: [...] })</td><td class="desc"><code>createShell(el, { rows: [...] })</code></td></tr>
+          <tr><td class="sig">{ id, header }</td><td class="desc"><code>{ id }</code> — headers are content a host mounts into <code>getCell(id).el</code>, so there is no header bar to theme or chase.</td></tr>
+          <tr><td class="sig">{ width, height, gravity }</td><td class="desc">The same keys: <code>width</code>/<code>height</code> are pixels or any CSS length, <code>gravity</code> shares the space left after the fixed sizes.</td></tr>
+          <tr><td class="sig">{ minWidth, maxWidth, minHeight, maxHeight, padding }</td><td class="desc">The same keys, written as the CSS <code>min-*</code>/<code>max-*</code>/<code>padding</code> properties.</td></tr>
+          <tr><td class="sig">{ collapsable, resizable }</td><td class="desc"><code>collapsed</code>/<code>hidden</code>/<code>selected</code> — mutable per-cell state, round-tripped by <code>getState()</code>/<code>setState()</code>.</td></tr>
+          <tr><td class="sig">cell.attach(widget) / attachHTML(html)</td><td class="desc"><code>shell.getCell(id).el.appendChild(widget)</code> — a plain element, sized synchronously.</td></tr>
+          <tr><td class="sig">cell.collapse() / expand() / toggle(), hide() / show()</td><td class="desc"><code>shell.setState({ ...shell.getState(), rows: [...] })</code> with the flags changed; content is restored by id.</td></tr>
+          <tr><td class="sig">layout.destructor()</td><td class="desc"><code>shell.destroy()</code> — empties the element and drops every record; the host still owns the element.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="shell-example">Three levels, state round-trip, and teardown, executed</h3>
+    <p class="section-note">A row of a fixed nav and a gravity main, the main split into a fixed header and two gravity
+    columns, walked, snapshot-and-restored through <code>getState()</code>/<code>setState()</code>, and torn down over
+    the in-tree DOM test double — the sizes themselves are asserted against real Chrome in
+    <code>test/shell-browser.test.js</code>.</p>
+    <pre data-run="js" data-expect="DIV|main|5|true|0|true|1|200" data-covers="export:createShell config:ShellConfig.rows config:ShellConfig.cols config:ShellConfig.type config:ShellConfig.padding config:ShellConfig.css method:shell.getState method:shell.setState method:shell.on method:shell.off method:shell.getCell method:shell.forEach method:shell.destroy"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createShell } = <span class="kw">await</span> import('../packages/modules/shell/index.js');
+
+<span class="kw">const</span> { root, document: doc } = createTestDom();
+<span class="kw">const</span> shell = createShell(root, {
+  type: 'line', padding: 4, css: { position: 'relative' },
+  rows: [
+    { id: 'nav', width: 200 },
+    { id: 'main', gravity: 1, cols: [
+      { id: 'top', height: 40, padding: 8 },
+      { id: 'body', gravity: 2, minWidth: 50, maxWidth: 900 },
+      { id: 'foot', gravity: 1 },
+    ] },
+  ],
+});
+
+<span class="kw">const</span> tag = shell.getCell('nav').el.tagName;        <span class="cmt">// DIV — the content element itself</span>
+<span class="kw">const</span> parent = shell.getCell('body').getParent().config.id; <span class="cmt">// 'main' — the cell that nests it</span>
+<span class="kw">let</span> walked = 0;
+shell.forEach(() =&gt; { walked += 1; });              <span class="cmt">// nav, main, top, body, foot</span>
+<span class="kw">const</span> unknown = shell.getCell('nope') === undefined; <span class="cmt">// true — no such cell</span>
+
+<span class="cmt">// State round-trips the whole arrangement, content untouched.</span>
+<span class="kw">const</span> widget = doc.createElement('div');
+widget.textContent = 'kept';
+shell.getCell('body').el.appendChild(widget);
+<span class="kw">let</span> events = 0;
+<span class="kw">const</span> onStateChange = () =&gt; { events += 1; };
+shell.on('stateChange', onStateChange);
+shell.setState(shell.getState());                    <span class="cmt">// re-mounts and fires stateChange</span>
+shell.off('stateChange', onStateChange);             <span class="cmt">// off — the subscription is removed</span>
+<span class="kw">const</span> kept = shell.getCell('body').el.contains(widget); <span class="cmt">// true — the same node, re-parented</span>
+<span class="kw">const</span> widthAfter = shell.getState().rows[0].width;  <span class="cmt">// 200 — sizes survived</span>
+shell.destroy();
+<span class="kw">return</span> [tag, parent, walked, unknown, root.children.length, kept, events, widthAfter].join('|');</code></pre>
+    <h3 id="shell-splitter-example">A resizable cell, its splitter and the resize events, executed</h3>
+    <p class="section-note">A cell marked <code>resizable: true</code> puts a focusable <code>role="separator"</code> on its
+    trailing border; dragging or arrow keys resize it and its next sibling within both cells' min/max, and
+    <code>on(name, fn)</code> observes the gesture. The drag itself is asserted against real Chrome in
+    <code>test/shell-splitter-browser.test.js</code>; this block asserts the splitter's DOM and the event surface over
+    the test DOM.</p>
+    <pre data-run="js" data-expect="vertical|Resize|true|0|function" data-covers="export:createShell"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createShell } = <span class="kw">await</span> import('../packages/modules/shell/index.js');
+
+<span class="kw">const</span> { root } = createTestDom();
+<span class="kw">const</span> shell = createShell(root, { type: 'line', rows: [
+  { id: 'a', width: 200, minWidth: 100, maxWidth: 300, resizable: true },
+  { id: 'b', gravity: 1 },
+] });
+
+<span class="kw">const</span> splitter = root.querySelector('[role="separator"]');
+<span class="kw">const</span> oriented = splitter.getAttribute('aria-orientation');  <span class="cmt">// 'vertical' — a row resizes widths</span>
+<span class="kw">const</span> labelled = splitter.getAttribute('aria-label');         <span class="cmt">// 'Resize'</span>
+<span class="kw">const</span> tabbable = splitter.tabIndex === 0;                     <span class="cmt">// true — keyboard reachable</span>
+
+<span class="kw">let</span> resized = 0;
+<span class="kw">const</span> off = shell.on('resize', () =&gt; { resized += 1; });      <span class="cmt">// subscribe; returns an unsubscribe fn</span>
+off();                                                          <span class="cmt">// remove the handler</span>
+shell.on('nope', () =&gt; { resized += 1; });                      <span class="cmt">// unknown name: never subscribed</span>
+shell.destroy();                                                <span class="cmt">// removes the splitter too</span>
+<span class="kw">return</span> [oriented, labelled, tabbable, resized, <span class="kw">typeof</span> shell.off].join('|');</code></pre>
+
+    <h3 id="shell-collapse-example">Headers, collapse, a vetoed fold and translated labels, executed</h3>
+    <p class="section-note">A column cell with a text header folds to its strip, a <code>beforeCollapse</code> handler vetoes the first fold, <code>expand()</code> restores it, and <code>config.messages</code> supplies the control's own labels — all synchronous, over the in-tree DOM test double; the real rects are asserted against Chrome in <code>test/shell-browser.test.js</code>.</p>
+    <pre data-run="js" data-expect="Hide Top|false|false|true|true|true" data-covers="export:createShell config:ShellConfig.messages"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createShell } = <span class="kw">await</span> import('../packages/modules/shell/index.js');
+
+<span class="kw">const</span> { root } = createTestDom();
+<span class="kw">const</span> shell = createShell(root, {
+  messages: { t: (key, params) =&gt; (key === 'shell.collapse' ? `Hide ${params.name}` : `Show ${params.name}`) },
+  cols: [
+    { id: 'top', height: 120, header: 'Top', collapsable: <span class="kw">true</span> },
+    { id: 'bottom', gravity: 1 },
+  ],
+});
+
+<span class="kw">const</span> top = shell.getCell('top');
+<span class="kw">const</span> btn = top.el.parentNode.querySelector('.lat-shell__header-btn');
+<span class="kw">const</span> label = btn.getAttribute('aria-label');       <span class="cmt">// 'Hide Top' — the catalogue reached the control</span>
+<span class="kw">const</span> start = top.collapsed;                         <span class="cmt">// false — open at mount</span>
+
+<span class="kw">const</span> refuse = (e) =&gt; e.preventDefault('not yet');
+shell.on('beforeCollapse', refuse);
+<span class="kw">const</span> vetoed = top.collapse();                       <span class="cmt">// false — the host refused the fold</span>
+shell.off('beforeCollapse', refuse);
+<span class="kw">const</span> folded = top.collapse();                       <span class="cmt">// true — folds to the strip</span>
+<span class="kw">const</span> after = top.collapsed;                         <span class="cmt">// true</span>
+<span class="kw">const</span> restored = top.expand();                       <span class="cmt">// true — back to the exact size</span>
+shell.destroy();
+<span class="kw">return</span> [label, start, vetoed, folded, after, restored].join('|');</code></pre>
+    <h3 id="shell-content-example">Attach, tab switching and detach, executed</h3>
+    <p class="section-note">A tabbed cell holds one content per tab; switching hides the outgoing panel without touching its
+    content, <code>tabChange</code> fires, and <code>detach()</code> hands the element back — run over the in-tree DOM test
+    double, with the same-element identity and a real grid's re-measure asserted against real Chrome in
+    <code>test/shell-content-browser.test.js</code>.</p>
+    <pre data-run="js" data-expect="true|true|true|true" data-covers="export:createShell"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createShell } = <span class="kw">await</span> import('../packages/modules/shell/index.js');
+
+<span class="kw">const</span> { root } = createTestDom();
+<span class="kw">const</span> shell = createShell(root, {
+  rows: [{ id: 'main', tabs: [
+    { id: 'a', label: 'A', content: '&lt;b&gt;one&lt;/b&gt;' },
+    { id: 'b', label: 'B' },
+  ] }],
+});
+<span class="kw">const</span> cell = shell.getCell('main');
+<span class="kw">const</span> widget = root.ownerDocument.createElement('div');
+cell.getTab('b').attach(widget);                  <span class="cmt">// b was empty — attach straight to it</span>
+<span class="kw">let</span> last = '';
+shell.on('tabChange', (e) =&gt; { last = e.tabId; });
+cell.getTab('b').activate();                      <span class="cmt">// switch: a hides, b shows</span>
+<span class="kw">const</span> switched = last === 'b';                <span class="cmt">// tabChange fired</span>
+<span class="kw">const</span> kept = cell.getTab('a').getWidget().textContent === '&lt;b&gt;one&lt;/b&gt;'; <span class="cmt">// a's content survived the switch</span>
+<span class="kw">const</span> same = cell.getWidget() === widget;     <span class="cmt">// the same element, not a clone</span>
+<span class="kw">const</span> back = cell.detach();                   <span class="cmt">// detach b's content intact</span>
+shell.destroy();
+<span class="kw">return</span> [switched, kept, same, back === widget].join('|');</code></pre>
+
+    <h3 id="shell-live-example">Hide, show, add, remove, progress and a vetoed add, executed</h3>
+    <p class="section-note">A cell hides and shows, a new cell is added and removed live, the progress overlay mounts and
+    clears, and a <code>beforeAddCell</code> handler vetoes one add so nothing is created — run over the in-tree DOM test
+    double, with the real flexbox geometry (the space a hide gives and a show restores, and the size of a synchronously
+    added cell) asserted against real Chrome in <code>test/shell-live-browser.test.js</code>.</p>
+    <pre data-run="js" data-expect="true|true|true|true|true|true|true|c|true" data-covers="export:createShell method:shell.addCell method:shell.removeCell"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createShell } = <span class="kw">await</span> import('../packages/modules/shell/index.js');
+
+<span class="kw">const</span> { root } = createTestDom();
+<span class="kw">const</span> shell = createShell(root, { rows: [
+  { id: 'a', width: 200 },
+  { id: 'b', gravity: 1, progressDefault: true }, <span class="cmt">// starts with the spinner on</span>
+] });
+<span class="kw">const</span> a = shell.getCell('a');
+<span class="kw">const</span> hidden = a.hide().isVisible() === false;   <span class="cmt">// display:none, the space reflows</span>
+<span class="kw">const</span> shown = a.show().isVisible() === true;     <span class="cmt">// show restores the exact display</span>
+shell.on('beforeAddCell', (e) =&gt; { if (e.id === 'no') e.preventDefault(); });
+<span class="kw">const</span> added = shell.addCell(null, { id: 'c', width: 100 });   <span class="cmt">// sized synchronously</span>
+<span class="kw">const</span> vetoed = shell.addCell(null, { id: 'no' }) === undefined; <span class="cmt">// vetoed: nothing made</span>
+<span class="kw">const</span> busy = shell.getCell('b').el.getAttribute('aria-busy') === 'true';
+shell.getCell('c').progressShow();                <span class="cmt">// overlay the new cell</span>
+<span class="kw">const</span> overlay = shell.getCell('c').el.children.length === 1;
+shell.getCell('c').progressHide();
+<span class="kw">const</span> cleared = shell.getCell('c').el.children.length === 0;
+<span class="kw">const</span> removed = shell.removeCell('c').config.id;  <span class="cmt">// live remove, content released</span>
+<span class="kw">const</span> gone = shell.getCell('c') === undefined;
+shell.destroy();
+<span class="kw">return</span> [hidden, shown, !!added, vetoed, busy, overlay, cleared, removed, gone].join('|');</code></pre>
 
     <h2 id="dashboard">Dashboard composition</h2>
     <p><code>modules/dashboard</code> describes a dashboard as data. One JSON spec names a <a href="#layout">layout</a>, the panels in it &mdash; a grid, a chart, a KPI panel, a board (Kanban), a map or static html &mdash; the source each panel reads and the links between them, and <code>createDashboard(el, spec, factories)</code> builds the wired page. <code>dashboard.spec()</code> hands the same spec back, with every window where the user has since dragged it, so a host can store, diff and version a dashboard like any other document. It is a composition layer and nothing more: there is no builder UI, no persistence and no users, and everything it draws is drawn by a module you already have.</p>
@@ -25794,6 +26044,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">emptyText</td><td class="type">string</td><td class="desc">The placeholder shown in a column with no cards. Empty by default, so the module ships no English of its own. <small>(optional)</small></td></tr>
           <tr><td class="name">selectable</td><td class="type">boolean</td><td class="desc">Whether card selection is enabled (default true). <small>(optional)</small></td></tr>
           <tr><td class="name">density</td><td class="type"><a href="#type-KanbanDensity">KanbanDensity</a> <small class="literals">'compact' | 'comfortable'</small></td><td class="desc">The card density (BACKLOG-0002107): `'compact'` tightens each card's padding and drops the subtitle; `'comfortable'` (the default) keeps the roomier card. <small>(optional)</small></td></tr>
+          <tr><td class="name">columnWidth</td><td class="type"><a href="#type-KanbanColumnWidth">KanbanColumnWidth</a> <small class="literals">number | 'fill' | 'auto'</small></td><td class="desc">How wide each column is (BACKLOG-0002153). A number fixes the width in pixels; `'fill'` (the default) shares the board width equally between the columns, never below `minColumnWidth` — so a board whose columns fit fills its host, and one whose columns do not fit keeps them at the minimum and scrolls; `'auto'` keeps the natural fixed width from the `--lattice-board-column-width` token (default 280px). The CSS token, when set, still overrides the option. Collapsed columns stay narrow strips and the rest take the space; the fill follows host resizes. <small>(optional)</small></td></tr>
+          <tr><td class="name">minColumnWidth</td><td class="type">number</td><td class="desc">The pixel floor `'fill'` never drops a column below (default 240). <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">Record&lt;string, string&gt;</td><td class="desc">Host-localised words for the move announcements (grabbed/moved/dropped/reverted/cancelled). <small>(optional)</small></td></tr>
           <tr><td class="name">contextMenu</td><td class="type"><a href="#type-KanbanMenuItem">KanbanMenuItem</a>[] | ((card: <a href="#type-KanbanCard">KanbanCard</a>, selected: <a href="#type-KanbanCard">KanbanCard</a>[]) =&gt; <a href="#type-KanbanMenuItem">KanbanMenuItem</a>[])</td><td class="desc">A per-card context menu: items, or `fn(card, selectedCards)` returning items. Suppresses `card:contextmenu`. <small>(optional)</small></td></tr>
         </tbody>
@@ -26349,6 +26601,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">flow</td><td class="type"><a href="#type-KanbanFlow">KanbanFlow</a></td><td class="desc">Flow analytics over the board's transition log (BACKLOG-0000951): cycle time, lead time and the cumulative-flow diagram. Built automatically unless the config says `flow: false`. <small>(optional)</small></td></tr>
           <tr><td class="name">flowAvailable</td><td class="type">boolean</td><td class="desc">Whether flow analytics can answer on this board (BACKLOG-0002104). False on a source-bound board with no source `transitionLog`, where the flow features report themselves unavailable rather than deriving from the loaded page. <small>(read-only)</small></td></tr>
           <tr><td class="name">sourceBound</td><td class="type">boolean</td><td class="desc">Whether the board is bound to a pushdown source and owns its own paged data path (BACKLOG-0002104): counts/sums from an engine GROUP BY, cards fetched per column page, moves written through the source. <small>(read-only)</small></td></tr>
+          <tr><td class="name">columnWidth</td><td class="type"><a href="#type-KanbanColumnWidth">KanbanColumnWidth</a> <small class="literals">number | 'fill' | 'auto'</small></td><td class="desc">The resolved column-width mode (BACKLOG-0002153); see {@link KanbanConfig.columnWidth}. <small>(read-only)</small></td></tr>
+          <tr><td class="name">minColumnWidth</td><td class="type">number</td><td class="desc">The resolved minimum column width in px (BACKLOG-0002153); see {@link KanbanConfig.minColumnWidth}. <small>(read-only)</small></td></tr>
           <tr><td class="name">filters</td><td class="type"><a href="#type-KanbanFilters">KanbanFilters</a></td><td class="desc">Named card predicates, composed with AND (BACKLOG-0001229). See {@link KanbanFilters}.</td></tr>
           <tr><td class="name">BACKLOG</td><td class="type">unknown</td><td class="desc">The sentinel `setSprint` value that selects the backlog (cards with no sprint). <small>(read-only)</small></td></tr>
         </tbody>
@@ -26718,7 +26972,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">order</td><td class="type">string[]</td><td class="desc">Every task id in input order, which is the order a table or WBS tree walks. <small>(optional)</small></td></tr>
           <tr><td class="name">critical</td><td class="type">string[]</td><td class="desc">The ids of the leaf tasks with no float, in input order. <small>(optional)</small></td></tr>
           <tr><td class="name">criticalPaths</td><td class="type">string[][]</td><td class="desc">Each zero-float chain through the network as its own list of ids, so a plan with several critical routes shows all of them. <small>(optional)</small></td></tr>
-          <tr><td class="name">projectStart</td><td class="type">number</td><td class="desc">The day the plan is anchored to — the `projectStart` option, or the calendar's first working day when one is set. <small>(optional)</small></td></tr>
+          <tr><td class="name">projectStart</td><td class="type">number</td><td class="desc">The day the plan is anchored to — the `projectStart` option, or the calendar's first working day when one is set. When no explicit `projectStart` is given, it is derived from the earliest task start so the timeline opens on the tasks (BACKLOG-0002154). <small>(optional)</small></td></tr>
           <tr><td class="name">projectFinish</td><td class="type">number</td><td class="desc">The latest early finish across every task, as a calendar day-number. <small>(optional)</small></td></tr>
           <tr><td class="name">projectDuration</td><td class="type">number</td><td class="desc">`projectFinish − projectStart` in days — calendar days when a working-time calendar stretched the plan, not the sum of the durations. <small>(optional)</small></td></tr>
           <tr><td class="name">conflicts</td><td class="type"><a href="#type-GanttConflict">GanttConflict</a>[]</td><td class="desc">Constraints a predecessor made infeasible (empty when all are satisfied). <small>(optional)</small></td></tr>
@@ -29687,6 +29941,489 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">windowMove:cancelled</td><td class="desc">A `beforeWindowMove` handler refused the move.</td><td class="type"><a href="#type-LayoutMoveCancelledEvent">LayoutMoveCancelledEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">windowResize:cancelled</td><td class="desc">A `beforeWindowResize` handler refused the resize.</td><td class="type"><a href="#type-LayoutMoveCancelledEvent">LayoutMoveCancelledEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">windowClose:cancelled</td><td class="desc">A `beforeWindowClose` handler refused the close.</td><td class="type"><a href="#type-LayoutCloseCancelledEvent">LayoutCloseCancelledEvent</a></td><td class="desc">no</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="ref-module-shell">The shell module</h3>
+    <h4 id="type-ShellWidget">ShellWidget</h4>
+    <p class="section-note">A Lattice view as `attach()` sees it: an object exposing its root element and, optionally, a resize/refresh method the shell nudges on show.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">element</td><td class="type">HTMLElement</td><td class="desc">The view's root element (`createGrid` exposes `.element`). <small>(optional)</small></td></tr>
+          <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The view's root element (the scheduler and layout expose `.el`). <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">resize</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Re-measure after a container change; preferred over `refresh` when both exist. <small>(optional)</small></td></tr>
+          <tr><td class="name">refresh</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Re-measure after a container change (the layout's method). Never a `paint()`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellAttachHooks">ShellAttachHooks</h4>
+    <p class="section-note">The optional hooks `attach(content, opts)` takes, fired when the content hides or shows.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">onHidden</td><td class="type">(content: <a href="#type-ShellContent">ShellContent</a>): void</td><td class="desc"><code>content: <a href="#type-ShellContent">ShellContent</a></code></td><td class="type"><code>void</code></td><td class="desc">Called when the content hides (a tab switch away, a collapse, a hide). <small>(optional)</small></td></tr>
+          <tr><td class="name">onVisible</td><td class="type">(content: <a href="#type-ShellContent">ShellContent</a>): void</td><td class="desc"><code>content: <a href="#type-ShellContent">ShellContent</a></code></td><td class="type"><code>void</code></td><td class="desc">Called when the content becomes visible again. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellTab">ShellTab</h4>
+    <p class="section-note">One tab of a tabbed cell: its identity, its strip label, and the content it holds across switches.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The tab's identity for `getTab(id)`.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The text on the tab. Defaults to `id`. <small>(optional)</small></td></tr>
+          <tr><td class="name">content</td><td class="type"><a href="#type-ShellContent">ShellContent</a></td><td class="desc">The content the tab holds, attached the same way `attach()` attaches it. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">onHidden</td><td class="type">(content: <a href="#type-ShellContent">ShellContent</a>): void</td><td class="desc"><code>content: <a href="#type-ShellContent">ShellContent</a></code></td><td class="type"><code>void</code></td><td class="desc">Called when this tab's content hides on a switch away. <small>(optional)</small></td></tr>
+          <tr><td class="name">onVisible</td><td class="type">(content: <a href="#type-ShellContent">ShellContent</a>): void</td><td class="desc"><code>content: <a href="#type-ShellContent">ShellContent</a></code></td><td class="type"><code>void</code></td><td class="desc">Called when this tab's content becomes visible on a switch to it. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellCell">ShellCell</h4>
+    <p class="section-note">One cell of a shell. A cell either mounts content or nests `rows`/`cols`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The cell's identity for `getCell(id)`. Auto-generated when omitted. <small>(optional)</small></td></tr>
+          <tr><td class="name">width</td><td class="type"><a href="#type-ShellSize">ShellSize</a> <small class="literals">number | string</small></td><td class="desc">The cell's width along a row (px or %). <small>(optional)</small></td></tr>
+          <tr><td class="name">height</td><td class="type"><a href="#type-ShellSize">ShellSize</a> <small class="literals">number | string</small></td><td class="desc">The cell's height along a column (px or %). <small>(optional)</small></td></tr>
+          <tr><td class="name">gravity</td><td class="type">number</td><td class="desc">Share of the spare space when the cell has no fixed size. Default 1. <small>(optional)</small></td></tr>
+          <tr><td class="name">minWidth</td><td class="type"><a href="#type-ShellSize">ShellSize</a> <small class="literals">number | string</small></td><td class="desc">The cell's minimum width. <small>(optional)</small></td></tr>
+          <tr><td class="name">maxWidth</td><td class="type"><a href="#type-ShellSize">ShellSize</a> <small class="literals">number | string</small></td><td class="desc">The cell's maximum width. <small>(optional)</small></td></tr>
+          <tr><td class="name">minHeight</td><td class="type"><a href="#type-ShellSize">ShellSize</a> <small class="literals">number | string</small></td><td class="desc">The cell's minimum height. <small>(optional)</small></td></tr>
+          <tr><td class="name">maxHeight</td><td class="type"><a href="#type-ShellSize">ShellSize</a> <small class="literals">number | string</small></td><td class="desc">The cell's maximum height. <small>(optional)</small></td></tr>
+          <tr><td class="name">resizable</td><td class="type">boolean</td><td class="desc">When true, a splitter on the trailing border resizes this cell and its next sibling. <small>(optional)</small></td></tr>
+          <tr><td class="name">padding</td><td class="type">number | string</td><td class="desc">The cell's inner padding: a CSS padding value. <small>(optional)</small></td></tr>
+          <tr><td class="name">css</td><td class="type">Record&lt;string, string | number&gt; | string</td><td class="desc">Extra CSS: an object of camelCase properties, or a string of declarations. <small>(optional)</small></td></tr>
+          <tr><td class="name">align</td><td class="type">string</td><td class="desc">The cell's `align-self` across the parent's axis. <small>(optional)</small></td></tr>
+          <tr><td class="name">header</td><td class="type">string | Node</td><td class="desc">The header strip's content: text, or a custom element to mount. <small>(optional)</small></td></tr>
+          <tr><td class="name">headerIcon</td><td class="type">string</td><td class="desc">An icon in the header strip: a URL (rendered as an image) or a glyph/emoji. <small>(optional)</small></td></tr>
+          <tr><td class="name">headerImage</td><td class="type">string</td><td class="desc">An image in the header strip, rendered as an `&lt;img&gt;` with this `src`. <small>(optional)</small></td></tr>
+          <tr><td class="name">headerHeight</td><td class="type"><a href="#type-ShellSize">ShellSize</a> <small class="literals">number | string</small></td><td class="desc">The header strip's height on the cell's main axis (px or a CSS length). Default 32. <small>(optional)</small></td></tr>
+          <tr><td class="name">collapsable</td><td class="type">boolean</td><td class="desc">Show a collapse control in the header and let `collapse()`/`expand()` fold the cell. <small>(optional)</small></td></tr>
+          <tr><td class="name">collapsed</td><td class="type">boolean</td><td class="desc">Start the cell folded to its header strip (implies `collapsable`); also the cell's current collapsed state (BACKLOG-0002140). <small>(optional)</small></td></tr>
+          <tr><td class="name">hidden</td><td class="type">boolean</td><td class="desc">Mutable state: whether the cell is hidden from the layout; `hidden: true` also starts it hidden until `show()` (BACKLOG-0002140). <small>(optional)</small></td></tr>
+          <tr><td class="name">selected</td><td class="type">string</td><td class="desc">Mutable state: the id of the selected tab inside the cell, when it hosts tabs (BACKLOG-0002140). <small>(optional)</small></td></tr>
+          <tr><td class="name">rows</td><td class="type"><a href="#type-ShellCell">ShellCell</a>[]</td><td class="desc">Nested cells, laid out left-to-right. <small>(optional)</small></td></tr>
+          <tr><td class="name">cols</td><td class="type"><a href="#type-ShellCell">ShellCell</a>[]</td><td class="desc">Nested cells, laid out top-to-bottom. <small>(optional)</small></td></tr>
+          <tr><td class="name">tabs</td><td class="type"><a href="#type-ShellTab">ShellTab</a>[]</td><td class="desc">Tabbed content: a strip with one attached content per tab, each preserved across switches. <small>(optional)</small></td></tr>
+          <tr><td class="name">progressDefault</td><td class="type">boolean</td><td class="desc">Start the cell with its loading indicator already overlaid. Default false. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellConfig">ShellConfig</h4>
+    <p class="section-note">The configuration for {@link createShell}.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">rows</td><td class="type"><a href="#type-ShellCell">ShellCell</a>[]</td><td class="desc">The top-level cells, laid out left-to-right. <small>(optional)</small></td></tr>
+          <tr><td class="name">cols</td><td class="type"><a href="#type-ShellCell">ShellCell</a>[]</td><td class="desc">The top-level cells, laid out top-to-bottom (used when `rows` is absent). <small>(optional)</small></td></tr>
+          <tr><td class="name">type</td><td class="type"><a href="#type-ShellType">ShellType</a> <small class="literals">'line' | 'wide' | 'space' | 'none'</small></td><td class="desc">The separator between cells. Default `'none'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">padding</td><td class="type">number | string</td><td class="desc">The shell root's inner padding: a CSS padding value. <small>(optional)</small></td></tr>
+          <tr><td class="name">css</td><td class="type">Record&lt;string, string | number&gt; | string</td><td class="desc">Extra CSS on the shell root. <small>(optional)</small></td></tr>
+          <tr><td class="name">messages</td><td class="type">{ t(key: string, params?: Record&lt;string, string | number&gt;): string }</td><td class="desc">A message catalogue with a `t(key, params)` formatter, for the collapse control's labels. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellCellInstance">ShellCellInstance</h4>
+    <p class="section-note">The cell handle `getCell(id)` and `forEach` hand back.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The cell's content element — mount a widget into it directly. <small>(read-only)</small></td></tr>
+          <tr><td class="name">config</td><td class="type"><a href="#type-ShellCell">ShellCell</a></td><td class="desc">The cell's normalised config. <small>(read-only)</small></td></tr>
+          <tr><td class="name">collapsed</td><td class="type">boolean</td><td class="desc">Whether the cell is currently folded to its header strip. <small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">getParent</td><td class="type">(): <a href="#type-ShellCellInstance">ShellCellInstance</a> | null</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-ShellCellInstance">ShellCellInstance</a> | null</code></td><td class="desc">The parent cell's handle, or `null` for a top-level cell.</td></tr>
+          <tr><td class="name">collapse</td><td class="type">(): boolean | Promise&lt;boolean&gt;</td><td class="desc">&mdash;</td><td class="type"><code>boolean | Promise&lt;boolean&gt;</code></td><td class="desc">Fold the cell to its header strip. No-op on a non-collapsable cell.</td></tr>
+          <tr><td class="name">expand</td><td class="type">(): boolean | Promise&lt;boolean&gt;</td><td class="desc">&mdash;</td><td class="type"><code>boolean | Promise&lt;boolean&gt;</code></td><td class="desc">Open the cell back to its exact previous size. No-op when already open.</td></tr>
+          <tr><td class="name">toggle</td><td class="type">(): boolean | Promise&lt;boolean&gt;</td><td class="desc">&mdash;</td><td class="type"><code>boolean | Promise&lt;boolean&gt;</code></td><td class="desc">Collapse the cell when open, expand it when folded.</td></tr>
+          <tr><td class="name">attach</td><td class="type">(content: <a href="#type-ShellContent">ShellContent</a>, opts?: <a href="#type-ShellAttachHooks">ShellAttachHooks</a>): <a href="#type-ShellCellInstance">ShellCellInstance</a></td><td class="desc"><code>content: <a href="#type-ShellContent">ShellContent</a></code><br><code>opts?: <a href="#type-ShellAttachHooks">ShellAttachHooks</a></code></td><td class="type"><code><a href="#type-ShellCellInstance">ShellCellInstance</a></code></td><td class="desc">Attach a Lattice view, a DOM element or an HTML string to this cell. The cell keeps the same element for its life — hide/show, collapse/expand, tab switches, resizes and moves never re-render it — and only `detach()` or `destroy()` releases it. On a tabbed cell this attaches to the active tab.</td></tr>
+          <tr><td class="name">detach</td><td class="type">(): <a href="#type-ShellContent">ShellContent</a> | null</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-ShellContent">ShellContent</a> | null</code></td><td class="desc">Detach this cell's content (the active tab's, when tabbed) and hand it back intact.</td></tr>
+          <tr><td class="name">getWidget</td><td class="type">(): <a href="#type-ShellContent">ShellContent</a> | null</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-ShellContent">ShellContent</a> | null</code></td><td class="desc">The content this cell (or its active tab) holds, or `null`.</td></tr>
+          <tr><td class="name">getTab</td><td class="type">(id: string): <a href="#type-ShellTabInstance">ShellTabInstance</a> | undefined</td><td class="desc"><code>id: string</code></td><td class="type"><code><a href="#type-ShellTabInstance">ShellTabInstance</a> | undefined</code></td><td class="desc">The handle for one of a tabbed cell's tabs, or `undefined` for a non-tabbed cell or an unknown id.</td></tr>
+          <tr><td class="name">isVisible</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">Whether the cell is currently visible (not hidden).</td></tr>
+          <tr><td class="name">hide</td><td class="type">(): <a href="#type-ShellCellInstance">ShellCellInstance</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-ShellCellInstance">ShellCellInstance</a></code></td><td class="desc">Hide the cell, giving its space to its neighbours by CSS reflow. The cancellable `beforeHide` runs first; a veto leaves the cell as it was. Content stays mounted and its `onHidden` hook fires.</td></tr>
+          <tr><td class="name">show</td><td class="type">(): <a href="#type-ShellCellInstance">ShellCellInstance</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-ShellCellInstance">ShellCellInstance</a></code></td><td class="desc">Show a hidden cell, restoring its space. The cancellable `beforeShow` runs first; a veto leaves the cell hidden. An attached Lattice view is nudged to re-measure and its `onVisible` hook fires.</td></tr>
+          <tr><td class="name">progressShow</td><td class="type">(): <a href="#type-ShellCellInstance">ShellCellInstance</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-ShellCellInstance">ShellCellInstance</a></code></td><td class="desc">Overlay a loading indicator on the cell, without touching its size or content.</td></tr>
+          <tr><td class="name">progressHide</td><td class="type">(): <a href="#type-ShellCellInstance">ShellCellInstance</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-ShellCellInstance">ShellCellInstance</a></code></td><td class="desc">Clear the cell's loading indicator.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellTabInstance">ShellTabInstance</h4>
+    <p class="section-note">The tab handle `getTab(id)` hands back for one tab of a tabbed cell.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The tab's id. <small>(read-only)</small></td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The tab's strip label. <small>(read-only)</small></td></tr>
+          <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The tab's panel element — its content mounts here. <small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">active</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">Whether this is the active tab.</td></tr>
+          <tr><td class="name">activate</td><td class="type">(): <a href="#type-ShellTabInstance">ShellTabInstance</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-ShellTabInstance">ShellTabInstance</a></code></td><td class="desc">Make this tab active, firing `tabChange` and the content visibility hooks.</td></tr>
+          <tr><td class="name">attach</td><td class="type">(content: <a href="#type-ShellContent">ShellContent</a>, opts?: <a href="#type-ShellAttachHooks">ShellAttachHooks</a>): <a href="#type-ShellTabInstance">ShellTabInstance</a></td><td class="desc"><code>content: <a href="#type-ShellContent">ShellContent</a></code><br><code>opts?: <a href="#type-ShellAttachHooks">ShellAttachHooks</a></code></td><td class="type"><code><a href="#type-ShellTabInstance">ShellTabInstance</a></code></td><td class="desc">Attach content to this tab, replacing what it held.</td></tr>
+          <tr><td class="name">detach</td><td class="type">(): <a href="#type-ShellContent">ShellContent</a> | null</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-ShellContent">ShellContent</a> | null</code></td><td class="desc">Detach this tab's content and hand it back.</td></tr>
+          <tr><td class="name">getWidget</td><td class="type">(): <a href="#type-ShellContent">ShellContent</a> | null</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-ShellContent">ShellContent</a> | null</code></td><td class="desc">This tab's content, or `null`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellEventPayloads">ShellEventPayloads</h4>
+    <p class="section-note">What a handler receives, per shell event.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">beforeCollapse</td><td class="type"><a href="#type-ShellBeforeToggleEvent">ShellBeforeToggleEvent</a></td><td class="desc">The fold about to happen, with `preventDefault` to refuse it.</td></tr>
+          <tr><td class="name">beforeExpand</td><td class="type"><a href="#type-ShellBeforeToggleEvent">ShellBeforeToggleEvent</a></td><td class="desc">The unfold about to happen, with `preventDefault` to refuse it.</td></tr>
+          <tr><td class="name">afterCollapse</td><td class="type"><a href="#type-ShellAfterToggleEvent">ShellAfterToggleEvent</a></td><td class="desc">The fold that happened.</td></tr>
+          <tr><td class="name">afterExpand</td><td class="type"><a href="#type-ShellAfterToggleEvent">ShellAfterToggleEvent</a></td><td class="desc">The unfold that happened.</td></tr>
+          <tr><td class="name">beforeAddCell</td><td class="type"><a href="#type-ShellBeforeAddCellEvent">ShellBeforeAddCellEvent</a></td><td class="desc">The cell about to be added, with `preventDefault` to refuse it.</td></tr>
+          <tr><td class="name">afterAddCell</td><td class="type"><a href="#type-ShellAfterAddCellEvent">ShellAfterAddCellEvent</a></td><td class="desc">The cell that was just added.</td></tr>
+          <tr><td class="name">beforeRemoveCell</td><td class="type"><a href="#type-ShellBeforeRemoveCellEvent">ShellBeforeRemoveCellEvent</a></td><td class="desc">The cell about to be removed, with `preventDefault` to refuse it.</td></tr>
+          <tr><td class="name">afterRemoveCell</td><td class="type"><a href="#type-ShellAfterRemoveCellEvent">ShellAfterRemoveCellEvent</a></td><td class="desc">The cell that was just removed.</td></tr>
+          <tr><td class="name">beforeHide</td><td class="type"><a href="#type-ShellBeforeHideEvent">ShellBeforeHideEvent</a></td><td class="desc">The cell about to be hidden, with `preventDefault` to refuse it.</td></tr>
+          <tr><td class="name">afterHide</td><td class="type"><a href="#type-ShellAfterHideEvent">ShellAfterHideEvent</a></td><td class="desc">The cell that just hid.</td></tr>
+          <tr><td class="name">beforeShow</td><td class="type"><a href="#type-ShellBeforeShowEvent">ShellBeforeShowEvent</a></td><td class="desc">The cell about to be shown, with `preventDefault` to refuse it.</td></tr>
+          <tr><td class="name">afterShow</td><td class="type"><a href="#type-ShellAfterShowEvent">ShellAfterShowEvent</a></td><td class="desc">The cell that just showed.</td></tr>
+          <tr><td class="name">tabChange</td><td class="type"><a href="#type-ShellTabChangeEvent">ShellTabChangeEvent</a></td><td class="desc">Which tab became active, and which it replaced.</td></tr>
+          <tr><td class="name">stateChange</td><td class="type"><a href="#type-ShellStateChangeEvent">ShellStateChangeEvent</a></td><td class="desc">The `stateChange` payload: the state now live, the shape `getState()` returns.</td></tr>
+          <tr><td class="name">beforeResizeStart</td><td class="type">ShellResizeStartEvent</td><td class="desc">The two cells about to resize, and their current sizes.</td></tr>
+          <tr><td class="name">resize</td><td class="type"><a href="#type-ShellResizeEvent">ShellResizeEvent</a></td><td class="desc">The two cells, and their new sizes.</td></tr>
+          <tr><td class="name">afterResizeEnd</td><td class="type"><a href="#type-ShellResizeEvent">ShellResizeEvent</a></td><td class="desc">The two cells, and their final sizes.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellCellEvent">ShellCellEvent</h4>
+    <p class="section-note">The fields every shell event carries.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">string</td><td class="desc">Which event this is: one of the `ShellEventName` names.</td></tr>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The id of the cell the event is about.</td></tr>
+          <tr><td class="name">origin</td><td class="type"><a href="#type-ViewerOrigin">ViewerOrigin</a> <small class="literals">'api' | 'user'</small></td><td class="desc">Who asked for the change: `user` for the header control, `api` for `collapse()`/`expand()`/`toggle()`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellBeforeToggleEvent">ShellBeforeToggleEvent</h4>
+    <p class="section-note">A `beforeCollapse` or `beforeExpand` payload. A handler refuses the change by calling `preventDefault(reason?)` or returning `false` (or a Promise that resolves `false`); the cell then does not move.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">defaultPrevented</td><td class="type">boolean</td><td class="desc">True once a handler has refused the change.</td></tr>
+          <tr><td class="name">reason</td><td class="type">string | null</td><td class="desc">The reason given to `preventDefault`, or null while nothing has refused.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">preventDefault</td><td class="type">(reason?: string): void</td><td class="desc"><code>reason?: string</code></td><td class="type"><code>void</code></td><td class="desc">Refuse the change; the optional reason is surfaced to the caller.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellAfterToggleEvent">ShellAfterToggleEvent</h4>
+    <p class="section-note">An `afterCollapse` or `afterExpand` payload — a notification, not a gate.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">collapsed</td><td class="type">boolean</td><td class="desc">The cell is now collapsed (`afterCollapse`) or expanded (`afterExpand`).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellBeforeAddCellEvent">ShellBeforeAddCellEvent</h4>
+    <p class="section-note">The payload of a `beforeAddCell` event.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">string</td><td class="desc">Which event this is: `beforeAddCell`.</td></tr>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The id the new cell will have.</td></tr>
+          <tr><td class="name">parentId</td><td class="type">string | null</td><td class="desc">The id of the cell it will be added into, or `null` for the shell root.</td></tr>
+          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The index the new cell will take among its siblings.</td></tr>
+          <tr><td class="name">reason</td><td class="type">string | null</td><td class="desc">The reason given to `preventDefault`, or `null` while nothing has refused the add.</td></tr>
+          <tr><td class="name">defaultPrevented</td><td class="type">boolean</td><td class="desc">True once a handler has refused the add.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">preventDefault</td><td class="type">(reason?: string): void</td><td class="desc"><code>reason?: string</code></td><td class="type"><code>void</code></td><td class="desc">Refuse the add; the cell is then not created.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellAfterAddCellEvent">ShellAfterAddCellEvent</h4>
+    <p class="section-note">The payload of an `afterAddCell` event.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">string</td><td class="desc">Which event this is: `afterAddCell`.</td></tr>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The id of the cell that was added.</td></tr>
+          <tr><td class="name">parentId</td><td class="type">string | null</td><td class="desc">The id of the cell it was added into, or `null` for the shell root.</td></tr>
+          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The index the cell took among its siblings.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellBeforeRemoveCellEvent">ShellBeforeRemoveCellEvent</h4>
+    <p class="section-note">The payload of a `beforeRemoveCell` event.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">string</td><td class="desc">Which event this is: `beforeRemoveCell`.</td></tr>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The id of the cell about to be removed.</td></tr>
+          <tr><td class="name">parentId</td><td class="type">string | null</td><td class="desc">The id of the cell that owns it, or `null` for a top-level cell.</td></tr>
+          <tr><td class="name">reason</td><td class="type">string | null</td><td class="desc">The reason given to `preventDefault`, or `null` while nothing has refused the remove.</td></tr>
+          <tr><td class="name">defaultPrevented</td><td class="type">boolean</td><td class="desc">True once a handler has refused the remove.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">preventDefault</td><td class="type">(reason?: string): void</td><td class="desc"><code>reason?: string</code></td><td class="type"><code>void</code></td><td class="desc">Refuse the remove; the cell then stays mounted.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellAfterRemoveCellEvent">ShellAfterRemoveCellEvent</h4>
+    <p class="section-note">The payload of an `afterRemoveCell` event.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">string</td><td class="desc">Which event this is: `afterRemoveCell`.</td></tr>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The id of the cell that was removed.</td></tr>
+          <tr><td class="name">parentId</td><td class="type">string | null</td><td class="desc">The id of the cell that owned it, or `null` for a top-level cell.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellBeforeHideEvent">ShellBeforeHideEvent</h4>
+    <p class="section-note">The payload of a `beforeHide` event.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">string</td><td class="desc">Which event this is: `beforeHide`.</td></tr>
+          <tr><td class="name">cellId</td><td class="type">string</td><td class="desc">The id of the cell about to be hidden.</td></tr>
+          <tr><td class="name">reason</td><td class="type">string | null</td><td class="desc">The reason given to `preventDefault`, or `null` while nothing has refused the hide.</td></tr>
+          <tr><td class="name">defaultPrevented</td><td class="type">boolean</td><td class="desc">True once a handler has refused the hide.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">preventDefault</td><td class="type">(reason?: string): void</td><td class="desc"><code>reason?: string</code></td><td class="type"><code>void</code></td><td class="desc">Refuse the hide; the cell then stays visible.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellAfterHideEvent">ShellAfterHideEvent</h4>
+    <p class="section-note">The payload of an `afterHide` event.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">string</td><td class="desc">Which event this is: `afterHide`.</td></tr>
+          <tr><td class="name">cellId</td><td class="type">string</td><td class="desc">The id of the cell that just hid.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellBeforeShowEvent">ShellBeforeShowEvent</h4>
+    <p class="section-note">The payload of a `beforeShow` event.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">string</td><td class="desc">Which event this is: `beforeShow`.</td></tr>
+          <tr><td class="name">cellId</td><td class="type">string</td><td class="desc">The id of the cell about to be shown.</td></tr>
+          <tr><td class="name">reason</td><td class="type">string | null</td><td class="desc">The reason given to `preventDefault`, or `null` while nothing has refused the show.</td></tr>
+          <tr><td class="name">defaultPrevented</td><td class="type">boolean</td><td class="desc">True once a handler has refused the show.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">preventDefault</td><td class="type">(reason?: string): void</td><td class="desc"><code>reason?: string</code></td><td class="type"><code>void</code></td><td class="desc">Refuse the show; the cell then stays hidden.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellAfterShowEvent">ShellAfterShowEvent</h4>
+    <p class="section-note">The payload of an `afterShow` event.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">string</td><td class="desc">Which event this is: `afterShow`.</td></tr>
+          <tr><td class="name">cellId</td><td class="type">string</td><td class="desc">The id of the cell that just showed.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellTabChangeEvent">ShellTabChangeEvent</h4>
+    <p class="section-note">The payload of a `tabChange` event.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">cellId</td><td class="type">string</td><td class="desc">The id of the cell whose tab changed.</td></tr>
+          <tr><td class="name">tabId</td><td class="type">string</td><td class="desc">The id of the now-active tab.</td></tr>
+          <tr><td class="name">previousTabId</td><td class="type">string | null</td><td class="desc">The id of the previously-active tab, or `null` on the first switch.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellState">ShellState</h4>
+    <p class="section-note">The JSON-able snapshot `getState()` returns and `setState()` accepts.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">version</td><td class="type">number</td><td class="desc">The state-format version; currently `1`.</td></tr>
+          <tr><td class="name">type</td><td class="type"><a href="#type-ShellType">ShellType</a> <small class="literals">'line' | 'wide' | 'space' | 'none'</small></td><td class="desc">The separator between cells.</td></tr>
+          <tr><td class="name">padding</td><td class="type">number | string</td><td class="desc">The shell root's inner padding. <small>(optional)</small></td></tr>
+          <tr><td class="name">css</td><td class="type">Record&lt;string, string | number&gt; | string</td><td class="desc">Extra CSS on the shell root. <small>(optional)</small></td></tr>
+          <tr><td class="name">rows</td><td class="type"><a href="#type-ShellCell">ShellCell</a>[]</td><td class="desc">The top-level cells laid out left-to-right, each carrying its sizes, gravity and mutable state. <small>(optional)</small></td></tr>
+          <tr><td class="name">cols</td><td class="type"><a href="#type-ShellCell">ShellCell</a>[]</td><td class="desc">The top-level cells laid out top-to-bottom (used when `rows` is absent). <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellStateChangeEvent">ShellStateChangeEvent</h4>
+    <p class="section-note">`stateChange`: `setState()` applied a snapshot and the arrangement now matches it. A notification, so it carries no `preventDefault`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">string</td><td class="desc">Which event this is: `stateChange`.</td></tr>
+          <tr><td class="name">state</td><td class="type"><a href="#type-ShellState">ShellState</a></td><td class="desc">The state now live — the same shape `getState()` returns.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellBeforeEvent">ShellBeforeEvent</h4>
+    <p class="section-note">The members every cancellable shell before-event carries (BACKLOG-0002136).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">string</td><td class="desc">The event's own name.</td></tr>
+          <tr><td class="name">origin</td><td class="type"><a href="#type-EventOrigin">EventOrigin</a> <small class="literals">'api' | 'user' | 'init' | 'ai'</small></td><td class="desc">Where the action came from.</td></tr>
+          <tr><td class="name">defaultPrevented</td><td class="type">boolean</td><td class="desc">True once any handler has cancelled the resize. <small>(read-only)</small></td></tr>
+          <tr><td class="name">reason</td><td class="type">string | null</td><td class="desc">The first reason given to `preventDefault`, or null. <small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">preventDefault</td><td class="type">(reason?: string): void</td><td class="desc"><code>reason?: string</code></td><td class="type"><code>void</code></td><td class="desc">Cancel the pending resize; the reason is surfaced on the event's `reason`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellResizeEvent">ShellResizeEvent</h4>
+    <p class="section-note">The two neighbouring cells a splitter resize affects, plus their sizes (BACKLOG-0002136).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">axis</td><td class="type">'rows' | 'cols'</td><td class="desc">The layout axis being resized: `'rows'` resizes widths, `'cols'` resizes heights.</td></tr>
+          <tr><td class="name">cells</td><td class="type">[string, string]</td><td class="desc">The two cells' ids, in axis order (the `resizable` cell first).</td></tr>
+          <tr><td class="name">sizes</td><td class="type">[number, number]</td><td class="desc">Each cell's main-axis size in pixels, in the same order as `cells`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-Shell">Shell</h4>
+    <p class="section-note">The shell instance {@link createShell} returns.</p>
+    <h5 id="type-Shell-properties">Properties</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">el</td><td class="type">HTMLElement | null</td><td class="desc">The host element. <small>(read-only)</small></td></tr>
+          <tr><td class="name">config</td><td class="type"><a href="#type-ShellConfig">ShellConfig</a></td><td class="desc">The normalised config. <small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-Shell-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">getCell</td><td class="type">(id: string): <a href="#type-ShellCellInstance">ShellCellInstance</a> | undefined</td><td class="desc"><code>id: string</code></td><td class="type"><code><a href="#type-ShellCellInstance">ShellCellInstance</a> | undefined</code></td><td class="desc">The cell handle for an id, or `undefined` when no cell has that id.</td></tr>
+          <tr><td class="name">forEach</td><td class="type">(fn: (cell: <a href="#type-ShellCellInstance">ShellCellInstance</a>) =&gt; void): void</td><td class="desc"><code>fn: (cell: <a href="#type-ShellCellInstance">ShellCellInstance</a>) =&gt; void</code></td><td class="type"><code>void</code></td><td class="desc">Walk every cell in tree order, handing each handle to `fn`.</td></tr>
+          <tr><td class="name">getState</td><td class="type">(): <a href="#type-ShellState">ShellState</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-ShellState">ShellState</a></code></td><td class="desc">Snapshot the arrangement as JSON: sizes, gravity, and every cell's mutable state.</td></tr>
+          <tr><td class="name">setState</td><td class="type">(state: <a href="#type-ShellState">ShellState</a>): void</td><td class="desc"><code>state: <a href="#type-ShellState">ShellState</a></code></td><td class="type"><code>void</code></td><td class="desc">Apply a snapshot, preserving the content mounted into each cell; fires `stateChange`.</td></tr>
+          <tr><td class="name">addCell</td><td class="type">(parentId: string | null | undefined, config?: <a href="#type-ShellCell">ShellCell</a>, index?: number): <a href="#type-ShellCellInstance">ShellCellInstance</a> | undefined</td><td class="desc"><code>parentId: string | null | undefined</code><br><code>config?: <a href="#type-ShellCell">ShellCell</a></code><br><code>index?: number</code></td><td class="type"><code><a href="#type-ShellCellInstance">ShellCellInstance</a> | undefined</code></td><td class="desc">Add a cell to the tree live, synchronously — its element is in the document and sized when this returns. `parentId` is the cell to add into (or `null`/`undefined` for the shell root; a leaf or tabbed cell is refused), and `index` is where among the parent's children (the end when omitted). The cancellable `beforeAddCell` runs first, then `afterAddCell`.</td></tr>
+          <tr><td class="name">removeCell</td><td class="type">(id: string): <a href="#type-ShellCellInstance">ShellCellInstance</a> | undefined</td><td class="desc"><code>id: string</code></td><td class="type"><code><a href="#type-ShellCellInstance">ShellCellInstance</a> | undefined</code></td><td class="desc">Remove a cell and its subtree from the tree live, releasing every piece of content inside it (detached, never destroyed). The cancellable `beforeRemoveCell` runs first, then `afterRemoveCell`.</td></tr>
+          <tr><td class="name">on</td><td class="type">(name: <a href="#type-ShellEventName">ShellEventName</a> | '*', fn: (event: <a href="#type-ShellEventPayloads">ShellEventPayloads</a>[<a href="#type-ShellEventName">ShellEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>name: <a href="#type-ShellEventName">ShellEventName</a> | '*'</code><br><code>fn: (event: <a href="#type-ShellEventPayloads">ShellEventPayloads</a>[<a href="#type-ShellEventName">ShellEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Subscribe to a shell event or to `'*'` for every event; returns an unsubscribe.</td></tr>
+          <tr><td class="name">off</td><td class="type">(name: <a href="#type-ShellEventName">ShellEventName</a> | '*', fn: (event: <a href="#type-ShellEventPayloads">ShellEventPayloads</a>[<a href="#type-ShellEventName">ShellEventName</a>]) =&gt; void): void</td><td class="desc"><code>name: <a href="#type-ShellEventName">ShellEventName</a> | '*'</code><br><code>fn: (event: <a href="#type-ShellEventPayloads">ShellEventPayloads</a>[<a href="#type-ShellEventName">ShellEventName</a>]) =&gt; void</code></td><td class="type"><code>void</code></td><td class="desc">Remove a handler registered with {@link Shell#on}.</td></tr>
+          <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Empty the element and drop every cell record, splitter listener and handler.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-Shell-events">Events</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Event</th><th>When</th><th>Payload</th><th>Cancellable</th></tr></thead>
+        <tbody>
+          <tr><td class="name">beforeCollapse</td><td class="desc">A cell is about to fold to its header strip; cancellable.</td><td class="type"><a href="#type-ShellBeforeToggleEvent">ShellBeforeToggleEvent</a></td><td class="desc">yes</td></tr>
+          <tr><td class="name">beforeExpand</td><td class="desc">A cell is about to open back to its previous size; cancellable.</td><td class="type"><a href="#type-ShellBeforeToggleEvent">ShellBeforeToggleEvent</a></td><td class="desc">yes</td></tr>
+          <tr><td class="name">afterCollapse</td><td class="desc">A cell folded to its header strip.</td><td class="type"><a href="#type-ShellAfterToggleEvent">ShellAfterToggleEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">afterExpand</td><td class="desc">A cell opened back to its previous size.</td><td class="type"><a href="#type-ShellAfterToggleEvent">ShellAfterToggleEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">beforeAddCell</td><td class="desc">A cell is about to be added; cancellable.</td><td class="type"><a href="#type-ShellBeforeAddCellEvent">ShellBeforeAddCellEvent</a></td><td class="desc">yes</td></tr>
+          <tr><td class="name">afterAddCell</td><td class="desc">A cell was added, already in the document and sized.</td><td class="type"><a href="#type-ShellAfterAddCellEvent">ShellAfterAddCellEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">beforeRemoveCell</td><td class="desc">A cell is about to be removed; cancellable.</td><td class="type"><a href="#type-ShellBeforeRemoveCellEvent">ShellBeforeRemoveCellEvent</a></td><td class="desc">yes</td></tr>
+          <tr><td class="name">afterRemoveCell</td><td class="desc">A cell (and its subtree) was removed, its content released.</td><td class="type"><a href="#type-ShellAfterRemoveCellEvent">ShellAfterRemoveCellEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">beforeHide</td><td class="desc">A cell is about to be hidden; cancellable.</td><td class="type"><a href="#type-ShellBeforeHideEvent">ShellBeforeHideEvent</a></td><td class="desc">yes</td></tr>
+          <tr><td class="name">afterHide</td><td class="desc">A cell hid, giving its space to its neighbours.</td><td class="type"><a href="#type-ShellAfterHideEvent">ShellAfterHideEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">beforeShow</td><td class="desc">A cell is about to be shown; cancellable.</td><td class="type"><a href="#type-ShellBeforeShowEvent">ShellBeforeShowEvent</a></td><td class="desc">yes</td></tr>
+          <tr><td class="name">afterShow</td><td class="desc">A cell showed, restoring its space.</td><td class="type"><a href="#type-ShellAfterShowEvent">ShellAfterShowEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">tabChange</td><td class="desc">A tabbed cell's active tab changed.</td><td class="type"><a href="#type-ShellTabChangeEvent">ShellTabChangeEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">stateChange</td><td class="desc">`stateChange`: `setState()` applied a snapshot and the arrangement now matches it.</td><td class="type"><a href="#type-ShellStateChangeEvent">ShellStateChangeEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">beforeResizeStart</td><td class="desc">A pointer or keyboard resize gesture is about to begin; cancel it to keep the two cells' sizes.</td><td class="type">ShellResizeStartEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">resize</td><td class="desc">The two cells' sizes changed during a drag, or after an arrow/Home/End key.</td><td class="type"><a href="#type-ShellResizeEvent">ShellResizeEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">afterResizeEnd</td><td class="desc">A resize gesture ended; the two cells hold their final sizes.</td><td class="type"><a href="#type-ShellResizeEvent">ShellResizeEvent</a></td><td class="desc">no</td></tr>
         </tbody>
       </table>
     </div>
@@ -34631,6 +35368,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">A column definition: an id string, or an object configuring one column.</p>
     <p class="type-def"><code>type KanbanColumnDef = string | { id: string; title?: string; color?: string; wipLimit?: number; collapsed?: boolean; sla?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a> | { warn?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a>; breach?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a> }; slaWarn?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a>; slaBreach?: <a href="#type-KanbanSlaThreshold">KanbanSlaThreshold</a>; }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
+    <h4 id="type-KanbanColumnWidth">KanbanColumnWidth</h4>
+    <p class="section-note">The column-width mode (BACKLOG-0002153). A number fixes the width in pixels; `'fill'` (the default) shares the board width equally between the columns, never below {@link KanbanConfig.minColumnWidth}; `'auto'` keeps the natural fixed width the `--lattice-board-column-width` token declares (default 280px). The token, when the host sets it, still overrides the option.</p>
+    <p class="type-def"><code>type KanbanColumnWidth = number | 'fill' | 'auto'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
     <h4 id="type-KanbanDensity">KanbanDensity</h4>
     <p class="section-note">The card density (BACKLOG-0002107): `'compact'` tightens each card's padding and drops the subtitle so a column fits more cards; `'comfortable'` (the default) keeps the roomier card.</p>
     <p class="type-def"><code>type KanbanDensity = 'compact' | 'comfortable'</code></p>
@@ -34785,6 +35526,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h4 id="type-LatticeVueSchedulerProps">LatticeVueSchedulerProps</h4>
     <p class="section-note">The scheduler's Vue props (BACKLOG-0002128).</p>
     <p class="type-def"><code>type LatticeVueSchedulerProps = Record&lt;string, unknown&gt; &amp; <a href="#type-LatticeVueViewerCommonProps">LatticeVueViewerCommonProps</a> &amp; { resources?: <a href="#type-SchedulerConfig">SchedulerConfig</a>['resources']; events?: <a href="#type-SchedulerConfig">SchedulerConfig</a>['events']; zoom?: <a href="#type-SchedulerConfig">SchedulerConfig</a>['zoom']; } &amp; <a href="#type-LatticeVueListeners">LatticeVueListeners</a>&lt;'zoom-change', <a href="#type-SchedulerZoomChangeEvent">SchedulerZoomChangeEvent</a>&gt;</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/vue</code>.</small></p>
+    <h4 id="type-LatticeVueShellProps">LatticeVueShellProps</h4>
+    <p class="section-note">The shell's Vue props: the arrangement, the common ones, and its state event.</p>
+    <p class="type-def"><code>type LatticeVueShellProps = Record&lt;string, unknown&gt; &amp; <a href="#type-LatticeVueViewerCommonProps">LatticeVueViewerCommonProps</a> &amp; <a href="#type-LatticeVueListeners">LatticeVueListeners</a>&lt;'state-change', <a href="#type-ShellStateChangeEvent">ShellStateChangeEvent</a>&gt;</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/vue</code>.</small></p>
     <h4 id="type-LatticeVueTabsProps">LatticeVueTabsProps</h4>
     <p class="section-note">The tab strip's Vue props.</p>
@@ -35065,6 +35810,22 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h4 id="type-ShadowWithin">ShadowWithin</h4>
     <p class="section-note">Whether a rolling shadow is computed per group, or across the whole dataset.</p>
     <p class="type-def"><code>type ShadowWithin = 'group' | 'all'</code></p>
+    <h4 id="type-ShellContent">ShellContent</h4>
+    <p class="section-note">Anything `attach()` mounts: a Lattice view, a DOM element, or an HTML string (converted once and reused).</p>
+    <p class="type-def"><code>type ShellContent = HTMLElement | string | <a href="#type-ShellWidget">ShellWidget</a></code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/shell</code>.</small></p>
+    <h4 id="type-ShellEventName">ShellEventName</h4>
+    <p class="section-note">The events a shell raises, on `shell.on()` (BACKLOG-0002136, BACKLOG-0002137, BACKLOG-0002138, BACKLOG-0002139, BACKLOG-0002140). The shell's own, not a grid's: `grid.on` takes {@link EventName} and knows nothing about these. `on()` warns once on any other name, because a binding to an event that can never fire is a silent no-op. The cancellable `before*` events — `beforeCollapse`, `beforeExpand`, `beforeAddCell`, `beforeRemoveCell`, `beforeHide`, `beforeShow` and `beforeResizeStart` — run before the cell moves, on the same contract the grid core uses: call `preventDefault(reason?)` on the payload, or return `false`; a veto keeps the cell (or the two cells' sizes) unchanged. The past-tense events — `afterCollapse`, `afterExpand`, `afterAddCell`, `afterRemoveCell`, `afterHide`, `afterShow`, `resize`, `afterResizeEnd`, `tabChange` and `stateChange` — report a change already applied and carry no `preventDefault`.</p>
+    <p class="type-def"><code>type ShellEventName = 'beforeCollapse' | 'beforeExpand' | 'afterCollapse' | 'afterExpand' | 'beforeAddCell' | 'afterAddCell' | 'beforeRemoveCell' | 'afterRemoveCell' | 'beforeHide' | 'afterHide' | 'beforeShow' | 'afterShow' | 'tabChange' | 'stateChange' | 'beforeResizeStart' | 'resize' | 'afterResizeEnd'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/shell</code>.</small></p>
+    <h4 id="type-ShellSize">ShellSize</h4>
+    <p class="section-note">A cell size: pixels as a number, or any CSS length string such as `'30%'`.</p>
+    <p class="type-def"><code>type ShellSize = number | string</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/shell</code>.</small></p>
+    <h4 id="type-ShellType">ShellType</h4>
+    <p class="section-note">The separator between cells: thin lines, wide lines, an even gap, or none.</p>
+    <p class="type-def"><code>type ShellType = 'line' | 'wide' | 'space' | 'none'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/shell</code>.</small></p>
     <h4 id="type-ShowWhen">ShowWhen</h4>
     <p class="section-note">When a leaf column or a column group is shown, relative to an ancestor band's open state.</p>
     <p class="type-def"><code>type ShowWhen = 'open' | 'closed' | 'always'</code></p>
@@ -35215,7 +35976,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.97.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.98.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>
