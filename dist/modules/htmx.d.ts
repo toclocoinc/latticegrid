@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.96.0, htmx module type declarations
+ * Lattice Grid 1.97.0, htmx module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -168,6 +168,40 @@ export function restoreSwappedGantts(): void;
 /** Wire document-level `data-lattice-row` out-of-band task updates for Gantts. */
 export function driveGanttOobUpdates(opts?: { doc?: Document }): () => void;
 /**
+ * Build a scheduler on every uninitialised `[data-lattice-scheduler]` element
+ * under `root`, mounted over the server-rendered `<table>`
+ * that element wraps — one `<tr>` per event, one `<th data-field>` per event
+ * field. The scheduler twin of {@link autoInitGantt}: idempotent (an element
+ * already carrying `.__latticeScheduler` is skipped), and the factory is
+ * resolved from {@link registerScheduler} / the script-tag global rather than
+ * inlined into the htmx bundle.
+ */
+export function autoInitScheduler(root?: ParentNode): unknown[];
+/** The marker attribute `autoInitScheduler` scans for: `data-lattice-scheduler`. */
+export const SCHEDULER_ATTR: string;
+/**
+ * The bubbling DOM event re-raised on the host for every reassign —
+ * `lattice:scheduler-change`, with `{ id, kind, resource: { from, to } }` in
+ * `detail` — so `hx-trigger="lattice:scheduler-change"` can POST it.
+ */
+export const SCHEDULER_CHANGE_EVENT: string;
+/**
+ * Register the scheduler factory the adapter builds with. The page's own
+ * scheduler module calls this once on load; a page loading both may instead
+ * rely on the script-tag global (`globalThis.LatticeGridScheduler.createScheduler`).
+ */
+export function registerScheduler(factory: Function): void;
+/** Destroy every scheduler within an element htmx is about to detach. */
+export function destroySchedulerWithin(root: ParentNode): number;
+/** Write every live scheduler's view state into `data-lattice-scheduler-state` and swap its original table back in. */
+export function saveSchedulerStateWithin(root: ParentNode): number;
+/** Rebuild schedulers onto a restored subtree and reapply their saved view state. */
+export function restoreSchedulerStateWithin(root: ParentNode, scan?: Function): number;
+/** Undo the table swaps `saveSchedulerStateWithin` queued (called a microtask after history save). */
+export function restoreSwappedSchedulers(): void;
+/** Wire document-level `data-lattice-row` out-of-band event updates for schedulers. */
+export function driveSchedulerOobUpdates(opts?: { doc?: Document }): () => void;
+/**
  * Build a Designer on every uninitialised `[data-lattice-designer]` element
  * under `root`, from its config — the mode, saved state and
  * guardrails — with live data read from the grid named by its
@@ -247,6 +281,14 @@ export function restoreMapStateWithin(root: ParentNode, scan?: Function): number
 export function autoInitKanban(root?: ParentNode): unknown[];
 /** The marker attribute `autoInitKanban` scans for: `data-lattice-kanban`. */
 export const KANBAN_ATTR: string;
+/**
+ * The bubbling DOM event re-raised on a declarative board's host for each
+ * moved card — `lattice:kanban-change`, with
+ * `{ id, from, to, index, lane }` in `detail` (the card key, the column it
+ * left, the column it landed in, the requested position and the swimlane) —
+ * so `hx-trigger="lattice:kanban-change"` can POST a drag.
+ */
+export const KANBAN_CHANGE_EVENT: string;
 /**
  * Register the board factory the adapter builds with. The page's own Kanban
  * module calls this once on load; a page loading both may instead rely on the

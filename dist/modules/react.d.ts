@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.96.0, react module type declarations
+ * Lattice Grid 1.97.0, react module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -26,6 +26,7 @@ import type {
   Designer, DesignerModeEvent, DesignerOptions, DesignerPageEvent,
   DesignerSelectEvent, DesignerStateEvent,
 } from './designer.js';
+import type { SchedulerConfig, SchedulerZoomChangeEvent } from './scheduler.js';
 
 /**
  * The handler prop name one event maps to, as a type: `'cell:changed'`
@@ -231,6 +232,14 @@ export type LatticeGanttProps = Record<string, unknown> & LatticeViewerCommonPro
 /** The layout's React props. */
 export type LatticeLayoutProps = Record<string, unknown> & LatticeViewerCommonProps;
 
+/** The scheduler's React props. */
+export type LatticeSchedulerProps = Record<string, unknown> & LatticeViewerCommonProps & {
+  resources?: SchedulerConfig['resources'];
+  events?: SchedulerConfig['events'];
+  zoom?: SchedulerConfig['zoom'];
+  onZoomChange?: (payload: SchedulerZoomChangeEvent) => void;
+};
+
 /** One tab of a `<LatticeTabs>`; `content` makes it React's rather than the module's. */
 export interface LatticeTabSpec {
   /**
@@ -307,6 +316,11 @@ export function createLatticeGantt(deps: {
 export function createLatticeLayout(deps: {
   React: unknown; createLayout: (el: unknown, config: Record<string, unknown>) => unknown;
 }): (props: LatticeLayoutProps & { ref?: unknown }) => unknown;
+
+/** The resource scheduler as a React component. */
+export function createLatticeScheduler(deps: {
+  React: unknown; createScheduler: (el: unknown, config: Record<string, unknown>) => unknown;
+}): (props: LatticeSchedulerProps & { ref?: unknown }) => unknown;
 
 /**
  * The tab strip, with React-rendered tab content.

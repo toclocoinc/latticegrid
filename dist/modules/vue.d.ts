@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.96.0, vue module type declarations
+ * Lattice Grid 1.97.0, vue module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -24,6 +24,7 @@ import type {
   Designer, DesignerModeEvent, DesignerOptions, DesignerPageEvent,
   DesignerSelectEvent, DesignerStateEvent,
 } from './designer.js';
+import type { SchedulerConfig, SchedulerZoomChangeEvent } from './scheduler.js';
 
 /**
  * The event name a Vue template binds, as a type: `'cell:changed'` becomes
@@ -259,6 +260,13 @@ export type LatticeVueGanttProps = Record<string, unknown> & LatticeVueViewerCom
 /** The layout's Vue props. */
 export type LatticeVueLayoutProps = Record<string, unknown> & LatticeVueViewerCommonProps;
 
+/** The scheduler's Vue props. */
+export type LatticeVueSchedulerProps = Record<string, unknown> & LatticeVueViewerCommonProps & {
+  resources?: SchedulerConfig['resources'];
+  events?: SchedulerConfig['events'];
+  zoom?: SchedulerConfig['zoom'];
+} & LatticeVueListeners<'zoom-change', SchedulerZoomChangeEvent>;
+
 /** One tab of a `<LatticeTabs>`; a slot named for its `id` makes it Vue's. */
 export interface LatticeVueTabSpec {
   /**
@@ -338,6 +346,12 @@ export function createLatticeGantt(deps: {
 export function createLatticeLayout(deps: {
   vue: unknown; createLayout: (el: unknown, config: Record<string, unknown>) => unknown;
 }): LatticeVueComponent<LatticeVueLayoutProps, LatticeVueViewerEmit<string>,
+  LatticeVueViewerExposed>;
+
+/** The resource scheduler as a Vue component. */
+export function createLatticeScheduler(deps: {
+  vue: unknown; createScheduler: (el: unknown, config: Record<string, unknown>) => unknown;
+}): LatticeVueComponent<LatticeVueSchedulerProps, LatticeVueViewerEmit<string>,
   LatticeVueViewerExposed>;
 
 /**

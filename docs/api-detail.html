@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.96.0</p>
+    <p class="rail__sub">Developer guide · v1.97.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.96.0</span>
+        <span class="chip">Version 1.97.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -831,7 +831,7 @@ createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so out
 <span class="cmt">// createLatticeReact builds whichever components the factories you pass support.</span>
 <span class="cmt">// The individual factories are there too, if you want only one:</span>
 <span class="cmt">// createLatticeGrid, createLatticeKPI, createLatticeChart, createLatticeKanban,</span>
-<span class="cmt">// createLatticeCalendar, createLatticeGantt, createLatticeLayout, createLatticeTabs,</span>
+<span class="cmt">// createLatticeCalendar, createLatticeGantt, createLatticeScheduler, createLatticeLayout, createLatticeTabs,</span>
 <span class="cmt">// createLatticeDesigner, createLatticeGridContext, createLatticeRouter, createLatticeViewer.</span>
 <span class="kw">const</span> L = createLatticeReact({
   React, ReactDOM, createGrid, createKPI, createChart, createTabs, createDataRouter,
@@ -867,7 +867,7 @@ createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so out
       its own tab strip, because the tabs module builds its tabs' grids itself and a grid built that
       way is not a component.       <code>createLatticeKPI</code>, <code>createLatticeChart</code>,
       <code>createLatticeKanban</code>, <code>createLatticeCalendar</code>, <code>createLatticeGantt</code>,
-      <code>createLatticeLayout</code>, <code>createLatticeTabs</code> and
+      <code>createLatticeScheduler</code>, <code>createLatticeLayout</code>, <code>createLatticeTabs</code> and
       <code>createLatticeDesigner</code> each return one component;
       <code>createLatticeViewer</code> is the generic behind them, for anything not yet named, and
       <code>createViewerController</code> is the framework-free lifecycle underneath.
@@ -1024,7 +1024,7 @@ createGrid(element, { direction: 'rtl' });    <span class="cmt">// or say so out
 <span class="cmt">// createLatticeVue builds whichever components the factories you pass support.</span>
 <span class="cmt">// The individual factories are there too, if you want only one:</span>
 <span class="cmt">// createLatticeGrid, createLatticeKPI, createLatticeChart, createLatticeKanban,</span>
-<span class="cmt">// createLatticeCalendar, createLatticeGantt, createLatticeLayout, createLatticeTabs,</span>
+<span class="cmt">// createLatticeCalendar, createLatticeGantt, createLatticeScheduler, createLatticeLayout, createLatticeTabs,</span>
 <span class="cmt">// createLatticeDesigner, createLatticeGridContext, createLatticeRouter, createLatticeViewer.</span>
 <span class="kw">export const</span> L = createLatticeVue({
   vue, createGrid, createKPI, createChart, createTabs, createDataRouter,
@@ -1063,7 +1063,7 @@ L.provideLatticeRouter(ROUTER_CONFIG);
       grids itself and a grid built that way is not a component.
       <code>createLatticeKPI</code>, <code>createLatticeChart</code>,
       <code>createLatticeKanban</code>, <code>createLatticeCalendar</code>, <code>createLatticeGantt</code>,
-      <code>createLatticeLayout</code>, <code>createLatticeTabs</code> and
+      <code>createLatticeScheduler</code>, <code>createLatticeLayout</code>, <code>createLatticeTabs</code> and
       <code>createLatticeDesigner</code> each return one component
       definition; <code>createLatticeViewer</code> is the generic behind them, for anything not yet
       named, and <code>createViewerController</code> is the framework-free lifecycle underneath.
@@ -1475,6 +1475,29 @@ autoInit(document);</code></pre>
       and reapplies zoom, visible range, scroll, collapsed rows and column widths on a
       cache hit, and <code>restoreSwappedGantts</code> puts the rendered plan back once
       htmx has snapshotted.</p>
+      <p id="htmx-guide-scheduler"><strong>The resource scheduler initialises through
+      <code>data-lattice-scheduler</code> over its server-rendered event table.</strong>
+      <code>autoInitScheduler</code> builds a scheduler on every
+      <code>[data-lattice-scheduler]</code> element it has not already built one for
+      (idempotent, like <code>autoInit</code>): the element wraps a plain
+      <code>&lt;table&gt;</code> whose <code>&lt;th data-field&gt;</code> cells name the
+      event fields (<code>resourceId</code>, <code>startDate</code>, <code>endDate</code>,
+      <code>name</code>) and whose <code>&lt;tr&gt;</code>/<code>&lt;td&gt;</code> cells are
+      the events, and the scheduler derives its resource rows from the events' resource
+      field. Because the scheduler engine is not inlined into the htmx bundle, the page
+      hands the adapter its factory first — <code>registerScheduler(createScheduler)</code>
+      from the page's own scheduler module, or the script-tag global
+      <code>globalThis.LatticeGridScheduler.createScheduler</code> the module's UMD build
+      publishes — so a page with htmx and no scheduler pays nothing for it. Every reassign
+      is re-raised as a bubbling <code>lattice:scheduler-change</code> on the host with
+      <code>{ id, kind, resource: { from, to } }</code>, and an out-of-band
+      <code>data-lattice-row="&lt;event id&gt;"</code> fragment patches that event through
+      the scheduler's own <code>events.apply</code>. Browser history carries the view the
+      same way a grid's does: on <code>htmx:beforeHistorySave</code> the original table is
+      swapped back in for the snapshot, <code>restoreSchedulerStateWithin</code> re-reads it
+      and reapplies the zoom and scroll on a cache hit, and
+      <code>restoreSwappedSchedulers</code> puts the rendered schedule back once htmx has
+      snapshotted.</p>
       <p id="htmx-guide-designer"><strong>The Designer initialises through
       <code>data-lattice-designer</code>, declared entirely from server-rendered
       state.</strong> <code>autoInitDesigner</code> builds a dashboard designer on every
@@ -1592,6 +1615,25 @@ autoInit(document);</code></pre>
       likewise sets <code>format</code> when present. <code>hydrateTable</code>'s
       own <code>config.columns</code>, when given, still takes precedence over
       both for the same column.</p>
+      <p id="htmx-guide-data-edit"><strong>Making a hydrated column editable
+      from the table.</strong> A <code>&lt;th data-edit&gt;</code> enables editing
+      for that column (BACKLOG-0002130): the bare attribute or
+      <code>data-edit="true"</code> is the <code>edit: true</code> shorthand,
+      <code>data-edit="&lt;editor&gt;"</code> names the editor exactly as the config
+      shorthand does, and <code>data-edit="false"</code> keeps the column read-only.
+      Once editable, a committed cell edit re-raises the same bubbling
+      <code>lattice:grid-change</code> a config-built grid raises, so a table that
+      carries <code>hx-trigger="lattice:grid-change"</code> can POST the edit.</p>
+      <p id="htmx-guide-row-keys"><strong>Row keys on a hydrated table.</strong>
+      A <code>&lt;tr&gt;</code>'s synthetic key reads <code>data-lattice-row</code>
+      first, then <code>data-id</code>, then the row index — the same order the
+      out-of-band handler reads it, so a row written
+      <code>&lt;tr data-lattice-row="A2"&gt;</code> is the row a later
+      <code>hx-swap-oob</code> fragment for <code>data-lattice-row="A2"</code>
+      patches (BACKLOG-0002130). An out-of-band anchor
+      <code>&lt;i id="postable-A2" data-lattice-row="A2"&gt;</code> written next to the
+      table — a sibling of the host after hydration — is claimed too, even though
+      it sits outside the host.</p>
       <p id="htmx-guide-columns-merge"><strong>Hydrating with <code>columns</code>
       merges rather than replaces.</strong> A <code>columns</code> entry in the
       hydrate config refines the column it names while the rest still come from
@@ -1824,7 +1866,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.96.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.97.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -10738,6 +10780,70 @@ const routed = target.rows.count;                  // 2
 target.destroy(); router.destroy(); grid.destroy(); bound.destroy();
 return boundCount + '|' + routed;</code></pre>
 
+    <h3 id="scheduler-live">The resource scheduler module</h3>
+    <p class="section-note">The opt-in scheduler: resources as rows in a real grid on the left, events as bars on a shared time axis on the right, reusing the Gantt's time scale and calendars.</p>
+    <pre><code><span class="kw">import</span> { createScheduler } <span class="kw">from</span> <span class="str">'@toclocoinc/lattice-grid/modules/scheduler'</span>;</code></pre>
+    <p class="lead-in">
+      <code>createScheduler(element, config)</code> mounts a read-only schedule. The
+      <code>resources</code> array seeds the rows (one per resource, keyed by
+      <code>resourceKey</code>, drawn through the <code>columns</code> you name, defaulting to name,
+      role and capacity), and the <code>events</code> array seeds the bars (one per event, keyed by
+      <code>eventKey</code>, addressed to a resource through <code>fields</code>, which names the
+      <code>resourceId</code>, <code>startDate</code> and <code>endDate</code> properties). The left
+      table is a real Lattice grid &mdash; pass your own <code>createGrid</code> so the module never
+      bundles its own core &mdash; and the right side lays bars along a shared time axis at the chosen
+      <code>zoom</code>: <code>hour</code>, <code>day</code>, <code>week</code>, <code>month</code> or
+      <code>quarter</code>, pinned by <code>date</code> and <code>weekStartDay</code>.
+    </p>
+    <div class="why">
+      <p><strong>Calendars shade the axis, per resource.</strong> When <code>nonWorking</code> is on,
+      each resource's <code>calendars</code> entry shades that row's non-working days, exactly as the
+      Gantt shades them, and the <code>todayLine</code> marks today. A row's height is
+      <code>rowHeight</code>; its text renders in the <code>locale</code> and
+      <code>timeZone</code> you name.</p>
+      <p><strong>Overlaps stack, not collide.</strong> Events that share a resource and a span split
+      into sub-lanes, so two events in one row sit side by side. A bar's colour comes from
+      <code>colorProperty</code> and <code>colorMap</code>.</p>
+      <p><strong>Find and read the plan.</strong> A <code>groupBy</code> &mdash; a field name or a
+      per-resource function &mdash; groups the resources into collapsible rows, driven by the left
+      grid's own grouping so the two panes can never disagree, and a <code>search</code> query narrows
+      rows and bars at once (a row stays when its own text <em>or</em> one of its events' text
+      matches, so a match never orphans its bar). A <code>resourceFilter</code> hides rows and an
+      <code>eventFilter</code> hides bars, each a predicate the row must pass. The Gantt's tooltip
+      card opens on an event's hover or keyboard focus with its start, end, duration and resource;
+      every bar, row and the axis is named for screen readers, and the keyboard alone reaches every
+      event &mdash; arrows between events and rows, Enter to activate, Home/End, and +/&minus; to
+      zoom.</p>
+      <p><strong>Bounded at any size.</strong> Rows and time are virtualised &mdash;
+      <code>overscan</code> sets how many rows render past the viewport &mdash; so a schedule of five
+      hundred resources and twenty thousand events keeps the DOM to the visible window. The
+      <code>ariaLabel</code> and <code>labels</code> options name the widget and its corner heading
+      for assistive technology.</p>
+      <p><strong>Headless and teardown.</strong> Pass <code>null</code> for the element and the model
+      still computes: <code>rows.apply</code> and <code>events.apply</code> take the same keyed-diff
+      shape a grid does, <code>setZoom</code>/<code>getZoom</code> change the level (emitting
+      <code>zoom:change</code>), <code>setEvents(events)</code> replaces the whole feed in one call,
+      and <code>destroy()</code> releases the grid and every listener.</p>
+      <p><strong>The workload band.</strong> <code>workload: true</code> (or
+      <code>{ hoursPerDay, defaultCapacity, decimals }</code>) draws a utilisation histogram across
+      the bottom of each row: one cell per zoom bucket, its fill height the booked share of that
+      resource's own capacity and calendar, computed with the Gantt's <code>computeWorkload</code>.
+      A bucket booked past capacity takes the theme's danger tokens <em>and</em> a warning glyph —
+      never colour alone — and the schedule's live region names each over-allocated resource with its
+      periods, so a screen reader hears it too. The band re-derives on every <code>setEvents</code>,
+      <code>events.apply</code>, <code>setZoom</code> or <code>rows.apply</code>, and a headless
+      scheduler exposes the same figures as <code>scheduler.workload</code>.</p>
+      <p><strong>Events are editable.</strong> When <code>editable</code> is on (the default), a bar
+      can be dragged to move it in time or dropped on another row to reassign it, either edge dragged
+      to resize, empty time in a row dragged to create an event, and Delete (or the right-click menu)
+      removes it. Each edit snaps to the zoom step, writes through <code>events.apply</code> like a
+      grid edit, is one step of <code>undo()</code>/<code>redo()</code> (Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z),
+      and raises one cancellable <code>beforeEventChange</code> then one <code>event:change</code>
+      carrying the event id and old/new values. A row or event marked <code>readOnly: true</code>, or
+      named by <code>readOnlyWhen</code> / <code>resourceReadOnlyWhen</code>, refuses the gesture with
+      a catalogued reason.</p>
+    </div>
+
     <h3 id="geometry-type">The geometry module</h3>
     <pre><code><span class="kw">import</span> <span class="str">'@toclocoinc/lattice-grid/modules/geometry'</span>;</code></pre>
     <p class="lead-in">
@@ -12808,7 +12914,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.96.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.97.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

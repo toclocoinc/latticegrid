@@ -1,5 +1,5 @@
 {
-  "version": "1.96.0",
+  "version": "1.97.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 734,
+  "count": 740,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -1787,6 +1787,17 @@
       "message": "grid.import.xlsx found no worksheet in the .xlsx; nothing to import.",
       "meaning": "The file inflated and parsed, and the workbook names no worksheet the importer can reach. An empty result is returned: no header, no rows, no sheet name. A workbook whose only sheet is a chart sheet looks like this.",
       "fix": "Check the workbook in a spreadsheet application; the importer reads the first ordinary worksheet.",
+      "docs": "api/grid.html#import"
+    },
+    {
+      "id": "import.xlsx.sheet",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.96.0",
+      "message": "grid.import.xlsx has no worksheet \"{sheet}\"; the workbook has: {sheets}.",
+      "meaning": "The `sheet` option named a worksheet the workbook does not have — by name or by a zero-based index past the end. The read is refused so a misspelled name cannot silently import the wrong sheet; the message lists every sheet the workbook does have.",
+      "fix": "Pass one of the listed names, or a zero-based index below the sheet count from `grid.import.xlsxSheets(bytes)`.",
+      "snippet": "const sheets = await grid.import.xlsxSheets(bytes);\nconst records = await grid.import.xlsx(bytes, { sheet: sheets[1].name });",
       "docs": "api/grid.html#import"
     },
     {
@@ -7259,6 +7270,28 @@
       "docs": "api-detail.html#htmx-guide-gantt"
     },
     {
+      "id": "htmx:scheduler-no-table",
+      "module": "htmx",
+      "severity": "warn",
+      "since": "1.97.0",
+      "message": "autoInitScheduler: data-lattice-scheduler found no <table> to read; skipped.",
+      "meaning": "A [data-lattice-scheduler] element must wrap a server-rendered <table> (one <tr> per event, one <th data-field> per event field) for the adapter to mount the scheduler over; this one had no table, so nothing was built and the element was left as-is.",
+      "fix": "Put the event <table> inside the [data-lattice-scheduler] element, or drop the marker if the element is not meant to hold a schedule.",
+      "snippet": "<div data-lattice-scheduler>\n  <table>…</table>\n</div>",
+      "docs": "api-detail.html#htmx-guide-scheduler"
+    },
+    {
+      "id": "htmx:scheduler-no-factory",
+      "module": "htmx",
+      "severity": "warn",
+      "since": "1.97.0",
+      "message": "autoInitScheduler: no scheduler factory registered and no globalThis.LatticeGridScheduler.createScheduler; load the scheduler module first.",
+      "meaning": "The htmx adapter does not inline the scheduler engine, so it needs a factory: one registered with registerScheduler(), or the script-tag global the scheduler module's UMD build publishes (globalThis.LatticeGridScheduler.createScheduler). Neither was present, so the table was left un-mounted.",
+      "fix": "Load the scheduler module and call registerScheduler(createScheduler), or load its UMD build as a <script> tag so globalThis.LatticeGridScheduler.createScheduler exists.",
+      "snippet": "import { registerScheduler } from '@toclocoinc/lattice-grid/modules/htmx';\nimport { createScheduler } from '@toclocoinc/lattice-grid/modules/scheduler';\nregisterScheduler(createScheduler);",
+      "docs": "api-detail.html#htmx-guide-scheduler"
+    },
+    {
       "id": "htmx:designer-no-factory",
       "module": "htmx",
       "severity": "warn",
@@ -7779,6 +7812,39 @@
       "fix": "Load the core's script build (e.g. `lattice-grid.min.js`) before `modules/kpi.min.js`, so `LatticeGrid.createGrid` exists before `createKPI` is called.",
       "snippet": "<script src=\"lattice-grid.min.js\"></script>\n<script src=\"modules/kpi.min.js\"></script>",
       "docs": "api/kpi.html#kpi"
+    },
+    {
+      "id": "scheduler:event:*",
+      "module": "scheduler",
+      "severity": "warn",
+      "since": "1.96.0",
+      "message": "\"{name}\" is not a scheduler event; expected one of {list}.",
+      "meaning": "`createScheduler`'s `on()` was given an event name the scheduler never emits, so the handler can never run. The subscription is still made; the typo is named.",
+      "fix": "Use `zoom:change` — the one event the scheduler emits.",
+      "snippet": "scheduler.on('zoom:change', (e) => console.log(e.level));",
+      "docs": "api/scheduler.html#scheduler"
+    },
+    {
+      "id": "scheduler:unparsable-start",
+      "module": "scheduler",
+      "severity": "warn",
+      "since": "1.96.0",
+      "message": "scheduler: an event's \"{field}\" is empty or unparsable, so it is not shown; count it in `unscheduled`.",
+      "meaning": "An event's start date did not read as a date, so no bar can be drawn for it. The event is not shown; it is counted in the model's `unscheduled` list instead of being thrown away.",
+      "fix": "Give every event a parseable start date, or drop the rows that have none.",
+      "snippet": "events: [{ id: 'e1', resourceId: 'alice', startDate: '2026-03-02 09:00' }]",
+      "docs": "api/scheduler.html#scheduler"
+    },
+    {
+      "id": "scheduler:read-only-refused",
+      "module": "scheduler",
+      "severity": "warn",
+      "since": "1.97.0",
+      "message": "scheduler: refused an edit to a read-only {which}; nothing changed.",
+      "meaning": "A pointer or keyboard edit targeted an event (or a resource) marked read-only — `readOnly: true` on the row, or the scheduler's `readOnlyWhen`/`resourceReadOnlyWhen` predicate — so the gesture was refused before its before-event fired. No data was written and no `event:change` was raised.",
+      "fix": "Edit a different event or resource, or remove the `readOnly` flag / loosen the read-only predicate.",
+      "snippet": "events: [{ id: 'e1', resourceId: 'alice', startDate: '2026-03-02 09:00', readOnly: true }]",
+      "docs": "api/scheduler.html#scheduler"
     }
   ]
 }

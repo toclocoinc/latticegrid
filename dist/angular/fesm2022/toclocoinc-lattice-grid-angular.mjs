@@ -845,6 +845,10 @@ const VIEWER_EVENTS$1 = Object.freeze({
         'beforeWindowClose', 'windowClose:cancelled',
     ]),
 
+    scheduler: Object.freeze([
+        'zoom:change', 'change', 'beforeEventChange', 'eventChange:cancelled', 'event:change',
+    ]),
+
     router: Object.freeze(['metrics', 'fields:changed']),
 });
 
@@ -893,6 +897,10 @@ const VIEWER_APPLY$1 = Object.freeze({
 
     chart: Object.freeze({}),
     layout: Object.freeze({}),
+    scheduler: Object.freeze({
+
+        zoom: (scheduler, value) => scheduler.setZoom(value),
+    }),
 });
 
 const VIEWER_BULK_UPDATE = Object.freeze({ chart: 'update' });
@@ -3261,6 +3269,56 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
                 args: ['windowClose-cancelled']
             }] } });
 
+class LatticeSchedulerComponent extends LatticeViewerBase {
+    constructor() {
+        super(...arguments);
+
+        this.viewer = 'scheduler';
+
+        this.label = 'lattice-scheduler';
+
+        this.takesGrid = false;
+
+        this.factories = inject(LATTICE_FACTORIES, { optional: true });
+
+        this.zoomChange = new EventEmitter();
+
+        this.change = new EventEmitter();
+
+        this.beforeEventChange = new EventEmitter();
+
+        this.eventChangeCancelled = new EventEmitter();
+
+        this.eventChange = new EventEmitter();
+    }
+
+    mount(element, config) {
+        const createScheduler = requireFactory(this.factories, 'createScheduler', '@toclocoinc/lattice-grid/modules/scheduler', this.label);
+        return createScheduler(element, config);
+    }
+    static { this.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeSchedulerComponent, deps: null, target: i0.ɵɵFactoryTarget.Component }); }
+    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeSchedulerComponent, isStandalone: true, selector: "lattice-scheduler", inputs: { config: "config" }, outputs: { zoomChange: "zoom-change", change: "change", beforeEventChange: "beforeEventChange", eventChangeCancelled: "eventChange-cancelled", eventChange: "event-change" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
+}
+i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeSchedulerComponent, decorators: [{
+            type: Component,
+            args: [{ selector: 'lattice-scheduler', template: '', encapsulation: ViewEncapsulation.Emulated, styles: [":host{display:block}\n"] }]
+        }], propDecorators: { config: [{
+                type: Input
+            }], zoomChange: [{
+                type: Output,
+                args: ['zoom-change']
+            }], change: [{
+                type: Output
+            }], beforeEventChange: [{
+                type: Output
+            }], eventChangeCancelled: [{
+                type: Output,
+                args: ['eventChange-cancelled']
+            }], eventChange: [{
+                type: Output,
+                args: ['event-change']
+            }] } });
+
 class LatticeDesignerComponent {
 
     constructor() {
@@ -3586,4 +3644,4 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
                 args: ['tabChange-cancelled']
             }] } });
 
-export { DEFAULT_GRID_NAME, DESIGNER_EVENTS, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeDesignerComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, designerHandlerName, eventProp, provideLattice, provideLatticeRouter, requireFactory };
+export { DEFAULT_GRID_NAME, DESIGNER_EVENTS, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeDesignerComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeSchedulerComponent, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, designerHandlerName, eventProp, provideLattice, provideLatticeRouter, requireFactory };

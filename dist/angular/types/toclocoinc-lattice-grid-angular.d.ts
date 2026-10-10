@@ -8,6 +8,7 @@ import { createGantt } from '@toclocoinc/lattice-grid/modules/gantt';
 import { createKanban } from '@toclocoinc/lattice-grid/modules/kanban';
 import { createKPI } from '@toclocoinc/lattice-grid/modules/kpi';
 import { createLayout } from '@toclocoinc/lattice-grid/modules/layout';
+import { createScheduler } from '@toclocoinc/lattice-grid/modules/scheduler';
 import { createTabs } from '@toclocoinc/lattice-grid/modules/tabs';
 import { createDesigner, DesignerOptions, Designer as Designer$1, DesignerStateEvent, DesignerModeEvent, DesignerPageEvent, DesignerSelectEvent } from '@toclocoinc/lattice-grid/modules/designer';
 
@@ -50,6 +51,8 @@ type CalendarFactory = typeof createCalendar;
 type GanttFactory = typeof createGantt;
 /** The layout factory, from `@toclocoinc/lattice-grid/modules/layout`. */
 type LayoutFactory = typeof createLayout;
+/** The resource scheduler factory, from `@toclocoinc/lattice-grid/modules/scheduler`. */
+type SchedulerFactory = typeof createScheduler;
 /** The tab-strip factory, from `@toclocoinc/lattice-grid/modules/tabs`. */
 type TabsFactory = typeof createTabs;
 /** The designer factory, from `@toclocoinc/lattice-grid/modules/designer`. */
@@ -83,6 +86,9 @@ interface Gantt extends ReturnType<GanttFactory> {
 }
 /** The live layout. */
 interface Layout extends ReturnType<LayoutFactory> {
+}
+/** The live resource scheduler. */
+interface Scheduler extends ReturnType<SchedulerFactory> {
 }
 /** The live tab strip. */
 interface Tabs extends ReturnType<TabsFactory> {
@@ -118,6 +124,9 @@ interface GanttConfig extends GanttFactoryOptions {
 /** The layout's configuration object. */
 interface LayoutConfig extends NonNullable<Parameters<LayoutFactory>[1]> {
 }
+/** The resource scheduler's configuration object. */
+interface SchedulerConfig extends NonNullable<Parameters<SchedulerFactory>[1]> {
+}
 /** What `createTabs` takes, named so an interface can extend it. */
 type TabsFactoryConfig = Parameters<TabsFactory>[1];
 /** The tab strip's configuration object. */
@@ -152,6 +161,8 @@ interface LatticeFactories {
     createGantt?: GanttFactory;
     /** `createLayout`, for `<lattice-layout>`. */
     createLayout?: LayoutFactory;
+    /** `createScheduler`, for `<lattice-scheduler>`. */
+    createScheduler?: SchedulerFactory;
     /** `createTabs`, for `<lattice-tabs>`. */
     createTabs?: TabsFactory;
     /** `createDesigner`, for `<lattice-designer>`. */
@@ -1401,6 +1412,49 @@ declare class LatticeLayoutComponent extends LatticeViewerBase<Layout> {
     static ɵcmp: i0.ɵɵComponentDeclaration<LatticeLayoutComponent, "lattice-layout", never, { "config": { "alias": "config"; "required": false; }; }, { "layoutChanged": "layout-changed"; "windowMoved": "window-moved"; "windowResized": "window-resized"; "windowClosed": "window-closed"; "beforeWindowClose": "beforeWindowClose"; "windowCloseCancelled": "windowClose-cancelled"; }, never, never, true, never>;
 }
 
+/**
+ * The resource scheduler, as an Angular component (BACKLOG-0002128).
+ *
+ * The scheduler owns its own left resource grid (built through `config.createGrid`,
+ * the injected grid factory) and is not built *against* a host `<lattice-grid>`,
+ * so like the layout it takes no grid of its own. Everything but the zoom is
+ * mount-time configuration; `zoom` is live and reaches the axis through
+ * `setZoom`, firing `zoom:change`.
+ */
+
+declare class LatticeSchedulerComponent extends LatticeViewerBase<Scheduler> {
+    /** Which viewer's tables drive this component. */
+    protected readonly viewer = "scheduler";
+    /** The element name, for anything this component has to report. */
+    protected readonly label = "lattice-scheduler";
+    /** The scheduler owns its left grid; it is not built against one. */
+    protected readonly takesGrid = false;
+    /** The factories the application provided. */
+    private readonly factories;
+    /** The scheduler's configuration: resources, events, columns, zoom and more. */
+    config?: SchedulerConfig;
+    /** The viewer's `zoom:change` event: the axis re-layed out at a new level/px. */
+    readonly zoomChange: EventEmitter<any>;
+    /** The viewer's `change` event: a reassign wrote a new resource onto the event, with the old and new keys. */
+    readonly change: EventEmitter<any>;
+    /** The viewer's `beforeEventChange` event: raised before an edit applies; returning `false` (or a promise for `false`) vetoes it. */
+    readonly beforeEventChange: EventEmitter<any>;
+    /** The viewer's `eventChange:cancelled` event: a vetoed edit, reported with its reason; the data is untouched. */
+    readonly eventChangeCancelled: EventEmitter<any>;
+    /** The viewer's `event:change` event: a committed edit, with the event id, changed fields' old/new values and the originating DOM event. */
+    readonly eventChange: EventEmitter<any>;
+    /**
+     * Build the scheduler. `createScheduler(el, config)` takes its host element
+     * directly, so the element is passed through rather than folded into config.
+     * @param element the host element
+     * @param config the assembled configuration
+     * @returns the scheduler
+     */
+    protected mount(element: HTMLElement, config: Props): Scheduler;
+    static ɵfac: i0.ɵɵFactoryDeclaration<LatticeSchedulerComponent, never>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeSchedulerComponent, "lattice-scheduler", never, { "config": { "alias": "config"; "required": false; }; }, { "zoomChange": "zoom-change"; "change": "change"; "beforeEventChange": "beforeEventChange"; "eventChangeCancelled": "eventChange-cancelled"; "eventChange": "event-change"; }, never, never, true, never>;
+}
+
 declare class LatticeDesignerComponent implements OnChanges, OnDestroy {
     /** The host element the designer is built into. */
     private readonly elementRef;
@@ -1680,5 +1734,5 @@ declare function provideLatticeRouter(options?: DataRouterOptions): Provider[];
  */
 declare function eventProp(event: string): string;
 
-export { DEFAULT_GRID_NAME, DESIGNER_EVENTS, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeDesignerComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, designerHandlerName, eventProp, provideLattice, provideLatticeRouter, requireFactory };
-export type { Calendar, CalendarConfig, CalendarFactory, Chart, ChartConfig, ChartFactory, DataRouter, DataRouterFactory, DataRouterOptions, Designer, DesignerConfig, DesignerFactory, Gantt, GanttConfig, GanttFactory, GridFactory, KPI, KPIConfig, KPIFactory, Kanban, KanbanConfig, KanbanFactory, LatticeFactories, LatticeGridConfig, LatticePredicates, LatticeQuickFilter, LatticeRoute, LatticeRouteOptions, LatticeRowChange, LatticeViewerEvent, Layout, LayoutConfig, LayoutFactory, Tabs, TabsConfig, TabsFactory };
+export { DEFAULT_GRID_NAME, DESIGNER_EVENTS, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeDesignerComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeSchedulerComponent, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, designerHandlerName, eventProp, provideLattice, provideLatticeRouter, requireFactory };
+export type { Calendar, CalendarConfig, CalendarFactory, Chart, ChartConfig, ChartFactory, DataRouter, DataRouterFactory, DataRouterOptions, Designer, DesignerConfig, DesignerFactory, Gantt, GanttConfig, GanttFactory, GridFactory, KPI, KPIConfig, KPIFactory, Kanban, KanbanConfig, KanbanFactory, LatticeFactories, LatticeGridConfig, LatticePredicates, LatticeQuickFilter, LatticeRoute, LatticeRouteOptions, LatticeRowChange, LatticeViewerEvent, Layout, LayoutConfig, LayoutFactory, Scheduler, SchedulerConfig, SchedulerFactory, Tabs, TabsConfig, TabsFactory };

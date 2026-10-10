@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Adapters API Reference — Lattice Grid 1.96.0</title>
+<title>Adapters API Reference — Lattice Grid 1.97.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -402,9 +402,11 @@
         <a class="rail__sub-link" href="#gantt-commit-hx-vals">Posting a whole Gantt gesture at once</a>
         <a class="rail__sub-link" href="#designer-hx-vals">Declaring a Designer, and posting its changes</a>
         <a class="rail__sub-link" href="#grid-hx-vals">Posting a declarative grid&#39;s edits</a>
+        <a class="rail__sub-link" href="#table-grid-edits">A server table hydrating into an editable, postable grid</a>
         <a class="rail__sub-link" href="#calendar-hx-vals">Posting a declarative calendar&#39;s moves</a>
         <a class="rail__sub-link" href="#calendar-view-of-a-data-grid">Declaring a calendar view of a data grid</a>
         <a class="rail__sub-link" href="#kanban-declarative">Declaring a Kanban board</a>
+        <a class="rail__sub-link" href="#kanban-hx-vals">Posting a card move</a>
         <a class="rail__sub-link" href="#map-hx-vals">Declaring a map, bound to its grid</a>
         <a href="#ref-adapters-reference">Type reference</a>
         <a class="rail__sub-link" href="#type-LatticeViewerCommonProps">LatticeViewerCommonProps</a>
@@ -432,6 +434,7 @@
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="calendar.html">The calendar viewer</a>
+        <a href="scheduler.html">The resource scheduler</a>
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
         <a href="dashboard.html">Dashboard composition</a>
@@ -457,7 +460,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 23 pages</a></span>
+      <span class="chip"><a href="index.html">All 24 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -577,7 +580,7 @@
       </table>
     </div>
 
-    <pre data-run="js" data-expect="9 components, onCardMove, default, rows 2, events 6/7" data-covers="export:createLatticeReact export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeCalendar export:createLatticeGantt export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/react/index.js');
+    <pre data-run="js" data-expect="10 components, onCardMove, default, rows 2, events 6/8" data-covers="export:createLatticeReact export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeCalendar export:createLatticeGantt export:createLatticeScheduler export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/react/index.js');
 
 <span class="cmt">// A stand-in for React and react-dom. The adapter never imports either, so a</span>
 <span class="cmt">// factory only needs the handful of names it destructures — which is exactly</span>
@@ -599,6 +602,7 @@
   A.createLatticeKanban({ React, createKanban: stub }),
   A.createLatticeCalendar({ React, createCalendar: stub }),
   A.createLatticeGantt({ React, createGantt: stub }),
+  A.createLatticeScheduler({ React, createScheduler: stub }),
   A.createLatticeLayout({ React, createLayout: stub }),
   A.createLatticeTabs({ React, ReactDOM, createTabs: stub }),
   A.createLatticeViewer({ React, viewer: 'kpi', mount: stub }),
@@ -1006,7 +1010,7 @@ L.provideLatticeRouter(ROUTER_CONFIG);
       </table>
     </div>
 
-    <pre data-run="js" data-expect="8 components, cell-changed, card-move, default, rows 2" data-covers="export:createLatticeVue export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeCalendar export:createLatticeGantt export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:dashedName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME export:EVENT_NAMES"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/vue/index.js');
+    <pre data-run="js" data-expect="9 components, cell-changed, card-move, default, rows 2" data-covers="export:createLatticeVue export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeCalendar export:createLatticeGantt export:createLatticeScheduler export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:dashedName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME export:EVENT_NAMES"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/vue/index.js');
 
 <span class="cmt">// A stand-in for Vue. The adapter never imports it, so a factory only needs</span>
 <span class="cmt">// the handful of names it destructures — which is exactly why this example</span>
@@ -1033,6 +1037,7 @@ L.provideLatticeRouter(ROUTER_CONFIG);
   A.createLatticeKanban({ vue, createKanban: stub }),
   A.createLatticeCalendar({ vue, createCalendar: stub }),
   A.createLatticeGantt({ vue, createGantt: stub }),
+  A.createLatticeScheduler({ vue, createScheduler: stub }),
   A.createLatticeLayout({ vue, createLayout: stub }),
   A.createLatticeTabs({ vue, createTabs: stub }),
 ].filter((c) =&gt; <span class="kw">typeof</span> c.setup === 'function');
@@ -1205,7 +1210,7 @@ controller.destroy();
         </tbody>
       </table>
     </div>
-    <pre data-run="js" data-expect="config rowKey,onCellChanged; own main; registry main; grid dark; tabs one; viewers kpi,chart,kanban,calendar,gantt,layout; router 1" data-covers="export:bindGrid export:bindViewer export:bindTabs export:createGridRegistry export:createRouterHandle export:adaptProps export:pickCallback export:viewerMount export:snippetTabIds export:VIEWER_BINDING export:GRID_REGISTRY_KEY export:ROUTER_KEY"><code><span class="kw">const</span> S = <span class="kw">await</span> import('../packages/modules/svelte/index.js');
+    <pre data-run="js" data-expect="config rowKey,onCellChanged; own main; registry main; grid dark; tabs one; viewers kpi,chart,kanban,calendar,gantt,layout,scheduler; router 1" data-covers="export:bindGrid export:bindViewer export:bindTabs export:createGridRegistry export:createRouterHandle export:adaptProps export:pickCallback export:viewerMount export:snippetTabIds export:VIEWER_BINDING export:GRID_REGISTRY_KEY export:ROUTER_KEY"><code><span class="kw">const</span> S = <span class="kw">await</span> import('../packages/modules/svelte/index.js');
 
 <span class="cmt">// A component hands its props straight to the helpers. They keep the</span>
 <span class="cmt">// adapter's own props out of the instance and accept a callback under</span>
@@ -1767,7 +1772,7 @@ grid.data.serialize(); <span class="cmt">// every row's data, in source order</s
         <thead><tr><th>Export</th><th>Does</th></tr></thead>
         <tbody>
           <tr><td class="sig">autoInit(root)</td><td class="desc">Builds a grid on every <code>[data-lattice-grid]</code> element under <code>root</code> not already built: idempotent, safe to call again after new content arrives. Config comes from a sibling <code>&lt;script type="application/json" data-lattice-config&gt;</code>; without one, a <code>&lt;table&gt;</code> element is hydrated instead.</td></tr>
-          <tr><td class="sig">hydrateTable(table, config?)</td><td class="desc">Reads a <code>&lt;table&gt;</code>'s header row for column definitions and body rows for data (type-inferred per cell), then replaces the table with the grid. <code>config</code> (columns, rows, anything else) always wins over what was inferred.</td></tr>
+          <tr><td class="sig">hydrateTable(table, config?)</td><td class="desc">Reads a <code>&lt;table&gt;</code>'s header row for column definitions and body rows for data (type-inferred per cell), then replaces the table with the grid. <code>config</code> (columns, rows, anything else) always wins over what was inferred. A <code>&lt;th data-edit&gt;</code> makes that column editable, <code>data-type</code>/<code>data-format</code> set its type/format, and a <code>&lt;tr data-lattice-row="…"&gt;</code> names the row key an out-of-band update later targets.</td></tr>
           <tr><td class="sig">serialiseState(grid, opts?) / restoreState(grid, encoded, opts?)</td><td class="desc">A compact, URL-safe encoding of everything <code>grid.state</code> covers (sort, filters, column order and widths, selection) diffed against the grid's own defaults first, so an untouched grid encodes to a handful of characters. Scroll position is included or restored only with <code>{ scroll: true }</code> (BACKLOG-0001971); the <code>htmx</code> module's history mechanism passes it at both ends, so a browser back/forward still lands where the user scrolled to.</td></tr>
           <tr><td class="sig">&lt;meta name="lattice-license" content="…"&gt;</td><td class="desc">Read automatically when no <code>licence</code> is passed to <code>createGrid</code>, no imperative call required.</td></tr>
         </tbody>
@@ -1807,6 +1812,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
           <tr><td class="sig">autoInitKanban(root) / registerKanban(factory)</td><td class="desc">Builds a Kanban board over every <code>[data-lattice-kanban]</code> element, bound to a grid by <code>data-lattice-bind</code>/<code>config.grid</code>, or hydrated straight from a server-rendered <code>&lt;table&gt;</code> inside the element (BACKLOG-0002116) — bind wins, then table, then JSON rows. The factory is <em>not</em> inlined into the htmx bundle: register your own Kanban module with <code>registerKanban(createKanban)</code>, or load it as a script tag exposing <code>globalThis.LatticeGridKanban.createKanban</code>, so a page with htmx and no board pays nothing.</td></tr>
           <tr><td class="sig">destroyKanbanWithin / saveKanbanStateWithin / restoreKanbanStateWithin</td><td class="desc">Tear a board down before htmx detaches its fragment, and carry its view state (collapsed columns and lanes, column order, quick filter, sprint/epic selection, selection) across <code>htmx:beforeHistorySave</code>/<code>htmx:historyRestore</code> — the original table is swapped back in for the snapshot, then <code>restoreSwappedKanbans()</code> puts the rendered board back a microtask later.</td></tr>
           <tr><td class="sig">driveKanbanOobUpdates(opts?)</td><td class="desc">Applies an out-of-band <code>[data-lattice-row="&lt;card id&gt;"]</code> fragment to that card through <code>board.rows.apply</code>, so htmx never writes raw HTML into the rendered board — one move, collapsed columns and the sprint filter untouched. Wired by <code>attach()</code>.</td></tr>
+          <tr><td class="sig">KANBAN_CHANGE_EVENT</td><td class="desc">Every card move on a declarative <code>[data-lattice-kanban]</code> re-raises a bubbling <code>lattice:kanban-change</code> on the host — one event per moved card, with <code>detail</code> <code>{ id, from, to, index, lane }</code> (the card key, the column it left, the column it landed in, the requested position and the swimlane) — so <code>hx-trigger="lattice:kanban-change"</code> can POST a drag. See the <a href="#kanban-hx-vals">hx-vals recipe</a>.</td></tr>
           <tr><td class="sig">Browser history</td><td class="desc"><code>serialiseState</code>/<code>restoreState</code> above, wired automatically to <code>htmx:beforeHistorySave</code>/<code>htmx:historyRestore</code> once this module is imported: browser back restores the prior sort, filter and scroll position — and a Gantt&#39;s zoom, visible range, scroll, collapsed rows and column widths.</td></tr>
         </tbody>
       </table>
@@ -1890,6 +1896,26 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
 &lt;/div&gt;
 &lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>
 
+    <h3 id="table-grid-edits">A server table hydrating into an editable, postable grid</h3>
+    <p class="section-note">A server-rendered <code>&lt;table data-lattice-grid&gt;</code> hydrates straight into a grid with no config script: the <code>&lt;th&gt;</code> cells name the columns (<code>data-field</code>, <code>data-type</code>, <code>data-format</code> honoured as above), and <code>&lt;th data-edit&gt;</code> makes a column editable (BACKLOG-0002130). A <code>&lt;tr data-lattice-row="…"&gt;</code> names the row key the out-of-band handler reads, so a later <code>hx-swap-oob</code> fragment can patch that row. Committed edits re-raise the same bubbling <code>lattice:grid-change</code> a config-built grid raises.</p>
+    <pre><code><span class="cmt">&lt;!-- The table is the whole grid: editable columns, row keys, edits posted back. --&gt;</span>
+&lt;table id="postable" data-lattice-grid hx-trigger="lattice:grid-change from:body"
+       hx-post="/rows" hx-vals='js:{ key: event.detail.key, field: event.detail.field, newValue: event.detail.newValue }'&gt;
+  &lt;thead&gt;&lt;tr&gt;
+    &lt;th data-field="id"&gt;ID&lt;/th&gt;
+    &lt;th data-field="title" data-edit&gt;Title&lt;/th&gt;
+    &lt;th data-field="status" data-edit&gt;Status&lt;/th&gt;
+  &lt;/tr&gt;&lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr data-lattice-row="A1"&gt;&lt;td&gt;A1&lt;/td&gt;&lt;td&gt;Fix login&lt;/td&gt;&lt;td&gt;Todo&lt;/td&gt;&lt;/tr&gt;
+    &lt;tr data-lattice-row="A2"&gt;&lt;td&gt;A2&lt;/td&gt;&lt;td&gt;Write docs&lt;/td&gt;&lt;td&gt;Todo&lt;/td&gt;&lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+<span class="cmt">&lt;!-- The anchor next to the table is a sibling of the host after hydration; an
+     hx-swap-oob fragment for it patches that row in place. --&gt;</span>
+&lt;i id="postable-A2" data-lattice-row="A2"&gt;&lt;/i&gt;
+&lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>
+
     <h3 id="calendar-hx-vals">Posting a declarative calendar&#39;s moves</h3>
     <p class="section-note">A <code>data-lattice-calendar</code> element, bound to a grid by <code>data-lattice-bind</code> or a <code>grid</code> string, re-raises each move or resize as a bubbling <code>lattice:calendar-change</code> on the host — <code>detail</code> <code>{ id, start, end }</code> with the event id and the new start/end already ISO strings — so an <code>hx-trigger</code> posts the reschedule.</p>
     <pre><code><span class="cmt">&lt;!-- The grid the calendar follows, then the calendar itself. --&gt;</span>
@@ -1918,7 +1944,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
 <span class="cmt">&lt;!-- htmx builds the calendar: its engine is inlined into the htmx module. --&gt;</span>
 &lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>
 
-    <p class="section-note">No grid needed: a calendar hydrates straight from the server-rendered <code>&lt;table&gt;</code> inside it (BACKLOG-0002116). The <code>&lt;th data-field&gt;</code> cells name the fields, each <code>&lt;tr&gt;</code> is one event, and <code>data-type</code>/<code>data-format</code> are honoured exactly as the grid's own table hydration honours them. <code>data-lattice-row</code> on a <code>&lt;tr&gt;</code> names the event id the calendar keys by (else the config's <code>rowKey</code> field, else <code>data-id</code>, else the row index); an out-of-band <code>&lt;tr data-lattice-row="…"&gt;</code> later patches that one event in place.</p>
+    <p class="section-note">No grid needed: a calendar hydrates straight from the server-rendered <code>&lt;table&gt;</code> inside it (BACKLOG-0002116). The <code>&lt;th data-field&gt;</code> cells name the fields, each <code>&lt;tr&gt;</code> is one event, and <code>data-type</code>/<code>data-format</code> are honoured exactly as the grid's own table hydration honours them. <code>data-lattice-row</code> on a <code>&lt;tr&gt;</code> names the event id the calendar keys by (else the config's <code>rowKey</code> field, else <code>data-id</code>, else the row index); an out-of-band <code>&lt;tr data-lattice-row="…"&gt;</code> later patches that one event in place. Keep an empty out-of-band target beside the table — an element carrying the event's id and <code>data-lattice-row</code>, like the <code>&lt;i&gt;</code> below — and the calendar preserves it across renders, so htmx always has somewhere to land the swapped row.</p>
     <pre><code><span class="cmt">&lt;!-- The table is the data: the calendar replaces it, no grid in between. --&gt;</span>
 &lt;div data-lattice-calendar style="width:720px;height:400px"&gt;
   &lt;table&gt;
@@ -1929,6 +1955,8 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
       &lt;tr data-lattice-row="s"&gt;&lt;td&gt;Ship&lt;/td&gt;&lt;td&gt;2026-09-30 12:00&lt;/td&gt;&lt;/tr&gt;
     &lt;/tbody&gt;
   &lt;/table&gt;
+  <span class="cmt">&lt;!-- The out-of-band target htmx swaps into for a rescheduled event. --&gt;</span>
+  &lt;i id="shift-d" data-lattice-row="d"&gt;&lt;/i&gt;
 &lt;/div&gt;
 &lt;script type="application/json" data-lattice-config&gt;{"startProperty":"start","view":"week"}&lt;/script&gt;
 
@@ -1951,7 +1979,7 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
 &lt;script src="/dist/modules/kanban.esm.min.js"&gt;&lt;/script&gt;
 &lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>
 
-    <p class="section-note">No grid needed either: a board hydrates straight from a server-rendered <code>&lt;table&gt;</code> inside it (BACKLOG-0002116) — the <code>&lt;th data-field&gt;</code> cells name the fields, each <code>&lt;tr&gt;</code> is one card, and the board replaces the table. <code>data-lattice-row</code> on a <code>&lt;tr&gt;</code> names the card id the board keys by (else the config's <code>rowKey</code> field, else <code>data-id</code>, else the row index); an out-of-band <code>&lt;tr data-lattice-row="…"&gt;</code> later patches that one card in place.</p>
+    <p class="section-note">No grid needed either: a board hydrates straight from a server-rendered <code>&lt;table&gt;</code> inside it (BACKLOG-0002116) — the <code>&lt;th data-field&gt;</code> cells name the fields, each <code>&lt;tr&gt;</code> is one card, and the board replaces the table. <code>data-lattice-row</code> on a <code>&lt;tr&gt;</code> names the card id the board keys by (else the config's <code>rowKey</code> field, else <code>data-id</code>, else the row index); an out-of-band <code>&lt;tr data-lattice-row="…"&gt;</code> later patches that one card in place. Keep an empty out-of-band target beside the table — an element carrying the card's id and <code>data-lattice-row</code> — and the board preserves it across renders, so htmx always has somewhere to land the swapped row.</p>
     <pre><code><span class="cmt">&lt;!-- The table is the data: the board replaces it, no grid in between. --&gt;</span>
 &lt;div data-lattice-kanban style="width:900px;height:420px"&gt;
   &lt;table&gt;
@@ -1960,6 +1988,25 @@ autoInit(document); <span class="cmt">// builds every [data-lattice-grid] under 
       &lt;tr data-lattice-row="a"&gt;&lt;td&gt;Alpha&lt;/td&gt;&lt;td&gt;todo&lt;/td&gt;&lt;/tr&gt;
       &lt;tr data-lattice-row="b"&gt;&lt;td&gt;Beta&lt;/td&gt;&lt;td&gt;doing&lt;/td&gt;&lt;/tr&gt;
       &lt;tr data-lattice-row="c"&gt;&lt;td&gt;Gamma&lt;/td&gt;&lt;td&gt;done&lt;/td&gt;&lt;/tr&gt;
+    &lt;/tbody&gt;
+  &lt;/table&gt;
+&lt;/div&gt;
+&lt;script type="application/json" data-lattice-config&gt;{"columnProperty":"status","columns":[{"id":"todo","title":"To do"},{"id":"doing","title":"Doing"},{"id":"done","title":"Done"}],"card":{"title":"title"}}&lt;/script&gt;
+
+<span class="cmt">&lt;!-- htmx, then the Kanban module (publishes the factory the adapter resolves). --&gt;</span>
+&lt;script src="/dist/modules/kanban.esm.min.js"&gt;&lt;/script&gt;
+&lt;script type="module"&gt;import "/dist/modules/htmx.esm.min.js";&lt;/script&gt;</code></pre>
+
+    <h3 id="kanban-hx-vals">Posting a card move</h3>
+    <p class="section-note">A card drag re-raises a bubbling <code>lattice:kanban-change</code> on the host — one event per moved card, with <code>detail</code> <code>{ id, from, to, index, lane }</code> — so an <code>hx-trigger</code> posts exactly the move the user made.</p>
+    <pre><code><span class="cmt">&lt;!-- The board: a drag posts the card key, its old column and its new column. --&gt;</span>
+&lt;div data-lattice-kanban hx-trigger="lattice:kanban-change from:body"
+     hx-post="/cards/{id}" hx-vals='js:{ id: event.detail.id, from: event.detail.from, to: event.detail.to }'&gt;
+  &lt;table&gt;
+    &lt;thead&gt;&lt;tr&gt;&lt;th data-field="title"&gt;Title&lt;/th&gt;&lt;th data-field="status"&gt;Status&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+    &lt;tbody&gt;
+      &lt;tr data-lattice-row="a"&gt;&lt;td&gt;Alpha&lt;/td&gt;&lt;td&gt;todo&lt;/td&gt;&lt;/tr&gt;
+      &lt;tr data-lattice-row="b"&gt;&lt;td&gt;Beta&lt;/td&gt;&lt;td&gt;doing&lt;/td&gt;&lt;/tr&gt;
     &lt;/tbody&gt;
   &lt;/table&gt;
 &lt;/div&gt;

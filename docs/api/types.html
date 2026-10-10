@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.96.0</title>
+<title>Types API Reference — Lattice Grid 1.97.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -405,6 +405,7 @@
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="calendar.html">The calendar viewer</a>
+        <a href="scheduler.html">The resource scheduler</a>
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
         <a href="dashboard.html">Dashboard composition</a>
@@ -430,7 +431,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 23 pages</a></span>
+      <span class="chip"><a href="index.html">All 24 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -1929,6 +1930,17 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-ImportXlsxSheet">ImportXlsxSheet</h4>
+    <p class="section-note">One worksheet of an `.xlsx` workbook, as {@link ImportApi#xlsxSheets} lists it (§14, BACKLOG-0002129).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The sheet's tab name, as written in the workbook.</td></tr>
+          <tr><td class="name">hidden</td><td class="type">boolean</td><td class="desc">True when Excel marks the sheet `hidden` or `veryHidden`; the default read skips it.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-LicenceInfo">LicenceInfo</h4>
     <div class="table-wrap">
       <table>
@@ -3225,6 +3237,10 @@
     <p class="section-note">The layout's React props.</p>
     <p class="type-def"><code>type LatticeLayoutProps = Record&lt;string, unknown&gt; &amp; <a href="adapters.html#type-LatticeViewerCommonProps">LatticeViewerCommonProps</a></code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/react</code>.</small></p>
+    <h4 id="type-LatticeSchedulerProps">LatticeSchedulerProps</h4>
+    <p class="section-note">The scheduler's React props (BACKLOG-0002128).</p>
+    <p class="type-def"><code>type LatticeSchedulerProps = Record&lt;string, unknown&gt; &amp; <a href="adapters.html#type-LatticeViewerCommonProps">LatticeViewerCommonProps</a> &amp; { resources?: <a href="scheduler.html#type-SchedulerConfig">SchedulerConfig</a>['resources']; events?: <a href="scheduler.html#type-SchedulerConfig">SchedulerConfig</a>['events']; zoom?: <a href="scheduler.html#type-SchedulerConfig">SchedulerConfig</a>['zoom']; onZoomChange?: (payload: <a href="scheduler.html#type-SchedulerZoomChangeEvent">SchedulerZoomChangeEvent</a>) =&gt; void; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/react</code>.</small></p>
     <h4 id="type-LatticeSvelteCallbacks">LatticeSvelteCallbacks</h4>
     <p class="section-note">Every event of a set, as the optional callback props a caller may bind.</p>
     <p class="type-def"><code>type LatticeSvelteCallbacks&lt;Events extends string, Payload&gt; = { [E in Events as `on${<a href="#type-CamelJoin">CamelJoin</a>&lt;E&gt;}`]?: (payload: Payload) =&gt; void; }</code></p>
@@ -3280,6 +3296,10 @@
     <h4 id="type-LatticeVueListeners">LatticeVueListeners</h4>
     <p class="section-note">Every event of a set, as the optional listener props a caller may bind.</p>
     <p class="type-def"><code>type LatticeVueListeners&lt;Events extends string, Payload&gt; = { [E in Events as <a href="#type-ListenerProp">ListenerProp</a>&lt;E&gt;]?: (payload: Payload) =&gt; void; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/vue</code>.</small></p>
+    <h4 id="type-LatticeVueSchedulerProps">LatticeVueSchedulerProps</h4>
+    <p class="section-note">The scheduler's Vue props (BACKLOG-0002128).</p>
+    <p class="type-def"><code>type LatticeVueSchedulerProps = Record&lt;string, unknown&gt; &amp; <a href="#type-LatticeVueViewerCommonProps">LatticeVueViewerCommonProps</a> &amp; { resources?: <a href="scheduler.html#type-SchedulerConfig">SchedulerConfig</a>['resources']; events?: <a href="scheduler.html#type-SchedulerConfig">SchedulerConfig</a>['events']; zoom?: <a href="scheduler.html#type-SchedulerConfig">SchedulerConfig</a>['zoom']; } &amp; <a href="#type-LatticeVueListeners">LatticeVueListeners</a>&lt;'zoom-change', <a href="scheduler.html#type-SchedulerZoomChangeEvent">SchedulerZoomChangeEvent</a>&gt;</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/vue</code>.</small></p>
     <h4 id="type-LatticeVueTabsProps">LatticeVueTabsProps</h4>
     <p class="section-note">The tab strip's Vue props.</p>
@@ -3522,6 +3542,22 @@
     <h4 id="type-ScaleFrom">ScaleFrom</h4>
     <p class="section-note">Where a colour or bar scale's bounds are derived from, when `min`/`max` are not given.</p>
     <p class="type-def"><code>type ScaleFrom = 'minmax' | 'quantile' | 'stddev'</code></p>
+    <h4 id="type-SchedulerEventFieldChanges">SchedulerEventFieldChanges</h4>
+    <p class="section-note">The field-level edit an event edit reports: each changed field's old and new value.</p>
+    <p class="type-def"><code>type SchedulerEventFieldChanges = Record&lt;string, { from: unknown; to: unknown }&gt;</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/scheduler</code>.</small></p>
+    <h4 id="type-SchedulerEventName">SchedulerEventName</h4>
+    <p class="section-note">The event names a scheduler emits.</p>
+    <p class="type-def"><code>type SchedulerEventName = 'zoom:change' | 'change' | 'beforeEventChange' | 'eventChange:cancelled' | 'event:change'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/scheduler</code>.</small></p>
+    <h4 id="type-SchedulerRow">SchedulerRow</h4>
+    <p class="section-note">A row backing a scheduler resource or event: any object. Its identity comes from `resourceKey`/`eventKey`.</p>
+    <p class="type-def"><code>type SchedulerRow = Record&lt;string, unknown&gt;</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/scheduler</code>.</small></p>
+    <h4 id="type-SchedulerZoom">SchedulerZoom</h4>
+    <p class="section-note">A scheduler zoom level name, or a bare pixels-per-day number.</p>
+    <p class="type-def"><code>type SchedulerZoom = 'hour' | 'day' | 'week' | 'month' | 'quarter' | number</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/scheduler</code>.</small></p>
     <h4 id="type-ScrollbarMode">ScrollbarMode</h4>
     <p class="section-note">How the grid's scroll viewport draws its scrollbars (BACKLOG-0000990, BACKLOG-0001288). `auto` is the platform's native behaviour — overlay scrollbars fade away when idle. `always` keeps that native bar shown whether or not the pointer is over the grid, so the affordance never disappears on a touchpad or an overlay OS. `custom` replaces it with a bar the grid draws itself: the same size, colour and hit area in every browser, sized by the `--lattice-scrollbar-*` tokens, for a target bigger than the platform's own thin overlay ribbon.</p>
     <p class="type-def"><code>type ScrollbarMode = 'auto' | 'always' | 'custom'</code></p>

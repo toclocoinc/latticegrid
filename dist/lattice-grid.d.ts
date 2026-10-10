@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.96.0, type declarations
+ * Lattice Grid 1.97.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -9729,6 +9729,14 @@ export interface ImportXlsxPreview {
   warnings: string[];
 }
 
+/** One worksheet of an `.xlsx` workbook, as {@link ImportApi#xlsxSheets} lists it (§14). */
+export interface ImportXlsxSheet {
+  /** The sheet's tab name, as written in the workbook. */
+  name: string;
+  /** True when Excel marks the sheet `hidden` or `veryHidden`; the default read skips it. */
+  hidden: boolean;
+}
+
 /** Bringing rows in — the mirror of {@link ExportApi} (§14). */
 export interface ImportApi {
   /** Parse delimited text into a preview, changing nothing. */
@@ -9737,10 +9745,17 @@ export interface ImportApi {
   csv(text: string, opts?: object): Record<string, unknown>[];
   /**
    * Parse an `.xlsx` file's bytes into a preview, changing nothing (§14). Async: the archive is inflated with `DecompressionStream`.
+   * With several visible sheets, `opts.sheet` (a name or zero-based index) picks
+   * the sheet to read; without it the first visible sheet is read.
    */
   previewXlsx(bytes: Uint8Array | ArrayBuffer, opts?: object): Promise<ImportXlsxPreview>;
   /** Parse an `.xlsx` file's bytes into coerced records — the inverse of `export.excel`. */
   xlsx(bytes: Uint8Array | ArrayBuffer, opts?: object): Promise<Record<string, unknown>[]>;
+  /**
+   * List an `.xlsx` workbook's worksheets in workbook order, hidden sheets
+   * flagged (§14) — what a sheet picker shows before a read.
+   */
+  xlsxSheets(bytes: Uint8Array | ArrayBuffer): Promise<ImportXlsxSheet[]>;
   /** Add or replace the grid's rows from text, a preview or records. */
   apply(
     input: string | ImportPreview | Record<string, unknown>[],
@@ -13099,6 +13114,9 @@ declare global {
   /** The calendar viewer's script-tag global. */
   // eslint-disable-next-line no-var -- an ambient global is only a global as a var
   var LatticeGridCalendar: typeof import('lattice-grid/modules/calendar');
+  /** The resource scheduler's script-tag global. */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridScheduler: typeof import('lattice-grid/modules/scheduler');
   /** The alarms module's script-tag global. */
   // eslint-disable-next-line no-var -- an ambient global is only a global as a var
   var LatticeGridAlarms: typeof import('lattice-grid/modules/alarms');

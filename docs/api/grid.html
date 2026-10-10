@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.96.0</title>
+<title>Grid API Reference — Lattice Grid 1.97.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -545,6 +545,7 @@
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="calendar.html">The calendar viewer</a>
+        <a href="scheduler.html">The resource scheduler</a>
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
         <a href="dashboard.html">Dashboard composition</a>
@@ -571,7 +572,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 23 pages</a></span>
+      <span class="chip"><a href="index.html">All 24 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -1868,7 +1869,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.96.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.97.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -2331,7 +2332,7 @@ grid.destroy();
         </tbody>
       </table>
     </div>
-    <div class="note"><p><strong>Excel.</strong> <code>.xlsx</code> is not read: it needs an inflate and XML reader the zero-dependency envelope does not carry. Save the sheet as CSV — every spreadsheet does — and import that.</p></div>
+    <div class="note"><p><strong>Excel.</strong> <code>.xlsx</code> is read too, through the platform's own inflate (<code>DecompressionStream</code>) and a tag scanner in the core — the same pipeline as CSV, only async. A multi-sheet workbook reads its first <em>visible</em> worksheet by default; pass a <code>sheet</code> name or zero-based index to read another, and list the workbook's sheets (hidden ones flagged) with <code>xlsxSheets</code>.</p></div>
     <pre data-run="js" data-expect="2 previewed, 3 rows" data-covers="method:import config:import"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 
 <span class="kw">const</span> grid = createHeadlessGrid({
@@ -2349,6 +2350,27 @@ grid.destroy();
 grid.import.apply(preview);
 
 <span class="kw">return</span> `${preview.rowCount} previewed, ${grid.rows.count()} rows`;   <span class="cmt">// 2 previewed, 3 rows</span></code></pre>
+    <pre data-run="js" data-expect="Summary, Data / 2 rows" data-covers="method:import.xlsxSheets"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  columns: [{ field: 'id' }, { field: 'age', type: 'integer' }],
+  rows: [{ id: 'x', age: 20 }, { id: 'y', age: 30 }],
+  rowKey: 'id',
+});
+
+<span class="cmt">// Write a two-sheet workbook so there are real .xlsx bytes to read back.</span>
+<span class="kw">const</span> out = <span class="kw">await</span> grid.export.excel({
+  sheets: [{ name: 'Summary' }, { name: 'Data' }],
+});
+<span class="kw">const</span> bytes = <span class="kw">new</span> Uint8Array(<span class="kw">await</span> out.arrayBuffer());
+
+<span class="cmt">// List the workbook's sheets, in order, hidden sheets flagged.</span>
+<span class="kw">const</span> sheets = <span class="kw">await</span> grid.import.xlsxSheets(bytes);
+
+<span class="cmt">// Read one of them by name — a zero-based index ({ sheet: 1 }) works too.</span>
+<span class="kw">const</span> preview = <span class="kw">await</span> grid.import.previewXlsx(bytes, { sheet: 'Data' });
+
+<span class="kw">return</span> `${sheets.map((s) =&gt; s.name).join(', ')} / ${preview.rowCount} rows`;</code></pre>
     <h2 id="state">grid.state</h2>
     <div class="table-wrap">
       <table>
@@ -7244,7 +7266,7 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
 
     <h3 id="module-exports-example">Every module export, executed</h3>
     <p class="section-note">Every shipped module’s exports, resolved against its own barrel on every build.</p>
-    <pre data-run="js" data-expect="124" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:regressionPlots export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:rebindViewersWithin export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:autoInitCalendar export:CALENDAR_ATTR export:CALENDAR_CHANGE_EVENT export:GRID_CHANGE_EVENT export:autoInitGantt export:GANTT_ATTR export:GANTT_CHANGE_EVENT export:GANTT_COMMIT_EVENT export:registerGantt export:destroyGanttWithin export:saveGanttStateWithin export:restoreGanttStateWithin export:restoreSwappedGantts export:driveGanttOobUpdates export:autoInitDesigner export:DESIGNER_ATTR export:DESIGNER_CHANGE_EVENT export:registerDesigner export:destroyDesignerWithin export:saveDesignerStateWithin export:restoreDesignerStateWithin export:restoreSwappedDesigners export:autoInitMap export:MAP_ATTR export:registerMapFactories export:destroyMapWithin export:saveMapStateWithin export:restoreMapStateWithin export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:createLatticeElements export:defineLatticeElements export:ELEMENT_TAGS export:createLatticeKPIElement export:createLatticeChartElement export:createLatticeKanbanElement export:createLatticeCalendarElement export:createLatticeGanttElement export:createLatticeLayoutElement export:createLatticeTabsElement export:createLatticeRouterElement export:adoptLatticeStyles export:latticeStyleSheets export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload export:createDataRouter export:MockWebSocket export:rng export:opsFeed export:priceFeed export:createKanban export:pack export:autoInitKanban export:KANBAN_ATTR export:registerKanban export:destroyKanbanWithin export:saveKanbanStateWithin export:restoreKanbanStateWithin export:registerCalendar export:destroyCalendarWithin export:saveCalendarStateWithin export:restoreCalendarStateWithin export:restoreSwappedCalendars export:driveCalendarOobUpdates export:restoreSwappedKanbans export:driveKanbanOobUpdates"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
+    <pre data-run="js" data-expect="134" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:regressionPlots export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:rebindViewersWithin export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:autoInitCalendar export:CALENDAR_ATTR export:CALENDAR_CHANGE_EVENT export:GRID_CHANGE_EVENT export:autoInitGantt export:GANTT_ATTR export:GANTT_CHANGE_EVENT export:GANTT_COMMIT_EVENT export:registerGantt export:destroyGanttWithin export:saveGanttStateWithin export:restoreGanttStateWithin export:restoreSwappedGantts export:driveGanttOobUpdates export:autoInitDesigner export:DESIGNER_ATTR export:DESIGNER_CHANGE_EVENT export:registerDesigner export:destroyDesignerWithin export:saveDesignerStateWithin export:restoreDesignerStateWithin export:restoreSwappedDesigners export:autoInitMap export:MAP_ATTR export:registerMapFactories export:destroyMapWithin export:saveMapStateWithin export:restoreMapStateWithin export:autoInitScheduler export:SCHEDULER_ATTR export:SCHEDULER_CHANGE_EVENT export:registerScheduler export:destroySchedulerWithin export:saveSchedulerStateWithin export:restoreSchedulerStateWithin export:restoreSwappedSchedulers export:driveSchedulerOobUpdates export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:createLatticeElements export:defineLatticeElements export:ELEMENT_TAGS export:createLatticeKPIElement export:createLatticeChartElement export:createLatticeKanbanElement export:createLatticeCalendarElement export:createLatticeGanttElement export:createLatticeLayoutElement export:createLatticeTabsElement export:createLatticeRouterElement export:adoptLatticeStyles export:latticeStyleSheets export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload export:createDataRouter export:MockWebSocket export:rng export:opsFeed export:priceFeed export:createKanban export:pack export:autoInitKanban export:KANBAN_ATTR export:KANBAN_CHANGE_EVENT export:registerKanban export:destroyKanbanWithin export:saveKanbanStateWithin export:restoreKanbanStateWithin export:registerCalendar export:destroyCalendarWithin export:saveCalendarStateWithin export:restoreCalendarStateWithin export:restoreSwappedCalendars export:driveCalendarOobUpdates export:restoreSwappedKanbans export:driveKanbanOobUpdates"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
 <span class="cmt">// barrel. A module that stopped exporting something fails here.</span>
 <span class="kw">const</span> modules = [
   [<span class="kw">await</span> import('../packages/dom/src/index.js'), [
@@ -7275,11 +7297,14 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
      'destroyDesignerWithin', 'saveDesignerStateWithin', 'restoreDesignerStateWithin',
      'restoreSwappedDesigners',
 
-     'autoInitKanban', 'KANBAN_ATTR', 'registerKanban',
+     'autoInitKanban', 'KANBAN_ATTR', 'KANBAN_CHANGE_EVENT', 'registerKanban',
      'destroyKanbanWithin', 'saveKanbanStateWithin', 'restoreKanbanStateWithin',
      'restoreSwappedKanbans', 'driveKanbanOobUpdates',
      'autoInitMap', 'MAP_ATTR', 'registerMapFactories',
      'destroyMapWithin', 'saveMapStateWithin', 'restoreMapStateWithin',
+     'autoInitScheduler', 'SCHEDULER_ATTR', 'SCHEDULER_CHANGE_EVENT', 'registerScheduler',
+     'destroySchedulerWithin', 'saveSchedulerStateWithin', 'restoreSchedulerStateWithin',
+     'restoreSwappedSchedulers', 'driveSchedulerOobUpdates',
   ]],
   [<span class="kw">await</span> import('../packages/modules/webcomponent/index.js'), [
     'ATTRIBUTE_CONFIG', 'EVENT_PREFIX', 'GridElementController',
@@ -8282,8 +8307,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">preview</td><td class="type">(text: string, opts?: object): <a href="types.html#type-ImportPreview">ImportPreview</a></td><td class="desc"><code>text: string</code><br><code>opts?: object</code></td><td class="type"><code><a href="types.html#type-ImportPreview">ImportPreview</a></code></td><td class="desc">Parse delimited text into a preview, changing nothing.</td></tr>
           <tr><td class="name">csv</td><td class="type">(text: string, opts?: object): Record&lt;string, unknown&gt;[]</td><td class="desc"><code>text: string</code><br><code>opts?: object</code></td><td class="type"><code>Record&lt;string, unknown&gt;[]</code></td><td class="desc">Parse delimited text into coerced records — the inverse of `export.csv`.</td></tr>
-          <tr><td class="name">previewXlsx</td><td class="type">(bytes: Uint8Array | ArrayBuffer, opts?: object): Promise&lt;<a href="types.html#type-ImportXlsxPreview">ImportXlsxPreview</a>&gt;</td><td class="desc"><code>bytes: Uint8Array | ArrayBuffer</code><br><code>opts?: object</code></td><td class="type"><code>Promise&lt;<a href="types.html#type-ImportXlsxPreview">ImportXlsxPreview</a>&gt;</code></td><td class="desc">Parse an `.xlsx` file's bytes into a preview, changing nothing (§14, BACKLOG-0000970). Async: the archive is inflated with `DecompressionStream`.</td></tr>
+          <tr><td class="name">previewXlsx</td><td class="type">(bytes: Uint8Array | ArrayBuffer, opts?: object): Promise&lt;<a href="types.html#type-ImportXlsxPreview">ImportXlsxPreview</a>&gt;</td><td class="desc"><code>bytes: Uint8Array | ArrayBuffer</code><br><code>opts?: object</code></td><td class="type"><code>Promise&lt;<a href="types.html#type-ImportXlsxPreview">ImportXlsxPreview</a>&gt;</code></td><td class="desc">Parse an `.xlsx` file's bytes into a preview, changing nothing (§14, BACKLOG-0000970). Async: the archive is inflated with `DecompressionStream`. With several visible sheets, `opts.sheet` (a name or zero-based index) picks the sheet to read; without it the first visible sheet is read.</td></tr>
           <tr><td class="name">xlsx</td><td class="type">(bytes: Uint8Array | ArrayBuffer, opts?: object): Promise&lt;Record&lt;string, unknown&gt;[]&gt;</td><td class="desc"><code>bytes: Uint8Array | ArrayBuffer</code><br><code>opts?: object</code></td><td class="type"><code>Promise&lt;Record&lt;string, unknown&gt;[]&gt;</code></td><td class="desc">Parse an `.xlsx` file's bytes into coerced records — the inverse of `export.excel`.</td></tr>
+          <tr><td class="name">xlsxSheets</td><td class="type">(bytes: Uint8Array | ArrayBuffer): Promise&lt;<a href="types.html#type-ImportXlsxSheet">ImportXlsxSheet</a>[]&gt;</td><td class="desc"><code>bytes: Uint8Array | ArrayBuffer</code></td><td class="type"><code>Promise&lt;<a href="types.html#type-ImportXlsxSheet">ImportXlsxSheet</a>[]&gt;</code></td><td class="desc">List an `.xlsx` workbook's worksheets in workbook order, hidden sheets flagged (§14, BACKLOG-0002129) — what a sheet picker shows before a read.</td></tr>
           <tr><td class="name">apply</td><td class="type">( input: string | <a href="types.html#type-ImportPreview">ImportPreview</a> | Record&lt;string, unknown&gt;[], opts?: { mode?: <a href="types.html#type-ImportMode">ImportMode</a> }, ): <a href="types.html#type-ChangeResult">ChangeResult</a> | null</td><td class="desc"><code>input: string | <a href="types.html#type-ImportPreview">ImportPreview</a> | Record&lt;string, unknown&gt;[]</code><br><code>opts?: { mode?: <a href="types.html#type-ImportMode">ImportMode</a> }</code></td><td class="type"><code><a href="types.html#type-ChangeResult">ChangeResult</a> | null</code></td><td class="desc">Add or replace the grid's rows from text, a preview or records.</td></tr>
         </tbody>
       </table>
