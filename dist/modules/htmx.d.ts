@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.98.3, htmx module type declarations
+ * Lattice Grid 1.99.0, htmx module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -201,6 +201,32 @@ export function restoreSchedulerStateWithin(root: ParentNode, scan?: Function): 
 export function restoreSwappedSchedulers(): void;
 /** Wire document-level `data-lattice-row` out-of-band event updates for schedulers. */
 export function driveSchedulerOobUpdates(opts?: { doc?: Document }): () => void;
+/**
+ * Enhance a server-rendered form in place on every uninitialised
+ * `[data-lattice-form]` element under `root`: each named
+ * field becomes a Lattice control, the form's own submit controls are
+ * preserved, and the submit path validates before `hx-post` posts the live
+ * values. The form twin of {@link autoInitShell}: idempotent (an element
+ * already carrying `.__latticeForm` is skipped), and the enhancer is resolved
+ * from {@link registerForm} / the script-tag global rather than inlined into
+ * the htmx bundle, so a page with htmx and no form engine pays nothing. With
+ * JavaScript off nothing here runs and the same server form submits as-is.
+ */
+export function autoInitForm(root?: ParentNode): object[];
+/** The marker attribute `autoInitForm` scans for: `data-lattice-form`. */
+export const FORM_ATTR: string;
+/**
+ * Register the form enhancer the adapter builds with. The page's own form
+ * module calls this once on load; a page loading both may instead rely on
+ * the script-tag global (`globalThis.LatticeGridForm.enhanceForm`).
+ */
+export function registerForm(enhancer: Function): void;
+/** Destroy every form within an element htmx is about to detach. */
+export function destroyFormWithin(root: ParentNode): number;
+/** Write every live form's values into `data-lattice-form-state` within the element htmx is about to snapshot. */
+export function saveFormStateWithin(root: ParentNode): number;
+/** Rebuild forms onto a restored subtree and reapply their saved values. */
+export function restoreFormStateWithin(root: ParentNode, scan?: Function): number;
 /**
  * Build a Designer on every uninitialised `[data-lattice-designer]` element
  * under `root`, from its config — the mode, saved state and

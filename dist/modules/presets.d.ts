@@ -1,12 +1,12 @@
 /*!
- * Lattice Grid 1.98.3, presets module type declarations
+ * Lattice Grid 1.99.0, presets module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 /**
  * The slice of a real MUI `Theme` (`createTheme()`'s return value)
  * {@link themeFromMui} reads. Loose and hand-shaped rather than imported
- * from `@mui/material` — this package ships zero runtime dependencies
+ * from a Material theme package — this package ships zero runtime dependencies
  * (CONTRACTS §0), so `themeFromMui` takes any plain object with this shape,
  * not only a real MUI `Theme` instance.
  */

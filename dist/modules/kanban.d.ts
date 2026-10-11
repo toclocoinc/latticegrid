@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.98.3, kanban module type declarations
+ * Lattice Grid 1.99.0, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -556,8 +556,8 @@ export interface KanbanFlow {
 
 /**
  * Kanban configuration. Every structural property is named here so the same
- * board maps DemandFlow (a status field, `points`, `sprint`, `epic`, a
- * swimlane property) and any customer schema without code change.
+ * board maps any customer schema (a status field, `points`, `sprint`,
+ * `epic`, a swimlane property) without code change.
  *
  * Theme: no `theme` of its own — it inherits. Its colours are the
  * grid's `--lattice-*` tokens, so `data-theme="dark"` on any ancestor (a layout's

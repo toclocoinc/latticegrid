@@ -1,5 +1,5 @@
 {
-  "version": "1.98.3",
+  "version": "1.99.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 741,
+  "count": 743,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -1499,6 +1499,16 @@
       "docs": "api/grid.html#formatting"
     },
     {
+      "id": "format:pattern:*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.99.0",
+      "message": "invalid number format pattern \"{pattern}\"; the value will use the default number format",
+      "meaning": "A `pattern` on a number format — or a bare pattern string — held no digit placeholder, so nothing could be compiled from it. The value renders with the default number format rather than the requested one.",
+      "fix": "Give the pattern at least one `0` or `#` digit placeholder, e.g. `'#,##0.00'`.",
+      "docs": "api/grid.html#formatting"
+    },
+    {
       "id": "format:shape",
       "module": "core",
       "severity": "warn",
@@ -1617,8 +1627,8 @@
       "module": "core",
       "severity": "warn",
       "since": "1.56.0",
-      "message": "sort ignores an entry with keys { {keys} }; expected { col, dir } (AG Grid's sort model uses \"colId\"/\"direction\" — this grid uses \"col\"/\"dir\").",
-      "meaning": "A sort entry is an object with no usable `col`, so it is dropped from the sort. The other entries still apply. The key carries the entry's own key names, which is what makes the commonest case — an AG Grid sort model handed straight over — recognisable at a glance.",
+      "message": "sort ignores an entry with keys { {keys} }; expected { col, dir } (the keys are \"col\" and \"dir\", not \"colId\"/\"direction\").",
+      "meaning": "A sort entry is an object with no usable `col`, so it is dropped from the sort. The other entries still apply. The key carries the entry's own key names, which is what makes the commonest case — a migrated sort model handed straight over — recognisable at a glance.",
       "fix": "Use `{ col, dir }`. Translate a migrated sort model: `colId` becomes `col`, `direction` becomes `dir`.",
       "snippet": "grid.sort.set([{ col: 'amount', dir: 'desc' }]);",
       "docs": "api/grid.html#sort"
@@ -4066,8 +4076,8 @@
       "severity": "warn",
       "since": "1.14.0",
       "message": "dhtmlx-compat does not translate the {kind} key '{key}', so it has no effect. Nothing was applied for it.",
-      "meaning": "A configuration or column key from your dhtmlx grid has no counterpart in the compatibility shim, so it was dropped. `{kind}` is `config` or `column`, and `{key}` is the key as you wrote it. A migration that silently ignores half of a column definition is the failure this line exists to prevent: the shim translates what it knows and names everything it does not, once per key rather than once per column.",
-      "fix": "Look the key up in the dhtmlx compatibility section of the reference. Where Lattice has an equivalent it is spelled differently and belongs in the native configuration; where it has none, remove the key so the intent is not lost in your source.",
+      "meaning": "A configuration or column key from your source grid has no counterpart in the compatibility shim, so it was dropped. `{kind}` is `config` or `column`, and `{key}` is the key as you wrote it. A migration that silently ignores half of a column definition is the failure this line exists to prevent: the shim translates what it knows and names everything it does not, once per key rather than once per column.",
+      "fix": "Look the key up in the compatibility section of the reference. Where Lattice has an equivalent it is spelled differently and belongs in the native configuration; where it has none, remove the key so the intent is not lost in your source.",
       "docs": "api/adapters.html#dhtmlx-compat"
     },
     {
@@ -4076,8 +4086,8 @@
       "severity": "warn",
       "since": "1.14.0",
       "message": "dhtmlx-compat does not recognise editorType '{editorType}'; the default text editor was used instead.",
-      "meaning": "A column carried a dhtmlx `editorType` the shim has no mapping for. The column is still editable — editing was not switched off — but it was given the plain text editor, so a date, a select or a checkbox column will edit as free text and will accept values its type would have rejected.",
-      "fix": "Set the Lattice editor for that column directly (`edit: { editor: 'date' }` and so on), which also gives you the editor options the dhtmlx name cannot carry.",
+      "meaning": "A column carried a source `editorType` the shim has no mapping for. The column is still editable — editing was not switched off — but it was given the plain text editor, so a date, a select or a checkbox column will edit as free text and will accept values its type would have rejected.",
+      "fix": "Set the Lattice editor for that column directly (`edit: { editor: 'date' }` and so on), which also gives you the editor options the source name cannot carry.",
       "snippet": "columns: [{ id: 'due', type: 'date', edit: { enabled: true, editor: 'date' } }]",
       "docs": "api/adapters.html#dhtmlx-compat"
     },
@@ -4087,7 +4097,7 @@
       "severity": "warn",
       "since": "1.14.0",
       "message": "dhtmlx-compat collapsed a {n}-row header to its first row. Lattice titles are a single string; the remaining rows were not applied.",
-      "meaning": "dhtmlx carries a multi-row header as an array on the column; a Lattice column's `title` is one string. The shim keeps the first row's text and drops the rest, so a second header row that carried a filter box or a sub-heading is gone from the rendered header.",
+      "meaning": "the source API carries a multi-row header as an array on the column; a Lattice column's `title` is one string. The shim keeps the first row's text and drops the rest, so a second header row that carried a filter box or a sub-heading is gone from the rendered header.",
       "fix": "Model the extra level as a column group, which is how Lattice draws banded headings, and leave `title` as the leaf's own text.",
       "snippet": "columns: [{ id: 'q1', title: 'Q1', group: 'Revenue' }, { id: 'q2', title: 'Q2', group: 'Revenue' }]",
       "docs": "api/grid.html#columns"
@@ -4098,10 +4108,10 @@
       "severity": "warn",
       "since": "1.20.0",
       "message": "dhtmlx-compat does not translate the span key '{key}', so it has no effect. Lattice spans carry only geometry (rowspan/colspan); the cell's value, css and tooltip come from its own column, not the span.",
-      "meaning": "`addSpan()` was called with a key beyond the four the shim understands (`row`, `column`, `rowspan`, `colspan`). In dhtmlx a span can also carry the merged cell's text, CSS and tooltip; in Lattice a span is geometry only and the merged cell renders through the column it belongs to, so those keys had nowhere to go.",
+      "meaning": "`addSpan()` was called with a key beyond the four the shim understands (`row`, `column`, `rowspan`, `colspan`). In the source API a span can also carry the merged cell's text, CSS and tooltip; in Lattice a span is geometry only and the merged cell renders through the column it belongs to, so those keys had nowhere to go.",
       "fix": "Set the appearance on the column instead — its `cell.render`, its `cell.class`, its `tooltip` — and keep the span for geometry.",
       "snippet": "grid.spans.add({ row: 3, column: 'name', colspan: 2 });",
-      "docs": "api/grid.html#dhtmlx-spans-example"
+      "docs": "api/grid.html#compat-spans-example"
     },
     {
       "id": "annotate.add.invalid",
@@ -5928,7 +5938,7 @@
       "severity": "warn",
       "since": "1.80.0",
       "message": "<LatticeDataGrid> ignored \"{prop}\": {reason} Nothing of it was applied.",
-      "meaning": "<LatticeDataGrid>, the MUI X DataGrid-shaped React component, was handed something it does not map onto the grid: an MUI prop outside the accepted list, a Pro/Premium prop, `sx`, `classes` or `initialState`, a column-definition key, column type, slot, filter operator or CSV option it has no translation for, an \"exclude\" selection model, an `updateRows` replace, or one of the three paging props over a source that is not a memory source. The `*` is the name, so each one is reported once and separately. Nothing of it was applied: a filter model with one untranslatable operator is not applied at all, and a refused page model leaves the source's rows exactly as they are.",
+      "meaning": "<LatticeDataGrid>, the data-grid-shaped React component, was handed something it does not map onto the grid: a data-grid prop outside the accepted list, a Pro/Premium prop, `sx`, `classes` or `initialState`, a column-definition key, column type, slot, filter operator or CSV option it has no translation for, an \"exclude\" selection model, an `updateRows` replace, or one of the three paging props over a source that is not a memory source. The `*` is the name, so each one is reported once and separately. Nothing of it was applied: a filter model with one untranslatable operator is not applied at all, and a refused page model leaves the source's rows exactly as they are.",
       "fix": "Read the reason in the message. Drop the prop, or reach the same result the Lattice way: a controlled model instead of `initialState`, the --lattice-* theme tokens instead of `sx`, the grid's own grouping, tree, pivot and totals instead of the Pro props, and the source's own paging instead of `paginationModel` over a pushdown source.",
       "snippet": "<DataGrid rows={rows} columns={columns} paginationModel={model} onPaginationModelChange={setModel} />",
       "docs": "api/adapters.html#react-data-grid"
@@ -7345,6 +7355,17 @@
       "fix": "Load the shell module and call registerShell(createShell), or load its UMD build as a <script> tag so globalThis.LatticeGridShell.createShell exists.",
       "snippet": "import { registerShell } from '@toclocoinc/lattice-grid/modules/htmx';\nimport { createShell } from '@toclocoinc/lattice-grid/modules/shell';\nregisterShell(createShell);",
       "docs": "api/shell.html#shell"
+    },
+    {
+      "id": "htmx:form-no-enhancer",
+      "module": "htmx",
+      "severity": "warn",
+      "since": "1.98.1",
+      "message": "autoInitForm: no form enhancer registered and no globalThis.LatticeGridForm.enhanceForm; load the form module first.",
+      "meaning": "The htmx adapter does not inline the form engine, so a [data-lattice-form] element needs an enhancer: one registered with registerForm(), or the script-tag global the form module's UMD build publishes (globalThis.LatticeGridForm.enhanceForm). Neither was present, so the element was left un-enhanced and the server form submitted without client-side validation.",
+      "fix": "Load the form module and call registerForm(enhanceForm), or load its UMD build as a <script> tag so globalThis.LatticeGridForm.enhanceForm exists.",
+      "snippet": "import { registerForm } from '@toclocoinc/lattice-grid/modules/htmx';\nimport { enhanceForm } from '@toclocoinc/lattice-grid/modules/form';\nregisterForm(enhanceForm);",
+      "docs": "api/form.html#form-enhance-live-example"
     },
     {
       "id": "mapview:grid",

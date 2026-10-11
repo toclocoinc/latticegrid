@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Adapters API Reference — Lattice Grid 1.98.3</title>
+<title>Adapters API Reference — Lattice Grid 1.99.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -389,13 +389,13 @@
         <span class="rail__label">On this page</span>
         <a href="#adapters">Framework adapters</a>
         <a class="rail__sub-link" href="#react-v2">React: every viewer, not only the grid</a>
-        <a class="rail__sub-link" href="#react-data-grid">React: &lt;LatticeDataGrid&gt;, an MUI X DataGrid page by one import</a>
+        <a class="rail__sub-link" href="#react-data-grid">React: &lt;LatticeDataGrid&gt;, a DataGrid page by one import</a>
         <a class="rail__sub-link" href="#vue-v2">Vue 3: every viewer, not only the grid</a>
         <a class="rail__sub-link" href="#svelte-v2">Svelte 5: components you compile, not a bundle you load</a>
         <a class="rail__sub-link" href="#angular-v2">Angular: a compiled entry point, @toclocoinc/lattice-grid/angular</a>
         <a href="#webcomponent">&lt;lattice-grid&gt; web component</a>
         <a class="rail__sub-link" href="#webcomponent-v2">Web Components: every viewer, not only the grid</a>
-        <a href="#dhtmlx-compat">dhtmlx Grid compatibility wrapper</a>
+        <a href="#dhtmlx-compat">Grid compatibility wrapper</a>
         <a href="#declarative-init">Declarative init, hydration &amp; state</a>
         <a href="#htmx-integration">htmx integration</a>
         <a class="rail__sub-link" href="#gantt-hx-vals">Declaring a Gantt, and posting its changes</a>
@@ -410,6 +410,7 @@
         <a class="rail__sub-link" href="#map-hx-vals">Declaring a map, bound to its grid</a>
         <a href="#ref-adapters-reference">Type reference</a>
         <a class="rail__sub-link" href="#type-LatticeViewerCommonProps">LatticeViewerCommonProps</a>
+        <a class="rail__sub-link" href="#type-LatticeFormProps">LatticeFormProps</a>
         <a class="rail__sub-link" href="#type-LatticeDataGridApi">LatticeDataGridApi</a>
         <a class="rail__sub-link" href="#type-LatticeDataGridProps">LatticeDataGridProps</a>
         <a class="rail__sub-link" href="#type-LatticeVueGridRegistry">LatticeVueGridRegistry</a>
@@ -438,6 +439,7 @@
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
         <a href="shell.html">The shell module</a>
+        <a href="form.html">The form module</a>
         <a href="dashboard.html">Dashboard composition</a>
         <a href="designer.html">The Designer</a>
         <a href="ai.html">The AI narrative and insights layer</a>
@@ -457,11 +459,11 @@
     <header class="masthead">
       <p class="eyebrow">TOCLOCO Inc</p>
       <h1>Framework adapters and custom elements</h1>
-      <p class="lede">A component for every view in React, Vue, Svelte and Angular, a custom element per view, declarative init, the dhtmlx wrapper and htmx.</p>
+      <p class="lede">A component for every view in React, Vue, Svelte and Angular, a custom element per view, declarative init, the compatibility wrapper and htmx.</p>
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 25 pages</a></span>
+      <span class="chip"><a href="index.html">All 26 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -581,7 +583,7 @@
       </table>
     </div>
 
-    <pre data-run="js" data-expect="11 components, onCardMove, default, rows 2, events 6/9" data-covers="export:createLatticeReact export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeCalendar export:createLatticeGantt export:createLatticeScheduler export:createLatticeShell export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/react/index.js');
+    <pre data-run="js" data-expect="12 components, onCardMove, default, rows 2, events 6/10" data-covers="export:createLatticeReact export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeCalendar export:createLatticeGantt export:createLatticeScheduler export:createLatticeShell export:createLatticeForm export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/react/index.js');
 
 <span class="cmt">// A stand-in for React and react-dom. The adapter never imports either, so a</span>
 <span class="cmt">// factory only needs the handful of names it destructures — which is exactly</span>
@@ -608,6 +610,7 @@
   A.createLatticeTabs({ React, ReactDOM, createTabs: stub }),
   A.createLatticeViewer({ React, viewer: 'kpi', mount: stub }),
   A.createLatticeShell({ React, createShell: stub }),
+  A.createLatticeForm({ React, createForm: stub }),
 ].filter((c) =&gt; typeof c === 'function');
 
 <span class="cmt">// The provider/hook pair and the router hook are built the same way.</span>
@@ -728,16 +731,16 @@ binding.destroy();
       a line that could never run. The build now deletes that branch from every emitted artefact.
     </p>
 
-    <h3 id="react-data-grid">React: <code>&lt;LatticeDataGrid&gt;</code>, an MUI X DataGrid page by one import</h3>
+    <h3 id="react-data-grid">React: <code>&lt;LatticeDataGrid&gt;</code>, a DataGrid page by one import</h3>
     <p>
-      <code>createLatticeDataGrid</code> (1.80) builds a component that takes the props of MUI X's
+      <code>createLatticeDataGrid</code> (1.80) builds a component that takes the props of the
       <code>&lt;DataGrid&gt;</code> &mdash; the free-tier ones in the table below &mdash; so a page written
-      against <code>@mui/x-data-grid</code> keeps its column definitions, its controlled models and
+      against a data-grid package keeps its column definitions, its controlled models and
       its callbacks, and changes the import. Every accepted prop maps to documented grid configuration,
       a grid API call or a subscription to a grid event. <strong>Every other prop is refused once, by
       name</strong>, with the catalogued warning <code>react:mui-prop-unsupported:&lt;prop&gt;</code>, and
       ignored &mdash; never half-applied. It is <strong>React-only by design</strong>: it exists for pages
-      leaving MUI X, which Vue, Svelte and Angular hosts are not, so the rule that every framework gets
+      leaving a data-grid package, which Vue, Svelte and Angular hosts are not, so the rule that every framework gets
       every viewer does not extend to it. <code>sx</code> and the <code>.MuiDataGrid-*</code> class names are
       not emulated; theme the grid through its <code>--lattice-*</code> tokens. The grid's stylesheet still
       needs loading.
@@ -852,7 +855,7 @@ binding.destroy();
 const { createGrid, createPushdownSource } = await import('../packages/dom/src/index.js');
 const { createLatticeDataGrid, createDataGridController } = await import('../packages/modules/react/index.js');
 
-// An MUI X page's rows and column definitions, unchanged.
+// A data-grid page's rows and column definitions, unchanged.
 const rows = [
   { code: 'a', name: 'Ada', age: 36, first: 'Ada', last: 'Lovelace', ok: true },
   { code: 'b', name: 'Bob', age: 20, first: 'Bob', last: 'Moog', ok: false },
@@ -1012,7 +1015,7 @@ L.provideLatticeRouter(ROUTER_CONFIG);
       </table>
     </div>
 
-    <pre data-run="js" data-expect="9 components, cell-changed, card-move, default, rows 2" data-covers="export:createLatticeVue export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeCalendar export:createLatticeGantt export:createLatticeScheduler export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:dashedName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME export:EVENT_NAMES"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/vue/index.js');
+    <pre data-run="js" data-expect="10 components, cell-changed, card-move, default, rows 2" data-covers="export:createLatticeVue export:createLatticeGrid export:createLatticeKPI export:createLatticeChart export:createLatticeKanban export:createLatticeCalendar export:createLatticeGantt export:createLatticeScheduler export:createLatticeForm export:createLatticeLayout export:createLatticeTabs export:createLatticeViewer export:createLatticeGridContext export:createLatticeRouter export:createViewerController export:viewerHandlerName export:dashedName export:VIEWER_EVENTS export:VIEWER_APPLY export:DEFAULT_GRID_NAME export:EVENT_NAMES"><code><span class="kw">const</span> A = <span class="kw">await</span> import('../packages/modules/vue/index.js');
 
 <span class="cmt">// A stand-in for Vue. The adapter never imports it, so a factory only needs</span>
 <span class="cmt">// the handful of names it destructures — which is exactly why this example</span>
@@ -1042,6 +1045,7 @@ L.provideLatticeRouter(ROUTER_CONFIG);
   A.createLatticeScheduler({ vue, createScheduler: stub }),
   A.createLatticeLayout({ vue, createLayout: stub }),
   A.createLatticeTabs({ vue, createTabs: stub }),
+  A.createLatticeForm({ vue, createForm: stub }),
 ].filter((c) =&gt; <span class="kw">typeof</span> c.setup === 'function');
 
 <span class="cmt">// The generic behind them, the registry pair and the router composables.</span>
@@ -1212,7 +1216,7 @@ controller.destroy();
         </tbody>
       </table>
     </div>
-    <pre data-run="js" data-expect="config rowKey,onCellChanged; own main; registry main; grid dark; tabs one; viewers kpi,chart,kanban,calendar,gantt,layout,scheduler,shell; router 1" data-covers="export:bindGrid export:bindViewer export:bindTabs export:createGridRegistry export:createRouterHandle export:adaptProps export:pickCallback export:viewerMount export:snippetTabIds export:VIEWER_BINDING export:GRID_REGISTRY_KEY export:ROUTER_KEY"><code><span class="kw">const</span> S = <span class="kw">await</span> import('../packages/modules/svelte/index.js');
+    <pre data-run="js" data-expect="config rowKey,onCellChanged; own main; registry main; grid dark; tabs one; viewers kpi,chart,kanban,calendar,gantt,layout,scheduler,shell,form; router 1" data-covers="export:bindGrid export:bindViewer export:bindTabs export:createGridRegistry export:createRouterHandle export:adaptProps export:pickCallback export:viewerMount export:snippetTabIds export:VIEWER_BINDING export:GRID_REGISTRY_KEY export:ROUTER_KEY"><code><span class="kw">const</span> S = <span class="kw">await</span> import('../packages/modules/svelte/index.js');
 
 <span class="cmt">// A component hands its props straight to the helpers. They keep the</span>
 <span class="cmt">// adapter's own props out of the instance and accept a callback under</span>
@@ -1684,8 +1688,8 @@ defaults(<span class="kw">null</span>);                <span class="cmt">// clea
     <pre><code><span class="kw">const</span> root = host.attachShadow({ mode: 'open' });
 adoptLatticeStyles(root);
 root.append(document.createElement('lattice-grid'));</code></pre>
-    <h2 id="dhtmlx-compat">dhtmlx Grid compatibility wrapper</h2>
-    <p class="section-note">A <code>Grid</code> class shaped like dhtmlx's own <code>dhx.Grid</code> (Suite 5+), backed by a real Lattice grid. Covers column definitions, <code>.data</code>, <code>.selection</code>, <code>.history</code>, <code>.export.csv</code>/<code>.xlsx</code>, and a name-mapped subset of <code>.events</code>: see <a href="../api-detail.html#dhtmlx-guide">the guide</a> for exactly what is and is not covered. Not the classic pre-Suite-5 <code>dhtmlXGridObject</code>.</p>
+    <h2 id="dhtmlx-compat">Grid compatibility wrapper</h2>
+    <p class="section-note">A <code>Grid</code> class shaped like a common grid widget API (Suite 5+), backed by a real Lattice grid. Covers column definitions, <code>.data</code>, <code>.selection</code>, <code>.history</code>, <code>.export.csv</code>/<code>.xlsx</code>, and a name-mapped subset of <code>.events</code>: see <a href="../api-detail.html#grid-compat-guide">the guide</a> for exactly what is and is not covered. Not the classic pre-Suite-5 object model.</p>
 
     <pre><code><span class="kw">import</span> { Grid } <span class="kw">from</span> './dist/modules/dhtmlx-compat.esm.min.js';
 
@@ -1700,16 +1704,16 @@ grid.data.serialize(); <span class="cmt">// every row's data, in source order</s
         <thead><tr><th>Namespace</th><th>Covers</th></tr></thead>
         <tbody>
           <tr><td class="sig">.data</td><td class="desc"><code>add</code>, <code>update</code>, <code>remove</code>, <code>removeAll</code>, <code>parse</code>, <code>load</code>, <code>find</code>, <code>findAll</code>, <code>exists</code>, <code>getItem</code>, <code>getId</code>, <code>getIndex</code>, <code>getLength</code>, <code>forEach</code>, <code>serialize</code>, <code>sort</code>, <code>filter</code>, <code>resetFilter</code>. Index means current display order throughout.</td></tr>
-          <tr><td class="sig">.selection</td><td class="desc"><code>setCell(rowId, colId, ctrlUp?, shiftUp?)</code>, <code>getCell</code>, <code>getCells</code>, <code>isSelectedCell</code>, <code>removeCell</code>. <code>row</code>/<code>column</code> carry <code>.id</code>; a row's own fields sit alongside it, matching dhtmlx's own <code>IRow</code>.</td></tr>
+          <tr><td class="sig">.selection</td><td class="desc"><code>setCell(rowId, colId, ctrlUp?, shiftUp?)</code>, <code>getCell</code>, <code>getCells</code>, <code>isSelectedCell</code>, <code>removeCell</code>. <code>row</code>/<code>column</code> carry <code>.id</code>; a row's own fields sit alongside it, matching the source API's own <code>IRow</code>.</td></tr>
           <tr><td class="sig">.history</td><td class="desc"><code>undo</code>, <code>redo</code>, <code>canUndo</code>, <code>canRedo</code>, <code>clear</code>, <code>getHistory</code>.</td></tr>
           <tr><td class="sig">.export</td><td class="desc"><code>csv</code>, <code>xlsx</code>. <code>pdf</code>/<code>png</code> throw, no raster export to translate to.</td></tr>
-          <tr><td class="sig">.events</td><td class="desc"><code>cellClick</code>/<code>cellDblClick</code>/<code>cellRightClick</code>/<code>afterEditStart</code>/<code>afterEditEnd</code>/<code>afterSort</code> call your handler with dhtmlx's own positional arguments. <code>afterRowDrop</code> fires <code>(data, event)</code> from a same-grid reorder settling or a row landing from another grid. Every other mapped name passes Lattice's own event object. Every <code>before*</code>/<code>can*</code>/<code>cancel*</code> event, and row/column drag <em>negotiation</em> (a handler refusing or steering a drop mid-gesture), is unmapped: logged once per name if subscribed to.</td></tr>
-          <tr><td class="sig">.rangeSelection</td><td class="desc">Best-effort only: its range shape is this wrapper's own design, not dhtmlx's genuine <code>RangeSelection</code> module.</td></tr>
+          <tr><td class="sig">.events</td><td class="desc"><code>cellClick</code>/<code>cellDblClick</code>/<code>cellRightClick</code>/<code>afterEditStart</code>/<code>afterEditEnd</code>/<code>afterSort</code> call your handler with the source API's own positional arguments. <code>afterRowDrop</code> fires <code>(data, event)</code> from a same-grid reorder settling or a row landing from another grid. Every other mapped name passes Lattice's own event object. Every <code>before*</code>/<code>can*</code>/<code>cancel*</code> event, and row/column drag <em>negotiation</em> (a handler refusing or steering a drop mid-gesture), is unmapped: logged once per name if subscribed to.</td></tr>
+          <tr><td class="sig">.rangeSelection</td><td class="desc">Best-effort only: its range shape is this wrapper's own design, not the source API's genuine <code>RangeSelection</code> module.</td></tr>
         </tbody>
       </table>
     </div>
 
-    <h3>Which dhtmlx keys are translated</h3>
+    <h3>Which compatibility keys are translated</h3>
     <p class="section-note">
       A key outside these lists is <strong>not</strong> silently dropped: the wrapper names it
       through <code>warnOnce</code> at construction, so a migration is told what did not come
@@ -1719,15 +1723,15 @@ grid.data.serialize(); <span class="cmt">// every row's data, in source order</s
       <table>
         <thead><tr><th>Constructor key</th><th>Becomes</th></tr></thead>
         <tbody>
-          <tr><td class="name">rowKey</td><td class="desc">The grid's <code>rowKey</code>. Defaults to <code>id</code>, as dhtmlx does.</td></tr>
+          <tr><td class="name">rowKey</td><td class="desc">The grid's <code>rowKey</code>. Defaults to <code>id</code>.</td></tr>
           <tr><td class="name">columns</td><td class="desc">Translated column by column; see the next table.</td></tr>
           <tr><td class="name">data</td><td class="desc">The initial rows.</td></tr>
           <tr><td class="name">autoHeight</td><td class="desc"><code>autoHeight</code>.</td></tr>
           <tr><td class="name">rowHeight</td><td class="desc"><code>rowHeight</code>.</td></tr>
           <tr><td class="name">headerRowHeight</td><td class="desc"><code>headerHeight</code>.</td></tr>
           <tr><td class="name">multiselection</td><td class="desc"><code>selection: 'multiple'</code>.</td></tr>
-          <tr><td class="name">dragItem</td><td class="desc"><code>rowReorder</code> when set to <code>row</code>. It does <em>not</em> also enable <code>rowTransfer</code>: dhtmlx lets any two grids on a page exchange rows by default, and enabling that implicitly is the accident Lattice's opt-in design exists to prevent.</td></tr>
-          <tr><td class="name">rowTransfer</td><td class="desc">Passed through. There is no dhtmlx property to translate it from, so a pair of grids that exchange rows names it explicitly.</td></tr>
+          <tr><td class="name">dragItem</td><td class="desc"><code>rowReorder</code> when set to <code>row</code>. It does <em>not</em> also enable <code>rowTransfer</code>: the source API lets any two grids on a page exchange rows by default, and enabling that implicitly is the accident Lattice's opt-in design exists to prevent.</td></tr>
+          <tr><td class="name">rowTransfer</td><td class="desc">Passed through. There is no source-API property to translate it from, so a pair of grids that exchange rows names it explicitly.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1744,7 +1748,7 @@ grid.data.serialize(); <span class="cmt">// every row's data, in source order</s
           <tr><td class="name">draggable</td><td class="desc"><code>layout.movable</code>.</td></tr>
           <tr><td class="name">align</td><td class="desc"><code>cell.align</code>.</td></tr>
           <tr><td class="name">tooltip, tooltipTemplate</td><td class="desc"><code>cell.tooltip</code>.</td></tr>
-          <tr><td class="name">template</td><td class="desc"><code>cell.render</code>. dhtmlx returns HTML and Lattice mutates an element, so the return is treated as markup only when <code>htmlEnable</code> is set.</td></tr>
+          <tr><td class="name">template</td><td class="desc"><code>cell.render</code>. The source API returns HTML and Lattice mutates an element, so the return is treated as markup only when <code>htmlEnable</code> is set.</td></tr>
           <tr><td class="name">htmlEnable</td><td class="desc">Whether <code>template</code> output is trusted as markup.</td></tr>
           <tr><td class="name">sortable</td><td class="desc"><code>sort.enabled</code>.</td></tr>
           <tr><td class="name">editable</td><td class="desc"><code>edit.enabled</code>.</td></tr>
@@ -1762,7 +1766,7 @@ grid.data.serialize(); <span class="cmt">// every row's data, in source order</s
         <thead><tr><th>Config key</th><th>Becomes</th></tr></thead>
         <tbody>
           <tr><td class="sig">dragItem: 'row'</td><td class="desc"><code>rowReorder: true</code>: same-grid drag-to-reorder.</td></tr>
-          <tr><td class="sig">rowTransfer</td><td class="desc">Passed straight through, unlike every other key: dhtmlx allows any two <code>dragItem: 'row'</code> grids on a page to exchange rows by default; Lattice's <code>rowTransfer</code> is deliberately opt-in per pair, so there is nothing to derive it from.</td></tr>
+          <tr><td class="sig">rowTransfer</td><td class="desc">Passed straight through, unlike every other key: the source API allows any two <code>dragItem: 'row'</code> grids on a page to exchange rows by default; Lattice's <code>rowTransfer</code> is deliberately opt-in per pair, so there is nothing to derive it from.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2102,8 +2106,29 @@ registerMapFactories({ chart: createChart });
         </tbody>
       </table>
     </div>
+    <h4 id="type-LatticeFormProps">LatticeFormProps</h4>
+    <p class="section-note">The form component's callback props: one per form event.</p>
+    <h5 id="type-LatticeFormProps-properties">Properties</h5>
+    <p class="section-note">No properties.</p>
+    <h5 id="type-LatticeFormProps-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">onBeforeChange</td><td class="type">(event: <a href="form.html#type-FormBeforeChangeEvent">FormBeforeChangeEvent</a>) =&gt; unknown</td><td class="desc"><code>event: <a href="form.html#type-FormBeforeChangeEvent">FormBeforeChangeEvent</a></code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">Raised before a value commits; return `false` or a promise for `false` to veto. <small>(optional)</small></td></tr>
+          <tr><td class="name">onChange</td><td class="type">(event: <a href="form.html#type-FormValueEvent">FormValueEvent</a>) =&gt; void</td><td class="desc"><code>event: <a href="form.html#type-FormValueEvent">FormValueEvent</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">A value committed. <small>(optional)</small></td></tr>
+          <tr><td class="name">onInput</td><td class="type">(event: <a href="form.html#type-FormValueEvent">FormValueEvent</a>) =&gt; void</td><td class="desc"><code>event: <a href="form.html#type-FormValueEvent">FormValueEvent</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">A live, uncommitted value. <small>(optional)</small></td></tr>
+          <tr><td class="name">onClick</td><td class="type">(event: <a href="form.html#type-FormClickEvent">FormClickEvent</a>) =&gt; void</td><td class="desc"><code>event: <a href="form.html#type-FormClickEvent">FormClickEvent</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">A button item was pressed. <small>(optional)</small></td></tr>
+          <tr><td class="name">onFocus</td><td class="type">(event: FormFocusEvent) =&gt; void</td><td class="desc"><code>event: FormFocusEvent</code></td><td class="type"><code>=&gt; void</code></td><td class="desc">An item's control gained focus. <small>(optional)</small></td></tr>
+          <tr><td class="name">onBlur</td><td class="type">(event: FormFocusEvent) =&gt; void</td><td class="desc"><code>event: FormFocusEvent</code></td><td class="type"><code>=&gt; void</code></td><td class="desc">An item's control lost focus. <small>(optional)</small></td></tr>
+          <tr><td class="name">onValidated</td><td class="type">(event: <a href="form.html#type-FormValidatedEvent">FormValidatedEvent</a>) =&gt; void</td><td class="desc"><code>event: <a href="form.html#type-FormValidatedEvent">FormValidatedEvent</a></code></td><td class="type"><code>=&gt; void</code></td><td class="desc">`validate()` finished, with every failure. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-LatticeFormProps-events">Events</h5>
+    <p class="section-note">No events.</p>
     <h4 id="type-LatticeDataGridColDef">LatticeDataGridColDef</h4>
-    <p class="section-note">One MUI X-shaped column definition, as `&lt;LatticeDataGrid&gt;` takes it (BACKLOG-0001572). These eleven keys are mapped onto a grid column; any other key is refused once, by name, as `columns.&lt;key&gt;`.</p>
+    <p class="section-note">One column definition, as `&lt;LatticeDataGrid&gt;` takes it (BACKLOG-0001572). These eleven keys are mapped onto a grid column; any other key is refused once, by name, as `columns.&lt;key&gt;`.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
@@ -2251,7 +2276,7 @@ registerMapFactories({ chart: createChart });
     <h5 id="type-LatticeDataGridApi-events">Events</h5>
     <p class="section-note">No events.</p>
     <h4 id="type-LatticeDataGridProps">LatticeDataGridProps</h4>
-    <p class="section-note">What `&lt;LatticeDataGrid&gt;` takes (BACKLOG-0001572): the MUI X DataGrid props it maps, and nothing else. Every other prop is refused once, by name, as `react:mui-prop-unsupported:&lt;prop&gt;`, and ignored.</p>
+    <p class="section-note">What `&lt;LatticeDataGrid&gt;` takes (BACKLOG-0001572): the DataGrid props it maps, and nothing else. Every other prop is refused once, by name, as `react:mui-prop-unsupported:&lt;prop&gt;`, and ignored.</p>
     <h5 id="type-LatticeDataGridProps-properties">Properties</h5>
     <div class="table-wrap">
       <table>

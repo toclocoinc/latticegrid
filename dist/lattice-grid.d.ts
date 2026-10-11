@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.98.3, type declarations
+ * Lattice Grid 1.99.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -350,6 +350,19 @@ export interface NumberFormat {
    * formatter.
    */
   type?: 'number';
+  /**
+   * A compact Excel-style template that compiles to the options below, so it
+   * shares the one Intl-backed formatter: `'#,##0.00'`, `'£#,##0'`, `'0.0%'`,
+   * `'#,##0.00;(#,##0.00)'`. `0` is a required digit, `#` an optional one; `,`
+   * turns thousands grouping on; `.` and the digits after it set the minimum
+   * and maximum decimals; `%` scales by 100; `;` adds a negative section and
+   * a third zero section. Literal text (currency symbols, `"quoted"` text)
+   * sits before or after the number. The locale supplies the grouping and
+   * decimal characters. Options set beside `pattern` win over it, and an
+   * invalid pattern warns once and is ignored. A bare string
+   * number format is accepted as the same thing.
+   */
+  pattern?: string;
   /**
    * `'decimal'` (the default), `'currency'` or `'percent'`. `'percent'`
    * multiplies by 100 and appends the locale's percent sign, so store 0.12 for
@@ -1000,6 +1013,7 @@ export type IconName =
   | 'star' | 'heart' | 'circleFilled' | 'square' | 'bolt' | 'flag'
   | 'arrow' | 'highlight' | 'eraser' | 'thumbUp' | 'eye' | 'eyeOff' | 'copy' | 'present'
   | 'cabinet' | 'splice' | 'exchange' | 'pole' | 'chamber' | 'premises' | 'fault'
+  | 'user' | 'calendar'
   | 'blank'
   | (string & {});
 
@@ -1287,7 +1301,7 @@ export type ToolPanelName = 'columns' | 'filters' | 'views' | 'quick' | 'formatt
 export type RendererName =
   | 'area' | 'bullet' | 'checkbox' | 'colour' | 'column' | 'delta' | 'detailExpander'
   | 'donut' | 'gauge' | 'group' | 'icon' | 'image' | 'line' | 'link' | 'pie' | 'pill'
-  | 'progress' | 'qrcode' | 'range' | 'rating' | 'skeleton' | 'stacked' | 'twoline'
+  | 'progress' | 'qrcode' | 'range' | 'rating' | 'skeleton' | 'stage' | 'stacked' | 'twoline'
   | 'winloss' | (string & {});
 
 /**
@@ -1297,7 +1311,7 @@ export type RendererName =
 export type EditorName =
   | 'checkbox' | 'code' | 'colour' | 'currency' | 'date' | 'datetime' | 'duration'
   | 'iconPicker' | 'ipaddress' | 'multiSelect' | 'number' | 'objectPicker' | 'password'
-  | 'radix' | 'rating' | 'segmented' | 'select' | 'slider' | 'temperature' | 'text'
+  | 'radix' | 'rating' | 'richtext' | 'segmented' | 'select' | 'slider' | 'temperature' | 'text'
   | 'textarea' | 'time' | 'treeSelect' | 'unit' | (string & {});
 
 export interface EditorParams extends CellParams {
@@ -5191,8 +5205,8 @@ export interface GridConfig {
    */
   regression?: RegressionSpec;
   /**
-   * A drag-and-drop group-by strip above the column header — the pattern AG
-   * Grid calls the row-group panel. Drag a column heading into it to group by
+   * A drag-and-drop group-by strip above the column header — the pattern a
+   * row-group panel. Drag a column heading into it to group by
    * that column; the active groups show as removable, reorderable chips, and
    * reordering the chips changes the nesting order. It is keyboard-operable
    * (arrows navigate, Shift+arrow reorders, Delete ungroups, and an add control
@@ -8059,7 +8073,7 @@ export type ViewerOrigin = 'api' | 'user';
  * that supports fewer of them still takes this type; the ones it cannot
  * actually build fail at the call, not at the type.
  */
-export type ViewerKind = 'kpi' | 'kanban' | 'calendar' | 'tabs' | 'chart' | 'gantt' | 'layout' | 'router';
+export type ViewerKind = 'kpi' | 'kanban' | 'calendar' | 'tabs' | 'chart' | 'gantt' | 'layout' | 'router' | 'form';
 export interface GridEvent {
   /**
    * Which event this is — `rows:changed`, `sort:changed`, `cell:edit:end` and
@@ -12523,7 +12537,7 @@ export function duckdbAdapter(options: {
 };
 
 /**
- * An adapter for a DemandFlow entity, speaking `POST /v1/query`.
+ * An adapter for a DFQL entity, speaking `POST /v1/query`.
  *
  * `comboKey` is the *name* of the key attribute to match on, which is
  * `'comboKey'` for a standard hierarchy; `query` is the prefix matched against
@@ -12537,7 +12551,7 @@ export function dfqlAdapter(options: {
   entity: string;
   /** A personal access token. Never commit one. */
   token: string;
-  /** The API base. `https://rest.demandflow.com` by default. */
+  /** The API base. Defaults to the DFQL REST endpoint. */
   url?: string;
   /** The key attribute to match on: `comboKey`, `comboKey2` or `comboKey3`. */
   comboKey?: string;
@@ -12555,7 +12569,7 @@ export function dfqlAdapter(options: {
    */
   writeUrl?: string;
   /**
-   * Map a new grid row to the DemandFlow `fields` an append needs — its required
+   * Map a new grid row to the `fields` an append needs — its required
    * `entity`/`level`/`comboKey` — since the grid's structural append only knows
    * the row's own fields. Called once per appended row.
    */
@@ -13131,6 +13145,9 @@ declare global {
   /** The shell module's script-tag global. */
   // eslint-disable-next-line no-var -- an ambient global is only a global as a var
   var LatticeGridShell: typeof import('lattice-grid/modules/shell');
+  /** The form module's script-tag global. */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridForm: typeof import('lattice-grid/modules/form');
   /** The alarms module's script-tag global. */
   // eslint-disable-next-line no-var -- an ambient global is only a global as a var
   var LatticeGridAlarms: typeof import('lattice-grid/modules/alarms');

@@ -860,6 +860,10 @@ const VIEWER_EVENTS$1 = Object.freeze({
         'tabChange', 'stateChange',
         'beforeResizeStart', 'resize', 'afterResizeEnd',
     ]),
+
+    form: Object.freeze([
+        'beforeChange', 'change', 'input', 'click', 'focus', 'blur', 'validated', 'complete',
+    ]),
 });
 
 const VIEWER_APPLY$1 = Object.freeze({
@@ -913,6 +917,8 @@ const VIEWER_APPLY$1 = Object.freeze({
     }),
 
     shell: Object.freeze({}),
+
+    form: Object.freeze({}),
 });
 
 const VIEWER_BULK_UPDATE = Object.freeze({ chart: 'update' });
@@ -3426,6 +3432,65 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
                 type: Output
             }] } });
 
+class LatticeFormComponent extends LatticeViewerBase {
+    constructor() {
+        super(...arguments);
+
+        this.viewer = 'form';
+
+        this.label = 'lattice-form';
+
+        this.takesGrid = false;
+
+        this.factories = inject(LATTICE_FACTORIES, { optional: true });
+
+        this.beforeChange = new EventEmitter();
+
+        this.change = new EventEmitter();
+
+        this.input = new EventEmitter();
+
+        this.click = new EventEmitter();
+
+        this.focus = new EventEmitter();
+
+        this.blur = new EventEmitter();
+
+        this.validated = new EventEmitter();
+
+        this.complete = new EventEmitter();
+    }
+
+    mount(element, config) {
+        const createForm = requireFactory(this.factories, 'createForm', '@toclocoinc/lattice-grid/modules/form', this.label);
+        return createForm(element, config);
+    }
+    static { this.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeFormComponent, deps: null, target: i0.ɵɵFactoryTarget.Component }); }
+    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeFormComponent, isStandalone: true, selector: "lattice-form", inputs: { config: "config" }, outputs: { beforeChange: "beforeChange", change: "change", input: "input", click: "click", focus: "focus", blur: "blur", validated: "validated", complete: "complete" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
+}
+i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeFormComponent, decorators: [{
+            type: Component,
+            args: [{ selector: 'lattice-form', template: '', encapsulation: ViewEncapsulation.Emulated, styles: [":host{display:block}\n"] }]
+        }], propDecorators: { config: [{
+                type: Input
+            }], beforeChange: [{
+                type: Output
+            }], change: [{
+                type: Output
+            }], input: [{
+                type: Output
+            }], click: [{
+                type: Output
+            }], focus: [{
+                type: Output
+            }], blur: [{
+                type: Output
+            }], validated: [{
+                type: Output
+            }], complete: [{
+                type: Output
+            }] } });
+
 class LatticeDesignerComponent {
 
     constructor() {
@@ -3751,4 +3816,4 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
                 args: ['tabChange-cancelled']
             }] } });
 
-export { DEFAULT_GRID_NAME, DESIGNER_EVENTS, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeDesignerComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeSchedulerComponent, LatticeShellComponent, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, designerHandlerName, eventProp, provideLattice, provideLatticeRouter, requireFactory };
+export { DEFAULT_GRID_NAME, DESIGNER_EVENTS, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeDesignerComponent, LatticeFormComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeSchedulerComponent, LatticeShellComponent, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, designerHandlerName, eventProp, provideLattice, provideLatticeRouter, requireFactory };

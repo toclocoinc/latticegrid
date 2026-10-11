@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Kanban API Reference — Lattice Grid 1.98.3</title>
+<title>Kanban API Reference — Lattice Grid 1.99.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -422,6 +422,7 @@
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
         <a href="shell.html">The shell module</a>
+        <a href="form.html">The form module</a>
         <a href="dashboard.html">Dashboard composition</a>
         <a href="designer.html">The Designer</a>
         <a href="ai.html">The AI narrative and insights layer</a>
@@ -446,7 +447,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 25 pages</a></span>
+      <span class="chip"><a href="index.html">All 26 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -470,7 +471,7 @@ const board = createKanban(document.querySelector('#board'), {
   readonly: { columns: { done: true } },     <span class="cmt">// granular: whole board / per column / per card</span>
   onCardClick: ({ card }) =&gt; open(card.row),
 });</code></pre>
-    <p>Every structural property is named in config &mdash; <code>columnProperty</code>, <code>pointsProperty</code>, <code>orderProperty</code>, <code>swimlaneProperty</code>, <code>sprintProperty</code>, <code>epicProperty</code> &mdash; so the same board maps DemandFlow (a status field, <code>points</code>, <code>sprint</code>, <code>epic</code>, a swimlane) and any customer schema without code change. Configured columns show even when empty; a data value outside them gets its own column rather than being dropped. Each column header carries its card <strong>count</strong> and, with <code>showPoints</code>, its <strong>points sum</strong>, and is flagged when the count exceeds a column's <code>wipLimit</code>. Accessibility is built in: the board is a labelled group, each column a labelled list, each card a list item in a roving-tabindex focus ring with arrow-key navigation, and a polite live region is present for the move announcements a later cycle adds.</p>
+    <p>Every structural property is named in config &mdash; <code>columnProperty</code>, <code>pointsProperty</code>, <code>orderProperty</code>, <code>swimlaneProperty</code>, <code>sprintProperty</code>, <code>epicProperty</code> &mdash; so the same board maps any customer schema (a status field, <code>points</code>, <code>sprint</code>, <code>epic</code>, a swimlane) without code change. Configured columns show even when empty; a data value outside them gets its own column rather than being dropped. Each column header carries its card <strong>count</strong> and, with <code>showPoints</code>, its <strong>points sum</strong>, and is flagged when the count exceeds a column's <code>wipLimit</code>. Accessibility is built in: the board is a labelled group, each column a labelled list, each card a list item in a roving-tabindex focus ring with arrow-key navigation, and a polite live region is present for the move announcements a later cycle adds.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Member</th><th>Description</th></tr></thead>
@@ -556,7 +557,7 @@ board.destroy();
     <p><strong>Richer card parts.</strong> Beyond <code>title</code>/<code>subtitle</code>/<code>labels</code>, the <code>card</code> mapping takes four built-in parts, each optional and each folded into the card's accessible name: <code>assignee</code> — one or several people (a name, a comma-separated string, or an array of <code>{ name, avatar }</code> objects) drawn with the avatar component the Gantt has used since 1.88, image with an initials fallback coloured from the name, and a <code>+N</code> overflow beyond <code>max</code> (default 2); <code>due</code> — a date field shown in the grid's date format when bound, with a due-soon/overdue state and icon from a <code>dueSoon</code> day threshold (<code>card: { due: { field: 'due', dueSoon: 3 } }</code>); <code>progress</code> — a 0..1 fraction or 0..100 value as a thin bar; and <code>checklist</code> — a <code>{ done, total }</code> object or two named fields, shown as <code>3/5</code>. A bound grid's own formatters are reused, and board search matches assignee names. <code>density: 'compact'</code> tightens each card (less padding, no subtitle) so a column fits more cards; the default <code>'comfortable'</code> keeps the roomier card.</p>
     <p><strong>Undo and redo.</strong> Every user move (a drag, a reorder, a lane change), add and inline edit is one undo step — a multi-card drag is one step, because it reaches <code>move()</code> once with every key it carries. <code>board.undo()</code> re-runs the inverse through the board's own write path (the workflow rules, the <code>onBeforeMove</code>/<code>onBeforeEdit</code> veto, the WIP rules and the confirm/revert pipeline still run, so a refused undo leaves the card and the history unchanged and logs a catalogued warning); <code>board.redo()</code> re-applies, and <code>canUndo()</code>/<code>canRedo()</code> report the stacks, with a <code>history</code> event (<code>{ canUndo, canRedo, label }</code>) on every change. <kbd>Ctrl/Cmd+Z</kbd> and <kbd>Ctrl/Cmd+Shift+Z</kbd> undo and redo while the board has focus (the shortcut stands aside inside a text field). <code>historyDepth</code> caps the steps kept (default 100, <code>0</code> turns undo off). On a <strong>grid-bound</strong> board the board shares the grid's timeline, so one Ctrl+Z order covers a grid edit and a board move; host loads through <code>rows.apply</code> are never undoable.</p>
     <h3 id="kanban-example">A board, grouped and aggregated, executed</h3>
-    <p class="section-note">A DemandFlow-shaped set &mdash; statuses as columns, points, an empty configured column,
+    <p class="section-note">A customer-shaped set &mdash; statuses as columns, points, an empty configured column,
     a WIP limit, and one status outside the configured set &mdash; grouped headless, then a keyed diff applied
     through the same <code>rows.apply</code> contract the Data Router drives. Run on every build.</p>
     <pre data-run="js" data-expect="1/3 | 2/7 | over | archived | 2/13" data-covers="export:createKanban"><code><span class="kw">const</span> { createKanban } = <span class="kw">await</span> import('../packages/modules/kanban/index.js');
@@ -1186,7 +1187,7 @@ board.destroy();
       </table>
     </div>
     <h4 id="type-KanbanConfig">KanbanConfig</h4>
-    <p class="section-note">Kanban configuration. Every structural property is named here so the same board maps DemandFlow (a status field, `points`, `sprint`, `epic`, a swimlane property) and any customer schema without code change. Theme: no `theme` of its own — it inherits (BACKLOG-0001462). Its colours are the grid's `--lattice-*` tokens, so `data-theme="dark"` on any ancestor (a layout's `theme: 'dark'`, or `&lt;html&gt;`) darkens it with everything else, and the nearest `data-theme` wins. Load the grid stylesheet, which carries the tokens.</p>
+    <p class="section-note">Kanban configuration. Every structural property is named here so the same board maps any customer schema (a status field, `points`, `sprint`, `epic`, a swimlane property) without code change. Theme: no `theme` of its own — it inherits (BACKLOG-0001462). Its colours are the grid's `--lattice-*` tokens, so `data-theme="dark"` on any ancestor (a layout's `theme: 'dark'`, or `&lt;html&gt;`) darkens it with everything else, and the nearest `data-theme` wins. Load the grid stylesheet, which carries the tokens.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>

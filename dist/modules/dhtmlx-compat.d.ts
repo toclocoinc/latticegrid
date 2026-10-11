@@ -1,10 +1,10 @@
 /*!
- * Lattice Grid 1.98.3, dhtmlx-compat module type declarations
+ * Lattice Grid 1.99.0, dhtmlx-compat module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 /**
- * A dhtmlx Grid-shaped API over Lattice, for migrating a piece at a time.
+ * A Grid-shaped API over Lattice, for migrating a piece at a time.
  *
  * The module shares the page's one core rather than bundling its own: the
  * grid it builds comes from the `lattice-grid` package the app already loads

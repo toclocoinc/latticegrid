@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.98.3, shell module type declarations
+ * Lattice Grid 1.99.0, shell module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -56,9 +56,9 @@ export interface ShellTab {
 export interface ShellCell {
   /** The cell's identity for `getCell(id)`. Auto-generated when omitted. */
   id?: string;
-  /** The cell's width along a row (px or %). */
+  /** The cell's width: the main-axis size among `cols` (px or %). */
   width?: ShellSize;
-  /** The cell's height along a column (px or %). */
+  /** The cell's height: the main-axis size among `rows` (px or %). */
   height?: ShellSize;
   /** Share of the spare space when the cell has no fixed size. Default 1. */
   gravity?: number;
@@ -94,9 +94,9 @@ export interface ShellCell {
   hidden?: boolean;
   /** Mutable state: the id of the selected tab inside the cell, when it hosts tabs. */
   selected?: string;
-  /** Nested cells, laid out left-to-right. */
-  rows?: ShellCell[];
   /** Nested cells, laid out top-to-bottom. */
+  rows?: ShellCell[];
+  /** Nested cells, laid out left-to-right. */
   cols?: ShellCell[];
   /** Tabbed content: a strip with one attached content per tab, each preserved across switches. */
   tabs?: ShellTab[];
@@ -106,9 +106,9 @@ export interface ShellCell {
 
 /** The configuration for {@link createShell}. */
 export interface ShellConfig {
-  /** The top-level cells, laid out left-to-right. */
+  /** The top-level cells, laid out top-to-bottom. */
   rows?: ShellCell[];
-  /** The top-level cells, laid out top-to-bottom (used when `rows` is absent). */
+  /** The top-level cells, laid out left-to-right (used when `rows` is absent). */
   cols?: ShellCell[];
   /** The separator between cells. Default `'none'`. */
   type?: ShellType;
@@ -430,9 +430,9 @@ export interface ShellState {
   padding?: number | string;
   /** Extra CSS on the shell root. */
   css?: Record<string, string | number> | string;
-  /** The top-level cells laid out left-to-right, each carrying its sizes, gravity and mutable state. */
+  /** The top-level cells laid out top-to-bottom, each carrying its sizes, gravity and mutable state. */
   rows?: ShellCell[];
-  /** The top-level cells laid out top-to-bottom (used when `rows` is absent). */
+  /** The top-level cells laid out left-to-right (used when `rows` is absent). */
   cols?: ShellCell[];
 }
 
@@ -463,7 +463,7 @@ export interface ShellBeforeEvent {
 
 /** The two neighbouring cells a splitter resize affects, plus their sizes. */
 export interface ShellResizeEvent {
-  /** The layout axis being resized: `'rows'` resizes widths, `'cols'` resizes heights. */
+  /** The layout axis being resized: `'rows'` resizes heights, `'cols'` resizes widths. */
   axis: 'rows' | 'cols';
   /** The two cells' ids, in axis order (the `resizable` cell first). */
   cells: [string, string];

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.98.3, gantt module type declarations
+ * Lattice Grid 1.99.0, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1266,7 +1266,7 @@ export interface GanttResourceView {
  * Mount a standalone resource-load band — the workload band on its own, with
  * resources and bookings and no task Gantt.
  *
- * DemandFlow's resource scheduler shows availability by department, BU,
+ * A resource scheduler shows availability by department, BU,
  * division and company, across portfolios and scenarios, with no plan behind
  * it. `createResourceView` is that view: it builds a Gantt controller with no
  * tasks and mounts the SAME workload band `mountSplit` draws, in a
@@ -1858,8 +1858,7 @@ export interface GanttDataBandEditCancelledEvent {
 /**
  * The context a dropped row carries: the shared shape of
  * `beforeRowDrop`, `rowDrop` and `rowDrop:cancelled`. It is `rowMove`'s
- * payload plus where the row landed — `position` against `target` — the two
- * fields that make `rowDrop` the Lattice name for Bryntum's `gridRowDrop`.
+ * payload plus where the row landed — `position` against `target`.
  */
 export interface GanttRowDropContext {
   /** The row being dropped, by id. */
@@ -1892,8 +1891,7 @@ export interface GanttRowDropContext {
  * A table row about to be dropped in a new position: the payload of
  * `beforeRowDrop`. The same gated, undoable drop as
  * `beforeRowMove`, plus `position`/`target`. A name-column drag, Alt+Up/Down
- * and Tab/Shift+Tab all gate on it; it is the vetoable gate of Bryntum's
- * `gridRowDrop`.
+ * and Tab/Shift+Tab all gate on it: the drop's vetoable gate.
  */
 export interface GanttRowDropEvent extends GanttRowDropContext, GanttBeforeEvent {}
 
@@ -1901,8 +1899,7 @@ export interface GanttRowDropEvent extends GanttRowDropContext, GanttBeforeEvent
  * A row that dropped into a new position: the payload of `rowDrop`. A notification — it carries no `preventDefault`; the
  * veto was `beforeRowDrop`'s (or `beforeRowMove`'s) job. Fired once per drop
  * alongside `rowMove`, with the same `id`/`oldParent`/`newParent`/`oldIndex`/
- * `newIndex` plus `position`/`target`. It is the Lattice name for Bryntum's
- * `gridRowDrop`.
+ * `newIndex` plus `position`/`target`.
  */
 export interface GanttRowDroppedEvent extends GanttRowDropContext {}
 
@@ -1950,7 +1947,7 @@ export type GanttEventName =
   | 'beforeDependencyDelete'
   /** A row is about to move or re-parent — a drag handle, a drop onto another row, Alt+Up/Down or Tab/Shift+Tab; cancellable. */
   | 'beforeRowMove'
-  /** A table row is about to be dropped in a new position — the drop-specific gate of `rowDrop`, carrying `position`/`target`; cancellable (Bryntum `gridRowDrop`). */
+  /** A table row is about to be dropped in a new position — the drop-specific gate of `rowDrop`, carrying `position`/`target`; cancellable. */
   | 'beforeRowDrop'
   /** A `beforeTaskEdit` handler refused the edit. */
   | 'taskEdit:cancelled'
@@ -1992,17 +1989,17 @@ export type GanttEventName =
   | 'columnResize'
   /** A workload band bucket cell was clicked, with that bucket's resource, span and bookings. */
   | 'workload:click'
-  /** A workload-band bucket cell or histogram bar was clicked, with the resource, the half-open bucket span and its bookings (Bryntum `cellClick`). */
+  /** A workload-band bucket cell or histogram bar was clicked, with the resource, the half-open bucket span and its bookings. */
   | 'workloadCellClick'
-  /** A workload-band bucket cell or histogram bar was double-clicked; `preventDefault` claims it so a host opens its own editor (Bryntum `cellDblClick`). */
+  /** A workload-band bucket cell or histogram bar was double-clicked; `preventDefault` claims it so a host opens its own editor. */
   | 'workloadCellDblClick'
-  /** A workload-band bucket cell or histogram bar was right-clicked; `preventDefault` suppresses the browser's own menu (Bryntum `cellContextMenu`). */
+  /** A workload-band bucket cell or histogram bar was right-clicked; `preventDefault` suppresses the browser's own menu. */
   | 'workloadCellContextMenu'
-  /** The pointer or keyboard focus reached a workload-band bucket cell or histogram bar (Bryntum `cellMouseOver`). */
+  /** The pointer or keyboard focus reached a workload-band bucket cell or histogram bar. */
   | 'workloadCellHover'
-  /** The pointer or keyboard focus left a workload-band bucket cell or histogram bar (Bryntum `cellMouseOut`). */
+  /** The pointer or keyboard focus left a workload-band bucket cell or histogram bar. */
   | 'workloadCellHoverEnd'
-  /** A workload-band resource-name cell was clicked (Bryntum `resourceClick`). */
+  /** A workload-band resource-name cell was clicked. */
   | 'workloadResourceClick'
   /** A data band rewrote a task's series — a reschedule shifted or stretched it, or an allowed cell edit wrote a bucket. */
   | 'dataBand:change'
@@ -2012,21 +2009,21 @@ export type GanttEventName =
   | 'dataBandEdit:cancelled'
   /** A task-table cell was clicked, carrying the task, the column's key and the cell element. */
   | 'cell:click'
-  /** A task-table cell was clicked, with `id`/`rawTask`/`task` and the column/value/element (Bryntum `cellClick`). */
+  /** A task-table cell was clicked, with `id`/`rawTask`/`task` and the column/value/element. */
   | 'cellClick'
-  /** A task-table cell was double-clicked (Bryntum `cellDblClick`). */
+  /** A task-table cell was double-clicked. */
   | 'cellDblClick'
-  /** A task-table cell's context menu was requested, by a right-click or the keyboard (Bryntum `cellContextMenu`). */
+  /** A task-table cell's context menu was requested, by a right-click or the keyboard. */
   | 'cellContextMenu'
-  /** An editable task-table cell is about to open its editor — a double-click, Enter, F2 or a printable key; cancellable (Bryntum `beforeCellEditStart`). */
+  /** An editable task-table cell is about to open its editor — a double-click, Enter, F2 or a printable key; cancellable. */
   | 'beforeCellEditStart'
-  /** A task-table cell's editor opened, once allowed through `beforeCellEditStart` (Bryntum `cellEditStart`). */
+  /** A task-table cell's editor opened, once allowed through `beforeCellEditStart`. */
   | 'cellEditStart'
   /** A `beforeCellEditStart` handler refused the open, or a key reached it while deferring. */
   | 'cellEditStart:cancelled'
   /** A task-table cell's edit committed, with the old and new value. */
   | 'cellEditCommit'
-  /** A task-table cell's edit was abandoned — Escape, or a vetoed commit (Bryntum `cellEditCancel`). */
+  /** A task-table cell's edit was abandoned — Escape, or a vetoed commit. */
   | 'cellEditCancel'
   /** A task-table row was clicked, alongside `cellClick` for the cell under the pointer. */
   | 'rowClick'
@@ -2034,7 +2031,7 @@ export type GanttEventName =
   | 'rowDblClick'
   /** `scrollToTask` named a task the task table's filter hides, so it did not scroll. */
   | 'task:filtered'
-  /** A completed paint of the timeline and bands, fired once per paint with the drawn range and zoom (Bryntum `render`). */
+  /** A completed paint of the timeline and bands, fired once per paint with the drawn range and zoom. */
   | 'draw'
   /** A summary row is about to expand its children; cancellable. */
   | 'beforeTaskExpand'
@@ -2056,7 +2053,7 @@ export type GanttEventName =
   | 'selectionChange'
   /** A row moved or was re-parented — a drag, Alt+Up/Down or Tab/Shift+Tab, once allowed through `beforeRowMove`. */
   | 'rowMove'
-  /** A row dropped into a new position — `rowMove` plus `position`/`target`, once allowed through `beforeRowDrop` (Bryntum `gridRowDrop`). */
+  /** A row dropped into a new position — `rowMove` plus `position`/`target`, once allowed through `beforeRowDrop`. */
   | 'rowDrop'
   /** The scheduling-conflict set changed after a recompute — a cycle, constraint, lock or deadline was added or resolved. */
   | 'schedulingConflict'
@@ -2080,63 +2077,63 @@ export type GanttEventName =
   | 'change'
   /** The controller finished its first successful schedule and every API on it is ready to call; fires once. */
   | 'ready'
-  /** A move drag of a bar or milestone passed the drag threshold, or a keyboard move is about to apply; cancellable (Bryntum `beforeTaskDrag`). */
+  /** A move drag of a bar or milestone passed the drag threshold, or a keyboard move is about to apply; cancellable. */
   | 'beforeTaskDrag'
-  /** A move drag started — after `beforeTaskDrag` allowed it, before any position changed (Bryntum `taskDragStart`). */
+  /** A move drag started — after `beforeTaskDrag` allowed it, before any position changed. */
   | 'taskDragStart'
-  /** A move drag frame, at most once per animation frame, with the snapped landing position (Bryntum `taskDrag`). */
+  /** A move drag frame, at most once per animation frame, with the snapped landing position. */
   | 'taskDrag'
-  /** A move drag was refused at its start or abandoned with Escape (Bryntum `taskDragAbort`). */
+  /** A move drag was refused at its start or abandoned with Escape. */
   | 'taskDrag:cancelled'
-  /** A resize drag passed the drag threshold, or a keyboard resize is about to apply; cancellable (Bryntum `beforeTaskResize`). */
+  /** A resize drag passed the drag threshold, or a keyboard resize is about to apply; cancellable. */
   | 'beforeTaskResizeStart'
-  /** A resize started (Bryntum `taskResizeStart`). */
+  /** A resize started. */
   | 'taskResizeStart'
-  /** A resize drag frame, at most once per animation frame (Bryntum `taskPartialResize`). */
+  /** A resize drag frame, at most once per animation frame. */
   | 'taskPartialResize'
-  /** A resize was released (or a keyboard resize applied), before the commit's own `beforeTaskResize` (Bryntum `taskResizeEnd`). */
+  /** A resize was released (or a keyboard resize applied), before the commit's own `beforeTaskResize`. */
   | 'taskResizeEnd'
   /** A progress-handle drag passed the drag threshold, or a keyboard progress edit is about to apply; cancellable. */
   | 'beforePercentBarDrag'
-  /** A progress-handle drag started (Bryntum `percentBarDragStart`). */
+  /** A progress-handle drag started. */
   | 'percentBarDragStart'
-  /** A progress-handle drag frame, at most once per animation frame (Bryntum `percentBarDrag`). */
+  /** A progress-handle drag frame, at most once per animation frame. */
   | 'percentBarDrag'
-  /** A progress-handle drag was released (or a keyboard progress edit applied), before the commit's own `beforeProgressChange` (Bryntum `percentBarDrop`). */
+  /** A progress-handle drag was released (or a keyboard progress edit applied), before the commit's own `beforeProgressChange`. */
   | 'percentBarDrop'
-  /** A progress-handle drag was refused at its start or abandoned with Escape (Bryntum `percentBarDragAbort`). */
+  /** A progress-handle drag was refused at its start or abandoned with Escape. */
   | 'percentBarDrag:cancelled'
-  /** A single click (not a drag release) on a bar, milestone or summary bar, or Enter/Space on a focused one (Bryntum `taskClick`). */
+  /** A single click (not a drag release) on a bar, milestone or summary bar, or Enter/Space on a focused one. */
   | 'taskClick'
-  /** A double click on a bar, milestone or summary bar; `preventDefault` claims it so a host opens its own editor (Bryntum `taskDblClick`). */
+  /** A double click on a bar, milestone or summary bar; `preventDefault` claims it so a host opens its own editor. */
   | 'taskDblClick'
-  /** The pointer entered a bar, milestone or summary bar, or keyboard focus reached one (Bryntum `taskMouseOver`). */
+  /** The pointer entered a bar, milestone or summary bar, or keyboard focus reached one. */
   | 'taskMouseOver'
-  /** The pointer left a bar, milestone or summary bar, or keyboard focus left one (Bryntum `taskMouseOut`). */
+  /** The pointer left a bar, milestone or summary bar, or keyboard focus left one. */
   | 'taskMouseOut'
-  /** A context-menu request on a bar, milestone or summary bar — a right-click or the Menu key / Shift+F10 on a focused row; cancellable (Bryntum `taskContextMenu`). */
+  /** A context-menu request on a bar, milestone or summary bar — a right-click or the Menu key / Shift+F10 on a focused row; cancellable. */
   | 'taskContextMenu'
-  /** A single click on a dependency link's arrow (Bryntum `dependencyClick`). */
+  /** A single click on a dependency link's arrow. */
   | 'linkClick'
-  /** A double click on a dependency link's arrow, or Enter/Space on a focused one; cancellable, claiming it stops the link editor from opening (Bryntum `dependencyDblClick`). */
+  /** A double click on a dependency link's arrow, or Enter/Space on a focused one; cancellable, claiming it stops the link editor from opening. */
   | 'linkDblClick'
-  /** A context-menu request on a dependency link's arrow; cancellable (Bryntum `dependencyContextMenu`). */
+  /** A context-menu request on a dependency link's arrow; cancellable. */
   | 'linkContextMenu'
-  /** The pointer entered a dependency link's arrow (Bryntum `dependencyMouseOver`). */
+  /** The pointer entered a dependency link's arrow. */
   | 'linkHover'
-  /** A tooltip is about to be shown for a task; cancellable, a veto keeps the built-in card from showing (Bryntum `taskTooltipShow`). */
+  /** A tooltip is about to be shown for a task; cancellable, a veto keeps the built-in card from showing. */
   | 'tooltipShow'
-  /** A shown tooltip was hidden (Bryntum `taskTooltipHide`). */
+  /** A shown tooltip was hidden. */
   | 'tooltipHide'
-  /** The split view's time scale changed, with the level before and after and what drove it (Bryntum `zoomChange`). */
+  /** The split view's time scale changed, with the level before and after and what drove it. */
   | 'zoomChange'
-  /** The dates under the split view's timeline edges changed, coalesced to once per animation frame (Bryntum `visibleRangeChange`). */
+  /** The dates under the split view's timeline edges changed, coalesced to once per animation frame. */
   | 'visibleRangeChange'
-  /** The split view's viewport scrolled, with the settled offsets, coalesced to once per animation frame (Bryntum `scroll`). */
+  /** The split view's viewport scrolled, with the settled offsets, coalesced to once per animation frame. */
   | 'scroll'
-  /** A view — the plain `mount` view or the `mountSplit` split view — mounted and painted its first frame (Bryntum `viewMount`). */
+  /** A view — the plain `mount` view or the `mountSplit` split view — mounted and painted its first frame. */
   | 'viewMount'
-  /** A mounted view was torn down — a remount, `unmount()` or `destroy()` (Bryntum `viewDestroy`). */
+  /** A mounted view was torn down — a remount, `unmount()` or `destroy()`. */
   | 'viewDestroy'
   /** Whether the plan differs from the committed baseline flipped: fires once on the transition, never on a second edit made while already dirty or a partial undo. */
   | 'dirtyChange';
@@ -2534,9 +2531,9 @@ export interface GanttDateChange {
 /**
  * The payload of `datesChanged`: the date-only projection of
  * one committed change. `changes` lists every task whose scheduled dates
- * moved — the Bryntum `datesChanged` array of `{ id, start, end, duration }`,
- * carried under `changes` so the event shape stays an object like its
- * siblings. Not fired for the host's own `setTasks`/`rows.apply` loads.
+ * moved — as `{ id, start, end, duration }` per task, carried under
+ * `changes` so the event shape stays an object like its siblings. Not fired
+ * for the host's own `setTasks`/`rows.apply` loads.
  */
 export interface GanttDatesChangedEvent {
   /** The date move for every task whose scheduled dates changed. */

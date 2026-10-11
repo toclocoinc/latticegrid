@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.98.3</title>
+<title>Types API Reference — Lattice Grid 1.99.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -409,6 +409,7 @@
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
         <a href="shell.html">The shell module</a>
+        <a href="form.html">The form module</a>
         <a href="dashboard.html">Dashboard composition</a>
         <a href="designer.html">The Designer</a>
         <a href="ai.html">The AI narrative and insights layer</a>
@@ -432,7 +433,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 25 pages</a></span>
+      <span class="chip"><a href="index.html">All 26 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -2792,6 +2793,14 @@
     <h4 id="type-ColumnRef">ColumnRef</h4>
     <p class="section-note">A column, named by its `id`: what every API that asks "which column" takes.</p>
     <p class="type-def"><code>type ColumnRef = string</code></p>
+    <h4 id="type-ComboLoadResult">ComboLoadResult</h4>
+    <p class="section-note">A combo `load` result: a page, or a bare array (a single non-paging page).</p>
+    <p class="type-def"><code>type ComboLoadResult = { items: <a href="#type-ComboOption">ComboOption</a>[]; total?: number; hasMore?: boolean } | <a href="#type-ComboOption">ComboOption</a>[]</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
+    <h4 id="type-ComboOption">ComboOption</h4>
+    <p class="section-note">A combo option: a bare value, or the object form.</p>
+    <p class="type-def"><code>type ComboOption = string | number | <a href="form.html#type-ComboOptionObject">ComboOptionObject</a></code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-CommentDisplayMode">CommentDisplayMode</h4>
     <p class="section-note">Whether a comment thread floats beside its cell or opens in a side panel.</p>
     <p class="type-def"><code>type CommentDisplayMode = 'anchored' | 'docked'</code></p>
@@ -2917,7 +2926,7 @@
     <p class="type-def"><code>type EditorCtor = new () =&gt; <a href="grid.html#type-Editor">Editor</a></code></p>
     <h4 id="type-EditorName">EditorName</h4>
     <p class="section-note">The built-in cell editors, addressable by name through `cell.edit`. Anything registered through `components` is also valid here.</p>
-    <p class="type-def"><code>type EditorName = 'checkbox' | 'code' | 'colour' | 'currency' | 'date' | 'datetime' | 'duration' | 'iconPicker' | 'ipaddress' | 'multiSelect' | 'number' | 'objectPicker' | 'password' | 'radix' | 'rating' | 'segmented' | 'select' | 'slider' | 'temperature' | 'text' | 'textarea' | 'time' | 'treeSelect' | 'unit' | (string &amp; {})</code></p>
+    <p class="type-def"><code>type EditorName = 'checkbox' | 'code' | 'colour' | 'currency' | 'date' | 'datetime' | 'duration' | 'iconPicker' | 'ipaddress' | 'multiSelect' | 'number' | 'objectPicker' | 'password' | 'radix' | 'rating' | 'richtext' | 'segmented' | 'select' | 'slider' | 'temperature' | 'text' | 'textarea' | 'time' | 'treeSelect' | 'unit' | (string &amp; {})</code></p>
     <h4 id="type-EditStartGesture">EditStartGesture</h4>
     <p class="section-note">Which gesture opens a cell editor.</p>
     <p class="type-def"><code>type EditStartGesture = 'single' | 'double' | 'key'</code></p>
@@ -3005,9 +3014,61 @@
     <h4 id="type-FormattingScope">FormattingScope</h4>
     <p class="section-note">A column id, or `'*'` for every column.</p>
     <p class="type-def"><code>type FormattingScope = string</code></p>
+    <h4 id="type-FormBind">FormBind</h4>
+    <p class="section-note">The `bind` option: a grid row (`{ grid, rowKey }`), a routed record (`{ router, route, key }`), or a plain object of values.</p>
+    <p class="type-def"><code>type FormBind = <a href="form.html#type-FormBindGridConfig">FormBindGridConfig</a> | <a href="form.html#type-FormBindRouterConfig">FormBindRouterConfig</a> | Record&lt;string, unknown&gt;</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
+    <h4 id="type-FormButtonsAlign">FormButtonsAlign</h4>
+    <p class="section-note">How a `buttons` row lays its children out along the form's width.</p>
+    <p class="type-def"><code>type FormButtonsAlign = 'start' | 'end' | 'center' | 'stretch' | 'space-between'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
+    <h4 id="type-FormButtonVariant">FormButtonVariant</h4>
+    <p class="section-note">A button's visual weight: theme-token colours, light and dark.</p>
+    <p class="type-def"><code>type FormButtonVariant = 'primary' | 'secondary' | 'tonal' | 'outline' | 'text' | 'danger'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
+    <h4 id="type-FormControlType">FormControlType</h4>
+    <p class="section-note">The control types a form item may name.</p>
+    <p class="type-def"><code>type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
+    <h4 id="type-FormDensity">FormDensity</h4>
+    <p class="section-note">The density levels a form accepts — the grid's own presets.</p>
+    <p class="type-def"><code>type FormDensity = 'compact' | 'standard' | 'comfortable'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
+    <h4 id="type-FormEventName">FormEventName</h4>
+    <p class="section-note">The events a form raises, on `form.on()` (BACKLOG-0002141). The form's own, not a grid's. `on()` warns once on any other name. The cancellable `beforeChange` runs before a committed edit is stored, on the same contract the grid core uses: call `preventDefault(reason?)` on the payload, or return `false`; a veto reverts the control to its committed value. The past-tense events — `change`, `input`, `click`, `focus` and `blur` — report an edit already made and carry no `preventDefault`.</p>
+    <p class="type-def"><code>type FormEventName = 'beforeChange' | 'change' | 'input' | 'click' | 'focus' | 'blur' | 'validated' | 'complete'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
+    <h4 id="type-FormInputSubtype">FormInputSubtype</h4>
+    <p class="section-note">The native subtype of an `input` item.</p>
+    <p class="type-def"><code>type FormInputSubtype = 'text' | 'email' | 'password' | 'url'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
+    <h4 id="type-FormLabelPosition">FormLabelPosition</h4>
+    <p class="section-note">Where an item's label sits: above the control, to its left, or visually hidden (the accessible name stays, but the label and its asterisk take no space).</p>
+    <p class="type-def"><code>type FormLabelPosition = 'top' | 'left' | 'hidden'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
+    <h4 id="type-FormPickerMode">FormPickerMode</h4>
+    <p class="section-note">The picker modes of a `datepicker` item (BACKLOG-0002142).</p>
+    <p class="type-def"><code>type FormPickerMode = 'date' | 'date-time' | 'time'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
+    <h4 id="type-FormRule">FormRule</h4>
+    <p class="section-note">A declarative field rule (BACKLOG-0002145): a constant, a function of the whole `{ name: value }` snapshot, or a condition on one named item's value.</p>
+    <p class="type-def"><code>type FormRule = boolean | ((values: Record&lt;string, unknown&gt;) =&gt; boolean) | { name?: string; equals?: unknown; in?: unknown[]; empty?: boolean; fn?: (value: unknown, values: Record&lt;string, unknown&gt;) =&gt; boolean; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
+    <h4 id="type-FormStepOrientation">FormStepOrientation</h4>
+    <p class="section-note">The orientation of a wizard's step indicator.</p>
+    <p class="type-def"><code>type FormStepOrientation = 'horizontal' | 'vertical'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-FormulaResult">FormulaResult</h4>
     <p class="section-note">The result of evaluating a formula a user typed into a cell (spec 8.11).</p>
     <p class="type-def"><code>type FormulaResult = { ok: true; value: unknown; references: string[] } | { ok: false; error: string; at?: number }</code></p>
+    <h4 id="type-FormValidationMode">FormValidationMode</h4>
+    <p class="section-note">When an item re-checks itself: on a committed edit, on blur, or only on `validate()`.</p>
+    <p class="type-def"><code>type FormValidationMode = 'change' | 'blur' | 'submit'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
+    <h4 id="type-FormValidationRule">FormValidationRule</h4>
+    <p class="section-note">A validation rule: a built-in rule name (`email`, `number`, `integer`, `url`), a whole-value RegExp, or a function `(value, item)` returning `true`/`undefined`/`null` for pass, `false` for a fail, or a string that is the failure message.</p>
+    <p class="type-def"><code>type FormValidationRule = 'email' | 'number' | 'integer' | 'url' | RegExp | ((value: unknown, item: <a href="form.html#type-FormItemConfig">FormItemConfig</a>) =&gt; boolean | string | void)</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-GanttBarLabel">GanttBarLabel</h4>
     <p class="section-note">What a Gantt bar's own label shows: the task name, its percent, its dates, or nothing.</p>
     <p class="type-def"><code>type GanttBarLabel = 'name' | 'percent' | 'dates' | 'none'</code></p>
@@ -3119,7 +3180,7 @@
     <p class="type-def"><code>type IconDefinition = string | string[] | { viewBox?: string; paths?: string[]; path?: string; paint?: <a href="#type-Paint">Paint</a>; }</code></p>
     <h4 id="type-IconName">IconName</h4>
     <p class="section-note">A glyph name from the icon sprite registry (`packages/dom/src/cell/icons.js`). The union below is every built-in name, generated from `iconNames()` so an editor can autocomplete and typo-check them — see `test/icon-name-type-drift.test.js`, which fails if this list and the registry ever disagree. It is deliberately **not closed**: the registry is extensible at runtime via `registerIcon`, `registerIcons`, `config.icons` and `grid.icons`, and `(string &amp; {})` widens the type so a custom registered name still typechecks without losing autocomplete on the built-ins. A name the registry has never heard of — built-in or custom — draws a blank glyph and warns once at runtime; it is not a type error.</p>
-    <p class="type-def"><code>type IconName = 'chevronRight' | 'chevronDown' | 'chevronUp' | 'chevronLeft' | 'check' | 'dash' | 'close' | 'plus' | 'minus' | 'info' | 'success' | 'warning' | 'danger' | 'clock' | 'lock' | 'link' | 'external' | 'filter' | 'pause' | 'play' | 'chart' | 'palette' | 'undo' | 'redo' | 'columns' | 'download' | 'restore' | 'spreadsheet' | 'print' | 'maximise' | 'minimise' | 'views' | 'search' | 'pencil' | 'trash' | 'share' | 'pin' | 'sortAsc' | 'sortDesc' | 'menu' | 'drag' | 'star' | 'heart' | 'circleFilled' | 'square' | 'bolt' | 'flag' | 'arrow' | 'highlight' | 'eraser' | 'thumbUp' | 'eye' | 'eyeOff' | 'copy' | 'present' | 'cabinet' | 'splice' | 'exchange' | 'pole' | 'chamber' | 'premises' | 'fault' | 'blank' | (string &amp; {})</code></p>
+    <p class="type-def"><code>type IconName = 'chevronRight' | 'chevronDown' | 'chevronUp' | 'chevronLeft' | 'check' | 'dash' | 'close' | 'plus' | 'minus' | 'info' | 'success' | 'warning' | 'danger' | 'clock' | 'lock' | 'link' | 'external' | 'filter' | 'pause' | 'play' | 'chart' | 'palette' | 'undo' | 'redo' | 'columns' | 'download' | 'restore' | 'spreadsheet' | 'print' | 'maximise' | 'minimise' | 'views' | 'search' | 'pencil' | 'trash' | 'share' | 'pin' | 'sortAsc' | 'sortDesc' | 'menu' | 'drag' | 'star' | 'heart' | 'circleFilled' | 'square' | 'bolt' | 'flag' | 'arrow' | 'highlight' | 'eraser' | 'thumbUp' | 'eye' | 'eyeOff' | 'copy' | 'present' | 'cabinet' | 'splice' | 'exchange' | 'pole' | 'chamber' | 'premises' | 'fault' | 'user' | 'calendar' | 'blank' | (string &amp; {})</code></p>
     <h4 id="type-IconSetKind">IconSetKind</h4>
     <p class="section-note">A built-in glyph set for an icon-set formatting rule.</p>
     <p class="type-def"><code>type IconSetKind = 'arrows' | 'trafficLights' | 'ratings'</code></p>
@@ -3281,6 +3342,10 @@
     <h4 id="type-LatticeVueDesignerProps">LatticeVueDesignerProps</h4>
     <p class="section-note">The designer's Vue props (BACKLOG-0001856).</p>
     <p class="type-def"><code>type LatticeVueDesignerProps = Record&lt;string, unknown&gt; &amp; <a href="#type-LatticeVueHostProps">LatticeVueHostProps</a> &amp; { mode?: <a href="designer.html#type-DesignerOptions">DesignerOptions</a>['mode']; state?: <a href="designer.html#type-DesignerOptions">DesignerOptions</a>['state']; sources?: <a href="designer.html#type-DesignerOptions">DesignerOptions</a>['sources']; relationships?: <a href="designer.html#type-DesignerOptions">DesignerOptions</a>['relationships']; guardrails?: <a href="designer.html#type-DesignerOptions">DesignerOptions</a>['guardrails']; factories?: <a href="designer.html#type-DesignerOptions">DesignerOptions</a>['factories']; llm?: <a href="designer.html#type-DesignerOptions">DesignerOptions</a>['llm']; } &amp; <a href="#type-LatticeVueListeners">LatticeVueListeners</a>&lt;'state' | 'mode' | 'page' | 'select'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/vue</code>.</small></p>
+    <h4 id="type-LatticeVueFormProps">LatticeVueFormProps</h4>
+    <p class="section-note">The form's Vue props: the configuration, the common ones, and its seven events.</p>
+    <p class="type-def"><code>type LatticeVueFormProps = Record&lt;string, unknown&gt; &amp; <a href="#type-LatticeVueViewerCommonProps">LatticeVueViewerCommonProps</a> &amp; <a href="#type-LatticeVueListeners">LatticeVueListeners</a>&lt; 'beforeChange' | 'change' | 'input' | 'click' | 'focus' | 'blur' | 'validated', unknown&gt;</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/vue</code>.</small></p>
     <h4 id="type-LatticeVueGanttProps">LatticeVueGanttProps</h4>
     <p class="section-note">The Gantt's Vue props.</p>
@@ -3465,7 +3530,7 @@
     <p class="type-def"><code>type RendererCtor = new () =&gt; <a href="grid.html#type-Renderer">Renderer</a></code></p>
     <h4 id="type-RendererName">RendererName</h4>
     <p class="section-note">The built-in cell renderers, addressable by name through `cell.render`. Anything registered through `components` is also valid here.</p>
-    <p class="type-def"><code>type RendererName = 'area' | 'bullet' | 'checkbox' | 'colour' | 'column' | 'delta' | 'detailExpander' | 'donut' | 'gauge' | 'group' | 'icon' | 'image' | 'line' | 'link' | 'pie' | 'pill' | 'progress' | 'qrcode' | 'range' | 'rating' | 'skeleton' | 'stacked' | 'twoline' | 'winloss' | (string &amp; {})</code></p>
+    <p class="type-def"><code>type RendererName = 'area' | 'bullet' | 'checkbox' | 'colour' | 'column' | 'delta' | 'detailExpander' | 'donut' | 'gauge' | 'group' | 'icon' | 'image' | 'line' | 'link' | 'pie' | 'pill' | 'progress' | 'qrcode' | 'range' | 'rating' | 'skeleton' | 'stage' | 'stacked' | 'twoline' | 'winloss' | (string &amp; {})</code></p>
     <h4 id="type-RenderFn">RenderFn</h4>
     <p class="section-note">The short form of a renderer: a function handed the cell and returning the HTML string or the element to show. Reach for a `Renderer` class instead when the cell has to hold state or release something as it is recycled.</p>
     <p class="type-def"><code>type RenderFn = (p: <a href="grid.html#type-CellParams">CellParams</a>) =&gt; string | HTMLElement</code></p>
@@ -3739,7 +3804,7 @@
     <p class="type-def"><code>type ViewConflictPolicy = 'rename' | 'overwrite' | 'skip'</code></p>
     <h4 id="type-ViewerKind">ViewerKind</h4>
     <p class="section-note">Every viewer a framework adapter's generic `createLatticeViewer`/`bindViewer` helper can bind to. The widest set across React, Vue and Svelte; a helper that supports fewer of them still takes this type; the ones it cannot actually build fail at the call, not at the type.</p>
-    <p class="type-def"><code>type ViewerKind = 'kpi' | 'kanban' | 'calendar' | 'tabs' | 'chart' | 'gantt' | 'layout' | 'router'</code></p>
+    <p class="type-def"><code>type ViewerKind = 'kpi' | 'kanban' | 'calendar' | 'tabs' | 'chart' | 'gantt' | 'layout' | 'router' | 'form'</code></p>
     <h4 id="type-ViewerOrigin">ViewerOrigin</h4>
     <p class="section-note">Who asked for a viewer-chrome change — a tab switch, a layout window moved or closed — narrower than {@link EventOrigin} because these are always either a direct interaction or an API call, never the grid's own startup or an AI write.</p>
     <p class="type-def"><code>type ViewerOrigin = 'api' | 'user'</code></p>

@@ -4,6 +4,7 @@ import { createGrid, Grid, GridConfig, SortEntry, FilterSet, RowChange, GridEven
 import { createCalendar } from '@toclocoinc/lattice-grid/modules/calendar';
 import { createChart } from '@toclocoinc/lattice-grid/modules/charts';
 import { createDataRouter } from '@toclocoinc/lattice-grid/modules/data-router';
+import { createForm } from '@toclocoinc/lattice-grid/modules/form';
 import { createGantt } from '@toclocoinc/lattice-grid/modules/gantt';
 import { createKanban } from '@toclocoinc/lattice-grid/modules/kanban';
 import { createKPI } from '@toclocoinc/lattice-grid/modules/kpi';
@@ -62,6 +63,8 @@ type TabsFactory = typeof createTabs;
 type DesignerFactory = typeof createDesigner;
 /** The Data Router factory, from `@toclocoinc/lattice-grid/modules/data-router`. */
 type DataRouterFactory = typeof createDataRouter;
+/** The form factory, from `@toclocoinc/lattice-grid/modules/form`. */
+type FormFactory = typeof createForm;
 /**
  * The live viewers and their configuration objects.
  *
@@ -105,6 +108,9 @@ interface Designer extends ReturnType<DesignerFactory> {
 /** The live Data Router. */
 interface DataRouter extends ReturnType<DataRouterFactory> {
 }
+/** The live form. */
+interface Form extends ReturnType<FormFactory> {
+}
 /** The KPI panel's configuration object. */
 interface KPIConfig extends NonNullable<Parameters<KPIFactory>[1]> {
 }
@@ -147,6 +153,9 @@ interface DesignerConfig extends NonNullable<Parameters<DesignerFactory>[1]> {
 /** The Data Router's options object. */
 interface DataRouterOptions extends NonNullable<Parameters<DataRouterFactory>[0]> {
 }
+/** The form's configuration object. */
+interface FormConfig extends NonNullable<Parameters<FormFactory>[1]> {
+}
 /**
  * Every factory this package can build a component from.
  *
@@ -180,6 +189,8 @@ interface LatticeFactories {
     createDesigner?: DesignerFactory;
     /** `createDataRouter`, for `provideLatticeRouter()`. */
     createDataRouter?: DataRouterFactory;
+    /** `createForm`, for `<lattice-form>`. */
+    createForm?: FormFactory;
 }
 /** The factories every Lattice component resolves through. */
 declare const LATTICE_FACTORIES: InjectionToken<LatticeFactories>;
@@ -1530,6 +1541,52 @@ declare class LatticeShellComponent extends LatticeViewerBase<Shell> {
     static ɵcmp: i0.ɵɵComponentDeclaration<LatticeShellComponent, "lattice-shell", never, { "config": { "alias": "config"; "required": false; }; }, { "beforeCollapse": "beforeCollapse"; "beforeExpand": "beforeExpand"; "afterCollapse": "afterCollapse"; "afterExpand": "afterExpand"; "beforeAddCell": "beforeAddCell"; "afterAddCell": "afterAddCell"; "beforeRemoveCell": "beforeRemoveCell"; "afterRemoveCell": "afterRemoveCell"; "beforeHide": "beforeHide"; "afterHide": "afterHide"; "beforeShow": "beforeShow"; "afterShow": "afterShow"; "stateChange": "stateChange"; "tabChange": "tabChange"; "beforeResizeStart": "beforeResizeStart"; "resize": "resize"; "afterResizeEnd": "afterResizeEnd"; }, never, never, true, never>;
 }
 
+/**
+ * The form, as an Angular component (BACKLOG-0002146).
+ *
+ * The form is a self-contained layout of named items — it is not built *against*
+ * a host `<lattice-grid>` — so like the shell and the layout it takes no grid of
+ * its own. Everything but its events is mount-time configuration.
+ */
+
+declare class LatticeFormComponent extends LatticeViewerBase<Form> {
+    /** Which viewer's tables drive this component. */
+    protected readonly viewer = "form";
+    /** The element name, for anything this component has to report. */
+    protected readonly label = "lattice-form";
+    /** The form lays its own items out; it is not built against a grid. */
+    protected readonly takesGrid = false;
+    /** The factories the application provided. */
+    private readonly factories;
+    /** The form's configuration: its `rows`/`cols` items, density, css and messages. */
+    config?: FormConfig;
+    /** The viewer's `beforeChange` event: an item value is about to commit; returning `false` vetoes it. */
+    readonly beforeChange: EventEmitter<any>;
+    /** The viewer's `change` event: an item value committed. */
+    readonly change: EventEmitter<any>;
+    /** The viewer's `input` event: a live, uncommitted value. */
+    readonly input: EventEmitter<any>;
+    /** The viewer's `click` event: a button item was pressed. */
+    readonly click: EventEmitter<any>;
+    /** The viewer's `focus` event: an item's control gained focus. */
+    readonly focus: EventEmitter<any>;
+    /** The viewer's `blur` event: an item's control lost focus. */
+    readonly blur: EventEmitter<any>;
+    /** The viewer's `validated` event: `validate()` finished, with every failure. */
+    readonly validated: EventEmitter<any>;
+    /** The viewer's `complete` event: every box of an `otp` item is now filled. */
+    readonly complete: EventEmitter<any>;
+    /**
+     * Build the form. `createForm(el, config)` takes its host element directly.
+     * @param element the host element
+     * @param config the assembled configuration
+     * @returns the form
+     */
+    protected mount(element: HTMLElement, config: Props): Form;
+    static ɵfac: i0.ɵɵFactoryDeclaration<LatticeFormComponent, never>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeFormComponent, "lattice-form", never, { "config": { "alias": "config"; "required": false; }; }, { "beforeChange": "beforeChange"; "change": "change"; "input": "input"; "click": "click"; "focus": "focus"; "blur": "blur"; "validated": "validated"; "complete": "complete"; }, never, never, true, never>;
+}
+
 declare class LatticeDesignerComponent implements OnChanges, OnDestroy {
     /** The host element the designer is built into. */
     private readonly elementRef;
@@ -1809,5 +1866,5 @@ declare function provideLatticeRouter(options?: DataRouterOptions): Provider[];
  */
 declare function eventProp(event: string): string;
 
-export { DEFAULT_GRID_NAME, DESIGNER_EVENTS, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeDesignerComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeSchedulerComponent, LatticeShellComponent, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, designerHandlerName, eventProp, provideLattice, provideLatticeRouter, requireFactory };
-export type { Calendar, CalendarConfig, CalendarFactory, Chart, ChartConfig, ChartFactory, DataRouter, DataRouterFactory, DataRouterOptions, Designer, DesignerConfig, DesignerFactory, Gantt, GanttConfig, GanttFactory, GridFactory, KPI, KPIConfig, KPIFactory, Kanban, KanbanConfig, KanbanFactory, LatticeFactories, LatticeGridConfig, LatticePredicates, LatticeQuickFilter, LatticeRoute, LatticeRouteOptions, LatticeRowChange, LatticeViewerEvent, Layout, LayoutConfig, LayoutFactory, Scheduler, SchedulerConfig, SchedulerFactory, Shell, ShellConfig, ShellFactory, Tabs, TabsConfig, TabsFactory };
+export { DEFAULT_GRID_NAME, DESIGNER_EVENTS, EVENT_NAMES, LATTICE_FACTORIES, LATTICE_ROUTER_OPTIONS, LatticeCalendarComponent, LatticeChartComponent, LatticeDesignerComponent, LatticeFormComponent, LatticeGanttComponent, LatticeGridBase, LatticeGridComponent, LatticeGridDirective, LatticeGridRegistry, LatticeKanbanComponent, LatticeKpiComponent, LatticeLayoutComponent, LatticeRouter, LatticeSchedulerComponent, LatticeShellComponent, LatticeTabDirective, LatticeTabsComponent, LatticeViewerBase, VIEWER_EVENTS, dashedName, designerHandlerName, eventProp, provideLattice, provideLatticeRouter, requireFactory };
+export type { Calendar, CalendarConfig, CalendarFactory, Chart, ChartConfig, ChartFactory, DataRouter, DataRouterFactory, DataRouterOptions, Designer, DesignerConfig, DesignerFactory, Form, FormConfig, FormFactory, Gantt, GanttConfig, GanttFactory, GridFactory, KPI, KPIConfig, KPIFactory, Kanban, KanbanConfig, KanbanFactory, LatticeFactories, LatticeGridConfig, LatticePredicates, LatticeQuickFilter, LatticeRoute, LatticeRouteOptions, LatticeRowChange, LatticeViewerEvent, Layout, LayoutConfig, LayoutFactory, Scheduler, SchedulerConfig, SchedulerFactory, Shell, ShellConfig, ShellFactory, Tabs, TabsConfig, TabsFactory };

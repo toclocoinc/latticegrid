@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.98.3, react module type declarations
+ * Lattice Grid 1.99.0, react module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -28,6 +28,9 @@ import type {
 } from './designer.js';
 import type { SchedulerConfig, SchedulerZoomChangeEvent } from './scheduler.js';
 import type { KanbanColumnWidth } from './kanban.js';
+import type {
+  FormBeforeChangeEvent, FormClickEvent, FormFocusEvent, FormValidatedEvent, FormValueEvent,
+} from './form.js';
 
 /**
  * The handler prop name one event maps to, as a type: `'cell:changed'`
@@ -338,6 +341,34 @@ export function createLatticeShell(deps: {
 }): (props: Record<string, unknown> & { onStateChange?: (event: unknown) => void; ref?: unknown }) => unknown;
 
 /**
+ * The form as a React component. Not grid-bound:
+ * `createForm(el, config)` takes its host element directly, so the component
+ * re-emits each form event as a callback prop and exposes the live form on a
+ * template ref's `instance`.
+ */
+export function createLatticeForm(deps: {
+  React: unknown; createForm: (el: unknown, config: Record<string, unknown>) => unknown;
+}): (props: LatticeFormProps & { ref?: unknown }) => unknown;
+
+/** The form component's callback props: one per form event. */
+export interface LatticeFormProps {
+  /** Raised before a value commits; return `false` or a promise for `false` to veto. */
+  onBeforeChange?: (event: FormBeforeChangeEvent) => unknown;
+  /** A value committed. */
+  onChange?: (event: FormValueEvent) => void;
+  /** A live, uncommitted value. */
+  onInput?: (event: FormValueEvent) => void;
+  /** A button item was pressed. */
+  onClick?: (event: FormClickEvent) => void;
+  /** An item's control gained focus. */
+  onFocus?: (event: FormFocusEvent) => void;
+  /** An item's control lost focus. */
+  onBlur?: (event: FormFocusEvent) => void;
+  /** `validate()` finished, with every failure. */
+  onValidated?: (event: FormValidatedEvent) => void;
+}
+
+/**
  * The tab strip, with React-rendered tab content.
  *
  * `react-dom` is needed for `createPortal`: a tab's content is rendered into
@@ -390,11 +421,12 @@ export function createLatticeReact(deps: {
   createLayout?: (el: unknown, config: Record<string, unknown>) => unknown;
   createTabs?: (el: unknown, config: Record<string, unknown>) => unknown;
   createDesigner?: (el: unknown, config: Record<string, unknown>) => unknown;
+  createForm?: (el: unknown, config: Record<string, unknown>) => unknown;
   createDataRouter?: (opts: Record<string, unknown>) => unknown;
 }): Record<string, unknown>;
 
 /**
- * One MUI X-shaped column definition, as `<LatticeDataGrid>` takes it. These eleven keys are mapped onto a grid column; any
+ * One column definition, as `<LatticeDataGrid>` takes it. These eleven keys are mapped onto a grid column; any
  * other key is refused once, by name, as `columns.<key>`.
  */
 export interface LatticeDataGridColDef {
@@ -562,7 +594,7 @@ export interface LatticeDataGridApi {
 }
 
 /**
- * What `<LatticeDataGrid>` takes: the MUI X DataGrid props
+ * What `<LatticeDataGrid>` takes: the DataGrid props
  * it maps, and nothing else. Every other prop is refused once, by name, as
  * `react:mui-prop-unsupported:<prop>`, and ignored.
  */
@@ -658,8 +690,8 @@ export interface LatticeDataGridProps {
 }
 
 /**
- * Build the MUI X DataGrid-shaped `<LatticeDataGrid>` component. A React-only compatibility layer, by design: it exists
- * for pages migrating off `@mui/x-data-grid`.
+ * Build the DataGrid-shaped `<LatticeDataGrid>` component. A React-only compatibility layer, by design: it exists
+ * for pages migrating off an existing data-grid package.
  *
  * `ReactDOM` is react-dom's client (anything with `createRoot`), needed only
  * when a `renderCell` returns a React element. The ref is the host element,

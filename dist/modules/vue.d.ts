@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.98.3, vue module type declarations
+ * Lattice Grid 1.99.0, vue module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -277,6 +277,11 @@ export type LatticeVueSchedulerProps = Record<string, unknown> & LatticeVueViewe
 export type LatticeVueShellProps = Record<string, unknown> & LatticeVueViewerCommonProps
   & LatticeVueListeners<'state-change', ShellStateChangeEvent>;
 
+/** The form's Vue props: the configuration, the common ones, and its seven events. */
+export type LatticeVueFormProps = Record<string, unknown> & LatticeVueViewerCommonProps
+  & LatticeVueListeners<
+    'beforeChange' | 'change' | 'input' | 'click' | 'focus' | 'blur' | 'validated', unknown>;
+
 /** One tab of a `<LatticeTabs>`; a slot named for its `id` makes it Vue's. */
 export interface LatticeVueTabSpec {
   /**
@@ -373,6 +378,17 @@ export function createLatticeScheduler(deps: {
 export function createLatticeShell(deps: {
   vue: unknown; createShell: (el: unknown, config: Record<string, unknown>) => unknown;
 }): LatticeVueComponent<LatticeVueShellProps, LatticeVueViewerEmit<string>,
+  LatticeVueViewerExposed>;
+
+/**
+ * The form as a Vue component. Not grid-bound:
+ * `createForm(el, config)` takes its host element directly, so the component
+ * re-emits the form's events and exposes the live form on a template ref's
+ * `instance()`.
+ */
+export function createLatticeForm(deps: {
+  vue: unknown; createForm: (el: unknown, config: Record<string, unknown>) => unknown;
+}): LatticeVueComponent<LatticeVueFormProps, LatticeVueViewerEmit<string>,
   LatticeVueViewerExposed>;
 
 /**
@@ -501,6 +517,7 @@ export function createLatticeVue(deps: {
   createLayout?: (el: unknown, config: Record<string, unknown>) => unknown;
   createTabs?: (el: unknown, config: Record<string, unknown>) => unknown;
   createDesigner?: (el: unknown, config: Record<string, unknown>) => unknown;
+  createForm?: (el: unknown, config: Record<string, unknown>) => unknown;
   createDataRouter?: (opts: Record<string, unknown>) => unknown;
 }): Record<string, unknown>;
 

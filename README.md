@@ -5,7 +5,7 @@ dependencies, no build step required. Optional adapters for React, Vue, Svelte
 and Web Components ship alongside it, and Angular has compiled components of its
 own at `@toclocoinc/lattice-grid/angular` — inside this package, not beside it.
 
-Version 1.98.3 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.99.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -36,7 +36,7 @@ Every module is optional and none of them is loaded unless you import it.
 | `modules/svelte.esm.min.js` | Svelte adapter. |
 | `modules/webcomponent.esm.min.js` | `<lattice-grid>` as a custom element. |
 | `modules/htmx.esm.min.js` | htmx integration: survives htmx's DOM swaps, hydrates from a server-rendered `<table>`, and drives sort, filter and infinite scroll over plain htmx requests. UMD and CJS builds sit beside it. |
-| `modules/dhtmlx-compat.esm.min.js` | A compatibility wrapper for dhtmlx Grid, for moving an existing integration across without rewriting it. |
+| `modules/dhtmlx-compat.esm.min.js` | A compatibility wrapper for an existing grid API, for moving an existing integration across without rewriting it. |
 | `modules/devtools.esm.min.js` | The devtools panel, including the accessibility checks. |
 
 This is the short list. [Modules & entry points](#modules--entry-points) is the
@@ -68,7 +68,7 @@ enough to know whether the grid covers what you need.
 - **Pushdown adapters.** One portable query, translated to whatever an engine
   speaks. An adapter declares what it can answer, the grid works out what to
   send and finishes the rest itself, and reports the split so a slow query can
-  be diagnosed. Adapters ship for OData, an ordinary REST endpoint, DemandFlow
+  be diagnosed. Adapters ship for OData, an ordinary REST endpoint, DFQL
   and DuckDB.
 - **A full analytical engine, without carrying one.** `duckdbAdapter` takes a
   DuckDB connection you created and imports nothing, so a grid can query a
@@ -244,7 +244,7 @@ renderer registered through one will not appear in the other.
 
 The full setup for each framework is in the developer guide.
 
-### htmx and dhtmlx
+### htmx and the compatibility wrapper
 
 Two integrations that are not framework adapters.
 
@@ -260,7 +260,7 @@ catalogue — `bytes`, `date`, and so on) sets that column's `type`; a sibling
 ignored, falling back to sampled shape typing. A `config.columns` entry
 passed to `hydrateTable` still wins over the markup for the same column.
 
-**dhtmlx.** `modules/dhtmlx-compat` exposes a dhtmlx Grid-shaped API over
+**Compatibility wrapper.** `modules/dhtmlx-compat` exposes a Grid-shaped API over
 Lattice, for moving an existing integration across a piece at a time rather
 than rewriting it in one go. It shares the core the page already loads rather
 than carrying its own, so load `lattice-grid` alongside it — a bundler wires
@@ -367,10 +367,11 @@ the UMD build or `.cjs` for CommonJS.
 | tabs | `@toclocoinc/lattice-grid/modules/tabs` | `modules/tabs.min.js` | `LatticeGridTabs` | A tab strip where each tab is its own full grid, optionally derived from another (`createTabs`). |
 | layout | `@toclocoinc/lattice-grid/modules/layout` | `modules/layout.min.js` | `LatticeGridLayout` | A reconfigurable dashboard: windows on a cell grid, moved and resized by drag or keyboard (`createLayout`). |
 | shell | `@toclocoinc/lattice-grid/modules/shell` | `modules/shell.min.js` | `LatticeGridShell` | A flexbox shell: cells nested as rows and columns to any depth, sized synchronously by CSS (`createShell`). |
+| form | `@toclocoinc/lattice-grid/modules/form` | `modules/form.min.js` | `LatticeGridForm` | An opt-in form: named items in nested rows and columns, basic controls, events and grid-token density (`createForm`). |
 | ai | `@toclocoinc/lattice-grid/modules/ai` | `modules/ai.min.js` | `LatticeGridAI` | Bring-your-own-model narrative and insights grounded on computed figures (`createAI`). |
 | mock-socket | `@toclocoinc/lattice-grid/modules/mock-socket` | `modules/mock-socket.min.js` | `LatticeGridMockSocket` | A serverless stand-in for a live WebSocket feed (`MockWebSocket`, `opsFeed`). |
 | devtools | `@toclocoinc/lattice-grid/modules/devtools` | `modules/devtools.min.js` | `LatticeGrid` (extends it) | The in-page diagnostic panel, including the accessibility checks (`createDevtools`). |
-| dhtmlx-compat | `@toclocoinc/lattice-grid/modules/dhtmlx-compat` | `modules/dhtmlx-compat.min.js` | `LatticeGrid` (extends it) | A dhtmlx `Grid`-shaped API for moving an existing integration across. |
+| dhtmlx-compat | `@toclocoinc/lattice-grid/modules/dhtmlx-compat` | `modules/dhtmlx-compat.min.js` | `LatticeGrid` (extends it) | A `Grid`-shaped API for moving an existing integration across. |
 
 The four modules that extend `LatticeGrid` (charts, devtools, dhtmlx-compat,
 webcomponent) fold their exports into the core global, so load the core

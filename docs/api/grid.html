@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.98.3</title>
+<title>Grid API Reference — Lattice Grid 1.99.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -390,6 +390,7 @@
         <a href="#construction">Construction</a>
         <a href="#config">Configuration properties</a>
         <a href="#column">Column definition</a>
+        <a class="rail__sub-link" href="#number-format-patterns">Number format patterns</a>
         <a href="#column-specs">Column sub-specs</a>
         <a class="rail__sub-link" href="#column-surface-examples">The rest of a column, drawn and executed</a>
         <a href="#merged-cells">Merged cells</a>
@@ -476,8 +477,8 @@
         <a class="rail__sub-link" href="#persistence-example">View persistence, executed</a>
         <a class="rail__sub-link" href="#methods-example">Every grid namespace and method, executed</a>
         <a class="rail__sub-link" href="#core-exports-example">Every core export, executed</a>
-        <a class="rail__sub-link" href="#dhtmlx-example">The dhtmlx translation, executed</a>
-        <a class="rail__sub-link" href="#dhtmlx-spans-example">Cell spans, executed</a>
+        <a class="rail__sub-link" href="#compat-example">The compatibility translation, executed</a>
+        <a class="rail__sub-link" href="#compat-spans-example">Cell spans, executed</a>
         <a class="rail__sub-link" href="#module-exports-example">Every module export, executed</a>
         <a class="rail__sub-link" href="#nested-config-example">Nested configuration, executed</a>
         <a class="rail__sub-link" href="#remaining-config-example">The remaining option names, executed</a>
@@ -549,6 +550,7 @@
         <a href="tabs.html">The tabbed grid</a>
         <a href="layout.html">The dashboard layout</a>
         <a href="shell.html">The shell module</a>
+        <a href="form.html">The form module</a>
         <a href="dashboard.html">Dashboard composition</a>
         <a href="designer.html">The Designer</a>
         <a href="ai.html">The AI narrative and insights layer</a>
@@ -573,7 +575,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 25 pages</a></span>
+      <span class="chip"><a href="index.html">All 26 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -834,7 +836,7 @@
           <tr><td class="name">type</td><td class="type"><a href="types.html#type-TypeName">TypeName</a> | false</td><td class="desc">A data type bundles format, parse, compare, storage, editor, filter, renderer and Excel behaviour. <code>false</code> disables inference. <code>'image'</code> treats the value as a URL and draws it: see <a href="../api-detail.html#image-guide">image columns</a>.</td></tr>
           <tr><td class="name">preset</td><td class="type">string | string[]</td><td class="desc">Named bundles from <code>columnPresets</code>.</td></tr>
           <tr><td class="name">tags</td><td class="type">string | string[]</td><td class="dflt">, </td><td class="desc">Labels grouping columns together, used by the column tag bar. A bare string is accepted for one tag.</td></tr>
-          <tr><td class="name">format</td><td class="type"><a href="types.html#type-FormatSpec">FormatSpec</a> | string</td><td class="desc">Shorthand strings like <code>'percent:1'</code> or <code>'date:dd MMM yyyy'</code>.</td></tr>
+          <tr><td class="name">format</td><td class="type"><a href="types.html#type-FormatSpec">FormatSpec</a> | string</td><td class="desc">Shorthand strings like <code>'percent:1'</code>, <code>'date:dd MMM yyyy'</code>, or an Excel-style number pattern like <code>'#,##0.00'</code> — see <a href="#number-format-patterns">Number format patterns</a>.</td></tr>
           <tr><td class="name">lookup</td><td class="type"><a href="#type-LookupSpec">LookupSpec</a></td><td class="desc">Id-to-label mapping. Nested <code>children</code> are flattened, so a tree-shaped list resolves labels everywhere.</td></tr>
           <tr><td class="name">value</td><td class="type"><a href="#type-ColumnValueSpec">ColumnValueSpec</a></td><td class="desc">Computed values and the value lifecycle.</td></tr>
           <tr><td class="name">cell</td><td class="type"><a href="#type-ColumnCellSpec">ColumnCellSpec</a> | string</td><td class="desc">A bare string is a renderer name.</td></tr>
@@ -855,6 +857,44 @@
         </tbody>
       </table>
     </div>
+
+    <h3 id="number-format-patterns">Number format patterns</h3>
+    <p class="section-note">A compact Excel-style template, for when spelling out the full <code>NumberFormat</code> object is more than a one-line column needs. A bare string number format is the same thing: <code>format: '#,##0.00'</code> and <code>format: { pattern: '#,##0.00' }</code> compile identically.</p>
+    <p>The pattern is the shorthand the options object spells out, and it compiles to those options — so it shares the one compiled, Intl-backed formatter with the object form, and the Excel export carries the pattern through as the cell's number format. <code>0</code> is a required digit and <code>#</code> an optional one; <code>,</code> turns thousands grouping on; <code>.</code> and the digits after it set the minimum and maximum decimals; <code>%</code> scales by 100; a second <code>;</code> section is the negative form and a third is the zero form. Literal text — currency symbols, and anything quoted with <code>"</code> — sits before or after the number. The locale supplies the grouping and decimal characters; options written beside <code>pattern</code> win over what it implies.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Pattern</th><th>Example output</th></tr></thead>
+        <tbody>
+          <tr><td><code>#,##0.00</code></td><td><code>1,234.50</code></td></tr>
+          <tr><td><code>#,##0</code></td><td><code>1,235</code></td></tr>
+          <tr><td><code>0.0%</code></td><td><code>25.6%</code></td></tr>
+          <tr><td><code>£#,##0.00</code></td><td><code>£1,234.50</code></td></tr>
+          <tr><td><code>#,##0.00;(#,##0.00)</code></td><td><code>(12.00)</code></td></tr>
+          <tr><td><code>#,##0.##</code></td><td><code>1,234.5</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre data-run="js" data-expect="1,234.50 | 1,235 | 25.6% | £1,234.50 | (12.00) | 1,234.5 | 1.234,50" data-covers="config:Column.format"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="cmt">// The same pattern, read back from a real column — and the locale decides the</span>
+<span class="cmt">// grouping and decimal characters, so de-DE points with "." and groups with ",".</span>
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id', locale: 'en-GB',
+  columns: [
+    { field: 'plain',  id: 'plain',  type: 'number', format: '#,##0.00' },
+    { field: 'whole',  id: 'whole',  type: 'number', format: '#,##0' },
+    { field: 'pct',    id: 'pct',    type: 'number', format: '0.0%' },
+    { field: 'pounds', id: 'pounds', type: 'number', format: '£#,##0.00' },
+    { field: 'acct',   id: 'acct',   type: 'number', format: '#,##0.00;(#,##0.00)' },
+    { field: 'loose',  id: 'loose',  type: 'number', format: '#,##0.##' },
+    { field: 'german', id: 'german', type: 'number', format: { pattern: '#,##0.00', locale: 'de-DE' } },
+  ],
+  rows: [{ id: 1, plain: 1234.5, whole: 1234.5, pct: 0.256, pounds: 1234.5, acct: -12, loose: 1234.5, german: 1234.5 }],
+});
+<span class="kw">const</span> key = grid.rows.get(0).key;
+<span class="kw">const</span> out = ['plain', 'whole', 'pct', 'pounds', 'acct', 'loose', 'german']
+  .map((c) =&gt; grid.rows.text(key, c));
+grid.destroy();
+<span class="kw">return</span> out.join(' | ');</code></pre>
     <h2 id="column-specs">Column sub-specs</h2>
 
     <h3>value</h3>
@@ -1231,6 +1271,7 @@ return `groups ${grouped}; pivots ${pivoted}; explode ${exploded}; ${buckets.gra
 let computes = 0;
 const grid = createHeadlessGrid({
   rowKey: 'id',
+  locale: 'en-US',
   // A house style declared once, merged in before anything the column says.
   columnPresets: { money: { type: 'number', format: { decimals: 2, prefix: '$' } } },
   rows: [
@@ -1371,6 +1412,7 @@ const { root } = createTestDom({ width: 1200, height: 300 });
 
 const grid = createGrid(root, {
   rowKey: 'id',
+  locale: 'en-US',
   rows: [
     { id: 1, account: 'Acme', amount: 1200, status: 'late', note: 'Call before noon', region: 'North' },
     { id: 2, account: 'Bolt', amount: -40, status: 'ok', note: 'Paid', region: 'North' },
@@ -1870,7 +1912,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.98.3'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.99.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -4407,7 +4449,7 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">odataAdapter</td><td class="desc">Any OData v4 endpoint</td><td class="desc">Writes <code>$filter</code>, <code>$orderby</code>, <code>$top</code>, <code>$skip</code> and <code>$count</code>. System options keep their <code>$</code> unencoded, which several servers require.</td></tr>
           <tr><td class="name">restAdapter</td><td class="desc">The API you already have</td><td class="desc">Parameter names are yours to choose. Paging and sorting are assumed; filtering is assumed absent until you declare <code>operators</code>, because an adapter that claims to filter when the endpoint ignores it returns the wrong rows silently.</td></tr>
           <tr><td class="name">duckdbAdapter</td><td class="desc">A DuckDB connection</td><td class="desc">Writes SQL and takes the whole query: filter tree, multi-column sort, paging and <a href="#duckdb-grouping">grouping</a> — a grouped grid is answered by <code>GROUP BY</code>, one level at a time, with the group counts, the subtotals, the matching count and the grand total all computed in the engine. <code>from</code> is any FROM expression, so <code>read_parquet('s3://bucket/*.parquet')</code> is as valid as a table name. The engine is yours to create and install; this imports nothing, so the bundle is unchanged whether you use it or not.</td></tr>
-          <tr><td class="name">dfqlAdapter</td><td class="desc">DemandFlow entities</td><td class="desc">Speaks <code>POST /v1/query</code>. Sends the entity, the key attribute and the prefix to match, a field projection and one field-and-term filter, matched as a case-insensitive substring. It cannot sort or page, so the grid does both, and every request carries a <code>countOnly</code> line because <code>limit</code> caps rows <em>scanned</em> rather than matched: a filtered query returns an arbitrary subset, and the count is the only thing that reveals it.</td></tr>
+          <tr><td class="name">dfqlAdapter</td><td class="desc">DFQL entities</td><td class="desc">Speaks <code>POST /v1/query</code>. Sends the entity, the key attribute and the prefix to match, a field projection and one field-and-term filter, matched as a case-insensitive substring. It cannot sort or page, so the grid does both, and every request carries a <code>countOnly</code> line because <code>limit</code> caps rows <em>scanned</em> rather than matched: a filtered query returns an arbitrary subset, and the count is the only thing that reveals it.</td></tr>
           <tr><td class="name">graphqlAdapter</td><td class="desc">Any GraphQL endpoint</td><td class="desc">Configured, not zero-config: GraphQL has no fixed query semantics, so you pass <code>buildQuery</code> to turn the plan into a <code>{ query, variables }</code> operation and <code>parseResponse</code> to read <code>data</code> back into rows and total. Defaults cover an offset/limit list with <code>totalCount</code> and a Relay cursor connection (<code>first</code>/<code>after</code> with <code>pageInfo</code>). The default pushes only the window and the total; declare <code>operators</code> or <code>capabilities</code> for filter/sort only alongside a <code>buildQuery</code> that emits them. A cursor connection is forward-only, so a deep window costs round trips proportional to its offset.</td></tr>
           <tr><td class="name">splunkAdapter</td><td class="desc">Splunk Enterprise 9 and Splunk Cloud</td><td class="desc">Speaks the search REST API v2: dispatches a search job, reads a window from <code>/results</code>, and cancels the job when the grid asks something else. The filter tree becomes an SPL <code>search</code> expression with every value quoted and escaped, a multi-column sort becomes <code>| sort 0</code>, and a time filter becomes the job's own <code>earliest_time</code>/<code>latest_time</code> where Splunk's boundaries map onto the operator exactly. <code>| stats</code> grouping is not pushed and there is no write-back; the grid never holds the token. See <a href="#splunk-options">its options</a>.</td></tr>
           <tr><td class="name">clickhouseAdapter</td><td class="desc">ClickHouse, over its HTTP interface</td><td class="desc">POSTs SQL to <code>{url}/?default_format=JSONEachRow</code> with every filter value as a typed query parameter (<code>{p0:String}</code> beside <code>param_p0=…</code>), never inside the statement. Takes the filter tree, a multi-column sort, <code>LIMIT</code>/<code>OFFSET</code> paging and a <code>count()</code> total; <code>source.aggregate()</code> computes six statistics in the engine, grouped through <code>GROUP BY ROLLUP</code>. Sent <code>readonly=1</code> by default; the grid never holds the credential. See <a href="#clickhouse-options">its options</a>.</td></tr>
@@ -4843,7 +4885,7 @@ createGrid(host, { source, columns: [...] });</code></pre>
       <table>
         <thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Meaning</th></tr></thead>
         <tbody>
-          <tr><td class="name">entity</td><td class="type">string</td><td class="type">—</td><td class="desc">The DemandFlow entity to query. Required.</td></tr>
+          <tr><td class="name">entity</td><td class="type">string</td><td class="type">—</td><td class="desc">The DFQL entity to query. Required.</td></tr>
           <tr><td class="name">token</td><td class="type">string</td><td class="type">—</td><td class="desc">A personal access token, sent as the bearer credential. Required. Never commit one; read it from configuration at runtime.</td></tr>
           <tr><td class="name">url</td><td class="type">string</td><td class="type"><code>https://rest.demandflow.com</code></td><td class="desc">The API base, for a non-default region or a self-hosted deployment.</td></tr>
           <tr><td class="name">comboKey</td><td class="type">'comboKey' | 'comboKey2' | 'comboKey3'</td><td class="type"><code>comboKey</code></td><td class="desc">The name of the key attribute to match on. <code>comboKey</code> is the standard hierarchy.</td></tr>
@@ -4853,7 +4895,7 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">headers</td><td class="type">Record&lt;string, string&gt;</td><td class="type">{}</td><td class="desc">Extra headers merged over the bearer token, for a gateway that needs its own.</td></tr>
           <tr><td class="name">fetch</td><td class="type">typeof fetch</td><td class="type">the global <code>fetch</code></td><td class="desc">Your own fetch, for a proxy or a non-browser runtime.</td></tr>
           <tr><td class="name">writeUrl</td><td class="type">string</td><td class="type">the default write endpoint</td><td class="desc">Where record mutations are POSTed, when the deployment's write endpoint differs from the default. Write-back persists update, delete and add-row.</td></tr>
-          <tr><td class="name">encodeCreate</td><td class="type">(row: unknown) =&gt; Record&lt;string, unknown&gt;</td><td class="type">the row's own fields</td><td class="desc">Maps a new grid row to the DemandFlow <code>fields</code> an append needs — its required <code>entity</code>/<code>level</code>/<code>comboKey</code> — since the structural append only knows the row's own fields.</td></tr>
+          <tr><td class="name">encodeCreate</td><td class="type">(row: unknown) =&gt; Record&lt;string, unknown&gt;</td><td class="type">the row's own fields</td><td class="desc">Maps a new grid row to the <code>fields</code> an append needs — its required <code>entity</code>/<code>level</code>/<code>comboKey</code> — since the structural append only knows the row's own fields.</td></tr>
         </tbody>
       </table>
     </div>
@@ -6790,6 +6832,7 @@ createGrid(el, {
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M8 1.5 15 14H1Zm-.75 4v4h1.5v-4Zm0 5v1.5h1.5V10.5Z"></path></svg>warning</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Zm-.75 3h1.5v5h-1.5Zm0 6h1.5V12h-1.5Z"></path></svg>danger</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Zm-.75 3h1.5v3.7l2.5 1.5-.75 1.3-3.25-2Z"></path></svg>clock</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2.5h10v11H3z"></path><path d="M3 5.5h10"></path><path d="M5.5 1.5v2"></path><path d="M10.5 1.5v2"></path></svg>calendar</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M4.5 7V5a3.5 3.5 0 1 1 7 0v2H13v7H3V7Zm1.5 0h4V5a2 2 0 1 0-4 0Z"></path></svg>lock</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5a3 3 0 0 1 0-4l2-2a3 3 0 0 1 4 4l-1 1M9.5 6.5a3 3 0 0 1 0 4l-2 2a3 3 0 0 1-4-4l1-1"></path></svg>link</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3.5h-3v9h9v-3M9.5 3.5h3v3M12.5 3.5 7 9"></path></svg>external</span>
@@ -6838,6 +6881,7 @@ createGrid(el, {
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M2.5 3.5h11v9h-11ZM4.5 5.5v5h7v-5ZM6 7h4v1.5H6Z"></path></svg>chamber</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M8 1.8 14.5 7.5h-2V14h-9V7.5h-2ZM6.8 10.4V14h2.4v-3.6Z"></path></svg>premises</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M5.2 1.5h5.6L14.5 5.2v5.6L10.8 14.5H5.2L1.5 10.8V5.2ZM5.4 9.4 6.6 10.6 8 9.2 9.4 10.6 10.6 9.4 9.2 8 10.6 6.6 9.4 5.4 8 6.8 6.6 5.4 5.4 6.6 6.8 8Z"></path></svg>fault</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M8 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"></path><path d="M8 9c3 0 5.5 1.5 5.5 3.5V14h-11v-1.5C2.5 10.5 5 9 8 9Z"></path></svg>user</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d=""></path></svg>blank</span>
     </div>
     <!-- icon-gallery:end -->
@@ -6917,7 +6961,7 @@ grid.filters.reapply();                    <span class="cmt">// re-run all</span
     </div>
 
     <div class="note">
-      <p><strong>Coming from AG Grid's external filter?</strong> The three pieces map onto two. <code>isExternalFilterPresent()</code> disappears &mdash; registration <em>is</em> presence. <code>doesExternalFilterPass(node)</code> becomes the named predicate you pass to <code>where</code>. <code>onFilterChanged()</code> becomes either <code>deps</code>, when what changed is a column the grid can watch, or <code>reapply(name?)</code>, when it is something the grid cannot see at all &mdash; a rate table arriving late, a permission refresh.</p>
+      <p><strong>Coming from an external-filter API?</strong> The three pieces map onto two. <code>isExternalFilterPresent()</code> disappears &mdash; registration <em>is</em> presence. <code>doesExternalFilterPass(node)</code> becomes the named predicate you pass to <code>where</code>. <code>onFilterChanged()</code> becomes either <code>deps</code>, when what changed is a column the grid can watch, or <code>reapply(name?)</code>, when it is something the grid cannot see at all &mdash; a rate table arriving late, a permission refresh.</p>
     </div>
 
     <div class="note">
@@ -7201,12 +7245,12 @@ grid.destroy();
 
 <span class="kw">return</span> declared.filter((name) =&gt; core[name] !== <span class="kw">undefined</span>).length;</code></pre>
 
-    <h3 id="dhtmlx-example">The dhtmlx translation, executed</h3>
+    <h3 id="compat-example">The compatibility translation, executed</h3>
     <p class="section-note">Every translated key in one definition, with the result asserted. A key the wrapper
     stopped honouring drops out of the output and fails the build.</p>
     <pre data-run="js" data-expect="size|120|right|true|date|sum" data-covers="adapterKey:align adapterKey:autoHeight adapterKey:columns adapterKey:data adapterKey:dragItem adapterKey:draggable adapterKey:editable adapterKey:editorConfig adapterKey:editorType adapterKey:header adapterKey:headerRowHeight adapterKey:hidden adapterKey:htmlEnable adapterKey:id adapterKey:maxWidth adapterKey:minWidth adapterKey:multiselection adapterKey:options adapterKey:resizable adapterKey:rowHeight adapterKey:rowKey adapterKey:rowTransfer adapterKey:sortable adapterKey:summary adapterKey:template adapterKey:tooltip adapterKey:tooltipTemplate adapterKey:type adapterKey:width"><code><span class="kw">const</span> { translateColumn } = <span class="kw">await</span> import('../packages/modules/dhtmlx-compat/columns.js');
 
-<span class="cmt">// Every dhtmlx column key the wrapper translates, in one definition. A key it</span>
+<span class="cmt">// Every compatibility column key the wrapper translates, in one definition. A key it</span>
 <span class="cmt">// stopped honouring would drop out of the result and fail this example.</span>
 <span class="kw">const</span> translated = translateColumn({
   id: 'size',
@@ -7235,8 +7279,8 @@ grid.destroy();
   translated.total,
 ].join('|');</code></pre>
 
-    <h3 id="dhtmlx-spans-example">Cell spans, executed</h3>
-    <p class="section-note">dhtmlx's imperative <code>addSpan</code> maintains a span table, and that table drives
+    <h3 id="compat-spans-example">Cell spans, executed</h3>
+    <p class="section-note">The source API's imperative <code>addSpan</code> maintains a span table, and that table drives
     Lattice's own per-cell span functions — installed on each column's <code>cell</code> definition. A span
     declared through the shim is read back through the very functions the renderer calls.</p>
     <pre data-run="js" data-expect="3|2|1|1" data-covers="adapterKey:cell"><code><span class="cmt">// Aliased on import: the shim's span factory, bound to a local name.</span>
@@ -9348,7 +9392,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">rowNumbers</td><td class="type">boolean | { /** A fixed column width in pixels. Unset auto-fits the largest number. */ width?: number; /** The number given to the first row. Default `1`; `0` numbers from zero. */ start?: number; /** Header text. Empty by default. */ title?: string; }</td><td class="desc">A synthetic row-number column, pinned left before the selection checkbox column when one is configured (BACKLOG-0001437) — the same generated-column mechanism the checkbox uses, not a second one. The number is the row's 1-based position among the visible rows, after sort, filter and grouping: a group heading is not numbered and its leaves continue the count across it, and pinned-top rows are numbered first. Read-only; not sortable, filterable, groupable or movable; excluded from a saved view's column state and from `columns.state()`; excluded from CSV/Excel/clipboard export unless the export call opts in with `{ rowNumbers: true }`. `true` for the defaults. An object fixes the width (unset auto-fits the largest number), moves where numbering starts, or gives the header a title (empty by default). <small>(optional)</small></td></tr>
           <tr><td class="name">toolPanel</td><td class="type">boolean | { /** * Which panels to offer, each given one of three ways: a built-in name * (`columns`, `filters`, `views`, `quick`, `formatting`, `statistics`, * `regression`, `compare`, `insights`); an object naming a built-in and * giving it props, a title or an icon of its own (`{ name: 'regression', * props: { predictors: ['x1', 'x2'], response: 'y' } }`); or a panel * constructor of your own (§18.5: `init`, `element`, optional `refresh` * and `destroy`) — bare, or as an object's `name` to give it props too. * Entry props win over any config-derived props (`views`, `insights`, * `regression`) for the same panel. An unrecognised name warns once and * is dropped rather than rendering an empty tab. */ panels?: (ToolPanelName | Function | { name: ToolPanelName | Function; props?: object; title?: string; icon?: string })[]; openPanel?: string; /** Which edge to dock against. `left` is the icon rail; default `right`. */ side?: ToolPanelSide; /** Icon-only tabs. Defaults to true for `side: 'left'`, false otherwise. */ icons?: boolean; /** * Rail action buttons: `undo`, `redo`, `export`, `restore`. Defaults to all * four on the left rail and none on the right; `false` drops them. */ /** * Which action buttons the rail offers, in order. `false` drops them. * * The built-in names are `undo`, `redo`, `pause`, `restore`, `maximise`, * `export`, `excel`, `clipboard` and `print`, plus `'-'` for a divider. * A {@link RailAction} object places one of your own among them. */ actions?: false | (RailActionName | '-' | <a href="#type-RailAction">RailAction</a>)[]; /** File name for the export action, without the extension. */ exportName?: string; /** * Put the native annotation tools — pen, arrow, rectangle, highlighter — on * the rail. Each is a real toggle button that shows pressed while it is the * tool in use and turns off when pressed again. Three states, not two: * `true` opts in and keeps the tools on the rail always, presentation or * not; `false` opts OUT and the tools are never added, not even for a * presentation; omitted keeps the default, where the tools are off until a * presentation starts, appear for its duration, and leave when it ends. */ annotate?: boolean; }</td><td class="desc">Dock the side panels against the grid: columns, filters, views, quick search and formatting. The columns panel is where row grouping, values and pivot are assembled by drag, which is why it carries three drop zones as well as the visibility list — a column opts out of each with `allowGroup`, `allowPivot` and `allowTotal`. <small>(optional)</small></td></tr>
           <tr><td class="name">regression</td><td class="type"><a href="#type-RegressionSpec">RegressionSpec</a></td><td class="desc">The model the `regression` tool panel fits when no `props` were given on its own `toolPanel.panels` entry (BACKLOG-0000812) — `grid.set('regression', spec)` repaints an open panel with the new model. Panel-entry props still win when both are given. <small>(optional)</small></td></tr>
-          <tr><td class="name">groupPanel</td><td class="type">boolean | { /** Placeholder shown while nothing is grouped. */ hint?: string; }</td><td class="desc">A drag-and-drop group-by strip above the column header — the pattern AG Grid calls the row-group panel. Drag a column heading into it to group by that column; the active groups show as removable, reorderable chips, and reordering the chips changes the nesting order. It is keyboard-operable (arrows navigate, Shift+arrow reorders, Delete ungroups, and an add control groups any column), and every change is announced through the live region, which is why it also addresses the drag-only complaint (BACKLOG-0000429). Off by default and non-breaking, matching `toolPanel`. It drives the same grouping model as `grid.columns.group()`; it reimplements nothing. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupPanel</td><td class="type">boolean | { /** Placeholder shown while nothing is grouped. */ hint?: string; }</td><td class="desc">A drag-and-drop group-by strip above the column header — the pattern a row-group panel. Drag a column heading into it to group by that column; the active groups show as removable, reorderable chips, and reordering the chips changes the nesting order. It is keyboard-operable (arrows navigate, Shift+arrow reorders, Delete ungroups, and an add control groups any column), and every change is announced through the live region, which is why it also addresses the drag-only complaint (BACKLOG-0000429). Off by default and non-breaking, matching `toolPanel`. It drives the same grouping model as `grid.columns.group()`; it reimplements nothing. <small>(optional)</small></td></tr>
           <tr><td class="name">kpis</td><td class="type">Array&lt;Omit&lt;<a href="#type-StatConfig">StatConfig</a>, 'grid' | 'container'&gt;&gt;</td><td class="desc">A built-in KPI/stat strip: a labelled band of {@link createStat} tiles the grid places for you, above the column header. Each entry is a stat spec — the same fields {@link StatConfig} takes, minus `grid` and `container`, which the grid supplies — so a strip tile and a hand-placed one are the same object. The tiles follow the grid's filters, recomputing on every change exactly as a stand-alone stat does. Off by default and non-breaking, matching `groupPanel`: no `kpis` means no band and no cost. It reuses `createStat` and reimplements no compute. <small>(optional)</small></td></tr>
           <tr><td class="name">quickFilterText</td><td class="type">string</td><td class="desc">The quick filter's initial text. <small>(optional)</small></td></tr>
           <tr><td class="name">permissions</td><td class="type"><a href="types.html#type-PermissionPolicy">PermissionPolicy</a></td><td class="desc">Per-column read/write/hidden policy. A usability control, not a security boundary: hidden data is still resident in the store. Enforce the same policy server-side with `permittedColumns` / `permittedExport`. <small>(optional)</small></td></tr>
@@ -10266,6 +10310,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">type</td><td class="type">'number'</td><td class="desc">Marks this as the number format, so the grid compiles it with the number formatter. <small>(optional)</small></td></tr>
+          <tr><td class="name">pattern</td><td class="type">string</td><td class="desc">A compact Excel-style template that compiles to the options below, so it shares the one Intl-backed formatter: `'#,##0.00'`, `'£#,##0'`, `'0.0%'`, `'#,##0.00;(#,##0.00)'`. `0` is a required digit, `#` an optional one; `,` turns thousands grouping on; `.` and the digits after it set the minimum and maximum decimals; `%` scales by 100; `;` adds a negative section and a third zero section. Literal text (currency symbols, `"quoted"` text) sits before or after the number. The locale supplies the grouping and decimal characters. Options set beside `pattern` win over it, and an invalid pattern warns once and is ignored (BACKLOG-0002181). A bare string number format is accepted as the same thing. <small>(optional)</small></td></tr>
           <tr><td class="name">style</td><td class="type"><a href="types.html#type-NumberFormatStyle">NumberFormatStyle</a> <small class="literals">'decimal' | 'currency' | 'percent'</small></td><td class="desc">`'decimal'` (the default), `'currency'` or `'percent'`. `'percent'` multiplies by 100 and appends the locale's percent sign, so store 0.12 for 12%. <small>(optional)</small></td></tr>
           <tr><td class="name">currency</td><td class="type">string</td><td class="desc">The ISO currency code for `style: 'currency'` — `'GBP'`, `'EUR'`. Defaults to `'USD'`. <small>(optional)</small></td></tr>
           <tr><td class="name">currencyDisplay</td><td class="type"><a href="types.html#type-CurrencyDisplay">CurrencyDisplay</a> <small class="literals">'symbol' | 'code' | 'name' | 'narrowSymbol'</small></td><td class="desc">How the currency is shown: `'symbol'` (£1.00), `'narrowSymbol'`, `'code'` (GBP 1.00) or `'name'` (1.00 British pounds). The locale's own default when unset. <small>(optional)</small></td></tr>

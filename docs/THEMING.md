@@ -381,6 +381,21 @@ The Designer module's editing chrome (rails, panels and the properties form) dra
 | `--lattice-designer-panel-bg` | `var(--lattice-background)` | a rail/panel (card) surface | MAY |
 | `--lattice-designer-panel-border` | `var(--lattice-border-color)` | a rail/panel (card) border | MAY |
 
+### Form module tokens (module-owned, fallback-only)
+
+The form module (`modules/form`, BACKLOG-0002141, spacing BACKLOG-0002183, disabled/read-only states BACKLOG-0002198) reads these names only from its own injected stylesheet — they are never declared in the theme CSS above, so they are not part of the machine-checked public-token list and a preset sets them only for closer fidelity. `createForm({ spacing, labelGap })` and `form.setSpacing()` write the two spacing names as inline custom properties on the form root, which always win over a stylesheet, so a theme sets them only as the default a form without an explicit spacing falls back to. The two spacing names default from the density scale; the six disabled/read-only names are derived from the colour tokens so they follow light and dark automatically. All eight are **MAY**: `checkPresetCompleteness` never requires a preset edit for them.
+
+| Token | Default (the fallback) | Affects |
+|---|---|---|
+| `--lattice-form-item-gap` | `var(--lattice-space)` | the vertical gap between a form's stacked items (the root, a `rows` container and a fieldset body); horizontal `cols` keep their own gap |
+| `--lattice-form-label-gap` | `calc(var(--lattice-space) / 2)` | the gap between an item's top-position label and its field |
+| `--lattice-disabled-foreground` | `var(--lattice-foreground-muted)` | the text, glyphs and values of a disabled control (kept ≥3:1 by the muted token) |
+| `--lattice-disabled-background` | `color-mix(in srgb, var(--lattice-background) 94%, var(--lattice-foreground-muted))` | the fill of a disabled text field, select, chips, stage step or file card |
+| `--lattice-disabled-border` | `color-mix(in srgb, var(--lattice-border-color) 70%, transparent)` | the border of a disabled text field, select, chips, stage step or file card |
+| `--lattice-readonly-foreground` | `var(--lattice-foreground)` | the text of a read-only field (fully legible, so a value can still be read and copied) |
+| `--lattice-readonly-background` | `color-mix(in srgb, var(--lattice-background) 92%, var(--lattice-foreground-muted))` | the subtle fill of a read-only field |
+| `--lattice-readonly-border` | `var(--lattice-border-color)` | the border of a read-only field |
+
 ## Internal, off-contract
 
 ### `--lat-*` internal computed aliases
