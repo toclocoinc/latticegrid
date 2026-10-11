@@ -9,6 +9,21 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.98.3] - 2026-10-11
+
+### Fixed
+
+- **A grouped scheduler logged a false "not a configuration key" warning for `autoGroupColumnWidth`** (BACKLOG-0002169). The grid read the key — it sizes the generated group column — but had never declared it, so every grouped scheduler build warned `'autoGroupColumnWidth' is not a configuration key this grid recognises, so it had no effect` while the group column still took the width.
+  - `autoGroupColumnWidth` is now a declared `GridConfig` option (default 240), in the reference and the guide; the scheduler passes the grouped host column's own width through, and the generated column takes it without the warning.
+
+- **A grouped scheduler showed each team name twice and wasted ~120px on an empty Group column** (BACKLOG-0002170). The left grid's generated auto-group column drew the group label and count in a mostly empty column beside the consumed grouped column, while the timeline band repeated the label, so "Build (1)" and "Build" both appeared and the resource columns lost the group column's width.
+  - The grid now suppresses the generated group column when a `groupRenderer` is configured, and the scheduler draws each group heading as one full-width group row — toggle, label and count on the left — while the timeline draws only the aligned band with its collapse toggle. Each group label appears exactly once, `resourceWidth` reaches the resource columns, and collapse/expand, keyboard and `aria-expanded` stay on the group row.
+
+- **The scheduler's Day zoom preset gave the same scale as Fit** (BACKLOG-0002171). `setZoom('fit')` sizes its pixels-per-day by overwriting the resolved day-scale object with the timeline width ÷ plan span; because that object was the shared preset table entry, the write leaked back into the `day` preset, so a later `setZoom('day')` read the fit width (13.93 px/day at 1440×900, 20.88 at 1920×1080) instead of the fixed 26 px/day.
+  - `resolveZoomPreset` now returns a copy of a named preset, and the shared `ZOOM_PRESETS` entries are frozen, so a fit layout mutates only the scheduler's own value. Each named preset is a fixed, documented pixels-per-day independent of the viewport — `hour` 624, `day` 26, `week` 12, `month` 4, `quarter` 1.8 — with `day` > `week` > `month`, and only `'fit'` depends on the plan span and timeline width. Label adaptation never changes a preset's scale.
+
+- htmx pages build their grids, boards, Gantts and calendars on every visit. A page that loads the htmx module with a dynamic `import()`, or any page opened on a warm browser cache, attached after htmx had already processed the page and could be left showing the raw server tables until a hard reload. The module now builds what the page already holds as soon as it attaches, and registering a builder (`registerKanban()` and the rest) builds any of its hosts already on the page. Nothing is built twice.
+
 ## [1.98.2] - 2026-10-10
 
 ### Fixed

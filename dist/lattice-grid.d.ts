@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.98.2, type declarations
+ * Lattice Grid 1.98.3, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -4873,6 +4873,17 @@ export interface GridConfig {
    * code expands or collapses one, that decision stands.
    */
   groupDefaultExpanded?: boolean | number | ((group: GroupInfo) => boolean);
+  /**
+   * Width of the column the grid generates to hold the group rows while
+   * grouping is active.
+   *
+   * The group column is not one of your columns — it is synthesised when
+   * {@link ColumnModel.group} starts grouping — so its width is set here
+   * rather than on a column's `layout`. Defaults to 240. The scheduler passes
+   * the grouped host column's own width through, so the generated column keeps
+   * that size instead of snapping back to the default.
+   */
+  autoGroupColumnWidth?: number;
   /**
    * Where the grand total goes.
    *
