@@ -1,11 +1,13 @@
 # Lattice Grid
 
-**A high-performance data grid for the browser.** Vanilla JavaScript, no runtime
-dependencies, no build step required. Optional adapters for React, Vue, Svelte
-and Web Components ship alongside it, and Angular has compiled components of its
-own at `@toclocoinc/lattice-grid/angular` — inside this package, not beside it.
+**Lattice is one typed, virtualised data layer in the browser and a family of
+views on it**: data grid, Kanban board, Gantt chart, calendar, resource
+scheduler, form, shell layout, dashboards and the Designer, 38+ chart types, KPI
+tiles and map views, all reading the same rows, filters and theme. Vanilla
+JavaScript, no runtime dependencies, no build step; adapters for React, Vue,
+Svelte, Web Components and htmx, Angular compiled inside the package.
 
-Version 1.99.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.99.1 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -31,13 +33,34 @@ Every module is optional and none of them is loaded unless you import it.
 | Module | What it is |
 |---|---|
 | `modules/charts.esm.min.js` | Thirty-eight chart types drawn from the grid's data, including control and capability charts. |
+| `modules/data-router.esm.min.js` | One stream split by property and routed to many grids and views. |
+| `modules/kanban.esm.min.js` | Board view: rows as cards grouped into columns. |
+| `modules/gantt.esm.min.js` | Editable, dependency-aware project plan with a computed critical path. |
+| `modules/calendar.esm.min.js` | Month and week views of rows as cards, keyed by a date field. |
+| `modules/scheduler.esm.min.js` | Resource scheduler: resources as rows and events as editable bars on a shared time axis. |
+| `modules/form.esm.min.js` | An opt-in form: named fields in nested rows and columns, validation and rules, bound to a grid row or the data router. |
+| `modules/shell.esm.min.js` | Cells nested as rows and columns to any depth, sized synchronously by CSS. |
+| `modules/layout.esm.min.js` | A reconfigurable dashboard surface: windows on a cell grid. |
+| `modules/dashboard.esm.min.js` | One JSON spec naming a layout, panels and links, built into a wired page. |
+| `modules/designer.esm.min.js` | A designer over the dashboard spec, whose view mode is `createDashboard`. |
+| `modules/kpi.esm.min.js` | A panel of stat tiles, each an aggregate over the dataset. |
+| `modules/mapview.esm.min.js` | A 3D map of the grid's rows, linked to its filters and selection both ways. |
+| `modules/leaflet.esm.min.js` | Your Leaflet map as one more viewer of a grid. |
+| `modules/deckgl.esm.min.js` | Your deck.gl map as one more viewer of a grid. |
+| `modules/geometry.esm.min.js` | The `geometry` column type, registered by import, with spatial operators. |
+| `modules/alarms.esm.min.js` | Turns graded data into alarm events: level, clear and per-key identity. |
+| `modules/list.esm.min.js` | The `list` column type, registered by import, with its own filter and editor. |
+| `modules/tabs.esm.min.js` | A tab strip where each tab is its own full grid. |
+| `modules/presets.esm.min.js` | Design-system presets: a variable file and a function over the theme-token contract. |
+| `modules/ai.esm.min.js` | Bring-your-own-model narrative and insights grounded on computed figures. |
+| `modules/mock-socket.esm.min.js` | A serverless stand-in for a live WebSocket feed. |
+| `modules/htmx.esm.min.js` | htmx integration: survives htmx's DOM swaps, hydrates from a server-rendered `<table>`, and drives sort, filter and infinite scroll over plain htmx requests. UMD and CJS builds sit beside it. |
+| `modules/dhtmlx-compat.esm.min.js` | A compatibility wrapper for an existing grid API, for moving an existing integration across without rewriting it. |
+| `modules/devtools.esm.min.js` | The devtools panel, including the accessibility checks. |
 | `modules/react.esm.min.js` | React adapter. |
 | `modules/vue.esm.min.js` | Vue adapter. |
 | `modules/svelte.esm.min.js` | Svelte adapter. |
 | `modules/webcomponent.esm.min.js` | `<lattice-grid>` as a custom element. |
-| `modules/htmx.esm.min.js` | htmx integration: survives htmx's DOM swaps, hydrates from a server-rendered `<table>`, and drives sort, filter and infinite scroll over plain htmx requests. UMD and CJS builds sit beside it. |
-| `modules/dhtmlx-compat.esm.min.js` | A compatibility wrapper for an existing grid API, for moving an existing integration across without rewriting it. |
-| `modules/devtools.esm.min.js` | The devtools panel, including the accessibility checks. |
 
 This is the short list. [Modules & entry points](#modules--entry-points) is the
 complete map — every framework adapter, feature module and chart-type extension,
@@ -147,6 +170,43 @@ enough to know whether the grid covers what you need.
   two deviations above the mean.
 - **In-cell charts**, sparklines, data bars, progress, ratings and pills.
 - **Header histograms** that double as a filter.
+
+### Views on the same data
+
+Every view below is a viewer of the same dataset, not a copy of it. Each reads
+rows through the same keyed-diff contract a grid exposes
+(`rows.apply({ add, update, remove })`), so a sort, filter, group or edit made
+in one is the sort, filter, group or edit the others already see, and a Data
+Router can drive a grid, a board, a chart and a map off one feed.
+
+- **Kanban.** `modules/kanban` draws rows as cards grouped into columns by a
+  configurable property, with workflow rules, swimlanes, sprints and an undo
+  history. It binds to a live grid or takes rows directly.
+- **Gantt.** `modules/gantt` turns a task list into a real schedule: a CPM
+  engine computes each task's early/late start and finish, its slack and the
+  zero-float critical path, recomputing on every edit. Map your own field
+  names so the rows you already have arrive as they are.
+- **Calendar.** `modules/calendar` lays rows out as cards on a month grid or a
+  week day-grid, keyed by a date field, with rescheduling that writes back.
+- **Resource scheduler.** `modules/scheduler` shows resources as rows in a real
+  grid and each event as a bar on a shared time axis; events drag, resize and
+  reassign, and every change writes back through `events.apply` as one undo
+  step.
+- **Form.** `modules/form` builds named items in nested rows and columns, and
+  the whole form is already in the document and measurable the moment
+  `createForm` returns.
+- **Shell and layout.** `modules/shell` nests cells as rows and columns sized
+  by pure CSS flexbox, and `modules/layout` puts movable, resizable windows on
+  a cell grid for a reconfigurable dashboard surface.
+- **Dashboard and Designer.** `modules/dashboard` describes a dashboard as one
+  JSON spec (the layout, the panels and the links between them) and
+  `createDashboard` builds the wired page; `modules/designer` edits that same
+  spec, its view mode being `createDashboard` itself.
+- **KPI.** `modules/kpi` renders a panel of stat tiles, each an aggregate over
+  the routed rows.
+- **Maps.** `modules/mapview` puts a 3D map beside the grid that is always a
+  picture of the grid's current rows; `modules/leaflet` and `modules/deckgl`
+  make your own Leaflet or deck.gl map one more viewer, linked both ways.
 
 ### The interface
 
@@ -361,23 +421,32 @@ the UMD build or `.cjs` for CommonJS.
 | kanban | `@toclocoinc/lattice-grid/modules/kanban` | `modules/kanban.min.js` | `LatticeGridKanban` | Board view: grid rows as cards grouped into columns (`createKanban`). |
 | gantt | `@toclocoinc/lattice-grid/modules/gantt` | `modules/gantt.min.js` | `LatticeGridGantt` | Editable, dependency-aware project plan with a computed critical path (`createGantt`). |
 | calendar | `@toclocoinc/lattice-grid/modules/calendar` | `modules/calendar.min.js` | `LatticeGridCalendar` | A month grid and a week day-grid of rows as cards, keyed by a date field (`createCalendar`). |
-| scheduler | `@toclocoinc/lattice-grid/modules/scheduler` | `modules/scheduler.min.js` | `LatticeGridScheduler` | Read-only resource scheduler: resources as grid rows and events as bars on a shared time axis (`createScheduler`). |
+| scheduler | `@toclocoinc/lattice-grid/modules/scheduler` | `modules/scheduler.min.js` | `LatticeGridScheduler` | Resource scheduler: resources as grid rows and events as bars on a shared time axis; events drag, resize and reassign (`createScheduler`). |
 | mapview | `@toclocoinc/lattice-grid/modules/mapview` | `modules/mapview.min.js` | `LatticeGridMapView` | A 3D map of the grid's rows over MapLibre with deck.gl layers, linked to the grid's filters and selection both ways (`createMapView`). |
+| leaflet | `@toclocoinc/lattice-grid/modules/leaflet` | `modules/leaflet.min.js` | `LatticeGridLeaflet` | Your Leaflet `L.Map` and layer function become one more viewer of a grid, linked both ways (`bindLeaflet`). |
+| deckgl | `@toclocoinc/lattice-grid/modules/deckgl` | `modules/deckgl.min.js` | `LatticeGridDeck` | Your deck.gl `Deck` and layer function become one more viewer of a grid, linked both ways (`bindDeck`). |
+| geometry | `@toclocoinc/lattice-grid/modules/geometry` | `modules/geometry.min.js` | `LatticeGrid` (extends it) | The `geometry` column type, registered by import, with spatial operators and geometry-aware maps (`geometryModule`). |
+| list | `@toclocoinc/lattice-grid/modules/list` | `modules/list.min.js` | `LatticeGrid` (extends it) | The `list` column type, registered by import, with its own filter and editor (`listModule`). |
 | kpi | `@toclocoinc/lattice-grid/modules/kpi` | `modules/kpi.min.js` | `LatticeGridKPI` | A grid of stat tiles, each an aggregate over a dataset (`createKPI`). |
+| alarms | `@toclocoinc/lattice-grid/modules/alarms` | `modules/alarms.min.js` | `LatticeGridAlarms` | Turns graded data into alarm events (level, clear and per-key identity) for a NOC wall, ticketing or an on-call rota; no UI of its own (`createAlarms`). |
 | tabs | `@toclocoinc/lattice-grid/modules/tabs` | `modules/tabs.min.js` | `LatticeGridTabs` | A tab strip where each tab is its own full grid, optionally derived from another (`createTabs`). |
 | layout | `@toclocoinc/lattice-grid/modules/layout` | `modules/layout.min.js` | `LatticeGridLayout` | A reconfigurable dashboard: windows on a cell grid, moved and resized by drag or keyboard (`createLayout`). |
+| dashboard | `@toclocoinc/lattice-grid/modules/dashboard` | `modules/dashboard.min.js` | `LatticeGridDashboard` | One JSON spec naming a layout, panels and links, built into a wired page (`createDashboard`). |
+| designer | `@toclocoinc/lattice-grid/modules/designer` | `modules/designer.min.js` | `LatticeGridDesigner` | A designer over the dashboard spec, with pages; its view mode is `createDashboard` (`createDesigner`). |
 | shell | `@toclocoinc/lattice-grid/modules/shell` | `modules/shell.min.js` | `LatticeGridShell` | A flexbox shell: cells nested as rows and columns to any depth, sized synchronously by CSS (`createShell`). |
 | form | `@toclocoinc/lattice-grid/modules/form` | `modules/form.min.js` | `LatticeGridForm` | An opt-in form: named items in nested rows and columns, basic controls, events and grid-token density (`createForm`). |
 | ai | `@toclocoinc/lattice-grid/modules/ai` | `modules/ai.min.js` | `LatticeGridAI` | Bring-your-own-model narrative and insights grounded on computed figures (`createAI`). |
+| presets | `@toclocoinc/lattice-grid/modules/presets` | `modules/presets.min.js` | `LatticeGridPresets` | Design-system presets: a variable file over the theme-token contract and a function that drives it from a real MUI theme (`themeFromMui`). |
 | mock-socket | `@toclocoinc/lattice-grid/modules/mock-socket` | `modules/mock-socket.min.js` | `LatticeGridMockSocket` | A serverless stand-in for a live WebSocket feed (`MockWebSocket`, `opsFeed`). |
 | devtools | `@toclocoinc/lattice-grid/modules/devtools` | `modules/devtools.min.js` | `LatticeGrid` (extends it) | The in-page diagnostic panel, including the accessibility checks (`createDevtools`). |
 | dhtmlx-compat | `@toclocoinc/lattice-grid/modules/dhtmlx-compat` | `modules/dhtmlx-compat.min.js` | `LatticeGrid` (extends it) | A `Grid`-shaped API for moving an existing integration across. |
 
-The four modules that extend `LatticeGrid` (charts, devtools, dhtmlx-compat,
-webcomponent) fold their exports into the core global, so load the core
-`<script>` first and then the module — for example `LatticeGrid.createChart(...)`
-becomes available once both are loaded. With a bundler they share the one core
-the page already imported rather than carrying a second copy.
+The six modules that extend `LatticeGrid` (charts, devtools, dhtmlx-compat,
+webcomponent, geometry, list) fold their exports into the core global, so load
+the core `<script>` first and then the module, for example
+`LatticeGrid.createChart(...)` becomes available once both are loaded. With a
+bundler they share the one core the page already imported rather than carrying
+a second copy.
 
 ### Chart-type extensions
 

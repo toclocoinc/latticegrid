@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.99.0, fi-FI locale
+ * Lattice Grid 1.99.1, fi-FI locale
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

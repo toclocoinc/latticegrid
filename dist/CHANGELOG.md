@@ -9,6 +9,18 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.99.1] - 2026-10-12
+
+### Changed
+
+- The README presents Lattice as one typed, virtualised data layer with every view on it — the data grid, Kanban, Gantt, calendar, resource scheduler, form, shell layout, dashboards and the Designer, plus KPI tiles and map views — and its module tables name every shipped feature module and adapter, with the scheduler row corrected to state that events drag, resize and reassign (BACKLOG-0002215).
+
+### Fixed
+
+- **Clearing a required number field and tabbing away redrew the old number while the form still said the field was required** (BACKLOG-0002213). *Recognise your own case: a `number`/unit/temperature form field holding `5`, select-all and Delete, then Tab or click elsewhere — the box showed `5` again, refusing to clear until a new value overwrote it, even though the committed value was already blank.* A native text input fires `change` before `blur`, so the control's own read already committed the blank edit; its `onBlur` handler disagreed and kept redrawing the last committed number. A blank edit now commits blank on every path — Tab, click-away, a Save button, and `validate()` called while the field is still focused — leaving the box empty (or the configured `nullDisplay` for a unit/temperature field) in agreement with `getValue()`. Unparseable text is unchanged: it still keeps the previous value and flags the item.
+
+- **A form validation message in a left-label layout now sits under the control instead of beside it** (BACKLOG-0002214). The message rendered as a third column next to the input, shrinking the invalid row's field narrower than the rows above. Help, validation and refusal messages now live inside the control cell, so they stay under the control in every label position (`top`, `left`, `hidden`), the control keeps its width, a long message wraps within the control width, and the message is announced through `aria-describedby`. The error colour still reads `--lattice-danger` in the dark theme.
+
 ## [1.99.0] - 2026-10-11
 
 ### Breaking
