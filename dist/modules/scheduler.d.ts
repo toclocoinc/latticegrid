@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.99.1, scheduler module type declarations
+ * Lattice Grid 1.100.0, scheduler module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -108,6 +108,8 @@ export interface SchedulerConfig {
   columns?: unknown[];
   /** The zoom: a preset name (`'fit'` fills the timeline width), or px-per-day. Default `'day'`. */
   zoom?: SchedulerZoom;
+  /** Whether a two-finger pinch over the timeline steps the zoom one level, firing `zoom:change`. Default true. */
+  pinchZoom?: boolean;
   /** The anchor date the axis centres on. Default the earliest event start, else today. */
   date?: Date | string | number;
   /** The minutes an event without an end runs. Default 60. */

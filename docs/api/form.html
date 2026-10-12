@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Form API Reference — Lattice Grid 1.99.1</title>
+<title>Form API Reference — Lattice Grid 1.100.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -397,6 +397,7 @@
         <a class="rail__sub-link" href="#form-button-example">The button and the buttons row, executed</a>
         <a class="rail__sub-link" href="#combo">The combo control</a>
         <a class="rail__sub-link" href="#form-bind-live-example">Binding, dirty tracking, save, revert and conflict, executed</a>
+        <a class="rail__sub-link" href="#form-router-bind-live-example">Router-bound forms and a form group, executed</a>
         <a class="rail__sub-link" href="#form-wizard-live-example">A custom control, declarative rules and a wizard, executed</a>
         <a class="rail__sub-link" href="#form-validation-example">Required, a regex, a function, modes and the validated event, executed</a>
         <a class="rail__sub-link" href="#form-enhance-live-example">A server form enhanced in place, with the htmx adapter, executed</a>
@@ -408,8 +409,10 @@
         <a class="rail__sub-link" href="#form-file-icon-browse-example">A file drop area with a custom icon and browse word, executed</a>
         <a class="rail__sub-link" href="#form-chips-example">A single-select and a multi-select chips row, executed</a>
         <a class="rail__sub-link" href="#form-password-otp-example">Password reveal and one-time-code entry, executed</a>
+        <a class="rail__sub-link" href="#form-groups">Form groups</a>
         <a href="#ref-form-reference">Type reference</a>
         <a class="rail__sub-link" href="#type-Form">Form</a>
+        <a class="rail__sub-link" href="#type-FormGroup">FormGroup</a>
         <a class="rail__sub-link" href="#type-Combo">Combo</a>
       </div>
       <div class="rail__group">
@@ -491,7 +494,7 @@ form.destroy();</code></pre>
     <p><strong>Density.</strong> A <code>density</code> level &mdash; <code>compact</code>, <code>standard</code> (default) or <code>comfortable</code> &mdash; drives every control's height, padding, label gap and fieldset spacing from the grid's own <code>--lattice-*</code> tokens (a control stands one <code>--lattice-row-height</code> tall, so a form beside a grid follows that grid's density), each with a literal fallback so a form on a bare page still draws. <code>form.setDensity(level)</code> changes it live with one attribute write and no re-render, and an unknown level is ignored. The module imports no grid and no core source, ships in its own bundle and UMD global, and <code>destroy()</code> empties the element, removes only what the module added, restores the host's own inline style, and drops every item record, listener and handler.</p>
     <p><strong>Spacing and label gap.</strong> <code>config.spacing</code> sets the vertical gap between stacked items &mdash; a px number or a CSS length &mdash; and <code>config.labelGap</code> the gap between an item's label and its field; both default from the density scale, so leaving them unset changes nothing. They are the theme tokens <code>--lattice-form-item-gap</code> and <code>--lattice-form-label-gap</code>, so a CSS theme can set the default a form without an explicit spacing falls back to, and a <code>rows</code> container or <code>fieldset</code> that sets its own <code>spacing</code> overrides it for its own items only. <code>form.setSpacing(value)</code> applies the gap live with one property write and no re-render (<code>null</code> clears the override). Horizontal <code>cols</code> containers keep their own gap, and help/validation lines sit inside the item wrapper, so an item showing a validation message keeps the same gap to the next item as one without.</p>
     <p><strong>Disabled and read-only, defined once.</strong> Both states are one contract applied identically to every control. <code>disabled</code> leaves the tab order (unless <code>focusableWhenDisabled</code>), shows no hover or active response, sets <code>cursor: not-allowed</code>, carries <code>aria-disabled</code> (or the native <code>disabled</code> attribute), is excluded from <code>validate()</code>, and is styled from the <code>--lattice-disabled-foreground</code>/<code>--lattice-disabled-background</code>/<code>--lattice-disabled-border</code> tokens with text at or above 3:1. <code>readOnly</code> stays focusable and in the tab order, keeps its value readable, selectable and copied, refuses every change path before it happens &mdash; typing, click, paste, drop, wheel and the keyboard do nothing, pop-ups open view-only or not at all, and a checkbox, radio, toggle, <code>radiogroup</code> or <code>checkboxgroup</code> guards <code>pointerdown</code>/<code>click</code>/Space/Enter so the value never flickers &mdash; carries <code>aria-readonly</code>, is still validated and still appears in <code>getValue()</code>/submit, and is styled from the <code>--lattice-readonly-foreground</code>/<code>--lattice-readonly-background</code>/<code>--lattice-readonly-border</code> tokens (subtle fill, <code>cursor: default</code>, the lock icon). Both are set per item (<code>disabled</code>, <code>readOnly</code>, <code>readOnlyWhen</code>) and form-wide with <code>form.setDisabled(bool)</code> and <code>form.setReadOnly(bool)</code>.</p>
-    <p><strong>Data binding.</strong> <code>config.bind</code> binds the form to a record instead of a static config. <code>bind: { grid, rowKey }</code> binds a grid row: when no layout is declared, one item per column is generated from the grid's own columns &mdash; their titles, types and editors &mdash; so a boolean column becomes a <code>checkbox</code> and a number column a <code>number</code>; the form follows the grid's density by default; <code>save()</code> writes the dirty items once through the grid's edit path (permissions, read-only, parse, validation and the beforeEdit gate honoured); and <code>revert()</code> restores the bound values. External edits to the row update a clean item in place and leave a dirty one alone, flagging it with <code>isConflicted()</code>. <code>bind: { router, route, key }</code> follows a data-router record with the same update-unless-dirty rule, filling in from the route's keyed diffs (the router exposes no eager read), and <code>save()</code> reports <code>false</code> there is no write path. A plain object of values initialises the form and is written back by <code>save()</code>. <code>isDirty(name?)</code> reports an unsaved user edit on one item or the whole form, and editing is the only thing that marks an item dirty &mdash; <code>setValue()</code>, <code>revert()</code> and bound-record updates are silent. The binding is duck-typed against the grid's public API, so the module still imports no grid and no core source.</p>
+    <p><strong>Data binding.</strong> <code>config.bind</code> binds the form to a record instead of a static config. <code>bind: { grid, rowKey }</code> binds a grid row: when no layout is declared, one item per column is generated from the grid's own columns &mdash; their titles, types and editors &mdash; so a boolean column becomes a <code>checkbox</code> and a number column a <code>number</code>; the form follows the grid's density by default; <code>save()</code> writes the dirty items once through the grid's edit path (permissions, read-only, parse, validation and the beforeEdit gate honoured); and <code>revert()</code> restores the bound values. External edits to the row update a clean item in place and leave a dirty one alone, flagging it with <code>isConflicted()</code>. <code>bind: { router, route, key, onSave? }</code> follows a data-router record with the same update-unless-dirty rule: the form reads the record eagerly through <code>router.get(route, key)</code> &mdash; so a form created <em>after</em> the ingest still fills at once, whatever the order &mdash; then subscribes to the route's keyed diffs, and <code>destroy()</code> unsubscribes. <code>save()</code> writes the dirty items back through <code>router.apply</code>, then calls <code>bind.onSave(changes, record)</code> when the host gave one (may be async; a rejection reverts the router record and leaves the form dirty). A form <strong>group</strong> takes the same <code>bind</code> once: every member fills with its own fields off the record, and <code>group.save()</code> writes <em>one</em> router update with all the members' dirty fields, calling <code>onSave</code> once. A plain object of values initialises the form and is written back by <code>save()</code>. <code>isDirty(name?)</code> reports an unsaved user edit on one item or the whole form, and editing is the only thing that marks an item dirty &mdash; <code>setValue()</code>, <code>revert()</code> and bound-record updates are silent. The binding is duck-typed against the grid's public API, so the module still imports no grid and no core source.</p>
     <p><strong>Custom controls.</strong> <code>registerControl(type, definition)</code> makes a control type a first-class item: the definition's <code>create(el, item, api)</code> builds the control's DOM into <code>el</code>, <code>getValue(el)</code>/<code>setValue(el, value)</code> round-trip the value through <code>getValue()</code>/<code>setValue()</code>, and an optional <code>validate(value, item, el)</code> refuses a bad commit (return <code>true</code> to accept, <code>false</code> or a message to refuse, a Promise is awaited). The registered control gets the same wrapper, label, item API, events and density as a built-in, its <code>api.onChange()</code>/<code>api.onInput()</code> commit and report through the same path a native edit takes, and a later registration for the same type replaces the earlier one.</p>
     <p><strong>Declarative rules.</strong> An item's <code>visibleWhen</code>, <code>readOnlyWhen</code> or <code>requiredWhen</code> is a rule re-evaluated on every committed change: a constant, a function of the whole <code>{ name: value }</code> snapshot, or a condition on one named item's value with <code>equals</code>, <code>in</code>, <code>empty</code> or <code>fn</code>. A <code>visibleWhen</code> that is false hides the item, a <code>readOnlyWhen</code> that is true makes its control read-only, and a <code>requiredWhen</code> that is true marks it required &mdash; its commit path then refuses an empty value. A rule composes on the item's own <code>hidden</code>/<code>readOnly</code> baseline, so it never fights the item API's <code>hide()</code>/<code>show()</code>/<code>enable()</code>/<code>disable()</code>.</p>
     <p><strong>Wizards.</strong> A <code>steps</code> array turns the form into a wizard: each <code>{ id, label, rows }</code> step is one body, only the active one visible, under a step indicator whose <code>stepOrientation</code> is <code>horizontal</code> (default) or <code>vertical</code>. <code>form.next()</code> validates the current step's items before advancing, <code>form.back()</code> goes back without validating, and <code>form.goToStep(index)</code> moves to a step validating the ones passed over on the way forward; the indicator marks each step pending, active, complete or in error, and never disagrees with the form. On the last step <code>next()</code> reads "Finish" and validates in place.</p>
@@ -516,7 +519,7 @@ form.destroy();</code></pre>
       <table>
         <thead><tr><th>Member</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">createForm(el, config?)</td><td class="desc">Create a form. <code>config</code> is <code>{ rows | cols, density, spacing, labelGap, labelPosition, labelWidth, requiredHint, colsBreakpoint, bind, css, messages, steps, stepOrientation }</code>; <code>rows</code> stacks the top-level blocks vertically, <code>cols</code> lays them left-to-right sharing the width equally (used when <code>rows</code> is absent), <code>spacing</code> is the vertical gap between items (a px number or a CSS length, defaulting to the density's gap) and <code>labelGap</code> the gap between an item's label and its field (defaulting to half the density's space), <code>labelPosition</code> (<code>top</code> default / <code>left</code> / <code>hidden</code>) and <code>labelWidth</code> are the defaults every item inherits (an item&rsquo;s own value wins), <code>requiredHint</code> is the placeholder marker a required field with no visible label shows (<code>true</code> appends <code>" *"</code>, a string resolves through the catalogue, <code>false</code> shows nothing), <code>colsBreakpoint</code> is the container width below which a <code>cols</code> container stacks into one column (default 480px), <code>bind</code> binds the form to a record (<code>{ grid, rowKey }</code>, <code>{ router, route, key }</code> or a plain values object), <code>messages</code> supplies a <code>t(key, params)</code> catalogue for the separator's accessible label and the validation defaults, and a <code>steps</code> array turns the form into a wizard with a <code>horizontal</code> (default) or <code>vertical</code> <code>stepOrientation</code>. Returns <code>{ el, config, getItem, getValue, setValue, clear, validate, forEach, on, off, setDensity, setSpacing, setReadOnly, setDisabled, isDirty, isConflicted, save, revert, steps, activeStep, next, back, goToStep, destroy }</code>.</td></tr>
+          <tr><td class="sig">createForm(el, config?)</td><td class="desc">Create a form. <code>config</code> is <code>{ rows | cols, density, spacing, labelGap, labelPosition, labelWidth, requiredHint, colsBreakpoint, bind, css, messages, steps, stepOrientation }</code>; <code>rows</code> stacks the top-level blocks vertically, <code>cols</code> lays them left-to-right sharing the width equally (used when <code>rows</code> is absent), <code>spacing</code> is the vertical gap between items (a px number or a CSS length, defaulting to the density's gap) and <code>labelGap</code> the gap between an item's label and its field (defaulting to half the density's space), <code>labelPosition</code> (<code>top</code> default / <code>left</code> / <code>hidden</code>) and <code>labelWidth</code> are the defaults every item inherits (an item&rsquo;s own value wins), <code>requiredHint</code> is the placeholder marker a required field with no visible label shows (<code>true</code> appends <code>" *"</code>, a string resolves through the catalogue, <code>false</code> shows nothing), <code>colsBreakpoint</code> is the container width below which a <code>cols</code> container stacks into one column (default 480px), <code>bind</code> binds the form to a record (<code>{ grid, rowKey }</code>, <code>{ router, route, key, onSave? }</code> or a plain values object), <code>messages</code> supplies a <code>t(key, params)</code> catalogue for the separator's accessible label and the validation defaults, and a <code>steps</code> array turns the form into a wizard with a <code>horizontal</code> (default) or <code>vertical</code> <code>stepOrientation</code>. Returns <code>{ el, config, getItem, getValue, setValue, clear, validate, forEach, on, off, setDensity, setSpacing, setReadOnly, setDisabled, isDirty, isConflicted, save, revert, steps, activeStep, next, back, goToStep, destroy }</code>.</td></tr>
           <tr><td class="sig">registerControl(type, definition)</td><td class="desc">Register a custom control type as a first-class item. <code>definition</code> is <code>{ create(el, item, api), getValue(el), setValue(el, value), validate?(value, item, el), destroy?(el) }</code>; the control gets the same wrapper, label, item API, events and density as a built-in. A later registration for the same type replaces the earlier one.</td></tr>
           <tr><td class="sig">item</td><td class="desc">Each item: <code>type</code> (a built-in <code>input</code>/<code>number</code>/<code>textarea</code>/<code>checkbox</code>/<code>button</code>/<code>text</code>/<code>combo</code>/<code>rating</code>/<code>stage</code> or a registered custom type), <code>name</code>, <code>label</code>, <code>labelPosition</code> (<code>top</code>/<code>left</code>), <code>labelWidth</code>, <code>width</code>, <code>placeholder</code>, <code>helpMessage</code>, <code>hidden</code>, <code>disabled</code>, <code>readOnly</code>, <code>value</code>, <code>required</code>, <code>validation</code>, <code>errorMessage</code>, <code>successMessage</code>, <code>preMessage</code>, <code>validationMode</code>, <code>css</code>, and the rules <code>visibleWhen</code>, <code>readOnlyWhen</code>, <code>requiredWhen</code>. <code>input</code> takes <code>subtype</code> (a <code>password</code> subtype also <code>reveal</code>); <code>number</code> takes <code>step</code>/<code>min</code>/<code>max</code>. <code>rating</code> takes <code>max</code>, <code>allowHalf</code>, <code>allowClear</code>, <code>icon</code> or <code>icons</code> (<code>{ filled, empty }</code>), <code>labels</code>, <code>showValue</code> and <code>size</code> (<code>sm</code>/<code>md</code>/<code>lg</code>); <code>stage</code> takes <code>stages</code>, <code>current</code>, <code>completed</code>, <code>clickable</code> and <code>showIcons</code>; <code>chips</code> takes <code>options</code> (<code>{ value, label, icon?, disabled? }</code>), <code>multiple</code>, <code>allowEmpty</code>, <code>wrap</code> and <code>max</code>; <code>otp</code> takes <code>length</code>, <code>mode</code> (<code>numeric</code>/<code>alphanumeric</code>) and <code>mask</code>. <code>select</code>, <code>radiogroup</code> and <code>checkboxgroup</code> take <code>options</code>; a <code>radiogroup</code>/<code>checkboxgroup</code> also takes <code>orientation</code> (<code>vertical</code>/<code>horizontal</code>) or <code>columns</code> (an n-column grid read across then down). <code>button</code> takes <code>icon</code> (a name, URL/data: URI or element), <code>iconPosition</code> (<code>start</code>/<code>end</code>), <code>variant</code> (<code>primary</code>/<code>secondary</code>/<code>tonal</code>/<code>outline</code>/<code>text</code>/<code>danger</code>), <code>fullWidth</code>, <code>size</code> (<code>sm</code>/<code>md</code>/<code>lg</code>), <code>textTransform</code> (<code>none</code>/<code>uppercase</code>), <code>buttonType</code> (<code>button</code>/<code>submit</code>/<code>reset</code>), <code>loading</code>, <code>href</code>, <code>ariaLabel</code> (required for an icon-only button), <code>toggle</code> (a two-state button that flips <code>aria-pressed</code> and fires <code>change</code> with the new boolean) and <code>focusableWhenDisabled</code> (keep a disabled button focusable and in the tab order, reading <code>aria-disabled</code> instead of being natively disabled); a <code>{ type: 'buttons', align, items }</code> row lays buttons out by <code>align</code> (<code>start</code>/<code>end</code>/<code>center</code>/<code>stretch</code>/<code>space-between</code>), each child taking the same options.</td></tr>
           <tr><td class="sig">getItem(name)</td><td class="desc">The item handle <code>{ el, name, getValue, setValue, show, hide, enable, disable, focus, blur, isVisible, validate, setLoading }</code> &mdash; <code>el</code> is the item's wrapper element. <code>undefined</code> for an unknown name.</td></tr>
@@ -533,7 +536,7 @@ form.destroy();</code></pre>
           <tr><td class="sig">setDisabled(disabled)</td><td class="desc">Set every item disabled (or back to enabled) in one call. A disabled item leaves the tab order (unless <code>focusableWhenDisabled</code>), has no hover/active response, shows <code>cursor: not-allowed</code>, carries <code>aria-disabled</code> or the native <code>disabled</code> attribute, is excluded from <code>validate()</code>, and is styled from the disabled tokens with text at or above 3:1.</td></tr>
           <tr><td class="sig">isDirty(name?)</td><td class="desc">Whether an item (or, with no name, the whole form) holds a value the user edited and has not yet saved or reverted. On an unbound form nothing is ever dirty.</td></tr>
           <tr><td class="sig">isConflicted(name?)</td><td class="desc">Whether an item (or the whole form) is in conflict: the user has an unsaved edit, and an external change to the bound record arrived for the same item, which the form therefore did not overwrite.</td></tr>
-          <tr><td class="sig">save()</td><td class="desc">Save the dirty items. For a grid binding the writes go through the grid's own edit path in one call (permissions, read-only, parse, validation and the beforeEdit gate honoured); for a values binding they are written back into the bound object. Returns <code>true</code> when saved (or nothing to save), or a <code>Promise&lt;boolean&gt;</code> when the write is asynchronous. A router-bound form has no write path and returns <code>false</code>.</td></tr>
+          <tr><td class="sig">save()</td><td class="desc">Save the dirty items. For a grid binding the writes go through the grid's own edit path in one call (permissions, read-only, parse, validation and the beforeEdit gate honoured); for a router binding they are applied back through <code>router.apply</code> and, when <code>bind.onSave</code> was given, handed to it (may be async &mdash; a rejection reverts the router record and keeps the items dirty); for a values binding they are written back into the bound object. Returns <code>true</code> when saved (or nothing to save), or a <code>Promise&lt;boolean&gt;</code> when the write is asynchronous. An unbound form returns <code>false</code>.</td></tr>
           <tr><td class="sig">revert()</td><td class="desc">Restore every dirty item to its bound/committed value and clear the dirty and conflict flags.</td></tr>
           <tr><td class="sig">next()</td><td class="desc">Advance a wizard one step, validating the current step's items first. Resolves <code>true</code> when the wizard moved (or the final step validated), <code>false</code> when the current step is invalid or there is no next step. Not a wizard: resolves <code>false</code>.</td></tr>
           <tr><td class="sig">back()</td><td class="desc">Go back one step &mdash; always allowed, never validated. Resolves <code>false</code> when already on the first step.</td></tr>
@@ -1116,6 +1119,55 @@ form.destroy();
 routed.destroy();
 <span class="kw">return</span> [shown, dirtyName, saved, written, cleanAfterSave, reverted, cleanAge, keptName, conflicted].join('|');</code></pre>
 
+    <h3 id="form-router-bind-live-example">Router-bound forms and a form group, executed</h3>
+    <p class="section-note">One ingest of a mixed set routes TASKs to a task grid and a PROJECT to two forms that were
+    created <em>after</em> the ingest: the group fills at once through <code>router.get</code>, and
+    <code>group.save()</code> writes one router update with both members' dirty fields, calling <code>onSave</code> once.
+    (The PROJECT grid is attached with <code>overlap: true</code> so the grid and the two form members all show the same
+    record.)</p>
+    <pre data-run="js" data-expect="Apollo,open|Apollo|true|Artemis|review|true|name,status" data-covers="export:createFormGroup export:createForm config:FormBindRouterConfig.router config:FormBindRouterConfig.route config:FormBindRouterConfig.key config:FormBindRouterConfig.onSave config:FormGroupOptions.bind method:data-router.get"><code><span class="kw">const</span> { createTestDom, TestEvent } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="kw">const</span> { createForm, createFormGroup } = <span class="kw">await</span> import('../packages/modules/form/index.js');
+<span class="kw">const</span> { createDataRouter } = <span class="kw">await</span> import('../packages/modules/data-router/index.js');
+
+<span class="cmt">// One ingest routes TASKs to a grid and a PROJECT to two forms; overlap: true lets
+// the grid AND the forms all show the same record.</span>
+<span class="kw">const</span> router = createDataRouter({ key: <span class="str">'type'</span>, rowKey: <span class="str">'id'</span>, overlap: <span class="kw">true</span> });
+<span class="kw">const</span> taskGrid = createHeadlessGrid({ rowKey: <span class="str">'id'</span>, columns: [{ field: <span class="str">'id'</span> }, { field: <span class="str">'title'</span> }] });
+<span class="kw">const</span> projectGrid = createHeadlessGrid({ rowKey: <span class="str">'id'</span>, columns: [{ field: <span class="str">'id'</span> }, { field: <span class="str">'name'</span> }, { field: <span class="str">'status'</span> }] });
+router.attach(taskGrid, <span class="str">'TASK'</span>);
+router.attach(projectGrid, <span class="str">'PROJECT'</span>);
+router.load([
+  { id: <span class="str">'P1'</span>, type: <span class="str">'PROJECT'</span>, name: <span class="str">'Apollo'</span>, status: <span class="str">'open'</span> },
+  { id: <span class="str">'T1'</span>, type: <span class="str">'TASK'</span>, title: <span class="str">'Wire it'</span> },
+  { id: <span class="str">'T2'</span>, type: <span class="str">'TASK'</span>, title: <span class="str">'Ship it'</span> },
+]);
+
+<span class="cmt">// The two forms are created AFTER the ingest and still fill at once.</span>
+<span class="kw">const</span> { root: root1 } = createTestDom();
+<span class="kw">const</span> { root: root2 } = createTestDom();
+<span class="kw">const</span> nameForm = createForm(root1, { rows: [{ type: <span class="str">'input'</span>, name: <span class="str">'name'</span>, label: <span class="str">'Name'</span> }] });
+<span class="kw">const</span> statusForm = createForm(root2, { rows: [{ type: <span class="str">'input'</span>, name: <span class="str">'status'</span>, label: <span class="str">'Status'</span> }] });
+<span class="kw">const</span> saves = [];
+<span class="kw">const</span> group = createFormGroup([nameForm, statusForm], {
+  bind: { router, route: <span class="str">'PROJECT'</span>, key: <span class="str">'P1'</span>, onSave: (changes, record) =&gt; saves.push({ changes, record }) },
+});
+<span class="kw">const</span> filled = [nameForm.getValue().name, statusForm.getValue().status].join(','); <span class="cmt">// Apollo,open</span>
+<span class="kw">const</span> eager = router.get(<span class="str">'PROJECT'</span>, <span class="str">'P1'</span>).name;                          <span class="cmt">// Apollo — the eager read</span>
+
+<span class="cmt">// One edit in each member &mdash; one router update, one onSave call.</span>
+nameForm.getItem('name').el.querySelector('input').value = <span class="str">'Artemis'</span>;
+nameForm.getItem('name').el.querySelector('input').dispatchEvent(<span class="kw">new</span> TestEvent('change', { bubbles: <span class="kw">true</span> }));
+statusForm.getItem('status').el.querySelector('input').value = <span class="str">'review'</span>;
+statusForm.getItem('status').el.querySelector('input').dispatchEvent(<span class="kw">new</span> TestEvent('change', { bubbles: <span class="kw">true</span> }));
+<span class="kw">const</span> saved = <span class="kw">await</span> group.save();                              <span class="cmt">// true</span>
+<span class="kw">const</span> project = projectGrid.rows.byKey(<span class="str">'P1'</span>).data;            <span class="cmt">// the grid followed the write</span>
+<span class="kw">const</span> once = saves.length === 1;                               <span class="cmt">// true</span>
+<span class="kw">const</span> both = Object.keys(saves[0].changes).sort().join(',');  <span class="cmt">// name,status</span>
+
+group.destroy();
+<span class="kw">return</span> [filled, eager, saved, project.name, project.status, once, both].join('|');</code></pre>
+
     <h3 id="form-wizard-live-example">A custom control, declarative rules and a wizard, executed</h3>
     <p class="section-note"><code>registerControl</code> makes a type a first-class item that round-trips its value; the
     <code>visibleWhen</code>/<code>readOnlyWhen</code>/<code>requiredWhen</code> rules re-evaluate as values commit; and a
@@ -1589,6 +1641,64 @@ const wordJoined = form.getValue().word; // 'ab7'
 form.destroy();
 
 return [masked, pressed, eyeName, noEye, boxCount, inputmode, pattern, third, wordMask, joined, wordJoined].join('|');</code></pre>
+
+    <h3 id="form-groups">Form groups</h3>
+    <p><code>createFormGroup(forms?, options?)</code> joins several forms &mdash; for example one mounted per cell of a shell layout &mdash; into one logical form that never renders anything. <code>getValue()</code> merges every member&rsquo;s values in add order; <code>setValue(values)</code> routes each key to the member that owns that field (the first owner wins when two forms declare the same name, unknown keys are ignored); <code>getItem(name)</code> reaches the owning member&rsquo;s item handle; <code>validate()</code> validates every member and returns one boolean, focusing the first invalid field in add order and scrolling it into view; and <code>setReadOnly(bool)</code>/<code>setDisabled(bool)</code>/<code>clear()</code>/<code>reset()</code>/<code>isDirty()</code> apply across the members. A member&rsquo;s <code>change</code> or <code>validated</code> event re-emits on the group as <code>{ form, name, value }</code> or <code>{ form, valid }</code>, naming the member it came from, and <code>on</code>/<code>off</code> subscribe and detach. A member that is destroyed leaves the group by itself, and <code>group.destroy()</code> detaches the group&rsquo;s listeners without destroying the forms. <code>options.transform = { get, set }</code> lets a host join the merged values on read and split them back on write.</p>
+    <p>A member&rsquo;s <code>visibleWhen</code>, <code>readOnlyWhen</code> and <code>requiredWhen</code> conditions may watch a field of another member. A condition <code>{ name, equals | in | empty | fn }</code> whose <code>name</code> the form does not own resolves against the member that owns that field, so a details form can show a field only while the header form&rsquo;s <code>plan</code> is <code>enterprise</code>. A condition may instead pin the member by its <code>group.add(form, { id })</code> id &mdash; <code>{ form: 'header', name: 'status', equals: 'open' }</code> &mdash; and an unknown id reads empty with a once-per-id warning. Rules re-evaluate when the owning member&rsquo;s value commits, on <code>group.setValue()</code>, and when members join or leave; a rule whose source member leaves the group reads an empty value, and a form outside any group behaves exactly as before.</p>
+    <p class="section-note">Three forms, one per cell of a shell, joined as one logical form: the merged value is read, a key is
+    routed to its owner, a field in the third form is reached, the whole group validates, a cross-form
+    <code>visibleWhen</code> shows a details field once the header&rsquo;s <code>plan</code> turns
+    <code>enterprise</code>, and a single Save button reads <code>group.getValue()</code> &mdash; run over the in-tree
+    DOM test double, with the focus and aria states asserted against real Chrome in
+    <code>test/form-group-2207-browser.test.js</code>.</p>
+    <pre data-run="js" data-expect="name,plan,email,coupon,notes|grace@example.com|true|true|Ada|grace@example.com|hello|true|true" data-covers="export:createFormGroup config:FormItemConfig.visibleWhen"><code><span class="kw">const</span> { createTestDom, TestEvent } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createShell } = <span class="kw">await</span> import('../packages/modules/shell/index.js');
+<span class="kw">const</span> { createForm, createFormGroup } = <span class="kw">await</span> import('../packages/modules/form/index.js');
+
+<span class="kw">const</span> { root, document: doc } = createTestDom();
+<span class="kw">const</span> shell = createShell(root, { rows: [
+  { id: <span class="str">'header'</span> }, { id: <span class="str">'details'</span> }, { id: <span class="str">'notes'</span> },
+] });
+<span class="kw">const</span> header = createForm(shell.getCell(<span class="str">'header'</span>).el, { rows: [
+  { type: <span class="str">'input'</span>, name: <span class="str">'name'</span>, label: <span class="str">'Name'</span>, value: <span class="str">'Ada'</span> },
+  { type: <span class="str">'input'</span>, name: <span class="str">'plan'</span>, label: <span class="str">'Plan'</span>, value: <span class="str">'team'</span> },
+] });
+<span class="kw">const</span> details = createForm(shell.getCell(<span class="str">'details'</span>).el, { rows: [
+  { type: <span class="str">'input'</span>, name: <span class="str">'email'</span>, label: <span class="str">'Email'</span>, value: <span class="str">'ada@example.com'</span> },
+  { type: <span class="str">'input'</span>, name: <span class="str">'coupon'</span>, label: <span class="str">'Coupon'</span>, visibleWhen: { name: <span class="str">'plan'</span>, equals: <span class="str">'enterprise'</span> } },
+] });
+<span class="kw">const</span> notes = createForm(shell.getCell(<span class="str">'notes'</span>).el, { rows: [
+  { type: <span class="str">'textarea'</span>, name: <span class="str">'notes'</span>, label: <span class="str">'Notes'</span>, value: <span class="str">'hello'</span> },
+] });
+
+<span class="kw">const</span> group = createFormGroup([header, details, notes]);
+<span class="kw">const</span> keys = Object.keys(group.getValue()).join(<span class="str">','</span>);       <span class="cmt">// 'name,plan,email,coupon,notes' — merged</span>
+group.setValue({ email: <span class="str">'grace@example.com'</span> });                 <span class="cmt">// routed to the details form</span>
+<span class="kw">const</span> routed = details.getItem(<span class="str">'email'</span>).getValue();          <span class="cmt">// 'grace@example.com'</span>
+<span class="kw">const</span> found = group.getItem(<span class="str">'notes'</span>) === notes.getItem(<span class="str">'notes'</span>); <span class="cmt">// true — the owner's handle</span>
+<span class="kw">const</span> valid = group.validate();                            <span class="cmt">// true — every field filled</span>
+
+<span class="cmt">// A rule in the details form watches a field the header form owns.</span>
+<span class="kw">const</span> couponHidden = details.getItem(<span class="str">'coupon'</span>).el.hidden;  <span class="cmt">// true — plan is 'team'</span>
+group.setValue({ plan: <span class="str">'enterprise'</span> });                 <span class="cmt">// the header's plan commits</span>
+<span class="kw">const</span> couponShown = !details.getItem(<span class="str">'coupon'</span>).el.hidden; <span class="cmt">// true — now visible</span>
+
+<span class="cmt">// One Save button reads the whole group.</span>
+<span class="kw">const</span> saveHost = doc.createElement(<span class="str">'div'</span>);
+doc.body.appendChild(saveHost);
+<span class="kw">const</span> save = createForm(saveHost, { rows: [
+  { type: <span class="str">'button'</span>, name: <span class="str">'save'</span>, label: <span class="str">'Save'</span> },
+] });
+<span class="kw">let</span> saved = <span class="kw">null</span>;
+save.on(<span class="str">'click'</span>, () =&gt; { saved = group.getValue(); });
+save.getItem(<span class="str">'save'</span>).el.querySelector(<span class="str">'.lat-button'</span>).dispatchEvent(<span class="kw">new</span> TestEvent(<span class="str">'click'</span>, { bubbles: <span class="kw">true</span> }));
+<span class="kw">const</span> savedValues = saved.name + <span class="str">'|'</span> + saved.email + <span class="str">'|'</span> + saved.notes;
+
+group.destroy();    <span class="cmt">// detaches the group's listeners, not the forms</span>
+save.destroy();
+shell.destroy();
+
+<span class="kw">return</span> [keys, routed, found, valid, savedValues, couponHidden, couponShown].join(<span class="str">'|'</span>);</code></pre>
     <h2 id="ref-form-reference">Type reference</h2>
     <p class="section-note">Generated from the type declarations, so it always matches the release. Each surface lists its properties, its methods and the events it raises as three tables; an option or value type lists its members once.</p>
     <h3 id="ref-module-form">The form module</h3>
@@ -1905,14 +2015,15 @@ return [masked, pressed, eyeName, noEye, boxCount, inputmode, pattern, third, wo
       </table>
     </div>
     <h4 id="type-FormBindRouterConfig">FormBindRouterConfig</h4>
-    <p class="section-note">A binding to a data-router record: `{ router, route, key }` (BACKLOG-0002144).</p>
+    <p class="section-note">A binding to a data-router record: `{ router, route, key, onSave? }` (BACKLOG-0002144, BACKLOG-0002209).</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">router</td><td class="type">import('lattice-grid/modules/data-router').<a href="data-router.html#type-DataRouter">DataRouter</a></td><td class="desc">The data router whose route's keyed diffs carry the record.</td></tr>
-          <tr><td class="name">route</td><td class="type">string</td><td class="desc">The route (predicate) to subscribe to.</td></tr>
+          <tr><td class="name">route</td><td class="type">import('lattice-grid/modules/data-router').<a href="types.html#type-RoutePredicate">RoutePredicate</a></td><td class="desc">The route (predicate, partition value or label) to subscribe to.</td></tr>
           <tr><td class="name">key</td><td class="type">string | number</td><td class="desc">The row key of the bound record.</td></tr>
+          <tr><td class="name">onSave</td><td class="type">(changes: Record&lt;string, unknown&gt;, record: import('lattice-grid/modules/data-router').<a href="types.html#type-RouterRecord">RouterRecord</a>) =&gt; void | Promise&lt;void&gt;</td><td class="desc">Called after `save()` writes the record to the router, with the dirty changes and the full updated record. May be async: a rejection (or a thrown error) reverts the router record to its previous values and keeps the form dirty. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -2176,6 +2287,115 @@ return [masked, pressed, eyeName, noEye, boxCount, inputmode, pattern, third, wo
           <tr><td class="name">blur</td><td class="desc">An item's control lost focus.</td><td class="type">FormFocusEvent</td><td class="desc">&mdash;</td></tr>
           <tr><td class="name">validated</td><td class="desc">One or more items were validated, with the failures.</td><td class="type"><a href="#type-FormValidatedEvent">FormValidatedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">complete</td><td class="desc">Every box of an `otp` item is now filled.</td><td class="type">FormCompleteEvent</td><td class="desc">&mdash;</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-FormGroupEventPayloads">FormGroupEventPayloads</h4>
+    <p class="section-note">What a handler receives, per group event.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">change</td><td class="type"><a href="#type-FormGroupChangeEvent">FormGroupChangeEvent</a></td><td class="desc">The edit a member form committed.</td></tr>
+          <tr><td class="name">validated</td><td class="type"><a href="#type-FormGroupValidatedEvent">FormGroupValidatedEvent</a></td><td class="desc">A member form's validation verdict.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-FormGroupEvent">FormGroupEvent</h4>
+    <p class="section-note">The fields every form-group event carries.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">string</td><td class="desc">Which event this is: one of the `FormGroupEventName` names.</td></tr>
+          <tr><td class="name">form</td><td class="type"><a href="#type-Form">Form</a></td><td class="desc">The member form the event came from.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-FormGroupChangeEvent">FormGroupChangeEvent</h4>
+    <p class="section-note">A group `change` payload: the member form and the item/value it committed.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">name</td><td class="type">string | null</td><td class="desc">The item's name.</td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The value being reported.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-FormGroupValidatedEvent">FormGroupValidatedEvent</h4>
+    <p class="section-note">A group `validated` payload: the member form and its verdict.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">valid</td><td class="type">boolean</td><td class="desc">True when nothing failed.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-FormGroupTransform">FormGroupTransform</h4>
+    <p class="section-note">The value transform a group applies on read and write. `get` receives the merged member values and returns what `getValue()` returns; `set` receives whatever `setValue()` was handed and does the routing itself.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">get</td><td class="type">(values: Record&lt;string, unknown&gt;): unknown</td><td class="desc"><code>values: Record&lt;string, unknown&gt;</code></td><td class="type"><code>unknown</code></td><td class="desc">Shape the merged values into the group's output.</td></tr>
+          <tr><td class="name">set</td><td class="type">(values: unknown): void</td><td class="desc"><code>values: unknown</code></td><td class="type"><code>void</code></td><td class="desc">Route the written values into the members.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-FormGroupOptions">FormGroupOptions</h4>
+    <p class="section-note">The options `createFormGroup` takes.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">transform</td><td class="type"><a href="#type-FormGroupTransform">FormGroupTransform</a></td><td class="desc">Join or split values on read and write. <small>(optional)</small></td></tr>
+          <tr><td class="name">bind</td><td class="type"><a href="types.html#type-FormBind">FormBind</a></td><td class="desc">Bind the whole group to one data-router record (BACKLOG-0002209): every member fills with its own fields, and `save()` writes ONE router update and calls `onSave` once. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-FormGroup">FormGroup</h4>
+    <p class="section-note">The form group instance {@link createFormGroup} returns.</p>
+    <h5 id="type-FormGroup-properties">Properties</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">forms</td><td class="type"><a href="#type-Form">Form</a>[]</td><td class="desc">The member forms, in add order. <small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-FormGroup-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">add</td><td class="type">(form: <a href="#type-Form">Form</a>, opts?: { id?: unknown }): <a href="#type-FormGroup">FormGroup</a></td><td class="desc"><code>form: <a href="#type-Form">Form</a></code><br><code>opts?: { id?: unknown }</code></td><td class="type"><code><a href="#type-FormGroup">FormGroup</a></code></td><td class="desc">Add a form; `id` names the member for a pinned cross-form rule (BACKLOG-0002208) and router binding.</td></tr>
+          <tr><td class="name">remove</td><td class="type">(form: <a href="#type-Form">Form</a>): <a href="#type-FormGroup">FormGroup</a></td><td class="desc"><code>form: <a href="#type-Form">Form</a></code></td><td class="type"><code><a href="#type-FormGroup">FormGroup</a></code></td><td class="desc">Remove a form; the group ignores a form that is not a member.</td></tr>
+          <tr><td class="name">getValue</td><td class="type">(): unknown</td><td class="desc">&mdash;</td><td class="type"><code>unknown</code></td><td class="desc">Merge every member's values in add order, through `transform.get` when set.</td></tr>
+          <tr><td class="name">setValue</td><td class="type">(values: Record&lt;string, unknown&gt;): <a href="#type-FormGroup">FormGroup</a></td><td class="desc"><code>values: Record&lt;string, unknown&gt;</code></td><td class="type"><code><a href="#type-FormGroup">FormGroup</a></code></td><td class="desc">Route each key to the member that owns it, through `transform.set` when set.</td></tr>
+          <tr><td class="name">getItem</td><td class="type">(name: string): <a href="#type-FormItem">FormItem</a> | undefined</td><td class="desc"><code>name: string</code></td><td class="type"><code><a href="#type-FormItem">FormItem</a> | undefined</code></td><td class="desc">The owning member's item handle for a name, or `undefined`.</td></tr>
+          <tr><td class="name">validate</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">Validate every member and focus the first invalid field in add order.</td></tr>
+          <tr><td class="name">setReadOnly</td><td class="type">(readOnly: boolean): <a href="#type-FormGroup">FormGroup</a></td><td class="desc"><code>readOnly: boolean</code></td><td class="type"><code><a href="#type-FormGroup">FormGroup</a></code></td><td class="desc">Set every member read-only (or back to editable) in one call.</td></tr>
+          <tr><td class="name">setDisabled</td><td class="type">(disabled: boolean): <a href="#type-FormGroup">FormGroup</a></td><td class="desc"><code>disabled: boolean</code></td><td class="type"><code><a href="#type-FormGroup">FormGroup</a></code></td><td class="desc">Set every member disabled (or back to enabled) in one call.</td></tr>
+          <tr><td class="name">clear</td><td class="type">(): <a href="#type-FormGroup">FormGroup</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-FormGroup">FormGroup</a></code></td><td class="desc">Clear every member to its empty values.</td></tr>
+          <tr><td class="name">reset</td><td class="type">(): <a href="#type-FormGroup">FormGroup</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-FormGroup">FormGroup</a></code></td><td class="desc">Restore every member's dirty items to their bound/committed value.</td></tr>
+          <tr><td class="name">save</td><td class="type">(): boolean | Promise&lt;boolean&gt;</td><td class="desc">&mdash;</td><td class="type"><code>boolean | Promise&lt;boolean&gt;</code></td><td class="desc">Save every member's dirty items as ONE router update and call the group's `bind.onSave` once (BACKLOG-0002209); `false` when unbound, true when saved or nothing dirty.</td></tr>
+          <tr><td class="name">isDirty</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">Whether any member holds an unsaved user edit.</td></tr>
+          <tr><td class="name">on</td><td class="type">(name: <a href="types.html#type-FormGroupEventName">FormGroupEventName</a> | '*', fn: (event: <a href="#type-FormGroupEventPayloads">FormGroupEventPayloads</a>[<a href="types.html#type-FormGroupEventName">FormGroupEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>name: <a href="types.html#type-FormGroupEventName">FormGroupEventName</a> | '*'</code><br><code>fn: (event: <a href="#type-FormGroupEventPayloads">FormGroupEventPayloads</a>[<a href="types.html#type-FormGroupEventName">FormGroupEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Subscribe to `change` or `validated` (or `'*'` for both); returns an unsubscribe.</td></tr>
+          <tr><td class="name">off</td><td class="type">(name: <a href="types.html#type-FormGroupEventName">FormGroupEventName</a> | '*', fn: (event: <a href="#type-FormGroupEventPayloads">FormGroupEventPayloads</a>[<a href="types.html#type-FormGroupEventName">FormGroupEventName</a>]) =&gt; void): void</td><td class="desc"><code>name: <a href="types.html#type-FormGroupEventName">FormGroupEventName</a> | '*'</code><br><code>fn: (event: <a href="#type-FormGroupEventPayloads">FormGroupEventPayloads</a>[<a href="types.html#type-FormGroupEventName">FormGroupEventName</a>]) =&gt; void</code></td><td class="type"><code>void</code></td><td class="desc">Remove a handler registered with {@link FormGroup#on}.</td></tr>
+          <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Detach the group's listeners without destroying the forms.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-FormGroup-events">Events</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Event</th><th>When</th><th>Payload</th><th>Cancellable</th></tr></thead>
+        <tbody>
+          <tr><td class="name">change</td><td class="desc">A member form committed an edit.</td><td class="type"><a href="#type-FormGroupChangeEvent">FormGroupChangeEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">validated</td><td class="desc">A member form was validated.</td><td class="type"><a href="#type-FormGroupValidatedEvent">FormGroupValidatedEvent</a></td><td class="desc">no</td></tr>
         </tbody>
       </table>
     </div>

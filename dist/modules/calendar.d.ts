@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.99.1, calendar module type declarations
+ * Lattice Grid 1.100.0, calendar module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -131,6 +131,8 @@ export interface CalendarConfig {
   timeZone?: string;
   /** The time-grid slot step in minutes, or an `'H:MM(:SS)'` duration. Default 30. */
   slotDuration?: number | string;
+  /** Whether a two-finger pinch over a time-grid view steps `slotDuration` one level (60, 30, 15, 10, 5 minutes) about the pinch centre. Default true. */
+  pinchZoom?: boolean;
   /** The hour axis's first time, a clock or minutes. Default `'00:00'`. */
   slotMinTime?: number | string;
   /** The hour axis's last time, a clock or minutes. Default `'24:00'`. */

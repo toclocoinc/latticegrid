@@ -9,6 +9,46 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.100.0] - 2026-10-12
+
+### Added
+
+- **A two-finger pinch zooms the Gantt, the scheduler and the calendar time grid** (BACKLOG-0002162).
+  - Pinching out over the timeline steps one level finer and pinching in steps one level coarser, through the same zoom path as the buttons: the Gantt fires `zoomChange` (cause `'gesture'`) and the scheduler fires `zoom:change`, once per level, and the calendar's `week-time` and `day` views step `slotDuration` through 60, 30, 15, 10 and 5 minutes. The date or time under the pinch centre stays under it. A two-finger drag scrolls without zooming, and one finger is never affected, so press-and-hold drags work as before.
+  - `pinchZoom: false` on `mountSplit`, `createScheduler` or `createCalendar` turns it off.
+
+- **`createFormGroup` joins several forms in different layout cells into one logical form** (BACKLOG-0002207).
+  - `createFormGroup(forms?, options?)` never renders anything: `getValue()` merges every member's values in add order, `setValue(values)` routes each key to the member that owns that field (the first owner wins, unknown keys ignored), and `getItem(name)` reaches the owning member's item handle.
+  - `validate()` validates every member and returns one boolean, focusing the first invalid field in add order and scrolling it into view; `setReadOnly(bool)`, `setDisabled(bool)`, `clear()`, `reset()` and `isDirty()` apply across the members.
+  - A member's `change`/`validated` event re-emits on the group with `{ form, name, value }` or `{ form, valid }`; a destroyed member leaves the group by itself, and `group.destroy()` detaches the group's listeners without destroying the forms.
+  - `options.transform = { get, set }` joins the merged values on read and splits them back on write; the factory is exported from `modules/form` and passed through the React, Vue and Angular adapters.
+
+- **A form-group member's `visibleWhen`, `readOnlyWhen` and `requiredWhen` rules can watch a field in another member of the same group** (BACKLOG-0002208).
+  - A condition `{ name, equals | in | empty | fn }` whose `name` the form does not own resolves against the member that owns that field, so a details form can show a field only while the header form's `plan` is `enterprise`.
+  - A condition may pin the member by its `group.add(form, { id })` id — `{ form: 'header', name: 'status', equals: 'open' }` — and an unknown id evaluates as empty with a once-per-id warning.
+  - Rules re-evaluate when the owning member's value changes, on `group.setValue()`, and when members join or leave; a rule whose source member leaves the group reads an empty value. Hidden fields keep their value but are skipped by `group.validate()`, exactly as a single form skips its own hidden fields.
+  - A form outside any group is unchanged: an unknown field name still reads empty.
+
+- **Forms and form groups bind to a data-router record and save back through it** (BACKLOG-0002209).
+  - `router.get(route, rowKey)` reads the current record off a route by its row key (or `undefined` when the route or key is unknown), so a consumer fills before the next diff arrives whatever the order of ingest and creation; `router.subscribe(...)` now returns an unsubscribe that removes the route, and callers that ignored the return value are unaffected.
+  - `createForm(el, { bind: { router, route, key, onSave? } })` reads the record eagerly through `router.get`, subscribes to the route's keyed diffs (a clean item follows an update, a dirty one keeps the user's value and is flagged conflicted), and `destroy()` unsubscribes. `save()` writes the dirty items back through `router.apply`, then calls `bind.onSave(changes, record)` when given &mdash; may be async; a rejection reverts the router record and keeps the items dirty so the user can retry.
+  - A form group takes the same `bind` once: every member fills with its own fields off the record and follows it, and `group.save()` writes one router update with all the members' dirty fields, calling `onSave` once.
+
+### Changed
+
+- Kanban cards, column headers and swimlane headers move by a pointer-based drag gesture, so they drag on phones and tablets with a press-and-hold (BACKLOG-0002158). A mouse drag still moves on movement with no hold, and the `beforeMove`/`card:move` events, workflow rules, refused-drop feedback, undo and the htmx `lattice:kanban-change` post keep the same payloads and order.
+  - **Touch.** Press and hold a card, then move it to drag; a quick swipe before the hold scrolls the board instead. Escape or a second finger cancels, and holding near an edge auto-scrolls the board.
+
+- **Gantt task bars move and resize by touch** (BACKLOG-0002159). On phones and tablets a press-and-hold grabs a bar (or its right end, to resize) and a swipe still scrolls the timeline and the task table; a mouse drag is unchanged. Holding near the timeline edge scrolls it and the drop lands on the day under the finger; Escape or a second finger cancels and restores the bar.
+
+- Calendar event moves and resizes (month, week and time-grid views) move by the shared pointer-based drag gesture, so they drag on phones and tablets with a press-and-hold (BACKLOG-0002160). A mouse drag still moves on movement with no hold, and a drop still resolves to the day/time slot under the pointer — including over another event's bar. The `beforeMove`/`card:move` events and the htmx `lattice:calendar-change` post keep the same order and payload, once per move.
+  - **Touch.** Press and hold an event, then move it to drag; a quick swipe before the hold scrolls the page instead. A time-grid view auto-scrolls while a held drag sits near its top or bottom edge, and Escape or a second finger cancels.
+
+- Resource scheduler assignments move, resize and reassign through a pointer-based drag gesture, so the same edits work on phones and tablets with a press-and-hold (BACKLOG-0002161). A mouse drag still moves on movement with no hold, a quick swipe scrolls the timeline and the resource list, the lane under the finger is the drop target, and holding near an edge auto-scrolls the time axis and the rows.
+  - **Touch.** Press and hold a bar or one of its edge handles, then drag; every edit raises the same `beforeEventChange`/`event:change` payloads in the same order as a mouse edit.
+
+- **Gantt link, progress and resize handles get touch targets and work by press-and-hold** (BACKLOG-0002251). On a coarse pointer, the two resize ends, the progress handle and a dependency-link connector each get an invisible hit area at least 24&times;24 CSS px, without moving the drawn handle or bar. Press-and-hold now grabs the progress handle and a link connector the same way a bar already does, and a swipe over either still scrolls; a mouse drag is unchanged.
+
 ## [1.99.1] - 2026-10-12
 
 ### Changed

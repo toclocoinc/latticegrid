@@ -4,7 +4,7 @@ import { createGrid, Grid, GridConfig, SortEntry, FilterSet, RowChange, GridEven
 import { createCalendar } from '@toclocoinc/lattice-grid/modules/calendar';
 import { createChart } from '@toclocoinc/lattice-grid/modules/charts';
 import { createDataRouter } from '@toclocoinc/lattice-grid/modules/data-router';
-import { createForm } from '@toclocoinc/lattice-grid/modules/form';
+import { createForm, createFormGroup } from '@toclocoinc/lattice-grid/modules/form';
 import { createGantt } from '@toclocoinc/lattice-grid/modules/gantt';
 import { createKanban } from '@toclocoinc/lattice-grid/modules/kanban';
 import { createKPI } from '@toclocoinc/lattice-grid/modules/kpi';
@@ -65,6 +65,8 @@ type DesignerFactory = typeof createDesigner;
 type DataRouterFactory = typeof createDataRouter;
 /** The form factory, from `@toclocoinc/lattice-grid/modules/form`. */
 type FormFactory = typeof createForm;
+/** The form group factory, from `@toclocoinc/lattice-grid/modules/form`. */
+type FormGroupFactory = typeof createFormGroup;
 /**
  * The live viewers and their configuration objects.
  *
@@ -191,6 +193,8 @@ interface LatticeFactories {
     createDataRouter?: DataRouterFactory;
     /** `createForm`, for `<lattice-form>`. */
     createForm?: FormFactory;
+    /** `createFormGroup`, for joining several `<lattice-form>` hosts as one. */
+    createFormGroup?: FormGroupFactory;
 }
 /** The factories every Lattice component resolves through. */
 declare const LATTICE_FACTORIES: InjectionToken<LatticeFactories>;

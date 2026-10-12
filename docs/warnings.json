@@ -1,5 +1,5 @@
 {
-  "version": "1.99.1",
+  "version": "1.100.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 743,
+  "count": 745,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -7877,6 +7877,28 @@
       "fix": "Edit a different event or resource, or remove the `readOnly` flag / loosen the read-only predicate.",
       "snippet": "events: [{ id: 'e1', resourceId: 'alice', startDate: '2026-03-02 09:00', readOnly: true }]",
       "docs": "api/scheduler.html#scheduler"
+    },
+    {
+      "id": "form.group.duplicate-field:*",
+      "module": "form",
+      "severity": "warn",
+      "since": "1.100.0",
+      "message": "form group: the field \"{name}\" is owned by more than one form; the first one added wins.",
+      "meaning": "Two member forms of one `createFormGroup` both report a field with this name, so `getValue()` would merge them over each other and `setValue()` could not know which member the key belongs to. The group keeps the first member added as the owner: `getItem(name)` and `setValue()` write to that member, and the later member keeps its own value.",
+      "fix": "Give the duplicated field a unique name, or drop it from one of the members.",
+      "snippet": "createFormGroup([formA, formB]); // formB must not reuse a field name formA already owns",
+      "docs": "api/form.html#form-module"
+    },
+    {
+      "id": "form.group.unknown-member:*",
+      "module": "form",
+      "severity": "warn",
+      "since": "1.100.0",
+      "message": "form group: a rule pins the member \"{id}\", but no member has that id; the rule reads an empty value.",
+      "meaning": "A `visibleWhen`/`readOnlyWhen`/`requiredWhen` condition names a member with `{ form: id, name }`, but no member was added with that `id` (or the member left the group). The rule evaluates against an empty value, exactly as an unknown field name does.",
+      "fix": "Add the member with the id the rule pins, or correct the id in the rule.",
+      "snippet": "const group = createFormGroup();\ngroup.add(header, { id: 'header' }); // a rule with { form: 'header' } now resolves",
+      "docs": "api/form.html#form-module"
     }
   ]
 }

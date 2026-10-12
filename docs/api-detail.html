@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.99.1</p>
+    <p class="rail__sub">Developer guide · v1.100.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.99.1</span>
+        <span class="chip">Version 1.100.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1886,7 +1886,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.99.1'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.100.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -10559,6 +10559,7 @@ grid.import.apply(preview);</code></pre>
           <tr><td class="name">firstDay</td><td class="desc">Calendar (<code>CalendarConfig</code>). Week-start weekday, 0=Sun&hellip;6=Sat. Default 1 (Monday).</td></tr>
           <tr><td class="name">locale</td><td class="desc">Calendar (<code>CalendarConfig</code>). BCP-47 locale for weekday/month names, the title and the card time.</td></tr>
           <tr><td class="name">timeZone</td><td class="desc">Calendar (<code>CalendarConfig</code>). IANA time-zone name, honoured on the hour axis and the now line.</td></tr>
+          <tr><td class="name">pinchZoom</td><td class="desc">Calendar (<code>CalendarConfig</code>) and Scheduler (<code>SchedulerConfig</code>). Whether a two-finger pinch over the timeline steps the zoom one level (the calendar's <code>slotDuration</code>, the scheduler's <code>zoom</code>). Default true.</td></tr>
           <tr><td class="name">slotDuration</td><td class="desc">Calendar (<code>CalendarConfig</code>). The time-grid slot step in minutes, or an <code>'H:MM(:SS)'</code> duration. Default 30.</td></tr>
           <tr><td class="name">slotMinTime</td><td class="desc">Calendar (<code>CalendarConfig</code>). The hour axis's first time, a clock or minutes. Default <code>'00:00'</code>.</td></tr>
           <tr><td class="name">slotMaxTime</td><td class="desc">Calendar (<code>CalendarConfig</code>). The hour axis's last time, a clock or minutes. Default <code>'24:00'</code>.</td></tr>
@@ -11111,8 +11112,12 @@ return boundCount + '|' + routed;</code></pre>
       writes the dirty items once through the grid's edit path and <code>revert()</code> restores the
       bound values. An external edit to the bound row updates a clean item and leaves a dirty one
       alone, flagging it with <code>isConflicted()</code>. <code>bind: { router, route, key }</code>
-      follows a data-router record by the same update-unless-dirty rule, filling in from the route's
-      keyed diffs, and a plain object of values is initialised from and written back by
+      follows a data-router record by the same update-unless-dirty rule, filling in eagerly from
+      <code>router.get(route, key)</code> whatever the order of ingest and creation, then from the
+      route's keyed diffs; <code>save()</code> writes the dirty items back through
+      <code>router.apply</code> and calls <code>bind.onSave(changes, record)</code> when given &mdash;
+      it may be async, and a rejection reverts the router record while the items stay dirty so the
+      user can retry &mdash; and a plain object of values is initialised from and written back by
       <code>save()</code>. The binding is duck-typed against the public grid API, so the module still
       imports no grid and no core source.</p>
       <p><strong>Any control type is first-class.</strong> <code>registerControl(type, definition)</code>
@@ -11145,6 +11150,23 @@ return boundCount + '|' + routed;</code></pre>
       <code>form.validate()</code> checks every rule-bearing item and returns <code>true</code> or
       <code>false</code>; <code>item.validate()</code> checks one, and a <code>validated</code> event
       carries the failures.</p>
+      <p><strong>Several forms can act as one.</strong> <code>createFormGroup(forms?, options?)</code>
+      joins forms mounted in different places &mdash; one per cell of a shell layout, say &mdash; into one
+      logical form that never renders anything. <code>getValue()</code> merges every member&rsquo;s values
+      in add order; <code>setValue(values)</code> routes each key to the member that owns that field, the
+      first owner winning when two forms declare the same name and unknown keys ignored;
+      <code>getItem(name)</code> reaches the owning member&rsquo;s item handle; <code>validate()</code>
+      validates every member and focuses the first invalid field; and
+      <code>setReadOnly(bool)</code>/<code>setDisabled(bool)</code>/<code>clear()</code>/
+      <code>reset()</code>/<code>isDirty()</code> apply across the members. A member&rsquo;s
+      <code>change</code> or <code>validated</code> event re-emits on the group with
+      <code>{ form, name, value }</code> or <code>{ form, valid }</code>; a destroyed member leaves the
+      group by itself; and <code>group.destroy()</code> detaches the group&rsquo;s listeners without
+      destroying the forms. A group takes the same <code>bind</code> once &mdash; every member fills with
+      its own fields off the record and follows it, and <code>group.save()</code> writes one router
+      update with all the members&rsquo; dirty fields, calling <code>onSave</code> once.
+      <code>options.transform = { get, set }</code> joins the merged values on read
+      and splits them back on write.</p>
     </div>
 
     <h3 id="combo-live">The combo control</h3>
@@ -13256,7 +13278,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.99.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.100.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

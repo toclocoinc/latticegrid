@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.99.1, form module type declarations
+ * Lattice Grid 1.100.0, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -81,11 +81,16 @@ export type FormValidationRule =
 /**
  * A declarative field rule: a constant, a function of the
  * whole `{ name: value }` snapshot, or a condition on one named item's value.
+ * In a form group a condition may read a field of another
+ * member: `name` resolves against the member that owns it, or `form` pins the
+ * member by its `group.add(form, { id })` id.
  */
 export type FormRule =
   | boolean
   | ((values: Record<string, unknown>) => boolean)
   | {
+      /** The id of the group member whose item `name` is read from; omitted, `name` resolves to whichever member owns it. */
+      form?: string;
       /** The name of the item whose value the condition tests. */
       name?: string;
       /** True when the named item's value `===` this value. */
@@ -485,14 +490,16 @@ export interface FormBindGridConfig {
   rowKey: string | number;
 }
 
-/** A binding to a data-router record: `{ router, route, key }`. */
+/** A binding to a data-router record: `{ router, route, key, onSave? }`. */
 export interface FormBindRouterConfig {
   /** The data router whose route's keyed diffs carry the record. */
   router: import('lattice-grid/modules/data-router').DataRouter;
-  /** The route (predicate) to subscribe to. */
-  route: string;
+  /** The route (predicate, partition value or label) to subscribe to. */
+  route: import('lattice-grid/modules/data-router').RoutePredicate;
   /** The row key of the bound record. */
   key: string | number;
+  /** Called after `save()` writes the record to the router, with the dirty changes and the full updated record. May be async: a rejection (or a thrown error) reverts the router record to its previous values and keeps the form dirty. */
+  onSave?: (changes: Record<string, unknown>, record: import('lattice-grid/modules/data-router').RouterRecord) => void | Promise<void>;
 }
 
 /**
@@ -806,6 +813,99 @@ export interface Form {
   destroy(): void;
 }
 
+/** The group's events — the two names its `on()` accepts. */
+export type FormGroupEventName =
+  /** A member form committed an edit. */
+  | 'change'
+  /** A member form was validated. */
+  | 'validated';
+
+/** What a handler receives, per group event. */
+export interface FormGroupEventPayloads {
+  /** The edit a member form committed. */
+  change: FormGroupChangeEvent;
+  /** A member form's validation verdict. */
+  validated: FormGroupValidatedEvent;
+}
+
+/** The fields every form-group event carries. */
+export interface FormGroupEvent {
+  /** Which event this is: one of the `FormGroupEventName` names. */
+  type: string;
+  /** The member form the event came from. */
+  form: Form;
+}
+
+/** A group `change` payload: the member form and the item/value it committed. */
+export interface FormGroupChangeEvent extends FormGroupEvent {
+  /** The item's name. */
+  name: string | null;
+  /** The value being reported. */
+  value: unknown;
+}
+
+/** A group `validated` payload: the member form and its verdict. */
+export interface FormGroupValidatedEvent extends FormGroupEvent {
+  /** True when nothing failed. */
+  valid: boolean;
+}
+
+/**
+ * The value transform a group applies on read and write. `get` receives the
+ * merged member values and returns what `getValue()` returns; `set` receives
+ * whatever `setValue()` was handed and does the routing itself.
+ */
+export interface FormGroupTransform {
+  /** Shape the merged values into the group's output. */
+  get(values: Record<string, unknown>): unknown;
+  /** Route the written values into the members. */
+  set(values: unknown): void;
+}
+
+/** The options `createFormGroup` takes. */
+export interface FormGroupOptions {
+  /** Join or split values on read and write. */
+  transform?: FormGroupTransform;
+  /** Bind the whole group to one data-router record: every member fills with its own fields, and `save()` writes ONE router update and calls `onSave` once. */
+  bind?: FormBind;
+}
+
+/** The form group instance {@link createFormGroup} returns. */
+export interface FormGroup {
+  /** The member forms, in add order. */
+  readonly forms: Form[];
+  /** Add a form; `id` names the member for a pinned cross-form rule and router binding. */
+  add(form: Form, opts?: { id?: unknown }): FormGroup;
+  /** Remove a form; the group ignores a form that is not a member. */
+  remove(form: Form): FormGroup;
+  /** Merge every member's values in add order, through `transform.get` when set. */
+  getValue(): unknown;
+  /** Route each key to the member that owns it, through `transform.set` when set. */
+  setValue(values: Record<string, unknown>): FormGroup;
+  /** The owning member's item handle for a name, or `undefined`. */
+  getItem(name: string): FormItem | undefined;
+  /** Validate every member and focus the first invalid field in add order. */
+  validate(): boolean;
+  /** Set every member read-only (or back to editable) in one call. */
+  setReadOnly(readOnly: boolean): FormGroup;
+  /** Set every member disabled (or back to enabled) in one call. */
+  setDisabled(disabled: boolean): FormGroup;
+  /** Clear every member to its empty values. */
+  clear(): FormGroup;
+  /** Restore every member's dirty items to their bound/committed value. */
+  reset(): FormGroup;
+  /** Save every member's dirty items as ONE router update and call the group's `bind.onSave` once; `false` when unbound, true when saved or nothing dirty. */
+  save(): boolean | Promise<boolean>;
+  /** Whether any member holds an unsaved user edit. */
+  isDirty(): boolean;
+  /** Subscribe to `change` or `validated` (or `'*'` for both); returns an unsubscribe. */
+  on(name: FormGroupEventName | '*', fn: (event: FormGroupEventPayloads[FormGroupEventName]) => void): () => void;
+  /** Remove a handler registered with {@link FormGroup#on}. */
+  off(name: FormGroupEventName | '*', fn: (event: FormGroupEventPayloads[FormGroupEventName]) => void): void;
+  /** Detach the group's listeners without destroying the forms. */
+  destroy(): void;
+}
+
 /** The combo instance {@link createCombo} returns. */
 export interface Combo {
   /** The host element. */
@@ -844,6 +944,9 @@ export function registerControl(type: string, definition: FormControlDefinition)
 
 /** Create a form inside an element: named items laid out in nested rows and columns. */
 export function createForm(el: HTMLElement, config?: FormConfig): Form;
+
+/** Join several forms into one logical form that never renders anything. */
+export function createFormGroup(forms?: Form | Form[], options?: FormGroupOptions): FormGroup;
 
 /** Create a standalone searchable combobox inside an element. */
 export function createCombo(el: HTMLElement, config?: ComboConfig): Combo;

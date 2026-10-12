@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Scheduler API Reference — Lattice Grid 1.99.1</title>
+<title>Scheduler API Reference — Lattice Grid 1.100.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -459,6 +459,7 @@ const scheduler = createScheduler(document.querySelector('#scheduler'), {
     <p><strong>Find and read the plan.</strong> A <code>groupBy</code> — a field name or a per-resource function — groups the resources into collapsible group rows, driven by the left grid's own grouping so the two panes can never disagree; the timeline mirrors the grid's expand/collapse state, and a toggle in either pane collapses the other. A <code>search</code> query narrows both sides at once, matching any string or number field of a resource or event (a row stays when its own text <em>or</em> one of its events' text matches, so a match never orphans its bar). A <code>resourceFilter</code> hides rows, an <code>eventFilter</code> hides bars, and each takes a predicate a row must pass. The Gantt's tooltip card — the same card its bars show — opens on an event's hover and keyboard focus with its start, end, duration and resource. Every bar, row, group header and the time axis is named for screen readers, and the keyboard alone reaches every event: the arrow keys walk between events and rows (roving focus), Enter activates, Home/End jump a row's ends, and +/&minus; zoom — so the scheduler passes the same accessibility audit the grid does.</p>
     <p><strong>Resize the resource pane</strong> (BACKLOG-0002163). The left resource table's width is the documented <code>resourceWidth</code> option (default 300px). A draggable, keyboard-operable divider between the pane and the time axis resizes it live — drag the handle, or focus it and press the arrow keys (8px, or 32px with Shift) — clamped between a floor and the time axis's minimum share, and the handle is a <code>role="separator"</code> that announces its value to screen readers. The width is carried by <code>getState()</code>/<code>setState(state)</code> alongside the zoom and scroll, and <code>setResourceWidth(px)</code> sets it programmatically. When the resources are grouped, the group column adopts its own column width (or the 120px synthesised default) instead of a fixed width, so every person's name stays fully visible — or, where a column is too narrow, ellipsises with the full name as its native title, never a mid-word clip.</p>
     <p><strong>Events are editable</strong> (BACKLOG-0002124): drag a bar to move it in time, drop it onto another resource row to reassign it, drag either edge to resize it, drag over empty time in a row to create an event, and press Delete (or use the right-click menu) to delete one. Every change snaps to the zoom step, writes back through <code>events.apply</code> &mdash; so a bound dataset sees it exactly as it sees a grid edit &mdash; and is one undo step: <code>undo()</code>/<code>redo()</code> or Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z. Each change raises the one cancellable <code>beforeEventChange</code> (call <code>preventDefault()</code> to refuse it, data untouched) and then one <code>event:change</code> carrying the event id and the old and new values. <code>editable: false</code> switches editing off; an event or a resource marked <code>readOnly: true</code> &mdash; or named by <code>readOnlyWhen</code>/<code>resourceReadOnlyWhen</code> &mdash; refuses the gesture with a catalogued reason.</p>
+    <p><strong>Touch editing</strong> (BACKLOG-0002161). Move, resize and reassign run through one pointer gesture, so the same edits work on a phone and tablet: press and hold a bar &mdash; or one of its edge handles &mdash; to pick it up, then drag to move it in time, drop it onto another resource row to reassign it, or pull an edge to resize it. A quick swipe before the hold is the page&rsquo;s own scroll, so the timeline and the resource list still pan under a finger; the lane under the finger is the drop target; and a held bar near an edge auto-scrolls the time axis and the rows. A mouse drag is unchanged &mdash; movement starts it with no hold &mdash; and every edit raises the same <code>beforeEventChange</code>/<code>event:change</code> payloads in the same order however it is driven.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Member</th><th>Description</th></tr></thead>
@@ -558,6 +559,16 @@ sched.setZoom('fit');
 const fit = sched.getZoom().level;                        // fit (fills the timeline width)
 sched.destroy();
 return [resources, events, overlap, unscheduled, px, hasTicks, groups, matchedEvents, matchedResources, filteredEvents, filteredResources, wlRows, wlOver, rwBefore, rwAfter, changed, movedStart, undone, zoom, after, isSvg, hasBars, noVar, printed, fit].join('|');</code></pre>
+
+    <p id="scheduler-pinch-zoom"><strong>Pinch to zoom (BACKLOG-0002162).</strong> A two-finger pinch over the scheduler&rsquo;s timeline steps one zoom level (<code>quarter</code> to <code>hour</code>) through <code>setZoom</code>, firing one <code>zoom:change</code> per level and keeping the date under the fingers in place; a two-finger drag scrolls, and <code>pinchZoom: false</code> turns it off.</p>
+    <pre data-run="js" data-expect="day|week" data-covers="config:SchedulerConfig.pinchZoom"><code>const { createScheduler } = await import('../packages/modules/scheduler/index.js');
+// pinchZoom: false leaves the page's own touch handling alone; setZoom still works.
+const sched = createScheduler(null, { zoom: 'week', pinchZoom: false, resources: [{ id: 'r', name: 'R' }], events: [] });
+const before = sched.getZoom().level;
+sched.setZoom('day');
+const after = sched.getZoom().level;
+sched.destroy();
+return [after, before].join('|');</code></pre>
     <h2 id="ref-scheduler-reference">Type reference</h2>
     <p class="section-note">Generated from the type declarations, so it always matches the release. Each surface lists its properties, its methods and the events it raises as three tables; an option or value type lists its members once.</p>
     <h3 id="ref-module-scheduler">The scheduler module</h3>
@@ -659,6 +670,7 @@ return [resources, events, overlap, unscheduled, px, hasTicks, groups, matchedEv
           <tr><td class="name">eventKey</td><td class="type">string</td><td class="desc">The event identity field. Default `'id'`. <small>(optional)</small></td></tr>
           <tr><td class="name">columns</td><td class="type">unknown[]</td><td class="desc">The left table's columns; defaults to name/role/capacity. <small>(optional)</small></td></tr>
           <tr><td class="name">zoom</td><td class="type"><a href="types.html#type-SchedulerZoom">SchedulerZoom</a> <small class="literals">'hour' | 'day' | 'week' | 'month' | 'quarter' | 'fit' | number</small></td><td class="desc">The zoom: a preset name (`'fit'` fills the timeline width), or px-per-day. Default `'day'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">pinchZoom</td><td class="type">boolean</td><td class="desc">Whether a two-finger pinch over the timeline steps the zoom one level, firing `zoom:change` (BACKLOG-0002162). Default true. <small>(optional)</small></td></tr>
           <tr><td class="name">date</td><td class="type">Date | string | number</td><td class="desc">The anchor date the axis centres on. Default the earliest event start, else today. <small>(optional)</small></td></tr>
           <tr><td class="name">defaultDuration</td><td class="type">number</td><td class="desc">The minutes an event without an end runs. Default 60. <small>(optional)</small></td></tr>
           <tr><td class="name">rowHeight</td><td class="type">number</td><td class="desc">The row height in px. Default 34. <small>(optional)</small></td></tr>

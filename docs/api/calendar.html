@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Calendar API Reference — Lattice Grid 1.99.1</title>
+<title>Calendar API Reference — Lattice Grid 1.100.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -479,6 +479,7 @@ const calendar = createCalendar(document.querySelector('#calendar'), {
         </tbody>
       </table>
     </div>
+    <p><strong>Touch.</strong> Moving and resizing is a pointer gesture, so cards drag on phones and tablets as well as with a mouse. A mouse drag starts on movement; a touch or pen drag starts after a short press-and-hold &mdash; moving before the hold scrolls the page instead, so a quick swipe never accidentally moves a card. A drop resolves to the day (and, in the time grid, the time slot) under the pointer, including over another card's bar, and while a drag is held near the time grid's top or bottom edge the view auto-scrolls; holding near a range edge still navigates after a moment, and <kbd>Escape</kbd> or a second finger cancels. A completed move or resize still fires the same <code>beforeMove</code>/<code>card:move</code> events and the htmx <code>lattice:calendar-change</code> post, once per move.</p>
     <h3 id="calendar-example">Week and month, navigation and state, executed</h3>
     <p class="section-note">Point events on a week grid, one unparsable start counted in <code>unscheduled</code>, the de-dup
     contract (<code>add</code> of an existing key is an update), navigation firing <code>range:change</code>, and the
@@ -576,6 +577,14 @@ const cols = a.cols;                                 // 2 (overlaps with b)
 const allDay = day.allDay.length;                    // 1 (the date-only row)
 cal.destroy();
 return [startMin, endMin, cols, allDay].join('|');</code></pre>
+
+    <p id="calendar-pinch-zoom"><strong>Pinch to zoom (BACKLOG-0002162).</strong> In the <code>week-time</code> and <code>day</code> views a two-finger pinch steps <code>slotDuration</code> one level (60, 30, 15, 10 or 5 minutes) and keeps the time under the fingers in place; a two-finger drag scrolls the hour axis, and <code>pinchZoom: false</code> turns it off.</p>
+    <pre data-run="js" data-expect="15" data-covers="config:CalendarConfig.pinchZoom"><code>const { createCalendar } = await import('../packages/modules/calendar/index.js');
+// pinchZoom: false leaves the page's own touch handling alone; slotDuration still sets the grid.
+const cal = createCalendar(null, { rows: [], view: 'day', date: '2026-09-28', slotDuration: 15, pinchZoom: false });
+const slot = cal.getState().slotDuration;
+cal.destroy();
+return String(slot);</code></pre>
 
     <h3 id="calendar-move-example">Rescheduling, veto and write-back, executed</h3>
     <p class="section-note">A move shifts the end by the same delta (duration kept); a resize changes the end only; a
@@ -721,6 +730,7 @@ return [movedStart, movedEnd, resizedEnd, stayed, firedFrom, firedTo, reverted].
           <tr><td class="name">locale</td><td class="type">string</td><td class="desc">BCP-47 locale for weekday/month names, the title and the card time. <small>(optional)</small></td></tr>
           <tr><td class="name">timeZone</td><td class="type">string</td><td class="desc">IANA time-zone name, honoured on the hour axis and the now line. <small>(optional)</small></td></tr>
           <tr><td class="name">slotDuration</td><td class="type">number | string</td><td class="desc">The time-grid slot step in minutes, or an `'H:MM(:SS)'` duration. Default 30. <small>(optional)</small></td></tr>
+          <tr><td class="name">pinchZoom</td><td class="type">boolean</td><td class="desc">Whether a two-finger pinch over a time-grid view steps `slotDuration` one level (60, 30, 15, 10, 5 minutes) about the pinch centre (BACKLOG-0002162). Default true. <small>(optional)</small></td></tr>
           <tr><td class="name">slotMinTime</td><td class="type">number | string</td><td class="desc">The hour axis's first time, a clock or minutes. Default `'00:00'`. <small>(optional)</small></td></tr>
           <tr><td class="name">slotMaxTime</td><td class="type">number | string</td><td class="desc">The hour axis's last time, a clock or minutes. Default `'24:00'`. <small>(optional)</small></td></tr>
           <tr><td class="name">scrollTime</td><td class="type">number | string</td><td class="desc">The hour axis's initial scroll, a clock or minutes. Default `slotMinTime`. <small>(optional)</small></td></tr>

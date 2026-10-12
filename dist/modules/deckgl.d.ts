@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.99.1, deckgl module type declarations
+ * Lattice Grid 1.100.0, deckgl module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

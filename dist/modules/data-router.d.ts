@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.99.1, data-router module type declarations
+ * Lattice Grid 1.100.0, data-router module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -862,8 +862,10 @@ export interface DataRouter {
   attach(grid: unknown, predicate: RoutePredicate, opts?: RouteOptions): DataRouter;
   /** Attach the "rest" sink for records no explicit route matched. A second call replaces the first. */
   attachDefault(grid: unknown, opts?: RouteOptions): DataRouter;
-  /** Route a partition slice to any non-grid view (v5): the handler receives the same keyed diff a grid would. */
-  subscribe(predicate: RoutePredicate, handler: (change: RouterChange) => void, opts?: RouteOptions): DataRouter;
+  /** Route a partition slice to any non-grid view (v5): the handler receives the same keyed diff a grid would. Returns an unsubscribe that removes the route and its handler. */
+  subscribe(predicate: RoutePredicate, handler: (change: RouterChange) => void, opts?: RouteOptions): () => void;
+  /** Read one record off a route by its row key — the current row or `undefined` when the route or key is unknown. `route` is the route's target, partition value, label or predicate. */
+  get(route: RoutePredicate, rowKey: string | number): RouterRecord | undefined;
   /** Watch a slice and emit on a rising edge of `condition` rather than render (v5). Removed only by `destroy`. */
   alert(predicate: RoutePredicate, condition: (rows: RouterRecord[]) => unknown, handler: (signal: unknown, rows: RouterRecord[]) => void, opts?: AlertOptions): DataRouter;
   /**

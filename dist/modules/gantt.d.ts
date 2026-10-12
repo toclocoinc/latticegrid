@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.99.1, gantt module type declarations
+ * Lattice Grid 1.100.0, gantt module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -4243,6 +4243,8 @@ export interface Gantt {
      */
     wrapNames?: boolean;
     zoom?: GanttZoom | number;
+    /** Whether a two-finger pinch over the timeline steps the zoom one level; the cause reads `'gesture'`. Default true; `false` leaves the page's own touch handling alone. */
+    pinchZoom?: boolean;
     /**
      * The built-in zoom control: a row of day / week /
      * month / quarter / fit-to-plan buttons, each a real keyboard-operable
