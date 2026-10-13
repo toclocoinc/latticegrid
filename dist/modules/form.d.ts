@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.100.1, form module type declarations
+ * Lattice Grid 1.101.0, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -19,7 +19,7 @@ export type FormLabelPosition = 'top' | 'left' | 'hidden';
 export type FormInputSubtype = 'text' | 'email' | 'password' | 'url';
 
 /** The control types a form item may name. */
-export type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color';
+export type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox';
 
 /** The opening view of a `color` item's popover: the preset palette (default) or the custom picker. */
 export type FormColorMode = 'palette' | 'picker';
@@ -39,6 +39,25 @@ export interface FormChipOption {
 /** The picker modes of a `datepicker` item. */
 export type FormPickerMode = 'date' | 'date-time' | 'time';
 
+/** The granularity of a `daterange` item: a day range or a year-month range. */
+export type FormDateRangeGranularity = 'day' | 'month';
+
+/** The committed value of a `daterange` item. */
+export interface FormDateRangeValue {
+  /** The range start, an ISO `YYYY-MM-DD` day (or `YYYY-MM` month in month mode) or null. */
+  start: string | null;
+  /** The range end, an ISO `YYYY-MM-DD` day (or `YYYY-MM` month in month mode) or null. */
+  end: string | null;
+}
+
+/** One preset of a `daterange` item's left-hand list. */
+export interface FormDateRangePreset {
+  /** The preset's label. */
+  label: string;
+  /** The range as a literal `[start, end]` pair, or a function of the current `today` Date returning one. */
+  range: [string, string] | ((today: Date) => [string, string]);
+}
+
 /** One choice of a `select`, `radiogroup` or `checkboxgroup` item. A `select` option may also carry an icon, an avatar, a second line, a colour, a status dot and a disabled flag. */
 export interface FormOption {
   /** The option's committed value. */
@@ -57,6 +76,8 @@ export interface FormOption {
   description?: string;
   /** Whether the option is shown but not selectable. */
   disabled?: boolean;
+  /** The sticky group header a `listbox` item's `groupBy` buckets this option under. */
+  group?: string;
 }
 
 /** A group of `select` options under one heading. */
@@ -202,14 +223,16 @@ export interface FormPanelConfig {
 /**
  * One form item: a control (`input`, `number`, `textarea`, `checkbox`,
  * `button`, `combo`, `select`, `radiogroup`, `checkboxgroup`, `toggle`,
- * `datepicker`, `file`, `richtext`, `rating`, `stage`, `chips`, `otp`, `color`)
- * or the read-only `text` display, with the per-item options.
+ * `datepicker`, `daterange`, `file`, `richtext`, `rating`, `stage`, `chips`, `otp`, `color`,
+ * `listbox`) or the read-only `text` display, with the per-item options.
  */
 export interface FormItemConfig extends ComboConfig {
   /**
    * A control's own settings bag. A custom control registered with
    * `registerControl` reads its settings from `item.props` in `create()`;
-   * any top-level key the form does not recognise joins the same bag.
+   * any top-level key the form does not recognise joins the same bag. A `toggle` item's `labelPosition` — `'inside'`
+   * (default), `'before'` or `'after'` — lives here, because the top-level
+   * `labelPosition` already means the item label's side.
    */
   props?: Record<string, unknown>;
   /** The control type — a built-in or a type registered with `registerControl`. Defaults to `input`. */
@@ -268,8 +291,8 @@ export interface FormItemConfig extends ComboConfig {
   reveal?: boolean;
   /** The box count of an `otp` item (default 6). */
   length?: number;
-  /** The `otp` characters — `numeric` (default) or `alphanumeric` — the `datepicker` mode: `date`, `date-time` or `time` — or the `color` item's opening popover view. */
-  mode?: 'numeric' | 'alphanumeric' | FormPickerMode | FormColorMode;
+  /** The `otp` characters — `numeric` (default) or `alphanumeric` — the `datepicker` mode: `date`, `date-time` or `time` — the `color` item's opening popover view — or the `speeddial` item's menu shape: `linear` (default) or `radial`. */
+  mode?: 'numeric' | 'alphanumeric' | FormPickerMode | FormColorMode | 'linear' | 'radial';
   /** Hide each `otp` box's glyph with the password disc. */
   mask?: boolean;
   /** The number step, for a `number` item. */
@@ -308,14 +331,30 @@ export interface FormItemConfig extends ComboConfig {
   scale?: string;
   /** Show a compact unit selector inside the field that changes only the display unit, never the committed value. */
   unitPicker?: boolean;
-  /** The minimum — a number for `number` and a multi `chips` selection count, an ISO string for `datepicker`. */
+  /** The minimum — a number for `number`, a multi `chips`/`listbox` selection count, an ISO string for `datepicker` and `daterange`. */
   min?: number | string;
-  /** The maximum — a number for `number` and a multi `chips` selection count, an ISO string for `datepicker`. */
+  /** The maximum — a number for `number`, a multi `chips`/`listbox` selection count, an ISO string for `datepicker` and `daterange`. */
   max?: number | string;
-  /** The visible rows, for a `textarea` item. */
+  /** The visible rows, for a `textarea` item, or a `listbox` item's viewport height in option rows (default 8). */
   rows?: number;
-  /** The choices of a `select`, `radiogroup` or `checkboxgroup` item: strings, `{ value, label }` objects, or `{ label, options }` groups; or the selectable options of a `chips` item (`{ value, label, icon?, disabled? }` entries). */
+  /** The choices of a `select`, `radiogroup`, `checkboxgroup` or `listbox` item: strings, `{ value, label }` objects, or `{ label, options }` groups; or the selectable options of a `chips` item (`{ value, label, icon?, disabled? }` entries). */
   options?: (string | FormOption | FormOptionGroup | FormChipOption)[];
+  /** A `listbox` item's selection mode: `'single'` (default), `'multiple'` (Ctrl/Shift and touch-tap selection) or `'checkbox'` (a box per row plus a select-all row). */
+  selection?: 'single' | 'multiple' | 'checkbox';
+  /** Add a search box to a `listbox` item that narrows its rows by label and description, without dropping an already-selected option it hides. */
+  filter?: boolean;
+  /** Bucket a `listbox` item's options by their `group` field under sticky headers. */
+  groupBy?: boolean;
+  /** Order a `listbox` item's options by label: `'asc'`, `'desc'`, or `false` (default) to keep the configured order. */
+  sort?: 'asc' | 'desc' | false;
+  /** A custom row renderer for a `listbox`/`select`/`combo` option, returning a DOM node or an HTML string (sanitised before insertion). */
+  render?: (option: FormOption) => Node | string;
+  /** Let a `listbox` item's rows be moved by drag, by Move up/down toolbar buttons and by Alt+Arrow; the committed value becomes the full, reordered item array. */
+  reorder?: boolean;
+  /** The name of another `listbox` item this one exchanges items with via drag and the Move selected/Move all toolbar buttons; each side's value is the items it currently holds. */
+  connect?: string;
+  /** A `listbox` item's viewport height in pixels, overriding `rows`. */
+  height?: number;
   /** Lay a `radiogroup` or `checkboxgroup`'s options out vertically (the default) or on one wrapping horizontal line. */
   orientation?: 'vertical' | 'horizontal';
   /** Lay a `radiogroup` or `checkboxgroup`'s options out in this many columns, read across then down. */
@@ -326,6 +365,22 @@ export interface FormItemConfig extends ComboConfig {
   locale?: string;
   /** The timeZone the `datepicker` reads a Date/epoch value in, like the grid's date columns. */
   timeZone?: string;
+  /** The `daterange` granularity: `day` (default) or `month` — a year-month range picker of two years of twelve month cells. */
+  granularity?: FormDateRangeGranularity;
+  /** The `daterange` presets drawn on the left of the popup: an explicit list, `false` to hide, or omitted for the defaults (today, yesterday, last 7 days, last 30 days, this month, last month). */
+  presets?: false | FormDateRangePreset[];
+  /** The `daterange` fewest days (or months in month mode) a range may span. */
+  minSpan?: number;
+  /** The `daterange` most days (or months in month mode) a range may span. */
+  maxSpan?: number;
+  /** The `daterange` days/months that may not be picked: an ISO string list or a function `(iso) => boolean`. */
+  disabledDates?: string[] | ((iso: string) => boolean);
+  /** Add an ISO week-number column to the `daterange` grid (default false). */
+  weekNumbers?: boolean;
+  /** The `daterange` first weekday column (0 = Sunday); the locale's week info when omitted. */
+  firstDay?: number;
+  /** Show Apply/Cancel on the `daterange` popup so nothing commits until Apply (default true); `false` commits on the second pick. */
+  applyButton?: boolean;
   /** Shorthand for a read-only `text` display. */
   text?: string;
   /** A rule that hides the item when it evaluates false. */
@@ -384,12 +439,16 @@ export interface FormItemConfig extends ComboConfig {
   labels?: string[];
   /** Show the numeric value beside a `rating` item. */
   showValue?: boolean;
-  /** The size of a `rating` item or `button`: `sm`, `md` (default) or `lg`. */
-  size?: 'sm' | 'md' | 'lg';
+  /** The size of a `rating` item or `button`: `sm`, `md` (default) or `lg` — or a `toggle` item's `small`, `default` or `large`. */
+  size?: 'sm' | 'md' | 'lg' | 'small' | 'default' | 'large';
   /** Where a `button`'s icon sits: `start` (default) or `end`. */
   iconPosition?: 'start' | 'end';
-  /** A `button`'s visual weight: theme-token colours, light and dark. Defaults to `secondary`. */
-  variant?: FormButtonVariant;
+  /** A `button`'s visual weight: theme-token colours, light and dark. Defaults to `secondary` — or a `toggle` item's track shape: `round` (default), `square` or `slim`. */
+  variant?: FormButtonVariant | 'round' | 'square' | 'slim';
+  /** A `toggle` item's ON-state label text, drawn inside the track or beside it per `props.labelPosition`. */
+  onLabel?: string;
+  /** A `toggle` item's OFF-state label text. */
+  offLabel?: string;
   /** Make a `button` span the full form width. */
   fullWidth?: boolean;
   /** A `button`'s text case: `none` (default) or `uppercase`. */
@@ -434,7 +493,7 @@ export interface FormItemConfig extends ComboConfig {
   pickerOnly?: boolean;
   /** Let a `color` item's text part be typed into (default true); `false` makes it read-only, so only the popover sets the value. */
   editable?: boolean;
-  /** Show a `color` item's clear control, setting the value to `null`. */
+  /** Show a `color` item's clear control, setting the value to `null`, or a `daterange` item's clear control, setting the value to a null/null pair. */
   clearable?: boolean;
   /** Extra per-control options, kept for later controls. */
   [key: string]: unknown;
@@ -635,6 +694,59 @@ export interface ComboConfig {
   dependsOn?: string[];
 }
 
+/** One action a `speeddial` menu shows. */
+export type SpeedDialItem = {
+  /** A stable id for the action. */
+  id?: string;
+  /** The action's icon — a glyph name from the icon registry (see {@link IconName}), an image URL, or a DOM node. */
+  icon?: IconName | string | Node;
+  /** The action's label; omitted for an icon-only action. */
+  text?: string;
+  /** Whether the action is shown but not activatable. */
+  disabled?: boolean;
+  /** A custom renderer replacing the icon and text, returning a DOM node or plain text. */
+  render?: (item: SpeedDialItem, index: number) => unknown;
+};
+
+/** The `type: 'speeddial'` item options, and the standalone `createSpeedDial` options. */
+export interface SpeedDialConfig {
+  /** The actions the menu shows. */
+  items?: SpeedDialItem[];
+  /** The corner or edge the FAB anchors to: `top-left`, `top-center`, `top-right`, `middle-left`, `middle-right`, `bottom-left`, `bottom-center`, `bottom-right`. Default `bottom-right`. */
+  position?: FormSpeedDialPosition;
+  /** Anchor the FAB to the viewport instead of its container. */
+  fixed?: boolean;
+  /** Open the menu on pointer hover and close it on leave. */
+  openOnHover?: boolean;
+  /** The way the strip opens: `up`, `down`, `left`, `right`, or `auto` (default — into the container's room side). */
+  direction?: FormSpeedDialDirection;
+  /** The menu shape: `linear` (default) or `radial`. */
+  mode?: 'linear' | 'radial';
+  /** The radial fan — its start and end angles (degrees, defaulting from `position`) and its radius `offset` in pixels. */
+  radial?: { startAngle?: number; endAngle?: number; offset?: number };
+  /** Paint a backdrop behind the open menu that swallows page clicks. */
+  modal?: boolean;
+  /** The FAB's closed-state icon (default `plus`). */
+  openIcon?: IconName | string | Node;
+  /** The FAB's open-state icon (default `close`). */
+  closeIcon?: IconName | string | Node;
+  /** An optional label on the FAB. */
+  text?: string;
+  /** The FAB's colour: `primary` (default), `secondary`, `outline`, `info`, `success`, `warning` or `danger`. */
+  variant?: FormSpeedDialVariant;
+  /** Start disabled. */
+  disabled?: boolean;
+}
+
+/** The corner or edge a `speeddial` FAB anchors to. */
+export type FormSpeedDialPosition = 'top-left' | 'top-center' | 'top-right' | 'middle-left' | 'middle-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
+
+/** The direction a `speeddial` strip opens in. */
+export type FormSpeedDialDirection = 'up' | 'down' | 'left' | 'right' | 'auto';
+
+/** The colour a `speeddial` FAB paints. */
+export type FormSpeedDialVariant = 'primary' | 'secondary' | 'outline' | 'info' | 'success' | 'warning' | 'danger';
+
 /**
  * The events a form raises, on `form.on()`.
  *
@@ -663,7 +775,13 @@ export type FormEventName =
   /** Every box of an `otp` item is now filled. */
   | 'complete'
   /** A `color` item's custom-colours row gained a newly picked colour. */
-  | 'customColorsChange';
+  | 'customColorsChange'
+  /** A `speeddial` FAB's menu opened. */
+  | 'open'
+  /** A `speeddial` FAB's menu closed. */
+  | 'close'
+  /** A `speeddial` menu action was activated. */
+  | 'itemClick';
 
 /** What a handler receives, per form event. */
 export interface FormEventPayloads {
@@ -685,6 +803,12 @@ export interface FormEventPayloads {
   complete: FormCompleteEvent;
   /** A `color` item's custom-colours row, extended. */
   customColorsChange: FormColorCustomColorsEvent;
+  /** A `speeddial` FAB's menu opened. */
+  open: FormSpeedDialOpenEvent;
+  /** A `speeddial` FAB's menu closed. */
+  close: FormSpeedDialCloseEvent;
+  /** A `speeddial` menu action was activated. */
+  itemClick: FormSpeedDialItemClickEvent;
 }
 
 /** The fields every form event carries. */
@@ -713,6 +837,20 @@ export interface FormCompleteEvent extends FormValueEvent {
 export interface FormColorCustomColorsEvent extends FormEvent {
   /** The custom-colours list after the addition — newest first, deduplicated, at most ten entries. */
   colors: string[];
+}
+
+/** An `open` payload: a `speeddial` FAB's menu opened. */
+export interface FormSpeedDialOpenEvent extends FormEvent {}
+
+/** A `close` payload: a `speeddial` FAB's menu closed. */
+export interface FormSpeedDialCloseEvent extends FormEvent {}
+
+/** An `itemClick` payload: a `speeddial` menu action was activated. */
+export interface FormSpeedDialItemClickEvent extends FormEvent {
+  /** The action that was activated. */
+  item: SpeedDialItem;
+  /** The action's index in the `items` list. */
+  index: number;
 }
 
 /**
@@ -969,6 +1107,26 @@ export interface Combo {
   destroy(): void;
 }
 
+/** The speed-dial instance {@link createSpeedDial} returns. */
+export interface SpeedDial {
+  /** The host element. */
+  readonly el: HTMLElement;
+  /** The FAB button. */
+  readonly fab: HTMLButtonElement;
+  /** The menu element. */
+  readonly menu: HTMLElement;
+  /** Open the menu. */
+  open(): void;
+  /** Close the menu and return focus to the FAB. */
+  close(): void;
+  /** Toggle the menu open/closed. */
+  toggle(): void;
+  /** Replace the action items and rebuild the menu. */
+  setItems(items: SpeedDialItem[]): void;
+  /** Tear the speed dial down: close, detach listeners and empty the host. */
+  destroy(): void;
+}
+
 /** Register a custom control type: a first-class item with the
  * same wrapper, label, item API, events and density as a built-in. */
 export function registerControl(type: string, definition: FormControlDefinition): void;
@@ -981,6 +1139,9 @@ export function createFormGroup(forms?: Form | Form[], options?: FormGroupOption
 
 /** Create a standalone searchable combobox inside an element. */
 export function createCombo(el: HTMLElement, config?: ComboConfig): Combo;
+
+/** Create a standalone floating speed dial inside an element. */
+export function createSpeedDial(el: HTMLElement, config?: SpeedDialConfig): SpeedDial;
 
 /**
  * Enhance a server-rendered `<form>` in place: each named

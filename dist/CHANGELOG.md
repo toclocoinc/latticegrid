@@ -9,6 +9,38 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.101.0] - 2026-10-13
+
+### Added
+
+- **A `speeddial` form control: a floating action button that fans its actions out as a linear strip or a radial arc** (BACKLOG-0002253).
+  - The FAB anchors to a corner or edge of its container — `position` is `top-left`, `top-center`, `top-right`, `middle-left`, `middle-right`, `bottom-left`, `bottom-center` or `bottom-right` — and `fixed: true` anchors it to the viewport instead; the menu opens into the container's room side.
+  - Pressing the FAB (or hovering it with `openOnHover`) opens its `items` — each `{ id, icon, text, disabled, render }`, icon-only, text-only or both — as a linear strip whose `direction` is `up`, `down`, `left`, `right` or `auto` (default), or as a radial fan with `mode: 'radial'` whose `radial` `startAngle`/`endAngle`/`offset` default from `position`.
+  - `modal: true` paints a backdrop that swallows page clicks; a click on an item fires `itemClick` once (with `{ item, index }`) and closes, an outside click or Escape closes with focus back on the FAB, and the arrow keys move across items skipping disabled ones while Enter or Space activates.
+  - The FAB swaps `openIcon`/`closeIcon`, may carry a `text` label, and takes one of seven `variant`s; dark mode and RTL mirroring are built in.
+  - The control works as a `type: 'speeddial'` form item and as the standalone `createSpeedDial(el, config)` factory, which returns `{ el, fab, menu, open, close, toggle, setItems, destroy }`; the `open`, `close` and `itemClick` events pass through the form emitter and the React, Vue and Angular adapters.
+
+- **A `barcode` capability alongside the QR encoder**: Code 39, Code 39 Extended, Code 93, Code 93 Extended, Code 128 (automatic subset A/B/C selection), Code 11, Codabar, Code 32, EAN-13, EAN-8, UPC-A, UPC-E and a 2D Data Matrix (ECC 200, square symbols, ASCII and base-256 encodation), each its own dependency-free encoder with inline SVG output, on three surfaces (BACKLOG-0002254).
+  - `BarcodeOptions.size` and `BarcodeOptions.encodation` select a Data Matrix symbol size and encodation scheme; every other symbology ignores both.
+  - The `qrcode` encoder now picks numeric or alphanumeric mode automatically when the payload qualifies, giving a smaller version than byte mode for the same short digit or alphanumeric code; byte mode remains the fallback for everything else.
+  - A `barcode` cell renderer (`cell.render: 'barcode'`, options in `cell.props`: `type`, `value`, `width`/`height` or `moduleWidth`, `text`, `foreground`/`background`, `quietZone`, `print`, `checkDigit`).
+  - A form `barcode` display control, bindable to the item's own value or to another item's value via `props.source`.
+  - A standalone `renderBarcode(el, options)` export for drawing one symbol outside a grid or a form.
+  - An invalid value (bad characters, wrong length, a failed check digit) never renders a code that would scan wrong: it shows a placeholder and warns once (`barcode:invalid:*`).
+
+- **A form `daterange` control holds a start and end in one field with a two-month popup calendar** (BACKLOG-0002255). The first click sets the start, the second the end, a click before the start restarts, and hovering previews the span; a left-hand `presets` list (today, yesterday, last 7/30 days, this/last month by default) fills common ranges, `min`/`max`, `minSpan`/`maxSpan` and `disabledDates` fence the choice, and `weekNumbers`/`firstDay` adjust the grid.
+  - **Apply/Cancel.** `applyButton` (default true) commits only on Apply and Cancel restores; `applyButton: false` commits on the second click.
+  - **Month mode.** `granularity: 'month'` makes a year-month picker (two years of twelve cells) committing `YYYY-MM` values.
+  - **Keyboard.** Arrows move across days, PageUp/PageDown months, Shift+PageUp/Down years, Enter picks, Escape cancels; grid/gridcell roles carry `aria-selected` across the span.
+
+- Form: a new `listbox` control (release 1.101) — a virtualised, scrollable option list with `selection: 'single' | 'multiple' | 'checkbox'`, a `filter` search box, sticky `groupBy` headers, `sort`, a `render` row hook, drag/keyboard/toolbar `reorder` (the committed value becomes the full item order) and `connect: '<other item name>'` dual lists that exchange items by drag or the Move selected/Move all buttons. `min`/`max` cap the selection count like a multi `chips` item. (BACKLOG-0002256)
+
+- **The form `toggle` switch gains state labels, three sizes and three track shapes** (BACKLOG-0002257).
+  - `onLabel`/`offLabel` draw short text inside the track by default, swapping with the checked state and repainting on `setValue`; `props.labelPosition: 'inside' | 'before' | 'after'` moves the text beside the track. The ON label reads `--lattice-switch-label` (the accent-contrast) and the OFF label the foreground, so the text keeps AA 4.5:1 against the track in light and dark and in both states.
+  - `size: 'small' | 'default' | 'large'` scales the switch from the density tokens and `variant: 'round' | 'square' | 'slim'` picks the track shape (`slim`: a thin track with a larger handle); the switch transition honours `prefers-reduced-motion`.
+  - Four new theme tokens — `--lattice-switch-track-on`, `--lattice-switch-track-off`, `--lattice-switch-handle` and `--lattice-switch-label` — carry the colours, with light and dark defaults; the four presets set them through their accent, line, surface and accent-contrast roles.
+  - **Unchanged.** A toggle that sets none of the new options renders the bare switch exactly as before — same geometry, same commit, Space/Enter, read-only, disabled, required and boolean-value contract.
+
 ## [1.100.1] - 2026-10-13
 
 ### Added

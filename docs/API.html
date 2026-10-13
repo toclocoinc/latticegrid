@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.100.1</p>
+    <p class="rail__sub">API reference · v1.101.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -545,6 +545,7 @@
         <a class="rail__sub-link" href="#type-Form">Form</a>
         <a class="rail__sub-link" href="#type-FormGroup">FormGroup</a>
         <a class="rail__sub-link" href="#type-Combo">Combo</a>
+        <a class="rail__sub-link" href="#type-SpeedDial">SpeedDial</a>
         <a href="#ref-module-dashboard">Dashboard composition</a>
         <a class="rail__sub-link" href="#type-Dashboard">Dashboard</a>
         <a href="#ref-module-designer">The Designer</a>
@@ -583,7 +584,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.100.1</span>
+      <span class="chip">Version 1.101.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3505,7 +3506,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.100.1'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.101.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -5108,6 +5109,7 @@ grid.highlight.clear();                                             // everythin
         <thead><tr><th>Name</th><th>Draws</th></tr></thead>
         <tbody>
           <tr><td class="sig">area</td><td class="desc">A filled sparkline over a series.</td></tr>
+          <tr><td class="sig">barcode</td><td class="desc">A 1D barcode (Code 39, Code 39 Extended, Code 93, Code 93 Extended, Code 128, Code 11, Codabar, Code 32, EAN-13, EAN-8, UPC-A, UPC-E) or a 2D Data Matrix of the value, inline SVG. <code>cell.props</code>: <code>type</code>, <code>value</code>, <code>width</code>/<code>height</code> or <code>moduleWidth</code>, <code>text</code>, <code>foreground</code>/<code>background</code>, <code>quietZone</code>, <code>print</code>, <code>checkDigit</code>, <code>size</code>/<code>encodation</code> (Data Matrix only).</td></tr>
           <tr><td class="sig">bullet</td><td class="desc">A value against a target and qualitative bands.</td></tr>
           <tr><td class="sig">checkbox</td><td class="desc">A boolean, optionally as a switch.</td></tr>
           <tr><td class="sig">colour</td><td class="desc">A colour swatch with its value.</td></tr>
@@ -5133,6 +5135,44 @@ grid.highlight.clear();                                             // everythin
           <tr><td class="sig">winloss</td><td class="desc">A win/loss sparkline of signed values.</td></tr>
         </tbody>
       </table>
+    </div>
+    <p>The <code>barcode</code> renderer's symbologies — Code 39, Code 39 Extended, Code 93,
+    Code 93 Extended, Code 128 (subsets A/B/C chosen automatically for the shortest code),
+    Code 11, Codabar, Code 32, EAN-13, EAN-8, UPC-A, UPC-E and a 2D Data Matrix (ECC 200,
+    square symbols, ASCII and base-256 encodation), each with its own encoder and no
+    dependency, inline SVG output — are also available outside a grid through
+    <code>renderBarcode(el, options)</code>, and inside a form through the <code>barcode</code>
+    display control, so a value draws pixel-identically on all three surfaces. An invalid
+    value for its symbology (bad characters, wrong length, a failed check digit) never
+    renders a code that would scan wrong: it shows a placeholder and warns once instead.</p>
+    <div class="example">
+      <p class="example__label">A standalone barcode, outside any grid, with every display option named</p>
+      <pre data-run="js" data-expect="SVG 200x60" data-covers="export:renderBarcode config:BarcodeOptions.type config:BarcodeOptions.value config:BarcodeOptions.width config:BarcodeOptions.height config:BarcodeOptions.moduleWidth config:BarcodeOptions.text config:BarcodeOptions.foreground config:BarcodeOptions.background config:BarcodeOptions.quietZone config:BarcodeOptions.print config:BarcodeOptions.checkDigit config:BarcodeTextOptions.show config:BarcodeTextOptions.position config:BarcodeTextOptions.align config:BarcodeTextOptions.margin config:BarcodeTextOptions.font"><code>const { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+const { renderBarcode } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+const { root } = createTestDom();
+
+<span class="kw">const</span> handle = renderBarcode(root, {
+  type: <span class="str">'code39'</span>, value: <span class="str">'LATTICE'</span>, width: 200, height: 60, moduleWidth: 0,
+  quietZone: 10, print: false, checkDigit: false,
+  foreground: <span class="str">'currentColor'</span>, background: <span class="kw">null</span>,
+  text: { show: <span class="kw">true</span>, position: <span class="str">'bottom'</span>, align: <span class="str">'center'</span>, margin: 2, font: <span class="str">'10px sans-serif'</span> },
+});
+<span class="kw">const</span> svg = root.children[0];
+<span class="kw">return</span> `${svg.tagName} ${svg.getAttribute(<span class="str">'width'</span>)}x${svg.getAttribute(<span class="str">'height'</span>)}`;</code></pre>
+    </div>
+    <div class="example">
+      <p class="example__label">A 2D Data Matrix, forcing a symbol size and an encodation scheme</p>
+      <pre data-run="js" data-expect="SVG square" data-covers="config:BarcodeOptions.size config:BarcodeOptions.encodation"><code>const { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+const { renderBarcode } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+const { root } = createTestDom();
+
+<span class="kw">const</span> handle = renderBarcode(root, {
+  type: <span class="str">'datamatrix'</span>, value: <span class="str">'LATTICE-DM'</span>, size: 16, encodation: <span class="str">'ascii'</span>, width: 120,
+  text: { show: <span class="kw">false</span> },
+});
+<span class="kw">const</span> svg = root.children[0];
+<span class="kw">const</span> [, , w, h] = svg.getAttribute(<span class="str">'viewBox'</span>).split(<span class="str">' '</span>);
+<span class="kw">return</span> w === h ? <span class="str">'SVG square'</span> : <span class="str">'SVG not square'</span>;</code></pre>
     </div>
     <p><strong>Editors</strong>, for <code>edit.editor</code>. Each column type already selects a
     sensible one, so naming an editor is for overriding that choice:</p>
@@ -16558,6 +16598,109 @@ const out = [
 form.destroy();
 return out;</code></pre>
 
+    <h3 id="listbox">The listbox control</h3>
+    <p>A <code>type: 'listbox'</code> item is a scrolling, virtualised option list. <code>selection</code> picks the interaction mode: <code>'single'</code> (the default, click or arrow selects), <code>'multiple'</code> (click replaces the selection, Ctrl/Cmd+click toggles, Shift+click spans a range, a touch tap toggles) or <code>'checkbox'</code> (a box per row plus a select-all row). <code>filter: true</code> adds a search box that narrows the rows by label and description without dropping an already-selected option it hides; <code>groupBy: true</code> buckets the options by their <code>group</code> field under sticky headers; <code>sort: 'asc' | 'desc'</code> orders the rows by label; <code>render(opt)</code> replaces a row's content. <code>height</code> (pixels) or <code>rows</code> (row count) sizes the viewport. <code>reorder: true</code> draws Move up/Move down buttons and accepts Alt+Arrow and drag, and the committed value becomes the full, reordered item array; <code>connect: '&lt;other item name&gt;'</code> links this list to another by name &mdash; a Move selected/Move all pair (and drag, either direction) move items between the two, and each side's value is simply the items it currently holds. <code>min</code>/<code>max</code> cap the selection count, like a multi <code>chips</code> item.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">selection</td><td class="desc"><code>'single'</code> (default), <code>'multiple'</code> or <code>'checkbox'</code>.</td></tr>
+          <tr><td class="sig">filter / groupBy / sort</td><td class="desc">A search box; sticky group headers from each option's <code>group</code>; label order <code>'asc'</code>/<code>'desc'</code>/<code>false</code>.</td></tr>
+          <tr><td class="sig">render(opt)</td><td class="desc">A custom row renderer, returning a DOM node or an HTML string (sanitised before insertion).</td></tr>
+          <tr><td class="sig">reorder / connect</td><td class="desc"><code>reorder: true</code> makes the value the full reordered item array; <code>connect: name</code> exchanges items with the list box of that name.</td></tr>
+          <tr><td class="sig">height / rows / min / max</td><td class="desc">The viewport size in pixels or rows; the selection-count floor/cap.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="listbox-live-example">Selection modes, filter, groups, sort, reorder and a connected pair, executed</h4>
+    <pre data-run="js" data-expect="Banana,Cherry|1|Fruit|asc:Apple,Banana,Cherry|R:Apple|Cherry,Apple,Banana|Pear|Apple,Cherry" data-covers="export:createForm config:FormItemConfig.selection config:FormItemConfig.filter config:FormItemConfig.groupBy config:FormItemConfig.sort config:FormItemConfig.render config:FormItemConfig.reorder config:FormItemConfig.connect config:FormItemConfig.height"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createForm } = await import('../packages/modules/form/index.js');
+
+const { document, root } = createTestDom();
+const click = (el, init) =&gt; el.dispatchEvent(new TestEvent('click', { bubbles: true, ...init }));
+
+// Multiple selection: Shift+click spans a range, values read in option order.
+const multiHost = document.createElement('div');
+root.appendChild(multiHost);
+const multiForm = createForm(multiHost, { rows: [
+  { type: 'listbox', name: 'fruit', label: 'Fruit', props: { selection: 'multiple' },
+    options: ['Apple', 'Banana', 'Cherry', 'Date'] },
+] });
+const fruitRows = multiHost.querySelectorAll('[role="option"]');
+click(fruitRows[1]);
+click(fruitRows[2], { shiftKey: true });
+const spanValue = multiForm.getItem('fruit').getValue().join(',');   <span class="cmt">// 'Banana,Cherry'</span>
+multiForm.destroy();
+
+// filter narrows the rows; groupBy buckets by the group field; sort orders labels.
+const groupHost = document.createElement('div');
+root.appendChild(groupHost);
+const groupForm = createForm(groupHost, { rows: [
+  { type: 'listbox', name: 'food', label: 'Food', props: { filter: true, groupBy: true, height: 120 },
+    options: [
+      { value: 'a', label: 'Apple', group: 'Fruit' },
+      { value: 'b', label: 'Banana', group: 'Fruit' },
+      { value: 'c', label: 'Carrot', group: 'Veg' },
+    ] },
+] });
+const filterInput = groupHost.querySelector('.lat-listbox__filter');
+filterInput.value = 'Ba';
+filterInput.dispatchEvent(new TestEvent('input', { bubbles: true }));
+const afterFilter = groupHost.querySelectorAll('[role="option"]').length;            <span class="cmt">// 1 &mdash; only 'Banana' matches</span>
+filterInput.value = '';
+filterInput.dispatchEvent(new TestEvent('input', { bubbles: true }));
+const groupName = groupHost.querySelector('.lat-listbox__group-header').textContent; <span class="cmt">// the first bucket's heading</span>
+groupForm.destroy();
+
+const sortHost = document.createElement('div');
+root.appendChild(sortHost);
+const sortForm = createForm(sortHost, { rows: [
+  { type: 'listbox', name: 'sorted', label: 'Sorted', props: { sort: 'asc' }, options: ['Cherry', 'Apple', 'Banana'] },
+] });
+const sortedLabels = [...sortHost.querySelectorAll('.lat-listbox__title')].map((n) => n.textContent).join(',');
+sortForm.destroy();
+
+// A custom render() hook replaces a row's content.
+const renderHost = document.createElement('div');
+root.appendChild(renderHost);
+const renderForm = createForm(renderHost, { rows: [
+  { type: 'listbox', name: 'tmpl', label: 'Templated', props: { render: (opt) => 'R:' + opt.label },
+    options: ['Apple'] },
+] });
+const rendered = renderHost.querySelector('[role="option"]').textContent;   <span class="cmt">// 'R:Apple'</span>
+renderForm.destroy();
+
+// reorder: true makes Move up change the committed item order.
+const orderHost = document.createElement('div');
+root.appendChild(orderHost);
+const orderForm = createForm(orderHost, { rows: [
+  { type: 'listbox', name: 'order', label: 'Order', props: { selection: 'multiple', reorder: true },
+    options: ['Apple', 'Banana', 'Cherry'] },
+] });
+click(orderHost.querySelectorAll('[role="option"]')[2]);
+const orderMoveUp = () => [...orderHost.querySelectorAll('.lat-listbox__toolbar-btn')].find((b) => b.textContent === 'Move up');
+click(orderMoveUp());
+click(orderMoveUp());
+const reordered = orderForm.getItem('order').getValue().join(','); <span class="cmt">// 'Cherry,Apple,Banana'</span>
+orderForm.destroy();
+
+// connect links two list boxes: Move selected exchanges items between them.
+const connectHost = document.createElement('div');
+root.appendChild(connectHost);
+const connectForm = createForm(connectHost, { rows: [
+  { type: 'listbox', name: 'available', label: 'Available', props: { selection: 'multiple', connect: 'chosen' },
+    options: ['Apple', 'Pear', 'Cherry'] },
+  { type: 'listbox', name: 'chosen', label: 'Chosen', props: { selection: 'multiple', connect: 'available' }, options: [] },
+] });
+const availableEl = connectForm.getItem('available').el;
+click(availableEl.querySelectorAll('[role="option"]')[1]);
+click([...availableEl.querySelectorAll('.lat-listbox__toolbar-btn')].find((b) => b.textContent === 'Move selected'));
+const chosenValue = connectForm.getItem('chosen').getValue().join(',');       <span class="cmt">// 'Pear' &mdash; moved across</span>
+const availableValue = connectForm.getItem('available').getValue().join(','); <span class="cmt">// 'Apple,Cherry' &mdash; what remains</span>
+connectForm.destroy();
+
+return [spanValue, afterFilter, groupName, 'asc:' + sortedLabels, rendered, reordered, chosenValue, availableValue].join('|');</code></pre>
+
     <h3 id="form-bind-live-example">Binding, dirty tracking, save, revert and conflict, executed</h3>
     <p class="section-note">A form bound to a grid row generates one item per column with the column's editor, follows the
     grid's density, marks an edited item dirty, saves once through the grid's edit path and reverts an unsaved edit; a
@@ -16909,6 +17052,82 @@ const native = [nativeRendered, nativeValue].join('|');
 form.destroy();
 return [started, committed, clicked, refused, accepted, clock, native].join('|');</code></pre>
 
+    <h3 id="form-daterange-example">A date range picker, executed</h3>
+    <p class="section-note">A <code>daterange</code> item stores <code>{ start, end }</code> ISO dates (or
+    <code>YYYY-MM</code> months with <code>granularity: 'month'</code>) in one field, and opens a two-month popup
+    where the first click sets the start, the second the end, a click before the start restarts, and hovering
+    previews the span. <code>min</code>/<code>max</code>, <code>minSpan</code>/<code>maxSpan</code> and
+    <code>disabledDates</code> fence the choice; <code>presets</code> draws a left-hand list (today, yesterday,
+    last 7/30 days, this/last month by default); <code>weekNumbers</code> adds the ISO week column and
+    <code>firstDay</code> shifts the header. Apply commits and Cancel restores by default;
+    <code>applyButton: false</code> commits on the second click. The two-click span, presets, limits and month
+    mode are asserted in real Chrome in <code>test/daterange-2255-browser.test.js</code>.</p>
+    <pre data-run="js" data-expect="2026-06-10|2026-06-15|2026-06-20|2026-06-22|2026-04-01|2026-06-30|2026-06-08|2026-06-10|true|true|true|2024-01|2024-03" data-covers="export:createForm method:form.getItem method:form.getValue method:form.destroy config:FormItemConfig.type config:FormItemConfig.name config:FormItemConfig.label config:FormItemConfig.value config:FormItemConfig.min config:FormItemConfig.max config:FormItemConfig.granularity config:FormItemConfig.presets config:FormItemConfig.minSpan config:FormItemConfig.maxSpan config:FormItemConfig.disabledDates config:FormItemConfig.weekNumbers config:FormItemConfig.firstDay config:FormItemConfig.applyButton"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createForm } = await import('../packages/modules/form/index.js');
+
+const { root } = createTestDom();
+const form = createForm(root, { rows: [
+  { type: 'daterange', name: 'range', label: 'Range', min: '2026-06-01', max: '2026-06-30', value: { start: '2026-06-01', end: '2026-06-30' } },
+  { type: 'daterange', name: 'quick', label: 'Quick', applyButton: false, value: { start: '2026-06-20', end: '2026-06-20' } },
+  { type: 'daterange', name: 'preset', label: 'Preset', presets: [{ label: 'Q2', range: ['2026-04-01', '2026-06-30'] }] },
+  { type: 'daterange', name: 'limited', label: 'Limited', minSpan: 2, maxSpan: 5, disabledDates: ['2026-06-05'], value: { start: '2026-06-08', end: '2026-06-10' } },
+  { type: 'daterange', name: 'weeks', label: 'Weeks', weekNumbers: true, firstDay: 1, value: { start: '2026-06-08', end: '2026-06-10' } },
+  { type: 'daterange', name: 'months', label: 'Months', granularity: 'month', value: { start: '2024-03', end: '2024-03' } },
+]});
+
+const clickDay = function (item, label) {
+  const day = [].slice.call(item.el.querySelectorAll('.lat-form__daterange-day'))
+    .find(function (b) { return b.textContent === label && !b.disabled; });
+  day.dispatchEvent(new TestEvent('click', { bubbles: true }));
+};
+const apply = function (item) {
+  item.el.querySelector('.lat-form__daterange-apply').dispatchEvent(new TestEvent('click', { bubbles: true }));
+};
+
+const range = form.getItem('range');
+range.el.querySelector('.lat-form__daterange-toggle').dispatchEvent(new TestEvent('click', { bubbles: true }));
+clickDay(range, '10');
+clickDay(range, '15');
+apply(range);
+const picked = form.getValue().range;
+
+const quick = form.getItem('quick');
+quick.el.querySelector('.lat-form__daterange-toggle').dispatchEvent(new TestEvent('click', { bubbles: true }));
+clickDay(quick, '20');
+clickDay(quick, '22');
+const quickValue = form.getValue().quick;
+
+const preset = form.getItem('preset');
+preset.el.querySelector('.lat-form__daterange-toggle').dispatchEvent(new TestEvent('click', { bubbles: true }));
+preset.el.querySelector('.lat-form__daterange-preset').dispatchEvent(new TestEvent('click', { bubbles: true }));
+apply(preset);
+const presetValue = form.getValue().preset;
+
+const limited = form.getItem('limited');
+limited.el.querySelector('.lat-form__daterange-toggle').dispatchEvent(new TestEvent('click', { bubbles: true }));
+const day5Disabled = [].slice.call(limited.el.querySelectorAll('.lat-form__daterange-day'))
+  .find(function (b) { return b.textContent === '5'; }).disabled;
+clickDay(limited, '8');
+clickDay(limited, '8');
+apply(limited);
+const limitedValue = form.getValue().limited;
+
+const weeks = form.getItem('weeks');
+weeks.el.querySelector('.lat-form__daterange-toggle').dispatchEvent(new TestEvent('click', { bubbles: true }));
+const weeknums = weeks.el.querySelectorAll('.lat-form__daterange-weeknum').length;
+const firstDayMonday = weeks.el.querySelector('.lat-form__daterange-grid').children[1].textContent === '1';
+
+const months = form.getItem('months');
+months.el.querySelector('.lat-form__daterange-toggle').dispatchEvent(new TestEvent('click', { bubbles: true }));
+const monthCells = [].slice.call(months.el.querySelectorAll('.lat-form__daterange-month'));
+monthCells[0].dispatchEvent(new TestEvent('click', { bubbles: true }));
+monthCells[2].dispatchEvent(new TestEvent('click', { bubbles: true }));
+apply(months);
+const monthsValue = form.getValue().months;
+
+form.destroy();
+return picked.start + '|' + picked.end + '|' + quickValue.start + '|' + quickValue.end + '|' + presetValue.start + '|' + presetValue.end + '|' + limitedValue.start + '|' + limitedValue.end + '|' + day5Disabled + '|' + (weeknums > 0) + '|' + firstDayMonday + '|' + monthsValue.start + '|' + monthsValue.end;</code></pre>
+
     <h3 id="form-number-example">A formatted number field, executed</h3>
     <p class="section-note">A <code>number</code> item edits the raw number and shows the grid's own
     <code>NumberFormat</code> while blurred — currency, percent and fixed decimals — so <code>getValue()</code> stays a
@@ -17160,6 +17379,160 @@ const poHasPicker = !!poPopover.querySelector('.lat-form__color-picker');   // t
 const poHasBack = !!poPopover.querySelector('.lat-form__color-back');      // false
 
 return [swatchCount, picked, closed, normalized, cleared, noGraySwatchCount, lockedReadOnly, poHasPicker, poHasBack].join('|');</code></pre>
+        <h3 id="speeddial">The speed dial control</h3>
+    <p>For a small set of primary actions the form also ships <code>createSpeedDial(el, config)</code>, the standalone
+    form of the <code>type: 'speeddial'</code> item: a round floating action button (FAB) anchored to a corner or edge of
+    its container &mdash; <code>position</code> is <code>top-left</code>, <code>top-center</code>, <code>top-right</code>,
+    <code>middle-left</code>, <code>middle-right</code>, <code>bottom-left</code>, <code>bottom-center</code> or
+    <code>bottom-right</code>, and <code>fixed: true</code> anchors it to the viewport instead. Pressing the FAB (or
+    hovering it with <code>openOnHover</code>) opens <code>items</code> &mdash; each <code>{ id, icon, text, disabled, render }</code>,
+    icon-only, text-only or both &mdash; as a linear strip whose <code>direction</code> is <code>up</code>, <code>down</code>,
+    <code>left</code>, <code>right</code> or <code>auto</code> (picked from <code>position</code>), or as a radial fan with
+    <code>mode: 'radial'</code> whose <code>radial</code> <code>startAngle</code>/<code>endAngle</code>/<code>offset</code>
+    default from <code>position</code>. <code>modal: true</code> paints a backdrop that swallows page clicks; a click on an
+    item fires <code>itemClick</code> once and closes, outside/Escape closes with focus back on the FAB, and the keyboard
+    model moves across items with the arrows (skipping disabled ones) and activates with Enter or Space. The FAB swaps
+    <code>openIcon</code>/<code>closeIcon</code>, may carry a <code>text</code> label, and takes one of seven theme
+    <code>variant</code>s; dark mode and RTL mirroring are built in. The menu is a <code>role="menu"</code> of
+    <code>role="menuitem"</code>s; the FAB is a <code>role="button"</code> with <code>aria-expanded</code> and
+    <code>aria-controls</code>.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">createSpeedDial(el, config?)</td><td class="desc">Create a standalone speed dial. <code>config</code> is the <code>SpeedDialConfig</code> options below. Returns <code>{ el, fab, menu, open, close, toggle, setItems, setDisabled, destroy }</code>.</td></tr>
+          <tr><td class="sig">item</td><td class="desc">A <code>type: 'speeddial'</code> item takes the same options (<code>position</code>, <code>fixed</code>, <code>openOnHover</code>, <code>direction</code>, <code>mode</code>, <code>radial</code>, <code>modal</code>, <code>openIcon</code>, <code>closeIcon</code>, <code>variant</code>, <code>disabled</code>) plus <code>items</code>; its <code>label</code> is the FAB text.</td></tr>
+          <tr><td class="sig">items</td><td class="desc">The actions, in order: each <code>{ id, icon, text, disabled, render }</code>. <code>icon</code> is a glyph name drawn as the real SVG (or a URL/element), <code>text</code> the label, <code>disabled</code> an action that shows but refuses a click, and <code>render(item, index)</code> replaces the item's own content.</td></tr>
+          <tr><td class="sig">position / fixed</td><td class="desc">The eight corner/edge anchor positions; <code>fixed: true</code> anchors the FAB to the viewport instead of the container, and the menu opens into the room side of the anchor.</td></tr>
+          <tr><td class="sig">direction / mode / radial</td><td class="desc">A linear strip's <code>direction</code> (<code>up</code>, <code>down</code>, <code>left</code>, <code>right</code>, <code>auto</code> &mdash; the default, resolved from <code>position</code>), or <code>mode: 'radial'</code> with <code>radial</code> <code>startAngle</code>, <code>endAngle</code> and <code>offset</code> (angles default from <code>position</code>).</td></tr>
+          <tr><td class="sig">modal / openOnHover</td><td class="desc"><code>modal: true</code> paints a backdrop that swallows page clicks until the menu closes; <code>openOnHover: true</code> opens on pointer enter and closes on pointer leave.</td></tr>
+          <tr><td class="sig">openIcon / closeIcon / text / variant</td><td class="desc">The FAB's closed/open icons (default <code>plus</code>/<code>close</code>), an optional FAB <code>text</code> label, and one of seven theme <code>variant</code>s: <code>primary</code> (default), <code>secondary</code>, <code>outline</code>, <code>info</code>, <code>success</code>, <code>warning</code>, <code>danger</code>.</td></tr>
+          <tr><td class="sig">open() / close() / toggle()</td><td class="desc">Drive the menu, emitting the matching <code>open</code>/<code>close</code> event on a real transition; <code>setItems(list)</code> replaces the actions, <code>setDisabled()</code> gates the FAB and <code>destroy()</code> tears it down.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="speeddial-example">A FAB with a text label, disabled actions, a modal backdrop and hover, executed</h4>
+    <pre data-run="js" data-expect="true|true|3|true|true|true|true|true|true|true|2|true|true|true|true|go:0|true" data-covers="export:createSpeedDial config:SpeedDialConfig.items config:SpeedDialConfig.position config:SpeedDialConfig.fixed config:SpeedDialConfig.openOnHover config:SpeedDialConfig.direction config:SpeedDialConfig.mode config:SpeedDialConfig.radial config:SpeedDialConfig.modal config:SpeedDialConfig.openIcon config:SpeedDialConfig.closeIcon config:SpeedDialConfig.text config:SpeedDialConfig.variant config:SpeedDialConfig.disabled method:speeddial.open method:speeddial.close method:speeddial.toggle method:speeddial.setItems method:speeddial.destroy"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createSpeedDial, createForm } = await import('../packages/modules/form/index.js');
+
+const { document, root } = createTestDom();
+
+// A standalone speed dial: a text FAB, three actions (the middle disabled),
+// a modal backdrop, opening a linear strip upward.
+const host = document.createElement('div');
+root.appendChild(host);
+const sd = createSpeedDial(host, {
+  items: [
+    { id: 'edit', icon: 'pencil', text: 'Edit' },
+    { id: 'share', icon: 'share', text: 'Share', disabled: true },
+    { id: 'trash', text: 'Delete' },
+  ],
+  position: 'bottom-right',
+  direction: 'up',
+  modal: true,
+  text: 'Actions',
+  openIcon: 'plus',
+  closeIcon: 'close',
+});
+const fabButton = sd.fab.tagName === 'BUTTON';                <span class="cmt">// true &mdash; the FAB is a real button</span>
+const fabIcon = !!sd.fab.querySelector('svg');                <span class="cmt">// true &mdash; a glyph SVG</span>
+const itemCount = sd.menu.querySelectorAll('.lat-speeddial__item').length;  <span class="cmt">// 3</span>
+const textOnly = sd.menu.querySelectorAll('.lat-speeddial__item')[2].getAttribute('data-text-only');  <span class="cmt">// 'true'</span>
+
+sd.open();
+const expanded = sd.fab.getAttribute('aria-expanded');        <span class="cmt">// 'true'</span>
+const menuShown = sd.menu.hidden === false;                   <span class="cmt">// true</span>
+const backdropShown = root.querySelector('.lat-speeddial__backdrop').hidden === false;  <span class="cmt">// true &mdash; modal backdrop</span>
+
+sd.toggle();
+const toggledClosed = sd.menu.hidden;                      <span class="cmt">// true &mdash; toggle closes the open menu</span>
+sd.toggle();
+
+// A click on an enabled item closes; a disabled item refuses.
+sd.menu.querySelectorAll('.lat-speeddial__item')[0].dispatchEvent(new TestEvent('click', { bubbles: true }));
+const closedAfterClick = sd.menu.hidden;                      <span class="cmt">// true</span>
+sd.open();
+sd.menu.querySelectorAll('.lat-speeddial__item')[1].dispatchEvent(new TestEvent('click', { bubbles: true }));
+const disabledIgnored = sd.menu.hidden === false;             <span class="cmt">// true</span>
+
+// setItems replaces the strip; destroy removes the root.
+sd.setItems([{ id: 'a', text: 'A' }, { id: 'b', text: 'B' }]);
+const afterSetItems = sd.menu.querySelectorAll('.lat-speeddial__item').length;  <span class="cmt">// 2</span>
+sd.destroy();
+const destroyed = sd.el.parentNode === null;                  <span class="cmt">// true</span>
+
+// A form item: label is the FAB text, hover opens, Escape closes and returns
+// focus; itemClick reports the activated action once.
+const form = createForm(root, { rows: [{
+  type: 'speeddial', name: 'fab', label: 'More', position: 'top-left',
+  fixed: true, openOnHover: true, mode: 'linear', modal: true,
+  variant: 'danger', openIcon: 'plus', closeIcon: 'close',
+  radial: { startAngle: 0, endAngle: 90, offset: 64 },
+  items: [{ id: 'go', text: 'Go' }],
+}] });
+const item = form.getItem('fab');
+const fab = item.el.querySelector('.lat-speeddial__fab');
+const clicks = [];
+form.on('itemClick', (e) =&gt; clicks.push(e.item.id + ':' + e.index));
+
+fab.dispatchEvent(new TestEvent('pointerenter', { bubbles: true }));
+const hoverOpened = fab.getAttribute('aria-expanded') === 'true';  <span class="cmt">// true</span>
+fab.dispatchEvent(new TestEvent('keydown', { key: 'Escape', bubbles: true }));
+const escapeClosed = fab.getAttribute('aria-expanded') === 'false';  <span class="cmt">// true</span>
+const focusReturned = document.activeElement === fab;        <span class="cmt">// true &mdash; focus back on the FAB</span>
+
+fab.dispatchEvent(new TestEvent('click', { bubbles: true }));
+item.el.querySelector('.lat-speeddial__item').dispatchEvent(new TestEvent('click', { bubbles: true }));
+const itemClickReported = clicks.join(',');                   <span class="cmt">// 'go:0'</span>
+const closedAfterFormItem = fab.getAttribute('aria-expanded') === 'false';  <span class="cmt">// true</span>
+
+return [fabButton, fabIcon, itemCount, textOnly, expanded, menuShown, backdropShown, toggledClosed, closedAfterClick, disabledIgnored, afterSetItems, destroyed, hoverOpened, escapeClosed, focusReturned, itemClickReported, closedAfterFormItem].join('|');</code></pre>
+    <h3 id="form-toggle-example">A toggle switch with ON/OFF text, size, variant and label position, executed</h3>
+    <p class="section-note">A <code>toggle</code> item's <code>onLabel</code>/<code>offLabel</code> draw short text inside the
+    track by default or beside it per <code>props.labelPosition</code>; <code>size</code> scales the switch from the
+    density tokens, <code>variant</code> picks <code>round</code>, <code>square</code> or <code>slim</code>, the state
+    label swaps with the checked state and repaints on a silent <code>setValue</code>, and a toggle with none of the
+    options still renders the bare switch &mdash; with the real Chrome geometry, keyboard model, read-only/disabled
+    behaviour and the light/dark label contrast asserted in <code>test/form-toggle-2257-browser.test.js</code>.</p>
+    <pre data-run="js" data-expect="ON|OFF|false|ON|1|small|slim|square|after|inside|true" data-covers="export:createForm method:form.getItem method:form.getValue method:form.setValue method:form.on config:FormItemConfig.onLabel config:FormItemConfig.offLabel config:FormItemConfig.size config:FormItemConfig.variant"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createForm } = await import('../packages/modules/form/index.js');
+
+const { root } = createTestDom();
+const form = createForm(root, { rows: [
+  { type: 'toggle', name: 'auto', label: 'Auto', value: true, onLabel: 'ON', offLabel: 'OFF' },
+  { type: 'toggle', name: 'lean', label: 'Lean', value: false, onLabel: '1', offLabel: '0', size: 'small', variant: 'slim' },
+  { type: 'toggle', name: 'square', label: 'Square', value: true, variant: 'square', onLabel: 'Yes', offLabel: 'No', props: { labelPosition: 'after' } },
+  { type: 'toggle', name: 'plain', label: 'Plain', value: true },
+] });
+
+const autoField = form.getItem('auto').el.querySelector('.lat-form__toggle-field');
+const autoInput = autoField.querySelector('input');
+const autoLabel = autoField.querySelector('.lat-form__toggle-label');
+const onText = autoLabel.textContent;                    // 'ON' — the checked state
+const insidePosition = autoField.getAttribute('data-label-position');  // 'inside'
+
+let changes = 0;
+form.on('change', () => { changes += 1; });
+autoInput.checked = false;
+autoInput.dispatchEvent(new TestEvent('change', { bubbles: true }));
+const offText = autoLabel.textContent;                   // 'OFF' — swapped by the committed edit
+const committed = form.getValue().auto;                  // false
+
+form.setValue({ auto: true });                           // silent write repaints the label
+const resetText = autoLabel.textContent;                 // 'ON'
+
+const lean = form.getItem('lean').el.querySelector('input');
+const leanSize = lean.getAttribute('data-size');         // 'small'
+const leanVariant = lean.getAttribute('data-variant');   // 'slim'
+
+const squareField = form.getItem('square').el.querySelector('.lat-form__toggle-field');
+const squareVariant = squareField.querySelector('input').getAttribute('data-variant');      // 'square'
+const squarePosition = squareField.getAttribute('data-label-position');                     // 'after'
+
+const plain = form.getItem('plain').el;
+const bare = !plain.querySelector('.lat-form__toggle-field');   // true — no label, no wrapper
+
+return [onText, offText, committed, resetText, changes, leanSize, leanVariant, squareVariant, squarePosition, insidePosition, bare].join('|');</code></pre>
     <h3 id="form-password-otp-example">Password reveal and one-time-code entry, executed</h3>
     <p class="section-note">A <code>password</code> input's reveal button renders inside the field with its catalogue name and
     <code>aria-pressed</code>, and <code>reveal: false</code> drops it; an <code>otp</code> item renders <code>length</code>
@@ -31801,6 +32174,28 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-FormDateRangeValue">FormDateRangeValue</h4>
+    <p class="section-note">The committed value of a `daterange` item (BACKLOG-0002255).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">start</td><td class="type">string | null</td><td class="desc">The range start, an ISO `YYYY-MM-DD` day (or `YYYY-MM` month in month mode) or null.</td></tr>
+          <tr><td class="name">end</td><td class="type">string | null</td><td class="desc">The range end, an ISO `YYYY-MM-DD` day (or `YYYY-MM` month in month mode) or null.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-FormDateRangePreset">FormDateRangePreset</h4>
+    <p class="section-note">One preset of a `daterange` item's left-hand list (BACKLOG-0002255).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The preset's label.</td></tr>
+          <tr><td class="name">range</td><td class="type">[string, string] | ((today: Date) =&gt; [string, string])</td><td class="desc">The range as a literal `[start, end]` pair, or a function of the current `today` Date returning one.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-FormOption">FormOption</h4>
     <p class="section-note">One choice of a `select`, `radiogroup` or `checkboxgroup` item (BACKLOG-0002142). A `select` option may also carry an icon, an avatar, a second line, a colour, a status dot and a disabled flag (BACKLOG-0002168, BACKLOG-0002180, BACKLOG-0002201).</p>
     <div class="table-wrap">
@@ -31815,6 +32210,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">dot</td><td class="type">string</td><td class="desc">A colour that draws a small filled circle before the label instead of an icon or avatar, with no letter (BACKLOG-0002201). <small>(optional)</small></td></tr>
           <tr><td class="name">description</td><td class="type">string</td><td class="desc">The option's second line, shown under the label in a `select` (BACKLOG-0002168). <small>(optional)</small></td></tr>
           <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc">Whether the option is shown but not selectable (BACKLOG-0002168). <small>(optional)</small></td></tr>
+          <tr><td class="name">group</td><td class="type">string</td><td class="desc">The sticky group header a `listbox` item's `groupBy` buckets this option under (BACKLOG-0002256). <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -31933,12 +32329,12 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       </table>
     </div>
     <h4 id="type-FormItemConfig">FormItemConfig</h4>
-    <p class="section-note">One form item: a control (`input`, `number`, `textarea`, `checkbox`, `button`, `combo`, `select`, `radiogroup`, `checkboxgroup`, `toggle`, `datepicker`, `file`, `richtext`, `rating`, `stage`, `chips`, `otp`, `color`) or the read-only `text` display, with the per-item options.</p>
+    <p class="section-note">One form item: a control (`input`, `number`, `textarea`, `checkbox`, `button`, `combo`, `select`, `radiogroup`, `checkboxgroup`, `toggle`, `datepicker`, `daterange`, `file`, `richtext`, `rating`, `stage`, `chips`, `otp`, `color`, `listbox`) or the read-only `text` display, with the per-item options.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">props</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">A control's own settings bag. A custom control registered with `registerControl` reads its settings from `item.props` in `create()`; any top-level key the form does not recognise joins the same bag (BACKLOG-0002259). <small>(optional)</small></td></tr>
+          <tr><td class="name">props</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">A control's own settings bag. A custom control registered with `registerControl` reads its settings from `item.props` in `create()`; any top-level key the form does not recognise joins the same bag (BACKLOG-0002259). A `toggle` item's `labelPosition` — `'inside'` (default), `'before'` or `'after'` — lives here, because the top-level `labelPosition` already means the item label's side (BACKLOG-0002257). <small>(optional)</small></td></tr>
           <tr><td class="name">type</td><td class="type">string</td><td class="desc">The control type — a built-in or a type registered with `registerControl`. Defaults to `input`. <small>(optional)</small></td></tr>
           <tr><td class="name">name</td><td class="type">string</td><td class="desc">The item's name, for `getItem(name)` and `getValue()`/`setValue()`. <small>(optional)</small></td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc">The label text, associated to the control for screen readers. <small>(optional)</small></td></tr>
@@ -31964,7 +32360,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">subtype</td><td class="type"><a href="#type-FormInputSubtype">FormInputSubtype</a> <small class="literals">'text' | 'email' | 'password' | 'url'</small></td><td class="desc">The native input subtype for an `input` item. <small>(optional)</small></td></tr>
           <tr><td class="name">reveal</td><td class="type">boolean</td><td class="desc">Show the reveal button inside a `password` input (default true); `false` turns it off. <small>(optional)</small></td></tr>
           <tr><td class="name">length</td><td class="type">number</td><td class="desc">The box count of an `otp` item (default 6). <small>(optional)</small></td></tr>
-          <tr><td class="name">mode</td><td class="type">'numeric' | 'alphanumeric' | <a href="#type-FormPickerMode">FormPickerMode</a> | <a href="#type-FormColorMode">FormColorMode</a></td><td class="desc">The `otp` characters — `numeric` (default) or `alphanumeric` — the `datepicker` mode: `date`, `date-time` or `time` (BACKLOG-0002142) — or the `color` item's opening popover view (BACKLOG-0002252). <small>(optional)</small></td></tr>
+          <tr><td class="name">mode</td><td class="type">'numeric' | 'alphanumeric' | <a href="#type-FormPickerMode">FormPickerMode</a> | <a href="#type-FormColorMode">FormColorMode</a> | 'linear' | 'radial'</td><td class="desc">The `otp` characters — `numeric` (default) or `alphanumeric` — the `datepicker` mode: `date`, `date-time` or `time` (BACKLOG-0002142) — the `color` item's opening popover view (BACKLOG-0002252) — or the `speeddial` item's menu shape: `linear` (default) or `radial` (BACKLOG-0002253). <small>(optional)</small></td></tr>
           <tr><td class="name">mask</td><td class="type">boolean</td><td class="desc">Hide each `otp` box's glyph with the password disc. <small>(optional)</small></td></tr>
           <tr><td class="name">step</td><td class="type">number</td><td class="desc">The number step, for a `number` item. <small>(optional)</small></td></tr>
           <tr><td class="name">format</td><td class="type"><a href="#type-NumberFormat">NumberFormat</a> | string</td><td class="desc">The number format a `number` item displays when blurred, the same shape a grid number column takes — a `NumberFormat` spec (which may name `pattern`) or a bare pattern string like `'#,##0.00'` (BACKLOG-0002176, BACKLOG-0002181). The value stays a number; only the display is formatted. <small>(optional)</small></td></tr>
@@ -31984,15 +32380,30 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">nullDisplay</td><td class="type">string</td><td class="desc">Text for a null or non-finite unit value, empty by default (BACKLOG-0002182). <small>(optional)</small></td></tr>
           <tr><td class="name">scale</td><td class="type">string</td><td class="desc">Makes a `number` item a temperature field, in this scale (`'C'`, `'F'`, `'K'` or `'R'`); conversion is affine, so `212 °F` into a Celsius field stores `100` (BACKLOG-0002182). <small>(optional)</small></td></tr>
           <tr><td class="name">unitPicker</td><td class="type">boolean</td><td class="desc">Show a compact unit selector inside the field that changes only the display unit, never the committed value (BACKLOG-0002182). <small>(optional)</small></td></tr>
-          <tr><td class="name">min</td><td class="type">number | string</td><td class="desc">The minimum — a number for `number` and a multi `chips` selection count, an ISO string for `datepicker` (BACKLOG-0002142). <small>(optional)</small></td></tr>
-          <tr><td class="name">max</td><td class="type">number | string</td><td class="desc">The maximum — a number for `number` and a multi `chips` selection count, an ISO string for `datepicker` (BACKLOG-0002142). <small>(optional)</small></td></tr>
-          <tr><td class="name">rows</td><td class="type">number</td><td class="desc">The visible rows, for a `textarea` item. <small>(optional)</small></td></tr>
-          <tr><td class="name">options</td><td class="type">(string | <a href="#type-FormOption">FormOption</a> | <a href="#type-FormOptionGroup">FormOptionGroup</a> | <a href="#type-FormChipOption">FormChipOption</a>)[]</td><td class="desc">The choices of a `select`, `radiogroup` or `checkboxgroup` item: strings, `{ value, label }` objects (BACKLOG-0002142), or `{ label, options }` groups (BACKLOG-0002168); or the selectable options of a `chips` item (`{ value, label, icon?, disabled? }` entries) (BACKLOG-0002142). <small>(optional)</small></td></tr>
+          <tr><td class="name">min</td><td class="type">number | string</td><td class="desc">The minimum — a number for `number`, a multi `chips`/`listbox` selection count (BACKLOG-0002256), an ISO string for `datepicker` (BACKLOG-0002142) and `daterange` (BACKLOG-0002255). <small>(optional)</small></td></tr>
+          <tr><td class="name">max</td><td class="type">number | string</td><td class="desc">The maximum — a number for `number`, a multi `chips`/`listbox` selection count (BACKLOG-0002256), an ISO string for `datepicker` (BACKLOG-0002142) and `daterange` (BACKLOG-0002255). <small>(optional)</small></td></tr>
+          <tr><td class="name">rows</td><td class="type">number</td><td class="desc">The visible rows, for a `textarea` item, or a `listbox` item's viewport height in option rows (default 8) (BACKLOG-0002256). <small>(optional)</small></td></tr>
+          <tr><td class="name">options</td><td class="type">(string | <a href="#type-FormOption">FormOption</a> | <a href="#type-FormOptionGroup">FormOptionGroup</a> | <a href="#type-FormChipOption">FormChipOption</a>)[]</td><td class="desc">The choices of a `select`, `radiogroup`, `checkboxgroup` or `listbox` item: strings, `{ value, label }` objects (BACKLOG-0002142), or `{ label, options }` groups (BACKLOG-0002168); or the selectable options of a `chips` item (`{ value, label, icon?, disabled? }` entries) (BACKLOG-0002142). <small>(optional)</small></td></tr>
+          <tr><td class="name">selection</td><td class="type">'single' | 'multiple' | 'checkbox'</td><td class="desc">A `listbox` item's selection mode: `'single'` (default), `'multiple'` (Ctrl/Shift and touch-tap selection) or `'checkbox'` (a box per row plus a select-all row) (BACKLOG-0002256). <small>(optional)</small></td></tr>
+          <tr><td class="name">filter</td><td class="type">boolean</td><td class="desc">Add a search box to a `listbox` item that narrows its rows by label and description, without dropping an already-selected option it hides (BACKLOG-0002256). <small>(optional)</small></td></tr>
+          <tr><td class="name">groupBy</td><td class="type">boolean</td><td class="desc">Bucket a `listbox` item's options by their `group` field under sticky headers (BACKLOG-0002256). <small>(optional)</small></td></tr>
+          <tr><td class="name">sort</td><td class="type">'asc' | 'desc' | false</td><td class="desc">Order a `listbox` item's options by label: `'asc'`, `'desc'`, or `false` (default) to keep the configured order (BACKLOG-0002256). <small>(optional)</small></td></tr>
+          <tr><td class="name">reorder</td><td class="type">boolean</td><td class="desc">Let a `listbox` item's rows be moved by drag, by Move up/down toolbar buttons and by Alt+Arrow; the committed value becomes the full, reordered item array (BACKLOG-0002256). <small>(optional)</small></td></tr>
+          <tr><td class="name">connect</td><td class="type">string</td><td class="desc">The name of another `listbox` item this one exchanges items with via drag and the Move selected/Move all toolbar buttons; each side's value is the items it currently holds (BACKLOG-0002256). <small>(optional)</small></td></tr>
+          <tr><td class="name">height</td><td class="type">number</td><td class="desc">A `listbox` item's viewport height in pixels, overriding `rows` (BACKLOG-0002256). <small>(optional)</small></td></tr>
           <tr><td class="name">orientation</td><td class="type">'vertical' | 'horizontal'</td><td class="desc">Lay a `radiogroup` or `checkboxgroup`'s options out vertically (the default) or on one wrapping horizontal line. <small>(optional)</small></td></tr>
           <tr><td class="name">columns</td><td class="type">number</td><td class="desc">Lay a `radiogroup` or `checkboxgroup`'s options out in this many columns, read across then down. <small>(optional)</small></td></tr>
           <tr><td class="name">native</td><td class="type">boolean</td><td class="desc">Keep the native `&lt;select&gt;` element rather than the rendered trigger and listbox (BACKLOG-0002168). <small>(optional)</small></td></tr>
           <tr><td class="name">locale</td><td class="type">string</td><td class="desc">The locale the `datepicker` formats month/weekday names in, and the `number` item's format and typed-input separators resolve against; the viewer's when omitted (BACKLOG-0002142). <small>(optional)</small></td></tr>
           <tr><td class="name">timeZone</td><td class="type">string</td><td class="desc">The timeZone the `datepicker` reads a Date/epoch value in, like the grid's date columns (BACKLOG-0002142). <small>(optional)</small></td></tr>
+          <tr><td class="name">granularity</td><td class="type"><a href="#type-FormDateRangeGranularity">FormDateRangeGranularity</a> <small class="literals">'day' | 'month'</small></td><td class="desc">The `daterange` granularity: `day` (default) or `month` — a year-month range picker of two years of twelve month cells (BACKLOG-0002255). <small>(optional)</small></td></tr>
+          <tr><td class="name">presets</td><td class="type">false | <a href="#type-FormDateRangePreset">FormDateRangePreset</a>[]</td><td class="desc">The `daterange` presets drawn on the left of the popup: an explicit list, `false` to hide, or omitted for the defaults (today, yesterday, last 7 days, last 30 days, this month, last month) (BACKLOG-0002255). <small>(optional)</small></td></tr>
+          <tr><td class="name">minSpan</td><td class="type">number</td><td class="desc">The `daterange` fewest days (or months in month mode) a range may span (BACKLOG-0002255). <small>(optional)</small></td></tr>
+          <tr><td class="name">maxSpan</td><td class="type">number</td><td class="desc">The `daterange` most days (or months in month mode) a range may span (BACKLOG-0002255). <small>(optional)</small></td></tr>
+          <tr><td class="name">disabledDates</td><td class="type">string[] | ((iso: string) =&gt; boolean)</td><td class="desc">The `daterange` days/months that may not be picked: an ISO string list or a function `(iso) =&gt; boolean` (BACKLOG-0002255). <small>(optional)</small></td></tr>
+          <tr><td class="name">weekNumbers</td><td class="type">boolean</td><td class="desc">Add an ISO week-number column to the `daterange` grid (default false) (BACKLOG-0002255). <small>(optional)</small></td></tr>
+          <tr><td class="name">firstDay</td><td class="type">number</td><td class="desc">The `daterange` first weekday column (0 = Sunday); the locale's week info when omitted (BACKLOG-0002255). <small>(optional)</small></td></tr>
+          <tr><td class="name">applyButton</td><td class="type">boolean</td><td class="desc">Show Apply/Cancel on the `daterange` popup so nothing commits until Apply (default true); `false` commits on the second pick (BACKLOG-0002255). <small>(optional)</small></td></tr>
           <tr><td class="name">text</td><td class="type">string</td><td class="desc">Shorthand for a read-only `text` display. <small>(optional)</small></td></tr>
           <tr><td class="name">visibleWhen</td><td class="type"><a href="#type-FormRule">FormRule</a></td><td class="desc">A rule that hides the item when it evaluates false. <small>(optional)</small></td></tr>
           <tr><td class="name">readOnlyWhen</td><td class="type"><a href="#type-FormRule">FormRule</a></td><td class="desc">A rule that makes the item read-only when it evaluates true. <small>(optional)</small></td></tr>
@@ -32020,9 +32431,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">icons</td><td class="type">{ filled?: string; empty?: string }</td><td class="desc">The filled and empty glyph names for a `rating` item. <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">string[]</td><td class="desc">One label per rating icon, for the `title` and the announced value. <small>(optional)</small></td></tr>
           <tr><td class="name">showValue</td><td class="type">boolean</td><td class="desc">Show the numeric value beside a `rating` item. <small>(optional)</small></td></tr>
-          <tr><td class="name">size</td><td class="type">'sm' | 'md' | 'lg'</td><td class="desc">The size of a `rating` item or `button`: `sm`, `md` (default) or `lg`. <small>(optional)</small></td></tr>
+          <tr><td class="name">size</td><td class="type">'sm' | 'md' | 'lg' | 'small' | 'default' | 'large'</td><td class="desc">The size of a `rating` item or `button`: `sm`, `md` (default) or `lg` — or a `toggle` item's `small`, `default` or `large` (BACKLOG-0002257). <small>(optional)</small></td></tr>
           <tr><td class="name">iconPosition</td><td class="type">'start' | 'end'</td><td class="desc">Where a `button`'s icon sits: `start` (default) or `end`. <small>(optional)</small></td></tr>
-          <tr><td class="name">variant</td><td class="type"><a href="#type-FormButtonVariant">FormButtonVariant</a> <small class="literals">'primary' | 'secondary' | 'tonal' | 'outline' | 'text' | 'danger'</small></td><td class="desc">A `button`'s visual weight: theme-token colours, light and dark. Defaults to `secondary`. <small>(optional)</small></td></tr>
+          <tr><td class="name">variant</td><td class="type"><a href="#type-FormButtonVariant">FormButtonVariant</a> | 'round' | 'square' | 'slim'</td><td class="desc">A `button`'s visual weight: theme-token colours, light and dark. Defaults to `secondary` — or a `toggle` item's track shape: `round` (default), `square` or `slim` (BACKLOG-0002257). <small>(optional)</small></td></tr>
+          <tr><td class="name">onLabel</td><td class="type">string</td><td class="desc">A `toggle` item's ON-state label text, drawn inside the track or beside it per `props.labelPosition` (BACKLOG-0002257). <small>(optional)</small></td></tr>
+          <tr><td class="name">offLabel</td><td class="type">string</td><td class="desc">A `toggle` item's OFF-state label text (BACKLOG-0002257). <small>(optional)</small></td></tr>
           <tr><td class="name">fullWidth</td><td class="type">boolean</td><td class="desc">Make a `button` span the full form width. <small>(optional)</small></td></tr>
           <tr><td class="name">textTransform</td><td class="type">'none' | 'uppercase'</td><td class="desc">A `button`'s text case: `none` (default) or `uppercase`. <small>(optional)</small></td></tr>
           <tr><td class="name">buttonType</td><td class="type">'button' | 'submit' | 'reset'</td><td class="desc">A `button`'s native type: `button`, `submit` (validates first, then fires `submit` with the values only when valid) or `reset` (clears the form). <small>(optional)</small></td></tr>
@@ -32045,7 +32458,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">customColors</td><td class="type">string[]</td><td class="desc">A `color` item's custom-colours row to start with — extended, newest first and deduplicated to at most ten, by every colour picked in the picker view (BACKLOG-0002252). <small>(optional)</small></td></tr>
           <tr><td class="name">pickerOnly</td><td class="type">boolean</td><td class="desc">Remove a `color` item's palette view, leaving only the picker (BACKLOG-0002252). <small>(optional)</small></td></tr>
           <tr><td class="name">editable</td><td class="type">boolean</td><td class="desc">Let a `color` item's text part be typed into (default true); `false` makes it read-only, so only the popover sets the value (BACKLOG-0002252). <small>(optional)</small></td></tr>
-          <tr><td class="name">clearable</td><td class="type">boolean</td><td class="desc">Show a `color` item's clear control, setting the value to `null` (BACKLOG-0002252). <small>(optional)</small></td></tr>
+          <tr><td class="name">clearable</td><td class="type">boolean</td><td class="desc">Show a `color` item's clear control, setting the value to `null` (BACKLOG-0002252), or a `daterange` item's clear control, setting the value to a null/null pair (BACKLOG-0002255). <small>(optional)</small></td></tr>
           <tr><td class="name">[key: string]</td><td class="type">unknown</td><td class="desc">Extra per-control options, kept for later controls.</td></tr>
         </tbody>
       </table>
@@ -32054,6 +32467,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
+          <tr><td class="name">render</td><td class="type">(option: <a href="#type-FormOption">FormOption</a>) =&gt; Node | string</td><td class="desc"><code>option: <a href="#type-FormOption">FormOption</a></code></td><td class="type"><code>=&gt; Node | string</code></td><td class="desc">A custom row renderer for a `listbox`/`select`/`combo` option, returning a DOM node or an HTML string (sanitised before insertion). <small>(optional)</small></td></tr>
           <tr><td class="name">upload</td><td class="type">(file: File, opts: { onProgress: (pct: number) =&gt; void; signal?: AbortSignal }) =&gt; void | Promise&lt;void&gt;</td><td class="desc"><code>file: File</code><br><code>opts: { onProgress: (pct: number) =&gt; void; signal?: AbortSignal }</code></td><td class="type"><code>=&gt; void | Promise&lt;void&gt;</code></td><td class="desc">The host upload callback for a `file` item: `(file, { onProgress, signal }) =&gt; void | Promise&lt;void&gt;`. <small>(optional)</small></td></tr>
           <tr><td class="name">onImage</td><td class="type">(file: File) =&gt; Promise&lt;string&gt; | string</td><td class="desc"><code>file: File</code></td><td class="type"><code>=&gt; Promise&lt;string&gt; | string</code></td><td class="desc">A host callback returning a source URL for an inserted image. <small>(optional)</small></td></tr>
         </tbody>
@@ -32203,6 +32617,28 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-SpeedDialConfig">SpeedDialConfig</h4>
+    <p class="section-note">The `type: 'speeddial'` item options, and the standalone `createSpeedDial` options (BACKLOG-0002253).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">items</td><td class="type"><a href="#type-SpeedDialItem">SpeedDialItem</a>[]</td><td class="desc">The actions the menu shows. <small>(optional)</small></td></tr>
+          <tr><td class="name">position</td><td class="type"><a href="#type-FormSpeedDialPosition">FormSpeedDialPosition</a> <small class="literals">'top-left' | 'top-center' | 'top-right' | 'middle-left' | 'middle-right' | 'bottom-left' | 'bottom-center' | 'bottom-right'</small></td><td class="desc">The corner or edge the FAB anchors to: `top-left`, `top-center`, `top-right`, `middle-left`, `middle-right`, `bottom-left`, `bottom-center`, `bottom-right`. Default `bottom-right`. <small>(optional)</small></td></tr>
+          <tr><td class="name">fixed</td><td class="type">boolean</td><td class="desc">Anchor the FAB to the viewport instead of its container. <small>(optional)</small></td></tr>
+          <tr><td class="name">openOnHover</td><td class="type">boolean</td><td class="desc">Open the menu on pointer hover and close it on leave. <small>(optional)</small></td></tr>
+          <tr><td class="name">direction</td><td class="type"><a href="#type-FormSpeedDialDirection">FormSpeedDialDirection</a> <small class="literals">'up' | 'down' | 'left' | 'right' | 'auto'</small></td><td class="desc">The way the strip opens: `up`, `down`, `left`, `right`, or `auto` (default — into the container's room side). <small>(optional)</small></td></tr>
+          <tr><td class="name">mode</td><td class="type">'linear' | 'radial'</td><td class="desc">The menu shape: `linear` (default) or `radial`. <small>(optional)</small></td></tr>
+          <tr><td class="name">radial</td><td class="type">{ startAngle?: number; endAngle?: number; offset?: number }</td><td class="desc">The radial fan — its start and end angles (degrees, defaulting from `position`) and its radius `offset` in pixels. <small>(optional)</small></td></tr>
+          <tr><td class="name">modal</td><td class="type">boolean</td><td class="desc">Paint a backdrop behind the open menu that swallows page clicks. <small>(optional)</small></td></tr>
+          <tr><td class="name">openIcon</td><td class="type"><a href="#type-IconName">IconName</a> | string | Node</td><td class="desc">The FAB's closed-state icon (default `plus`). <small>(optional)</small></td></tr>
+          <tr><td class="name">closeIcon</td><td class="type"><a href="#type-IconName">IconName</a> | string | Node</td><td class="desc">The FAB's open-state icon (default `close`). <small>(optional)</small></td></tr>
+          <tr><td class="name">text</td><td class="type">string</td><td class="desc">An optional label on the FAB. <small>(optional)</small></td></tr>
+          <tr><td class="name">variant</td><td class="type"><a href="#type-FormSpeedDialVariant">FormSpeedDialVariant</a> <small class="literals">'primary' | 'secondary' | 'outline' | 'info' | 'success' | 'warning' | 'danger'</small></td><td class="desc">The FAB's colour: `primary` (default), `secondary`, `outline`, `info`, `success`, `warning` or `danger`. <small>(optional)</small></td></tr>
+          <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc">Start disabled. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-FormEventPayloads">FormEventPayloads</h4>
     <p class="section-note">What a handler receives, per form event.</p>
     <div class="table-wrap">
@@ -32218,6 +32654,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">validated</td><td class="type"><a href="#type-FormValidatedEvent">FormValidatedEvent</a></td><td class="desc">A validation run, item or whole form, with its failures.</td></tr>
           <tr><td class="name">complete</td><td class="type">FormCompleteEvent</td><td class="desc">Every box of an `otp` item is now filled.</td></tr>
           <tr><td class="name">customColorsChange</td><td class="type"><a href="#type-FormColorCustomColorsEvent">FormColorCustomColorsEvent</a></td><td class="desc">A `color` item's custom-colours row, extended.</td></tr>
+          <tr><td class="name">open</td><td class="type">FormSpeedDialOpenEvent</td><td class="desc">A `speeddial` FAB's menu opened.</td></tr>
+          <tr><td class="name">close</td><td class="type">FormSpeedDialCloseEvent</td><td class="desc">A `speeddial` FAB's menu closed.</td></tr>
+          <tr><td class="name">itemClick</td><td class="type"><a href="#type-FormSpeedDialItemClickEvent">FormSpeedDialItemClickEvent</a></td><td class="desc">A `speeddial` menu action was activated.</td></tr>
         </tbody>
       </table>
     </div>
@@ -32251,6 +32690,17 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">colors</td><td class="type">string[]</td><td class="desc">The custom-colours list after the addition — newest first, deduplicated, at most ten entries.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-FormSpeedDialItemClickEvent">FormSpeedDialItemClickEvent</h4>
+    <p class="section-note">An `itemClick` payload: a `speeddial` menu action was activated (BACKLOG-0002253).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">item</td><td class="type"><a href="#type-SpeedDialItem">SpeedDialItem</a></td><td class="desc">The action that was activated.</td></tr>
+          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The action's index in the `items` list.</td></tr>
         </tbody>
       </table>
     </div>
@@ -32392,6 +32842,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">validated</td><td class="desc">One or more items were validated, with the failures.</td><td class="type"><a href="#type-FormValidatedEvent">FormValidatedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">complete</td><td class="desc">Every box of an `otp` item is now filled.</td><td class="type">FormCompleteEvent</td><td class="desc">&mdash;</td></tr>
           <tr><td class="name">customColorsChange</td><td class="desc">A `color` item's custom-colours row gained a newly picked colour (BACKLOG-0002252).</td><td class="type"><a href="#type-FormColorCustomColorsEvent">FormColorCustomColorsEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">open</td><td class="desc">A `speeddial` FAB's menu opened (BACKLOG-0002253).</td><td class="type">FormSpeedDialOpenEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">close</td><td class="desc">A `speeddial` FAB's menu closed (BACKLOG-0002253).</td><td class="type">FormSpeedDialCloseEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">itemClick</td><td class="desc">A `speeddial` menu action was activated (BACKLOG-0002253).</td><td class="type"><a href="#type-FormSpeedDialItemClickEvent">FormSpeedDialItemClickEvent</a></td><td class="desc">no</td></tr>
         </tbody>
       </table>
     </div>
@@ -32537,6 +32990,34 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       </table>
     </div>
     <h5 id="type-Combo-events">Events</h5>
+    <p class="section-note">No events.</p>
+    <h4 id="type-SpeedDial">SpeedDial</h4>
+    <p class="section-note">The speed-dial instance {@link createSpeedDial} returns (BACKLOG-0002253).</p>
+    <h5 id="type-SpeedDial-properties">Properties</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The host element. <small>(read-only)</small></td></tr>
+          <tr><td class="name">fab</td><td class="type">HTMLButtonElement</td><td class="desc">The FAB button. <small>(read-only)</small></td></tr>
+          <tr><td class="name">menu</td><td class="type">HTMLElement</td><td class="desc">The menu element. <small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-SpeedDial-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">open</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Open the menu.</td></tr>
+          <tr><td class="name">close</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Close the menu and return focus to the FAB.</td></tr>
+          <tr><td class="name">toggle</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Toggle the menu open/closed.</td></tr>
+          <tr><td class="name">setItems</td><td class="type">(items: <a href="#type-SpeedDialItem">SpeedDialItem</a>[]): void</td><td class="desc"><code>items: <a href="#type-SpeedDialItem">SpeedDialItem</a>[]</code></td><td class="type"><code>void</code></td><td class="desc">Replace the action items and rebuild the menu.</td></tr>
+          <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Tear the speed dial down: close, detach listeners and empty the host.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-SpeedDial-events">Events</h5>
     <p class="section-note">No events.</p>
     <h3 id="ref-module-dashboard">Dashboard composition</h3>
     <h4 id="type-DashboardSpec">DashboardSpec</h4>
@@ -34936,6 +35417,42 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-BarcodeOptions">BarcodeOptions</h4>
+    <p class="section-note">Options shared by the `barcode` renderer, the form `barcode` control and {@link renderBarcode}.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type"><a href="#type-BarcodeType">BarcodeType</a></td><td class="desc">The symbology to encode under.</td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The payload to encode.</td></tr>
+          <tr><td class="name">width</td><td class="type">number</td><td class="desc">The rendered width in CSS pixels. Ignored when `moduleWidth` is set. <small>(optional)</small></td></tr>
+          <tr><td class="name">height</td><td class="type">number</td><td class="desc">The rendered height in CSS pixels. <small>(optional)</small></td></tr>
+          <tr><td class="name">moduleWidth</td><td class="type">number</td><td class="desc">The width of one module in CSS pixels, overriding `width`. <small>(optional)</small></td></tr>
+          <tr><td class="name">text</td><td class="type"><a href="#type-BarcodeTextOptions">BarcodeTextOptions</a></td><td class="desc">The human-readable text line. <small>(optional)</small></td></tr>
+          <tr><td class="name">foreground</td><td class="type">string</td><td class="desc">The bars' and text's colour. Defaults to `currentColor`, the theme's foreground token. <small>(optional)</small></td></tr>
+          <tr><td class="name">background</td><td class="type">string</td><td class="desc">A background fill behind the symbol. None by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">quietZone</td><td class="type">number</td><td class="desc">The quiet zone, in modules, left and right of the bars. Default `10`. <small>(optional)</small></td></tr>
+          <tr><td class="name">print</td><td class="type">boolean</td><td class="desc">Force black bars on a white background regardless of theme, for a label meant to be printed. <small>(optional)</small></td></tr>
+          <tr><td class="name">checkDigit</td><td class="type">boolean</td><td class="desc">Append (Code 39) or require (Code 39 Extended) a modulo-43 check character. EAN/UPC always compute or verify their own. <small>(optional)</small></td></tr>
+          <tr><td class="name">size</td><td class="type">number</td><td class="desc">Force a specific square symbol size (Data Matrix only). Auto-chosen, smallest first, when omitted. <small>(optional)</small></td></tr>
+          <tr><td class="name">encodation</td><td class="type">'ascii' | 'base256'</td><td class="desc">Force the encodation scheme (Data Matrix only). Default `'ascii'`, falling back to `'base256'` only when requested. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-BarcodeTextOptions">BarcodeTextOptions</h4>
+    <p class="section-note">The human-readable text line a barcode draws alongside its bars.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">show</td><td class="type">boolean</td><td class="desc">Draw the text line. Default `true`. <small>(optional)</small></td></tr>
+          <tr><td class="name">position</td><td class="type">'top' | 'bottom'</td><td class="desc">Which side of the bars the text sits on. Default `'bottom'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">align</td><td class="type">'left' | 'center' | 'right'</td><td class="desc">Horizontal alignment within the symbol's width. Default `'center'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">margin</td><td class="type">number</td><td class="desc">The gap in SVG user units between the text baseline and the symbol's edge. Default `2`. <small>(optional)</small></td></tr>
+          <tr><td class="name">font</td><td class="type">string</td><td class="desc">A CSS `font` shorthand for the text line. Default `'10px sans-serif'`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-CapabilityInterval">CapabilityInterval</h4>
     <p class="section-note">An interval for a capability index, by Bissell's approximation.</p>
     <div class="table-wrap">
@@ -37016,6 +37533,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">A tab's count-badge tone, declared by the host rather than derived from a threshold.</p>
     <p class="type-def"><code>type BadgeTone = 'good' | 'warn' | 'bad' | 'unknown'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/tabs</code>.</small></p>
+    <h4 id="type-BarcodeType">BarcodeType</h4>
+    <p class="section-note">The symbologies the `barcode` renderer, the form `barcode` control and {@link renderBarcode} accept as `type` (BACKLOG-0002254).</p>
+    <p class="type-def"><code>type BarcodeType = 'code39' | 'code39ext' | 'code93' | 'code93ext' | 'code128' | 'code11' | 'codabar' | 'code32' | 'datamatrix' | 'ean13' | 'ean8' | 'upca' | 'upce' | (string &amp; {})</code></p>
     <h4 id="type-BooleanDisplay">BooleanDisplay</h4>
     <p class="section-note">How a boolean format renders its two states: as text, a glyph pair, or an icon pair.</p>
     <p class="type-def"><code>type BooleanDisplay = 'checkbox' | 'switch' | 'text' | 'icon'</code></p>
@@ -37384,7 +37904,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-FormControlType">FormControlType</h4>
     <p class="section-note">The control types a form item may name.</p>
-    <p class="type-def"><code>type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color'</code></p>
+    <p class="type-def"><code>type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
+    <h4 id="type-FormDateRangeGranularity">FormDateRangeGranularity</h4>
+    <p class="section-note">The granularity of a `daterange` item (BACKLOG-0002255): a day range or a year-month range.</p>
+    <p class="type-def"><code>type FormDateRangeGranularity = 'day' | 'month'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-FormDensity">FormDensity</h4>
     <p class="section-note">The density levels a form accepts — the grid's own presets.</p>
@@ -37392,7 +37916,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-FormEventName">FormEventName</h4>
     <p class="section-note">The events a form raises, on `form.on()` (BACKLOG-0002141). The form's own, not a grid's. `on()` warns once on any other name. The cancellable `beforeChange` runs before a committed edit is stored, on the same contract the grid core uses: call `preventDefault(reason?)` on the payload, or return `false`; a veto reverts the control to its committed value. The past-tense events — `change`, `input`, `click`, `focus` and `blur` — report an edit already made and carry no `preventDefault`.</p>
-    <p class="type-def"><code>type FormEventName = 'beforeChange' | 'change' | 'input' | 'click' | 'focus' | 'blur' | 'validated' | 'complete' | 'customColorsChange'</code></p>
+    <p class="type-def"><code>type FormEventName = 'beforeChange' | 'change' | 'input' | 'click' | 'focus' | 'blur' | 'validated' | 'complete' | 'customColorsChange' | 'open' | 'close' | 'itemClick'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-FormGroupEventName">FormGroupEventName</h4>
     <p class="section-note">The group's events — the two names its `on()` accepts.</p>
@@ -37413,6 +37937,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h4 id="type-FormRule">FormRule</h4>
     <p class="section-note">A declarative field rule (BACKLOG-0002145): a constant, a function of the whole `{ name: value }` snapshot, or a condition on one named item's value. In a form group (BACKLOG-0002208) a condition may read a field of another member: `name` resolves against the member that owns it, or `form` pins the member by its `group.add(form, { id })` id.</p>
     <p class="type-def"><code>type FormRule = boolean | ((values: Record&lt;string, unknown&gt;) =&gt; boolean) | { form?: string; name?: string; equals?: unknown; in?: unknown[]; empty?: boolean; fn?: (value: unknown, values: Record&lt;string, unknown&gt;) =&gt; boolean; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
+    <h4 id="type-FormSpeedDialDirection">FormSpeedDialDirection</h4>
+    <p class="section-note">The direction a `speeddial` strip opens in (BACKLOG-0002253).</p>
+    <p class="type-def"><code>type FormSpeedDialDirection = 'up' | 'down' | 'left' | 'right' | 'auto'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
+    <h4 id="type-FormSpeedDialPosition">FormSpeedDialPosition</h4>
+    <p class="section-note">The corner or edge a `speeddial` FAB anchors to (BACKLOG-0002253).</p>
+    <p class="type-def"><code>type FormSpeedDialPosition = 'top-left' | 'top-center' | 'top-right' | 'middle-left' | 'middle-right' | 'bottom-left' | 'bottom-center' | 'bottom-right'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
+    <h4 id="type-FormSpeedDialVariant">FormSpeedDialVariant</h4>
+    <p class="section-note">The colour a `speeddial` FAB paints (BACKLOG-0002253).</p>
+    <p class="type-def"><code>type FormSpeedDialVariant = 'primary' | 'secondary' | 'outline' | 'info' | 'success' | 'warning' | 'danger'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-FormStepOrientation">FormStepOrientation</h4>
     <p class="section-note">The orientation of a wizard's step indicator.</p>
@@ -37890,7 +38426,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="type-def"><code>type RendererCtor = new () =&gt; <a href="#type-Renderer">Renderer</a></code></p>
     <h4 id="type-RendererName">RendererName</h4>
     <p class="section-note">The built-in cell renderers, addressable by name through `cell.render`. Anything registered through `components` is also valid here.</p>
-    <p class="type-def"><code>type RendererName = 'area' | 'bullet' | 'checkbox' | 'colour' | 'column' | 'delta' | 'detailExpander' | 'donut' | 'gauge' | 'group' | 'icon' | 'image' | 'line' | 'link' | 'pie' | 'pill' | 'progress' | 'qrcode' | 'range' | 'rating' | 'skeleton' | 'stage' | 'stacked' | 'twoline' | 'winloss' | (string &amp; {})</code></p>
+    <p class="type-def"><code>type RendererName = 'area' | 'barcode' | 'bullet' | 'checkbox' | 'colour' | 'column' | 'delta' | 'detailExpander' | 'donut' | 'gauge' | 'group' | 'icon' | 'image' | 'line' | 'link' | 'pie' | 'pill' | 'progress' | 'qrcode' | 'range' | 'rating' | 'skeleton' | 'stage' | 'stacked' | 'twoline' | 'winloss' | (string &amp; {})</code></p>
     <h4 id="type-RenderFn">RenderFn</h4>
     <p class="section-note">The short form of a renderer: a function handed the cell and returning the HTML string or the element to show. Reach for a `Renderer` class instead when the cell has to hold state or release something as it is recycled.</p>
     <p class="type-def"><code>type RenderFn = (p: <a href="#type-CellParams">CellParams</a>) =&gt; string | HTMLElement</code></p>
@@ -38071,6 +38607,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h4 id="type-SpecStatus">SpecStatus</h4>
     <p class="section-note">The three verdicts a `specStatus` shadow can report.</p>
     <p class="type-def"><code>type SpecStatus = 'PASS' | 'WARN' | 'FAIL'</code></p>
+    <h4 id="type-SpeedDialItem">SpeedDialItem</h4>
+    <p class="section-note">One action a `speeddial` menu shows (BACKLOG-0002253).</p>
+    <p class="type-def"><code>type SpeedDialItem = { id?: string; icon?: <a href="#type-IconName">IconName</a> | string | Node; text?: string; disabled?: boolean; render?: (item: <a href="#type-SpeedDialItem">SpeedDialItem</a>, index: number) =&gt; unknown; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-StateChangeCause">StateChangeCause</h4>
     <p class="section-note">What caused a `state:changed` (BACKLOG-0001182). `'user'` is a change to one part of the view — a sort, a filter, a column moved, resized, pinned or hidden, a grouping, a page — whether it arrived as a gesture or as the equivalent API call. `'apply'` is `state.apply()`, including the restore an undo performs and a `config.state` seed at construction. `'reset'` is `state.reset()`, and is the one a persistence layer skips: saving the reset arrangement writes the default straight back over the view the user had just abandoned.</p>
     <p class="type-def"><code>type StateChangeCause = 'user' | 'apply' | 'reset'</code></p>
@@ -38180,7 +38720,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.100.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.101.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

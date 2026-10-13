@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.100.1</title>
+<title>Grid API Reference — Lattice Grid 1.101.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -1912,7 +1912,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.100.1'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.101.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -3486,6 +3486,7 @@ grid.highlight.clear();                                             // everythin
         <thead><tr><th>Name</th><th>Draws</th></tr></thead>
         <tbody>
           <tr><td class="sig">area</td><td class="desc">A filled sparkline over a series.</td></tr>
+          <tr><td class="sig">barcode</td><td class="desc">A 1D barcode (Code 39, Code 39 Extended, Code 93, Code 93 Extended, Code 128, Code 11, Codabar, Code 32, EAN-13, EAN-8, UPC-A, UPC-E) or a 2D Data Matrix of the value, inline SVG. <code>cell.props</code>: <code>type</code>, <code>value</code>, <code>width</code>/<code>height</code> or <code>moduleWidth</code>, <code>text</code>, <code>foreground</code>/<code>background</code>, <code>quietZone</code>, <code>print</code>, <code>checkDigit</code>, <code>size</code>/<code>encodation</code> (Data Matrix only).</td></tr>
           <tr><td class="sig">bullet</td><td class="desc">A value against a target and qualitative bands.</td></tr>
           <tr><td class="sig">checkbox</td><td class="desc">A boolean, optionally as a switch.</td></tr>
           <tr><td class="sig">colour</td><td class="desc">A colour swatch with its value.</td></tr>
@@ -3511,6 +3512,44 @@ grid.highlight.clear();                                             // everythin
           <tr><td class="sig">winloss</td><td class="desc">A win/loss sparkline of signed values.</td></tr>
         </tbody>
       </table>
+    </div>
+    <p>The <code>barcode</code> renderer's symbologies — Code 39, Code 39 Extended, Code 93,
+    Code 93 Extended, Code 128 (subsets A/B/C chosen automatically for the shortest code),
+    Code 11, Codabar, Code 32, EAN-13, EAN-8, UPC-A, UPC-E and a 2D Data Matrix (ECC 200,
+    square symbols, ASCII and base-256 encodation), each with its own encoder and no
+    dependency, inline SVG output — are also available outside a grid through
+    <code>renderBarcode(el, options)</code>, and inside a form through the <code>barcode</code>
+    display control, so a value draws pixel-identically on all three surfaces. An invalid
+    value for its symbology (bad characters, wrong length, a failed check digit) never
+    renders a code that would scan wrong: it shows a placeholder and warns once instead.</p>
+    <div class="example">
+      <p class="example__label">A standalone barcode, outside any grid, with every display option named</p>
+      <pre data-run="js" data-expect="SVG 200x60" data-covers="export:renderBarcode config:BarcodeOptions.type config:BarcodeOptions.value config:BarcodeOptions.width config:BarcodeOptions.height config:BarcodeOptions.moduleWidth config:BarcodeOptions.text config:BarcodeOptions.foreground config:BarcodeOptions.background config:BarcodeOptions.quietZone config:BarcodeOptions.print config:BarcodeOptions.checkDigit config:BarcodeTextOptions.show config:BarcodeTextOptions.position config:BarcodeTextOptions.align config:BarcodeTextOptions.margin config:BarcodeTextOptions.font"><code>const { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+const { renderBarcode } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+const { root } = createTestDom();
+
+<span class="kw">const</span> handle = renderBarcode(root, {
+  type: <span class="str">'code39'</span>, value: <span class="str">'LATTICE'</span>, width: 200, height: 60, moduleWidth: 0,
+  quietZone: 10, print: false, checkDigit: false,
+  foreground: <span class="str">'currentColor'</span>, background: <span class="kw">null</span>,
+  text: { show: <span class="kw">true</span>, position: <span class="str">'bottom'</span>, align: <span class="str">'center'</span>, margin: 2, font: <span class="str">'10px sans-serif'</span> },
+});
+<span class="kw">const</span> svg = root.children[0];
+<span class="kw">return</span> `${svg.tagName} ${svg.getAttribute(<span class="str">'width'</span>)}x${svg.getAttribute(<span class="str">'height'</span>)}`;</code></pre>
+    </div>
+    <div class="example">
+      <p class="example__label">A 2D Data Matrix, forcing a symbol size and an encodation scheme</p>
+      <pre data-run="js" data-expect="SVG square" data-covers="config:BarcodeOptions.size config:BarcodeOptions.encodation"><code>const { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+const { renderBarcode } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+const { root } = createTestDom();
+
+<span class="kw">const</span> handle = renderBarcode(root, {
+  type: <span class="str">'datamatrix'</span>, value: <span class="str">'LATTICE-DM'</span>, size: 16, encodation: <span class="str">'ascii'</span>, width: 120,
+  text: { show: <span class="kw">false</span> },
+});
+<span class="kw">const</span> svg = root.children[0];
+<span class="kw">const</span> [, , w, h] = svg.getAttribute(<span class="str">'viewBox'</span>).split(<span class="str">' '</span>);
+<span class="kw">return</span> w === h ? <span class="str">'SVG square'</span> : <span class="str">'SVG not square'</span>;</code></pre>
     </div>
     <p><strong>Editors</strong>, for <code>edit.editor</code>. Each column type already selects a
     sensible one, so naming an editor is for overriding that choice:</p>

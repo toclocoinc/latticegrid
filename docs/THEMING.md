@@ -80,6 +80,10 @@ Legend: **MUST** — a preset claiming to match a design system sets this or the
 |---|---|---|---|---|---|---|
 | `--lattice-accent` | `#1a6bc7` | `#4e9bea` | `#ffd400` | `#7dfca4` | the one brand colour the grid uses | MUST |
 | `--lattice-accent-contrast` | `#ffffff` | `#06101b` | `#000000` | `#06120a` | text drawn on the accent colour | MUST |
+| `--lattice-switch-track-on` | `var(--lattice-accent)` | `var(--lattice-accent)` | `var(--lattice-accent)` | `var(--lattice-accent)` | the form toggle switch's ON track fill | MAY |
+| `--lattice-switch-track-off` | `var(--lattice-border-color)` | `var(--lattice-border-color)` | `var(--lattice-border-color)` | `var(--lattice-border-color)` | the form toggle switch's OFF track fill | MAY |
+| `--lattice-switch-handle` | `var(--lattice-background)` | `var(--lattice-background)` | `var(--lattice-background)` | `var(--lattice-background)` | the form toggle switch's sliding handle fill | MAY |
+| `--lattice-switch-label` | `var(--lattice-accent-contrast)` | `var(--lattice-accent-contrast)` | `var(--lattice-accent-contrast)` | `var(--lattice-accent-contrast)` | the form toggle switch's ON-state label text | MAY |
 | `--lattice-background` | `#ffffff` | `#14181c` | `#000000` | `#06120a` | body background | MUST |
 | `--lattice-surface` | `#f7f8f9` | `#1b2026` | `#000000` | `#06120a` | header, totals row, status bar background | MUST |
 | `--lattice-surface-alt` | `#fbfcfc` | `#171c21` | `#0d0d0d` | `#0a1a0f` | alternate surface: detail, group and full-width row fills | MAY |
@@ -583,6 +587,10 @@ The two fenced blocks below are what `test/theming-contract-doc.test.js` diffs a
 --lattice-surface
 --lattice-surface-alt
 --lattice-surface-sunken
+--lattice-switch-handle
+--lattice-switch-label
+--lattice-switch-track-off
+--lattice-switch-track-on
 --lattice-target-min
 --lattice-timeline-changed
 --lattice-transition

@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.100.1</p>
+    <p class="rail__sub">Developer guide · v1.101.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.100.1</span>
+        <span class="chip">Version 1.101.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1886,7 +1886,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.100.1'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.101.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -11045,6 +11045,21 @@ return boundCount + '|' + routed;</code></pre>
       through <code>getValue()</code>/<code>setValue()</code> like every other value-holding item.
     </p>
     <p class="lead-in">
+      A <code>toggle</code> item is an on/off switch &mdash; a native checkbox drawn as a pill track with a
+      sliding handle and exposed as <code>role="switch"</code> &mdash; holding a boolean the same way a
+      <code>checkbox</code> does: Space toggles it, it commits through <code>change</code>, is gated by
+      <code>beforeChange</code>, and reads back through <code>getValue()</code>/<code>setValue()</code>.
+      <code>onLabel</code> and <code>offLabel</code> draw short text (ON/OFF, a tick/cross glyph) that swaps
+      with the state, inside the track by default or beside it per <code>props.labelPosition</code>
+      (<code>inside</code>, <code>before</code> or <code>after</code> &mdash; the item&rsquo;s top-level
+      <code>labelPosition</code> already means the item label&rsquo;s side). <code>size</code>
+      (<code>small</code>/<code>default</code>/<code>large</code>) scales the switch from the density tokens
+      and <code>variant</code> (<code>round</code>/<code>square</code>/<code>slim</code>) picks the track
+      shape; the ON label reads <code>--lattice-switch-label</code> and the OFF label the foreground, keeping
+      AA 4.5:1 against the track in light and dark, and the transition honours
+      <code>prefers-reduced-motion</code>. A toggle that names none of these still renders the bare switch.
+    </p>
+    <p class="lead-in">
       A <code>chips</code> item is a row of pill buttons for picking one or several options:
       <code>options</code> names the choices (<code>{ value, label, icon?, disabled? }</code>), and
       <code>multiple</code> switches between single-select (a radio group &mdash; one chip selected, the
@@ -11070,6 +11085,23 @@ return boundCount + '|' + routed;</code></pre>
       lowercase <code>#rrggbb</code> string or <code>null</code>; <code>setValue</code> normalises
       <code>#rgb</code>, <code>#rrggbb</code> and <code>rgb(r, g, b)</code>, and anything else is
       refused with a warning, the value unchanged.
+    </p>
+    <p class="lead-in">
+      A <code>daterange</code> item is a single field holding a start and end date &mdash; typed into
+      the editable field (joined by a separator) or picked from a two-month popup calendar, where the
+      first click sets the start, the second the end, a click before the start restarts, and hovering
+      previews the span. A left-hand <code>presets</code> column (<code>false</code> hides it) offers
+      <code>{ label, range }</code> shortcuts &mdash; a literal <code>[start, end]</code> pair or a
+      function of today &mdash; defaulting to today, yesterday, last 7/30 days and this/last month.
+      <code>min</code>/<code>max</code> bound the calendar, <code>disabledDates</code> (a list of ISO
+      values or a predicate) fences individual days, <code>minSpan</code>/<code>maxSpan</code> cap the
+      range length in days, and <code>weekNumbers</code> adds an ISO week column while
+      <code>firstDay</code> (a locale default or an explicit weekday) shifts the grid.
+      <code>applyButton</code> (default <code>true</code>) shows Apply/Cancel so nothing commits until
+      Apply &mdash; Cancel restores and <code>applyButton: false</code> commits on the second click
+      &mdash; and <code>granularity: 'month'</code> turns the picker into a year-month range
+      committing <code>YYYY-MM</code> values. The value is <code>{ start, end }</code> of ISO strings
+      or <code>null</code>; <code>clearable: true</code> adds a control that sets <code>null</code>.
     </p>
     <p class="lead-in">
       <strong>Help tooltips, read-only locks and field addons attach to any item.</strong> An
@@ -11221,6 +11253,38 @@ return boundCount + '|' + routed;</code></pre>
       <code>destroy()</code> tears it down.</p>
     </div>
 
+    <h3 id="speeddial-live">The speed dial control</h3>
+    <p class="section-note">A floating action button that fans its actions out as a linear strip or a radial arc.</p>
+    <pre><code><span class="kw">import</span> { createSpeedDial } <span class="kw">from</span> <span class="str">'@toclocoinc/lattice-grid/modules/form'</span>;</code></pre>
+    <p class="lead-in">
+      <code>createSpeedDial(element, config)</code> mounts a floating action button (FAB) that is the same
+      control the form's <code>type: 'speeddial'</code> item uses. It anchors to a corner or edge of its
+      container &mdash; <code>position</code> is <code>top-left</code>, <code>top-center</code>,
+      <code>top-right</code>, <code>middle-left</code>, <code>middle-right</code>, <code>bottom-left</code>,
+      <code>bottom-center</code> or <code>bottom-right</code> &mdash; and <code>fixed</code> anchors it to the
+      viewport instead. Its <code>items</code> are <code>{ id, icon, text, disabled, render }</code>: an
+      <code>icon</code> is a glyph name drawn as the real SVG (or a URL or element), <code>text</code> is the
+      label &mdash; an item may be icon-only, text-only or both &mdash; <code>disabled</code> shows but refuses a
+      click, and <code>render(item, index)</code> replaces the item's own content. The FAB opens them as a linear
+      strip whose <code>direction</code> is <code>up</code>, <code>down</code>, <code>left</code>,
+      <code>right</code> or <code>auto</code> (default, into the container's room side), or as a radial fan with
+      <code>mode: 'radial'</code> whose <code>radial</code> <code>startAngle</code>/<code>endAngle</code>/<code>offset</code>
+      default from <code>position</code>. <code>modal</code> paints a backdrop that swallows page clicks,
+      <code>openOnHover</code> opens on pointer enter and closes on leave, the FAB swaps
+      <code>openIcon</code>/<code>closeIcon</code> between its closed and open states, and one of seven
+      <code>variant</code>s colours it. Dark mode and RTL mirroring are built in.
+    </p>
+    <div class="why">
+      <p><strong>One handle, five verbs.</strong> The handle is
+      <code>{ el, fab, menu, open, close, toggle, setItems, destroy }</code>. <code>open()</code>/<code>close()</code>
+      drive the menu and emit <code>open</code>/<code>close</code>, <code>toggle()</code> flips it,
+      <code>setItems(list)</code> replaces the actions, and <code>destroy()</code> tears it down. A click on an
+      item fires <code>itemClick</code> once and closes; Escape closes and returns focus to the FAB.</p>
+      <p><strong>Accessible by construction.</strong> The FAB is a <code>role="button"</code> with
+      <code>aria-expanded</code> and <code>aria-controls</code>; the menu is a <code>role="menu"</code> of
+      <code>role="menuitem"</code>s, and the arrow keys move across items (skipping <code>disabled</code> ones)
+      while Enter or Space activates.</p>
+    </div>
     <h3 id="geometry-type">The geometry module</h3>
     <pre><code><span class="kw">import</span> <span class="str">'@toclocoinc/lattice-grid/modules/geometry'</span>;</code></pre>
     <p class="lead-in">
@@ -13169,6 +13233,30 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
       </table>
     </div>
 
+    <h2 id="barcode-guide">Barcode options</h2>
+    <p>The <code>barcode</code> cell renderer, the form <code>barcode</code> control and the
+    standalone <code>renderBarcode(el, options)</code> export all read the same
+    <code>BarcodeOptions</code>: <code>type</code> names the symbology, <code>value</code> is the
+    payload, <code>width</code>/<code>height</code> set the rendered size in CSS pixels, and
+    <code>moduleWidth</code> sets the width of one module directly, overriding <code>width</code> —
+    useful when a symbol must scan at a fixed module size regardless of how wide its payload
+    makes it. <code>quietZone</code> is the light margin, in modules, either side of the bars; the
+    default of 10 is the usual minimum for a reliable scan, and it is clamped to 40 so a stray
+    large value cannot push the symbol out of view. <code>text</code> is the human-readable line
+    (<code>BarcodeTextOptions</code>): <code>show</code>, <code>position</code> (<code>'top'</code> or
+    <code>'bottom'</code>), <code>align</code>, <code>margin</code> and <code>font</code>.
+    <code>foreground</code>/<code>background</code> default to the theme's foreground token so the
+    symbol follows light and dark mode like everything else on the page; <code>print: true</code>
+    fixes black bars on white instead, for a label meant to be printed and scanned rather than
+    looked at on screen. <code>checkDigit</code> appends (Code 39) or requires (Code 39 Extended) a
+    modulo-43 check character; EAN-13, EAN-8, UPC-A and UPC-E always compute or verify their own,
+    because a reader needs it to recover the data and a wrong one refuses the value rather than
+    drawing a code that would scan incorrectly. <code>size</code> and <code>encodation</code> are
+    read only for the 2D Data Matrix symbology: <code>size</code> forces one of the supported
+    square symbol sizes rather than auto-choosing the smallest that fits, and
+    <code>encodation</code> (<code>'ascii'</code>, the default, or <code>'base256'</code>) forces
+    the encodation scheme instead of the usual ASCII-first choice.</p>
+
     <h2 id="licensing">Licensing</h2>
     <p class="lead-in">
       <strong>There is one Lattice Grid and every copy is feature-identical.</strong> No community
@@ -13292,7 +13380,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.100.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.101.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

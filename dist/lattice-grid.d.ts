@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.100.1, type declarations
+ * Lattice Grid 1.101.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1299,10 +1299,31 @@ export type ToolPanelName = 'columns' | 'filters' | 'views' | 'quick' | 'formatt
  * Anything registered through `components` is also valid here.
  */
 export type RendererName =
-  | 'area' | 'bullet' | 'checkbox' | 'colour' | 'column' | 'delta' | 'detailExpander'
+  | 'area' | 'barcode' | 'bullet' | 'checkbox' | 'colour' | 'column' | 'delta' | 'detailExpander'
   | 'donut' | 'gauge' | 'group' | 'icon' | 'image' | 'line' | 'link' | 'pie' | 'pill'
   | 'progress' | 'qrcode' | 'range' | 'rating' | 'skeleton' | 'stage' | 'stacked' | 'twoline'
   | 'winloss' | (string & {});
+
+/**
+ * The symbologies the `barcode` renderer, the form `barcode` control and
+ * {@link renderBarcode} accept as `type`.
+ */
+export type BarcodeType = 'code39' | 'code39ext' | 'code93' | 'code93ext' | 'code128' | 'code11' | 'codabar' | 'code32' | 'datamatrix' | 'ean13' | 'ean8' | 'upca' | 'upce' | (string & {});
+
+/** The human-readable text line a barcode draws alongside its bars. */
+export interface BarcodeTextOptions {
+  /** Draw the text line. Default `true`. */
+  show?: boolean;
+  /** Which side of the bars the text sits on. Default `'bottom'`. */
+  position?: 'top' | 'bottom';
+  /** Horizontal alignment within the symbol's width. Default `'center'`. */
+  align?: 'left' | 'center' | 'right';
+  /** The gap in SVG user units between the text baseline and the symbol's edge. Default `2`. */
+  margin?: number;
+  /** A CSS `font` shorthand for the text line. Default `'10px sans-serif'`. */
+  font?: string;
+}
+
 
 /**
  * The built-in cell editors, addressable by name through `cell.edit`.
@@ -12922,6 +12943,12 @@ export function elasticsearchAdapter(options: {
 
 export function createGrid(element: HTMLElement, config?: GridConfig): Grid;
 export function createHeadlessGrid(config?: HeadlessGridConfig): Grid;
+/**
+ * Draw one barcode into an element, outside a grid. Mounts
+ * the same SVG the `barcode` cell renderer and the form `barcode` control
+ * draw, replacing the element's previous content.
+ */
+export function renderBarcode(el: HTMLElement, options: BarcodeOptions): { update(options: BarcodeOptions): void; destroy(): void };
 
 /**
  * Construct and initialise an editor in one call, honouring `cancelBeforeStart`
@@ -15965,6 +15992,36 @@ export interface Chart {
    * remove the chart's element and drop every listener. Calling it twice is harmless.
    */
   destroy(): void;
+}
+
+/** Options shared by the `barcode` renderer, the form `barcode` control and {@link renderBarcode}. */
+export interface BarcodeOptions {
+  /** The symbology to encode under. */
+  type: BarcodeType;
+  /** The payload to encode. */
+  value: unknown;
+  /** The rendered width in CSS pixels. Ignored when `moduleWidth` is set. */
+  width?: number;
+  /** The rendered height in CSS pixels. */
+  height?: number;
+  /** The width of one module in CSS pixels, overriding `width`. */
+  moduleWidth?: number;
+  /** The human-readable text line. */
+  text?: BarcodeTextOptions;
+  /** The bars' and text's colour. Defaults to `currentColor`, the theme's foreground token. */
+  foreground?: string;
+  /** A background fill behind the symbol. None by default. */
+  background?: string;
+  /** The quiet zone, in modules, left and right of the bars. Default `10`. */
+  quietZone?: number;
+  /** Force black bars on a white background regardless of theme, for a label meant to be printed. */
+  print?: boolean;
+  /** Append (Code 39) or require (Code 39 Extended) a modulo-43 check character. EAN/UPC always compute or verify their own. */
+  checkDigit?: boolean;
+  /** Force a specific square symbol size (Data Matrix only). Auto-chosen, smallest first, when omitted. */
+  size?: number;
+  /** Force the encodation scheme (Data Matrix only). Default `'ascii'`, falling back to `'base256'` only when requested. */
+  encodation?: 'ascii' | 'base256';
 }
 
 // ---------------------------------------------------------------------------
