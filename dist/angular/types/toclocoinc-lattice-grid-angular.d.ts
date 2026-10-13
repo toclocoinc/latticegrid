@@ -1580,6 +1580,8 @@ declare class LatticeFormComponent extends LatticeViewerBase<Form> {
     readonly validated: EventEmitter<any>;
     /** The viewer's `complete` event: every box of an `otp` item is now filled. */
     readonly complete: EventEmitter<any>;
+    /** The viewer's `customColorsChange` event: a `color` item's remembered custom colours changed. */
+    readonly customColorsChange: EventEmitter<any>;
     /**
      * Build the form. `createForm(el, config)` takes its host element directly.
      * @param element the host element
@@ -1588,7 +1590,7 @@ declare class LatticeFormComponent extends LatticeViewerBase<Form> {
      */
     protected mount(element: HTMLElement, config: Props): Form;
     static ɵfac: i0.ɵɵFactoryDeclaration<LatticeFormComponent, never>;
-    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeFormComponent, "lattice-form", never, { "config": { "alias": "config"; "required": false; }; }, { "beforeChange": "beforeChange"; "change": "change"; "input": "input"; "click": "click"; "focus": "focus"; "blur": "blur"; "validated": "validated"; "complete": "complete"; }, never, never, true, never>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<LatticeFormComponent, "lattice-form", never, { "config": { "alias": "config"; "required": false; }; }, { "beforeChange": "beforeChange"; "change": "change"; "input": "input"; "click": "click"; "focus": "focus"; "blur": "blur"; "validated": "validated"; "complete": "complete"; "customColorsChange": "customColorsChange"; }, never, never, true, never>;
 }
 
 declare class LatticeDesignerComponent implements OnChanges, OnDestroy {

@@ -9,6 +9,22 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.100.1] - 2026-10-13
+
+### Added
+
+- **A `color` form control: a swatch field with a preset palette, a custom saturation/lightness picker and typed hex** (BACKLOG-0002252).
+  - The field shows a swatch and the current value as hex text; clicking the swatch or the trailing icon, pressing Enter on the field, or Alt+Down opens a popover under the field (flipped above when there is no room), closed by outside click, Escape or a selection, with focus returning to the field.
+  - The popover's palette view shows rows of preset swatches — ten hues in five shades by default, `palette: string[][]` to replace them, `grayShades: false` to drop the default grey row — plus a row of `customColors`, extended (newest first, deduplicated, at most ten) by every colour picked in the picker view; each extension fires `customColorsChange`. A "Custom colour" button switches to the picker view: a saturation/lightness plane, a hue slider, hex and R/G/B inputs and a preview, committing on Select or Enter and discarding on Escape or Back. `mode: 'palette' | 'picker'` picks the opening view and `pickerOnly: true` removes the palette view.
+  - The value is a lowercase `#rrggbb` string or `null`. `setValue` normalises `#rgb`, `#rrggbb` and `rgb(r, g, b)`; anything else is refused with a warning and the value is unchanged. `editable` (default true) lets the text part be typed into — a valid hex commits on Enter or blur, an invalid one keeps the old value with a catalogue message — and `editable: false` makes it read-only. `clearable: true` adds a control that sets `null`.
+  - The richtext control's text-colour popover now draws through the same shared palette and swatch grid, so the two popovers match.
+
+### Fixed
+
+- Form combo: a combo that loads its options a page at a time and opens with a value already selected now draws `selectedTemplate` and its chips with the option `resolveLabels` returned, so the template sees `{ value, label, … }` for the resolved option rather than the raw value. (BACKLOG-0002258)
+
+- Form items: an item's own `props` object now reaches the control, so a custom control registered with `registerControl` receives its settings in `create(el, item, api)`; unrecognised top-level keys still join the same bag. `FormItemConfig.props` is typed. (BACKLOG-0002259)
+
 ## [1.100.0] - 2026-10-12
 
 ### Added

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.100.0, form module type declarations
+ * Lattice Grid 1.100.1, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -19,7 +19,10 @@ export type FormLabelPosition = 'top' | 'left' | 'hidden';
 export type FormInputSubtype = 'text' | 'email' | 'password' | 'url';
 
 /** The control types a form item may name. */
-export type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp';
+export type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color';
+
+/** The opening view of a `color` item's popover: the preset palette (default) or the custom picker. */
+export type FormColorMode = 'palette' | 'picker';
 
 /** One selectable option of a `chips` item. */
 export interface FormChipOption {
@@ -199,10 +202,16 @@ export interface FormPanelConfig {
 /**
  * One form item: a control (`input`, `number`, `textarea`, `checkbox`,
  * `button`, `combo`, `select`, `radiogroup`, `checkboxgroup`, `toggle`,
- * `datepicker`, `file`, `richtext`, `rating`, `stage`, `chips`) or the read-only
- * `text` display, with the per-item options.
+ * `datepicker`, `file`, `richtext`, `rating`, `stage`, `chips`, `otp`, `color`)
+ * or the read-only `text` display, with the per-item options.
  */
 export interface FormItemConfig extends ComboConfig {
+  /**
+   * A control's own settings bag. A custom control registered with
+   * `registerControl` reads its settings from `item.props` in `create()`;
+   * any top-level key the form does not recognise joins the same bag.
+   */
+  props?: Record<string, unknown>;
   /** The control type — a built-in or a type registered with `registerControl`. Defaults to `input`. */
   type?: string;
   /** The item's name, for `getItem(name)` and `getValue()`/`setValue()`. */
@@ -259,8 +268,8 @@ export interface FormItemConfig extends ComboConfig {
   reveal?: boolean;
   /** The box count of an `otp` item (default 6). */
   length?: number;
-  /** The `otp` characters — `numeric` (default) or `alphanumeric` — or the `datepicker` mode: `date`, `date-time` or `time`. */
-  mode?: 'numeric' | 'alphanumeric' | FormPickerMode;
+  /** The `otp` characters — `numeric` (default) or `alphanumeric` — the `datepicker` mode: `date`, `date-time` or `time` — or the `color` item's opening popover view. */
+  mode?: 'numeric' | 'alphanumeric' | FormPickerMode | FormColorMode;
   /** Hide each `otp` box's glyph with the password disc. */
   mask?: boolean;
   /** The number step, for a `number` item. */
@@ -367,7 +376,7 @@ export interface FormItemConfig extends ComboConfig {
   allowHalf?: boolean;
   /** Allow a second click to clear a `rating` item back to zero. */
   allowClear?: boolean;
-  /** The icon of a `button` — a name from the grid's icon set, an image URL or data: URI, or an element — the glyph name of a `rating` item (`star` or `heart`), or the drop-area icon of a `file` item — a glyph name from the file module's sprite set, an SVG markup string, an element, or `false` for none. */
+  /** The icon of a `button` — a name from the grid's icon set, an image URL or data: URI, or an element — the glyph name of a `rating` item (`star` or `heart`), the drop-area icon of a `file` item — a glyph name from the file module's sprite set, an SVG markup string, an element, or `false` for none — or the glyph name a `color` item's trailing toggle draws instead of its default chevron. */
   icon?: string | Element | false;
   /** The filled and empty glyph names for a `rating` item. */
   icons?: { filled?: string; empty?: string };
@@ -415,6 +424,18 @@ export interface FormItemConfig extends ComboConfig {
   allowEmpty?: boolean;
   /** Wrap a `chips` item's pills onto several lines (default), or keep them on one scrolling row when false. */
   wrap?: boolean;
+  /** The rows of preset swatches a `color` item's palette view shows, replacing the shared default (ten hues in five shades). */
+  palette?: string[][];
+  /** Show a `color` item's grey row under its palette (default true); `false` drops it. */
+  grayShades?: boolean;
+  /** A `color` item's custom-colours row to start with — extended, newest first and deduplicated to at most ten, by every colour picked in the picker view. */
+  customColors?: string[];
+  /** Remove a `color` item's palette view, leaving only the picker. */
+  pickerOnly?: boolean;
+  /** Let a `color` item's text part be typed into (default true); `false` makes it read-only, so only the popover sets the value. */
+  editable?: boolean;
+  /** Show a `color` item's clear control, setting the value to `null`. */
+  clearable?: boolean;
   /** Extra per-control options, kept for later controls. */
   [key: string]: unknown;
 }
@@ -640,7 +661,9 @@ export type FormEventName =
   /** One or more items were validated, with the failures. */
   | 'validated'
   /** Every box of an `otp` item is now filled. */
-  | 'complete';
+  | 'complete'
+  /** A `color` item's custom-colours row gained a newly picked colour. */
+  | 'customColorsChange';
 
 /** What a handler receives, per form event. */
 export interface FormEventPayloads {
@@ -660,6 +683,8 @@ export interface FormEventPayloads {
   validated: FormValidatedEvent;
   /** Every box of an `otp` item is now filled. */
   complete: FormCompleteEvent;
+  /** A `color` item's custom-colours row, extended. */
+  customColorsChange: FormColorCustomColorsEvent;
 }
 
 /** The fields every form event carries. */
@@ -682,6 +707,12 @@ export interface FormValueEvent extends FormEvent {
 
 /** A `complete` payload: every box of an `otp` item is now filled. */
 export interface FormCompleteEvent extends FormValueEvent {
+}
+
+/** A `customColorsChange` payload: a `color` item's custom-colours row gained a newly picked colour. */
+export interface FormColorCustomColorsEvent extends FormEvent {
+  /** The custom-colours list after the addition — newest first, deduplicated, at most ten entries. */
+  colors: string[];
 }
 
 /**

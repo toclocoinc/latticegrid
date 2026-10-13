@@ -862,7 +862,7 @@ const VIEWER_EVENTS$1 = Object.freeze({
     ]),
 
     form: Object.freeze([
-        'beforeChange', 'change', 'input', 'click', 'focus', 'blur', 'validated', 'complete',
+        'beforeChange', 'change', 'input', 'click', 'focus', 'blur', 'validated', 'complete', 'customColorsChange',
     ]),
 });
 
@@ -3459,6 +3459,8 @@ class LatticeFormComponent extends LatticeViewerBase {
         this.validated = new EventEmitter();
 
         this.complete = new EventEmitter();
+
+        this.customColorsChange = new EventEmitter();
     }
 
     mount(element, config) {
@@ -3466,7 +3468,7 @@ class LatticeFormComponent extends LatticeViewerBase {
         return createForm(element, config);
     }
     static { this.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeFormComponent, deps: null, target: i0.ɵɵFactoryTarget.Component }); }
-    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeFormComponent, isStandalone: true, selector: "lattice-form", inputs: { config: "config" }, outputs: { beforeChange: "beforeChange", change: "change", input: "input", click: "click", focus: "focus", blur: "blur", validated: "validated", complete: "complete" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
+    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "22.1.7", type: LatticeFormComponent, isStandalone: true, selector: "lattice-form", inputs: { config: "config" }, outputs: { beforeChange: "beforeChange", change: "change", input: "input", click: "click", focus: "focus", blur: "blur", validated: "validated", complete: "complete", customColorsChange: "customColorsChange" }, usesInheritance: true, ngImport: i0, template: '', isInline: true, styles: [":host{display:block}\n"] }); }
 }
 i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImport: i0, type: LatticeFormComponent, decorators: [{
             type: Component,
@@ -3488,6 +3490,8 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "22.1.7", ngImpor
             }], validated: [{
                 type: Output
             }], complete: [{
+                type: Output
+            }], customColorsChange: [{
                 type: Output
             }] } });
 

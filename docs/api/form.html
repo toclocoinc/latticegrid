@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Form API Reference — Lattice Grid 1.100.0</title>
+<title>Form API Reference — Lattice Grid 1.100.1</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -408,6 +408,7 @@
         <a class="rail__sub-link" href="#form-file-richtext-example">A file field and a sanitised rich-text editor, executed</a>
         <a class="rail__sub-link" href="#form-file-icon-browse-example">A file drop area with a custom icon and browse word, executed</a>
         <a class="rail__sub-link" href="#form-chips-example">A single-select and a multi-select chips row, executed</a>
+        <a class="rail__sub-link" href="#form-color-example">A colour swatch field: palette, custom colours, clearable and read-only, executed</a>
         <a class="rail__sub-link" href="#form-password-otp-example">Password reveal and one-time-code entry, executed</a>
         <a class="rail__sub-link" href="#form-groups">Form groups</a>
         <a href="#ref-form-reference">Type reference</a>
@@ -1173,7 +1174,7 @@ group.destroy();
     <code>visibleWhen</code>/<code>readOnlyWhen</code>/<code>requiredWhen</code> rules re-evaluate as values commit; and a
     three-step wizard's <code>next()</code>/<code>back()</code>/<code>goToStep()</code> gate each forward move on the step's
     validation &mdash; with the real Chrome assertions in <code>test/form-browser.test.js</code>.</p>
-    <pre data-run="js" data-expect="false|true|1|3|false|true|true|true|true|true" data-covers="export:registerControl config:FormConfig.steps config:FormConfig.stepOrientation config:FormItemConfig.visibleWhen config:FormItemConfig.readOnlyWhen config:FormItemConfig.requiredWhen method:form.next method:form.back method:form.goToStep"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+    <pre data-run="js" data-expect="false|true|1|3|false|true|true|true|true|true" data-covers="export:registerControl config:FormItemConfig.props config:FormConfig.steps config:FormConfig.stepOrientation config:FormItemConfig.visibleWhen config:FormItemConfig.readOnlyWhen config:FormItemConfig.requiredWhen method:form.next method:form.back method:form.goToStep"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
 <span class="kw">const</span> { registerControl, createForm } = <span class="kw">await</span> import('../packages/modules/form/index.js');
 
 <span class="cmt">// A custom control type is a first-class item: it round-trips through the form API.</span>
@@ -1181,6 +1182,7 @@ registerControl('star', {
   create(el, item, api) {
     <span class="kw">const</span> input = el.ownerDocument.createElement('input');
     input.className = 'star-input';
+    input.setAttribute('data-max', String(item.props.max)); // the item's own `props` bag carries the control's settings
     el.appendChild(input);
   },
   getValue(el) { <span class="kw">return</span> el.querySelector('.star-input').value; },
@@ -1196,7 +1198,7 @@ registerControl('star', {
       { type: 'input', name: 'code', label: 'Code' },
     ] },
     { id: 'two', label: 'Two', rows: [
-      { type: 'star', name: 'rating', label: 'Rating', value: '3' },
+      { type: 'star', name: 'rating', label: 'Rating', value: '3', props: { max: 5 } },
       { type: 'input', name: 'note', label: 'Note', visibleWhen: { name: 'rating', equals: '5' } },
       { type: 'input', name: 'review', label: 'Review', readOnlyWhen: { name: 'rating', in: ['4', '5'] } },
     ] },
@@ -1601,6 +1603,56 @@ form.setValue({ tags: [<span class="str">'c'</span>, <span class="str">'a'</span
 <span class="kw">const</span> requiredFails = form.validate();                          <span class="cmt">// false — allowEmpty + required, nothing picked</span>
 
 <span class="kw">return</span> [started, clicked, ordered, capped, requiredFails].join('|');</code></pre>
+    <h3 id="form-color-example">A colour swatch field: palette, custom colours, clearable and read-only, executed</h3>
+    <p class="section-note">A <code>color</code> item's swatch or trailing icon opens a popover under the field: the
+    palette view's shared swatch grid (ten hues in five shades, a grey row, and a <code>customColors</code> row),
+    <code>grayShades: false</code> dropping the grey row, <code>clearable</code> adding a control that sets
+    <code>null</code>, <code>editable: false</code> making the text part read-only, and <code>pickerOnly</code> with
+    <code>mode: 'picker'</code> opening straight on the saturation/lightness picker with no palette view &mdash; with
+    the keyboard model, the computed swatch colours and the light/dark popover surface asserted in
+    <code>test/form-color-browser.test.js</code>.</p>
+    <pre data-run="js" data-expect="56|#cf7030|true|#ff0000||50|true|true|false" data-covers="export:createForm method:form.getItem method:form.getValue config:FormItemConfig.value config:FormItemConfig.clearable config:FormItemConfig.customColors config:FormItemConfig.editable config:FormItemConfig.grayShades config:FormItemConfig.pickerOnly config:FormItemConfig.mode"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createForm } = await import('../packages/modules/form/index.js');
+
+const { root } = createTestDom();
+const form = createForm(root, { rows: [
+  { type: 'color', name: 'brand', label: 'Brand', value: '#1a2b3c', clearable: true, customColors: ['#112233'] },
+  { type: 'color', name: 'bg', label: 'Background', grayShades: false },
+  { type: 'color', name: 'locked', label: 'Locked', value: '#ff0000', editable: false },
+  { type: 'color', name: 'po', label: 'Picker only', pickerOnly: true, mode: 'picker' },
+] });
+
+// Palette view: the shared swatch grid (ten hues x five shades, the grey row, one custom colour).
+const brandEl = form.getItem('brand').el.querySelector('.lat-form__color');
+brandEl.querySelector('.lat-form__color-toggle').dispatchEvent(new TestEvent('click', { bubbles: true }));
+const popover = brandEl.querySelector('.lat-form__color-popover');
+const swatchCount = popover.querySelectorAll('.lat-form__swatch').length;   // 56 = 50 + grey row (5) + custom (1)
+popover.querySelectorAll('.lat-form__swatch')[7].dispatchEvent(new TestEvent('click', { bubbles: true }));
+const picked = form.getValue().brand;                                      // the clicked swatch's hex
+const closed = popover.hidden;                                             // true — a selection closes the popover
+
+// setValue normalises rgb(); clear sets null.
+form.getItem('brand').setValue('rgb(255, 0, 0)');
+const normalized = form.getValue().brand;                                  // '#ff0000'
+brandEl.querySelector('.lat-form__color-clear').dispatchEvent(new TestEvent('click', { bubbles: true }));
+const cleared = form.getValue().brand;                                     // null
+
+// grayShades: false drops the grey row.
+const bgEl = form.getItem('bg').el.querySelector('.lat-form__color');
+bgEl.querySelector('.lat-form__color-toggle').dispatchEvent(new TestEvent('click', { bubbles: true }));
+const noGraySwatchCount = bgEl.querySelector('.lat-form__color-popover').querySelectorAll('.lat-form__swatch').length;  // 50
+
+// editable: false leaves the text part read-only.
+const lockedReadOnly = form.getItem('locked').el.querySelector('.lat-form__color-input').readOnly;  // true
+
+// pickerOnly + mode: 'picker' opens straight on the picker, with no palette and no Back button.
+const poEl = form.getItem('po').el.querySelector('.lat-form__color');
+poEl.querySelector('.lat-form__color-toggle').dispatchEvent(new TestEvent('click', { bubbles: true }));
+const poPopover = poEl.querySelector('.lat-form__color-popover');
+const poHasPicker = !!poPopover.querySelector('.lat-form__color-picker');   // true
+const poHasBack = !!poPopover.querySelector('.lat-form__color-back');      // false
+
+return [swatchCount, picked, closed, normalized, cleared, noGraySwatchCount, lockedReadOnly, poHasPicker, poHasBack].join('|');</code></pre>
     <h3 id="form-password-otp-example">Password reveal and one-time-code entry, executed</h3>
     <p class="section-note">A <code>password</code> input's reveal button renders inside the field with its catalogue name and
     <code>aria-pressed</code>, and <code>reveal: false</code> drops it; an <code>otp</code> item renders <code>length</code>
@@ -1847,11 +1899,12 @@ shell.destroy();
       </table>
     </div>
     <h4 id="type-FormItemConfig">FormItemConfig</h4>
-    <p class="section-note">One form item: a control (`input`, `number`, `textarea`, `checkbox`, `button`, `combo`, `select`, `radiogroup`, `checkboxgroup`, `toggle`, `datepicker`, `file`, `richtext`, `rating`, `stage`, `chips`) or the read-only `text` display, with the per-item options.</p>
+    <p class="section-note">One form item: a control (`input`, `number`, `textarea`, `checkbox`, `button`, `combo`, `select`, `radiogroup`, `checkboxgroup`, `toggle`, `datepicker`, `file`, `richtext`, `rating`, `stage`, `chips`, `otp`, `color`) or the read-only `text` display, with the per-item options.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
+          <tr><td class="name">props</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">A control's own settings bag. A custom control registered with `registerControl` reads its settings from `item.props` in `create()`; any top-level key the form does not recognise joins the same bag (BACKLOG-0002259). <small>(optional)</small></td></tr>
           <tr><td class="name">type</td><td class="type">string</td><td class="desc">The control type — a built-in or a type registered with `registerControl`. Defaults to `input`. <small>(optional)</small></td></tr>
           <tr><td class="name">name</td><td class="type">string</td><td class="desc">The item's name, for `getItem(name)` and `getValue()`/`setValue()`. <small>(optional)</small></td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc">The label text, associated to the control for screen readers. <small>(optional)</small></td></tr>
@@ -1877,7 +1930,7 @@ shell.destroy();
           <tr><td class="name">subtype</td><td class="type"><a href="types.html#type-FormInputSubtype">FormInputSubtype</a> <small class="literals">'text' | 'email' | 'password' | 'url'</small></td><td class="desc">The native input subtype for an `input` item. <small>(optional)</small></td></tr>
           <tr><td class="name">reveal</td><td class="type">boolean</td><td class="desc">Show the reveal button inside a `password` input (default true); `false` turns it off. <small>(optional)</small></td></tr>
           <tr><td class="name">length</td><td class="type">number</td><td class="desc">The box count of an `otp` item (default 6). <small>(optional)</small></td></tr>
-          <tr><td class="name">mode</td><td class="type">'numeric' | 'alphanumeric' | <a href="types.html#type-FormPickerMode">FormPickerMode</a></td><td class="desc">The `otp` characters — `numeric` (default) or `alphanumeric` — or the `datepicker` mode: `date`, `date-time` or `time` (BACKLOG-0002142). <small>(optional)</small></td></tr>
+          <tr><td class="name">mode</td><td class="type">'numeric' | 'alphanumeric' | <a href="types.html#type-FormPickerMode">FormPickerMode</a> | <a href="types.html#type-FormColorMode">FormColorMode</a></td><td class="desc">The `otp` characters — `numeric` (default) or `alphanumeric` — the `datepicker` mode: `date`, `date-time` or `time` (BACKLOG-0002142) — or the `color` item's opening popover view (BACKLOG-0002252). <small>(optional)</small></td></tr>
           <tr><td class="name">mask</td><td class="type">boolean</td><td class="desc">Hide each `otp` box's glyph with the password disc. <small>(optional)</small></td></tr>
           <tr><td class="name">step</td><td class="type">number</td><td class="desc">The number step, for a `number` item. <small>(optional)</small></td></tr>
           <tr><td class="name">format</td><td class="type"><a href="grid.html#type-NumberFormat">NumberFormat</a> | string</td><td class="desc">The number format a `number` item displays when blurred, the same shape a grid number column takes — a `NumberFormat` spec (which may name `pattern`) or a bare pattern string like `'#,##0.00'` (BACKLOG-0002176, BACKLOG-0002181). The value stays a number; only the display is formatted. <small>(optional)</small></td></tr>
@@ -1929,7 +1982,7 @@ shell.destroy();
           <tr><td class="name">sanitizePaste</td><td class="type">boolean</td><td class="desc">Sanitise pasted HTML in a `richtext` item (default true). <small>(optional)</small></td></tr>
           <tr><td class="name">allowHalf</td><td class="type">boolean</td><td class="desc">Allow half steps for a `rating` item. <small>(optional)</small></td></tr>
           <tr><td class="name">allowClear</td><td class="type">boolean</td><td class="desc">Allow a second click to clear a `rating` item back to zero. <small>(optional)</small></td></tr>
-          <tr><td class="name">icon</td><td class="type">string | Element | false</td><td class="desc">The icon of a `button` — a name from the grid's icon set, an image URL or data: URI, or an element — the glyph name of a `rating` item (`star` or `heart`), or the drop-area icon of a `file` item — a glyph name from the file module's sprite set, an SVG markup string, an element, or `false` for none (BACKLOG-0002204). <small>(optional)</small></td></tr>
+          <tr><td class="name">icon</td><td class="type">string | Element | false</td><td class="desc">The icon of a `button` — a name from the grid's icon set, an image URL or data: URI, or an element — the glyph name of a `rating` item (`star` or `heart`), the drop-area icon of a `file` item — a glyph name from the file module's sprite set, an SVG markup string, an element, or `false` for none (BACKLOG-0002204) — or the glyph name a `color` item's trailing toggle draws instead of its default chevron (BACKLOG-0002252). <small>(optional)</small></td></tr>
           <tr><td class="name">icons</td><td class="type">{ filled?: string; empty?: string }</td><td class="desc">The filled and empty glyph names for a `rating` item. <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">string[]</td><td class="desc">One label per rating icon, for the `title` and the announced value. <small>(optional)</small></td></tr>
           <tr><td class="name">showValue</td><td class="type">boolean</td><td class="desc">Show the numeric value beside a `rating` item. <small>(optional)</small></td></tr>
@@ -1953,6 +2006,12 @@ shell.destroy();
           <tr><td class="name">showIcons</td><td class="type">boolean</td><td class="desc">Whether a `stage` item shows its check glyphs (default true). <small>(optional)</small></td></tr>
           <tr><td class="name">allowEmpty</td><td class="type">boolean</td><td class="desc">Allow a single-mode `chips` item to be left with nothing selected. <small>(optional)</small></td></tr>
           <tr><td class="name">wrap</td><td class="type">boolean</td><td class="desc">Wrap a `chips` item's pills onto several lines (default), or keep them on one scrolling row when false. <small>(optional)</small></td></tr>
+          <tr><td class="name">palette</td><td class="type">string[][]</td><td class="desc">The rows of preset swatches a `color` item's palette view shows, replacing the shared default (ten hues in five shades) (BACKLOG-0002252). <small>(optional)</small></td></tr>
+          <tr><td class="name">grayShades</td><td class="type">boolean</td><td class="desc">Show a `color` item's grey row under its palette (default true); `false` drops it (BACKLOG-0002252). <small>(optional)</small></td></tr>
+          <tr><td class="name">customColors</td><td class="type">string[]</td><td class="desc">A `color` item's custom-colours row to start with — extended, newest first and deduplicated to at most ten, by every colour picked in the picker view (BACKLOG-0002252). <small>(optional)</small></td></tr>
+          <tr><td class="name">pickerOnly</td><td class="type">boolean</td><td class="desc">Remove a `color` item's palette view, leaving only the picker (BACKLOG-0002252). <small>(optional)</small></td></tr>
+          <tr><td class="name">editable</td><td class="type">boolean</td><td class="desc">Let a `color` item's text part be typed into (default true); `false` makes it read-only, so only the popover sets the value (BACKLOG-0002252). <small>(optional)</small></td></tr>
+          <tr><td class="name">clearable</td><td class="type">boolean</td><td class="desc">Show a `color` item's clear control, setting the value to `null` (BACKLOG-0002252). <small>(optional)</small></td></tr>
           <tr><td class="name">[key: string]</td><td class="type">unknown</td><td class="desc">Extra per-control options, kept for later controls.</td></tr>
         </tbody>
       </table>
@@ -2124,6 +2183,7 @@ shell.destroy();
           <tr><td class="name">blur</td><td class="type">FormFocusEvent</td><td class="desc">The item that lost focus.</td></tr>
           <tr><td class="name">validated</td><td class="type"><a href="#type-FormValidatedEvent">FormValidatedEvent</a></td><td class="desc">A validation run, item or whole form, with its failures.</td></tr>
           <tr><td class="name">complete</td><td class="type">FormCompleteEvent</td><td class="desc">Every box of an `otp` item is now filled.</td></tr>
+          <tr><td class="name">customColorsChange</td><td class="type"><a href="#type-FormColorCustomColorsEvent">FormColorCustomColorsEvent</a></td><td class="desc">A `color` item's custom-colours row, extended.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2147,6 +2207,16 @@ shell.destroy();
         <tbody>
           <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The value being reported (or committed).</td></tr>
           <tr><td class="name">previousValue</td><td class="type">unknown</td><td class="desc">The previously committed value, on a `change` event. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-FormColorCustomColorsEvent">FormColorCustomColorsEvent</h4>
+    <p class="section-note">A `customColorsChange` payload: a `color` item's custom-colours row gained a newly picked colour (BACKLOG-0002252).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">colors</td><td class="type">string[]</td><td class="desc">The custom-colours list after the addition — newest first, deduplicated, at most ten entries.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2287,6 +2357,7 @@ shell.destroy();
           <tr><td class="name">blur</td><td class="desc">An item's control lost focus.</td><td class="type">FormFocusEvent</td><td class="desc">&mdash;</td></tr>
           <tr><td class="name">validated</td><td class="desc">One or more items were validated, with the failures.</td><td class="type"><a href="#type-FormValidatedEvent">FormValidatedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">complete</td><td class="desc">Every box of an `otp` item is now filled.</td><td class="type">FormCompleteEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">customColorsChange</td><td class="desc">A `color` item's custom-colours row gained a newly picked colour (BACKLOG-0002252).</td><td class="type"><a href="#type-FormColorCustomColorsEvent">FormColorCustomColorsEvent</a></td><td class="desc">no</td></tr>
         </tbody>
       </table>
     </div>
