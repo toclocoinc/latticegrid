@@ -9,6 +9,17 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.101.2] - 2026-10-13
+
+### Changed
+
+- **A `rows.apply` that changes some cells of a visible row now costs the rows and cells it touched, not the rows visible** (BACKLOG-0002261). Before this card every `rows.apply` repainted every visible row of every column, however few cells actually changed, so 100 changed cells spread over 100 rows cost nearly as much as all 16,000 cells of the frame. <!-- not-breaking: a performance change only; no option, type or behaviour changed -->
+  - **Only a touched row is repainted**, and only when the change is cell values alone — an add, a remove, or an update that reaches a sorted, filtered, grouped, pivoted or totalled column still runs the full pipeline, as before.
+  - **Within a touched row, a column proven to depend on nothing but its own value — plain text, no renderer, no template, no decoration, no function `cell.class`/`cell.style`/`classWhen`/tooltip, and no formatting rule caught reading the row — is left alone when the update did not name it**: its DOM, its inline style and its renderer instance are untouched. Any other column is refreshed on every touch of its row, same as before this card.
+  - Row-level work — the row's class, its stripe, its height, its selection state, and the aggregates a change feeds — still runs once per touched row, not per cell.
+  - Virtualisation, column pinning, spans, merged cells, cell renderers with their own state, an editor open in the row, and the formatting cache (BACKLOG-0002262) all keep working unchanged; no option or type changed. `test/formatting-apply-perf.test.js` and `test/formatting-apply-cache.test.js` hold the targets and the counters.
+  - **The frame's DOM work is now proportional to what changed.** A cell-only `rows.apply` no longer triggers a wholesale row invalidation beside the targeted one, nor a second refresh of the same change; a row's accessibility attributes, data attributes, selection state and style classes are rewritten only when their value moved; a plain-text cell updates its existing text node in place instead of replacing it; a cell already at its geometry is not re-placed; and the overflow-title measurement (which forces a layout read per cell) runs only for a cell whose text or width changed, so a frame that touches a few of a thousand visible cells measures those few. Measured on an 80x50 styled grid, 4,000 changed cells reach the screen in about 50 ms where they took about 120 ms, and 900 changed cells in about 33 ms where they took about 62 ms.
+
 ## [1.101.1] - 2026-10-13
 
 ### Changed
