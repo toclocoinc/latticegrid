@@ -9,6 +9,16 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.101.1] - 2026-10-13
+
+### Changed
+
+- **Formatting rules cost a styled `rows.apply` a fraction of what they did** (BACKLOG-0002262). A grid with a formatting rule on every cell took about 60 microseconds per styled cell per update (4,000 styled cells: 272 ms a frame against 18 ms with no rule), which held a live colour-coded board, or a game drawn on a grid, well under 30 fps.
+  - **Rules run for the cells that changed.** A repaint of a touched row does not evaluate the rules again for its unchanged cells: each cell keeps the style its rules produced and reuses it until its value, the rule set, or (for a style function that reads the row) its row changes. A style function that reads the grid or the context is still run on every paint.
+  - **Styles are written as a diff.** A property whose value the cell already shows is not written again, and a property the new style leaves out is cleared.
+  - **The grid's descendants have a fixed `box-sizing: border-box`.** It was `inherit`, which sent the subtree of every cell through the slow restyle path whenever an inline style was written on it, and which resolved to `border-box` everywhere.
+  - Every formatting feature (row and column rules, scales, data bars, icon sets, the `*` scope, rule order and `stopIfTrue`, clearing a rule) behaves as before; no option or type changed. `test/formatting-apply-perf.test.js` records the styled to unstyled ratio of each case and fails if it regresses.
+
 ## [1.101.0] - 2026-10-13
 
 ### Added
