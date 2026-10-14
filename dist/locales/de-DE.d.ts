@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.101.4, de-DE locale type declarations
+ * Lattice Grid 1.101.5, de-DE locale type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

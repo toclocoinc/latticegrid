@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.101.5] - 2026-10-14
+
+### Fixed
+
+- The date picker's Previous and Next month buttons move the calendar and keep it open, so a date in any month can be picked; the button keeps keyboard focus across the month change. A month change rebuilt the popup and removed the focused button, which the picker read as focus leaving and closed on. The date range picker's navigation works the same way (BACKLOG-0002352).
+
 ## [1.101.4] - 2026-10-14
 
 ### Fixed

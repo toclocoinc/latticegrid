@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.101.4, tabs module
+ * Lattice Grid 1.101.5, tabs module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
