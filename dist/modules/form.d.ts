@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.101.5, form module type declarations
+ * Lattice Grid 1.101.6, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -930,6 +930,10 @@ export interface FormItem {
   blur(): FormItem;
   /** Validate this one item, paint its verdict and report it through `validated`. */
   validate(): boolean;
+  /** Replace a combo or select item's static options, re-rendering the list in place; a value still present is kept, one gone is cleared with one `change` event, and a changed label refreshes the shown value. */
+  setOptions(options: unknown[]): FormItem;
+  /** Reload a `load`-backed combo — clear its cache and fetch the first page again; on a static combo or select this only re-renders. */
+  reload(): FormItem;
 }
 
 /** The form instance {@link createForm} returns. */

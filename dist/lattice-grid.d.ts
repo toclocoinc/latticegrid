@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.101.5, type declarations
+ * Lattice Grid 1.101.6, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -3737,11 +3737,11 @@ export interface DetailConfig {
    */
   enabled?: boolean;
   /**
-   * Draw the detail region yourself — a renderer, or the name of a registered
-   * one. One of `render` or `rows` is required, or the feature stays off and
-   * says so.
+   * Draw the detail region yourself instead of a nested grid: a function called
+   * with the element to mount into, the master row and the master grid, returning
+   * an object with a `destroy()` method or nothing.
    */
-  render?: string | RendererCtor;
+  render?: (container: HTMLElement, row: Row, ctx: { grid: Grid }) => { destroy?(): void } | void;
   /**
    * The grid configuration for the nested grid the detail region builds from
    * `rows`. Columns, formatting, everything a grid takes.
@@ -3754,10 +3754,16 @@ export interface DetailConfig {
   rows?: (row: Row) => unknown[] | Promise<unknown[]>;
   /**
    * How tall the detail region is, in pixels: a number, a function of the
-   * master row, or `'auto'` to measure it once it has content. 240 px by
-   * default.
+   * master row, or `'auto'` to measure it once it has content and grow with
+   * it. 240 px by default.
    */
   height?: number | 'auto' | ((row: Row) => number);
+  /**
+   * The most `height: 'auto'` will grow to: a number of pixels or a CSS length.
+   * Content taller than this scrolls inside the detail region instead of
+   * making the row any taller.
+   */
+  maxHeight?: number | string;
   /**
    * How many nested grids stay alive after their master is closed, so
    * collapsing and reopening does not refetch. 10 by default; beyond it the

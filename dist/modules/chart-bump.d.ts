@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.101.5, chart-bump module type declarations
+ * Lattice Grid 1.101.6, chart-bump module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.101.5, geo-uk module
+ * Lattice Grid 1.101.6, geo-uk module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

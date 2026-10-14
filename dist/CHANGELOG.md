@@ -9,6 +9,39 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.101.6] - 2026-10-14
+
+### Fixed
+
+- Two forms on one page keep their generated element ids disjoint: every form, label, help tooltip, validation line, select/combo listbox and option, listbox and speed-dial menu numbers its ids from one module-wide counter, so a `<label for>` or aria reference in one form resolves into its own form, never the other (BACKLOG-0002357).
+
+- A form item's `width` inside a `rows` container sets its width. It was written as a flex basis, which in a stacked container is the height, so a `width: 100` item came out full width and 100px tall; it is now 100px wide with its height from its content. Items inside `cols` keep their share-of-row behaviour (BACKLOG-0002358).
+
+- Typing a date into the form `datepicker` (or `daterange`) in anything but ISO cleared the box and committed null: text in the field's own display format (`5 Nov 2026`), the locale's short form (`05/11/2026`, `11/05/2026`, `05.11.2026`), ISO or `d MMM yyyy` / `MMM d, yyyy` now commits that day and fires one `change`, and text that is not a date (or `31/02/2026`) keeps the previous value, restores the previous display text, shows the `form.datepicker.invalid` message and fires no `change` (BACKLOG-0002359)
+
+- **A form combo whose search matched no option kept the previous options drawn on a list collapsed to 0px** (BACKLOG-0002360). The stale rows are now removed and a non-interactive "No matches" row is shown at the list's normal minimum height; the free-entry create row still appears when enabled, and clearing the search restores the options.
+
+- **Pressing Enter in a single-line form field did not submit a form that has a submit button** (BACKLOG-0002361). Enter — with no modifiers and outside an IME composition — in a text input, number, password, the last OTP box, or a date/time/date-range picker's text field while its popup is closed now runs the same path as clicking the first submit button: it validates, fires the form's `submit` event with the values, and runs the button's click handler, exactly once. A textarea or rich-text field, an open combo/select/picker list, and a form without a submit button are unaffected.
+
+- A form event handler that throws is surfaced as an uncaught error instead of being swallowed. A throwing `change` handler previously logged a `lattice-form` warning and looked like a no-op, so a broken save handler never reached error monitoring; now every handler still runs, and each thrown error is re-raised on the next microtask with its original stack, so `window.onerror` and unhandled-error reporting see it (BACKLOG-0002362). <!-- not-breaking: hosts that relied on the swallow now see their own errors -->
+
+- The form `datepicker` in `mode: "date-time"` keeps a draft while its popup is open: picking a day keeps the time typed in the hour/minute boxes (00:00 only when none was entered), shows the day in the field and leaves the popup open; the clock boxes and AM/PM change only the draft; the value commits once, as the picked day plus the draft time, on Done, an outside click or focus leaving. A time with no day picked commits nothing, and `setValue` resets the draft so a cleared field never reuses the old time (BACKLOG-0002363)
+
+- A form select, combo and date picker keep the form's own font and control styling while their options list is open. The popup opens in the shared layer host, outside `.lat-form`, so its text fell back to the page's font and the calendar's Previous/Next/Done buttons and hour/minute inputs fell back to native browser styling; the host now carries the form's font tokens and the control's button/input rules reach it, in light and dark themes (BACKLOG-0002364).
+
+- **A form combo or select could not refresh its options after creation** (BACKLOG-0002365). `form.getItem(name)` now exposes `setOptions(options)` — it replaces the static options, re-renders the list in place, keeps a value that is still present and clears one that is gone with a single `change` event, and refreshes the shown label when an option's label changed — and `reload()`, which refetches a `load`-backed combo's first page (a static combo or select just re-renders).
+
+- `horizontalBar` given `measures` (two or more, grouped or stacked) draws its bars again, instead of just its axes and labels. The binding dispatch only let a type reach the several-measures binder when it was `combo`/`candlestick`/`ohlc` or carried a right axis, and `horizontalBar` is deliberately excluded from the right-axis set (its value axis runs along x and has no right edge to give) — which, as a side effect, was also the only other door into that binder. `horizontalBar` with a single `y` measure, or with `series`, was unaffected (BACKLOG-0002368).
+
+- **`detail.render` declared `string | RendererCtor`, but only a function ever drew anything** (BACKLOG-0002369). The type now says what the code does: a function `(container, row, ctx)` returning an object with a `destroy()` method, or nothing. A string or class is reported once and the detail region is left empty instead of failing silently.
+  <!-- not-breaking: the class and string forms never rendered anything -->
+
+- A single-select form `combo` that holds a value now selects its label on focus, so typing replaces it; the list filters on the typed text only, clicking or pressing Enter on an option commits it, Escape restores the label, and leaving the field with unmatched text restores the label without a change event (BACKLOG-0002370).
+
+- **The master-detail panel stayed inside whichever pinned strip painted it last** (BACKLOG-0002371). `detailhost.js` builds one element per expanded row, and every section's detail row used to append that same element — so with a pinned-right or pinned-left column the panel ended up stuck in the pinned strip and the rest of the row was empty. An inline detail row is now drawn by the full-width row layer instead, the same layer a banner or a host-drawn group heading already uses to sit over every pinned strip: one element, placed once, full width, held in place against the centre section's horizontal scroll, and removed from every section on collapse.
+
+- `detail.height: 'auto'` now sizes the master-detail panel to its content instead of ignoring the option and leaving the row at the 240 px default. Once the region's content renders, the detail row grows or shrinks to fit it, the rows below move down and the scroll range follows; a ResizeObserver re-applies the height as the content changes. A new `detail.maxHeight` (a number of pixels or a CSS length) caps that growth, scrolling inside the panel rather than making the row any taller (BACKLOG-0002372)
+
 ## [1.101.5] - 2026-10-14
 
 ### Fixed
