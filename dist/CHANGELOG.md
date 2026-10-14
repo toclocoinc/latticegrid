@@ -9,6 +9,18 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.101.7] - 2026-10-14
+
+### Fixed
+
+- A required form select, combo, date picker, chips, file, rich-text, toggle, rating, stage, colour, OTP or list box item shows its invalid state after validation: the field a person focuses carries `aria-invalid` and the message link, and its box takes the invalid border colour, cleared once the value is valid. Only plain inputs did before (BACKLOG-0002373).
+
+- Enter in a form field commits the text just typed before the form validates and submits, so a required field filled a moment ago passes and a login submits on Enter without clicking away first (BACKLOG-0002374).
+
+- A form item's validation message clears as soon as the field becomes valid, in every validation mode. An item showing a failure now re-checks itself when its value commits, so filling a required input or date picker after a failed validate() removes the message at once instead of leaving it until the next validate() (BACKLOG-0002375).
+
+- Pinned grid sections stay in step with the body when focus lands on an off-screen row's expander or checkbox while a detail panel is open. The pinned regions are clipped boxes rather than hidden-overflow scroll containers, so focus and scrollIntoView scroll the body viewport and the pinned columns follow (BACKLOG-0002376).
+
 ## [1.101.6] - 2026-10-14
 
 ### Fixed
