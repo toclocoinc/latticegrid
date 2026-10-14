@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.101.2, form module type declarations
+ * Lattice Grid 1.101.3, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -606,8 +606,8 @@ export interface FormConfig {
   labelWidth?: number | string;
   /** The default marker a required field with no visible label shows on its placeholder: `true` appends `" *"`, a string resolves through the message catalogue, `false` shows nothing. An item's own `requiredHint` wins. */
   requiredHint?: boolean | string;
-  /** The width, in pixels, below which a `cols` container stacks its children into one column. Default 480. */
-  colsBreakpoint?: number;
+  /** The width, in pixels, below which a `cols` container stacks its children into one column, or `false` (or `0`) to never stack. A positive number is used as-is. Default 480. */
+  colsBreakpoint?: number | false;
   /**
    * Bind the form to a record. A grid row generates one item per column and
    * saves through the grid's edit path; a routed record follows the route's
@@ -620,6 +620,8 @@ export interface FormConfig {
   steps?: FormStep[];
   /** The step indicator's orientation: `horizontal` (default) or `vertical`. */
   stepOrientation?: FormStepOrientation;
+  /** Whether a forward step move validates the current step first (`true`, the default). Set `false` to run `validate()` yourself and navigate unchecked. */
+  validateSteps?: boolean;
   /** A `t(key, params)` catalogue for the separator's accessible label. */
   messages?: { t(key: string, params?: object): string };
 }

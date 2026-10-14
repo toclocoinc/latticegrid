@@ -9,6 +9,30 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.101.3] - 2026-10-14
+
+### Fixed
+
+- **A form wizard's forward moves now validate the current step exactly as `form.validate()` does** (BACKLOG-0002290). `next()`, `goToStep()` to a later step and a click on a later indicator step previously checked only `requiredWhen` and a control's own hook, so a step with a plain `required` item (or a `validation` rule) advanced unchecked. Now a forward move runs the same rule engine as `validate()`: the first invalid item is focused and painted with the same `aria-invalid` and message, the `validated` event fires, and the move resolves `false` and stays put. A backward move (`back()`, `goToStep()` to an earlier step, an earlier indicator step) still never validates, and on the last step `next()` validates in place, resolving `false` while it is invalid.
+  - **Opt-out.** `validateSteps: false` on the form config restores the unchecked navigation for an integrator that runs `validate()` itself.
+
+- **The select and combo options list, and the date picker's calendar, no longer get clipped by a parent's `overflow: hidden` or fixed height** (BACKLOG-0002291). Before this card the popup rendered `position: absolute` inside its own control, so a 60px toolbar cell, a filter bar or a scrolling panel cut the list off and the content below painted over it. <!-- not-breaking: a clipping bug fix; no option, type or committed behaviour changed -->
+  - The popup now opens in a shared, document-level layer host, positioned `fixed` against the field's own rectangle: it flips above when there is no room below, follows the field on scroll and resize while open, and closes on an outside pointer down, Escape, Tab out, or the field scrolling out of view.
+  - ARIA (`aria-controls`, `aria-activedescendant`), keyboard navigation, type-ahead, focus return to the field, touch, RTL and the dark theme keep working; the popup keeps its existing class names, so theming and the preset gate are unchanged; `native: true` is unchanged.
+  - In a right-to-left document, the popup now positions against the field's own rectangle instead of the viewport edge: positioning clears the stylesheet's `right` alongside the inline `left` it sets, so the two no longer over-constrain the box's fixed position.
+  - The form's own `destroy()` restores and removes any popup left open.
+
+- **A form `colsBreakpoint` of `0` or `false` now turns stacking off, and a full-width button keeps sharing a cols row** (BACKLOG-0002292). `resolveColsBreakpoint` used to drop `0` (and `false`) onto the 480px default, so a `cols` container still stacked on a narrow form and integrators wrote `1` to get a row that never stacks; `0` and `false` are now honoured as "never stack", a positive number keeps the old behaviour and the default stays 480px.
+  - A `fullWidth: true` button inside a `cols` row fills its own column while the columns keep sharing the row, so two full-width buttons sit side by side at half the width each and stack only when the breakpoint applies; outside a `cols` row `fullWidth` is unchanged. The option's type is now `number | false`.
+
+- **A `select` now returns the chosen option's own typed value instead of the string it renders** (BACKLOG-0002293). Before this card, options written as numbers, booleans or `null` came back from `getValue()` as strings, because the control read the element's string value and never mapped it back to the option. <!-- not-breaking: string options and a value absent from options behave as before; the change payload and setValue now resolve through the options the host supplied -->
+  - `getValue()` looks the committed entry up in the item's `options`, so a chosen `{ value: 1 }` returns the number `1`, `{ value: true }` returns `true`, and `{ value: null }` returns `null`; a multi select returns an array of those typed values, and the `change` event payload carries the same typed value.
+  - `setValue(1)` and `setValue('1')` both select the option whose own value is `1` &mdash; a loose match on the string form &mdash; and the option's value wins; string options are unchanged, and a value absent from `options` behaves as today.
+  - This covers the styled select, `native: true`, and the multi select alike; docs note that option values keep their type.
+
+- **The form date picker's hour and minute boxes dropped leading zeros** (BACKLOG-0002294). A value such as 21:05 drew the hour box as "21" and the minute box as "5", and a single digit typed into a box stayed as typed after the box was left, even though the field's own text and the committed value were already correct. The two boxes now always draw two digits (05, 09, 00) whenever they are drawn from a value or after a commit, while a box still shows exactly what was typed until it is left.
+  - **Unchanged.** The committed value, the field's formatted text and the min/max fencing behave exactly as before.
+
 ## [1.101.2] - 2026-10-13
 
 ### Changed
