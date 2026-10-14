@@ -9,6 +9,16 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.101.4] - 2026-10-14
+
+### Fixed
+
+- Form select, combo and date picker lists open above whatever contains the field. Each open list is placed in the browser's top layer, so a slide-out, floating window, overlay or modal dialog with its own `z-index` never covers it, and it also takes the `--lattice-popup-z` stacking order (default: the maximum) for browsers without a top layer; a page that needs something of its own above an open list lowers that token (BACKLOG-0002336).
+
+- A form select shows the option whose value is the empty string. A field whose value is `''` now selects a `{ value: '', label: '-- Select --' }` choice from config or from `setValue()` and the box shows its label, instead of staying blank; when no option has the empty string as its value, `''` still means nothing chosen and the placeholder shows. With `native: true` the control adds its own blank entry only when the options carry none, so the list never shows two empty rows (BACKLOG-0002337).
+
+- A form colour item lays out correctly on a page with only the Lattice stylesheet: the swatch and the dropdown toggle are control-sized, the hex input takes the rest of the field, and nothing overflows the field's edge. The whole-control button rule now styles only a button that is the control itself, and a control's own part buttons keep their size (BACKLOG-0002338).
+
 ## [1.101.3] - 2026-10-14
 
 ### Fixed

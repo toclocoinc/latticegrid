@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.101.3, chart-waffle module type declarations
+ * Lattice Grid 1.101.4, chart-waffle module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

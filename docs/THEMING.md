@@ -387,7 +387,7 @@ The Designer module's editing chrome (rails, panels and the properties form) dra
 
 ### Form module tokens (module-owned, fallback-only)
 
-The form module (`modules/form`, BACKLOG-0002141, spacing BACKLOG-0002183, disabled/read-only states BACKLOG-0002198) reads these names only from its own injected stylesheet — they are never declared in the theme CSS above, so they are not part of the machine-checked public-token list and a preset sets them only for closer fidelity. `createForm({ spacing, labelGap })` and `form.setSpacing()` write the two spacing names as inline custom properties on the form root, which always win over a stylesheet, so a theme sets them only as the default a form without an explicit spacing falls back to. The two spacing names default from the density scale; the six disabled/read-only names are derived from the colour tokens so they follow light and dark automatically. All eight are **MAY**: `checkPresetCompleteness` never requires a preset edit for them.
+The form module (`modules/form`, BACKLOG-0002141, spacing BACKLOG-0002183, disabled/read-only states BACKLOG-0002198) reads these names only from its own injected stylesheet — they are never declared in the theme CSS above, so they are not part of the machine-checked public-token list and a preset sets them only for closer fidelity. `createForm({ spacing, labelGap })` and `form.setSpacing()` write the two spacing names as inline custom properties on the form root, which always win over a stylesheet, so a theme sets them only as the default a form without an explicit spacing falls back to. The two spacing names default from the density scale; the six disabled/read-only names are derived from the colour tokens so they follow light and dark automatically; the popup stacking order is a plain number. All nine are **MAY**: `checkPresetCompleteness` never requires a preset edit for them.
 
 | Token | Default (the fallback) | Affects |
 |---|---|---|
@@ -399,6 +399,7 @@ The form module (`modules/form`, BACKLOG-0002141, spacing BACKLOG-0002183, disab
 | `--lattice-readonly-foreground` | `var(--lattice-foreground)` | the text of a read-only field (fully legible, so a value can still be read and copied) |
 | `--lattice-readonly-background` | `color-mix(in srgb, var(--lattice-background) 92%, var(--lattice-foreground-muted))` | the subtle fill of a read-only field |
 | `--lattice-readonly-border` | `var(--lattice-border-color)` | the border of a read-only field |
+| `--lattice-popup-z` | `2147483647` | the stacking order of an open select, combo or date-picker list while it sits in the page-level layer host; a page that needs its own element above an open list sets this lower (BACKLOG-0002336). Where the browser has a top layer the list is placed there as well, which no `z-index` can cover |
 
 ## Internal, off-contract
 
