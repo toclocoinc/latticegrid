@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.103.0, svelte module
+ * Lattice Grid 1.103.1, svelte module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

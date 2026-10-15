@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.103.1] - 2026-10-15
+
+### Fixed
+
+- A form combo's "Create" row did nothing when clicked or tapped: with `newOptions`, only Enter reached the create path, so a mouse or touch user could type a new value but never add it. Clicking the row now creates and selects the value, fires one `change` and closes the list, exactly as Enter does (BACKLOG-0002422).
+
 ## [1.103.0] - 2026-10-15
 
 ### Added

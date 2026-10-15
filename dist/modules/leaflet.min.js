@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.103.0, leaflet module
+ * Lattice Grid 1.103.1, leaflet module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

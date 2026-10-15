@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.103.0, deckgl module
+ * Lattice Grid 1.103.1, deckgl module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
