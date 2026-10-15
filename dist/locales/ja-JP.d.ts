@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.101.7, ja-JP locale type declarations
+ * Lattice Grid 1.101.8, ja-JP locale type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

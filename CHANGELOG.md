@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.101.8] - 2026-10-15
+
+### Fixed
+
+- An optional single-select combo can be emptied by the person using it: clearing the text and pressing Enter, Tab or clicking away sets the value to null and fires one change, while text that matches no option still restores the label. `clearable: true` on a combo or select item shows a clear control while a value is held, which empties the item the same way (a select reports its empty value as the empty string, as before) (BACKLOG-0002393).
+
 ## [1.101.7] - 2026-10-14
 
 ### Fixed

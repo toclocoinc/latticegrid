@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.101.7, form module type declarations
+ * Lattice Grid 1.101.8, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -493,7 +493,7 @@ export interface FormItemConfig extends ComboConfig {
   pickerOnly?: boolean;
   /** Let a `color` item's text part be typed into (default true); `false` makes it read-only, so only the popover sets the value. */
   editable?: boolean;
-  /** Show a `color` item's clear control, setting the value to `null`, or a `daterange` item's clear control, setting the value to a null/null pair. */
+  /** Show a clear control: on a `color` item it sets the value to `null`; on a `daterange` item a null/null pair; on a single-select `combo` it empties the value to `null`, and on a `select` item to its empty value `''`, with one `change`. An optional single-select combo is also emptied when its text is cleared and Enter is pressed or focus leaves. */
   clearable?: boolean;
   /** Extra per-control options, kept for later controls. */
   [key: string]: unknown;
@@ -692,6 +692,8 @@ export interface ComboConfig {
   maxHeight?: number;
   /** Where multi-select chips sit: 'inside' (default), 'above' or 'below' the control. */
   chipPlacement?: 'inside' | 'above' | 'below';
+  /** Show a clear control on a single-select combo while it holds a value; it empties the value to `null` with one `change`. */
+  clearable?: boolean;
   /** Parent item names that clear and reload this combo when they change. */
   dependsOn?: string[];
 }

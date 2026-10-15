@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Form API Reference — Lattice Grid 1.101.7</title>
+<title>Form API Reference — Lattice Grid 1.101.8</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -1000,7 +1000,7 @@ return [fruitRows, kept, cleared, fruitChanges, colourRows, keptColour].join('|'
       </table>
     </div>
     <h4 id="combo-live-example">Dynamic values, chips, icons, avatars, templates and a dependent item, executed</h4>
-    <pre data-run="js" data-expect="n0,zz9|T:Alpha|true|true|S:User|NYC|0|n1|p|true" data-covers="export:createCombo config:ComboConfig.load config:ComboConfig.options config:ComboConfig.multiple config:ComboConfig.value config:ComboConfig.resolveLabels config:ComboConfig.newOptions config:ComboConfig.optionTemplate config:ComboConfig.selectedTemplate config:ComboConfig.selectAll config:ComboConfig.debounce config:ComboConfig.pageSize config:ComboConfig.maxHeight config:ComboConfig.chipPlacement config:ComboConfig.dependsOn method:combo.getValue method:combo.setValue method:combo.reload method:combo.clear method:combo.open method:combo.close method:combo.focus method:combo.blur method:combo.setDisabled method:combo.setReadOnly method:combo.destroy"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+    <pre data-run="js" data-expect="n0,zz9|T:Alpha|true|true|S:User|NYC|0|n1|p|true" data-covers="export:createCombo config:ComboConfig.load config:ComboConfig.options config:ComboConfig.multiple config:ComboConfig.value config:ComboConfig.resolveLabels config:ComboConfig.newOptions config:ComboConfig.optionTemplate config:ComboConfig.selectedTemplate config:ComboConfig.selectAll config:ComboConfig.debounce config:ComboConfig.pageSize config:ComboConfig.maxHeight config:ComboConfig.chipPlacement config:ComboConfig.clearable config:ComboConfig.dependsOn method:combo.getValue method:combo.setValue method:combo.reload method:combo.clear method:combo.open method:combo.close method:combo.focus method:combo.blur method:combo.setDisabled method:combo.setReadOnly method:combo.destroy"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
 const { createCombo, createForm } = await import('../packages/modules/form/index.js');
 
 const { document, root } = createTestDom();
@@ -1033,6 +1033,7 @@ root.appendChild(sizedHost);
 const sized = createCombo(sizedHost, {
   options: [{ value: 'a', label: 'Alpha' }, { value: 'b', label: 'Beta' }],
   optionTemplate: (opt) =&gt; 'T:' + opt.label,
+  clearable: true,                                  <span class="cmt">// a clear control shows while a value is held and empties it with one change (BACKLOG-0002393)</span>
 });
 const sizedPopup = sized.root.querySelector('.lat-combo__popup');   <span class="cmt">// captured before open: the popup moves into the shared layer host while open (BACKLOG-0002291)</span>
 sized.open();
@@ -2534,7 +2535,7 @@ shell.destroy();
           <tr><td class="name">customColors</td><td class="type">string[]</td><td class="desc">A `color` item's custom-colours row to start with — extended, newest first and deduplicated to at most ten, by every colour picked in the picker view (BACKLOG-0002252). <small>(optional)</small></td></tr>
           <tr><td class="name">pickerOnly</td><td class="type">boolean</td><td class="desc">Remove a `color` item's palette view, leaving only the picker (BACKLOG-0002252). <small>(optional)</small></td></tr>
           <tr><td class="name">editable</td><td class="type">boolean</td><td class="desc">Let a `color` item's text part be typed into (default true); `false` makes it read-only, so only the popover sets the value (BACKLOG-0002252). <small>(optional)</small></td></tr>
-          <tr><td class="name">clearable</td><td class="type">boolean</td><td class="desc">Show a `color` item's clear control, setting the value to `null` (BACKLOG-0002252), or a `daterange` item's clear control, setting the value to a null/null pair (BACKLOG-0002255). <small>(optional)</small></td></tr>
+          <tr><td class="name">clearable</td><td class="type">boolean</td><td class="desc">Show a clear control: on a `color` item it sets the value to `null` (BACKLOG-0002252); on a `daterange` item a null/null pair (BACKLOG-0002255); on a single-select `combo` it empties the value to `null`, and on a `select` item to its empty value `''`, with one `change` (BACKLOG-0002393). An optional single-select combo is also emptied when its text is cleared and Enter is pressed or focus leaves. <small>(optional)</small></td></tr>
           <tr><td class="name">[key: string]</td><td class="type">unknown</td><td class="desc">Extra per-control options, kept for later controls.</td></tr>
         </tbody>
       </table>
@@ -2679,6 +2680,7 @@ shell.destroy();
           <tr><td class="name">pageSize</td><td class="type">number</td><td class="desc">The page size handed to `load`. Default 20. <small>(optional)</small></td></tr>
           <tr><td class="name">maxHeight</td><td class="type">number</td><td class="desc">The chip area max height, in pixels. <small>(optional)</small></td></tr>
           <tr><td class="name">chipPlacement</td><td class="type">'inside' | 'above' | 'below'</td><td class="desc">Where multi-select chips sit: 'inside' (default), 'above' or 'below' the control. <small>(optional)</small></td></tr>
+          <tr><td class="name">clearable</td><td class="type">boolean</td><td class="desc">Show a clear control on a single-select combo while it holds a value; it empties the value to `null` with one `change` (BACKLOG-0002393). <small>(optional)</small></td></tr>
           <tr><td class="name">dependsOn</td><td class="type">string[]</td><td class="desc">Parent item names that clear and reload this combo when they change. <small>(optional)</small></td></tr>
         </tbody>
       </table>
