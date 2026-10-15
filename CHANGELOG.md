@@ -9,6 +9,26 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.103.2] - 2026-10-15
+
+### Fixed
+
+- A clearable form select's clear control covered the selected value: the clear button's single-class rule lost to the whole-control button rule and stretched to the field's width and row height. It is now a two-class rule, the shown value reserves its slot so a long value ellipsises before it, and it hides on a read-only select, keeping it a control-size square beside the arrow (BACKLOG-0002425).
+
+- A plain button (or input, select, link, image or table) a host put in an `html` item or a content container took the form's field sizing and font: the field's whole-control and state rules styled it by tag, and the form's font inherited into it. Those rules now target only the form's own control classes, and the container resets the form's inherited font and colour, so host markup keeps the same computed width, height, font, colours and borders it has outside the form (BACKLOG-0002426).
+
+- **A single-select combo's drop-down arrow wrapped onto a second line below the input in a narrow field** (BACKLOG-0002427). The input now shrinks instead of keeping an 80px minimum, so the toggle and the clear control keep their size on the input's line and the field stays one row tall at any width down to 120px at every density.
+
+- A multi combo's open list stayed in place when a chip was added or removed, growing or shrinking the control, so the list overlapped the input and a click meant for the field toggled an option instead; `select` and the date picker had the same gap whenever their own anchor resized. The shared popup layer now watches the anchor with a `ResizeObserver` and repositions the open list every time its box changes, in the same frame (BACKLOG-0002428).
+
+- A `date-time` or `time` form `datepicker`'s typed text was not always committed before a click handler outside the form read the value: an outside pointerdown reached the picker's own focus-leaving commit before the input's native `change` did, and that commit read the popup's clock boxes (or, in `date-time`, its day/time draft) instead of the still-unparsed typed text. Typed text in both modes now parses and commits on that focus-leaving pointerdown itself, before any outside click handler runs — the same guarantee `date` mode already had — with one `change`; text that fails to parse restores the previous value with no `change` (BACKLOG-0002429).
+
+- A sorted narrow grid column kept its hover-only header controls (menu, filter) drawn over the title after the pointer left: clicking the header to sort it focuses the cell, and the stylesheet revealed the controls on `:focus-within`. They now show only on hover or visible keyboard focus (`:focus-visible`), the sort indicator keeps a reserved slot at the end of the header, and the title's box (margin, not padding) ends before every control so it ellipsises instead of running underneath (BACKLOG-0002430).
+
+- A form `datepicker` in any mode had no way to empty an optional date, and clearing its text restored the previous value instead of committing `null`. Emptied text now commits `null` with one `change` on blur, Tab or Enter, and `clearable: true` adds a clear control inside the field — shown only while a value is held and not read only — that empties the value the same way and returns focus to the input; unparseable text still restores the previous value with no `change` (BACKLOG-0002431).
+
+- A number field with a `min`, `max` or `step` silently reverted a value typed outside the bound and showed no validation message. The value now stays as typed and commits, the field is marked invalid, and the message names the limit, so a wrong value is reported rather than silently undone (BACKLOG-0002432).
+
 ## [1.103.1] - 2026-10-15
 
 ### Fixed

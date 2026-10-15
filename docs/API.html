@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.103.1</p>
+    <p class="rail__sub">API reference · v1.103.2</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -584,7 +584,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.103.1</span>
+      <span class="chip">Version 1.103.2</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3506,7 +3506,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.103.1'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.103.2'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -17180,7 +17180,7 @@ built[0].setValue({ email: 'changed@x.y' });          <span class="cmt">// a lat
     HTML string, sanitised before insertion). Values supplied in <code>options</code> keep their own type through
     <code>getValue()</code> and the <code>change</code> payload &mdash; choosing <code>{ value: 1 }</code> commits the
     number <code>1</code>, not the string <code>'1'</code> (BACKLOG-0002293).</p>
-    <pre data-run="js" data-expect="m|green|tow|true|2026-06-15|2026-06-15T09:30|07:45|l|red|roof,tow|false|4|2026-06-01|2026-06-01|2026-07-04|23:59|true|l" data-covers="export:createForm method:form.getItem method:form.getValue method:form.setValue method:form.on method:form.destroy config:FormItemConfig.type config:FormItemConfig.options config:FormItemConfig.mode config:FormItemConfig.locale config:FormItemConfig.timeZone config:FormItemConfig.min config:FormItemConfig.max config:FormItemConfig.value config:FormItemConfig.native"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+    <pre data-run="js" data-expect="m|green|tow|true|2026-06-15|2026-06-15T09:30|07:45|l|red|roof,tow|false|4|2026-06-01|2026-06-01|2026-07-04|23:59|true|l|true" data-covers="export:createForm method:form.getItem method:form.getValue method:form.setValue method:form.on method:form.destroy config:FormItemConfig.type config:FormItemConfig.options config:FormItemConfig.mode config:FormItemConfig.locale config:FormItemConfig.timeZone config:FormItemConfig.min config:FormItemConfig.max config:FormItemConfig.value config:FormItemConfig.native config:FormItemConfig.clearable"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
 const { createForm } = await import('../packages/modules/form/index.js');
 
 const { root } = createTestDom();
@@ -17191,7 +17191,7 @@ const form = createForm(root, {
     { type: 'radiogroup', name: 'colour', label: 'Colour', options: ['red', 'green'], value: 'green' },
     { type: 'checkboxgroup', name: 'extras', label: 'Extras', options: [{ value: 'roof', label: 'Roof' }, { value: 'tow', label: 'Tow bar' }], value: ['tow'] },
     { type: 'toggle', name: 'auto', label: 'Automatic', value: true },
-    { type: 'datepicker', name: 'day', label: 'Day', locale: 'en-GB', min: '2026-01-01', max: '2026-12-31', value: '2026-06-15' },
+    { type: 'datepicker', name: 'day', label: 'Day', locale: 'en-GB', min: '2026-01-01', max: '2026-12-31', value: '2026-06-15', clearable: true },
     { type: 'datepicker', name: 'slot', label: 'Slot', mode: 'date-time', timeZone: 'UTC', value: new Date('2026-06-15T09:30:00Z') },
     { type: 'datepicker', name: 'clock', label: 'Clock', mode: 'time', value: '07:45' },
   ],
@@ -17234,6 +17234,10 @@ dayInput.value = '2026-07-04';
 dayInput.dispatchEvent(new TestEvent('change', { bubbles: true }));
 const accepted = form.getValue().day;
 
+const dayClear = form.getItem('day').el.querySelector('.lat-form__datepicker-clear');
+dayClear.dispatchEvent(new TestEvent('click', { bubbles: true }));
+const cleared = form.getValue().day === null;
+
 form.getItem('clock').setValue('23:59');
 const clock = form.getItem('clock').getValue();
 
@@ -17245,7 +17249,7 @@ const nativeValue = form.getValue().nativeSize;
 const native = [nativeRendered, nativeValue].join('|');
 
 form.destroy();
-return [started, committed, clicked, refused, accepted, clock, native].join('|');</code></pre>
+return [started, committed, clicked, refused, accepted, clock, native, cleared].join('|');</code></pre>
 
     <h3 id="form-daterange-example">A date range picker, executed</h3>
     <p class="section-note">A <code>daterange</code> item stores <code>{ start, end }</code> ISO dates (or
@@ -32895,7 +32899,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">customColors</td><td class="type">string[]</td><td class="desc">A `color` item's custom-colours row to start with — extended, newest first and deduplicated to at most ten, by every colour picked in the picker view (BACKLOG-0002252). <small>(optional)</small></td></tr>
           <tr><td class="name">pickerOnly</td><td class="type">boolean</td><td class="desc">Remove a `color` item's palette view, leaving only the picker (BACKLOG-0002252). <small>(optional)</small></td></tr>
           <tr><td class="name">editable</td><td class="type">boolean</td><td class="desc">Let a `color` item's text part be typed into (default true); `false` makes it read-only, so only the popover sets the value (BACKLOG-0002252) — or a `time` item's field text (default false there, the popup sets it; `true` accepts typed `HH:MM`/`hh:MM AM`, committed on blur or Enter) (BACKLOG-0002343). <small>(optional)</small></td></tr>
-          <tr><td class="name">clearable</td><td class="type">boolean</td><td class="desc">Show a clear control: on a `color` item it sets the value to `null` (BACKLOG-0002252); on a `daterange` item a null/null pair (BACKLOG-0002255); on a single-select `combo` it empties the value to `null`, and on a `select` item to its empty value `''`, with one `change` (BACKLOG-0002393). An optional single-select combo is also emptied when its text is cleared and Enter is pressed or focus leaves. <small>(optional)</small></td></tr>
+          <tr><td class="name">clearable</td><td class="type">boolean</td><td class="desc">Show a clear control: on a `color` item it sets the value to `null` (BACKLOG-0002252); on a `daterange` item a null/null pair (BACKLOG-0002255); on a single-select `combo` it empties the value to `null`, and on a `select` item to its empty value `''`, with one `change` (BACKLOG-0002393); on a `datepicker` item it empties the value to `null`, shown only while a value is held and not read only (BACKLOG-0002431). An optional single-select combo is also emptied when its text is cleared and Enter is pressed or focus leaves. <small>(optional)</small></td></tr>
           <tr><td class="name">timeFormat</td><td class="type">12 | 24</td><td class="desc">The clock format of a `time` item: `24` (default, `HH:MM`) or `12` (`hh:MM` with an AM/PM segment in the popup and display) (BACKLOG-0002343). <small>(optional)</small></td></tr>
           <tr><td class="name">valueFormat</td><td class="type">'string' | 'object'</td><td class="desc">How a `time` item stores its value: `'string'` (default, `'HH:MM'` or `'hh:MM AM'` in 12-hour) or `'object'` (`{ hour, minute, AM? }`) (BACKLOG-0002343). <small>(optional)</small></td></tr>
           <tr><td class="name">controls</td><td class="type">boolean</td><td class="desc">Add Close and Save buttons to a `time` item's popup so nothing commits until Save and Close discards (default false: the popup commits as the clock changes) (BACKLOG-0002343). <small>(optional)</small></td></tr>
@@ -39241,7 +39245,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.103.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.103.2 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

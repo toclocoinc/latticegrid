@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.103.1, form module type declarations
+ * Lattice Grid 1.103.2, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -541,7 +541,7 @@ export interface FormItemConfig extends ComboConfig {
   pickerOnly?: boolean;
   /** Let a `color` item's text part be typed into (default true); `false` makes it read-only, so only the popover sets the value — or a `time` item's field text (default false there, the popup sets it; `true` accepts typed `HH:MM`/`hh:MM AM`, committed on blur or Enter). */
   editable?: boolean;
-  /** Show a clear control: on a `color` item it sets the value to `null`; on a `daterange` item a null/null pair; on a single-select `combo` it empties the value to `null`, and on a `select` item to its empty value `''`, with one `change`. An optional single-select combo is also emptied when its text is cleared and Enter is pressed or focus leaves. */
+  /** Show a clear control: on a `color` item it sets the value to `null`; on a `daterange` item a null/null pair; on a single-select `combo` it empties the value to `null`, and on a `select` item to its empty value `''`, with one `change`; on a `datepicker` item it empties the value to `null`, shown only while a value is held and not read only. An optional single-select combo is also emptied when its text is cleared and Enter is pressed or focus leaves. */
   clearable?: boolean;
   /** The clock format of a `time` item: `24` (default, `HH:MM`) or `12` (`hh:MM` with an AM/PM segment in the popup and display). */
   timeFormat?: 12 | 24;
