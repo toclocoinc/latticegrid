@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.101.8</p>
+    <p class="rail__sub">Developer guide · v1.103.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.101.8</span>
+        <span class="chip">Version 1.103.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1886,7 +1886,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.101.8'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.103.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -11080,6 +11080,27 @@ return boundCount + '|' + routed;</code></pre>
       and follows density and the light/dark theme tokens.
     </p>
     <p class="lead-in">
+      A <code>togglegroup</code> item is a row of two-state buttons &mdash; one per option &mdash; whose
+      pressed and unpressed faces differ. <code>options</code> names each button as
+      <code>{ id, text?, offText?, icon?, offIcon?, selected?, disabled?, hidden?, full? }</code>: the
+      pressed state shows <code>text</code>/<code>icon</code> and the unpressed one
+      <code>offText</code>/<code>offIcon</code> (each unpressed value falling back to its pressed twin),
+      with <code>id</code> as the map key (falling back to <code>value</code>, then the option&rsquo;s
+      position) and <code>hidden</code> options dropped from the group and its value. Single mode (the
+      default) keeps exactly one button pressed &mdash; pressing another releases the rest, pressing the
+      pressed one keeps it &mdash; while <code>multiselect: true</code> toggles each button
+      independently. The value is a <code>{ [id]: boolean }</code> map; <code>getValue()</code> and
+      <code>setValue()</code> round-trip it, <code>clear()</code> empties it to <code>{}</code>, and a
+      press commits through <code>change</code> whose payload also carries the option&rsquo;s
+      <code>id</code> and new <code>pressed</code> state (one <code>change</code> per press, gated by
+      <code>beforeChange</code>). Left/Right arrows move focus between the enabled buttons and
+      Space/Enter toggle the focused one; <code>gap</code> sets the pixel space between buttons,
+      <code>full</code> stretches the group to the item&rsquo;s width and an option&rsquo;s
+      <code>full</code> stretches that one button. The pressed fill reads the toggle&rsquo;s
+      <code>--lattice-switch-track-on</code>/<code>--lattice-switch-label</code> tokens, so the four
+      presets and dark mode apply as they do to a <code>toggle</code>.
+    </p>
+    <p class="lead-in">
       A <code>color</code> item is a swatch field: clicking the swatch or the trailing icon opens a
       popover under the field (flipped above when there is no room) over a preset <code>palette</code>
       &mdash; rows of hues by shade, defaulting to ten hues in five shades &mdash; plus a grey row
@@ -11109,6 +11130,37 @@ return boundCount + '|' + routed;</code></pre>
       &mdash; and <code>granularity: 'month'</code> turns the picker into a year-month range
       committing <code>YYYY-MM</code> values. The value is <code>{ start, end }</code> of ISO strings
       or <code>null</code>; <code>clearable: true</code> adds a control that sets <code>null</code>.
+    </p>
+    <p class="lead-in">
+      An <code>avatar</code> item is a profile picture field: with a value it shows <code>value.src</code> at
+      <code>size</code> (<code>small</code>, <code>medium</code> &mdash; the default, 64px &mdash; <code>large</code>,
+      or a pixel number), rounded with <code>circle: true</code>; with none it falls back to <code>preview</code> (an
+      image URL), then <code>icon</code>, then the <code>placeholder</code> text. Clicking the picture, pressing
+      Enter/Space on it, or dropping a file onto it opens the file chooser (<code>accept</code> defaults to
+      <code>['image/*']</code>); a file over <code>maxSize</code> is refused with a message surfaced through
+      <code>validate()</code> rather than admitted. An admitted file previews immediately as a data URL and commits
+      <code>{ src, file, name, size, status: 'pending' }</code>; an <code>upload</code> config &mdash;
+      <code>{ target, fieldName, params, headers, autosend, updateFromResponse }</code>, with <code>fieldName</code>
+      defaulting to <code>'file'</code> and <code>autosend</code>/<code>updateFromResponse</code> both defaulting to
+      <code>true</code> &mdash; posts the file as multipart form data the moment it is admitted (unless
+      <code>autosend: false</code>), moving <code>status</code> through <code>'uploading'</code> to
+      <code>'done'</code>/<code>'failed'</code> and, with <code>updateFromResponse</code>, reading <code>src</code>/
+      <code>id</code> back from the JSON response. <code>removeIcon</code> (default <code>true</code>) shows a clear
+      control once there is a value, setting it to <code>null</code>; <code>readOnly</code> shows the picture with no
+      chooser or remove control.
+    </p>
+    <p class="lead-in">
+      A <code>time</code> item is the datepicker&rsquo;s clock under its own control type: a field with
+      a clock toggle that opens a popup of hour and minute boxes &mdash; under the field, flipped above
+      when there is no room &mdash; plus an AM/PM segment when <code>timeFormat</code> is <code>12</code>
+      (default <code>24</code>). The value is read from a <code>Date</code>, an <code>HH:MM</code>
+      string, a number of minutes since midnight, or <code>{ hour, minute, AM? }</code>, and written as
+      a string &mdash; <code>HH:MM</code>, or <code>hh:MM AM</code> in 12-hour &mdash; or the object
+      form when <code>valueFormat</code> is <code>'object'</code>. <code>editable: true</code> makes the
+      field text typable, committing <code>HH:MM</code> or <code>hh:MM AM</code> on blur or Enter and
+      refusing an invalid clock with a validation message; <code>controls: true</code> adds Close and
+      Save so nothing commits until Save and Close discards (default: the popup commits as the clock
+      changes); and <code>icon</code> swaps the clock toggle glyph.
     </p>
     <p class="lead-in">
       <strong>Help tooltips, read-only locks and field addons attach to any item.</strong> An
@@ -13388,7 +13440,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.101.8 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.103.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

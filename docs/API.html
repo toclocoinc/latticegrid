@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.101.8</p>
+    <p class="rail__sub">API reference · v1.103.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -584,7 +584,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.101.8</span>
+      <span class="chip">Version 1.103.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3506,7 +3506,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.101.8'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.103.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -16044,6 +16044,7 @@ form.destroy();</code></pre>
     <p><strong>Disabled and read-only, defined once.</strong> Both states are one contract applied identically to every control. <code>disabled</code> leaves the tab order (unless <code>focusableWhenDisabled</code>), shows no hover or active response, sets <code>cursor: not-allowed</code>, carries <code>aria-disabled</code> (or the native <code>disabled</code> attribute), is excluded from <code>validate()</code>, and is styled from the <code>--lattice-disabled-foreground</code>/<code>--lattice-disabled-background</code>/<code>--lattice-disabled-border</code> tokens with text at or above 3:1. <code>readOnly</code> stays focusable and in the tab order, keeps its value readable, selectable and copied, refuses every change path before it happens &mdash; typing, click, paste, drop, wheel and the keyboard do nothing, pop-ups open view-only or not at all, and a checkbox, radio, toggle, <code>radiogroup</code> or <code>checkboxgroup</code> guards <code>pointerdown</code>/<code>click</code>/Space/Enter so the value never flickers &mdash; carries <code>aria-readonly</code>, is still validated and still appears in <code>getValue()</code>/submit, and is styled from the <code>--lattice-readonly-foreground</code>/<code>--lattice-readonly-background</code>/<code>--lattice-readonly-border</code> tokens (subtle fill, <code>cursor: default</code>, the lock icon). Both are set per item (<code>disabled</code>, <code>readOnly</code>, <code>readOnlyWhen</code>) and form-wide with <code>form.setDisabled(bool)</code> and <code>form.setReadOnly(bool)</code>.</p>
     <p><strong>Data binding.</strong> <code>config.bind</code> binds the form to a record instead of a static config. <code>bind: { grid, rowKey }</code> binds a grid row: when no layout is declared, one item per column is generated from the grid's own columns &mdash; their titles, types and editors &mdash; so a boolean column becomes a <code>checkbox</code> and a number column a <code>number</code>; the form follows the grid's density by default; <code>save()</code> writes the dirty items once through the grid's edit path (permissions, read-only, parse, validation and the beforeEdit gate honoured); and <code>revert()</code> restores the bound values. External edits to the row update a clean item in place and leave a dirty one alone, flagging it with <code>isConflicted()</code>. <code>bind: { router, route, key, onSave? }</code> follows a data-router record with the same update-unless-dirty rule: the form reads the record eagerly through <code>router.get(route, key)</code> &mdash; so a form created <em>after</em> the ingest still fills at once, whatever the order &mdash; then subscribes to the route's keyed diffs, and <code>destroy()</code> unsubscribes. <code>save()</code> writes the dirty items back through <code>router.apply</code>, then calls <code>bind.onSave(changes, record)</code> when the host gave one (may be async; a rejection reverts the router record and leaves the form dirty). A form <strong>group</strong> takes the same <code>bind</code> once: every member fills with its own fields off the record, and <code>group.save()</code> writes <em>one</em> router update with all the members' dirty fields, calling <code>onSave</code> once. A plain object of values initialises the form and is written back by <code>save()</code>. <code>isDirty(name?)</code> reports an unsaved user edit on one item or the whole form, and editing is the only thing that marks an item dirty &mdash; <code>setValue()</code>, <code>revert()</code> and bound-record updates are silent. The binding is duck-typed against the grid's public API, so the module still imports no grid and no core source.</p>
     <p><strong>Custom controls.</strong> <code>registerControl(type, definition)</code> makes a control type a first-class item: the definition's <code>create(el, item, api)</code> builds the control's DOM into <code>el</code>, <code>getValue(el)</code>/<code>setValue(el, value)</code> round-trip the value through <code>getValue()</code>/<code>setValue()</code>, and an optional <code>validate(value, item, el)</code> refuses a bad commit (return <code>true</code> to accept, <code>false</code> or a message to refuse, a Promise is awaited). The registered control gets the same wrapper, label, item API, events and density as a built-in, its <code>api.onChange()</code>/<code>api.onInput()</code> commit and report through the same path a native edit takes, and a later registration for the same type replaces the earlier one.</p>
+    <p id="form-content-container"><strong>A content container.</strong> <code>{ type: 'container', name, html, width, height, padding }</code> (BACKLOG-0002339) is a place in the form that shows host HTML or hosts another Lattice view, not a layout block &mdash; a block that also names <code>rows</code>/<code>cols</code>/<code>items</code> stays the plain layout container whatever its <code>type</code>. It renders <code>&lt;div class="lat-form__container" role="region"&gt;</code>, sized by <code>width</code>/<code>height</code> (a px number, a CSS length, or <code>'content'</code>, the default, to size to its own content) with an optional <code>padding</code>. An <code>html</code> string is rebuilt node by node rather than assigned through <code>innerHTML</code>: every <code>&lt;script&gt;</code> element, every <code>on*</code> attribute and every <code>javascript:</code>-scheme value is dropped, and everything else &mdash; inline styles included, because the host authored them &mdash; survives untouched; an <code>html</code> value that is already an element is appended as is, with no sanitising. The item carries no <code>value</code>: it never appears in <code>getValue()</code>/<code>setValue()</code> and is skipped by <code>validate()</code>, exactly like a button. After creation, <code>form.getItem(name).attach(viewOrElement, { keep? })</code> appends an element &mdash; or, for an object exposing <code>.el</code>, <code>.root</code> or <code>.element</code> (a <code>createGrid</code>/<code>createChart</code>/<code>createKanban</code>/<code>createCalendar</code>/<code>createGantt</code>/<code>createForm</code> result), that element &mdash; sized to the region (width 100%; height forced to the region's own configured height only when one was set, otherwise the view keeps its own). A second <code>attach()</code> replaces the first, and <code>form.destroy()</code> tears the item down too, destroying the attached view (calling its own <code>destroy()</code> when it has one) unless <code>keep: true</code> was given either time; <code>attachHTML(html)</code> replaces the content with sanitised host HTML the same way. <code>getWidget()</code> returns whatever is currently attached, or <code>null</code>. A nested <code>createForm</code> attached this way keeps its own value: the outer form's <code>getValue()</code> never merges it.</p>
     <p><strong>Declarative rules.</strong> An item's <code>visibleWhen</code>, <code>readOnlyWhen</code> or <code>requiredWhen</code> is a rule re-evaluated on every committed change: a constant, a function of the whole <code>{ name: value }</code> snapshot, or a condition on one named item's value with <code>equals</code>, <code>in</code>, <code>empty</code> or <code>fn</code>. A <code>visibleWhen</code> that is false hides the item, a <code>readOnlyWhen</code> that is true makes its control read-only, and a <code>requiredWhen</code> that is true marks it required &mdash; its commit path then refuses an empty value. A rule composes on the item's own <code>hidden</code>/<code>readOnly</code> baseline, so it never fights the item API's <code>hide()</code>/<code>show()</code>/<code>enable()</code>/<code>disable()</code>.</p>
     <p><strong>Wizards.</strong> A <code>steps</code> array turns the form into a wizard: each <code>{ id, label, rows }</code> step is one body, only the active one visible, under a step indicator whose <code>stepOrientation</code> is <code>horizontal</code> (default) or <code>vertical</code>. <code>form.next()</code>, <code>form.goToStep(index)</code> to a later step, and a click on a later indicator step all validate the current step's items first &mdash; exactly as <code>form.validate()</code> does, so a refused move shows the same errors, fires the <code>validated</code> event and moves focus to the first invalid item, resolving <code>false</code> and staying put. <code>form.back()</code>, <code>goToStep(index)</code> to an earlier step and an earlier indicator step go back without validating; the indicator marks each step pending, active, complete or in error, and never disagrees with the form. On the last step <code>next()</code> reads "Finish" and validates in place, resolving <code>false</code> while it is invalid. Set <code>validateSteps: false</code> to opt out &mdash; the integrator then runs <code>validate()</code> itself, and forward navigation is unchecked.</p>
     <p><strong>Files and rich text.</strong> A <code>file</code> item is an uploader field: drop, paste or pick, with <code>accept</code> (extensions or MIME patterns), <code>maxSize</code> and <code>maxFiles</code> enforced at admission, and a host <code>upload(file, { onProgress, signal })</code> callback that does the actual upload. The file list shows per-file progress and status with retry and remove, and the value is the accepted file entries &mdash; a rejected file stays visible with a message but never enters the value. A <code>richtext</code> item is a sanitised HTML editor: toolbar presets (<code>basic</code>/<code>html</code>/<code>rich</code> or an item-name array) over bold, italic, underline, strikethrough, colour, case, paragraph styles, lists, alignment, links, images, source view and undo/redo, with keyboard shortcuts and paste cleanup. Its whitelist sanitiser is the security boundary, shared with the grid's rich-text editor as one implementation: scripts, event handlers, <code>srcdoc</code>, <code>id</code>/<code>name</code> clobbering and <code>javascript:</code>/<code>vbscript:</code>/<code>data:</code> URLs never survive pasting, dropping or <code>setValue</code>, and every <code>_blank</code> link carries <code>rel="noopener noreferrer"</code>. Both honour density, theme tokens, <code>readOnly</code>/<code>disabled</code> and the item API, and clear to <code>[]</code> (file) or <code>''</code> (richtext). The same rich-text editor is available as a grid pop-up editor for long text with <code>edit: { editor: 'richtext' }</code>.</p>
@@ -16071,7 +16072,7 @@ form.destroy();</code></pre>
           <tr><td class="sig">createForm(el, config?)</td><td class="desc">Create a form. <code>config</code> is <code>{ rows | cols, density, spacing, labelGap, labelPosition, labelWidth, requiredHint, colsBreakpoint, bind, css, messages, steps, stepOrientation, validateSteps }</code>; <code>rows</code> stacks the top-level blocks vertically, <code>cols</code> lays them left-to-right sharing the width equally (used when <code>rows</code> is absent), <code>spacing</code> is the vertical gap between items (a px number or a CSS length, defaulting to the density's gap) and <code>labelGap</code> the gap between an item's label and its field (defaulting to half the density's space), <code>labelPosition</code> (<code>top</code> default / <code>left</code> / <code>hidden</code>) and <code>labelWidth</code> are the defaults every item inherits (an item&rsquo;s own value wins), <code>requiredHint</code> is the placeholder marker a required field with no visible label shows (<code>true</code> appends <code>" *"</code>, a string resolves through the catalogue, <code>false</code> shows nothing), <code>colsBreakpoint</code> is the container width below which a <code>cols</code> container stacks into one column (default 480px), <code>bind</code> binds the form to a record (<code>{ grid, rowKey }</code>, <code>{ router, route, key, onSave? }</code> or a plain values object), <code>messages</code> supplies a <code>t(key, params)</code> catalogue for the separator's accessible label and the validation defaults, a <code>steps</code> array turns the form into a wizard with a <code>horizontal</code> (default) or <code>vertical</code> <code>stepOrientation</code>, and <code>validateSteps: false</code> opts out of validating the current step on a forward move (the integrator runs <code>validate()</code> itself). Returns <code>{ el, config, getItem, getValue, setValue, clear, validate, forEach, on, off, setDensity, setSpacing, setReadOnly, setDisabled, isDirty, isConflicted, save, revert, steps, activeStep, next, back, goToStep, destroy }</code>.</td></tr>
           <tr><td class="sig">registerControl(type, definition)</td><td class="desc">Register a custom control type as a first-class item. <code>definition</code> is <code>{ create(el, item, api), getValue(el), setValue(el, value), validate?(value, item, el), destroy?(el) }</code>; the control gets the same wrapper, label, item API, events and density as a built-in. A later registration for the same type replaces the earlier one.</td></tr>
           <tr><td class="sig">item</td><td class="desc">Each item: <code>type</code> (a built-in <code>input</code>/<code>number</code>/<code>textarea</code>/<code>checkbox</code>/<code>button</code>/<code>text</code>/<code>combo</code>/<code>rating</code>/<code>stage</code> or a registered custom type), <code>name</code>, <code>label</code>, <code>labelPosition</code> (<code>top</code>/<code>left</code>), <code>labelWidth</code>, <code>width</code>, <code>placeholder</code>, <code>helpMessage</code>, <code>hidden</code>, <code>disabled</code>, <code>readOnly</code>, <code>value</code>, <code>required</code>, <code>validation</code>, <code>errorMessage</code>, <code>successMessage</code>, <code>preMessage</code>, <code>validationMode</code>, <code>css</code>, and the rules <code>visibleWhen</code>, <code>readOnlyWhen</code>, <code>requiredWhen</code>. <code>input</code> takes <code>subtype</code> (a <code>password</code> subtype also <code>reveal</code>); <code>number</code> takes <code>step</code>/<code>min</code>/<code>max</code>. <code>rating</code> takes <code>max</code>, <code>allowHalf</code>, <code>allowClear</code>, <code>icon</code> or <code>icons</code> (<code>{ filled, empty }</code>), <code>labels</code>, <code>showValue</code> and <code>size</code> (<code>sm</code>/<code>md</code>/<code>lg</code>); <code>stage</code> takes <code>stages</code>, <code>current</code>, <code>completed</code>, <code>clickable</code> and <code>showIcons</code>; <code>chips</code> takes <code>options</code> (<code>{ value, label, icon?, disabled? }</code>), <code>multiple</code>, <code>allowEmpty</code>, <code>wrap</code> and <code>max</code>; <code>otp</code> takes <code>length</code>, <code>mode</code> (<code>numeric</code>/<code>alphanumeric</code>) and <code>mask</code>. <code>select</code>, <code>radiogroup</code> and <code>checkboxgroup</code> take <code>options</code>; a <code>radiogroup</code>/<code>checkboxgroup</code> also takes <code>orientation</code> (<code>vertical</code>/<code>horizontal</code>) or <code>columns</code> (an n-column grid read across then down). <code>button</code> takes <code>icon</code> (a name, URL/data: URI or element), <code>iconPosition</code> (<code>start</code>/<code>end</code>), <code>variant</code> (<code>primary</code>/<code>secondary</code>/<code>tonal</code>/<code>outline</code>/<code>text</code>/<code>danger</code>), <code>fullWidth</code>, <code>size</code> (<code>sm</code>/<code>md</code>/<code>lg</code>), <code>textTransform</code> (<code>none</code>/<code>uppercase</code>), <code>buttonType</code> (<code>button</code>/<code>submit</code>/<code>reset</code>), <code>loading</code>, <code>href</code>, <code>ariaLabel</code> (required for an icon-only button), <code>toggle</code> (a two-state button that flips <code>aria-pressed</code> and fires <code>change</code> with the new boolean) and <code>focusableWhenDisabled</code> (keep a disabled button focusable and in the tab order, reading <code>aria-disabled</code> instead of being natively disabled); a <code>{ type: 'buttons', align, items }</code> row lays buttons out by <code>align</code> (<code>start</code>/<code>end</code>/<code>center</code>/<code>stretch</code>/<code>space-between</code>), each child taking the same options.</td></tr>
-          <tr><td class="sig">getItem(name)</td><td class="desc">The item handle <code>{ el, name, getValue, setValue, setOptions, reload, show, hide, enable, disable, focus, blur, isVisible, validate, setLoading }</code> &mdash; <code>el</code> is the item's wrapper element. <code>undefined</code> for an unknown name.</td></tr>
+          <tr><td class="sig">getItem(name)</td><td class="desc">The item handle <code>{ el, name, getValue, setValue, setOptions, reload, show, hide, enable, disable, focus, blur, isVisible, validate, setLoading }</code> &mdash; <code>el</code> is the item's wrapper element. A <code>container</code> item's handle additionally has <code>attach(viewOrElement, { keep? })</code>, <code>attachHTML(html)</code> and <code>getWidget()</code> (BACKLOG-0002339). <code>undefined</code> for an unknown name.</td></tr>
           <tr><td class="sig">getValue()</td><td class="desc">Every named value-holding item as a plain <code>{ name: value }</code> object, in document order. A button is not included.</td></tr>
           <tr><td class="sig">setValue(values)</td><td class="desc">Write values into the matching named items, silently (no event fires). Keys that name no item are ignored.</td></tr>
           <tr><td class="sig">clear()</td><td class="desc">Reset every user-editable item to its empty value &mdash; <code>''</code> for a text field, <code>null</code> for a number, a stage or a single <code>chips</code>, <code>[]</code> for a multi <code>chips</code>, <code>false</code> for a checkbox, <code>0</code> for a rating. A read-only <code>text</code> display is left as it is. No event fires.</td></tr>
@@ -16401,6 +16402,57 @@ panelBtn.dispatchEvent(<span class="kw">new</span> TestEvent('click', { bubbles:
 
 form.destroy();
 <span class="kw">return</span> [tooltipText, tooltipLinked, triggerLabel, lockVisible, lockTitle, noLock, clickedValue, addonTag, addonIcon, avatarInitials, addonDisabled, panelTitle, panelSubtitle, panelHeader, panelClicked, panelCount, collapsible].join('|');</code></pre>
+
+    <h3 id="form-content-container-example">A content container: sanitised HTML and an attached grid, executed</h3>
+    <p class="section-note">The real Chrome geometry &mdash; an attached grid filling the region and following it when it resizes, label position, padding and an explicit width/height, <code>hidden</code>/<code>visibleWhen</code>, and the inert disabled region &mdash; is asserted in <code>test/form-container-2339-browser.test.js</code>; this example proves the data-level contract headlessly.</p>
+    <pre data-run="js" data-expect="true|color:red|true|true|0 0 80px|2px solid tomato|true|true|true|true|100%|true|true|true|replaced" data-covers="export:createForm export:createGrid config:FormContainerItemConfig.html config:FormContainerItemConfig.width config:FormContainerItemConfig.height config:FormContainerItemConfig.label config:FormContainerItemConfig.name config:FormContainerItemConfig.labelPosition config:FormContainerItemConfig.labelWidth config:FormContainerItemConfig.css config:FormContainerItemConfig.disabled config:FormContainerItemConfig.visibleWhen method:form.getItem method:form.getValue"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid } = await import('../packages/dom/src/index.js');
+const { createForm } = await import('../packages/modules/form/index.js');
+
+const { document, root } = createTestDom();
+const form = createForm(root, {
+  rows: [
+    { type: 'checkbox', name: 'show', label: 'Show', value: false },
+    { type: 'container', name: 'note', label: 'Note', labelPosition: 'left', labelWidth: 80,
+      css: { borderLeft: '2px solid tomato' }, disabled: true, visibleWhen: { name: 'show', equals: true },
+      html: '&lt;p style="color:red" onclick="bad()"&gt;Hi&lt;script&gt;window.pwned = true;&lt;/script&gt;&lt;/p&gt;' },
+    { type: 'container', name: 'box', label: 'Preview', width: '100%', height: 200 },
+  ],
+});
+
+const noteWrap = form.getItem('note').el;
+const noteEl = noteWrap.querySelector('.lat-form__container');
+const scriptGone = noteEl.querySelector('script') === null;             // true &mdash; the &lt;script&gt; never rendered
+const styleKept = noteEl.querySelector('p').getAttribute('style');      // 'color:red' &mdash; inline styles survive
+const onclickGone = noteEl.querySelector('p').getAttribute('onclick') === null; // true &mdash; on* stripped
+const labelLeft = noteWrap.getAttribute('data-label-position') === 'left';
+const labelFlex = noteWrap.querySelector('.lat-form__label').style.flex;       // '0 0 80px'
+const cssApplied = noteWrap.style.borderLeft;                                  // '2px solid tomato'
+const disabledAria = noteEl.getAttribute('aria-disabled');                     // 'true'
+const hiddenBeforeShow = noteWrap.hidden;                                      // true &mdash; visibleWhen is false
+
+form.getItem('show').setValue(true);                  // re-evaluates visibleWhen
+const visibleAfterShow = !noteWrap.hidden;
+
+const gridHost = document.createElement('div');
+const grid = createGrid(gridHost, {
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'name' }],
+  rows: [{ id: 1, name: 'Ada' }],
+});
+form.getItem('box').attach(grid);                     // a grid exposes its root as `.element`
+const attached = form.getItem('box').getWidget() === grid;
+const widthFilled = grid.element.style.width;          // '100%'
+const inBox = form.getItem('box').el.querySelector('.lat-form__container').contains(grid.element);
+
+const valueHasNoKeys = !('note' in form.getValue()) && !('box' in form.getValue());
+
+form.getItem('box').attachHTML('&lt;em&gt;replaced&lt;/em&gt;');  // destroys the attached grid and swaps the content
+const widgetClearedAfterReplace = form.getItem('box').getWidget() === null;
+const replacedText = form.getItem('box').el.querySelector('em').textContent;
+
+form.destroy();
+return [scriptGone, styleKept, onclickGone, labelLeft, labelFlex, cssApplied, disabledAria, hiddenBeforeShow, visibleAfterShow, attached, widthFilled, inBox, valueHasNoKeys, widgetClearedAfterReplace, replacedText].join('|');</code></pre>
 
     <h3 id="form-button-example">The button and the buttons row, executed</h3>
     <p class="section-note">A <code>button</code> renders its variant, size, icon position, full width and text transform; an icon may be a built-in glyph name or a data: URI; an icon-only button carries its <code>ariaLabel</code> and a <code>href</code> renders a link styled as a button. A <code>submit</code> button validates first and only then fires <code>submit</code> with the values; <code>reset</code> clears; <code>loading</code>/<code>setLoading</code> swaps the icon for a spinner and ignores clicks; and a <code>buttons</code> row lays its children out by <code>align</code> &mdash; with the real Chrome geometry and the light/dark colours asserted in <code>test/form-button-2194-browser.test.js</code>.</p>
@@ -17472,6 +17524,58 @@ form.setValue({ tags: [<span class="str">'c'</span>, <span class="str">'a'</span
 <span class="kw">const</span> requiredFails = form.validate();                          <span class="cmt">// false — allowEmpty + required, nothing picked</span>
 
 <span class="kw">return</span> [started, clicked, ordered, capped, requiredFails].join('|');</code></pre>
+    <h3 id="form-togglegroup-example">A single and a multi-select toggle group, executed</h3>
+    <p class="section-note">A <code>togglegroup</code> item renders one two-state button per option. Single mode keeps
+    exactly one pressed, multi mode toggles each independently, and the value is a <code>{ id: boolean }</code> map.
+    Each press fires one <code>change</code> whose detail carries the option's <code>id</code> and new
+    <code>pressed</code> state; <code>gap</code> spaces the buttons and <code>full</code> stretches the group
+    (or one button) to the item width.</p>
+    <pre data-run="js" data-expect="1|2|grid:true|true,false,true|8px|true" data-covers="export:createForm method:form.getItem method:form.getValue method:form.on config:FormItemConfig.type config:FormItemConfig.options config:FormItemConfig.multiselect config:FormItemConfig.gap config:FormItemConfig.full"><code><span class="kw">const</span> { createTestDom, TestEvent } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createForm } = <span class="kw">await</span> import('../packages/modules/form/index.js');
+
+<span class="kw">const</span> { root } = createTestDom();
+<span class="kw">const</span> form = createForm(root, { rows: [
+  { type: <span class="str">'togglegroup'</span>, name: <span class="str">'view'</span>, label: <span class="str">'View'</span>, options: [
+    { id: <span class="str">'grid'</span>, text: <span class="str">'Grid'</span>, offText: <span class="str">'List'</span> },
+    { id: <span class="str">'map'</span>, text: <span class="str">'Map'</span> },
+    { id: <span class="str">'list'</span>, text: <span class="str">'List'</span>, disabled: true },
+  ] },
+  { type: <span class="str">'togglegroup'</span>, name: <span class="str">'flags'</span>, label: <span class="str">'Flags'</span>, multiselect: true, options: [
+    { id: <span class="str">'a'</span>, text: <span class="str">'A'</span> }, { id: <span class="str">'b'</span>, text: <span class="str">'B'</span> }, { id: <span class="str">'c'</span>, text: <span class="str">'C'</span> },
+  ] },
+  { type: <span class="str">'togglegroup'</span>, name: <span class="str">'stretch'</span>, label: <span class="str">'Stretch'</span>, gap: 8, full: true, options: [
+    { id: <span class="str">'left'</span>, text: <span class="str">'Left'</span>, full: true }, { id: <span class="str">'right'</span>, text: <span class="str">'Right'</span> },
+  ] },
+] });
+
+<span class="kw">let</span> viewChanges = 0;
+<span class="kw">let</span> detail = <span class="str">''</span>;
+form.on(<span class="str">'change'</span>, <span class="kw">function</span> (e) {
+  <span class="kw">if</span> (e.name === <span class="str">'view'</span>) { viewChanges += 1; detail = e.id + <span class="str">':'</span> + e.pressed; }
+});
+
+<span class="kw">const</span> single = form.getItem(<span class="str">'view'</span>).el.querySelector(<span class="str">'.lat-form__togglegroup'</span>);
+<span class="kw">const</span> sbtns = single.querySelectorAll(<span class="str">'.lat-form__togglegroup-btn'</span>);
+sbtns[1].dispatchEvent(<span class="kw">new</span> TestEvent(<span class="str">'click'</span>, { bubbles: true }));
+sbtns[0].dispatchEvent(<span class="kw">new</span> TestEvent(<span class="str">'click'</span>, { bubbles: true }));
+sbtns[0].dispatchEvent(<span class="kw">new</span> TestEvent(<span class="str">'click'</span>, { bubbles: true }));  <span class="cmt">// already pressed: no further change</span>
+
+<span class="kw">const</span> vv = form.getItem(<span class="str">'view'</span>).getValue();
+<span class="kw">const</span> singleCount = Object.values(vv).filter(<span class="kw">function</span> (v) { <span class="kw">return</span> v === true; }).length;  <span class="cmt">// 1 — never two pressed</span>
+
+<span class="kw">const</span> flags = form.getItem(<span class="str">'flags'</span>).el.querySelector(<span class="str">'.lat-form__togglegroup'</span>);
+<span class="kw">const</span> fbtns = flags.querySelectorAll(<span class="str">'.lat-form__togglegroup-btn'</span>);
+fbtns[0].dispatchEvent(<span class="kw">new</span> TestEvent(<span class="str">'click'</span>, { bubbles: true }));
+fbtns[2].dispatchEvent(<span class="kw">new</span> TestEvent(<span class="str">'click'</span>, { bubbles: true }));
+<span class="kw">const</span> fv = form.getItem(<span class="str">'flags'</span>).getValue();
+<span class="kw">const</span> flagsValue = [fv.a, fv.b, fv.c].join(',');   <span class="cmt">// 'true,false,true' — independent toggles</span>
+
+<span class="kw">const</span> stretch = form.getItem(<span class="str">'stretch'</span>).el.querySelector(<span class="str">'.lat-form__togglegroup'</span>);
+<span class="kw">const</span> gap = stretch.style.getPropertyValue(<span class="str">'--lat-form-gap'</span>);   <span class="cmt">// '8px' — the gap</span>
+<span class="kw">const</span> fullGroup = stretch.getAttribute(<span class="str">'data-full'</span>);            <span class="cmt">// 'true' — the group stretches</span>
+
+form.destroy();
+<span class="kw">return</span> [singleCount, viewChanges, detail, flagsValue, gap, fullGroup].join('|');</code></pre>
     <h3 id="form-color-example">A colour swatch field: palette, custom colours, clearable and read-only, executed</h3>
     <p class="section-note">A <code>color</code> item's swatch or trailing icon opens a popover under the field: the
     palette view's shared swatch grid (ten hues in five shades, a grey row, and a <code>customColors</code> row),
@@ -17522,6 +17626,67 @@ const poHasPicker = !!poPopover.querySelector('.lat-form__color-picker');   // t
 const poHasBack = !!poPopover.querySelector('.lat-form__color-back');      // false
 
 return [swatchCount, picked, closed, normalized, cleared, noGraySwatchCount, lockedReadOnly, poHasPicker, poHasBack].join('|');</code></pre>
+    <h3 id="form-time-example">A time field: 12/24-hour, editable entry, object values and Close/Save, executed</h3>
+    <p class="section-note">A <code>time</code> item is the datepicker's clock under its own type name. It stores a
+    wall-clock time read from a <code>Date</code>, an <code>HH:MM</code> string, a number of minutes since midnight or
+    the object form <code>{ hour, minute, AM? }</code>, and writes it as a string (<code>HH:MM</code>, or
+    <code>hh:MM AM</code> in 12-hour) or the object form with <code>valueFormat</code>. <code>timeFormat: 12</code> adds
+    an AM/PM segment to the popup and display; <code>editable: true</code> lets the field text be typed, committing on
+    blur or Enter and refusing an invalid clock with a validation message; and <code>controls: true</code> adds Close
+    and Save so nothing commits until Save and Close discards &mdash; with the popup geometry and the Close/Save commit
+    asserted in real Chrome in <code>test/form-time-2343-browser.test.js</code>.</p>
+    <pre data-run="js" data-expect="13:05|13:05|01:05 PM|01:05 PM|hour=1,minute=5,AM=false|09:30|09:30|true|08:15|10:15|10:15" data-covers="export:createForm method:form.getItem method:form.getValue method:form.setValue config:FormItemConfig.type config:FormItemConfig.name config:FormItemConfig.label config:FormItemConfig.value config:FormItemConfig.timeFormat config:FormItemConfig.valueFormat config:FormItemConfig.controls config:FormItemConfig.editable"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createForm } = await import('../packages/modules/form/index.js');
+
+const { root } = createTestDom();
+const form = createForm(root, { rows: [
+  { type: 'time', name: 'clock', label: 'Clock', value: '13:05' },
+  { type: 'time', name: 'twelve', label: 'Twelve', timeFormat: 12, value: '13:05' },
+  { type: 'time', name: 'obj', label: 'Object', valueFormat: 'object', timeFormat: 12, value: '13:05' },
+  { type: 'time', name: 'typed', label: 'Typed', editable: true, value: '09:00' },
+  { type: 'time', name: 'confirmed', label: 'Confirmed', controls: true, icon: 'clock', value: '08:15' },
+] });
+
+// A number of minutes since midnight and the object form read the same clock.
+form.getItem('clock').setValue(785);
+const minutes = form.getValue().clock;                              // '13:05'
+form.getItem('clock').setValue({ hour: 13, minute: 5 });
+const objectIn = form.getValue().clock;                             // '13:05'
+
+// 12-hour: the display and the string value carry the AM/PM segment.
+const twelveText = form.getItem('twelve').el.querySelector('input').value;  // '01:05 PM'
+const twelveValue = form.getValue().twelve;                         // '01:05 PM'
+
+// valueFormat: 'object' stores { hour, minute, AM? }.
+const objValue = form.getValue().obj;
+const objText = 'hour=' + objValue.hour + ',minute=' + objValue.minute + ',AM=' + objValue.AM;  // hour=1,minute=5,AM=false
+
+// editable: true commits a typed clock on Enter, and refuses an invalid one.
+const typedInput = form.getItem('typed').el.querySelector('input');
+typedInput.value = '09:30';
+typedInput.dispatchEvent(new TestEvent('keydown', { key: 'Enter', bubbles: true }));
+const typedValue = form.getValue().typed;                           // '09:30'
+typedInput.value = '25:00';
+typedInput.dispatchEvent(new TestEvent('keydown', { key: 'Enter', bubbles: true }));
+const refused = form.getValue().typed;                              // '09:30' — kept
+const typedError = form.getItem('typed').el.querySelector('.lat-form__error') !== null;  // true
+
+// controls: true — Save commits the popup clock, Close discards it.
+const confirmedEl = form.getItem('confirmed').el.querySelector('.lat-form__time');
+const confirmedPopup = confirmedEl.querySelector('.lat-form__time-popup');   // captured before open: the popup moves into the shared layer host while open
+confirmedEl.querySelector('.lat-form__time-toggle').dispatchEvent(new TestEvent('click', { bubbles: true }));
+confirmedPopup.querySelector('.lat-form__time-hour').value = '10';
+confirmedPopup.querySelector('.lat-form__time-hour').dispatchEvent(new TestEvent('change', { bubbles: true }));
+const beforeSave = form.getValue().confirmed;                       // '08:15' — still uncommitted
+confirmedPopup.querySelector('.lat-form__time-save').dispatchEvent(new TestEvent('click', { bubbles: true }));
+const saved = form.getValue().confirmed;                            // '10:15'
+confirmedEl.querySelector('.lat-form__time-toggle').dispatchEvent(new TestEvent('click', { bubbles: true }));
+confirmedPopup.querySelector('.lat-form__time-hour').value = '11';
+confirmedPopup.querySelector('.lat-form__time-hour').dispatchEvent(new TestEvent('change', { bubbles: true }));
+confirmedPopup.querySelector('.lat-form__time-close').dispatchEvent(new TestEvent('click', { bubbles: true }));
+const discarded = form.getValue().confirmed;                        // '10:15' — unchanged
+
+return [minutes, objectIn, twelveText, twelveValue, objText, typedValue, refused, typedError, beforeSave, saved, discarded].join('|');</code></pre>
         <h3 id="speeddial">The speed dial control</h3>
     <p>For a small set of primary actions the form also ships <code>createSpeedDial(el, config)</code>, the standalone
     form of the <code>type: 'speeddial'</code> item: a round floating action button (FAB) anchored to a corner or edge of
@@ -17630,6 +17795,96 @@ const itemClickReported = clicks.join(',');                   <span class="cmt">
 const closedAfterFormItem = fab.getAttribute('aria-expanded') === 'false';  <span class="cmt">// true</span>
 
 return [fabButton, fabIcon, itemCount, textOnly, expanded, menuShown, backdropShown, toggledClosed, closedAfterClick, disabledIgnored, afterSetItems, destroyed, hoverOpened, escapeClosed, focusReturned, itemClickReported, closedAfterFormItem].join('|');</code></pre>
+    <h3 id="avatar">The avatar control</h3>
+    <p>A <code>type: 'avatar'</code> item is a profile picture: with a value it shows <code>value.src</code> at
+    <code>size</code> (<code>small</code>, <code>medium</code> &mdash; the default, 64px &mdash; <code>large</code>, or a
+    pixel number), rounded to a circle with <code>circle: true</code>; with no value it falls back to <code>preview</code>
+    (an image URL), then <code>icon</code>, then the <code>placeholder</code> text (the catalogue's "Add a photo" by
+    default). Clicking the picture, pressing Enter/Space on it, or dropping a file onto it opens the file chooser
+    (<code>accept</code> defaults to <code>['image/*']</code>); a file over <code>maxSize</code> is refused with a
+    catalogued message surfaced through the item's <code>validate()</code> rather than admitted. An admitted file
+    previews immediately as a data URL and commits <code>{ src, file, name, size, status: 'pending' }</code>; with an
+    <code>upload</code> config (<code>target</code>, <code>fieldName</code> default <code>'file'</code>,
+    <code>params</code>, <code>headers</code>, <code>autosend</code> default true, <code>updateFromResponse</code>
+    default true) the file posts as multipart form data the moment it is admitted, moving <code>status</code> through
+    <code>'uploading'</code> (with <code>progress</code>) to <code>'done'</code> or <code>'failed'</code> and, when
+    <code>updateFromResponse</code>, reading <code>src</code>/<code>id</code> back from the JSON response.
+    <code>removeIcon</code> (default true) shows a clear control once there is a value, setting it to <code>null</code>;
+    <code>readOnly</code> shows the picture with no chooser or remove control. <code>change</code> fires on pick, on
+    upload completion (or failure) and on remove &mdash; never on a bare progress tick. The accessible name comes from
+    the item's <code>label</code> &mdash; with the picked-file preview, the real pixel size, the computed circle radius
+    and the multipart upload against a local mock endpoint asserted in <code>test/form-avatar-2341-browser.test.js</code>.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">value</td><td class="desc">The committed picture &mdash; <code>{ src, file, name, size, status, progress, id }</code> &mdash; or <code>null</code>. Only <code>src</code> is required to read as a value; the rest describe a pending or in-flight upload.</td></tr>
+          <tr><td class="sig">size / circle</td><td class="desc"><code>small</code>, <code>medium</code> (default, 64px), <code>large</code>, or a pixel number; <code>circle: true</code> rounds the picture to 50%, otherwise it keeps the control's rounded-square radius.</td></tr>
+          <tr><td class="sig">preview / icon / placeholder</td><td class="desc">The empty-value fallback chain: an image URL, then a fallback image URL or element, then text (default the catalogue's "Add a photo").</td></tr>
+          <tr><td class="sig">accept / maxSize</td><td class="desc">MIME patterns the chooser accepts (default <code>['image/*']</code>) and the largest file size in bytes; a refused pick never becomes a value, and its message surfaces through <code>validate()</code>.</td></tr>
+          <tr><td class="sig">removeIcon</td><td class="desc">Shows the clear control once there is a value (default true); <code>false</code> removes it, leaving only the chooser.</td></tr>
+          <tr><td class="sig">upload</td><td class="desc"><code>{ target, fieldName, params, headers, autosend, updateFromResponse }</code> &mdash; posts the admitted file as multipart form data and tracks <code>status</code>/<code>progress</code> on the value.</td></tr>
+          <tr><td class="sig">alt / required</td><td class="desc">The picture's accessible <code>alt</code> text; <code>required: true</code> fails validation with no picture.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="form-avatar-example">A required picture with a maxSize refusal, a circular avatar with remove, a preview/alt/accept/upload config and an icon fallback, executed</h4>
+    <p class="section-note">Four items: one shows the "Add a photo" placeholder, fails <code>required</code> validation
+    with no picture, and refuses an oversized pick with a catalogued message rather than ever admitting it as a value;
+    one starts with a circular picture and its remove control clears it to <code>null</code>, firing
+    <code>change</code> once; one shows a <code>preview</code> image with its <code>alt</code> text, a restricted
+    <code>accept</code> list on the chooser, <code>removeIcon: false</code> and an <code>upload</code> config
+    (<code>fieldName</code>, <code>params</code>, <code>headers</code>, <code>autosend: false</code> so nothing posts,
+    <code>updateFromResponse: false</code>); and one with no value and no <code>preview</code> falls back to its
+    <code>icon</code> image, past the <code>placeholder</code> text.</p>
+    <pre data-run="js" data-expect="true|false|true|Photo is larger than 1000 B|true|true|true|https://example.com/preview.png|User thumbnail|image/png|true|https://example.com/fallback.png" data-covers="export:createForm method:form.getItem method:form.validate method:form.on config:AvatarItemConfig.required config:AvatarItemConfig.maxSize config:AvatarItemConfig.circle config:AvatarItemConfig.value config:AvatarItemConfig.accept config:AvatarItemConfig.alt config:AvatarItemConfig.icon config:AvatarItemConfig.placeholder config:AvatarItemConfig.preview config:AvatarItemConfig.removeIcon config:AvatarItemConfig.upload config:FormAvatarUploadConfig.autosend config:FormAvatarUploadConfig.fieldName config:FormAvatarUploadConfig.params config:FormAvatarUploadConfig.updateFromResponse config:FormItemConfig.alt config:FormItemConfig.circle config:FormItemConfig.preview config:FormItemConfig.removeIcon"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createForm } = await import('../packages/modules/form/index.js');
+
+const { root } = createTestDom();
+const form = createForm(root, { rows: [
+  { type: 'avatar', name: 'pic', label: 'Photo', required: true, maxSize: 1000 },
+  { type: 'avatar', name: 'pfp', label: 'Avatar', circle: true, value: { src: 'https://example.com/a.png', name: 'a.png', size: 10 } },
+  { type: 'avatar', name: 'thumb', label: 'Thumbnail', alt: 'User thumbnail', accept: ['image/png'],
+    preview: 'https://example.com/preview.png', removeIcon: false,
+    upload: { target: 'https://example.com/upload', fieldName: 'photo', params: { kind: 'avatar' }, headers: { 'X-Test': '1' }, autosend: false, updateFromResponse: false } },
+  { type: 'avatar', name: 'ic', label: 'Icon fallback', icon: 'https://example.com/fallback.png', placeholder: 'Pick a thumbnail' },
+] });
+
+const picEl = form.getItem('pic').el.querySelector('.lat-form__avatar');
+const placeholderShown = !!picEl.querySelector('.lat-form__avatar-placeholder-text');   <span class="cmt">// true</span>
+const requiredFails = form.validate();                                                  <span class="cmt">// false &mdash; empty and required</span>
+
+<span class="cmt">// An oversized pick is refused with a catalogued message; the value never changes.</span>
+const input = picEl.querySelector('.lat-form__avatar-input');
+input.files = [{ name: 'big.png', size: 5000, type: 'image/png' }];
+input.dispatchEvent(new TestEvent('change'));
+const stillEmpty = form.getItem('pic').getValue() === null;                             <span class="cmt">// true</span>
+form.validate();
+const rejectMessage = form.getItem('pic').el.querySelector('.lat-form__validation').textContent;
+
+const pfpEl = form.getItem('pfp').el.querySelector('.lat-form__avatar');
+const circleClass = pfpEl.querySelector('.lat-form__avatar-picture')
+  .classList.contains('lat-form__avatar-picture--circle');                              <span class="cmt">// true</span>
+
+let changed = 'unset';
+form.on('change', (e) =&gt; { if (e.name === 'pfp') changed = e.value; });
+pfpEl.querySelector('.lat-form__avatar-remove').dispatchEvent(new TestEvent('click', { bubbles: true }));
+const removedToNull = form.getItem('pfp').getValue() === null;                          <span class="cmt">// true</span>
+
+<span class="cmt">// preview/alt/accept/removeIcon, and an upload config that never posts (autosend: false).</span>
+const thumbEl = form.getItem('thumb').el.querySelector('.lat-form__avatar');
+const thumbImg = thumbEl.querySelector('.lat-form__avatar-img');
+const previewShown = thumbImg.src;                                                      <span class="cmt">// the preview URL</span>
+const altText = thumbImg.alt;                                                           <span class="cmt">// 'User thumbnail'</span>
+const acceptAttr = thumbEl.querySelector('.lat-form__avatar-input').accept;             <span class="cmt">// 'image/png'</span>
+const removeHiddenByOption = thumbEl.querySelector('.lat-form__avatar-remove').hidden;  <span class="cmt">// true</span>
+
+<span class="cmt">// With no value and no preview, icon is the fallback ahead of the placeholder text.</span>
+const icEl = form.getItem('ic').el.querySelector('.lat-form__avatar');
+const iconShown = icEl.querySelector('.lat-form__avatar-img').src;
+
+return [placeholderShown, requiredFails, stillEmpty, rejectMessage, circleClass, removedToNull, changed === null,
+  previewShown, altText, acceptAttr, removeHiddenByOption, iconShown].join('|');</code></pre>
     <h3 id="form-toggle-example">A toggle switch with ON/OFF text, size, variant and label position, executed</h3>
     <p class="section-note">A <code>toggle</code> item's <code>onLabel</code>/<code>offLabel</code> draw short text inside the
     track by default or beside it per <code>props.labelPosition</code>; <code>size</code> scales the switch from the
@@ -32318,6 +32573,25 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-FormToggleGroupOption">FormToggleGroupOption</h4>
+    <p class="section-note">One option of a `togglegroup` item (BACKLOG-0002342). The group's committed value is a `{ [id]: boolean }` map keyed by each visible option's `id`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string | number</td><td class="desc">The option's key in the committed `{ [id]: boolean }` value; falls back to `value`, then the option's position.</td></tr>
+          <tr><td class="name">value</td><td class="type">string | number</td><td class="desc">The option's fallback key when `id` is omitted. <small>(optional)</small></td></tr>
+          <tr><td class="name">text</td><td class="type">string</td><td class="desc">The pressed state's text; falls back to `id`. <small>(optional)</small></td></tr>
+          <tr><td class="name">offText</td><td class="type">string</td><td class="desc">The unpressed state's text; falls back to `text`. <small>(optional)</small></td></tr>
+          <tr><td class="name">icon</td><td class="type">string | Node</td><td class="desc">The pressed state's icon (an SVG path `d` string, a URL/data URI, or an element); hidden when omitted. <small>(optional)</small></td></tr>
+          <tr><td class="name">offIcon</td><td class="type">string | Node</td><td class="desc">The unpressed state's icon; falls back to `icon`. <small>(optional)</small></td></tr>
+          <tr><td class="name">selected</td><td class="type">boolean</td><td class="desc">Start pressed. In single mode only the first selected option wins. <small>(optional)</small></td></tr>
+          <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc">Start disabled: not clickable, skipped by the arrow keys. <small>(optional)</small></td></tr>
+          <tr><td class="name">hidden</td><td class="type">boolean</td><td class="desc">Not rendered and excluded from the value map. <small>(optional)</small></td></tr>
+          <tr><td class="name">full</td><td class="type">boolean</td><td class="desc">Stretch this one button to fill the group. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-FormDateRangeValue">FormDateRangeValue</h4>
     <p class="section-note">The committed value of a `daterange` item (BACKLOG-0002255).</p>
     <div class="table-wrap">
@@ -32326,6 +32600,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">start</td><td class="type">string | null</td><td class="desc">The range start, an ISO `YYYY-MM-DD` day (or `YYYY-MM` month in month mode) or null.</td></tr>
           <tr><td class="name">end</td><td class="type">string | null</td><td class="desc">The range end, an ISO `YYYY-MM-DD` day (or `YYYY-MM` month in month mode) or null.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-FormTimeValue">FormTimeValue</h4>
+    <p class="section-note">The `object` form of a `time` item's committed value when `valueFormat: 'object'` (BACKLOG-0002343).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">hour</td><td class="type">number</td><td class="desc">The hour: 0-23 in 24-hour form, or the display hour 1-12 with `AM` carrying the half of the day in 12-hour form.</td></tr>
+          <tr><td class="name">minute</td><td class="type">number</td><td class="desc">The minute, 0-59.</td></tr>
+          <tr><td class="name">AM</td><td class="type">boolean</td><td class="desc">True for the morning half of a 12-hour value; absent in 24-hour form. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -32473,7 +32759,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       </table>
     </div>
     <h4 id="type-FormItemConfig">FormItemConfig</h4>
-    <p class="section-note">One form item: a control (`input`, `number`, `textarea`, `checkbox`, `button`, `combo`, `select`, `radiogroup`, `checkboxgroup`, `toggle`, `datepicker`, `daterange`, `file`, `richtext`, `rating`, `stage`, `chips`, `otp`, `color`, `listbox`) or the read-only `text` display, with the per-item options.</p>
+    <p class="section-note">One form item: a control (`input`, `number`, `textarea`, `checkbox`, `button`, `combo`, `select`, `radiogroup`, `checkboxgroup`, `toggle`, `datepicker`, `daterange`, `file`, `richtext`, `rating`, `stage`, `chips`, `otp`, `color`, `listbox`, `speeddial`, `avatar`) or the read-only `text` display, with the per-item options.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
@@ -32527,7 +32813,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">min</td><td class="type">number | string</td><td class="desc">The minimum — a number for `number`, a multi `chips`/`listbox` selection count (BACKLOG-0002256), an ISO string for `datepicker` (BACKLOG-0002142) and `daterange` (BACKLOG-0002255). <small>(optional)</small></td></tr>
           <tr><td class="name">max</td><td class="type">number | string</td><td class="desc">The maximum — a number for `number`, a multi `chips`/`listbox` selection count (BACKLOG-0002256), an ISO string for `datepicker` (BACKLOG-0002142) and `daterange` (BACKLOG-0002255). <small>(optional)</small></td></tr>
           <tr><td class="name">rows</td><td class="type">number</td><td class="desc">The visible rows, for a `textarea` item, or a `listbox` item's viewport height in option rows (default 8) (BACKLOG-0002256). <small>(optional)</small></td></tr>
-          <tr><td class="name">options</td><td class="type">(string | <a href="#type-FormOption">FormOption</a> | <a href="#type-FormOptionGroup">FormOptionGroup</a> | <a href="#type-FormChipOption">FormChipOption</a>)[]</td><td class="desc">The choices of a `select`, `radiogroup`, `checkboxgroup` or `listbox` item: strings, `{ value, label }` objects (BACKLOG-0002142), or `{ label, options }` groups (BACKLOG-0002168); or the selectable options of a `chips` item (`{ value, label, icon?, disabled? }` entries) (BACKLOG-0002142). <small>(optional)</small></td></tr>
+          <tr><td class="name">options</td><td class="type">(string | <a href="#type-FormOption">FormOption</a> | <a href="#type-FormOptionGroup">FormOptionGroup</a> | <a href="#type-FormChipOption">FormChipOption</a> | <a href="#type-FormToggleGroupOption">FormToggleGroupOption</a>)[]</td><td class="desc">The choices of a `select`, `radiogroup`, `checkboxgroup` or `listbox` item: strings, `{ value, label }` objects (BACKLOG-0002142), or `{ label, options }` groups (BACKLOG-0002168); or the selectable options of a `chips` item (`{ value, label, icon?, disabled? }` entries) (BACKLOG-0002142). <small>(optional)</small></td></tr>
           <tr><td class="name">selection</td><td class="type">'single' | 'multiple' | 'checkbox'</td><td class="desc">A `listbox` item's selection mode: `'single'` (default), `'multiple'` (Ctrl/Shift and touch-tap selection) or `'checkbox'` (a box per row plus a select-all row) (BACKLOG-0002256). <small>(optional)</small></td></tr>
           <tr><td class="name">filter</td><td class="type">boolean</td><td class="desc">Add a search box to a `listbox` item that narrows its rows by label and description, without dropping an already-selected option it hides (BACKLOG-0002256). <small>(optional)</small></td></tr>
           <tr><td class="name">groupBy</td><td class="type">boolean</td><td class="desc">Bucket a `listbox` item's options by their `group` field under sticky headers (BACKLOG-0002256). <small>(optional)</small></td></tr>
@@ -32553,13 +32839,20 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">readOnlyWhen</td><td class="type"><a href="#type-FormRule">FormRule</a></td><td class="desc">A rule that makes the item read-only when it evaluates true. <small>(optional)</small></td></tr>
           <tr><td class="name">requiredWhen</td><td class="type"><a href="#type-FormRule">FormRule</a></td><td class="desc">A rule that makes the item required when it evaluates true. <small>(optional)</small></td></tr>
           <tr><td class="name">css</td><td class="type">Record&lt;string, string | number&gt; | string</td><td class="desc">Extra CSS on the item wrapper. <small>(optional)</small></td></tr>
-          <tr><td class="name">accept</td><td class="type">string[]</td><td class="desc">Extensions or MIME patterns a `file` item accepts (empty = anything). <small>(optional)</small></td></tr>
-          <tr><td class="name">maxSize</td><td class="type">number</td><td class="desc">The maximum file size in bytes a `file` item admits. <small>(optional)</small></td></tr>
+          <tr><td class="name">accept</td><td class="type">string[]</td><td class="desc">Extensions or MIME patterns a `file` item accepts (empty = anything), or the MIME patterns an `avatar` item's chooser accepts (default `['image/*']`) (BACKLOG-0002341). <small>(optional)</small></td></tr>
+          <tr><td class="name">maxSize</td><td class="type">number</td><td class="desc">The maximum file size in bytes a `file` item admits, or an `avatar` item's chosen picture refuses (BACKLOG-0002341). <small>(optional)</small></td></tr>
           <tr><td class="name">maxFiles</td><td class="type">number</td><td class="desc">The maximum number of files a `file` item admits. <small>(optional)</small></td></tr>
           <tr><td class="name">multiple</td><td class="type">boolean</td><td class="desc">Allow picking several files at once for a `file` item (default true), toggling several options for a `chips` item (default false, single-select), or a multi-select `select` whose committed value is an array (BACKLOG-0002168). <small>(optional)</small></td></tr>
+          <tr><td class="name">multiselect</td><td class="type">boolean</td><td class="desc">Toggle each `togglegroup` option independently (BACKLOG-0002342); the default false keeps exactly one option pressed. <small>(optional)</small></td></tr>
+          <tr><td class="name">gap</td><td class="type">number</td><td class="desc">The pixel space between `togglegroup` buttons (default 0) (BACKLOG-0002342). <small>(optional)</small></td></tr>
+          <tr><td class="name">full</td><td class="type">boolean</td><td class="desc">Stretch a `togglegroup` to its item's full width (BACKLOG-0002342). <small>(optional)</small></td></tr>
           <tr><td class="name">dropText</td><td class="type">string</td><td class="desc">Drop-zone text for a `file` item. <small>(optional)</small></td></tr>
           <tr><td class="name">hint</td><td class="type">string</td><td class="desc">A hint line under the drop zone of a `file` item. <small>(optional)</small></td></tr>
           <tr><td class="name">browseText</td><td class="type">string</td><td class="desc">Replaces the browse link's word in a `file` item's drop area and its aria-label (BACKLOG-0002204). <small>(optional)</small></td></tr>
+          <tr><td class="name">circle</td><td class="type">boolean</td><td class="desc">Round an `avatar` item's picture into a circle; otherwise it keeps the control's own rounded-square radius (BACKLOG-0002341). <small>(optional)</small></td></tr>
+          <tr><td class="name">alt</td><td class="type">string</td><td class="desc">The accessible `alt` text on an `avatar` item's picture (BACKLOG-0002341). <small>(optional)</small></td></tr>
+          <tr><td class="name">preview</td><td class="type">string</td><td class="desc">An image URL an `avatar` item shows while it has no value, ahead of `icon` and the `placeholder` text (BACKLOG-0002341). <small>(optional)</small></td></tr>
+          <tr><td class="name">removeIcon</td><td class="type">boolean</td><td class="desc">Show an `avatar` item's clear control once it has a value, setting it back to `null` (default true) (BACKLOG-0002341). <small>(optional)</small></td></tr>
           <tr><td class="name">toolbar</td><td class="type">string | string[]</td><td class="desc">The toolbar for a `richtext` item: a preset (`basic`/`html`/`rich`) or an item-name array. <small>(optional)</small></td></tr>
           <tr><td class="name">minHeight</td><td class="type">number</td><td class="desc">The minimum editor height in pixels for a `richtext` item. <small>(optional)</small></td></tr>
           <tr><td class="name">maxHeight</td><td class="type">number</td><td class="desc">The maximum editor height in pixels for a `richtext` item. <small>(optional)</small></td></tr>
@@ -32571,11 +32864,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">sanitizePaste</td><td class="type">boolean</td><td class="desc">Sanitise pasted HTML in a `richtext` item (default true). <small>(optional)</small></td></tr>
           <tr><td class="name">allowHalf</td><td class="type">boolean</td><td class="desc">Allow half steps for a `rating` item. <small>(optional)</small></td></tr>
           <tr><td class="name">allowClear</td><td class="type">boolean</td><td class="desc">Allow a second click to clear a `rating` item back to zero. <small>(optional)</small></td></tr>
-          <tr><td class="name">icon</td><td class="type">string | Element | false</td><td class="desc">The icon of a `button` — a name from the grid's icon set, an image URL or data: URI, or an element — the glyph name of a `rating` item (`star` or `heart`), the drop-area icon of a `file` item — a glyph name from the file module's sprite set, an SVG markup string, an element, or `false` for none (BACKLOG-0002204) — or the glyph name a `color` item's trailing toggle draws instead of its default chevron (BACKLOG-0002252). <small>(optional)</small></td></tr>
+          <tr><td class="name">icon</td><td class="type">string | Element | false</td><td class="desc">The icon of a `button` — a name from the grid's icon set, an image URL or data: URI, or an element — the glyph name of a `rating` item (`star` or `heart`), the drop-area icon of a `file` item — a glyph name from the file module's sprite set, an SVG markup string, an element, or `false` for none (BACKLOG-0002204) — the glyph name a `color` item's trailing toggle draws instead of its default chevron (BACKLOG-0002252) — a `time` item's toggle glyph, default the grid's clock (BACKLOG-0002343) — or an `avatar` item's fallback image URL (or element), shown with no value and no `preview` (BACKLOG-0002341). <small>(optional)</small></td></tr>
           <tr><td class="name">icons</td><td class="type">{ filled?: string; empty?: string }</td><td class="desc">The filled and empty glyph names for a `rating` item. <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">string[]</td><td class="desc">One label per rating icon, for the `title` and the announced value. <small>(optional)</small></td></tr>
           <tr><td class="name">showValue</td><td class="type">boolean</td><td class="desc">Show the numeric value beside a `rating` item. <small>(optional)</small></td></tr>
-          <tr><td class="name">size</td><td class="type">'sm' | 'md' | 'lg' | 'small' | 'default' | 'large'</td><td class="desc">The size of a `rating` item or `button`: `sm`, `md` (default) or `lg` — or a `toggle` item's `small`, `default` or `large` (BACKLOG-0002257). <small>(optional)</small></td></tr>
+          <tr><td class="name">size</td><td class="type">'sm' | 'md' | 'lg' | 'small' | 'medium' | 'default' | 'large' | number</td><td class="desc">The size of a `rating` item or `button`: `sm`, `md` (default) or `lg` — a `toggle` item's `small`, `default` or `large` (BACKLOG-0002257) — or an `avatar` item's picture: `small`, `medium` (default, 64px), `large`, or a pixel number (BACKLOG-0002341). <small>(optional)</small></td></tr>
           <tr><td class="name">iconPosition</td><td class="type">'start' | 'end'</td><td class="desc">Where a `button`'s icon sits: `start` (default) or `end`. <small>(optional)</small></td></tr>
           <tr><td class="name">variant</td><td class="type"><a href="#type-FormButtonVariant">FormButtonVariant</a> | 'round' | 'square' | 'slim'</td><td class="desc">A `button`'s visual weight: theme-token colours, light and dark. Defaults to `secondary` — or a `toggle` item's track shape: `round` (default), `square` or `slim` (BACKLOG-0002257). <small>(optional)</small></td></tr>
           <tr><td class="name">onLabel</td><td class="type">string</td><td class="desc">A `toggle` item's ON-state label text, drawn inside the track or beside it per `props.labelPosition` (BACKLOG-0002257). <small>(optional)</small></td></tr>
@@ -32601,8 +32894,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">grayShades</td><td class="type">boolean</td><td class="desc">Show a `color` item's grey row under its palette (default true); `false` drops it (BACKLOG-0002252). <small>(optional)</small></td></tr>
           <tr><td class="name">customColors</td><td class="type">string[]</td><td class="desc">A `color` item's custom-colours row to start with — extended, newest first and deduplicated to at most ten, by every colour picked in the picker view (BACKLOG-0002252). <small>(optional)</small></td></tr>
           <tr><td class="name">pickerOnly</td><td class="type">boolean</td><td class="desc">Remove a `color` item's palette view, leaving only the picker (BACKLOG-0002252). <small>(optional)</small></td></tr>
-          <tr><td class="name">editable</td><td class="type">boolean</td><td class="desc">Let a `color` item's text part be typed into (default true); `false` makes it read-only, so only the popover sets the value (BACKLOG-0002252). <small>(optional)</small></td></tr>
+          <tr><td class="name">editable</td><td class="type">boolean</td><td class="desc">Let a `color` item's text part be typed into (default true); `false` makes it read-only, so only the popover sets the value (BACKLOG-0002252) — or a `time` item's field text (default false there, the popup sets it; `true` accepts typed `HH:MM`/`hh:MM AM`, committed on blur or Enter) (BACKLOG-0002343). <small>(optional)</small></td></tr>
           <tr><td class="name">clearable</td><td class="type">boolean</td><td class="desc">Show a clear control: on a `color` item it sets the value to `null` (BACKLOG-0002252); on a `daterange` item a null/null pair (BACKLOG-0002255); on a single-select `combo` it empties the value to `null`, and on a `select` item to its empty value `''`, with one `change` (BACKLOG-0002393). An optional single-select combo is also emptied when its text is cleared and Enter is pressed or focus leaves. <small>(optional)</small></td></tr>
+          <tr><td class="name">timeFormat</td><td class="type">12 | 24</td><td class="desc">The clock format of a `time` item: `24` (default, `HH:MM`) or `12` (`hh:MM` with an AM/PM segment in the popup and display) (BACKLOG-0002343). <small>(optional)</small></td></tr>
+          <tr><td class="name">valueFormat</td><td class="type">'string' | 'object'</td><td class="desc">How a `time` item stores its value: `'string'` (default, `'HH:MM'` or `'hh:MM AM'` in 12-hour) or `'object'` (`{ hour, minute, AM? }`) (BACKLOG-0002343). <small>(optional)</small></td></tr>
+          <tr><td class="name">controls</td><td class="type">boolean</td><td class="desc">Add Close and Save buttons to a `time` item's popup so nothing commits until Save and Close discards (default false: the popup commits as the clock changes) (BACKLOG-0002343). <small>(optional)</small></td></tr>
           <tr><td class="name">[key: string]</td><td class="type">unknown</td><td class="desc">Extra per-control options, kept for later controls.</td></tr>
         </tbody>
       </table>
@@ -32612,8 +32908,61 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">render</td><td class="type">(option: <a href="#type-FormOption">FormOption</a>) =&gt; Node | string</td><td class="desc"><code>option: <a href="#type-FormOption">FormOption</a></code></td><td class="type"><code>=&gt; Node | string</code></td><td class="desc">A custom row renderer for a `listbox`/`select`/`combo` option, returning a DOM node or an HTML string (sanitised before insertion). <small>(optional)</small></td></tr>
-          <tr><td class="name">upload</td><td class="type">(file: File, opts: { onProgress: (pct: number) =&gt; void; signal?: AbortSignal }) =&gt; void | Promise&lt;void&gt;</td><td class="desc"><code>file: File</code><br><code>opts: { onProgress: (pct: number) =&gt; void; signal?: AbortSignal }</code></td><td class="type"><code>=&gt; void | Promise&lt;void&gt;</code></td><td class="desc">The host upload callback for a `file` item: `(file, { onProgress, signal }) =&gt; void | Promise&lt;void&gt;`. <small>(optional)</small></td></tr>
+          <tr><td class="name">upload</td><td class="type">((file: File, opts: { onProgress: (pct: number) =&gt; void; signal?: AbortSignal }) =&gt; void | Promise&lt;void&gt;) | <a href="#type-FormAvatarUploadConfig">FormAvatarUploadConfig</a></td><td class="desc"><code>(file: File, opts: { onProgress: (pct: number) =&gt; void; signal?: AbortSignal }) =&gt; void | Promise&lt;void&gt;</code></td><td class="type"><code>| <a href="#type-FormAvatarUploadConfig">FormAvatarUploadConfig</a></code></td><td class="desc">The host upload callback for a `file` item (`(file, { onProgress, signal }) =&gt; void | Promise&lt;void&gt;`), or an `avatar` item's own upload config, posted as multipart form data (BACKLOG-0002341). <small>(optional)</small></td></tr>
           <tr><td class="name">onImage</td><td class="type">(file: File) =&gt; Promise&lt;string&gt; | string</td><td class="desc"><code>file: File</code></td><td class="type"><code>=&gt; Promise&lt;string&gt; | string</code></td><td class="desc">A host callback returning a source URL for an inserted image. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-FormAvatarValue">FormAvatarValue</h4>
+    <p class="section-note">The committed value of an `avatar` item: the picture, and — while a freshly chosen file is pending or uploading — its own file and progress (BACKLOG-0002341).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">src</td><td class="type">string</td><td class="desc">The picture's source: a URL, or (before any upload completes) the data URL of a freshly chosen file. <small>(optional)</small></td></tr>
+          <tr><td class="name">file</td><td class="type">File</td><td class="desc">The chosen file, present only while `status` is `'pending'`, `'uploading'` or `'failed'` (not yet, or not successfully, uploaded). <small>(optional)</small></td></tr>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The chosen file's name. <small>(optional)</small></td></tr>
+          <tr><td class="name">size</td><td class="type">number</td><td class="desc">The chosen file's size in bytes. <small>(optional)</small></td></tr>
+          <tr><td class="name">progress</td><td class="type">number</td><td class="desc">The upload progress, 0 to 100, present while `status` is `'uploading'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">status</td><td class="type">'pending' | 'uploading' | 'done' | 'failed'</td><td class="desc">The upload status, present only when the item has an `upload` config. <small>(optional)</small></td></tr>
+          <tr><td class="name">message</td><td class="type">string</td><td class="desc">The failure message, present only while `status` is `'failed'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">id</td><td class="type">string | number</td><td class="desc">The response id, when `upload.updateFromResponse` read one back. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-FormAvatarUploadConfig">FormAvatarUploadConfig</h4>
+    <p class="section-note">An `avatar` item's own upload config: posts the chosen file as multipart form data the moment it is admitted (BACKLOG-0002341).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">target</td><td class="type">string</td><td class="desc">The URL the file is POSTed to.</td></tr>
+          <tr><td class="name">fieldName</td><td class="type">string</td><td class="desc">The multipart field name the file is sent under. Default `'file'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">params</td><td class="type">Record&lt;string, string | number | boolean&gt;</td><td class="desc">Extra form fields sent alongside the file. <small>(optional)</small></td></tr>
+          <tr><td class="name">headers</td><td class="type">Record&lt;string, string&gt;</td><td class="desc">Extra request headers. <small>(optional)</small></td></tr>
+          <tr><td class="name">autosend</td><td class="type">boolean</td><td class="desc">Upload the moment the file is admitted (default true); `false` leaves the picture `'pending'` and posts nothing. <small>(optional)</small></td></tr>
+          <tr><td class="name">updateFromResponse</td><td class="type">boolean</td><td class="desc">Read `src`/`id` back from the JSON response once the upload completes (default true). <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-AvatarItemConfig">AvatarItemConfig</h4>
+    <p class="section-note">The `type: 'avatar'` item options, documented here as their own shape (BACKLOG-0002341): a profile picture with a preview, sizes, a placeholder, a remove control and an optional upload. Used inside a form the same way as every other item — `{ type: 'avatar', name, ...these options }` — with these fields typed on {@link FormItemConfig} itself (`value`, `size`, `icon`, `accept`, `maxSize`, `upload` are shared with other control types there; see each one's own doc for the `avatar` reading).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">value</td><td class="type"><a href="#type-FormAvatarValue">FormAvatarValue</a> | null</td><td class="desc">The committed picture, or `null`/absent for none. <small>(optional)</small></td></tr>
+          <tr><td class="name">alt</td><td class="type">string</td><td class="desc">The accessible `alt` text on the picture. <small>(optional)</small></td></tr>
+          <tr><td class="name">size</td><td class="type">'small' | 'medium' | 'large' | number</td><td class="desc">The display size: `small`, `medium` (default, 64px), `large`, or a pixel number. <small>(optional)</small></td></tr>
+          <tr><td class="name">circle</td><td class="type">boolean</td><td class="desc">Round the picture into a circle (default false, a rounded square). <small>(optional)</small></td></tr>
+          <tr><td class="name">preview</td><td class="type">string</td><td class="desc">An image URL shown while there is no value, ahead of `icon` and `placeholder`. <small>(optional)</small></td></tr>
+          <tr><td class="name">icon</td><td class="type">string | Element | false</td><td class="desc">A fallback image URL (or element) shown while there is no value and no `preview`. <small>(optional)</small></td></tr>
+          <tr><td class="name">placeholder</td><td class="type">string</td><td class="desc">Text shown while there is no value, no `preview` and no `icon`; defaults to the catalogue's "Add a photo". <small>(optional)</small></td></tr>
+          <tr><td class="name">accept</td><td class="type">string[]</td><td class="desc">MIME patterns the file chooser accepts. Default `['image/*']`. <small>(optional)</small></td></tr>
+          <tr><td class="name">maxSize</td><td class="type">number</td><td class="desc">The largest file size accepted, in bytes; a larger pick is refused with a message `validate()` surfaces. <small>(optional)</small></td></tr>
+          <tr><td class="name">removeIcon</td><td class="type">boolean</td><td class="desc">Show the clear control once a picture is set (default true). <small>(optional)</small></td></tr>
+          <tr><td class="name">upload</td><td class="type"><a href="#type-FormAvatarUploadConfig">FormAvatarUploadConfig</a></td><td class="desc">Upload the chosen file as multipart form data. <small>(optional)</small></td></tr>
+          <tr><td class="name">required</td><td class="type">boolean</td><td class="desc">An empty picture fails validation. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -32651,6 +33000,27 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">requiredWhen</td><td class="type"><a href="#type-FormRule">FormRule</a></td><td class="desc">A rule that makes the item required when it evaluates true. <small>(optional)</small></td></tr>
           <tr><td class="name">css</td><td class="type">Record&lt;string, string | number&gt; | string</td><td class="desc">Extra CSS on the block. <small>(optional)</small></td></tr>
           <tr><td class="name">[key: string]</td><td class="type">unknown</td><td class="desc">Extra options.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-FormContainerItemConfig">FormContainerItemConfig</h4>
+    <p class="section-note">The `type: 'container'` item: a content item, not a layout block — a place in the form that shows host HTML or hosts another Lattice view (a grid, chart, kanban, calendar, gantt or nested form), attached after creation through `form.getItem(name).attach()` (BACKLOG-0002339). Carries no `value`: it is excluded from `getValue()`, `setValue()` and validation. A block that also names `rows`/`cols`/`items` stays the layout container regardless of `type`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The item's name, for `getItem(name)`. <small>(optional)</small></td></tr>
+          <tr><td class="name">html</td><td class="type">string | HTMLElement</td><td class="desc">Host content rendered inside the region: a string has every `&lt;script&gt;` element, `on*` attribute and `javascript:`-scheme value stripped — everything else, inline styles included, is kept; an `HTMLElement` is appended as is, with no sanitising. <small>(optional)</small></td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The label text, set as the region's `aria-label` (and, like any item, drawn as an associated `&lt;label&gt;` beside it). <small>(optional)</small></td></tr>
+          <tr><td class="name">labelPosition</td><td class="type"><a href="#type-FormLabelPosition">FormLabelPosition</a> <small class="literals">'top' | 'left' | 'hidden'</small></td><td class="desc">Where the label sits: `top` (default), `left`, or `hidden`. <small>(optional)</small></td></tr>
+          <tr><td class="name">labelWidth</td><td class="type">number | string</td><td class="desc">The label column width when `labelPosition` is `left`. <small>(optional)</small></td></tr>
+          <tr><td class="name">width</td><td class="type">number | string</td><td class="desc">The region's width: a pixel number, a CSS length, or `'content'` to size to its own content (the default). <small>(optional)</small></td></tr>
+          <tr><td class="name">height</td><td class="type">number | string</td><td class="desc">The region's height: a pixel number, a CSS length, or `'content'` to size to its own content (the default). <small>(optional)</small></td></tr>
+          <tr><td class="name">padding</td><td class="type">number | string</td><td class="desc">Inner padding: a pixel number or a CSS length. <small>(optional)</small></td></tr>
+          <tr><td class="name">css</td><td class="type">Record&lt;string, string | number&gt; | string</td><td class="desc">Extra CSS on the item wrapper. <small>(optional)</small></td></tr>
+          <tr><td class="name">hidden</td><td class="type">boolean</td><td class="desc">Start hidden. <small>(optional)</small></td></tr>
+          <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc">Start disabled: the region carries `aria-disabled` and `inert`. <small>(optional)</small></td></tr>
+          <tr><td class="name">visibleWhen</td><td class="type"><a href="#type-FormRule">FormRule</a></td><td class="desc">A rule that hides the item when it evaluates false. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -32929,6 +33299,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">focus</td><td class="type">(): <a href="#type-FormItem">FormItem</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-FormItem">FormItem</a></code></td><td class="desc">Focus the item's control.</td></tr>
           <tr><td class="name">blur</td><td class="type">(): <a href="#type-FormItem">FormItem</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-FormItem">FormItem</a></code></td><td class="desc">Blur the item's control.</td></tr>
           <tr><td class="name">validate</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">Validate this one item, paint its verdict and report it through `validated`.</td></tr>
+          <tr><td class="name">attach</td><td class="type">(viewOrElement: Element | { el?: HTMLElement; root?: HTMLElement; element?: HTMLElement; destroy?(): void }, opts?: { keep?: boolean }): <a href="#type-FormItem">FormItem</a></td><td class="desc"><code>viewOrElement: Element | { el?: HTMLElement; root?: HTMLElement; element?: HTMLElement; destroy?(): void }</code><br><code>opts?: { keep?: boolean }</code></td><td class="type"><code><a href="#type-FormItem">FormItem</a></code></td><td class="desc">A `container` item only (BACKLOG-0002339): append an element, or a Lattice view's own element (`.el`, `.root` or `.element` — whichever it exposes), sized to the region (width 100%; height forced to the region's own configured height only when it set one). Replaces (and, unless kept, destroys) whatever was attached before; the attached view is destroyed by `form.destroy()` too, unless `keep: true`. <small>(optional)</small></td></tr>
+          <tr><td class="name">attachHTML</td><td class="type">(html: string): <a href="#type-FormItem">FormItem</a></td><td class="desc"><code>html: string</code></td><td class="type"><code><a href="#type-FormItem">FormItem</a></code></td><td class="desc">A `container` item only (BACKLOG-0002339): replace the region's content with sanitised host HTML, destroying whatever was attached before (unless it was kept). <small>(optional)</small></td></tr>
+          <tr><td class="name">getWidget</td><td class="type">(): unknown</td><td class="desc">&mdash;</td><td class="type"><code>unknown</code></td><td class="desc">A `container` item only (BACKLOG-0002339): the attached view or element, or `null`. <small>(optional)</small></td></tr>
           <tr><td class="name">setOptions</td><td class="type">(options: unknown[]): <a href="#type-FormItem">FormItem</a></td><td class="desc"><code>options: unknown[]</code></td><td class="type"><code><a href="#type-FormItem">FormItem</a></code></td><td class="desc">Replace a combo or select item's static options, re-rendering the list in place; a value still present is kept, one gone is cleared with one `change` event, and a changed label refreshes the shown value.</td></tr>
           <tr><td class="name">reload</td><td class="type">(): <a href="#type-FormItem">FormItem</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-FormItem">FormItem</a></code></td><td class="desc">Reload a `load`-backed combo — clear its cache and fetch the first page again; on a static combo or select this only re-renders.</td></tr>
         </tbody>
@@ -38052,7 +38425,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-FormControlType">FormControlType</h4>
     <p class="section-note">The control types a form item may name.</p>
-    <p class="type-def"><code>type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox'</code></p>
+    <p class="type-def"><code>type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox' | 'togglegroup' | 'time'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-FormDateRangeGranularity">FormDateRangeGranularity</h4>
     <p class="section-note">The granularity of a `daterange` item (BACKLOG-0002255): a day range or a year-month range.</p>
@@ -38868,7 +39241,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.101.8 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.103.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

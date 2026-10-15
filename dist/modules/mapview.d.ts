@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.101.8, mapview module type declarations
+ * Lattice Grid 1.103.0, mapview module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

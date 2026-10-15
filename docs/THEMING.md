@@ -349,24 +349,16 @@ These 10 also have no declared default, but unlike the ones above, the grid’s 
 
 ### Calendar viewer tokens (module-owned, fallback-only)
 
-The calendar module (`modules/calendar`, BACKLOG-0001592, time grid BACKLOG-0001593) reads these names only from its own injected stylesheet — they are never declared in the theme CSS above, so they are not part of the machine-checked public-token list and a preset sets them only for closer fidelity. Every default derives from an existing grid token or a literal, and every one is **MAY**: `checkPresetCompleteness` never requires a preset edit for them.
+The calendar module (`modules/calendar`, BACKLOG-0001592, time grid BACKLOG-0001593) reads these names only from its own injected stylesheet — they are never declared in the theme CSS above, so they are not part of the machine-checked public-token list and a preset sets them only for closer fidelity. Every default derives from an existing grid token or a literal, and every one left here is **MAY**: `checkPresetCompleteness` never requires a preset edit for them. The colour names this table used to list (`--lattice-calendar-today-bg`, `-accent`, `-header-bg`, `-header-fg`, `-dim-fg`, `-now-color`, `-business-bg`, `-span-bg`) are now rows of [Calendar roles](#calendar-roles-module-owned) below (BACKLOG-0002186), where today-bg and accent are **MUST**; the geometry tokens stay here.
 
-| Token | Default (the fallback) | Affects |
-|---|---|---|
-| `--lattice-calendar-cell-min-height` | `120px` | a day cell's minimum height (cells grow with their cards) |
-| `--lattice-calendar-header-bg` | `var(--lattice-header-bg, var(--lattice-background))` | the header toolbar background |
-| `--lattice-calendar-header-fg` | `var(--lattice-foreground)` | the header toolbar text |
-| `--lattice-calendar-today-bg` | `var(--lattice-selected-background, var(--lattice-range-background))` | today's cell background |
-| `--lattice-calendar-dim-fg` | `var(--lattice-foreground-muted)` | dimmed leading/trailing days and the card time |
-| `--lattice-calendar-card-radius` | `var(--lattice-radius-sm)` | a card's corner radius |
-| `--lattice-calendar-accent` | `var(--lattice-accent)` | the card edge and the active header state colour |
-| `--lattice-calendar-axis-width` | `56px` | the hour axis and header corner width |
-| `--lattice-calendar-slot-height` | `48px` | the height of one time-grid slot |
-| `--lattice-calendar-now-color` | `var(--lattice-calendar-accent, var(--lattice-accent))` | the now-indicator line |
-| `--lattice-calendar-business-bg` | `var(--lattice-background-subtle)` | the business-hours shading |
-| `--lattice-calendar-span-bg` | `var(--lattice-accent-soft)` | the multi-day span bar background |
-| `--lattice-calendar-span-lane-height` | `22px` | the height of one span-bar lane in a day-grid week row (overlapping spans stack into lanes) |
-| `--lattice-calendar-all-day-min-height` | `20px` | an all-day row cell's minimum height |
+| Token | Default (the fallback) | Affects | Marking |
+|---|---|---|---|
+| `--lattice-calendar-cell-min-height` | `120px` | a day cell's minimum height (cells grow with their cards) | MAY |
+| `--lattice-calendar-card-radius` | `var(--lattice-radius-sm)` | a card's corner radius | MAY |
+| `--lattice-calendar-axis-width` | `56px` | the hour axis and header corner width | MAY |
+| `--lattice-calendar-slot-height` | `48px` | the height of one time-grid slot | MAY |
+| `--lattice-calendar-span-lane-height` | `22px` | the height of one span-bar lane in a day-grid week row (overlapping spans stack into lanes) | MAY |
+| `--lattice-calendar-all-day-min-height` | `20px` | an all-day row cell's minimum height | MAY |
 
 ### Designer editing chrome (BACKLOG-0002081/0002085/0002086)
 
@@ -389,17 +381,217 @@ The Designer module's editing chrome (rails, panels and the properties form) dra
 
 The form module (`modules/form`, BACKLOG-0002141, spacing BACKLOG-0002183, disabled/read-only states BACKLOG-0002198) reads these names only from its own injected stylesheet — they are never declared in the theme CSS above, so they are not part of the machine-checked public-token list and a preset sets them only for closer fidelity. `createForm({ spacing, labelGap })` and `form.setSpacing()` write the two spacing names as inline custom properties on the form root, which always win over a stylesheet, so a theme sets them only as the default a form without an explicit spacing falls back to. The two spacing names default from the density scale; the six disabled/read-only names are derived from the colour tokens so they follow light and dark automatically; the popup stacking order is a plain number. All nine are **MAY**: `checkPresetCompleteness` never requires a preset edit for them.
 
-| Token | Default (the fallback) | Affects |
-|---|---|---|
-| `--lattice-form-item-gap` | `var(--lattice-space)` | the vertical gap between a form's stacked items (the root, a `rows` container and a fieldset body); horizontal `cols` keep their own gap |
-| `--lattice-form-label-gap` | `calc(var(--lattice-space) / 2)` | the gap between an item's top-position label and its field |
-| `--lattice-disabled-foreground` | `var(--lattice-foreground-muted)` | the text, glyphs and values of a disabled control (kept ≥3:1 by the muted token) |
-| `--lattice-disabled-background` | `color-mix(in srgb, var(--lattice-background) 94%, var(--lattice-foreground-muted))` | the fill of a disabled text field, select, chips, stage step or file card |
-| `--lattice-disabled-border` | `color-mix(in srgb, var(--lattice-border-color) 70%, transparent)` | the border of a disabled text field, select, chips, stage step or file card |
-| `--lattice-readonly-foreground` | `var(--lattice-foreground)` | the text of a read-only field (fully legible, so a value can still be read and copied) |
-| `--lattice-readonly-background` | `color-mix(in srgb, var(--lattice-background) 92%, var(--lattice-foreground-muted))` | the subtle fill of a read-only field |
-| `--lattice-readonly-border` | `var(--lattice-border-color)` | the border of a read-only field |
-| `--lattice-popup-z` | `2147483647` | the stacking order of an open select, combo or date-picker list while it sits in the page-level layer host; a page that needs its own element above an open list sets this lower (BACKLOG-0002336). Where the browser has a top layer the list is placed there as well, which no `z-index` can cover |
+| Token | Default (the fallback) | Affects | Marking |
+|---|---|---|---|
+| `--lattice-form-item-gap` | `var(--lattice-space)` | the vertical gap between a form's stacked items (the root, a `rows` container and a fieldset body); horizontal `cols` keep their own gap | MAY |
+| `--lattice-form-label-gap` | `calc(var(--lattice-space) / 2)` | the gap between an item's top-position label and its field | MAY |
+| `--lattice-disabled-foreground` | `var(--lattice-foreground-muted)` | the text, glyphs and values of a disabled control (kept ≥3:1 by the muted token) | MAY |
+| `--lattice-disabled-background` | `color-mix(in srgb, var(--lattice-background) 94%, var(--lattice-foreground-muted))` | the fill of a disabled text field, select, chips, stage step or file card | MAY |
+| `--lattice-disabled-border` | `color-mix(in srgb, var(--lattice-border-color) 70%, transparent)` | the border of a disabled text field, select, chips, stage step or file card | MAY |
+| `--lattice-readonly-foreground` | `var(--lattice-foreground)` | the text of a read-only field (fully legible, so a value can still be read and copied) | MAY |
+| `--lattice-readonly-background` | `color-mix(in srgb, var(--lattice-background) 92%, var(--lattice-foreground-muted))` | the subtle fill of a read-only field | MAY |
+| `--lattice-readonly-border` | `var(--lattice-border-color)` | the border of a read-only field | MAY |
+| `--lattice-popup-z` | `2147483647` | the stacking order of an open select, combo or date-picker list while it sits in the page-level layer host; a page that needs its own element above an open list sets this lower (BACKLOG-0002336). Where the browser has a top layer the list is placed there as well, which no `z-index` can cover | MAY |
+
+### Module roles: the pattern (BACKLOG-0002186)
+
+Each module below owns a small set of named roles, `--lattice-<module>-<role>`, and the tables are its contract. A module declares every role ONCE on its own root selector, each derived from a core token (`.lat-kanban { --lattice-kanban-card-bg: var(--lattice-background); }`), so light, dark, high-contrast and terminal follow the core theme with no per-theme restatement; it then reads each role everywhere with no fallback (`background: var(--lattice-kanban-card-bg)`), never a literal colour, radius, font or shadow (`node tools/theme-audit.js` counts the literals that remain). A preset overrides a role for design-system fidelity in its own partial, `packages/modules/presets/<preset>/<module>.css`, which `node tools/presets.js` assembles into the shipped `packages/modules/presets/<preset>.css`. **MUST** roles are what `checkPresetCompleteness` (`node tools/theme-check.js <preset.css> --strict`) requires every shipped preset to set, for light and dark; **MAY** roles are fidelity only. The "Default (derived)" column is the derivation the module declares and every preset partial starts from. The charts' categorical colours keep their existing names, `--lattice-chart-1` to `--lattice-chart-8`.
+
+Charts, KPI tiles and the map view (BACKLOG-0002191) declare their role defaults in a `lattice.charts` / `lattice.kpi` / `lattice.mapview` sublayer of the `lattice` layer, on `:root`, `.lattice` and any element carrying a `data-theme`, rather than on the view's own root: a custom property declared on the view root would shadow what a preset sets on the `.lattice` element above it. A preset partial (in the `lattice` layer itself) outranks the sublayer, an unlayered host rule outranks both, and the view inherits the nearest declaration. A series colour a host passes in a chart's own config is a data colour and is never themed; the default series, a sequential ramp (read from `--lattice-chart-sequential-start` and `-end`) and a map layer's default colours follow the roles.
+
+### Form roles (module-owned)
+
+| Token | Default (derived) | Affects | Marking |
+|---|---|---|---|
+| `--lattice-form-surface` | `var(--lattice-background)` | the form root and fieldset body background | MUST |
+| `--lattice-form-field-bg` | `var(--lattice-background)` | a text field, select, combo or textarea fill | MUST |
+| `--lattice-form-field-border` | `var(--lattice-border-strong)` | a field’s resting border | MUST |
+| `--lattice-form-field-fg` | `var(--lattice-foreground)` | a field’s value text | MUST |
+| `--lattice-form-focus-ring` | `var(--lattice-focus-color)` | the focus ring around a focused field | MUST |
+| `--lattice-form-placeholder` | `var(--lattice-foreground-muted)` | placeholder text in an empty field | MAY |
+| `--lattice-form-label-fg` | `var(--lattice-foreground)` | an item’s label text | MAY |
+| `--lattice-form-help-fg` | `var(--lattice-foreground-muted)` | help and hint text under a field | MAY |
+| `--lattice-form-invalid` | `var(--lattice-invalid-border)` | a field failing validation: border and message | MAY |
+| `--lattice-form-popup-bg` | `var(--lattice-background)` | a select/combo/date popup surface | MAY |
+| `--lattice-form-popup-shadow` | `var(--lattice-popup-shadow)` | a select/combo/date popup shadow | MAY |
+
+### Gantt roles (module-owned)
+
+| Token | Default (derived) | Affects | Marking |
+|---|---|---|---|
+| `--lattice-gantt-bar` | `var(--lattice-accent)` | a task bar fill | MUST |
+| `--lattice-gantt-progress` | `color-mix(in srgb, var(--lattice-accent) 70%, var(--lattice-foreground))` | the completed portion of a task bar | MUST |
+| `--lattice-gantt-milestone` | `var(--lattice-variant-warning-solid)` | a milestone diamond | MUST |
+| `--lattice-gantt-critical` | `var(--lattice-variant-danger-solid)` | a task on the critical path | MUST |
+| `--lattice-gantt-link` | `var(--lattice-foreground-muted)` | a dependency link line and arrow | MUST |
+| `--lattice-gantt-today` | `var(--lattice-variant-danger-solid)` | the today line | MUST |
+| `--lattice-gantt-nonworking` | `var(--lattice-surface)` | non-working time (weekends, holidays) shading | MUST |
+| `--lattice-gantt-bar-fg` | `var(--lattice-accent-contrast)` | the label drawn on a task bar | MAY |
+| `--lattice-gantt-summary` | `var(--lattice-variant-neutral-solid)` | a summary (parent) bar | MAY |
+| `--lattice-gantt-baseline` | `var(--lattice-border-strong)` | a baseline bar under a task | MAY |
+| `--lattice-gantt-band` | `var(--lattice-row-stripe)` | the alternate row band | MAY |
+| `--lattice-gantt-selected` | `var(--lattice-selected-background)` | a selected task row | MAY |
+| `--lattice-gantt-handle` | `var(--lattice-background)` | a bar’s resize/progress drag handle | MAY |
+| `--lattice-gantt-tooltip-bg` | `var(--lattice-foreground)` | the bar tooltip background | MAY |
+| `--lattice-gantt-tooltip-fg` | `var(--lattice-background)` | the bar tooltip text | MAY |
+| `--lattice-gantt-header-bg` | `var(--lattice-surface)` | the timescale header background | MAY |
+
+### Kanban roles (module-owned)
+
+| Token | Default (derived) | Affects | Marking |
+|---|---|---|---|
+| `--lattice-kanban-column-bg` | `var(--lattice-surface)` | a column background | MUST |
+| `--lattice-kanban-card-bg` | `var(--lattice-background)` | a card background | MUST |
+| `--lattice-kanban-card-border` | `var(--lattice-border-color)` | a card border | MUST |
+| `--lattice-kanban-wip-over` | `var(--lattice-variant-danger-fill)` | a column over its WIP limit | MUST |
+| `--lattice-kanban-placeholder` | `var(--lattice-range-background)` | the drop placeholder while dragging | MUST |
+| `--lattice-kanban-column-header-fg` | `var(--lattice-header-foreground)` | a column header’s title and count | MAY |
+| `--lattice-kanban-card-fg` | `var(--lattice-foreground)` | a card’s text | MAY |
+| `--lattice-kanban-ghost-shadow` | `var(--lattice-popup-shadow)` | the dragged card’s shadow | MAY |
+| `--lattice-kanban-blocked` | `var(--lattice-variant-danger-solid)` | a blocked card’s marker | MAY |
+| `--lattice-kanban-swimlane-bg` | `var(--lattice-surface-alt)` | a swimlane header band | MAY |
+| `--lattice-kanban-collapsed-bg` | `var(--lattice-surface)` | a collapsed column | MAY |
+| `--lattice-kanban-refused` | `var(--lattice-variant-danger-border)` | a column refusing the dragged card | MAY |
+
+### Calendar roles (module-owned)
+
+| Token | Default (derived) | Affects | Marking |
+|---|---|---|---|
+| `--lattice-calendar-today-bg` | `var(--lattice-selected-background)` | today’s cell background | MUST |
+| `--lattice-calendar-accent` | `var(--lattice-accent)` | the card edge and the active header state colour | MUST |
+| `--lattice-calendar-event-bg` | `var(--lattice-variant-info-fill)` | an event card’s background | MUST |
+| `--lattice-calendar-weekend-bg` | `var(--lattice-surface-alt)` | a weekend day’s background | MUST |
+| `--lattice-calendar-event-fg` | `var(--lattice-variant-info-text)` | an event card’s text | MAY |
+| `--lattice-calendar-now-color` | `var(--lattice-accent)` | the now-indicator line | MAY |
+| `--lattice-calendar-business-bg` | `var(--lattice-background-subtle, var(--lattice-surface))` | the business-hours shading | MAY |
+| `--lattice-calendar-span-bg` | `var(--lattice-variant-info-fill)` | the multi-day span bar background | MAY |
+| `--lattice-calendar-header-bg` | `var(--lattice-surface)` | the header toolbar background | MAY |
+| `--lattice-calendar-header-fg` | `var(--lattice-header-foreground)` | the header toolbar text | MAY |
+| `--lattice-calendar-dim-fg` | `var(--lattice-foreground-muted)` | dimmed leading/trailing days and the card time | MAY |
+
+### Scheduler roles (module-owned)
+
+| Token | Default (derived) | Affects | Marking |
+|---|---|---|---|
+| `--lattice-scheduler-resource-bg` | `var(--lattice-surface)` | the resource column background | MUST |
+| `--lattice-scheduler-assignment-bg` | `var(--lattice-accent)` | an assignment bar fill | MUST |
+| `--lattice-scheduler-workload` | `var(--lattice-variant-success-solid)` | the workload histogram within capacity | MUST |
+| `--lattice-scheduler-overalloc` | `var(--lattice-variant-danger-solid)` | an over-allocated resource or histogram bar | MUST |
+| `--lattice-scheduler-assignment-fg` | `var(--lattice-accent-contrast)` | an assignment bar’s label | MAY |
+| `--lattice-scheduler-divider` | `var(--lattice-border-color)` | lane and resource dividers | MAY |
+| `--lattice-scheduler-group-bg` | `var(--lattice-surface-alt)` | a resource group header row | MAY |
+| `--lattice-scheduler-lane-bg` | `var(--lattice-background)` | a resource lane background | MAY |
+| `--lattice-scheduler-lane-alt-bg` | `var(--lattice-row-stripe)` | the alternate resource lane | MAY |
+| `--lattice-scheduler-axis-fg` | `var(--lattice-foreground-muted)` | the time axis labels | MAY |
+| `--lattice-scheduler-handle` | `var(--lattice-background)` | an assignment’s resize handle | MAY |
+| `--lattice-scheduler-tooltip-bg` | `var(--lattice-foreground)` | the assignment tooltip background | MAY |
+
+### Designer roles (module-owned)
+
+| Token | Default (derived) | Affects | Marking |
+|---|---|---|---|
+| `--lattice-designer-canvas-bg` | `var(--lattice-background)` | the design canvas background | MUST |
+| `--lattice-designer-canvas-grid` | `var(--lattice-border-color)` | the canvas snap grid lines | MUST |
+| `--lattice-designer-selection` | `var(--lattice-accent)` | the selected element’s outline | MUST |
+| `--lattice-designer-drop-indicator` | `var(--lattice-focus-color)` | the drop position indicator while dragging | MUST |
+| `--lattice-designer-frame-border` | `var(--lattice-border-strong)` | an element frame’s border on the canvas | MAY |
+| `--lattice-designer-handle-bg` | `var(--lattice-background)` | a resize handle fill | MAY |
+| `--lattice-designer-handle-border` | `var(--lattice-accent)` | a resize handle border | MAY |
+| `--lattice-designer-toolbar-bg` | `var(--lattice-surface)` | the designer toolbar background | MAY |
+| `--lattice-designer-tab-active` | `var(--lattice-accent)` | the active rail tab’s indicator | MAY |
+
+### Shell roles (module-owned)
+
+| Token | Default (derived) | Affects | Marking |
+|---|---|---|---|
+| `--lattice-shell-header-bg` | `var(--lattice-surface)` | a panel header background | MUST |
+| `--lattice-shell-splitter` | `var(--lattice-border-color)` | a splitter between panels | MUST |
+| `--lattice-shell-tab-active-bg` | `var(--lattice-background)` | the active tab background | MUST |
+| `--lattice-shell-spinner` | `var(--lattice-accent)` | the loading spinner | MUST |
+| `--lattice-shell-header-fg` | `var(--lattice-header-foreground)` | a panel header’s title | MAY |
+| `--lattice-shell-splitter-active` | `var(--lattice-accent)` | a splitter while hovered or dragged | MAY |
+| `--lattice-shell-collapse-bg` | `var(--lattice-surface-alt)` | a collapsed panel strip | MAY |
+| `--lattice-shell-tab-bg` | `var(--lattice-surface)` | an inactive tab background | MAY |
+| `--lattice-shell-overlay-bg` | `var(--lattice-overlay-background)` | the panel loading overlay scrim | MAY |
+
+### Charts roles (module-owned)
+
+| Token | Default (derived) | Affects | Marking |
+|---|---|---|---|
+| `--lattice-chart-1` | `#0072b2` (dark `#4ea6dd`) | categorical series colour 1 | MUST |
+| `--lattice-chart-2` | `#e69f00` (dark `#f0b429`) | categorical series colour 2 | MUST |
+| `--lattice-chart-3` | `#009e73` (dark `#34c79a`) | categorical series colour 3 | MUST |
+| `--lattice-chart-4` | `#cc79a7` (dark `#e39ec4`) | categorical series colour 4 | MUST |
+| `--lattice-chart-5` | `#56b4e9` (dark `#7cc7f0`) | categorical series colour 5 | MUST |
+| `--lattice-chart-6` | `#d55e00` (dark `#f07c3f`) | categorical series colour 6 | MUST |
+| `--lattice-chart-7` | `#7a5195` (dark `#a48ad4`) | categorical series colour 7 | MUST |
+| `--lattice-chart-8` | `#6b7d8c` (dark `#93a3b1`) | categorical series colour 8 | MUST |
+| `--lattice-chart-sequential-start` | `var(--lattice-variant-info-fill)` | the low end of a sequential (heatmap, choropleth) scale | MUST |
+| `--lattice-chart-sequential-end` | `var(--lattice-accent)` | the high end of a sequential scale | MUST |
+| `--lattice-chart-axis` | `var(--lattice-border-strong)` | axis lines and ticks | MUST |
+| `--lattice-chart-gridline` | `var(--lattice-border-color)` | gridlines | MUST |
+| `--lattice-chart-label-fg` | `var(--lattice-foreground-muted)` | axis tick and data labels | MAY |
+| `--lattice-chart-legend-fg` | `var(--lattice-foreground)` | legend entries | MAY |
+| `--lattice-chart-tooltip-bg` | `var(--lattice-background)` | the tooltip background | MAY |
+| `--lattice-chart-tooltip-fg` | `var(--lattice-foreground)` | the tooltip text | MAY |
+| `--lattice-chart-crosshair` | `var(--lattice-foreground-muted)` | the crosshair line | MAY |
+| `--lattice-chart-annotation` | `var(--lattice-variant-warning-solid)` | reference lines, bands and annotation marks | MAY |
+| `--lattice-chart-selection` | `var(--lattice-range-background)` | a brushed/selected range | MAY |
+| `--lattice-chart-plot-bg` | `var(--lattice-background)` | the plot area background | MAY |
+| `--lattice-chart-fg` | `var(--lattice-foreground)` | titles, drawn strokes and in-plot text | MAY |
+| `--lattice-chart-surface` | `var(--lattice-surface)` | the zoom bar, annotation rail and edit status | MAY |
+| `--lattice-chart-border` | `var(--lattice-border-color)` | the borders of those controls and of the tooltip | MAY |
+| `--lattice-chart-hover` | `var(--lattice-hovered-background)` | a hovered chart control | MAY |
+| `--lattice-chart-focus` | `var(--lattice-focus-color)` | focus rings, the brush outline and edit handles | MAY |
+| `--lattice-chart-danger` | `var(--lattice-variant-danger-solid)` | a rule violation, a falling measurer | MAY |
+| `--lattice-chart-success` | `var(--lattice-variant-success-solid)` | a target line, a rising measurer | MAY |
+| `--lattice-chart-empty` | `var(--lattice-surface)` | a region or cell with no reading | MAY |
+| `--lattice-chart-map-stroke` | `var(--lattice-border-color)` | a region outline on a geographic chart | MAY |
+| `--lattice-chart-basemap-fill` | `#c3cfd6` (dark `#3a4a55`) | the land under a shapes pack | MAY |
+| `--lattice-chart-basemap-stroke` | `#456374` (dark `#8fb0c2`) | the land's outline | MAY |
+| `--lattice-chart-shadow` | `var(--lattice-popup-shadow)` | the tooltip shadow | MAY |
+| `--lattice-chart-overlay` | `var(--lattice-overlay-background)` | the watermark wash | MAY |
+| `--lattice-chart-radius`, `--lattice-chart-radius-sm` | `var(--lattice-radius)`, three quarters of it | tooltip, toolbar and button corners | MAY |
+| `--lattice-chart-font`, `--lattice-chart-font-size`, `--lattice-chart-font-size-sm`, `--lattice-chart-font-size-xs`, `--lattice-chart-font-size-lg` | the grid's family and sizes (extra small is 0.82 of small, large 1.15 of body) | chart type | MAY |
+
+### KPI roles (module-owned)
+
+| Token | Default (derived) | Affects | Marking |
+|---|---|---|---|
+| `--lattice-kpi-tile-bg` | `var(--lattice-background)` | a KPI tile background | MUST |
+| `--lattice-kpi-value-fg` | `var(--lattice-foreground)` | the headline value | MUST |
+| `--lattice-kpi-delta-up` | `var(--lattice-variant-success-text)` | a favourable delta | MUST |
+| `--lattice-kpi-delta-down` | `var(--lattice-variant-danger-text)` | an unfavourable delta | MUST |
+| `--lattice-kpi-tile-border` | `var(--lattice-border-color)` | a KPI tile border | MAY |
+| `--lattice-kpi-label-fg` | `var(--lattice-foreground-muted)` | the tile label and note | MAY |
+| `--lattice-kpi-sparkline` | `var(--lattice-accent)` | the tile sparkline | MAY |
+| `--lattice-kpi-alarm-warn` | `var(--lattice-variant-warning-solid)` | a tile in the warning alarm state | MAY |
+| `--lattice-kpi-alarm-crit` | `var(--lattice-variant-danger-solid)` | a tile in the critical alarm state | MAY |
+| `--lattice-kpi-alarm-good` | `var(--lattice-variant-success-solid)` | a tile in the good state, and a good meter fill | MAY |
+| `--lattice-kpi-unknown` | `var(--lattice-foreground-muted)` | a tile with no reading | MAY |
+| `--lattice-kpi-focus` | `var(--lattice-focus-color)` | the tile focus ring | MAY |
+| `--lattice-kpi-hover` | `var(--lattice-hovered-background)` | a hovered tree row | MAY |
+| `--lattice-kpi-meter-track`, `--lattice-kpi-meter-fill` | `var(--lattice-border-color)`, `var(--lattice-variant-neutral-solid)` | a tree row's meter | MAY |
+| `--lattice-kpi-radius`, `--lattice-kpi-radius-sm`, `--lattice-kpi-radius-row` | twice, one and 0.5 of the grid radius | tile, meter and tree-row corners | MAY |
+| `--lattice-kpi-font`, `--lattice-kpi-size-sm`, `--lattice-kpi-size-value`, `--lattice-kpi-size-xs` | the grid's family; `.8em`, `1.6em`, `.55em` | tile type | MAY |
+
+### Map view roles (module-owned)
+
+| Token | Default (derived) | Affects | Marking |
+|---|---|---|---|
+| `--lattice-map-background` | `var(--lattice-background)` | the map background (sea/no-data) | MUST |
+| `--lattice-map-layer-fill` | `var(--lattice-accent)` | the default fill of a layer whose rows name no colour | MUST |
+| `--lattice-map-layer-stroke` | `var(--lattice-border-strong)` | a region/polygon layer outline | MAY |
+| `--lattice-map-legend-bg` | `var(--lattice-background)` | the legend background | MAY |
+| `--lattice-map-popup-bg` | `var(--lattice-background)` | a feature popup background | MAY |
+| `--lattice-map-popup-fg` | `var(--lattice-foreground)` | a feature popup text | MAY |
+| `--lattice-map-fg`, `--lattice-map-muted`, `--lattice-map-border`, `--lattice-map-accent` | the grid's foreground, muted foreground, border colour and accent | map text, popup titles, panel borders and the tab and divider focus | MAY |
+| `--lattice-map-highlight` | `var(--lattice-focus-color)` | a selected feature | MAY |
+| `--lattice-map-halo` | `var(--lattice-background)` | the ring round a point | MAY |
+| `--lattice-map-building` | `#d6d2ca` (dark `#3b4048`) | the 3D buildings | MAY |
+| `--lattice-map-shadow`, `--lattice-map-float-shadow` | `var(--lattice-popup-shadow)` | the tooltip and legend, and the floating panel | MAY |
+| `--lattice-map-radius`, `--lattice-map-radius-sm` | `var(--lattice-radius)`, `var(--lattice-radius-sm)` | popup, legend and swatch corners | MAY |
+| `--lattice-map-font`, `--lattice-map-font-size`, `--lattice-map-font-size-sm` | the grid's family and sizes | map type | MAY |
 
 ## Internal, off-contract
 

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.101.8, form module type declarations
+ * Lattice Grid 1.103.0, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -19,7 +19,7 @@ export type FormLabelPosition = 'top' | 'left' | 'hidden';
 export type FormInputSubtype = 'text' | 'email' | 'password' | 'url';
 
 /** The control types a form item may name. */
-export type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox';
+export type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox' | 'togglegroup' | 'time';
 
 /** The opening view of a `color` item's popover: the preset palette (default) or the custom picker. */
 export type FormColorMode = 'palette' | 'picker';
@@ -36,6 +36,30 @@ export interface FormChipOption {
   disabled?: boolean;
 }
 
+/** One option of a `togglegroup` item. The group's committed value is a `{ [id]: boolean }` map keyed by each visible option's `id`. */
+export interface FormToggleGroupOption {
+  /** The option's key in the committed `{ [id]: boolean }` value; falls back to `value`, then the option's position. */
+  id: string | number;
+  /** The option's fallback key when `id` is omitted. */
+  value?: string | number;
+  /** The pressed state's text; falls back to `id`. */
+  text?: string;
+  /** The unpressed state's text; falls back to `text`. */
+  offText?: string;
+  /** The pressed state's icon (an SVG path `d` string, a URL/data URI, or an element); hidden when omitted. */
+  icon?: string | Node;
+  /** The unpressed state's icon; falls back to `icon`. */
+  offIcon?: string | Node;
+  /** Start pressed. In single mode only the first selected option wins. */
+  selected?: boolean;
+  /** Start disabled: not clickable, skipped by the arrow keys. */
+  disabled?: boolean;
+  /** Not rendered and excluded from the value map. */
+  hidden?: boolean;
+  /** Stretch this one button to fill the group. */
+  full?: boolean;
+}
+
 /** The picker modes of a `datepicker` item. */
 export type FormPickerMode = 'date' | 'date-time' | 'time';
 
@@ -48,6 +72,16 @@ export interface FormDateRangeValue {
   start: string | null;
   /** The range end, an ISO `YYYY-MM-DD` day (or `YYYY-MM` month in month mode) or null. */
   end: string | null;
+}
+
+/** The `object` form of a `time` item's committed value when `valueFormat: 'object'`. */
+export interface FormTimeValue {
+  /** The hour: 0-23 in 24-hour form, or the display hour 1-12 with `AM` carrying the half of the day in 12-hour form. */
+  hour: number;
+  /** The minute, 0-59. */
+  minute: number;
+  /** True for the morning half of a 12-hour value; absent in 24-hour form. */
+  AM?: boolean;
 }
 
 /** One preset of a `daterange` item's left-hand list. */
@@ -224,7 +258,7 @@ export interface FormPanelConfig {
  * One form item: a control (`input`, `number`, `textarea`, `checkbox`,
  * `button`, `combo`, `select`, `radiogroup`, `checkboxgroup`, `toggle`,
  * `datepicker`, `daterange`, `file`, `richtext`, `rating`, `stage`, `chips`, `otp`, `color`,
- * `listbox`) or the read-only `text` display, with the per-item options.
+ * `listbox`, `speeddial`, `avatar`) or the read-only `text` display, with the per-item options.
  */
 export interface FormItemConfig extends ComboConfig {
   /**
@@ -338,7 +372,7 @@ export interface FormItemConfig extends ComboConfig {
   /** The visible rows, for a `textarea` item, or a `listbox` item's viewport height in option rows (default 8). */
   rows?: number;
   /** The choices of a `select`, `radiogroup`, `checkboxgroup` or `listbox` item: strings, `{ value, label }` objects, or `{ label, options }` groups; or the selectable options of a `chips` item (`{ value, label, icon?, disabled? }` entries). */
-  options?: (string | FormOption | FormOptionGroup | FormChipOption)[];
+  options?: (string | FormOption | FormOptionGroup | FormChipOption | FormToggleGroupOption)[];
   /** A `listbox` item's selection mode: `'single'` (default), `'multiple'` (Ctrl/Shift and touch-tap selection) or `'checkbox'` (a box per row plus a select-all row). */
   selection?: 'single' | 'multiple' | 'checkbox';
   /** Add a search box to a `listbox` item that narrows its rows by label and description, without dropping an already-selected option it hides. */
@@ -391,22 +425,36 @@ export interface FormItemConfig extends ComboConfig {
   requiredWhen?: FormRule;
   /** Extra CSS on the item wrapper. */
   css?: Record<string, string | number> | string;
-  /** Extensions or MIME patterns a `file` item accepts (empty = anything). */
+  /** Extensions or MIME patterns a `file` item accepts (empty = anything), or the MIME patterns an `avatar` item's chooser accepts (default `['image/*']`). */
   accept?: string[];
-  /** The maximum file size in bytes a `file` item admits. */
+  /** The maximum file size in bytes a `file` item admits, or an `avatar` item's chosen picture refuses. */
   maxSize?: number;
   /** The maximum number of files a `file` item admits. */
   maxFiles?: number;
   /** Allow picking several files at once for a `file` item (default true), toggling several options for a `chips` item (default false, single-select), or a multi-select `select` whose committed value is an array. */
   multiple?: boolean;
+  /** Toggle each `togglegroup` option independently; the default false keeps exactly one option pressed. */
+  multiselect?: boolean;
+  /** The pixel space between `togglegroup` buttons (default 0). */
+  gap?: number;
+  /** Stretch a `togglegroup` to its item's full width. */
+  full?: boolean;
   /** Drop-zone text for a `file` item. */
   dropText?: string;
   /** A hint line under the drop zone of a `file` item. */
   hint?: string;
   /** Replaces the browse link's word in a `file` item's drop area and its aria-label. */
   browseText?: string;
-  /** The host upload callback for a `file` item: `(file, { onProgress, signal }) => void | Promise<void>`. */
-  upload?: (file: File, opts: { onProgress: (pct: number) => void; signal?: AbortSignal }) => void | Promise<void>;
+  /** The host upload callback for a `file` item (`(file, { onProgress, signal }) => void | Promise<void>`), or an `avatar` item's own upload config, posted as multipart form data. */
+  upload?: ((file: File, opts: { onProgress: (pct: number) => void; signal?: AbortSignal }) => void | Promise<void>) | FormAvatarUploadConfig;
+  /** Round an `avatar` item's picture into a circle; otherwise it keeps the control's own rounded-square radius. */
+  circle?: boolean;
+  /** The accessible `alt` text on an `avatar` item's picture. */
+  alt?: string;
+  /** An image URL an `avatar` item shows while it has no value, ahead of `icon` and the `placeholder` text. */
+  preview?: string;
+  /** Show an `avatar` item's clear control once it has a value, setting it back to `null` (default true). */
+  removeIcon?: boolean;
   /** The toolbar for a `richtext` item: a preset (`basic`/`html`/`rich`) or an item-name array. */
   toolbar?: string | string[];
   /** The minimum editor height in pixels for a `richtext` item. */
@@ -431,7 +479,7 @@ export interface FormItemConfig extends ComboConfig {
   allowHalf?: boolean;
   /** Allow a second click to clear a `rating` item back to zero. */
   allowClear?: boolean;
-  /** The icon of a `button` — a name from the grid's icon set, an image URL or data: URI, or an element — the glyph name of a `rating` item (`star` or `heart`), the drop-area icon of a `file` item — a glyph name from the file module's sprite set, an SVG markup string, an element, or `false` for none — or the glyph name a `color` item's trailing toggle draws instead of its default chevron. */
+  /** The icon of a `button` — a name from the grid's icon set, an image URL or data: URI, or an element — the glyph name of a `rating` item (`star` or `heart`), the drop-area icon of a `file` item — a glyph name from the file module's sprite set, an SVG markup string, an element, or `false` for none — the glyph name a `color` item's trailing toggle draws instead of its default chevron — a `time` item's toggle glyph, default the grid's clock — or an `avatar` item's fallback image URL (or element), shown with no value and no `preview`. */
   icon?: string | Element | false;
   /** The filled and empty glyph names for a `rating` item. */
   icons?: { filled?: string; empty?: string };
@@ -439,8 +487,8 @@ export interface FormItemConfig extends ComboConfig {
   labels?: string[];
   /** Show the numeric value beside a `rating` item. */
   showValue?: boolean;
-  /** The size of a `rating` item or `button`: `sm`, `md` (default) or `lg` — or a `toggle` item's `small`, `default` or `large`. */
-  size?: 'sm' | 'md' | 'lg' | 'small' | 'default' | 'large';
+  /** The size of a `rating` item or `button`: `sm`, `md` (default) or `lg` — a `toggle` item's `small`, `default` or `large` — or an `avatar` item's picture: `small`, `medium` (default, 64px), `large`, or a pixel number. */
+  size?: 'sm' | 'md' | 'lg' | 'small' | 'medium' | 'default' | 'large' | number;
   /** Where a `button`'s icon sits: `start` (default) or `end`. */
   iconPosition?: 'start' | 'end';
   /** A `button`'s visual weight: theme-token colours, light and dark. Defaults to `secondary` — or a `toggle` item's track shape: `round` (default), `square` or `slim`. */
@@ -491,12 +539,95 @@ export interface FormItemConfig extends ComboConfig {
   customColors?: string[];
   /** Remove a `color` item's palette view, leaving only the picker. */
   pickerOnly?: boolean;
-  /** Let a `color` item's text part be typed into (default true); `false` makes it read-only, so only the popover sets the value. */
+  /** Let a `color` item's text part be typed into (default true); `false` makes it read-only, so only the popover sets the value — or a `time` item's field text (default false there, the popup sets it; `true` accepts typed `HH:MM`/`hh:MM AM`, committed on blur or Enter). */
   editable?: boolean;
   /** Show a clear control: on a `color` item it sets the value to `null`; on a `daterange` item a null/null pair; on a single-select `combo` it empties the value to `null`, and on a `select` item to its empty value `''`, with one `change`. An optional single-select combo is also emptied when its text is cleared and Enter is pressed or focus leaves. */
   clearable?: boolean;
+  /** The clock format of a `time` item: `24` (default, `HH:MM`) or `12` (`hh:MM` with an AM/PM segment in the popup and display). */
+  timeFormat?: 12 | 24;
+  /** How a `time` item stores its value: `'string'` (default, `'HH:MM'` or `'hh:MM AM'` in 12-hour) or `'object'` (`{ hour, minute, AM? }`). */
+  valueFormat?: 'string' | 'object';
+  /** Add Close and Save buttons to a `time` item's popup so nothing commits until Save and Close discards (default false: the popup commits as the clock changes). */
+  controls?: boolean;
   /** Extra per-control options, kept for later controls. */
   [key: string]: unknown;
+}
+
+/**
+ * The committed value of an `avatar` item: the picture, and — while a
+ * freshly chosen file is pending or uploading — its own file and progress.
+ */
+export interface FormAvatarValue {
+  /** The picture's source: a URL, or (before any upload completes) the data URL of a freshly chosen file. */
+  src?: string;
+  /** The chosen file, present only while `status` is `'pending'`, `'uploading'` or `'failed'` (not yet, or not successfully, uploaded). */
+  file?: File;
+  /** The chosen file's name. */
+  name?: string;
+  /** The chosen file's size in bytes. */
+  size?: number;
+  /** The upload progress, 0 to 100, present while `status` is `'uploading'`. */
+  progress?: number;
+  /** The upload status, present only when the item has an `upload` config. */
+  status?: 'pending' | 'uploading' | 'done' | 'failed';
+  /** The failure message, present only while `status` is `'failed'`. */
+  message?: string;
+  /** The response id, when `upload.updateFromResponse` read one back. */
+  id?: string | number;
+}
+
+/**
+ * An `avatar` item's own upload config: posts the chosen file as multipart
+ * form data the moment it is admitted.
+ */
+export interface FormAvatarUploadConfig {
+  /** The URL the file is POSTed to. */
+  target: string;
+  /** The multipart field name the file is sent under. Default `'file'`. */
+  fieldName?: string;
+  /** Extra form fields sent alongside the file. */
+  params?: Record<string, string | number | boolean>;
+  /** Extra request headers. */
+  headers?: Record<string, string>;
+  /** Upload the moment the file is admitted (default true); `false` leaves the picture `'pending'` and posts nothing. */
+  autosend?: boolean;
+  /** Read `src`/`id` back from the JSON response once the upload completes (default true). */
+  updateFromResponse?: boolean;
+}
+
+/**
+ * The `type: 'avatar'` item options, documented here as their own shape: a profile picture with a preview, sizes, a placeholder,
+ * a remove control and an optional upload. Used inside a form the same way
+ * as every other item — `{ type: 'avatar', name, ...these options }` — with
+ * these fields typed on {@link FormItemConfig} itself (`value`, `size`,
+ * `icon`, `accept`, `maxSize`, `upload` are shared with other control types
+ * there; see each one's own doc for the `avatar` reading).
+ */
+export interface AvatarItemConfig {
+  /** The committed picture, or `null`/absent for none. */
+  value?: FormAvatarValue | null;
+  /** The accessible `alt` text on the picture. */
+  alt?: string;
+  /** The display size: `small`, `medium` (default, 64px), `large`, or a pixel number. */
+  size?: 'small' | 'medium' | 'large' | number;
+  /** Round the picture into a circle (default false, a rounded square). */
+  circle?: boolean;
+  /** An image URL shown while there is no value, ahead of `icon` and `placeholder`. */
+  preview?: string;
+  /** A fallback image URL (or element) shown while there is no value and no `preview`. */
+  icon?: string | Element | false;
+  /** Text shown while there is no value, no `preview` and no `icon`; defaults to the catalogue's "Add a photo". */
+  placeholder?: string;
+  /** MIME patterns the file chooser accepts. Default `['image/*']`. */
+  accept?: string[];
+  /** The largest file size accepted, in bytes; a larger pick is refused with a message `validate()` surfaces. */
+  maxSize?: number;
+  /** Show the clear control once a picture is set (default true). */
+  removeIcon?: boolean;
+  /** Upload the chosen file as multipart form data. */
+  upload?: FormAvatarUploadConfig;
+  /** An empty picture fails validation. */
+  required?: boolean;
 }
 
 /**
@@ -560,6 +691,42 @@ export interface FormBlock {
   css?: Record<string, string | number> | string;
   /** Extra options. */
   [key: string]: unknown;
+}
+
+/**
+ * The `type: 'container'` item: a content item, not a layout block — a place
+ * in the form that shows host HTML or hosts another Lattice view (a grid,
+ * chart, kanban, calendar, gantt or nested form), attached after creation
+ * through `form.getItem(name).attach()`. Carries no
+ * `value`: it is excluded from `getValue()`, `setValue()` and validation. A
+ * block that also names `rows`/`cols`/`items` stays the layout container
+ * regardless of `type`.
+ */
+export interface FormContainerItemConfig {
+  /** The item's name, for `getItem(name)`. */
+  name?: string;
+  /** Host content rendered inside the region: a string has every `<script>` element, `on*` attribute and `javascript:`-scheme value stripped — everything else, inline styles included, is kept; an `HTMLElement` is appended as is, with no sanitising. */
+  html?: string | HTMLElement;
+  /** The label text, set as the region's `aria-label` (and, like any item, drawn as an associated `<label>` beside it). */
+  label?: string;
+  /** Where the label sits: `top` (default), `left`, or `hidden`. */
+  labelPosition?: FormLabelPosition;
+  /** The label column width when `labelPosition` is `left`. */
+  labelWidth?: number | string;
+  /** The region's width: a pixel number, a CSS length, or `'content'` to size to its own content (the default). */
+  width?: number | string;
+  /** The region's height: a pixel number, a CSS length, or `'content'` to size to its own content (the default). */
+  height?: number | string;
+  /** Inner padding: a pixel number or a CSS length. */
+  padding?: number | string;
+  /** Extra CSS on the item wrapper. */
+  css?: Record<string, string | number> | string;
+  /** Start hidden. */
+  hidden?: boolean;
+  /** Start disabled: the region carries `aria-disabled` and `inert`. */
+  disabled?: boolean;
+  /** A rule that hides the item when it evaluates false. */
+  visibleWhen?: FormRule;
 }
 
 /** A binding to a grid row: `{ grid, rowKey }`. */
@@ -932,6 +1099,12 @@ export interface FormItem {
   blur(): FormItem;
   /** Validate this one item, paint its verdict and report it through `validated`. */
   validate(): boolean;
+  /** A `container` item only: append an element, or a Lattice view's own element (`.el`, `.root` or `.element` — whichever it exposes), sized to the region (width 100%; height forced to the region's own configured height only when it set one). Replaces (and, unless kept, destroys) whatever was attached before; the attached view is destroyed by `form.destroy()` too, unless `keep: true`. */
+  attach?(viewOrElement: Element | { el?: HTMLElement; root?: HTMLElement; element?: HTMLElement; destroy?(): void }, opts?: { keep?: boolean }): FormItem;
+  /** A `container` item only: replace the region's content with sanitised host HTML, destroying whatever was attached before (unless it was kept). */
+  attachHTML?(html: string): FormItem;
+  /** A `container` item only: the attached view or element, or `null`. */
+  getWidget?(): unknown;
   /** Replace a combo or select item's static options, re-rendering the list in place; a value still present is kept, one gone is cleared with one `change` event, and a changed label refreshes the shown value. */
   setOptions(options: unknown[]): FormItem;
   /** Reload a `load`-backed combo — clear its cache and fetch the first page again; on a static combo or select this only re-renders. */

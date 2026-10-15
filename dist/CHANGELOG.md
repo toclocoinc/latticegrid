@@ -9,6 +9,57 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.103.0] - 2026-10-15
+
+### Added
+
+- **The four design-system presets now style the form as they style the grid** (BACKLOG-0002185). The form's role defaults are declared in the `lattice` layer, so each preset's own partial overrides them for fidelity: Material 3 filled text fields and primary focus indicator, Fluent 2 neutral inputs with a black/white focus ring, Bootstrap 5 `form-control` fills and borders, and Ant Design 5 white container inputs with the `colorPrimary` focus ring. `themeFromMui` maps the same roles onto a MUI theme's palette, so the focus ring, selected chips and primary buttons all read `palette.primary.main`.
+
+- Proper dark mode and the four presets (Material 3, Fluent 2, Bootstrap 5, Ant Design 5) now reach the Designer and the shell (BACKLOG-0002190).
+  - The Designer's canvas, its snap grid, the selected widget's outline, the drop indicator while dragging, an element frame's border, the resize handle, the toolbar and the active page tab all read their own `--lattice-designer-*` roles (`docs/THEMING.md`), each declared once on the Designer root and derived from a core token — no literal colour, radius or font is left in the module.
+  - The shell's cell headers, collapse strips, splitters (resting and active/focused), tabs, the loading overlay and its spinner read their own `--lattice-shell-*` roles the same way.
+  - A shell hosting a grid and a chart passes its theme down: the nested views, the shell chrome and a Designer beside it all resolve the same preset's accent, light or dark — proved in a real browser against the all-views showcase (`test/theming-showcase-2190-browser.test.js`), with the WCAG contrast pairs these roles promise (text 4.5:1, a graphic mark such as a selection ring or an active splitter 3:1) measured, not assumed.
+  - `node tools/theme-audit.js --module designer` and `--module shell` are both 0 (were 38 and 13).
+
+- A form content container item (`type: 'container'`): a place in the form that shows host HTML — scripts, event handlers and `javascript:` URLs stripped, everything else (inline styles included) kept — or hosts another Lattice view attached after creation with `form.getItem(name).attach(viewOrElement, { keep? })`; `attachHTML(html)` and `getWidget()` round it out. It carries no value and is skipped by `getValue()`, `setValue()` and validation, and a nested attached form keeps its own value.
+
+- A form `avatar` control: a profile picture field with `small`/`medium`/`large`/pixel sizes, a circle option, a preview/icon/placeholder fallback for an empty value, click/keyboard/drag-and-drop picking with `accept`/`maxSize`, a remove control, and an optional `upload` config that posts the chosen file as multipart form data and tracks its status and progress (BACKLOG-0002341).
+
+- A form `togglegroup` control renders one two-state button per option, so a row of mutually exclusive or independently selected toggles is a first-class field. Its value is a `{ [id]: boolean }` map, single mode keeps exactly one option pressed, the `change` event carries the option's `id` and new `pressed` state, and `gap`/`full` control the space between buttons and the stretch to the item's width (BACKLOG-0002342).
+
+- A form time field, its own control type `time` with the datepicker's clock under its own name: it reads a `Date`, an `HH:MM` string, a number of minutes since midnight or `{ hour, minute, AM? }`, and writes a string (`HH:MM`, or `hh:MM AM` with `timeFormat: 12`) or the object form with `valueFormat: 'object'`. `timeFormat: 12` shows an AM/PM segment in the popup and the field; `editable: true` lets the field text be typed and committed on blur or Enter, refusing an invalid clock with a validation message; `controls: true` adds Close and Save so nothing commits until Save and Close discards; and `icon` and `placeholder` put a clock glyph and hint on the field (BACKLOG-0002343).
+
+### Changed
+
+- The Kanban board draws its columns, cards and states from the theme token contract, giving it the grid's proper dark mode and the four presets in light and dark (BACKLOG-0002188).
+
+- The calendar and resource scheduler draw every surface from the theme token contract, giving both views the grid's proper dark mode and the four presets in light and dark (BACKLOG-0002189).
+
+- Proper dark mode and the four presets for charts, KPI tiles and the map view: they now take every colour, corner radius, font size and shadow from theme roles instead of fixed values, so a dark theme and the Material 3, Fluent 2, Bootstrap 5 and Ant Design 5 presets reach all of it (BACKLOG-0002191).
+  - Charts: the eight series colours (`--lattice-chart-1` to `-8`), the sequential ramp (`--lattice-chart-sequential-start` and `-end`) that heat maps and region maps interpolate, axes, gridlines, tick and data labels, legends, tooltips, the crosshair, annotations, selection, the zoom bar and the drawing tools. Each preset carries its design system's own data-visualisation palette, for light and dark.
+  - KPI tiles: tile, value, label, favourable and unfavourable delta, sparkline, and the good, warning and critical states.
+  - Map view: the map background, a layer's default fill and outline, the legend, the hover popup, the highlight for a selected feature, the ring round a point and the 3D buildings. A categorical or ramp colour with no colours of its own now follows the chart palette of the active theme.
+  - Colours you pass in a chart's or map's own config (a series colour, a colour map) are data and are never themed.
+  - The roles are listed in `docs/THEMING.md`.
+
+### Fixed
+
+- **A dark form inside a light card painted invisible labels, legends and help text** (BACKLOG-0002184). The form root painted no background, so its foreground text disappeared against a light page; field colours were inconsistent, and heavy dark fields were near-black and unbordered. The form now paints its own surface and reads one field token set — `--lattice-form-field-bg`/`-border`/`-fg`, matching the grid's editor tokens — with no fallback across every field type, light and dark.
+  - Dark fields are a slightly raised surface with a visible 1px border and an accent focus ring, and portalled combo/select/date popups carry the same surface.
+  - Labels, legends, help and validation meet WCAG AA against the form surface in both themes, and `data-theme="auto"` follows `prefers-color-scheme`.
+
+- The Gantt split view (task table, timeline, bars, progress, milestones, critical path, baselines, links, today line, weekend/non-working shading, workload and data bands, tooltips and the SVG/PDF/print/PNG export) now draws every surface from the theme token contract instead of ~250 literal colours: it gets proper dark mode, and each of the four presets (Material 3, Fluent 2, Bootstrap 5, Ant Design 5) tunes its own look through `packages/modules/presets/<preset>/gantt.css` (BACKLOG-0002187). Task bar colours and resource avatar hues stay data-driven, as before.
+  - The module declares its own roles (`--lattice-gantt-bar`, `-progress`, `-milestone`, `-critical`, `-link`, `-today`, `-nonworking`, and the `MAY` roles for a summary/baseline bar, the alternate row band, a selected row, a drag handle and a tooltip) once on its own root as derived defaults (`--lattice-gantt-d-<role>`, each from a core token), and reads each as the role first, then its default, with no literal fallback, so a preset's or a host's `--lattice-gantt-*` value always reaches the view.
+  - The SVG/PDF/print/PNG export previously always rendered one fixed light palette and system font, even when the mounted view was themed dark or with a preset — a print or export taken from a dark-themed page came out light. `export.js` now resolves the palette and fonts once, at the moment `toSVG`/`toPNG`/`print` is called, from the live view's own computed `--lattice-*`/`--lattice-gantt-*` custom properties, and bakes the resolved values in as literal colours — the exported document stays a standalone artifact (no `var(--lattice-*)` reference, so it still renders correctly with no Lattice stylesheet attached) but now matches whichever theme, preset or dark/light mode was actually showing.
+  - `render.js`'s and `split.js`'s PNG rasterisation backing fill now resolves `--lattice-background` off the live view, falling through to no fill (not a literal) when there is no live DOM to read from.
+
+### Internal
+
+- Theming foundation for the 1.102 module cards: `docs/THEMING.md` names each module's own roles (form, Gantt, Kanban, calendar, scheduler, Designer, shell, charts, KPI, map) with a MUST/MAY marking, and the four presets are authored as per-module partials under `packages/modules/presets/<preset>/`, assembled by `tools/presets.js` into the same single `<preset>.css` a host links (BACKLOG-0002186).
+  - The grid's own declarations in every preset file are byte-identical; the added module role declarations are not read by any module yet, so nothing renders differently.
+  - `tools/theme-audit.js` counts each module's literal colours, radii, fonts and shadows outside the token contract, and `checkThemeAudit` fails a build that raises a module above `tools/theme-audit-baseline.json`; the preset gate covers the module MUST roles through their markings.
+  - New test support: a WCAG contrast helper (`test/support/contrast.js`) and an all-views showcase fixture (`test/fixtures/theming-showcase/`) rendered under every preset in light and dark.
+
 ## [1.101.8] - 2026-10-15
 
 ### Fixed
