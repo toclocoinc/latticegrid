@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.103.2, type declarations
+ * Lattice Grid 1.104.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -4247,6 +4247,13 @@ export interface GridConfig {
   icons?: Record<string, IconDefinition>;
   /** Hierarchical rows: where the parent link or the path lives. */
   tree?: TreeConfig;
+  /**
+   * The generated tree column fills the grid's own width and follows a host
+   * resize, rather than sitting at its usual fixed 260px (`treeColumnWidth`).
+   * For `modules/tree`'s single-column tree, not a plain grid's multi-column
+   * one, which keeps the fixed width unless it opts in too. Default `false`.
+   */
+  treeColumnFlex?: boolean;
   /** The expandable panel beneath a row. */
   detail?: DetailConfig;
   /**
@@ -4991,6 +4998,15 @@ export interface GridConfig {
    */
   contextMenu?: boolean | ((p: CellMenuParams, defaults: MenuItem[]) => MenuItem[] | void);
   /**
+   * `contextMenu: false` still claims a right-click on a row for the grid
+   * rather than the browser. `nativeContextMenu: true` is the separate, narrower
+   * opt-out for a host that wants the browser's own menu back, deciding for
+   * itself through `cell:contextmenu` whether to call `event.preventDefault()`
+   * — what `modules/tree` and `modules/listview` turn on for their
+   * `itemContextMenu` event. Default `false`.
+   */
+  nativeContextMenu?: boolean;
+  /**
    * Bringing rows in from a file, the clipboard or a drop (§14, the mirror of
    * export). `true` adds a "Import rows from CSV…" item to the cell menu, makes
    * the grid a drop target for `.csv`/`.tsv` files, and reads a pasted
@@ -5289,8 +5305,55 @@ export interface GridConfig {
      */
     removedRows?: false | 'pinned' | 'data';
   };
-  /** Saved views: a storage adapter and any pre-loaded views. */
-  views?: { storage?: { read(): unknown[]; write(views: unknown[]): void }; saved?: unknown[] };
+  /**
+   * Saved views: a storage adapter, any pre-loaded views, and the callback the
+   * picker's Share hands an export payload to.
+   */
+  views?: {
+    storage?: { read(): unknown[]; write(views: unknown[]): void };
+    saved?: unknown[];
+    /**
+     * Which non-layout sections a saved view keeps, per section. A view is a
+     * layout, not a snapshot of clicks: by default `selection` and `expanded`
+     * are left out of what `save`, `export` and `import` keep and what `apply`
+     * restores, so applying a view leaves the current selection and expansion
+     * alone. Set either to `true` to keep the old capture-per-section
+     * behaviour. Views saved by an earlier build that still carry one of these
+     * sections load and apply without error; the section is simply ignored.
+     */
+    capture?: {
+      /** Keep the selected rows in saved, exported and imported views. */
+      selection?: boolean;
+      /** Keep the expanded groups in saved, exported and imported views. */
+      expanded?: boolean;
+    };
+    /**
+     * Receives the payload {@link ViewsApi.export} produces, plus the view's
+     * metadata, when the picker's Share is pressed. What "sharing" means is
+     * then yours to decide. When omitted, the picker copies the payload as JSON
+     * to the clipboard and shows a short confirmation, falling back to a JSON
+     * download where the clipboard is unavailable.
+     */
+    onShare?: (payload: ViewPayload, view: SavedView) => void;
+    /**
+     * Who is using the grid right now, so a shared view can
+     * only be renamed, overwritten, deleted or unshared by its owner or an
+     * admin. A function is read fresh on every check, so a sign-in change is
+     * seen on the next click rather than requiring the grid to be rebuilt.
+     * Leaving this unset disables every owner check: every view stays as
+     * editable to everyone as it always was.
+     */
+    user?: ViewOwner | (() => ViewOwner | null | undefined);
+    /** Whether a resolved `user` counts as an admin, who may change any view. */
+    isAdmin?: (user: ViewOwner) => boolean;
+    /**
+     * Whether an admin may also list another user's private views in
+     * `views.list()` (and so in the panel). Off by default: an admin's
+     * elevated *editing* rights do not imply a right to browse private
+     * layouts unless this is explicitly turned on.
+     */
+    adminSeesPrivate?: boolean;
+  };
   /** The undo toolbar. `element` mounts it into the host's own chrome. */
   historyBar?: boolean | { element?: HTMLElement; timeline?: boolean };
   /**
@@ -7761,6 +7824,12 @@ export type EventName =
   | 'rowDrag:left'
   /** The row drag ended — released anywhere, inside a grid or outside every one; `dropped` says whether it is being acted on. */
   | 'rowDrag:ended'
+  /** A tree row is about to be dropped before, after or inside another; vetoable. */
+  | 'beforeRowDrop'
+  /** A `beforeRowDrop` handler declined the drop, or it went stale while an async handler was thinking. */
+  | 'rowDrop:cancelled'
+  /** A tree row was reparented and repositioned by a drag-to-reparent drop. */
+  | 'rowDrop'
   /* Cells and editing */
   /** A cell's value was written: by an edit commit, by a revert, or by an undo/redo step. */
   | 'cell:changed'
@@ -8306,6 +8375,36 @@ export interface RowDragEvent extends GridEvent {
    * and `rowReceive:cancelled`.
    */
   dropped?: boolean;
+}
+
+/**
+ * `beforeRowDrop` and `rowDrop`: dropping a row before,
+ * after or inside another on a tree-configured grid whose `rowReorder` is on.
+ * `beforeRowDrop` is vetoable with `preventDefault(reason)`, in which case
+ * neither the row's `parentKey` field nor its position changes and
+ * `rowDrop:cancelled` carries the same shape plus `reason`; `rowDrop` follows
+ * a drop that was not vetoed, once both have been written.
+ */
+export interface RowDropEvent extends GridEvent {
+  /** The key of the row being dropped. */
+  key: string;
+  /** The `parentKey` value the row will have (or now has) after the drop. */
+  parent: unknown;
+  /** The physical index the row will land at (or now occupies). */
+  index: number;
+  /** Which band of the target row the drop landed in. */
+  position: 'before' | 'after' | 'inside';
+  /** The key of the row the drag was dropped onto. */
+  target: string;
+}
+
+/** `beforeRowDrop`: a tree row about to be dropped; call `preventDefault(reason?)` to refuse it. */
+export interface BeforeRowDropEvent extends RowDropEvent, BeforeEvent {}
+
+/** `rowDrop:cancelled`: a `beforeRowDrop` handler refused the drop, or it went stale. */
+export interface RowDropCancelledEvent extends RowDropEvent {
+  /** The reason given to `preventDefault`, `'prevented'` when none was, or `'stale'`. */
+  reason: string;
 }
 
 /**
@@ -9430,7 +9529,25 @@ export interface RowReorderOptions {
    * editable. Default false.
    */
   betweenGroups?: boolean;
+  /**
+   * Where a drag can start. `'grip'` (the default) is the drawn handle;
+   * `'row'` also starts it from anywhere on a data row, except on a link,
+   * button, input, select, textarea, label or an element marked
+   * `data-no-drag`. The press is not cancelled, so a double-click still
+   * selects a word and a control still works; the drag begins once the pointer
+   * has moved, and drops any text selection then. The grip is still drawn.
+   */
+  handle?: 'grip' | 'row';
 }
+
+/**
+ * `rowReorder` on a grid whose `tree.parentKey` names a field:
+ * dropping a row on the upper or lower quarter of another places it before or
+ * after that row, sharing its parent; dropping on the middle half makes it
+ * that row's new last child. A row cannot be dropped into its own descendant.
+ * No separate option — the grid gains this the moment both `rowReorder` and a
+ * field-form `tree.parentKey` are set.
+ */
 
 /** What `rowOrder.enter`, `set` and `exit` report. */
 export interface RowOrderResult {
@@ -9839,6 +9956,13 @@ export interface SavedView {
   /** Supplied in `config.views.saved`: listed apart, and not renamable or deletable. */
   builtin: boolean;
   /**
+   * Who saved this view, from `views.user` at the time.
+   * `null` for a view saved before owners existed, or with no `views.user`
+   * configured — editable only by an admin, applying and duplicating open to
+   * everyone regardless.
+   */
+  owner: ViewOwner | null;
+  /**
    * When the view was first saved, as epoch milliseconds. It survives an
    * overwrite; `updatedAt` does not.
    */
@@ -9847,6 +9971,34 @@ export interface SavedView {
   updatedAt: number;
   /** A partial `GridState`; only the sections it names are applied. */
   state: GridState;
+}
+
+/**
+ * Who saved a view, or who it was handed to on import. Just
+ * enough to label a row in a picker and to decide who may change it.
+ */
+export interface ViewOwner {
+  /** The host's user id, compared for equality only. */
+  id: string;
+  /** The label a picker shows next to a shared view: "Owned by {name}". */
+  name: string;
+}
+
+/**
+ * Thrown by an owner-gated method of {@link ViewsApi} — `rename`, `save` when
+ * it would overwrite, `remove` and `unshare` — when the acting user is
+ * neither the view's owner nor an admin. The store is left
+ * exactly as it was: the error is thrown before any field is mutated.
+ */
+export interface ViewPermissionError extends Error {
+  /** Stable code a caller can switch on: always `'views/forbidden'`. */
+  code: 'views/forbidden';
+  /** The action that was refused. */
+  action: 'rename' | 'overwrite' | 'remove' | 'unshare';
+  /** The view the action targeted. */
+  view: { id: string; name: string };
+  /** The view's recorded owner, or `null` for one saved before owners existed. */
+  owner: ViewOwner | null;
 }
 
 export interface ViewStorage {
@@ -9863,7 +10015,7 @@ export interface ViewStorage {
 
 /** What happened to a saved view, or the whole set. */
 export type ViewChangeReason =
-  'save' | 'update' | 'rename' | 'remove' | 'default' | 'import' | 'seed' | 'replace';
+  'save' | 'update' | 'rename' | 'remove' | 'default' | 'import' | 'seed' | 'replace' | 'unshare';
 export interface ViewChange {
   /**
    * What happened to the views: a view was saved, updated, renamed, removed,
@@ -11232,24 +11384,44 @@ export interface ViewsApi {
    * Apply a view and make it active. It is a destination, not a patch: the
    * grid returns to its baseline first, so the same view gives the same grid
    * whatever was applied before it. The whole restore is one undo entry.
-   * Returns the state report, or `null` when there is no such view.
+   * Returns the state report, or `null` when there is no such view. Never
+   * refused by ownership: applying a view stays open to
+   * everyone, owner or not.
    */
   apply(id: string): SavedView | null;
   /**
    * Give a view a new name. `null` when the name was refused — blank, or
    * already taken.
+   * @throws a `ViewPermissionError` (code `views/forbidden`) when
+   *   `views.user` is configured and the acting user is neither the view's
+   *   owner nor an admin.
    */
   rename(id: string, name: string): SavedView | null;
   /**
-   * Copy a view, optionally under a new name. `null` when there is no such
-   * view.
+   * Copy a view, optionally under a new name, as a private view owned by the
+   * acting user. `null` when there is no such view. Never refused by
+   * ownership: duplicating is how a non-owner gets a layout they may change.
    */
   duplicate(id: string, name?: string): SavedView | null;
   /**
    * Delete a view. `false` when there was no such view; deleting the active
    * one leaves the grid as it is, with no active view.
+   * @throws a `ViewPermissionError` under the same rule as {@link rename}.
    */
   remove(id: string): boolean;
+  /**
+   * Stop sharing a view, leaving its name, description and state alone. `null`
+   * when there is no such view, or it is built in.
+   * @throws a `ViewPermissionError` under the same rule as {@link rename}.
+   */
+  unshare(id: string): SavedView | null;
+  /**
+   * Whether the acting user may rename, overwrite, delete or unshare this
+   * view — the non-throwing twin of {@link rename} and friends, for a host's
+   * own button deciding whether to offer the action at all.
+   * Always `true` while `views.user` is unconfigured.
+   */
+  canEdit(view: SavedView | Omit<SavedView, 'state'>): boolean;
   /** Mark the view applied on load; null clears it. */
   setDefault(id: string | null): SavedView | null;
   /** The view marked as the one to apply on load, or `null` when none is. */
@@ -11767,6 +11939,16 @@ export interface Grid {
   readonly destroyed: boolean;
   /** False until the first render has been laid out. */
   readonly ready: boolean;
+  /**
+   * Resolves once the grid's first full render is in the DOM and its layout
+   * can be measured (sizes final, no pending frame); rejects if the grid is
+   * destroyed first. Present only on a DOM-rendered grid
+   * (`createGrid`'s return value) — a headless grid draws nothing to be
+   * ready about. Not `ready` above: that is a different, pre-existing
+   * signal, a boolean deliberately delayed a frame so a caller can subscribe
+   * to the `'ready'` event on the line after `createGrid()`.
+   */
+  readonly renderReady?: Promise<void>;
 
   /** The resolved configuration, as one object. */
   config(): GridConfig;
@@ -11808,6 +11990,18 @@ export interface Grid {
 
   /** The objects currently pinned at one edge, as a copy. */
   getPinnedRows(opts?: { edge?: 'top' | 'bottom' }): unknown[];
+
+  /**
+   * Move keyboard focus to a row by its key.
+   *
+   * Expands any collapsed ancestor that hides it — a tree or a grouping —
+   * then scrolls it into view and lands DOM focus on it the way a found
+   * match already does.
+   * @param key the row's key
+   * @param columnField the column to focus; the first visible column when omitted
+   * @returns whether a matching, rendered row was found and focused
+   */
+  focus(key: string, columnField?: string): boolean;
 
   /** The row form. Declines when `rowForm` is not configured. */
   readonly form: RowFormApi;
@@ -12950,6 +13144,13 @@ export function elasticsearchAdapter(options: {
 export function createGrid(element: HTMLElement, config?: GridConfig): Grid;
 export function createHeadlessGrid(config?: HeadlessGridConfig): Grid;
 /**
+ * The `ready` promise of whatever Lattice view is mounted in `el` — a grid,
+ * a form, a shell, a list view, a chart, a kanban board, a gantt view (plain
+ * or split) or a dashboard. Resolves at once when `el`
+ * carries none of those views: there is nothing mounted to wait on.
+ */
+export function whenRendered(el: HTMLElement): Promise<void>;
+/**
  * Draw one barcode into an element, outside a grid. Mounts
  * the same SVG the `barcode` cell renderer and the form `barcode` control
  * draw, replacing the element's previous content.
@@ -13175,6 +13376,12 @@ declare global {
   /** The resource scheduler's script-tag global. */
   // eslint-disable-next-line no-var -- an ambient global is only a global as a var
   var LatticeGridScheduler: typeof import('lattice-grid/modules/scheduler');
+  /** The list view module's script-tag global. */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridListView: typeof import('lattice-grid/modules/listview');
+  /** The data view module's script-tag global. */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridDataView: typeof import('lattice-grid/modules/dataview');
   /** The shell module's script-tag global. */
   // eslint-disable-next-line no-var -- an ambient global is only a global as a var
   var LatticeGridShell: typeof import('lattice-grid/modules/shell');
@@ -16031,6 +16238,14 @@ export interface BarcodeOptions {
 }
 
 // ---------------------------------------------------------------------------
+// Data view
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Tree
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
 // Shell
 // ---------------------------------------------------------------------------
 
@@ -17759,6 +17974,12 @@ export interface EventPayloads {
   'rowDrag:left': RowDragEvent;
   /** Where the drag ended and whether the release is being acted on. */
   'rowDrag:ended': RowDragEvent;
+  /** A tree row about to be dropped before, after or inside another; vetoable. */
+  'beforeRowDrop': BeforeRowDropEvent;
+  /** A `beforeRowDrop` handler declined the drop, or it went stale. */
+  'rowDrop:cancelled': RowDropCancelledEvent;
+  /** A tree row was reparented and repositioned by a drag-to-reparent drop. */
+  'rowDrop': RowDropEvent;
   /** The cell that was written, with its old and new values. */
   'cell:changed': CellChangedEvent;
   /** The cell that was sent, the value held in reserve, and the op id. */

@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.103.2</p>
+    <p class="rail__sub">Developer guide · v1.104.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.103.2</span>
+        <span class="chip">Version 1.104.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1886,7 +1886,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.103.2'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.104.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -4186,6 +4186,29 @@ grid.destroy();
       </table>
     </div>
 
+
+    <h3 id="row-reorder-handle">Dragging from the whole row</h3>
+    <p class="lead-in">
+      <code>rowReorder: { handle: 'row' }</code> starts a drag from anywhere on a data row, not only
+      from the drawn grip (which is still drawn, and is still how a touch screen drags). A press on a
+      link, button, input, select, textarea or label, or on an element marked
+      <code>data-no-drag</code>, never starts one, so controls inside a row keep working. The press
+      itself is not cancelled: a double-click still selects a word, and the drag begins once the
+      pointer has moved, dropping any text selection then.
+    </p>
+
+    <div class="example">
+      <p class="example__label">Reading the setting back</p>
+      <pre data-run="js" data-expect="row | grip" data-covers="config:RowReorderOptions.handle"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> rows = [{ id: 1, name: 'Ann' }, { id: 2, name: 'Bob' }];
+<span class="kw">const</span> whole = createHeadlessGrid({ rowKey: 'id', columns: [{ field: 'name' }], rows, rowReorder: { handle: 'row' } });
+<span class="kw">const</span> grip = createHeadlessGrid({ rowKey: 'id', columns: [{ field: 'name' }], rows, rowReorder: <span class="kw">true</span> });
+<span class="kw">const</span> out = `${whole.get('rowReorder').handle} | ${(grip.get('rowReorder').handle) || 'grip'}`;
+whole.destroy();
+grip.destroy();
+<span class="kw">return</span> out;</code></pre>
+    </div>
 
     <h2 id="row-transfer">Moving rows between grids</h2>
     <p class="lead-in">
@@ -6958,6 +6981,65 @@ grid.edit.status('r1', 'cap');    <span class="cmt">// 'pending' | null</span></
       once, because two expanders in one row would be two hierarchies claiming the same rows.
     </p>
 
+    <h3 id="tree-reparent">Drag to reparent (BACKLOG-0002551)</h3>
+    <p class="lead-in">
+      <code>rowReorder: true</code> over a field-form <code>tree.parentKey</code> (a plain field
+      name, not a function and not a <code>path</code> tree) gains a third drop position alongside
+      the ordinary before/after of <a href="#row-reorder">row reorder</a>: dropping on the
+      <strong>upper quarter</strong> of a row places the dragged row immediately before it, as a new
+      sibling; the <strong>lower quarter</strong> places it immediately after, also as a sibling; and
+      the <strong>middle half</strong> places it <em>inside</em> that row, as its new last child. The
+      same split the Gantt's own row drag already uses, so the gesture reads the same wherever it is
+      dropped. A row cannot be dropped into one of its own descendants (nor onto itself) &mdash; doing
+      so would make a row its own ancestor, which the hierarchy has no way to render, and the drop is
+      refused outright, before any data changes, and announced.
+    </p>
+    <div class="example">
+      <p class="example__label">A plain grid's tree gains the third drop position for free</p>
+      <pre><code>createGrid(element, {
+  columns,
+  rows,
+  tree: { parentKey: 'parentId', label: 'name' },
+  rowReorder: <span class="kw">true</span>,
+});
+
+grid.on('beforeRowDrop', ({ key, parent, index, position, target, preventDefault }) =&gt; {
+  <span class="cmt">// position is 'before' | 'after' | 'inside'; veto with preventDefault(reason?)</span>
+  <span class="kw">if</span> (position === 'inside' &amp;&amp; isLocked(target)) preventDefault('locked');
+});
+grid.on('rowDrop', ({ key, parent, index, position, target }) =&gt; {
+  api.reparent(key, parent);
+});</code></pre>
+    </div>
+    <p class="lead-in">
+      <strong>Two grid primitives carry it out, not a third drag implementation.</strong> A drop
+      writes the row's <code>parentKey</code> field through <code>rows.apply({ update })</code> and
+      then carries it to its new physical slot through <code>rows.move</code>, both inside the same
+      <code>beforeRowDrop</code>/<code>rowDrop:cancelled</code>/<code>rowDrop</code> gate a cross-grid
+      <a href="#row-transfer">row transfer</a> already uses: a vetoed drop writes neither, so a row
+      can never end up attached to a parent it was refused a position under. <code>beforeRowDrop</code>
+      is vetoable with <code>preventDefault(reason?)</code> (or returning <code>false</code>);
+      <code>rowDrop:cancelled</code> follows a veto or a drop that went stale while an async handler
+      was thinking, and carries the same shape plus <code>reason</code>; <code>rowDrop</code> follows
+      once both writes have committed. Every one of the three carries <code>key</code> (the row
+      dropped), <code>parent</code> (its <code>parentKey</code> value after the drop),
+      <code>index</code> (the physical index it lands at), <code>position</code> and
+      <code>target</code> (the row it was dropped onto).
+    </p>
+    <p class="lead-in">
+      This is the standalone <a href="tree.html">tree module</a>'s own drag-to-reparent, exposed on
+      a plain grid tree too: <code>createTree(el, config)</code>'s <code>dragMode</code> is this
+      same <code>rowReorder</code>, turned on, over the module's own generated
+      <code>tree.parentKey</code>. A <code>path</code>-form or function-form
+      <code>tree.parentKey</code> has no single field a drop could write a new parent into, so such
+      a tree keeps today's before/after-only drag rather than being offered a middle position it
+      cannot carry out. The module reads the same two data shapes as a plain grid's own
+      <code>tree</code> option &mdash; flat <code>parentKey</code> rows, or nested <code>items</code>
+      whose own <code>childrenField</code> array (not <code>children</code> on a plain grid row,
+      which the grid does not read) it flattens once on construction &mdash; and draws each node's
+      text from <code>labelField</code> or a <code>template</code> function.
+    </p>
+
     <h2 id="master-detail">Master-detail</h2>
     <p class="lead-in">
       A master row expands to reveal a detail region: by default a nested grid over whatever
@@ -8829,6 +8911,34 @@ return `default ${on.edit.undoShortcuts} | off ${off.edit.undoShortcuts}`;</code
       heading.</p>
     </div>
 
+    <h3 id="focus-row">Moving focus to a row by key</h3>
+    <p><code>grid.focus(key, columnField?)</code> moves keyboard focus to a row by its key — the
+      mechanism <code>modules/tree</code>'s <a href="API.html#tree"><code>focusItem(id)</code></a>
+      is built on. In a <code>parentKey</code>-form tree it opens any collapsed ancestor that hides
+      the row first, then scrolls it into view and lands DOM focus on it exactly where a found
+      match already lands.</p>
+    <pre data-run="js" data-expect="1 || true || 1,2,3" data-covers="method:focus"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid } = await import('../packages/dom/src/index.js');
+
+const grid = createGrid(createTestDom().root, {
+  rows: [
+    { id: '1', parentKey: null, label: 'Documents' },
+    { id: '2', parentKey: '1', label: 'Report.docx' },
+    { id: '3', parentKey: '1', label: 'Budget.xlsx' },
+  ],
+  rowKey: 'id',
+  columns: [{ field: 'label', title: 'Label' }],
+  tree: { parentKey: 'parentKey' },
+});
+
+grid.rows.collapse('1');
+const hiddenCount = grid.rows.count(); // 1: only Documents shows
+const focused = grid.focus('2'); // re-opens Documents to reach Report.docx
+const order = [];
+for (let i = 0; i &lt; grid.rows.count(); i++) order.push(grid.rows.get(i).key);
+grid.destroy();
+return [hiddenCount, focused, order.join(',')].join(' || ');</code></pre>
+
     <h2 id="rules-guide">Conditional formatting</h2>
     <p class="lead-in">
       A rule is a condition and the styling it produces. <code>compileRules()</code> turns a list
@@ -10003,6 +10113,39 @@ grid.on('view:default', e =&gt; api.patch(`/views/${e.view.id}`, { isDefault: tr
       <code>sessionStorage</code> for views scoped to one tab rather than persisted across visits.</p>
     </div>
 
+    <h3>Owners and permissions</h3>
+    <p class="lead-in">
+      Everything above still works with no notion of "who". Set <code>views.user</code> and a shared
+      view gains an owner, and <code>views.rename</code>, <code>views.save</code> (when it would
+      overwrite), <code>views.remove</code> and <code>views.unshare</code> all refuse anyone who is
+      neither that owner nor an admin — a thrown <code>ViewPermissionError</code>, code
+      <code>views/forbidden</code>, with the store left exactly as it was. Everyone else can still
+      <code>views.apply</code> it, <code>views.duplicate</code> it into a private copy of their own,
+      and <code>views.setDefault</code> it for themselves.
+    </p>
+    <pre><code>createGrid(el, {
+  views: {
+    user: () =&gt; session.user,                 // { id, name }; read fresh on every check
+    isAdmin: (user) =&gt; user.role === 'admin',
+    adminSeesPrivate: false,                   // default: an admin's edit rights do not imply browsing others' private views
+  },
+});</code></pre>
+    <div class="why">
+      <p><strong>A host's own button asks the same question the panel does.</strong>
+      <code>views.canEdit(view)</code> is the non-throwing twin: true while <code>views.user</code> is
+      unset, and otherwise the same owner-or-admin answer <code>views.rename</code> would enforce by
+      throwing. The saved-views panel calls it to decide whether to offer Rename, Delete and Unshare
+      on a row at all, so a custom button wired to the same store never disagrees with it.</p>
+    </div>
+    <p class="lead-in">
+      A view saved before any of this was configured has no recorded owner. It is editable only by an
+      admin — <code>views.rename</code>, <code>views.remove</code> and <code>views.unshare</code>
+      refuse everyone else — but applying and duplicating it stay open to all, the same as any other
+      view. A private view (<code>shared: false</code>) is listed only to its own owner, unless
+      <code>adminSeesPrivate: true</code> lets an admin see it too; a shared one stays visible to
+      everyone regardless of who owns it.
+    </p>
+
     <h2 id="history-guide">Undo</h2>
     <p class="lead-in">
       Undo covers the whole grid, not only edits. Sorts, filters, column moves, grouping, an applied
@@ -10900,6 +11043,83 @@ return boundCount + '|' + routed;</code></pre>
       a catalogued reason.</p>
     </div>
 
+    <h3 id="listview-live">The list view module</h3>
+    <p class="section-note">The opt-in list view: a selectable, drag-and-drop list over a real Lattice grid, built as one borderless column with the cell drawn by your own template.</p>
+    <pre><code><span class="kw">import</span> { createList } <span class="kw">from</span> <span class="str">'@toclocoinc/lattice-grid/modules/listview'</span>;</code></pre>
+    <p class="lead-in">
+      <code>createList(element, config)</code> wraps your own injected <code>createGrid</code> as a
+      headerless, gridline-free grid with one display column: one row per item in
+      <code>data</code>, keyed by <code>key</code> (default <code>'id'</code>), its cell drawn by
+      <code>template(item)</code> &mdash; a string, sanitised the same way a cell's own template is, or
+      an element. <code>itemHeight</code> sets the row height in pixels, or is <code>'auto'</code> to size
+      each row to its template, and <code>css</code> adds a class to
+      every row; with no items, <code>emptyText</code> (a string or an element) replaces the grid's
+      own empty state.
+    </p>
+    <div class="why">
+      <p><strong>It is the grid underneath, not a second list.</strong> Because a list is just a
+      grid, it gets virtual scrolling, keyboard navigation, ARIA and row drag for nothing: the
+      module adds no second implementation of any of those, only the wiring from a short, list-shaped
+      config onto the grid's own options.</p>
+      <p><strong>Selection</strong> is <code>false</code>, <code>'single'</code> or
+      <code>'multi'</code>, read and changed through <code>list.selection</code>
+      (<code>add</code>/<code>remove</code>/<code>getId</code>/<code>clear</code>) — driven by the
+      grid's own selection model, so a click, Space, or a direct call to the grid's
+      <code>selection.set</code> all agree.</p>
+      <p><strong>Drag and drop between lists</strong> is <code>dragMode</code>:
+      <code>'source'</code> only sends, <code>'target'</code> only receives, <code>'both'</code> does
+      either, and <code>false</code> (the default) does neither — mapped onto the grid's own
+      <code>rowReorder</code>/<code>rowTransfer</code>, so reordering within a list and moving or
+      copying (<code>dragCopy: true</code>) between two needs no pairing registry: any two lists on a
+      page already match. A target's <code>beforeDrop</code> handler can veto a drop (return
+      <code>false</code>, or a Promise of it); the grid's own veto gate guarantees that a vetoed drop
+      leaves both lists exactly as they were, and <code>afterDrop</code> fires only once the move or
+      copy actually committed. A drag that leaves a list without landing on another fires
+      <code>dragOut</code>. <code>dragHandle: 'row'</code> starts a drag from anywhere on the row
+      (links, form controls and elements marked <code>data-no-drag</code> excepted), where the default
+      <code>'grip'</code> uses the drawn handle only. With <code>allowUnsafeTemplates: true</code> an
+      HTML-string template keeps <code>input</code>, <code>select</code>, <code>textarea</code>,
+      <code>button</code> and <code>label</code> elements and their attributes (script, handler
+      attributes and <code>javascript:</code> URLs are still removed); their <code>input</code> and
+      <code>change</code> events reach <code>list.on</code> with the item id.</p>
+      <p><strong>The Data API never drifts from the screen.</strong> Every <code>list.data</code>
+      method — <code>parse</code>, <code>add</code>, <code>remove</code>, <code>removeAll</code>,
+      <code>update</code>, <code>getItem</code>, <code>getIndex</code>, <code>getLength</code>,
+      <code>forEach</code>, <code>filter</code>, <code>sort</code> — runs through the inner grid's
+      own rows, so <code>serialize()</code> always matches what is painted, and
+      <code>filter(fn)</code> hides items without dropping them from the store (call with no
+      arguments to clear it).</p>
+      <p><strong>Events bubble from your own template too.</strong> An <code>input</code> or
+      <code>change</code> fired by a control inside a row's template is caught and re-emitted
+      carrying that row's item id, so a host never has to walk the DOM itself to know which item a
+      field inside the list belongs to.</p>
+    </div>
+
+    <h3 id="dataview-live">The data view module</h3>
+    <p class="section-note">The opt-in data view: items laid out as template-drawn cards that wrap into rows, with selection, two-dimensional keyboard navigation and drag to reorder.</p>
+    <pre><code><span class="kw">import</span> { createDataView } <span class="kw">from</span> <span class="str">'@toclocoinc/lattice-grid/modules/dataview'</span>;</code></pre>
+    <p class="lead-in">
+      <code>createDataView(element, config)</code> draws one card per item in <code>data</code>, keyed
+      by <code>key</code> (default <code>'id'</code>), each drawn by <code>template(item)</code>
+      &mdash; a string, sanitised the way a grid cell's own template is, or an element. Cards are
+      <code>itemWidth</code> by <code>itemHeight</code> with a <code>gap</code> between them and wrap
+      into rows as the width allows; <code>columns: n</code> instead shares the width among exactly
+      <em>n</em> cards per row. <code>css</code> adds a class to every card and <code>emptyText</code>
+      replaces the default empty-state message.
+    </p>
+    <div class="why">
+      <p><strong>The list view's API, on a different layout.</strong> <code>data</code>,
+      <code>selection</code>, the events and the drop contract come from one file the list view and the
+      data view both import, so a method means the same on both, and a drag can cross between a data
+      view and a list view through one <code>beforeDrop</code> veto.</p>
+      <p><strong>Long sets stay smooth.</strong> Only the rows of cards in or just beyond the viewport
+      are in the DOM; the scroll height comes from the row count, so 5,000 items cost what a screenful
+      does.</p>
+      <p><strong>Keyboard.</strong> One card is in the tab order and the arrow keys move between cards
+      across rows and columns; Shift extends a multi selection, Space toggles, and Enter activates.
+      The view is an ARIA grid of rows and cells.</p>
+    </div>
+
     <h3 id="shell-live">The shell module</h3>
     <p class="section-note">The opt-in shell: cells nested as rows and columns to any depth, sized by pure CSS flexbox in its own bundle that grows grid core by nothing.</p>
     <pre><code><span class="kw">import</span> { createShell } <span class="kw">from</span> <span class="str">'@toclocoinc/lattice-grid/modules/shell'</span>;</code></pre>
@@ -10918,8 +11138,11 @@ return boundCount + '|' + routed;</code></pre>
       nested <code>rows</code> or <code>cols</code>, the flex container of its children &mdash;
       <code>getCell(id).el</code> is that single element, a leaf cell a widget fills and a nested cell already
       laying its own children out. A fixed <code>width</code>/<code>height</code> (a pixel number or any CSS
-      length string) is the cell's <code>flex-basis</code> and never grows; the <code>gravity</code> of the cells
-      without one shares the space left over after the fixed sizes are subtracted.
+      length string) is the cell's <code>flex-basis</code> and never grows, and by default never shrinks either
+      &mdash; when the fixed sizes outgrow the shell, the shell's own box scrolls (<code>overflow: auto</code> on
+      the shell, not the page) so every cell stays reachable. <code>shrink: true</code> on a cell opts that one back
+      into shrinking, never below its <code>minWidth</code>/<code>minHeight</code>; the <code>gravity</code> of the cells
+      without a fixed size shares the space left over after the fixed sizes are subtracted.
       <code>minWidth</code>/<code>maxWidth</code>/<code>minHeight</code>/<code>maxHeight</code> clamp a cell as
       the CSS properties do, <code>padding</code> pads it (a widget mounts inside the padding),
       <code>align</code> is its <code>align-self</code>, and <code>css</code> is written onto the element, never
@@ -10941,6 +11164,20 @@ return boundCount + '|' + routed;</code></pre>
       releasing every piece of content inside it (detached, never destroyed). A cell can also <code>hide()</code>/
       <code>show()</code> to give its space to its neighbours and take it back, and <code>progressShow()</code>/
       <code>progressHide()</code> overlay and clear a loading indicator.</p>
+      <p><strong>Conveniences.</strong> A cell takes <code>className</code> for host class names and an
+      <code>html</code> string &mdash; or <code>attachHTML(html)</code> &mdash; mounted through the same
+      sanitisation as the grid&rsquo;s attach path: presentational markup passes, script, event handlers and
+      <code>javascript:</code>/<code>data:</code>/<code>vbscript:</code> URLs do not.
+      <code>headerActions: [{ icon, ariaLabel, onClick, id? }]</code> draws keyboard-operable buttons in the
+      header beside the collapse control, changed live with <code>setHeaderActions(list)</code>. A headed cell&rsquo;s
+      strip takes <code>headerCss</code> — the same object-of-camelCase-properties (or string-of-declarations) shape as
+      <code>css</code>, written onto the header only, so <code>padding</code>, <code>color</code>,
+      <code>background</code>, <code>fontSize</code> and <code>fontWeight</code> land on the strip and never on the cell
+      body. Set it on the shell as the default every header inherits, and on a cell merged over that default property by
+      property; the styles survive collapse and expand, and an absent <code>headerCss</code> leaves existing headers
+      unchanged. On the config, <code>cellIds: true</code> emits a <code>data-cell-id</code> on every cell, and a
+      handle&rsquo;s <code>setSize({ width | height })</code> / <code>setHeader(textOrNode)</code> change the cell live,
+      keeping a resizable cell&rsquo;s neighbour and the collapse label consistent.</p>
     </div>
 
     <h3 id="form-live">The form module</h3>
@@ -10970,6 +11207,21 @@ return boundCount + '|' + routed;</code></pre>
       <code>requiredHint</code> marker (<code>true</code> &mdash; the default &mdash; appends
       <code>" *"</code> to the placeholder, a string resolves through the message catalogue, and
       <code>false</code> shows nothing).
+    </p>
+    <p><strong>A left label that gives up its column when the field gets too narrow.</strong> A
+      <code>left</code> label normally keeps its column however narrow the item gets, so the field
+      itself can be squeezed to nothing. <code>controlMinWidth</code> &mdash; a pixel number or CSS
+      length, inherited like <code>labelPosition</code> and <code>labelWidth</code> from the form, a
+      fieldset or a container &mdash; sets the width below which that is too narrow: once an item&rsquo;s
+      own width minus its label column (<code>labelWidth</code>, or the label&rsquo;s natural width when
+      unset) minus the gap would leave the field narrower than that, its label moves to the top instead,
+      and moves back once the item widens past the threshold again. The switch is measured per item with
+      a <code>ResizeObserver</code> on the item&rsquo;s own wrapper &mdash; a shell splitter or a drawer
+      resizing the host counts, not only the window &mdash; with a few pixels of hysteresis so a width
+      sitting on the threshold never flickers. An item exposes the position it actually rendered at as
+      <code>data-label-effective="left"|"top"</code> and read-only on <code>getItem(name).labelEffectivePosition</code>;
+      a checkbox or toggle item is unaffected, since its label sits beside it by design, and without
+      <code>controlMinWidth</code> set nothing changes.
     </p>
     <p><strong>A number field formats without changing the value.</strong> A
       <code>number</code> item edits the raw number and shows the grid's own <code>NumberFormat</code>
@@ -11099,6 +11351,46 @@ return boundCount + '|' + routed;</code></pre>
       <code>full</code> stretches that one button. The pressed fill reads the toggle&rsquo;s
       <code>--lattice-switch-track-on</code>/<code>--lattice-switch-label</code> tokens, so the four
       presets and dark mode apply as they do to a <code>toggle</code>.
+    </p>
+    <p class="lead-in">
+      A <code>listbox</code> item is a scrolling, virtualised option list, and six additions
+      (BACKLOG-0002547) turn it into an editable ordered list &mdash; a step editor, a stage pipeline,
+      a priority queue &mdash; rather than only a selector. <code>render(opt)</code> is handed the option
+      exactly as given, so a field this module does not know about still reaches a custom row.
+      <code>getItem(name).getOptions()</code> reads the current item order independent of selection; with
+      <code>reorder: true</code>, <code>valueAs: 'order'</code> makes the committed value the ordered
+      array of option values in every selection mode, including the default <code>'single'</code>, where
+      the value would otherwise be just the one selected item. Every row click fires <code>itemClick</code>
+      with the option and the mouse event &mdash; the already-selected row included &mdash; and Enter fires
+      <code>activate</code> the same way. <code>getItem(name).addOption(opt, index?)</code>,
+      <code>.removeOption(value)</code> and <code>.updateOption(value, patch)</code> edit the list from the
+      host, keeping selection and order consistent and each firing one <code>change</code>.
+      <code>dragHandle: true</code> draws a drag grip and drags only from it &mdash; a plain pointer drag,
+      not native HTML5 drag-and-drop, so it behaves under a real pointer the same way the grid&rsquo;s own
+      row-drag handle does &mdash; and sizes rows to their content instead of a fixed height, so a two-line
+      custom render is never clipped. <code>getItem(name).filter(fn)</code> (and <code>filter(null)</code>
+      to clear it) shows only the options <code>fn</code> accepts, without touching the canonical order,
+      the selection or the value.
+    </p>
+    <p class="lead-in">
+      A <code>grid</code> item is a live, editable Lattice grid as a form field, so a table of values &mdash;
+      a cost projection, say &mdash; is captured inside the form rather than read beside it. The factory is
+      injected (<code>createGrid</code> on the item or the form config), <code>columns</code> takes every
+      column option the grid has, and <code>rowKey</code> names the field that identifies a row. The rows are
+      the item&rsquo;s value: <code>valueAs: 'rows'</code> (default) reports objects, <code>valueAs:
+      'arrays'</code> arrays in column order, and <code>setValue()</code> accepts either.
+      <code>fields: { prop: { row, col } }</code> also returns each mapped cell as a top-level property of
+      the form value, read and written like any field, and <code>valueRows: false</code> drops the rows array
+      so only those cells remain. A typed edit asks <code>beforeChange</code> (for the item and for each
+      mapped property it touches) and then fires <code>change</code> once each; so does every row added or
+      removed. <code>required</code> means at least one row, the column validators and
+      <code>min</code>/<code>max</code> surface in <code>validate()</code> with the offending cell marked and
+      focusable and a message naming the row and the column. <code>rowControls: true</code> adds
+      keyboard-operable <em>Add row</em> and <em>Delete row</em> buttons (<code>newRow</code> gives a blank
+      row its defaults), <code>totals</code> adds a display-only totals row and/or column that never reach the
+      value, and <code>gridOptions</code> passes any other grid option straight through.
+      Read-only, disabled, reset, dirty tracking, groups, data-router binding, density, the theme tokens, dark
+      mode and the four presets all apply as they do to any item.
     </p>
     <p class="lead-in">
       A <code>color</code> item is a swatch field: clicking the swatch or the trailing icon opens a
@@ -13440,7 +13732,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.103.2 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.104.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

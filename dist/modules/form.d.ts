@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.103.2, form module type declarations
+ * Lattice Grid 1.104.0, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -7,6 +7,7 @@ import type {
   Grid,
   IconName,
   NumberFormat,
+  createGrid,
 } from '../lattice-grid.js';
 
 /** The density levels a form accepts — the grid's own presets. */
@@ -19,7 +20,7 @@ export type FormLabelPosition = 'top' | 'left' | 'hidden';
 export type FormInputSubtype = 'text' | 'email' | 'password' | 'url';
 
 /** The control types a form item may name. */
-export type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox' | 'togglegroup' | 'time';
+export type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox' | 'togglegroup' | 'time' | 'grid';
 
 /** The opening view of a `color` item's popover: the preset palette (default) or the custom picker. */
 export type FormColorMode = 'palette' | 'picker';
@@ -280,6 +281,20 @@ export interface FormItemConfig extends ComboConfig {
   /** The label column width when `labelPosition` is `left`. */
   labelWidth?: number | string;
   /**
+   * When `labelPosition` is `left`: the width, in pixels or a CSS length,
+   * below which the control is too narrow and the label switches to the
+   * top instead — measured as this item's own width
+   * minus the label column (`labelWidth`, or the label's natural width
+   * when unset) minus the gap between them. Inherited like `labelPosition`
+   * and `labelWidth` from a fieldset, a container or the form; an item's
+   * own value wins. Re-measured per item with a `ResizeObserver` (a shell
+   * splitter or a drawer resizing the host counts, not only the window),
+   * with a few pixels of hysteresis so a width sitting on the threshold
+   * never flickers. Unset, nothing switches. A checkbox or toggle item
+   * ignores this — its label sits beside it by design.
+   */
+  controlMinWidth?: number | string;
+  /**
    * The item's width: a pixel number, a CSS length string such as `'12em'`,
    * or a percentage string such as `'33.3%'`. In a `cols` row a percentage is
    * a share of the row's width *after* the gaps between its items, so items
@@ -385,10 +400,14 @@ export interface FormItemConfig extends ComboConfig {
   render?: (option: FormOption) => Node | string;
   /** Let a `listbox` item's rows be moved by drag, by Move up/down toolbar buttons and by Alt+Arrow; the committed value becomes the full, reordered item array. */
   reorder?: boolean;
+  /** With `reorder: true`, `'order'` makes a `listbox` item's committed value the ordered array of option values in every selection mode — the shape an editable ordered list wants even while `selection` is `'single'`, where the value would otherwise be just the one selected item. */
+  valueAs?: 'order';
   /** The name of another `listbox` item this one exchanges items with via drag and the Move selected/Move all toolbar buttons; each side's value is the items it currently holds. */
   connect?: string;
   /** A `listbox` item's viewport height in pixels, overriding `rows`. */
   height?: number;
+  /** Draw a drag grip on a `listbox` item's rows and drag only from it (a plain pointer drag, not native HTML5 drag-and-drop), and size rows to their content instead of a fixed height. */
+  dragHandle?: boolean;
   /** Lay a `radiogroup` or `checkboxgroup`'s options out vertically (the default) or on one wrapping horizontal line. */
   orientation?: 'vertical' | 'horizontal';
   /** Lay a `radiogroup` or `checkboxgroup`'s options out in this many columns, read across then down. */
@@ -407,7 +426,7 @@ export interface FormItemConfig extends ComboConfig {
   minSpan?: number;
   /** The `daterange` most days (or months in month mode) a range may span. */
   maxSpan?: number;
-  /** The `daterange` days/months that may not be picked: an ISO string list or a function `(iso) => boolean`. */
+  /** The `datepicker`/`daterange` days (or `daterange` months) that may not be picked: an ISO string list or a function `(iso) => boolean`. */
   disabledDates?: string[] | ((iso: string) => boolean);
   /** Add an ISO week-number column to the `daterange` grid (default false). */
   weekNumbers?: boolean;
@@ -643,6 +662,8 @@ export interface FormBlock {
   items?: FormItemConfig[];
   /** The vertical gap between this container's or fieldset's own items — a px number or a CSS length, overriding the form's `spacing` for those items only. */
   spacing?: number | string;
+  /** On a `cols` block, resolve each item's percentage `width` against its own rendered line's gaps instead of the whole row's: a `100%` item fills its line alone, and a `50%`/`50%` pair shares one gap and sits side by side filling it exactly, instead of the pair's widths being shrunk by every gap in the row. Items that do not fit on a line wrap to the next one, as they already do; hiding an item frees its line slot (later items shift up and may join an earlier line), and showing it again restores the layout. Ignored on any other axis. Default `false`. */
+  wrap?: boolean;
   /** The control type, or `spacer`/`separator`. Defaults to `input`. */
   type?: string;
   /** A fieldset: `'Legend'` or `{ legend, rows, cols, items }`. */
@@ -657,7 +678,7 @@ export interface FormBlock {
   separator?: boolean;
   /** The fieldset legend, when written as a sibling of `fieldset`. */
   legend?: string;
-  /** The item's name. */
+  /** The item's name, or a fieldset's name — either way, what `getItem(name)` reads. */
   name?: string;
   /** The item's label text, or a `separator`'s centred label (a literal or a catalogue key). */
   label?: string;
@@ -665,6 +686,8 @@ export interface FormBlock {
   labelPosition?: FormLabelPosition;
   /** The label column width when `labelPosition` is `left`; on a container or fieldset this is the default its items inherit. */
   labelWidth?: number | string;
+  /** The width below which a `left` label switches to the top instead; on a container or fieldset this is the default its items inherit. See {@link FormItemConfig.controlMinWidth}. */
+  controlMinWidth?: number | string;
   /** The item's width. */
   width?: number | string;
   /** Placeholder text. */
@@ -713,9 +736,9 @@ export interface FormContainerItemConfig {
   labelPosition?: FormLabelPosition;
   /** The label column width when `labelPosition` is `left`. */
   labelWidth?: number | string;
-  /** The region's width: a pixel number, a CSS length, or `'content'` to size to its own content (the default). */
+  /** The item's width, applied once to its wrapper slot like any other item's: a pixel number, a CSS length, or a percentage such as `'40%'`, a share of the row's width after the gaps between its items. The region itself always fills that slot — unset (the default) gives it its default share of the row, the same as any other item. */
   width?: number | string;
-  /** The region's height: a pixel number, a CSS length, or `'content'` to size to its own content (the default). */
+  /** The region's own height: a pixel number, a CSS length, or `'content'` to size to its own content (the default). Unlike `width`, this sizes the region directly, not the wrapper slot; a container with an explicit height still shrinks like its siblings when its column runs out of room. */
   height?: number | string;
   /** Inner padding: a pixel number or a CSS length. */
   padding?: number | string;
@@ -727,6 +750,124 @@ export interface FormContainerItemConfig {
   disabled?: boolean;
   /** A rule that hides the item when it evaluates false. */
   visibleWhen?: FormRule;
+}
+
+/** A totals function: a built-in name, or your own reducer over the cells' values. */
+export type GridItemTotalFn = 'sum' | 'avg' | 'count' | ((values: unknown[], ctx: { field?: string; rows?: object[]; row?: object }) => unknown);
+
+/**
+ * One mapped cell of a `grid` item: the row (by its `rowKey` value) and the
+ * column (by its field) whose value becomes a top-level property of the form
+ * value.
+ */
+export interface GridItemField {
+  /** The `rowKey` value of the mapped row. */
+  row: string | number;
+  /** The field of the mapped column. */
+  col: string;
+}
+
+/**
+ * The display-only totals of a `grid` item. A totals row is
+ * pinned beneath the body and a totals column is computed from each row; the
+ * grid does not store either, and neither is ever part of the form value.
+ */
+export interface GridItemTotals {
+  /**
+   * A totals row. `true` sums the number columns; a name or function applies
+   * to them; an object picks the columns (an array of fields, or a map of
+   * field to function) and the label.
+   */
+  row?: boolean | GridItemTotalFn | {
+    /** The function for every listed column (default `'sum'`). */
+    fn?: GridItemTotalFn;
+    /** The columns to total: an array of fields, or a map of field to its function. Defaults to every number-typed column. */
+    columns?: string[] | Record<string, GridItemTotalFn>;
+    /** The label shown on the row (default: the catalogue's "Total", localised). */
+    label?: string;
+    /** The field that carries the label (default: the first column that is not totalled). */
+    labelColumn?: string;
+  };
+  /**
+   * A totals column, computed per row. `true` sums the number columns; a name
+   * or function applies to them; an object picks the columns, the heading and
+   * any extra column options (a `type`, a `format`, a `width`).
+   */
+  column?: boolean | GridItemTotalFn | {
+    /** The function over the row's values (default `'sum'`). */
+    fn?: GridItemTotalFn;
+    /** The fields to total across. Defaults to every number-typed column. */
+    columns?: string[];
+    /** The column heading (default: the catalogue's "Total", localised). */
+    title?: string;
+    /** Extra column options for the totals column (`type`, `format`, `layout`, …). */
+    column?: object;
+  };
+}
+
+/**
+ * The `type: 'grid'` item: a live, editable Lattice grid as a form field. Its rows are the item's value, `fields` maps single cells
+ * to further top-level form properties, and cell edits, row additions and row
+ * removals go through the form's `beforeChange`, `change`, `validate()`, reset
+ * and dirty tracking like any field. The grid factory is injected —
+ * `createGrid` on the item, or on the form config — so the form bundles no
+ * grid core.
+ */
+export interface GridItemConfig {
+  /** The item's name, the key of its rows in `getValue()`. */
+  name?: string;
+  /** The grid factory (`createGrid`); defaults to the form config's `createGrid`. */
+  createGrid?: (el: HTMLElement, config: object) => Grid;
+  /** The grid's columns — every column option the grid accepts (`field`, `title`, `type`, `edit`, `validation`, …). The editable ones need `edit: true`. */
+  columns: Array<string | object>;
+  /** The field whose value identifies a row (default `'id'`). It is also how `fields` names a row. */
+  rowKey?: string;
+  /** The initial rows: objects, or arrays in column order. */
+  value?: Array<object | unknown[]>;
+  /** The shape of the rows in the form value: `'rows'` (objects, default) or `'arrays'` (arrays in column order). */
+  valueAs?: 'rows' | 'arrays';
+  /** `false` drops the rows array from `getValue()` and keeps only the mapped cells. Default `true`. */
+  valueRows?: boolean;
+  /** Cells mapped to top-level form properties, by property name. Each is read and written like any field, fires its own `change`, and takes part in dirty tracking and data binding. */
+  fields?: Record<string, GridItemField>;
+  /** Adds keyboard-operable add-row and delete-row buttons (off by default). Delete acts on the selected rows, else the row holding the focused cell. */
+  rowControls?: boolean;
+  /** A new row's defaults, or a function `(rows) => row`, for the add-row control and `addRow()`. The `rowKey` is filled in when absent or taken. */
+  newRow?: object | ((rows: object[]) => object);
+  /** The display-only totals row and/or column. */
+  totals?: GridItemTotals;
+  /** Extra grid options laid under the item's own (`rowKey`, `columns`, `rows` and `density` always win). */
+  gridOptions?: object;
+  /** The grid's height: a pixel number or a CSS length (default 240). */
+  height?: number | string;
+  /** The item's width: a pixel number, a CSS length or a percentage. */
+  width?: number | string;
+  /** The label text, set as the group's `aria-label` and drawn as the item's label. */
+  label?: string;
+  /** Where the label sits: `top` (default), `left`, or `hidden`. */
+  labelPosition?: FormLabelPosition;
+  /** The label column width when `labelPosition` is `left`. */
+  labelWidth?: number | string;
+  /** Help text shown under the grid. */
+  helpMessage?: string;
+  /** At least one row is required. */
+  required?: boolean;
+  /** A rule that makes the item required when it evaluates true. */
+  requiredWhen?: FormRule;
+  /** When the item is validated: `change`, `blur` or `submit` (default). */
+  validationMode?: FormValidationMode;
+  /** Start hidden. */
+  hidden?: boolean;
+  /** Start disabled: the grid is inert and excluded from validation. */
+  disabled?: boolean;
+  /** Start read-only: cells cannot be edited and the row controls are off. */
+  readOnly?: boolean;
+  /** A rule that hides the item when it evaluates false. */
+  visibleWhen?: FormRule;
+  /** A rule that makes the item read-only when it evaluates true. */
+  readOnlyWhen?: FormRule;
+  /** Extra CSS on the item wrapper. */
+  css?: Record<string, string | number> | string;
 }
 
 /** A binding to a grid row: `{ grid, rowKey }`. */
@@ -771,10 +912,14 @@ export interface FormConfig {
   labelPosition?: FormLabelPosition;
   /** The default label column width every item inherits when its label is `left`; an item's own `labelWidth` wins. */
   labelWidth?: number | string;
+  /** The default width below which a `left` label switches to the top instead, every item inherits; an item's own `controlMinWidth` wins. See {@link FormItemConfig.controlMinWidth}. */
+  controlMinWidth?: number | string;
   /** The default marker a required field with no visible label shows on its placeholder: `true` appends `" *"`, a string resolves through the message catalogue, `false` shows nothing. An item's own `requiredHint` wins. */
   requiredHint?: boolean | string;
   /** The width, in pixels, below which a `cols` container stacks its children into one column, or `false` (or `0`) to never stack. A positive number is used as-is. Default 480. */
   colsBreakpoint?: number | false;
+  /** When the root axis is `cols` (no `rows`), resolve each item's percentage `width` against its own rendered line's gaps instead of the whole row's. See {@link FormBlock.wrap}. Default `false`. */
+  wrap?: boolean;
   /**
    * Bind the form to a record. A grid row generates one item per column and
    * saves through the grid's edit path; a routed record follows the route's
@@ -791,6 +936,8 @@ export interface FormConfig {
   validateSteps?: boolean;
   /** A `t(key, params)` catalogue for the separator's accessible label. */
   messages?: { t(key: string, params?: object): string };
+  /** The grid factory (`createGrid`) every `grid` item uses unless it names its own. */
+  createGrid?: (el: HTMLElement, config: object) => Grid;
 }
 
 /** A combo option written as an object: `{ value, label, description, icon, avatar, color, dot, disabled }`. */
@@ -951,8 +1098,10 @@ export type FormEventName =
   | 'open'
   /** A `speeddial` FAB's menu closed. */
   | 'close'
-  /** A `speeddial` menu action was activated. */
-  | 'itemClick';
+  /** A `speeddial` menu action was activated, or a `listbox` row was clicked, selected row included. */
+  | 'itemClick'
+  /** A `listbox` row's Enter-key equivalent of a click. */
+  | 'activate';
 
 /** What a handler receives, per form event. */
 export interface FormEventPayloads {
@@ -978,8 +1127,10 @@ export interface FormEventPayloads {
   open: FormSpeedDialOpenEvent;
   /** A `speeddial` FAB's menu closed. */
   close: FormSpeedDialCloseEvent;
-  /** A `speeddial` menu action was activated. */
-  itemClick: FormSpeedDialItemClickEvent;
+  /** A `speeddial` menu action was activated, or a `listbox` row was clicked. */
+  itemClick: FormSpeedDialItemClickEvent | FormListboxItemClickEvent;
+  /** A `listbox` row was activated with Enter. */
+  activate: FormListboxItemClickEvent;
 }
 
 /** The fields every form event carries. */
@@ -1022,6 +1173,14 @@ export interface FormSpeedDialItemClickEvent extends FormEvent {
   item: SpeedDialItem;
   /** The action's index in the `items` list. */
   index: number;
+}
+
+/** An `itemClick`/`activate` payload: a `listbox` row was clicked (selected row included) or activated with Enter. */
+export interface FormListboxItemClickEvent extends FormEvent {
+  /** The option exactly as given — the same object `render(opt)` receives. */
+  option: unknown;
+  /** The triggering event: a `MouseEvent` for `itemClick`, a `KeyboardEvent` for `activate`. */
+  event: MouseEvent | KeyboardEvent;
 }
 
 /**
@@ -1079,6 +1238,13 @@ export interface FormItem {
   readonly el: HTMLElement;
   /** The item's name, or `null` for an unnamed item. */
   readonly name: string | null;
+  /**
+   * The label's current rendered position: `labelPosition` normally, or
+   * `top` when a `left` label with `controlMinWidth` has switched because
+   * its own width left the control too narrow. Mirrors
+   * the item's `data-label-effective` attribute.
+   */
+  readonly labelEffectivePosition: FormLabelPosition;
   /** The committed value. */
   getValue(): unknown;
   /** Write a committed value, silently (no event fires). */
@@ -1105,10 +1271,105 @@ export interface FormItem {
   attachHTML?(html: string): FormItem;
   /** A `container` item only: the attached view or element, or `null`. */
   getWidget?(): unknown;
+  /** A `grid` item only: add a row (a blank one when none is given) through `beforeChange` and one `change`. Returns the new row's key, or `null` when it was refused. */
+  addRow?(row?: object): string | null | Promise<string | null>;
+  /** A `grid` item only: remove rows by key, each through `beforeChange` and one `change`. Returns the keys removed. */
+  removeRows?(keys: string | string[]): string[];
+  /** A `grid` item only: the embedded Lattice grid, or `null` when no `createGrid` was supplied. */
+  getGrid?(): Grid | null;
   /** Replace a combo or select item's static options, re-rendering the list in place; a value still present is kept, one gone is cleared with one `change` event, and a changed label refreshes the shown value. */
   setOptions(options: unknown[]): FormItem;
   /** Reload a `load`-backed combo — clear its cache and fetch the first page again; on a static combo or select this only re-renders. */
   reload(): FormItem;
+  /** The item's current label — a field's label, a button's caption, or a fieldset's legend — or `null` when it carries none. */
+  getLabel(): string | null;
+  /**
+   * Change the item's visible label and its accessible name: a field's label, a button's caption, or (on a handle for a named fieldset) its legend; on a registered custom control, the frame's own label and the `label` the control's `item` object carries. A hidden label (`labelPosition: 'hidden'`) stays visually hidden but its accessible name still updates. The change survives `setDensity`, `setReadOnly`, `show()`/`hide()` and any re-render, and is what a later `getItem` reports.
+   * @returns the item, for chaining.
+   */
+  setLabel(text: string): FormItem;
+  /** Change the help line under the control; `null` removes it. Survives `setDensity`, `setReadOnly`, `show()`/`hide()` and any re-render, the same as `setLabel`. A thin wrapper over `set({ helpMessage: text })`. */
+  setHelp(text: string | null): FormItem;
+  /** A `listbox` item's options in their current order, exactly as given, independent of selection. */
+  getOptions?(): unknown[];
+  /** Insert one option into a `listbox` item, keeping selection and order consistent, and firing one `change`. Appended when `index` is omitted. */
+  addOption?(opt: unknown, index?: number): FormItem;
+  /** Remove a `listbox` item's option keyed by `value`, keeping selection and order consistent, and firing one `change`. */
+  removeOption?(value: unknown): FormItem;
+  /** Merge `patch` over a `listbox` item's option keyed by `value`, in place, keeping selection and order consistent, and firing one `change`. */
+  updateOption?(value: unknown, patch: Record<string, unknown>): FormItem;
+  /** Show only the options of a `listbox` item that `fn` accepts, without touching its canonical order, selection or value; `null` clears the predicate. */
+  filter?(fn: ((opt: unknown) => boolean) | null): FormItem;
+  /**
+   * Apply a subset of the item's own config after build — see {@link FormItemLiveProps} for the props every item shares and which a control additionally documents as live. Re-renders only what changed; the control's own value is never touched, so a `min`/`max`/`options` change that makes the current value invalid is left for the next {@link FormItem#validate} to report. Keeps focus and the caret throughout. An unknown or non-live prop warns once (developer console) and is ignored.
+   * @returns the item, for chaining.
+   */
+  set(props: FormItemLiveProps): FormItem;
+  /** The effective value of one prop {@link FormItem#set} accepts, read from the item's own config rather than re-derived from the DOM. An unknown prop warns once and returns `undefined`. */
+  get(prop: string): unknown;
+  /** The item's current placeholder, or `null` when it carries none — a shortcut for `get('placeholder')`. */
+  getPlaceholder(): string | null;
+  /**
+   * Change the item's placeholder live — a shortcut for `set({ placeholder: text })`.
+   * @returns the item, for chaining.
+   */
+  setPlaceholder(text: string | null): FormItem;
+}
+
+/**
+ * The props {@link FormItem#set} may change after build.
+ * Every item shares `label`, `labelPosition`, `labelWidth`, `helpMessage`,
+ * `required`, `readOnly`, `disabled`, `hidden`, `width`, `validation`,
+ * `errorMessage` and `css`. `placeholder` is live on `input`, `textarea`,
+ * `number`, `select`, `combo` and `datepicker`; `options` on `select` and
+ * `combo` (the same contract as `setOptions`); `min`/`max`/`step`/`format`
+ * on `number`; `disabledDates` on `datepicker` and `daterange` (the open
+ * calendar's days are redrawn and a held value the new rule disables is
+ * reported by validation). Any other key is a control's own documented
+ * live option (`item.props` at build); one that is neither common nor
+ * declared live warns once and is ignored.
+ */
+export interface FormItemLiveProps {
+  /** The item's visible label and accessible name. */
+  label?: string;
+  /** Where the label sits: above, to the left, or visually hidden. */
+  labelPosition?: 'top' | 'left' | 'hidden';
+  /** The label column's width, in a `labelPosition: 'left'` item. */
+  labelWidth?: number | string;
+  /** The help line under the control; `null` removes it. */
+  helpMessage?: string | null;
+  /** Whether the item must hold a value to pass `validate()`. */
+  required?: boolean;
+  /** Whether the item is read-only (focusable, but not editable). */
+  readOnly?: boolean;
+  /** Whether the item is disabled (out of the tab order, excluded from validation). */
+  disabled?: boolean;
+  /** Whether the item is hidden, giving its space to its neighbours. */
+  hidden?: boolean;
+  /** The item's width (a px number or a CSS length). */
+  width?: number | string;
+  /** The placeholder shown while the control is empty. */
+  placeholder?: string | null;
+  /** A `number` field's lower bound. */
+  min?: number;
+  /** A `number` field's upper bound. */
+  max?: number;
+  /** A `number` field's step. */
+  step?: number;
+  /** A `number` field's `NumberFormat` spec. */
+  format?: unknown;
+  /** A `select`/`combo` item's static options, the same as `setOptions`. */
+  options?: unknown[];
+  /** A `datepicker` or `daterange` item's disabled dates. */
+  disabledDates?: unknown;
+  /** The item's validation rule. */
+  validation?: FormItemConfig['validation'];
+  /** The message shown when `validation` fails. */
+  errorMessage?: string;
+  /** Extra inline CSS, merged onto the item's wrapper. */
+  css?: string | Record<string, string>;
+  /** Any other control-specific option the control itself documents as live. */
+  [prop: string]: unknown;
 }
 
 /** The form instance {@link createForm} returns. */

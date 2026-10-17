@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.103.2, shell module type declarations
+ * Lattice Grid 1.104.0, shell module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -38,6 +38,18 @@ export interface ShellAttachHooks {
   onVisible?(content: ShellContent): void;
 }
 
+/** One header action on a cell: a button drawn beside (never replacing) the collapse control. */
+export interface ShellHeaderAction {
+  /** The button's glyph or icon node. */
+  icon?: string | Node;
+  /** The accessible name on the button (`aria-label`). */
+  ariaLabel: string;
+  /** Runs on a click, and on Enter/Space through the button's native activation. */
+  onClick(): void;
+  /** An optional id, exposed as `data-action-id` so a host can find the button. */
+  id?: string;
+}
+
 /** One tab of a tabbed cell: its identity, its strip label, and the content it holds across switches. */
 export interface ShellTab {
   /** The tab's identity for `getTab(id)`. */
@@ -56,26 +68,32 @@ export interface ShellTab {
 export interface ShellCell {
   /** The cell's identity for `getCell(id)`. Auto-generated when omitted. */
   id?: string;
-  /** The cell's width: the main-axis size among `cols` (px or %). */
+  /** The cell's width: the main-axis size among `cols` (px or %), or the cross-axis size among `rows`. */
   width?: ShellSize;
-  /** The cell's height: the main-axis size among `rows` (px or %). */
+  /** The cell's height: the main-axis size among `rows` (px or %), or the cross-axis size among `cols`. */
   height?: ShellSize;
   /** Share of the spare space when the cell has no fixed size. Default 1. */
   gravity?: number;
-  /** The cell's minimum width. */
+  /** Start a gravity cell at its content's size and grow into the spare space from there, instead of the default zero basis. */
+  basis?: 'content';
+  /** The cell's minimum width, on either axis. */
   minWidth?: ShellSize;
-  /** The cell's maximum width. */
+  /** The cell's maximum width, on either axis. */
   maxWidth?: ShellSize;
-  /** The cell's minimum height. */
+  /** The cell's minimum height, on either axis. */
   minHeight?: ShellSize;
-  /** The cell's maximum height. */
+  /** The cell's maximum height, on either axis. */
   maxHeight?: ShellSize;
+  /** When true, a fixed-size cell shrinks below its `width`/`height` when the shell runs short, never below `minWidth`/`minHeight`. By default a fixed-size cell holds its size and the shell's own box scrolls. */
+  shrink?: boolean;
   /** When true, a splitter on the trailing border resizes this cell and its next sibling. */
   resizable?: boolean;
   /** The cell's inner padding: a CSS padding value. */
   padding?: number | string;
-  /** Extra CSS: an object of camelCase properties, or a string of declarations. */
+  /** Extra CSS: an object of camelCase properties, or a string of declarations. A `display` set here wins over the shell's default, so a leaf cell can be flex-centred. */
   css?: Record<string, string | number> | string;
+  /** Host class names on the cell's element, separate from the inline `css`. */
+  className?: string;
   /** The cell's `align-self` across the parent's axis. */
   align?: string;
   /** The header strip's content: text, or a custom element to mount. */
@@ -86,6 +104,10 @@ export interface ShellCell {
   headerImage?: string;
   /** The header strip's height on the cell's main axis (px or a CSS length). Default 32. */
   headerHeight?: ShellSize;
+  /** Extra CSS on the header strip only, merged over the shell's `headerCss`. */
+  headerCss?: Record<string, string | number> | string;
+  /** Extra buttons in the header strip, beside the collapse control. */
+  headerActions?: ShellHeaderAction[];
   /** Show a collapse control in the header and let `collapse()`/`expand()` fold the cell. */
   collapsable?: boolean;
   /** Start the cell folded to its header strip (implies `collapsable`); also the cell's current collapsed state. */
@@ -100,6 +122,8 @@ export interface ShellCell {
   cols?: ShellCell[];
   /** Tabbed content: a strip with one attached content per tab, each preserved across switches. */
   tabs?: ShellTab[];
+  /** Markup mounted as the cell's content, sanitised like the string path of `attach()` — script, `on*` and `javascript:` URLs removed, form controls and `<style>` kept. */
+  html?: string;
   /** Start the cell with its loading indicator already overlaid. Default false. */
   progressDefault?: boolean;
 }
@@ -116,8 +140,12 @@ export interface ShellConfig {
   padding?: number | string;
   /** Extra CSS on the shell root. */
   css?: Record<string, string | number> | string;
+  /** The default header strip CSS every cell inherits; a cell's own `headerCss` is merged over it. */
+  headerCss?: Record<string, string | number> | string;
   /** A message catalogue with a `t(key, params)` formatter, for the collapse control's labels. */
   messages?: { t(key: string, params?: Record<string, string | number>): string };
+  /** When true, emit a `data-cell-id` attribute on every cell's element. */
+  cellIds?: boolean;
 }
 
 /** The cell handle `getCell(id)` and `forEach` hand back. */
@@ -141,8 +169,29 @@ export interface ShellCellInstance {
    * cell keeps the same element for its life — hide/show, collapse/expand, tab
    * switches, resizes and moves never re-render it — and only `detach()` or
    * `destroy()` releases it. On a tabbed cell this attaches to the active tab.
+   * An HTML string is sanitised once, like `attachHTML()`: `<script>` elements,
+   * `on*` attributes and `javascript:` URLs are removed; everything else, form
+   * controls and `<style>` included, is kept.
    */
   attach(content: ShellContent, opts?: ShellAttachHooks): ShellCellInstance;
+  /**
+   * Attach a string of markup, sanitised exactly like the string path of
+   * `attach()` — `<script>` elements, `on*` attributes and `javascript:`
+   * URLs are removed; everything else, form controls and `<style>` included,
+   * is kept.
+   */
+  attachHTML(html: string): ShellCellInstance;
+  /**
+   * Change the cell's size live, synchronously. `{ width |
+   * height }`: the main-axis key moves a resizable cell's neighbour through
+   * the splitter so the two stay consistent and clamped; a number is pixels, a
+   * string passes through as a CSS length.
+   */
+  setSize(size: { width?: ShellSize; height?: ShellSize }): ShellCellInstance;
+  /** Change the cell's header live: replace the title, or give a headerless cell a strip. */
+  setHeader(value: string | Node): ShellCellInstance;
+  /** Replace the cell's header actions live, keeping the collapse control and title. */
+  setHeaderActions(list: ShellHeaderAction[]): ShellCellInstance;
   /** Detach this cell's content (the active tab's, when tabbed) and hand it back intact. */
   detach(): ShellContent | null;
   /** The content this cell (or its active tab) holds, or `null`. */

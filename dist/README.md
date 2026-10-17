@@ -7,7 +7,7 @@ tiles and map views, all reading the same rows, filters and theme. Vanilla
 JavaScript, no runtime dependencies, no build step; adapters for React, Vue,
 Svelte, Web Components and htmx, Angular compiled inside the package.
 
-Version 1.103.2 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.104.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -40,6 +40,9 @@ Every module is optional and none of them is loaded unless you import it.
 | `modules/scheduler.esm.min.js` | Resource scheduler: resources as rows and events as editable bars on a shared time axis. |
 | `modules/form.esm.min.js` | An opt-in form: named fields in nested rows and columns, validation and rules, bound to a grid row or the data router. |
 | `modules/shell.esm.min.js` | Cells nested as rows and columns to any depth, sized synchronously by CSS. |
+| `modules/listview.esm.min.js` | A standalone list drawn by a template, with selection, drag between lists and a data API. |
+| `modules/dataview.esm.min.js` | A standalone card grid drawn by a template, with selection, two-dimensional keyboard navigation and drag to reorder. |
+| `modules/tree.esm.min.js` | A standalone tree with expand, selection, three-state checkboxes and drag to a new parent. |
 | `modules/layout.esm.min.js` | A reconfigurable dashboard surface: windows on a cell grid. |
 | `modules/dashboard.esm.min.js` | One JSON spec naming a layout, panels and links, built into a wired page. |
 | `modules/designer.esm.min.js` | A designer over the dashboard spec, whose view mode is `createDashboard`. |
@@ -434,6 +437,9 @@ the UMD build or `.cjs` for CommonJS.
 | dashboard | `@toclocoinc/lattice-grid/modules/dashboard` | `modules/dashboard.min.js` | `LatticeGridDashboard` | One JSON spec naming a layout, panels and links, built into a wired page (`createDashboard`). |
 | designer | `@toclocoinc/lattice-grid/modules/designer` | `modules/designer.min.js` | `LatticeGridDesigner` | A designer over the dashboard spec, with pages; its view mode is `createDashboard` (`createDesigner`). |
 | shell | `@toclocoinc/lattice-grid/modules/shell` | `modules/shell.min.js` | `LatticeGridShell` | A flexbox shell: cells nested as rows and columns to any depth, sized synchronously by CSS (`createShell`). |
+| listview | `@toclocoinc/lattice-grid/modules/listview` | `modules/listview.min.js` | `LatticeGridListView` | A standalone list on the grid: rows drawn by a template, selection, reorder and drag between lists, and a data API (`createList`). |
+| dataview | `@toclocoinc/lattice-grid/modules/dataview` | `modules/dataview.min.js` | `LatticeGridDataView` | A standalone card grid: items wrap into rows, each card drawn by a template, with selection, two-dimensional keyboard navigation, drag to reorder and a data API (`createDataView`). |
+| tree | `@toclocoinc/lattice-grid/modules/tree` | `modules/tree.min.js` | `LatticeGridTree` | A standalone tree on the grid: expand and collapse, selection, three-state checkboxes, drag to reparent and lazy children (`createTree`). |
 | form | `@toclocoinc/lattice-grid/modules/form` | `modules/form.min.js` | `LatticeGridForm` | An opt-in form: named items in nested rows and columns, basic controls, events and grid-token density (`createForm`). |
 | ai | `@toclocoinc/lattice-grid/modules/ai` | `modules/ai.min.js` | `LatticeGridAI` | Bring-your-own-model narrative and insights grounded on computed figures (`createAI`). |
 | presets | `@toclocoinc/lattice-grid/modules/presets` | `modules/presets.min.js` | `LatticeGridPresets` | Design-system presets: a variable file over the theme-token contract and a function that drives it from a real MUI theme (`themeFromMui`). |

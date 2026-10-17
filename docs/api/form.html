@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Form API Reference — Lattice Grid 1.103.2</title>
+<title>Form API Reference — Lattice Grid 1.104.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -390,12 +390,19 @@
         <a href="#form-module">The form module</a>
         <a class="rail__sub-link" href="#form-live-example">Values, a committed edit, a veto and density, executed</a>
         <a class="rail__sub-link" href="#form-spacing-example">Spacing and label gap, executed</a>
+        <a class="rail__sub-link" href="#form-item-label-example">A button's caption after the form is built, executed</a>
+        <a class="rail__sub-link" href="#form-item-set-example">Any item prop, changed after build, executed</a>
         <a class="rail__sub-link" href="#form-width-example">Percentage widths in a cols row, executed</a>
+        <a class="rail__sub-link" href="#form-cols-wrap-example">Per-line percentage widths with wrap, executed</a>
         <a class="rail__sub-link" href="#form-cols-breakpoint-example">Cols breakpoint and full-width buttons, executed</a>
         <a class="rail__sub-link" href="#form-disabled-readonly-example">Disabled and read-only, executed</a>
         <a class="rail__sub-link" href="#form-label-options-example">Label position, width and hidden labels, executed</a>
+        <a class="rail__sub-link" href="#form-control-min-width-example">A left label switching to the top below controlMinWidth, executed</a>
         <a class="rail__sub-link" href="#form-chrome-example">Help tooltips, read-only locks, field addons and panels, executed</a>
         <a class="rail__sub-link" href="#form-content-container-example">A content container: sanitised HTML and an attached grid, executed</a>
+        <a class="rail__sub-link" href="#form-grid-example">A grid item: a cost projection in a form, executed</a>
+        <a class="rail__sub-link" href="#form-grid-shapes-example">A grid item: arrays, row controls and mapped cells only, executed</a>
+        <a class="rail__sub-link" href="#form-grid-states-example">A grid item: label, states and rules, executed</a>
         <a class="rail__sub-link" href="#form-button-example">The button and the buttons row, executed</a>
         <a class="rail__sub-link" href="#form-options-refresh-example">Refreshing combo and select options, executed</a>
         <a class="rail__sub-link" href="#combo">The combo control</a>
@@ -407,6 +414,7 @@
         <a class="rail__sub-link" href="#form-validation-example">Required, a regex, a function, modes and the validated event, executed</a>
         <a class="rail__sub-link" href="#form-enhance-live-example">A server form enhanced in place, with the htmx adapter, executed</a>
         <a class="rail__sub-link" href="#form-controls-example">Choice, toggle and date controls, executed</a>
+        <a class="rail__sub-link" href="#form-datepicker-disabled-example">A date picker limited to Mondays, executed</a>
         <a class="rail__sub-link" href="#form-daterange-example">A date range picker, executed</a>
         <a class="rail__sub-link" href="#form-number-example">A formatted number field, executed</a>
         <a class="rail__sub-link" href="#form-unit-example">Unit-aware number fields, executed</a>
@@ -441,6 +449,9 @@
         <a href="leaflet.html">The Leaflet binding</a>
         <a href="mapview.html">The map view</a>
         <a href="list.html">The list module</a>
+        <a href="listview.html">The list view module</a>
+        <a href="dataview.html">The data view module</a>
+        <a href="tree.html">The tree module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="calendar.html">The calendar viewer</a>
@@ -472,7 +483,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 26 pages</a></span>
+      <span class="chip"><a href="index.html">All 29 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -500,16 +511,18 @@ form.getValue();                         <span class="cmt">// { name: 'Grace', a
 form.on('beforeChange', (e) =&gt; { if (e.name === 'age' &amp;&amp; e.value &gt; 120) e.preventDefault(); });
 form.setDensity('comfortable');          <span class="cmt">// control heights follow the grid's row height</span>
 form.destroy();</code></pre>
-    <p><strong>Rows, columns and blocks.</strong> A form is a tree of <code>rows</code> and <code>cols</code>, each nesting the other to any depth, plus <code>items</code> to lay controls side by side. A <code>rows</code> block stacks its children vertically and stretches them to its width; a <code>cols</code> block lays its children side by side, sharing the width equally by default (<code>flex: 1 1 0</code>, <code>min-width: 0</code> &mdash; a child&rsquo;s own <code>width</code>, <code>flex</code> or <code>css</code> still wins, and a percentage <code>width</code> is a share of the row&rsquo;s width <em>after</em> its gaps, so three <code>33.3%</code> items sit on one line) and stacking them into one column once the container drops below <code>config.colsBreakpoint</code> (default 480px, via a container query &mdash; <code>0</code> or <code>false</code> turns stacking off, so the row never stacks at any width). A <code>container</code> is the default block shape (a flex box along its axis); a <code>fieldset</code> is a native <code>&lt;fieldset&gt;</code>/<code>&lt;legend&gt;</code> with its children in a body below; a <code>spacer</code> is flexible space and a <code>separator</code> a rule &mdash; or, given a <code>label</code> (a literal such as <code>'or'</code>, or a key resolved through <code>config.messages</code>), a muted label centred between two rules (&ldquo;&mdash;&mdash; or &mdash;&mdash;&rdquo;), the label also its accessible name &mdash; both plain blocks. A <code>text</code> item renders a read-only display carrying its value &mdash; a label/value pair, not an editable control &mdash; and the basic controls are <code>input</code> (subtype <code>text</code>, <code>email</code>, <code>password</code> or <code>url</code>), <code>number</code> (<code>step</code>/<code>min</code>/<code>max</code>), <code>textarea</code>, <code>checkbox</code>, <code>button</code>, <code>rating</code> (a row of icons, whole or half steps, click or arrow), <code>stage</code> (a pipeline of chevron steps), <code>chips</code> (a row of pill buttons for one or several options) and <code>combo</code> (a searchable combobox, described below).</p>
-    <p><strong>One item, one handle.</strong> Every item is a wrapper holding an optional <code>&lt;label&gt;</code> (associated to its control by <code>for</code>/<code>id</code>), the control, and an optional help line. Per item: <code>name</code>, <code>label</code>, <code>labelPosition</code> (<code>top</code>/<code>left</code>), <code>labelWidth</code>, <code>width</code>, <code>placeholder</code>, <code>helpMessage</code>, <code>hidden</code>, <code>disabled</code>, <code>readOnly</code> and <code>value</code>. <code>getItem(name)</code> returns the handle &mdash; <code>{ el, name, getValue, setValue, setOptions, reload, show, hide, enable, disable, focus, blur, isVisible }</code> &mdash; or <code>undefined</code> for an unknown name, and <code>forEach(fn)</code> hands every handle to <code>fn</code> in document order. <code>setValue(values)</code> writes values silently by name (unknown keys are ignored), <code>getValue()</code> snapshots every named value-holding item as <code>{ name: value }</code> (a button holds no value and is not included), and <code>clear()</code> resets each user-editable item to its empty value &mdash; <code>''</code> for text, <code>null</code> for a number, a stage or a single <code>chips</code>, <code>[]</code> for a multi <code>chips</code>, <code>false</code> for a checkbox, <code>0</code> for a rating &mdash; without firing an event.</p>
+    <p><strong>Rows, columns and blocks.</strong> A form is a tree of <code>rows</code> and <code>cols</code>, each nesting the other to any depth, plus <code>items</code> to lay controls side by side. A <code>rows</code> block stacks its children vertically and stretches them to its width; a <code>cols</code> block lays its children side by side, sharing the width equally by default (<code>flex: 1 1 0</code>, <code>min-width: 0</code> &mdash; a child&rsquo;s own <code>width</code>, <code>flex</code> or <code>css</code> still wins, and a percentage <code>width</code> is a share of the row&rsquo;s width <em>after</em> its gaps, so three <code>33.3%</code> items sit on one line) and stacking them into one column once the container drops below <code>config.colsBreakpoint</code> (default 480px, via a container query &mdash; <code>0</code> or <code>false</code> turns stacking off, so the row never stacks at any width). With <code>wrap: true</code> on the block (or the root config), a percentage <code>width</code> instead resolves against its own rendered line's gaps, not the whole row's &mdash; a <code>100%</code> item fills a line alone and a <code>50%</code>/<code>50%</code> pair shares just the one gap between them, so a row of many items wrapping onto several lines keeps every line's items flush to its right edge (BACKLOG-0002559); hiding an item frees its line slot, and showing it again restores the layout. A <code>container</code> is the default block shape (a flex box along its axis); a <code>fieldset</code> is a native <code>&lt;fieldset&gt;</code>/<code>&lt;legend&gt;</code> with its children in a body below; a <code>spacer</code> is flexible space and a <code>separator</code> a rule &mdash; or, given a <code>label</code> (a literal such as <code>'or'</code>, or a key resolved through <code>config.messages</code>), a muted label centred between two rules (&ldquo;&mdash;&mdash; or &mdash;&mdash;&rdquo;), the label also its accessible name &mdash; both plain blocks. A <code>text</code> item renders a read-only display carrying its value &mdash; a label/value pair, not an editable control &mdash; and the basic controls are <code>input</code> (subtype <code>text</code>, <code>email</code>, <code>password</code> or <code>url</code>), <code>number</code> (<code>step</code>/<code>min</code>/<code>max</code>), <code>textarea</code>, <code>checkbox</code>, <code>button</code>, <code>rating</code> (a row of icons, whole or half steps, click or arrow), <code>stage</code> (a pipeline of chevron steps), <code>chips</code> (a row of pill buttons for one or several options) and <code>combo</code> (a searchable combobox, described below).</p>
+    <p><strong>One item, one handle.</strong> Every item is a wrapper holding an optional <code>&lt;label&gt;</code> (associated to its control by <code>for</code>/<code>id</code>), the control, and an optional help line. Per item: <code>name</code>, <code>label</code>, <code>labelPosition</code> (<code>top</code>/<code>left</code>), <code>labelWidth</code>, <code>width</code>, <code>placeholder</code>, <code>helpMessage</code>, <code>hidden</code>, <code>disabled</code>, <code>readOnly</code> and <code>value</code>. <code>getItem(name)</code> returns the handle &mdash; <code>{ el, name, getValue, setValue, setOptions, reload, show, hide, enable, disable, focus, blur, isVisible, getLabel, setLabel, setHelp }</code> &mdash; or <code>undefined</code> for an unknown name, and <code>forEach(fn)</code> hands every handle to <code>fn</code> in document order. <code>setValue(values)</code> writes values silently by name (unknown keys are ignored), <code>getValue()</code> snapshots every named value-holding item as <code>{ name: value }</code> (a button holds no value and is not included), and <code>clear()</code> resets each user-editable item to its empty value &mdash; <code>''</code> for text, <code>null</code> for a number, a stage or a single <code>chips</code>, <code>[]</code> for a multi <code>chips</code>, <code>false</code> for a checkbox, <code>0</code> for a rating &mdash; without firing an event. <code>getItem(name).setLabel(text)</code> changes the item's visible label and its accessible name after the form is built, returning the item for chaining (BACKLOG-0002455): a field's own <code>&lt;label&gt;</code> text, a button's caption, or &mdash; on a handle for a named <code>fieldset</code> &mdash; its legend; a hidden label (<code>labelPosition: 'hidden'</code>) stays visually hidden but its accessible name still updates, since both read the same element. <code>getLabel()</code> reads the current label back, and <code>setHelp(text)</code> changes the help line under the control (<code>null</code> removes it). Both survive <code>setDensity</code>, <code>setReadOnly</code>, <code>show()</code>/<code>hide()</code> and any re-render, and are what a later <code>getItem</code> reports. A <code>fieldset</code> is not a value-holding item, but naming it &mdash; <code>{ fieldset: 'Account', name: 'account', items: [&hellip;] }</code> &mdash; makes it retrievable through <code>getItem(name)</code> for exactly this: a handle whose <code>setLabel</code>/<code>getLabel</code> reach the legend.</p>
     <p><strong>Events.</strong> A field fires <code>input</code> as the user types (the value is live, not yet committed) and <code>change</code> once the edit commits; a checkbox fires <code>change</code> on toggle; a button fires <code>click</code>. Every interactive item fires <code>focus</code> and <code>blur</code>, and an <code>otp</code> fires <code>complete</code> once every box is filled. A <code>change</code> is gated by a cancellable <code>beforeChange</code> &mdash; a handler calls <code>event.preventDefault(reason?)</code> or returns <code>false</code> (or a Promise of either) to refuse the commit, which then reverts the control to its last committed value &mdash; and the emitted events are subscribed with <code>form.on(name, fn)</code> (or <code>'*'</code> for every past-tense event) and detached with <code>form.off(name, fn)</code>. A handler that throws does not stop the others &mdash; every handler still runs &mdash; and surfaces as an uncaught error: the original error is re-raised on the next microtask, so <code>window.onerror</code> and unhandled-error reporting see it.</p>
     <p><strong>Validation.</strong> An item declares <code>required</code> (an empty value fails), a <code>validation</code> rule &mdash; a built-in name (<code>email</code>, <code>number</code>, <code>integer</code>, <code>url</code>), a whole-value RegExp, or a function <code>(value, item) =&gt; boolean | string | void</code> that returns <code>true</code>/<code>undefined</code> for pass, <code>false</code> for a fail, or a string that <em>is</em> the failure message &mdash; and the message options <code>errorMessage</code>, <code>successMessage</code> and <code>preMessage</code>. <code>form.validate()</code> checks every rule-bearing item and returns <code>true</code>/<code>false</code>, marking each invalid item with <code>aria-invalid</code> and an associated message (and each pass with its <code>successMessage</code>); <code>item.validate()</code> checks one item. A <code>validationMode</code> of <code>change</code> re-checks an item once its edit commits, <code>blur</code> re-checks it as it loses focus, and <code>submit</code> (the default) checks it only on <code>validate()</code>. The default rule messages live in the module's catalogue &mdash; overridable through <code>config.messages</code> &mdash; and a <code>validated</code> event reports every failure as <code>{ name, rule, message }</code>. The control registry exposes a per-control <code>validate(el, item, value)</code> hook that later controls (file, combo, custom) plug into.</p>
     <p><strong>Density.</strong> A <code>density</code> level &mdash; <code>compact</code>, <code>standard</code> (default) or <code>comfortable</code> &mdash; drives every control's height, padding, label gap and fieldset spacing from the grid's own <code>--lattice-*</code> tokens (a control stands one <code>--lattice-row-height</code> tall, so a form beside a grid follows that grid's density), each with a literal fallback so a form on a bare page still draws. <code>form.setDensity(level)</code> changes it live with one attribute write and no re-render, and an unknown level is ignored. The module imports no grid and no core source, ships in its own bundle and UMD global, and <code>destroy()</code> empties the element, removes only what the module added, restores the host's own inline style, and drops every item record, listener and handler.</p>
     <p><strong>Spacing and label gap.</strong> <code>config.spacing</code> sets the vertical gap between stacked items &mdash; a px number or a CSS length &mdash; and <code>config.labelGap</code> the gap between an item's label and its field; both default from the density scale, so leaving them unset changes nothing. They are the theme tokens <code>--lattice-form-item-gap</code> and <code>--lattice-form-label-gap</code>, so a CSS theme can set the default a form without an explicit spacing falls back to, and a <code>rows</code> container or <code>fieldset</code> that sets its own <code>spacing</code> overrides it for its own items only. <code>form.setSpacing(value)</code> applies the gap live with one property write and no re-render (<code>null</code> clears the override). Horizontal <code>cols</code> containers keep their own gap, and help/validation lines sit inside the item wrapper, so an item showing a validation message keeps the same gap to the next item as one without.</p>
     <p><strong>Disabled and read-only, defined once.</strong> Both states are one contract applied identically to every control. <code>disabled</code> leaves the tab order (unless <code>focusableWhenDisabled</code>), shows no hover or active response, sets <code>cursor: not-allowed</code>, carries <code>aria-disabled</code> (or the native <code>disabled</code> attribute), is excluded from <code>validate()</code>, and is styled from the <code>--lattice-disabled-foreground</code>/<code>--lattice-disabled-background</code>/<code>--lattice-disabled-border</code> tokens with text at or above 3:1. <code>readOnly</code> stays focusable and in the tab order, keeps its value readable, selectable and copied, refuses every change path before it happens &mdash; typing, click, paste, drop, wheel and the keyboard do nothing, pop-ups open view-only or not at all, and a checkbox, radio, toggle, <code>radiogroup</code> or <code>checkboxgroup</code> guards <code>pointerdown</code>/<code>click</code>/Space/Enter so the value never flickers &mdash; carries <code>aria-readonly</code>, is still validated and still appears in <code>getValue()</code>/submit, and is styled from the <code>--lattice-readonly-foreground</code>/<code>--lattice-readonly-background</code>/<code>--lattice-readonly-border</code> tokens (subtle fill, <code>cursor: default</code>, the lock icon). Both are set per item (<code>disabled</code>, <code>readOnly</code>, <code>readOnlyWhen</code>) and form-wide with <code>form.setDisabled(bool)</code> and <code>form.setReadOnly(bool)</code>.</p>
     <p><strong>Data binding.</strong> <code>config.bind</code> binds the form to a record instead of a static config. <code>bind: { grid, rowKey }</code> binds a grid row: when no layout is declared, one item per column is generated from the grid's own columns &mdash; their titles, types and editors &mdash; so a boolean column becomes a <code>checkbox</code> and a number column a <code>number</code>; the form follows the grid's density by default; <code>save()</code> writes the dirty items once through the grid's edit path (permissions, read-only, parse, validation and the beforeEdit gate honoured); and <code>revert()</code> restores the bound values. External edits to the row update a clean item in place and leave a dirty one alone, flagging it with <code>isConflicted()</code>. <code>bind: { router, route, key, onSave? }</code> follows a data-router record with the same update-unless-dirty rule: the form reads the record eagerly through <code>router.get(route, key)</code> &mdash; so a form created <em>after</em> the ingest still fills at once, whatever the order &mdash; then subscribes to the route's keyed diffs, and <code>destroy()</code> unsubscribes. <code>save()</code> writes the dirty items back through <code>router.apply</code>, then calls <code>bind.onSave(changes, record)</code> when the host gave one (may be async; a rejection reverts the router record and leaves the form dirty). A form <strong>group</strong> takes the same <code>bind</code> once: every member fills with its own fields off the record, and <code>group.save()</code> writes <em>one</em> router update with all the members' dirty fields, calling <code>onSave</code> once. A plain object of values initialises the form and is written back by <code>save()</code>. <code>isDirty(name?)</code> reports an unsaved user edit on one item or the whole form, and editing is the only thing that marks an item dirty &mdash; <code>setValue()</code>, <code>revert()</code> and bound-record updates are silent. The binding is duck-typed against the grid's public API, so the module still imports no grid and no core source.</p>
-    <p><strong>Custom controls.</strong> <code>registerControl(type, definition)</code> makes a control type a first-class item: the definition's <code>create(el, item, api)</code> builds the control's DOM into <code>el</code>, <code>getValue(el)</code>/<code>setValue(el, value)</code> round-trip the value through <code>getValue()</code>/<code>setValue()</code>, and an optional <code>validate(value, item, el)</code> refuses a bad commit (return <code>true</code> to accept, <code>false</code> or a message to refuse, a Promise is awaited). The registered control gets the same wrapper, label, item API, events and density as a built-in, its <code>api.onChange()</code>/<code>api.onInput()</code> commit and report through the same path a native edit takes, and a later registration for the same type replaces the earlier one.</p>
-    <p id="form-content-container"><strong>A content container.</strong> <code>{ type: 'container', name, html, width, height, padding }</code> (BACKLOG-0002339) is a place in the form that shows host HTML or hosts another Lattice view, not a layout block &mdash; a block that also names <code>rows</code>/<code>cols</code>/<code>items</code> stays the plain layout container whatever its <code>type</code>. It renders <code>&lt;div class="lat-form__container" role="region"&gt;</code>, sized by <code>width</code>/<code>height</code> (a px number, a CSS length, or <code>'content'</code>, the default, to size to its own content) with an optional <code>padding</code>. An <code>html</code> string is rebuilt node by node rather than assigned through <code>innerHTML</code>: every <code>&lt;script&gt;</code> element, every <code>on*</code> attribute and every <code>javascript:</code>-scheme value is dropped, and everything else &mdash; inline styles included, because the host authored them &mdash; survives untouched; an <code>html</code> value that is already an element is appended as is, with no sanitising. The item carries no <code>value</code>: it never appears in <code>getValue()</code>/<code>setValue()</code> and is skipped by <code>validate()</code>, exactly like a button. After creation, <code>form.getItem(name).attach(viewOrElement, { keep? })</code> appends an element &mdash; or, for an object exposing <code>.el</code>, <code>.root</code> or <code>.element</code> (a <code>createGrid</code>/<code>createChart</code>/<code>createKanban</code>/<code>createCalendar</code>/<code>createGantt</code>/<code>createForm</code> result), that element &mdash; sized to the region (width 100%; height forced to the region's own configured height only when one was set, otherwise the view keeps its own). A second <code>attach()</code> replaces the first, and <code>form.destroy()</code> tears the item down too, destroying the attached view (calling its own <code>destroy()</code> when it has one) unless <code>keep: true</code> was given either time; <code>attachHTML(html)</code> replaces the content with sanitised host HTML the same way. <code>getWidget()</code> returns whatever is currently attached, or <code>null</code>. A nested <code>createForm</code> attached this way keeps its own value: the outer form's <code>getValue()</code> never merges it.</p>
+    <p><strong>Custom controls.</strong> <code>registerControl(type, definition)</code> makes a control type a first-class item: the definition's <code>create(el, item, api)</code> builds the control's DOM into <code>el</code>, <code>getValue(el)</code>/<code>setValue(el, value)</code> round-trip the value through <code>getValue()</code>/<code>setValue()</code>, and an optional <code>validate(value, item, el)</code> refuses a bad commit (return <code>true</code> to accept, <code>false</code> or a message to refuse, a Promise is awaited). The registered control gets the same wrapper, label, item API, events and density as a built-in, and a later registration for the same type replaces the earlier one. Its <code>api</code> talks back through the same path a native edit takes: <code>api.onChange()</code> reads the control's current value through <code>getValue(el)</code> and commits it (running <code>beforeChange</code>, validation and <code>change</code>), <code>api.onChange(value)</code> commits the given value, and <code>api.onInput()</code>/<code>api.onInput(value)</code> report the live value.</p>
+    <p id="form-custom-styling"><strong>Styling a custom control.</strong> The form styles the control's frame &mdash; its label, help, validation line and density spacing &mdash; but never the markup <code>create</code> builds (BACKLOG-0002457): a <code>&lt;button&gt;</code>, <code>&lt;input&gt;</code>, <code>&lt;select&gt;</code> or any other element inside it sizes and looks exactly as the same markup outside the form, so five inline buttons stay on one line at their own width. To take the form's field look, put the opt-in class <code>lat-form__native</code> on a native <code>&lt;input&gt;</code>, <code>&lt;textarea&gt;</code>, <code>&lt;select&gt;</code> or <code>&lt;button&gt;</code>: it gets the field box (full width, row height, field border and background), the field focus ring and the disabled look. A control that should fill the remaining height of a fixed-height form sets the item's <code>height</code> to <code>'100%'</code> (BACKLOG-0002543) and gives the item <code>css: { flex: '1 1 auto', minHeight: 0 }</code> so its wrapper grows into the spare space; the form then sizes the <code>.lat-form__custom</code> container to that height, so the markup <code>create</code> builds &mdash; which fills it with its own <code>height: 100%</code> or <code>flex: 1</code> &mdash; gets the whole remaining space, exactly as a content container with the same <code>height</code> does. An item without a <code>height</code> is unchanged.</p>
+    <p id="form-content-container"><strong>A content container.</strong> <code>{ type: 'container', name, html, width, height, padding }</code> (BACKLOG-0002339) is a place in the form that shows host HTML or hosts another Lattice view, not a layout block &mdash; a block that also names <code>rows</code>/<code>cols</code>/<code>items</code> stays the plain layout container whatever its <code>type</code>. It renders <code>&lt;div class="lat-form__container" role="region"&gt;</code>, sized by <code>width</code>/<code>height</code> (a px number, a CSS length, or <code>'content'</code>, the default, to size to its own content) with an optional <code>padding</code>; a <code>height</code> of <code>'100%'</code> fills the remaining height of a fixed-height form when the item grows into it (<code>css: { flex: '1 1 auto' }</code>). An <code>html</code> string is rebuilt node by node rather than assigned through <code>innerHTML</code>: every <code>&lt;script&gt;</code> element, every <code>on*</code> attribute and every <code>javascript:</code>-scheme value is dropped, and everything else &mdash; inline styles included, because the host authored them &mdash; survives untouched; an <code>html</code> value that is already an element is appended as is, with no sanitising. The item carries no <code>value</code>: it never appears in <code>getValue()</code>/<code>setValue()</code> and is skipped by <code>validate()</code>, exactly like a button. After creation, <code>form.getItem(name).attach(viewOrElement, { keep? })</code> appends an element &mdash; or, for an object exposing <code>.el</code>, <code>.root</code> or <code>.element</code> (a <code>createGrid</code>/<code>createChart</code>/<code>createKanban</code>/<code>createCalendar</code>/<code>createGantt</code>/<code>createForm</code> result), that element &mdash; sized to the region (width 100%; height forced to the region's own configured height only when one was set, otherwise the view keeps its own). A second <code>attach()</code> replaces the first, and <code>form.destroy()</code> tears the item down too, destroying the attached view (calling its own <code>destroy()</code> when it has one) unless <code>keep: true</code> was given either time; <code>attachHTML(html)</code> replaces the content with sanitised host HTML the same way. <code>getWidget()</code> returns whatever is currently attached, or <code>null</code>. A nested <code>createForm</code> attached this way keeps its own value: the outer form's <code>getValue()</code> never merges it.</p>
+    <p id="form-grid-item"><strong>A grid item.</strong> <code>{ type: 'grid', name, columns, rowKey, value, createGrid }</code> (BACKLOG-0002454) renders a real Lattice grid as a form field &mdash; the label, <code>helpMessage</code>, <code>width</code>/<code>height</code>, <code>hidden</code>/<code>visibleWhen</code>, <code>readOnly</code>/<code>disabled</code>, density, theme tokens and dark mode work as for any item, and every column option the grid accepts is allowed in <code>columns</code> (a cell is editable when its column says <code>edit: true</code>). A <code>height</code> of <code>'100%'</code> (BACKLOG-0002543) makes the grid fill the remaining height of a fixed-height form &mdash; give the item <code>css: { flex: '1 1 auto', minHeight: 0 }</code> so it grows into the spare space, and the grid host fills what is left after the optional row-control toolbar; a number or a CSS-length <code>height</code> stays fixed. The form bundles no grid core, so the factory is handed in: <code>createGrid</code> on the item, or once on the form config. The item's <strong>value</strong> is its rows &mdash; <code>form.getValue()[name]</code> is an array of row objects (<code>valueAs: 'rows'</code>, the default) or of arrays in column order (<code>valueAs: 'arrays'</code>), and <code>setValue</code> loads rows given in either shape. A money-shaped currency cell reads as its plain amount. <code>fields: { prop: { row: &lt;rowKey value&gt;, col: &lt;field&gt; } }</code> maps single cells to further top-level properties of the form value, read and written like any field (<code>getValue()</code>, <code>setValue()</code>, <code>getItem(prop)</code>, dirty tracking, a <code>bind</code> record, a rule's <code>visibleWhen</code>); <code>valueRows: false</code> drops the rows array and keeps only those cells. <strong>Events:</strong> a typed edit runs the cancellable <code>beforeChange</code> first &mdash; once for the item and once for each mapped property the edit touches &mdash; and a veto cancels the edit; the grid's own column validators gate it as they always do. Once it lands the form fires <code>change</code> once for the item and once for each mapped property that moved, and the same happens once per row added or removed. <strong>Validation:</strong> <code>required</code> means at least one row; <code>form.validate()</code> re-checks every cell &mdash; the column's <code>validation</code>, its <code>edit.validate</code>, and <code>min</code>/<code>max</code> in a number column's <code>edit.props</code> &mdash; marks each offending cell (<code>aria-invalid</code>, the invalid class, a tooltip), and fails the item with a message naming the row and the column (<em>Row 2, Cost: Must be at most 1000.</em>, from the catalogue in every bundled locale, taken from the grid's own locale unless <code>messages</code> says otherwise); <code>getItem(name).focus()</code> lands on the first offending cell. <strong>Rows:</strong> <code>rowControls: true</code> (off by default) adds keyboard-operable <em>Add row</em> and <em>Delete row</em> buttons under the grid &mdash; delete acts on the selected rows, else the row holding the focused cell &mdash; and the handle offers <code>addRow(row?)</code>, <code>removeRows(keys)</code> and <code>getGrid()</code>; <code>newRow</code> supplies defaults for a blank row. <strong>Totals:</strong> <code>totals: { row, column }</code> adds a display-only totals row (pinned beneath the body) and/or a computed totals column, each summing the number columns or reduced by <code>'sum'</code>, <code>'avg'</code>, <code>'count'</code> or your own function; neither is ever part of the value. <code>form.clear()</code> empties the rows, and <code>createFormGroup</code> merges the item and its mapped cells like any other.</p>
     <p><strong>Declarative rules.</strong> An item's <code>visibleWhen</code>, <code>readOnlyWhen</code> or <code>requiredWhen</code> is a rule re-evaluated on every committed change: a constant, a function of the whole <code>{ name: value }</code> snapshot, or a condition on one named item's value with <code>equals</code>, <code>in</code>, <code>empty</code> or <code>fn</code>. A <code>visibleWhen</code> that is false hides the item, a <code>readOnlyWhen</code> that is true makes its control read-only, and a <code>requiredWhen</code> that is true marks it required &mdash; its commit path then refuses an empty value. A rule composes on the item's own <code>hidden</code>/<code>readOnly</code> baseline, so it never fights the item API's <code>hide()</code>/<code>show()</code>/<code>enable()</code>/<code>disable()</code>.</p>
     <p><strong>Wizards.</strong> A <code>steps</code> array turns the form into a wizard: each <code>{ id, label, rows }</code> step is one body, only the active one visible, under a step indicator whose <code>stepOrientation</code> is <code>horizontal</code> (default) or <code>vertical</code>. <code>form.next()</code>, <code>form.goToStep(index)</code> to a later step, and a click on a later indicator step all validate the current step's items first &mdash; exactly as <code>form.validate()</code> does, so a refused move shows the same errors, fires the <code>validated</code> event and moves focus to the first invalid item, resolving <code>false</code> and staying put. <code>form.back()</code>, <code>goToStep(index)</code> to an earlier step and an earlier indicator step go back without validating; the indicator marks each step pending, active, complete or in error, and never disagrees with the form. On the last step <code>next()</code> reads "Finish" and validates in place, resolving <code>false</code> while it is invalid. Set <code>validateSteps: false</code> to opt out &mdash; the integrator then runs <code>validate()</code> itself, and forward navigation is unchecked.</p>
     <p><strong>Files and rich text.</strong> A <code>file</code> item is an uploader field: drop, paste or pick, with <code>accept</code> (extensions or MIME patterns), <code>maxSize</code> and <code>maxFiles</code> enforced at admission, and a host <code>upload(file, { onProgress, signal })</code> callback that does the actual upload. The file list shows per-file progress and status with retry and remove, and the value is the accepted file entries &mdash; a rejected file stays visible with a message but never enters the value. A <code>richtext</code> item is a sanitised HTML editor: toolbar presets (<code>basic</code>/<code>html</code>/<code>rich</code> or an item-name array) over bold, italic, underline, strikethrough, colour, case, paragraph styles, lists, alignment, links, images, source view and undo/redo, with keyboard shortcuts and paste cleanup. Its whitelist sanitiser is the security boundary, shared with the grid's rich-text editor as one implementation: scripts, event handlers, <code>srcdoc</code>, <code>id</code>/<code>name</code> clobbering and <code>javascript:</code>/<code>vbscript:</code>/<code>data:</code> URLs never survive pasting, dropping or <code>setValue</code>, and every <code>_blank</code> link carries <code>rel="noopener noreferrer"</code>. Both honour density, theme tokens, <code>readOnly</code>/<code>disabled</code> and the item API, and clear to <code>[]</code> (file) or <code>''</code> (richtext). The same rich-text editor is available as a grid pop-up editor for long text with <code>edit: { editor: 'richtext' }</code>.</p>
@@ -534,10 +547,13 @@ form.destroy();</code></pre>
         <thead><tr><th>Member</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="sig">createForm(el, config?)</td><td class="desc">Create a form. <code>config</code> is <code>{ rows | cols, density, spacing, labelGap, labelPosition, labelWidth, requiredHint, colsBreakpoint, bind, css, messages, steps, stepOrientation }</code>; <code>rows</code> stacks the top-level blocks vertically, <code>cols</code> lays them left-to-right sharing the width equally (used when <code>rows</code> is absent), <code>spacing</code> is the vertical gap between items (a px number or a CSS length, defaulting to the density's gap) and <code>labelGap</code> the gap between an item's label and its field (defaulting to half the density's space), <code>labelPosition</code> (<code>top</code> default / <code>left</code> / <code>hidden</code>) and <code>labelWidth</code> are the defaults every item inherits (an item&rsquo;s own value wins), <code>requiredHint</code> is the placeholder marker a required field with no visible label shows (<code>true</code> appends <code>" *"</code>, a string resolves through the catalogue, <code>false</code> shows nothing), <code>colsBreakpoint</code> is the container width below which a <code>cols</code> container stacks into one column (default 480px; <code>0</code> or <code>false</code> never stacks), <code>bind</code> binds the form to a record (<code>{ grid, rowKey }</code>, <code>{ router, route, key, onSave? }</code> or a plain values object), <code>messages</code> supplies a <code>t(key, params)</code> catalogue for the separator's accessible label and the validation defaults, and a <code>steps</code> array turns the form into a wizard with a <code>horizontal</code> (default) or <code>vertical</code> <code>stepOrientation</code>. Returns <code>{ el, config, getItem, getValue, setValue, clear, validate, forEach, on, off, setDensity, setSpacing, setReadOnly, setDisabled, isDirty, isConflicted, save, revert, steps, activeStep, next, back, goToStep, destroy }</code>.</td></tr>
-          <tr><td class="sig">createForm(el, config?)</td><td class="desc">Create a form. <code>config</code> is <code>{ rows | cols, density, spacing, labelGap, labelPosition, labelWidth, requiredHint, colsBreakpoint, bind, css, messages, steps, stepOrientation, validateSteps }</code>; <code>rows</code> stacks the top-level blocks vertically, <code>cols</code> lays them left-to-right sharing the width equally (used when <code>rows</code> is absent), <code>spacing</code> is the vertical gap between items (a px number or a CSS length, defaulting to the density's gap) and <code>labelGap</code> the gap between an item's label and its field (defaulting to half the density's space), <code>labelPosition</code> (<code>top</code> default / <code>left</code> / <code>hidden</code>) and <code>labelWidth</code> are the defaults every item inherits (an item&rsquo;s own value wins), <code>requiredHint</code> is the placeholder marker a required field with no visible label shows (<code>true</code> appends <code>" *"</code>, a string resolves through the catalogue, <code>false</code> shows nothing), <code>colsBreakpoint</code> is the container width below which a <code>cols</code> container stacks into one column (default 480px), <code>bind</code> binds the form to a record (<code>{ grid, rowKey }</code>, <code>{ router, route, key, onSave? }</code> or a plain values object), <code>messages</code> supplies a <code>t(key, params)</code> catalogue for the separator's accessible label and the validation defaults, a <code>steps</code> array turns the form into a wizard with a <code>horizontal</code> (default) or <code>vertical</code> <code>stepOrientation</code>, and <code>validateSteps: false</code> opts out of validating the current step on a forward move (the integrator runs <code>validate()</code> itself). Returns <code>{ el, config, getItem, getValue, setValue, clear, validate, forEach, on, off, setDensity, setSpacing, setReadOnly, setDisabled, isDirty, isConflicted, save, revert, steps, activeStep, next, back, goToStep, destroy }</code>.</td></tr>
-          <tr><td class="sig">registerControl(type, definition)</td><td class="desc">Register a custom control type as a first-class item. <code>definition</code> is <code>{ create(el, item, api), getValue(el), setValue(el, value), validate?(value, item, el), destroy?(el) }</code>; the control gets the same wrapper, label, item API, events and density as a built-in. A later registration for the same type replaces the earlier one.</td></tr>
+          <tr><td class="sig">createForm(el, config?)</td><td class="desc">Create a form. <code>config</code> is <code>{ rows | cols, density, spacing, labelGap, labelPosition, labelWidth, requiredHint, colsBreakpoint, bind, css, messages, steps, stepOrientation, validateSteps, createGrid }</code>; <code>rows</code> stacks the top-level blocks vertically, <code>cols</code> lays them left-to-right sharing the width equally (used when <code>rows</code> is absent), <code>spacing</code> is the vertical gap between items (a px number or a CSS length, defaulting to the density's gap) and <code>labelGap</code> the gap between an item's label and its field (defaulting to half the density's space), <code>labelPosition</code> (<code>top</code> default / <code>left</code> / <code>hidden</code>) and <code>labelWidth</code> are the defaults every item inherits (an item&rsquo;s own value wins), <code>requiredHint</code> is the placeholder marker a required field with no visible label shows (<code>true</code> appends <code>" *"</code>, a string resolves through the catalogue, <code>false</code> shows nothing), <code>colsBreakpoint</code> is the container width below which a <code>cols</code> container stacks into one column (default 480px), <code>bind</code> binds the form to a record (<code>{ grid, rowKey }</code>, <code>{ router, route, key, onSave? }</code> or a plain values object), <code>messages</code> supplies a <code>t(key, params)</code> catalogue for the separator's accessible label and the validation defaults, a <code>steps</code> array turns the form into a wizard with a <code>horizontal</code> (default) or <code>vertical</code> <code>stepOrientation</code>, and <code>validateSteps: false</code> opts out of validating the current step on a forward move (the integrator runs <code>validate()</code> itself). Returns <code>{ el, config, getItem, getValue, setValue, clear, validate, forEach, on, off, setDensity, setSpacing, setReadOnly, setDisabled, isDirty, isConflicted, save, revert, steps, activeStep, next, back, goToStep, destroy }</code>.</td></tr>
+          <tr><td class="sig">registerControl(type, definition)</td><td class="desc">Register a custom control type as a first-class item. <code>definition</code> is <code>{ create(el, item, api), getValue(el), setValue(el, value), validate?(value, item, el), destroy?(el) }</code>; the control gets the same wrapper, label, item API, events and density as a built-in, and an item <code>height</code> of <code>'100%'</code> fills the remaining height of a fixed-height form, as a <code>container</code> does (BACKLOG-0002543). A later registration for the same type replaces the earlier one.</td></tr>
           <tr><td class="sig">item</td><td class="desc">Each item: <code>type</code> (a built-in <code>input</code>/<code>number</code>/<code>textarea</code>/<code>checkbox</code>/<code>button</code>/<code>text</code>/<code>combo</code>/<code>rating</code>/<code>stage</code> or a registered custom type), <code>name</code>, <code>label</code>, <code>labelPosition</code> (<code>top</code>/<code>left</code>), <code>labelWidth</code>, <code>width</code>, <code>placeholder</code>, <code>helpMessage</code>, <code>hidden</code>, <code>disabled</code>, <code>readOnly</code>, <code>value</code>, <code>required</code>, <code>validation</code>, <code>errorMessage</code>, <code>successMessage</code>, <code>preMessage</code>, <code>validationMode</code>, <code>css</code>, and the rules <code>visibleWhen</code>, <code>readOnlyWhen</code>, <code>requiredWhen</code>. <code>input</code> takes <code>subtype</code> (a <code>password</code> subtype also <code>reveal</code>); <code>number</code> takes <code>step</code>/<code>min</code>/<code>max</code>. <code>rating</code> takes <code>max</code>, <code>allowHalf</code>, <code>allowClear</code>, <code>icon</code> or <code>icons</code> (<code>{ filled, empty }</code>), <code>labels</code>, <code>showValue</code> and <code>size</code> (<code>sm</code>/<code>md</code>/<code>lg</code>); <code>stage</code> takes <code>stages</code>, <code>current</code>, <code>completed</code>, <code>clickable</code> and <code>showIcons</code>; <code>chips</code> takes <code>options</code> (<code>{ value, label, icon?, disabled? }</code>), <code>multiple</code>, <code>allowEmpty</code>, <code>wrap</code> and <code>max</code>; <code>otp</code> takes <code>length</code>, <code>mode</code> (<code>numeric</code>/<code>alphanumeric</code>) and <code>mask</code>. <code>select</code>, <code>radiogroup</code> and <code>checkboxgroup</code> take <code>options</code>; a <code>radiogroup</code>/<code>checkboxgroup</code> also takes <code>orientation</code> (<code>vertical</code>/<code>horizontal</code>) or <code>columns</code> (an n-column grid read across then down). <code>button</code> takes <code>icon</code> (a name, URL/data: URI or element), <code>iconPosition</code> (<code>start</code>/<code>end</code>), <code>variant</code> (<code>primary</code>/<code>secondary</code>/<code>tonal</code>/<code>outline</code>/<code>text</code>/<code>danger</code>), <code>fullWidth</code>, <code>size</code> (<code>sm</code>/<code>md</code>/<code>lg</code>), <code>textTransform</code> (<code>none</code>/<code>uppercase</code>), <code>buttonType</code> (<code>button</code>/<code>submit</code>/<code>reset</code>), <code>loading</code>, <code>href</code>, <code>ariaLabel</code> (required for an icon-only button), <code>toggle</code> (a two-state button that flips <code>aria-pressed</code> and fires <code>change</code> with the new boolean) and <code>focusableWhenDisabled</code> (keep a disabled button focusable and in the tab order, reading <code>aria-disabled</code> instead of being natively disabled); a <code>{ type: 'buttons', align, items }</code> row lays buttons out by <code>align</code> (<code>start</code>/<code>end</code>/<code>center</code>/<code>stretch</code>/<code>space-between</code>), each child taking the same options.</td></tr>
-          <tr><td class="sig">getItem(name)</td><td class="desc">The item handle <code>{ el, name, getValue, setValue, setOptions, reload, show, hide, enable, disable, focus, blur, isVisible, validate, setLoading }</code> &mdash; <code>el</code> is the item's wrapper element. A <code>container</code> item's handle additionally has <code>attach(viewOrElement, { keep? })</code>, <code>attachHTML(html)</code> and <code>getWidget()</code> (BACKLOG-0002339). <code>undefined</code> for an unknown name.</td></tr>
+          <tr><td class="sig">getItem(name)</td><td class="desc">The item handle <code>{ el, name, getValue, setValue, setOptions, reload, show, hide, enable, disable, focus, blur, isVisible, validate, setLoading, getLabel, setLabel, setHelp }</code> &mdash; <code>el</code> is the item's wrapper element. A <code>container</code> item's handle additionally has <code>attach(viewOrElement, { keep? })</code>, <code>attachHTML(html)</code> and <code>getWidget()</code> (BACKLOG-0002339). A named <code>fieldset</code> is also retrievable this way, for a handle whose <code>setLabel</code>/<code>getLabel</code> reach its legend (BACKLOG-0002455). <code>undefined</code> for an unknown name.</td></tr>
+          <tr><td class="sig">getItem(name).getLabel()</td><td class="desc">The item's current label &mdash; a field's label, a button's caption, or a fieldset's legend &mdash; or <code>null</code> when it carries none (BACKLOG-0002455).</td></tr>
+          <tr><td class="sig">getItem(name).setLabel(text)</td><td class="desc">Change the item's visible label and its accessible name: a field's label, a button's caption, or (on a named fieldset's handle) its legend; on a registered custom control, the frame's own label and the <code>label</code> the control's <code>item</code> object carries. A hidden label (<code>labelPosition: 'hidden'</code>) stays visually hidden but its accessible name still updates. Survives <code>setDensity</code>, <code>setReadOnly</code>, <code>show()</code>/<code>hide()</code> and any re-render, and is what a later <code>getItem</code> reports. Returns the item, for chaining (BACKLOG-0002455).</td></tr>
+          <tr><td class="sig">getItem(name).setHelp(text)</td><td class="desc">Change the help line under the control; <code>null</code> removes it. Survives <code>setDensity</code>, <code>setReadOnly</code>, <code>show()</code>/<code>hide()</code> and any re-render, the same as <code>setLabel</code>. Returns the item, for chaining (BACKLOG-0002455).</td></tr>
           <tr><td class="sig">getValue()</td><td class="desc">Every named value-holding item as a plain <code>{ name: value }</code> object, in document order. A button is not included.</td></tr>
           <tr><td class="sig">setValue(values)</td><td class="desc">Write values into the matching named items, silently (no event fires). Keys that name no item are ignored.</td></tr>
           <tr><td class="sig">clear()</td><td class="desc">Reset every user-editable item to its empty value &mdash; <code>''</code> for a text field, <code>null</code> for a number, a stage or a single <code>chips</code>, <code>[]</code> for a multi <code>chips</code>, <code>false</code> for a checkbox, <code>0</code> for a rating. A read-only <code>text</code> display is left as it is. No event fires.</td></tr>
@@ -669,6 +685,67 @@ form.setSpacing('1.5rem');                  <span class="cmt">// any CSS length<
 form.destroy();
 <span class="kw">return</span> [spacing, labelGap, live, stillLabel, css, cleared, rem].join('|');</code></pre>
 
+    <h3 id="form-item-label-example">A button's caption after the form is built, executed</h3>
+    <p class="section-note">A two-step flow written by hand &mdash; <code>show()</code>/<code>hide()</code> swap the visible section, and the same button that moved you there relabels itself from Next to Submit via <code>setLabel()</code> (BACKLOG-0002455). The caption and the accessible name are the same text, so there is nothing left pointing at &ldquo;Next&rdquo;.</p>
+    <pre data-run="js" data-expect="Next|Next|Submit|Submit|null" data-covers="export:createForm method:form.getItem config:FormItemConfig.type config:FormItemConfig.name config:FormItemConfig.label config:FormItemConfig.hidden"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createForm } = <span class="kw">await</span> import('../packages/modules/form/index.js');
+
+<span class="kw">const</span> { root } = createTestDom();
+<span class="kw">const</span> form = createForm(root, {
+  rows: [
+    { type: <span class="str">'input'</span>, name: <span class="str">'email'</span>, label: <span class="str">'Email'</span> },
+    { type: <span class="str">'input'</span>, name: <span class="str">'amount'</span>, label: <span class="str">'Amount'</span>, hidden: true },  <span class="cmt">// step 2, not shown yet</span>
+    { type: <span class="str">'button'</span>, name: <span class="str">'advance'</span>, label: <span class="str">'Next'</span> },
+  ],
+});
+
+<span class="kw">const</span> advance = form.getItem('advance');
+<span class="kw">const</span> buttonEl = advance.el.querySelector('button');
+<span class="kw">const</span> captionBefore = advance.getLabel();          <span class="cmt">// 'Next'</span>
+<span class="kw">const</span> renderedBefore = buttonEl.textContent;       <span class="cmt">// 'Next'</span>
+
+form.getItem('email').hide();                     <span class="cmt">// leave step 1</span>
+form.getItem('amount').show();                     <span class="cmt">// enter step 2</span>
+<span class="kw">const</span> captionAfter = advance.setLabel('Submit').getLabel();  <span class="cmt">// chains, then reads back 'Submit'</span>
+<span class="kw">const</span> renderedAfter = buttonEl.textContent;        <span class="cmt">// 'Submit'</span>
+<span class="kw">const</span> ariaLabel = buttonEl.getAttribute('aria-label'); <span class="cmt">// null &mdash; the caption itself is the accessible name</span>
+
+form.destroy();
+<span class="kw">return</span> [captionBefore, renderedBefore, captionAfter, renderedAfter, String(ariaLabel)].join('|');</code></pre>
+
+    <h3 id="form-item-set-example">Any item prop, changed after build, executed</h3>
+    <p class="section-note"><code>getItem(name).set(props)</code> (BACKLOG-0002542) applies any subset of an item's own config after the form is already built &mdash; <code>placeholder</code>, <code>label</code>, <code>required</code> and the rest of the props listed on <code>FormItemLiveProps</code> &mdash; re-rendering only what changed and returning the item for chaining, the same contract <code>setLabel</code>/<code>setHelp</code> (BACKLOG-0002455) are now thin wrappers over. <code>setPlaceholder</code>/<code>getPlaceholder</code> are shortcuts for <code>set({ placeholder })</code>/<code>get('placeholder')</code>. Below, a city field's placeholder follows whatever the user just typed into a country field, through an ordinary <code>change</code> handler; <code>set({ required: true })</code> shows the same call working for a prop with no dedicated shortcut, and a prop the item does not carry warns once on the console and is otherwise ignored &mdash; the field's value is never touched by a <code>set()</code> that cannot apply.</p>
+    <pre data-run="js" data-expect="City|City in France|City in France|true" data-covers="export:createForm method:form.getItem method:form.on config:FormItemConfig.placeholder config:FormItemConfig.label config:FormItemConfig.name config:FormItemConfig.type config:FormItemConfig.required"><code><span class="kw">const</span> { createTestDom, TestEvent } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createForm } = <span class="kw">await</span> import('../packages/modules/form/index.js');
+
+<span class="kw">const</span> { root } = createTestDom();
+<span class="kw">const</span> form = createForm(root, {
+  rows: [
+    { type: <span class="str">'input'</span>, name: <span class="str">'country'</span>, label: <span class="str">'Country'</span>, placeholder: <span class="str">'Country'</span> },
+    { type: <span class="str">'input'</span>, name: <span class="str">'city'</span>, label: <span class="str">'City'</span>, placeholder: <span class="str">'City'</span> },
+  ],
+});
+
+form.on('change', ({ name, value }) =&gt; {                 <span class="cmt">// the placeholder follows another field</span>
+  <span class="kw">if</span> (name === <span class="str">'country'</span>) form.getItem(<span class="str">'city'</span>).set({ placeholder: value ? <span class="str">`City in ${value}`</span> : <span class="str">'City'</span> });
+});
+
+<span class="kw">const</span> city = form.getItem(<span class="str">'city'</span>);
+<span class="kw">const</span> before = city.getPlaceholder();                  <span class="cmt">// 'City'</span>
+
+<span class="kw">const</span> countryInput = form.getItem(<span class="str">'country'</span>).el.querySelector('input');
+countryInput.value = <span class="str">'France'</span>;
+countryInput.dispatchEvent(<span class="kw">new</span> TestEvent('change', { bubbles: true }));
+
+<span class="kw">const</span> after = city.getPlaceholder();                   <span class="cmt">// 'City in France'</span>
+<span class="kw">const</span> rendered = city.el.querySelector('input').placeholder;  <span class="cmt">// the same text, live on the native input</span>
+
+<span class="kw">const</span> chained = city.set({ required: true }).get('required');  <span class="cmt">// true &mdash; set() chains and get() reads it back</span>
+city.set({ bogus: true });                                <span class="cmt">// not a live prop: warns once, ignored</span>
+
+form.destroy();
+<span class="kw">return</span> [before, after, rendered, String(chained)].join('|');</code></pre>
+
     <h3 id="form-width-example">Percentage widths in a cols row, executed</h3>
     <p class="section-note">A percentage <code>width</code> in a <code>cols</code> row is a share of the row&rsquo;s width <em>after</em> its gaps, so three <code>33.3%</code> items each subtract two-thirds of the gap and sit on one line &mdash; with the real-Chrome geometry asserted in <code>test/form-width-2202-browser.test.js</code>.</p>
     <pre data-run="js" data-expect="0 0 calc(33.3% - 0.666 * var(--lattice-space))|0 0 calc(33.3% - 0.666 * var(--lattice-space))|0 0 calc(33.3% - 0.666 * var(--lattice-space))" data-covers="export:createForm config:FormConfig.cols config:FormItemConfig.width"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
@@ -690,6 +767,39 @@ form.destroy();
 
 form.destroy();
 <span class="kw">return</span> widths;</code></pre>
+
+    <h3 id="form-cols-wrap-example">Per-line percentage widths with wrap, executed</h3>
+    <p class="section-note"><code>wrap: true</code> on a <code>cols</code> block resolves each percentage <code>width</code> against its own rendered line's gaps rather than the whole row's (BACKLOG-0002559): a hidden item frees its line slot, so the gap count the remaining items on that line share drops too &mdash; here two <code>50%</code> items alone subtract one gap each once their sibling is hidden, instead of the row's two &mdash; with the real-Chrome geometry (a full line, a wrapped 50/50 pair, mixed px and %, and a live hide/show) asserted in <code>test/form-cols-wrap-2559-browser.test.js</code>.</p>
+    <pre data-run="js" data-expect="0 0 calc(50% - 0.5 * var(--lattice-space))|0 0 calc(50% - 0.5 * var(--lattice-space))|0 0 calc(50% - 1 * var(--lattice-space))|0 0 calc(50% - 1 * var(--lattice-space))" data-covers="export:createForm config:FormConfig.wrap"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createForm } = <span class="kw">await</span> import('../packages/modules/form/index.js');
+
+<span class="kw">const</span> flexOf = (form, name) =&gt; form.getItem(name).el.style.getPropertyValue('--lattice-item-flex');
+
+<span class="cmt">// `c` starts hidden, so the wrap row's first (and only) reflow counts just</span>
+<span class="cmt">// `a` and `b` on their line: one gap between the two of them, not the row's two.</span>
+<span class="kw">const</span> wrapped = createForm(createTestDom().root, {
+  wrap: <span class="kw">true</span>,
+  cols: [
+    { type: <span class="str">'input'</span>, name: <span class="str">'a'</span>, label: <span class="str">'A'</span>, width: <span class="str">'50%'</span> },
+    { type: <span class="str">'input'</span>, name: <span class="str">'b'</span>, label: <span class="str">'B'</span>, width: <span class="str">'50%'</span> },
+    { type: <span class="str">'input'</span>, name: <span class="str">'c'</span>, label: <span class="str">'C'</span>, width: <span class="str">'50%'</span>, hidden: <span class="kw">true</span> },
+  ],
+});
+<span class="kw">const</span> wrappedFlex = [flexOf(wrapped, 'a'), flexOf(wrapped, 'b')];
+wrapped.destroy();
+
+<span class="cmt">// Without `wrap: true` the same row still uses the whole row's two gaps.</span>
+<span class="kw">const</span> plain = createForm(createTestDom().root, {
+  cols: [
+    { type: <span class="str">'input'</span>, name: <span class="str">'a'</span>, label: <span class="str">'A'</span>, width: <span class="str">'50%'</span> },
+    { type: <span class="str">'input'</span>, name: <span class="str">'b'</span>, label: <span class="str">'B'</span>, width: <span class="str">'50%'</span> },
+    { type: <span class="str">'input'</span>, name: <span class="str">'c'</span>, label: <span class="str">'C'</span>, width: <span class="str">'50%'</span>, hidden: <span class="kw">true</span> },
+  ],
+});
+<span class="kw">const</span> plainFlex = [flexOf(plain, 'a'), flexOf(plain, 'b')];
+plain.destroy();
+
+<span class="kw">return</span> [...wrappedFlex, ...plainFlex].join('|');</code></pre>
 
     <h3 id="form-cols-breakpoint-example">Cols breakpoint and full-width buttons, executed</h3>
     <p class="section-note"><code>colsBreakpoint: 0</code> (or <code>false</code>) turns stacking off so a <code>cols</code> row never stacks, and a <code>fullWidth</code> button fills its own column while the columns keep sharing the row &mdash; with the real-Chrome geometry asserted in <code>test/form-cols-breakpoint-2292-browser.test.js</code>.</p>
@@ -797,6 +907,45 @@ form.destroy();
 
 form.destroy();
 <span class="kw">return</span> [leftPos, leftFlex, topPos, emailLabel, emailPlaceholder, emailRequired, codeAria].join('|');</code></pre>
+
+    <h3 id="form-control-min-width-example">A left label switching to the top below controlMinWidth, executed</h3>
+    <p class="section-note"><code>controlMinWidth</code> (BACKLOG-0002554) is a pixel number or CSS length set on the form, a fieldset/container or an item, inherited the same way as <code>labelPosition</code> and <code>labelWidth</code>. When an item&rsquo;s <code>labelPosition</code> is <code>'left'</code> and its own width minus the label column (<code>labelWidth</code>, or the label&rsquo;s natural width when unset) minus the gap would leave the control narrower than <code>controlMinWidth</code>, the label moves to the top (<code>data-label-effective="top"</code>, and read-only on <code>getItem(name).labelEffectivePosition</code>); it switches back once the item widens past the threshold again, with a few pixels of hysteresis so a width sitting on the line never flickers. The switch is measured per item with a <code>ResizeObserver</code> on the item&rsquo;s own wrapper, so a shell splitter or a drawer resizing the host counts, not only the window. A checkbox or toggle item is unaffected (its label sits beside it by design), and without <code>controlMinWidth</code> nothing changes. Real-Chrome geometry, the hysteresis band and a real <code>ResizeObserver</code> are asserted in <code>test/form-control-min-width-2554-browser.test.js</code>; this example drives the same logic through the test DOM&rsquo;s on-demand <code>ResizeObserver</code> shim.</p>
+    <pre data-run="js" data-expect="left|top|top|left|left|top" data-covers="export:createForm method:form.getItem config:FormConfig.controlMinWidth config:FormItemConfig.controlMinWidth"><code><span class="kw">const</span> { createTestDom, triggerResize } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createForm } = <span class="kw">await</span> import('../packages/modules/form/index.js');
+
+<span class="kw">const</span> { root, document: doc } = createTestDom();
+<span class="kw">const</span> form = createForm(root, {
+  labelPosition: <span class="str">'left'</span>, labelWidth: 140, controlMinWidth: 200,  <span class="cmt">// the form default: switch below 140 + gap + 200</span>
+  rows: [
+    { type: <span class="str">'input'</span>, name: <span class="str">'a'</span>, label: <span class="str">'Alpha'</span> },
+    { type: <span class="str">'checkbox'</span>, name: <span class="str">'chk'</span>, label: <span class="str">'Check'</span> },           <span class="cmt">// unaffected: its label sits beside it by design</span>
+    { fieldset: <span class="str">'Set'</span>, controlMinWidth: 60, rows: [               <span class="cmt">// a fieldset's own, smaller threshold</span>
+      { type: <span class="str">'input'</span>, name: <span class="str">'b'</span>, label: <span class="str">'Beta'</span> },
+    ] },
+  ],
+});
+
+<span class="kw">const</span> el = (name) =&gt; form.getItem(name).el;
+<span class="kw">const</span> resize = (width) =&gt; {
+  <span class="kw">for</span> (<span class="kw">const</span> name <span class="kw">of</span> [<span class="str">'a'</span>, <span class="str">'chk'</span>, <span class="str">'b'</span>]) doc.setRect(el(name), { width, height: 30, top: 0, left: 0 });
+  triggerResize();
+};
+
+resize(600);
+<span class="kw">const</span> wideA = el(<span class="str">'a'</span>).getAttribute(<span class="str">'data-label-effective'</span>);          <span class="cmt">// 'left'</span>
+
+resize(300);                                                        <span class="cmt">// 300 - 140 = 160, under the form's 200 threshold</span>
+<span class="kw">const</span> narrowA = el(<span class="str">'a'</span>).getAttribute(<span class="str">'data-label-effective'</span>);        <span class="cmt">// 'top'</span>
+<span class="kw">const</span> narrowApi = form.getItem(<span class="str">'a'</span>).labelEffectivePosition;          <span class="cmt">// 'top', read-only</span>
+<span class="kw">const</span> narrowChk = el(<span class="str">'chk'</span>).getAttribute(<span class="str">'data-label-effective'</span>);    <span class="cmt">// 'left': a checkbox never switches</span>
+<span class="kw">const</span> narrowB = el(<span class="str">'b'</span>).getAttribute(<span class="str">'data-label-effective'</span>);        <span class="cmt">// 'left': 160 is still above the fieldset's own 60</span>
+
+doc.setRect(el(<span class="str">'b'</span>), { width: 190, height: 30, top: 0, left: 0 });
+triggerResize();
+<span class="kw">const</span> belowFieldsetB = el(<span class="str">'b'</span>).getAttribute(<span class="str">'data-label-effective'</span>); <span class="cmt">// 'top': below the fieldset's own threshold too</span>
+
+form.destroy();
+<span class="kw">return</span> [wideA, narrowA, narrowApi, narrowChk, narrowB, belowFieldsetB].join('|');</code></pre>
 
     <h3 id="form-chrome-example">Help tooltips, read-only locks, field addons and panels, executed</h3>
     <p class="section-note">Parity chrome: a <code>tooltip</code> draws a &ldquo;?&rdquo; trigger after the label, linked to the control by <code>aria-describedby</code>; a read-only field shows a muted lock inside its right edge (<code>lockIcon: false</code> hides it); an <code>addons</code> list draws round icon buttons (disabled with the field) and an <code>avatar</code> addon that follows the value; and a <code>panel</code> block is a bordered surface with a title, subtitle, divider and header actions. Real-Chrome geometry, light/dark and the 1280x800 screenshot are asserted in the form's browser test.</p>
@@ -918,6 +1067,138 @@ const replacedText = form.getItem('box').el.querySelector('em').textContent;
 
 form.destroy();
 return [scriptGone, styleKept, onclickGone, labelLeft, labelFlex, cssApplied, disabledAria, hiddenBeforeShow, visibleAfterShow, attached, widthFilled, inBox, valueHasNoKeys, widgetClearedAfterReplace, replacedText].join('|');</code></pre>
+
+    <h3 id="form-grid-example">A grid item: a cost projection in a form, executed</h3>
+    <p class="section-note">The real keys (a currency cell typed into and committed with Tab, the totals following), the row controls from the keyboard, read-only, the marked offending cell, dark mode and a preset are asserted in <code>test/form-grid-2454-browser.test.js</code>; this example proves the data-level contract headlessly.</p>
+    <pre data-run="js" data-expect="150|costs,fuelCost|160|false|Row 3, Cost: Must be at most 1000.|3|costs+fuelCost" data-covers="export:createForm export:createGrid config:GridItemConfig.name config:GridItemConfig.createGrid config:GridItemConfig.columns config:GridItemConfig.rowKey config:GridItemConfig.value config:GridItemConfig.height config:GridItemConfig.label config:GridItemConfig.fields config:GridItemConfig.totals config:GridItemConfig.required method:form.getItem method:form.getValue method:form.setValue method:form.validate method:form.on method:form.destroy"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createGrid } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+<span class="kw">const</span> { createForm } = <span class="kw">await</span> import('../packages/modules/form/index.js');
+
+<span class="kw">const</span> { root } = createTestDom();
+<span class="kw">const</span> form = createForm(root, {
+  createGrid,                               <span class="cmt">// handed in: the form bundles no grid core</span>
+  rows: [{
+    type: <span class="str">'grid'</span>, name: <span class="str">'costs'</span>, label: <span class="str">'Cost projection'</span>, rowKey: <span class="str">'id'</span>, height: 200,
+    columns: [
+      { field: <span class="str">'item'</span>, title: <span class="str">'Item'</span> },
+      { field: <span class="str">'cost'</span>, title: <span class="str">'Cost'</span>, type: <span class="str">'number'</span>, edit: <span class="kw">true</span>, validation: { min: 0, max: 1000 } },
+      { field: <span class="str">'qty'</span>, title: <span class="str">'Qty'</span>, type: <span class="str">'number'</span>, edit: <span class="kw">true</span> },
+    ],
+    value: [
+      { id: <span class="str">'fuel'</span>, item: <span class="str">'Fuel'</span>, cost: 120, qty: 2 },
+      { id: <span class="str">'crew'</span>, item: <span class="str">'Crew'</span>, cost: 300, qty: 1 },
+    ],
+    fields: { fuelCost: { row: <span class="str">'fuel'</span>, col: <span class="str">'cost'</span> } },   <span class="cmt">// one cell, also a top-level property</span>
+    totals: { row: <span class="kw">true</span>, column: { title: <span class="str">'Line'</span> } },       <span class="cmt">// display-only, never in the value</span>
+    required: <span class="kw">true</span>,                                       <span class="cmt">// at least one row</span>
+  }],
+});
+
+<span class="kw">const</span> changes = [];
+form.on('change', (e) =&gt; changes.push(e.name));
+<span class="kw">const</span> grid = form.getItem('costs').getGrid();
+
+<span class="cmt">// A person's edit: beforeChange, the column validators, then one change per property.</span>
+grid.edit.setCells([{ key: <span class="str">'fuel'</span>, colId: <span class="str">'cost'</span>, value: 150 }], <span class="str">'cell'</span>, { origin: <span class="str">'user'</span> });
+<span class="kw">const</span> edited = form.getValue().fuelCost;          <span class="cmt">// 150</span>
+<span class="kw">const</span> fired = changes.join(',');                 <span class="cmt">// 'costs,fuelCost'</span>
+
+form.setValue({ fuelCost: 160 });                   <span class="cmt">// a mapped cell is written like any field</span>
+<span class="kw">const</span> mapped = form.getValue().costs[0].cost;      <span class="cmt">// 160: the rows follow</span>
+
+form.getItem('costs').addRow({ id: <span class="str">'tyres'</span>, item: <span class="str">'Tyres'</span>, cost: 5000, qty: 4 });
+<span class="kw">const</span> failures = [];
+form.on('validated', (e) =&gt; { <span class="kw">if</span> (e.name == <span class="kw">null</span>) failures.push(...e.failures); });
+<span class="kw">const</span> ok = form.validate();                        <span class="cmt">// false: 5000 is over the column's max</span>
+<span class="kw">const</span> rows = form.getValue().costs.length;           <span class="cmt">// 3</span>
+<span class="kw">const</span> keys = Object.keys(form.getValue()).join('+'); <span class="cmt">// 'costs+fuelCost': no totals</span>
+
+form.destroy();
+<span class="kw">return</span> [edited, fired, mapped, ok, failures[0].message, rows, keys].join('|');</code></pre>
+
+    <h3 id="form-grid-shapes-example">A grid item: arrays, row controls and mapped cells only, executed</h3>
+    <p class="section-note"><code>valueAs: 'arrays'</code> reports each row as an array in column order; <code>rowControls</code> draws the Add row and Delete row buttons (<code>newRow</code> gives a blank row its defaults, and <code>gridOptions</code> passes any other grid option through); <code>valueRows: false</code> drops the rows array and keeps only the mapped cells.</p>
+    <pre data-run="js" data-expect="a/Fuel/120;row-2/New line/0|fuelCost=120" data-covers="export:createForm export:createGrid config:GridItemConfig.valueAs config:GridItemConfig.valueRows config:GridItemConfig.rowControls config:GridItemConfig.newRow config:GridItemConfig.gridOptions config:GridItemConfig.fields config:GridItemConfig.columns config:GridItemConfig.rowKey config:GridItemConfig.value config:GridItemConfig.createGrid method:form.getValue method:form.destroy"><code><span class="kw">const</span> { createTestDom, TestEvent } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createGrid } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+<span class="kw">const</span> { createForm } = <span class="kw">await</span> import('../packages/modules/form/index.js');
+
+<span class="kw">const</span> columns = [{ field: <span class="str">'id'</span> }, { field: <span class="str">'item'</span> }, { field: <span class="str">'cost'</span>, type: <span class="str">'number'</span>, edit: <span class="kw">true</span> }];
+
+<span class="kw">const</span> { root } = createTestDom();
+<span class="kw">const</span> arrays = createForm(root, {
+  createGrid,
+  rows: [{
+    type: <span class="str">'grid'</span>, name: <span class="str">'lines'</span>, rowKey: <span class="str">'id'</span>, columns,
+    valueAs: <span class="str">'arrays'</span>,                                   <span class="cmt">// each row is [id, item, cost]</span>
+    value: [[<span class="str">'a'</span>, <span class="str">'Fuel'</span>, 120]],
+    rowControls: <span class="kw">true</span>,                                   <span class="cmt">// Add row / Delete row buttons</span>
+    newRow: { item: <span class="str">'New line'</span>, cost: 0 },               <span class="cmt">// defaults for the Add row button</span>
+    gridOptions: { selection: <span class="str">'multiple'</span> },              <span class="cmt">// any other grid option</span>
+  }],
+});
+root.querySelector('.lat-form__grid-add').dispatchEvent(<span class="kw">new</span> TestEvent('click'));
+<span class="kw">const</span> shaped = arrays.getValue().lines.map((row) =&gt; row.join('/')).join(';');
+
+<span class="kw">const</span> cellsOnly = createForm(createTestDom().root, {
+  createGrid,
+  rows: [{
+    type: <span class="str">'grid'</span>, name: <span class="str">'lines'</span>, rowKey: <span class="str">'id'</span>, columns,
+    value: [{ id: <span class="str">'a'</span>, item: <span class="str">'Fuel'</span>, cost: 120 }],
+    fields: { fuelCost: { row: <span class="str">'a'</span>, col: <span class="str">'cost'</span> } },
+    valueRows: <span class="kw">false</span>,                                    <span class="cmt">// only the mapped cells are in the value</span>
+  }],
+});
+<span class="kw">const</span> kept = Object.entries(cellsOnly.getValue()).map(([k, v]) =&gt; k + '=' + v).join(',');
+
+arrays.destroy();
+cellsOnly.destroy();
+<span class="kw">return</span> [shaped, kept].join('|');</code></pre>
+
+    <h3 id="form-grid-states-example">A grid item: label, states and rules, executed</h3>
+    <p class="section-note">A grid item takes the usual item options &mdash; <code>helpMessage</code>, <code>width</code>, <code>labelPosition</code>/<code>labelWidth</code>, <code>css</code>, <code>validationMode</code> &mdash; and the rule options <code>visibleWhen</code>, <code>readOnlyWhen</code> and <code>requiredWhen</code>, which may watch any other item or mapped cell; <code>readOnly</code> and <code>disabled</code> start it refusing edits (a disabled grid is inert and skipped by <code>validate()</code>).</p>
+    <pre data-run="js" data-expect="false|true|false|0|true|480px" data-covers="export:createForm export:createGrid config:GridItemConfig.helpMessage config:GridItemConfig.width config:GridItemConfig.labelPosition config:GridItemConfig.labelWidth config:GridItemConfig.css config:GridItemConfig.validationMode config:GridItemConfig.visibleWhen config:GridItemConfig.readOnlyWhen config:GridItemConfig.requiredWhen config:GridItemConfig.readOnly config:GridItemConfig.disabled method:form.getItem method:form.validate method:form.destroy"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createGrid } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+<span class="kw">const</span> { createForm } = <span class="kw">await</span> import('../packages/modules/form/index.js');
+
+<span class="kw">const</span> { root } = createTestDom();
+<span class="kw">const</span> form = createForm(root, {
+  createGrid,
+  rows: [
+    { type: <span class="str">'checkbox'</span>, name: <span class="str">'locked'</span>, label: <span class="str">'Lock the plan'</span> },
+    { type: <span class="str">'checkbox'</span>, name: <span class="str">'detail'</span>, label: <span class="str">'Show the plan'</span> },
+    {
+      type: <span class="str">'grid'</span>, name: <span class="str">'plan'</span>, label: <span class="str">'Plan'</span>, rowKey: <span class="str">'id'</span>,
+      columns: [{ field: <span class="str">'item'</span>, edit: <span class="kw">true</span> }, { field: <span class="str">'cost'</span>, type: <span class="str">'number'</span>, edit: <span class="kw">true</span> }],
+      value: [],
+      helpMessage: <span class="str">'One row per cost line.'</span>,
+      width: 480, labelPosition: <span class="str">'left'</span>, labelWidth: 80,
+      css: { margin: <span class="str">'0 auto'</span> },
+      validationMode: <span class="str">'change'</span>,
+      visibleWhen: { name: <span class="str">'detail'</span>, equals: <span class="kw">true</span> },    <span class="cmt">// shown once the box is ticked</span>
+      readOnlyWhen: { name: <span class="str">'locked'</span>, equals: <span class="kw">true</span> },  <span class="cmt">// refuses edits while locked</span>
+      requiredWhen: { name: <span class="str">'detail'</span>, equals: <span class="kw">true</span> },  <span class="cmt">// at least one row, once visible</span>
+    },
+    {
+      type: <span class="str">'grid'</span>, name: <span class="str">'frozen'</span>, rowKey: <span class="str">'id'</span>, columns: [{ field: <span class="str">'item'</span> }],
+      value: [{ id: <span class="str">'a'</span>, item: <span class="str">'Fixed'</span> }], readOnly: <span class="kw">true</span>, disabled: <span class="kw">true</span>,
+    },
+  ],
+});
+
+<span class="kw">const</span> plan = form.getItem('plan');
+<span class="kw">const</span> hidden = plan.isVisible();                  <span class="cmt">// false</span>
+form.getItem('detail').setValue(<span class="kw">true</span>);
+<span class="kw">const</span> shown = plan.isVisible();                   <span class="cmt">// true</span>
+<span class="kw">const</span> required = form.validate();                 <span class="cmt">// false: no rows yet</span>
+
+plan.addRow({ item: <span class="str">'Fuel'</span>, cost: 120 });
+form.getItem('locked').setValue(<span class="kw">true</span>);
+<span class="kw">const</span> locked = plan.getGrid().edit.setCells(
+  [{ key: <span class="str">'row-1'</span>, colId: <span class="str">'cost'</span>, value: 1 }], <span class="str">'cell'</span>, { origin: <span class="str">'user'</span> }); <span class="cmt">// 0 cells written</span>
+<span class="kw">const</span> frozen = form.getItem('frozen').el.querySelector('.lat-form__grid').getAttribute('aria-disabled');
+
+form.destroy();
+<span class="kw">return</span> [hidden, shown, required, locked, frozen, plan.el.style.width].join('|');</code></pre>
 
     <h3 id="form-button-example">The button and the buttons row, executed</h3>
     <p class="section-note">A <code>button</code> renders its variant, size, icon position, full width and text transform; an icon may be a built-in glyph name or a data: URI; an icon-only button carries its <code>ariaLabel</code> and a <code>href</code> renders a link styled as a button. A <code>submit</code> button validates first and only then fires <code>submit</code> with the values; <code>reset</code> clears; <code>loading</code>/<code>setLoading</code> swaps the icon for a spinner and ignores clicks; and a <code>buttons</code> row lays its children out by <code>align</code> &mdash; with the real Chrome geometry and the light/dark colours asserted in <code>test/form-button-2194-browser.test.js</code>.</p>
@@ -1041,7 +1322,7 @@ form.destroy();
 return [fruitRows, kept, cleared, fruitChanges, colourRows, keptColour].join('|');</code></pre>
 
     <h3 id="combo">The combo control</h3>
-    <p>The same module also ships <code>createCombo(el, config)</code>, the standalone form of the form's <code>type: 'combo'</code> item: a searchable combobox with dynamic server values, dependent lists, multi-select and multi-line options. It is a <code>load</code>-driven paging list &mdash; the search is debounced, a newer load aborts the older one, pages load on scroll and are cached, and <code>reload()</code> drops the cache &mdash; or a static <code>options</code> list when there is no server. Options are a bare value or <code>{ value, label, description, icon, avatar, color, dot, disabled }</code>; a <code>description</code> adds a second line, an <code>icon</code> is a glyph name from the grid's icon set drawn as the real SVG (or a DOM node) and an <code>avatar</code> is an image URL or initials, each drawn round on the left of the list rows, the multi-select chips and the single-select shown value, in a virtualised list of variable-height rows; <code>color</code> tints the initials avatar and the icon (an SVG takes it as its fill or stroke, an element as its colour), and <code>dot</code> draws a small filled circle in that colour instead of any icon or avatar, with no letter; a <code>disabled</code> option shows but refuses a click. A <code>multiple</code> combo keeps its value as an array in selection order and draws chips that wrap, cap at <code>maxHeight</code> and scroll, with a <code>+N</code> summary and a <code>selectAll</code> action over the loaded set. <code>chipPlacement</code> moves those chips out of the control &mdash; <code>'above'</code> or <code>'below'</code> puts them in their own wrapping row beside the field, so the input stays a single clean search line and the list still opens directly under it. <code>resolveLabels(values)</code> supplies labels for a preselected value outside the first page, <code>newOptions</code> turns the box into free entry (with a create row while typing), <code>optionTemplate</code> replaces the row renderer and <code>selectedTemplate</code> the chips and shown value &mdash; either may return a DOM node or an HTML string, which is sanitised before insertion &mdash; and a form item's <code>dependsOn</code> clears and reloads it when a named parent item changes. The list opens in the same shared top-level layer the select and the date picker use, positioned against the field so a clipping or fixed-height ancestor never cuts it off (BACKLOG-0002291).</p>
+    <p>The same module also ships <code>createCombo(el, config)</code>, the standalone form of the form's <code>type: 'combo'</code> item: a searchable combobox with dynamic server values, dependent lists, multi-select and multi-line options. It is a <code>load</code>-driven paging list &mdash; the search is debounced, a newer load aborts the older one, pages load on scroll and are cached, and <code>reload()</code> drops the cache &mdash; or a static <code>options</code> list when there is no server. Options are a bare value or <code>{ value, label, description, icon, avatar, color, dot, disabled }</code>; a <code>description</code> adds a second line, an <code>icon</code> is a glyph name from the grid's icon set drawn as the real SVG (or a DOM node) and an <code>avatar</code> is an image URL or initials, each drawn round on the left of the list rows, the multi-select chips and the single-select shown value, in a virtualised list of variable-height rows; <code>color</code> tints the initials avatar and the icon (an SVG takes it as its fill or stroke, an element as its colour), and <code>dot</code> draws a small filled circle in that colour instead of any icon or avatar, with no letter; a <code>disabled</code> option shows but refuses a click. A <code>multiple</code> combo keeps its value as an array in selection order and draws chips that wrap, cap at <code>maxHeight</code> and scroll, with a <code>+N</code> summary and a <code>selectAll</code> action over the loaded set. <code>chipPlacement</code> moves those chips out of the control &mdash; <code>'above'</code> or <code>'below'</code> puts them in their own wrapping row beside the field, so the input stays a single clean search line and the list still opens directly under it. <code>resolveLabels(values)</code> supplies labels for a preselected value outside the first page, <code>newOptions</code> turns the box into free entry (with a create row while typing), <code>optionTemplate</code> replaces the row renderer and <code>selectedTemplate</code> the chips and shown value &mdash; either may return an <code>HTMLElement</code> (inserted as is) or an HTML string, sanitised before insertion with <code>class</code> kept on every tag the whitelist allows rather than only a <code>lat-</code>/<code>dfc-</code> prefixed one, so an icon-font template such as <code>'&lt;i class="fa fa-star"&gt;&lt;/i&gt; Star'</code> keeps its class &mdash; scripts, event handlers, <code>javascript:</code> URLs and style expressions are still removed (BACKLOG-0002540). While a single-select combo is unfocused and <code>selectedTemplate</code> renders the shown value, the template alone is visible and the input's own label text is hidden behind it, so the field never reads the label twice; focusing the field (or typing) swaps that around &mdash; a plain <code>icon</code>/<code>avatar</code> adornment is unaffected, since it never duplicates the label text (BACKLOG-0002539) &mdash; and a form item's <code>dependsOn</code> clears and reloads it when a named parent item changes. The list opens in the same shared top-level layer the select and the date picker use, positioned against the field so a clipping or fixed-height ancestor never cuts it off (BACKLOG-0002291).</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Member</th><th>Description</th></tr></thead>
@@ -1205,7 +1486,8 @@ form.destroy();
 return out;</code></pre>
 
     <h3 id="listbox">The listbox control</h3>
-    <p>A <code>type: 'listbox'</code> item is a scrolling, virtualised option list. <code>selection</code> picks the interaction mode: <code>'single'</code> (the default, click or arrow selects), <code>'multiple'</code> (click replaces the selection, Ctrl/Cmd+click toggles, Shift+click spans a range, a touch tap toggles) or <code>'checkbox'</code> (a box per row plus a select-all row). <code>filter: true</code> adds a search box that narrows the rows by label and description without dropping an already-selected option it hides; <code>groupBy: true</code> buckets the options by their <code>group</code> field under sticky headers; <code>sort: 'asc' | 'desc'</code> orders the rows by label; <code>render(opt)</code> replaces a row's content. <code>height</code> (pixels) or <code>rows</code> (row count) sizes the viewport. <code>reorder: true</code> draws Move up/Move down buttons and accepts Alt+Arrow and drag, and the committed value becomes the full, reordered item array; <code>connect: '&lt;other item name&gt;'</code> links this list to another by name &mdash; a Move selected/Move all pair (and drag, either direction) move items between the two, and each side's value is simply the items it currently holds. <code>min</code>/<code>max</code> cap the selection count, like a multi <code>chips</code> item.</p>
+    <p>A <code>type: 'listbox'</code> item is a scrolling, virtualised option list. <code>selection</code> picks the interaction mode: <code>'single'</code> (the default, click or arrow selects), <code>'multiple'</code> (click replaces the selection, Ctrl/Cmd+click toggles, Shift+click spans a range, a touch tap toggles) or <code>'checkbox'</code> (a box per row plus a select-all row). <code>filter: true</code> adds a search box that narrows the rows by label and description without dropping an already-selected option it hides; <code>groupBy: true</code> buckets the options by their <code>group</code> field under sticky headers; <code>sort: 'asc' | 'desc'</code> orders the rows by label; <code>render(opt)</code> replaces a row's content, handed the option exactly as given so a field this module does not know about still reaches it. <code>height</code> (pixels) or <code>rows</code> (row count) sizes the viewport. <code>reorder: true</code> draws Move up/Move down buttons and accepts Alt+Arrow and drag, and the committed value becomes the full, reordered item array; <code>connect: '&lt;other item name&gt;'</code> links this list to another by name &mdash; a Move selected/Move all pair (and drag, either direction) move items between the two, and each side's value is simply the items it currently holds. <code>min</code>/<code>max</code> cap the selection count, like a multi <code>chips</code> item.</p>
+    <p id="listbox-editable"><strong>An editable ordered list (BACKLOG-0002547).</strong> <code>getItem(name).getOptions()</code> reads the current item order exactly as given, independent of selection, the search text or a <code>filter()</code> predicate. With <code>reorder: true</code>, <code>valueAs: 'order'</code> makes the committed value the ordered array of option values in every selection mode &mdash; including the default <code>'single'</code>, where the value would otherwise be just the one selected item, and which an ordered-list item usually wants instead, since the list itself is the data. Every row click fires <code>itemClick</code> with the option and the mouse event, the already-selected row included, and Enter fires <code>activate</code> the same way. <code>getItem(name).addOption(opt, index?)</code>, <code>.removeOption(value)</code> and <code>.updateOption(value, patch)</code> edit the list from the host, keeping selection and order consistent and each firing one <code>change</code>. <code>dragHandle: true</code> draws a grip and drags only from it (a plain pointer drag, not native HTML5 drag-and-drop, so it is driven the same way the grid's own row-drag handle is) and sizes rows to their content instead of a fixed height. <code>getItem(name).filter(fn)</code> (and <code>filter(null)</code> to clear it) shows only the options <code>fn</code> accepts, without touching the canonical order, the selection or the value.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Member</th><th>Description</th></tr></thead>
@@ -1214,7 +1496,13 @@ return out;</code></pre>
           <tr><td class="sig">filter / groupBy / sort</td><td class="desc">A search box; sticky group headers from each option's <code>group</code>; label order <code>'asc'</code>/<code>'desc'</code>/<code>false</code>.</td></tr>
           <tr><td class="sig">render(opt)</td><td class="desc">A custom row renderer, returning a DOM node or an HTML string (sanitised before insertion).</td></tr>
           <tr><td class="sig">reorder / connect</td><td class="desc"><code>reorder: true</code> makes the value the full reordered item array; <code>connect: name</code> exchanges items with the list box of that name.</td></tr>
+          <tr><td class="sig">valueAs</td><td class="desc">With <code>reorder: true</code>, <code>'order'</code> makes the value the ordered array of option values in every selection mode, including <code>'single'</code> (BACKLOG-0002547).</td></tr>
+          <tr><td class="sig">dragHandle</td><td class="desc"><code>true</code> draws a drag grip and drags only from it; rows size to their content instead of a fixed height (BACKLOG-0002547).</td></tr>
           <tr><td class="sig">height / rows / min / max</td><td class="desc">The viewport size in pixels or rows; the selection-count floor/cap.</td></tr>
+          <tr><td class="sig">getItem(name).getOptions()</td><td class="desc">The options in their current order, independent of selection (BACKLOG-0002547).</td></tr>
+          <tr><td class="sig">getItem(name).addOption(opt, index?) / .removeOption(value) / .updateOption(value, patch)</td><td class="desc">Edit the list from the host, keeping selection and order consistent; each fires one <code>change</code> (BACKLOG-0002547).</td></tr>
+          <tr><td class="sig">getItem(name).filter(fn)</td><td class="desc">Show only the options <code>fn</code> accepts; <code>filter(null)</code> clears it. Never touches order or value (BACKLOG-0002547).</td></tr>
+          <tr><td class="sig">itemClick / activate</td><td class="desc"><code>form.on('itemClick', ...)</code> fires on every row click (selected row included) with the option and the mouse event; <code>activate</code> fires the same way on Enter (BACKLOG-0002547).</td></tr>
         </tbody>
       </table>
     </div>
@@ -1306,6 +1594,64 @@ const availableValue = connectForm.getItem('available').getValue().join(','); <s
 connectForm.destroy();
 
 return [spanValue, afterFilter, groupName, 'asc:' + sortedLabels, rendered, reordered, chosenValue, availableValue].join('|');</code></pre>
+
+    <h4 id="listbox-editable-live-example">An editable ordered list: raw option data, order-as-value, itemClick/activate, host edits, drag handle and filter, executed</h4>
+    <pre data-run="js" data-expect="first|a,b,c|true|activate:c|a,c,d|true|false|2" data-covers="export:createForm config:FormItemConfig.render config:FormItemConfig.reorder config:FormItemConfig.valueAs config:FormItemConfig.dragHandle"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createForm } = await import('../packages/modules/form/index.js');
+
+const { document, root } = createTestDom();
+const host = document.createElement('div');
+root.appendChild(host);
+
+const seen = [];
+const events = [];
+const form = createForm(host, { rows: [
+  { type: 'listbox', name: 'steps', label: 'Steps',
+    props: {
+      reorder: true, valueAs: 'order', dragHandle: true,
+      render: (opt) => { seen.push(opt.note || null); return opt.label; },
+    },
+    options: [
+      { value: 'a', label: 'Alpha', note: 'first' },
+      { value: 'b', label: 'Beta' },
+      { value: 'c', label: 'Charlie' },
+    ] },
+] });
+form.on('itemClick', (e) => events.push('itemClick:' + e.option.value));
+form.on('activate', (e) => events.push('activate:' + e.option.value));
+
+const item = form.getItem('steps');
+const rawNote = seen[0];           <span class="cmt">// 'first' &mdash; render(opt) saw the whole option, untouched</span>
+const order = item.getValue().join(','); <span class="cmt">// 'a,b,c' &mdash; single selection mode, but valueAs: 'order'</span>
+
+const el = item.el;
+const rows = () => [...el.querySelectorAll('[role="option"]')];
+rows()[0].dispatchEvent(new TestEvent('click', { bubbles: true }));
+rows()[0].dispatchEvent(new TestEvent('click', { bubbles: true })); <span class="cmt">// clicked again, already selected</span>
+const itemClicksOnSelectedRow = events.filter((e) => e === 'itemClick:a').length === 2;
+
+item.addOption({ value: 'd', label: 'Delta' });
+item.updateOption('b', { label: 'Beta2' });
+item.removeOption('b');
+const afterEdits = item.getOptions().map((o) => o.value).join(','); <span class="cmt">// 'a,c,d'</span>
+
+const hasHandle = !!el.querySelector('.lat-listbox__handle');
+const nativeDraggable = rows()[0].draggable === true; <span class="cmt">// false &mdash; dragHandle drags only from the grip</span>
+
+item.filter((opt) => opt.value !== 'a');
+const filteredCount = rows().length; <span class="cmt">// 2 &mdash; 'c' and 'd', without touching order or value</span>
+item.filter(null);
+
+<span class="cmt">// Last, since a keyboard move re-settles the virtual list's measured row</span>
+<span class="cmt">// heights against this fixture's fixed layout — nothing here reads rows() again.</span>
+const viewport = el.querySelector('[role="listbox"]');
+viewport.focus();
+viewport.dispatchEvent(new TestEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+viewport.dispatchEvent(new TestEvent('keydown', { key: 'Enter', bubbles: true }));
+const activated = events.find((e) => e.startsWith('activate:')); <span class="cmt">// 'activate:c' &mdash; 'b' was just removed</span>
+
+form.destroy();
+return [rawNote, order, itemClicksOnSelectedRow, activated, afterEdits, hasHandle, nativeDraggable, filteredCount].join('|');</code></pre>
 
     <h3 id="form-bind-live-example">Binding, dirty tracking, save, revert and conflict, executed</h3>
     <p class="section-note">A form bound to a grid row generates one item per column with the column's editor, follows the
@@ -1636,7 +1982,10 @@ built[0].setValue({ email: 'changed@x.y' });          <span class="cmt">// a lat
     <code>aria-orientation</code> and ArrowLeft/ArrowRight move between radios), or in an n-column grid with
     <code>columns: n</code>; a <code>toggle</code> is a
     boolean switch; and a <code>datepicker</code> stores an ISO wall-clock value, reads a <code>Date</code> in its
-    <code>timeZone</code> like the grid's date columns, and refuses a commit outside <code>min</code>/<code>max</code>
+    <code>timeZone</code> like the grid's date columns, refuses a commit outside <code>min</code>/<code>max</code>,
+    and fences individual days off with <code>disabledDates</code> &mdash; an ISO list or a function such as
+    "Mondays only" <code>(iso) =&gt; new Date(iso + 'T00:00:00Z').getUTCDay() !== 1</code>, drawn disabled and
+    skipped by the arrow keys (BACKLOG-0002367)
     &mdash; with the keyboard and calendar-click path asserted in real Chrome in
     <code>test/form-browser.test.js</code>. Its options take the same adornments as the combo's &mdash; a real
     <code>icon</code>, a round <code>avatar</code>, a <code>color</code> that tints them, and a <code>dot</code>
@@ -1715,6 +2064,40 @@ const native = [nativeRendered, nativeValue].join('|');
 
 form.destroy();
 return [started, committed, clicked, refused, accepted, clock, native, cleared].join('|');</code></pre>
+
+    <h3 id="form-datepicker-disabled-example">A date picker limited to Mondays, executed</h3>
+    <p class="section-note">A <code>datepicker</code> item's <code>disabledDates</code> takes the same
+    shape as the <code>daterange</code>'s &mdash; an ISO string list or a function <code>(iso) =&gt;
+    boolean</code> over the day. Here the function admits only Mondays: every other day renders disabled and a
+    typed disabled day is refused with the catalogue message (BACKLOG-0002367).</p>
+    <pre data-run="js" data-expect="true|true|2026-06-01|2026-06-08" data-covers="export:createForm method:form.getItem method:form.getValue method:form.destroy config:FormItemConfig.type config:FormItemConfig.name config:FormItemConfig.value config:FormItemConfig.locale config:FormItemConfig.disabledDates"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createForm } = await import('../packages/modules/form/index.js');
+
+const { root } = createTestDom();
+const form = createForm(root, {
+  rows: [
+    { type: 'datepicker', name: 'monday', label: 'Mondays only', locale: 'en-GB', value: '2026-06-01', disabledDates: (iso) =&gt; new Date(iso + 'T00:00:00Z').getUTCDay() !== 1 },
+  ],
+});
+
+const item = form.getItem('monday');
+const popup = item.el.querySelector('.lat-form__datepicker-popup');   <span class="cmt">// captured before open: the popup moves into the shared layer host while open (BACKLOG-0002291)</span>
+item.el.querySelector('.lat-form__datepicker-toggle').dispatchEvent(new TestEvent('click', { bubbles: true }));
+const day = (n) =&gt; [].slice.call(popup.querySelectorAll('.lat-form__datepicker-day')).find((b) =&gt; b.textContent === String(n));
+const fridayDisabled = day(5).disabled;
+const mondayEnabled = !day(8).disabled;
+
+const input = item.el.querySelector('input');
+input.value = '2026-06-05';
+input.dispatchEvent(new TestEvent('change', { bubbles: true }));
+const refused = form.getValue().monday;
+
+input.value = '2026-06-08';
+input.dispatchEvent(new TestEvent('change', { bubbles: true }));
+const accepted = form.getValue().monday;
+
+form.destroy();
+return [fridayDisabled, mondayEnabled, refused, accepted].join('|');</code></pre>
 
     <h3 id="form-daterange-example">A date range picker, executed</h3>
     <p class="section-note">A <code>daterange</code> item stores <code>{ start, end }</code> ISO dates (or
@@ -2711,6 +3094,7 @@ shell.destroy();
           <tr><td class="name">label</td><td class="type">string</td><td class="desc">The label text, associated to the control for screen readers. <small>(optional)</small></td></tr>
           <tr><td class="name">labelPosition</td><td class="type"><a href="types.html#type-FormLabelPosition">FormLabelPosition</a> <small class="literals">'top' | 'left' | 'hidden'</small></td><td class="desc">Where the label sits: `top` (default), `left`, or `hidden` (visually hidden but still the accessible name). <small>(optional)</small></td></tr>
           <tr><td class="name">labelWidth</td><td class="type">number | string</td><td class="desc">The label column width when `labelPosition` is `left`. <small>(optional)</small></td></tr>
+          <tr><td class="name">controlMinWidth</td><td class="type">number | string</td><td class="desc">When `labelPosition` is `left`: the width, in pixels or a CSS length, below which the control is too narrow and the label switches to the top instead (BACKLOG-0002554) — measured as this item's own width minus the label column (`labelWidth`, or the label's natural width when unset) minus the gap between them. Inherited like `labelPosition` and `labelWidth` from a fieldset, a container or the form; an item's own value wins. Re-measured per item with a `ResizeObserver` (a shell splitter or a drawer resizing the host counts, not only the window), with a few pixels of hysteresis so a width sitting on the threshold never flickers. Unset, nothing switches. A checkbox or toggle item ignores this — its label sits beside it by design. <small>(optional)</small></td></tr>
           <tr><td class="name">width</td><td class="type">number | string</td><td class="desc">The item's width: a pixel number, a CSS length string such as `'12em'`, or a percentage string such as `'33.3%'`. In a `cols` row a percentage is a share of the row's width *after* the gaps between its items, so items totalling 100% lay out on one line with the gaps intact and an unsized neighbour takes the remaining space; a px/rem width is a fixed flex basis (BACKLOG-0002202). <small>(optional)</small></td></tr>
           <tr><td class="name">placeholder</td><td class="type">string</td><td class="desc">Placeholder text for a text-like control. <small>(optional)</small></td></tr>
           <tr><td class="name">helpMessage</td><td class="type">string</td><td class="desc">Help text shown under the control. <small>(optional)</small></td></tr>
@@ -2760,8 +3144,10 @@ shell.destroy();
           <tr><td class="name">groupBy</td><td class="type">boolean</td><td class="desc">Bucket a `listbox` item's options by their `group` field under sticky headers (BACKLOG-0002256). <small>(optional)</small></td></tr>
           <tr><td class="name">sort</td><td class="type">'asc' | 'desc' | false</td><td class="desc">Order a `listbox` item's options by label: `'asc'`, `'desc'`, or `false` (default) to keep the configured order (BACKLOG-0002256). <small>(optional)</small></td></tr>
           <tr><td class="name">reorder</td><td class="type">boolean</td><td class="desc">Let a `listbox` item's rows be moved by drag, by Move up/down toolbar buttons and by Alt+Arrow; the committed value becomes the full, reordered item array (BACKLOG-0002256). <small>(optional)</small></td></tr>
+          <tr><td class="name">valueAs</td><td class="type">'order'</td><td class="desc">With `reorder: true`, `'order'` makes a `listbox` item's committed value the ordered array of option values in every selection mode (BACKLOG-0002547) — the shape an editable ordered list wants even while `selection` is `'single'`, where the value would otherwise be just the one selected item. <small>(optional)</small></td></tr>
           <tr><td class="name">connect</td><td class="type">string</td><td class="desc">The name of another `listbox` item this one exchanges items with via drag and the Move selected/Move all toolbar buttons; each side's value is the items it currently holds (BACKLOG-0002256). <small>(optional)</small></td></tr>
           <tr><td class="name">height</td><td class="type">number</td><td class="desc">A `listbox` item's viewport height in pixels, overriding `rows` (BACKLOG-0002256). <small>(optional)</small></td></tr>
+          <tr><td class="name">dragHandle</td><td class="type">boolean</td><td class="desc">Draw a drag grip on a `listbox` item's rows and drag only from it (a plain pointer drag, not native HTML5 drag-and-drop), and size rows to their content instead of a fixed height (BACKLOG-0002547). <small>(optional)</small></td></tr>
           <tr><td class="name">orientation</td><td class="type">'vertical' | 'horizontal'</td><td class="desc">Lay a `radiogroup` or `checkboxgroup`'s options out vertically (the default) or on one wrapping horizontal line. <small>(optional)</small></td></tr>
           <tr><td class="name">columns</td><td class="type">number</td><td class="desc">Lay a `radiogroup` or `checkboxgroup`'s options out in this many columns, read across then down. <small>(optional)</small></td></tr>
           <tr><td class="name">native</td><td class="type">boolean</td><td class="desc">Keep the native `&lt;select&gt;` element rather than the rendered trigger and listbox (BACKLOG-0002168). <small>(optional)</small></td></tr>
@@ -2771,7 +3157,7 @@ shell.destroy();
           <tr><td class="name">presets</td><td class="type">false | <a href="#type-FormDateRangePreset">FormDateRangePreset</a>[]</td><td class="desc">The `daterange` presets drawn on the left of the popup: an explicit list, `false` to hide, or omitted for the defaults (today, yesterday, last 7 days, last 30 days, this month, last month) (BACKLOG-0002255). <small>(optional)</small></td></tr>
           <tr><td class="name">minSpan</td><td class="type">number</td><td class="desc">The `daterange` fewest days (or months in month mode) a range may span (BACKLOG-0002255). <small>(optional)</small></td></tr>
           <tr><td class="name">maxSpan</td><td class="type">number</td><td class="desc">The `daterange` most days (or months in month mode) a range may span (BACKLOG-0002255). <small>(optional)</small></td></tr>
-          <tr><td class="name">disabledDates</td><td class="type">string[] | ((iso: string) =&gt; boolean)</td><td class="desc">The `daterange` days/months that may not be picked: an ISO string list or a function `(iso) =&gt; boolean` (BACKLOG-0002255). <small>(optional)</small></td></tr>
+          <tr><td class="name">disabledDates</td><td class="type">string[] | ((iso: string) =&gt; boolean)</td><td class="desc">The `datepicker`/`daterange` days (or `daterange` months) that may not be picked: an ISO string list or a function `(iso) =&gt; boolean` (BACKLOG-0002255, BACKLOG-0002367). <small>(optional)</small></td></tr>
           <tr><td class="name">weekNumbers</td><td class="type">boolean</td><td class="desc">Add an ISO week-number column to the `daterange` grid (default false) (BACKLOG-0002255). <small>(optional)</small></td></tr>
           <tr><td class="name">firstDay</td><td class="type">number</td><td class="desc">The `daterange` first weekday column (0 = Sunday); the locale's week info when omitted (BACKLOG-0002255). <small>(optional)</small></td></tr>
           <tr><td class="name">applyButton</td><td class="type">boolean</td><td class="desc">Show Apply/Cancel on the `daterange` popup so nothing commits until Apply (default true); `false` commits on the second pick (BACKLOG-0002255). <small>(optional)</small></td></tr>
@@ -2917,6 +3303,7 @@ shell.destroy();
           <tr><td class="name">cols</td><td class="type"><a href="#type-FormBlock">FormBlock</a>[]</td><td class="desc">A horizontal stack of child blocks. <small>(optional)</small></td></tr>
           <tr><td class="name">items</td><td class="type"><a href="#type-FormItemConfig">FormItemConfig</a>[]</td><td class="desc">A side-by-side run of form items. <small>(optional)</small></td></tr>
           <tr><td class="name">spacing</td><td class="type">number | string</td><td class="desc">The vertical gap between this container's or fieldset's own items — a px number or a CSS length, overriding the form's `spacing` for those items only. <small>(optional)</small></td></tr>
+          <tr><td class="name">wrap</td><td class="type">boolean</td><td class="desc">On a `cols` block, resolve each item's percentage `width` against its own rendered line's gaps instead of the whole row's (BACKLOG-0002559): a `100%` item fills its line alone, and a `50%`/`50%` pair shares one gap and sits side by side filling it exactly, instead of the pair's widths being shrunk by every gap in the row. Items that do not fit on a line wrap to the next one, as they already do; hiding an item frees its line slot (later items shift up and may join an earlier line), and showing it again restores the layout. Ignored on any other axis. Default `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">type</td><td class="type">string</td><td class="desc">The control type, or `spacer`/`separator`. Defaults to `input`. <small>(optional)</small></td></tr>
           <tr><td class="name">fieldset</td><td class="type">string | <a href="#type-FormBlock">FormBlock</a></td><td class="desc">A fieldset: `'Legend'` or `{ legend, rows, cols, items }`. <small>(optional)</small></td></tr>
           <tr><td class="name">container</td><td class="type"><a href="#type-FormBlock">FormBlock</a></td><td class="desc">An explicit container, `{ rows | cols | items }`. <small>(optional)</small></td></tr>
@@ -2924,10 +3311,11 @@ shell.destroy();
           <tr><td class="name">spacer</td><td class="type">boolean</td><td class="desc">A flexible spacer. <small>(optional)</small></td></tr>
           <tr><td class="name">separator</td><td class="type">boolean</td><td class="desc">A horizontal rule; with `label`, the rule is split around the centred label. <small>(optional)</small></td></tr>
           <tr><td class="name">legend</td><td class="type">string</td><td class="desc">The fieldset legend, when written as a sibling of `fieldset`. <small>(optional)</small></td></tr>
-          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The item's name. <small>(optional)</small></td></tr>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The item's name, or a fieldset's name — either way, what `getItem(name)` reads (BACKLOG-0002455). <small>(optional)</small></td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc">The item's label text, or a `separator`'s centred label (a literal or a catalogue key). <small>(optional)</small></td></tr>
           <tr><td class="name">labelPosition</td><td class="type"><a href="types.html#type-FormLabelPosition">FormLabelPosition</a> <small class="literals">'top' | 'left' | 'hidden'</small></td><td class="desc">Where the label sits: `top` (default), `left`, or `hidden`. On a container or fieldset this is the default its items inherit. <small>(optional)</small></td></tr>
           <tr><td class="name">labelWidth</td><td class="type">number | string</td><td class="desc">The label column width when `labelPosition` is `left`; on a container or fieldset this is the default its items inherit. <small>(optional)</small></td></tr>
+          <tr><td class="name">controlMinWidth</td><td class="type">number | string</td><td class="desc">The width below which a `left` label switches to the top instead (BACKLOG-0002554); on a container or fieldset this is the default its items inherit. See {@link FormItemConfig.controlMinWidth}. <small>(optional)</small></td></tr>
           <tr><td class="name">width</td><td class="type">number | string</td><td class="desc">The item's width. <small>(optional)</small></td></tr>
           <tr><td class="name">placeholder</td><td class="type">string</td><td class="desc">Placeholder text. <small>(optional)</small></td></tr>
           <tr><td class="name">helpMessage</td><td class="type">string</td><td class="desc">Help text shown under the control. <small>(optional)</small></td></tr>
@@ -2955,13 +3343,78 @@ shell.destroy();
           <tr><td class="name">label</td><td class="type">string</td><td class="desc">The label text, set as the region's `aria-label` (and, like any item, drawn as an associated `&lt;label&gt;` beside it). <small>(optional)</small></td></tr>
           <tr><td class="name">labelPosition</td><td class="type"><a href="types.html#type-FormLabelPosition">FormLabelPosition</a> <small class="literals">'top' | 'left' | 'hidden'</small></td><td class="desc">Where the label sits: `top` (default), `left`, or `hidden`. <small>(optional)</small></td></tr>
           <tr><td class="name">labelWidth</td><td class="type">number | string</td><td class="desc">The label column width when `labelPosition` is `left`. <small>(optional)</small></td></tr>
-          <tr><td class="name">width</td><td class="type">number | string</td><td class="desc">The region's width: a pixel number, a CSS length, or `'content'` to size to its own content (the default). <small>(optional)</small></td></tr>
-          <tr><td class="name">height</td><td class="type">number | string</td><td class="desc">The region's height: a pixel number, a CSS length, or `'content'` to size to its own content (the default). <small>(optional)</small></td></tr>
+          <tr><td class="name">width</td><td class="type">number | string</td><td class="desc">The item's width, applied once to its wrapper slot like any other item's (BACKLOG-0002556): a pixel number, a CSS length, or a percentage such as `'40%'`, a share of the row's width after the gaps between its items. The region itself always fills that slot — unset (the default) gives it its default share of the row, the same as any other item. <small>(optional)</small></td></tr>
+          <tr><td class="name">height</td><td class="type">number | string</td><td class="desc">The region's own height: a pixel number, a CSS length, or `'content'` to size to its own content (the default). Unlike `width`, this sizes the region directly, not the wrapper slot; a container with an explicit height still shrinks like its siblings when its column runs out of room. <small>(optional)</small></td></tr>
           <tr><td class="name">padding</td><td class="type">number | string</td><td class="desc">Inner padding: a pixel number or a CSS length. <small>(optional)</small></td></tr>
           <tr><td class="name">css</td><td class="type">Record&lt;string, string | number&gt; | string</td><td class="desc">Extra CSS on the item wrapper. <small>(optional)</small></td></tr>
           <tr><td class="name">hidden</td><td class="type">boolean</td><td class="desc">Start hidden. <small>(optional)</small></td></tr>
           <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc">Start disabled: the region carries `aria-disabled` and `inert`. <small>(optional)</small></td></tr>
           <tr><td class="name">visibleWhen</td><td class="type"><a href="types.html#type-FormRule">FormRule</a></td><td class="desc">A rule that hides the item when it evaluates false. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-GridItemField">GridItemField</h4>
+    <p class="section-note">One mapped cell of a `grid` item: the row (by its `rowKey` value) and the column (by its field) whose value becomes a top-level property of the form value (BACKLOG-0002454).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">row</td><td class="type">string | number</td><td class="desc">The `rowKey` value of the mapped row.</td></tr>
+          <tr><td class="name">col</td><td class="type">string</td><td class="desc">The field of the mapped column.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-GridItemTotals">GridItemTotals</h4>
+    <p class="section-note">The display-only totals of a `grid` item (BACKLOG-0002454). A totals row is pinned beneath the body and a totals column is computed from each row; the grid does not store either, and neither is ever part of the form value.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">row</td><td class="type">boolean | <a href="types.html#type-GridItemTotalFn">GridItemTotalFn</a> | { /** The function for every listed column (default `'sum'`). */ fn?: <a href="types.html#type-GridItemTotalFn">GridItemTotalFn</a>; /** The columns to total: an array of fields, or a map of field to its function. Defaults to every number-typed column. */ columns?: string[] | Record&lt;string, <a href="types.html#type-GridItemTotalFn">GridItemTotalFn</a>&gt;; /** The label shown on the row (default: the catalogue's "Total", localised). */ label?: string; /** The field that carries the label (default: the first column that is not totalled). */ labelColumn?: string; }</td><td class="desc">A totals row. `true` sums the number columns; a name or function applies to them; an object picks the columns (an array of fields, or a map of field to function) and the label. <small>(optional)</small></td></tr>
+          <tr><td class="name">column</td><td class="type">boolean | <a href="types.html#type-GridItemTotalFn">GridItemTotalFn</a> | { /** The function over the row's values (default `'sum'`). */ fn?: GridItemTotalFn; /** The fields to total across. Defaults to every number-typed column. */ columns?: string[]; /** The column heading (default: the catalogue's "Total", localised). */ title?: string; /** Extra column options for the totals column (`type`, `format`, `layout`, …). */ column?: object; }</td><td class="desc">A totals column, computed per row. `true` sums the number columns; a name or function applies to them; an object picks the columns, the heading and any extra column options (a `type`, a `format`, a `width`). <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-GridItemConfig">GridItemConfig</h4>
+    <p class="section-note">The `type: 'grid'` item: a live, editable Lattice grid as a form field (BACKLOG-0002454). Its rows are the item's value, `fields` maps single cells to further top-level form properties, and cell edits, row additions and row removals go through the form's `beforeChange`, `change`, `validate()`, reset and dirty tracking like any field. The grid factory is injected — `createGrid` on the item, or on the form config — so the form bundles no grid core.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The item's name, the key of its rows in `getValue()`. <small>(optional)</small></td></tr>
+          <tr><td class="name">columns</td><td class="type">Array&lt;string | object&gt;</td><td class="desc">The grid's columns — every column option the grid accepts (`field`, `title`, `type`, `edit`, `validation`, …). The editable ones need `edit: true`.</td></tr>
+          <tr><td class="name">rowKey</td><td class="type">string</td><td class="desc">The field whose value identifies a row (default `'id'`). It is also how `fields` names a row. <small>(optional)</small></td></tr>
+          <tr><td class="name">value</td><td class="type">Array&lt;object | unknown[]&gt;</td><td class="desc">The initial rows: objects, or arrays in column order. <small>(optional)</small></td></tr>
+          <tr><td class="name">valueAs</td><td class="type">'rows' | 'arrays'</td><td class="desc">The shape of the rows in the form value: `'rows'` (objects, default) or `'arrays'` (arrays in column order). <small>(optional)</small></td></tr>
+          <tr><td class="name">valueRows</td><td class="type">boolean</td><td class="desc">`false` drops the rows array from `getValue()` and keeps only the mapped cells. Default `true`. <small>(optional)</small></td></tr>
+          <tr><td class="name">fields</td><td class="type">Record&lt;string, <a href="#type-GridItemField">GridItemField</a>&gt;</td><td class="desc">Cells mapped to top-level form properties, by property name. Each is read and written like any field, fires its own `change`, and takes part in dirty tracking and data binding. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowControls</td><td class="type">boolean</td><td class="desc">Adds keyboard-operable add-row and delete-row buttons (off by default). Delete acts on the selected rows, else the row holding the focused cell. <small>(optional)</small></td></tr>
+          <tr><td class="name">newRow</td><td class="type">object | ((rows: object[]) =&gt; object)</td><td class="desc">A new row's defaults, or a function `(rows) =&gt; row`, for the add-row control and `addRow()`. The `rowKey` is filled in when absent or taken. <small>(optional)</small></td></tr>
+          <tr><td class="name">totals</td><td class="type"><a href="#type-GridItemTotals">GridItemTotals</a></td><td class="desc">The display-only totals row and/or column. <small>(optional)</small></td></tr>
+          <tr><td class="name">gridOptions</td><td class="type">object</td><td class="desc">Extra grid options laid under the item's own (`rowKey`, `columns`, `rows` and `density` always win). <small>(optional)</small></td></tr>
+          <tr><td class="name">height</td><td class="type">number | string</td><td class="desc">The grid's height: a pixel number or a CSS length (default 240). <small>(optional)</small></td></tr>
+          <tr><td class="name">width</td><td class="type">number | string</td><td class="desc">The item's width: a pixel number, a CSS length or a percentage. <small>(optional)</small></td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The label text, set as the group's `aria-label` and drawn as the item's label. <small>(optional)</small></td></tr>
+          <tr><td class="name">labelPosition</td><td class="type"><a href="types.html#type-FormLabelPosition">FormLabelPosition</a> <small class="literals">'top' | 'left' | 'hidden'</small></td><td class="desc">Where the label sits: `top` (default), `left`, or `hidden`. <small>(optional)</small></td></tr>
+          <tr><td class="name">labelWidth</td><td class="type">number | string</td><td class="desc">The label column width when `labelPosition` is `left`. <small>(optional)</small></td></tr>
+          <tr><td class="name">helpMessage</td><td class="type">string</td><td class="desc">Help text shown under the grid. <small>(optional)</small></td></tr>
+          <tr><td class="name">required</td><td class="type">boolean</td><td class="desc">At least one row is required. <small>(optional)</small></td></tr>
+          <tr><td class="name">requiredWhen</td><td class="type"><a href="types.html#type-FormRule">FormRule</a></td><td class="desc">A rule that makes the item required when it evaluates true. <small>(optional)</small></td></tr>
+          <tr><td class="name">validationMode</td><td class="type"><a href="types.html#type-FormValidationMode">FormValidationMode</a> <small class="literals">'change' | 'blur' | 'submit'</small></td><td class="desc">When the item is validated: `change`, `blur` or `submit` (default). <small>(optional)</small></td></tr>
+          <tr><td class="name">hidden</td><td class="type">boolean</td><td class="desc">Start hidden. <small>(optional)</small></td></tr>
+          <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc">Start disabled: the grid is inert and excluded from validation. <small>(optional)</small></td></tr>
+          <tr><td class="name">readOnly</td><td class="type">boolean</td><td class="desc">Start read-only: cells cannot be edited and the row controls are off. <small>(optional)</small></td></tr>
+          <tr><td class="name">visibleWhen</td><td class="type"><a href="types.html#type-FormRule">FormRule</a></td><td class="desc">A rule that hides the item when it evaluates false. <small>(optional)</small></td></tr>
+          <tr><td class="name">readOnlyWhen</td><td class="type"><a href="types.html#type-FormRule">FormRule</a></td><td class="desc">A rule that makes the item read-only when it evaluates true. <small>(optional)</small></td></tr>
+          <tr><td class="name">css</td><td class="type">Record&lt;string, string | number&gt; | string</td><td class="desc">Extra CSS on the item wrapper. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">createGrid</td><td class="type">(el: HTMLElement, config: object) =&gt; <a href="grid.html#type-Grid">Grid</a></td><td class="desc"><code>el: HTMLElement</code><br><code>config: object</code></td><td class="type"><code>=&gt; <a href="grid.html#type-Grid">Grid</a></code></td><td class="desc">The grid factory (`createGrid`); defaults to the form config's `createGrid`. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -3002,14 +3455,24 @@ shell.destroy();
           <tr><td class="name">labelGap</td><td class="type">number | string</td><td class="desc">The gap between an item's label and its field — a px number or a CSS length. Defaults to half the density's space; a CSS theme may set `--lattice-form-label-gap` instead. <small>(optional)</small></td></tr>
           <tr><td class="name">labelPosition</td><td class="type"><a href="types.html#type-FormLabelPosition">FormLabelPosition</a> <small class="literals">'top' | 'left' | 'hidden'</small></td><td class="desc">The default label position every item inherits: `top`, `left` or `hidden`. An item's own `labelPosition` wins. <small>(optional)</small></td></tr>
           <tr><td class="name">labelWidth</td><td class="type">number | string</td><td class="desc">The default label column width every item inherits when its label is `left`; an item's own `labelWidth` wins. <small>(optional)</small></td></tr>
+          <tr><td class="name">controlMinWidth</td><td class="type">number | string</td><td class="desc">The default width below which a `left` label switches to the top instead, every item inherits; an item's own `controlMinWidth` wins (BACKLOG-0002554). See {@link FormItemConfig.controlMinWidth}. <small>(optional)</small></td></tr>
           <tr><td class="name">requiredHint</td><td class="type">boolean | string</td><td class="desc">The default marker a required field with no visible label shows on its placeholder: `true` appends `" *"`, a string resolves through the message catalogue, `false` shows nothing. An item's own `requiredHint` wins. <small>(optional)</small></td></tr>
           <tr><td class="name">colsBreakpoint</td><td class="type">number | false</td><td class="desc">The width, in pixels, below which a `cols` container stacks its children into one column, or `false` (or `0`) to never stack. A positive number is used as-is. Default 480. <small>(optional)</small></td></tr>
+          <tr><td class="name">wrap</td><td class="type">boolean</td><td class="desc">When the root axis is `cols` (no `rows`), resolve each item's percentage `width` against its own rendered line's gaps instead of the whole row's. See {@link FormBlock.wrap} (BACKLOG-0002559). Default `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">bind</td><td class="type"><a href="types.html#type-FormBind">FormBind</a></td><td class="desc">Bind the form to a record. A grid row generates one item per column and saves through the grid's edit path; a routed record follows the route's keyed diffs; a plain object is initialised from and written back to. <small>(optional)</small></td></tr>
           <tr><td class="name">css</td><td class="type">Record&lt;string, string | number&gt; | string</td><td class="desc">Extra CSS on the form root. <small>(optional)</small></td></tr>
           <tr><td class="name">steps</td><td class="type"><a href="#type-FormStep">FormStep</a>[]</td><td class="desc">Wizard steps: one labelled group of rows shown at a time. <small>(optional)</small></td></tr>
           <tr><td class="name">stepOrientation</td><td class="type"><a href="types.html#type-FormStepOrientation">FormStepOrientation</a> <small class="literals">'horizontal' | 'vertical'</small></td><td class="desc">The step indicator's orientation: `horizontal` (default) or `vertical`. <small>(optional)</small></td></tr>
           <tr><td class="name">validateSteps</td><td class="type">boolean</td><td class="desc">Whether a forward step move validates the current step first (`true`, the default). Set `false` to run `validate()` yourself and navigate unchecked. <small>(optional)</small></td></tr>
           <tr><td class="name">messages</td><td class="type">{ t(key: string, params?: object): string }</td><td class="desc">A `t(key, params)` catalogue for the separator's accessible label. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">createGrid</td><td class="type">(el: HTMLElement, config: object) =&gt; <a href="grid.html#type-Grid">Grid</a></td><td class="desc"><code>el: HTMLElement</code><br><code>config: object</code></td><td class="type"><code>=&gt; <a href="grid.html#type-Grid">Grid</a></code></td><td class="desc">The grid factory (`createGrid`) every `grid` item uses unless it names its own (BACKLOG-0002454). <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -3113,7 +3576,8 @@ shell.destroy();
           <tr><td class="name">customColorsChange</td><td class="type"><a href="#type-FormColorCustomColorsEvent">FormColorCustomColorsEvent</a></td><td class="desc">A `color` item's custom-colours row, extended.</td></tr>
           <tr><td class="name">open</td><td class="type">FormSpeedDialOpenEvent</td><td class="desc">A `speeddial` FAB's menu opened.</td></tr>
           <tr><td class="name">close</td><td class="type">FormSpeedDialCloseEvent</td><td class="desc">A `speeddial` FAB's menu closed.</td></tr>
-          <tr><td class="name">itemClick</td><td class="type"><a href="#type-FormSpeedDialItemClickEvent">FormSpeedDialItemClickEvent</a></td><td class="desc">A `speeddial` menu action was activated.</td></tr>
+          <tr><td class="name">itemClick</td><td class="type"><a href="#type-FormSpeedDialItemClickEvent">FormSpeedDialItemClickEvent</a> | <a href="#type-FormListboxItemClickEvent">FormListboxItemClickEvent</a></td><td class="desc">A `speeddial` menu action was activated, or a `listbox` row was clicked.</td></tr>
+          <tr><td class="name">activate</td><td class="type"><a href="#type-FormListboxItemClickEvent">FormListboxItemClickEvent</a></td><td class="desc">A `listbox` row was activated with Enter.</td></tr>
         </tbody>
       </table>
     </div>
@@ -3158,6 +3622,17 @@ shell.destroy();
         <tbody>
           <tr><td class="name">item</td><td class="type"><a href="types.html#type-SpeedDialItem">SpeedDialItem</a></td><td class="desc">The action that was activated.</td></tr>
           <tr><td class="name">index</td><td class="type">number</td><td class="desc">The action's index in the `items` list.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-FormListboxItemClickEvent">FormListboxItemClickEvent</h4>
+    <p class="section-note">An `itemClick`/`activate` payload: a `listbox` row was clicked (selected row included) or activated with Enter (BACKLOG-0002547).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">option</td><td class="type">unknown</td><td class="desc">The option exactly as given — the same object `render(opt)` receives.</td></tr>
+          <tr><td class="name">event</td><td class="type">MouseEvent | KeyboardEvent</td><td class="desc">The triggering event: a `MouseEvent` for `itemClick`, a `KeyboardEvent` for `activate`.</td></tr>
         </tbody>
       </table>
     </div>
@@ -3223,6 +3698,7 @@ shell.destroy();
         <tbody>
           <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The item's wrapper element. <small>(read-only)</small></td></tr>
           <tr><td class="name">name</td><td class="type">string | null</td><td class="desc">The item's name, or `null` for an unnamed item. <small>(read-only)</small></td></tr>
+          <tr><td class="name">labelEffectivePosition</td><td class="type"><a href="types.html#type-FormLabelPosition">FormLabelPosition</a> <small class="literals">'top' | 'left' | 'hidden'</small></td><td class="desc">The label's current rendered position: `labelPosition` normally, or `top` when a `left` label with `controlMinWidth` has switched because its own width left the control too narrow (BACKLOG-0002554). Mirrors the item's `data-label-effective` attribute. <small>(read-only)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -3243,8 +3719,52 @@ shell.destroy();
           <tr><td class="name">attach</td><td class="type">(viewOrElement: Element | { el?: HTMLElement; root?: HTMLElement; element?: HTMLElement; destroy?(): void }, opts?: { keep?: boolean }): <a href="#type-FormItem">FormItem</a></td><td class="desc"><code>viewOrElement: Element | { el?: HTMLElement; root?: HTMLElement; element?: HTMLElement; destroy?(): void }</code><br><code>opts?: { keep?: boolean }</code></td><td class="type"><code><a href="#type-FormItem">FormItem</a></code></td><td class="desc">A `container` item only (BACKLOG-0002339): append an element, or a Lattice view's own element (`.el`, `.root` or `.element` — whichever it exposes), sized to the region (width 100%; height forced to the region's own configured height only when it set one). Replaces (and, unless kept, destroys) whatever was attached before; the attached view is destroyed by `form.destroy()` too, unless `keep: true`. <small>(optional)</small></td></tr>
           <tr><td class="name">attachHTML</td><td class="type">(html: string): <a href="#type-FormItem">FormItem</a></td><td class="desc"><code>html: string</code></td><td class="type"><code><a href="#type-FormItem">FormItem</a></code></td><td class="desc">A `container` item only (BACKLOG-0002339): replace the region's content with sanitised host HTML, destroying whatever was attached before (unless it was kept). <small>(optional)</small></td></tr>
           <tr><td class="name">getWidget</td><td class="type">(): unknown</td><td class="desc">&mdash;</td><td class="type"><code>unknown</code></td><td class="desc">A `container` item only (BACKLOG-0002339): the attached view or element, or `null`. <small>(optional)</small></td></tr>
+          <tr><td class="name">addRow</td><td class="type">(row?: object): string | null | Promise&lt;string | null&gt;</td><td class="desc"><code>row?: object</code></td><td class="type"><code>string | null | Promise&lt;string | null&gt;</code></td><td class="desc">A `grid` item only (BACKLOG-0002454): add a row (a blank one when none is given) through `beforeChange` and one `change`. Returns the new row's key, or `null` when it was refused. <small>(optional)</small></td></tr>
+          <tr><td class="name">removeRows</td><td class="type">(keys: string | string[]): string[]</td><td class="desc"><code>keys: string | string[]</code></td><td class="type"><code>string[]</code></td><td class="desc">A `grid` item only (BACKLOG-0002454): remove rows by key, each through `beforeChange` and one `change`. Returns the keys removed. <small>(optional)</small></td></tr>
+          <tr><td class="name">getGrid</td><td class="type">(): <a href="grid.html#type-Grid">Grid</a> | null</td><td class="desc">&mdash;</td><td class="type"><code><a href="grid.html#type-Grid">Grid</a> | null</code></td><td class="desc">A `grid` item only (BACKLOG-0002454): the embedded Lattice grid, or `null` when no `createGrid` was supplied. <small>(optional)</small></td></tr>
           <tr><td class="name">setOptions</td><td class="type">(options: unknown[]): <a href="#type-FormItem">FormItem</a></td><td class="desc"><code>options: unknown[]</code></td><td class="type"><code><a href="#type-FormItem">FormItem</a></code></td><td class="desc">Replace a combo or select item's static options, re-rendering the list in place; a value still present is kept, one gone is cleared with one `change` event, and a changed label refreshes the shown value.</td></tr>
           <tr><td class="name">reload</td><td class="type">(): <a href="#type-FormItem">FormItem</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-FormItem">FormItem</a></code></td><td class="desc">Reload a `load`-backed combo — clear its cache and fetch the first page again; on a static combo or select this only re-renders.</td></tr>
+          <tr><td class="name">getLabel</td><td class="type">(): string | null</td><td class="desc">&mdash;</td><td class="type"><code>string | null</code></td><td class="desc">The item's current label — a field's label, a button's caption, or a fieldset's legend — or `null` when it carries none (BACKLOG-0002455).</td></tr>
+          <tr><td class="name">setLabel</td><td class="type">(text: string): <a href="#type-FormItem">FormItem</a></td><td class="desc"><code>text: string</code></td><td class="type"><code><a href="#type-FormItem">FormItem</a></code> the item, for chaining.</td><td class="desc">Change the item's visible label and its accessible name (BACKLOG-0002455): a field's label, a button's caption, or (on a handle for a named fieldset) its legend; on a registered custom control, the frame's own label and the `label` the control's `item` object carries. A hidden label (`labelPosition: 'hidden'`) stays visually hidden but its accessible name still updates. The change survives `setDensity`, `setReadOnly`, `show()`/`hide()` and any re-render, and is what a later `getItem` reports.</td></tr>
+          <tr><td class="name">setHelp</td><td class="type">(text: string | null): <a href="#type-FormItem">FormItem</a></td><td class="desc"><code>text: string | null</code></td><td class="type"><code><a href="#type-FormItem">FormItem</a></code></td><td class="desc">Change the help line under the control (BACKLOG-0002455); `null` removes it. Survives `setDensity`, `setReadOnly`, `show()`/`hide()` and any re-render, the same as `setLabel`. A thin wrapper over `set({ helpMessage: text })` (BACKLOG-0002542).</td></tr>
+          <tr><td class="name">getOptions</td><td class="type">(): unknown[]</td><td class="desc">&mdash;</td><td class="type"><code>unknown[]</code></td><td class="desc">A `listbox` item's options in their current order, exactly as given, independent of selection (BACKLOG-0002547). <small>(optional)</small></td></tr>
+          <tr><td class="name">addOption</td><td class="type">(opt: unknown, index?: number): <a href="#type-FormItem">FormItem</a></td><td class="desc"><code>opt: unknown</code><br><code>index?: number</code></td><td class="type"><code><a href="#type-FormItem">FormItem</a></code></td><td class="desc">Insert one option into a `listbox` item (BACKLOG-0002547), keeping selection and order consistent, and firing one `change`. Appended when `index` is omitted. <small>(optional)</small></td></tr>
+          <tr><td class="name">removeOption</td><td class="type">(value: unknown): <a href="#type-FormItem">FormItem</a></td><td class="desc"><code>value: unknown</code></td><td class="type"><code><a href="#type-FormItem">FormItem</a></code></td><td class="desc">Remove a `listbox` item's option keyed by `value` (BACKLOG-0002547), keeping selection and order consistent, and firing one `change`. <small>(optional)</small></td></tr>
+          <tr><td class="name">updateOption</td><td class="type">(value: unknown, patch: Record&lt;string, unknown&gt;): <a href="#type-FormItem">FormItem</a></td><td class="desc"><code>value: unknown</code><br><code>patch: Record&lt;string, unknown&gt;</code></td><td class="type"><code><a href="#type-FormItem">FormItem</a></code></td><td class="desc">Merge `patch` over a `listbox` item's option keyed by `value`, in place (BACKLOG-0002547), keeping selection and order consistent, and firing one `change`. <small>(optional)</small></td></tr>
+          <tr><td class="name">filter</td><td class="type">(fn: ((opt: unknown) =&gt; boolean) | null): <a href="#type-FormItem">FormItem</a></td><td class="desc"><code>fn: ((opt: unknown) =&gt; boolean) | null</code></td><td class="type"><code><a href="#type-FormItem">FormItem</a></code></td><td class="desc">Show only the options of a `listbox` item that `fn` accepts, without touching its canonical order, selection or value (BACKLOG-0002547); `null` clears the predicate. <small>(optional)</small></td></tr>
+          <tr><td class="name">set</td><td class="type">(props: <a href="#type-FormItemLiveProps">FormItemLiveProps</a>): <a href="#type-FormItem">FormItem</a></td><td class="desc"><code>props: <a href="#type-FormItemLiveProps">FormItemLiveProps</a></code></td><td class="type"><code><a href="#type-FormItem">FormItem</a></code> the item, for chaining.</td><td class="desc">Apply a subset of the item's own config after build (BACKLOG-0002542) — see {@link FormItemLiveProps} for the props every item shares and which a control additionally documents as live. Re-renders only what changed; the control's own value is never touched, so a `min`/`max`/`options` change that makes the current value invalid is left for the next {@link FormItem#validate} to report. Keeps focus and the caret throughout. An unknown or non-live prop warns once (developer console) and is ignored.</td></tr>
+          <tr><td class="name">get</td><td class="type">(prop: string): unknown</td><td class="desc"><code>prop: string</code></td><td class="type"><code>unknown</code></td><td class="desc">The effective value of one prop {@link FormItem#set} accepts (BACKLOG-0002542), read from the item's own config rather than re-derived from the DOM. An unknown prop warns once and returns `undefined`.</td></tr>
+          <tr><td class="name">getPlaceholder</td><td class="type">(): string | null</td><td class="desc">&mdash;</td><td class="type"><code>string | null</code></td><td class="desc">The item's current placeholder, or `null` when it carries none — a shortcut for `get('placeholder')` (BACKLOG-0002542).</td></tr>
+          <tr><td class="name">setPlaceholder</td><td class="type">(text: string | null): <a href="#type-FormItem">FormItem</a></td><td class="desc"><code>text: string | null</code></td><td class="type"><code><a href="#type-FormItem">FormItem</a></code> the item, for chaining.</td><td class="desc">Change the item's placeholder live — a shortcut for `set({ placeholder: text })` (BACKLOG-0002542).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-FormItemLiveProps">FormItemLiveProps</h4>
+    <p class="section-note">The props {@link FormItem#set} may change after build (BACKLOG-0002542). Every item shares `label`, `labelPosition`, `labelWidth`, `helpMessage`, `required`, `readOnly`, `disabled`, `hidden`, `width`, `validation`, `errorMessage` and `css`. `placeholder` is live on `input`, `textarea`, `number`, `select`, `combo` and `datepicker`; `options` on `select` and `combo` (the same contract as `setOptions`); `min`/`max`/`step`/`format` on `number`; `disabledDates` on `datepicker` and `daterange` (the open calendar's days are redrawn and a held value the new rule disables is reported by validation, never changed; BACKLOG-0002367). Any other key is a control's own documented live option (`item.props` at build); one that is neither common nor declared live warns once and is ignored.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The item's visible label and accessible name. <small>(optional)</small></td></tr>
+          <tr><td class="name">labelPosition</td><td class="type">'top' | 'left' | 'hidden'</td><td class="desc">Where the label sits: above, to the left, or visually hidden. <small>(optional)</small></td></tr>
+          <tr><td class="name">labelWidth</td><td class="type">number | string</td><td class="desc">The label column's width, in a `labelPosition: 'left'` item. <small>(optional)</small></td></tr>
+          <tr><td class="name">helpMessage</td><td class="type">string | null</td><td class="desc">The help line under the control; `null` removes it. <small>(optional)</small></td></tr>
+          <tr><td class="name">required</td><td class="type">boolean</td><td class="desc">Whether the item must hold a value to pass `validate()`. <small>(optional)</small></td></tr>
+          <tr><td class="name">readOnly</td><td class="type">boolean</td><td class="desc">Whether the item is read-only (focusable, but not editable). <small>(optional)</small></td></tr>
+          <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc">Whether the item is disabled (out of the tab order, excluded from validation). <small>(optional)</small></td></tr>
+          <tr><td class="name">hidden</td><td class="type">boolean</td><td class="desc">Whether the item is hidden, giving its space to its neighbours. <small>(optional)</small></td></tr>
+          <tr><td class="name">width</td><td class="type">number | string</td><td class="desc">The item's width (a px number or a CSS length). <small>(optional)</small></td></tr>
+          <tr><td class="name">placeholder</td><td class="type">string | null</td><td class="desc">The placeholder shown while the control is empty. <small>(optional)</small></td></tr>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc">A `number` field's lower bound. <small>(optional)</small></td></tr>
+          <tr><td class="name">max</td><td class="type">number</td><td class="desc">A `number` field's upper bound. <small>(optional)</small></td></tr>
+          <tr><td class="name">step</td><td class="type">number</td><td class="desc">A `number` field's step. <small>(optional)</small></td></tr>
+          <tr><td class="name">format</td><td class="type">unknown</td><td class="desc">A `number` field's `NumberFormat` spec. <small>(optional)</small></td></tr>
+          <tr><td class="name">options</td><td class="type">unknown[]</td><td class="desc">A `select`/`combo` item's static options, the same as `setOptions`. <small>(optional)</small></td></tr>
+          <tr><td class="name">disabledDates</td><td class="type">unknown</td><td class="desc">A `datepicker` or `daterange` item's disabled dates (BACKLOG-0002367). <small>(optional)</small></td></tr>
+          <tr><td class="name">validation</td><td class="type"><a href="#type-FormItemConfig">FormItemConfig</a>['validation']</td><td class="desc">The item's validation rule. <small>(optional)</small></td></tr>
+          <tr><td class="name">errorMessage</td><td class="type">string</td><td class="desc">The message shown when `validation` fails. <small>(optional)</small></td></tr>
+          <tr><td class="name">css</td><td class="type">string | Record&lt;string, string&gt;</td><td class="desc">Extra inline CSS, merged onto the item's wrapper. <small>(optional)</small></td></tr>
+          <tr><td class="name">[prop: string]</td><td class="type">unknown</td><td class="desc">Any other control-specific option the control itself documents as live.</td></tr>
         </tbody>
       </table>
     </div>
@@ -3306,7 +3826,8 @@ shell.destroy();
           <tr><td class="name">customColorsChange</td><td class="desc">A `color` item's custom-colours row gained a newly picked colour (BACKLOG-0002252).</td><td class="type"><a href="#type-FormColorCustomColorsEvent">FormColorCustomColorsEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">open</td><td class="desc">A `speeddial` FAB's menu opened (BACKLOG-0002253).</td><td class="type">FormSpeedDialOpenEvent</td><td class="desc">&mdash;</td></tr>
           <tr><td class="name">close</td><td class="desc">A `speeddial` FAB's menu closed (BACKLOG-0002253).</td><td class="type">FormSpeedDialCloseEvent</td><td class="desc">&mdash;</td></tr>
-          <tr><td class="name">itemClick</td><td class="desc">A `speeddial` menu action was activated (BACKLOG-0002253).</td><td class="type"><a href="#type-FormSpeedDialItemClickEvent">FormSpeedDialItemClickEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">itemClick</td><td class="desc">A `speeddial` menu action was activated (BACKLOG-0002253), or a `listbox` row was clicked, selected row included (BACKLOG-0002547).</td><td class="type"><a href="#type-FormSpeedDialItemClickEvent">FormSpeedDialItemClickEvent</a> | <a href="#type-FormListboxItemClickEvent">FormListboxItemClickEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">activate</td><td class="desc">A `listbox` row's Enter-key equivalent of a click (BACKLOG-0002547).</td><td class="type"><a href="#type-FormListboxItemClickEvent">FormListboxItemClickEvent</a></td><td class="desc">no</td></tr>
         </tbody>
       </table>
     </div>

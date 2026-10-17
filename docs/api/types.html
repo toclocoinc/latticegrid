@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.103.2</title>
+<title>Types API Reference — Lattice Grid 1.104.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -402,6 +402,9 @@
         <a href="leaflet.html">The Leaflet binding</a>
         <a href="mapview.html">The map view</a>
         <a href="list.html">The list module</a>
+        <a href="listview.html">The list view module</a>
+        <a href="dataview.html">The data view module</a>
+        <a href="tree.html">The tree module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="calendar.html">The calendar viewer</a>
@@ -433,7 +436,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 26 pages</a></span>
+      <span class="chip"><a href="index.html">All 29 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -2338,23 +2341,6 @@
         </tbody>
       </table>
     </div>
-    <h4 id="type-SavedView">SavedView</h4>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The view's identity, which `apply`, `rename`, `remove` and `setDefault` take.</td></tr>
-          <tr><td class="name">name</td><td class="type">string</td><td class="desc">What the view is called. Renaming refuses a blank or duplicate name.</td></tr>
-          <tr><td class="name">description</td><td class="type">string</td><td class="desc">Longer text about the view, for a picker that has room for it.</td></tr>
-          <tr><td class="name">shared</td><td class="type">boolean</td><td class="desc">Whether the view was stored for everyone rather than for this user alone. The storage adapter decides what that means.</td></tr>
-          <tr><td class="name">isDefault</td><td class="type">boolean</td><td class="desc">Applied on load when no `config.state` is given. `config.state` wins outright over this flag: with both present, the default view is never applied and the active view id stays `null`.</td></tr>
-          <tr><td class="name">builtin</td><td class="type">boolean</td><td class="desc">Supplied in `config.views.saved`: listed apart, and not renamable or deletable.</td></tr>
-          <tr><td class="name">createdAt</td><td class="type">number</td><td class="desc">When the view was first saved, as epoch milliseconds. It survives an overwrite; `updatedAt` does not.</td></tr>
-          <tr><td class="name">updatedAt</td><td class="type">number</td><td class="desc">When it was last changed, as epoch milliseconds.</td></tr>
-          <tr><td class="name">state</td><td class="type"><a href="grid.html#type-GridState">GridState</a></td><td class="desc">A partial `GridState`; only the sections it names are applied.</td></tr>
-        </tbody>
-      </table>
-    </div>
     <h4 id="type-SelectionStatistics">SelectionStatistics</h4>
     <p class="section-note">The shape {@link SelectionApi.statistics} returns (BACKLOG-0001488): what `summary()` reports, plus the range's own size and shape. `distinct` counts every non-blank value, numeric or not, so a numeric-looking selection that is really a set of codes shows up as a low distinct count against a high `count`. The five fields after `distinct` are present only when at least one selected value parsed as a number — `statistics()` never invents a quartile or a deviation over an empty numeric set.</p>
     <div class="table-wrap">
@@ -2568,8 +2554,8 @@
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">reason</td><td class="type"><a href="#type-ViewChangeReason">ViewChangeReason</a> <small class="literals">'save' | 'update' | 'rename' | 'remove' | 'default' | 'import' | 'seed' | 'replace'</small></td><td class="desc">What happened to the views: a view was saved, updated, renamed, removed, made default, imported, seeded from configuration, or the whole set replaced.</td></tr>
-          <tr><td class="name">view</td><td class="type"><a href="#type-SavedView">SavedView</a> | null</td><td class="desc">The view the change concerns; null for a bulk replace.</td></tr>
+          <tr><td class="name">reason</td><td class="type"><a href="#type-ViewChangeReason">ViewChangeReason</a> <small class="literals">'save' | 'update' | 'rename' | 'remove' | 'default' | 'import' | 'seed' | 'replace' | 'unshare'</small></td><td class="desc">What happened to the views: a view was saved, updated, renamed, removed, made default, imported, seeded from configuration, or the whole set replaced.</td></tr>
+          <tr><td class="name">view</td><td class="type"><a href="grid.html#type-SavedView">SavedView</a> | null</td><td class="desc">The view the change concerns; null for a bulk replace.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2579,22 +2565,22 @@
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">imported</td><td class="type">Omit&lt;<a href="#type-SavedView">SavedView</a>, 'state'&gt;[]</td><td class="desc">The views that were stored, as metadata — the state is not repeated.</td></tr>
+          <tr><td class="name">imported</td><td class="type">Omit&lt;<a href="grid.html#type-SavedView">SavedView</a>, 'state'&gt;[]</td><td class="desc">The views that were stored, as metadata — the state is not repeated.</td></tr>
           <tr><td class="name">skipped</td><td class="type">{ name: string; reason: string }[]</td><td class="desc">Each view that was not stored, with a reason in words a host can show.</td></tr>
           <tr><td class="name">repaired</td><td class="type">{ name: string; key: string; reason: string }[]</td><td class="desc">Each state section that was dropped from an otherwise valid view.</td></tr>
         </tbody>
       </table>
     </div>
-    <h4 id="type-ViewPayload">ViewPayload</h4>
-    <p class="section-note">What {@link ViewsApi.export} produces and {@link ViewsApi.import} accepts.</p>
+    <h4 id="type-ViewPermissionError">ViewPermissionError</h4>
+    <p class="section-note">Thrown by an owner-gated method of {@link ViewsApi} — `rename`, `save` when it would overwrite, `remove` and `unshare` — when the acting user is neither the view's owner nor an admin (BACKLOG-0002459). The store is left exactly as it was: the error is thrown before any field is mutated.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">kind</td><td class="type">string</td><td class="desc">Marks the object as a Lattice view payload.</td></tr>
-          <tr><td class="name">version</td><td class="type">number</td><td class="desc">The payload format version, so an older file can be read or refused.</td></tr>
-          <tr><td class="name">exportedAt</td><td class="type">number</td><td class="desc">When it was exported, in epoch milliseconds.</td></tr>
-          <tr><td class="name">views</td><td class="type"><a href="#type-SavedView">SavedView</a>[]</td><td class="desc">The views themselves, each with `isDefault` cleared.</td></tr>
+          <tr><td class="name">code</td><td class="type">'views/forbidden'</td><td class="desc">Stable code a caller can switch on: always `'views/forbidden'`.</td></tr>
+          <tr><td class="name">action</td><td class="type">'rename' | 'overwrite' | 'remove' | 'unshare'</td><td class="desc">The action that was refused.</td></tr>
+          <tr><td class="name">view</td><td class="type">{ id: string; name: string }</td><td class="desc">The view the action targeted.</td></tr>
+          <tr><td class="name">owner</td><td class="type"><a href="grid.html#type-ViewOwner">ViewOwner</a> | null</td><td class="desc">The view's recorded owner, or `null` for one saved before owners existed.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2603,8 +2589,8 @@
       <table>
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">read</td><td class="type">(): <a href="#type-SavedView">SavedView</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-SavedView">SavedView</a>[]</code></td><td class="desc">Load the user's views. Called at construction and by `views.reload()`.</td></tr>
-          <tr><td class="name">write</td><td class="type">(views: <a href="#type-SavedView">SavedView</a>[], change: <a href="#type-ViewChange">ViewChange</a>): void</td><td class="desc"><code>views: <a href="#type-SavedView">SavedView</a>[]</code><br><code>change: <a href="#type-ViewChange">ViewChange</a></code></td><td class="type"><code>void</code></td><td class="desc">Mirror the views somewhere synchronous: `localStorage`, an in-memory cache. For a server, listen for `view:saved` / `view:removed` and do the write yourself: the grid does not make network calls and does not want to know whether yours succeeded.</td></tr>
+          <tr><td class="name">read</td><td class="type">(): <a href="grid.html#type-SavedView">SavedView</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="grid.html#type-SavedView">SavedView</a>[]</code></td><td class="desc">Load the user's views. Called at construction and by `views.reload()`.</td></tr>
+          <tr><td class="name">write</td><td class="type">(views: <a href="grid.html#type-SavedView">SavedView</a>[], change: <a href="#type-ViewChange">ViewChange</a>): void</td><td class="desc"><code>views: <a href="grid.html#type-SavedView">SavedView</a>[]</code><br><code>change: <a href="#type-ViewChange">ViewChange</a></code></td><td class="type"><code>void</code></td><td class="desc">Mirror the views somewhere synchronous: `localStorage`, an in-memory cache. For a server, listen for `view:saved` / `view:removed` and do the write yourself: the grid does not make network calls and does not want to know whether yours succeeded.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2882,6 +2868,18 @@
     <h4 id="type-DataTypeStorage">DataTypeStorage</h4>
     <p class="section-note">How the column store holds a type's values in bulk.</p>
     <p class="type-def"><code>type DataTypeStorage = 'float64' | 'int32' | 'bitset' | 'dictionary' | 'object'</code></p>
+    <h4 id="type-DataViewEventName">DataViewEventName</h4>
+    <p class="section-note">The event names a data view emits: the list view's.</p>
+    <p class="type-def"><code>type DataViewEventName = 'itemClick' | 'itemDoubleClick' | 'beforeDrop' | 'afterDrop' | 'dragOut' | 'selectionChange' | 'input' | 'change'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/dataview</code>.</small></p>
+    <h4 id="type-DataViewItem">DataViewItem</h4>
+    <p class="section-note">An item backing one card: any object. Its identity comes from `DataViewConfig.key`.</p>
+    <p class="type-def"><code>type DataViewItem = Record&lt;string, unknown&gt;</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/dataview</code>.</small></p>
+    <h4 id="type-DataViewPeer">DataViewPeer</h4>
+    <p class="section-note">A view an item can be dragged to or from: another data view, or a `listview` list.</p>
+    <p class="type-def"><code>type DataViewPeer = <a href="dataview.html#type-DataView">DataView</a> | import('lattice-grid/modules/listview').<a href="listview.html#type-ListView">ListView</a></code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/dataview</code>.</small></p>
     <h4 id="type-DateStyle">DateStyle</h4>
     <p class="section-note">A locale-chosen date form, mirroring `Intl.DateTimeFormatOptions.dateStyle`.</p>
     <p class="type-def"><code>type DateStyle = 'short' | 'medium' | 'long' | 'full'</code></p>
@@ -2986,7 +2984,7 @@
     <p class="type-def"><code>type EventHandler = (e: <a href="grid.html#type-GridEvent">GridEvent</a>) =&gt; void</code></p>
     <h4 id="type-EventName">EventName</h4>
     <p class="section-note">Every event the grid emits. Complete, and checked against the runtime by `tools/check.js`, an `emit()` call with no entry here fails the build. It was not complete before: fifty-one events were emitted and undeclared, so subscribing to any of them from TypeScript was a compile error on an event the grid genuinely raises. Grouped by the subsystem that raises them, which is also how the reference lists them.</p>
-    <p class="type-def"><code>type EventName = 'ready' | 'destroy' | 'render:first' | 'render:done' | 'config:changed' | 'licence:changed' | 'model:changed' | 'rows:changed' | 'rows:queued' | 'rows:deferred' | 'rows:paused' | 'rows:resumed' | 'row:received' | 'row:sent' | 'row:copied' | 'row:moved' | 'source:error' | 'source:total' | 'stream:chunk' | 'stream:end' | 'stream:evicted' | 'rowDrag:started' | 'rowDrag:moved' | 'rowDrag:left' | 'rowDrag:ended' | 'cell:changed' | 'cell:pending' | 'cell:confirmed' | 'cell:reverted' | 'cell:conflict' | 'cell:clicked' | 'cell:dblclicked' | 'cell:contextmenu' | 'cell:mouseover' | 'cell:mouseout' | 'cell:mousedown' | 'cell:mouseup' | 'cell:edit:start' | 'cell:edit:end' | 'row:edit:start' | 'row:edit:end' | 'row:clicked' | 'row:dblclicked' | 'row:pending' | 'row:confirmed' | 'row:reverted' | 'row:conflict' | 'form:opened' | 'form:closed' | 'form:saved' | 'form:error' | 'sort:changed' | 'filter:changed' | 'group:toggled' | 'facet:computed' | 'facet:filtered' | 'facet:expanded' | 'facet:failed' | 'column:moved' | 'column:resized' | 'column:visible' | 'column:pinned' | 'column:grouped' | 'column:pivoted' | 'column:filter:open' | 'column:profile:open' | 'column:menu:open' | 'pivot:drill' | 'columns:changed' | 'columns:tagged' | 'columngroup:changed' | 'header:contextmenu' | 'selection:changed' | 'range:changed' | 'clipboard:copy' | 'page:changed' | 'scroll' | 'scroll:end' | 'size:changed' | 'detail:toggled' | 'detail:cell:edit:start' | 'detail:cell:edit:end' | 'detail:row:edit:start' | 'detail:row:edit:end' | 'detail:cell:changed' | 'toolpanel:focus' | 'highlight:changed' | 'find:changed' | 'tree:loading' | 'tree:loaded' | 'tree:loadFailed' | 'tree:loadAborted' | 'state:changed' | 'state:reset' | 'history:changed' | 'history:applied' | 'views:changed' | 'view:applied' | 'view:saved' | 'view:removed' | 'view:renamed' | 'view:default' | 'validation:failed' | 'validation:cleared' | 'formatting:changed' | 'redaction:changed' | 'permissions:changed' | 'presentation:changed' | 'presentation:started' | 'presentation:ended' | 'presentation:view' | 'presentation:scale' | 'presentation:spotlight' | 'presentation:captured' | 'comment:added' | 'comment:edited' | 'comment:deleted' | 'comment:failed' | 'comment:resolved' | 'comment:unresolved' | 'comment:threadOpened' | 'comment:threadClosed' | 'comment:indexLoaded' | 'presence:published' | 'presence:joined' | 'presence:updated' | 'presence:left' | 'presence:failed' | 'presence:lockRefused' | 'diff:changed' | 'diff:swapped' | 'timeline:attached' | 'timeline:detached' | 'timeline:seek' | 'timeline:seeking' | 'annotation:changed' | 'export:progress' | 'export:request' | 'export:done' | 'shortcuts:opened' | 'shortcuts:closed' | 'print:before' | 'print:after' | 'beforeEdit' | 'beforeSort' | 'beforeFilter' | 'beforeColumnMove' | 'beforeColumnResize' | 'beforeColumnHide' | 'beforeSelect' | 'beforeRowAdd' | 'beforeDelete' | 'beforeRowMove' | 'beforeGroup' | 'beforeRowReceive' | 'edit:cancelled' | 'sort:cancelled' | 'filter:cancelled' | 'columnMove:cancelled' | 'columnResize:cancelled' | 'columnHide:cancelled' | 'selection:cancelled' | 'rowAdd:cancelled' | 'delete:cancelled' | 'rowMove:cancelled' | 'group:cancelled' | 'rowReceive:cancelled' | '*'</code></p>
+    <p class="type-def"><code>type EventName = 'ready' | 'destroy' | 'render:first' | 'render:done' | 'config:changed' | 'licence:changed' | 'model:changed' | 'rows:changed' | 'rows:queued' | 'rows:deferred' | 'rows:paused' | 'rows:resumed' | 'row:received' | 'row:sent' | 'row:copied' | 'row:moved' | 'source:error' | 'source:total' | 'stream:chunk' | 'stream:end' | 'stream:evicted' | 'rowDrag:started' | 'rowDrag:moved' | 'rowDrag:left' | 'rowDrag:ended' | 'beforeRowDrop' | 'rowDrop:cancelled' | 'rowDrop' | 'cell:changed' | 'cell:pending' | 'cell:confirmed' | 'cell:reverted' | 'cell:conflict' | 'cell:clicked' | 'cell:dblclicked' | 'cell:contextmenu' | 'cell:mouseover' | 'cell:mouseout' | 'cell:mousedown' | 'cell:mouseup' | 'cell:edit:start' | 'cell:edit:end' | 'row:edit:start' | 'row:edit:end' | 'row:clicked' | 'row:dblclicked' | 'row:pending' | 'row:confirmed' | 'row:reverted' | 'row:conflict' | 'form:opened' | 'form:closed' | 'form:saved' | 'form:error' | 'sort:changed' | 'filter:changed' | 'group:toggled' | 'facet:computed' | 'facet:filtered' | 'facet:expanded' | 'facet:failed' | 'column:moved' | 'column:resized' | 'column:visible' | 'column:pinned' | 'column:grouped' | 'column:pivoted' | 'column:filter:open' | 'column:profile:open' | 'column:menu:open' | 'pivot:drill' | 'columns:changed' | 'columns:tagged' | 'columngroup:changed' | 'header:contextmenu' | 'selection:changed' | 'range:changed' | 'clipboard:copy' | 'page:changed' | 'scroll' | 'scroll:end' | 'size:changed' | 'detail:toggled' | 'detail:cell:edit:start' | 'detail:cell:edit:end' | 'detail:row:edit:start' | 'detail:row:edit:end' | 'detail:cell:changed' | 'toolpanel:focus' | 'highlight:changed' | 'find:changed' | 'tree:loading' | 'tree:loaded' | 'tree:loadFailed' | 'tree:loadAborted' | 'state:changed' | 'state:reset' | 'history:changed' | 'history:applied' | 'views:changed' | 'view:applied' | 'view:saved' | 'view:removed' | 'view:renamed' | 'view:default' | 'validation:failed' | 'validation:cleared' | 'formatting:changed' | 'redaction:changed' | 'permissions:changed' | 'presentation:changed' | 'presentation:started' | 'presentation:ended' | 'presentation:view' | 'presentation:scale' | 'presentation:spotlight' | 'presentation:captured' | 'comment:added' | 'comment:edited' | 'comment:deleted' | 'comment:failed' | 'comment:resolved' | 'comment:unresolved' | 'comment:threadOpened' | 'comment:threadClosed' | 'comment:indexLoaded' | 'presence:published' | 'presence:joined' | 'presence:updated' | 'presence:left' | 'presence:failed' | 'presence:lockRefused' | 'diff:changed' | 'diff:swapped' | 'timeline:attached' | 'timeline:detached' | 'timeline:seek' | 'timeline:seeking' | 'annotation:changed' | 'export:progress' | 'export:request' | 'export:done' | 'shortcuts:opened' | 'shortcuts:closed' | 'print:before' | 'print:after' | 'beforeEdit' | 'beforeSort' | 'beforeFilter' | 'beforeColumnMove' | 'beforeColumnResize' | 'beforeColumnHide' | 'beforeSelect' | 'beforeRowAdd' | 'beforeDelete' | 'beforeRowMove' | 'beforeGroup' | 'beforeRowReceive' | 'edit:cancelled' | 'sort:cancelled' | 'filter:cancelled' | 'columnMove:cancelled' | 'columnResize:cancelled' | 'columnHide:cancelled' | 'selection:cancelled' | 'rowAdd:cancelled' | 'delete:cancelled' | 'rowMove:cancelled' | 'group:cancelled' | 'rowReceive:cancelled' | '*'</code></p>
     <h4 id="type-EventOrigin">EventOrigin</h4>
     <p class="section-note">Who caused a grid change: `'user'` interaction, an `'api'` call, `'init'` (the grid's own startup), or an approved `'ai'` write (BACKLOG-0000967).</p>
     <p class="type-def"><code>type EventOrigin = 'api' | 'user' | 'init' | 'ai'</code></p>
@@ -3071,7 +3069,7 @@
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-FormControlType">FormControlType</h4>
     <p class="section-note">The control types a form item may name.</p>
-    <p class="type-def"><code>type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox' | 'togglegroup' | 'time'</code></p>
+    <p class="type-def"><code>type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox' | 'togglegroup' | 'time' | 'grid'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-FormDateRangeGranularity">FormDateRangeGranularity</h4>
     <p class="section-note">The granularity of a `daterange` item (BACKLOG-0002255): a day range or a year-month range.</p>
@@ -3083,7 +3081,7 @@
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-FormEventName">FormEventName</h4>
     <p class="section-note">The events a form raises, on `form.on()` (BACKLOG-0002141). The form's own, not a grid's. `on()` warns once on any other name. The cancellable `beforeChange` runs before a committed edit is stored, on the same contract the grid core uses: call `preventDefault(reason?)` on the payload, or return `false`; a veto reverts the control to its committed value. The past-tense events — `change`, `input`, `click`, `focus` and `blur` — report an edit already made and carry no `preventDefault`.</p>
-    <p class="type-def"><code>type FormEventName = 'beforeChange' | 'change' | 'input' | 'click' | 'focus' | 'blur' | 'validated' | 'complete' | 'customColorsChange' | 'open' | 'close' | 'itemClick'</code></p>
+    <p class="type-def"><code>type FormEventName = 'beforeChange' | 'change' | 'input' | 'click' | 'focus' | 'blur' | 'validated' | 'complete' | 'customColorsChange' | 'open' | 'close' | 'itemClick' | 'activate'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-FormGroupEventName">FormGroupEventName</h4>
     <p class="section-note">The group's events — the two names its `on()` accepts.</p>
@@ -3225,6 +3223,10 @@
     <h4 id="type-GraphqlPagination">GraphqlPagination</h4>
     <p class="section-note">How a GraphQL adapter pages: an offset/limit list, or a Relay cursor connection.</p>
     <p class="type-def"><code>type GraphqlPagination = 'offset' | 'cursor'</code></p>
+    <h4 id="type-GridItemTotalFn">GridItemTotalFn</h4>
+    <p class="section-note">A totals function: a built-in name, or your own reducer over the cells' values.</p>
+    <p class="type-def"><code>type GridItemTotalFn = 'sum' | 'avg' | 'count' | ((values: unknown[], ctx: { field?: string; rows?: object[]; row?: object }) =&gt; unknown)</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-HandlerProp">HandlerProp</h4>
     <p class="section-note">The React prop name for one grid event: `'rows:changed'` is `onRowsChanged`. The pair with {@link PascalJoin} is what lets an editor complete the props of `&lt;LatticeGrid&gt;` from the event union itself.</p>
     <p class="type-def"><code>type HandlerProp&lt;E extends string&gt; = `on${<a href="#type-PascalJoin">PascalJoin</a>&lt;E&gt;}`</code></p>
@@ -3476,6 +3478,14 @@
     <h4 id="type-ListOperator">ListOperator</h4>
     <p class="section-note">The four operators of a `list` column (declared by the type the opt-in `modules/list` registers), questions about the whole list. They compare items exactly (case matters), as SQL's `list_has_any` does. - `hasAny` — the list holds at least one of the operand's items. - `hasAll` — the list holds every one of them (an empty operand: every row). - `hasNone` — the list holds none of them (an empty or absent list included). - `listCount` — the number of items compares as a {@link ListCount} says. Every operator of the item type applies to a list column too, with "any item matches" semantics; see `DataType.items`.</p>
     <p class="type-def"><code>type ListOperator = 'hasAny' | 'hasAll' | 'hasNone' | 'listCount'</code></p>
+    <h4 id="type-ListViewEventName">ListViewEventName</h4>
+    <p class="section-note">The event names a list emits.</p>
+    <p class="type-def"><code>type ListViewEventName = 'itemClick' | 'itemDoubleClick' | 'beforeDrop' | 'afterDrop' | 'dragOut' | 'selectionChange' | 'input' | 'change' | 'itemContextMenu'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/listview</code>.</small></p>
+    <h4 id="type-ListViewItem">ListViewItem</h4>
+    <p class="section-note">An item backing one row: any object. Its identity comes from `ListViewConfig.key`.</p>
+    <p class="type-def"><code>type ListViewItem = Record&lt;string, unknown&gt;</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/listview</code>.</small></p>
     <h4 id="type-LookupSortBy">LookupSortBy</h4>
     <p class="section-note">How a lookup's option list is ordered for display.</p>
     <p class="type-def"><code>type LookupSortBy = 'label' | 'value' | 'optionOrder' | 'count'</code></p>
@@ -3833,6 +3843,14 @@
     <p class="section-note">One step of a traced row's path (v19, BACKLOG-0001838): the shape varies by `kind`, mirroring the pipeline stage `explain()` already counts in aggregate — this is the same accounting, kept per row instead of summed.</p>
     <p class="type-def"><code>type TraceStep = { kind: 'fields'; changes: { field: string; before: unknown; after: unknown }[] } | { kind: 'unnest'; parentKey: unknown } | { kind: 'join'; from: string; matchedKey: unknown; matched: boolean } | { kind: 'collect'; from: string; matchedKey: unknown; matched: boolean } | { kind: 'relate'; parentKey: unknown; matchedKey: unknown } | { kind: 'rollup'; groupKey: unknown; memberCount: number } | { kind: 'spread'; origin: string } | { kind: 'cascade'; origin: string } | { kind: 'filter'; passed: boolean } | { kind: 'sort'; passed: true } | { kind: 'transform'; passed: true } | { kind: 'route'; label: string | null; op: 'add' | 'update'; seq: number | undefined }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/data-router</code>.</small></p>
+    <h4 id="type-TreeEventName">TreeEventName</h4>
+    <p class="section-note">The event names a tree emits through `tree.on`.</p>
+    <p class="type-def"><code>type TreeEventName = 'itemClick' | 'itemDoubleClick' | 'expand' | 'collapse' | 'selectionChange' | 'check' | 'beforeDrop' | 'afterDrop' | 'itemContextMenu'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/tree</code>.</small></p>
+    <h4 id="type-TreeNode">TreeNode</h4>
+    <p class="section-note">A node's own data: any object. Its identity comes from `TreeModuleConfig.key`.</p>
+    <p class="type-def"><code>type TreeNode = Record&lt;string, unknown&gt;</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/tree</code>.</small></p>
     <h4 id="type-TypeName">TypeName</h4>
     <p class="section-note">What kind of value a column holds, which is what decides how it is parsed, sorted, filtered, aligned and formatted before you configure anything else. The first few are inferred from the data. Everything after them is asked for by name on the column, because a number is a number until you say it is a bitrate, a decibel, an IPv4 address or a duration.</p>
     <p class="type-def"><code>type TypeName = 'text' | 'number' | 'boolean' | 'date' | 'dateString' | 'object' | 'lookup' | 'image'</code></p>
@@ -3865,7 +3883,7 @@
     <p class="type-def"><code>type VariantSpec = <a href="#type-VariantName">VariantName</a> | { map: Record&lt;string, <a href="#type-VariantName">VariantName</a>&gt;; default?: <a href="#type-VariantName">VariantName</a> } | { when: VariantWhen[]; default?: <a href="#type-VariantName">VariantName</a> } | ((p: <a href="grid.html#type-CellParams">CellParams</a>) =&gt; <a href="#type-VariantName">VariantName</a>)</code></p>
     <h4 id="type-ViewChangeReason">ViewChangeReason</h4>
     <p class="section-note">What happened to a saved view, or the whole set.</p>
-    <p class="type-def"><code>type ViewChangeReason = 'save' | 'update' | 'rename' | 'remove' | 'default' | 'import' | 'seed' | 'replace'</code></p>
+    <p class="type-def"><code>type ViewChangeReason = 'save' | 'update' | 'rename' | 'remove' | 'default' | 'import' | 'seed' | 'replace' | 'unshare'</code></p>
     <h4 id="type-ViewConflictPolicy">ViewConflictPolicy</h4>
     <p class="section-note">What an imported view named the same as an existing one does: keep both, overwrite, or skip.</p>
     <p class="type-def"><code>type ViewConflictPolicy = 'rename' | 'overwrite' | 'skip'</code></p>

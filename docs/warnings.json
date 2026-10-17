@@ -1,5 +1,5 @@
 {
-  "version": "1.103.2",
+  "version": "1.104.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 748,
+  "count": 755,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -3626,6 +3626,27 @@
       "docs": "api/grid.html#units"
     },
     {
+      "id": "views:forbidden:*:*",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.103.2",
+      "message": "{message}",
+      "computed": true,
+      "meaning": "A host called `rename`, `save` (overwrite), `remove` or `unshare` on a shared view that `views.user` does not own and that `views.isAdmin` does not admit. The id after `forbidden:` names the action and the view. The store threw a `ViewPermissionError` (code `views/forbidden`) and left the view unchanged; this is the matching once-per-action warning for a host's own button reaching the same store method directly.",
+      "fix": "Check `ViewStore#canEdit(view)` before offering the action, or catch `ViewPermissionError` and show its message. The panel already does both.",
+      "docs": "api/grid.html#views"
+    },
+    {
+      "id": "views:id",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.103.2",
+      "message": "the views id function returned \"{id}\", which is already held; a suffix was added",
+      "meaning": "The host's `views.id` function returned an id a saved view already holds. The store never assigns a held id, so it added a numeric suffix. Reported once.",
+      "fix": "Return an id that is unique across the user's views, or omit the function to use the built-in generated ids.",
+      "docs": "api/grid.html#views"
+    },
+    {
       "id": "views:read",
       "module": "core",
       "severity": "warn",
@@ -3633,6 +3654,16 @@
       "message": "saved views could not be read: {error}",
       "meaning": "The views storage adapter threw on read, so the grid starts with no saved views. Nothing is lost — the stored data is untouched — and the list simply appears empty until a read succeeds.",
       "fix": "The storage error's message is quoted in the line.",
+      "docs": "api/grid.html#views"
+    },
+    {
+      "id": "views:user",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.103.2",
+      "message": "[lattice] views.user threw: {error}",
+      "meaning": "`views.user` was called as a function (so a host can switch the signed-in user without rebuilding the grid) and it threw. The permission check it was feeding treats the result as no user — every owner-gated action is refused, as if no one were signed in — rather than taking the check down with it.",
+      "fix": "The thrown error's message is quoted in the line. Make `views.user` return `{ id, name }` or `null` without throwing.",
       "docs": "api/grid.html#views"
     },
     {
@@ -7867,6 +7898,28 @@
       "docs": "api/scheduler.html#scheduler"
     },
     {
+      "id": "listview:event:*",
+      "module": "listview",
+      "severity": "warn",
+      "since": "1.103.2",
+      "message": "\"{name}\" is not a listview event; expected one of {list}.",
+      "meaning": "`createList`'s `list.on()` was given an event name the list never emits, so the handler can never run. The subscription is still made; the typo is named.",
+      "fix": "Use one of the documented events: itemClick, itemDoubleClick, beforeDrop, afterDrop, dragOut, selectionChange, input, change.",
+      "snippet": "list.on('itemClick', (e) => console.log(e.id));",
+      "docs": "api/listview.html#listview"
+    },
+    {
+      "id": "dataview:event:*",
+      "module": "dataview",
+      "severity": "warn",
+      "since": "1.103.2",
+      "message": "\"{name}\" is not a dataview event; expected one of {list}.",
+      "meaning": "`createDataView`'s `view.on()` was given an event name the view never emits, so the handler can never run. The subscription is still made; the typo is named.",
+      "fix": "Use one of the documented events: itemClick, itemDoubleClick, beforeDrop, afterDrop, dragOut, selectionChange, input, change.",
+      "snippet": "view.on('itemClick', (e) => console.log(e.id));",
+      "docs": "api/dataview.html#dataview"
+    },
+    {
       "id": "scheduler:unparsable-start",
       "module": "scheduler",
       "severity": "warn",
@@ -7931,6 +7984,28 @@
       "fix": "Pass `detail.render` a function `(container, row, ctx)` that mounts into `container` and returns an object with a `destroy()` method, or nothing.",
       "snippet": "detail: { render(container, row) { container.textContent = row.key; return { destroy() {} }; } }",
       "docs": "api/grid.html#type-DetailConfig"
+    },
+    {
+      "id": "form.item.set.unknown:*",
+      "module": "form",
+      "severity": "warn",
+      "since": "1.104.0",
+      "message": "lattice-form: getItem(name).set() was given \"{key}\", which is not a live prop of this item; it was ignored. See the warnings catalogue for the live props a control documents.",
+      "meaning": "`getItem(name).set(props)` (BACKLOG-0002542) applies the common props every item shares (`placeholder`, `label`, `labelPosition`, `labelWidth`, `helpMessage`, `required`, `readOnly`, `disabled`, `hidden`, `width`, `validation`, `errorMessage`, `css`) and whatever a control additionally declares live (`min`/`max`/`step`/`format` on `number`, for instance). A key that is neither of those falls through unapplied: the item's value and every other prop stay exactly as they were.",
+      "fix": "Check the prop name, and the control's own section of the form module reference for which of its options are live versus build-only.",
+      "snippet": "form.getItem('city').set({ placeholder: 'City in France' });",
+      "docs": "api/form.html#form-item-set-example"
+    },
+    {
+      "id": "form.item.get.unknown:*",
+      "module": "form",
+      "severity": "warn",
+      "since": "1.104.0",
+      "message": "lattice-form: getItem(name).get(\"{prop}\") is not a prop this item carries; it returns undefined. See the warnings catalogue for the live props a control documents.",
+      "meaning": "`getItem(name).get(prop)` (BACKLOG-0002542) reads back the effective value of a prop `set()` accepts. A prop the item does not carry (misspelled, or simply not one of its own) has no effective value to report, so `undefined` is returned rather than guessing.",
+      "fix": "Check the prop name against the props `set()` on this item documents as live.",
+      "snippet": "form.getItem('city').get('placeholder');",
+      "docs": "api/form.html#form-item-set-example"
     }
   ]
 }

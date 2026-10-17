@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.103.2</title>
+<title>Grid API Reference — Lattice Grid 1.104.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -543,6 +543,9 @@
         <a href="leaflet.html">The Leaflet binding</a>
         <a href="mapview.html">The map view</a>
         <a href="list.html">The list module</a>
+        <a href="listview.html">The list view module</a>
+        <a href="dataview.html">The data view module</a>
+        <a href="tree.html">The tree module</a>
         <a href="kanban.html">The board (kanban) view</a>
         <a href="gantt.html">The Gantt module</a>
         <a href="calendar.html">The calendar viewer</a>
@@ -575,7 +578,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip"><a href="index.html">All 26 pages</a></span>
+      <span class="chip"><a href="index.html">All 29 pages</a></span>
       <span class="chip"><a href="../API.html">Everything on one page &rarr;</a></span>
       <span class="chip"><a href="../api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -1912,7 +1915,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.103.2'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.104.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -3429,33 +3432,116 @@ grid.highlight.clear();                                             // everythin
     <div class="note"><p>A highlight belongs to the <em>row</em>, not the element. Rows are recycled as you scroll, so highlights are reapplied after every paint, they survive scrolling, sorting, filtering and paging without any of them knowing highlights exist.</p></div>
     <h2 id="views">grid.views</h2>
     <p>Named states the user can return to. Views supplied in <code>config.views.saved</code> are <strong>defined views</strong>: listed apart in the picker, and neither renamable nor deletable, refused by the model as well as hidden in the interface. Views the user saves are their own and carry rename, share, default and delete.</p>
+    <p><strong>Storage is read first.</strong> With a <code>storage</code> adapter the store always reads it before anything else. Views passed in <code>saved</code> alongside it are shipped views: merged in as read-only entries (no rename, delete or overwrite), never replacing a stored view, never written back as the user's, and never displacing the user's stored default, a stored default wins over a shipped one. The first write after load contains exactly the user's views. Storage that already holds copies of shipped views (written by an earlier build) is de-duplicated by id without losing the user's edits. New view ids are unique across sessions and devices; the store never assigns an id it already holds, and a custom id function is honoured but checked the same way, warning once and adding a suffix on a clash.</p>
+    <p><strong>A view is a layout, not a snapshot of clicks.</strong> <code>save</code>, <code>export</code> and <code>import</code> keep the configuration — columns, order, widths, pinning, visibility, sort, filters, grouping, pivot, formatting, density — and leave the current selection and expansion out by default. Applying a view likewise leaves the selection and expansion as they are. Opt them back in per section with <code>views.capture</code>. Views saved by an earlier build that still carry a <code>selection</code> or <code>expanded</code> section load and apply without error; the section is simply ignored unless captured.</p>
     <pre><code>createGrid(el, {
   views: {
     saved: [{ id: 'escalations', name: 'Escalations', description: 'Worst SLA first',
               state: { filters: { col: 'statusId', op: 'eq', value: 4 },
                        sort: [{ col: 'utilisation', dir: 'desc' }] } }],
     allowSave: true,   // false removes the save form entirely
+    onShare: (payload, view) => sendView(view.name, payload),   // receive the export; default copies JSON
     local: true,       // saved views live in this browser's localStorage, no backend
+    // capture: { selection: true, expanded: true }, // opt selection and expansion back in
     // storage: { read, write }, // or bring your own backend; see the note below
+    // user: () => currentUser,        // { id, name }, or a function read fresh on every check
+    // isAdmin: (user) => user.role === 'admin',
+    // adminSeesPrivate: true,         // let an admin list private views that are not theirs
   },
 });</code></pre>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Method</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">list() / get(id)</td><td class="type">object[] / object</td><td class="desc"></td></tr>
-          <tr><td class="sig">save(name, opts?)</td><td class="type">object</td><td class="desc">Captures the current state. <code>opts</code>: <code>id</code>, <code>description</code>, <code>shared</code>, <code>isDefault</code>.</td></tr>
-          <tr><td class="sig">apply(id)</td><td class="type">object | null</td><td class="desc">One undo entry. Resets to the baseline first, so a view is a <em>destination</em> rather than a patch, the same view gives the same grid whatever was applied before it.</td></tr>
-          <tr><td class="sig">rename(id, name)</td><td class="type">object | null</td><td class="desc">Null for a defined view.</td></tr>
-          <tr><td class="sig">remove(id)</td><td class="type">boolean</td><td class="desc">False for a defined view.</td></tr>
-          <tr><td class="sig">setDefault(id)</td><td class="type">object | null</td><td class="desc"><code>null</code> clears it. A default view is applied on load, without recording an undo entry.</td></tr>
-          <tr><td class="sig">export(id) / import(json)</td><td class="type">object</td><td class="desc">A JSON payload. What "sharing" means is yours to decide.</td></tr>
+          <tr><td class="sig">list() / get(id)</td><td class="type">object[] / object</td><td class="desc">A private view is listed only to its owner, and to an admin only with <code>adminSeesPrivate: true</code>; a shared view is listed to everyone.</td></tr>
+          <tr><td class="sig">save(name, opts?)</td><td class="type">object</td><td class="desc">Captures the current layout — not the selection or expansion, unless <code>views.capture</code> opts them in. <code>opts</code>: <code>id</code>, <code>description</code>, <code>shared</code>, <code>isDefault</code>. A new view is stamped with the current <code>views.user</code> as its owner; saving over an existing one keeps the owner it already had.</td></tr>
+          <tr><td class="sig">apply(id)</td><td class="type">object | null</td><td class="desc">One undo entry. Resets to the baseline first, so a view is a <em>destination</em> rather than a patch, the same view gives the same grid whatever was applied before it. Leaves selection and expansion alone unless the view was saved with <code>views.capture</code>. Never refused by ownership — open to everyone.</td></tr>
+          <tr><td class="sig">rename(id, name)</td><td class="type">object | null</td><td class="desc">Null for a defined view. <strong>Throws a <code>ViewPermissionError</code></strong> (<code>code: 'views/forbidden'</code>) if the view has an owner and the acting user is neither that owner nor an admin — see below.</td></tr>
+          <tr><td class="sig">remove(id)</td><td class="type">boolean</td><td class="desc">False for a defined view. Throws the same <code>ViewPermissionError</code> as <code>rename</code> for a view this user may not delete.</td></tr>
+          <tr><td class="sig">unshare(id)</td><td class="type">object | null</td><td class="desc">Stops sharing a view, leaving its name, description and state alone. Null for an unknown or defined view. Throws the same <code>ViewPermissionError</code> as <code>rename</code>.</td></tr>
+          <tr><td class="sig">duplicate(id, name?)</td><td class="type">object | null</td><td class="desc">A private copy, owned by whoever duplicated it, named "<code>{name} (copy)</code>" when the picker suggests one. Never refused by ownership: it is how a non-owner gets a layout they may change.</td></tr>
+          <tr><td class="sig">canEdit(view)</td><td class="type">boolean</td><td class="desc">The non-throwing twin of <code>rename</code>/<code>remove</code>/<code>unshare</code>/overwriting via <code>save</code>: whether the acting user may change this view at all. Always <code>true</code> while <code>views.user</code> is unset. A host's own button should check this before offering the action, the same way the panel does.</td></tr>
+          <tr><td class="sig">setDefault(id)</td><td class="type">object | null</td><td class="desc"><code>null</code> clears it. A default view is applied on load, without recording an undo entry. Never gated: a non-owner may still make someone else's shared view their own default.</td></tr>
+          <tr><td class="sig">export(id) / import(json)</td><td class="type">object</td><td class="desc">A JSON payload. The picker's Share hands it to <code>config.views.onShare</code>; without one it copies the payload as JSON to the clipboard and shows a short confirmation, with a JSON download fallback where the clipboard is unavailable. The owner travels with the view both ways: an imported view keeps the owner it was exported with, not whoever ran the import.</td></tr>
           <tr><td class="sig">diff(id)</td><td class="type">object | null</td><td class="desc">What applying a view would change.</td></tr>
           <tr><td class="sig">reload()</td><td class="type">void</td><td class="desc">Re-read from storage, discarding what is in memory.</td></tr>
           <tr><td class="sig">activeId</td><td class="type">string | null</td><td class="desc"></td></tr>
         </tbody>
       </table>
     </div>
+    <div class="note"><p><strong>Owners and permissions (BACKLOG-0002459).</strong> Without <code>views.user</code> configured, nothing here changes: every view stays as editable to everyone as it always was. With it set, every view saved from now on records who saved it — <code>{ id, name }</code> — and a shared view can only be renamed, overwritten (saved over by name), deleted or unshared by its owner or an admin (<code>views.isAdmin</code>). Everyone else can still apply it, duplicate it into a private copy of their own, and set it as their own default. A view saved before this was configured has no recorded owner and is editable only by an admin, though applying and duplicating it stay open to all. The panel shows the owner's name on a shared view and withholds — rather than merely disables — the actions a user cannot take, with the reason reachable as the row's title and <code>aria-description</code>. <code>views.user</code> may be a function, read fresh on every check, so a sign-in change takes effect on the very next click rather than requiring the grid to be rebuilt.</p></div>
+    <div class="example">
+      <p class="example__label">Two users and an admin, sharing one view</p>
+      <pre data-run="js" data-expect="true | false | false | bob | Escalations (reviewed) | false" data-covers="export:createGrid export:mountPanel config:GridConfig.views method:views.save method:views.rename method:views.duplicate method:views.reload method:views.canEdit method:views.unshare"><code>const { createTestDom, flushFrames } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid, mountPanel } = await import('../packages/dom/src/index.js');
+
+const { root } = createTestDom();
+let current = { id: 'alice', name: 'Alice' };
+const grid = createGrid(root, {
+  rowKey: 'id',
+  columns: [{ id: 'statusId', field: 'statusId', title: 'Status' }],
+  rows: [{ id: 1, statusId: 4 }],
+  views: {
+    user: () =&gt; current,
+    isAdmin: (user) =&gt; user.id === 'admin',
+  },
+});
+mountPanel({ grid, panel: 'views', container: root });
+flushFrames();
+
+// Alice saves a shared view: she is stamped as its owner.
+const view = grid.views.save('Escalations', { shared: true });
+
+// Bob is not the owner: the store refuses his rename, and the panel never
+// offered him the button in the first place.
+current = { id: 'bob', name: 'Bob' };
+grid.views.reload();
+flushFrames();
+
+let refused = false;
+try {
+  grid.views.rename(view.id, 'Hijacked');
+} catch (err) {
+  refused = err.code === 'views/forbidden';
+}
+const row = root.querySelector('[data-view="' + view.id + '"]');
+const bobSeesRename = !!(row &amp;&amp; row.querySelector('[data-action="Rename"]'));
+// canEdit agrees, without throwing — the question a host's own button asks.
+const bobCanEdit = grid.views.canEdit(grid.views.get(view.id));
+
+// Bob can still duplicate it — a private copy that is his own.
+const copy = grid.views.duplicate(view.id);
+
+// An admin may rename and unshare Alice's view, though they do not own it.
+current = { id: 'admin', name: 'Admin' };
+const renamedByAdmin = grid.views.rename(view.id, 'Escalations (reviewed)');
+const unsharedByAdmin = grid.views.unshare(view.id);
+
+return `${refused} | ${bobSeesRename} | ${bobCanEdit} | ${copy.owner.id} | ${renamedByAdmin.name} | ${unsharedByAdmin.shared}`;</code></pre>
+    </div>
+    <pre data-run="js" data-expect="lattice.views, Escalations | lattice.views | 1" data-covers="export:createGrid export:mountPanel config:GridConfig.views"><code>const { createTestDom, flushFrames, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid, mountPanel } = await import('../packages/dom/src/index.js');
+
+const { root } = createTestDom();
+const got = [];
+const grid = createGrid(root, {
+  rowKey: 'id',
+  columns: [{ id: 'statusId', field: 'statusId', title: 'Status' }],
+  rows: [{ id: 1, statusId: 4 }],
+  views: { onShare: (payload, view) =&gt; got.push(`${payload.kind}, ${view.name}`) },
+});
+mountPanel({ grid, panel: 'views', container: root });
+flushFrames();
+
+grid.views.save('Escalations');
+flushFrames();
+const share = root.querySelector('[data-action="Share"]');
+share.dispatchEvent(new TestEvent('click', { bubbles: true }));
+flushFrames();
+
+// Share handed onShare exactly what grid.views.export produces, and it imports back.
+const payload = grid.views.export(grid.views.list()[0].id);
+return `${got[0]} | ${payload.kind} | ${grid.views.import(payload).imported.length}`;</code></pre>
     <div class="note"><p><strong>The grid makes no network calls.</strong> <code>storage.write</code> is a synchronous mirror. To persist to a server, listen for <code>view:saved</code>, <code>view:renamed</code>, <code>view:removed</code> and <code>view:default</code>: each carries the one view that moved, so you can send a single record rather than diffing two lists. Because the grid does not track whether your write landed, a failed request leaves the view visible locally: catch it and call <code>views.reload()</code>.</p></div>
     <div class="note"><p><strong><code>views.local</code></strong> is the no-backend option: <code>true</code> stores views under a default <code>localStorage</code> key, shared by every grid on the origin; <code>{ key: '…' }</code> picks a key of your own, for more than one grid whose views should stay apart. Given alongside an explicit <code>storage</code>, <code>storage</code> wins and <code>local</code> is ignored, with a console warning, the two are never merged. Built on <code>createLocalViewStorage</code>, exported for direct use (a custom key, or a different <code>Storage</code>-shaped backing such as <code>sessionStorage</code>) without the <code>local</code> shorthand.</p></div>
     <h2 id="diff">grid.diff</h2>
@@ -7350,14 +7436,14 @@ spans.addSpan('R0', 'name', 3, 2); <span class="cmt">// rowspan 3, colspan 2</sp
 
     <h3 id="module-exports-example">Every module export, executed</h3>
     <p class="section-note">Every shipped module’s exports, resolved against its own barrel on every build.</p>
-    <pre data-run="js" data-expect="134" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:regressionPlots export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:rebindViewersWithin export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:autoInitCalendar export:CALENDAR_ATTR export:CALENDAR_CHANGE_EVENT export:GRID_CHANGE_EVENT export:autoInitGantt export:GANTT_ATTR export:GANTT_CHANGE_EVENT export:GANTT_COMMIT_EVENT export:registerGantt export:destroyGanttWithin export:saveGanttStateWithin export:restoreGanttStateWithin export:restoreSwappedGantts export:driveGanttOobUpdates export:autoInitDesigner export:DESIGNER_ATTR export:DESIGNER_CHANGE_EVENT export:registerDesigner export:destroyDesignerWithin export:saveDesignerStateWithin export:restoreDesignerStateWithin export:restoreSwappedDesigners export:autoInitMap export:MAP_ATTR export:registerMapFactories export:destroyMapWithin export:saveMapStateWithin export:restoreMapStateWithin export:autoInitScheduler export:SCHEDULER_ATTR export:SCHEDULER_CHANGE_EVENT export:registerScheduler export:destroySchedulerWithin export:saveSchedulerStateWithin export:restoreSchedulerStateWithin export:restoreSwappedSchedulers export:driveSchedulerOobUpdates export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:createLatticeElements export:defineLatticeElements export:ELEMENT_TAGS export:createLatticeKPIElement export:createLatticeChartElement export:createLatticeKanbanElement export:createLatticeCalendarElement export:createLatticeGanttElement export:createLatticeLayoutElement export:createLatticeTabsElement export:createLatticeRouterElement export:adoptLatticeStyles export:latticeStyleSheets export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload export:createDataRouter export:MockWebSocket export:rng export:opsFeed export:priceFeed export:createKanban export:pack export:autoInitKanban export:KANBAN_ATTR export:KANBAN_CHANGE_EVENT export:registerKanban export:destroyKanbanWithin export:saveKanbanStateWithin export:restoreKanbanStateWithin export:registerCalendar export:destroyCalendarWithin export:saveCalendarStateWithin export:restoreCalendarStateWithin export:restoreSwappedCalendars export:driveCalendarOobUpdates export:restoreSwappedKanbans export:driveKanbanOobUpdates"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
+    <pre data-run="js" data-expect="135" data-covers="export:ContextMenu export:Messages export:Registry export:autoInit export:createGrid export:createLocalViewStorage export:whenRendered export:createMessages export:createStat export:deltaOf export:gridElementsWithin export:hydrateTable export:mountPanel export:readTable export:toneOf export:Chart export:PALETTE export:SCHEMES export:TYPES export:createChart export:chartRange export:canChartRange export:deriveRangeSpec export:regressionPlots export:registerScheme export:resolveScheme export:schemeNames export:setDefaultScheme export:HTML_ROW_WARNING_THRESHOLD export:QUERY_CHANGED_EVENT export:SCROLL_NEAR_END_EVENT export:attach export:destroyWithin export:driveInfiniteScroll export:driveOobUpdates export:driveServerMode export:ingestResponse export:initWithin export:queryParams export:rebindViewersWithin export:restoreStateWithin export:rowsFromFragment export:rowsFromJson export:saveStateWithin export:autoInitCalendar export:CALENDAR_ATTR export:CALENDAR_CHANGE_EVENT export:GRID_CHANGE_EVENT export:autoInitGantt export:GANTT_ATTR export:GANTT_CHANGE_EVENT export:GANTT_COMMIT_EVENT export:registerGantt export:destroyGanttWithin export:saveGanttStateWithin export:restoreGanttStateWithin export:restoreSwappedGantts export:driveGanttOobUpdates export:autoInitDesigner export:DESIGNER_ATTR export:DESIGNER_CHANGE_EVENT export:registerDesigner export:destroyDesignerWithin export:saveDesignerStateWithin export:restoreDesignerStateWithin export:restoreSwappedDesigners export:autoInitMap export:MAP_ATTR export:registerMapFactories export:destroyMapWithin export:saveMapStateWithin export:restoreMapStateWithin export:autoInitScheduler export:SCHEDULER_ATTR export:SCHEDULER_CHANGE_EVENT export:registerScheduler export:destroySchedulerWithin export:saveSchedulerStateWithin export:restoreSchedulerStateWithin export:restoreSwappedSchedulers export:driveSchedulerOobUpdates export:ATTRIBUTE_CONFIG export:EVENT_PREFIX export:GridElementController export:LatticeGrid export:TAG_NAME export:createLatticeGridElement export:defineLatticeGrid export:domEventName export:observedAttributeNames export:createLatticeElements export:defineLatticeElements export:ELEMENT_TAGS export:createLatticeKPIElement export:createLatticeChartElement export:createLatticeKanbanElement export:createLatticeCalendarElement export:createLatticeGanttElement export:createLatticeLayoutElement export:createLatticeTabsElement export:createLatticeRouterElement export:adoptLatticeStyles export:latticeStyleSheets export:CONSOLE_ACTIVATION export:createDevtools export:expose export:EVENT_NAMES export:handlerName export:createLatticeGrid export:dashedName export:createLatticeAction export:Grid export:warnIfLargeHtmlPayload export:createDataRouter export:MockWebSocket export:rng export:opsFeed export:priceFeed export:createKanban export:pack export:autoInitKanban export:KANBAN_ATTR export:KANBAN_CHANGE_EVENT export:registerKanban export:destroyKanbanWithin export:saveKanbanStateWithin export:restoreKanbanStateWithin export:registerCalendar export:destroyCalendarWithin export:saveCalendarStateWithin export:restoreCalendarStateWithin export:restoreSwappedCalendars export:driveCalendarOobUpdates export:restoreSwappedKanbans export:driveKanbanOobUpdates"><code><span class="cmt">// Every declared export of every shipped module, resolved against its own</span>
 <span class="cmt">// barrel. A module that stopped exporting something fails here.</span>
 <span class="kw">const</span> modules = [
   [<span class="kw">await</span> import('../packages/dom/src/index.js'), [
     'ContextMenu', 'Messages', 'Registry', 'autoInit',
     'createGrid', 'createLocalViewStorage', 'createMessages', 'createStat',
     'deltaOf', 'gridElementsWithin', 'hydrateTable', 'mountPanel',
-    'readTable', 'toneOf', 'LatticeGrid',
+    'readTable', 'toneOf', 'LatticeGrid', 'whenRendered',
   ]],
   [<span class="kw">await</span> import('../packages/modules/charts/index.js'), [
     'Chart', 'PALETTE', 'SCHEMES', 'TYPES',
@@ -7945,6 +8031,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">element</td><td class="type">HTMLElement | null</td><td class="desc">The element you passed to `createGrid`, not the grid's own root. The grid builds its `.lattice` root *inside* that element, so `el.closest('.lattice')` never matches this, and a theme attribute set on it has no effect, the theme is read from the root within. Use `element.querySelector('.lattice')` for the grid's own root. <small>(read-only)</small></td></tr>
           <tr><td class="name">destroyed</td><td class="type">boolean</td><td class="desc">Whether `destroy` has run. Every other member is inert afterwards. <small>(read-only)</small></td></tr>
           <tr><td class="name">ready</td><td class="type">boolean</td><td class="desc">False until the first render has been laid out. <small>(read-only)</small></td></tr>
+          <tr><td class="name">renderReady</td><td class="type">Promise&lt;void&gt;</td><td class="desc">Resolves once the grid's first full render is in the DOM and its layout can be measured (sizes final, no pending frame); rejects if the grid is destroyed first (BACKLOG-0002548). Present only on a DOM-rendered grid (`createGrid`'s return value) — a headless grid draws nothing to be ready about. Not `ready` above: that is a different, pre-existing signal, a boolean deliberately delayed a frame so a caller can subscribe to the `'ready'` event on the line after `createGrid()`. <small>(read-only, optional)</small></td></tr>
           <tr><td class="name">form</td><td class="type"><a href="#type-RowFormApi">RowFormApi</a></td><td class="desc">The row form. Declines when `rowForm` is not configured. <small>(read-only)</small></td></tr>
           <tr><td class="name">icons</td><td class="type"><a href="#type-IconRegistryApi">IconRegistryApi</a></td><td class="desc">The grid's icon registry, read-only. The same sprite set `registerIcon` writes to and every cell paints from, reachable from the grid instance so that code outside the grid bundle — an optional module drawing its own glyph, a network chart putting a `router` on a node — draws from the one registry rather than a second, empty copy of it. Register with `registerIcon` or `config.icons`, as before. <small>(read-only)</small></td></tr>
         </tbody>
@@ -7966,6 +8053,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">emit</td><td class="type">(event: string, payload?: Record&lt;string, unknown&gt;): void</td><td class="desc"><code>event: string</code><br><code>payload?: Record&lt;string, unknown&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Raise an event of your own on the grid's bus.</td></tr>
           <tr><td class="name">setPinnedRows</td><td class="type">(rows: unknown[], opts?: { edge?: 'top' | 'bottom' }): void</td><td class="desc"><code>rows: unknown[]</code><br><code>opts?: { edge?: 'top' | 'bottom' }</code></td><td class="type"><code>void</code></td><td class="desc">Pin rows above or below the scrolling body. The rows render through the ordinary column pipeline but are not part of the data: not counted, sorted, filtered, grouped, selectable or exported. Pass a new array rather than mutating the one you passed before: array identity is how the grid knows the pinned rows have changed.</td></tr>
           <tr><td class="name">getPinnedRows</td><td class="type">(opts?: { edge?: 'top' | 'bottom' }): unknown[]</td><td class="desc"><code>opts?: { edge?: 'top' | 'bottom' }</code></td><td class="type"><code>unknown[]</code></td><td class="desc">The objects currently pinned at one edge, as a copy.</td></tr>
+          <tr><td class="name">focus</td><td class="type">(key: string, columnField?: string): boolean</td><td class="desc"><code>key: string</code> &mdash; the row's key<br><code>columnField?: string</code></td><td class="type"><code>boolean</code> whether a matching, rendered row was found and focused</td><td class="desc">Move keyboard focus to a row by its key. Expands any collapsed ancestor that hides it — a tree or a grouping — then scrolls it into view and lands DOM focus on it the way a found match already does.</td></tr>
           <tr><td class="name">getVersion</td><td class="type">(): string</td><td class="desc">&mdash;</td><td class="type"><code>string</code></td><td class="desc">The library version.</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Release everything: listeners, timers, workers and the DOM the grid made.</td></tr>
         </tbody>
@@ -7991,6 +8079,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">rowDrag:moved</td><td class="desc">The pointer moved during a row drag, coalesced to one event per animation frame.</td><td class="type"><a href="#type-RowDragEvent">RowDragEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">rowDrag:left</td><td class="desc">The pointer left a grid it had been dragging over; `over` names the grid just left.</td><td class="type"><a href="#type-RowDragEvent">RowDragEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">rowDrag:ended</td><td class="desc">The row drag ended — released anywhere, inside a grid or outside every one; `dropped` says whether it is being acted on.</td><td class="type"><a href="#type-RowDragEvent">RowDragEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">beforeRowDrop</td><td class="desc">A tree row is about to be dropped before, after or inside another (BACKLOG-0002551); vetoable.</td><td class="type">BeforeRowDropEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">rowDrop:cancelled</td><td class="desc">A `beforeRowDrop` handler declined the drop, or it went stale while an async handler was thinking.</td><td class="type"><a href="#type-RowDropCancelledEvent">RowDropCancelledEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">rowDrop</td><td class="desc">A tree row was reparented and repositioned by a drag-to-reparent drop.</td><td class="type"><a href="#type-RowDropEvent">RowDropEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">cell:changed</td><td class="desc">A cell's value was written: by an edit commit, by a revert, or by an undo/redo step.</td><td class="type"><a href="#type-CellChangedEvent">CellChangedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">cell:pending</td><td class="desc">An optimistic cell edit was sent to the transport and is awaiting the server's answer.</td><td class="type"><a href="#type-CellPendingEvent">CellPendingEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">cell:confirmed</td><td class="desc">The server accepted a pending cell edit; `value` is what it confirmed, which may not be what was sent.</td><td class="type"><a href="#type-CellConfirmedEvent">CellConfirmedEvent</a></td><td class="desc">no</td></tr>
@@ -8485,18 +8576,20 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">list</td><td class="type">(): <a href="types.html#type-SavedView">SavedView</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="types.html#type-SavedView">SavedView</a>[]</code></td><td class="desc">Every saved view with its metadata — name, description, whether it is shared — but not its stored state.</td></tr>
-          <tr><td class="name">get</td><td class="type">(id: string): <a href="types.html#type-SavedView">SavedView</a> | undefined</td><td class="desc"><code>id: string</code></td><td class="type"><code><a href="types.html#type-SavedView">SavedView</a> | undefined</code></td><td class="desc">One view in full, state included. `undefined` when there is no such view.</td></tr>
-          <tr><td class="name">save</td><td class="type">(name: string, opts?: { id?: string; shared?: boolean; description?: string; isDefault?: boolean; }): <a href="types.html#type-SavedView">SavedView</a></td><td class="desc"><code>name: string</code><br><code>opts?: { id?: string; shared?: boolean; description?: string; isDefault?: boolean; }</code></td><td class="type"><code><a href="types.html#type-SavedView">SavedView</a></code></td><td class="desc">Save the grid's current state as a named view and make it the active one. `id` naming an existing view overwrites it; `id` naming none creates a view with that id, which is how a host with server-issued ids seeds the store; with no `id`, a name already taken is overwritten rather than duplicated. (`overwrite` was declared and read nowhere — that decision is the order above — and was removed in BACKLOG-0001388.)</td></tr>
-          <tr><td class="name">apply</td><td class="type">(id: string): <a href="types.html#type-SavedView">SavedView</a> | null</td><td class="desc"><code>id: string</code></td><td class="type"><code><a href="types.html#type-SavedView">SavedView</a> | null</code></td><td class="desc">Apply a view and make it active. It is a destination, not a patch: the grid returns to its baseline first, so the same view gives the same grid whatever was applied before it. The whole restore is one undo entry. Returns the state report, or `null` when there is no such view.</td></tr>
-          <tr><td class="name">rename</td><td class="type">(id: string, name: string): <a href="types.html#type-SavedView">SavedView</a> | null</td><td class="desc"><code>id: string</code><br><code>name: string</code></td><td class="type"><code><a href="types.html#type-SavedView">SavedView</a> | null</code></td><td class="desc">Give a view a new name. `null` when the name was refused — blank, or already taken.</td></tr>
-          <tr><td class="name">duplicate</td><td class="type">(id: string, name?: string): <a href="types.html#type-SavedView">SavedView</a> | null</td><td class="desc"><code>id: string</code><br><code>name?: string</code></td><td class="type"><code><a href="types.html#type-SavedView">SavedView</a> | null</code></td><td class="desc">Copy a view, optionally under a new name. `null` when there is no such view.</td></tr>
+          <tr><td class="name">list</td><td class="type">(): <a href="#type-SavedView">SavedView</a>[]</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-SavedView">SavedView</a>[]</code></td><td class="desc">Every saved view with its metadata — name, description, whether it is shared — but not its stored state.</td></tr>
+          <tr><td class="name">get</td><td class="type">(id: string): <a href="#type-SavedView">SavedView</a> | undefined</td><td class="desc"><code>id: string</code></td><td class="type"><code><a href="#type-SavedView">SavedView</a> | undefined</code></td><td class="desc">One view in full, state included. `undefined` when there is no such view.</td></tr>
+          <tr><td class="name">save</td><td class="type">(name: string, opts?: { id?: string; shared?: boolean; description?: string; isDefault?: boolean; }): <a href="#type-SavedView">SavedView</a></td><td class="desc"><code>name: string</code><br><code>opts?: { id?: string; shared?: boolean; description?: string; isDefault?: boolean; }</code></td><td class="type"><code><a href="#type-SavedView">SavedView</a></code></td><td class="desc">Save the grid's current state as a named view and make it the active one. `id` naming an existing view overwrites it; `id` naming none creates a view with that id, which is how a host with server-issued ids seeds the store; with no `id`, a name already taken is overwritten rather than duplicated. (`overwrite` was declared and read nowhere — that decision is the order above — and was removed in BACKLOG-0001388.)</td></tr>
+          <tr><td class="name">apply</td><td class="type">(id: string): <a href="#type-SavedView">SavedView</a> | null</td><td class="desc"><code>id: string</code></td><td class="type"><code><a href="#type-SavedView">SavedView</a> | null</code></td><td class="desc">Apply a view and make it active. It is a destination, not a patch: the grid returns to its baseline first, so the same view gives the same grid whatever was applied before it. The whole restore is one undo entry. Returns the state report, or `null` when there is no such view. Never refused by ownership (BACKLOG-0002459): applying a view stays open to everyone, owner or not.</td></tr>
+          <tr><td class="name">rename</td><td class="type">(id: string, name: string): <a href="#type-SavedView">SavedView</a> | null</td><td class="desc"><code>id: string</code><br><code>name: string</code></td><td class="type"><code><a href="#type-SavedView">SavedView</a> | null</code></td><td class="desc">Give a view a new name. `null` when the name was refused — blank, or already taken.</td></tr>
+          <tr><td class="name">duplicate</td><td class="type">(id: string, name?: string): <a href="#type-SavedView">SavedView</a> | null</td><td class="desc"><code>id: string</code><br><code>name?: string</code></td><td class="type"><code><a href="#type-SavedView">SavedView</a> | null</code></td><td class="desc">Copy a view, optionally under a new name, as a private view owned by the acting user. `null` when there is no such view. Never refused by ownership: duplicating is how a non-owner gets a layout they may change.</td></tr>
           <tr><td class="name">remove</td><td class="type">(id: string): boolean</td><td class="desc"><code>id: string</code></td><td class="type"><code>boolean</code></td><td class="desc">Delete a view. `false` when there was no such view; deleting the active one leaves the grid as it is, with no active view.</td></tr>
-          <tr><td class="name">setDefault</td><td class="type">(id: string | null): <a href="types.html#type-SavedView">SavedView</a> | null</td><td class="desc"><code>id: string | null</code></td><td class="type"><code><a href="types.html#type-SavedView">SavedView</a> | null</code></td><td class="desc">Mark the view applied on load; null clears it.</td></tr>
-          <tr><td class="name">defaultView</td><td class="type">(): <a href="types.html#type-SavedView">SavedView</a> | null</td><td class="desc">&mdash;</td><td class="type"><code><a href="types.html#type-SavedView">SavedView</a> | null</code></td><td class="desc">The view marked as the one to apply on load, or `null` when none is.</td></tr>
+          <tr><td class="name">unshare</td><td class="type">(id: string): <a href="#type-SavedView">SavedView</a> | null</td><td class="desc"><code>id: string</code></td><td class="type"><code><a href="#type-SavedView">SavedView</a> | null</code></td><td class="desc">Stop sharing a view, leaving its name, description and state alone. `null` when there is no such view, or it is built in.</td></tr>
+          <tr><td class="name">canEdit</td><td class="type">(view: <a href="#type-SavedView">SavedView</a> | Omit&lt;<a href="#type-SavedView">SavedView</a>, 'state'&gt;): boolean</td><td class="desc"><code>view: <a href="#type-SavedView">SavedView</a> | Omit&lt;<a href="#type-SavedView">SavedView</a>, 'state'&gt;</code></td><td class="type"><code>boolean</code></td><td class="desc">Whether the acting user may rename, overwrite, delete or unshare this view — the non-throwing twin of {@link rename} and friends, for a host's own button deciding whether to offer the action at all (BACKLOG-0002459). Always `true` while `views.user` is unconfigured.</td></tr>
+          <tr><td class="name">setDefault</td><td class="type">(id: string | null): <a href="#type-SavedView">SavedView</a> | null</td><td class="desc"><code>id: string | null</code></td><td class="type"><code><a href="#type-SavedView">SavedView</a> | null</code></td><td class="desc">Mark the view applied on load; null clears it.</td></tr>
+          <tr><td class="name">defaultView</td><td class="type">(): <a href="#type-SavedView">SavedView</a> | null</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-SavedView">SavedView</a> | null</code></td><td class="desc">The view marked as the one to apply on load, or `null` when none is.</td></tr>
           <tr><td class="name">diff</td><td class="type">(id: string): Record&lt;string, unknown&gt; | null</td><td class="desc"><code>id: string</code></td><td class="type"><code>Record&lt;string, unknown&gt; | null</code></td><td class="desc">What applying the view would change, without applying it.</td></tr>
-          <tr><td class="name">export</td><td class="type">(id?: string): <a href="types.html#type-ViewPayload">ViewPayload</a> | null</td><td class="desc"><code>id?: string</code></td><td class="type"><code><a href="types.html#type-ViewPayload">ViewPayload</a> | null</code></td><td class="desc">A shareable payload for one view, or for every view when no id is given — an object, not JSON text, so a host can add to it before sending it. `null` when the id names no view. The default marker never travels: it belongs to this user's store, not to the view.</td></tr>
-          <tr><td class="name">import</td><td class="type">(json: <a href="types.html#type-ViewPayload">ViewPayload</a> | <a href="types.html#type-SavedView">SavedView</a> | <a href="types.html#type-SavedView">SavedView</a>[] | string, opts?: { /** What a name already in the store does. `'rename'` (the default) keeps both. */ onConflict?: <a href="types.html#type-ViewConflictPolicy">ViewConflictPolicy</a>; /** Overrides the shared flag on every incoming view. */ shared?: boolean; }): <a href="types.html#type-ViewImportReport">ViewImportReport</a></td><td class="desc"><code>json: <a href="types.html#type-ViewPayload">ViewPayload</a> | <a href="types.html#type-SavedView">SavedView</a> | <a href="types.html#type-SavedView">SavedView</a>[] | string</code><br><code>opts?: { /** What a name already in the store does. `'rename'` (the default) keeps both. */ onConflict?: <a href="types.html#type-ViewConflictPolicy">ViewConflictPolicy</a>; /** Overrides the shared flag on every incoming view. */ shared?: boolean; }</code></td><td class="type"><code><a href="types.html#type-ViewImportReport">ViewImportReport</a></code></td><td class="desc">Take a shared payload — the object, its JSON text, a bare view or a bare array — and report what was imported, skipped and repaired. It reports rather than throwing: an import that fails silently is worse than one that says so, and one bad entry never rejects the rest of the file.</td></tr>
+          <tr><td class="name">export</td><td class="type">(id?: string): <a href="#type-ViewPayload">ViewPayload</a> | null</td><td class="desc"><code>id?: string</code></td><td class="type"><code><a href="#type-ViewPayload">ViewPayload</a> | null</code></td><td class="desc">A shareable payload for one view, or for every view when no id is given — an object, not JSON text, so a host can add to it before sending it. `null` when the id names no view. The default marker never travels: it belongs to this user's store, not to the view.</td></tr>
+          <tr><td class="name">import</td><td class="type">(json: <a href="#type-ViewPayload">ViewPayload</a> | <a href="#type-SavedView">SavedView</a> | <a href="#type-SavedView">SavedView</a>[] | string, opts?: { /** What a name already in the store does. `'rename'` (the default) keeps both. */ onConflict?: <a href="types.html#type-ViewConflictPolicy">ViewConflictPolicy</a>; /** Overrides the shared flag on every incoming view. */ shared?: boolean; }): <a href="types.html#type-ViewImportReport">ViewImportReport</a></td><td class="desc"><code>json: <a href="#type-ViewPayload">ViewPayload</a> | <a href="#type-SavedView">SavedView</a> | <a href="#type-SavedView">SavedView</a>[] | string</code><br><code>opts?: { /** What a name already in the store does. `'rename'` (the default) keeps both. */ onConflict?: <a href="types.html#type-ViewConflictPolicy">ViewConflictPolicy</a>; /** Overrides the shared flag on every incoming view. */ shared?: boolean; }</code></td><td class="type"><code><a href="types.html#type-ViewImportReport">ViewImportReport</a></code></td><td class="desc">Take a shared payload — the object, its JSON text, a bare view or a bare array — and report what was imported, skipped and repaired. It reports rather than throwing: an import that fails silently is worse than one that says so, and one bad entry never rejects the rest of the file.</td></tr>
           <tr><td class="name">reload</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Re-read from storage, after another tab or the server changed it.</td></tr>
         </tbody>
       </table>
@@ -9345,6 +9438,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">variants</td><td class="type">Record&lt;string, <a href="#type-VariantDefinition">VariantDefinition</a>&gt;</td><td class="desc">Named appearance variants a row or cell can be switched into by a rule. <small>(optional)</small></td></tr>
           <tr><td class="name">icons</td><td class="type">Record&lt;string, <a href="types.html#type-IconDefinition">IconDefinition</a>&gt;</td><td class="desc">Your own SVG glyphs, registered by name before the first paint. The same registry `registerIcon` writes to and every cell, header control, rail button and chart glyph is painted from, so a name given here is usable anywhere a glyph name is: a column's `icon` decoration, a rail action's `icon`, a network node's `icon`. Registering a built-in name overrides it. Read the result back through {@link Grid.icons}. <small>(optional)</small></td></tr>
           <tr><td class="name">tree</td><td class="type"><a href="#type-TreeConfig">TreeConfig</a></td><td class="desc">Hierarchical rows: where the parent link or the path lives. <small>(optional)</small></td></tr>
+          <tr><td class="name">treeColumnFlex</td><td class="type">boolean</td><td class="desc">The generated tree column fills the grid's own width and follows a host resize, rather than sitting at its usual fixed 260px (`treeColumnWidth`). For `modules/tree`'s single-column tree, not a plain grid's multi-column one, which keeps the fixed width unless it opts in too. Default `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">detail</td><td class="type"><a href="#type-DetailConfig">DetailConfig</a></td><td class="desc">The expandable panel beneath a row. <small>(optional)</small></td></tr>
           <tr><td class="name">selection</td><td class="type"><a href="#type-SelectionConfig">SelectionConfig</a> | 'single' | 'multiple' | 'none'</td><td class="desc">What the user may select, and how selection behaves across groups. The `'none'` shorthand is `{ mode: 'none' }` and behaves identically: no row selection, and no cell ranges or fill handle either. <small>(optional)</small></td></tr>
           <tr><td class="name">selectionColumnWidth</td><td class="type">number</td><td class="desc">Width of the generated `selection.checkbox` column, in pixels. Default 44 — a checkbox, its focus ring and the cell padding, and no room for anything else, so a width is only worth setting for a denser or larger checkbox theme. <small>(optional)</small></td></tr>
@@ -9413,6 +9507,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">columnVirtualisationAbove</td><td class="type">number</td><td class="desc">Render only the visible columns once there are more than this many. <small>(optional)</small></td></tr>
           <tr><td class="name">statusBar</td><td class="type">boolean | { panels?: string[] }</td><td class="desc">The bar beneath the grid, and which panels it carries. <small>(optional)</small></td></tr>
           <tr><td class="name">contextMenu</td><td class="type">boolean | ((p: <a href="#type-CellMenuParams">CellMenuParams</a>, defaults: <a href="#type-MenuItem">MenuItem</a>[]) =&gt; <a href="#type-MenuItem">MenuItem</a>[] | void)</td><td class="desc">The cell right-click menu. A function supplies custom items; `false` suppresses it entirely, which is what a read-only grid wants, the default menu offers Paste, Clear and Fill down. <small>(optional)</small></td></tr>
+          <tr><td class="name">nativeContextMenu</td><td class="type">boolean</td><td class="desc">`contextMenu: false` still claims a right-click on a row for the grid rather than the browser (BACKLOG-0001153: "no menu" is not "the browser's menu"). `nativeContextMenu: true` is the separate, narrower opt-out for a host that wants the browser's own menu back, deciding for itself through `cell:contextmenu` whether to call `event.preventDefault()` — what `modules/tree` and `modules/listview` turn on for their `itemContextMenu` event. Default `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">import</td><td class="type">boolean | <a href="#type-ImportSettings">ImportSettings</a></td><td class="desc">Bringing rows in from a file, the clipboard or a drop (§14, the mirror of export). `true` adds a "Import rows from CSV…" item to the cell menu, makes the grid a drop target for `.csv`/`.tsv` files, and reads a pasted spreadsheet block, each opening a preview the user confirms. An object tunes the affordances. Off by default; the `grid.import` API is always present. Import is a client-side data operation, so it applies to a memory grid. <small>(optional)</small></td></tr>
           <tr><td class="name">rowDelete</td><td class="type">boolean</td><td class="desc">Enable the built-in row-delete gesture (§18.4, BACKLOG-0000968) — the Delete/Backspace key on selected rows and a "Delete row" cell-menu item — and the `grid.edit.deleteRows` API. Off by default, because deleting data on a keystroke is destructive and opt-in. Every deletion flows through the cancellable `beforeDelete` event, so a handler can confirm or veto it, on a memory-source grid as well as a remote one. <small>(optional)</small></td></tr>
           <tr><td class="name">columnMenu</td><td class="type">boolean | ((p: <a href="#type-ColumnMenuParams">ColumnMenuParams</a>, defaults: <a href="#type-MenuItem">MenuItem</a>[]) =&gt; <a href="#type-MenuItem">MenuItem</a>[] | void)</td><td class="desc">The header's 3-dot menu, and the right-click menu on a column heading. `false` suppresses both. A function supplies custom items, receiving the grid's own so it can add to them rather than reproduce them. Default true. <small>(optional)</small></td></tr>
@@ -9436,7 +9531,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">quickFilterText</td><td class="type">string</td><td class="desc">The quick filter's initial text. <small>(optional)</small></td></tr>
           <tr><td class="name">permissions</td><td class="type"><a href="types.html#type-PermissionPolicy">PermissionPolicy</a></td><td class="desc">Per-column read/write/hidden policy. A usability control, not a security boundary: hidden data is still resident in the store. Enforce the same policy server-side with `permittedColumns` / `permittedExport`. <small>(optional)</small></td></tr>
           <tr><td class="name">diff</td><td class="type">{ snapshot?: unknown[] | Map&lt;string, unknown&gt;; strictNull?: boolean; addedColumns?: <a href="types.html#type-DiffAddedColumns">DiffAddedColumns</a>; /** * Whether a row present in the snapshot but gone from the data is shown, * and whether it counts as data when it is. * * `false` (the default) leaves it out entirely. `'pinned'` shows it * beneath the rows, struck through: visible history that is not part of the * row set, so it is excluded from `rows.count()`, from exports and from * selection. `'data'` appends it to the row set instead, so it *is* * counted and exported. * * Neither is sorted or filtered among the live rows: a removed row's values * are the snapshot's, and ordering yesterday's numbers among today's would * present two data sets as one. Neither can be edited: there is nothing * left to write to. */ removedRows?: false | 'pinned' | 'data'; }</td><td class="desc">Prior state for diff and audit mode. <small>(optional)</small></td></tr>
-          <tr><td class="name">views</td><td class="type">{ storage?: { read(): unknown[]; write(views: unknown[]): void }; saved?: unknown[] }</td><td class="desc">Saved views: a storage adapter and any pre-loaded views. <small>(optional)</small></td></tr>
+          <tr><td class="name">views</td><td class="type">{ storage?: { read(): unknown[]; write(views: unknown[]): void }; saved?: unknown[]; /** * Which non-layout sections a saved view keeps, per section. A view is a * layout, not a snapshot of clicks: by default `selection` and `expanded` * are left out of what `save`, `export` and `import` keep and what `apply` * restores, so applying a view leaves the current selection and expansion * alone. Set either to `true` to keep the old capture-per-section * behaviour. Views saved by an earlier build that still carry one of these * sections load and apply without error; the section is simply ignored. */ capture?: { /** Keep the selected rows in saved, exported and imported views. */ selection?: boolean; /** Keep the expanded groups in saved, exported and imported views. */ expanded?: boolean; }; /** * Receives the payload {@link <a href="#type-ViewsApi">ViewsApi</a>.export} produces, plus the view's * metadata, when the picker's Share is pressed. What "sharing" means is * then yours to decide. When omitted, the picker copies the payload as JSON * to the clipboard and shows a short confirmation, falling back to a JSON * download where the clipboard is unavailable. */ onShare?: (payload: <a href="#type-ViewPayload">ViewPayload</a>, view: <a href="#type-SavedView">SavedView</a>) =&gt; void; /** * Who is using the grid right now (BACKLOG-0002459), so a shared view can * only be renamed, overwritten, deleted or unshared by its owner or an * admin. A function is read fresh on every check, so a sign-in change is * seen on the next click rather than requiring the grid to be rebuilt. * Leaving this unset disables every owner check: every view stays as * editable to everyone as it always was. */ user?: <a href="#type-ViewOwner">ViewOwner</a> | (() =&gt; <a href="#type-ViewOwner">ViewOwner</a> | null | undefined); /** Whether a resolved `user` counts as an admin, who may change any view. */ isAdmin?: (user: <a href="#type-ViewOwner">ViewOwner</a>) =&gt; boolean; /** * Whether an admin may also list another user's private views in * `views.list()` (and so in the panel). Off by default: an admin's * elevated *editing* rights do not imply a right to browse private * layouts unless this is explicitly turned on. */ adminSeesPrivate?: boolean; }</td><td class="desc">Saved views: a storage adapter, any pre-loaded views, and the callback the picker's Share hands an export payload to. <small>(optional)</small></td></tr>
           <tr><td class="name">historyBar</td><td class="type">boolean | { element?: HTMLElement; timeline?: boolean }</td><td class="desc">The undo toolbar. `element` mounts it into the host's own chrome. <small>(optional)</small></td></tr>
           <tr><td class="name">ai</td><td class="type">{ ask: (p: { /** The full text to send: the schema description and the question together. */ prompt: string; /** The grid's schema as data: columns, types and operators. No row values. */ schema: unknown; /** The same schema rendered as text, which is what `prompt` embeds. */ schemaText: string; /** What the user typed. */ message: string; context?: unknown; }) =&gt; Promise&lt;unknown&gt;; schemaOptions?: object; context?: unknown; element?: HTMLElement; placeholder?: string; }</td><td class="desc">The AI skill layer. The grid makes no network call of its own: `ask` is the host's, and owns the model, the key and the privacy decision. <small>(optional)</small></td></tr>
           <tr><td class="name">pivot</td><td class="type">{ enabled?: boolean; /** * Add a column group totalling every value column across all pivot values, * the grand total beside the pivoted ones. `'before'` places it at the near * edge, `'after'` at the far edge. Omitted or `false` adds none. */ groupTotals?: <a href="types.html#type-PivotGroupTotalsPlacement">PivotGroupTotalsPlacement</a> | false; /** Heading for that group. Defaults to `Total`. */ totalsLabel?: string; maxColumns?: number; separator?: string; }</td><td class="desc">Pivot-mode settings: whether the grid starts pivoted, whether to add a group of grand-total columns beside the pivoted ones and what to call it, the separator joining a group's values in a generated column, and `maxColumns` — the ceiling on generated columns, 500 by default. Past it no pivot columns are produced at all and a clear error is reported, rather than a high-cardinality pivot locking the browser. <small>(optional)</small></td></tr>
@@ -10184,6 +10279,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">column</td><td class="type">string</td><td class="desc">The column that carries the drag handle. The first visible one when omitted. <small>(optional)</small></td></tr>
           <tr><td class="name">manualOrder</td><td class="type">boolean</td><td class="desc">Draw a Manual order button in the handle column's heading, bound to Alt+Shift+M as well, that enters and leaves a manual row order. Default false. <small>(optional)</small></td></tr>
           <tr><td class="name">betweenGroups</td><td class="type">boolean</td><td class="desc">Under a grouping, let a row dropped on another group join it by writing its grouping values through `beforeEdit`. The grouping column has to be editable. Default false. <small>(optional)</small></td></tr>
+          <tr><td class="name">handle</td><td class="type">'grip' | 'row'</td><td class="desc">Where a drag can start. `'grip'` (the default) is the drawn handle; `'row'` also starts it from anywhere on a data row, except on a link, button, input, select, textarea, label or an element marked `data-no-drag`. The press is not cancelled, so a double-click still selects a word and a control still works; the drag begins once the pointer has moved, and drops any text selection then. The grip is still drawn. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -10329,6 +10425,48 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">formatValue</td><td class="type">(value: unknown, row?: <a href="#type-Row">Row</a>, data?: unknown): string</td><td class="desc"><code>value: unknown</code><br><code>row?: <a href="#type-Row">Row</a></code><br><code>data?: unknown</code></td><td class="type"><code>string</code></td><td class="desc">Compiled display-text producer.</td></tr>
           <tr><td class="name">getValue</td><td class="type">(data: unknown, row?: <a href="#type-Row">Row</a>): unknown</td><td class="desc"><code>data: unknown</code><br><code>row?: <a href="#type-Row">Row</a></code></td><td class="type"><code>unknown</code></td><td class="desc">Resolve the value for a row, through the computed-value graph.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ViewPayload">ViewPayload</h4>
+    <p class="section-note">What {@link ViewsApi.export} produces and {@link ViewsApi.import} accepts.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">kind</td><td class="type">string</td><td class="desc">Marks the object as a Lattice view payload.</td></tr>
+          <tr><td class="name">version</td><td class="type">number</td><td class="desc">The payload format version, so an older file can be read or refused.</td></tr>
+          <tr><td class="name">exportedAt</td><td class="type">number</td><td class="desc">When it was exported, in epoch milliseconds.</td></tr>
+          <tr><td class="name">views</td><td class="type"><a href="#type-SavedView">SavedView</a>[]</td><td class="desc">The views themselves, each with `isDefault` cleared.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-SavedView">SavedView</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The view's identity, which `apply`, `rename`, `remove` and `setDefault` take.</td></tr>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">What the view is called. Renaming refuses a blank or duplicate name.</td></tr>
+          <tr><td class="name">description</td><td class="type">string</td><td class="desc">Longer text about the view, for a picker that has room for it.</td></tr>
+          <tr><td class="name">shared</td><td class="type">boolean</td><td class="desc">Whether the view was stored for everyone rather than for this user alone. The storage adapter decides what that means.</td></tr>
+          <tr><td class="name">isDefault</td><td class="type">boolean</td><td class="desc">Applied on load when no `config.state` is given. `config.state` wins outright over this flag: with both present, the default view is never applied and the active view id stays `null`.</td></tr>
+          <tr><td class="name">builtin</td><td class="type">boolean</td><td class="desc">Supplied in `config.views.saved`: listed apart, and not renamable or deletable.</td></tr>
+          <tr><td class="name">owner</td><td class="type"><a href="#type-ViewOwner">ViewOwner</a> | null</td><td class="desc">Who saved this view, from `views.user` at the time (BACKLOG-0002459). `null` for a view saved before owners existed, or with no `views.user` configured — editable only by an admin, applying and duplicating open to everyone regardless.</td></tr>
+          <tr><td class="name">createdAt</td><td class="type">number</td><td class="desc">When the view was first saved, as epoch milliseconds. It survives an overwrite; `updatedAt` does not.</td></tr>
+          <tr><td class="name">updatedAt</td><td class="type">number</td><td class="desc">When it was last changed, as epoch milliseconds.</td></tr>
+          <tr><td class="name">state</td><td class="type"><a href="#type-GridState">GridState</a></td><td class="desc">A partial `GridState`; only the sections it names are applied.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ViewOwner">ViewOwner</h4>
+    <p class="section-note">Who saved a view, or who it was handed to on import (BACKLOG-0002459). Just enough to label a row in a picker and to decide who may change it.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The host's user id, compared for equality only.</td></tr>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The label a picker shows next to a shared view: "Owned by {name}".</td></tr>
         </tbody>
       </table>
     </div>
@@ -11391,6 +11529,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">rowDrag:moved</td><td class="desc">The row-drag gesture as it happens (BACKLOG-0001224)</td><td class="desc">The pointer moved during a row drag, coalesced to one event per animation frame.</td><td class="type"><a href="#type-RowDragEvent">RowDragEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">rowDrag:left</td><td class="desc">The row-drag gesture as it happens (BACKLOG-0001224)</td><td class="desc">The pointer left a grid it had been dragging over; `over` names the grid just left.</td><td class="type"><a href="#type-RowDragEvent">RowDragEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">rowDrag:ended</td><td class="desc">The row-drag gesture as it happens (BACKLOG-0001224)</td><td class="desc">The row drag ended — released anywhere, inside a grid or outside every one; `dropped` says whether it is being acted on.</td><td class="type"><a href="#type-RowDragEvent">RowDragEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">beforeRowDrop</td><td class="desc">The row-drag gesture as it happens (BACKLOG-0001224)</td><td class="desc">A tree row is about to be dropped before, after or inside another (BACKLOG-0002551); vetoable.</td><td class="type">BeforeRowDropEvent</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">rowDrop:cancelled</td><td class="desc">The row-drag gesture as it happens (BACKLOG-0001224)</td><td class="desc">A `beforeRowDrop` handler declined the drop, or it went stale while an async handler was thinking.</td><td class="type"><a href="#type-RowDropCancelledEvent">RowDropCancelledEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">rowDrop</td><td class="desc">The row-drag gesture as it happens (BACKLOG-0001224)</td><td class="desc">A tree row was reparented and repositioned by a drag-to-reparent drop.</td><td class="type"><a href="#type-RowDropEvent">RowDropEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">cell:changed</td><td class="desc">Cells and editing</td><td class="desc">A cell's value was written: by an edit commit, by a revert, or by an undo/redo step.</td><td class="type"><a href="#type-CellChangedEvent">CellChangedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">cell:pending</td><td class="desc">Cells and editing</td><td class="desc">An optimistic cell edit was sent to the transport and is awaiting the server's answer.</td><td class="type"><a href="#type-CellPendingEvent">CellPendingEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">cell:confirmed</td><td class="desc">Cells and editing</td><td class="desc">The server accepted a pending cell edit; `value` is what it confirmed, which may not be what was sent.</td><td class="type"><a href="#type-CellConfirmedEvent">CellConfirmedEvent</a></td><td class="desc">no</td></tr>
@@ -12211,6 +12352,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">rowDrag:moved</td><td class="type"><a href="#type-RowDragEvent">RowDragEvent</a></td><td class="desc">The row being dragged, the grid under the pointer, and where it would land.</td></tr>
           <tr><td class="name">rowDrag:left</td><td class="type"><a href="#type-RowDragEvent">RowDragEvent</a></td><td class="desc">The grid the pointer has just left, with no candidate index to report.</td></tr>
           <tr><td class="name">rowDrag:ended</td><td class="type"><a href="#type-RowDragEvent">RowDragEvent</a></td><td class="desc">Where the drag ended and whether the release is being acted on.</td></tr>
+          <tr><td class="name">beforeRowDrop</td><td class="type">BeforeRowDropEvent</td><td class="desc">A tree row about to be dropped before, after or inside another; vetoable.</td></tr>
+          <tr><td class="name">rowDrop:cancelled</td><td class="type"><a href="#type-RowDropCancelledEvent">RowDropCancelledEvent</a></td><td class="desc">A `beforeRowDrop` handler declined the drop, or it went stale.</td></tr>
+          <tr><td class="name">rowDrop</td><td class="type"><a href="#type-RowDropEvent">RowDropEvent</a></td><td class="desc">A tree row was reparented and repositioned by a drag-to-reparent drop.</td></tr>
           <tr><td class="name">cell:changed</td><td class="type"><a href="#type-CellChangedEvent">CellChangedEvent</a></td><td class="desc">The cell that was written, with its old and new values.</td></tr>
           <tr><td class="name">cell:pending</td><td class="type"><a href="#type-CellPendingEvent">CellPendingEvent</a></td><td class="desc">The cell that was sent, the value held in reserve, and the op id.</td></tr>
           <tr><td class="name">cell:confirmed</td><td class="type"><a href="#type-CellConfirmedEvent">CellConfirmedEvent</a></td><td class="desc">What the server confirmed, which need not be what was sent.</td></tr>
@@ -12921,6 +13065,30 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-RowDropCancelledEvent">RowDropCancelledEvent</h4>
+    <p class="section-note">`rowDrop:cancelled`: a `beforeRowDrop` handler refused the drop, or it went stale.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">reason</td><td class="type">string</td><td class="desc">The reason given to `preventDefault`, `'prevented'` when none was, or `'stale'`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RowDropEvent">RowDropEvent</h4>
+    <p class="section-note">`beforeRowDrop` and `rowDrop` (BACKLOG-0002551): dropping a row before, after or inside another on a tree-configured grid whose `rowReorder` is on. `beforeRowDrop` is vetoable with `preventDefault(reason)`, in which case neither the row's `parentKey` field nor its position changes and `rowDrop:cancelled` carries the same shape plus `reason`; `rowDrop` follows a drop that was not vetoed, once both have been written.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">key</td><td class="type">string</td><td class="desc">The key of the row being dropped.</td></tr>
+          <tr><td class="name">parent</td><td class="type">unknown</td><td class="desc">The `parentKey` value the row will have (or now has) after the drop.</td></tr>
+          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The physical index the row will land at (or now occupies).</td></tr>
+          <tr><td class="name">position</td><td class="type">'before' | 'after' | 'inside'</td><td class="desc">Which band of the target row the drop landed in.</td></tr>
+          <tr><td class="name">target</td><td class="type">string</td><td class="desc">The key of the row the drag was dropped onto.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-RowMoveCancelledEvent">RowMoveCancelledEvent</h4>
     <p class="section-note">`rowMove:cancelled`: a `beforeRowMove` handler vetoed the reorder.</p>
     <div class="table-wrap">
@@ -13352,8 +13520,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">view</td><td class="type"><a href="types.html#type-SavedView">SavedView</a></td><td class="desc">The view that was applied.</td></tr>
-          <tr><td class="name">views</td><td class="type"><a href="types.html#type-SavedView">SavedView</a>[]</td><td class="desc">Every view, unchanged by the apply.</td></tr>
+          <tr><td class="name">view</td><td class="type"><a href="#type-SavedView">SavedView</a></td><td class="desc">The view that was applied.</td></tr>
+          <tr><td class="name">views</td><td class="type"><a href="#type-SavedView">SavedView</a>[]</td><td class="desc">Every view, unchanged by the apply.</td></tr>
           <tr><td class="name">activeId</td><td class="type">string</td><td class="desc">The id of the view now active.</td></tr>
         </tbody>
       </table>
@@ -13364,8 +13532,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">view</td><td class="type"><a href="types.html#type-SavedView">SavedView</a> | null</td><td class="desc">The view that moved.</td></tr>
-          <tr><td class="name">views</td><td class="type"><a href="types.html#type-SavedView">SavedView</a>[]</td><td class="desc">Every view after the change.</td></tr>
+          <tr><td class="name">view</td><td class="type"><a href="#type-SavedView">SavedView</a> | null</td><td class="desc">The view that moved.</td></tr>
+          <tr><td class="name">views</td><td class="type"><a href="#type-SavedView">SavedView</a>[]</td><td class="desc">Every view after the change.</td></tr>
           <tr><td class="name">reason</td><td class="type">string</td><td class="desc">The underlying reason: `'save'`, `'update'`, `'import'`, `'remove'`, `'rename'` or `'default'`.</td></tr>
         </tbody>
       </table>
@@ -13376,9 +13544,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">views</td><td class="type"><a href="types.html#type-SavedView">SavedView</a>[]</td><td class="desc">Every view after the change.</td></tr>
+          <tr><td class="name">views</td><td class="type"><a href="#type-SavedView">SavedView</a>[]</td><td class="desc">Every view after the change.</td></tr>
           <tr><td class="name">reason</td><td class="type">string</td><td class="desc">What happened: `'save'`, `'update'`, `'import'`, `'remove'`, `'rename'`, `'default'`, `'seed'`, `'replace'` or `'apply'`.</td></tr>
-          <tr><td class="name">view</td><td class="type"><a href="types.html#type-SavedView">SavedView</a> | null</td><td class="desc">The view that moved, or null when the change was not about one view.</td></tr>
+          <tr><td class="name">view</td><td class="type"><a href="#type-SavedView">SavedView</a> | null</td><td class="desc">The view that moved, or null when the change was not about one view.</td></tr>
           <tr><td class="name">activeId</td><td class="type">string</td><td class="desc">The view now applied, on the `'apply'` firing. <small>(optional)</small></td></tr>
         </tbody>
       </table>
