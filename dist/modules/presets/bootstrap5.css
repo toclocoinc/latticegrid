@@ -411,36 +411,55 @@
 
 /* ---- shell (presets/bootstrap5/shell.css) ---- */
 /*
- * Shell roles for the Bootstrap 5 preset (BACKLOG-0002190).
+ * Shell roles for the Bootstrap 5 preset (BACKLOG-0002190, header strip
+ * BACKLOG-0002584).
  *
  * Every MUST role of docs/THEMING.md's "Shell roles (module-owned)"
  * table, set for light and dark; the MAY roles once, theme-independent, since
  * each derives from a core token that already follows the theme. The values
  * are the contract's derived defaults, which already carry Bootstrap's own
- * surface and accent tokens through to every role.
+ * surface and accent tokens through to every role. The header strip's own
+ * roles (background, text, padding, font size/weight, bottom border) are set
+ * on `.lattice .lat-shell`/`.lattice[data-theme=...] .lat-shell`, reaching
+ * the strip's own root — the module's `.lat-shell` default in `@layer
+ * lattice` is less specific and loses to these.
  */
 @layer lattice {
 
 .lattice[data-theme="light"], .lattice[data-theme="auto"] {
-  --lattice-shell-header-bg: var(--lattice-surface);
   --lattice-shell-splitter: var(--lattice-border-color);
   --lattice-shell-tab-active-bg: var(--lattice-background);
   --lattice-shell-spinner: var(--lattice-accent);
 }
 
 .lattice[data-theme="dark"] {
-  --lattice-shell-header-bg: var(--lattice-surface);
   --lattice-shell-splitter: var(--lattice-border-color);
   --lattice-shell-tab-active-bg: var(--lattice-background);
   --lattice-shell-spinner: var(--lattice-accent);
 }
 
 .lattice {
-  --lattice-shell-header-fg: var(--lattice-header-foreground);
   --lattice-shell-splitter-active: var(--lattice-accent);
   --lattice-shell-collapse-bg: var(--lattice-surface-alt);
   --lattice-shell-tab-bg: var(--lattice-surface);
   --lattice-shell-overlay-bg: var(--lattice-overlay-background);
+}
+
+.lattice[data-theme="light"] .lat-shell, .lattice[data-theme="auto"] .lat-shell {
+  --lattice-shell-header-bg: var(--lattice-surface);
+}
+
+.lattice[data-theme="dark"] .lat-shell {
+  --lattice-shell-header-bg: var(--lattice-surface);
+}
+
+.lattice .lat-shell {
+  --lattice-shell-header-fg: var(--lattice-header-foreground);
+  --lattice-shell-header-padding-x: var(--lattice-cell-padding-x);
+  --lattice-shell-header-padding-y: var(--lattice-cell-padding-y);
+  --lattice-shell-header-font-size: var(--lattice-header-font-size);
+  --lattice-shell-header-font-weight: var(--lattice-header-font-weight);
+  --lattice-shell-header-border: var(--lattice-border-color);
 }
 
 } /* @layer lattice */
@@ -635,6 +654,145 @@
   --lattice-map-radius-sm: var(--bs-border-radius-sm, 0.25rem);
   --lattice-map-shadow: var(--bs-box-shadow, 0 0.5rem 1rem rgba(0, 0, 0, 0.15));
   --lattice-map-float-shadow: var(--bs-box-shadow-lg, 0 1rem 3rem rgba(0, 0, 0, 0.175));
+}
+
+} /* @layer lattice */
+
+/* ---- listview (presets/bootstrap5/listview.css) ---- */
+/*
+ * Listview roles for the Bootstrap 5 preset (BACKLOG-0002584).
+ *
+ * Every MUST role of docs/THEMING.md's "Listview roles (module-owned)"
+ * table, set for light and dark; the MAY roles once, theme-independent,
+ * since each derives from a core token that already follows the theme. A
+ * list is a real grid with its own row, hover, selection, drag and empty
+ * roles so it can carry its own identity distinct from a themed table, but
+ * this preset gives it exactly the grid's own derivation — the contract's
+ * derived defaults, already this design system's own palette through the
+ * core tokens they read. The list view's own stylesheet declares the same
+ * roles on `.lat-listview` in `@layer lattice`; these more specific
+ * `.lattice .lat-listview` rules override them by specificity.
+ * Run `node tools/presets.js` to regenerate ../bootstrap5.css.
+ */
+@layer lattice {
+
+.lattice[data-theme="light"] .lat-listview, .lattice[data-theme="auto"] .lat-listview {
+  --lattice-listview-row-bg: var(--lattice-background);
+  --lattice-listview-row-alt-bg: var(--lattice-row-stripe);
+  --lattice-listview-hover-bg: var(--lattice-hovered-background);
+  --lattice-listview-selected-bg: var(--lattice-selected-background);
+  --lattice-listview-drop-indicator: var(--lattice-accent);
+}
+
+.lattice[data-theme="dark"] .lat-listview {
+  --lattice-listview-row-bg: var(--lattice-background);
+  --lattice-listview-row-alt-bg: var(--lattice-row-stripe);
+  --lattice-listview-hover-bg: var(--lattice-hovered-background);
+  --lattice-listview-selected-bg: var(--lattice-selected-background);
+  --lattice-listview-drop-indicator: var(--lattice-accent);
+}
+
+.lattice .lat-listview {
+  --lattice-listview-selected-fg: var(--lattice-selected-foreground);
+  --lattice-listview-focus-ring: var(--lattice-focus-color);
+  --lattice-listview-drag-grip: var(--lattice-foreground-muted);
+  --lattice-listview-empty-fg: var(--lattice-foreground-muted);
+  --lattice-listview-divider: var(--lattice-border-color);
+}
+
+} /* @layer lattice */
+
+/* ---- tree (presets/bootstrap5/tree.css) ---- */
+/*
+ * Tree roles for the Bootstrap 5 preset (BACKLOG-0002584).
+ *
+ * Every MUST role of docs/THEMING.md's "Tree roles (module-owned)"
+ * table, set for light and dark; the MAY roles once, theme-independent,
+ * since each derives from a core token that already follows the theme. A
+ * standalone tree is a real grid in tree mode with its own row, hover,
+ * selection and drag-to-reparent roles so it can carry its own identity
+ * distinct from a themed table, but this preset gives it exactly the
+ * grid's own derivation — the contract's derived defaults, already this
+ * design system's own palette through the core tokens they read. The
+ * tree's own stylesheet declares the same roles on `.lat-tree` in
+ * `@layer lattice`; these more specific `.lattice .lat-tree` rules
+ * override them by specificity.
+ * Run `node tools/presets.js` to regenerate ../bootstrap5.css.
+ */
+@layer lattice {
+
+.lattice[data-theme="light"] .lat-tree, .lattice[data-theme="auto"] .lat-tree {
+  --lattice-tree-row-bg: var(--lattice-background);
+  --lattice-tree-hover-bg: var(--lattice-hovered-background);
+  --lattice-tree-selected-bg: var(--lattice-selected-background);
+  --lattice-tree-drop-before: var(--lattice-accent);
+  --lattice-tree-drop-after: var(--lattice-accent);
+  --lattice-tree-drop-inside: var(--lattice-accent);
+}
+
+.lattice[data-theme="dark"] .lat-tree {
+  --lattice-tree-row-bg: var(--lattice-background);
+  --lattice-tree-hover-bg: var(--lattice-hovered-background);
+  --lattice-tree-selected-bg: var(--lattice-selected-background);
+  --lattice-tree-drop-before: var(--lattice-accent);
+  --lattice-tree-drop-after: var(--lattice-accent);
+  --lattice-tree-drop-inside: var(--lattice-accent);
+}
+
+.lattice .lat-tree {
+  --lattice-tree-selected-fg: var(--lattice-selected-foreground);
+  --lattice-tree-focus-ring: var(--lattice-focus-color);
+  --lattice-tree-expander: var(--lattice-foreground-muted);
+  --lattice-tree-guide-line: var(--lattice-border-color);
+  --lattice-tree-checkbox-fill: var(--lattice-accent);
+  --lattice-tree-icon: var(--lattice-foreground-muted);
+  --lattice-tree-spinner: var(--lattice-foreground-muted);
+}
+
+} /* @layer lattice */
+
+/* ---- dataview (presets/bootstrap5/dataview.css) ---- */
+/*
+ * Data view roles for the Bootstrap 5 preset (BACKLOG-0002584).
+ *
+ * Every MUST role of docs/THEMING.md's "Data view roles (module-owned)"
+ * table, set for light and dark; the MAY roles once, theme-independent,
+ * since each derives from a core token that already follows the theme. The
+ * card, border, selection and drop-placeholder values are the contract's
+ * derived defaults — this design system's own card surfaces already match
+ * them — except the card radius, raised from the module's own sharp
+ * `--lattice-radius-sm` to this preset's full `--lattice-radius`
+ * (`$border-radius: 0.375rem`), the fidelity tuning a data view card
+ * actually needs. The view's own stylesheet declares the same roles on
+ * `.lat-dataview` in `@layer lattice`; these more specific
+ * `.lattice .lat-dataview` rules override them by specificity. Run
+ * `node tools/presets.js` to regenerate ../bootstrap5.css.
+ */
+@layer lattice {
+
+.lattice[data-theme="light"] .lat-dataview, .lattice[data-theme="auto"] .lat-dataview {
+  --lattice-dataview-card-bg: var(--lattice-background);
+  --lattice-dataview-card-border: var(--lattice-border-color);
+  --lattice-dataview-selected-bg: var(--lattice-selected-background);
+  --lattice-dataview-selected-border: var(--lattice-accent);
+  --lattice-dataview-placeholder: var(--lattice-accent);
+}
+
+.lattice[data-theme="dark"] .lat-dataview {
+  --lattice-dataview-card-bg: var(--lattice-background);
+  --lattice-dataview-card-border: var(--lattice-border-color);
+  --lattice-dataview-selected-bg: var(--lattice-selected-background);
+  --lattice-dataview-selected-border: var(--lattice-accent);
+  --lattice-dataview-placeholder: var(--lattice-accent);
+}
+
+.lattice .lat-dataview {
+  --lattice-dataview-card-fg: var(--lattice-foreground);
+  --lattice-dataview-hover-bg: var(--lattice-hovered-background);
+  --lattice-dataview-focus-ring: var(--lattice-focus-color);
+  --lattice-dataview-ghost-shadow: var(--lattice-popup-shadow);
+  --lattice-dataview-empty-fg: var(--lattice-foreground-muted);
+  --lattice-dataview-card-radius: var(--lattice-radius);
 }
 
 } /* @layer lattice */

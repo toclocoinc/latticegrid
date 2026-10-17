@@ -513,6 +513,11 @@ Charts, KPI tiles and the map view (BACKLOG-0002191) declare their role defaults
 | `--lattice-shell-collapse-bg` | `var(--lattice-surface-alt)` | a collapsed panel strip | MAY |
 | `--lattice-shell-tab-bg` | `var(--lattice-surface)` | an inactive tab background | MAY |
 | `--lattice-shell-overlay-bg` | `var(--lattice-overlay-background)` | the panel loading overlay scrim | MAY |
+| `--lattice-shell-header-padding-x` | `var(--lattice-cell-padding-x, 8px)` | a panel header’s horizontal padding | MAY |
+| `--lattice-shell-header-padding-y` | `var(--lattice-cell-padding-y, 0px)` | a panel header’s vertical padding | MAY |
+| `--lattice-shell-header-font-size` | `var(--lattice-header-font-size)` | a panel header’s title text size | MAY |
+| `--lattice-shell-header-font-weight` | `var(--lattice-header-font-weight)` | a panel header’s title text weight | MAY |
+| `--lattice-shell-header-border` | `var(--lattice-border-color)` | a panel header’s bottom border | MAY |
 
 ### Charts roles (module-owned)
 
@@ -592,6 +597,83 @@ Charts, KPI tiles and the map view (BACKLOG-0002191) declare their role defaults
 | `--lattice-map-shadow`, `--lattice-map-float-shadow` | `var(--lattice-popup-shadow)` | the tooltip and legend, and the floating panel | MAY |
 | `--lattice-map-radius`, `--lattice-map-radius-sm` | `var(--lattice-radius)`, `var(--lattice-radius-sm)` | popup, legend and swatch corners | MAY |
 | `--lattice-map-font`, `--lattice-map-font-size`, `--lattice-map-font-size-sm` | the grid's family and sizes | map type | MAY |
+
+### Listview roles (module-owned)
+
+`createList` (`modules/listview`, BACKLOG-0002583) draws no markup of its own — it is a real grid, one column, no header, `gridLines: 'none'` — so these roles are what let a list look like a list rather than the bare grid it wraps, declared on `.lat-listview`, the class `createList` adds to the grid root it is given (the grid appends that root as a child of the host element, never the host itself).
+
+| Token | Default (derived) | Affects | Marking |
+|---|---|---|---|
+| `--lattice-listview-row-bg` | `var(--lattice-background)` | an item row's background | MUST |
+| `--lattice-listview-row-alt-bg` | `var(--lattice-row-stripe)` | the alternate row (striping is always on for a list) | MUST |
+| `--lattice-listview-hover-bg` | `var(--lattice-hovered-background)` | a hovered row | MUST |
+| `--lattice-listview-selected-bg` | `var(--lattice-selected-background)` | a selected row's background | MUST |
+| `--lattice-listview-drop-indicator` | `var(--lattice-accent)` | the reorder/transfer drop line | MUST |
+| `--lattice-listview-selected-fg` | `var(--lattice-selected-foreground)` | a selected row's text | MAY |
+| `--lattice-listview-focus-ring` | `var(--lattice-focus-color)` | a focused row/cell's outline | MAY |
+| `--lattice-listview-drag-grip` | `var(--lattice-foreground-muted)` | the drag handle glyph | MAY |
+| `--lattice-listview-empty-fg` | `var(--lattice-foreground-muted)` | the empty-state message | MAY |
+| `--lattice-listview-divider` | `var(--lattice-border-color)` | the hairline between rows | MAY |
+
+### Tree roles (module-owned)
+
+`createTree` (`modules/tree`, BACKLOG-0002551) draws no markup of its own — it is a real grid in tree mode, one generated column, no header, `gridLines: 'none'` — so these roles are what let a standalone tree carry its own identity rather than the bare grid it wraps, declared on `.lat-tree`, the class `createTree` adds to the grid root it is given (the grid appends that root as a child of the host element, never the host itself). The guide lines are the group renderer's own indent gradient (`.lat-group`'s `background-image`), present only when a node has ancestors; the three drop roles are the drag-to-reparent zones `packages/dom/src/rowreorder.js` marks a row with (`lat-rowdrag-drop-before/after/inside`) while dragging over it.
+
+| Token | Default (derived) | Affects | Marking |
+|---|---|---|---|
+| `--lattice-tree-row-bg` | `var(--lattice-background)` | a node row's background | MUST |
+| `--lattice-tree-hover-bg` | `var(--lattice-hovered-background)` | a hovered node | MUST |
+| `--lattice-tree-selected-bg` | `var(--lattice-selected-background)` | a selected node's background | MUST |
+| `--lattice-tree-drop-before` | `var(--lattice-accent)` | the drop indicator above a node | MUST |
+| `--lattice-tree-drop-after` | `var(--lattice-accent)` | the drop indicator below a node | MUST |
+| `--lattice-tree-drop-inside` | `var(--lattice-accent)` | the drop indicator reparenting into a node | MUST |
+| `--lattice-tree-selected-fg` | `var(--lattice-selected-foreground)` | a selected node's text | MAY |
+| `--lattice-tree-focus-ring` | `var(--lattice-focus-color)` | a focused node/cell's outline | MAY |
+| `--lattice-tree-expander` | `var(--lattice-foreground-muted)` | the expand/collapse chevron | MAY |
+| `--lattice-tree-guide-line` | `var(--lattice-border-color)` | the indent guide lines | MAY |
+| `--lattice-tree-checkbox-fill` | `var(--lattice-accent)` | the tri-state checkbox (checked/mixed) | MAY |
+| `--lattice-tree-icon` | `var(--lattice-foreground-muted)` | a node's own icon | MAY |
+| `--lattice-tree-spinner` | `var(--lattice-foreground-muted)` | the lazy-load spinner | MAY |
+
+### Data view roles (module-owned)
+
+The data view (`modules/dataview`, `createDataView`, BACKLOG-0002550) is the
+card-grid sibling of the list view, and this is its BACKLOG-0002584 theming
+parity card: its stylesheet now declares these roles once on `.lat-dataview`
+(`@layer lattice`), each derived from a core token with no literal fallback,
+the same pattern as every table above. A preset's partial
+(`packages/modules/presets/<preset>/dataview.css`) restates the MUST roles on
+`.lattice .lat-dataview` for light and dark, and the MAY roles once, assembled
+into the shipped `packages/modules/presets/<preset>.css` by
+`tools/presets.js`'s `MODULE_ORDER`, the same Kanban pattern (BACKLOG-0002188).
+(The drop indicator takes `--lattice-accent` as its own module default rather
+than the Kanban board's softer `--lattice-range-background` one, the same
+colour every shipped Kanban preset raises its own placeholder to, and the one
+core colour the contract guarantees meets 3:1 against the background
+everywhere — so every preset partial reaffirms it rather than raising it
+again. The card radius is the one role every preset partial genuinely tunes
+away from the module's own default: a data view card reads better at the
+design system's full `--lattice-radius` than at the sharper `-sm` corner the
+module itself defaults to, so each partial overrides it.)
+
+| Token | Default (derived) | Affects | Marking |
+|---|---|---|---|
+| `--lattice-dataview-card-bg` | `var(--lattice-background)` | a card background | MUST |
+| `--lattice-dataview-card-border` | `var(--lattice-border-color)` | a card border | MUST |
+| `--lattice-dataview-selected-bg` | `var(--lattice-selected-background)` | a selected card's fill | MUST |
+| `--lattice-dataview-selected-border` | `var(--lattice-accent)` | a selected card's border | MUST |
+| `--lattice-dataview-placeholder` | `var(--lattice-accent)` | the drop indicator while dragging | MUST |
+| `--lattice-dataview-card-radius` | `var(--lattice-radius-sm)` | a card's corner radius | MAY |
+| `--lattice-dataview-card-fg` | `var(--lattice-foreground)` | a card's text | MAY |
+| `--lattice-dataview-hover-bg` | `var(--lattice-hovered-background)` | a hovered card's fill | MAY |
+| `--lattice-dataview-focus-ring` | `var(--lattice-focus-color)` | the focused card's focus ring | MAY |
+| `--lattice-dataview-ghost-shadow` | `var(--lattice-popup-shadow)` | the dragged card's shadow | MAY |
+| `--lattice-dataview-empty-fg` | `var(--lattice-foreground-muted)` | the empty-state message | MAY |
+
+The gap between cards is not a role of its own: with no `config.gap`, the
+view reads the grid's own `--lattice-gap` (falling back to its 8px literal
+default only when no grid theme is present to read it from), the same core
+token every other module's gap already uses.
 
 ## Internal, off-contract
 

@@ -7,7 +7,7 @@ tiles and map views, all reading the same rows, filters and theme. Vanilla
 JavaScript, no runtime dependencies, no build step; adapters for React, Vue,
 Svelte, Web Components and htmx, Angular compiled inside the package.
 
-Version 1.104.1 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.105.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 

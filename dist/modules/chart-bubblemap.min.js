@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.104.1, chart-bubblemap module
+ * Lattice Grid 1.105.0, chart-bubblemap module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
