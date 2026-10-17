@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.104.0, listview module type declarations
+ * Lattice Grid 1.104.1, listview module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -48,10 +48,12 @@ export interface ListViewConfig {
    * Where a drag starts. `'grip'` (default) is the drawn handle. `'row'`
    * starts it from anywhere on the row except a link, button, input, select,
    * textarea, label or an element marked `data-no-drag`; a double-click still
-   * selects a word, and the grip is still drawn. Applies to the lists that
-   * can start a drag (`dragMode` `'source'` or `'both'`).
+   * selects a word, and the grip is still drawn. `false` is the same
+   * whole-row drag with no drawn grip at all, so the template fills the
+   * full width. Applies to the lists that can start a drag (`dragMode`
+   * `'source'` or `'both'`).
    */
-  dragHandle?: 'grip' | 'row';
+  dragHandle?: 'grip' | 'row' | false;
   /** Class name(s) added to every row. */
   css?: string | string[];
   /** Selection mode. Default `false`. */
@@ -60,7 +62,7 @@ export interface ListViewConfig {
   dragMode?: false | 'source' | 'target' | 'both';
   /** `true` leaves the source row in place on a drop (copy, not move). Default `false`. */
   dragCopy?: boolean;
-  /** The empty-state message or element. */
+  /** The empty-state message or element; an empty string shows nothing at all. */
   emptyText?: string | HTMLElement;
   /**
    * The grid's own cell right-click menu (Paste, Clear, Fill down). Default
@@ -68,6 +70,11 @@ export interface ListViewConfig {
    * for spreadsheet cells.
    */
   contextMenu?: boolean;
+  /**
+   * `true` draws the grid's own 1px frame round the list. Default `false`:
+   * borderless.
+   */
+  bordered?: boolean;
 }
 
 /**
@@ -144,13 +151,23 @@ export interface ListViewAfterDropEvent {
   source: ListView | import('lattice-grid/modules/dataview').DataView | null;
   /** The list or data view the item(s) landed in. */
   target: ListView | import('lattice-grid/modules/dataview').DataView | null;
-  /** The moved/copied item's identity (identities), as a one-element array. */
+  /**
+   * The moved/copied item's identity (identities), as a one-element array.
+   * For a `dragCopy` drop crossing into another list or data view, this is
+   * the copy's fresh identity, not the source's.
+   */
   ids: unknown[];
   /** The index the item(s) landed at in the target. */
   index: number;
 }
 
-/** The `dragOut` payload: a drag left this list without a cross-list drop landing. */
+/**
+ * The `dragOut` payload: the pointer left this list's own bounds during a
+ * drag that started on one of its rows. Fires on that crossing alone,
+ * whether or not a drop ends up landing anywhere — including a drop back
+ * into this same list, or into another one — so a host using it to clear
+ * a hint cannot rely on it to mean "the row left for good".
+ */
 export interface ListViewDragOutEvent {
   /** The dragged item's identity. */
   id: unknown;

@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>List view API Reference — Lattice Grid 1.104.0</title>
+<title>List view API Reference — Lattice Grid 1.104.1</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -472,8 +472,14 @@
     registry of its own. A target's <code>beforeDrop</code> handler may veto a drop by returning
     <code>false</code> (or a Promise of it): the same veto-before-mutation gate the grid's own
     <code>rowTransfer</code> uses guarantees a veto leaves both lists exactly as they were, and
-    <code>afterDrop</code> fires only once a move or copy has actually committed. A drag that leaves a
-    list without landing on another fires <code>dragOut</code>.</p>
+    <code>afterDrop</code> fires only once a move or copy has actually committed. <code>dragOut</code>
+    fires when the pointer leaves the source list's own bounds during a drag, whether or not a drop
+    ends up landing anywhere &mdash; including a drop back into the same list.</p>
+    <p><strong>Dragging several rows.</strong> With <code>selection: 'multi'</code>, dragging one of
+    several selected rows carries every selected row as a block, keeping their relative order, within
+    a list and into another one: <code>beforeDrop</code> and <code>afterDrop</code> list all the ids
+    in <code>ids</code> and a veto leaves both lists unchanged. Dragging a row that is not selected
+    moves just that row and leaves the selection as it was.</p>
     <p><strong>The Data API never drifts from what is on screen.</strong> <code>list.data</code> drives
     every mutation through the inner grid's own keyed-diff, sort and filter surface, so
     <code>serialize()</code> &mdash; the items in current on-screen order &mdash; can never disagree
@@ -584,13 +590,14 @@ list.destroy();
           <tr><td class="name">key</td><td class="type">string</td><td class="desc">The field each item's identity comes from. Default `'id'`. <small>(optional)</small></td></tr>
           <tr><td class="name">itemHeight</td><td class="type">number | 'auto'</td><td class="desc">Row height in pixels, or `'auto'` to size every row to its template: multi-line content is shown in full (the grid's own auto row height, measured at any list length), and a row whose item changes through `list.data.update` is measured again. Default: the grid's row height. <small>(optional)</small></td></tr>
           <tr><td class="name">allowUnsafeTemplates</td><td class="type">boolean</td><td class="desc">`true` lets an HTML-string `template` keep form controls: `input`, `select` (with `option`), `textarea`, `button` and `label` elements and their attributes. `script`, `iframe`, `object`, `embed`, `form` and similar elements, event-handler attributes and `javascript:`, `data:` or `vbscript:` URLs are still removed. Default `false`, where the grid's own sanitiser also drops the controls. Typing into or clicking a control reaches `list.on('input' | 'change')` with the item's id; a click on a link, button, input, select, textarea or label does not also select the row, unless the control or an ancestor carries `data-row-select`. <small>(optional)</small></td></tr>
-          <tr><td class="name">dragHandle</td><td class="type">'grip' | 'row'</td><td class="desc">Where a drag starts. `'grip'` (default) is the drawn handle. `'row'` starts it from anywhere on the row except a link, button, input, select, textarea, label or an element marked `data-no-drag`; a double-click still selects a word, and the grip is still drawn. Applies to the lists that can start a drag (`dragMode` `'source'` or `'both'`). <small>(optional)</small></td></tr>
+          <tr><td class="name">dragHandle</td><td class="type">'grip' | 'row' | false</td><td class="desc">Where a drag starts. `'grip'` (default) is the drawn handle. `'row'` starts it from anywhere on the row except a link, button, input, select, textarea, label or an element marked `data-no-drag`; a double-click still selects a word, and the grip is still drawn. `false` is the same whole-row drag with no drawn grip at all, so the template fills the full width. Applies to the lists that can start a drag (`dragMode` `'source'` or `'both'`). <small>(optional)</small></td></tr>
           <tr><td class="name">css</td><td class="type">string | string[]</td><td class="desc">Class name(s) added to every row. <small>(optional)</small></td></tr>
           <tr><td class="name">selection</td><td class="type">false | 'single' | 'multi'</td><td class="desc">Selection mode. Default `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">dragMode</td><td class="type">false | 'source' | 'target' | 'both'</td><td class="desc">This list's role in a cross-list drag. Default `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">dragCopy</td><td class="type">boolean</td><td class="desc">`true` leaves the source row in place on a drop (copy, not move). Default `false`. <small>(optional)</small></td></tr>
-          <tr><td class="name">emptyText</td><td class="type">string | HTMLElement</td><td class="desc">The empty-state message or element. <small>(optional)</small></td></tr>
+          <tr><td class="name">emptyText</td><td class="type">string | HTMLElement</td><td class="desc">The empty-state message or element; an empty string shows nothing at all. <small>(optional)</small></td></tr>
           <tr><td class="name">contextMenu</td><td class="type">boolean</td><td class="desc">The grid's own cell right-click menu (Paste, Clear, Fill down). Default `false` — a right-click on a row is `itemContextMenu`, not a menu meant for spreadsheet cells. <small>(optional)</small></td></tr>
+          <tr><td class="name">bordered</td><td class="type">boolean</td><td class="desc">`true` draws the grid's own 1px frame round the list. Default `false`: borderless. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -671,13 +678,13 @@ list.destroy();
         <tbody>
           <tr><td class="name">source</td><td class="type"><a href="#type-ListView">ListView</a> | import('lattice-grid/modules/dataview').<a href="dataview.html#type-DataView">DataView</a> | null</td><td class="desc">The list or data view the item(s) came from.</td></tr>
           <tr><td class="name">target</td><td class="type"><a href="#type-ListView">ListView</a> | import('lattice-grid/modules/dataview').<a href="dataview.html#type-DataView">DataView</a> | null</td><td class="desc">The list or data view the item(s) landed in.</td></tr>
-          <tr><td class="name">ids</td><td class="type">unknown[]</td><td class="desc">The moved/copied item's identity (identities), as a one-element array.</td></tr>
+          <tr><td class="name">ids</td><td class="type">unknown[]</td><td class="desc">The moved/copied item's identity (identities), as a one-element array. For a `dragCopy` drop crossing into another list or data view, this is the copy's fresh identity, not the source's.</td></tr>
           <tr><td class="name">index</td><td class="type">number</td><td class="desc">The index the item(s) landed at in the target.</td></tr>
         </tbody>
       </table>
     </div>
     <h4 id="type-ListViewDragOutEvent">ListViewDragOutEvent</h4>
-    <p class="section-note">The `dragOut` payload: a drag left this list without a cross-list drop landing.</p>
+    <p class="section-note">The `dragOut` payload: the pointer left this list's own bounds during a drag that started on one of its rows. Fires on that crossing alone, whether or not a drop ends up landing anywhere — including a drop back into this same list, or into another one — so a host using it to clear a hint cannot rely on it to mean "the row left for good".</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>

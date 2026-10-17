@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.104.0, tree module type declarations
+ * Lattice Grid 1.104.1, tree module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -52,10 +52,21 @@ export interface TreeModuleConfig {
   checked?: Array<string | number>;
   /** This tree's role in a drag: reorder and reparent within itself either way; the split is the host's own declaration of intent, since a standalone tree has nothing else to send to or receive from. Default `false`. */
   dragMode?: false | 'source' | 'target' | 'both';
+  /**
+   * Where a drag starts, once `dragMode` turns dragging on:
+   * the drawn grip (`'grip'`, the default), anywhere on the row (`'row'`,
+   * matching the list view's own `dragHandle` — a press on the expander or
+   * the checkbox still expands or checks, since the drag only begins once
+   * the pointer has moved), or `false` to draw no handle and start no drag
+   * at all, whatever `dragMode` says.
+   */
+  dragHandle?: 'grip' | 'row' | false;
   /** Say that a node has children not yet in `data`/`items`, so it draws an expander before anything is fetched. */
   hasChildren?: (node: TreeNode) => boolean;
   /** Fetch a branch's children when it is first opened. Fetched once; a rejection leaves the branch unloaded. */
   loadChildren?: (node: TreeNode, signal: AbortSignal) => Promise<TreeNode[]>;
+  /** Where a drop "inside" a node lands among its new children: `'last'` (the default, today's documented behaviour) or `'first'`. */
+  insidePosition?: 'last' | 'first';
   /**
    * The grid's own cell right-click menu (Paste, Clear, Fill down). Default
    * `false` — a right-click on a node is `itemContextMenu`, not a menu meant
@@ -112,7 +123,7 @@ export interface TreeBeforeDropEvent {
   id: string;
   /** The parent id the node will have after the drop. */
   parent: unknown;
-  /** The index the node will land at. */
+  /** The node's final 0-based position among its new siblings — not a physical row index. */
   index: number;
   /** Which band of the target node the drop landed in. */
   position: 'before' | 'after' | 'inside';
@@ -128,7 +139,7 @@ export interface TreeAfterDropEvent {
   id: string;
   /** The parent id the node now has. */
   parent: unknown;
-  /** The index the node now occupies. */
+  /** The node's final 0-based position among its new siblings — not a physical row index. */
   index: number;
   /** Which band of the target node the drop landed in. */
   position: 'before' | 'after' | 'inside';

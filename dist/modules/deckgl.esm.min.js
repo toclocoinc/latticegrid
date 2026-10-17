@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.104.0, deckgl module
+ * Lattice Grid 1.104.1, deckgl module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -72,7 +72,7 @@ ${ee}{
    background gives it. */
 .${t}__data-label{fill:var(--lattice-chart-label-fg);pointer-events:none}
 .${t}__data-label[data-inside="true"]{fill:var(--lattice-chart-plot-bg)}
-.${t}__plot{flex:1 1 auto;min-height:0;display:block;width:100%;height:100%;overflow:visible}
+.${t}__plot{flex:1 1 auto;min-width:0;min-height:0;display:block;width:100%;height:100%;overflow:visible}
 /* The plot is hidden while the empty state is up; the author display:block
    above would otherwise keep an empty frame painted behind the message — the
    mirror of the placeholder's own trap (BACKLOG-0001023). */

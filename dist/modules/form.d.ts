@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.104.0, form module type declarations
+ * Lattice Grid 1.104.1, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -20,7 +20,7 @@ export type FormLabelPosition = 'top' | 'left' | 'hidden';
 export type FormInputSubtype = 'text' | 'email' | 'password' | 'url';
 
 /** The control types a form item may name. */
-export type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox' | 'togglegroup' | 'time' | 'grid';
+export type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox' | 'togglegroup' | 'time' | 'grid' | 'slider';
 
 /** The opening view of a `color` item's popover: the preset palette (default) or the custom picker. */
 export type FormColorMode = 'palette' | 'picker';
@@ -278,6 +278,8 @@ export interface FormItemConfig extends ComboConfig {
   label?: string;
   /** Where the label sits: `top` (default), `left`, or `hidden` (visually hidden but still the accessible name). */
   labelPosition?: FormLabelPosition;
+  /** Keep the label as the control's accessible name without drawing it — a visually hidden `<label>` linked to the control — so the field takes the full row, whatever `labelPosition` says. */
+  hiddenLabel?: boolean;
   /** The label column width when `labelPosition` is `left`. */
   labelWidth?: number | string;
   /**
@@ -296,12 +298,24 @@ export interface FormItemConfig extends ComboConfig {
   controlMinWidth?: number | string;
   /**
    * The item's width: a pixel number, a CSS length string such as `'12em'`,
-   * or a percentage string such as `'33.3%'`. In a `cols` row a percentage is
+   * a percentage string such as `'33.3%'`, or `'content'` to size the item to
+   * its control's own content (the default for buttons and toggles) rather
+   * than filling its row. In a `cols` row a percentage is
    * a share of the row's width *after* the gaps between its items, so items
    * totalling 100% lay out on one line with the gaps intact and an unsized
    * neighbour takes the remaining space; a px/rem width is a fixed flex basis.
    */
   width?: number | string;
+  /**
+   * The item's height, for every item type: a pixel number,
+   * a CSS length string, or `'content'` to size the control to its own content.
+   * A `listbox` item's `height` instead sets its viewport height in pixels,
+   * overriding `rows`; on a vertical `slider` item it sets
+   * the track's length (default 160).
+   */
+  height?: number | string;
+  /** The space between the item's cell and its control — a pixel number or a CSS length — on items and on `rows`/`cols`/`items`/`fieldset`/`panel` containers. */
+  padding?: number | string;
   /** Placeholder text for a text-like control. */
   placeholder?: string;
   /** Help text shown under the control. */
@@ -312,8 +326,8 @@ export interface FormItemConfig extends ComboConfig {
   disabled?: boolean;
   /** Start read-only. */
   readOnly?: boolean;
-  /** Help text a "?" trigger after the label reveals on hover, focus, Enter and tap, linked to the control by `aria-describedby`. */
-  tooltip?: string;
+  /** Help text a "?" trigger after the label reveals on hover, focus, Enter and tap, linked to the control by `aria-describedby` — or, for a `slider` item, whether it shows the thumb's live value while dragging or focused. The two never collide: the "?" trigger only ever draws for a string value, so a slider's boolean never raises it. */
+  tooltip?: string | boolean;
   /** Show the read-only lock inside a read-only field's right edge (default true); `false` hides it. */
   lockIcon?: boolean;
   /** Round icon buttons (and avatar addons) attached to the right of the field, disabled with it. */
@@ -340,8 +354,8 @@ export interface FormItemConfig extends ComboConfig {
   reveal?: boolean;
   /** The box count of an `otp` item (default 6). */
   length?: number;
-  /** The `otp` characters — `numeric` (default) or `alphanumeric` — the `datepicker` mode: `date`, `date-time` or `time` — the `color` item's opening popover view — or the `speeddial` item's menu shape: `linear` (default) or `radial`. */
-  mode?: 'numeric' | 'alphanumeric' | FormPickerMode | FormColorMode | 'linear' | 'radial';
+  /** The `otp` characters — `numeric` (default) or `alphanumeric` — the `datepicker` mode: `date`, `date-time` or `time` — the `color` item's opening popover view — the `speeddial` item's menu shape: `linear` (default) or `radial` — or a `slider` item's track direction: `horizontal` (default) or `vertical`. */
+  mode?: 'numeric' | 'alphanumeric' | FormPickerMode | FormColorMode | 'linear' | 'radial' | 'horizontal' | 'vertical';
   /** Hide each `otp` box's glyph with the password disc. */
   mask?: boolean;
   /** The number step, for a `number` item. */
@@ -404,8 +418,6 @@ export interface FormItemConfig extends ComboConfig {
   valueAs?: 'order';
   /** The name of another `listbox` item this one exchanges items with via drag and the Move selected/Move all toolbar buttons; each side's value is the items it currently holds. */
   connect?: string;
-  /** A `listbox` item's viewport height in pixels, overriding `rows`. */
-  height?: number;
   /** Draw a drag grip on a `listbox` item's rows and drag only from it (a plain pointer drag, not native HTML5 drag-and-drop), and size rows to their content instead of a fixed height. */
   dragHandle?: boolean;
   /** Lay a `radiogroup` or `checkboxgroup`'s options out vertically (the default) or on one wrapping horizontal line. */
@@ -568,6 +580,16 @@ export interface FormItemConfig extends ComboConfig {
   valueFormat?: 'string' | 'object';
   /** Add Close and Save buttons to a `time` item's popup so nothing commits until Save and Close discards (default false: the popup commits as the clock changes). */
   controls?: boolean;
+  /** Make a `slider` item a two-thumb range: the committed value is then `[low, high]` and the thumbs cannot cross. */
+  range?: boolean;
+  /** Draw a `slider` tick mark every this many units; omitted, no tick marks are drawn. */
+  tick?: number;
+  /** Draw a labelled, taller `slider` tick every this many units, formatted by `tickTemplate`; omitted, no major ticks are drawn. */
+  majorTick?: number;
+  /** Format a `slider` tick's label and a thumb's `aria-valuetext`; the plain number when omitted. */
+  tickTemplate?: (value: number) => string;
+  /** Reverse which end of a `slider` track holds the minimum. */
+  inverse?: boolean;
   /** Extra per-control options, kept for later controls. */
   [key: string]: unknown;
 }
@@ -662,8 +684,14 @@ export interface FormBlock {
   items?: FormItemConfig[];
   /** The vertical gap between this container's or fieldset's own items — a px number or a CSS length, overriding the form's `spacing` for those items only. */
   spacing?: number | string;
-  /** On a `cols` block, resolve each item's percentage `width` against its own rendered line's gaps instead of the whole row's: a `100%` item fills its line alone, and a `50%`/`50%` pair shares one gap and sits side by side filling it exactly, instead of the pair's widths being shrunk by every gap in the row. Items that do not fit on a line wrap to the next one, as they already do; hiding an item frees its line slot (later items shift up and may join an earlier line), and showing it again restores the layout. Ignored on any other axis. Default `false`. */
+  /** On a `cols` block, resolve each item's percentage `width` against its own rendered line's gaps instead of the whole row's: a `100%` item fills its line alone, and a `50%`/`50%` pair shares one gap and sits side by side filling it exactly, instead of the pair's widths being shrunk by every gap in the row. Items that do not fit on a line wrap to the next one, as they already do; hiding an item frees its line slot (later items shift up and may join an earlier line), and showing it again restores the layout. The per-line pass measures a nested block's own `width` the same as an item's. Ignored on any other axis. Default `false`. */
   wrap?: boolean;
+  /** On a `cols` block, the gap between items — a px number or a CSS length, both the rendered gap and the `wrap` per-line width maths. Sets both `columnGap` and `rowGap` unless one of them overrides it. Ignored on any other axis. Default `--lattice-space` (the theme's own gap). */
+  gap?: number | string;
+  /** On a `cols` block, the gap between items on the same line — a px number or a CSS length, overriding `gap` for this axis only. Ignored on any other axis. */
+  columnGap?: number | string;
+  /** On a `cols` block, the gap between wrapped lines — a px number or a CSS length, overriding `gap` for this axis only. Ignored on any other axis. */
+  rowGap?: number | string;
   /** The control type, or `spacer`/`separator`. Defaults to `input`. */
   type?: string;
   /** A fieldset: `'Legend'` or `{ legend, rows, cols, items }`. */
@@ -688,7 +716,7 @@ export interface FormBlock {
   labelWidth?: number | string;
   /** The width below which a `left` label switches to the top instead; on a container or fieldset this is the default its items inherit. See {@link FormItemConfig.controlMinWidth}. */
   controlMinWidth?: number | string;
-  /** The item's width. */
+  /** The item's width; on a container, fieldset or panel block nested in a `cols` row, its own share of that row, applied exactly as an item's `width` is, with and without `wrap`. */
   width?: number | string;
   /** Placeholder text. */
   placeholder?: string;
@@ -920,6 +948,12 @@ export interface FormConfig {
   colsBreakpoint?: number | false;
   /** When the root axis is `cols` (no `rows`), resolve each item's percentage `width` against its own rendered line's gaps instead of the whole row's. See {@link FormBlock.wrap}. Default `false`. */
   wrap?: boolean;
+  /** When the root axis is `cols` (no `rows`), the gap between items. See {@link FormBlock.gap}. */
+  gap?: number | string;
+  /** When the root axis is `cols` (no `rows`), the gap between items on the same line, overriding `gap`. See {@link FormBlock.columnGap}. */
+  columnGap?: number | string;
+  /** When the root axis is `cols` (no `rows`), the gap between wrapped lines, overriding `gap`. See {@link FormBlock.rowGap}. */
+  rowGap?: number | string;
   /**
    * Bind the form to a record. A grid row generates one item per column and
    * saves through the grid's edit path; a routed record follows the route's
@@ -1323,7 +1357,8 @@ export interface FormItem {
  * `errorMessage` and `css`. `placeholder` is live on `input`, `textarea`,
  * `number`, `select`, `combo` and `datepicker`; `options` on `select` and
  * `combo` (the same contract as `setOptions`); `min`/`max`/`step`/`format`
- * on `number`; `disabledDates` on `datepicker` and `daterange` (the open
+ * on `number` and `slider`; `tick`/`majorTick` are additionally live on
+ * `slider`; `disabledDates` on `datepicker` and `daterange` (the open
  * calendar's days are redrawn and a held value the new rule disables is
  * reported by validation). Any other key is a control's own documented
  * live option (`item.props` at build); one that is neither common nor

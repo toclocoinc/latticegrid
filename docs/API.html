@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.104.0</p>
+    <p class="rail__sub">API reference · v1.104.1</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -590,7 +590,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.104.0</span>
+      <span class="chip">Version 1.104.1</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3512,7 +3512,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.104.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.104.1'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -15620,8 +15620,14 @@ grid.destroy();
     registry of its own. A target's <code>beforeDrop</code> handler may veto a drop by returning
     <code>false</code> (or a Promise of it): the same veto-before-mutation gate the grid's own
     <code>rowTransfer</code> uses guarantees a veto leaves both lists exactly as they were, and
-    <code>afterDrop</code> fires only once a move or copy has actually committed. A drag that leaves a
-    list without landing on another fires <code>dragOut</code>.</p>
+    <code>afterDrop</code> fires only once a move or copy has actually committed. <code>dragOut</code>
+    fires when the pointer leaves the source list's own bounds during a drag, whether or not a drop
+    ends up landing anywhere &mdash; including a drop back into the same list.</p>
+    <p><strong>Dragging several rows.</strong> With <code>selection: 'multi'</code>, dragging one of
+    several selected rows carries every selected row as a block, keeping their relative order, within
+    a list and into another one: <code>beforeDrop</code> and <code>afterDrop</code> list all the ids
+    in <code>ids</code> and a veto leaves both lists unchanged. Dragging a row that is not selected
+    moves just that row and leaves the selection as it was.</p>
     <p><strong>The Data API never drifts from what is on screen.</strong> <code>list.data</code> drives
     every mutation through the inner grid's own keyed-diff, sort and filter surface, so
     <code>serialize()</code> &mdash; the items in current on-screen order &mdash; can never disagree
@@ -15737,7 +15743,9 @@ list.destroy();
   dragMode: <span class="str">'both'</span>,
 });</code></pre>
     <p><strong>Layout.</strong> Cards are <code>itemWidth</code> by <code>itemHeight</code> (default 200 by
-    120) with <code>gap</code> (default 8) between them, and as many as fit go on a row. Set
+    120) with <code>gap</code> (default 8) between them, and as many as fit go on a row.
+    <code>itemHeight</code> may be a percentage string such as <code>'50%'</code>: each card is then that
+    share of the view's own height, recomputed when the view resizes. Set
     <code>columns: n</code> instead and exactly <em>n</em> cards share the width, so the row is always
     full; <code>itemWidth</code> is then ignored. The view resizes with its host. Give the host element
     a height &mdash; the view fills it and scrolls inside it.</p>
@@ -15753,6 +15761,14 @@ list.destroy();
     platform modifier, of the whole set), PageUp and PageDown move a screenful, Space toggles, Enter
     activates (<code>itemDoubleClick</code>) and Shift with an arrow extends the selection. In
     <code>'single'</code> mode the selection follows the focus.</p>
+    <p><strong>Item events and keys.</strong> <code>itemContextMenu</code> and <code>itemMouseOver</code>
+    carry <code>{ id, item, event }</code> (the shape the tree and list view emit) for a right-click on a
+    card and for the pointer entering one; call <code>event.preventDefault()</code> to suppress the
+    browser's menu. <code>afterAdd</code> <code>{ id, item }</code> and <code>afterRemove</code>
+    <code>{ id }</code> fire on every data change, whether made through <code>view.data</code> or a drop.
+    An item with no value in its key field gets a generated key when it is added, so it renders with a
+    real <code>data-key</code>, selects, takes focus and drags like any other, and
+    <code>getItem()</code> and <code>serialize()</code> carry that id.</p>
     <p><strong>Drag and drop.</strong> <code>dragMode</code> is the list view's:
     <code>'source'</code> lets a card be picked up (reordering within the view, or sending it to another),
     <code>'target'</code> receives, <code>'both'</code> does either and <code>false</code> (the default)
@@ -15762,7 +15778,15 @@ list.destroy();
     <code>listview</code> list, goes through the target's single <code>beforeDrop</code>: return
     <code>false</code> (or a Promise of it) and both sides are left exactly as they were. A reorder
     within one view is refused, with the reason announced, while a sort or filter is active, because the
-    drop position would have no single meaning in the stored order.</p>
+    drop position would have no single meaning in the stored order. A <code>dragCopy</code> drop gives the
+    copy a fresh identity rather than the source's &mdash; <code>copyId(item)</code>'s return when given,
+    otherwise the source id with a <code>-copy</code>/<code>-copy2</code>/... suffix counted up until it is
+    not already used in the target &mdash; so dropping the same card twice lands two items, and
+    <code>afterDrop</code> reports that new id. A cancellable <code>beforeDrag</code> fires with
+    <code>{id, item}</code> before a press on a card is armed as a drag: return <code>false</code> or call
+    <code>preventDefault()</code> to stop that card dragging (a palette heading or a blank card, say). A
+    press-and-drag that starts on a natively draggable element inside a card &mdash; an <code>&lt;img&gt;</code>,
+    say &mdash; moves the item rather than letting the browser's own image drag swallow it.</p>
     <p><strong>Accessibility.</strong> The view is an ARIA <code>grid</code> of <code>row</code>s of
     <code>gridcell</code> cards with <code>aria-rowcount</code>, <code>aria-colcount</code>,
     <code>aria-rowindex</code> and <code>aria-colindex</code>, and <code>aria-selected</code> when
@@ -15829,6 +15853,49 @@ view.selection.clear();
 <span class="kw">const</span> rows = host.querySelector('[role="grid"]').getAttribute('aria-rowcount');
 view.destroy();
 <span class="kw">return</span> [fit, filled, added, sorted, shown, selected, cards, rows, seen.join('|')].join(' || ');</code></pre>
+    <h3 id="dataview-dragcopy-example">A drag copy's fresh id, and a vetoed beforeDrag</h3>
+    <p class="section-note">Three drops of the same source item into a target that already holds one: the
+    default generator gives the first two distinct, counted-up ids, and <code>copyId</code> overrides it on
+    the third. Then a card whose press is vetoed by <code>beforeDrag</code> never arms the pointer-move
+    listener a real drag needs &mdash; run headless, the drop itself through <code>dropOn</code> (the
+    primitive <code>createDataView</code> and <code>createList</code> share), the veto through a real view.</p>
+    <pre data-run="js" data-expect="A1-copy,A1-copy2,custom-Ada || 0" data-covers="config:DataViewConfig.copyId"><code><span class="kw">const</span> { createTestDom, resetTestDom, TestEvent } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createDataView } = <span class="kw">await</span> import('../packages/modules/dataview/index.js');
+<span class="kw">const</span> { dropOn } = <span class="kw">await</span> import('../packages/modules/listview/shared.js');
+
+<span class="cmt">// dropOn is the primitive both modules' pointer-drag code calls on a cross-view drop.</span>
+<span class="kw">const</span> target = <span class="kw">new</span> Map([['B0', { id: 'B0' }]]);
+<span class="kw">const</span> zone = {
+  owner: { data: { getItem: (id) =&gt; target.get(id) } },
+  beforeDrop: () =&gt; <span class="kw">true</span>,
+  receive: (item) =&gt; target.set(item.id, item),
+  afterDrop: () =&gt; {},
+};
+<span class="kw">const</span> ids = [];
+<span class="kw">const</span> dragOf = (overrides) =&gt; ({
+  source: {}, id: 'A1', item: { id: 'A1', name: 'Ada' }, index: 0, copy: <span class="kw">true</span>, key: 'id',
+  remove: () =&gt; {}, afterDrop: (p) =&gt; ids.push(p.ids[0]), ...overrides,
+});
+dropOn(zone, dragOf());                                           <span class="cmt">// no collision: A1-copy</span>
+dropOn(zone, dragOf());                                           <span class="cmt">// A1-copy is taken now: A1-copy2</span>
+dropOn(zone, dragOf({ copyId: (item) =&gt; `custom-${item.name}` })); <span class="cmt">// the hook wins</span>
+
+resetTestDom();
+<span class="kw">const</span> host = createTestDom().root;
+<span class="kw">const</span> win = {
+  listeners: <span class="kw">new</span> Map(),
+  addEventListener(t, fn) { <span class="kw">let</span> s = <span class="kw">this</span>.listeners.get(t); <span class="kw">if</span> (!s) { s = <span class="kw">new</span> Set(); <span class="kw">this</span>.listeners.set(t, s); } s.add(fn); },
+  removeEventListener(t, fn) { <span class="kw">const</span> s = <span class="kw">this</span>.listeners.get(t); <span class="kw">if</span> (s) s.delete(fn); },
+};
+host.ownerDocument.defaultView = win; <span class="cmt">// enough for onPointerDown to arm a real drag</span>
+<span class="kw">const</span> view = createDataView(host, { data: [{ id: 'X0' }], template: (i) =&gt; `&lt;div&gt;${i.id}&lt;/div&gt;`, dragMode: 'source' });
+view.on('beforeDrag', () =&gt; <span class="kw">false</span>);
+<span class="kw">const</span> card = host.querySelector('[data-key="X0"]');
+card.dispatchEvent(<span class="kw">new</span> TestEvent('pointerdown', { clientX: 10, clientY: 10, button: 0 }));
+<span class="kw">const</span> vetoedListeners = win.listeners.get('pointermove') ? win.listeners.get('pointermove').size : 0;
+view.destroy();
+
+<span class="kw">return</span> [ids.join(','), vetoedListeners].join(' || ');</code></pre>
     <h2 id="tree">The tree module</h2>
     <p><code>modules/tree</code> is an opt-in, standalone tree &mdash; expand, select, tri-state
     checkboxes and drag to reparent &mdash; built on the grid's own tree mode (see
@@ -16566,7 +16633,7 @@ form.on('beforeChange', (e) =&gt; { if (e.name === 'age' &amp;&amp; e.value &gt;
 form.setDensity('comfortable');          <span class="cmt">// control heights follow the grid's row height</span>
 form.destroy();</code></pre>
     <p><strong>Rows, columns and blocks.</strong> A form is a tree of <code>rows</code> and <code>cols</code>, each nesting the other to any depth, plus <code>items</code> to lay controls side by side. A <code>rows</code> block stacks its children vertically and stretches them to its width; a <code>cols</code> block lays its children side by side, sharing the width equally by default (<code>flex: 1 1 0</code>, <code>min-width: 0</code> &mdash; a child&rsquo;s own <code>width</code>, <code>flex</code> or <code>css</code> still wins, and a percentage <code>width</code> is a share of the row&rsquo;s width <em>after</em> its gaps, so three <code>33.3%</code> items sit on one line) and stacking them into one column once the container drops below <code>config.colsBreakpoint</code> (default 480px, via a container query &mdash; <code>0</code> or <code>false</code> turns stacking off, so the row never stacks at any width). With <code>wrap: true</code> on the block (or the root config), a percentage <code>width</code> instead resolves against its own rendered line's gaps, not the whole row's &mdash; a <code>100%</code> item fills a line alone and a <code>50%</code>/<code>50%</code> pair shares just the one gap between them, so a row of many items wrapping onto several lines keeps every line's items flush to its right edge (BACKLOG-0002559); hiding an item frees its line slot, and showing it again restores the layout. A <code>container</code> is the default block shape (a flex box along its axis); a <code>fieldset</code> is a native <code>&lt;fieldset&gt;</code>/<code>&lt;legend&gt;</code> with its children in a body below; a <code>spacer</code> is flexible space and a <code>separator</code> a rule &mdash; or, given a <code>label</code> (a literal such as <code>'or'</code>, or a key resolved through <code>config.messages</code>), a muted label centred between two rules (&ldquo;&mdash;&mdash; or &mdash;&mdash;&rdquo;), the label also its accessible name &mdash; both plain blocks. A <code>text</code> item renders a read-only display carrying its value &mdash; a label/value pair, not an editable control &mdash; and the basic controls are <code>input</code> (subtype <code>text</code>, <code>email</code>, <code>password</code> or <code>url</code>), <code>number</code> (<code>step</code>/<code>min</code>/<code>max</code>), <code>textarea</code>, <code>checkbox</code>, <code>button</code>, <code>rating</code> (a row of icons, whole or half steps, click or arrow), <code>stage</code> (a pipeline of chevron steps), <code>chips</code> (a row of pill buttons for one or several options) and <code>combo</code> (a searchable combobox, described below).</p>
-    <p><strong>One item, one handle.</strong> Every item is a wrapper holding an optional <code>&lt;label&gt;</code> (associated to its control by <code>for</code>/<code>id</code>), the control, and an optional help line. Per item: <code>name</code>, <code>label</code>, <code>labelPosition</code> (<code>top</code>/<code>left</code>), <code>labelWidth</code>, <code>width</code>, <code>placeholder</code>, <code>helpMessage</code>, <code>hidden</code>, <code>disabled</code>, <code>readOnly</code> and <code>value</code>. <code>getItem(name)</code> returns the handle &mdash; <code>{ el, name, getValue, setValue, setOptions, reload, show, hide, enable, disable, focus, blur, isVisible, getLabel, setLabel, setHelp }</code> &mdash; or <code>undefined</code> for an unknown name, and <code>forEach(fn)</code> hands every handle to <code>fn</code> in document order. <code>setValue(values)</code> writes values silently by name (unknown keys are ignored), <code>getValue()</code> snapshots every named value-holding item as <code>{ name: value }</code> (a button holds no value and is not included), and <code>clear()</code> resets each user-editable item to its empty value &mdash; <code>''</code> for text, <code>null</code> for a number, a stage or a single <code>chips</code>, <code>[]</code> for a multi <code>chips</code>, <code>false</code> for a checkbox, <code>0</code> for a rating &mdash; without firing an event. <code>getItem(name).setLabel(text)</code> changes the item's visible label and its accessible name after the form is built, returning the item for chaining (BACKLOG-0002455): a field's own <code>&lt;label&gt;</code> text, a button's caption, or &mdash; on a handle for a named <code>fieldset</code> &mdash; its legend; a hidden label (<code>labelPosition: 'hidden'</code>) stays visually hidden but its accessible name still updates, since both read the same element. <code>getLabel()</code> reads the current label back, and <code>setHelp(text)</code> changes the help line under the control (<code>null</code> removes it). Both survive <code>setDensity</code>, <code>setReadOnly</code>, <code>show()</code>/<code>hide()</code> and any re-render, and are what a later <code>getItem</code> reports. A <code>fieldset</code> is not a value-holding item, but naming it &mdash; <code>{ fieldset: 'Account', name: 'account', items: [&hellip;] }</code> &mdash; makes it retrievable through <code>getItem(name)</code> for exactly this: a handle whose <code>setLabel</code>/<code>getLabel</code> reach the legend.</p>
+    <p><strong>One item, one handle.</strong> Every item is a wrapper holding an optional <code>&lt;label&gt;</code> (associated to its control by <code>for</code>/<code>id</code>), the control, and an optional help line. Per item: <code>name</code>, <code>label</code>, <code>labelPosition</code> (<code>top</code>/<code>left</code>), <code>hiddenLabel</code>, <code>labelWidth</code>, <code>width</code>, <code>height</code>, <code>padding</code>, <code>placeholder</code>, <code>helpMessage</code>, <code>hidden</code>, <code>disabled</code>, <code>readOnly</code> and <code>value</code>. <code>getItem(name)</code> returns the handle &mdash; <code>{ el, name, getValue, setValue, setOptions, reload, show, hide, enable, disable, focus, blur, isVisible, getLabel, setLabel, setHelp }</code> &mdash; or <code>undefined</code> for an unknown name, and <code>forEach(fn)</code> hands every handle to <code>fn</code> in document order. <code>setValue(values)</code> writes values silently by name (unknown keys are ignored), <code>getValue()</code> snapshots every named value-holding item as <code>{ name: value }</code> (a button holds no value and is not included), and <code>clear()</code> resets each user-editable item to its empty value &mdash; <code>''</code> for text, <code>null</code> for a number, a stage or a single <code>chips</code>, <code>[]</code> for a multi <code>chips</code>, <code>false</code> for a checkbox, <code>0</code> for a rating &mdash; without firing an event. <code>getItem(name).setLabel(text)</code> changes the item's visible label and its accessible name after the form is built, returning the item for chaining (BACKLOG-0002455): a field's own <code>&lt;label&gt;</code> text, a button's caption, or &mdash; on a handle for a named <code>fieldset</code> &mdash; its legend; a hidden label (<code>labelPosition: 'hidden'</code>) stays visually hidden but its accessible name still updates, since both read the same element. <code>getLabel()</code> reads the current label back, and <code>setHelp(text)</code> changes the help line under the control (<code>null</code> removes it). Both survive <code>setDensity</code>, <code>setReadOnly</code>, <code>show()</code>/<code>hide()</code> and any re-render, and are what a later <code>getItem</code> reports. A <code>fieldset</code> is not a value-holding item, but naming it &mdash; <code>{ fieldset: 'Account', name: 'account', items: [&hellip;] }</code> &mdash; makes it retrievable through <code>getItem(name)</code> for exactly this: a handle whose <code>setLabel</code>/<code>getLabel</code> reach the legend.</p>
     <p><strong>Events.</strong> A field fires <code>input</code> as the user types (the value is live, not yet committed) and <code>change</code> once the edit commits; a checkbox fires <code>change</code> on toggle; a button fires <code>click</code>. Every interactive item fires <code>focus</code> and <code>blur</code>, and an <code>otp</code> fires <code>complete</code> once every box is filled. A <code>change</code> is gated by a cancellable <code>beforeChange</code> &mdash; a handler calls <code>event.preventDefault(reason?)</code> or returns <code>false</code> (or a Promise of either) to refuse the commit, which then reverts the control to its last committed value &mdash; and the emitted events are subscribed with <code>form.on(name, fn)</code> (or <code>'*'</code> for every past-tense event) and detached with <code>form.off(name, fn)</code>. A handler that throws does not stop the others &mdash; every handler still runs &mdash; and surfaces as an uncaught error: the original error is re-raised on the next microtask, so <code>window.onerror</code> and unhandled-error reporting see it.</p>
     <p><strong>Validation.</strong> An item declares <code>required</code> (an empty value fails), a <code>validation</code> rule &mdash; a built-in name (<code>email</code>, <code>number</code>, <code>integer</code>, <code>url</code>), a whole-value RegExp, or a function <code>(value, item) =&gt; boolean | string | void</code> that returns <code>true</code>/<code>undefined</code> for pass, <code>false</code> for a fail, or a string that <em>is</em> the failure message &mdash; and the message options <code>errorMessage</code>, <code>successMessage</code> and <code>preMessage</code>. <code>form.validate()</code> checks every rule-bearing item and returns <code>true</code>/<code>false</code>, marking each invalid item with <code>aria-invalid</code> and an associated message (and each pass with its <code>successMessage</code>); <code>item.validate()</code> checks one item. A <code>validationMode</code> of <code>change</code> re-checks an item once its edit commits, <code>blur</code> re-checks it as it loses focus, and <code>submit</code> (the default) checks it only on <code>validate()</code>. The default rule messages live in the module's catalogue &mdash; overridable through <code>config.messages</code> &mdash; and a <code>validated</code> event reports every failure as <code>{ name, rule, message }</code>. The control registry exposes a per-control <code>validate(el, item, value)</code> hook that later controls (file, combo, custom) plug into.</p>
     <p><strong>Density.</strong> A <code>density</code> level &mdash; <code>compact</code>, <code>standard</code> (default) or <code>comfortable</code> &mdash; drives every control's height, padding, label gap and fieldset spacing from the grid's own <code>--lattice-*</code> tokens (a control stands one <code>--lattice-row-height</code> tall, so a form beside a grid follows that grid's density), each with a literal fallback so a form on a bare page still draws. <code>form.setDensity(level)</code> changes it live with one attribute write and no re-render, and an unknown level is ignored. The module imports no grid and no core source, ships in its own bundle and UMD global, and <code>destroy()</code> empties the element, removes only what the module added, restores the host's own inline style, and drops every item record, listener and handler.</p>
@@ -16603,7 +16670,7 @@ form.destroy();</code></pre>
           <tr><td class="sig">createForm(el, config?)</td><td class="desc">Create a form. <code>config</code> is <code>{ rows | cols, density, spacing, labelGap, labelPosition, labelWidth, requiredHint, colsBreakpoint, bind, css, messages, steps, stepOrientation }</code>; <code>rows</code> stacks the top-level blocks vertically, <code>cols</code> lays them left-to-right sharing the width equally (used when <code>rows</code> is absent), <code>spacing</code> is the vertical gap between items (a px number or a CSS length, defaulting to the density's gap) and <code>labelGap</code> the gap between an item's label and its field (defaulting to half the density's space), <code>labelPosition</code> (<code>top</code> default / <code>left</code> / <code>hidden</code>) and <code>labelWidth</code> are the defaults every item inherits (an item&rsquo;s own value wins), <code>requiredHint</code> is the placeholder marker a required field with no visible label shows (<code>true</code> appends <code>" *"</code>, a string resolves through the catalogue, <code>false</code> shows nothing), <code>colsBreakpoint</code> is the container width below which a <code>cols</code> container stacks into one column (default 480px; <code>0</code> or <code>false</code> never stacks), <code>bind</code> binds the form to a record (<code>{ grid, rowKey }</code>, <code>{ router, route, key, onSave? }</code> or a plain values object), <code>messages</code> supplies a <code>t(key, params)</code> catalogue for the separator's accessible label and the validation defaults, and a <code>steps</code> array turns the form into a wizard with a <code>horizontal</code> (default) or <code>vertical</code> <code>stepOrientation</code>. Returns <code>{ el, config, getItem, getValue, setValue, clear, validate, forEach, on, off, setDensity, setSpacing, setReadOnly, setDisabled, isDirty, isConflicted, save, revert, steps, activeStep, next, back, goToStep, destroy }</code>.</td></tr>
           <tr><td class="sig">createForm(el, config?)</td><td class="desc">Create a form. <code>config</code> is <code>{ rows | cols, density, spacing, labelGap, labelPosition, labelWidth, requiredHint, colsBreakpoint, bind, css, messages, steps, stepOrientation, validateSteps, createGrid }</code>; <code>rows</code> stacks the top-level blocks vertically, <code>cols</code> lays them left-to-right sharing the width equally (used when <code>rows</code> is absent), <code>spacing</code> is the vertical gap between items (a px number or a CSS length, defaulting to the density's gap) and <code>labelGap</code> the gap between an item's label and its field (defaulting to half the density's space), <code>labelPosition</code> (<code>top</code> default / <code>left</code> / <code>hidden</code>) and <code>labelWidth</code> are the defaults every item inherits (an item&rsquo;s own value wins), <code>requiredHint</code> is the placeholder marker a required field with no visible label shows (<code>true</code> appends <code>" *"</code>, a string resolves through the catalogue, <code>false</code> shows nothing), <code>colsBreakpoint</code> is the container width below which a <code>cols</code> container stacks into one column (default 480px), <code>bind</code> binds the form to a record (<code>{ grid, rowKey }</code>, <code>{ router, route, key, onSave? }</code> or a plain values object), <code>messages</code> supplies a <code>t(key, params)</code> catalogue for the separator's accessible label and the validation defaults, a <code>steps</code> array turns the form into a wizard with a <code>horizontal</code> (default) or <code>vertical</code> <code>stepOrientation</code>, and <code>validateSteps: false</code> opts out of validating the current step on a forward move (the integrator runs <code>validate()</code> itself). Returns <code>{ el, config, getItem, getValue, setValue, clear, validate, forEach, on, off, setDensity, setSpacing, setReadOnly, setDisabled, isDirty, isConflicted, save, revert, steps, activeStep, next, back, goToStep, destroy }</code>.</td></tr>
           <tr><td class="sig">registerControl(type, definition)</td><td class="desc">Register a custom control type as a first-class item. <code>definition</code> is <code>{ create(el, item, api), getValue(el), setValue(el, value), validate?(value, item, el), destroy?(el) }</code>; the control gets the same wrapper, label, item API, events and density as a built-in, and an item <code>height</code> of <code>'100%'</code> fills the remaining height of a fixed-height form, as a <code>container</code> does (BACKLOG-0002543). A later registration for the same type replaces the earlier one.</td></tr>
-          <tr><td class="sig">item</td><td class="desc">Each item: <code>type</code> (a built-in <code>input</code>/<code>number</code>/<code>textarea</code>/<code>checkbox</code>/<code>button</code>/<code>text</code>/<code>combo</code>/<code>rating</code>/<code>stage</code> or a registered custom type), <code>name</code>, <code>label</code>, <code>labelPosition</code> (<code>top</code>/<code>left</code>), <code>labelWidth</code>, <code>width</code>, <code>placeholder</code>, <code>helpMessage</code>, <code>hidden</code>, <code>disabled</code>, <code>readOnly</code>, <code>value</code>, <code>required</code>, <code>validation</code>, <code>errorMessage</code>, <code>successMessage</code>, <code>preMessage</code>, <code>validationMode</code>, <code>css</code>, and the rules <code>visibleWhen</code>, <code>readOnlyWhen</code>, <code>requiredWhen</code>. <code>input</code> takes <code>subtype</code> (a <code>password</code> subtype also <code>reveal</code>); <code>number</code> takes <code>step</code>/<code>min</code>/<code>max</code>. <code>rating</code> takes <code>max</code>, <code>allowHalf</code>, <code>allowClear</code>, <code>icon</code> or <code>icons</code> (<code>{ filled, empty }</code>), <code>labels</code>, <code>showValue</code> and <code>size</code> (<code>sm</code>/<code>md</code>/<code>lg</code>); <code>stage</code> takes <code>stages</code>, <code>current</code>, <code>completed</code>, <code>clickable</code> and <code>showIcons</code>; <code>chips</code> takes <code>options</code> (<code>{ value, label, icon?, disabled? }</code>), <code>multiple</code>, <code>allowEmpty</code>, <code>wrap</code> and <code>max</code>; <code>otp</code> takes <code>length</code>, <code>mode</code> (<code>numeric</code>/<code>alphanumeric</code>) and <code>mask</code>. <code>select</code>, <code>radiogroup</code> and <code>checkboxgroup</code> take <code>options</code>; a <code>radiogroup</code>/<code>checkboxgroup</code> also takes <code>orientation</code> (<code>vertical</code>/<code>horizontal</code>) or <code>columns</code> (an n-column grid read across then down). <code>button</code> takes <code>icon</code> (a name, URL/data: URI or element), <code>iconPosition</code> (<code>start</code>/<code>end</code>), <code>variant</code> (<code>primary</code>/<code>secondary</code>/<code>tonal</code>/<code>outline</code>/<code>text</code>/<code>danger</code>), <code>fullWidth</code>, <code>size</code> (<code>sm</code>/<code>md</code>/<code>lg</code>), <code>textTransform</code> (<code>none</code>/<code>uppercase</code>), <code>buttonType</code> (<code>button</code>/<code>submit</code>/<code>reset</code>), <code>loading</code>, <code>href</code>, <code>ariaLabel</code> (required for an icon-only button), <code>toggle</code> (a two-state button that flips <code>aria-pressed</code> and fires <code>change</code> with the new boolean) and <code>focusableWhenDisabled</code> (keep a disabled button focusable and in the tab order, reading <code>aria-disabled</code> instead of being natively disabled); a <code>{ type: 'buttons', align, items }</code> row lays buttons out by <code>align</code> (<code>start</code>/<code>end</code>/<code>center</code>/<code>stretch</code>/<code>space-between</code>), each child taking the same options.</td></tr>
+          <tr><td class="sig">item</td><td class="desc">Each item: <code>type</code> (a built-in <code>input</code>/<code>number</code>/<code>textarea</code>/<code>checkbox</code>/<code>button</code>/<code>text</code>/<code>combo</code>/<code>rating</code>/<code>stage</code> or a registered custom type), <code>name</code>, <code>label</code>, <code>labelPosition</code> (<code>top</code>/<code>left</code>), <code>hiddenLabel</code>, <code>labelWidth</code>, <code>width</code> and <code>height</code> (each a number, a CSS length or <code>'content'</code>), <code>padding</code>, <code>placeholder</code>, <code>helpMessage</code>, <code>hidden</code>, <code>disabled</code>, <code>readOnly</code>, <code>value</code>, <code>required</code>, <code>validation</code>, <code>errorMessage</code>, <code>successMessage</code>, <code>preMessage</code>, <code>validationMode</code>, <code>css</code>, and the rules <code>visibleWhen</code>, <code>readOnlyWhen</code>, <code>requiredWhen</code>. <code>input</code> takes <code>subtype</code> (a <code>password</code> subtype also <code>reveal</code>); <code>number</code> takes <code>step</code>/<code>min</code>/<code>max</code>. <code>rating</code> takes <code>max</code>, <code>allowHalf</code>, <code>allowClear</code>, <code>icon</code> or <code>icons</code> (<code>{ filled, empty }</code>), <code>labels</code>, <code>showValue</code> and <code>size</code> (<code>sm</code>/<code>md</code>/<code>lg</code>); <code>stage</code> takes <code>stages</code>, <code>current</code>, <code>completed</code>, <code>clickable</code> and <code>showIcons</code>; <code>chips</code> takes <code>options</code> (<code>{ value, label, icon?, disabled? }</code>), <code>multiple</code>, <code>allowEmpty</code>, <code>wrap</code> and <code>max</code>; <code>otp</code> takes <code>length</code>, <code>mode</code> (<code>numeric</code>/<code>alphanumeric</code>) and <code>mask</code>. <code>select</code>, <code>radiogroup</code> and <code>checkboxgroup</code> take <code>options</code>; a <code>radiogroup</code>/<code>checkboxgroup</code> also takes <code>orientation</code> (<code>vertical</code>/<code>horizontal</code>) or <code>columns</code> (an n-column grid read across then down). <code>button</code> takes <code>icon</code> (a name, URL/data: URI or element), <code>iconPosition</code> (<code>start</code>/<code>end</code>), <code>variant</code> (<code>primary</code>/<code>secondary</code>/<code>tonal</code>/<code>outline</code>/<code>text</code>/<code>danger</code>), <code>fullWidth</code>, <code>size</code> (<code>sm</code>/<code>md</code>/<code>lg</code>), <code>textTransform</code> (<code>none</code>/<code>uppercase</code>), <code>buttonType</code> (<code>button</code>/<code>submit</code>/<code>reset</code>), <code>loading</code>, <code>href</code>, <code>ariaLabel</code> (required for an icon-only button), <code>toggle</code> (a two-state button that flips <code>aria-pressed</code> and fires <code>change</code> with the new boolean) and <code>focusableWhenDisabled</code> (keep a disabled button focusable and in the tab order, reading <code>aria-disabled</code> instead of being natively disabled); a <code>{ type: 'buttons', align, items }</code> row lays buttons out by <code>align</code> (<code>start</code>/<code>end</code>/<code>center</code>/<code>stretch</code>/<code>space-between</code>), each child taking the same options.</td></tr>
           <tr><td class="sig">getItem(name)</td><td class="desc">The item handle <code>{ el, name, getValue, setValue, setOptions, reload, show, hide, enable, disable, focus, blur, isVisible, validate, setLoading, getLabel, setLabel, setHelp }</code> &mdash; <code>el</code> is the item's wrapper element. A <code>container</code> item's handle additionally has <code>attach(viewOrElement, { keep? })</code>, <code>attachHTML(html)</code> and <code>getWidget()</code> (BACKLOG-0002339). A named <code>fieldset</code> is also retrievable this way, for a handle whose <code>setLabel</code>/<code>getLabel</code> reach its legend (BACKLOG-0002455). <code>undefined</code> for an unknown name.</td></tr>
           <tr><td class="sig">getItem(name).getLabel()</td><td class="desc">The item's current label &mdash; a field's label, a button's caption, or a fieldset's legend &mdash; or <code>null</code> when it carries none (BACKLOG-0002455).</td></tr>
           <tr><td class="sig">getItem(name).setLabel(text)</td><td class="desc">Change the item's visible label and its accessible name: a field's label, a button's caption, or (on a named fieldset's handle) its legend; on a registered custom control, the frame's own label and the <code>label</code> the control's <code>item</code> object carries. A hidden label (<code>labelPosition: 'hidden'</code>) stays visually hidden but its accessible name still updates. Survives <code>setDensity</code>, <code>setReadOnly</code>, <code>show()</code>/<code>hide()</code> and any re-render, and is what a later <code>getItem</code> reports. Returns the item, for chaining (BACKLOG-0002455).</td></tr>
@@ -16802,7 +16869,7 @@ form.destroy();
 
     <h3 id="form-width-example">Percentage widths in a cols row, executed</h3>
     <p class="section-note">A percentage <code>width</code> in a <code>cols</code> row is a share of the row&rsquo;s width <em>after</em> its gaps, so three <code>33.3%</code> items each subtract two-thirds of the gap and sit on one line &mdash; with the real-Chrome geometry asserted in <code>test/form-width-2202-browser.test.js</code>.</p>
-    <pre data-run="js" data-expect="0 0 calc(33.3% - 0.666 * var(--lattice-space))|0 0 calc(33.3% - 0.666 * var(--lattice-space))|0 0 calc(33.3% - 0.666 * var(--lattice-space))" data-covers="export:createForm config:FormConfig.cols config:FormItemConfig.width"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+    <pre data-run="js" data-expect="0 0 calc(33.3% - 0.666 * var(--lattice-cols-column-gap, var(--lattice-space)))|0 0 calc(33.3% - 0.666 * var(--lattice-cols-column-gap, var(--lattice-space)))|0 0 calc(33.3% - 0.666 * var(--lattice-cols-column-gap, var(--lattice-space)))" data-covers="export:createForm config:FormConfig.cols config:FormItemConfig.width"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
 <span class="kw">const</span> { createForm } = <span class="kw">await</span> import('../packages/modules/form/index.js');
 
 <span class="kw">const</span> { root } = createTestDom();
@@ -16823,8 +16890,8 @@ form.destroy();
 <span class="kw">return</span> widths;</code></pre>
 
     <h3 id="form-cols-wrap-example">Per-line percentage widths with wrap, executed</h3>
-    <p class="section-note"><code>wrap: true</code> on a <code>cols</code> block resolves each percentage <code>width</code> against its own rendered line's gaps rather than the whole row's (BACKLOG-0002559): a hidden item frees its line slot, so the gap count the remaining items on that line share drops too &mdash; here two <code>50%</code> items alone subtract one gap each once their sibling is hidden, instead of the row's two &mdash; with the real-Chrome geometry (a full line, a wrapped 50/50 pair, mixed px and %, and a live hide/show) asserted in <code>test/form-cols-wrap-2559-browser.test.js</code>.</p>
-    <pre data-run="js" data-expect="0 0 calc(50% - 0.5 * var(--lattice-space))|0 0 calc(50% - 0.5 * var(--lattice-space))|0 0 calc(50% - 1 * var(--lattice-space))|0 0 calc(50% - 1 * var(--lattice-space))" data-covers="export:createForm config:FormConfig.wrap"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+    <p class="section-note"><code>wrap: true</code> on a <code>cols</code> block resolves each percentage <code>width</code> against its own rendered line's gaps rather than the whole row's (BACKLOG-0002559): a hidden item frees its line slot, so the gap count the remaining items on that line share drops too &mdash; here two <code>50%</code> items alone subtract one gap each once their sibling is hidden, instead of the row's two &mdash; with the real-Chrome geometry (a full line, a wrapped 50/50 pair, mixed px and %, and a live hide/show) asserted in <code>test/form-cols-wrap-2559-browser.test.js</code>. <code>columnGap</code>/<code>rowGap</code> (named here as the theme's own default) feed the same per-line maths the flex basis below reads, through <code>--lattice-cols-column-gap</code> (BACKLOG-0002635), so the basis stays correct whatever gap the row actually draws.</p>
+    <pre data-run="js" data-expect="0 0 calc(50% - 0.5 * var(--lattice-cols-column-gap, var(--lattice-space)))|0 0 calc(50% - 0.5 * var(--lattice-cols-column-gap, var(--lattice-space)))|0 0 calc(50% - 1 * var(--lattice-cols-column-gap, var(--lattice-space)))|0 0 calc(50% - 1 * var(--lattice-cols-column-gap, var(--lattice-space)))" data-covers="export:createForm config:FormConfig.wrap config:FormConfig.columnGap config:FormConfig.rowGap"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
 <span class="kw">const</span> { createForm } = <span class="kw">await</span> import('../packages/modules/form/index.js');
 
 <span class="kw">const</span> flexOf = (form, name) =&gt; form.getItem(name).el.style.getPropertyValue('--lattice-item-flex');
@@ -16833,6 +16900,7 @@ form.destroy();
 <span class="cmt">// `a` and `b` on their line: one gap between the two of them, not the row's two.</span>
 <span class="kw">const</span> wrapped = createForm(createTestDom().root, {
   wrap: <span class="kw">true</span>,
+  columnGap: <span class="num">4</span>, rowGap: <span class="num">4</span>,            <span class="cmt">// the theme's own default, named explicitly</span>
   cols: [
     { type: <span class="str">'input'</span>, name: <span class="str">'a'</span>, label: <span class="str">'A'</span>, width: <span class="str">'50%'</span> },
     { type: <span class="str">'input'</span>, name: <span class="str">'b'</span>, label: <span class="str">'B'</span>, width: <span class="str">'50%'</span> },
@@ -16961,6 +17029,28 @@ form.destroy();
 
 form.destroy();
 <span class="kw">return</span> [leftPos, leftFlex, topPos, emailLabel, emailPlaceholder, emailRequired, codeAria].join('|');</code></pre>
+
+    <h3 id="form-item-common-example">Common item properties — hiddenLabel, padding, width and height — executed</h3>
+    <p class="section-note"><code>hiddenLabel: true</code> keeps the label as the control&rsquo;s accessible name without drawing it, so the field takes the full row whatever <code>labelPosition</code> says; <code>padding</code> is the space between the item&rsquo;s cell and its control; <code>width</code>/<code>height</code> take a pixel number, a CSS length or <code>'content'</code>, and <code>height</code> applies to every item type. Each is live through <code>getItem(name).set({&hellip;})</code>. Real-Chrome geometry is asserted in <code>test/form-item-common-2344-browser.test.js</code>; this example drives the same logic through the test DOM.</p>
+    <pre data-run="js" data-expect="hidden|true|10px|fit-content|200px" data-covers="export:createForm config:FormItemConfig.hiddenLabel config:FormItemConfig.padding config:FormItemConfig.width config:FormItemConfig.height"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createForm } = <span class="kw">await</span> import('../packages/modules/form/index.js');
+
+<span class="kw">const</span> { root } = createTestDom();
+<span class="kw">const</span> form = createForm(root, { rows: [
+  { type: <span class="str">'input'</span>, name: <span class="str">'hidden'</span>, label: <span class="str">'Email'</span>, hiddenLabel: <span class="kw">true</span> },
+  { type: <span class="str">'input'</span>, name: <span class="str">'padded'</span>, label: <span class="str">'Name'</span>, padding: 10 },
+  { type: <span class="str">'input'</span>, name: <span class="str">'content'</span>, label: <span class="str">'Search'</span>, width: <span class="str">'content'</span> },
+  { type: <span class="str">'input'</span>, name: <span class="str">'tall'</span>, label: <span class="str">'Tall'</span>, height: 200 },
+] });
+
+<span class="kw">const</span> hiddenPos = form.getItem('hidden').el.getAttribute('data-label-position');  <span class="cmt">// 'hidden'</span>
+<span class="kw">const</span> hiddenClass = form.getItem('hidden').el.querySelector('.lat-form__label').classList.contains('lat-form__label--hidden'); <span class="cmt">// true</span>
+<span class="kw">const</span> padding = form.getItem('padded').el.style.padding;  <span class="cmt">// '10px'</span>
+<span class="kw">const</span> contentWidth = form.getItem('content').el.style.width;  <span class="cmt">// 'fit-content'</span>
+<span class="kw">const</span> height = form.getItem('tall').el.style.getPropertyValue('--lattice-form-item-height');  <span class="cmt">// '200px'</span>
+
+form.destroy();
+<span class="kw">return</span> [hiddenPos, hiddenClass, padding, contentWidth, height].join('|');</code></pre>
 
     <h3 id="form-control-min-width-example">A left label switching to the top below controlMinWidth, executed</h3>
     <p class="section-note"><code>controlMinWidth</code> (BACKLOG-0002554) is a pixel number or CSS length set on the form, a fieldset/container or an item, inherited the same way as <code>labelPosition</code> and <code>labelWidth</code>. When an item&rsquo;s <code>labelPosition</code> is <code>'left'</code> and its own width minus the label column (<code>labelWidth</code>, or the label&rsquo;s natural width when unset) minus the gap would leave the control narrower than <code>controlMinWidth</code>, the label moves to the top (<code>data-label-effective="top"</code>, and read-only on <code>getItem(name).labelEffectivePosition</code>); it switches back once the item widens past the threshold again, with a few pixels of hysteresis so a width sitting on the line never flickers. The switch is measured per item with a <code>ResizeObserver</code> on the item&rsquo;s own wrapper, so a shell splitter or a drawer resizing the host counts, not only the window. A checkbox or toggle item is unaffected (its label sits beside it by design), and without <code>controlMinWidth</code> nothing changes. Real-Chrome geometry, the hysteresis band and a real <code>ResizeObserver</code> are asserted in <code>test/form-control-min-width-2554-browser.test.js</code>; this example drives the same logic through the test DOM&rsquo;s on-demand <code>ResizeObserver</code> shim.</p>
@@ -18877,6 +18967,53 @@ const wordJoined = form.getValue().word; // 'ab7'
 form.destroy();
 
 return [masked, pressed, eyeName, noEye, boxCount, inputmode, pattern, third, wordMask, joined, wordJoined].join('|');</code></pre>
+
+    <h3 id="form-slider-example">A single slider snapped to a step, and a range slider, executed</h3>
+    <p class="section-note">A <code>slider</code> item renders a track with one draggable thumb, or two with
+    <code>range: true</code> (the value is then <code>[low, high]</code>, and the thumbs cannot cross &mdash; a
+    reversed configured pair is put in ascending order on build). <code>min</code>/<code>max</code>/<code>step</code>
+    bound and snap the value exactly as a <code>number</code> item's do, and <code>setValue</code> clamps and snaps
+    the same way. Each thumb is a <code>role="slider"</code> carrying <code>aria-valuemin</code>/<code>-valuemax</code>/
+    <code>-valuenow</code>/<code>-valuetext</code>; the keyboard moves it (arrows one step, PageUp/PageDown ten steps,
+    Home/End), a pointer drag and a click on the track move it too, and <code>change</code> fires once per committed
+    move. <code>tick</code>/<code>majorTick</code> draw scale marks (the major ones labelled through
+    <code>tickTemplate</code>), <code>tooltip</code> (default <code>true</code>) shows the live value while dragging
+    or focused, and <code>mode: 'vertical'</code>/<code>inverse</code> change the track's layout and direction. The
+    real Chrome drag geometry, every key, range thumbs not crossing, tick/major-tick layout, vertical/inverse
+    rendering, the tooltip and the fill-versus-track contrast are asserted in
+    <code>test/form-slider-2340-browser.test.js</code>; the value/event contract in <code>test/form-slider-2340.test.js</code>.</p>
+    <pre data-run="js" data-expect="40|[30,70]|slider|40|45|100|1|0%,100%,50%|75.0000%" data-covers="export:createForm method:form.getItem method:form.getValue method:form.setValue method:form.on config:FormItemConfig.type config:FormItemConfig.min config:FormItemConfig.max config:FormItemConfig.step config:FormItemConfig.range config:FormItemConfig.value config:FormItemConfig.label config:FormItemConfig.name config:FormItemConfig.majorTick config:FormItemConfig.tickTemplate config:FormItemConfig.inverse"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createForm } = await import('../packages/modules/form/index.js');
+
+const { root } = createTestDom();
+const form = createForm(root, { rows: [
+  { type: 'slider', name: 'vol', label: 'Volume', min: 0, max: 100, step: 5, value: 42 },
+  { type: 'slider', name: 'band', label: 'Band', min: 0, max: 100, range: true, value: [70, 30] },
+  { type: 'slider', name: 'scale', label: 'Scale', min: 0, max: 100, majorTick: 50, tickTemplate: (v) => `${v}%`, inverse: true, value: 25 },
+] });
+
+const volValue = form.getValue().vol;                  // 40 — snapped onto the step-5 grid
+const bandValue = form.getValue().band;                // [30, 70] — the reversed pair is put in order
+
+const thumb = form.getItem('vol').el.querySelector('.lat-form__slider-thumb');
+const role = thumb.getAttribute('role');                // 'slider'
+const valueNow = thumb.getAttribute('aria-valuenow');   // '40'
+
+let changes = 0;
+form.on('change', () => { changes += 1; });
+thumb.dispatchEvent(new TestEvent('keydown', { bubbles: true, key: 'ArrowRight' }));
+const afterKey = form.getValue().vol;                   // 45 — one step up, committed with one change
+
+form.getItem('vol').setValue(500);                      // clamps to max
+const clamped = form.getValue().vol;                    // 100
+
+// majorTick draws a labelled mark every 50 units, formatted through tickTemplate.
+const scaleLabels = Array.from(form.getItem('scale').el.querySelectorAll('.lat-form__slider-tick-label'))
+  .map((n) => n.textContent).sort().join(',');           // '0%,100%,50%'
+// inverse puts the minimum at the far end: value 25 of 0..100 sits at 75% along the track.
+const inverseLeft = form.getItem('scale').el.querySelector('.lat-form__slider-thumb').style.left;  // '75.0000%'
+
+return [volValue, JSON.stringify(bandValue), role, valueNow, afterKey, clamped, changes, scaleLabels, inverseLeft].join('|');</code></pre>
 
     <h3 id="form-groups">Form groups</h3>
     <p><code>createFormGroup(forms?, options?)</code> joins several forms &mdash; for example one mounted per cell of a shell layout &mdash; into one logical form that never renders anything. <code>getValue()</code> merges every member&rsquo;s values in add order; <code>setValue(values)</code> routes each key to the member that owns that field (the first owner wins when two forms declare the same name, unknown keys are ignored); <code>getItem(name)</code> reaches the owning member&rsquo;s item handle; <code>validate()</code> validates every member and returns one boolean, focusing the first invalid field in add order and scrolling it into view; and <code>setReadOnly(bool)</code>/<code>setDisabled(bool)</code>/<code>clear()</code>/<code>reset()</code>/<code>isDirty()</code> apply across the members. A member&rsquo;s <code>change</code> or <code>validated</code> event re-emits on the group as <code>{ form, name, value }</code> or <code>{ form, valid }</code>, naming the member it came from, and <code>on</code>/<code>off</code> subscribe and detach. A member that is destroyed leaves the group by itself, and <code>group.destroy()</code> detaches the group&rsquo;s listeners without destroying the forms. <code>options.transform = { get, set }</code> lets a host join the merged values on read and split them back on write.</p>
@@ -23195,7 +23332,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">dataTypes</td><td class="type">Record&lt;string, <a href="#type-DataType">DataType</a>&gt;</td><td class="desc">Your own data types, alongside the built-in catalogue. <small>(optional)</small></td></tr>
           <tr><td class="name">sampleSize</td><td class="type">number</td><td class="desc">Values sampled per undeclared column when inferring its type. Default 100. <small>(optional)</small></td></tr>
           <tr><td class="name">targetSize</td><td class="type"><a href="#type-TargetSize">TargetSize</a> <small class="literals">'default' | 'large'</small></td><td class="desc">Raise every interactive target to a comfortable size for touch, without changing the type. `'large'` asks for it; `'default'` opts out of the coarse-pointer rule that would otherwise apply it. <small>(optional)</small></td></tr>
-          <tr><td class="name">components</td><td class="type">Record&lt;string, <a href="#type-RendererCtor">RendererCtor</a> | <a href="#type-EditorCtor">EditorCtor</a> | <a href="#type-FilterCtor">FilterCtor</a>&gt;</td><td class="desc">Your own renderers, editors and filters, registered by name. <small>(optional)</small></td></tr>
+          <tr><td class="name">components</td><td class="type">Record&lt;string, <a href="#type-RendererCtor">RendererCtor</a> | <a href="#type-EditorCtor">EditorCtor</a> | <a href="#type-FilterCtor">FilterCtor</a> | <a href="#type-HeaderRenderFn">HeaderRenderFn</a> | <a href="#type-HeaderComponentCtor">HeaderComponentCtor</a>&gt;</td><td class="desc">Your own renderers, editors, filters and header renderers, registered by name. <small>(optional)</small></td></tr>
           <tr><td class="name">pipes</td><td class="type">Record&lt;string, (value: unknown, ...args: string[]) =&gt; string&gt;</td><td class="desc">Named text transforms usable from a format mask or a template. <small>(optional)</small></td></tr>
           <tr><td class="name">totalFns</td><td class="type">Record&lt;string, <a href="#type-TotalFn">TotalFn</a>&gt;</td><td class="desc">Your own reductions, alongside the built-in ones. <small>(optional)</small></td></tr>
           <tr><td class="name">variants</td><td class="type">Record&lt;string, <a href="#type-VariantDefinition">VariantDefinition</a>&gt;</td><td class="desc">Named appearance variants a row or cell can be switched into by a rule. <small>(optional)</small></td></tr>
@@ -23381,7 +23518,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">openByDefault</td><td class="type">boolean</td><td class="desc">Whether a collapsible band starts open. Open unless set to `false`; once the user has toggled it, their choice stands. <small>(optional)</small></td></tr>
           <tr><td class="name">showWhen</td><td class="type"><a href="#type-ShowWhen">ShowWhen</a> <small class="literals">'open' | 'closed' | 'always'</small></td><td class="desc">When this node is shown relative to the enclosing collapsible band: `'open'`, `'closed'`, or `'always'` (the default). This is how a band shows a detailed set of columns when open and a single summary column when closed. A leaf column may declare it too. <small>(optional)</small></td></tr>
           <tr><td class="name">marryChildren</td><td class="type">boolean</td><td class="desc">Keep this band's columns together: a move that would take one of them out of the band's run, or drop a column from outside into it, is refused with a warning. Off by default, in which case a drag, a keyboard move or the column menu may separate them. <small>(optional)</small></td></tr>
-          <tr><td class="name">header</td><td class="type">{ render?: string | <a href="#type-RendererCtor">RendererCtor</a> | <a href="#type-HeaderRenderFn">HeaderRenderFn</a>; props?: Record&lt;string, unknown&gt;; class?: string | string[] }</td><td class="desc">Presentation for the band's own heading cell: a custom renderer, the props handed to it, and classes to add. <small>(optional)</small></td></tr>
+          <tr><td class="name">header</td><td class="type">{ render?: string | <a href="#type-HeaderRenderFn">HeaderRenderFn</a> | <a href="#type-HeaderRenderComponent">HeaderRenderComponent</a> | <a href="#type-HeaderInitComponent">HeaderInitComponent</a> | <a href="#type-HeaderComponentCtor">HeaderComponentCtor</a>; props?: Record&lt;string, unknown&gt;; class?: string | string[] }</td><td class="desc">Presentation for the band's own heading cell: a custom renderer, the props handed to it, and classes to add. <small>(optional)</small></td></tr>
           <tr><td class="name">facet</td><td class="type"><a href="#type-ColumnFacetConfig">ColumnFacetConfig</a> | boolean</td><td class="desc">The header histogram of every column under this band, as a default: `true` turns it on with the grid's settings, `false` off, an object overrides them. A column's own `facet` wins over it, and an inner band's over an outer one's. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -23589,6 +23726,49 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-HeaderParams">HeaderParams</h4>
+    <p class="section-note">What a heading renderer is handed, for `header.render` on a column and on a column group alike — the same shape the two share (BACKLOG-0001974). The renderer is called as `render(label, params)`: `label` is the heading element to fill, and `params` carries everything else. A leaf column gets `column` and `colId`; a band heading gets `group` and `groupId` instead. Either way the renderer may append to `label` itself and return nothing, or return an `Element` (attached for you) or a `string` (used as the heading text).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">column</td><td class="type"><a href="#type-ResolvedColumn">ResolvedColumn</a></td><td class="desc">The resolved column whose heading is being drawn. Absent on a band heading, which gets `group` instead. <small>(optional)</small></td></tr>
+          <tr><td class="name">colId</td><td class="type">string</td><td class="desc">The column's id, for the common case where that is all the renderer needs. Absent on a band heading. <small>(optional)</small></td></tr>
+          <tr><td class="name">group</td><td class="type"><a href="#type-ColumnGroup">ColumnGroup</a></td><td class="desc">The column group whose band heading is being drawn. Absent on a leaf column, which gets `column` instead. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupId</td><td class="type">string</td><td class="desc">The band's id, which is its `title` when no `id` was given. Absent on a leaf column. <small>(optional)</small></td></tr>
+          <tr><td class="name">title</td><td class="type">string</td><td class="desc">The heading text the stock rendering would have used.</td></tr>
+          <tr><td class="name">value</td><td class="type">string</td><td class="desc">The heading text again, so a renderer written like a cell renderer can read `params.value`.</td></tr>
+          <tr><td class="name">props</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Whatever `header.props` holds, passed through — always an object, empty when the column or band declared none.</td></tr>
+          <tr><td class="name">grid</td><td class="type"><a href="#type-Grid">Grid</a></td><td class="desc">The grid instance, so a heading can read the rest of the grid.</td></tr>
+          <tr><td class="name">document</td><td class="type">Document</td><td class="desc">The document the heading element lives in, for building new nodes.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-HeaderRenderComponent">HeaderRenderComponent</h4>
+    <p class="section-note">A heading component drawn by filling the label element itself, exactly as {@link HeaderRenderFn} draws — `render` here is just a method instead of a bare function, so a class can hold state across header rebuilds (BACKLOG-0002638). Either an already-built object, or a class the grid constructs, may be handed to `header.render`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">render</td><td class="type">(label: HTMLElement, params: <a href="#type-HeaderParams">HeaderParams</a>): HTMLElement | string | void</td><td class="desc"><code>label: HTMLElement</code><br><code>params: <a href="#type-HeaderParams">HeaderParams</a></code></td><td class="type"><code>HTMLElement | string | void</code></td><td class="desc">Draw the heading. May fill `label` itself and return nothing, or return an `Element` or `string`.</td></tr>
+          <tr><td class="name">refresh</td><td class="type">(label: HTMLElement, params: <a href="#type-HeaderParams">HeaderParams</a>): boolean</td><td class="desc"><code>label: HTMLElement</code><br><code>params: <a href="#type-HeaderParams">HeaderParams</a></code></td><td class="type"><code>boolean</code></td><td class="desc">Redraw for new params without rebuilding; return `true` to keep the existing DOM. <small>(optional)</small></td></tr>
+          <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Release whatever the component holds, as the heading cell is torn down. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-HeaderInitComponent">HeaderInitComponent</h4>
+    <p class="section-note">A heading component built the way a cell {@link Renderer} is: `init` runs first and the DOM it built is read back through `element()` (BACKLOG-0002638). Either an already-built object, or a class the grid constructs, may be handed to `header.render`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">init</td><td class="type">(params: <a href="#type-HeaderParams">HeaderParams</a>): void</td><td class="desc"><code>params: <a href="#type-HeaderParams">HeaderParams</a></code></td><td class="type"><code>void</code></td><td class="desc">Prepare the component for this heading, before `element()` is asked for.</td></tr>
+          <tr><td class="name">element</td><td class="type">(): HTMLElement</td><td class="desc">&mdash;</td><td class="type"><code>HTMLElement</code></td><td class="desc">The DOM the heading should show. Called once, straight after `init`.</td></tr>
+          <tr><td class="name">refresh</td><td class="type">(params: <a href="#type-HeaderParams">HeaderParams</a>): boolean</td><td class="desc"><code>params: <a href="#type-HeaderParams">HeaderParams</a></code></td><td class="type"><code>boolean</code></td><td class="desc">Update for new params without rebuilding; return `true` to keep the existing element. <small>(optional)</small></td></tr>
+          <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Release whatever the component holds, as the heading cell is torn down. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-Row">Row</h4>
     <div class="table-wrap">
       <table>
@@ -23638,6 +23818,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">parentKey</td><td class="type">string | ((row: unknown) =&gt; unknown)</td><td class="desc">Name each row's parent by key, which is the shape a join or a document store produces. Every node is then a real row; a parent that is not in the data makes an orphan, and a cycle is broken rather than followed forever. <small>(optional)</small></td></tr>
           <tr><td class="name">orphans</td><td class="type">'root' | string</td><td class="desc">Where a row whose parent is missing goes. `'root'` (the default) leaves it at the top level; any other string is the title of a synthesised bucket that gathers them, so they are visibly gathered rather than silently promoted. Rows caught in a parent cycle go the same way, and are reported. <small>(optional)</small></td></tr>
+          <tr><td class="name">insidePosition</td><td class="type">'last' | 'first'</td><td class="desc">Where a row dropped "inside" another (`rowReorder` on a `parentKey` tree, BACKLOG-0002649) lands among its new siblings: `'last'` (the default, today's documented behaviour) or `'first'`. <small>(optional)</small></td></tr>
           <tr><td class="name">label</td><td class="type">string | ((data: unknown, row: <a href="#type-Row">Row</a>) =&gt; unknown)</td><td class="desc">Where the generated tree column takes its text from: a field or a function. <small>(optional)</small></td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">The tree column's heading. Defaults to the label column's own title. <small>(optional)</small></td></tr>
         </tbody>
@@ -24043,6 +24224,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">manualOrder</td><td class="type">boolean</td><td class="desc">Draw a Manual order button in the handle column's heading, bound to Alt+Shift+M as well, that enters and leaves a manual row order. Default false. <small>(optional)</small></td></tr>
           <tr><td class="name">betweenGroups</td><td class="type">boolean</td><td class="desc">Under a grouping, let a row dropped on another group join it by writing its grouping values through `beforeEdit`. The grouping column has to be editable. Default false. <small>(optional)</small></td></tr>
           <tr><td class="name">handle</td><td class="type">'grip' | 'row'</td><td class="desc">Where a drag can start. `'grip'` (the default) is the drawn handle; `'row'` also starts it from anywhere on a data row, except on a link, button, input, select, textarea, label or an element marked `data-no-drag`. The press is not cancelled, so a double-click still selects a word and a control still works; the drag begins once the pointer has moved, and drops any text selection then. The grip is still drawn. <small>(optional)</small></td></tr>
+          <tr><td class="name">grip</td><td class="type">boolean</td><td class="desc">Draw the handle column's own grip. Default `true`. `false` draws no grip at all, so the column's content takes the full width — only meaningful alongside `handle: 'row'`, since a grip-only drag with no grip to press would have no way to begin. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -24504,7 +24686,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">template</td><td class="type">string</td><td class="desc">Not read by the header renderer; use `render` to draw a custom heading. <small>(optional)</small></td></tr>
-          <tr><td class="name">render</td><td class="type">string | <a href="#type-RendererCtor">RendererCtor</a> | <a href="#type-HeaderRenderFn">HeaderRenderFn</a></td><td class="desc">A custom heading renderer: a function, or a component (a class with a `render` method). A string names a registered renderer. Either form draws the same two ways and they are interchangeable — it may append to the passed label element itself and return nothing, or return an `Element` (attached for you) or a `string` (used as the heading text). <small>(optional)</small></td></tr>
+          <tr><td class="name">render</td><td class="type">string | <a href="#type-HeaderRenderFn">HeaderRenderFn</a> | <a href="#type-HeaderRenderComponent">HeaderRenderComponent</a> | <a href="#type-HeaderInitComponent">HeaderInitComponent</a> | <a href="#type-HeaderComponentCtor">HeaderComponentCtor</a></td><td class="desc">A custom heading renderer, in any of four shapes (BACKLOG-0002638): a plain function ({@link HeaderRenderFn}); a component — already built, or a class the grid constructs — with a `render(label, params)` method ({@link HeaderRenderComponent}); or a component, built the way a cell {@link Renderer} is, with `init(params)` and its element read back through `element()` ({@link HeaderInitComponent}). A string names a renderer registered in `config.components`. The function and `render()` forms draw the same two ways and are interchangeable — either may append to the passed label element itself and return nothing, or return an `Element` (attached for you) or a `string` (used as the heading text); the `init`/`element` form always has its `element()` attached. Whatever it draws stays visible and interactive under the header's own affordances (BACKLOG-0002667): the sort, filter and menu controls that would otherwise cover the heading on hover never hide or intercept a custom renderer's own content, so a control it builds — a select-all checkbox, say — stays clickable, focusable and keyboard-operable, and the grid's own sort and menu handling does not act on events aimed at it. <small>(optional)</small></td></tr>
           <tr><td class="name">props</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Props passed to `render` as `params.props`. <small>(optional)</small></td></tr>
           <tr><td class="name">class</td><td class="type">string | string[]</td><td class="desc">A class, or classes, added to the heading cell. A string may hold several space-separated tokens (`'a b'`), each applied individually. <small>(optional)</small></td></tr>
           <tr><td class="name">tooltip</td><td class="type">string</td><td class="desc">Hover text for the heading, set as its `title`. On a movable column it takes the place of the drag hint. For structured or live content, put it in the heading with `header.render`, or on the cells with `cell.tooltip`. <small>(optional)</small></td></tr>
@@ -24565,24 +24747,6 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">bucketFn</td><td class="type">(handle: unknown, indices: Uint32Array | null, count: number) =&gt; <a href="#type-FacetBounds">FacetBounds</a></td><td class="desc"><code>handle: unknown</code><br><code>indices: Uint32Array | null</code><br><code>count: number</code></td><td class="type"><code>=&gt; <a href="#type-FacetBounds">FacetBounds</a></code></td><td class="desc">Replace the built-in bucketing entirely. <small>(optional)</small></td></tr>
           <tr><td class="name">format</td><td class="type">(bucket: <a href="#type-FacetBucket">FacetBucket</a>, count: number, unfiltered: number) =&gt; string</td><td class="desc"><code>bucket: <a href="#type-FacetBucket">FacetBucket</a></code><br><code>count: number</code><br><code>unfiltered: number</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">Label a bucket for its tooltip and accessible name. <small>(optional)</small></td></tr>
-        </tbody>
-      </table>
-    </div>
-    <h4 id="type-HeaderParams">HeaderParams</h4>
-    <p class="section-note">What a heading renderer is handed, for `header.render` on a column and on a column group alike — the same shape the two share (BACKLOG-0001974). The renderer is called as `render(label, params)`: `label` is the heading element to fill, and `params` carries everything else. A leaf column gets `column` and `colId`; a band heading gets `group` and `groupId` instead. Either way the renderer may append to `label` itself and return nothing, or return an `Element` (attached for you) or a `string` (used as the heading text).</p>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td class="name">column</td><td class="type"><a href="#type-ResolvedColumn">ResolvedColumn</a></td><td class="desc">The resolved column whose heading is being drawn. Absent on a band heading, which gets `group` instead. <small>(optional)</small></td></tr>
-          <tr><td class="name">colId</td><td class="type">string</td><td class="desc">The column's id, for the common case where that is all the renderer needs. Absent on a band heading. <small>(optional)</small></td></tr>
-          <tr><td class="name">group</td><td class="type"><a href="#type-ColumnGroup">ColumnGroup</a></td><td class="desc">The column group whose band heading is being drawn. Absent on a leaf column, which gets `column` instead. <small>(optional)</small></td></tr>
-          <tr><td class="name">groupId</td><td class="type">string</td><td class="desc">The band's id, which is its `title` when no `id` was given. Absent on a leaf column. <small>(optional)</small></td></tr>
-          <tr><td class="name">title</td><td class="type">string</td><td class="desc">The heading text the stock rendering would have used.</td></tr>
-          <tr><td class="name">value</td><td class="type">string</td><td class="desc">The heading text again, so a renderer written like a cell renderer can read `params.value`.</td></tr>
-          <tr><td class="name">props</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Whatever `header.props` holds, passed through — always an object, empty when the column or band declared none.</td></tr>
-          <tr><td class="name">grid</td><td class="type"><a href="#type-Grid">Grid</a></td><td class="desc">The grid instance, so a heading can read the rest of the grid.</td></tr>
-          <tr><td class="name">document</td><td class="type">Document</td><td class="desc">The document the heading element lives in, for building new nodes.</td></tr>
         </tbody>
       </table>
     </div>
@@ -26821,6 +26985,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">key</td><td class="type">string</td><td class="desc">The key of the row being dragged.</td></tr>
           <tr><td class="name">data</td><td class="type">Record&lt;string, unknown&gt; | null</td><td class="desc">The dragged row's data as it stands in the source grid — that row's own object, not a copy. Null if the row has left the source during the drag.</td></tr>
+          <tr><td class="name">keys</td><td class="type">string[]</td><td class="desc">Every row the gesture carries, in display order (BACKLOG-0002629): all the selected rows when a selected row is dragged, else just `[key]`.</td></tr>
           <tr><td class="name">over</td><td class="type"><a href="#type-Grid">Grid</a> | null</td><td class="desc">The grid the event is about: the grid under the pointer for `rowDrag:started`, `rowDrag:moved` and `rowDrag:ended`, and the grid just left for `rowDrag:left`. Null when the pointer is over no grid at all.</td></tr>
           <tr><td class="name">at</td><td class="type">number | null</td><td class="desc">Where the row would land in `over`: the display index it would take. Null when there is no candidate to report — the pointer is over no grid, over a grid that will refuse the row, or over a header; and on `rowDrag:left`, which is about a grid the pointer has already gone from.</td></tr>
           <tr><td class="name">overKey</td><td class="type">string | null</td><td class="desc">The key of the row under the pointer in `over`, or null where there is no row to name: past the last row, on empty space, on a header, on a pinned row, on a grid that will refuse the drop, or on `rowDrag:left`.</td></tr>
@@ -26930,6 +27095,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">at</td><td class="type">number</td><td class="desc">The display index it took.</td></tr>
           <tr><td class="name">overKey</td><td class="type">string | null</td><td class="desc">The key of the row it was dropped on, or null when it landed on no row.</td></tr>
           <tr><td class="name">rejected</td><td class="type"><a href="#type-RejectedRow">RejectedRow</a>[]</td><td class="desc">Rows the insert could not apply; empty on a clean insert.</td></tr>
+          <tr><td class="name">items</td><td class="type">Record&lt;string, unknown&gt;[]</td><td class="desc">Every row of a multi-row drop (BACKLOG-0002629), in drop order; absent for one row. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -26957,6 +27123,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">key</td><td class="type">string</td><td class="desc">The key of the row that was transferred.</td></tr>
+          <tr><td class="name">keys</td><td class="type">string[]</td><td class="desc">Every key transferred by a multi-row drag (BACKLOG-0002629); absent for one row. <small>(optional)</small></td></tr>
+          <tr><td class="name">items</td><td class="type">Record&lt;string, unknown&gt;[]</td><td class="desc">Those rows' data; absent for one row. <small>(optional)</small></td></tr>
           <tr><td class="name">data</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">That row's data, as the target received it.</td></tr>
           <tr><td class="name">mode</td><td class="type"><a href="#type-RowTransferMode">RowTransferMode</a> <small class="literals">'move' | 'copy'</small></td><td class="desc">Which gesture it was.</td></tr>
         </tbody>
@@ -28886,13 +29054,14 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">key</td><td class="type">string</td><td class="desc">The field each item's identity comes from. Default `'id'`. <small>(optional)</small></td></tr>
           <tr><td class="name">itemHeight</td><td class="type">number | 'auto'</td><td class="desc">Row height in pixels, or `'auto'` to size every row to its template: multi-line content is shown in full (the grid's own auto row height, measured at any list length), and a row whose item changes through `list.data.update` is measured again. Default: the grid's row height. <small>(optional)</small></td></tr>
           <tr><td class="name">allowUnsafeTemplates</td><td class="type">boolean</td><td class="desc">`true` lets an HTML-string `template` keep form controls: `input`, `select` (with `option`), `textarea`, `button` and `label` elements and their attributes. `script`, `iframe`, `object`, `embed`, `form` and similar elements, event-handler attributes and `javascript:`, `data:` or `vbscript:` URLs are still removed. Default `false`, where the grid's own sanitiser also drops the controls. Typing into or clicking a control reaches `list.on('input' | 'change')` with the item's id; a click on a link, button, input, select, textarea or label does not also select the row, unless the control or an ancestor carries `data-row-select`. <small>(optional)</small></td></tr>
-          <tr><td class="name">dragHandle</td><td class="type">'grip' | 'row'</td><td class="desc">Where a drag starts. `'grip'` (default) is the drawn handle. `'row'` starts it from anywhere on the row except a link, button, input, select, textarea, label or an element marked `data-no-drag`; a double-click still selects a word, and the grip is still drawn. Applies to the lists that can start a drag (`dragMode` `'source'` or `'both'`). <small>(optional)</small></td></tr>
+          <tr><td class="name">dragHandle</td><td class="type">'grip' | 'row' | false</td><td class="desc">Where a drag starts. `'grip'` (default) is the drawn handle. `'row'` starts it from anywhere on the row except a link, button, input, select, textarea, label or an element marked `data-no-drag`; a double-click still selects a word, and the grip is still drawn. `false` is the same whole-row drag with no drawn grip at all, so the template fills the full width. Applies to the lists that can start a drag (`dragMode` `'source'` or `'both'`). <small>(optional)</small></td></tr>
           <tr><td class="name">css</td><td class="type">string | string[]</td><td class="desc">Class name(s) added to every row. <small>(optional)</small></td></tr>
           <tr><td class="name">selection</td><td class="type">false | 'single' | 'multi'</td><td class="desc">Selection mode. Default `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">dragMode</td><td class="type">false | 'source' | 'target' | 'both'</td><td class="desc">This list's role in a cross-list drag. Default `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">dragCopy</td><td class="type">boolean</td><td class="desc">`true` leaves the source row in place on a drop (copy, not move). Default `false`. <small>(optional)</small></td></tr>
-          <tr><td class="name">emptyText</td><td class="type">string | HTMLElement</td><td class="desc">The empty-state message or element. <small>(optional)</small></td></tr>
+          <tr><td class="name">emptyText</td><td class="type">string | HTMLElement</td><td class="desc">The empty-state message or element; an empty string shows nothing at all. <small>(optional)</small></td></tr>
           <tr><td class="name">contextMenu</td><td class="type">boolean</td><td class="desc">The grid's own cell right-click menu (Paste, Clear, Fill down). Default `false` — a right-click on a row is `itemContextMenu`, not a menu meant for spreadsheet cells. <small>(optional)</small></td></tr>
+          <tr><td class="name">bordered</td><td class="type">boolean</td><td class="desc">`true` draws the grid's own 1px frame round the list. Default `false`: borderless. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -28973,13 +29142,13 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">source</td><td class="type"><a href="#type-ListView">ListView</a> | import('lattice-grid/modules/dataview').<a href="#type-DataView">DataView</a> | null</td><td class="desc">The list or data view the item(s) came from.</td></tr>
           <tr><td class="name">target</td><td class="type"><a href="#type-ListView">ListView</a> | import('lattice-grid/modules/dataview').<a href="#type-DataView">DataView</a> | null</td><td class="desc">The list or data view the item(s) landed in.</td></tr>
-          <tr><td class="name">ids</td><td class="type">unknown[]</td><td class="desc">The moved/copied item's identity (identities), as a one-element array.</td></tr>
+          <tr><td class="name">ids</td><td class="type">unknown[]</td><td class="desc">The moved/copied item's identity (identities), as a one-element array. For a `dragCopy` drop crossing into another list or data view, this is the copy's fresh identity, not the source's.</td></tr>
           <tr><td class="name">index</td><td class="type">number</td><td class="desc">The index the item(s) landed at in the target.</td></tr>
         </tbody>
       </table>
     </div>
     <h4 id="type-ListViewDragOutEvent">ListViewDragOutEvent</h4>
-    <p class="section-note">The `dragOut` payload: a drag left this list without a cross-list drop landing.</p>
+    <p class="section-note">The `dragOut` payload: the pointer left this list's own bounds during a drag that started on one of its rows. Fires on that crossing alone, whether or not a drop ends up landing anywhere — including a drop back into this same list, or into another one — so a host using it to clear a hint cannot rely on it to mean "the row left for good".</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
@@ -29076,14 +29245,14 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">data</td><td class="type"><a href="#type-DataViewItem">DataViewItem</a>[]</td><td class="desc">The initial items. Default `[]`. <small>(optional)</small></td></tr>
           <tr><td class="name">key</td><td class="type">string</td><td class="desc">The field each item's identity comes from. Default `'id'`. <small>(optional)</small></td></tr>
           <tr><td class="name">itemWidth</td><td class="type">number</td><td class="desc">Card width in pixels; as many cards as fit go on a row. Default `200`. Ignored when `columns` is set. <small>(optional)</small></td></tr>
-          <tr><td class="name">itemHeight</td><td class="type">number</td><td class="desc">Card height in pixels. Default `120`. <small>(optional)</small></td></tr>
+          <tr><td class="name">itemHeight</td><td class="type">number | `${number}%` | 'auto'</td><td class="desc">Card height: a number of pixels, or a percentage string such as `'50%'` of the view's own height, recomputed when the view resizes, or `'auto'` to make each row as tall as its tallest card (nothing is clipped, and the rows follow the content when it changes). Default `120`. <small>(optional)</small></td></tr>
           <tr><td class="name">columns</td><td class="type">number</td><td class="desc">A fixed number of cards per row; the cards share the width equally, so `columns: n` fills it. <small>(optional)</small></td></tr>
           <tr><td class="name">gap</td><td class="type">number</td><td class="desc">The gap between cards, in pixels. Default `8`. <small>(optional)</small></td></tr>
           <tr><td class="name">css</td><td class="type">string | string[]</td><td class="desc">Class name(s) added to every card. <small>(optional)</small></td></tr>
           <tr><td class="name">selection</td><td class="type">false | 'single' | 'multi'</td><td class="desc">Selection mode. Default `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">dragMode</td><td class="type">false | 'source' | 'target' | 'both'</td><td class="desc">This view's role in a drag: `'source'` and `'both'` reorder within the view and send to another; `'target'` and `'both'` receive. Default `false`. <small>(optional)</small></td></tr>
-          <tr><td class="name">dragCopy</td><td class="type">boolean</td><td class="desc">`true` leaves the source card in place on a drop between views (copy, not move). Default `false`. <small>(optional)</small></td></tr>
-          <tr><td class="name">emptyText</td><td class="type">string | HTMLElement</td><td class="desc">The empty-state message or element. <small>(optional)</small></td></tr>
+          <tr><td class="name">dragCopy</td><td class="type">boolean</td><td class="desc">`true` leaves the source card in place on a drop between views (copy, not move): the dropped copy gets a fresh identity, so copying the same card twice lands two items, not one overwriting the other. Default `false`. <small>(optional)</small></td></tr>
+          <tr><td class="name">emptyText</td><td class="type">string | HTMLElement</td><td class="desc">The empty-state message or element; an empty string shows nothing at all. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -29092,6 +29261,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">template</td><td class="type">(item: <a href="#type-DataViewItem">DataViewItem</a>) =&gt; string | HTMLElement</td><td class="desc"><code>item: <a href="#type-DataViewItem">DataViewItem</a></code></td><td class="type"><code>=&gt; string | HTMLElement</code></td><td class="desc">Called per item to draw its card; a returned string goes through the grid's template sanitiser, an element is used as is.</td></tr>
+          <tr><td class="name">copyId</td><td class="type">(item: <a href="#type-DataViewItem">DataViewItem</a>) =&gt; unknown</td><td class="desc"><code>item: <a href="#type-DataViewItem">DataViewItem</a></code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">Called with the source item on a `dragCopy` drop to name the copy's identity. Without it the source id is given a `-copy`/`-copy2`/... suffix, counted up until it is not already used in the target. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -29163,13 +29333,24 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">source</td><td class="type"><a href="#type-DataViewPeer">DataViewPeer</a> | null</td><td class="desc">The view the card came from.</td></tr>
           <tr><td class="name">target</td><td class="type"><a href="#type-DataViewPeer">DataViewPeer</a> | null</td><td class="desc">The view the card landed in.</td></tr>
-          <tr><td class="name">ids</td><td class="type">unknown[]</td><td class="desc">The moved/copied item's identity, as a one-element array.</td></tr>
+          <tr><td class="name">ids</td><td class="type">unknown[]</td><td class="desc">The moved/copied item's identity, as a one-element array. For a `dragCopy` drop this is the copy's fresh identity (`DataViewConfig.copyId`'s return, or the generated `-copy`/`-copy2`/... id), not the source's.</td></tr>
           <tr><td class="name">index</td><td class="type">number</td><td class="desc">The display index the card landed at in the target.</td></tr>
         </tbody>
       </table>
     </div>
+    <h4 id="type-DataViewBeforeDragEvent">DataViewBeforeDragEvent</h4>
+    <p class="section-note">The cancellable `beforeDrag` payload: fires when a press on a card would start a drag. Return `false` (or call `preventDefault()`) to stop that card dragging — a palette heading or a blank card, say.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">unknown</td><td class="desc">The card's item identity.</td></tr>
+          <tr><td class="name">item</td><td class="type"><a href="#type-DataViewItem">DataViewItem</a> | null</td><td class="desc">The card's item, or null.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-DataViewDragOutEvent">DataViewDragOutEvent</h4>
-    <p class="section-note">The `dragOut` payload: a drag moved out of this view.</p>
+    <p class="section-note">The `dragOut` payload: the pointer left this view's own bounds during a drag that started on one of its cards. Fires on that crossing alone, whether or not a drop ends up landing anywhere — including a drop back into this same view, or into another one.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
@@ -29201,6 +29382,39 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-DataViewPointerEvent">DataViewPointerEvent</h4>
+    <p class="section-note">The `itemContextMenu` and `itemMouseOver` payload: a right-click on a card, or the pointer entering one.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">unknown</td><td class="desc">The card's item identity (a generated key for an item that had none).</td></tr>
+          <tr><td class="name">item</td><td class="type"><a href="#type-DataViewItem">DataViewItem</a> | null</td><td class="desc">The card's item, or null.</td></tr>
+          <tr><td class="name">event</td><td class="type">Event</td><td class="desc">The originating DOM event. For `itemContextMenu`, call `preventDefault()` on it to suppress the browser's own menu.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DataViewAfterAddEvent">DataViewAfterAddEvent</h4>
+    <p class="section-note">The `afterAdd` payload: an item joined the view.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">unknown</td><td class="desc">The new item's identity (generated when the item had no value in the key field).</td></tr>
+          <tr><td class="name">item</td><td class="type"><a href="#type-DataViewItem">DataViewItem</a></td><td class="desc">The item as stored.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DataViewAfterRemoveEvent">DataViewAfterRemoveEvent</h4>
+    <p class="section-note">The `afterRemove` payload: an item left the view.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">unknown</td><td class="desc">The removed item's identity.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-DataViewEventPayloads">DataViewEventPayloads</h4>
     <p class="section-note">The payload each data view event name carries.</p>
     <div class="table-wrap">
@@ -29209,12 +29423,17 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">itemClick</td><td class="type"><a href="#type-DataViewItemEvent">DataViewItemEvent</a></td><td class="desc">A card was clicked.</td></tr>
           <tr><td class="name">itemDoubleClick</td><td class="type"><a href="#type-DataViewItemEvent">DataViewItemEvent</a></td><td class="desc">A card was double-clicked, or Enter was pressed on it.</td></tr>
+          <tr><td class="name">beforeDrag</td><td class="type"><a href="#type-DataViewBeforeDragEvent">DataViewBeforeDragEvent</a></td><td class="desc">A press on a card would start a drag; return `false` (or call `preventDefault()`) to stop it.</td></tr>
           <tr><td class="name">beforeDrop</td><td class="type"><a href="#type-DataViewBeforeDropEvent">DataViewBeforeDropEvent</a></td><td class="desc">A drop between views is about to land; return `false` (or a Promise of it) to veto it.</td></tr>
           <tr><td class="name">afterDrop</td><td class="type"><a href="#type-DataViewAfterDropEvent">DataViewAfterDropEvent</a></td><td class="desc">A reorder, move or copy committed.</td></tr>
           <tr><td class="name">dragOut</td><td class="type"><a href="#type-DataViewDragOutEvent">DataViewDragOutEvent</a></td><td class="desc">A drag moved out of this view.</td></tr>
           <tr><td class="name">selectionChange</td><td class="type"><a href="#type-DataViewSelectionChangeEvent">DataViewSelectionChangeEvent</a></td><td class="desc">The selection changed.</td></tr>
           <tr><td class="name">input</td><td class="type"><a href="#type-DataViewTemplateEvent">DataViewTemplateEvent</a></td><td class="desc">An `input` event bubbled from inside a card's template.</td></tr>
           <tr><td class="name">change</td><td class="type"><a href="#type-DataViewTemplateEvent">DataViewTemplateEvent</a></td><td class="desc">A `change` event bubbled from inside a card's template.</td></tr>
+          <tr><td class="name">itemContextMenu</td><td class="type"><a href="#type-DataViewPointerEvent">DataViewPointerEvent</a></td><td class="desc">A card was right-clicked.</td></tr>
+          <tr><td class="name">itemMouseOver</td><td class="type"><a href="#type-DataViewPointerEvent">DataViewPointerEvent</a></td><td class="desc">The pointer entered a card.</td></tr>
+          <tr><td class="name">afterAdd</td><td class="type"><a href="#type-DataViewAfterAddEvent">DataViewAfterAddEvent</a></td><td class="desc">An item was added, through the data API or a drop.</td></tr>
+          <tr><td class="name">afterRemove</td><td class="type"><a href="#type-DataViewAfterRemoveEvent">DataViewAfterRemoveEvent</a></td><td class="desc">An item was removed, through the data API or a drop.</td></tr>
         </tbody>
       </table>
     </div>
@@ -29262,6 +29481,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">checkboxes</td><td class="type">boolean</td><td class="desc">Draw a tri-state checkbox per node, checked/unchecked/mixed rolled up from its children. Default `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">checked</td><td class="type">Array&lt;string | number&gt;</td><td class="desc">The ids checked at start. Default none. <small>(optional)</small></td></tr>
           <tr><td class="name">dragMode</td><td class="type">false | 'source' | 'target' | 'both'</td><td class="desc">This tree's role in a drag (BACKLOG-0002551): reorder and reparent within itself either way; the split is the host's own declaration of intent, since a standalone tree has nothing else to send to or receive from. Default `false`. <small>(optional)</small></td></tr>
+          <tr><td class="name">dragHandle</td><td class="type">'grip' | 'row' | false</td><td class="desc">Where a drag starts, once `dragMode` turns dragging on (BACKLOG-0002649): the drawn grip (`'grip'`, the default), anywhere on the row (`'row'`, matching the list view's own `dragHandle` — a press on the expander or the checkbox still expands or checks, since the drag only begins once the pointer has moved), or `false` to draw no handle and start no drag at all, whatever `dragMode` says. <small>(optional)</small></td></tr>
+          <tr><td class="name">insidePosition</td><td class="type">'last' | 'first'</td><td class="desc">Where a drop "inside" a node lands among its new children (BACKLOG-0002649): `'last'` (the default, today's documented behaviour) or `'first'`. <small>(optional)</small></td></tr>
           <tr><td class="name">contextMenu</td><td class="type">boolean</td><td class="desc">The grid's own cell right-click menu (Paste, Clear, Fill down). Default `false` — a right-click on a node is `itemContextMenu`, not a menu meant for spreadsheet cells. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -29332,7 +29553,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">The id of the node being dropped.</td></tr>
           <tr><td class="name">parent</td><td class="type">unknown</td><td class="desc">The parent id the node will have after the drop.</td></tr>
-          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The index the node will land at.</td></tr>
+          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The node's final 0-based position among its new siblings (BACKLOG-0002649) — not a physical row index.</td></tr>
           <tr><td class="name">position</td><td class="type">'before' | 'after' | 'inside'</td><td class="desc">Which band of the target node the drop landed in.</td></tr>
           <tr><td class="name">target</td><td class="type">string</td><td class="desc">The id of the node the drag was dropped onto.</td></tr>
         </tbody>
@@ -29354,7 +29575,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">The id of the node that was dropped.</td></tr>
           <tr><td class="name">parent</td><td class="type">unknown</td><td class="desc">The parent id the node now has.</td></tr>
-          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The index the node now occupies.</td></tr>
+          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The node's final 0-based position among its new siblings (BACKLOG-0002649) — not a physical row index.</td></tr>
           <tr><td class="name">position</td><td class="type">'before' | 'after' | 'inside'</td><td class="desc">Which band of the target node the drop landed in.</td></tr>
           <tr><td class="name">target</td><td class="type">string</td><td class="desc">The id of the node the drag was dropped onto.</td></tr>
         </tbody>
@@ -33562,6 +33783,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The element the layout was mounted on. It carries the layout's host class, which is also how a second `createLayout` on the same element is refused. <small>(read-only)</small></td></tr>
+          <tr><td class="name">ready</td><td class="type">Promise&lt;void&gt;</td><td class="desc">Resolves once every tile is built and sized and every Lattice view the host mounted into a tile at creation has its own first full render in the DOM and measurable (BACKLOG-0002639) — aggregated from each mounted view's `ready`. Rejects if the layout is destroyed first. See also {@link whenRendered}.</td></tr>
         </tbody>
       </table>
     </div>
@@ -34339,15 +34561,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">name</td><td class="type">string</td><td class="desc">The item's name, for `getItem(name)` and `getValue()`/`setValue()`. <small>(optional)</small></td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc">The label text, associated to the control for screen readers. <small>(optional)</small></td></tr>
           <tr><td class="name">labelPosition</td><td class="type"><a href="#type-FormLabelPosition">FormLabelPosition</a> <small class="literals">'top' | 'left' | 'hidden'</small></td><td class="desc">Where the label sits: `top` (default), `left`, or `hidden` (visually hidden but still the accessible name). <small>(optional)</small></td></tr>
+          <tr><td class="name">hiddenLabel</td><td class="type">boolean</td><td class="desc">Keep the label as the control's accessible name without drawing it — a visually hidden `&lt;label&gt;` linked to the control — so the field takes the full row, whatever `labelPosition` says (BACKLOG-0002344). <small>(optional)</small></td></tr>
           <tr><td class="name">labelWidth</td><td class="type">number | string</td><td class="desc">The label column width when `labelPosition` is `left`. <small>(optional)</small></td></tr>
           <tr><td class="name">controlMinWidth</td><td class="type">number | string</td><td class="desc">When `labelPosition` is `left`: the width, in pixels or a CSS length, below which the control is too narrow and the label switches to the top instead (BACKLOG-0002554) — measured as this item's own width minus the label column (`labelWidth`, or the label's natural width when unset) minus the gap between them. Inherited like `labelPosition` and `labelWidth` from a fieldset, a container or the form; an item's own value wins. Re-measured per item with a `ResizeObserver` (a shell splitter or a drawer resizing the host counts, not only the window), with a few pixels of hysteresis so a width sitting on the threshold never flickers. Unset, nothing switches. A checkbox or toggle item ignores this — its label sits beside it by design. <small>(optional)</small></td></tr>
-          <tr><td class="name">width</td><td class="type">number | string</td><td class="desc">The item's width: a pixel number, a CSS length string such as `'12em'`, or a percentage string such as `'33.3%'`. In a `cols` row a percentage is a share of the row's width *after* the gaps between its items, so items totalling 100% lay out on one line with the gaps intact and an unsized neighbour takes the remaining space; a px/rem width is a fixed flex basis (BACKLOG-0002202). <small>(optional)</small></td></tr>
+          <tr><td class="name">width</td><td class="type">number | string</td><td class="desc">The item's width: a pixel number, a CSS length string such as `'12em'`, a percentage string such as `'33.3%'`, or `'content'` to size the item to its control's own content (the default for buttons and toggles) rather than filling its row (BACKLOG-0002344). In a `cols` row a percentage is a share of the row's width *after* the gaps between its items, so items totalling 100% lay out on one line with the gaps intact and an unsized neighbour takes the remaining space; a px/rem width is a fixed flex basis (BACKLOG-0002202). <small>(optional)</small></td></tr>
+          <tr><td class="name">height</td><td class="type">number | string</td><td class="desc">The item's height, for every item type (BACKLOG-0002344): a pixel number, a CSS length string, or `'content'` to size the control to its own content. A `listbox` item's `height` instead sets its viewport height in pixels, overriding `rows` (BACKLOG-0002256); on a vertical `slider` item it sets the track's length (default 160) (BACKLOG-0002340). <small>(optional)</small></td></tr>
+          <tr><td class="name">padding</td><td class="type">number | string</td><td class="desc">The space between the item's cell and its control — a pixel number or a CSS length — on items and on `rows`/`cols`/`items`/`fieldset`/`panel` containers (BACKLOG-0002344). <small>(optional)</small></td></tr>
           <tr><td class="name">placeholder</td><td class="type">string</td><td class="desc">Placeholder text for a text-like control. <small>(optional)</small></td></tr>
           <tr><td class="name">helpMessage</td><td class="type">string</td><td class="desc">Help text shown under the control. <small>(optional)</small></td></tr>
           <tr><td class="name">hidden</td><td class="type">boolean</td><td class="desc">Start hidden. <small>(optional)</small></td></tr>
           <tr><td class="name">disabled</td><td class="type">boolean</td><td class="desc">Start disabled. <small>(optional)</small></td></tr>
           <tr><td class="name">readOnly</td><td class="type">boolean</td><td class="desc">Start read-only. <small>(optional)</small></td></tr>
-          <tr><td class="name">tooltip</td><td class="type">string</td><td class="desc">Help text a "?" trigger after the label reveals on hover, focus, Enter and tap, linked to the control by `aria-describedby` (BACKLOG-0002195). <small>(optional)</small></td></tr>
+          <tr><td class="name">tooltip</td><td class="type">string | boolean</td><td class="desc">Help text a "?" trigger after the label reveals on hover, focus, Enter and tap, linked to the control by `aria-describedby` (BACKLOG-0002195) — or, for a `slider` item, whether it shows the thumb's live value while dragging or focused (default `true`; BACKLOG-0002340). The two never collide: the "?" trigger only ever draws for a string value, so a slider's boolean never raises it. <small>(optional)</small></td></tr>
           <tr><td class="name">lockIcon</td><td class="type">boolean</td><td class="desc">Show the read-only lock inside a read-only field's right edge (default true); `false` hides it (BACKLOG-0002195). <small>(optional)</small></td></tr>
           <tr><td class="name">addons</td><td class="type"><a href="#type-FormFieldAddon">FormFieldAddon</a>[]</td><td class="desc">Round icon buttons (and avatar addons) attached to the right of the field, disabled with it (BACKLOG-0002195). <small>(optional)</small></td></tr>
           <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The initial value. <small>(optional)</small></td></tr>
@@ -34361,7 +34586,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">subtype</td><td class="type"><a href="#type-FormInputSubtype">FormInputSubtype</a> <small class="literals">'text' | 'email' | 'password' | 'url'</small></td><td class="desc">The native input subtype for an `input` item. <small>(optional)</small></td></tr>
           <tr><td class="name">reveal</td><td class="type">boolean</td><td class="desc">Show the reveal button inside a `password` input (default true); `false` turns it off. <small>(optional)</small></td></tr>
           <tr><td class="name">length</td><td class="type">number</td><td class="desc">The box count of an `otp` item (default 6). <small>(optional)</small></td></tr>
-          <tr><td class="name">mode</td><td class="type">'numeric' | 'alphanumeric' | <a href="#type-FormPickerMode">FormPickerMode</a> | <a href="#type-FormColorMode">FormColorMode</a> | 'linear' | 'radial'</td><td class="desc">The `otp` characters — `numeric` (default) or `alphanumeric` — the `datepicker` mode: `date`, `date-time` or `time` (BACKLOG-0002142) — the `color` item's opening popover view (BACKLOG-0002252) — or the `speeddial` item's menu shape: `linear` (default) or `radial` (BACKLOG-0002253). <small>(optional)</small></td></tr>
+          <tr><td class="name">mode</td><td class="type">'numeric' | 'alphanumeric' | <a href="#type-FormPickerMode">FormPickerMode</a> | <a href="#type-FormColorMode">FormColorMode</a> | 'linear' | 'radial' | 'horizontal' | 'vertical'</td><td class="desc">The `otp` characters — `numeric` (default) or `alphanumeric` — the `datepicker` mode: `date`, `date-time` or `time` (BACKLOG-0002142) — the `color` item's opening popover view (BACKLOG-0002252) — the `speeddial` item's menu shape: `linear` (default) or `radial` (BACKLOG-0002253) — or a `slider` item's track direction: `horizontal` (default) or `vertical` (BACKLOG-0002340). <small>(optional)</small></td></tr>
           <tr><td class="name">mask</td><td class="type">boolean</td><td class="desc">Hide each `otp` box's glyph with the password disc. <small>(optional)</small></td></tr>
           <tr><td class="name">step</td><td class="type">number</td><td class="desc">The number step, for a `number` item. <small>(optional)</small></td></tr>
           <tr><td class="name">format</td><td class="type"><a href="#type-NumberFormat">NumberFormat</a> | string</td><td class="desc">The number format a `number` item displays when blurred, the same shape a grid number column takes — a `NumberFormat` spec (which may name `pattern`) or a bare pattern string like `'#,##0.00'` (BACKLOG-0002176, BACKLOG-0002181). The value stays a number; only the display is formatted. <small>(optional)</small></td></tr>
@@ -34392,7 +34617,6 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">reorder</td><td class="type">boolean</td><td class="desc">Let a `listbox` item's rows be moved by drag, by Move up/down toolbar buttons and by Alt+Arrow; the committed value becomes the full, reordered item array (BACKLOG-0002256). <small>(optional)</small></td></tr>
           <tr><td class="name">valueAs</td><td class="type">'order'</td><td class="desc">With `reorder: true`, `'order'` makes a `listbox` item's committed value the ordered array of option values in every selection mode (BACKLOG-0002547) — the shape an editable ordered list wants even while `selection` is `'single'`, where the value would otherwise be just the one selected item. <small>(optional)</small></td></tr>
           <tr><td class="name">connect</td><td class="type">string</td><td class="desc">The name of another `listbox` item this one exchanges items with via drag and the Move selected/Move all toolbar buttons; each side's value is the items it currently holds (BACKLOG-0002256). <small>(optional)</small></td></tr>
-          <tr><td class="name">height</td><td class="type">number</td><td class="desc">A `listbox` item's viewport height in pixels, overriding `rows` (BACKLOG-0002256). <small>(optional)</small></td></tr>
           <tr><td class="name">dragHandle</td><td class="type">boolean</td><td class="desc">Draw a drag grip on a `listbox` item's rows and drag only from it (a plain pointer drag, not native HTML5 drag-and-drop), and size rows to their content instead of a fixed height (BACKLOG-0002547). <small>(optional)</small></td></tr>
           <tr><td class="name">orientation</td><td class="type">'vertical' | 'horizontal'</td><td class="desc">Lay a `radiogroup` or `checkboxgroup`'s options out vertically (the default) or on one wrapping horizontal line. <small>(optional)</small></td></tr>
           <tr><td class="name">columns</td><td class="type">number</td><td class="desc">Lay a `radiogroup` or `checkboxgroup`'s options out in this many columns, read across then down. <small>(optional)</small></td></tr>
@@ -34472,6 +34696,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">timeFormat</td><td class="type">12 | 24</td><td class="desc">The clock format of a `time` item: `24` (default, `HH:MM`) or `12` (`hh:MM` with an AM/PM segment in the popup and display) (BACKLOG-0002343). <small>(optional)</small></td></tr>
           <tr><td class="name">valueFormat</td><td class="type">'string' | 'object'</td><td class="desc">How a `time` item stores its value: `'string'` (default, `'HH:MM'` or `'hh:MM AM'` in 12-hour) or `'object'` (`{ hour, minute, AM? }`) (BACKLOG-0002343). <small>(optional)</small></td></tr>
           <tr><td class="name">controls</td><td class="type">boolean</td><td class="desc">Add Close and Save buttons to a `time` item's popup so nothing commits until Save and Close discards (default false: the popup commits as the clock changes) (BACKLOG-0002343). <small>(optional)</small></td></tr>
+          <tr><td class="name">range</td><td class="type">boolean</td><td class="desc">Make a `slider` item a two-thumb range: the committed value is then `[low, high]` and the thumbs cannot cross (BACKLOG-0002340). <small>(optional)</small></td></tr>
+          <tr><td class="name">tick</td><td class="type">number</td><td class="desc">Draw a `slider` tick mark every this many units (BACKLOG-0002340); omitted, no tick marks are drawn. <small>(optional)</small></td></tr>
+          <tr><td class="name">majorTick</td><td class="type">number</td><td class="desc">Draw a labelled, taller `slider` tick every this many units, formatted by `tickTemplate` (BACKLOG-0002340); omitted, no major ticks are drawn. <small>(optional)</small></td></tr>
+          <tr><td class="name">inverse</td><td class="type">boolean</td><td class="desc">Reverse which end of a `slider` track holds the minimum (BACKLOG-0002340). <small>(optional)</small></td></tr>
           <tr><td class="name">[key: string]</td><td class="type">unknown</td><td class="desc">Extra per-control options, kept for later controls.</td></tr>
         </tbody>
       </table>
@@ -34483,6 +34711,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">render</td><td class="type">(option: <a href="#type-FormOption">FormOption</a>) =&gt; Node | string</td><td class="desc"><code>option: <a href="#type-FormOption">FormOption</a></code></td><td class="type"><code>=&gt; Node | string</code></td><td class="desc">A custom row renderer for a `listbox`/`select`/`combo` option, returning a DOM node or an HTML string (sanitised before insertion). <small>(optional)</small></td></tr>
           <tr><td class="name">upload</td><td class="type">((file: File, opts: { onProgress: (pct: number) =&gt; void; signal?: AbortSignal }) =&gt; void | Promise&lt;void&gt;) | <a href="#type-FormAvatarUploadConfig">FormAvatarUploadConfig</a></td><td class="desc"><code>(file: File, opts: { onProgress: (pct: number) =&gt; void; signal?: AbortSignal }) =&gt; void | Promise&lt;void&gt;</code></td><td class="type"><code>| <a href="#type-FormAvatarUploadConfig">FormAvatarUploadConfig</a></code></td><td class="desc">The host upload callback for a `file` item (`(file, { onProgress, signal }) =&gt; void | Promise&lt;void&gt;`), or an `avatar` item's own upload config, posted as multipart form data (BACKLOG-0002341). <small>(optional)</small></td></tr>
           <tr><td class="name">onImage</td><td class="type">(file: File) =&gt; Promise&lt;string&gt; | string</td><td class="desc"><code>file: File</code></td><td class="type"><code>=&gt; Promise&lt;string&gt; | string</code></td><td class="desc">A host callback returning a source URL for an inserted image. <small>(optional)</small></td></tr>
+          <tr><td class="name">tickTemplate</td><td class="type">(value: number) =&gt; string</td><td class="desc"><code>value: number</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">Format a `slider` tick's label and a thumb's `aria-valuetext`; the plain number when omitted (BACKLOG-0002340). <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -34549,7 +34778,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">cols</td><td class="type"><a href="#type-FormBlock">FormBlock</a>[]</td><td class="desc">A horizontal stack of child blocks. <small>(optional)</small></td></tr>
           <tr><td class="name">items</td><td class="type"><a href="#type-FormItemConfig">FormItemConfig</a>[]</td><td class="desc">A side-by-side run of form items. <small>(optional)</small></td></tr>
           <tr><td class="name">spacing</td><td class="type">number | string</td><td class="desc">The vertical gap between this container's or fieldset's own items — a px number or a CSS length, overriding the form's `spacing` for those items only. <small>(optional)</small></td></tr>
-          <tr><td class="name">wrap</td><td class="type">boolean</td><td class="desc">On a `cols` block, resolve each item's percentage `width` against its own rendered line's gaps instead of the whole row's (BACKLOG-0002559): a `100%` item fills its line alone, and a `50%`/`50%` pair shares one gap and sits side by side filling it exactly, instead of the pair's widths being shrunk by every gap in the row. Items that do not fit on a line wrap to the next one, as they already do; hiding an item frees its line slot (later items shift up and may join an earlier line), and showing it again restores the layout. Ignored on any other axis. Default `false`. <small>(optional)</small></td></tr>
+          <tr><td class="name">wrap</td><td class="type">boolean</td><td class="desc">On a `cols` block, resolve each item's percentage `width` against its own rendered line's gaps instead of the whole row's (BACKLOG-0002559): a `100%` item fills its line alone, and a `50%`/`50%` pair shares one gap and sits side by side filling it exactly, instead of the pair's widths being shrunk by every gap in the row. Items that do not fit on a line wrap to the next one, as they already do; hiding an item frees its line slot (later items shift up and may join an earlier line), and showing it again restores the layout. The per-line pass measures a nested block's own `width` the same as an item's. Ignored on any other axis. Default `false`. <small>(optional)</small></td></tr>
+          <tr><td class="name">gap</td><td class="type">number | string</td><td class="desc">On a `cols` block, the gap between items — a px number or a CSS length, both the rendered gap and the `wrap` per-line width maths. Sets both `columnGap` and `rowGap` unless one of them overrides it (BACKLOG-0002635). Ignored on any other axis. Default `--lattice-space` (the theme's own gap). <small>(optional)</small></td></tr>
+          <tr><td class="name">columnGap</td><td class="type">number | string</td><td class="desc">On a `cols` block, the gap between items on the same line — a px number or a CSS length, overriding `gap` for this axis only (BACKLOG-0002635). Ignored on any other axis. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowGap</td><td class="type">number | string</td><td class="desc">On a `cols` block, the gap between wrapped lines — a px number or a CSS length, overriding `gap` for this axis only (BACKLOG-0002635). Ignored on any other axis. <small>(optional)</small></td></tr>
           <tr><td class="name">type</td><td class="type">string</td><td class="desc">The control type, or `spacer`/`separator`. Defaults to `input`. <small>(optional)</small></td></tr>
           <tr><td class="name">fieldset</td><td class="type">string | <a href="#type-FormBlock">FormBlock</a></td><td class="desc">A fieldset: `'Legend'` or `{ legend, rows, cols, items }`. <small>(optional)</small></td></tr>
           <tr><td class="name">container</td><td class="type"><a href="#type-FormBlock">FormBlock</a></td><td class="desc">An explicit container, `{ rows | cols | items }`. <small>(optional)</small></td></tr>
@@ -34562,7 +34794,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">labelPosition</td><td class="type"><a href="#type-FormLabelPosition">FormLabelPosition</a> <small class="literals">'top' | 'left' | 'hidden'</small></td><td class="desc">Where the label sits: `top` (default), `left`, or `hidden`. On a container or fieldset this is the default its items inherit. <small>(optional)</small></td></tr>
           <tr><td class="name">labelWidth</td><td class="type">number | string</td><td class="desc">The label column width when `labelPosition` is `left`; on a container or fieldset this is the default its items inherit. <small>(optional)</small></td></tr>
           <tr><td class="name">controlMinWidth</td><td class="type">number | string</td><td class="desc">The width below which a `left` label switches to the top instead (BACKLOG-0002554); on a container or fieldset this is the default its items inherit. See {@link FormItemConfig.controlMinWidth}. <small>(optional)</small></td></tr>
-          <tr><td class="name">width</td><td class="type">number | string</td><td class="desc">The item's width. <small>(optional)</small></td></tr>
+          <tr><td class="name">width</td><td class="type">number | string</td><td class="desc">The item's width; on a container, fieldset or panel block nested in a `cols` row, its own share of that row, applied exactly as an item's `width` is, with and without `wrap` (BACKLOG-0002635). <small>(optional)</small></td></tr>
           <tr><td class="name">placeholder</td><td class="type">string</td><td class="desc">Placeholder text. <small>(optional)</small></td></tr>
           <tr><td class="name">helpMessage</td><td class="type">string</td><td class="desc">Help text shown under the control. <small>(optional)</small></td></tr>
           <tr><td class="name">hidden</td><td class="type">boolean</td><td class="desc">Start hidden. <small>(optional)</small></td></tr>
@@ -34705,6 +34937,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">requiredHint</td><td class="type">boolean | string</td><td class="desc">The default marker a required field with no visible label shows on its placeholder: `true` appends `" *"`, a string resolves through the message catalogue, `false` shows nothing. An item's own `requiredHint` wins. <small>(optional)</small></td></tr>
           <tr><td class="name">colsBreakpoint</td><td class="type">number | false</td><td class="desc">The width, in pixels, below which a `cols` container stacks its children into one column, or `false` (or `0`) to never stack. A positive number is used as-is. Default 480. <small>(optional)</small></td></tr>
           <tr><td class="name">wrap</td><td class="type">boolean</td><td class="desc">When the root axis is `cols` (no `rows`), resolve each item's percentage `width` against its own rendered line's gaps instead of the whole row's. See {@link FormBlock.wrap} (BACKLOG-0002559). Default `false`. <small>(optional)</small></td></tr>
+          <tr><td class="name">gap</td><td class="type">number | string</td><td class="desc">When the root axis is `cols` (no `rows`), the gap between items. See {@link FormBlock.gap} (BACKLOG-0002635). <small>(optional)</small></td></tr>
+          <tr><td class="name">columnGap</td><td class="type">number | string</td><td class="desc">When the root axis is `cols` (no `rows`), the gap between items on the same line, overriding `gap`. See {@link FormBlock.columnGap} (BACKLOG-0002635). <small>(optional)</small></td></tr>
+          <tr><td class="name">rowGap</td><td class="type">number | string</td><td class="desc">When the root axis is `cols` (no `rows`), the gap between wrapped lines, overriding `gap`. See {@link FormBlock.rowGap} (BACKLOG-0002635). <small>(optional)</small></td></tr>
           <tr><td class="name">bind</td><td class="type"><a href="#type-FormBind">FormBind</a></td><td class="desc">Bind the form to a record. A grid row generates one item per column and saves through the grid's edit path; a routed record follows the route's keyed diffs; a plain object is initialised from and written back to. <small>(optional)</small></td></tr>
           <tr><td class="name">css</td><td class="type">Record&lt;string, string | number&gt; | string</td><td class="desc">Extra CSS on the form root. <small>(optional)</small></td></tr>
           <tr><td class="name">steps</td><td class="type"><a href="#type-FormStep">FormStep</a>[]</td><td class="desc">Wizard steps: one labelled group of rows shown at a time. <small>(optional)</small></td></tr>
@@ -34986,7 +35221,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       </table>
     </div>
     <h4 id="type-FormItemLiveProps">FormItemLiveProps</h4>
-    <p class="section-note">The props {@link FormItem#set} may change after build (BACKLOG-0002542). Every item shares `label`, `labelPosition`, `labelWidth`, `helpMessage`, `required`, `readOnly`, `disabled`, `hidden`, `width`, `validation`, `errorMessage` and `css`. `placeholder` is live on `input`, `textarea`, `number`, `select`, `combo` and `datepicker`; `options` on `select` and `combo` (the same contract as `setOptions`); `min`/`max`/`step`/`format` on `number`; `disabledDates` on `datepicker` and `daterange` (the open calendar's days are redrawn and a held value the new rule disables is reported by validation, never changed; BACKLOG-0002367). Any other key is a control's own documented live option (`item.props` at build); one that is neither common nor declared live warns once and is ignored.</p>
+    <p class="section-note">The props {@link FormItem#set} may change after build (BACKLOG-0002542). Every item shares `label`, `labelPosition`, `labelWidth`, `helpMessage`, `required`, `readOnly`, `disabled`, `hidden`, `width`, `validation`, `errorMessage` and `css`. `placeholder` is live on `input`, `textarea`, `number`, `select`, `combo` and `datepicker`; `options` on `select` and `combo` (the same contract as `setOptions`); `min`/`max`/`step`/`format` on `number` and `slider`; `tick`/`majorTick` are additionally live on `slider` (BACKLOG-0002340); `disabledDates` on `datepicker` and `daterange` (the open calendar's days are redrawn and a held value the new rule disables is reported by validation, never changed; BACKLOG-0002367). Any other key is a control's own documented live option (`item.props` at build); one that is neither common nor declared live warns once and is ignored.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
@@ -39928,8 +40163,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">How the column store holds a type's values in bulk.</p>
     <p class="type-def"><code>type DataTypeStorage = 'float64' | 'int32' | 'bitset' | 'dictionary' | 'object'</code></p>
     <h4 id="type-DataViewEventName">DataViewEventName</h4>
-    <p class="section-note">The event names a data view emits: the list view's.</p>
-    <p class="type-def"><code>type DataViewEventName = 'itemClick' | 'itemDoubleClick' | 'beforeDrop' | 'afterDrop' | 'dragOut' | 'selectionChange' | 'input' | 'change'</code></p>
+    <p class="section-note">The event names a data view emits: the list view's, plus its own `beforeDrag`, `itemContextMenu`, `itemMouseOver`, `afterAdd` and `afterRemove`.</p>
+    <p class="type-def"><code>type DataViewEventName = 'itemClick' | 'itemDoubleClick' | 'beforeDrag' | 'beforeDrop' | 'afterDrop' | 'dragOut' | 'selectionChange' | 'input' | 'change' | 'itemContextMenu' | 'itemMouseOver' | 'afterAdd' | 'afterRemove'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/dataview</code>.</small></p>
     <h4 id="type-DataViewItem">DataViewItem</h4>
     <p class="section-note">An item backing one card: any object. Its identity comes from `DataViewConfig.key`.</p>
@@ -40128,7 +40363,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-FormControlType">FormControlType</h4>
     <p class="section-note">The control types a form item may name.</p>
-    <p class="type-def"><code>type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox' | 'togglegroup' | 'time' | 'grid'</code></p>
+    <p class="type-def"><code>type FormControlType = 'input' | 'number' | 'textarea' | 'checkbox' | 'button' | 'text' | 'combo' | 'select' | 'radiogroup' | 'checkboxgroup' | 'toggle' | 'datepicker' | 'daterange' | 'file' | 'richtext' | 'rating' | 'stage' | 'chips' | 'otp' | 'color' | 'barcode' | 'listbox' | 'togglegroup' | 'time' | 'grid' | 'slider'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/form</code>.</small></p>
     <h4 id="type-FormDateRangeGranularity">FormDateRangeGranularity</h4>
     <p class="section-note">The granularity of a `daterange` item (BACKLOG-0002255): a day range or a year-month range.</p>
@@ -40290,6 +40525,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">The React prop name for one grid event: `'rows:changed'` is `onRowsChanged`. The pair with {@link PascalJoin} is what lets an editor complete the props of `&lt;LatticeGrid&gt;` from the event union itself.</p>
     <p class="type-def"><code>type HandlerProp&lt;E extends string&gt; = `on${<a href="#type-PascalJoin">PascalJoin</a>&lt;E&gt;}`</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/react</code>.</small></p>
+    <h4 id="type-HeaderComponentCtor">HeaderComponentCtor</h4>
+    <p class="section-note">A class building either heading-component shape above.</p>
+    <p class="type-def"><code>type HeaderComponentCtor = new () =&gt; <a href="#type-HeaderRenderComponent">HeaderRenderComponent</a> | <a href="#type-HeaderInitComponent">HeaderInitComponent</a></code></p>
     <h4 id="type-HeaderControlsVisibility">HeaderControlsVisibility</h4>
     <p class="section-note">When the per-column header controls — the sort arrow, the filter funnel and the menu button — are shown, as a grid-level default (BACKLOG-0000982). See {@link GridConfig.headerControls}.</p>
     <p class="type-def"><code>type HeaderControlsVisibility = 'hover' | 'always' | 'hidden' | 'none'</code></p>
@@ -40748,6 +40986,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h4 id="type-ScaleFrom">ScaleFrom</h4>
     <p class="section-note">Where a colour or bar scale's bounds are derived from, when `min`/`max` are not given.</p>
     <p class="type-def"><code>type ScaleFrom = 'minmax' | 'quantile' | 'stddev'</code></p>
+    <h4 id="type-Scatter3dAspect">Scatter3dAspect</h4>
+    <p class="section-note">How long each scatter3d axis is drawn: `'data'` (true proportions), `'cube'` (equal lengths), `{ x, y, z }` ratios, or `'auto'` (the default: `'cube'` when one range is over four times another).</p>
+    <p class="type-def"><code>type Scatter3dAspect = 'auto' | 'data' | 'cube' | { x: number; y: number; z: number }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/chart-scatter3d</code>.</small></p>
     <h4 id="type-SchedulerEventFieldChanges">SchedulerEventFieldChanges</h4>
     <p class="section-note">The field-level edit an event edit reports: each changed field's old and new value.</p>
     <p class="type-def"><code>type SchedulerEventFieldChanges = Record&lt;string, { from: unknown; to: unknown }&gt;</code></p>
@@ -40964,7 +41206,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.104.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.104.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

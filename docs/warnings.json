@@ -1,5 +1,5 @@
 {
-  "version": "1.104.0",
+  "version": "1.104.1",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 755,
+  "count": 759,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -4532,6 +4532,46 @@
       "message": "the header renderer for {kind} '{id}' threw; the stock heading is shown instead.",
       "meaning": "A custom header renderer threw. The grid falls back to the stock heading for that column or group, so sorting, menus and resizing all keep working and only the custom decoration is missing.",
       "fix": "The error is attached to the console line. A header renderer may append to the label it is given and return nothing, or return a node or a string for the grid to attach.",
+      "docs": "api/grid.html#type-ColumnHeaderSpec"
+    },
+    {
+      "id": "header-shape:*",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.104.1",
+      "message": "the header renderer for {kind} '{id}' is none of the shapes 'header.render' accepts — a function, a 'render()' component, an 'init()'/'element()' component, or a class building either; the stock heading is shown instead.",
+      "meaning": "header.render was given a value that is none of the shapes the types declare — a function, a render() component, an init()/element() component, or a class building either. The grid falls back to the stock heading rather than drawing nothing.",
+      "fix": "Give header.render a function, an object with render(label, params), an object with init(params) and element(), or a class building one of those.",
+      "docs": "api/grid.html#type-ColumnHeaderSpec"
+    },
+    {
+      "id": "header-element:*",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.104.1",
+      "message": "the header renderer for {kind} '{id}' built no element in 'element()'; the stock heading is shown instead.",
+      "meaning": "An init()/element() header component's element() returned nothing usable after init() ran, so there is no DOM to draw. The grid falls back to the stock heading.",
+      "fix": "Have 'element()' return the HTMLElement the component built in 'init()'.",
+      "docs": "api/grid.html#type-ColumnHeaderSpec"
+    },
+    {
+      "id": "header-refresh:*",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.104.1",
+      "message": "the header renderer for {kind} '{id}' threw refreshing; it is rebuilt instead.",
+      "meaning": "A header component's optional refresh() threw while the grid tried to update it in place for a width change. The grid destroys it and rebuilds the heading from scratch.",
+      "fix": "The error is attached to the console line. Fix whatever 'refresh()' throws on, or remove it so the component is always rebuilt.",
+      "docs": "api/grid.html#type-ColumnHeaderSpec"
+    },
+    {
+      "id": "header-destroy:*",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.104.1",
+      "message": "a header renderer's 'destroy()' threw for '{id}'.",
+      "meaning": "A header component's optional destroy() threw while its heading was being torn down or rebuilt. The heading is discarded regardless.",
+      "fix": "The error is attached to the console line. Fix whatever 'destroy()' throws on.",
       "docs": "api/grid.html#type-ColumnHeaderSpec"
     },
     {

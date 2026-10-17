@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.104.0, layout module type declarations
+ * Lattice Grid 1.104.1, layout module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -496,6 +496,13 @@ export interface Layout {
    * also how a second `createLayout` on the same element is refused.
    */
   readonly el: HTMLElement;
+  /**
+   * Resolves once every tile is built and sized and every Lattice view the host
+   * mounted into a tile at creation has its own first full render in the DOM and
+   * measurable — aggregated from each mounted view's `ready`.
+   * Rejects if the layout is destroyed first. See also {@link whenRendered}.
+   */
+  ready: Promise<void>;
   /** The window ids, in mount order. */
   windows(): string[];
   /** The payload container for a window, or `null`. */

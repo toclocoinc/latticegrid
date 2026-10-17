@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.104.0, type declarations
+ * Lattice Grid 1.104.1, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1956,13 +1956,27 @@ export interface ColumnHeaderSpec {
   /** Not read by the header renderer; use `render` to draw a custom heading. */
   template?: string;
   /**
-   * A custom heading renderer: a function, or a component (a class with a
-   * `render` method). A string names a registered renderer. Either form draws
-   * the same two ways and they are interchangeable — it may append to the passed
-   * label element itself and return nothing, or return an `Element` (attached
-   * for you) or a `string` (used as the heading text).
+   * A custom heading renderer, in any of four shapes: a
+   * plain function ({@link HeaderRenderFn}); a component — already built, or
+   * a class the grid constructs — with a `render(label, params)` method
+   * ({@link HeaderRenderComponent}); or a component, built the way a cell
+   * {@link Renderer} is, with `init(params)` and its element read back
+   * through `element()` ({@link HeaderInitComponent}). A string names a
+   * renderer registered in `config.components`. The function and
+   * `render()` forms draw the same two ways and are interchangeable — either
+   * may append to the passed label element itself and return nothing, or
+   * return an `Element` (attached for you) or a `string` (used as the
+   * heading text); the `init`/`element` form always has its `element()`
+   * attached.
+   *
+   * Whatever it draws stays visible and interactive under the header's own
+   * affordances: the sort, filter and menu controls that
+   * would otherwise cover the heading on hover never hide or intercept a
+   * custom renderer's own content, so a control it builds — a select-all
+   * checkbox, say — stays clickable, focusable and keyboard-operable, and
+   * the grid's own sort and menu handling does not act on events aimed at it.
    */
-  render?: string | RendererCtor | HeaderRenderFn;
+  render?: string | HeaderRenderFn | HeaderRenderComponent | HeaderInitComponent | HeaderComponentCtor;
   /** Props passed to `render` as `params.props`. */
   props?: Record<string, unknown>;
   /**
@@ -2036,6 +2050,40 @@ export interface HeaderParams {
  * to fill and the {@link HeaderParams} above.
  */
 export type HeaderRenderFn = (label: HTMLElement, params: HeaderParams) => HTMLElement | string | void;
+
+/**
+ * A heading component drawn by filling the label element itself, exactly as
+ * {@link HeaderRenderFn} draws — `render` here is just a method instead of a
+ * bare function, so a class can hold state across header rebuilds. Either an already-built object, or a class the grid
+ * constructs, may be handed to `header.render`.
+ */
+export interface HeaderRenderComponent {
+  /** Draw the heading. May fill `label` itself and return nothing, or return an `Element` or `string`. */
+  render(label: HTMLElement, params: HeaderParams): HTMLElement | string | void;
+  /** Redraw for new params without rebuilding; return `true` to keep the existing DOM. */
+  refresh?(label: HTMLElement, params: HeaderParams): boolean;
+  /** Release whatever the component holds, as the heading cell is torn down. */
+  destroy?(): void;
+}
+
+/**
+ * A heading component built the way a cell {@link Renderer} is: `init` runs
+ * first and the DOM it built is read back through `element()`. Either an already-built object, or a class the grid
+ * constructs, may be handed to `header.render`.
+ */
+export interface HeaderInitComponent {
+  /** Prepare the component for this heading, before `element()` is asked for. */
+  init(params: HeaderParams): void;
+  /** The DOM the heading should show. Called once, straight after `init`. */
+  element(): HTMLElement;
+  /** Update for new params without rebuilding; return `true` to keep the existing element. */
+  refresh?(params: HeaderParams): boolean;
+  /** Release whatever the component holds, as the heading cell is torn down. */
+  destroy?(): void;
+}
+
+/** A class building either heading-component shape above. */
+export type HeaderComponentCtor = new () => HeaderRenderComponent | HeaderInitComponent;
 
 /** How a lookup column leaves in an export: its label, its stored value, or both. */
 export type ColumnExportLookup = 'label' | 'value' | 'columns';
@@ -2501,7 +2549,7 @@ export interface ColumnGroup {
    * Presentation for the band's own heading cell: a custom renderer, the props
    * handed to it, and classes to add.
    */
-  header?: { render?: string | RendererCtor | HeaderRenderFn; props?: Record<string, unknown>; class?: string | string[] };
+  header?: { render?: string | HeaderRenderFn | HeaderRenderComponent | HeaderInitComponent | HeaderComponentCtor; props?: Record<string, unknown>; class?: string | string[] };
   /**
    * The header histogram of every column under this band, as a default: `true`
    * turns it on with the grid's settings, `false` off, an object overrides
@@ -3724,6 +3772,12 @@ export interface TreeConfig {
    * branch is left unmarked, so the user can retry by opening it again.
    */
   loadChildren?: (row: Row, signal: AbortSignal) => Promise<unknown[]>;
+  /**
+   * Where a row dropped "inside" another (`rowReorder` on a `parentKey`
+   * tree) lands among its new siblings: `'last'` (the
+   * default, today's documented behaviour) or `'first'`.
+   */
+  insidePosition?: 'last' | 'first';
   /** Where the generated tree column takes its text from: a field or a function. */
   label?: string | ((data: unknown, row: Row) => unknown);
   /** The tree column's heading. Defaults to the label column's own title. */
@@ -4227,8 +4281,8 @@ export interface GridConfig {
    * coarse-pointer rule that would otherwise apply it.
    */
   targetSize?: TargetSize;
-  /** Your own renderers, editors and filters, registered by name. */
-  components?: Record<string, RendererCtor | EditorCtor | FilterCtor>;
+  /** Your own renderers, editors, filters and header renderers, registered by name. */
+  components?: Record<string, RendererCtor | EditorCtor | FilterCtor | HeaderRenderFn | HeaderComponentCtor>;
   /** Named text transforms usable from a format mask or a template. */
   pipes?: Record<string, (value: unknown, ...args: string[]) => string>;
   /** Your own reductions, alongside the built-in ones. */
@@ -8348,6 +8402,11 @@ export interface RowDragEvent extends GridEvent {
    */
   data: Record<string, unknown> | null;
   /**
+   * Every row the gesture carries, in display order: all the
+   * selected rows when a selected row is dragged, else just `[key]`.
+   */
+  keys: string[];
+  /**
    * The grid the event is about: the grid under the pointer for
    * `rowDrag:started`, `rowDrag:moved` and `rowDrag:ended`, and the grid just
    * left for `rowDrag:left`. Null when the pointer is over no grid at all.
@@ -9538,6 +9597,13 @@ export interface RowReorderOptions {
    * has moved, and drops any text selection then. The grip is still drawn.
    */
   handle?: 'grip' | 'row';
+  /**
+   * Draw the handle column's own grip. Default `true`. `false` draws no grip
+   * at all, so the column's content takes the full width — only meaningful
+   * alongside `handle: 'row'`, since a grip-only drag with no grip to press
+   * would have no way to begin.
+   */
+  grip?: boolean;
 }
 
 /**
@@ -13146,8 +13212,8 @@ export function createHeadlessGrid(config?: HeadlessGridConfig): Grid;
 /**
  * The `ready` promise of whatever Lattice view is mounted in `el` — a grid,
  * a form, a shell, a list view, a chart, a kanban board, a gantt view (plain
- * or split) or a dashboard. Resolves at once when `el`
- * carries none of those views: there is nothing mounted to wait on.
+ * or split), a dashboard or a layout. Resolves at once when
+ * `el` carries none of those views: there is nothing mounted to wait on.
  */
 export function whenRendered(el: HTMLElement): Promise<void>;
 /**
@@ -16464,6 +16530,8 @@ export interface RowReceivedEvent extends GridEvent {
   overKey: string | null;
   /** Rows the insert could not apply; empty on a clean insert. */
   rejected: RejectedRow[];
+  /** Every row of a multi-row drop, in drop order; absent for one row. */
+  items?: Record<string, unknown>[];
 }
 
 /**
@@ -16473,6 +16541,10 @@ export interface RowReceivedEvent extends GridEvent {
 export interface RowTransferEvent extends GridEvent {
   /** The key of the row that was transferred. */
   key: string;
+  /** Every key transferred by a multi-row drag; absent for one row. */
+  keys?: string[];
+  /** Those rows' data; absent for one row. */
+  items?: Record<string, unknown>[];
   /** That row's data, as the target received it. */
   data: Record<string, unknown>;
   /** Which gesture it was. */

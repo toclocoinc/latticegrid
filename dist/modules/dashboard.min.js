@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.104.0, dashboard module
+ * Lattice Grid 1.104.1, dashboard module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

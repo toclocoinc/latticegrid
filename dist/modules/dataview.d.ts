@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.104.0, dataview module type declarations
+ * Lattice Grid 1.104.1, dataview module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -23,8 +23,13 @@ export interface DataViewConfig {
   template: (item: DataViewItem) => string | HTMLElement;
   /** Card width in pixels; as many cards as fit go on a row. Default `200`. Ignored when `columns` is set. */
   itemWidth?: number;
-  /** Card height in pixels. Default `120`. */
-  itemHeight?: number;
+  /**
+   * Card height: a number of pixels, or a percentage string such as `'50%'`
+   * of the view's own height, recomputed when the view resizes, or `'auto'`
+   * to make each row as tall as its tallest card (nothing is clipped, and
+   * the rows follow the content when it changes). Default `120`.
+   */
+  itemHeight?: number | `${number}%` | 'auto';
   /** A fixed number of cards per row; the cards share the width equally, so `columns: n` fills it. */
   columns?: number;
   /** The gap between cards, in pixels. Default `8`. */
@@ -35,9 +40,19 @@ export interface DataViewConfig {
   selection?: false | 'single' | 'multi';
   /** This view's role in a drag: `'source'` and `'both'` reorder within the view and send to another; `'target'` and `'both'` receive. Default `false`. */
   dragMode?: false | 'source' | 'target' | 'both';
-  /** `true` leaves the source card in place on a drop between views (copy, not move). Default `false`. */
+  /**
+   * `true` leaves the source card in place on a drop between views (copy,
+   * not move): the dropped copy gets a fresh identity, so copying the same
+   * card twice lands two items, not one overwriting the other. Default `false`.
+   */
   dragCopy?: boolean;
-  /** The empty-state message or element. */
+  /**
+   * Called with the source item on a `dragCopy` drop to name the copy's
+   * identity. Without it the source id is given a `-copy`/`-copy2`/...
+   * suffix, counted up until it is not already used in the target.
+   */
+  copyId?: (item: DataViewItem) => unknown;
+  /** The empty-state message or element; an empty string shows nothing at all. */
   emptyText?: string | HTMLElement;
 }
 
@@ -111,13 +126,34 @@ export interface DataViewAfterDropEvent {
   source: DataViewPeer | null;
   /** The view the card landed in. */
   target: DataViewPeer | null;
-  /** The moved/copied item's identity, as a one-element array. */
+  /**
+   * The moved/copied item's identity, as a one-element array. For a
+   * `dragCopy` drop this is the copy's fresh identity (`DataViewConfig.copyId`'s
+   * return, or the generated `-copy`/`-copy2`/... id), not the source's.
+   */
   ids: unknown[];
   /** The display index the card landed at in the target. */
   index: number;
 }
 
-/** The `dragOut` payload: a drag moved out of this view. */
+/**
+ * The cancellable `beforeDrag` payload: fires when a press on a card would
+ * start a drag. Return `false` (or call `preventDefault()`) to stop that
+ * card dragging — a palette heading or a blank card, say.
+ */
+export interface DataViewBeforeDragEvent {
+  /** The card's item identity. */
+  id: unknown;
+  /** The card's item, or null. */
+  item: DataViewItem | null;
+}
+
+/**
+ * The `dragOut` payload: the pointer left this view's own bounds during a
+ * drag that started on one of its cards. Fires on that crossing alone,
+ * whether or not a drop ends up landing anywhere — including a drop back
+ * into this same view, or into another one.
+ */
 export interface DataViewDragOutEvent {
   /** The dragged item's identity. */
   id: unknown;
@@ -141,10 +177,38 @@ export interface DataViewTemplateEvent {
   originalEvent: unknown;
 }
 
-/** The event names a data view emits: the list view's. */
+/** The `itemContextMenu` and `itemMouseOver` payload: a right-click on a card, or the pointer entering one. */
+export interface DataViewPointerEvent {
+  /** The card's item identity (a generated key for an item that had none). */
+  id: unknown;
+  /** The card's item, or null. */
+  item: DataViewItem | null;
+  /** The originating DOM event. For `itemContextMenu`, call `preventDefault()` on it to suppress the browser's own menu. */
+  event: Event;
+}
+
+/** The `afterAdd` payload: an item joined the view. */
+export interface DataViewAfterAddEvent {
+  /** The new item's identity (generated when the item had no value in the key field). */
+  id: unknown;
+  /** The item as stored. */
+  item: DataViewItem;
+}
+
+/** The `afterRemove` payload: an item left the view. */
+export interface DataViewAfterRemoveEvent {
+  /** The removed item's identity. */
+  id: unknown;
+}
+
+/**
+ * The event names a data view emits: the list view's, plus its own
+ * `beforeDrag`, `itemContextMenu`, `itemMouseOver`, `afterAdd` and `afterRemove`.
+ */
 export type DataViewEventName =
-  | 'itemClick' | 'itemDoubleClick' | 'beforeDrop' | 'afterDrop' | 'dragOut'
-  | 'selectionChange' | 'input' | 'change';
+  | 'itemClick' | 'itemDoubleClick' | 'beforeDrag' | 'beforeDrop' | 'afterDrop' | 'dragOut'
+  | 'selectionChange' | 'input' | 'change'
+  | 'itemContextMenu' | 'itemMouseOver' | 'afterAdd' | 'afterRemove';
 
 /** The payload each data view event name carries. */
 export interface DataViewEventPayloads {
@@ -152,6 +216,8 @@ export interface DataViewEventPayloads {
   itemClick: DataViewItemEvent;
   /** A card was double-clicked, or Enter was pressed on it. */
   itemDoubleClick: DataViewItemEvent;
+  /** A press on a card would start a drag; return `false` (or call `preventDefault()`) to stop it. */
+  beforeDrag: DataViewBeforeDragEvent;
   /** A drop between views is about to land; return `false` (or a Promise of it) to veto it. */
   beforeDrop: DataViewBeforeDropEvent;
   /** A reorder, move or copy committed. */
@@ -164,6 +230,14 @@ export interface DataViewEventPayloads {
   input: DataViewTemplateEvent;
   /** A `change` event bubbled from inside a card's template. */
   change: DataViewTemplateEvent;
+  /** A card was right-clicked. */
+  itemContextMenu: DataViewPointerEvent;
+  /** The pointer entered a card. */
+  itemMouseOver: DataViewPointerEvent;
+  /** An item was added, through the data API or a drop. */
+  afterAdd: DataViewAfterAddEvent;
+  /** An item was removed, through the data API or a drop. */
+  afterRemove: DataViewAfterRemoveEvent;
 }
 
 /** The instance {@link createDataView} returns. */

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.104.0, chart-scatter3d module type declarations
+ * Lattice Grid 1.104.1, chart-scatter3d module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -14,6 +14,8 @@ import type {
  * `{ field, stops, domain? }`), with orbit/zoom/pan and a colour legend.
  */
 export function drawScatter3d(ctx: object): object;
+/** How long each scatter3d axis is drawn: `'data'` (true proportions), `'cube'` (equal lengths), `{ x, y, z }` ratios, or `'auto'` (the default: `'cube'` when one range is over four times another). */
+export type Scatter3dAspect = 'auto' | 'data' | 'cube' | { x: number; y: number; z: number };
 /** The scatter3d binding: reads the numeric `x`, `y` and `z` off the grid's rows. */
 export function bindScatter3d(grid: Grid, spec: object): object;
 export default drawScatter3d;

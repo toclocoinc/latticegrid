@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.104.0</p>
+    <p class="rail__sub">Developer guide · v1.104.1</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.104.0</span>
+        <span class="chip">Version 1.104.1</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1886,7 +1886,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.104.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.104.1'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -7023,22 +7023,44 @@ grid.on('rowDrop', ({ key, parent, index, position, target }) =&gt; {
       was thinking, and carries the same shape plus <code>reason</code>; <code>rowDrop</code> follows
       once both writes have committed. Every one of the three carries <code>key</code> (the row
       dropped), <code>parent</code> (its <code>parentKey</code> value after the drop),
-      <code>index</code> (the physical index it lands at), <code>position</code> and
-      <code>target</code> (the row it was dropped onto).
+      <code>index</code> (the dropped row's final 0-based position among its new siblings, not a
+      physical row index), <code>position</code> and <code>target</code> (the row it was dropped
+      onto). A drop in the middle half lands as the new parent's last child by default; <code>tree:
+      { insidePosition: 'first' }</code> lands it first instead.
     </p>
     <p class="lead-in">
       This is the standalone <a href="tree.html">tree module</a>'s own drag-to-reparent, exposed on
       a plain grid tree too: <code>createTree(el, config)</code>'s <code>dragMode</code> is this
       same <code>rowReorder</code>, turned on, over the module's own generated
-      <code>tree.parentKey</code>. A <code>path</code>-form or function-form
+      <code>tree.parentKey</code>, and its <code>insidePosition</code> is the same
+      <code>tree.insidePosition</code> above. A <code>path</code>-form or function-form
       <code>tree.parentKey</code> has no single field a drop could write a new parent into, so such
       a tree keeps today's before/after-only drag rather than being offered a middle position it
       cannot carry out. The module reads the same two data shapes as a plain grid's own
       <code>tree</code> option &mdash; flat <code>parentKey</code> rows, or nested <code>items</code>
       whose own <code>childrenField</code> array (not <code>children</code> on a plain grid row,
       which the grid does not read) it flattens once on construction &mdash; and draws each node's
-      text from <code>labelField</code> or a <code>template</code> function.
+      text from <code>labelField</code> or a <code>template</code> function. Its own
+      <code>dragHandle</code> (<code>'grip'</code>, the default; <code>'row'</code>, matching the
+      list view's own; or <code>false</code>) says where the drag starts from, independently of
+      <code>dragMode</code>.
     </p>
+    <div class="example">
+      <p class="example__label">A tree whose drag starts anywhere on the row, and drops inside a node as its new first child</p>
+      <pre data-covers="config:TreeConfig.insidePosition config:TreeModuleConfig.insidePosition config:TreeModuleConfig.dragHandle"><code>createTree(element, {
+  data: rows,
+  dragMode: <span class="str">'both'</span>,
+  dragHandle: <span class="str">'row'</span>,
+  insidePosition: <span class="str">'first'</span>,
+});
+
+<span class="cmt">// a plain grid's own tree config takes the same option</span>
+createGrid(element, {
+  columns, rows,
+  tree: { parentKey: <span class="str">'parentId'</span>, insidePosition: <span class="str">'first'</span> },
+  rowReorder: { handle: <span class="str">'row'</span> },
+});</code></pre>
+    </div>
 
     <h2 id="master-detail">Master-detail</h2>
     <p class="lead-in">
@@ -11118,6 +11140,13 @@ return boundCount + '|' + routed;</code></pre>
       <p><strong>Keyboard.</strong> One card is in the tab order and the arrow keys move between cards
       across rows and columns; Shift extends a multi selection, Space toggles, and Enter activates.
       The view is an ARIA grid of rows and cells.</p>
+      <p><strong>A drag copy's identity.</strong> A <code>dragCopy</code> drop no longer keeps the source
+      card's id: the copy gets a fresh one, so dropping the same card twice lands two cards. Set
+      <code>copyId(item)</code> to name it yourself; without it the source id is given a
+      <code>-copy</code>/<code>-copy2</code>/... suffix, counted up until it is not already used in the
+      target. A cancellable <code>beforeDrag</code> fires with <code>{id, item}</code> before a press on a
+      card is armed as a drag, and a press that starts on a natively draggable element inside a card (an
+      <code>&lt;img&gt;</code>, say) moves the item rather than the browser's own image drag.</p>
     </div>
 
     <h3 id="shell-live">The shell module</h3>
@@ -11193,7 +11222,14 @@ return boundCount + '|' + routed;</code></pre>
       width equally among its children, and stacks them into one column once its own width drops below
       <code>colsBreakpoint</code> (default <code>480</code>px; <code>0</code> or <code>false</code> turns
       stacking off so the row never stacks). A <code>fullWidth</code> button spans the form, and inside a
-      <code>cols</code> row it fills its own column while the columns keep sharing the row. An item names a <code>type</code> &mdash;
+      <code>cols</code> row it fills its own column while the columns keep sharing the row. A
+      <code>cols</code> block&rsquo;s own <code>gap</code> sets the space between its children (one length
+      for both directions), or <code>columnGap</code>/<code>rowGap</code> set the same-line and
+      wrapped-line space separately; with <code>wrap: true</code>, a percentage <code>width</code>
+      resolves against its own rendered line&rsquo;s gaps &mdash; its own <code>gap</code>/<code>columnGap</code>
+      included &mdash; rather than the whole row&rsquo;s, so a <code>50%</code>/<code>50%</code> pair fills a
+      line exactly whatever gap it draws, and a nested block&rsquo;s own <code>width</code> is measured the
+      same way an item&rsquo;s is. An item names a <code>type</code> &mdash;
       an <code>input</code> whose <code>subtype</code> is <code>text</code>, <code>email</code>,
       <code>password</code> or <code>url</code>, a <code>number</code>, <code>textarea</code>,
       <code>checkbox</code> or <code>button</code> &mdash; a <code>label</code> at a
@@ -11206,7 +11242,14 @@ return boundCount + '|' + routed;</code></pre>
       accessible name, and a required field carries <code>aria-required</code> with the
       <code>requiredHint</code> marker (<code>true</code> &mdash; the default &mdash; appends
       <code>" *"</code> to the placeholder, a string resolves through the message catalogue, and
-      <code>false</code> shows nothing).
+      <code>false</code> shows nothing). <code>hiddenLabel: true</code> is the per-item spelling of a
+      hidden label: it keeps the label as the field&rsquo;s accessible name &mdash; a visually hidden
+      <code>&lt;label&gt;</code> still linked to the control &mdash; without drawing it, so the field
+      takes the full row whatever <code>labelPosition</code> says. The remaining common item properties
+      are <code>padding</code> (the space between the item&rsquo;s cell and its control, also on
+      containers) and <code>width</code>/<code>height</code>, which each take a pixel number, a CSS
+      length, or <code>'content'</code> to size to the control&rsquo;s own content; <code>height</code>
+      applies to every item type. Each is live through <code>getItem(name).set({&hellip;})</code>.
     </p>
     <p><strong>A left label that gives up its column when the field gets too narrow.</strong> A
       <code>left</code> label normally keeps its column however narrow the item gets, so the field
@@ -11302,6 +11345,23 @@ return boundCount + '|' + routed;</code></pre>
       clicking selects, and <code>showIcons</code> draws the done check glyphs. Both are ordinary fields:
       they commit through <code>change</code>, are gated by <code>beforeChange</code>, and round-trip
       through <code>getValue()</code>/<code>setValue()</code> like every other value-holding item.
+    </p>
+    <p class="lead-in">
+      A <code>slider</code> item is a track with one draggable thumb, or two with <code>range: true</code>
+      (the value is then <code>[low, high]</code>, and the thumbs cannot cross &mdash; a reversed configured
+      pair is put in ascending order). <code>min</code>/<code>max</code>/<code>step</code> bound and snap the
+      value exactly as a <code>number</code> item&rsquo;s do, and <code>setValue</code> clamps and snaps the
+      same way. <code>tick</code> draws a scale mark every N units and <code>majorTick</code> draws a
+      labelled, taller one every N units, formatted through <code>tickTemplate(value)</code> (the plain
+      number by default; the same formatter sets a thumb&rsquo;s <code>aria-valuetext</code>).
+      <code>tooltip</code> (default <code>true</code>) shows the live value in a small bubble while a thumb is
+      dragged or focused. <code>mode: 'vertical'</code> lays the track top-to-bottom instead of
+      left-to-right &mdash; <code>height</code> (default 160, live with <code>set()</code>) sets its length
+      &mdash; and <code>inverse: true</code> reverses which end holds the minimum. A pointer drag, a click on
+      the track, and the keyboard (arrows one step, PageUp/PageDown ten steps, Home/End) move a thumb; each
+      thumb is a <code>role="slider"</code> carrying <code>aria-valuemin</code>/<code>-valuemax</code>/
+      <code>-valuenow</code>/<code>-valuetext</code>, <code>input</code> fires on every move and
+      <code>change</code> once per committed move.
     </p>
     <p class="lead-in">
       A <code>toggle</code> item is an on/off switch &mdash; a native checkbox drawn as a pill track with a
@@ -13732,7 +13792,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.104.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.104.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>
