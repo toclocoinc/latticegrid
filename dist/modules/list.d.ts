@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.105.0, list module type declarations
+ * Lattice Grid 1.106.0, list module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

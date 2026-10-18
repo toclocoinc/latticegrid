@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.105.0</p>
+    <p class="rail__sub">Developer guide · v1.106.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.105.0</span>
+        <span class="chip">Version 1.106.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1398,6 +1398,16 @@ autoInit(document);</code></pre>
       <code>readTable</code>, <code>serialiseState</code> and <code>restoreState</code>
       precisely so a page never has to choose between the two, it is the complete package
       for anything touching htmx, not an add-on alongside the base one.</p>
+      <p><strong>When the base package is already there, share it.</strong> A page that
+      loads the base bundle for a view module — designer, kanban, gantt, calendar,
+      layout, kpi — would download that inlined copy twice. For that page the module
+      ships a second, shared build, <code>modules/htmx.shared.esm.min.js</code> (script
+      tag <code>modules/htmx.shared.min.js</code>, global
+      <code>LatticeGridHtmxShared</code>), which takes the core from the page's
+      <code>LatticeGrid</code> global the way the tree module does, so the grid core is
+      downloaded once: load <code>lattice-grid.min.js</code>, the view module and
+      <code>htmx.shared.min.js</code> together. The self-contained
+      <code>modules/htmx</code> above is the one script a grid-only page loads.</p>
       <p><strong>Surviving a swap.</strong> <code>autoInit(root)</code> builds a grid on
       every <code>[data-lattice-grid]</code> element under <code>root</code> it has not
       already built one for: idempotent, so calling it again after a swap only picks
@@ -1886,7 +1896,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.105.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.106.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -2254,6 +2264,22 @@ return `a ${on('a')} | b ${on('b')}`;</code></pre>
       <code>warnLower</code> and <code>warnUpper</code> are the inner thresholds of a
       <code>specStatus</code> shadow: a reading inside <code>lower</code> and <code>upper</code>
       but beyond one of them is still in spec and is marked <code>'WARN'</code>.</p>
+    <p>A <code>cluster</code> shadow (BACKLOG-0002658) is the same shape applied to a whole
+      set of numeric <code>columns</code> rather than one column&rsquo;s history:
+      <code>{ kind: 'cluster', columns: ['x', 'y'], method: 'kmeans', k: 3 }</code> assigns each
+      visible row a segment id over the filtered rows, and <code>clusterDistance</code> reports the
+      row&rsquo;s distance to its segment&rsquo;s centre. <code>method: 'dbscan'</code> grows
+      density-connected groups instead &mdash; <code>eps</code> is the neighbourhood radius and
+      <code>minPoints</code> the least neighbours a core point needs &mdash; and leaves sparse
+      outliers as <code>null</code> noise. <code>scale: 'standard'</code> (the default) standardises
+      each column to unit variance first so a wide-range column cannot dominate the distance;
+      <code>scale: 'none'</code> clusters in the columns&rsquo; own units, and a <code>seed</code>
+      reproduces the same segments across recomputes. The result is an ordinary numeric column, so
+      it sorts, filters, groups, colours and exports like any other. The stats surface reads the
+      same model: <code>grid.statistics.clusters(col)</code> returns the centres in original units
+      with sizes and inertia, <code>grid.statistics.autoK(spec)</code> picks <code>k</code> by the
+      elbow or silhouette criterion, and <code>grid.statistics.clusterShadow(kind, rowKey, spec)</code>
+      reads one row&rsquo;s value by key.</p>
 
     <h2 id="types">Types and formatting</h2>
     <p class="lead-in">
@@ -11207,6 +11233,18 @@ return boundCount + '|' + routed;</code></pre>
       unchanged. On the config, <code>cellIds: true</code> emits a <code>data-cell-id</code> on every cell, and a
       handle&rsquo;s <code>setSize({ width | height })</code> / <code>setHeader(textOrNode)</code> change the cell live,
       keeping a resizable cell&rsquo;s neighbour and the collapse label consistent.</p>
+      <p><strong>Drawers and dialogs.</strong> <code>createDrawer(config)</code> and
+      <code>createDialog(config)</code> open an overlay whose body is one shell cell, so the cell&rsquo;s own
+      surface &mdash; <code>content</code>, <code>title</code>, <code>headerActions</code> and
+      <code>headerCss</code> &mdash; applies unchanged. <code>createDrawer</code> takes the edge as
+      <code>side</code> (<code>right</code>, <code>left</code>, <code>top</code> or <code>bottom</code>) and the
+      panel&rsquo;s main-axis extent as <code>size</code> (pixels, a CSS length, or <code>'content'</code> to fit the
+      content with a max), and <code>createDialog</code> takes the same <code>size</code> as its width. Both return
+      <code>{ el, cell, open(), close(result), ready, closed }</code>: a <code>modal</code> overlay traps focus inside,
+      returns it to the opener on close and locks body scroll while open, <code>closeOnEscape</code>/
+      <code>closeOnBackdrop</code> opt in to those closers, and <code>closed</code> resolves with the value passed to
+      <code>close</code> &mdash; or, on a dialog, with the <code>value</code> of the clicked <code>actions</code>
+      button. The shell is destroyed on close or with the page, never the content.</p>
     </div>
 
     <h3 id="form-live">The form module</h3>
@@ -13792,7 +13830,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.105.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.106.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

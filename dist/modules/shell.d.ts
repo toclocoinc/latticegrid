@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.105.0, shell module type declarations
+ * Lattice Grid 1.106.0, shell module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -559,6 +559,73 @@ export interface Shell {
   destroy(): void;
 }
 
+/** The edge a drawer slides in from. */
+export type ShellOverlaySide = 'right' | 'left' | 'top' | 'bottom';
+
+/** One dialog action button: its label and the value a click resolves `closed` with. */
+export interface ShellDialogAction {
+  /** The button's text. */
+  label: string;
+  /** The value `closed` resolves with when this button is clicked. */
+  value?: unknown;
+}
+
+/** The options `createDrawer(config)` takes. */
+export interface ShellDrawerConfig {
+  /** The edge the drawer slides from. Default `'right'`. */
+  side?: ShellOverlaySide;
+  /** The panel's width (left/right) or height (top/bottom): px, %, or `'content'` to fit the content with a max. */
+  size?: ShellSize;
+  /** The drawer's content: a Lattice view, a DOM element, or an HTML string. */
+  content?: ShellContent;
+  /** The header title; names the overlay for `aria-labelledby`. */
+  title?: string | Node;
+  /** Extra buttons in the header strip, beside the title. */
+  headerActions?: ShellHeaderAction[];
+  /** Extra CSS on the header strip only. */
+  headerCss?: Record<string, string | number> | string;
+  /** Trap focus inside and lock body scroll while open. */
+  modal?: boolean;
+  /** Close on Escape when this drawer is the top overlay. Default true. */
+  closeOnEscape?: boolean;
+  /** Close on a backdrop click when this drawer is the top overlay. Default true. */
+  closeOnBackdrop?: boolean;
+}
+
+/** The options `createDialog(config)` takes. */
+export interface ShellDialogConfig {
+  /** The title shown above the content; names the overlay for `aria-labelledby`. */
+  title?: string | Node;
+  /** The dialog's content: a Lattice view, a DOM element, or an HTML string. */
+  content?: ShellContent;
+  /** Footer buttons; a click closes the dialog and resolves `closed` with the action's `value`. */
+  actions?: ShellDialogAction[];
+  /** The panel width: px, %, or `'content'` to fit the content with a max. */
+  size?: ShellSize;
+  /** Trap focus inside and lock body scroll while open. */
+  modal?: boolean;
+}
+
+/** The handle `createDrawer`/`createDialog` return: the overlay element, the body cell, and the open/close/result surface. */
+export interface ShellOverlay {
+  /** The overlay's root element (`role="dialog"`). */
+  el: HTMLElement;
+  /** The single shell cell the overlay's content mounts into. */
+  cell: ShellCellInstance;
+  /** Resolves once the shell is laid out (at once, like `createShell`); rejects if the overlay closes first. */
+  ready: Promise<void>;
+  /** Append the overlay to the page and reveal it. */
+  open(): ShellOverlay;
+  /** Close the overlay; `closed` resolves with `result` once it is gone. */
+  close(result?: unknown): ShellOverlay;
+  /** Resolves when the overlay finishes closing, with the value passed to `close` (or the action's `value`). */
+  closed: Promise<unknown>;
+}
+
 /** Create a shell inside an element: cells nested as rows and columns, sized by flexbox. */
 export function createShell(el: HTMLElement, config?: ShellConfig): Shell;
+/** Create a drawer overlay: a shell cell sliding in from one edge. */
+export function createDrawer(config?: ShellDrawerConfig): ShellOverlay;
+/** Create a dialog overlay: a centred shell cell with a title and action buttons. */
+export function createDialog(config?: ShellDialogConfig): ShellOverlay;
 export default createShell;

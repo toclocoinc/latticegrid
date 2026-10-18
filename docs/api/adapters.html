@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Adapters API Reference — Lattice Grid 1.105.0</title>
+<title>Adapters API Reference — Lattice Grid 1.106.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -1789,6 +1789,7 @@ grid.data.serialize(); <span class="cmt">// every row's data, in source order</s
     </div>
     <h2 id="htmx-integration">htmx integration</h2>
     <p class="section-note">One file. <code>modules/htmx</code> re-exports <code>createGrid</code>, <code>autoInit</code>, <code>hydrateTable</code>, <code>readTable</code>, <code>serialiseState</code> and <code>restoreState</code> alongside its own exports below, so a page using htmx integration never also loads the base bundle: that would mean two independent copies of the whole engine on one page. Registers on import: builds grids from <code>[data-lattice-grid]</code> elements or server-rendered <code>&lt;table&gt;</code>s, calendars from <code>[data-lattice-calendar]</code>, Gantts from <code>[data-lattice-gantt]</code>, maps from <code>[data-lattice-map]</code>, tears them down before htmx detaches a swapped-out subtree, and rebuilds them in newly-loaded content. <code>driveServerMode</code>/<code>driveInfiniteScroll</code> drive sort, filter and infinite scroll over plain htmx requests; <code>driveOobUpdates</code> applies out-of-band row updates in place. See <a href="../api-detail.html#htmx-guide">the guide</a> for the full request-lifecycle wiring and why infinite scroll uses two triggers.</p>
+    <p class="section-note">A page that also loads the base bundle for a view module — designer, kanban, gantt, calendar, layout, kpi — should load the shared build <code>modules/htmx.shared.esm.min.js</code> (script tag <code>modules/htmx.shared.min.js</code>, global <code>LatticeGridHtmxShared</code>) instead: it takes the grid core from the page's <code>LatticeGrid</code> global the way the tree module does, so the core is downloaded once rather than a second copy inlined into the htmx bundle. The self-contained <code>modules/htmx</code> above is the one script a grid-only page loads.</p>
 
     <pre><code><span class="kw">import</span> { autoInit, driveServerMode, driveInfiniteScroll } <span class="kw">from</span> './dist/modules/htmx.esm.min.js';
 

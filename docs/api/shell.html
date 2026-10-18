@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Shell API Reference — Lattice Grid 1.105.0</title>
+<title>Shell API Reference — Lattice Grid 1.106.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -395,8 +395,10 @@
         <a class="rail__sub-link" href="#shell-content-example">Attach, tab switching and detach, executed</a>
         <a class="rail__sub-link" href="#shell-live-example">Hide, show, add, remove, progress and a vetoed add, executed</a>
         <a class="rail__sub-link" href="#shell-conveniences-example">Conveniences: attachHTML, className, cellIds, setHeader and setSize, executed</a>
+        <a class="rail__sub-link" href="#shell-overlay-example">Drawers and dialogs, executed</a>
         <a href="#ref-shell-reference">Type reference</a>
         <a class="rail__sub-link" href="#type-Shell">Shell</a>
+        <a class="rail__sub-link" href="#type-ShellOverlay">ShellOverlay</a>
       </div>
       <div class="rail__group">
         <span class="rail__label">Pages</span>
@@ -501,6 +503,8 @@ shell.destroy();</code></pre>
           <tr><td class="sig">on(name, fn)</td><td class="desc">Subscribe to a shell event — <code>beforeCollapse</code>/<code>afterCollapse</code>, <code>beforeExpand</code>/<code>afterExpand</code>, <code>beforeAddCell</code>/<code>afterAddCell</code>, <code>beforeRemoveCell</code>/<code>afterRemoveCell</code>, <code>beforeHide</code>/<code>afterHide</code>, <code>beforeShow</code>/<code>afterShow</code>, <code>tabChange</code>, <code>stateChange</code>, or a resize event — <code>beforeResizeStart</code> (cancellable), <code>resize</code>, <code>afterResizeEnd</code> — or to <code>'*'</code> for every past-tense event; returns an unsubscribe. A <code>before*</code> handler cancels by calling <code>preventDefault(reason?)</code> or returning <code>false</code>.</td></tr>
           <tr><td class="sig">off(name, fn)</td><td class="desc">Remove a handler registered with <code>on</code>.</td></tr>
           <tr><td class="sig">destroy()</td><td class="desc">Release every content, empty the element, remove only what the module added, and drop every cell record, splitter listener and handler. The host still owns the element and every content element again.</td></tr>
+          <tr><td class="sig">createDrawer(config)</td><td class="desc">Create a drawer overlay: a shell cell that slides in from one edge, with its title in the cell's header strip. <code>config</code> is <code>{ side, size, content, title, headerActions, headerCss, modal, closeOnEscape, closeOnBackdrop }</code>. Returns <code>{ el, cell, open(), close(result), ready, closed }</code>; <code>closed</code> resolves with the value passed to <code>close</code>.</td></tr>
+          <tr><td class="sig">createDialog(config)</td><td class="desc">Create a dialog overlay: a centred shell cell with its title above and its action buttons below. <code>config</code> is <code>{ title, content, actions, size, modal }</code>; a click on an action resolves <code>closed</code> with that action's <code>value</code>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -711,6 +715,56 @@ main.attachHTML('&lt;em&gt;x&lt;/em&gt;');
 <span class="kw">const</span> attached = main.getWidget().textContent === 'x';
 shell.destroy();
 <span class="kw">return</span> [htmlKey, classed, ided, headered, sized, attached].join('|');</code></pre>
+
+    <h3 id="shell-overlay-example">Drawers and dialogs, executed</h3>
+    <p class="section-note"><code>createDrawer</code> and <code>createDialog</code> open an overlay whose body is one shell cell, so
+    <code>content</code>, <code>title</code>, <code>headerActions</code>, <code>headerCss</code> and <code>ready</code> all behave
+    exactly as on a plain cell. Both stack above the page (and each other), a <code>modal</code> overlay locks body scroll,
+    <code>closeOnEscape</code>/<code>closeOnBackdrop</code> opt in to those closers, and <code>closed</code> resolves with the
+    value passed to <code>close</code> — or an action's <code>value</code> on a dialog. The real focus trap, Tab cycle, Escape,
+    stacking order and open/close animation are asserted against real Chrome in
+    <code>test/shell-overlay-browser.test.js</code>; this block asserts the DOM, the scroll lock and the result surface over the
+    test DOM.</p>
+    <pre data-run="js" data-expect="dialog|true|Drawer|drawn|hidden|true|dialog|false|Cancel,Confirm|function|true" data-covers="export:createDrawer export:createDialog config:ShellDrawerConfig.side config:ShellDrawerConfig.size config:ShellDrawerConfig.content config:ShellDrawerConfig.title config:ShellDrawerConfig.headerActions config:ShellDrawerConfig.headerCss config:ShellDrawerConfig.modal config:ShellDrawerConfig.closeOnEscape config:ShellDrawerConfig.closeOnBackdrop config:ShellDialogConfig.title config:ShellDialogConfig.content config:ShellDialogConfig.actions config:ShellDialogConfig.size config:ShellDialogConfig.modal"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createDrawer, createDialog } = <span class="kw">await</span> import('../packages/modules/shell/index.js');
+
+<span class="kw">const</span> { document: doc } = createTestDom();
+<span class="kw">const</span> prevDoc = globalThis.document;
+globalThis.document = doc;                     <span class="cmt">// the factories read the page document</span>
+<span class="kw">try</span> {
+  <span class="kw">const</span> drawer = createDrawer({
+    side: <span class="str">'left'</span>, size: 260, content: <span class="str">'&lt;b&gt;drawn&lt;/b&gt;'</span>, title: <span class="str">'Drawer'</span>,
+    headerActions: [{ icon: <span class="str">'x'</span>, ariaLabel: <span class="str">'Close'</span>, onClick() {} }],
+    headerCss: { color: <span class="str">'rgb(1, 2, 3)'</span> },
+    modal: <span class="kw">true</span>, closeOnEscape: <span class="kw">true</span>, closeOnBackdrop: <span class="kw">false</span>,
+  });
+  drawer.open();                               <span class="cmt">// appends to the body, reveals it</span>
+  <span class="kw">const</span> drawerRole = drawer.el.getAttribute('role');          <span class="cmt">// 'dialog'</span>
+  <span class="kw">const</span> drawerModal = drawer.el.getAttribute('aria-modal');    <span class="cmt">// 'true'</span>
+  <span class="kw">const</span> titleText = drawer.el.querySelector('.lat-shell__header-text').textContent; <span class="cmt">// 'Drawer'</span>
+  <span class="kw">const</span> drawn = drawer.cell.getWidget().textContent;           <span class="cmt">// 'drawn' — the content mounted</span>
+  <span class="kw">const</span> scrolled = doc.body.style.overflow;                    <span class="cmt">// 'hidden' — modal locks scroll</span>
+  drawer.close(<span class="str">'left'</span>);                          <span class="cmt">// resolves closed, removes the root</span>
+  <span class="kw">const</span> gone = !doc.body.contains(drawer.el);                  <span class="cmt">// true</span>
+
+  <span class="kw">const</span> dialog = createDialog({
+    title: <span class="str">'Confirm?'</span>, content: <span class="str">'&lt;form&gt;&lt;input&gt;&lt;/form&gt;'</span>,
+    actions: [{ label: <span class="str">'Cancel'</span>, value: <span class="str">'cancel'</span> }, { label: <span class="str">'Confirm'</span>, value: <span class="str">'confirm'</span> }],
+    size: <span class="str">'content'</span>, modal: <span class="kw">false</span>,
+  });
+  dialog.open();                               <span class="cmt">// role="dialog", aria-modal="false"</span>
+  <span class="kw">const</span> dialogRole = dialog.el.getAttribute('role');
+  <span class="kw">const</span> dialogModal = dialog.el.getAttribute('aria-modal');
+  <span class="kw">const</span> buttons = dialog.el.querySelectorAll('.lat-shell-overlay__action');
+  <span class="kw">const</span> actionLabels = [buttons[0].textContent, buttons[1].textContent].join(<span class="str">','</span>); <span class="cmt">// 'Cancel,Confirm'</span>
+  <span class="kw">const</span> promised = <span class="kw">typeof</span> dialog.closed.then;             <span class="cmt">// 'function' — closed is a Promise</span>
+  dialog.close(<span class="str">'confirm'</span>);
+  <span class="kw">const</span> dialogGone = !doc.body.contains(dialog.el);
+
+  <span class="kw">return</span> [drawerRole, drawerModal, titleText, drawn, scrolled, gone, dialogRole, dialogModal, actionLabels, promised, dialogGone].join('|');
+} <span class="kw">finally</span> {
+  globalThis.document = prevDoc;
+}</code></pre>
     <h2 id="ref-shell-reference">Type reference</h2>
     <p class="section-note">Generated from the type declarations, so it always matches the release. Each surface lists its properties, its methods and the events it raises as three tables; an option or value type lists its members once.</p>
     <h3 id="ref-module-shell">The shell module</h3>
@@ -1228,6 +1282,75 @@ shell.destroy();
         </tbody>
       </table>
     </div>
+    <h4 id="type-ShellDialogAction">ShellDialogAction</h4>
+    <p class="section-note">One dialog action button: its label and the value a click resolves `closed` with.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The button's text.</td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The value `closed` resolves with when this button is clicked. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellDrawerConfig">ShellDrawerConfig</h4>
+    <p class="section-note">The options `createDrawer(config)` takes (BACKLOG-0002656).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">side</td><td class="type"><a href="types.html#type-ShellOverlaySide">ShellOverlaySide</a> <small class="literals">'right' | 'left' | 'top' | 'bottom'</small></td><td class="desc">The edge the drawer slides from. Default `'right'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">size</td><td class="type"><a href="types.html#type-ShellSize">ShellSize</a> <small class="literals">number | string</small></td><td class="desc">The panel's width (left/right) or height (top/bottom): px, %, or `'content'` to fit the content with a max. <small>(optional)</small></td></tr>
+          <tr><td class="name">content</td><td class="type"><a href="types.html#type-ShellContent">ShellContent</a></td><td class="desc">The drawer's content: a Lattice view, a DOM element, or an HTML string. <small>(optional)</small></td></tr>
+          <tr><td class="name">title</td><td class="type">string | Node</td><td class="desc">The header title; names the overlay for `aria-labelledby`. <small>(optional)</small></td></tr>
+          <tr><td class="name">headerActions</td><td class="type"><a href="#type-ShellHeaderAction">ShellHeaderAction</a>[]</td><td class="desc">Extra buttons in the header strip, beside the title. <small>(optional)</small></td></tr>
+          <tr><td class="name">headerCss</td><td class="type">Record&lt;string, string | number&gt; | string</td><td class="desc">Extra CSS on the header strip only. <small>(optional)</small></td></tr>
+          <tr><td class="name">modal</td><td class="type">boolean</td><td class="desc">Trap focus inside and lock body scroll while open. <small>(optional)</small></td></tr>
+          <tr><td class="name">closeOnEscape</td><td class="type">boolean</td><td class="desc">Close on Escape when this drawer is the top overlay. Default true. <small>(optional)</small></td></tr>
+          <tr><td class="name">closeOnBackdrop</td><td class="type">boolean</td><td class="desc">Close on a backdrop click when this drawer is the top overlay. Default true. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellDialogConfig">ShellDialogConfig</h4>
+    <p class="section-note">The options `createDialog(config)` takes (BACKLOG-0002656).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">title</td><td class="type">string | Node</td><td class="desc">The title shown above the content; names the overlay for `aria-labelledby`. <small>(optional)</small></td></tr>
+          <tr><td class="name">content</td><td class="type"><a href="types.html#type-ShellContent">ShellContent</a></td><td class="desc">The dialog's content: a Lattice view, a DOM element, or an HTML string. <small>(optional)</small></td></tr>
+          <tr><td class="name">actions</td><td class="type"><a href="#type-ShellDialogAction">ShellDialogAction</a>[]</td><td class="desc">Footer buttons; a click closes the dialog and resolves `closed` with the action's `value`. <small>(optional)</small></td></tr>
+          <tr><td class="name">size</td><td class="type"><a href="types.html#type-ShellSize">ShellSize</a> <small class="literals">number | string</small></td><td class="desc">The panel width: px, %, or `'content'` to fit the content with a max. <small>(optional)</small></td></tr>
+          <tr><td class="name">modal</td><td class="type">boolean</td><td class="desc">Trap focus inside and lock body scroll while open. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellOverlay">ShellOverlay</h4>
+    <p class="section-note">The handle `createDrawer`/`createDialog` return: the overlay element, the body cell, and the open/close/result surface.</p>
+    <h5 id="type-ShellOverlay-properties">Properties</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The overlay's root element (`role="dialog"`).</td></tr>
+          <tr><td class="name">cell</td><td class="type"><a href="#type-ShellCellInstance">ShellCellInstance</a></td><td class="desc">The single shell cell the overlay's content mounts into.</td></tr>
+          <tr><td class="name">ready</td><td class="type">Promise&lt;void&gt;</td><td class="desc">Resolves once the shell is laid out (at once, like `createShell`); rejects if the overlay closes first.</td></tr>
+          <tr><td class="name">closed</td><td class="type">Promise&lt;unknown&gt;</td><td class="desc">Resolves when the overlay finishes closing, with the value passed to `close` (or the action's `value`).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-ShellOverlay-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">open</td><td class="type">(): <a href="#type-ShellOverlay">ShellOverlay</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-ShellOverlay">ShellOverlay</a></code></td><td class="desc">Append the overlay to the page and reveal it.</td></tr>
+          <tr><td class="name">close</td><td class="type">(result?: unknown): <a href="#type-ShellOverlay">ShellOverlay</a></td><td class="desc"><code>result?: unknown</code></td><td class="type"><code><a href="#type-ShellOverlay">ShellOverlay</a></code></td><td class="desc">Close the overlay; `closed` resolves with `result` once it is gone.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-ShellOverlay-events">Events</h5>
+    <p class="section-note">No events.</p>
 
     <footer>
       Lattice Grid API reference &middot; Copyright &copy; 2026 TOCLOCO Inc.

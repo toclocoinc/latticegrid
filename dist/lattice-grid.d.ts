@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.105.0, type declarations
+ * Lattice Grid 1.106.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -2116,6 +2116,10 @@ export type ShadowDecomposition = 'additive' | 'multiplicative';
 export type SmoothingMethod = 'ses' | 'holt';
 /** A regression shadow's fitting method. */
 export type RegressionMethod = 'ols' | 'wls' | 'robust' | 'quantile';
+/** A clustering shadow's method: k-means partitions into `k` groups, DBSCAN grows density-connected groups. */
+export type ClusterMethod = 'kmeans' | 'dbscan';
+/** Whether a clustering shadow standardises each column before clustering. */
+export type ClusterScale = 'standard' | 'none';
 /** A running total's shape: a running sum, a running percentage, or a period-over-period delta. */
 export type RunningTotalMode = 'total' | 'percent' | 'delta';
 /** The options a column's data type reads (`Column.typeOptions`). */
@@ -2354,7 +2358,37 @@ export interface Column {
     model?: RegressionSpec;
     predictors?: string[];
     response?: string;
-    method?: RegressionMethod;
+    method?: RegressionMethod | ClusterMethod;
+    /**
+     * For a clustering kind (`cluster`/`clusterDistance`), the
+     * numeric columns to cluster over. A row missing any of them reads `null`.
+     */
+    columns?: string[];
+    /**
+     * For `method: 'kmeans'`, the number of clusters (default 3). `autoK`
+     * chooses it when it is not known ahead of time.
+     */
+    k?: number;
+    /**
+     * For `method: 'dbscan'`, the neighbourhood radius (in the working space) two
+     * points must be within to be neighbours.
+     */
+    eps?: number;
+    /**
+     * For `method: 'dbscan'`, the least neighbours a core point needs (default 5).
+     */
+    minPoints?: number;
+    /**
+     * Whether to standardise each column to unit variance before clustering.
+     * `'standard'` (the default) stops a wide-range column dominating; `'none'`
+     * clusters in the columns' own units.
+     */
+    scale?: ClusterScale;
+    /**
+     * A PRNG seed for the k-means start, so the same data reproduces the same
+     * segments.
+     */
+    seed?: number;
   };
   /**
    * A running total down the grid **as it is currently ordered**.
@@ -6466,6 +6500,26 @@ export interface StatisticsApi {
   fitShadow(kind: 'fitPredicted' | 'fitResidual' | 'fitInfluence'
     | 'fitStdResidual' | 'fitLeverage' | 'fitCooksD',
   rowKey: string, spec: RegressionSpec): number | boolean | null;
+  /**
+   * One clustering shadow value for a row, by key: the
+   * segment id (`cluster`) or the distance to the row's cluster centre
+   * (`clusterDistance`), over the filtered rows. Null for a row outside the
+   * clustering.
+   */
+  clusterShadow(kind: 'cluster' | 'clusterDistance', rowKey: string,
+    spec: ClusterSpec): number | null;
+  /**
+   * The clusters a `cluster`/`clusterDistance` column found,
+   * over the filtered rows. Pass the column id, or a `ClusterSpec` directly.
+   */
+  clusters(specOrColumn: string | ClusterSpec): ClusterModel | null;
+  /**
+   * Choose `k` for a k-means clustering automatically, by the
+   * elbow or silhouette criterion, and report the choice with the scores it
+   * chose from.
+   */
+  autoK(spec: ClusterSpec & { criterion?: 'elbow' | 'silhouette'; maxK?: number }):
+    { k: number; criterion: 'elbow' | 'silhouette'; scores: number[]; ks: number[] } | null;
   /** A running total at one row, down the grid as it is currently ordered. */
   running(colId: string, kind: 'total' | 'percent', rowKey: string): number | null;
   /** Make the current values the new baseline: "mark all". */
@@ -6996,7 +7050,17 @@ export type ShadowKind =
    * spread to standardise against.
    */
   | 'fitPredicted' | 'fitResidual' | 'fitInfluence'
-  | 'fitStdResidual' | 'fitLeverage' | 'fitCooksD';
+  | 'fitStdResidual' | 'fitLeverage' | 'fitCooksD'
+  /**
+   * Clustering shadows: `cluster` assigns each row a segment
+   * id from a k-means or DBSCAN clustering over the columns named on the
+   * declaration (`shadow: { kind: 'cluster', columns, method: 'kmeans', k }`);
+   * `clusterDistance` is the companion that reports the row's distance to its
+   * cluster centre. They follow the grid's filters, are sortable, filterable,
+   * groupable and exportable like any cell, and read `null` for a row missing a
+   * chosen column or (density) marked noise.
+   */
+  | 'cluster' | 'clusterDistance';
 
 /** The three verdicts a `specStatus` shadow can report. */
 export type SpecStatus = 'PASS' | 'WARN' | 'FAIL';
@@ -7181,6 +7245,44 @@ export interface RegressionModel {
   response: string;
   /** The physical rows the diagnostics are aligned to, in order. */
   rows: number[];
+}
+
+/** The specification of a clustering. */
+export interface ClusterSpec {
+  /** The numeric column ids to cluster over. */
+  columns: string[];
+  /** Which method partitions the rows: k-means (`k` groups) or DBSCAN (density). */
+  method?: ClusterMethod;
+  /** For k-means, the number of clusters (default 3). */
+  k?: number;
+  /** For DBSCAN, the neighbourhood radius. */
+  eps?: number;
+  /** For DBSCAN, the least neighbours a core point needs (default 5). */
+  minPoints?: number;
+  /** Standardise each column first (`'standard'`, the default) or cluster as-is (`'none'`). */
+  scale?: ClusterScale;
+  /** A PRNG seed for the k-means start. */
+  seed?: number;
+}
+
+/** The clusters a `statistics.clusters` call found. */
+export interface ClusterModel {
+  /** Which method produced the clusters. */
+  method: ClusterMethod;
+  /** The column ids clustered over, in order. */
+  columns: string[];
+  /** Whether the columns were standardised before clustering. */
+  scale: ClusterScale;
+  /** How many segments were found. */
+  k: number;
+  /** Each segment's centre, in the columns' original units. */
+  centres: number[][];
+  /** Each segment's size, in the same order as `centres`. */
+  sizes: number[];
+  /** For k-means, the within-cluster sum of squares in the clustering space; null for DBSCAN. */
+  inertia: number | null;
+  /** For DBSCAN, how many rows were noise; null for k-means. */
+  noise: number | null;
 }
 
 export interface ProcessCapability {

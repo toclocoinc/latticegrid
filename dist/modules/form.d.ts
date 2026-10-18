@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.105.0, form module type declarations
+ * Lattice Grid 1.106.0, form module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -716,7 +716,7 @@ export interface FormBlock {
   labelWidth?: number | string;
   /** The width below which a `left` label switches to the top instead; on a container or fieldset this is the default its items inherit. See {@link FormItemConfig.controlMinWidth}. */
   controlMinWidth?: number | string;
-  /** The item's width; on a container, fieldset or panel block nested in a `cols` row, its own share of that row, applied exactly as an item's `width` is, with and without `wrap`. */
+  /** The item's width; on a spacer, container, fieldset or panel block nested in a `cols` row, its own share of that row, applied exactly as an item's `width` is, with and without `wrap`. */
   width?: number | string;
   /** Placeholder text. */
   placeholder?: string;

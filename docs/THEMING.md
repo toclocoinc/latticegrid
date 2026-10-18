@@ -518,6 +518,9 @@ Charts, KPI tiles and the map view (BACKLOG-0002191) declare their role defaults
 | `--lattice-shell-header-font-size` | `var(--lattice-header-font-size)` | a panel header’s title text size | MAY |
 | `--lattice-shell-header-font-weight` | `var(--lattice-header-font-weight)` | a panel header’s title text weight | MAY |
 | `--lattice-shell-header-border` | `var(--lattice-border-color)` | a panel header’s bottom border | MAY |
+| `--lattice-shell-overlay-backdrop` | `var(--lattice-overlay-background, rgba(0,0,0,.5))` | the overlay backdrop scrim | MAY |
+| `--lattice-shell-overlay-panel` | `var(--lattice-surface, #fff)` | the overlay panel surface | MAY |
+| `--lattice-shell-overlay-shadow` | `var(--lattice-popup-shadow, 0 8px 24px rgba(0,0,0,.2))` | the overlay panel shadow | MAY |
 
 ### Charts roles (module-owned)
 

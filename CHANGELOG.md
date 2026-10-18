@@ -9,6 +9,33 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.106.0] - 2026-10-18
+
+### Added
+
+- **The shell gains `createDrawer` and `createDialog`: overlays whose body is a shell cell** (BACKLOG-0002656). A drawer slides in from one edge with its title in the cell's header strip; a dialog centres itself with the title above and its action buttons below. Both take the cell surface unchanged — `content`, `title`, `headerActions`, `headerCss`, `ready` — and return `{ el, cell, open(), close(result), ready, closed }`. Overlays stack, a `modal` overlay traps focus and locks body scroll, Escape/backdrop close as configured, `closed` resolves with the value passed to `close` (or a dialog action's `value`), and the shell is destroyed on close or with the page, never its content.
+
+- Cluster shadow columns assign every visible row a segment id over the filtered rows (BACKLOG-0002658):
+  - `shadow: { kind: 'cluster', columns: ['x', 'y'], method: 'kmeans', k: 3 }`, with `kind: 'clusterDistance'` as the companion distance to the row's centre
+  - `method: 'dbscan'` grows density-connected groups and leaves sparse outliers as `null` noise (`eps`, `minPoints`)
+  - each column is standardised first by default (`scale: 'standard'`, or `'none'` for raw units); a row missing any chosen column reads `null`
+  - `grid.statistics.clusters(col)` reports centres in original units, sizes and inertia; `grid.statistics.autoK(spec)` picks `k` by elbow or silhouette; `grid.statistics.clusterShadow(kind, rowKey, spec)` reads one row's value
+
+### Fixed
+
+- **A page that loads the core, a view module and the htmx module downloaded the grid core twice** (BACKLOG-0002664). The htmx module carried its own copy of the whole grid, so a page that also loaded `lattice-grid.min.js` for a view module paid for it a second time. The module now ships a shared build — `modules/htmx.shared.esm.min.js` (script tag `modules/htmx.shared.min.js`, global `LatticeGridHtmxShared`) — that takes the core from the page's `LatticeGrid` global the way the tree module does.
+  - **Unchanged.** The self-contained `modules/htmx` build is still the one script a grid-only page loads; only a page that already loads the base bundle for a view module should reach for the shared build.
+
+- **A `spacer` in a `cols` row ignored its `width`, and a nested `cols` block with no gap of its own inherited its parent's `columnGap`/`rowGap`** (BACKLOG-0002671). A `spacer` honours `width` exactly as a field does — in a wrapping row, sized against its own rendered line's items and gaps — and a nested `cols` block falls back to the theme gap unless it sets its own.
+
+- **A scatter3d side legend squeezed the chart title into a narrow column, printed its vertical ramp's minimum at the top, drew its tick labels in the faint axis colour and hid its axes behind the point cloud** (BACKLOG-0002672).
+  - With a `legend: { position: 'left' | 'right' }`, the chart title now still spans the full width of the top of the chart, and the plot keeps the width the legend leaves it, instead of the title wrapping beside the plot.
+  - A vertical colour ramp now reads its minimum at the bottom and its maximum at the top, each label beside the colour it names.
+  - Scatter3d tick labels are drawn in the chart's normal text colour; the axis lines and tick marks stay faint.
+  - Each axis now runs along the box edge nearest the viewer at the current camera and is re-chosen as the camera orbits, so its ticks are never hidden behind the cloud at the default camera.
+
+- **A cell whose row has no value for its column could show the previous row's text** (BACKLOG-0002677). When the drawn rows shifted (a `rows.apply({ add })` into a sorted grid, a re-sort, a page change or a removal), a recycled cell whose new row had an empty value kept the text it drew before whenever the column had a cell `tooltip` function, so one row's phone, email or other value could show against another row. The grid's data was always right; only the painted cell was stale. An emptied cell is now always cleared, in every paint path.
+
 ## [1.105.0] - 2026-10-17
 
 ### Added

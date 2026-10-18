@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.105.0</title>
+<title>Types API Reference — Lattice Grid 1.106.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -1387,6 +1387,39 @@
           <tr><td class="name">rows</td><td class="type"><a href="#type-ExportRowsScope">ExportRowsScope</a> <small class="literals">'visible' | 'all' | 'selected' | 'range'</small></td><td class="desc">What to copy: `'visible'`, `'all'`, `'selected'` rows, or `'range'` for the selected cell rectangle. <small>(optional)</small></td></tr>
           <tr><td class="name">sanitise</td><td class="type">boolean</td><td class="desc">Apply the CSV/Excel formula-injection guard to copied cells: prefix a field beginning with `=`, `+`, `-`, `@`, a tab or a CR with an apostrophe so a spreadsheet treats it as text. **Off by default** (unlike CSV/Excel export, which default it on), because the clipboard most often round-trips back into a grid or cell range where the apostrophe would corrupt the value. Turn it on when your users paste the clipboard into Excel or Google Sheets. <small>(optional)</small></td></tr>
           <tr><td class="name">rowNumbers</td><td class="type">boolean</td><td class="desc">Include the `rowNumbers` column (BACKLOG-0001437), the same opt-in CSV and Excel export use. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ClusterModel">ClusterModel</h4>
+    <p class="section-note">The clusters a `statistics.clusters` call found (BACKLOG-0002658).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">method</td><td class="type"><a href="#type-ClusterMethod">ClusterMethod</a> <small class="literals">'kmeans' | 'dbscan'</small></td><td class="desc">Which method produced the clusters.</td></tr>
+          <tr><td class="name">columns</td><td class="type">string[]</td><td class="desc">The column ids clustered over, in order.</td></tr>
+          <tr><td class="name">scale</td><td class="type"><a href="#type-ClusterScale">ClusterScale</a> <small class="literals">'standard' | 'none'</small></td><td class="desc">Whether the columns were standardised before clustering.</td></tr>
+          <tr><td class="name">k</td><td class="type">number</td><td class="desc">How many segments were found.</td></tr>
+          <tr><td class="name">centres</td><td class="type">number[][]</td><td class="desc">Each segment's centre, in the columns' original units.</td></tr>
+          <tr><td class="name">sizes</td><td class="type">number[]</td><td class="desc">Each segment's size, in the same order as `centres`.</td></tr>
+          <tr><td class="name">inertia</td><td class="type">number | null</td><td class="desc">For k-means, the within-cluster sum of squares in the clustering space; null for DBSCAN.</td></tr>
+          <tr><td class="name">noise</td><td class="type">number | null</td><td class="desc">For DBSCAN, how many rows were noise; null for k-means.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ClusterSpec">ClusterSpec</h4>
+    <p class="section-note">The specification of a clustering (BACKLOG-0002658).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">columns</td><td class="type">string[]</td><td class="desc">The numeric column ids to cluster over.</td></tr>
+          <tr><td class="name">method</td><td class="type"><a href="#type-ClusterMethod">ClusterMethod</a> <small class="literals">'kmeans' | 'dbscan'</small></td><td class="desc">Which method partitions the rows: k-means (`k` groups) or DBSCAN (density). <small>(optional)</small></td></tr>
+          <tr><td class="name">k</td><td class="type">number</td><td class="desc">For k-means, the number of clusters (default 3). <small>(optional)</small></td></tr>
+          <tr><td class="name">eps</td><td class="type">number</td><td class="desc">For DBSCAN, the neighbourhood radius. <small>(optional)</small></td></tr>
+          <tr><td class="name">minPoints</td><td class="type">number</td><td class="desc">For DBSCAN, the least neighbours a core point needs (default 5). <small>(optional)</small></td></tr>
+          <tr><td class="name">scale</td><td class="type"><a href="#type-ClusterScale">ClusterScale</a> <small class="literals">'standard' | 'none'</small></td><td class="desc">Standardise each column first (`'standard'`, the default) or cluster as-is (`'none'`). <small>(optional)</small></td></tr>
+          <tr><td class="name">seed</td><td class="type">number</td><td class="desc">A PRNG seed for the k-means start. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -2806,6 +2839,12 @@
     <h4 id="type-ChartZoomReason">ChartZoomReason</h4>
     <p class="section-note">What moved a zoom, as reported by the `zoom` event. `pinch` is a two-finger pinch on a touch screen; `filter` is the grid's filter moving the view of a chart whose grid follows it ({@link ChartSpec.viewportFilter}): the chart's condition cleared in the grid (the zoom resets), or put back by an undo or a redo (the view returns to it) (BACKLOG-0001707).</p>
     <p class="type-def"><code>type ChartZoomReason = 'button' | 'wheel' | 'key' | 'pan' | 'pinch' | 'reset' | 'api' | 'group' | 'filter'</code></p>
+    <h4 id="type-ClusterMethod">ClusterMethod</h4>
+    <p class="section-note">A clustering shadow's method: k-means partitions into `k` groups, DBSCAN grows density-connected groups.</p>
+    <p class="type-def"><code>type ClusterMethod = 'kmeans' | 'dbscan'</code></p>
+    <h4 id="type-ClusterScale">ClusterScale</h4>
+    <p class="section-note">Whether a clustering shadow standardises each column before clustering.</p>
+    <p class="type-def"><code>type ClusterScale = 'standard' | 'none'</code></p>
     <h4 id="type-ColumnExportLookup">ColumnExportLookup</h4>
     <p class="section-note">How a lookup column leaves in an export: its label, its stored value, or both.</p>
     <p class="type-def"><code>type ColumnExportLookup = 'label' | 'value' | 'columns'</code></p>
@@ -3741,6 +3780,10 @@
     <h4 id="type-ShellEventName">ShellEventName</h4>
     <p class="section-note">The events a shell raises, on `shell.on()` (BACKLOG-0002136, BACKLOG-0002137, BACKLOG-0002138, BACKLOG-0002139, BACKLOG-0002140). The shell's own, not a grid's: `grid.on` takes {@link EventName} and knows nothing about these. `on()` warns once on any other name, because a binding to an event that can never fire is a silent no-op. The cancellable `before*` events — `beforeCollapse`, `beforeExpand`, `beforeAddCell`, `beforeRemoveCell`, `beforeHide`, `beforeShow` and `beforeResizeStart` — run before the cell moves, on the same contract the grid core uses: call `preventDefault(reason?)` on the payload, or return `false`; a veto keeps the cell (or the two cells' sizes) unchanged. The past-tense events — `afterCollapse`, `afterExpand`, `afterAddCell`, `afterRemoveCell`, `afterHide`, `afterShow`, `resize`, `afterResizeEnd`, `tabChange` and `stateChange` — report a change already applied and carry no `preventDefault`.</p>
     <p class="type-def"><code>type ShellEventName = 'beforeCollapse' | 'beforeExpand' | 'afterCollapse' | 'afterExpand' | 'beforeAddCell' | 'afterAddCell' | 'beforeRemoveCell' | 'afterRemoveCell' | 'beforeHide' | 'afterHide' | 'beforeShow' | 'afterShow' | 'tabChange' | 'stateChange' | 'beforeResizeStart' | 'resize' | 'afterResizeEnd'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/shell</code>.</small></p>
+    <h4 id="type-ShellOverlaySide">ShellOverlaySide</h4>
+    <p class="section-note">The edge a drawer slides in from.</p>
+    <p class="type-def"><code>type ShellOverlaySide = 'right' | 'left' | 'top' | 'bottom'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/shell</code>.</small></p>
     <h4 id="type-ShellSize">ShellSize</h4>
     <p class="section-note">A cell size: pixels as a number, or any CSS length string such as `'30%'`.</p>

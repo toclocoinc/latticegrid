@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.105.0, designer module
+ * Lattice Grid 1.106.0, designer module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -704,11 +704,35 @@ ${le}{
    legend floating over the marks. */
 .${t}__figure:has(> .${t}__legend[data-position="top"]){flex-direction:column}
 .${t}__legend[data-position="top"]{order:-1}
-.${t}__figure:has(> .${t}__legend[data-position="left"]),
-.${t}__figure:has(> .${t}__legend[data-position="right"]){flex-direction:row;align-items:stretch}
+/* A side legend turns the figure into a two-column grid: the caption
+   (title/subtitle), the footnote and the attribution span the full width on
+   their own rows, and the plot shares the remaining row with the legend — so
+   the title still runs across the top and the plot takes the width the legend
+   leaves it. The legend column is fit-content(40%): it sizes to the legend's
+   content but never past 40% of the figure, so a long legend title wraps
+   instead of eating the plot (a bare auto track would take the title's full
+   max-content and could collapse the plot to nothing). */
+.${t}__figure:has(> .${t}__legend[data-position="right"]){display:grid;
+  grid-template-columns:minmax(0,1fr) fit-content(40%);grid-template-rows:auto minmax(0,1fr)}
+.${t}__figure:has(> .${t}__legend[data-position="left"]){display:grid;
+  grid-template-columns:fit-content(40%) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+.${t}__figure:has(> .${t}__legend[data-position="left"]) .${t}__caption,
+.${t}__figure:has(> .${t}__legend[data-position="right"]) .${t}__caption,
+.${t}__figure:has(> .${t}__legend[data-position="left"]) .${t}__footnote,
+.${t}__figure:has(> .${t}__legend[data-position="right"]) .${t}__footnote,
+.${t}__figure:has(> .${t}__legend[data-position="left"]) .${t}__attribution,
+.${t}__figure:has(> .${t}__legend[data-position="right"]) .${t}__attribution{grid-column:1 / -1}
+.${t}__figure:has(> .${t}__legend[data-position="right"]) .${t}__plot{grid-column:1;grid-row:2}
+.${t}__figure:has(> .${t}__legend[data-position="right"]) .${t}__legend{grid-column:2;grid-row:2}
+.${t}__figure:has(> .${t}__legend[data-position="left"]) .${t}__plot{grid-column:2;grid-row:2}
+.${t}__figure:has(> .${t}__legend[data-position="left"]) .${t}__legend{grid-column:1;grid-row:2}
+/* The grid track already caps a side legend at 40% of the figure, and inside
+   that track a percentage max-width would measure against the track rather
+   than the figure — so leave the width to the track and only keep the column
+   direction, the scroll fallback and the padding. */
 .${t}__legend[data-position="left"],.${t}__legend[data-position="right"]{
   flex-direction:column;flex:0 0 auto;align-content:flex-start;
-  max-width:40%;overflow:auto;padding:4px 8px}
+  overflow:auto;padding:4px 8px}
 .${t}__legend[data-position="left"]{order:-1}
 .${t}__legend-more{align-self:center;color:var(--lattice-chart-label-fg)}
 .${t}__legend-ramp{display:flex;align-items:center;gap:6px;flex:1 1 auto;min-width:60px}

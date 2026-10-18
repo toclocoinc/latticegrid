@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.105.0, kpi module
+ * Lattice Grid 1.106.0, kpi module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

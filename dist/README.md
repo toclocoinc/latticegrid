@@ -7,7 +7,7 @@ tiles and map views, all reading the same rows, filters and theme. Vanilla
 JavaScript, no runtime dependencies, no build step; adapters for React, Vue,
 Svelte, Web Components and htmx, Angular compiled inside the package.
 
-Version 1.105.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Version 1.106.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
 
 ---
 
@@ -57,7 +57,7 @@ Every module is optional and none of them is loaded unless you import it.
 | `modules/presets.esm.min.js` | Design-system presets: a variable file and a function over the theme-token contract. |
 | `modules/ai.esm.min.js` | Bring-your-own-model narrative and insights grounded on computed figures. |
 | `modules/mock-socket.esm.min.js` | A serverless stand-in for a live WebSocket feed. |
-| `modules/htmx.esm.min.js` | htmx integration: survives htmx's DOM swaps, hydrates from a server-rendered `<table>`, and drives sort, filter and infinite scroll over plain htmx requests. UMD and CJS builds sit beside it. |
+| `modules/htmx.esm.min.js` | htmx integration: survives htmx's DOM swaps, hydrates from a server-rendered `<table>`, and drives sort, filter and infinite scroll over plain htmx requests. UMD and CJS builds sit beside it, plus a shared build (`modules/htmx.shared.esm.min.js`) that takes the grid core from the page's `LatticeGrid` global instead of carrying it. |
 | `modules/dhtmlx-compat.esm.min.js` | A compatibility wrapper for an existing grid API, for moving an existing integration across without rewriting it. |
 | `modules/devtools.esm.min.js` | The devtools panel, including the accessibility checks. |
 | `modules/react.esm.min.js` | React adapter. |
@@ -323,6 +323,15 @@ catalogue — `bytes`, `date`, and so on) sets that column's `type`; a sibling
 ignored, falling back to sampled shape typing. A `config.columns` entry
 passed to `hydrateTable` still wins over the markup for the same column.
 
+`modules/htmx` carries the grid, so it is the one script a grid-only page
+loads. A page that also loads the core for a view module (designer, kanban,
+gantt, calendar, layout, kpi) would download that copy twice, so the module
+ships a second, shared build — `modules/htmx.shared.min.js` (ESM
+`modules/htmx.shared.esm.min.js`) — that takes the core from the page's
+`LatticeGrid` global instead of inlining it, the way the tree module does. Load
+`lattice-grid.min.js`, the view module and `htmx.shared.min.js` together and
+the grid core is downloaded once.
+
 **Compatibility wrapper.** `modules/dhtmlx-compat` exposes a Grid-shaped API over
 Lattice, for moving an existing integration across a piece at a time rather
 than rewriting it in one go. It shares the core the page already loads rather
@@ -406,11 +415,14 @@ shown; append `.js` for the UMD build or `.cjs` for CommonJS.
 | angular (deprecated) | `@toclocoinc/lattice-grid/modules/angular` | `modules/angular.min.js` | `LatticeGridAngular` | The old run-time adapter for the grid alone. Needs Angular's JIT compiler, which a production build does not ship; use `@toclocoinc/lattice-grid/angular` instead. |
 | webcomponent | `@toclocoinc/lattice-grid/modules/webcomponent` | `modules/webcomponent.min.js` | `LatticeGrid` (extends it) | `<lattice-grid>` as a self-contained custom element. |
 | htmx | `@toclocoinc/lattice-grid/modules/htmx` | `modules/htmx.min.js` | `LatticeGridHtmx` | htmx integration that survives DOM swaps and hydrates from a server-rendered `<table>`. |
+| htmx (shared) | — | `modules/htmx.shared.min.js` | `LatticeGridHtmxShared` | The same integration, sharing the page's `LatticeGrid` core rather than carrying its own: load `lattice-grid.min.js`, a view module and this together and the core is downloaded once. |
 
 The framework adapters take the framework and `createGrid` handed in rather than
 importing either (see [Quick start](#react-vue-svelte-and-web-components)). The
 web component and htmx are self-contained: they carry the grid, so load them on
-their own, not beside the base package.
+their own, not beside the base package. The htmx *shared* build above is the
+exception — it is for a page that already loads the base package for a view
+module.
 
 ### Feature modules
 

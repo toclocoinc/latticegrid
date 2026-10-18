@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.105.0</p>
+    <p class="rail__sub">API reference · v1.106.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -547,6 +547,7 @@
         <a class="rail__sub-link" href="#type-Layout">Layout</a>
         <a href="#ref-module-shell">The shell module</a>
         <a class="rail__sub-link" href="#type-Shell">Shell</a>
+        <a class="rail__sub-link" href="#type-ShellOverlay">ShellOverlay</a>
         <a href="#ref-module-form">The form module</a>
         <a class="rail__sub-link" href="#type-Form">Form</a>
         <a class="rail__sub-link" href="#type-FormGroup">FormGroup</a>
@@ -590,7 +591,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.105.0</span>
+      <span class="chip">Version 1.106.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -1959,6 +1960,7 @@ grid.data.serialize(); <span class="cmt">// every row's data, in source order</s
 
     <h2 id="htmx-integration">htmx integration</h2>
     <p class="section-note">One file. <code>modules/htmx</code> re-exports <code>createGrid</code>, <code>autoInit</code>, <code>hydrateTable</code>, <code>readTable</code>, <code>serialiseState</code> and <code>restoreState</code> alongside its own exports below, so a page using htmx integration never also loads the base bundle: that would mean two independent copies of the whole engine on one page. Registers on import: builds grids from <code>[data-lattice-grid]</code> elements or server-rendered <code>&lt;table&gt;</code>s, calendars from <code>[data-lattice-calendar]</code>, Gantts from <code>[data-lattice-gantt]</code>, maps from <code>[data-lattice-map]</code>, tears them down before htmx detaches a swapped-out subtree, and rebuilds them in newly-loaded content. <code>driveServerMode</code>/<code>driveInfiniteScroll</code> drive sort, filter and infinite scroll over plain htmx requests; <code>driveOobUpdates</code> applies out-of-band row updates in place. See <a href="api-detail.html#htmx-guide">the guide</a> for the full request-lifecycle wiring and why infinite scroll uses two triggers.</p>
+    <p class="section-note">A page that also loads the base bundle for a view module — designer, kanban, gantt, calendar, layout, kpi — should load the shared build <code>modules/htmx.shared.esm.min.js</code> (script tag <code>modules/htmx.shared.min.js</code>, global <code>LatticeGridHtmxShared</code>) instead: it takes the grid core from the page's <code>LatticeGrid</code> global the way the tree module does, so the core is downloaded once rather than a second copy inlined into the htmx bundle. The self-contained <code>modules/htmx</code> above is the one script a grid-only page loads.</p>
 
     <pre><code><span class="kw">import</span> { autoInit, driveServerMode, driveInfiniteScroll } <span class="kw">from</span> './dist/modules/htmx.esm.min.js';
 
@@ -3512,7 +3514,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.105.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.106.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -4693,6 +4695,28 @@ grid.statistics.tracking();                       // { columns, rows, forgotten 
 grid.set(<span class="str">'regression'</span>, { predictors: [<span class="str">'x1'</span>], response: <span class="str">'y'</span> });   <span class="cmt">// repaints an open panel</span>
 <span class="kw">return</span> `slope ${model.coefficients[1].estimate.toFixed(2)}; predictors ${grid.get('regression').predictors.join(',')}`;</code></pre>
     <p>The same fitted model can live in the data as shadow columns (BACKLOG-0000812): <code>shadow: { kind: 'fitPredicted', model: { predictors: ['x'], response: 'y' } }</code>, and likewise <code>fitResidual</code> and <code>fitInfluence</code> — plus <code>fitStdResidual</code>, <code>fitLeverage</code> and <code>fitCooksD</code> (BACKLOG-0000872), which surface the internally studentised residual, the hat-matrix leverage and Cook's distance the engine already computes. They are ordinary numeric/boolean cells — sortable, filterable, groupable, exportable — that read the fit by row key and follow the grid's filters (the model refits over the filtered rows); a row outside the fit reads <code>null</code>. <code>fitInfluence</code> flags Cook's D &gt; 4/n by default (overridable with <code>threshold</code>), keeping "not influential" (<code>false</code>) and "cannot tell" (<code>null</code>) distinct.</p>
+    <p>A <strong>clustering</strong> can live in the data the same way (BACKLOG-0002658). Declare <code>shadow: { kind: 'cluster', columns: ['x', 'y'], method: 'kmeans', k: 3 }</code> and the grid assigns every visible row a segment id over the filtered rows; <code>kind: 'clusterDistance'</code> is the companion that reports the row's distance to its segment's centre. <code>method: 'dbscan'</code> grows density-connected groups instead and leaves sparse outliers as <code>null</code> noise (<code>eps</code> is the neighbourhood radius, <code>minPoints</code> the least neighbours a core point needs). Each column is standardised to unit variance first (<code>scale: 'standard'</code>, the default) so a wide-range column cannot dominate the distance; <code>scale: 'none'</code> clusters in the columns' own units. A row missing any chosen column reads <code>null</code>. The segments are ordinary numeric cells — sortable, filterable, groupable, colourable, exportable — and a <code>seed</code> reproduces the same segments across recomputes. <code>grid.statistics.clusters(col)</code> returns the centres (in the columns' own units), sizes and inertia; <code>grid.statistics.autoK(spec)</code> chooses <code>k</code> by the elbow or silhouette criterion and reports the choice; <code>grid.statistics.clusterShadow(kind, rowKey, spec)</code> reads one row's value. The kernel is capped (<code>CLUSTER_ROW_CAP</code> for k-means, <code>DBSCAN_ROW_CAP</code> for DBSCAN) rather than delivered late on the main thread.</p>
+    <pre data-run="js" data-expect="3 3 3 true" data-covers="config:Column.shadow.columns config:Column.shadow.k config:Column.shadow.eps config:Column.shadow.minPoints config:Column.shadow.scale config:Column.shadow.seed method:statistics.clusters method:statistics.autoK method:statistics.clusterShadow"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+// Three blobs; `cluster` names each row's segment and `clusterDistance` its
+// distance to the segment's centre, both over x and y.
+const rows = [];
+for (const [n, [cx, cy]] of Object.entries({ a: [0, 0], b: [10, 10], c: [20, 0] })) {
+  for (let p = 0; p &lt; 5; p++) rows.push({ id: n + p, x: cx + p * 0.1, y: cy + (p % 2) * 0.1 });
+}
+const grid = createHeadlessGrid({
+  columns: [
+    { field: 'x', type: 'number' }, { field: 'y', type: 'number' },
+    { id: 'seg', shadow: { kind: 'cluster', columns: ['x', 'y'], method: 'kmeans', k: 3, scale: 'standard', seed: 7 } },
+    { id: 'segdist', shadow: { kind: 'clusterDistance', columns: ['x', 'y'], method: 'kmeans', k: 3, scale: 'standard', seed: 7 } },
+    { id: 'dense', shadow: { kind: 'cluster', columns: ['x', 'y'], method: 'dbscan', eps: 2, minPoints: 3, scale: 'none' } },
+  ],
+  rows, rowKey: 'id', source: { mode: 'memory', columnarBelow: 0 },
+});
+grid.rows.count();
+const clusters = grid.statistics.clusters('seg');
+const pick = grid.statistics.autoK({ columns: ['x', 'y'], criterion: 'silhouette', seed: 7 });
+const one = grid.statistics.clusterShadow('cluster', 'a0', { columns: ['x', 'y'], method: 'kmeans', k: 3, seed: 7 });
+return `${clusters.k} ${clusters.centres.length} ${pick.k} ${typeof one === 'number'}`;</code></pre>
     <p>It shows the twelve one-pass figures, then <strong>Shape</strong> (skewness, kurtosis, Jarque–Bera), <strong>Robust</strong> (trimmed and winsorized means, MAD, robust outliers), <strong>Concentration</strong> (Gini, HHI, entropy, evenness, top-3 share) and <strong>Capability</strong> where the column declares a <code>spec</code>. A section whose reductions all return null is left out rather than shown as a column of dashes.</p>
     <p>Or put it in your own page. <code>mountPanel</code> takes no dock and does not create one: <code>toolPanel</code> may be off entirely, so a statistics readout can sit beside a chart, in your own sidebar, or in a settings dialog, at whatever size you give it. It repaints on the same events the rail does, so it stays in step with filters, edits and saved views without you subscribing to anything.</p>
     <pre><code>import { mountPanel } from '@toclocoinc/lattice-grid';
@@ -16398,6 +16422,8 @@ shell.destroy();</code></pre>
           <tr><td class="sig">on(name, fn)</td><td class="desc">Subscribe to a shell event — <code>beforeCollapse</code>/<code>afterCollapse</code>, <code>beforeExpand</code>/<code>afterExpand</code>, <code>beforeAddCell</code>/<code>afterAddCell</code>, <code>beforeRemoveCell</code>/<code>afterRemoveCell</code>, <code>beforeHide</code>/<code>afterHide</code>, <code>beforeShow</code>/<code>afterShow</code>, <code>tabChange</code>, <code>stateChange</code>, or a resize event — <code>beforeResizeStart</code> (cancellable), <code>resize</code>, <code>afterResizeEnd</code> — or to <code>'*'</code> for every past-tense event; returns an unsubscribe. A <code>before*</code> handler cancels by calling <code>preventDefault(reason?)</code> or returning <code>false</code>.</td></tr>
           <tr><td class="sig">off(name, fn)</td><td class="desc">Remove a handler registered with <code>on</code>.</td></tr>
           <tr><td class="sig">destroy()</td><td class="desc">Release every content, empty the element, remove only what the module added, and drop every cell record, splitter listener and handler. The host still owns the element and every content element again.</td></tr>
+          <tr><td class="sig">createDrawer(config)</td><td class="desc">Create a drawer overlay: a shell cell that slides in from one edge, with its title in the cell's header strip. <code>config</code> is <code>{ side, size, content, title, headerActions, headerCss, modal, closeOnEscape, closeOnBackdrop }</code>. Returns <code>{ el, cell, open(), close(result), ready, closed }</code>; <code>closed</code> resolves with the value passed to <code>close</code>.</td></tr>
+          <tr><td class="sig">createDialog(config)</td><td class="desc">Create a dialog overlay: a centred shell cell with its title above and its action buttons below. <code>config</code> is <code>{ title, content, actions, size, modal }</code>; a click on an action resolves <code>closed</code> with that action's <code>value</code>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -16608,6 +16634,56 @@ main.attachHTML('&lt;em&gt;x&lt;/em&gt;');
 <span class="kw">const</span> attached = main.getWidget().textContent === 'x';
 shell.destroy();
 <span class="kw">return</span> [htmlKey, classed, ided, headered, sized, attached].join('|');</code></pre>
+
+    <h3 id="shell-overlay-example">Drawers and dialogs, executed</h3>
+    <p class="section-note"><code>createDrawer</code> and <code>createDialog</code> open an overlay whose body is one shell cell, so
+    <code>content</code>, <code>title</code>, <code>headerActions</code>, <code>headerCss</code> and <code>ready</code> all behave
+    exactly as on a plain cell. Both stack above the page (and each other), a <code>modal</code> overlay locks body scroll,
+    <code>closeOnEscape</code>/<code>closeOnBackdrop</code> opt in to those closers, and <code>closed</code> resolves with the
+    value passed to <code>close</code> — or an action's <code>value</code> on a dialog. The real focus trap, Tab cycle, Escape,
+    stacking order and open/close animation are asserted against real Chrome in
+    <code>test/shell-overlay-browser.test.js</code>; this block asserts the DOM, the scroll lock and the result surface over the
+    test DOM.</p>
+    <pre data-run="js" data-expect="dialog|true|Drawer|drawn|hidden|true|dialog|false|Cancel,Confirm|function|true" data-covers="export:createDrawer export:createDialog config:ShellDrawerConfig.side config:ShellDrawerConfig.size config:ShellDrawerConfig.content config:ShellDrawerConfig.title config:ShellDrawerConfig.headerActions config:ShellDrawerConfig.headerCss config:ShellDrawerConfig.modal config:ShellDrawerConfig.closeOnEscape config:ShellDrawerConfig.closeOnBackdrop config:ShellDialogConfig.title config:ShellDialogConfig.content config:ShellDialogConfig.actions config:ShellDialogConfig.size config:ShellDialogConfig.modal"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createDrawer, createDialog } = <span class="kw">await</span> import('../packages/modules/shell/index.js');
+
+<span class="kw">const</span> { document: doc } = createTestDom();
+<span class="kw">const</span> prevDoc = globalThis.document;
+globalThis.document = doc;                     <span class="cmt">// the factories read the page document</span>
+<span class="kw">try</span> {
+  <span class="kw">const</span> drawer = createDrawer({
+    side: <span class="str">'left'</span>, size: 260, content: <span class="str">'&lt;b&gt;drawn&lt;/b&gt;'</span>, title: <span class="str">'Drawer'</span>,
+    headerActions: [{ icon: <span class="str">'x'</span>, ariaLabel: <span class="str">'Close'</span>, onClick() {} }],
+    headerCss: { color: <span class="str">'rgb(1, 2, 3)'</span> },
+    modal: <span class="kw">true</span>, closeOnEscape: <span class="kw">true</span>, closeOnBackdrop: <span class="kw">false</span>,
+  });
+  drawer.open();                               <span class="cmt">// appends to the body, reveals it</span>
+  <span class="kw">const</span> drawerRole = drawer.el.getAttribute('role');          <span class="cmt">// 'dialog'</span>
+  <span class="kw">const</span> drawerModal = drawer.el.getAttribute('aria-modal');    <span class="cmt">// 'true'</span>
+  <span class="kw">const</span> titleText = drawer.el.querySelector('.lat-shell__header-text').textContent; <span class="cmt">// 'Drawer'</span>
+  <span class="kw">const</span> drawn = drawer.cell.getWidget().textContent;           <span class="cmt">// 'drawn' — the content mounted</span>
+  <span class="kw">const</span> scrolled = doc.body.style.overflow;                    <span class="cmt">// 'hidden' — modal locks scroll</span>
+  drawer.close(<span class="str">'left'</span>);                          <span class="cmt">// resolves closed, removes the root</span>
+  <span class="kw">const</span> gone = !doc.body.contains(drawer.el);                  <span class="cmt">// true</span>
+
+  <span class="kw">const</span> dialog = createDialog({
+    title: <span class="str">'Confirm?'</span>, content: <span class="str">'&lt;form&gt;&lt;input&gt;&lt;/form&gt;'</span>,
+    actions: [{ label: <span class="str">'Cancel'</span>, value: <span class="str">'cancel'</span> }, { label: <span class="str">'Confirm'</span>, value: <span class="str">'confirm'</span> }],
+    size: <span class="str">'content'</span>, modal: <span class="kw">false</span>,
+  });
+  dialog.open();                               <span class="cmt">// role="dialog", aria-modal="false"</span>
+  <span class="kw">const</span> dialogRole = dialog.el.getAttribute('role');
+  <span class="kw">const</span> dialogModal = dialog.el.getAttribute('aria-modal');
+  <span class="kw">const</span> buttons = dialog.el.querySelectorAll('.lat-shell-overlay__action');
+  <span class="kw">const</span> actionLabels = [buttons[0].textContent, buttons[1].textContent].join(<span class="str">','</span>); <span class="cmt">// 'Cancel,Confirm'</span>
+  <span class="kw">const</span> promised = <span class="kw">typeof</span> dialog.closed.then;             <span class="cmt">// 'function' — closed is a Promise</span>
+  dialog.close(<span class="str">'confirm'</span>);
+  <span class="kw">const</span> dialogGone = !doc.body.contains(dialog.el);
+
+  <span class="kw">return</span> [drawerRole, drawerModal, titleText, drawn, scrolled, gone, dialogRole, dialogModal, actionLabels, promised, dialogGone].join('|');
+} <span class="kw">finally</span> {
+  globalThis.document = prevDoc;
+}</code></pre>
 
     <h2 id="form-module">The form module</h2>
     <p><code>modules/form</code> is an opt-in form builder: named items laid out in nested rows and columns, in its own bundle that grows grid core by nothing. It is a sold Lattice feature. The main owner pain it removes is the same one the shell removes &mdash; <strong>asynchronous redraw</strong>: when <code>createForm(el, config)</code> returns, every item is already in the document and already measurable, so there is no <code>awaitRedraw()</code> and no deferred paint. A host that reads <code>getItem(name).el</code> on the very next line measures a real element in the same synchronous task.</p>
@@ -23154,6 +23230,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">shadow</td><td class="type">(colId: string, kind: <a href="#type-ShadowKind">ShadowKind</a>, rowKey: string, scope?: <a href="#type-RowScope">RowScope</a>, spec?: object): unknown</td><td class="desc"><code>colId: string</code><br><code>kind: <a href="#type-ShadowKind">ShadowKind</a></code><br><code>rowKey: string</code><br><code>scope?: <a href="#type-RowScope">RowScope</a></code><br><code>spec?: object</code></td><td class="type"><code>unknown</code></td><td class="desc">One shadow value for one row, by the column it shadows and the kind. For `kind: 'specStatus'`, `spec` carries the `{lower, upper, warnLower, warnUpper}` limits to judge the row's value against; other kinds ignore it.</td></tr>
           <tr><td class="name">fitShadow</td><td class="type">(kind: 'fitPredicted' | 'fitResidual' | 'fitInfluence' | 'fitStdResidual' | 'fitLeverage' | 'fitCooksD', rowKey: string, spec: <a href="#type-RegressionSpec">RegressionSpec</a>): number | boolean | null</td><td class="desc"><code>kind: 'fitPredicted' | 'fitResidual' | 'fitInfluence' | 'fitStdResidual' | 'fitLeverage' | 'fitCooksD'</code><br><code>rowKey: string</code><br><code>spec: <a href="#type-RegressionSpec">RegressionSpec</a></code></td><td class="type"><code>number | boolean | null</code></td><td class="desc">One regression shadow value for a row, by key (BACKLOG-0000812): the predicted value, residual, or Cook's-distance influence flag from the fitted model, over the filtered rows. Null for a row outside the fit.</td></tr>
+          <tr><td class="name">clusterShadow</td><td class="type">(kind: 'cluster' | 'clusterDistance', rowKey: string, spec: <a href="#type-ClusterSpec">ClusterSpec</a>): number | null</td><td class="desc"><code>kind: 'cluster' | 'clusterDistance'</code><br><code>rowKey: string</code><br><code>spec: <a href="#type-ClusterSpec">ClusterSpec</a></code></td><td class="type"><code>number | null</code></td><td class="desc">One clustering shadow value for a row, by key (BACKLOG-0002658): the segment id (`cluster`) or the distance to the row's cluster centre (`clusterDistance`), over the filtered rows. Null for a row outside the clustering.</td></tr>
+          <tr><td class="name">clusters</td><td class="type">(specOrColumn: string | <a href="#type-ClusterSpec">ClusterSpec</a>): <a href="#type-ClusterModel">ClusterModel</a> | null</td><td class="desc"><code>specOrColumn: string | <a href="#type-ClusterSpec">ClusterSpec</a></code></td><td class="type"><code><a href="#type-ClusterModel">ClusterModel</a> | null</code></td><td class="desc">The clusters a `cluster`/`clusterDistance` column found (BACKLOG-0002658), over the filtered rows. Pass the column id, or a `ClusterSpec` directly.</td></tr>
+          <tr><td class="name">autoK</td><td class="type">(spec: <a href="#type-ClusterSpec">ClusterSpec</a> &amp; { criterion?: 'elbow' | 'silhouette'; maxK?: number }): { k: number; criterion: 'elbow' | 'silhouette'; scores: number[]; ks: number[] } | null</td><td class="desc"><code>spec: <a href="#type-ClusterSpec">ClusterSpec</a> &amp; { criterion?: 'elbow' | 'silhouette'; maxK?: number }</code></td><td class="type"><code>{ k: number; criterion: 'elbow' | 'silhouette'; scores: number[]; ks: number[] } | null</code></td><td class="desc">Choose `k` for a k-means clustering automatically (BACKLOG-0002658), by the elbow or silhouette criterion, and report the choice with the scores it chose from.</td></tr>
           <tr><td class="name">running</td><td class="type">(colId: string, kind: 'total' | 'percent', rowKey: string): number | null</td><td class="desc"><code>colId: string</code><br><code>kind: 'total' | 'percent'</code><br><code>rowKey: string</code></td><td class="type"><code>number | null</code></td><td class="desc">A running total at one row, down the grid as it is currently ordered.</td></tr>
           <tr><td class="name">rebase</td><td class="type">(colId?: string): void</td><td class="desc"><code>colId?: string</code></td><td class="type"><code>void</code></td><td class="desc">Make the current values the new baseline: "mark all".</td></tr>
           <tr><td class="name">tracking</td><td class="type">(): { columns: string[]; rows: number; forgotten: number }</td><td class="desc">&mdash;</td><td class="type"><code>{ columns: string[]; rows: number; forgotten: number }</code></td><td class="desc">What the shadow histories are costing.</td></tr>
@@ -23474,7 +23553,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">total</td><td class="type"><a href="#type-TotalName">TotalName</a> | <a href="#type-TotalFn">TotalFn</a></td><td class="desc">The reduction shown in the totals row and in group footers. <small>(optional)</small></td></tr>
           <tr><td class="name">groupTotal</td><td class="type"><a href="#type-TotalName">TotalName</a> | <a href="#type-TotalFn">TotalFn</a></td><td class="desc">The reduction for group subtotals — group footers, tree-node rollups and pivot cells — where it should differ from the grand total. Overrides `total` for those scopes only; when omitted the column's `total` applies to both. Lets a column average within each group while the grand total sums, for example (BACKLOG-0000726). <small>(optional)</small></td></tr>
           <tr><td class="name">grandTotal</td><td class="type"><a href="#type-TotalName">TotalName</a> | <a href="#type-TotalFn">TotalFn</a></td><td class="desc">The reduction for the pinned grand-total row, where it should differ from the group subtotals. Overrides `total` for the grand total only; when omitted the column's `total` applies (BACKLOG-0000726). <small>(optional)</small></td></tr>
-          <tr><td class="name">shadow</td><td class="type"><a href="#type-ShadowKind">ShadowKind</a> | { of?: string; kind: <a href="#type-ShadowKind">ShadowKind</a>; /** * For `kind: 'history'`, how many past readings to keep (20 by default). With * a time `window` (BACKLOG-0001043) this is instead how many buckets the span * divides into — `window: {kind: 'time', span: 60_000}, depth: 20` is sixty * one-second buckets. Ignored by every other kind. */ depth?: number; /** * For a positional kind, what to rank against. `'all'` (the default) uses * every tracked row, so a rank does not move when the grid is filtered; * `'filtered'` ranks within what the filters left. */ scope?: <a href="#type-RowScope">RowScope</a>; /** * For `kind: 'anomalyFlag'`, the modified-z score a row must clear to be * flagged an anomaly. Default 3.5 (Iglewicz &amp; Hoaglin). Ignored by * `anomalyScore`, which reports the raw score, and by the other kinds. */ threshold?: number; /** * For `kind: 'specStatus'`, the hard specification the row is judged * against. `lower`/`upper` are the pass limits (a value beyond either * fails); the optional `warnLower`/`warnUpper` are inner thresholds that * mark a still-in-spec reading `'WARN'`. Centred-target ± tolerance is a * deliberate follow-up and is not read here. */ lower?: number; upper?: number; warnLower?: number; warnUpper?: number; /** * For a rolling time-series kind (`rollingSum`/`rollingAvg`/`rollingMin`/ * `rollingMax`/`windowCoverage`/`cumulativeToDate`/`periodOverPeriod`, * BACKLOG-0000748), the column whose order defines the series — dates, * sequence numbers, timestamps. **Required**: the screen sort is never used, * because a rolling figure would then change on every header click, so a * rolling column with no `orderBy` reports null and warns. */ orderBy?: string; /** * For the rolling window kinds, the window to aggregate over: the last `span` * rows (`count`), the last `span` ms — or `minutes` — of the `orderBy` axis * (`time`), or everything so far (`session`). The first rows of a series * carry a partial window, stamped by a `windowCoverage` companion rather than * dressed as full. * * For `kind: 'history'` (BACKLOG-0001043), only `{kind: 'time', span}` (or * `minutes`) applies, and it changes what `history` means rather than what it * aggregates: the `depth` buckets that span divides into are read once each, * carrying the row's last known value forward into any bucket in which it did * not change, so a static row still draws a flat, advancing line instead of * freezing — the plain count-based history (no `window`) is a count of * *changes* and stays exactly as it was. `count` and `session` are refused * here: a plain count is already what `depth` means, and a session has no * fixed span to divide into buckets. */ window?: { kind: WindowKind; span?: number; minutes?: number; }; /** * For a rolling kind, whether the series is computed per group (`'group'`, * the default — partitioned by the grid's active grouping) or across the * whole dataset (`'all'`). */ within?: <a href="#type-ShadowWithin">ShadowWithin</a>; /** * For `kind: 'rollingQuantile'` (and its `windowApproximate` companion), the * quantile in `[0, 1]`, defaulting to the median (`0.5`). Exact while the * window is small; past an internal span cap, and for a session window, the * value comes from a sketch and is stamped by a `windowApproximate` column. */ q?: number; /** * For a seasonal-decomposition kind (`tsTrend`/`tsSeasonal`/`tsResidual`/ * `tsCoverage`, BACKLOG-0000873), the season length — **required**, since * there is no auto-detection in v1: 7 for a weekly cycle in daily data, 12 * for a monthly cycle in monthly data. An integer of at least 2. */ period?: number; /** * For a decomposition kind, the classical model: additive by default, or * `multiplicative` (which is undefined on a non-positive series, so those * rows report null and the caller is warned). */ decomposition?: <a href="#type-ShadowDecomposition">ShadowDecomposition</a>; /** * For an exponential-smoothing kind (`tsSmoothed`/`tsSmoothingAlpha`/ * `tsSmoothingBeta`, BACKLOG-0000873), the model: single exponential * smoothing (`ses`, the default) or Holt's level+trend (`holt`). */ smoothing?: SmoothingMethod; /** * For a smoothing kind, the level factor in `[0, 1]`. Omit to fit it by * minimising in-sample SSE; the chosen value is reported by a * `tsSmoothingAlpha` column. */ alpha?: number; /** * For `smoothing: 'holt'`, the trend factor in `[0, 1]`. Omit to fit it; * reported by a `tsSmoothingBeta` column. */ beta?: number; /** * For a `fit*` kind (BACKLOG-0000812), the regression model the shadow reads * — predictors, response, method and confidence. Its predictors/response may * also be given directly on this object. */ model?: <a href="#type-RegressionSpec">RegressionSpec</a>; predictors?: string[]; response?: string; method?: <a href="#type-RegressionMethod">RegressionMethod</a>; }</td><td class="desc">A value the grid maintains about this column's own history, rather than a field in the data. `{of: 'price', kind: 'delta'}`, or the bare kind to shadow the column it sits beside. <small>(optional)</small></td></tr>
+          <tr><td class="name">shadow</td><td class="type"><a href="#type-ShadowKind">ShadowKind</a> | { of?: string; kind: <a href="#type-ShadowKind">ShadowKind</a>; /** * For `kind: 'history'`, how many past readings to keep (20 by default). With * a time `window` (BACKLOG-0001043) this is instead how many buckets the span * divides into — `window: {kind: 'time', span: 60_000}, depth: 20` is sixty * one-second buckets. Ignored by every other kind. */ depth?: number; /** * For a positional kind, what to rank against. `'all'` (the default) uses * every tracked row, so a rank does not move when the grid is filtered; * `'filtered'` ranks within what the filters left. */ scope?: <a href="#type-RowScope">RowScope</a>; /** * For `kind: 'anomalyFlag'`, the modified-z score a row must clear to be * flagged an anomaly. Default 3.5 (Iglewicz &amp; Hoaglin). Ignored by * `anomalyScore`, which reports the raw score, and by the other kinds. */ threshold?: number; /** * For `kind: 'specStatus'`, the hard specification the row is judged * against. `lower`/`upper` are the pass limits (a value beyond either * fails); the optional `warnLower`/`warnUpper` are inner thresholds that * mark a still-in-spec reading `'WARN'`. Centred-target ± tolerance is a * deliberate follow-up and is not read here. */ lower?: number; upper?: number; warnLower?: number; warnUpper?: number; /** * For a rolling time-series kind (`rollingSum`/`rollingAvg`/`rollingMin`/ * `rollingMax`/`windowCoverage`/`cumulativeToDate`/`periodOverPeriod`, * BACKLOG-0000748), the column whose order defines the series — dates, * sequence numbers, timestamps. **Required**: the screen sort is never used, * because a rolling figure would then change on every header click, so a * rolling column with no `orderBy` reports null and warns. */ orderBy?: string; /** * For the rolling window kinds, the window to aggregate over: the last `span` * rows (`count`), the last `span` ms — or `minutes` — of the `orderBy` axis * (`time`), or everything so far (`session`). The first rows of a series * carry a partial window, stamped by a `windowCoverage` companion rather than * dressed as full. * * For `kind: 'history'` (BACKLOG-0001043), only `{kind: 'time', span}` (or * `minutes`) applies, and it changes what `history` means rather than what it * aggregates: the `depth` buckets that span divides into are read once each, * carrying the row's last known value forward into any bucket in which it did * not change, so a static row still draws a flat, advancing line instead of * freezing — the plain count-based history (no `window`) is a count of * *changes* and stays exactly as it was. `count` and `session` are refused * here: a plain count is already what `depth` means, and a session has no * fixed span to divide into buckets. */ window?: { kind: WindowKind; span?: number; minutes?: number; }; /** * For a rolling kind, whether the series is computed per group (`'group'`, * the default — partitioned by the grid's active grouping) or across the * whole dataset (`'all'`). */ within?: <a href="#type-ShadowWithin">ShadowWithin</a>; /** * For `kind: 'rollingQuantile'` (and its `windowApproximate` companion), the * quantile in `[0, 1]`, defaulting to the median (`0.5`). Exact while the * window is small; past an internal span cap, and for a session window, the * value comes from a sketch and is stamped by a `windowApproximate` column. */ q?: number; /** * For a seasonal-decomposition kind (`tsTrend`/`tsSeasonal`/`tsResidual`/ * `tsCoverage`, BACKLOG-0000873), the season length — **required**, since * there is no auto-detection in v1: 7 for a weekly cycle in daily data, 12 * for a monthly cycle in monthly data. An integer of at least 2. */ period?: number; /** * For a decomposition kind, the classical model: additive by default, or * `multiplicative` (which is undefined on a non-positive series, so those * rows report null and the caller is warned). */ decomposition?: <a href="#type-ShadowDecomposition">ShadowDecomposition</a>; /** * For an exponential-smoothing kind (`tsSmoothed`/`tsSmoothingAlpha`/ * `tsSmoothingBeta`, BACKLOG-0000873), the model: single exponential * smoothing (`ses`, the default) or Holt's level+trend (`holt`). */ smoothing?: SmoothingMethod; /** * For a smoothing kind, the level factor in `[0, 1]`. Omit to fit it by * minimising in-sample SSE; the chosen value is reported by a * `tsSmoothingAlpha` column. */ alpha?: number; /** * For `smoothing: 'holt'`, the trend factor in `[0, 1]`. Omit to fit it; * reported by a `tsSmoothingBeta` column. */ beta?: number; /** * For a `fit*` kind (BACKLOG-0000812), the regression model the shadow reads * — predictors, response, method and confidence. Its predictors/response may * also be given directly on this object. */ model?: RegressionSpec; predictors?: string[]; response?: string; method?: RegressionMethod | ClusterMethod; /** * For a clustering kind (`cluster`/`clusterDistance`, BACKLOG-0002658), the * numeric columns to cluster over. A row missing any of them reads `null`. */ columns?: string[]; /** * For `method: 'kmeans'`, the number of clusters (default 3). `autoK` * chooses it when it is not known ahead of time. */ k?: number; /** * For `method: 'dbscan'`, the neighbourhood radius (in the working space) two * points must be within to be neighbours. */ eps?: number; /** * For `method: 'dbscan'`, the least neighbours a core point needs (default 5). */ minPoints?: number; /** * Whether to standardise each column to unit variance before clustering. * `'standard'` (the default) stops a wide-range column dominating; `'none'` * clusters in the columns' own units. */ scale?: <a href="#type-ClusterScale">ClusterScale</a>; /** * A PRNG seed for the k-means start, so the same data reproduces the same * segments. */ seed?: number; }</td><td class="desc">A value the grid maintains about this column's own history, rather than a field in the data. `{of: 'price', kind: 'delta'}`, or the bare kind to shadow the column it sits beside. <small>(optional)</small></td></tr>
           <tr><td class="name">running</td><td class="type"><a href="#type-RunningTotalMode">RunningTotalMode</a> | { of?: string; kind?: <a href="#type-RunningTotalMode">RunningTotalMode</a> }</td><td class="desc">A running total down the grid **as it is currently ordered**. The one derived value that depends on the display order: sort differently and every value changes. That is why it is not a shadow kind: every shadow reads the same however the rows are arranged. <small>(optional)</small></td></tr>
           <tr><td class="name">spec</td><td class="type">{ lower?: number; upper?: number; target?: number }</td><td class="desc">The customer's tolerance, for process capability and control charts. Declared here rather than passed to each call so the capability figures, a control chart and any rule marking an out-of-tolerance cell cannot disagree about what the tolerance is. <small>(optional)</small></td></tr>
           <tr><td class="name">layout</td><td class="type"><a href="#type-ColumnLayoutSpec">ColumnLayoutSpec</a> | number</td><td class="desc">Width, pinning and flex. A bare number is the width in pixels. <small>(optional)</small></td></tr>
@@ -34351,6 +34430,75 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-ShellDialogAction">ShellDialogAction</h4>
+    <p class="section-note">One dialog action button: its label and the value a click resolves `closed` with.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The button's text.</td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The value `closed` resolves with when this button is clicked. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellDrawerConfig">ShellDrawerConfig</h4>
+    <p class="section-note">The options `createDrawer(config)` takes (BACKLOG-0002656).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">side</td><td class="type"><a href="#type-ShellOverlaySide">ShellOverlaySide</a> <small class="literals">'right' | 'left' | 'top' | 'bottom'</small></td><td class="desc">The edge the drawer slides from. Default `'right'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">size</td><td class="type"><a href="#type-ShellSize">ShellSize</a> <small class="literals">number | string</small></td><td class="desc">The panel's width (left/right) or height (top/bottom): px, %, or `'content'` to fit the content with a max. <small>(optional)</small></td></tr>
+          <tr><td class="name">content</td><td class="type"><a href="#type-ShellContent">ShellContent</a></td><td class="desc">The drawer's content: a Lattice view, a DOM element, or an HTML string. <small>(optional)</small></td></tr>
+          <tr><td class="name">title</td><td class="type">string | Node</td><td class="desc">The header title; names the overlay for `aria-labelledby`. <small>(optional)</small></td></tr>
+          <tr><td class="name">headerActions</td><td class="type"><a href="#type-ShellHeaderAction">ShellHeaderAction</a>[]</td><td class="desc">Extra buttons in the header strip, beside the title. <small>(optional)</small></td></tr>
+          <tr><td class="name">headerCss</td><td class="type">Record&lt;string, string | number&gt; | string</td><td class="desc">Extra CSS on the header strip only. <small>(optional)</small></td></tr>
+          <tr><td class="name">modal</td><td class="type">boolean</td><td class="desc">Trap focus inside and lock body scroll while open. <small>(optional)</small></td></tr>
+          <tr><td class="name">closeOnEscape</td><td class="type">boolean</td><td class="desc">Close on Escape when this drawer is the top overlay. Default true. <small>(optional)</small></td></tr>
+          <tr><td class="name">closeOnBackdrop</td><td class="type">boolean</td><td class="desc">Close on a backdrop click when this drawer is the top overlay. Default true. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellDialogConfig">ShellDialogConfig</h4>
+    <p class="section-note">The options `createDialog(config)` takes (BACKLOG-0002656).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">title</td><td class="type">string | Node</td><td class="desc">The title shown above the content; names the overlay for `aria-labelledby`. <small>(optional)</small></td></tr>
+          <tr><td class="name">content</td><td class="type"><a href="#type-ShellContent">ShellContent</a></td><td class="desc">The dialog's content: a Lattice view, a DOM element, or an HTML string. <small>(optional)</small></td></tr>
+          <tr><td class="name">actions</td><td class="type"><a href="#type-ShellDialogAction">ShellDialogAction</a>[]</td><td class="desc">Footer buttons; a click closes the dialog and resolves `closed` with the action's `value`. <small>(optional)</small></td></tr>
+          <tr><td class="name">size</td><td class="type"><a href="#type-ShellSize">ShellSize</a> <small class="literals">number | string</small></td><td class="desc">The panel width: px, %, or `'content'` to fit the content with a max. <small>(optional)</small></td></tr>
+          <tr><td class="name">modal</td><td class="type">boolean</td><td class="desc">Trap focus inside and lock body scroll while open. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ShellOverlay">ShellOverlay</h4>
+    <p class="section-note">The handle `createDrawer`/`createDialog` return: the overlay element, the body cell, and the open/close/result surface.</p>
+    <h5 id="type-ShellOverlay-properties">Properties</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The overlay's root element (`role="dialog"`).</td></tr>
+          <tr><td class="name">cell</td><td class="type"><a href="#type-ShellCellInstance">ShellCellInstance</a></td><td class="desc">The single shell cell the overlay's content mounts into.</td></tr>
+          <tr><td class="name">ready</td><td class="type">Promise&lt;void&gt;</td><td class="desc">Resolves once the shell is laid out (at once, like `createShell`); rejects if the overlay closes first.</td></tr>
+          <tr><td class="name">closed</td><td class="type">Promise&lt;unknown&gt;</td><td class="desc">Resolves when the overlay finishes closing, with the value passed to `close` (or the action's `value`).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-ShellOverlay-methods">Methods</h5>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">open</td><td class="type">(): <a href="#type-ShellOverlay">ShellOverlay</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-ShellOverlay">ShellOverlay</a></code></td><td class="desc">Append the overlay to the page and reveal it.</td></tr>
+          <tr><td class="name">close</td><td class="type">(result?: unknown): <a href="#type-ShellOverlay">ShellOverlay</a></td><td class="desc"><code>result?: unknown</code></td><td class="type"><code><a href="#type-ShellOverlay">ShellOverlay</a></code></td><td class="desc">Close the overlay; `closed` resolves with `result` once it is gone.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h5 id="type-ShellOverlay-events">Events</h5>
+    <p class="section-note">No events.</p>
     <h3 id="ref-module-form">The form module</h3>
     <h4 id="type-FormChipOption">FormChipOption</h4>
     <p class="section-note">One selectable option of a `chips` item.</p>
@@ -34794,7 +34942,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">labelPosition</td><td class="type"><a href="#type-FormLabelPosition">FormLabelPosition</a> <small class="literals">'top' | 'left' | 'hidden'</small></td><td class="desc">Where the label sits: `top` (default), `left`, or `hidden`. On a container or fieldset this is the default its items inherit. <small>(optional)</small></td></tr>
           <tr><td class="name">labelWidth</td><td class="type">number | string</td><td class="desc">The label column width when `labelPosition` is `left`; on a container or fieldset this is the default its items inherit. <small>(optional)</small></td></tr>
           <tr><td class="name">controlMinWidth</td><td class="type">number | string</td><td class="desc">The width below which a `left` label switches to the top instead (BACKLOG-0002554); on a container or fieldset this is the default its items inherit. See {@link FormItemConfig.controlMinWidth}. <small>(optional)</small></td></tr>
-          <tr><td class="name">width</td><td class="type">number | string</td><td class="desc">The item's width; on a container, fieldset or panel block nested in a `cols` row, its own share of that row, applied exactly as an item's `width` is, with and without `wrap` (BACKLOG-0002635). <small>(optional)</small></td></tr>
+          <tr><td class="name">width</td><td class="type">number | string</td><td class="desc">The item's width; on a spacer, container, fieldset or panel block nested in a `cols` row, its own share of that row, applied exactly as an item's `width` is, with and without `wrap` (BACKLOG-0002635, BACKLOG-0002671). <small>(optional)</small></td></tr>
           <tr><td class="name">placeholder</td><td class="type">string</td><td class="desc">Placeholder text. <small>(optional)</small></td></tr>
           <tr><td class="name">helpMessage</td><td class="type">string</td><td class="desc">Help text shown under the control. <small>(optional)</small></td></tr>
           <tr><td class="name">hidden</td><td class="type">boolean</td><td class="desc">Start hidden. <small>(optional)</small></td></tr>
@@ -38684,6 +38832,39 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-ClusterModel">ClusterModel</h4>
+    <p class="section-note">The clusters a `statistics.clusters` call found (BACKLOG-0002658).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">method</td><td class="type"><a href="#type-ClusterMethod">ClusterMethod</a> <small class="literals">'kmeans' | 'dbscan'</small></td><td class="desc">Which method produced the clusters.</td></tr>
+          <tr><td class="name">columns</td><td class="type">string[]</td><td class="desc">The column ids clustered over, in order.</td></tr>
+          <tr><td class="name">scale</td><td class="type"><a href="#type-ClusterScale">ClusterScale</a> <small class="literals">'standard' | 'none'</small></td><td class="desc">Whether the columns were standardised before clustering.</td></tr>
+          <tr><td class="name">k</td><td class="type">number</td><td class="desc">How many segments were found.</td></tr>
+          <tr><td class="name">centres</td><td class="type">number[][]</td><td class="desc">Each segment's centre, in the columns' original units.</td></tr>
+          <tr><td class="name">sizes</td><td class="type">number[]</td><td class="desc">Each segment's size, in the same order as `centres`.</td></tr>
+          <tr><td class="name">inertia</td><td class="type">number | null</td><td class="desc">For k-means, the within-cluster sum of squares in the clustering space; null for DBSCAN.</td></tr>
+          <tr><td class="name">noise</td><td class="type">number | null</td><td class="desc">For DBSCAN, how many rows were noise; null for k-means.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ClusterSpec">ClusterSpec</h4>
+    <p class="section-note">The specification of a clustering (BACKLOG-0002658).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">columns</td><td class="type">string[]</td><td class="desc">The numeric column ids to cluster over.</td></tr>
+          <tr><td class="name">method</td><td class="type"><a href="#type-ClusterMethod">ClusterMethod</a> <small class="literals">'kmeans' | 'dbscan'</small></td><td class="desc">Which method partitions the rows: k-means (`k` groups) or DBSCAN (density). <small>(optional)</small></td></tr>
+          <tr><td class="name">k</td><td class="type">number</td><td class="desc">For k-means, the number of clusters (default 3). <small>(optional)</small></td></tr>
+          <tr><td class="name">eps</td><td class="type">number</td><td class="desc">For DBSCAN, the neighbourhood radius. <small>(optional)</small></td></tr>
+          <tr><td class="name">minPoints</td><td class="type">number</td><td class="desc">For DBSCAN, the least neighbours a core point needs (default 5). <small>(optional)</small></td></tr>
+          <tr><td class="name">scale</td><td class="type"><a href="#type-ClusterScale">ClusterScale</a> <small class="literals">'standard' | 'none'</small></td><td class="desc">Standardise each column first (`'standard'`, the default) or cluster as-is (`'none'`). <small>(optional)</small></td></tr>
+          <tr><td class="name">seed</td><td class="type">number</td><td class="desc">A PRNG seed for the k-means start. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ColumnDifference">ColumnDifference</h4>
     <p class="section-note">How one column differs between the filtered subset and its population.</p>
     <div class="table-wrap">
@@ -40100,6 +40281,12 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h4 id="type-ChartZoomReason">ChartZoomReason</h4>
     <p class="section-note">What moved a zoom, as reported by the `zoom` event. `pinch` is a two-finger pinch on a touch screen; `filter` is the grid's filter moving the view of a chart whose grid follows it ({@link ChartSpec.viewportFilter}): the chart's condition cleared in the grid (the zoom resets), or put back by an undo or a redo (the view returns to it) (BACKLOG-0001707).</p>
     <p class="type-def"><code>type ChartZoomReason = 'button' | 'wheel' | 'key' | 'pan' | 'pinch' | 'reset' | 'api' | 'group' | 'filter'</code></p>
+    <h4 id="type-ClusterMethod">ClusterMethod</h4>
+    <p class="section-note">A clustering shadow's method: k-means partitions into `k` groups, DBSCAN grows density-connected groups.</p>
+    <p class="type-def"><code>type ClusterMethod = 'kmeans' | 'dbscan'</code></p>
+    <h4 id="type-ClusterScale">ClusterScale</h4>
+    <p class="section-note">Whether a clustering shadow standardises each column before clustering.</p>
+    <p class="type-def"><code>type ClusterScale = 'standard' | 'none'</code></p>
     <h4 id="type-ColumnExportLookup">ColumnExportLookup</h4>
     <p class="section-note">How a lookup column leaves in an export: its label, its stored value, or both.</p>
     <p class="type-def"><code>type ColumnExportLookup = 'label' | 'value' | 'columns'</code></p>
@@ -41036,6 +41223,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">The events a shell raises, on `shell.on()` (BACKLOG-0002136, BACKLOG-0002137, BACKLOG-0002138, BACKLOG-0002139, BACKLOG-0002140). The shell's own, not a grid's: `grid.on` takes {@link EventName} and knows nothing about these. `on()` warns once on any other name, because a binding to an event that can never fire is a silent no-op. The cancellable `before*` events — `beforeCollapse`, `beforeExpand`, `beforeAddCell`, `beforeRemoveCell`, `beforeHide`, `beforeShow` and `beforeResizeStart` — run before the cell moves, on the same contract the grid core uses: call `preventDefault(reason?)` on the payload, or return `false`; a veto keeps the cell (or the two cells' sizes) unchanged. The past-tense events — `afterCollapse`, `afterExpand`, `afterAddCell`, `afterRemoveCell`, `afterHide`, `afterShow`, `resize`, `afterResizeEnd`, `tabChange` and `stateChange` — report a change already applied and carry no `preventDefault`.</p>
     <p class="type-def"><code>type ShellEventName = 'beforeCollapse' | 'beforeExpand' | 'afterCollapse' | 'afterExpand' | 'beforeAddCell' | 'afterAddCell' | 'beforeRemoveCell' | 'afterRemoveCell' | 'beforeHide' | 'afterHide' | 'beforeShow' | 'afterShow' | 'tabChange' | 'stateChange' | 'beforeResizeStart' | 'resize' | 'afterResizeEnd'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/shell</code>.</small></p>
+    <h4 id="type-ShellOverlaySide">ShellOverlaySide</h4>
+    <p class="section-note">The edge a drawer slides in from.</p>
+    <p class="type-def"><code>type ShellOverlaySide = 'right' | 'left' | 'top' | 'bottom'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/shell</code>.</small></p>
     <h4 id="type-ShellSize">ShellSize</h4>
     <p class="section-note">A cell size: pixels as a number, or any CSS length string such as `'30%'`.</p>
     <p class="type-def"><code>type ShellSize = number | string</code></p>
@@ -41206,7 +41397,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.105.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.106.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>
