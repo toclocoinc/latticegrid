@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.106.0</title>
+<title>Types API Reference — Lattice Grid 1.107.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -1499,6 +1499,90 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-CompareEffectSize">CompareEffectSize</h4>
+    <p class="section-note">The effect size paired with a test — the "how big" half, with its label.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The named measure: `cohensD`, `cliffsDelta`, `cramersV` or `etaSquared`.</td></tr>
+          <tr><td class="name">value</td><td class="type">number | null</td><td class="desc">The effect size in its own terms, or null when it has no scale here.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The conventional label: `negligible`, `small`, `medium` or `large`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-CompareGroup">CompareGroup</h4>
+    <p class="section-note">One group's summary in a {@link CompareResult}.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The group's value.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The group's display label.</td></tr>
+          <tr><td class="name">n</td><td class="type">number</td><td class="desc">How many rows the group stood on.</td></tr>
+          <tr><td class="name">mean</td><td class="type">number</td><td class="desc">The group's mean, for a numeric measure. <small>(optional)</small></td></tr>
+          <tr><td class="name">sd</td><td class="type">number</td><td class="desc">The group's sample standard deviation, for a numeric measure. <small>(optional)</small></td></tr>
+          <tr><td class="name">proportions</td><td class="type">Record&lt;string, number&gt;</td><td class="desc">Each category's share, for a categorical measure. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-CompareInterval">CompareInterval</h4>
+    <p class="section-note">A confidence interval on the difference a test measured.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">estimate</td><td class="type">number</td><td class="desc">The point estimate the interval is around.</td></tr>
+          <tr><td class="name">lower</td><td class="type">number</td><td class="desc">The lower bound of the difference.</td></tr>
+          <tr><td class="name">upper</td><td class="type">number</td><td class="desc">The upper bound of the difference.</td></tr>
+          <tr><td class="name">confidence</td><td class="type">number</td><td class="desc">The level the bounds were computed at, 0 to 1.</td></tr>
+          <tr><td class="name">method</td><td class="type">string</td><td class="desc">The method, named for honesty: `welch-t`, `hodges-lehmann`, `newcombe`.</td></tr>
+          <tr><td class="name">category</td><td class="type">unknown</td><td class="desc">For a categorical interval, which category's share the difference is of. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-CompareResult">CompareResult</h4>
+    <p class="section-note">The result of {@link StatisticsApi.compare}: the statistic, the p-value, an effect size with its conventional label, the group summaries and a one-line verdict — data to interpret, never a `significant` flag.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">test</td><td class="type">Exclude&lt;<a href="#type-CompareTest">CompareTest</a>, 'auto'&gt;</td><td class="desc">The test used, named so it is never hidden.</td></tr>
+          <tr><td class="name">chosenBy</td><td class="type">'auto' | 'override'</td><td class="desc">Whether the test was chosen automatically or forced by the caller.</td></tr>
+          <tr><td class="name">reason</td><td class="type">string</td><td class="desc">Why this test — the column family, a normality or variance screen, or the override.</td></tr>
+          <tr><td class="name">statistic</td><td class="type">number</td><td class="desc">The test statistic.</td></tr>
+          <tr><td class="name">statisticName</td><td class="type">string</td><td class="desc">What the statistic is: `t`, `U`, `F`, `H`, `chiSquare` or `z`.</td></tr>
+          <tr><td class="name">df</td><td class="type">number | { between: number; within: number } | null</td><td class="desc">The degrees of freedom; an object for ANOVA, null where none apply.</td></tr>
+          <tr><td class="name">pValue</td><td class="type">number</td><td class="desc">The p-value, returned as data for the caller to interpret.</td></tr>
+          <tr><td class="name">alpha</td><td class="type">number</td><td class="desc">The significance level the test ran at.</td></tr>
+          <tr><td class="name">paired</td><td class="type">boolean</td><td class="desc">True when the two groups were matched by the `paired` key.</td></tr>
+          <tr><td class="name">interval</td><td class="type"><a href="#type-CompareInterval">CompareInterval</a> | null</td><td class="desc">The confidence interval on the difference, or null where there is none.</td></tr>
+          <tr><td class="name">effectSize</td><td class="type"><a href="#type-CompareEffectSize">CompareEffectSize</a></td><td class="desc">The paired effect size with its conventional label.</td></tr>
+          <tr><td class="name">groups</td><td class="type"><a href="#type-CompareGroup">CompareGroup</a>[]</td><td class="desc">Each group's size and mean or proportions.</td></tr>
+          <tr><td class="name">difference</td><td class="type">number | null</td><td class="desc">The difference the interval is around (means or proportions), or null.</td></tr>
+          <tr><td class="name">method</td><td class="type">string</td><td class="desc">The test's method, named for honesty.</td></tr>
+          <tr><td class="name">categorical</td><td class="type">boolean</td><td class="desc">True for a categorical measure.</td></tr>
+          <tr><td class="name">verdict</td><td class="type">string</td><td class="desc">The one-sentence verdict: groups, direction, magnitude and effect.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-CompareSpec">CompareSpec</h4>
+    <p class="section-note">How {@link StatisticsApi.compare} splits the rows and picks a test.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">measure</td><td class="type">string</td><td class="desc">The measured column. Required.</td></tr>
+          <tr><td class="name">by</td><td class="type">string</td><td class="desc">The column whose values split the rows into groups. Required.</td></tr>
+          <tr><td class="name">groups</td><td class="type">unknown[]</td><td class="desc">The two group values to compare. Every group when omitted. <small>(optional)</small></td></tr>
+          <tr><td class="name">test</td><td class="type"><a href="#type-CompareTest">CompareTest</a> <small class="literals">'auto' | 't' | 'welch' | 'mannWhitney' | 'anova' | 'kruskal' | 'chiSquare' | 'proportions'</small></td><td class="desc">Force a test rather than choosing by the data. `auto` by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">alpha</td><td class="type">number</td><td class="desc">The significance level, 0 to 1. 0.05 by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">paired</td><td class="type">string</td><td class="desc">A key column: when set, the two groups are matched and tested as pairs. <small>(optional)</small></td></tr>
+          <tr><td class="name">measureName</td><td class="type">string</td><td class="desc">A display name for the measure, used in the verdict. <small>(optional)</small></td></tr>
+          <tr><td class="name">unit</td><td class="type">string</td><td class="desc">A unit for the measure, appended to the verdict's magnitude. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ConfidenceInterval">ConfidenceInterval</h4>
     <p class="section-note">An interval for an estimated figure, at a stated level.</p>
     <div class="table-wrap">
@@ -1693,6 +1777,52 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-ExplainChange">ExplainChange</h4>
+    <p class="section-note">The change between two states, decomposed into drivers.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">before</td><td class="type">unknown</td><td class="desc">The total before the change.</td></tr>
+          <tr><td class="name">after</td><td class="type">unknown</td><td class="desc">The total after the change.</td></tr>
+          <tr><td class="name">delta</td><td class="type">number</td><td class="desc">After − before.</td></tr>
+          <tr><td class="name">weighted</td><td class="type">boolean</td><td class="desc">Whether the effects are weighted (avg) rather than additive.</td></tr>
+          <tr><td class="name">single</td><td class="type">boolean</td><td class="desc">Whether the aggregate names a single contributor (min/max).</td></tr>
+          <tr><td class="name">drivers</td><td class="type"><a href="#type-ExplainDriver">ExplainDriver</a>[]</td><td class="desc">The drivers, ranked by absolute effect.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ExplainContributor">ExplainContributor</h4>
+    <p class="section-note">One contributor of a total, ranked by absolute contribution. For an additive aggregate `contribution` is the contributor's own value and `share` is that over the total. For `avg` it is the weighted effect `(group mean − overall mean) × group size` and `share` is the share of rows.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">key</td><td class="type">unknown</td><td class="desc">The group key, or the physical row index when no dimension was chosen.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The display label.</td></tr>
+          <tr><td class="name">count</td><td class="type">number</td><td class="desc">The rows in this bucket.</td></tr>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The bucket's own reduction (sum, mean, extreme…).</td></tr>
+          <tr><td class="name">contribution</td><td class="type">number</td><td class="desc">The contribution figure (weighted effect for avg).</td></tr>
+          <tr><td class="name">share</td><td class="type">number</td><td class="desc">Contribution ÷ total, or rows ÷ rows for avg.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ExplainDriver">ExplainDriver</h4>
+    <p class="section-note">How one contributor changed between two states.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">key</td><td class="type">unknown</td><td class="desc">The contributor key.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The display label.</td></tr>
+          <tr><td class="name">before</td><td class="type">unknown</td><td class="desc">The contributor's value before the change.</td></tr>
+          <tr><td class="name">after</td><td class="type">unknown</td><td class="desc">The contributor's value after the change.</td></tr>
+          <tr><td class="name">effect</td><td class="type">number</td><td class="desc">The contribution to the delta (after − before).</td></tr>
+          <tr><td class="name">kind</td><td class="type">'new' | 'dropped' | 'changed'</td><td class="desc">New (only after), dropped (only before) or changed (both).</td></tr>
+          <tr><td class="name">count</td><td class="type">number</td><td class="desc">The rows in the bucket.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-FacetState">FacetState</h4>
     <p class="section-note">A column's computed distribution.</p>
     <div class="table-wrap">
@@ -1825,6 +1955,34 @@
           <tr><td class="name">topology</td><td class="type">object</td><td class="desc">The pack's geometry, as TopoJSON. Single-layer packs carry it here; a multi-layer pack carries `layers` instead. <small>(optional)</small></td></tr>
           <tr><td class="name">layers</td><td class="type">Record&lt;string, { name: string; topology: object }&gt;</td><td class="desc">A multi-layer pack's geometries, keyed by layer name, each with its own title and topology — regions, local authorities and constituencies share a coastline, so they ship together. <small>(optional)</small></td></tr>
           <tr><td class="name">defaultLayer</td><td class="type">string</td><td class="desc">Which layer is drawn when the spec names none. Unset, the first layer in the object is used. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-GridExplainOptions">GridExplainOptions</h4>
+    <p class="section-note">What `grid.explain` breaks a number down into (BACKLOG-0002657). `column` is the value column; `group`, when given, is a dimension column whose groups become the contributors instead of the individual rows. `compare` is a second filter — the "before" state — against which the change is decomposed.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">The value column to explain.</td></tr>
+          <tr><td class="name">group</td><td class="type">string</td><td class="desc">A dimension column to break down by; omitted ranks the individual rows. <small>(optional)</small></td></tr>
+          <tr><td class="name">compare</td><td class="type">object</td><td class="desc">A second filter (or `{ filters }`) to explain the change against. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-GridExplainResult">GridExplainResult</h4>
+    <p class="section-note">The result of `grid.explain`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">The column explained.</td></tr>
+          <tr><td class="name">fn</td><td class="type">string | null</td><td class="desc">The aggregate name (`sum`, `avg`, `count`, `min`, `max`, …), or null.</td></tr>
+          <tr><td class="name">total</td><td class="type">unknown</td><td class="desc">The total being explained.</td></tr>
+          <tr><td class="name">weighted</td><td class="type">boolean</td><td class="desc">True when contributions are weighted effects (avg).</td></tr>
+          <tr><td class="name">single</td><td class="type">boolean</td><td class="desc">True when the aggregate names a single contributor (min/max).</td></tr>
+          <tr><td class="name">contributors</td><td class="type"><a href="#type-ExplainContributor">ExplainContributor</a>[]</td><td class="desc">The contributors, ranked by absolute contribution.</td></tr>
+          <tr><td class="name">compare</td><td class="type"><a href="#type-ExplainChange">ExplainChange</a></td><td class="desc">The change decomposition, present only when `compare` was given. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -2286,6 +2444,231 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-RecordEditor">RecordEditor</h4>
+    <p class="section-note">The record editor instance `createRecordEditor` returns.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">el</td><td class="type">HTMLElement</td><td class="desc">The host element. <small>(read-only)</small></td></tr>
+          <tr><td class="name">form</td><td class="type">object | null</td><td class="desc">The bound form, or null when no form was configured. <small>(read-only)</small></td></tr>
+          <tr><td class="name">children</td><td class="type">object[]</td><td class="desc">The child records, in declaration order. <small>(read-only)</small></td></tr>
+          <tr><td class="name">ready</td><td class="type">Promise&lt;void&gt;</td><td class="desc">Resolves when the form (and every eagerly mounted child) is ready. <small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">isDirty</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">Whether the form or any child has unsaved edits.</td></tr>
+          <tr><td class="name">validate</td><td class="type">(): <a href="#type-RecordEditorFailure">RecordEditorFailure</a> | null</td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-RecordEditorFailure">RecordEditorFailure</a> | null</code></td><td class="desc">Validate the form then every mounted child; the first failure by view and field, or null.</td></tr>
+          <tr><td class="name">save</td><td class="type">(): Promise&lt;boolean&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Promise&lt;boolean&gt;</code></td><td class="desc">Save the form and every child as ONE batch; true when saved (or nothing dirty).</td></tr>
+          <tr><td class="name">revert</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Restore the form and every child to their last saved values.</td></tr>
+          <tr><td class="name">confirmLeave</td><td class="type">(): boolean</td><td class="desc">&mdash;</td><td class="type"><code>boolean</code></td><td class="desc">The host-navigation guard: false while dirty.</td></tr>
+          <tr><td class="name">on</td><td class="type">(name: <a href="#type-RecordEditorEventName">RecordEditorEventName</a> | '*', fn: (event: <a href="#type-RecordEditorEventPayloads">RecordEditorEventPayloads</a>[<a href="#type-RecordEditorEventName">RecordEditorEventName</a>]) =&gt; void): () =&gt; void</td><td class="desc"><code>name: <a href="#type-RecordEditorEventName">RecordEditorEventName</a> | '*'</code><br><code>fn: (event: <a href="#type-RecordEditorEventPayloads">RecordEditorEventPayloads</a>[<a href="#type-RecordEditorEventName">RecordEditorEventName</a>]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Subscribe to an editor event (or `'*'` for every past-tense event); returns an unsubscribe.</td></tr>
+          <tr><td class="name">off</td><td class="type">(name: <a href="#type-RecordEditorEventName">RecordEditorEventName</a> | '*', fn: (event: <a href="#type-RecordEditorEventPayloads">RecordEditorEventPayloads</a>[<a href="#type-RecordEditorEventName">RecordEditorEventName</a>]) =&gt; void): void</td><td class="desc"><code>name: <a href="#type-RecordEditorEventName">RecordEditorEventName</a> | '*'</code><br><code>fn: (event: <a href="#type-RecordEditorEventPayloads">RecordEditorEventPayloads</a>[<a href="#type-RecordEditorEventName">RecordEditorEventName</a>]) =&gt; void</code></td><td class="type"><code>void</code></td><td class="desc">Remove a handler registered with `on`.</td></tr>
+          <tr><td class="name">child</td><td class="type">(id: string): object | undefined</td><td class="desc"><code>id: string</code></td><td class="type"><code>object | undefined</code></td><td class="desc">The mounted child view by id, or undefined until its tab first opens.</td></tr>
+          <tr><td class="name">open</td><td class="type">(id: string): void</td><td class="desc"><code>id: string</code></td><td class="type"><code>void</code></td><td class="desc">Open a child's tab by id, mounting it first if needed.</td></tr>
+          <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Tear the editor down: destroy the form, the shell and every mounted child.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RecordEditorBeforeSaveEvent">RecordEditorBeforeSaveEvent</h4>
+    <p class="section-note">A `beforeSave` payload, cancellable by `preventDefault` or a `false` return.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">'beforeSave'</td><td class="desc">Which event this is.</td></tr>
+          <tr><td class="name">editor</td><td class="type"><a href="#type-RecordEditor">RecordEditor</a></td><td class="desc">The editor handle.</td></tr>
+          <tr><td class="name">defaultPrevented</td><td class="type">boolean</td><td class="desc">True once a handler cancelled the save. <small>(read-only)</small></td></tr>
+          <tr><td class="name">reason</td><td class="type">string | null</td><td class="desc">The reason given to `preventDefault`, or null. <small>(read-only)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">preventDefault</td><td class="type">(reason?: string): void</td><td class="desc"><code>reason?: string</code></td><td class="type"><code>void</code></td><td class="desc">Cancel the pending save, with an optional reason.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RecordEditorChange">RecordEditorChange</h4>
+    <p class="section-note">A keyed diff the source `subscribe` reports.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">add</td><td class="type">Record&lt;string, unknown&gt;[]</td><td class="desc">Rows added.</td></tr>
+          <tr><td class="name">update</td><td class="type">Record&lt;string, unknown&gt;[]</td><td class="desc">Rows updated.</td></tr>
+          <tr><td class="name">remove</td><td class="type">string[]</td><td class="desc">Keys removed.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RecordEditorChild">RecordEditorChild</h4>
+    <p class="section-note">One child view declaration.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">The tab id, also the `child(id)`/`open(id)` name. <small>(optional)</small></td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The tab label; the id when omitted. <small>(optional)</small></td></tr>
+          <tr><td class="name">type</td><td class="type">string</td><td class="desc">The view type: `grid` (built in) or a `factories` key. <small>(optional)</small></td></tr>
+          <tr><td class="name">config</td><td class="type">object</td><td class="desc">The view's own config (grid config, list config, …). <small>(optional)</small></td></tr>
+          <tr><td class="name">relation</td><td class="type">{ from: string; to: string }</td><td class="desc">A related set by `{ from, to }` — a child row's `to` equals the parent's `from`. <small>(optional)</small></td></tr>
+          <tr><td class="name">lazy</td><td class="type">false</td><td class="desc">Mount this child eagerly (on creation) instead of on first open. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">filter</td><td class="type">(row: Record&lt;string, unknown&gt;, parent: Record&lt;string, unknown&gt; | null) =&gt; boolean</td><td class="desc"><code>row: Record&lt;string, unknown&gt;</code><br><code>parent: Record&lt;string, unknown&gt; | null</code></td><td class="type"><code>=&gt; boolean</code></td><td class="desc">A related set by predicate — `(row, parent) =&gt; boolean`. <small>(optional)</small></td></tr>
+          <tr><td class="name">view</td><td class="type">((el: HTMLElement, config: object, ctx: object) =&gt; object) | object</td><td class="desc"><code>(el: HTMLElement, config: object, ctx: object) =&gt; object</code></td><td class="type"><code>| object</code></td><td class="desc">A factory, or an already-created view. <small>(optional)</small></td></tr>
+          <tr><td class="name">validate</td><td class="type">(row: Record&lt;string, unknown&gt;, ctx: object) =&gt; boolean | string | { ok?: boolean; field?: string | null; message?: string }</td><td class="desc"><code>row: Record&lt;string, unknown&gt;</code><br><code>ctx: object</code></td><td class="type"><code>=&gt; boolean | string | { ok?: boolean; field?: string | null; message?: string }</code></td><td class="desc">A per-child validator, checked before the view's own cell rules. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RecordEditorConfig">RecordEditorConfig</h4>
+    <p class="section-note">The record editor's config.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">source</td><td class="type"><a href="#type-RecordEditorSource">RecordEditorSource</a></td><td class="desc">The small store `{ get, rows, subscribe, apply }`. <small>(optional)</small></td></tr>
+          <tr><td class="name">router</td><td class="type"><a href="#type-RecordEditorRouter">RecordEditorRouter</a></td><td class="desc">The data-router instance instead of a source. <small>(optional)</small></td></tr>
+          <tr><td class="name">route</td><td class="type">string</td><td class="desc">The route the parent row lives on (router path). <small>(optional)</small></td></tr>
+          <tr><td class="name">key</td><td class="type">unknown</td><td class="desc">The parent row's key. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowKey</td><td class="type">string</td><td class="desc">The key field name (default `id`). <small>(optional)</small></td></tr>
+          <tr><td class="name">form</td><td class="type">object | ((ctx: object) =&gt; object)</td><td class="desc">The form's own config, a factory returning one, or an already-created form. <small>(optional)</small></td></tr>
+          <tr><td class="name">children</td><td class="type"><a href="#type-RecordEditorChild">RecordEditorChild</a>[]</td><td class="desc">The child views, in tab order. <small>(optional)</small></td></tr>
+          <tr><td class="name">layout</td><td class="type">object</td><td class="desc">A shell layout (rows/cols) for the form and children cells. <small>(optional)</small></td></tr>
+          <tr><td class="name">factories</td><td class="type">Record&lt;string, (el: HTMLElement, config: object, ctx: object) =&gt; object&gt;</td><td class="desc">Injected `{ [type]: create(el, config, ctx) }` factories for non-grid children. <small>(optional)</small></td></tr>
+          <tr><td class="name">readOnly</td><td class="type">boolean</td><td class="desc">Start read-only: `save()` writes nothing. <small>(optional)</small></td></tr>
+          <tr><td class="name">preset</td><td class="type">string</td><td class="desc">A density preset: `default`, `compact`, `standard` or `comfortable`. <small>(optional)</small></td></tr>
+          <tr><td class="name">dark</td><td class="type">boolean</td><td class="desc">Dark mode: add the editor's dark class. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RecordEditorDelta">RecordEditorDelta</h4>
+    <p class="section-note">One delta of a `save()` batch.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">op</td><td class="type">'upsert' | 'delete'</td><td class="desc">`upsert` to write a row, `delete` to remove it.</td></tr>
+          <tr><td class="name">row</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">The row to write; a delete carries the key field.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RecordEditorDirtyEvent">RecordEditorDirtyEvent</h4>
+    <p class="section-note">A `dirty` payload.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">'dirty'</td><td class="desc">Which event this is.</td></tr>
+          <tr><td class="name">dirty</td><td class="type">boolean</td><td class="desc">True while the form or any child has unsaved edits.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RecordEditorEventPayloads">RecordEditorEventPayloads</h4>
+    <p class="section-note">What a handler receives, per editor event.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">dirty</td><td class="type"><a href="#type-RecordEditorDirtyEvent">RecordEditorDirtyEvent</a></td><td class="desc">The new dirty state.</td></tr>
+          <tr><td class="name">beforeSave</td><td class="type"><a href="#type-RecordEditorBeforeSaveEvent">RecordEditorBeforeSaveEvent</a></td><td class="desc">The pending save, with `preventDefault` to veto it.</td></tr>
+          <tr><td class="name">saved</td><td class="type"><a href="#type-RecordEditorSavedEvent">RecordEditorSavedEvent</a></td><td class="desc">The batch that was applied.</td></tr>
+          <tr><td class="name">saveFailed</td><td class="type"><a href="#type-RecordEditorSaveFailedEvent">RecordEditorSaveFailedEvent</a></td><td class="desc">The rejection the store's `apply` threw.</td></tr>
+          <tr><td class="name">validated</td><td class="type"><a href="#type-RecordEditorValidatedEvent">RecordEditorValidatedEvent</a></td><td class="desc">A validation run's verdict.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RecordEditorFailure">RecordEditorFailure</h4>
+    <p class="section-note">One failure of `validate()`, named by view and field.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">view</td><td class="type">string</td><td class="desc">The child id, or `'form'` for a form failure.</td></tr>
+          <tr><td class="name">field</td><td class="type">string | null</td><td class="desc">The failing field's name, or null for a whole-view failure.</td></tr>
+          <tr><td class="name">message</td><td class="type">string</td><td class="desc">The failure message.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RecordEditorRouter">RecordEditorRouter</h4>
+    <p class="section-note">The slice of a data-router instance the editor uses.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">get</td><td class="type">(route: string | undefined, key: unknown): Record&lt;string, unknown&gt; | undefined</td><td class="desc"><code>route: string | undefined</code><br><code>key: unknown</code></td><td class="type"><code>Record&lt;string, unknown&gt; | undefined</code></td><td class="desc">Read one row on a route.</td></tr>
+          <tr><td class="name">subscribe</td><td class="type">(route: string | undefined, fn: (change: <a href="#type-RecordEditorChange">RecordEditorChange</a>) =&gt; void): () =&gt; void</td><td class="desc"><code>route: string | undefined</code><br><code>fn: (change: <a href="#type-RecordEditorChange">RecordEditorChange</a>) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Subscribe to a route's keyed diffs; returns an unsubscribe. <small>(optional)</small></td></tr>
+          <tr><td class="name">apply</td><td class="type">(deltas: <a href="#type-RecordEditorDelta">RecordEditorDelta</a>[]): unknown</td><td class="desc"><code>deltas: <a href="#type-RecordEditorDelta">RecordEditorDelta</a>[]</code></td><td class="type"><code>unknown</code></td><td class="desc">Apply one batch. <small>(optional)</small></td></tr>
+          <tr><td class="name">attach</td><td class="type">(view: object, match: (row: Record&lt;string, unknown&gt;) =&gt; boolean): unknown</td><td class="desc"><code>view: object</code><br><code>match: (row: Record&lt;string, unknown&gt;) =&gt; boolean</code></td><td class="type"><code>unknown</code></td><td class="desc">Attach a child view to a predicate route. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RecordEditorSaveFailedEvent">RecordEditorSaveFailedEvent</h4>
+    <p class="section-note">A `saveFailed` payload.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">'saveFailed'</td><td class="desc">Which event this is.</td></tr>
+          <tr><td class="name">error</td><td class="type">unknown</td><td class="desc">The rejection the store's `apply` threw.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RecordEditorSavedEvent">RecordEditorSavedEvent</h4>
+    <p class="section-note">A `saved` payload.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">'saved'</td><td class="desc">Which event this is.</td></tr>
+          <tr><td class="name">batch</td><td class="type"><a href="#type-RecordEditorDelta">RecordEditorDelta</a>[]</td><td class="desc">The applied batch.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RecordEditorSource">RecordEditorSource</h4>
+    <p class="section-note">The store `source`: a small dataset the editor reads and writes through.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">rowKey</td><td class="type">string</td><td class="desc">The key field name (default `id`). <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">get</td><td class="type">(key: unknown): Record&lt;string, unknown&gt; | undefined</td><td class="desc"><code>key: unknown</code></td><td class="type"><code>Record&lt;string, unknown&gt; | undefined</code></td><td class="desc">Read one row by key.</td></tr>
+          <tr><td class="name">rows</td><td class="type">(): Record&lt;string, unknown&gt;[]</td><td class="desc">&mdash;</td><td class="type"><code>Record&lt;string, unknown&gt;[]</code></td><td class="desc">Every row.</td></tr>
+          <tr><td class="name">subscribe</td><td class="type">(fn: (change: <a href="#type-RecordEditorChange">RecordEditorChange</a>) =&gt; void): () =&gt; void</td><td class="desc"><code>fn: (change: <a href="#type-RecordEditorChange">RecordEditorChange</a>) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Subscribe to keyed diffs; returns an unsubscribe.</td></tr>
+          <tr><td class="name">apply</td><td class="type">(deltas: <a href="#type-RecordEditorDelta">RecordEditorDelta</a>[]): Promise&lt;boolean&gt; | boolean</td><td class="desc"><code>deltas: <a href="#type-RecordEditorDelta">RecordEditorDelta</a>[]</code></td><td class="type"><code>Promise&lt;boolean&gt; | boolean</code></td><td class="desc">Apply one batch; rejects (or returns false) to fail the save.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-RecordEditorValidatedEvent">RecordEditorValidatedEvent</h4>
+    <p class="section-note">A `validated` payload.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">'validated'</td><td class="desc">Which event this is.</td></tr>
+          <tr><td class="name">ok</td><td class="type">boolean</td><td class="desc">True when nothing failed.</td></tr>
+          <tr><td class="name">failure</td><td class="type"><a href="#type-RecordEditorFailure">RecordEditorFailure</a> | null</td><td class="desc">The first failure, or null when everything passed.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-Registry">Registry</h4>
     <div class="table-wrap">
       <table>
@@ -2662,6 +3045,82 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-XlsxApi">XlsxApi</h4>
+    <p class="section-note">The standalone workbook writer and reader (§14, BACKLOG-0002665).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">write</td><td class="type">(options?: <a href="#type-XlsxWriteOptions">XlsxWriteOptions</a>): Promise&lt;Blob | ArrayBuffer | Uint8Array&gt;</td><td class="desc"><code>options?: <a href="#type-XlsxWriteOptions">XlsxWriteOptions</a></code></td><td class="type"><code>Promise&lt;Blob | ArrayBuffer | Uint8Array&gt;</code></td><td class="desc">Write one `.xlsx` workbook with a worksheet per entry.</td></tr>
+          <tr><td class="name">read</td><td class="type">(input: Uint8Array | ArrayBuffer | Blob, opts?: <a href="#type-XlsxReadOptions">XlsxReadOptions</a>): Promise&lt;<a href="#type-XlsxReadResult">XlsxReadResult</a>&gt;</td><td class="desc"><code>input: Uint8Array | ArrayBuffer | Blob</code><br><code>opts?: <a href="#type-XlsxReadOptions">XlsxReadOptions</a></code></td><td class="type"><code>Promise&lt;<a href="#type-XlsxReadResult">XlsxReadResult</a>&gt;</code></td><td class="desc">Read a workbook back into typed cells.</td></tr>
+          <tr><td class="name">toCsv</td><td class="type">(sheet: unknown[][] | <a href="#type-XlsxSheet">XlsxSheet</a>, opts?: object): string</td><td class="desc"><code>sheet: unknown[][] | <a href="#type-XlsxSheet">XlsxSheet</a></code><br><code>opts?: object</code></td><td class="type"><code>string</code></td><td class="desc">Serialise one sheet to RFC 4180 CSV text.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-XlsxReadOptions">XlsxReadOptions</h4>
+    <p class="section-note">Options for the standalone {@link xlsx} reader (§14, BACKLOG-0002665).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">sheet</td><td class="type">string | number</td><td class="desc">Read this one worksheet (by name or zero-based index) instead of every sheet. <small>(optional)</small></td></tr>
+          <tr><td class="name">startRow</td><td class="type">number</td><td class="desc">Drop the rows before this 1-based row; header rows come through as ordinary rows. <small>(optional)</small></td></tr>
+          <tr><td class="name">raw</td><td class="type">boolean</td><td class="desc">Return stored values (numbers, booleans, dates) instead of formatted text. <small>(optional)</small></td></tr>
+          <tr><td class="name">dates</td><td class="type">boolean</td><td class="desc">Turn date-formatted serials into `Date` objects, with `raw: true`. <small>(optional)</small></td></tr>
+          <tr><td class="name">blank</td><td class="type">'' | null</td><td class="desc">What an empty cell becomes: `''` (the default) or `null`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-XlsxReadResult">XlsxReadResult</h4>
+    <p class="section-note">The result of {@link xlsx}.read (§14, BACKLOG-0002665).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">sheets</td><td class="type"><a href="#type-XlsxSheet">XlsxSheet</a>[]</td><td class="desc">Every sheet (or the one asked for), in workbook order.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-XlsxSheet">XlsxSheet</h4>
+    <p class="section-note">One worksheet as {@link xlsx}.read returns it (§14, BACKLOG-0002665).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The sheet's tab name.</td></tr>
+          <tr><td class="name">hidden</td><td class="type">boolean</td><td class="desc">True when Excel marks the sheet `hidden` or `veryHidden`.</td></tr>
+          <tr><td class="name">rows</td><td class="type">unknown[][]</td><td class="desc">The cells, row arrays from `startRow`, blanks kept so columns never shift.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-XlsxSheetSpec">XlsxSheetSpec</h4>
+    <p class="section-note">One worksheet of an `xlsx.write` workbook (§14, BACKLOG-0002665).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The sheet's tab name; made safe and unique the way the grid exporter does. <small>(optional)</small></td></tr>
+          <tr><td class="name">rows</td><td class="type">unknown[][] | <a href="grid.html#type-Grid">Grid</a></td><td class="desc">The cells: an array of row arrays (the first row ordinary data), or a grid exported as `grid.export.excel` would. <small>(optional)</small></td></tr>
+          <tr><td class="name">columnWidths</td><td class="type">number[]</td><td class="desc">Explicit column widths in Excel width units, one per column. <small>(optional)</small></td></tr>
+          <tr><td class="name">formats</td><td class="type">string[]</td><td class="desc">OOXML number-format codes, one per column; a date code marks a date column. <small>(optional)</small></td></tr>
+          <tr><td class="name">hidden</td><td class="type">boolean</td><td class="desc">Mark the sheet Excel-hidden (`state="hidden"`), so a read reports it hidden. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-XlsxWriteOptions">XlsxWriteOptions</h4>
+    <p class="section-note">Options for the standalone {@link xlsx} writer (§14, BACKLOG-0002665).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">sheets</td><td class="type"><a href="#type-XlsxSheetSpec">XlsxSheetSpec</a>[]</td><td class="desc">The worksheets to write, in order. <small>(optional)</small></td></tr>
+          <tr><td class="name">filename</td><td class="type">string</td><td class="desc">When set, also trigger a browser download under this file name. <small>(optional)</small></td></tr>
+          <tr><td class="name">toArrayBuffer</td><td class="type">boolean</td><td class="desc">Return the bytes as an `ArrayBuffer` (for uploads) instead of a `Blob`. <small>(optional)</small></td></tr>
+          <tr><td class="name">modified</td><td class="type">Date</td><td class="desc">The archive's modification time; defaults to a fixed epoch for reproducible bytes. <small>(optional)</small></td></tr>
+          <tr><td class="name">level</td><td class="type">number</td><td class="desc">DEFLATE effort, 0 stores, 6 (the default) matches zlib's trade-off. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h3 id="ref-types">Types</h3>
     <p class="section-note">Every type alias the declarations export, with its definition. A type named anywhere in the tables above links to its entry here.</p>
     <h4 id="type-AggregateMode">AggregateMode</h4>
@@ -2877,6 +3336,25 @@
     <h4 id="type-Comparator">Comparator</h4>
     <p class="section-note">Your own sort order for a column, in place of the built-in one for its type. Return a negative number when `a` sorts first, a positive number when `b` does, and zero when they tie. The two rows are passed as well, so an order can depend on a second field, and `descending` says which way the grid is about to apply the result — which is how blanks are kept last either way.</p>
     <p class="type-def"><code>type Comparator = ( a: unknown, b: unknown, rowA?: <a href="grid.html#type-Row">Row</a>, rowB?: <a href="grid.html#type-Row">Row</a>, descending?: boolean, ) =&gt; number</code></p>
+    <h4 id="type-CompareTest">CompareTest</h4>
+    <p class="section-note">Which statistical test {@link StatisticsApi.compare} runs, or `auto` to pick.</p>
+    <p class="type-def"><code>type CompareTest = 'auto' | 't' | 'welch' | 'mannWhitney' | 'anova' | 'kruskal' | 'chiSquare' | 'proportions'</code></p>
+    <h4 id="type-ContextMenuConfig">ContextMenuConfig</h4>
+    <p class="section-note">The options passed to `createContextMenu`.</p>
+    <p class="type-def"><code>type ContextMenuConfig = { ctx?: Record&lt;string, unknown&gt;; onClose?: (() =&gt; void) | null; parent?: ContextMenu | null; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/contextmenu</code>.</small></p>
+    <h4 id="type-ContextMenuIcon">ContextMenuIcon</h4>
+    <p class="section-note">An icon spec: a built-in name, an SVG string, a URL, an icon-font class list, or an object like `{ className }`.</p>
+    <p class="type-def"><code>type ContextMenuIcon = string | { className?: string; svg?: string; url?: string; name?: string } | null | undefined</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/contextmenu</code>.</small></p>
+    <h4 id="type-ContextMenuItem">ContextMenuItem</h4>
+    <p class="section-note">One context-menu entry.</p>
+    <p class="type-def"><code>type ContextMenuItem = { name?: string; icon?: <a href="#type-ContextMenuIcon">ContextMenuIcon</a>; shortcut?: string; disabled?: boolean; checked?: boolean; subMenu?: Array&lt;<a href="#type-ContextMenuItem">ContextMenuItem</a> | string | ((ctx: unknown) =&gt; <a href="#type-ContextMenuItem">ContextMenuItem</a> | string | false | null | undefined)&gt;; children?: Array&lt;<a href="#type-ContextMenuItem">ContextMenuItem</a> | string | ((ctx: unknown) =&gt; <a href="#type-ContextMenuItem">ContextMenuItem</a> | string | false | null | undefined)&gt;; action?: (ctx: unknown, colour?: string) =&gt; void; separator?: boolean; cssClass?: string; swatches?: string[]; selected?: string; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/contextmenu</code>.</small></p>
+    <h4 id="type-ContextMenuShowOptions">ContextMenuShowOptions</h4>
+    <p class="section-note">The options passed to `ContextMenu.show`.</p>
+    <p class="type-def"><code>type ContextMenuShowOptions = { items: Array&lt;<a href="#type-ContextMenuItem">ContextMenuItem</a> | string | ((ctx: unknown) =&gt; <a href="#type-ContextMenuItem">ContextMenuItem</a> | string | false | null | undefined)&gt;; x?: number; y?: number; anchor?: HTMLElement; placement?: 'below' | 'right'; returnFocus?: HTMLElement | null; trigger?: HTMLElement | null; ctx?: Record&lt;string, unknown&gt;; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/contextmenu</code>.</small></p>
     <h4 id="type-ControlChartRuleSet">ControlChartRuleSet</h4>
     <p class="section-note">Which control-chart rule family flags an out-of-control point.</p>
     <p class="type-def"><code>type ControlChartRuleSet = 'westernElectric' | 'nelson'</code></p>
@@ -3023,7 +3501,7 @@
     <p class="type-def"><code>type EventHandler = (e: <a href="grid.html#type-GridEvent">GridEvent</a>) =&gt; void</code></p>
     <h4 id="type-EventName">EventName</h4>
     <p class="section-note">Every event the grid emits. Complete, and checked against the runtime by `tools/check.js`, an `emit()` call with no entry here fails the build. It was not complete before: fifty-one events were emitted and undeclared, so subscribing to any of them from TypeScript was a compile error on an event the grid genuinely raises. Grouped by the subsystem that raises them, which is also how the reference lists them.</p>
-    <p class="type-def"><code>type EventName = 'ready' | 'destroy' | 'render:first' | 'render:done' | 'config:changed' | 'licence:changed' | 'model:changed' | 'rows:changed' | 'rows:queued' | 'rows:deferred' | 'rows:paused' | 'rows:resumed' | 'row:received' | 'row:sent' | 'row:copied' | 'row:moved' | 'source:error' | 'source:total' | 'stream:chunk' | 'stream:end' | 'stream:evicted' | 'rowDrag:started' | 'rowDrag:moved' | 'rowDrag:left' | 'rowDrag:ended' | 'beforeRowDrop' | 'rowDrop:cancelled' | 'rowDrop' | 'cell:changed' | 'cell:pending' | 'cell:confirmed' | 'cell:reverted' | 'cell:conflict' | 'cell:clicked' | 'cell:dblclicked' | 'cell:contextmenu' | 'cell:mouseover' | 'cell:mouseout' | 'cell:mousedown' | 'cell:mouseup' | 'cell:edit:start' | 'cell:edit:end' | 'row:edit:start' | 'row:edit:end' | 'row:clicked' | 'row:dblclicked' | 'row:pending' | 'row:confirmed' | 'row:reverted' | 'row:conflict' | 'form:opened' | 'form:closed' | 'form:saved' | 'form:error' | 'sort:changed' | 'filter:changed' | 'group:toggled' | 'facet:computed' | 'facet:filtered' | 'facet:expanded' | 'facet:failed' | 'column:moved' | 'column:resized' | 'column:visible' | 'column:pinned' | 'column:grouped' | 'column:pivoted' | 'column:filter:open' | 'column:profile:open' | 'column:menu:open' | 'pivot:drill' | 'columns:changed' | 'columns:tagged' | 'columngroup:changed' | 'header:contextmenu' | 'selection:changed' | 'range:changed' | 'clipboard:copy' | 'page:changed' | 'scroll' | 'scroll:end' | 'size:changed' | 'detail:toggled' | 'detail:cell:edit:start' | 'detail:cell:edit:end' | 'detail:row:edit:start' | 'detail:row:edit:end' | 'detail:cell:changed' | 'toolpanel:focus' | 'highlight:changed' | 'find:changed' | 'tree:loading' | 'tree:loaded' | 'tree:loadFailed' | 'tree:loadAborted' | 'state:changed' | 'state:reset' | 'history:changed' | 'history:applied' | 'views:changed' | 'view:applied' | 'view:saved' | 'view:removed' | 'view:renamed' | 'view:default' | 'validation:failed' | 'validation:cleared' | 'formatting:changed' | 'redaction:changed' | 'permissions:changed' | 'presentation:changed' | 'presentation:started' | 'presentation:ended' | 'presentation:view' | 'presentation:scale' | 'presentation:spotlight' | 'presentation:captured' | 'comment:added' | 'comment:edited' | 'comment:deleted' | 'comment:failed' | 'comment:resolved' | 'comment:unresolved' | 'comment:threadOpened' | 'comment:threadClosed' | 'comment:indexLoaded' | 'presence:published' | 'presence:joined' | 'presence:updated' | 'presence:left' | 'presence:failed' | 'presence:lockRefused' | 'diff:changed' | 'diff:swapped' | 'timeline:attached' | 'timeline:detached' | 'timeline:seek' | 'timeline:seeking' | 'annotation:changed' | 'export:progress' | 'export:request' | 'export:done' | 'shortcuts:opened' | 'shortcuts:closed' | 'print:before' | 'print:after' | 'beforeEdit' | 'beforeSort' | 'beforeFilter' | 'beforeColumnMove' | 'beforeColumnResize' | 'beforeColumnHide' | 'beforeSelect' | 'beforeRowAdd' | 'beforeDelete' | 'beforeRowMove' | 'beforeGroup' | 'beforeRowReceive' | 'edit:cancelled' | 'sort:cancelled' | 'filter:cancelled' | 'columnMove:cancelled' | 'columnResize:cancelled' | 'columnHide:cancelled' | 'selection:cancelled' | 'rowAdd:cancelled' | 'delete:cancelled' | 'rowMove:cancelled' | 'group:cancelled' | 'rowReceive:cancelled' | '*'</code></p>
+    <p class="type-def"><code>type EventName = 'ready' | 'destroy' | 'render:first' | 'render:done' | 'config:changed' | 'licence:changed' | 'model:changed' | 'rows:changed' | 'rows:queued' | 'rows:deferred' | 'rows:paused' | 'rows:resumed' | 'row:received' | 'row:sent' | 'row:copied' | 'row:moved' | 'source:error' | 'source:total' | 'stream:chunk' | 'stream:end' | 'stream:evicted' | 'rowDrag:started' | 'rowDrag:moved' | 'rowDrag:left' | 'rowDrag:ended' | 'beforeRowDrop' | 'rowDrop:cancelled' | 'rowDrop' | 'cell:changed' | 'cell:pending' | 'cell:confirmed' | 'cell:reverted' | 'cell:conflict' | 'cell:clicked' | 'cell:dblclicked' | 'cell:contextmenu' | 'cell:mouseover' | 'cell:mouseout' | 'cell:mousedown' | 'cell:mouseup' | 'cell:edit:start' | 'cell:edit:end' | 'row:edit:start' | 'row:edit:end' | 'row:clicked' | 'row:dblclicked' | 'row:pending' | 'row:confirmed' | 'row:reverted' | 'row:conflict' | 'form:opened' | 'form:closed' | 'form:saved' | 'form:error' | 'sort:changed' | 'filter:changed' | 'group:toggled' | 'facet:computed' | 'facet:filtered' | 'facet:expanded' | 'facet:failed' | 'column:moved' | 'column:resized' | 'column:visible' | 'column:pinned' | 'column:grouped' | 'column:pivoted' | 'column:filter:open' | 'column:profile:open' | 'column:compareGroups:open' | 'column:menu:open' | 'explain:open' | 'pivot:drill' | 'columns:changed' | 'columns:tagged' | 'columngroup:changed' | 'header:contextmenu' | 'totals:contextmenu' | 'selection:changed' | 'range:changed' | 'clipboard:copy' | 'page:changed' | 'scroll' | 'scroll:end' | 'size:changed' | 'detail:toggled' | 'detail:cell:edit:start' | 'detail:cell:edit:end' | 'detail:row:edit:start' | 'detail:row:edit:end' | 'detail:cell:changed' | 'toolpanel:focus' | 'highlight:changed' | 'find:changed' | 'tree:loading' | 'tree:loaded' | 'tree:loadFailed' | 'tree:loadAborted' | 'state:changed' | 'state:reset' | 'history:changed' | 'history:applied' | 'views:changed' | 'view:applied' | 'view:saved' | 'view:removed' | 'view:renamed' | 'view:default' | 'validation:failed' | 'validation:cleared' | 'formatting:changed' | 'redaction:changed' | 'permissions:changed' | 'presentation:changed' | 'presentation:started' | 'presentation:ended' | 'presentation:view' | 'presentation:scale' | 'presentation:spotlight' | 'presentation:captured' | 'comment:added' | 'comment:edited' | 'comment:deleted' | 'comment:failed' | 'comment:resolved' | 'comment:unresolved' | 'comment:threadOpened' | 'comment:threadClosed' | 'comment:indexLoaded' | 'presence:published' | 'presence:joined' | 'presence:updated' | 'presence:left' | 'presence:failed' | 'presence:lockRefused' | 'diff:changed' | 'diff:swapped' | 'timeline:attached' | 'timeline:detached' | 'timeline:seek' | 'timeline:seeking' | 'annotation:changed' | 'export:progress' | 'export:request' | 'export:done' | 'shortcuts:opened' | 'shortcuts:closed' | 'print:before' | 'print:after' | 'beforeEdit' | 'beforeSort' | 'beforeFilter' | 'beforeColumnMove' | 'beforeColumnResize' | 'beforeColumnHide' | 'beforeSelect' | 'beforeRowAdd' | 'beforeDelete' | 'beforeRowMove' | 'beforeGroup' | 'beforeRowReceive' | 'edit:cancelled' | 'sort:cancelled' | 'filter:cancelled' | 'columnMove:cancelled' | 'columnResize:cancelled' | 'columnHide:cancelled' | 'selection:cancelled' | 'rowAdd:cancelled' | 'delete:cancelled' | 'rowMove:cancelled' | 'group:cancelled' | 'rowReceive:cancelled' | '*'</code></p>
     <h4 id="type-EventOrigin">EventOrigin</h4>
     <p class="section-note">Who caused a grid change: `'user'` interaction, an `'api'` call, `'init'` (the grid's own startup), or an approved `'ai'` write (BACKLOG-0000967).</p>
     <p class="type-def"><code>type EventOrigin = 'api' | 'user' | 'init' | 'ai'</code></p>
@@ -3287,7 +3765,7 @@
     <p class="type-def"><code>type IconDefinition = string | string[] | { viewBox?: string; paths?: string[]; path?: string; paint?: <a href="#type-Paint">Paint</a>; }</code></p>
     <h4 id="type-IconName">IconName</h4>
     <p class="section-note">A glyph name from the icon sprite registry (`packages/dom/src/cell/icons.js`). The union below is every built-in name, generated from `iconNames()` so an editor can autocomplete and typo-check them — see `test/icon-name-type-drift.test.js`, which fails if this list and the registry ever disagree. It is deliberately **not closed**: the registry is extensible at runtime via `registerIcon`, `registerIcons`, `config.icons` and `grid.icons`, and `(string &amp; {})` widens the type so a custom registered name still typechecks without losing autocomplete on the built-ins. A name the registry has never heard of — built-in or custom — draws a blank glyph and warns once at runtime; it is not a type error.</p>
-    <p class="type-def"><code>type IconName = 'chevronRight' | 'chevronDown' | 'chevronUp' | 'chevronLeft' | 'check' | 'dash' | 'close' | 'plus' | 'minus' | 'info' | 'success' | 'warning' | 'danger' | 'clock' | 'lock' | 'link' | 'external' | 'filter' | 'pause' | 'play' | 'chart' | 'palette' | 'undo' | 'redo' | 'columns' | 'download' | 'restore' | 'spreadsheet' | 'print' | 'maximise' | 'minimise' | 'views' | 'search' | 'pencil' | 'trash' | 'share' | 'pin' | 'sortAsc' | 'sortDesc' | 'menu' | 'drag' | 'star' | 'heart' | 'circleFilled' | 'square' | 'bolt' | 'flag' | 'arrow' | 'highlight' | 'eraser' | 'thumbUp' | 'eye' | 'eyeOff' | 'copy' | 'present' | 'cabinet' | 'splice' | 'exchange' | 'pole' | 'chamber' | 'premises' | 'fault' | 'user' | 'calendar' | 'blank' | (string &amp; {})</code></p>
+    <p class="type-def"><code>type IconName = 'chevronRight' | 'chevronDown' | 'chevronUp' | 'chevronLeft' | 'check' | 'dash' | 'close' | 'plus' | 'minus' | 'info' | 'success' | 'warning' | 'danger' | 'clock' | 'lock' | 'link' | 'external' | 'filter' | 'pause' | 'play' | 'chart' | 'palette' | 'undo' | 'redo' | 'columns' | 'download' | 'restore' | 'spreadsheet' | 'print' | 'maximise' | 'minimise' | 'views' | 'search' | 'pencil' | 'trash' | 'share' | 'pin' | 'sortAsc' | 'sortDesc' | 'menu' | 'ellipsis' | 'ellipsisVertical' | 'drag' | 'star' | 'heart' | 'circleFilled' | 'square' | 'bolt' | 'flag' | 'arrow' | 'highlight' | 'eraser' | 'thumbUp' | 'eye' | 'eyeOff' | 'copy' | 'present' | 'cabinet' | 'splice' | 'exchange' | 'pole' | 'chamber' | 'premises' | 'fault' | 'user' | 'calendar' | 'blank' | (string &amp; {})</code></p>
     <h4 id="type-IconSetKind">IconSetKind</h4>
     <p class="section-note">A built-in glyph set for an icon-set formatting rule.</p>
     <p class="type-def"><code>type IconSetKind = 'arrows' | 'trafficLights' | 'ratings'</code></p>
@@ -3631,6 +4109,9 @@
     <h4 id="type-RateSource">RateSource</h4>
     <p class="section-note">A caller-supplied exchange-rate source. The grid ships and fetches no rates. Either a function `(from, to) =&gt; rate|null`, or a table of rates per unit of a common base (the base being whichever code maps to 1, or `rateBase`). A source that cannot answer returns `null`, which is surfaced loudly, never as zero.</p>
     <p class="type-def"><code>type RateSource = ((from: string, to: string) =&gt; number | null) | Record&lt;string, number&gt;</code></p>
+    <h4 id="type-RecordEditorEventName">RecordEditorEventName</h4>
+    <p class="section-note">The events the record editor's `on()` accepts (BACKLOG-0002655).</p>
+    <p class="type-def"><code>type RecordEditorEventName = 'dirty' | 'beforeSave' | 'saved' | 'saveFailed' | 'validated'</code></p>
     <h4 id="type-RegressionMethod">RegressionMethod</h4>
     <p class="section-note">A regression shadow's fitting method.</p>
     <p class="type-def"><code>type RegressionMethod = 'ols' | 'wls' | 'robust' | 'quantile'</code></p>
@@ -3799,6 +4280,22 @@
     <h4 id="type-Side">Side</h4>
     <p class="section-note">The left or right side of a chart: a measure axis, or a combo measure's side.</p>
     <p class="type-def"><code>type Side = 'left' | 'right'</code></p>
+    <h4 id="type-SidebarConfig">SidebarConfig</h4>
+    <p class="section-note">The options passed to `createSidebar`.</p>
+    <p class="type-def"><code>type SidebarConfig = { nodes?: <a href="#type-SidebarNode">SidebarNode</a>[]; flat?: boolean; keyboard?: boolean; hoverDelay?: number; idPrefix?: string; tooltips?: boolean; name?: string; css?: string; [key: string]: unknown; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/sidebar</code>.</small></p>
+    <h4 id="type-SidebarDataApi">SidebarDataApi</h4>
+    <p class="section-note">The node-store API at `sidebar.data` (a flat, id-keyed view of the tree).</p>
+    <p class="type-def"><code>type SidebarDataApi = { parse(nodes: <a href="#type-SidebarNode">SidebarNode</a>[]): <a href="#type-SidebarDataApi">SidebarDataApi</a>; add(node: <a href="#type-SidebarNode">SidebarNode</a> | <a href="#type-SidebarNode">SidebarNode</a>[], index?: number): string | number | Array&lt;string | number&gt; | undefined; update(id: string | number, patch: Partial&lt;<a href="#type-SidebarNode">SidebarNode</a>&gt;): void; remove(ids: string | number | Array&lt;string | number&gt;): void; removeAll(): void; getItem(id: string | number): <a href="#type-SidebarNode">SidebarNode</a> | undefined; exists(id: string | number): boolean; getIndex(id: string | number): number; getId(index: number): string | number | undefined; getLength(): number; forEach(fn: (node: <a href="#type-SidebarNode">SidebarNode</a>, index: number) =&gt; void): void; serialize(): <a href="#type-SidebarNode">SidebarNode</a>[]; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/sidebar</code>.</small></p>
+    <h4 id="type-SidebarIcon">SidebarIcon</h4>
+    <p class="section-note">An icon spec: a built-in name, an SVG string, a URL, an icon-font class list, or an object like `{ className }`.</p>
+    <p class="type-def"><code>type SidebarIcon = string | { className?: string; svg?: string; url?: string; name?: string } | null | undefined</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/sidebar</code>.</small></p>
+    <h4 id="type-SidebarNode">SidebarNode</h4>
+    <p class="section-note">One navigation node. `value` is read as `text`, `css` as `class`, and `data` as `nodes`.</p>
+    <p class="type-def"><code>type SidebarNode = { id?: string | number; text?: string; value?: string; icon?: <a href="#type-SidebarIcon">SidebarIcon</a>; tooltip?: string; group?: boolean; expanded?: boolean; hidden?: boolean; disabled?: boolean; class?: string; css?: string; count?: number; countColor?: string; color?: string; type?: string; nodes?: <a href="#type-SidebarNode">SidebarNode</a>[]; data?: <a href="#type-SidebarNode">SidebarNode</a>[]; [key: string]: unknown; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/sidebar</code>.</small></p>
     <h4 id="type-SignificanceTest">SignificanceTest</h4>
     <p class="section-note">Which two-sample significance test is used, or `auto` to pick by column family.</p>
     <p class="type-def"><code>type SignificanceTest = 'auto' | 'welch' | 'mannWhitney' | 'chiSquare'</code></p>
@@ -3873,6 +4370,22 @@
     <h4 id="type-TimeStyle">TimeStyle</h4>
     <p class="section-note">A locale-chosen time form, mirroring `Intl.DateTimeFormatOptions.timeStyle`.</p>
     <p class="type-def"><code>type TimeStyle = 'short' | 'medium' | 'long'</code></p>
+    <h4 id="type-ToolbarConfig">ToolbarConfig</h4>
+    <p class="section-note">The options passed to `createToolbar`.</p>
+    <p class="type-def"><code>type ToolbarConfig = { items?: <a href="#type-ToolbarItem">ToolbarItem</a>[] | null; height?: number | string | null; css?: string; overflow?: 'menu' | 'scroll' | 'none'; moreIcon?: <a href="#type-ToolbarIcon">ToolbarIcon</a>; moreLabel?: string; tooltips?: boolean; tooltipDelay?: number; ariaLabel?: string; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/toolbar</code>.</small></p>
+    <h4 id="type-ToolbarDataApi">ToolbarDataApi</h4>
+    <p class="section-note">The item-store API at `toolbar.data`.</p>
+    <p class="type-def"><code>type ToolbarDataApi = { parse(items: <a href="#type-ToolbarItem">ToolbarItem</a>[]): <a href="#type-ToolbarDataApi">ToolbarDataApi</a>; add(item: <a href="#type-ToolbarItem">ToolbarItem</a> | <a href="#type-ToolbarItem">ToolbarItem</a>[], index?: number): string | number | Array&lt;string | number&gt; | undefined; update(id: string | number, patch: Partial&lt;<a href="#type-ToolbarItem">ToolbarItem</a>&gt;): void; remove(ids: string | number | Array&lt;string | number&gt;): void; removeAll(): void; getItem(id: string | number): <a href="#type-ToolbarItem">ToolbarItem</a> | undefined; exists(id: string | number): boolean; getIndex(id: string | number): number; getId(index: number, parentId?: string | number): string | number | undefined; getItems(parentId?: string | number): <a href="#type-ToolbarItem">ToolbarItem</a>[]; getParent(id: string | number): string | number | undefined; getLength(parentId?: string | number): number; forEach(fn: (item: <a href="#type-ToolbarItem">ToolbarItem</a>, index: number) =&gt; void, parentId?: string | number): void; map&lt;T&gt;(fn: (item: <a href="#type-ToolbarItem">ToolbarItem</a>, index: number) =&gt; T, parentId?: string | number): T[]; find(fn: (item: <a href="#type-ToolbarItem">ToolbarItem</a>) =&gt; boolean): <a href="#type-ToolbarItem">ToolbarItem</a> | undefined; serialize(): <a href="#type-ToolbarItem">ToolbarItem</a>[]; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/toolbar</code>.</small></p>
+    <h4 id="type-ToolbarIcon">ToolbarIcon</h4>
+    <p class="section-note">An icon spec: a built-in name, an SVG string, a URL, an icon-font class list, or an object like `{ className }`.</p>
+    <p class="type-def"><code>type ToolbarIcon = string | { className?: string; svg?: string; url?: string; name?: string } | null | undefined</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/toolbar</code>.</small></p>
+    <h4 id="type-ToolbarItem">ToolbarItem</h4>
+    <p class="section-note">One toolbar item. Any other property is carried through and returned from `getItem` and `serialize`.</p>
+    <p class="type-def"><code>type ToolbarItem = { id?: string | number; type?: string; value?: string; text?: string; html?: string; icon?: <a href="#type-ToolbarIcon">ToolbarIcon</a>; src?: string; tooltip?: string; css?: string; hidden?: boolean; disabled?: boolean; count?: number; countColor?: string; twoState?: boolean; active?: boolean; group?: string; items?: <a href="#type-ToolbarItem">ToolbarItem</a>[]; placeholder?: string; width?: number | string; overflow?: string; label?: string; parent?: string | number; [key: string]: unknown; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/toolbar</code>.</small></p>
     <h4 id="type-ToolPanelName">ToolPanelName</h4>
     <p class="section-note">The built-in tool panels, addressable by name from configuration.</p>
     <p class="type-def"><code>type ToolPanelName = 'columns' | 'filters' | 'views' | 'quick' | 'formatting' | (string &amp; {})</code></p>

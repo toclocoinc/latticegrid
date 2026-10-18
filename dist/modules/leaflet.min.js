@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.106.0, leaflet module
+ * Lattice Grid 1.107.0, leaflet module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -58,6 +58,18 @@ ${te}{
   color:var(--lattice-chart-fg);
   background:var(--lattice-chart-plot-bg);
   --lattice-chart-tick-min:9px}
+/* The safety net for chart text (BACKLOG-0002674): every <text> a chart draws
+   with no fill of its own takes the label colour, so a type that draws a label
+   class with no fill rule cannot fall back to the SVG default (black, invisible
+   on a dark page) — eleven types did exactly that (dumbbell, bump, slope,
+   ridgeline, splom, diverging, alluvial, arc, parallel, decomposition, the
+   calendar's month labels). :where() keeps the rule at one class of
+   specificity, so every later class rule still wins: a label inside a mark (a
+   knockout, a halo, a data label) keeps its own role. :not([fill]) leaves any
+   text with its own fill attribute alone — a word cloud colours each word with
+   the scheme's next colour (or its 'colour' column) through a fill attribute,
+   and must keep those data colours, not be flattened to the label colour. */
+.${e} :where(text:not([fill])){fill:var(--lattice-chart-label-fg)}
 .${e}__figure{margin:0;display:flex;flex-direction:column;flex:1 1 auto;min-height:0;
   position:relative}
 .${e}__caption{padding:2px 4px 6px;display:flex;flex-direction:column;gap:2px}
@@ -238,6 +250,12 @@ ${te}{
    colour of the scheme in both themes. */
 .${e}__hlabel{fill:var(--lattice-chart-fg);stroke:var(--lattice-chart-plot-bg);stroke-opacity:0.7;stroke-width:3px;paint-order:stroke;
   pointer-events:none}
+/* An icicle label sits on its coloured cell (BACKLOG-0002674): the same halo
+   the packed-circle names and pyramid labels use, so it reads on every cell
+   colour in both themes instead of taking the base label colour, which a dark
+   cell can swallow. */
+.${e}__icicle-label{fill:var(--lattice-chart-fg);stroke:var(--lattice-chart-plot-bg);stroke-width:3px;paint-order:stroke;
+  stroke-linejoin:round;pointer-events:none}
 .${e}__hnode:focus,.${e}__hnode:focus-visible{outline:2px solid var(--lattice-chart-focus);outline-offset:1px}
 /* A Voronoi treemap (BACKLOG-0001654): a branch's cell is an outline the keyboard
    stops on but nothing paints, and the border drawn over it is the background

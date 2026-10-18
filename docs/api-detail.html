@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.106.0</p>
+    <p class="rail__sub">Developer guide · v1.107.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.106.0</span>
+        <span class="chip">Version 1.107.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1896,7 +1896,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.106.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.107.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -8560,6 +8560,7 @@ grid.annotate.use(null);                     <span class="cmt">// hand the grid 
           <tr><td class="name"><kbd>Alt</kbd>+<kbd>ArrowRight</kbd> <span class="sep">or</span> <kbd>Alt</kbd>+<kbd>ArrowLeft</kbd></td><td class="desc">Expand / collapse a group or tree row</td></tr>
           <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd></td><td class="desc">Move focus to the column header</td></tr>
           <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>P</kbd></td><td class="desc">Move focus to the tool panel</td></tr>
+          <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>E</kbd></td><td class="desc">Explain the focused column</td></tr>
           <tr><td class="name"><kbd>Shift</kbd>+<kbd>F10</kbd> <span class="sep">or</span> <kbd>ContextMenu</kbd></td><td class="desc">Open the context menu for the focused cell</td></tr>
           <tr><td class="name"><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td class="desc">Find in the grid</td></tr>
           <tr><td class="name"><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>ArrowUp</kbd> <span class="sep">or</span> <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>ArrowDown</kbd></td><td class="desc">Move the focused row, when row reorder is enabled</td></tr>
@@ -9209,6 +9210,46 @@ return [held, p.computed, p.rows, p.median, named, buckets].join('|');</code></p
       <p><strong>Kernels see arrival order, not display order.</strong> Anything order-dependent
       takes an explicit <code>by</code> rather than inferring one from the current sort, so the
       answer does not change when a user clicks a column header.</p>
+    </div>
+
+    <h3 id="statistics-compare">Compare groups</h3>
+    <p class="lead-in">
+      <code>grid.statistics.compare</code> turns the comparison question into one call: split the
+      filtered rows by one column, measure another, and get the test, the p-value, the interval
+      and the effect size — plus a one-sentence verdict that says it in words.
+    </p>
+    <div class="example">
+      <p class="example__label">A test chosen by the data, with the reason named</p>
+      <pre><code><span class="kw">const</span> r = grid.statistics.compare({ measure: <span class="str">'hours'</span>, by: <span class="str">'group'</span> });
+
+r.test;        <span class="cmt">// 'welch', 'anova', 'chiSquare', … — or 't', 'mannWhitney', 'kruskal', 'proportions'</span>
+r.chosenBy;    <span class="cmt">// 'auto', and r.reason says why this test over the others</span>
+r.pValue;      <span class="cmt">// the datum to interpret; there is no `significant` flag</span>
+r.interval;    <span class="cmt">// { estimate, lower, upper, method } on the difference</span>
+r.effectSize;  <span class="cmt">// { name, value, label } — Cohen's d, Cliff's delta, Cramer's V or eta squared</span>
+r.verdict;     <span class="cmt">// "Group b's hours are higher than group a's, with a large effect"</span></code></pre>
+    </div>
+    <p>
+      <code>test: 'auto'</code> is the default and picks from the data: a normality and variance
+      screen routes two numeric groups to the pooled t, Welch or Mann-Whitney; three or more to
+      ANOVA or Kruskal-Wallis; a categorical measure to a two-proportion z or chi-square. Force
+      the test with <code>test</code> when the question fixes it. <code>paired</code> names a key
+      column to match the two groups as pairs. A group with fewer than three readings, or with
+      zero variance, is refused with a warning — the grid will not hand back a p-value computed
+      from a sample too small or too flat to carry one.
+    </p>
+    <div class="why">
+      <p><strong>No multiple-comparison correction.</strong> Each <code>statistics.compare</code>
+      call is one test at its declared <code>alpha</code>. Running it across many pairs of groups —
+      every category against every other — inflates the family-wise error rate exactly as a run of
+      unadjusted t-tests does; if you sweep the groups, correct for the sweep yourself.</p>
+      <p><strong>Observational, not causal.</strong> The verdict describes an observed difference in
+      the rows the filters left. The grid has no experimental design, no randomisation and no
+      confounders, so it cannot say why the groups differ — only that they do, and by how much.</p>
+      <p><strong>The effect-size label is a band, not a rule.</strong> "Large" is a conventional
+      threshold on Cohen's d, Cliff's delta, Cramer's V or eta squared, chosen so the words mean
+      the same thing across tests. A result at the boundary of two labels is the same number either
+      way.</p>
     </div>
 
     <h2 id="spc">Process control and capability</h2>
@@ -11735,6 +11776,43 @@ return boundCount + '|' + routed;</code></pre>
       <code>role="menuitem"</code>s, and the arrow keys move across items (skipping <code>disabled</code> ones)
       while Enter or Space activates.</p>
     </div>
+    <h3 id="recordeditor-live">The record editor module</h3>
+    <p class="section-note">An opt-in module that binds one form to a row and child views to related sets, with one dirty state, one validation pass and one batched save.</p>
+    <pre><code><span class="kw">import</span> { createRecordEditor } <span class="kw">from</span> <span class="str">'@toclocoinc/lattice-grid/modules/recordeditor'</span>;</code></pre>
+    <p class="lead-in">
+      <code>createRecordEditor(element, config)</code> is the glue a DemandFlow-style record page used to write
+      by hand on every record type: a form bound to the row named by <code>key</code>, and any number of child
+      views &mdash; a grid, a list view, a tree, a kanban, a data view or a chart &mdash; bound to related sets in
+      tabs, with the host reading ONE dirty state, running ONE validation pass and committing ONE batched save
+      across all of them. The data layer is either a <code>source</code> &mdash; the small store
+      <code>{ get, rows, subscribe, apply }</code> &mdash; or a <code>router</code> (the data-router instance), in
+      which case the parent row is read through <code>router.get(route, key)</code>. A child is bound through a
+      relation &mdash; <code>{ from, to }</code>, where a child row's <code>to</code> equals the parent's
+      <code>from</code> &mdash; or a filter, <code>(row, parent) =&gt; boolean</code>, and its view is created by an
+      injected <code>factories</code> map (or a <code>view</code> on the child), so the React, Vue, Svelte and
+      Angular adapters pass their own factories and the module never imports a view it does not need; the one
+      built-in child type is <code>grid</code>, which shares the page's core through the injected
+      <code>createGrid</code>. <code>layout</code> is the shell's <code>rows</code>/<code>cols</code>, and
+      <code>rowKey</code> names the key field (default <code>id</code>). A <code>readOnly</code> editor saves
+      nothing; <code>preset</code> maps onto the form's density, and <code>dark</code> adds the editor's dark class.
+    </p>
+    <div class="why">
+      <p><strong>One dirty state, one validation pass, one batched save.</strong>
+        <code>isDirty()</code> reads the form and every child as one answer; <code>validate()</code> runs the form
+        then every mounted child's row validators and reports the first failure as <code>{ view, field, message }</code>
+        (or <code>null</code>); <code>save()</code> commits the form's values and every child's edits, adds and
+        removes as ONE optimistic batch through <code>apply</code>, rolling it back and staying dirty if the store
+        rejects; and <code>revert()</code> restores the form and every child. <code>beforeSave</code> is a
+        cancellable event a host can veto, <code>dirty</code>/<code>saved</code>/<code>saveFailed</code>/<code>validated</code>
+        report the rest, and <code>confirmLeave()</code> is a navigation guard that is false while dirty.
+        <code>children</code> mount lazily on first tab open, <code>ready</code> resolves once the form (and any
+        eagerly mounted child) is ready, <code>child(id)</code>/<code>open(id)</code> reach a child by its tab, and
+        <code>destroy()</code> tears the whole editor down.</p>
+      <p><strong>Composed from the modules a page already has.</strong> The record editor shares the grid core, the
+        form module and the shell module through the page's own globals rather than bundling a second copy of any of
+        them, so its own bundle is a few kilobytes of glue; a script-tag page loads the core, the form and the shell
+        first, then the record editor.</p>
+    </div>
     <h3 id="geometry-type">The geometry module</h3>
     <pre><code><span class="kw">import</span> <span class="str">'@toclocoinc/lattice-grid/modules/geometry'</span>;</code></pre>
     <p class="lead-in">
@@ -13504,6 +13582,7 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
         <tbody>
           <tr><td class="name">column:filter:open</td><td class="desc">Header filter popup opened.</td></tr>
           <tr><td class="name">column:profile:open</td><td class="desc">The column statistics ("describe") panel was asked to open on a column, from the column menu's "Column statistics" item (<code>{ colId }</code>). A mounted tool panel opens its <code>statistics</code> panel seeded on that column.</td></tr>
+          <tr><td class="name">column:compareGroups:open</td><td class="desc">The "Compare groups" panel was asked to open on a column, from the column menu's "Compare groups" item (<code>{ colId }</code>). A mounted tool panel opens its <code>compareGroups</code> panel seeded on that column as the measure.</td></tr>
           <tr><td class="name">column:grouped</td><td class="desc">The row-group column list changed.</td></tr>
           <tr><td class="name">column:menu:open</td><td class="desc">Header menu opened.</td></tr>
           <tr><td class="name">column:moved</td><td class="desc">Reordered by drag or by API.</td></tr>
@@ -13513,6 +13592,7 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
           <tr><td class="name">column:visible</td><td class="desc">Columns shown or hidden.</td></tr>
           <tr><td class="name">columns:changed</td><td class="desc">The column set was replaced or reordered wholesale.</td></tr>
           <tr><td class="name">columns:tagged</td><td class="desc">A column's tags changed.</td></tr>
+          <tr><td class="name">explain:open</td><td class="desc">An Explain entry point — the totals row's context menu, the keyboard, or a KPI tile — asked the Explain panel to open on the named column.</td></tr>
         </tbody>
       </table>
     </div>
@@ -13673,6 +13753,7 @@ el.grid.sort.set([{ col: 'charge', dir: 'desc' }]);</code></pre>
           <tr><td class="name">diff:swapped</td><td class="desc">The baseline and the current rows were exchanged.</td></tr>
           <tr><td class="name">export:progress</td><td class="desc">Progress on a streamed export.</td></tr>
           <tr><td class="name">header:contextmenu</td><td class="desc">A column heading was right-clicked.</td></tr>
+          <tr><td class="name">totals:contextmenu</td><td class="desc">A context menu was requested on the pinned totals row, which has no data index; the menu offers Explain for the totalled column.</td></tr>
           <tr><td class="name">toolpanel:focus</td><td class="desc">The documented keyboard shortcut reached the tool panel.</td></tr>
           <tr><td class="name">tree:loadAborted</td><td class="desc">A child fetch was cancelled, usually because the node collapsed.</td></tr>
           <tr><td class="name">tree:loadFailed</td><td class="desc">A child fetch failed.</td></tr>
@@ -13830,7 +13911,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.106.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.107.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

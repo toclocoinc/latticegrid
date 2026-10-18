@@ -1,5 +1,5 @@
 {
-  "version": "1.106.0",
+  "version": "1.107.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 759,
+  "count": 768,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -1030,6 +1030,96 @@
       "message": "compareGroups: {test} needs a numeric column, but the column is not numeric.",
       "meaning": "A specific test was forced — Welch's t-test or Mann-Whitney — and both compare numeric distributions. The column is not numeric, so the test cannot be run and the call returns `null` rather than coercing values into numbers.",
       "fix": "Drop the `test` override and let the column family choose (a categorical column gets a chi-square), or compare a numeric column.",
+      "docs": "api/grid.html#statistics"
+    },
+    {
+      "id": "compare:spec",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.106.0",
+      "message": "statistics.compare needs a \"measure\" and a \"by\" column.",
+      "meaning": "`statistics.compare` tests one measure across groups of rows, and both the `measure` (what is tested) and the `by` column (what splits the rows) are required. Without either there is nothing to compare, so the call returns `null`.",
+      "fix": "Pass the measure column in `measure` and the grouping column in `by`.",
+      "docs": "api/grid.html#statistics"
+    },
+    {
+      "id": "compare:groups",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.106.0",
+      "message": "statistics.compare: the \"by\" column has fewer than two distinct values to group by.",
+      "meaning": "With no explicit `groups`, the distinct values of the `by` column are compared — and it has fewer than two in the current row set. There is nothing to split, so the call returns `null`.",
+      "fix": "Check the filters: at least two groups must be present in the rows the grid is currently showing.",
+      "docs": "api/grid.html#statistics"
+    },
+    {
+      "id": "compare:distinct",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.106.0",
+      "message": "statistics.compare: the two groups must be two distinct, present values.",
+      "meaning": "The group keys resolved to the same value, or one of them is null. A comparison needs two different groups, so the call returns `null`.",
+      "fix": "Pass two distinct values in `groups`, each of which appears in the `by` column.",
+      "docs": "api/grid.html#statistics"
+    },
+    {
+      "id": "compare:empty",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.106.0",
+      "message": "statistics.compare: one of the two groups has no rows in the current set.",
+      "meaning": "Both group keys are valid, and one of them matches no row among the rows the grid is currently showing. There is nothing to test against, so the call returns `null`. A filter that excludes one arm of the comparison is the usual cause.",
+      "fix": "Widen the filters, or compare two groups that are both present.",
+      "docs": "api/grid.html#statistics"
+    },
+    {
+      "id": "compare:small",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.106.0",
+      "message": "statistics.compare: each group needs at least three readings to compare.",
+      "meaning": "A group with one or two readings cannot support the test: the variance (or the rank spread) has nothing to estimate, and a p-value from it would be noise. `null` is returned rather than a result from a sample this small.",
+      "fix": "Compare groups with at least three rows each.",
+      "docs": "api/grid.html#statistics"
+    },
+    {
+      "id": "compare:zero-variance",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.106.0",
+      "message": "statistics.compare: a group has zero variance, so the difference has no scale to test.",
+      "meaning": "Every value in one group is identical, so its variance is zero and the statistic the test divides by is undefined. The call returns `null` rather than report a p-value from a degenerate sample.",
+      "fix": "Check that the measure actually varies within each group, or drop the constant group.",
+      "docs": "api/grid.html#statistics"
+    },
+    {
+      "id": "compare:paired",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.106.0",
+      "message": "statistics.compare: not enough matched pairs to run a paired test.",
+      "meaning": "A paired test compares the difference within matched rows, and after joining on the key field fewer than three pairs survive. There is nothing to test, so the call returns `null`.",
+      "fix": "Check that the key field matches enough rows across the two groups, or drop `paired`.",
+      "docs": "api/grid.html#statistics"
+    },
+    {
+      "id": "compare:degenerate",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.106.0",
+      "message": "statistics.compare: the chosen test had too little to work with (too few values, or no variation).",
+      "meaning": "The test ran and could not produce a statistic: too few values, or no variation at all within them. `null` is returned rather than a p-value computed from a degenerate sample.",
+      "fix": "Compare groups with more rows, or check that the measure actually varies within them.",
+      "docs": "api/grid.html#statistics"
+    },
+    {
+      "id": "compare:numeric-needed",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.106.0",
+      "message": "statistics.compare: {forced} needs a numeric measure, but the column is categorical.",
+      "meaning": "A specific test was forced — a t-test, Mann-Whitney, ANOVA or Kruskal-Wallis — and all of them compare numeric distributions. The column is categorical, so the test cannot be run and the call returns `null` rather than coercing values into numbers.",
+      "fix": "Drop the `test` override and let the column family choose (a categorical column gets a chi-square or proportions test), or compare a numeric column.",
       "docs": "api/grid.html#statistics"
     },
     {

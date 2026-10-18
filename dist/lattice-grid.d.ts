@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.106.0, type declarations
+ * Lattice Grid 1.107.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1009,7 +1009,7 @@ export type IconName =
   | 'link' | 'external' | 'filter' | 'pause' | 'play' | 'chart' | 'palette'
   | 'undo' | 'redo' | 'columns' | 'download' | 'restore' | 'spreadsheet' | 'print'
   | 'maximise' | 'minimise' | 'views' | 'search' | 'pencil' | 'trash' | 'share'
-  | 'pin' | 'sortAsc' | 'sortDesc' | 'menu' | 'drag'
+  | 'pin' | 'sortAsc' | 'sortDesc' | 'menu' | 'ellipsis' | 'ellipsisVertical' | 'drag'
   | 'star' | 'heart' | 'circleFilled' | 'square' | 'bolt' | 'flag'
   | 'arrow' | 'highlight' | 'eraser' | 'thumbUp' | 'eye' | 'eyeOff' | 'copy' | 'present'
   | 'cabinet' | 'splice' | 'exchange' | 'pole' | 'chamber' | 'premises' | 'fault'
@@ -6584,6 +6584,27 @@ export interface StatisticsApi {
    * so it is always "how big and how sure".
    */
   compareGroups(colId: string, opts: TwoSampleSpec): GroupComparison | null;
+  /**
+   * Pick and run the right statistical test over the groups the grid's rows
+   * split into, and return the statistic, the degrees of freedom where they
+   * apply, the p-value, a confidence interval on the difference where one
+   * exists, an effect size with its conventional label, the group sizes and
+   * means or proportions, and a one-sentence verdict.
+   *
+   * The rows are split by `opts.by` — `opts.groups` (two chosen values), or
+   * every group when there are three or more — and `opts.measure` is compared
+   * between them over the filtered rows. `opts.test` is `'auto'` by default and
+   * picks from the data, naming the choice and the reason in the result: t,
+   * Welch or Mann-Whitney for two numeric groups (by normality and variance);
+   * ANOVA or Kruskal-Wallis for three or more; a two-proportion z or chi-square
+   * for a categorical measure. Every result carries an effect size (Cohen's d,
+   * Cliff's delta, Cramer's V or eta squared) with a label, and a verdict that
+   * names the groups, the direction, the magnitude and the effect. A group with
+   * fewer than three readings, or with zero variance, is refused (null).
+   * `opts.paired` names a key column to match the two groups as pairs. No
+   * multiple-comparison correction is applied — see the docs for the caveat.
+   */
+  compare(opts: CompareSpec): CompareResult | null;
   /** Pearson's correlation between two columns. */
   correlation(a: string, b: string): number | null;
   /** Covariance, a correlation before the scales are divided out. */
@@ -7770,6 +7791,112 @@ export interface GroupComparison {
   method: string;
 }
 
+/** Which statistical test {@link StatisticsApi.compare} runs, or `auto` to pick. */
+export type CompareTest = 'auto' | 't' | 'welch' | 'mannWhitney' | 'anova'
+  | 'kruskal' | 'chiSquare' | 'proportions';
+
+/** How {@link StatisticsApi.compare} splits the rows and picks a test. */
+export interface CompareSpec {
+  /** The measured column. Required. */
+  measure: string;
+  /** The column whose values split the rows into groups. Required. */
+  by: string;
+  /** The two group values to compare. Every group when omitted. */
+  groups?: unknown[];
+  /** Force a test rather than choosing by the data. `auto` by default. */
+  test?: CompareTest;
+  /** The significance level, 0 to 1. 0.05 by default. */
+  alpha?: number;
+  /** A key column: when set, the two groups are matched and tested as pairs. */
+  paired?: string;
+  /** A display name for the measure, used in the verdict. */
+  measureName?: string;
+  /** A unit for the measure, appended to the verdict's magnitude. */
+  unit?: string;
+}
+
+/** One group's summary in a {@link CompareResult}. */
+export interface CompareGroup {
+  /** The group's value. */
+  value: unknown;
+  /** The group's display label. */
+  label: string;
+  /** How many rows the group stood on. */
+  n: number;
+  /** The group's mean, for a numeric measure. */
+  mean?: number;
+  /** The group's sample standard deviation, for a numeric measure. */
+  sd?: number;
+  /** Each category's share, for a categorical measure. */
+  proportions?: Record<string, number>;
+}
+
+/** The effect size paired with a test — the "how big" half, with its label. */
+export interface CompareEffectSize {
+  /** The named measure: `cohensD`, `cliffsDelta`, `cramersV` or `etaSquared`. */
+  name: string;
+  /** The effect size in its own terms, or null when it has no scale here. */
+  value: number | null;
+  /** The conventional label: `negligible`, `small`, `medium` or `large`. */
+  label: string;
+}
+
+/** A confidence interval on the difference a test measured. */
+export interface CompareInterval {
+  /** The point estimate the interval is around. */
+  estimate: number;
+  /** The lower bound of the difference. */
+  lower: number;
+  /** The upper bound of the difference. */
+  upper: number;
+  /** The level the bounds were computed at, 0 to 1. */
+  confidence: number;
+  /** The method, named for honesty: `welch-t`, `hodges-lehmann`, `newcombe`. */
+  method: string;
+  /** For a categorical interval, which category's share the difference is of. */
+  category?: unknown;
+}
+
+/**
+ * The result of {@link StatisticsApi.compare}: the statistic, the p-value, an
+ * effect size with its conventional label, the group summaries and a one-line
+ * verdict — data to interpret, never a `significant` flag.
+ */
+export interface CompareResult {
+  /** The test used, named so it is never hidden. */
+  test: Exclude<CompareTest, 'auto'>;
+  /** Whether the test was chosen automatically or forced by the caller. */
+  chosenBy: 'auto' | 'override';
+  /** Why this test — the column family, a normality or variance screen, or the override. */
+  reason: string;
+  /** The test statistic. */
+  statistic: number;
+  /** What the statistic is: `t`, `U`, `F`, `H`, `chiSquare` or `z`. */
+  statisticName: string;
+  /** The degrees of freedom; an object for ANOVA, null where none apply. */
+  df: number | { between: number; within: number } | null;
+  /** The p-value, returned as data for the caller to interpret. */
+  pValue: number;
+  /** The significance level the test ran at. */
+  alpha: number;
+  /** True when the two groups were matched by the `paired` key. */
+  paired: boolean;
+  /** The confidence interval on the difference, or null where there is none. */
+  interval: CompareInterval | null;
+  /** The paired effect size with its conventional label. */
+  effectSize: CompareEffectSize;
+  /** Each group's size and mean or proportions. */
+  groups: CompareGroup[];
+  /** The difference the interval is around (means or proportions), or null. */
+  difference: number | null;
+  /** The test's method, named for honesty. */
+  method: string;
+  /** True for a categorical measure. */
+  categorical: boolean;
+  /** The one-sentence verdict: groups, direction, magnitude and effect. */
+  verdict: string;
+}
+
 export interface FormattingApi {
   /**
    * The rules for one scope in evaluation order — a column id, or `'*'` for
@@ -8083,8 +8210,12 @@ export type EventName =
   | 'column:filter:open'
   /** The column menu's profile item was activated and the column's profile should open. */
   | 'column:profile:open'
+  /** The column menu's "Compare groups" item was activated and the group-comparison panel should open, seeded on this column. */
+  | 'column:compareGroups:open'
   /** The header's menu affordance was activated and the column menu should open. */
   | 'column:menu:open'
+  /** An Explain entry point was activated and the Explain panel should open on the named column. */
+  | 'explain:open'
   /** A pivot measure cell was drilled into; the payload names the row and column paths behind it. */
   | 'pivot:drill'
   /** The column set changed other than by moving, resizing, hiding or pinning — a type inference pass rewrote it. */
@@ -8095,6 +8226,8 @@ export type EventName =
   | 'columngroup:changed'
   /** A context menu was requested on a column header. */
   | 'header:contextmenu'
+  /** A context menu was requested on the pinned totals row, which has no data index. */
+  | 'totals:contextmenu'
   /* Selection and view */
   /** The row selection changed and was accepted (a `beforeSelect` veto raises `selection:cancelled` instead). */
   | 'selection:changed'
@@ -10099,6 +10232,77 @@ export interface ImportApi {
     opts?: { mode?: ImportMode },
   ): ChangeResult | null;
 }
+
+/** One worksheet of an `xlsx.write` workbook (§14). */
+export interface XlsxSheetSpec {
+  /** The sheet's tab name; made safe and unique the way the grid exporter does. */
+  name?: string;
+  /** The cells: an array of row arrays (the first row ordinary data), or a grid exported as `grid.export.excel` would. */
+  rows?: unknown[][] | Grid;
+  /** Explicit column widths in Excel width units, one per column. */
+  columnWidths?: number[];
+  /** OOXML number-format codes, one per column; a date code marks a date column. */
+  formats?: string[];
+  /** Mark the sheet Excel-hidden (`state="hidden"`), so a read reports it hidden. */
+  hidden?: boolean;
+}
+
+/** Options for the standalone {@link xlsx} writer (§14). */
+export interface XlsxWriteOptions {
+  /** The worksheets to write, in order. */
+  sheets?: XlsxSheetSpec[];
+  /** When set, also trigger a browser download under this file name. */
+  filename?: string;
+  /** Return the bytes as an `ArrayBuffer` (for uploads) instead of a `Blob`. */
+  toArrayBuffer?: boolean;
+  /** The archive's modification time; defaults to a fixed epoch for reproducible bytes. */
+  modified?: Date;
+  /** DEFLATE effort, 0 stores, 6 (the default) matches zlib's trade-off. */
+  level?: number;
+}
+
+/** Options for the standalone {@link xlsx} reader (§14). */
+export interface XlsxReadOptions {
+  /** Read this one worksheet (by name or zero-based index) instead of every sheet. */
+  sheet?: string | number;
+  /** Drop the rows before this 1-based row; header rows come through as ordinary rows. */
+  startRow?: number;
+  /** Return stored values (numbers, booleans, dates) instead of formatted text. */
+  raw?: boolean;
+  /** Turn date-formatted serials into `Date` objects, with `raw: true`. */
+  dates?: boolean;
+  /** What an empty cell becomes: `''` (the default) or `null`. */
+  blank?: '' | null;
+}
+
+/** One worksheet as {@link xlsx}.read returns it (§14). */
+export interface XlsxSheet {
+  /** The sheet's tab name. */
+  name: string;
+  /** True when Excel marks the sheet `hidden` or `veryHidden`. */
+  hidden: boolean;
+  /** The cells, row arrays from `startRow`, blanks kept so columns never shift. */
+  rows: unknown[][];
+}
+
+/** The result of {@link xlsx}.read (§14). */
+export interface XlsxReadResult {
+  /** Every sheet (or the one asked for), in workbook order. */
+  sheets: XlsxSheet[];
+}
+
+/** The standalone workbook writer and reader (§14). */
+export interface XlsxApi {
+  /** Write one `.xlsx` workbook with a worksheet per entry. */
+  write(options?: XlsxWriteOptions): Promise<Blob | ArrayBuffer | Uint8Array>;
+  /** Read a workbook back into typed cells. */
+  read(input: Uint8Array | ArrayBuffer | Blob, opts?: XlsxReadOptions): Promise<XlsxReadResult>;
+  /** Serialise one sheet to RFC 4180 CSV text. */
+  toCsv(sheet: unknown[][] | XlsxSheet, opts?: object): string;
+}
+
+/** The standalone multi-sheet workbook writer and raw-cell reader (§14). */
+export const xlsx: XlsxApi;
 
 export interface SavedView {
   /**
@@ -12160,6 +12364,14 @@ export interface Grid {
   getPinnedRows(opts?: { edge?: 'top' | 'bottom' }): unknown[];
 
   /**
+   * Explain a number: break a column's total over the
+   * filtered rows into ranked contributors, or decompose the change against a
+   * second filter into its drivers. Returns null when the column is missing,
+   * its handle cannot be read, or the grid is pivoted.
+   */
+  explain(options: GridExplainOptions): GridExplainResult | null;
+
+  /**
    * Move keyboard focus to a row by its key.
    *
    * Expands any collapsed ancestor that hides it — a tree or a grouping —
@@ -12300,6 +12512,96 @@ export interface UnitConfig {
    * empty, or unparseable text. Empty by default.
    */
   nullDisplay?: string;
+}
+
+/**
+ * What `grid.explain` breaks a number down into.
+ *
+ * `column` is the value column; `group`, when given, is a dimension column
+ * whose groups become the contributors instead of the individual rows.
+ * `compare` is a second filter — the "before" state — against which the change
+ * is decomposed.
+ */
+export interface GridExplainOptions {
+  /** The value column to explain. */
+  column: string;
+  /** A dimension column to break down by; omitted ranks the individual rows. */
+  group?: string;
+  /** A second filter (or `{ filters }`) to explain the change against. */
+  compare?: object;
+}
+
+/**
+ * One contributor of a total, ranked by absolute contribution. For an additive
+ * aggregate `contribution` is the contributor's own value and `share` is that
+ * over the total. For `avg` it is the weighted effect
+ * `(group mean − overall mean) × group size` and `share` is the share of rows.
+ */
+export interface ExplainContributor {
+  /** The group key, or the physical row index when no dimension was chosen. */
+  key: unknown;
+  /** The display label. */
+  label: string;
+  /** The rows in this bucket. */
+  count: number;
+  /** The bucket's own reduction (sum, mean, extreme…). */
+  value: unknown;
+  /** The contribution figure (weighted effect for avg). */
+  contribution: number;
+  /** Contribution ÷ total, or rows ÷ rows for avg. */
+  share: number;
+}
+
+/** How one contributor changed between two states. */
+export interface ExplainDriver {
+  /** The contributor key. */
+  key: unknown;
+  /** The display label. */
+  label: string;
+  /** The contributor's value before the change. */
+  before: unknown;
+  /** The contributor's value after the change. */
+  after: unknown;
+  /** The contribution to the delta (after − before). */
+  effect: number;
+  /** New (only after), dropped (only before) or changed (both). */
+  kind: 'new' | 'dropped' | 'changed';
+  /** The rows in the bucket. */
+  count: number;
+}
+
+/** The change between two states, decomposed into drivers. */
+export interface ExplainChange {
+  /** The total before the change. */
+  before: unknown;
+  /** The total after the change. */
+  after: unknown;
+  /** After − before. */
+  delta: number;
+  /** Whether the effects are weighted (avg) rather than additive. */
+  weighted: boolean;
+  /** Whether the aggregate names a single contributor (min/max). */
+  single: boolean;
+  /** The drivers, ranked by absolute effect. */
+  drivers: ExplainDriver[];
+}
+
+/** The result of `grid.explain`. */
+export interface GridExplainResult {
+  /** The column explained. */
+  column: string;
+  /** The aggregate name (`sum`, `avg`, `count`, `min`, `max`, …), or null. */
+  fn: string | null;
+  /** The total being explained. */
+  total: unknown;
+  /** True when contributions are weighted effects (avg). */
+  weighted: boolean;
+  /** True when the aggregate names a single contributor (min/max). */
+  single: boolean;
+  /** The contributors, ranked by absolute contribution. */
+  contributors: ExplainContributor[];
+  /** The change decomposition, present only when `compare` was given. */
+  compare?: ExplainChange;
 }
 
 export function defineUnit(
@@ -13463,6 +13765,7 @@ export const LatticeGrid: {
   registerModules: typeof registerModules;
   setLicence: typeof setLicence;
   version: typeof version;
+  xlsx: typeof xlsx;
   createUnitType: typeof createUnitType;
   registerUnitSystem: typeof registerUnitSystem;
   defineUnit: typeof defineUnit;
@@ -13556,6 +13859,9 @@ declare global {
   /** The form module's script-tag global. */
   // eslint-disable-next-line no-var -- an ambient global is only a global as a var
   var LatticeGridForm: typeof import('lattice-grid/modules/form');
+  /** The record editor module's script-tag global. */
+  // eslint-disable-next-line no-var -- an ambient global is only a global as a var
+  var LatticeGridRecordEditor: typeof import('lattice-grid/modules/recordeditor');
   /** The alarms module's script-tag global. */
   // eslint-disable-next-line no-var -- an ambient global is only a global as a var
   var LatticeGridAlarms: typeof import('lattice-grid/modules/alarms');
@@ -17321,6 +17627,32 @@ export interface HeaderContextMenuEvent extends GridEvent {
   event: unknown;
 }
 
+/** `explain:open`: an entry point asked for the Explain panel on a column. */
+export interface ExplainOpenEvent extends GridEvent {
+  /** The measure column to explain. */
+  column?: string;
+  /** The dimension to break down by, when the caller already chose one. */
+  group?: string;
+  /** A comparison filter, when the caller is explaining a change. */
+  compare?: object;
+}
+
+/** `totals:contextmenu`: a context menu was requested on the pinned totals row, which has no data index. */
+export interface TotalsContextMenuEvent extends GridEvent {
+  /** The totals row's key, or null when it carries none. */
+  key: string | null;
+  /** The column the menu was requested on, or null off a cell. */
+  colId: string | null;
+  /** The resolved column, where `colId` names one. */
+  column?: Column;
+  /** The pointer's viewport x. */
+  x: number;
+  /** The pointer's viewport y. */
+  y: number;
+  /** The DOM event behind this one. */
+  event: unknown;
+}
+
 /** `selection:changed`: the row selection changed and was accepted. */
 export interface SelectionChangedEvent extends GridEvent {
   /** The keys of every selected row; under a predicate selection, the loaded ones. */
@@ -18236,8 +18568,12 @@ export interface EventPayloads {
   'column:filter:open': ColumnMenuEvent;
   /** The column whose profile should open. */
   'column:profile:open': ColumnMenuEvent;
+  /** The column to seed the group-comparison panel's measure picker. */
+  'column:compareGroups:open': ColumnMenuEvent;
   /** The column whose menu should open, and the element to anchor it to. */
   'column:menu:open': ColumnMenuEvent;
+  /** The column the Explain panel should open on. */
+  'explain:open': ExplainOpenEvent;
   /** The source rows behind the measure, and the paths that identify the cell. */
   'pivot:drill': PivotDrillEvent;
   /** Why the column set was rewritten, and what was inferred. */
@@ -18248,6 +18584,8 @@ export interface EventPayloads {
   'columngroup:changed': ColumnGroupChangedEvent;
   /** The header the menu was requested on, and where the pointer was. */
   'header:contextmenu': HeaderContextMenuEvent;
+  /** The pinned totals cell the menu was requested on. */
+  'totals:contextmenu': TotalsContextMenuEvent;
   /** The keys and rows now selected. */
   'selection:changed': SelectionChangedEvent;
   /** Every cell range now selected. */
@@ -18550,4 +18888,228 @@ export interface ChartMarkerOptions {
   image: string | { col: string } | ((point: { label: string; x: unknown; y: unknown; rowKey: unknown }) => string | null | undefined);
   /** The marker's size in pixels, 6 to 64. Default 16. */
   size?: number;
+}
+
+
+// ---------------------------------------------------------------------------
+// Context menu
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Sidebar
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Toolbar
+// ---------------------------------------------------------------------------
+
+/** The events the record editor's `on()` accepts. */
+export type RecordEditorEventName =
+  /** The editor's dirty state changed — the form or a child has unsaved edits. */
+  | 'dirty'
+  /** A save is about to run; a handler cancels by returning false or calling `preventDefault()`. */
+  | 'beforeSave'
+  /** A save committed its batch. */
+  | 'saved'
+  /** A save's `apply` rejected. */
+  | 'saveFailed'
+  /** `validate()` ran, with its verdict. */
+  | 'validated';
+
+/** What a handler receives, per editor event. */
+export interface RecordEditorEventPayloads {
+  /** The new dirty state. */
+  dirty: RecordEditorDirtyEvent;
+  /** The pending save, with `preventDefault` to veto it. */
+  beforeSave: RecordEditorBeforeSaveEvent;
+  /** The batch that was applied. */
+  saved: RecordEditorSavedEvent;
+  /** The rejection the store's `apply` threw. */
+  saveFailed: RecordEditorSaveFailedEvent;
+  /** A validation run's verdict. */
+  validated: RecordEditorValidatedEvent;
+}
+
+/** A `dirty` payload. */
+export interface RecordEditorDirtyEvent {
+  /** Which event this is. */
+  type: 'dirty';
+  /** True while the form or any child has unsaved edits. */
+  dirty: boolean;
+}
+
+/** A `beforeSave` payload, cancellable by `preventDefault` or a `false` return. */
+export interface RecordEditorBeforeSaveEvent {
+  /** Which event this is. */
+  type: 'beforeSave';
+  /** The editor handle. */
+  editor: RecordEditor;
+  /** Cancel the pending save, with an optional reason. */
+  preventDefault(reason?: string): void;
+  /** True once a handler cancelled the save. */
+  readonly defaultPrevented: boolean;
+  /** The reason given to `preventDefault`, or null. */
+  readonly reason: string | null;
+}
+
+/** A `saved` payload. */
+export interface RecordEditorSavedEvent {
+  /** Which event this is. */
+  type: 'saved';
+  /** The applied batch. */
+  batch: RecordEditorDelta[];
+}
+
+/** A `saveFailed` payload. */
+export interface RecordEditorSaveFailedEvent {
+  /** Which event this is. */
+  type: 'saveFailed';
+  /** The rejection the store's `apply` threw. */
+  error: unknown;
+}
+
+/** A `validated` payload. */
+export interface RecordEditorValidatedEvent {
+  /** Which event this is. */
+  type: 'validated';
+  /** True when nothing failed. */
+  ok: boolean;
+  /** The first failure, or null when everything passed. */
+  failure: RecordEditorFailure | null;
+}
+
+/** One failure of `validate()`, named by view and field. */
+export interface RecordEditorFailure {
+  /** The child id, or `'form'` for a form failure. */
+  view: string;
+  /** The failing field's name, or null for a whole-view failure. */
+  field: string | null;
+  /** The failure message. */
+  message: string;
+}
+
+/** One delta of a `save()` batch. */
+export interface RecordEditorDelta {
+  /** `upsert` to write a row, `delete` to remove it. */
+  op: 'upsert' | 'delete';
+  /** The row to write; a delete carries the key field. */
+  row: Record<string, unknown>;
+}
+
+/** A keyed diff the source `subscribe` reports. */
+export interface RecordEditorChange {
+  /** Rows added. */
+  add: Record<string, unknown>[];
+  /** Rows updated. */
+  update: Record<string, unknown>[];
+  /** Keys removed. */
+  remove: string[];
+}
+
+/** The store `source`: a small dataset the editor reads and writes through. */
+export interface RecordEditorSource {
+  /** Read one row by key. */
+  get(key: unknown): Record<string, unknown> | undefined;
+  /** Every row. */
+  rows(): Record<string, unknown>[];
+  /** Subscribe to keyed diffs; returns an unsubscribe. */
+  subscribe(fn: (change: RecordEditorChange) => void): () => void;
+  /** Apply one batch; rejects (or returns false) to fail the save. */
+  apply(deltas: RecordEditorDelta[]): Promise<boolean> | boolean;
+  /** The key field name (default `id`). */
+  rowKey?: string;
+}
+
+/** The slice of a data-router instance the editor uses. */
+export interface RecordEditorRouter {
+  /** Read one row on a route. */
+  get(route: string | undefined, key: unknown): Record<string, unknown> | undefined;
+  /** Subscribe to a route's keyed diffs; returns an unsubscribe. */
+  subscribe?(route: string | undefined, fn: (change: RecordEditorChange) => void): () => void;
+  /** Apply one batch. */
+  apply?(deltas: RecordEditorDelta[]): unknown;
+  /** Attach a child view to a predicate route. */
+  attach?(view: object, match: (row: Record<string, unknown>) => boolean): unknown;
+}
+
+/** One child view declaration. */
+export interface RecordEditorChild {
+  /** The tab id, also the `child(id)`/`open(id)` name. */
+  id?: string;
+  /** The tab label; the id when omitted. */
+  label?: string;
+  /** The view type: `grid` (built in) or a `factories` key. */
+  type?: string;
+  /** The view's own config (grid config, list config, …). */
+  config?: object;
+  /** A related set by `{ from, to }` — a child row's `to` equals the parent's `from`. */
+  relation?: { from: string; to: string };
+  /** A related set by predicate — `(row, parent) => boolean`. */
+  filter?: (row: Record<string, unknown>, parent: Record<string, unknown> | null) => boolean;
+  /** A factory, or an already-created view. */
+  view?: ((el: HTMLElement, config: object, ctx: object) => object) | object;
+  /** Mount this child eagerly (on creation) instead of on first open. */
+  lazy?: false;
+  /** A per-child validator, checked before the view's own cell rules. */
+  validate?: (row: Record<string, unknown>, ctx: object) => boolean | string | { ok?: boolean; field?: string | null; message?: string };
+}
+
+/** The record editor's config. */
+export interface RecordEditorConfig {
+  /** The small store `{ get, rows, subscribe, apply }`. */
+  source?: RecordEditorSource;
+  /** The data-router instance instead of a source. */
+  router?: RecordEditorRouter;
+  /** The route the parent row lives on (router path). */
+  route?: string;
+  /** The parent row's key. */
+  key?: unknown;
+  /** The key field name (default `id`). */
+  rowKey?: string;
+  /** The form's own config, a factory returning one, or an already-created form. */
+  form?: object | ((ctx: object) => object);
+  /** The child views, in tab order. */
+  children?: RecordEditorChild[];
+  /** A shell layout (rows/cols) for the form and children cells. */
+  layout?: object;
+  /** Injected `{ [type]: create(el, config, ctx) }` factories for non-grid children. */
+  factories?: Record<string, (el: HTMLElement, config: object, ctx: object) => object>;
+  /** Start read-only: `save()` writes nothing. */
+  readOnly?: boolean;
+  /** A density preset: `default`, `compact`, `standard` or `comfortable`. */
+  preset?: string;
+  /** Dark mode: add the editor's dark class. */
+  dark?: boolean;
+}
+
+/** The record editor instance `createRecordEditor` returns. */
+export interface RecordEditor {
+  /** The host element. */
+  readonly el: HTMLElement;
+  /** The bound form, or null when no form was configured. */
+  readonly form: object | null;
+  /** The child records, in declaration order. */
+  readonly children: object[];
+  /** Resolves when the form (and every eagerly mounted child) is ready. */
+  readonly ready: Promise<void>;
+  /** Whether the form or any child has unsaved edits. */
+  isDirty(): boolean;
+  /** Validate the form then every mounted child; the first failure by view and field, or null. */
+  validate(): RecordEditorFailure | null;
+  /** Save the form and every child as ONE batch; true when saved (or nothing dirty). */
+  save(): Promise<boolean>;
+  /** Restore the form and every child to their last saved values. */
+  revert(): void;
+  /** The host-navigation guard: false while dirty. */
+  confirmLeave(): boolean;
+  /** Subscribe to an editor event (or `'*'` for every past-tense event); returns an unsubscribe. */
+  on(name: RecordEditorEventName | '*', fn: (event: RecordEditorEventPayloads[RecordEditorEventName]) => void): () => void;
+  /** Remove a handler registered with `on`. */
+  off(name: RecordEditorEventName | '*', fn: (event: RecordEditorEventPayloads[RecordEditorEventName]) => void): void;
+  /** The mounted child view by id, or undefined until its tab first opens. */
+  child(id: string): object | undefined;
+  /** Open a child's tab by id, mounting it first if needed. */
+  open(id: string): void;
+  /** Tear the editor down: destroy the form, the shell and every mounted child. */
+  destroy(): void;
 }

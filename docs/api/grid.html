@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.106.0</title>
+<title>Grid API Reference — Lattice Grid 1.107.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -409,6 +409,7 @@
         <a href="#scroll">grid.scroll</a>
         <a href="#export">grid.export</a>
         <a href="#import">grid.import</a>
+        <a href="#xlsx">LatticeGrid.xlsx</a>
         <a href="#state">grid.state</a>
         <a href="#history">grid.history</a>
         <a href="#diagnostics">grid.diagnostics</a>
@@ -422,7 +423,9 @@
         <a href="#redaction">grid.redaction</a>
         <a href="#formatting">grid.formatting</a>
         <a href="#validation">grid.validation</a>
+        <a href="#explain">grid.explain</a>
         <a href="#statistics">grid.statistics</a>
+        <a class="rail__sub-link" href="#statistics-compare">Compare groups</a>
         <a class="rail__sub-link" href="#derived-values">Values the grid maintains for you</a>
         <a class="rail__sub-link" href="#rolling-shadows">Rolling time-series columns</a>
         <a class="rail__sub-link" href="#seasonal-decomposition">Seasonal decomposition</a>
@@ -461,6 +464,8 @@
         <a class="rail__sub-link" href="#compound-units">Compound display: 5 ft 11 in, 1 h 23 m</a>
         <a href="#currency">Currency: an amount and a code</a>
         <a href="#stat">The statistic block</a>
+        <a href="#recordeditor">The record editor module</a>
+        <a class="rail__sub-link" href="#recordeditor-live-example">A form, two child views and one batched save, executed</a>
         <a href="#charts">In-cell charts</a>
         <a href="#formulas">Formulas</a>
         <a href="#custom-menu">Your own menu items and buttons</a>
@@ -1915,7 +1920,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.106.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.107.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -2417,6 +2422,32 @@ grid.import.apply(preview);
 <span class="kw">const</span> preview = <span class="kw">await</span> grid.import.previewXlsx(bytes, { sheet: 'Data' });
 
 <span class="kw">return</span> `${sheets.map((s) =&gt; s.name).join(', ')} / ${preview.rowCount} rows`;</code></pre>
+    <h2 id="xlsx">LatticeGrid.xlsx</h2>
+    <p>A standalone multi-sheet workbook writer and a raw-cell reader, on the <code>LatticeGrid</code> namespace and the ESM export <code>xlsx</code> — no grid needed. <code>write</code> builds one <code>.xlsx</code> with a worksheet per <code>sheets</code> entry, from plain row arrays (a cell's JavaScript type decides its spreadsheet type: numbers, strings, booleans, <code>Date</code>s and null/empty) or a grid (exported exactly as <code>grid.export.excel()</code> would). <code>read</code> is the mirror, returning every sheet — or one, by <code>sheet</code> name or index — as <code>{ name, hidden, rows }</code>, blanks kept in place so column positions never shift. <code>toCsv</code> serialises a sheet back to RFC 4180 CSV. Both reuse the core's own ZIP, styles and XML code; nothing in the page loads a third-party spreadsheet library.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">write(opts)</td><td class="type">Promise&lt;Blob&gt;</td><td class="desc">Write one <code>.xlsx</code> with a worksheet per <code>opts.sheets</code> entry; <code>filename</code> also downloads, <code>toArrayBuffer</code> returns the bytes for an upload.</td></tr>
+          <tr><td class="sig">read(bytes, opts?)</td><td class="type">Promise&lt;{ sheets }&gt;</td><td class="desc">Read every sheet (or one, by <code>sheet</code>) as <code>{ name, hidden, rows }</code>; <code>startRow</code>, <code>raw</code>, <code>dates</code> and <code>blank</code> tune the cells.</td></tr>
+          <tr><td class="sig">toCsv(sheet)</td><td class="type">string</td><td class="desc">Serialise one sheet (or its <code>rows</code>) to RFC 4180 CSV.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre data-run="js" data-expect="Summary, Data | Widget=true" data-covers="export:xlsx"><code><span class="kw">const</span> { xlsx } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="cmt">// Write a two-sheet workbook from plain row arrays — no grid needed.</span>
+<span class="kw">const</span> bytes = <span class="kw">await</span> xlsx.write({
+  sheets: [
+    { name: 'Summary', rows: [['kind', 'count'], ['total', 10]] },
+    { name: 'Data', rows: [['name', 'ok'], ['Widget', <span class="kw">true</span>]] },
+  ],
+  toArrayBuffer: <span class="kw">true</span>,
+});
+
+<span class="cmt">// Read it back: every sheet in order, types kept.</span>
+<span class="kw">const</span> wb = <span class="kw">await</span> xlsx.read(bytes, { raw: <span class="kw">true</span> });
+<span class="kw">return</span> `${wb.sheets.map((s) =&gt; s.name).join(', ')} | ${wb.sheets[1].rows[1].join('=')}`;</code></pre>
     <h2 id="state">grid.state</h2>
     <div class="table-wrap">
       <table>
@@ -3006,6 +3037,37 @@ grid.edit.start('r1', 'age'); grid.edit.stop(<span class="kw">false</span>, { va
 
 grid.destroy();
 <span class="kw">return</span> [blocked, why, now, failed].join('|');</code></pre>
+    <h2 id="explain">grid.explain</h2>
+    <p><strong>Explain a number</strong> (BACKLOG-0002657): break a column's total over the filtered rows into ranked contributors &mdash; the rows themselves, or the groups of a chosen dimension &mdash; each with its contribution and share of the whole. Pass <code>compare</code> &mdash; a second filter, the &ldquo;before&rdquo; state &mdash; and the change is decomposed into the contributors that drove it, ranked by effect and marked <code>new</code>, <code>dropped</code> or <code>changed</code>. It reads the grid's own columns, groups and totals: no configuration.</p>
+    <p>The arithmetic is the grid's own &mdash; the same <code>total</code> kernels the totals row uses, over the same filtered rows <code>statistics.reduce</code> reads &mdash; so an explanation and the number it explains cannot disagree. <code>sum</code>, <code>count</code> and <code>countValues</code> add up: a contributor's <code>contribution</code> is its own value and <code>share</code> is that over the total. <code>avg</code> is not additive, so a contributor's <code>contribution</code> is its <em>weighted effect</em> &mdash; <code>(group mean &minus; overall mean) &times; group size</code> &mdash; and the result says so with <code>weighted: true</code>. <code>min</code> and <code>max</code> have a single contributor: <code>single: true</code> and exactly one entry, the row that attains the extreme. Over a pivoted grid it returns <code>null</code> &mdash; the same leaf-window guard <code>statistics.reduce</code> raises &mdash; because a pivot's terminal groups carry no leaf rows client-side.</p>
+    <pre><code>grid.explain({ column: 'amount', group: 'region' });
+// { column: 'amount', fn: 'sum', total: 500, weighted: false, single: false,
+//   contributors: [ { key: 'North', label: 'North', count: 2, value: 300,
+//                     contribution: 300, share: 0.6 }, &hellip; ] }
+
+grid.explain({ column: 'amount', group: 'region', compare: { col: 'quarter', op: 'eq', value: 'Q2' } });
+// compare: { before, after, delta, weighted, single,
+//            drivers: [ { key, label, before, after, effect, kind, count }, &hellip; ] }</code></pre>
+    <pre data-run="js" data-expect="North:300 South:200 | 2" data-covers="method:explain config:GridExplainOptions.column config:GridExplainOptions.group config:GridExplainOptions.compare"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const rows = [
+  { id: 'a', region: 'North', quarter: 'Q1', amount: 100 },
+  { id: 'b', region: 'North', quarter: 'Q2', amount: 200 },
+  { id: 'c', region: 'South', quarter: 'Q1', amount: 50 },
+  { id: 'd', region: 'South', quarter: 'Q2', amount: 150 },
+];
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [
+    { id: 'id', field: 'id', type: 'number' },
+    { id: 'region', field: 'region' },
+    { id: 'quarter', field: 'quarter' },
+    { id: 'amount', field: 'amount', type: 'number', total: 'sum' },
+  ],
+  rows,
+});
+const result = grid.explain({ column: 'amount', group: 'region' });
+const change = grid.explain({ column: 'amount', group: 'region', compare: { col: 'quarter', op: 'eq', value: 'Q2' } });
+return `${result.contributors.map((c) =&gt; `${c.label}:${c.contribution}`).join(' ')} | ${change.compare.drivers.length}`;</code></pre>
     <h2 id="statistics">grid.statistics</h2>
     <p>What the grid knows about its own numbers, and about how they have changed since the page loaded. Every figure is computed over the <em>filtered</em> rows, through the same column handles the totals row uses, so a median here and a median in the footer are the same number, by the same definition (R type 7).</p>
     <p id="stat-pivot"><strong>Refused, with no number, over a pivoted pushdown grid (BACKLOG-0001558).</strong> A pivot's terminal groups are pushed down and answered as aggregated cells &mdash; they carry no leaf rows at all &mdash; so <code>profile()</code> and <code>reduce()</code> would otherwise read the pivot's own <em>aggregated</em> group rows as if they were the leaf population a statistic is supposed to describe, which is a wrong number with no symptom. Both return <code>null</code> instead (the statistics panel shows its usual "no values" placeholder) and a <code>[lattice]</code> warning (<code>stat.pivot-unsupported:*</code>) names the column and, for <code>reduce</code>, the kernel &mdash; once, never a figure read over the pivot's own rows. Unaffected on a memory source: pivoting there is a presentation over rows the grid still holds in full, so the leaf population <code>profile</code>/<code>reduce</code> describe is unchanged.</p>
@@ -3115,6 +3177,27 @@ createGrid(el, {
   insights: { compareWith: otherGrid },
 });</code></pre>
 
+    <h3 id="statistics-compare">Compare groups</h3>
+    <p><code>grid.statistics.compare</code> is the one-call form of the comparison analytics: it splits the filtered rows by a <code>by</code> column, picks the right test for the data, and returns the statistic, its degrees of freedom where they apply, the p-value, a confidence interval on the difference, an effect size with its conventional label, the group sizes and means or proportions, and a one-sentence verdict — data to interpret, never a <code>significant</code> flag (BACKLOG-0002659). <code>test: 'auto'</code> (the default) chooses from the data and says why: t, Welch or Mann-Whitney for two numeric groups (by a normality and variance screen); ANOVA or Kruskal-Wallis for three or more; a two-proportion z or chi-square for a categorical measure. Force one with <code>test</code> when you know which. <code>paired</code> names a key column that matches the two groups as pairs. A group with fewer than three readings, or with zero variance, is refused with a warning rather than producing a p-value from a degenerate sample.</p>
+    <p><strong>The caveats are part of the API.</strong> No multiple-comparison correction is applied — running <code>compare</code> across many pairs of groups inflates the false-positive rate, exactly as a run of unadjusted t-tests does. The verdict is a sentence about an observed difference, not a claim about cause: the grid has no design, no randomisation and no confounders, so it cannot say <em>why</em> the groups differ. The effect-size label is a conventional band, not a decision rule.</p>
+    <pre data-run="js" data-expect="welch|0.079|cohensD|0.75|2.33" data-covers="method:statistics.compare"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+<span class="cmt">// R's sleep data: hours of extra sleep under two soporifics.</span>
+<span class="kw">const</span> a = [0.7, -1.6, -0.2, -1.2, -0.1, 3.4, 3.7, 0.8, 0.0, 2.0];
+<span class="kw">const</span> b = [1.9, 0.8, 1.1, 0.1, -0.1, 4.4, 5.5, 1.6, 4.6, 3.4];
+<span class="kw">const</span> grid = createHeadlessGrid({
+  columns: [{ field: <span class="str">'group'</span> }, { field: <span class="str">'hours'</span>, type: <span class="str">'number'</span> }],
+  rows: [
+    ...a.map((hours, i) =&gt; ({ id: <span class="str">`a${i}`</span>, group: <span class="str">'a'</span>, hours })),
+    ...b.map((hours, i) =&gt; ({ id: <span class="str">`b${i}`</span>, group: <span class="str">'b'</span>, hours })),
+  ],
+  rowKey: <span class="str">'id'</span>,
+});
+<span class="kw">const</span> r = grid.statistics.compare({ measure: <span class="str">'hours'</span>, by: <span class="str">'group'</span>, test: <span class="str">'welch'</span> });
+<span class="kw">return</span> [
+  r.test, r.pValue.toFixed(3), r.effectSize.name,
+  r.groups[0].mean.toFixed(2), r.groups[1].mean.toFixed(2),
+].join('|');</code></pre>
+    <p>The full result carries more than the example prints: <code>r.df</code> (Welch's non-integer degrees of freedom, or <code>{ between, within }</code> for ANOVA), <code>r.interval</code> (<code>{ estimate, lower, upper, method }</code>), <code>r.effectSize.label</code> (negligible/small/medium/large), <code>r.reason</code> (why the test was chosen) and <code>r.verdict</code> (the sentence that names both groups, the direction, the magnitude and the effect label).</p>
 
     <h3>The reductions</h3>
     <p>Forty-one, all available to a totals row, to <code>reduce()</code> and to the profiling panel. Names are the same everywhere and the labels come from the message catalogue, so a grid in Polish reads in Polish.</p>
@@ -6620,6 +6703,88 @@ createStat({
       Returns <code>{ element, value, refresh, destroy }</code>. A misconfigured tile returns an inert
       handle rather than throwing, so a dashboard with one bad tile still renders the other eleven.
     </p>
+    <h2 id="recordeditor">The record editor module</h2>
+    <p><code>modules/recordeditor</code> is an opt-in editor for one record and its children: <code>createRecordEditor(el, config)</code> binds one form to the row named by <code>key</code> and each child view &mdash; a grid, list view, tree, kanban, data view or chart &mdash; to a related set, through either a <code>{ from, to }</code> relation or a <code>(row, parent)</code> filter, laid out by a shell with one tab per child. One editor is one dirty state, one validation pass and one batched save: <code>isDirty()</code> reads the form and every child as one answer, <code>validate()</code> reports the first failing view and field (or <code>null</code>), <code>save()</code> commits the form's values and every child's edits, adds and removes as ONE optimistic batch through the <code>source</code> or <code>router</code>'s <code>apply</code>, and <code>revert()</code> restores everything. <code>beforeSave</code> is a cancellable event a host can veto; <code>dirty</code>, <code>saved</code>, <code>saveFailed</code> and <code>validated</code> report the rest; <code>confirmLeave()</code> is false while dirty. Children mount lazily on first tab open, <code>ready</code> resolves once the form and any eager child are ready, and a read-only editor saves nothing.</p>
+    <h3 id="recordeditor-live-example">A form, two child views and one batched save, executed</h3>
+    <pre data-run="js" data-expect="true|true|Acme Ltd:7|true|true|dirty,beforeSave,saved,saveFailed,validated" data-covers="export:createRecordEditor export:RECORD_EDITOR_EVENTS config:RecordEditorConfig.source config:RecordEditorConfig.router config:RecordEditorConfig.key config:RecordEditorConfig.route config:RecordEditorConfig.rowKey config:RecordEditorConfig.form config:RecordEditorConfig.children config:RecordEditorConfig.layout config:RecordEditorConfig.factories config:RecordEditorConfig.readOnly config:RecordEditorConfig.preset config:RecordEditorConfig.dark"><code>const { createTestDom, TestEvent } = await import('../packages/dom/src/renderer/testdom.js');
+const { createRecordEditor, RECORD_EDITOR_EVENTS } = await import('../packages/modules/recordeditor/index.js');
+
+const { document: doc } = createTestDom();
+
+const host = doc.createElement('div');
+doc.body.appendChild(host);
+
+const rows = [
+  { id: 'c1', name: 'Acme', credit: 100 },
+  { id: 'o1', customerId: 'c1', sku: 'A', qty: 2 },
+];
+const source = {
+  data: new Map(rows.map((r) =&gt; [String(r.id), r])),
+  get(k) { return this.data.get(String(k)); },
+  rows() { return [...this.data.values()]; },
+  subscribe(fn) { return () =&gt; {}; },
+  apply(deltas) {
+    for (const d of deltas) if (d.op !== 'delete') this.data.set(String(d.row.id), d.row);
+    return Promise.resolve(true);
+  },
+};
+
+// The source path: one form, a grid child and a list child made by an injected factory.
+const editor = createRecordEditor(host, {
+  source,
+  key: 'c1',
+  rowKey: 'id',
+  form: { rows: [
+    { type: 'input', name: 'name', label: 'Name' },
+    { type: 'number', name: 'credit', label: 'Credit', required: true },
+  ] },
+  children: [
+    { id: 'orders', label: 'Orders', type: 'grid', config: { rowKey: 'id', columns: [{ field: 'sku', edit: true }, { field: 'qty', type: 'number', edit: true }] }, relation: { from: 'id', to: 'customerId' } },
+    { id: 'notes', label: 'Notes', type: 'list', config: { rowKey: 'id' }, relation: { from: 'id', to: 'customerId' } },
+  ],
+  layout: { rows: [{ id: 'form' }, { id: 'children', gravity: 1 }] },
+  factories: { list: (el) =&gt; ({ el, data: { parse() {}, add() {}, update() {}, remove() {} }, on() { return () =&gt; {}; } }) },
+  preset: 'compact',
+  dark: true,
+});
+
+editor.open('orders');
+editor.open('notes');
+editor.form.getItem('name').el.querySelector('input').value = 'Acme Ltd';
+editor.form.getItem('name').el.querySelector('input').dispatchEvent(new TestEvent('change', { bubbles: true }));
+editor.child('orders').edit.setCells([{ key: 'o1', colId: 'qty', value: 7 }], 'cell', { origin: 'form' });
+const dirty = editor.isDirty();
+const valid = editor.validate() === null;
+await editor.save();
+const saved = source.get('c1').name + ':' + source.get('o1').qty;
+const listMounted = !!editor.child('notes');
+
+// The router + route path, read-only: saving writes nothing.
+const roHost = doc.createElement('div');
+doc.body.appendChild(roHost);
+const applied = [];
+const router = {
+  get(route, k) { return rows.find((r) =&gt; r.id === String(k)); },
+  subscribe(route, fn) { return () =&gt; {}; },
+  apply(deltas) { applied.push(deltas); return Promise.resolve(true); },
+  attach(view, match) {},
+};
+const ro = createRecordEditor(roHost, {
+  router,
+  route: 'customers',
+  key: 'c1',
+  readOnly: true,
+  form: { rows: [{ type: 'input', name: 'name', label: 'Name' }] },
+});
+ro.form.getItem('name').el.querySelector('input').value = 'Nope';
+ro.form.getItem('name').el.querySelector('input').dispatchEvent(new TestEvent('change', { bubbles: true }));
+await ro.save();
+const readOnlyWrote = applied.length === 0;
+
+editor.destroy();
+ro.destroy();
+
+return [dirty, valid, saved, listMounted, readOnlyWrote, RECORD_EDITOR_EVENTS.join(',')].join('|');</code></pre>
     <h2 id="charts">In-cell charts</h2>
     <p>Seven chart renderers for a cell. Each is a single SVG whose path data is the only thing a
     repaint writes, so they cost the same as any other cell as rows recycle.</p>
@@ -7006,6 +7171,8 @@ createGrid(el, {
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M8 3.5 12 8H4Z"></path></svg>sortAsc</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M8 12.5 4 8h8Z"></path></svg>sortDesc</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"></path></svg>menu</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M3 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"></path></svg>ellipsis</span>
+      <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M6.5 3a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0Zm0 5a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0Zm0 5a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0Z"></path></svg>ellipsisVertical</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M6 3.5h1.5V5H6Zm3 0h1.5V5H9ZM6 7.25h1.5v1.5H6Zm3 0h1.5v1.5H9ZM6 11h1.5v1.5H6Zm3 0h1.5v1.5H9Z"></path></svg>drag</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M8 1.6l1.96 3.97 4.38.64-3.17 3.09.75 4.36L8 11.6l-3.92 2.06.75-4.36L1.66 6.21l4.38-.64Z"></path></svg>star</span>
       <span class="chip chip--icon"><svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor"><path d="M8 14.2 2.4 8.6a3.3 3.3 0 0 1 4.67-4.67L8 4.86l.93-.93A3.3 3.3 0 0 1 13.6 8.6Z"></path></svg>heart</span>
@@ -7661,7 +7828,7 @@ grid.destroy();
     <p class="section-note">Each documented event is subscribed to and unsubscribed on every build. A consumer
     wiring a handler to a renamed event gets silence, which is indistinguishable from an event that
     has not fired yet — so the name is checked rather than left to be discovered.</p>
-    <pre data-run="js" data-expect="121" data-covers="event:cell:mouseover event:cell:mouseout event:cell:mousedown event:cell:mouseup event:rowDrag:started event:rowDrag:moved event:rowDrag:left event:rowDrag:ended event:find:changed event:cell:changed event:cell:clicked event:cell:confirmed event:cell:conflict event:cell:contextmenu event:cell:dblclicked event:cell:edit:end event:cell:edit:start event:cell:pending event:cell:reverted event:clipboard:copy event:column:filter:open event:column:profile:open event:column:grouped event:column:menu:open event:column:pivoted event:column:resized event:columns:changed event:columns:tagged event:comment:added event:comment:deleted event:comment:edited event:comment:failed event:comment:indexLoaded event:comment:resolved event:comment:threadClosed event:comment:threadOpened event:comment:unresolved event:destroy event:detail:toggled event:detail:cell:edit:start event:detail:cell:edit:end event:detail:row:edit:start event:detail:row:edit:end event:detail:cell:changed event:diff:changed event:diff:swapped event:export:progress event:facet:computed event:facet:expanded event:facet:failed event:facet:filtered event:form:closed event:form:error event:form:opened event:form:saved event:formatting:changed event:group:toggled event:header:contextmenu event:highlight:changed event:history:applied event:history:changed event:licence:changed event:page:changed event:permissions:changed event:presence:failed event:presence:joined event:presence:left event:presence:lockRefused event:presence:published event:presence:updated event:presentation:captured event:presentation:changed event:presentation:ended event:presentation:scale event:presentation:spotlight event:presentation:started event:presentation:view event:range:changed event:ready event:redaction:changed event:render:done event:render:first event:row:clicked event:row:copied event:row:dblclicked event:row:edit:end event:row:edit:start event:row:moved event:row:received event:row:sent event:rows:deferred event:rows:paused event:rows:queued event:rows:resumed event:scroll event:scroll:end event:selection:changed event:size:changed event:source:error event:stream:chunk event:stream:end event:stream:evicted event:timeline:attached event:timeline:detached event:timeline:seek event:timeline:seeking event:toolpanel:focus event:tree:loadAborted event:tree:loadFailed event:tree:loaded event:tree:loading event:view:applied event:view:default event:view:removed event:view:renamed event:view:saved event:views:changed event:row:pending event:row:confirmed event:row:reverted event:row:conflict"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+    <pre data-run="js" data-expect="124" data-covers="event:cell:changed event:cell:clicked event:cell:confirmed event:cell:conflict event:cell:contextmenu event:cell:dblclicked event:cell:edit:end event:cell:edit:start event:cell:mouseover event:cell:mouseout event:cell:mousedown event:cell:mouseup event:cell:pending event:cell:reverted event:clipboard:copy event:column:filter:open event:column:profile:open event:column:compareGroups:open event:column:grouped event:column:menu:open event:column:pivoted event:column:resized event:columns:changed event:columns:tagged event:explain:open event:comment:added event:comment:deleted event:comment:edited event:comment:failed event:comment:indexLoaded event:comment:resolved event:comment:threadClosed event:comment:threadOpened event:comment:unresolved event:destroy event:detail:toggled event:detail:cell:edit:start event:detail:cell:edit:end event:detail:row:edit:start event:detail:row:edit:end event:detail:cell:changed event:diff:changed event:diff:swapped event:export:progress event:facet:computed event:facet:expanded event:facet:failed event:facet:filtered event:form:closed event:form:error event:form:opened event:form:saved event:formatting:changed event:group:toggled event:header:contextmenu event:totals:contextmenu event:highlight:changed event:find:changed event:history:applied event:history:changed event:licence:changed event:page:changed event:permissions:changed event:presence:failed event:presence:joined event:presence:left event:presence:lockRefused event:presence:published event:presence:updated event:presentation:captured event:presentation:changed event:presentation:ended event:presentation:scale event:presentation:spotlight event:presentation:started event:presentation:view event:range:changed event:ready event:redaction:changed event:render:done event:render:first event:row:clicked event:row:copied event:row:dblclicked event:row:edit:end event:row:edit:start event:row:moved event:row:pending event:row:confirmed event:row:reverted event:row:conflict event:row:received event:row:sent event:rows:deferred event:rows:paused event:rows:queued event:rows:resumed event:scroll event:scroll:end event:selection:changed event:size:changed event:source:error event:stream:chunk event:stream:end event:stream:evicted event:timeline:attached event:timeline:detached event:timeline:seek event:timeline:seeking event:toolpanel:focus event:tree:loadAborted event:tree:loadFailed event:tree:loaded event:tree:loading event:view:applied event:view:default event:view:removed event:view:renamed event:view:saved event:views:changed event:rowDrag:started event:rowDrag:moved event:rowDrag:left event:rowDrag:ended"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
 
 <span class="cmt">// Every documented event name, checked against the bus that would carry it.</span>
 <span class="cmt">// Subscribing to a name the grid does not know is the failure this catches:</span>
@@ -7671,9 +7838,9 @@ grid.destroy();
   'cell:changed', 'cell:clicked', 'cell:confirmed', 'cell:conflict',
   'cell:contextmenu', 'cell:dblclicked', 'cell:edit:end', 'cell:edit:start',
   'cell:mouseover', 'cell:mouseout', 'cell:mousedown', 'cell:mouseup',
-  'cell:pending', 'cell:reverted', 'clipboard:copy', 'column:filter:open', 'column:profile:open', 'column:grouped',
+  'cell:pending', 'cell:reverted', 'clipboard:copy', 'column:filter:open', 'column:profile:open', 'column:compareGroups:open', 'column:grouped',
   'column:menu:open', 'column:pivoted', 'column:resized', 'columns:changed',
-  'columns:tagged', 'comment:added', 'comment:deleted', 'comment:edited',
+  'columns:tagged', 'explain:open', 'comment:added', 'comment:deleted', 'comment:edited',
   'comment:failed', 'comment:indexLoaded', 'comment:resolved', 'comment:threadClosed',
   'comment:threadOpened', 'comment:unresolved', 'destroy', 'detail:toggled',
   'detail:cell:edit:start', 'detail:cell:edit:end', 'detail:row:edit:start',
@@ -7681,7 +7848,7 @@ grid.destroy();
   'diff:changed', 'diff:swapped', 'export:progress', 'facet:computed',
   'facet:expanded', 'facet:failed', 'facet:filtered', 'form:closed',
   'form:error', 'form:opened', 'form:saved', 'formatting:changed',
-  'group:toggled', 'header:contextmenu', 'highlight:changed', 'find:changed', 'history:applied',
+  'group:toggled', 'header:contextmenu', 'totals:contextmenu', 'highlight:changed', 'find:changed', 'history:applied',
   'history:changed', 'licence:changed', 'page:changed', 'permissions:changed',
   'presence:failed', 'presence:joined', 'presence:left', 'presence:lockRefused',
   'presence:published', 'presence:updated', 'presentation:captured', 'presentation:changed',
@@ -7781,6 +7948,9 @@ grid.destroy();
         <tbody>
           <tr><td class="name">ingestSync</td><td class="type">(rows, plan?, opts?) =&gt; object</td><td class="desc">Build a column store and an inferred schema from raw rows, synchronously. The result records why each column got the type it did.</td></tr>
           <tr><td class="name">ContextMenu</td><td class="type">class</td><td class="desc">The menu the grid opens on right-click, reusable for a menu of your own. <code>open(p)</code> places it.</td></tr>
+          <tr><td class="name">resolveMenuItems</td><td class="type">(items, ctx) =&gt; object[]</td><td class="desc">From <code>modules/contextmenu</code>: resolves a menu item list into the plain list the menu draws: functions are called with the context, strings become named items or separators, submenus resolve recursively and stray separators are dropped, for hosts that extend <code>ContextMenu</code>.</td></tr>
+          <tr><td class="name">Sidebar</td><td class="type">class</td><td class="desc">From <code>modules/sidebar</code>: the class behind <code>createSidebar</code>, exported for hosts that extend it.</td></tr>
+          <tr><td class="name">Toolbar</td><td class="type">class</td><td class="desc">From <code>modules/toolbar</code>: the class behind <code>createToolbar</code>, exported for hosts that extend it.</td></tr>
         </tbody>
       </table>
     </div>
@@ -8075,6 +8245,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">emit</td><td class="type">(event: string, payload?: Record&lt;string, unknown&gt;): void</td><td class="desc"><code>event: string</code><br><code>payload?: Record&lt;string, unknown&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Raise an event of your own on the grid's bus.</td></tr>
           <tr><td class="name">setPinnedRows</td><td class="type">(rows: unknown[], opts?: { edge?: 'top' | 'bottom' }): void</td><td class="desc"><code>rows: unknown[]</code><br><code>opts?: { edge?: 'top' | 'bottom' }</code></td><td class="type"><code>void</code></td><td class="desc">Pin rows above or below the scrolling body. The rows render through the ordinary column pipeline but are not part of the data: not counted, sorted, filtered, grouped, selectable or exported. Pass a new array rather than mutating the one you passed before: array identity is how the grid knows the pinned rows have changed.</td></tr>
           <tr><td class="name">getPinnedRows</td><td class="type">(opts?: { edge?: 'top' | 'bottom' }): unknown[]</td><td class="desc"><code>opts?: { edge?: 'top' | 'bottom' }</code></td><td class="type"><code>unknown[]</code></td><td class="desc">The objects currently pinned at one edge, as a copy.</td></tr>
+          <tr><td class="name">explain</td><td class="type">(options: <a href="types.html#type-GridExplainOptions">GridExplainOptions</a>): <a href="types.html#type-GridExplainResult">GridExplainResult</a> | null</td><td class="desc"><code>options: <a href="types.html#type-GridExplainOptions">GridExplainOptions</a></code></td><td class="type"><code><a href="types.html#type-GridExplainResult">GridExplainResult</a> | null</code></td><td class="desc">Explain a number (BACKLOG-0002657): break a column's total over the filtered rows into ranked contributors, or decompose the change against a second filter into its drivers. Returns null when the column is missing, its handle cannot be read, or the grid is pivoted.</td></tr>
           <tr><td class="name">focus</td><td class="type">(key: string, columnField?: string): boolean</td><td class="desc"><code>key: string</code> &mdash; the row's key<br><code>columnField?: string</code></td><td class="type"><code>boolean</code> whether a matching, rendered row was found and focused</td><td class="desc">Move keyboard focus to a row by its key. Expands any collapsed ancestor that hides it — a tree or a grouping — then scrolls it into view and lands DOM focus on it the way a found match already does.</td></tr>
           <tr><td class="name">getVersion</td><td class="type">(): string</td><td class="desc">&mdash;</td><td class="type"><code>string</code></td><td class="desc">The library version.</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Release everything: listeners, timers, workers and the DOM the grid made.</td></tr>
@@ -8119,9 +8290,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">cell:edit:start</td><td class="desc">A cell editor opened, by double-click, by Enter, or by typing into the cell.</td><td class="type"><a href="#type-EditStartEvent">EditStartEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">cell:edit:end</td><td class="desc">A cell editor closed: committed, cancelled, or refused by validation — `valid` and `cancelled` say which.</td><td class="type"><a href="#type-EditEndEvent">EditEndEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">group:toggled</td><td class="desc">A group row was expanded or collapsed — one group, one branch, or all of them at once.</td><td class="type"><a href="#type-GroupToggledEvent">GroupToggledEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">explain:open</td><td class="desc">An Explain entry point was activated and the Explain panel should open on the named column.</td><td class="type"><a href="#type-ExplainOpenEvent">ExplainOpenEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">pivot:drill</td><td class="desc">A pivot measure cell was drilled into; the payload names the row and column paths behind it.</td><td class="type"><a href="#type-PivotDrillEvent">PivotDrillEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">columngroup:changed</td><td class="desc">A banded header group was formed, renamed, moved, dissolved, removed or restored from state.</td><td class="type"><a href="#type-ColumnGroupChangedEvent">ColumnGroupChangedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">header:contextmenu</td><td class="desc">A context menu was requested on a column header.</td><td class="type"><a href="#type-HeaderContextMenuEvent">HeaderContextMenuEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">totals:contextmenu</td><td class="desc">A context menu was requested on the pinned totals row, which has no data index.</td><td class="type"><a href="#type-TotalsContextMenuEvent">TotalsContextMenuEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">range:changed</td><td class="desc">The selected cell ranges changed.</td><td class="type"><a href="#type-RangeChangedEvent">RangeChangedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">clipboard:copy</td><td class="desc">A copy to the clipboard was attempted; `ok` says whether it reached the clipboard.</td><td class="type"><a href="#type-ClipboardCopyEvent">ClipboardCopyEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">page:changed</td><td class="desc">The page or the page size changed.</td><td class="type"><a href="#type-PageChangedEvent">PageChangedEvent</a></td><td class="desc">no</td></tr>
@@ -8271,6 +8444,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">column:pivoted</td><td class="desc">The pivot changed: which columns the rows are pivoted by, locally or pushed down to the backend.</td><td class="type"><a href="#type-ColumnPivotedEvent">ColumnPivotedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">column:filter:open</td><td class="desc">The header's filter affordance was activated and the column's filter popup should open.</td><td class="type"><a href="#type-ColumnMenuEvent">ColumnMenuEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">column:profile:open</td><td class="desc">The column menu's profile item was activated and the column's profile should open.</td><td class="type"><a href="#type-ColumnMenuEvent">ColumnMenuEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">column:compareGroups:open</td><td class="desc">The column menu's "Compare groups" item was activated and the group-comparison panel should open, seeded on this column.</td><td class="type"><a href="#type-ColumnMenuEvent">ColumnMenuEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">column:menu:open</td><td class="desc">The header's menu affordance was activated and the column menu should open.</td><td class="type"><a href="#type-ColumnMenuEvent">ColumnMenuEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">columns:changed</td><td class="desc">The column set changed other than by moving, resizing, hiding or pinning — a type inference pass rewrote it.</td><td class="type"><a href="#type-ColumnsChangedEvent">ColumnsChangedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">columns:tagged</td><td class="desc">`grid.columns.showTagged()` chose which columns to show from their tags.</td><td class="type"><a href="#type-ColumnsTaggedEvent">ColumnsTaggedEvent</a></td><td class="desc">no</td></tr>
@@ -9289,6 +9463,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">subsetVsPopulation</td><td class="type">(opts?: { columns?: string[] }): <a href="types.html#type-SubsetComparison">SubsetComparison</a></td><td class="desc"><code>opts?: { columns?: string[] }</code></td><td class="type"><code><a href="types.html#type-SubsetComparison">SubsetComparison</a></code></td><td class="desc">Which columns differ most between the filtered subset and the whole population it was drawn from, ranked by effect size — never by a p-value. The measure is stated per column; a numeric and a categorical column are put on one bounded scale so they rank against each other.</td></tr>
           <tr><td class="name">datasetVsDataset</td><td class="type">(other: <a href="#type-Grid">Grid</a>, opts?: { columns?: string[] }): <a href="types.html#type-DatasetComparison">DatasetComparison</a></td><td class="desc"><code>other: <a href="#type-Grid">Grid</a></code><br><code>opts?: { columns?: string[] }</code></td><td class="type"><code><a href="types.html#type-DatasetComparison">DatasetComparison</a></code></td><td class="desc">Which columns differ most between this grid and another, ranked by effect size — never by a p-value (BACKLOG-0000735). The generalisation of {@link subsetVsPopulation} from subset-vs-population to dataset-vs-dataset: two independent grids, yoked by passing one in, no shared store. A numeric column reports a pooled standardised mean difference (Cohen's d, symmetric in the two peers where Glass's delta is not); a categorical column the total variation of its category mix; both land on one bounded scale. Both sides are read over their filtered rows. Only shared columns are ranked; a column on one side alone is returned under `unmatched`.</td></tr>
           <tr><td class="name">compareGroups</td><td class="type">(colId: string, opts: <a href="types.html#type-TwoSampleSpec">TwoSampleSpec</a>): <a href="types.html#type-GroupComparison">GroupComparison</a> | null</td><td class="desc"><code>colId: string</code><br><code>opts: <a href="types.html#type-TwoSampleSpec">TwoSampleSpec</a></code></td><td class="type"><code><a href="types.html#type-GroupComparison">GroupComparison</a> | null</code></td><td class="desc">Is the difference between two groups real? A two-sample test returned as data to interpret — never a verdict (BACKLOG-0000750). The significance boundary the comparison story (653, 735) stopped short of: those rank by how *much* columns differ and return no p-value; this answers *how sure* for one chosen pair of groups and hands the p-value back as data. There is no `significant` flag, no badge, and no multiple-comparison correction. The rows are split by `opts.by`, the test is chosen by the column's family and named in the result (overridable with `opts.test`): Welch's t or Mann-Whitney U for a numeric column, chi-square for a categorical one. Every result pairs a confidence interval on the difference with the effect size, so it is always "how big and how sure".</td></tr>
+          <tr><td class="name">compare</td><td class="type">(opts: <a href="types.html#type-CompareSpec">CompareSpec</a>): <a href="types.html#type-CompareResult">CompareResult</a> | null</td><td class="desc"><code>opts: <a href="types.html#type-CompareSpec">CompareSpec</a></code></td><td class="type"><code><a href="types.html#type-CompareResult">CompareResult</a> | null</code></td><td class="desc">Pick and run the right statistical test over the groups the grid's rows split into, and return the statistic, the degrees of freedom where they apply, the p-value, a confidence interval on the difference where one exists, an effect size with its conventional label, the group sizes and means or proportions, and a one-sentence verdict (BACKLOG-0002659). The rows are split by `opts.by` — `opts.groups` (two chosen values), or every group when there are three or more — and `opts.measure` is compared between them over the filtered rows. `opts.test` is `'auto'` by default and picks from the data, naming the choice and the reason in the result: t, Welch or Mann-Whitney for two numeric groups (by normality and variance); ANOVA or Kruskal-Wallis for three or more; a two-proportion z or chi-square for a categorical measure. Every result carries an effect size (Cohen's d, Cliff's delta, Cramer's V or eta squared) with a label, and a verdict that names the groups, the direction, the magnitude and the effect. A group with fewer than three readings, or with zero variance, is refused (null). `opts.paired` names a key column to match the two groups as pairs. No multiple-comparison correction is applied — see the docs for the caveat.</td></tr>
           <tr><td class="name">correlation</td><td class="type">(a: string, b: string): number | null</td><td class="desc"><code>a: string</code><br><code>b: string</code></td><td class="type"><code>number | null</code></td><td class="desc">Pearson's correlation between two columns.</td></tr>
           <tr><td class="name">covariance</td><td class="type">(a: string, b: string, opts?: { population?: boolean }): number | null</td><td class="desc"><code>a: string</code><br><code>b: string</code><br><code>opts?: { population?: boolean }</code></td><td class="type"><code>number | null</code></td><td class="desc">Covariance, a correlation before the scales are divided out.</td></tr>
           <tr><td class="name">regression</td><td class="type">(a: string, b: string): <a href="types.html#type-RegressionFit">RegressionFit</a> | null</td><td class="desc"><code>a: string</code><br><code>b: string</code></td><td class="type"><code><a href="types.html#type-RegressionFit">RegressionFit</a> | null</code></td><td class="desc">Least-squares fit of `b` on `a`: in finance, beta and alpha.</td></tr>
@@ -11625,12 +11800,15 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">column:pivoted</td><td class="desc">Columns</td><td class="desc">The pivot changed: which columns the rows are pivoted by, locally or pushed down to the backend.</td><td class="type"><a href="#type-ColumnPivotedEvent">ColumnPivotedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">column:filter:open</td><td class="desc">Columns</td><td class="desc">The header's filter affordance was activated and the column's filter popup should open.</td><td class="type"><a href="#type-ColumnMenuEvent">ColumnMenuEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">column:profile:open</td><td class="desc">Columns</td><td class="desc">The column menu's profile item was activated and the column's profile should open.</td><td class="type"><a href="#type-ColumnMenuEvent">ColumnMenuEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">column:compareGroups:open</td><td class="desc">Columns</td><td class="desc">The column menu's "Compare groups" item was activated and the group-comparison panel should open, seeded on this column.</td><td class="type"><a href="#type-ColumnMenuEvent">ColumnMenuEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">column:menu:open</td><td class="desc">Columns</td><td class="desc">The header's menu affordance was activated and the column menu should open.</td><td class="type"><a href="#type-ColumnMenuEvent">ColumnMenuEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">explain:open</td><td class="desc">Columns</td><td class="desc">An Explain entry point was activated and the Explain panel should open on the named column.</td><td class="type"><a href="#type-ExplainOpenEvent">ExplainOpenEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">pivot:drill</td><td class="desc">Columns</td><td class="desc">A pivot measure cell was drilled into; the payload names the row and column paths behind it.</td><td class="type"><a href="#type-PivotDrillEvent">PivotDrillEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">columns:changed</td><td class="desc">Columns</td><td class="desc">The column set changed other than by moving, resizing, hiding or pinning — a type inference pass rewrote it.</td><td class="type"><a href="#type-ColumnsChangedEvent">ColumnsChangedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">columns:tagged</td><td class="desc">Columns</td><td class="desc">`grid.columns.showTagged()` chose which columns to show from their tags.</td><td class="type"><a href="#type-ColumnsTaggedEvent">ColumnsTaggedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">columngroup:changed</td><td class="desc">Columns</td><td class="desc">A banded header group was formed, renamed, moved, dissolved, removed or restored from state.</td><td class="type"><a href="#type-ColumnGroupChangedEvent">ColumnGroupChangedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">header:contextmenu</td><td class="desc">Columns</td><td class="desc">A context menu was requested on a column header.</td><td class="type"><a href="#type-HeaderContextMenuEvent">HeaderContextMenuEvent</a></td><td class="desc">no</td></tr>
+          <tr><td class="name">totals:contextmenu</td><td class="desc">Columns</td><td class="desc">A context menu was requested on the pinned totals row, which has no data index.</td><td class="type"><a href="#type-TotalsContextMenuEvent">TotalsContextMenuEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">selection:changed</td><td class="desc">Selection and view</td><td class="desc">The row selection changed and was accepted (a `beforeSelect` veto raises `selection:cancelled` instead).</td><td class="type"><a href="#type-SelectionChangedEvent">SelectionChangedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">range:changed</td><td class="desc">Selection and view</td><td class="desc">The selected cell ranges changed.</td><td class="type"><a href="#type-RangeChangedEvent">RangeChangedEvent</a></td><td class="desc">no</td></tr>
           <tr><td class="name">clipboard:copy</td><td class="desc">Selection and view</td><td class="desc">A copy to the clipboard was attempted; `ok` says whether it reached the clipboard.</td><td class="type"><a href="#type-ClipboardCopyEvent">ClipboardCopyEvent</a></td><td class="desc">no</td></tr>
@@ -12448,12 +12626,15 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">column:pivoted</td><td class="type"><a href="#type-ColumnPivotedEvent">ColumnPivotedEvent</a></td><td class="desc">The columns the rows are pivoted by now, locally or on the backend.</td></tr>
           <tr><td class="name">column:filter:open</td><td class="type"><a href="#type-ColumnMenuEvent">ColumnMenuEvent</a></td><td class="desc">The column whose filter popup should open, and the element to anchor it to.</td></tr>
           <tr><td class="name">column:profile:open</td><td class="type"><a href="#type-ColumnMenuEvent">ColumnMenuEvent</a></td><td class="desc">The column whose profile should open.</td></tr>
+          <tr><td class="name">column:compareGroups:open</td><td class="type"><a href="#type-ColumnMenuEvent">ColumnMenuEvent</a></td><td class="desc">The column to seed the group-comparison panel's measure picker.</td></tr>
           <tr><td class="name">column:menu:open</td><td class="type"><a href="#type-ColumnMenuEvent">ColumnMenuEvent</a></td><td class="desc">The column whose menu should open, and the element to anchor it to.</td></tr>
+          <tr><td class="name">explain:open</td><td class="type"><a href="#type-ExplainOpenEvent">ExplainOpenEvent</a></td><td class="desc">The column the Explain panel should open on.</td></tr>
           <tr><td class="name">pivot:drill</td><td class="type"><a href="#type-PivotDrillEvent">PivotDrillEvent</a></td><td class="desc">The source rows behind the measure, and the paths that identify the cell.</td></tr>
           <tr><td class="name">columns:changed</td><td class="type"><a href="#type-ColumnsChangedEvent">ColumnsChangedEvent</a></td><td class="desc">Why the column set was rewritten, and what was inferred.</td></tr>
           <tr><td class="name">columns:tagged</td><td class="type"><a href="#type-ColumnsTaggedEvent">ColumnsTaggedEvent</a></td><td class="desc">The tags that were asked for and the columns hidden for carrying none.</td></tr>
           <tr><td class="name">columngroup:changed</td><td class="type"><a href="#type-ColumnGroupChangedEvent">ColumnGroupChangedEvent</a></td><td class="desc">What happened to the band, and to which one.</td></tr>
           <tr><td class="name">header:contextmenu</td><td class="type"><a href="#type-HeaderContextMenuEvent">HeaderContextMenuEvent</a></td><td class="desc">The header the menu was requested on, and where the pointer was.</td></tr>
+          <tr><td class="name">totals:contextmenu</td><td class="type"><a href="#type-TotalsContextMenuEvent">TotalsContextMenuEvent</a></td><td class="desc">The pinned totals cell the menu was requested on.</td></tr>
           <tr><td class="name">selection:changed</td><td class="type"><a href="#type-SelectionChangedEvent">SelectionChangedEvent</a></td><td class="desc">The keys and rows now selected.</td></tr>
           <tr><td class="name">range:changed</td><td class="type"><a href="#type-RangeChangedEvent">RangeChangedEvent</a></td><td class="desc">Every cell range now selected.</td></tr>
           <tr><td class="name">clipboard:copy</td><td class="type"><a href="#type-ClipboardCopyEvent">ClipboardCopyEvent</a></td><td class="desc">The text, whether it reached the clipboard, and why not when it did not.</td></tr>
@@ -12550,6 +12731,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">group:cancelled</td><td class="type"><a href="#type-GroupCancelledEvent">GroupCancelledEvent</a></td><td class="desc">The group toggle that was not applied, and why.</td></tr>
           <tr><td class="name">rowReceive:cancelled</td><td class="type"><a href="#type-RowReceiveCancelledEvent">RowReceiveCancelledEvent</a></td><td class="desc">That veto's notification, with the reason.</td></tr>
           <tr><td class="name">*</td><td class="type"><a href="#type-GridEvent">GridEvent</a></td><td class="desc">Whichever past-tense event fired; the wildcard is never given a before-event.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ExplainOpenEvent">ExplainOpenEvent</h4>
+    <p class="section-note">`explain:open`: an entry point asked for the Explain panel on a column.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">column</td><td class="type">string</td><td class="desc">The measure column to explain. <small>(optional)</small></td></tr>
+          <tr><td class="name">group</td><td class="type">string</td><td class="desc">The dimension to break down by, when the caller already chose one. <small>(optional)</small></td></tr>
+          <tr><td class="name">compare</td><td class="type">object</td><td class="desc">A comparison filter, when the caller is explaining a change. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -13501,6 +13694,21 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">from</td><td class="type">number</td><td class="desc">How many steps back it is coming from.</td></tr>
           <tr><td class="name">to</td><td class="type">number</td><td class="desc">How many steps back it is going to.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-TotalsContextMenuEvent">TotalsContextMenuEvent</h4>
+    <p class="section-note">`totals:contextmenu`: a context menu was requested on the pinned totals row, which has no data index.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">key</td><td class="type">string | null</td><td class="desc">The totals row's key, or null when it carries none.</td></tr>
+          <tr><td class="name">colId</td><td class="type">string | null</td><td class="desc">The column the menu was requested on, or null off a cell.</td></tr>
+          <tr><td class="name">column</td><td class="type"><a href="#type-Column">Column</a></td><td class="desc">The resolved column, where `colId` names one. <small>(optional)</small></td></tr>
+          <tr><td class="name">x</td><td class="type">number</td><td class="desc">The pointer's viewport x.</td></tr>
+          <tr><td class="name">y</td><td class="type">number</td><td class="desc">The pointer's viewport y.</td></tr>
+          <tr><td class="name">event</td><td class="type">unknown</td><td class="desc">The DOM event behind this one.</td></tr>
         </tbody>
       </table>
     </div>
