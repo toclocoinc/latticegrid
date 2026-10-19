@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.107.0, sidebar module type declarations
+ * Lattice Grid 1.108.0, sidebar module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -50,6 +50,20 @@ export type SidebarNode = {
 export type SidebarConfig = {
   /** The node tree. Default `[]`. */
   nodes?: SidebarNode[];
+  /** The node tree under its other name (an alias for `nodes`). */
+  items?: SidebarNode[];
+  /** The active node's id, the page the host is showing; painted with `aria-current="page"`. */
+  active?: string | number | null;
+  /** Called with `{ id, node, originalEvent }` when a leaf is activated, before it is selected. */
+  onNavigate?: (payload: { id: string | number; node: SidebarNode; originalEvent?: unknown }) => void;
+  /** Draw the filter box at the top of the sidebar. Default `false`. */
+  search?: boolean;
+  /** Draw the rail toggle button that collapses to icons only and back. Default `false`. */
+  railToggle?: boolean;
+  /** The accessible name of the navigation landmark; defaults to the translated `sidebar.nav`. */
+  ariaLabel?: string;
+  /** The host's message catalogue (anything with a `.t(key)`), for translating the sidebar's own chrome. */
+  messages?: { t(key: string, params?: Record<string, unknown>): string };
   /** Icons-only rail; `collapsed` is accepted as another name for it. Default `false`. */
   flat?: boolean;
   /** Arrow-key navigation and Enter/Space to activate. Default `true`. */
@@ -113,6 +127,8 @@ export class Sidebar {
   select(id: string | number): this;
   /** Clear the selection. */
   unselect(): this;
+  /** Mark a node the page the host is showing (`aria-current="page"`) and select it. */
+  setActive(id: string | number | null): this;
   expand(id: string | number): this;
   collapse(id: string | number): this;
   toggle(id: string | number): this;
@@ -145,4 +161,6 @@ export class Sidebar {
 
 /** Create a sidebar inside an element. */
 export function createSidebar(el: HTMLElement | string, config?: SidebarConfig): Sidebar & { ready: Promise<void> };
+/** The English strings the sidebar uses when no locale catalogue supplies a message, keyed by message key. */
+export const FALLBACK_EN: Readonly<Record<string, string>>;
 export default createSidebar;

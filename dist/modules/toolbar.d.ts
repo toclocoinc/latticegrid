@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.107.0, toolbar module type declarations
+ * Lattice Grid 1.108.0, toolbar module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -52,9 +52,14 @@ export type ToolbarItem = {
   label?: string;
   /** Parent id for `data.add`; carried, not stored on the item. */
   parent?: string | number;
+  /** A bound view action this item drives when the toolbar is bound (see `Toolbar.bind`). */
+  action?: ToolbarAction;
   /** Any other property a host carries through. */
   [key: string]: unknown;
 };
+
+/** A built-in view action a bound toolbar item can drive. */
+export type ToolbarAction = 'export' | 'undo' | 'redo' | 'addRow' | 'removeRow' | 'expandAll' | 'collapseAll' | 'submit' | 'refresh';
 
 /** The options passed to `createToolbar`. */
 export type ToolbarConfig = {
@@ -76,6 +81,10 @@ export type ToolbarConfig = {
   tooltipDelay?: number;
   /** Accessible name of the toolbar. */
   ariaLabel?: string;
+  /** The host's message catalogue (anything with a `.t(key)`), for translating the toolbar's own chrome. */
+  messages?: { t(key: string, params?: Record<string, unknown>): string };
+  /** A grid, tree, list view or form whose actions the bound items drive. */
+  bind?: object;
 };
 
 /** The item-store API at `toolbar.data`. */
@@ -139,6 +148,12 @@ export class Toolbar {
   itemElement(id: string | number): HTMLElement | null;
   /** Merge options and re-render. */
   update(partial?: Partial<ToolbarConfig>): this;
+  /** Bind the toolbar to a view whose actions the `action` items drive (also the `bind` option). */
+  bind(view: object): this;
+  /** The bound view, or null when the toolbar is not bound. */
+  readonly bound: object | null;
+  /** Re-read every bound item's `disabled`/`active` from the view. */
+  refresh(): this;
   /** Subscribe to an event; returns an unsubscribe function. */
   on(name: string, fn: (payload: unknown) => void): () => void;
   /** Remove an event handler. */
@@ -151,4 +166,6 @@ export class Toolbar {
 
 /** Create a toolbar inside an element. */
 export function createToolbar(el: HTMLElement | string, config?: ToolbarConfig): Toolbar & { ready: Promise<void> };
+/** The English strings the toolbar uses when no locale catalogue supplies a message, keyed by message key. */
+export const FALLBACK_EN: Readonly<Record<string, string>>;
 export default createToolbar;

@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.107.0</title>
+<title>Types API Reference — Lattice Grid 1.108.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -1657,6 +1657,8 @@
           <tr><td class="name">direction</td><td class="type">number</td><td class="desc">+1 when dataset A sits above dataset B, −1 below, 0 for a mix.</td></tr>
           <tr><td class="name">nA</td><td class="type">number</td><td class="desc">How many rows the first grid's side stood on.</td></tr>
           <tr><td class="name">nB</td><td class="type">number</td><td class="desc">How many rows the second grid's side stood on.</td></tr>
+          <tr><td class="name">meanA</td><td class="type">number | null</td><td class="desc">The mean of this column on the first grid's side, over the rows compared. Null for a categorical column.</td></tr>
+          <tr><td class="name">meanB</td><td class="type">number | null</td><td class="desc">The mean of this column on the second grid's side, over the rows compared. Null for a categorical column.</td></tr>
           <tr><td class="name">reliable</td><td class="type">boolean</td><td class="desc">False when either side is too small to read the difference from.</td></tr>
         </tbody>
       </table>
@@ -3340,8 +3342,8 @@
     <p class="section-note">Which statistical test {@link StatisticsApi.compare} runs, or `auto` to pick.</p>
     <p class="type-def"><code>type CompareTest = 'auto' | 't' | 'welch' | 'mannWhitney' | 'anova' | 'kruskal' | 'chiSquare' | 'proportions'</code></p>
     <h4 id="type-ContextMenuConfig">ContextMenuConfig</h4>
-    <p class="section-note">The options passed to `createContextMenu`.</p>
-    <p class="type-def"><code>type ContextMenuConfig = { ctx?: Record&lt;string, unknown&gt;; onClose?: (() =&gt; void) | null; parent?: ContextMenu | null; }</code></p>
+    <p class="section-note">The options passed to `createContextMenu` and `openContextMenu`.</p>
+    <p class="type-def"><code>type ContextMenuConfig = { items?: Array&lt;<a href="#type-ContextMenuItem">ContextMenuItem</a> | string | ((ctx: unknown) =&gt; <a href="#type-ContextMenuItem">ContextMenuItem</a> | string | false | null | undefined)&gt;; ctx?: Record&lt;string, unknown&gt;; onClose?: (() =&gt; void) | null; parent?: ContextMenu | null; host?: HTMLElement | null; returnFocus?: HTMLElement | null; trigger?: HTMLElement | null; document?: Document; }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/contextmenu</code>.</small></p>
     <h4 id="type-ContextMenuIcon">ContextMenuIcon</h4>
     <p class="section-note">An icon spec: a built-in name, an SVG string, a URL, an icon-font class list, or an object like `{ className }`.</p>
@@ -4282,7 +4284,7 @@
     <p class="type-def"><code>type Side = 'left' | 'right'</code></p>
     <h4 id="type-SidebarConfig">SidebarConfig</h4>
     <p class="section-note">The options passed to `createSidebar`.</p>
-    <p class="type-def"><code>type SidebarConfig = { nodes?: <a href="#type-SidebarNode">SidebarNode</a>[]; flat?: boolean; keyboard?: boolean; hoverDelay?: number; idPrefix?: string; tooltips?: boolean; name?: string; css?: string; [key: string]: unknown; }</code></p>
+    <p class="type-def"><code>type SidebarConfig = { nodes?: <a href="#type-SidebarNode">SidebarNode</a>[]; items?: <a href="#type-SidebarNode">SidebarNode</a>[]; active?: string | number | null; onNavigate?: (payload: { id: string | number; node: <a href="#type-SidebarNode">SidebarNode</a>; originalEvent?: unknown }) =&gt; void; search?: boolean; railToggle?: boolean; ariaLabel?: string; messages?: { t(key: string, params?: Record&lt;string, unknown&gt;): string }; flat?: boolean; keyboard?: boolean; hoverDelay?: number; idPrefix?: string; tooltips?: boolean; name?: string; css?: string; [key: string]: unknown; }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/sidebar</code>.</small></p>
     <h4 id="type-SidebarDataApi">SidebarDataApi</h4>
     <p class="section-note">The node-store API at `sidebar.data` (a flat, id-keyed view of the tree).</p>
@@ -4370,9 +4372,13 @@
     <h4 id="type-TimeStyle">TimeStyle</h4>
     <p class="section-note">A locale-chosen time form, mirroring `Intl.DateTimeFormatOptions.timeStyle`.</p>
     <p class="type-def"><code>type TimeStyle = 'short' | 'medium' | 'long'</code></p>
+    <h4 id="type-ToolbarAction">ToolbarAction</h4>
+    <p class="section-note">A built-in view action a bound toolbar item can drive.</p>
+    <p class="type-def"><code>type ToolbarAction = 'export' | 'undo' | 'redo' | 'addRow' | 'removeRow' | 'expandAll' | 'collapseAll' | 'submit' | 'refresh'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/toolbar</code>.</small></p>
     <h4 id="type-ToolbarConfig">ToolbarConfig</h4>
     <p class="section-note">The options passed to `createToolbar`.</p>
-    <p class="type-def"><code>type ToolbarConfig = { items?: <a href="#type-ToolbarItem">ToolbarItem</a>[] | null; height?: number | string | null; css?: string; overflow?: 'menu' | 'scroll' | 'none'; moreIcon?: <a href="#type-ToolbarIcon">ToolbarIcon</a>; moreLabel?: string; tooltips?: boolean; tooltipDelay?: number; ariaLabel?: string; }</code></p>
+    <p class="type-def"><code>type ToolbarConfig = { items?: <a href="#type-ToolbarItem">ToolbarItem</a>[] | null; height?: number | string | null; css?: string; overflow?: 'menu' | 'scroll' | 'none'; moreIcon?: <a href="#type-ToolbarIcon">ToolbarIcon</a>; moreLabel?: string; tooltips?: boolean; tooltipDelay?: number; ariaLabel?: string; messages?: { t(key: string, params?: Record&lt;string, unknown&gt;): string }; bind?: object; }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/toolbar</code>.</small></p>
     <h4 id="type-ToolbarDataApi">ToolbarDataApi</h4>
     <p class="section-note">The item-store API at `toolbar.data`.</p>
@@ -4384,7 +4390,7 @@
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/toolbar</code>.</small></p>
     <h4 id="type-ToolbarItem">ToolbarItem</h4>
     <p class="section-note">One toolbar item. Any other property is carried through and returned from `getItem` and `serialize`.</p>
-    <p class="type-def"><code>type ToolbarItem = { id?: string | number; type?: string; value?: string; text?: string; html?: string; icon?: <a href="#type-ToolbarIcon">ToolbarIcon</a>; src?: string; tooltip?: string; css?: string; hidden?: boolean; disabled?: boolean; count?: number; countColor?: string; twoState?: boolean; active?: boolean; group?: string; items?: <a href="#type-ToolbarItem">ToolbarItem</a>[]; placeholder?: string; width?: number | string; overflow?: string; label?: string; parent?: string | number; [key: string]: unknown; }</code></p>
+    <p class="type-def"><code>type ToolbarItem = { id?: string | number; type?: string; value?: string; text?: string; html?: string; icon?: <a href="#type-ToolbarIcon">ToolbarIcon</a>; src?: string; tooltip?: string; css?: string; hidden?: boolean; disabled?: boolean; count?: number; countColor?: string; twoState?: boolean; active?: boolean; group?: string; items?: <a href="#type-ToolbarItem">ToolbarItem</a>[]; placeholder?: string; width?: number | string; overflow?: string; label?: string; parent?: string | number; action?: <a href="#type-ToolbarAction">ToolbarAction</a>; [key: string]: unknown; }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/toolbar</code>.</small></p>
     <h4 id="type-ToolPanelName">ToolPanelName</h4>
     <p class="section-note">The built-in tool panels, addressable by name from configuration.</p>

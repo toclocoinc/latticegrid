@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.107.0, type declarations
+ * Lattice Grid 1.108.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -3669,8 +3669,8 @@ export interface DerivedSeries {
 
 /**
  * How this grid differs from another, ranked by effect size, as rows:
- * `{ column, measure, magnitude, distance, direction, nA, nB, reliable,
- * unmatched }`, largest difference first.
+ * `{ column, measure, magnitude, distance, direction, nA, nB, meanA, meanB,
+ * reliable, unmatched }`, largest difference first.
  *
  * The two-grid shape: one grid is the data, a second *is* the analysis of it.
  * Both sides are read over their filtered rows, and the peer is watched — an
@@ -7679,6 +7679,10 @@ export interface DatasetColumnDifference {
   nA: number;
   /** How many rows the second grid's side stood on. */
   nB: number;
+  /** The mean of this column on the first grid's side, over the rows compared. Null for a categorical column. */
+  meanA: number | null;
+  /** The mean of this column on the second grid's side, over the rows compared. Null for a categorical column. */
+  meanB: number | null;
   /** False when either side is too small to read the difference from. */
   reliable: boolean;
 }

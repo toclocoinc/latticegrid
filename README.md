@@ -1,13 +1,34 @@
 # Lattice Grid
 
-**Lattice is one typed, virtualised data layer in the browser and a family of
-views on it**: data grid, Kanban board, Gantt chart, calendar, resource
-scheduler, form, shell layout, dashboards and the Designer, 38+ chart types, KPI
-tiles and map views, all reading the same rows, filters and theme. Vanilla
-JavaScript, no runtime dependencies, no build step; adapters for React, Vue,
-Svelte, Web Components and htmx, Angular compiled inside the package.
+Lattice is the JavaScript data grid that does the analysis: derived grids that
+filter, roll up, pivot and join; statistics that compare groups and say which
+test they used; and any total explained by what it is made of. On the same rows
+sit dashboards with KPI tiles and charts, Kanban, Gantt, scheduler, calendar,
+forms, lists, trees and an app shell.
 
-Version 1.107.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+Zero runtime dependencies, with adapters for React, Vue, Svelte, Angular, Web
+Components and htmx. Free on localhost, licensed per domain to ship.
+
+Version 1.108.0 · [latticegrid.dev](https://www.latticegrid.dev) · TOCLOCO Inc
+
+## Start
+
+```sh
+npm install @toclocoinc/lattice-grid
+```
+
+```js
+import { createGrid } from '@toclocoinc/lattice-grid';
+import '@toclocoinc/lattice-grid/css';
+
+const grid = createGrid(document.getElementById('grid'), {
+  columns: [{ field: 'name' }],
+  rows: [{ id: 1, name: 'First' }],
+  rowKey: 'id',
+});
+```
+
+[Docs](https://www.latticegrid.dev/docs/) · [Demos](https://www.latticegrid.dev/demos/) · [Pricing](https://www.latticegrid.dev/pricing)
 
 ---
 
@@ -45,7 +66,7 @@ Every module is optional and none of them is loaded unless you import it.
 | `modules/dataview.esm.min.js` | A standalone card grid drawn by a template, with selection, two-dimensional keyboard navigation and drag to reorder. |
 | `modules/contextmenu.esm.min.js` | A keyboard-accessible context menu built from an item spec, with submenus, checkboxes and colour swatches. |
 | `modules/sidebar.esm.min.js` | A filterable navigation tree with selection, expand and collapse, and an icons-only rail. |
-| `modules/toolbar.esm.min.js` | A data-driven toolbar of buttons, menus, inputs, titles and an overflow menu. |
+| `modules/toolbar.esm.min.js` | A data-driven toolbar of buttons, menus, inputs, titles and an overflow menu, bound to a grid, tree, list view or form's actions. |
 | `modules/tree.esm.min.js` | A standalone tree with expand, selection, three-state checkboxes and drag to a new parent. |
 | `modules/layout.esm.min.js` | A reconfigurable dashboard surface: windows on a cell grid. |
 | `modules/dashboard.esm.min.js` | One JSON spec naming a layout, panels and links, built into a wired page. |
@@ -457,7 +478,7 @@ the UMD build or `.cjs` for CommonJS.
 | dataview | `@toclocoinc/lattice-grid/modules/dataview` | `modules/dataview.min.js` | `LatticeGridDataView` | A standalone card grid: items wrap into rows, each card drawn by a template, with selection, two-dimensional keyboard navigation, drag to reorder and a data API (`createDataView`). |
 | contextmenu | `@toclocoinc/lattice-grid/modules/contextmenu` | `modules/contextmenu.min.js` | `LatticeGridContextMenu` | A keyboard-accessible context menu from an item spec, with submenus, checkboxes and colour swatches (`createContextMenu`). |
 | sidebar | `@toclocoinc/lattice-grid/modules/sidebar` | `modules/sidebar.min.js` | `LatticeGridSidebar` | A filterable navigation tree: selection, expand and collapse, an icons-only rail and a node data API (`createSidebar`). |
-| toolbar | `@toclocoinc/lattice-grid/modules/toolbar` | `modules/toolbar.min.js` | `LatticeGridToolbar` | A data-driven toolbar of buttons, select buttons, inputs, titles and an overflow menu (`createToolbar`). |
+| toolbar | `@toclocoinc/lattice-grid/modules/toolbar` | `modules/toolbar.min.js` | `LatticeGridToolbar` | A data-driven toolbar of buttons, select buttons, inputs, titles and an overflow menu, bound to a grid, tree, list view or form's actions (`createToolbar`). |
 | tree | `@toclocoinc/lattice-grid/modules/tree` | `modules/tree.min.js` | `LatticeGridTree` | A standalone tree on the grid: expand and collapse, selection, three-state checkboxes, drag to reparent and lazy children (`createTree`). |
 | form | `@toclocoinc/lattice-grid/modules/form` | `modules/form.min.js` | `LatticeGridForm` | An opt-in form: named items in nested rows and columns, basic controls, events and grid-token density (`createForm`). |
 | recordeditor | `@toclocoinc/lattice-grid/modules/recordeditor` | `modules/recordeditor.min.js` | `LatticeGridRecordEditor` | An opt-in record editor: a form bound to a row plus child views in tabs, with one dirty state, one validation pass and one batched save (`createRecordEditor`). |

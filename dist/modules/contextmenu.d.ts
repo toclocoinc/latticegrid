@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.107.0, contextmenu module type declarations
+ * Lattice Grid 1.108.0, contextmenu module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -54,14 +54,24 @@ export type ContextMenuShowOptions = {
   ctx?: Record<string, unknown>;
 };
 
-/** The options passed to `createContextMenu`. */
+/** The options passed to `createContextMenu` and `openContextMenu`. */
 export type ContextMenuConfig = {
+  /** The entries; when given to `createContextMenu` they are the default for a later `show()`. */
+  items?: Array<ContextMenuItem | string | ((ctx: unknown) => ContextMenuItem | string | false | null | undefined)>;
   /** The context passed to item actions and functions. */
   ctx?: Record<string, unknown>;
   /** Called when the menu closes. */
   onClose?: (() => void) | null;
   /** The parent menu, for a submenu. */
   parent?: ContextMenu | null;
+  /** The element the menu is appended to (default the document body). */
+  host?: HTMLElement | null;
+  /** The element to focus when the menu closes. */
+  returnFocus?: HTMLElement | null;
+  /** The element that opened the menu; presses on it are left alone so it can toggle the menu shut. */
+  trigger?: HTMLElement | null;
+  /** The document to render into (default the host's own document). */
+  document?: Document;
 };
 
 /** A keyboard-accessible popup menu, opened at a point or anchored to an element. */
@@ -80,6 +90,11 @@ export class ContextMenu {
 /** Resolve a raw item list against a context: functions are called, strings become named entries, submenus recurse. */
 export function resolveMenuItems(items: unknown, ctx: unknown): ContextMenuItem[];
 
-/** Create a context menu for a host element; `show({ x, y, items })` opens it and `hide()` closes it. */
+/** Create a context menu; `show({ x, y })` opens it (at a point, or with `anchor`/`placement`) and `hide()` closes it. */
 export function createContextMenu(el: HTMLElement | string, config?: ContextMenuConfig): ContextMenu & { ready: Promise<void> };
+/** Create a context menu declared with its items: `createContextMenu({ items, ... })`. */
+export function createContextMenu(config: ContextMenuConfig): ContextMenu & { ready: Promise<void> };
+
+/** Open a context menu anchored to an event, a `{ clientX, clientY }` point, or an element, kept inside the viewport. */
+export function openContextMenu(trigger: Event | { clientX?: number; clientY?: number; x?: number; y?: number } | HTMLElement, config?: ContextMenuConfig): ContextMenu;
 export default createContextMenu;

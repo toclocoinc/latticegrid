@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.107.0</p>
+    <p class="rail__sub">API reference · v1.108.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -592,7 +592,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.107.0</span>
+      <span class="chip">Version 1.108.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3515,7 +3515,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.107.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.108.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -16143,6 +16143,266 @@ tree.destroy();
 tree.destroy();
 <span class="kw">return</span> `${nestedBack} | ${childChecked}`;</code></pre>
 
+    <h2 id="sidebar">The sidebar module</h2>
+    <p><code>modules/sidebar</code> is an opt-in navigation rail &mdash; a tree of groups that
+    collapse, nested items, badges and an active item, with a filter box and an icons-only rail that
+    expands on demand &mdash; drawn by <code>createSidebar(el, config)</code>, which returns a
+    <code>Sidebar</code> instance. A leaf is a destination: clicking it (or pressing Enter on it)
+    calls the host's <code>onNavigate({ id, node, originalEvent })</code> and raises
+    <code>navigate</code>, then selects it. The host routes through that callback and tells the rail
+    what is now current with <code>setActive(id)</code> (or the <code>active</code> config key), which
+    paints the row <code>aria-current="page"</code>. The rail itself is a <code>navigation</code>
+    landmark, so a screen reader can jump to it.</p>
+    <pre><code><span class="kw">import</span> { createSidebar } <span class="kw">from</span> <span class="str">'@toclocoinc/lattice-grid/modules/sidebar'</span>;
+
+<span class="kw">const</span> sidebar = createSidebar(document.querySelector(<span class="str">'#nav'</span>), {
+  items: [
+    { id: <span class="str">'home'</span>, text: <span class="str">'Home'</span>, icon: <span class="str">'user'</span> },
+    { id: <span class="str">'reports'</span>, text: <span class="str">'Reports'</span>, nodes: [
+      { id: <span class="str">'sales'</span>, text: <span class="str">'Sales'</span>, count: 3 },
+      { id: <span class="str">'ops'</span>, text: <span class="str">'Ops'</span> },
+    ] },
+  ],
+  active: <span class="str">'home'</span>,
+  onNavigate: ({ id }) =&gt; router.go(id),
+  search: <span class="kw">true</span>,
+  railToggle: <span class="kw">true</span>,
+});</code></pre>
+    <p><strong>The node tree.</strong> <code>items</code> (or its alias <code>nodes</code>) holds
+    the tree: a branch is any node with a <code>nodes</code> array, a group header is a node with
+    <code>group: true</code>, a badge is <code>count</code> (with <code>countColor</code> choosing the
+    role), and <code>type: 'separator'</code> draws a divider. A branch expands and collapses on
+    click, by <code>expand</code>/<code>collapse</code>/<code>toggle</code>, or with the arrow keys;
+    <code>select(id)</code> reveals a node by opening its ancestors.</p>
+    <p><strong>Filtering is a class toggle, not a re-render.</strong> <code>filter(term)</code> shows
+    every node whose text matches and the ancestors needed to reach it, opening those ancestors, and
+    returns the match count; an empty term restores the tree. The optional <code>search: true</code>
+    draws the filter box and runs <code>filter</code> on each keystroke. Every node keeps its element,
+    so filtering never rebuilds the tree.</p>
+    <p><strong>The icons-only rail.</strong> <code>flat: true</code> (or <code>goFlat()</code> to
+    toggle) collapses the rail to icons; a hovered or focused icon shows its label through the
+    grid's one shared tooltip, and the optional <code>railToggle: true</code> draws the button that
+    flips the rail, an <code>aria-expanded</code> toggle.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">createSidebar(el, config)</td><td class="desc">Create the rail; <code>config</code> takes <code>items</code>/<code>nodes</code>, <code>active</code>, <code>onNavigate</code>, <code>search</code>, <code>railToggle</code>, <code>flat</code>, <code>ariaLabel</code> and <code>messages</code>.</td></tr>
+          <tr><td class="sig">setActive(id) / select(id) / unselect()</td><td class="desc">Mark the page the host is showing (<code>aria-current="page"</code>) and select it; select a node, revealing its ancestors; clear the selection.</td></tr>
+          <tr><td class="sig">expand(id) / collapse(id) / toggle(id) / expandAll() / collapseAll() / expandedIds()</td><td class="desc">Open, close or flip a branch, open or close all, and read the ids of every open branch.</td></tr>
+          <tr><td class="sig">filter(term, restore?)</td><td class="desc">Filter by text, case-insensitive; returns the match count. An empty term restores the tree and reopens <code>restore</code>.</td></tr>
+          <tr><td class="sig">goFlat(on?)</td><td class="desc">Narrow to icons only, or back; omit <code>on</code> to toggle. Returns whether it is now flat.</td></tr>
+          <tr><td class="sig">show(id) / hide(id) / get(id) / nodeElement(id) / parentsOf(id)</td><td class="desc">Show or hide a node; read the live node, its row element, or its ancestors' ids.</td></tr>
+          <tr><td class="sig">add / insert / remove / setNodes / data.*</td><td class="desc">Change the tree; <code>data</code> is the flat, id-keyed store (<code>parse</code>, <code>add</code>, <code>update</code>, <code>remove</code>, <code>getItem</code>, <code>serialize</code>, &hellip;).</td></tr>
+          <tr><td class="sig">on(name, fn)</td><td class="desc">Events: <code>click</code>, <code>navigate</code>, <code>select</code>, <code>expand</code>, <code>collapse</code>, <code>flat</code>, <code>mouseEnter</code>, <code>mouseLeave</code>, and the cancellable <code>beforeExpand</code>/<code>beforeCollapse</code>.</td></tr>
+          <tr><td class="sig">destroy()</td><td class="desc">Remove the DOM and listeners. The host still owns the element.</td></tr>
+          <tr><td class="sig">FALLBACK_EN</td><td class="desc">The frozen English strings the sidebar uses when no locale catalogue supplies a message, keyed by message key (<code>sidebar.nav</code>, <code>sidebar.search</code>, &hellip;).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="sidebar-example">The tree, the filter, the rail and the active key, executed</h3>
+    <p class="section-note">A two-branch rail with an active item and a host <code>onNavigate</code>,
+    filtered to one leaf (opening its ancestor), narrowed to icons only and back, then re-pointed at a
+    different active node &mdash; run headless with the suite's DOM test double, since this module
+    needs a real element to mount into.</p>
+    <pre data-run="js" data-expect="true|page|navigation|1|true|true|true|true|page|Main navigation" data-covers="export:createSidebar export:Sidebar export:FALLBACK_EN"><code><span class="kw">const</span> { createTestDom, flushFrames } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createSidebar, Sidebar, FALLBACK_EN } = <span class="kw">await</span> import('../packages/modules/sidebar/index.js');
+
+<span class="kw">const</span> { document, root } = createTestDom({ width: 240, height: 400 });
+globalThis.document = document;
+<span class="kw">const</span> navigated = [];
+<span class="kw">const</span> sidebar = createSidebar(root, {
+  items: [
+    { id: <span class="str">'home'</span>, text: <span class="str">'Home'</span>, icon: <span class="str">'user'</span>, count: 3 },
+    { id: <span class="str">'reports'</span>, text: <span class="str">'Reports'</span>, nodes: [
+      { id: <span class="str">'sales'</span>, text: <span class="str">'Sales'</span> },
+      { id: <span class="str">'ops'</span>, text: <span class="str">'Ops'</span> },
+    ] },
+  ],
+  active: <span class="str">'home'</span>,
+  onNavigate: ({ id }) =&gt; navigated.push(id),
+});
+flushFrames();
+<span class="kw">const</span> isSidebar = sidebar <span class="kw">instanceof</span> Sidebar;
+<span class="kw">const</span> activeCurrent = sidebar.nodeElement(<span class="str">'home'</span>).getAttribute(<span class="str">'aria-current'</span>);
+<span class="kw">const</span> landmark = sidebar.el.getAttribute(<span class="str">'role'</span>);
+<span class="kw">const</span> matched = sidebar.filter(<span class="str">'sales'</span>);
+<span class="kw">const</span> salesVisible = !sidebar.get(<span class="str">'sales'</span>).hidden;
+<span class="kw">const</span> homeHidden = sidebar.get(<span class="str">'home'</span>).hidden;
+<span class="kw">const</span> reportsOpen = sidebar.get(<span class="str">'reports'</span>).expanded;
+<span class="kw">const</span> flat = sidebar.goFlat(<span class="kw">true</span>);
+sidebar.filter(<span class="str">''</span>);
+sidebar.setActive(<span class="str">'ops'</span>);
+<span class="kw">const</span> opsCurrent = sidebar.nodeElement(<span class="str">'ops'</span>).getAttribute(<span class="str">'aria-current'</span>);
+sidebar.destroy();
+<span class="kw">return</span> [isSidebar, activeCurrent, landmark, matched, salesVisible, homeHidden, reportsOpen, flat, opsCurrent, FALLBACK_EN[<span class="str">'sidebar.nav'</span>]].join(<span class="str">'|'</span>);</code></pre>
+    <h2 id="contextmenumodule">The context menu module</h2>
+    <p><code>modules/contextmenu</code> is the one menu every Lattice surface opens: the grid&#39;s own cell and column-header menu renders through it, and the <a href="#tree">tree</a> and <a href="#listview">list view</a> open it from their <code>itemContextMenu</code> event, so the grid, the tree and the list all share one keyboard-accessible menu and one theme. <code>createContextMenu</code> is the factory &mdash; declare the menu&#39;s <code>items</code> up front (<code>createContextMenu({ items, ctx, onClose, host })</code>) or pass a host element first (<code>createContextMenu(el, { ctx })</code>), then <code>menu.show({ x, y })</code> opens it (or <code>anchor</code>/<code>placement</code> on an element) and <code>menu.hide()</code> closes it. An item is an object &mdash; <code>name</code>, <code>icon</code>, <code>shortcut</code>, <code>disabled</code>, <code>checked</code>, <code>children</code> (a nested submenu), <code>swatches</code> (a colour-swatch row whose <code>action(ctx, colour)</code> receives the picked colour), <code>action(ctx)</code> &mdash; or the string <code>&#39;separator&#39;</code> for a divider, or a function <code>(ctx) =&gt; item | string | null | false</code> so a host decides the shape at open time from the cell or item that was right-clicked; <code>resolveMenuItems</code> is that same resolution as a pure helper. <code>openContextMenu(trigger, config)</code> is the trigger helper: hand it a <code>contextmenu</code> event (whose default it claims, so the browser&#39;s own menu does not open over it), a <code>{ clientX, clientY }</code> point, or an element to anchor below, and it opens the menu inside the viewport now. Every menu is a real <code>role="menu"</code> of <code>menuitem</code>/<code>menuitemcheckbox</code> rows with <code>aria-checked</code>/<code>aria-disabled</code>, arrows, Enter, Escape, Home/End and type-ahead, and focus returns to the trigger on close. The class names are the grid&#39;s own <code>lat-menu__*</code>, so a menu opened beside a themed grid picks up that grid&#39;s theme with no second stylesheet.</p>
+    <pre><code>import { createContextMenu, openContextMenu, resolveMenuItems } from '@toclocoinc/lattice-grid/modules/contextmenu';
+
+const menu = createContextMenu({ items: [
+  { name: 'Rename', action: (ctx) => rename(ctx.item) },
+  'separator',
+  { name: 'Share', children: [{ name: 'Copy link', action: () => {} }] },
+] });
+menu.show({ x: 40, y: 40 });   // at a point — or { anchor: el, placement: 'below' }
+menu.destroy();
+
+openContextMenu(event, { items, ctx: { row }, returnFocus: event.target });</code></pre>
+    <p><strong>Executed: the item model, the factory, and the trigger helper.</strong></p>
+    <pre data-run="js" data-expect="Rename A1,---,Plain,Share/Copy link,Mute | true,true | Cut,Copy,Paste | true | Paste | menu | Inspect | true | true" data-covers="export:createContextMenu export:openContextMenu export:resolveMenuItems"><code><span class="kw">const</span> { createTestDom, TestEvent } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createContextMenu, openContextMenu, resolveMenuItems } = <span class="kw">await</span> import('../packages/modules/contextmenu/index.js');
+
+<span class="kw">const</span> { document, root } = createTestDom();
+
+<span class="cmt">// resolveMenuItems: functions run against the context, a bare string is a</span>
+<span class="cmt">// named entry, 'separator' is a divider, children nest, and a divider left</span>
+<span class="cmt">// trailing by a filtered-out entry is dropped.</span>
+<span class="kw">const</span> resolved = resolveMenuItems([
+  (ctx) =&gt; ({ name: `Rename ${ctx.row}` }),
+  <span class="str">'separator'</span>,
+  <span class="str">'Plain'</span>,
+  { name: <span class="str">'Share'</span>, children: [{ name: <span class="str">'Copy link'</span>, action() {} }] },
+  { name: <span class="str">'Mute'</span>, disabled: <span class="kw">true</span>, checked: <span class="kw">true</span>, icon: <span class="str">'close'</span>, shortcut: <span class="str">'Ctrl+M'</span> },
+  <span class="str">'separator'</span>,
+  () =&gt; <span class="kw">null</span>,
+], { row: <span class="str">'A1'</span> });
+<span class="kw">const</span> shape = resolved.map((i) =&gt; i.separator ? <span class="str">'---'</span> : (i.subMenu ? <span class="str">'Share/Copy link'</span> : i.name)).join(<span class="str">','</span>);
+<span class="kw">const</span> mute = `${resolved[4].disabled},${resolved[4].checked}`;
+
+<span class="cmt">// createContextMenu({ items, ... }) — the factory shape — opens at a point.</span>
+<span class="kw">const</span> menu = createContextMenu({ document, host: root, items: [
+  { name: <span class="str">'Cut'</span>, icon: <span class="str">'pencil'</span>, shortcut: <span class="str">'Ctrl+X'</span> },
+  { name: <span class="str">'Copy'</span>, checked: <span class="kw">true</span>, icon: <span class="str">'copy'</span> },
+  <span class="str">'separator'</span>,
+  { name: <span class="str">'Paste'</span>, disabled: <span class="kw">true</span>, icon: <span class="str">'download'</span> },
+] });
+<span class="kw">const</span> el = menu.show({ x: 30, y: 20 });
+<span class="kw">const</span> labels = [...el.querySelectorAll(<span class="str">'.lat-menu__item__label'</span>)].map((n) =&gt; n.textContent).join(<span class="str">','</span>);
+<span class="kw">const</span> checked = el.querySelector(<span class="str">'[role="menuitemcheckbox"]'</span>).getAttribute(<span class="str">'aria-checked'</span>);
+<span class="kw">const</span> disabled = el.querySelector(<span class="str">'[aria-disabled="true"]'</span>).querySelector(<span class="str">'.lat-menu__item__label'</span>).textContent;
+<span class="kw">const</span> role = el.getAttribute(<span class="str">'role'</span>);
+menu.hide();
+
+<span class="cmt">// openContextMenu claims a right-click so the browser's own menu does not open</span>
+<span class="cmt">// over it, then opens at the pointer.</span>
+<span class="kw">const</span> ev = <span class="kw">new</span> TestEvent(<span class="str">'contextmenu'</span>, { clientX: 40, clientY: 30 });
+<span class="kw">const</span> opened = openContextMenu(ev, { host: root, items: [{ name: <span class="str">'Inspect'</span> }] });
+<span class="kw">const</span> pointerLabel = opened.root.querySelector(<span class="str">'.lat-menu__item__label'</span>).textContent;
+<span class="kw">const</span> claimed = ev.defaultPrevented;
+opened.hide();
+
+<span class="cmt">// And it anchors below an element when handed one.</span>
+<span class="kw">const</span> anchor = document.createElement(<span class="str">'button'</span>);
+document.body.appendChild(anchor);
+<span class="kw">const</span> anchored = openContextMenu(anchor, { host: root, items: [{ name: <span class="str">'Anchor'</span> }] });
+<span class="kw">const</span> anchoredOk = !!anchored.root;
+anchored.destroy();
+
+<span class="kw">return</span> [shape, mute, labels, checked, disabled, role, pointerLabel, claimed, anchoredOk].join(<span class="str">' | '</span>);</code></pre>
+
+    <h2 id="toolbar">The toolbar module</h2>
+    <p><code>modules/toolbar</code> is an opt-in data-driven toolbar &mdash; a row of buttons,
+    two-state toggles, dropdowns, separators, spacers, inputs, titles and custom HTML &mdash; drawn by
+    <code>createToolbar(el, config)</code>, which returns a <code>Toolbar</code> instance with a
+    <code>data</code> store (<code>parse</code>, <code>add</code>, <code>update</code>,
+    <code>remove</code>, <code>getItem</code>, <code>serialize</code>, &hellip;) so the bar can be
+    described once and changed item by item. When the row is too narrow for its items, the trailing
+    ones move into a &ldquo;more&rdquo; button that opens the context-menu module. An item bound to a
+    view names the view's action with <code>action</code>; the toolbar drives it on click and keeps
+    the item's <code>disabled</code> (and, for a toggle, its <code>aria-pressed</code>) following the
+    view's own state.</p>
+    <pre><code><span class="kw">import</span> { createToolbar } <span class="kw">from</span> <span class="str">'@toclocoinc/lattice-grid/modules/toolbar'</span>;
+
+<span class="kw">const</span> tb = createToolbar(document.querySelector(<span class="str">'#bar'</span>), {
+  bind: grid,
+  items: [
+    { id: <span class="str">'undo'</span>, value: <span class="str">'Undo'</span>, icon: <span class="str">'undo'</span>, action: <span class="str">'undo'</span> },
+    { id: <span class="str">'redo'</span>, value: <span class="str">'Redo'</span>, icon: <span class="str">'redo'</span>, action: <span class="str">'redo'</span> },
+    { type: <span class="str">'separator'</span> },
+    { id: <span class="str">'export'</span>, value: <span class="str">'Export'</span>, icon: <span class="str">'download'</span>, action: <span class="str">'export'</span> },
+    { type: <span class="str">'spacer'</span> },
+    { id: <span class="str">'search'</span>, type: <span class="str">'input'</span>, placeholder: <span class="str">'Search'</span>, icon: <span class="str">'search'</span> },
+  ],
+});
+tb.on(<span class="str">'click'</span>, ({ id, item }) =&gt; { <span class="cmt">/* payload handlers */</span> });
+tb.data.update(<span class="str">'undo'</span>, { disabled: <span class="kw">true</span> });</code></pre>
+    <p><strong>The item model.</strong> <code>items</code> is the spec: <code>id</code>,
+    <code>type</code> (button, selectButton, title, separator, spacer, input, customHTML),
+    <code>value</code> (the label), <code>icon</code> from the grid's registry, <code>tooltip</code>,
+    <code>hidden</code>, <code>disabled</code>, <code>count</code>/<code>countColor</code> (a badge),
+    <code>twoState</code>/<code>group</code> (toggles, <code>active</code> state,
+    <code>aria-pressed</code>), <code>items</code> (a dropdown), <code>placeholder</code> and
+    <code>width</code> (an input), and <code>overflow: 'never'</code> to keep an item out of the
+    overflow menu. Any other property is carried through and returned from <code>getItem</code> and
+    <code>serialize</code>.</p>
+    <p><strong>Binding to a view.</strong> <code>bind</code> names a grid, tree, list view or form;
+    an item's <code>action</code> (<code>export</code>, <code>undo</code>, <code>redo</code>,
+    <code>addRow</code>, <code>removeRow</code>, <code>expandAll</code>, <code>collapseAll</code>,
+    <code>submit</code>, <code>refresh</code>) is resolved duck-typed &mdash; <code>undo</code> runs
+    <code>view.history.undo()</code> on a grid and <code>view.undo()</code> on a form &mdash; and the
+    item's <code>disabled</code> follows the view's <code>canUndo</code>/<code>canRedo</code> (or the
+    method's presence) on <code>refresh()</code>. The binding owns those two properties on
+    <code>action</code> items; the host can also call <code>toolbar.bind(view)</code> and
+    <code>toolbar.refresh()</code> directly.</p>
+    <p><strong>Overflow and keyboard.</strong> <code>overflow: 'menu'</code> (the default) moves the
+    trailing items into a &ldquo;more&rdquo; button that opens the context-menu module;
+    <code>'scroll'</code> scrolls and <code>'none'</code> clips. The bar is a roving
+    <code>role="toolbar"</code>: one tab stop, arrows move between items, Home/End jump the ends, and
+    a toggle carries <code>aria-pressed</code>. The overflow button's name reads the shipped catalogue
+    (<code>toolbar.more</code>).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Member</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="sig">createToolbar(el, config)</td><td class="desc">Create the bar; <code>config</code> takes <code>items</code>, <code>bind</code>, <code>overflow</code>, <code>moreIcon</code>/<code>moreLabel</code>, <code>tooltips</code>, <code>ariaLabel</code> and <code>messages</code>.</td></tr>
+          <tr><td class="sig">bind(view) / bound / refresh()</td><td class="desc">Bind the bar to a view whose actions the <code>action</code> items drive; read the bound view; re-read every bound item's <code>disabled</code>/<code>active</code> from the view.</td></tr>
+          <tr><td class="sig">data.*</td><td class="desc">The item store: <code>parse</code>, <code>add</code>, <code>update</code>, <code>remove</code>, <code>removeAll</code>, <code>getItem</code>, <code>exists</code>, <code>getIndex</code>, <code>getId</code>, <code>getItems</code>, <code>getParent</code>, <code>getLength</code>, <code>forEach</code>, <code>map</code>, <code>find</code>, <code>serialize</code>.</td></tr>
+          <tr><td class="sig">show(id) / hide(id) / enable(id) / disable(id) / isDisabled(id)</td><td class="desc">Show, hide, enable or disable items (omitting <code>id</code> applies to the root items); read an item's disabled state.</td></tr>
+          <tr><td class="sig">select(id) / unselect(id?) / isSelected(id) / getState() / setState()</td><td class="desc">Toggle items and groups; read or write the stateful items' state in one object.</td></tr>
+          <tr><td class="sig">setFocus(id) / itemElement(id)</td><td class="desc">Focus an item's control; read an item's wrapper element.</td></tr>
+          <tr><td class="sig">on(name, fn)</td><td class="desc">Events: <code>click</code>, <code>input</code>, <code>inputChange</code>, <code>inputFocus</code>, <code>inputBlur</code>, <code>change</code>, <code>keydown</code>, <code>openMenu</code>.</td></tr>
+          <tr><td class="sig">destroy()</td><td class="desc">Remove the DOM and listeners. The host still owns the element.</td></tr>
+          <tr><td class="sig">FALLBACK_EN</td><td class="desc">The frozen English strings the toolbar uses when no locale catalogue supplies a message, keyed by message key (<code>toolbar.more</code>).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3 id="toolbar-example">The bar, the binding, the toggle and the overflow button, executed</h3>
+    <p class="section-note">A toolbar bound to a duck-typed view, run headless with the suite's DOM
+    test double: the <code>undo</code> action runs the view's history and disables once the timeline
+    is empty, a two-state button reflects <code>aria-pressed</code>, and the overflow button is named
+    from the catalogue.</p>
+    <pre data-run="js" data-expect="true|toolbar|true|true|true|true|More|More" data-covers="export:createToolbar export:Toolbar export:FALLBACK_EN"><code><span class="kw">const</span> { createTestDom, flushFrames, TestEvent } = <span class="kw">await</span> import(<span class="str">'../packages/dom/src/renderer/testdom.js'</span>);
+<span class="kw">const</span> { createToolbar, Toolbar, FALLBACK_EN } = <span class="kw">await</span> import(<span class="str">'../packages/modules/toolbar/index.js'</span>);
+
+<span class="kw">const</span> { document, root } = createTestDom({ width: 640, height: 48 });
+globalThis.document = document;
+<span class="kw">const</span> undoLog = [];
+<span class="kw">const</span> view = {
+  history: { canUndo: () =&gt; undoLog.length &lt; 1, undo: () =&gt; undoLog.push(<span class="str">'undo'</span>) },
+  expandAll: () =&gt; {}, collapseAll: () =&gt; {},
+};
+<span class="kw">const</span> tb = createToolbar(root, {
+  bind: view,
+  items: [
+    { id: <span class="str">'undo'</span>, value: <span class="str">'Undo'</span>, icon: <span class="str">'undo'</span>, action: <span class="str">'undo'</span> },
+    { id: <span class="str">'bold'</span>, value: <span class="str">'Bold'</span>, twoState: <span class="kw">true</span> },
+  ],
+});
+flushFrames();
+<span class="kw">const</span> isToolbar = tb <span class="kw">instanceof</span> Toolbar;
+<span class="kw">const</span> role = tb.el.getAttribute(<span class="str">'role'</span>);
+<span class="kw">const</span> undoEnabledAtStart = tb.isDisabled(<span class="str">'undo'</span>) === <span class="kw">false</span>;
+<span class="kw">const</span> click = (id) =&gt; tb.itemElement(id).querySelector(<span class="str">'button'</span>).dispatchEvent(<span class="kw">new</span> TestEvent(<span class="str">'click'</span>, { bubbles: <span class="kw">true</span> }));
+click(<span class="str">'undo'</span>);
+<span class="kw">const</span> undoRan = undoLog.length === 1;
+<span class="kw">const</span> undoNowDisabled = tb.isDisabled(<span class="str">'undo'</span>) === <span class="kw">true</span>;
+click(<span class="str">'bold'</span>);
+<span class="kw">const</span> pressed = tb.itemElement(<span class="str">'bold'</span>).querySelector(<span class="str">'button'</span>).getAttribute(<span class="str">'aria-pressed'</span>);
+<span class="kw">const</span> more = tb.el.querySelector(<span class="str">'.lat-toolbar__more'</span>).getAttribute(<span class="str">'aria-label'</span>);
+tb.destroy();
+<span class="kw">return</span> [isToolbar, role, undoEnabledAtStart, undoRan, undoNowDisabled, pressed, more, FALLBACK_EN[<span class="str">'toolbar.more'</span>]].join(<span class="str">'|'</span>);</code></pre>
+
     <h2 id="ai-narrative">The AI narrative / insights layer</h2>
     <p><code>modules/ai</code> is an opt-in layer that produces a short, plain-language <strong>narrative</strong> of the grid's <em>computed</em> figures &mdash; a per-KPI / per-chart / per-column &ldquo;Explain&rdquo;, or an insights panel over the current (filtered) view. It is a separate bundle that adds no weight to a page that does not load it, changes nothing in grid core, and pulls in no dependency. <strong>The grid makes no AI call of its own:</strong> <code>createAI</code> never imports a provider SDK, never reads a key, and never makes a network request. It calls one async callback you supply, <code>ask()</code> &mdash; your model, your key, your privacy decision &mdash; exactly the philosophy of the data adapters, where auth and transport are always the caller's.</p>
     <pre><code>import { createAI } from '@toclocoinc/lattice-grid/modules/ai';
@@ -25155,7 +25415,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       </table>
     </div>
     <h4 id="type-DerivedDatasetComparison">DerivedDatasetComparison</h4>
-    <p class="section-note">How this grid differs from another, ranked by effect size, as rows: `{ column, measure, magnitude, distance, direction, nA, nB, reliable, unmatched }`, largest difference first. The two-grid shape: one grid is the data, a second *is* the analysis of it. Both sides are read over their filtered rows, and the peer is watched — an edit or a filter on it re-derives the comparison, because a comparison whose other side has moved is wrong rather than merely late. A column present on only one side cannot be compared. It is still reported, as a row with a null `magnitude` and `unmatched` set to `'A'` or `'B'`, so a reader sees that it was skipped and why rather than finding it absent.</p>
+    <p class="section-note">How this grid differs from another, ranked by effect size, as rows: `{ column, measure, magnitude, distance, direction, nA, nB, meanA, meanB, reliable, unmatched }`, largest difference first. The two-grid shape: one grid is the data, a second *is* the analysis of it. Both sides are read over their filtered rows, and the peer is watched — an edit or a filter on it re-derives the comparison, because a comparison whose other side has moved is wrong rather than merely late. A column present on only one side cannot be compared. It is still reported, as a row with a null `magnitude` and `unmatched` set to `'A'` or `'B'`, so a reader sees that it was skipped and why rather than finding it absent.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
@@ -39306,6 +39566,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">direction</td><td class="type">number</td><td class="desc">+1 when dataset A sits above dataset B, −1 below, 0 for a mix.</td></tr>
           <tr><td class="name">nA</td><td class="type">number</td><td class="desc">How many rows the first grid's side stood on.</td></tr>
           <tr><td class="name">nB</td><td class="type">number</td><td class="desc">How many rows the second grid's side stood on.</td></tr>
+          <tr><td class="name">meanA</td><td class="type">number | null</td><td class="desc">The mean of this column on the first grid's side, over the rows compared. Null for a categorical column.</td></tr>
+          <tr><td class="name">meanB</td><td class="type">number | null</td><td class="desc">The mean of this column on the second grid's side, over the rows compared. Null for a categorical column.</td></tr>
           <tr><td class="name">reliable</td><td class="type">boolean</td><td class="desc">False when either side is too small to read the difference from.</td></tr>
         </tbody>
       </table>
@@ -40989,8 +41251,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">Which statistical test {@link StatisticsApi.compare} runs, or `auto` to pick.</p>
     <p class="type-def"><code>type CompareTest = 'auto' | 't' | 'welch' | 'mannWhitney' | 'anova' | 'kruskal' | 'chiSquare' | 'proportions'</code></p>
     <h4 id="type-ContextMenuConfig">ContextMenuConfig</h4>
-    <p class="section-note">The options passed to `createContextMenu`.</p>
-    <p class="type-def"><code>type ContextMenuConfig = { ctx?: Record&lt;string, unknown&gt;; onClose?: (() =&gt; void) | null; parent?: ContextMenu | null; }</code></p>
+    <p class="section-note">The options passed to `createContextMenu` and `openContextMenu`.</p>
+    <p class="type-def"><code>type ContextMenuConfig = { items?: Array&lt;<a href="#type-ContextMenuItem">ContextMenuItem</a> | string | ((ctx: unknown) =&gt; <a href="#type-ContextMenuItem">ContextMenuItem</a> | string | false | null | undefined)&gt;; ctx?: Record&lt;string, unknown&gt;; onClose?: (() =&gt; void) | null; parent?: ContextMenu | null; host?: HTMLElement | null; returnFocus?: HTMLElement | null; trigger?: HTMLElement | null; document?: Document; }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/contextmenu</code>.</small></p>
     <h4 id="type-ContextMenuIcon">ContextMenuIcon</h4>
     <p class="section-note">An icon spec: a built-in name, an SVG string, a URL, an icon-font class list, or an object like `{ className }`.</p>
@@ -41931,7 +42193,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="type-def"><code>type Side = 'left' | 'right'</code></p>
     <h4 id="type-SidebarConfig">SidebarConfig</h4>
     <p class="section-note">The options passed to `createSidebar`.</p>
-    <p class="type-def"><code>type SidebarConfig = { nodes?: <a href="#type-SidebarNode">SidebarNode</a>[]; flat?: boolean; keyboard?: boolean; hoverDelay?: number; idPrefix?: string; tooltips?: boolean; name?: string; css?: string; [key: string]: unknown; }</code></p>
+    <p class="type-def"><code>type SidebarConfig = { nodes?: <a href="#type-SidebarNode">SidebarNode</a>[]; items?: <a href="#type-SidebarNode">SidebarNode</a>[]; active?: string | number | null; onNavigate?: (payload: { id: string | number; node: <a href="#type-SidebarNode">SidebarNode</a>; originalEvent?: unknown }) =&gt; void; search?: boolean; railToggle?: boolean; ariaLabel?: string; messages?: { t(key: string, params?: Record&lt;string, unknown&gt;): string }; flat?: boolean; keyboard?: boolean; hoverDelay?: number; idPrefix?: string; tooltips?: boolean; name?: string; css?: string; [key: string]: unknown; }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/sidebar</code>.</small></p>
     <h4 id="type-SidebarDataApi">SidebarDataApi</h4>
     <p class="section-note">The node-store API at `sidebar.data` (a flat, id-keyed view of the tree).</p>
@@ -42019,9 +42281,13 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h4 id="type-TimeStyle">TimeStyle</h4>
     <p class="section-note">A locale-chosen time form, mirroring `Intl.DateTimeFormatOptions.timeStyle`.</p>
     <p class="type-def"><code>type TimeStyle = 'short' | 'medium' | 'long'</code></p>
+    <h4 id="type-ToolbarAction">ToolbarAction</h4>
+    <p class="section-note">A built-in view action a bound toolbar item can drive.</p>
+    <p class="type-def"><code>type ToolbarAction = 'export' | 'undo' | 'redo' | 'addRow' | 'removeRow' | 'expandAll' | 'collapseAll' | 'submit' | 'refresh'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/toolbar</code>.</small></p>
     <h4 id="type-ToolbarConfig">ToolbarConfig</h4>
     <p class="section-note">The options passed to `createToolbar`.</p>
-    <p class="type-def"><code>type ToolbarConfig = { items?: <a href="#type-ToolbarItem">ToolbarItem</a>[] | null; height?: number | string | null; css?: string; overflow?: 'menu' | 'scroll' | 'none'; moreIcon?: <a href="#type-ToolbarIcon">ToolbarIcon</a>; moreLabel?: string; tooltips?: boolean; tooltipDelay?: number; ariaLabel?: string; }</code></p>
+    <p class="type-def"><code>type ToolbarConfig = { items?: <a href="#type-ToolbarItem">ToolbarItem</a>[] | null; height?: number | string | null; css?: string; overflow?: 'menu' | 'scroll' | 'none'; moreIcon?: <a href="#type-ToolbarIcon">ToolbarIcon</a>; moreLabel?: string; tooltips?: boolean; tooltipDelay?: number; ariaLabel?: string; messages?: { t(key: string, params?: Record&lt;string, unknown&gt;): string }; bind?: object; }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/toolbar</code>.</small></p>
     <h4 id="type-ToolbarDataApi">ToolbarDataApi</h4>
     <p class="section-note">The item-store API at `toolbar.data`.</p>
@@ -42033,7 +42299,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/toolbar</code>.</small></p>
     <h4 id="type-ToolbarItem">ToolbarItem</h4>
     <p class="section-note">One toolbar item. Any other property is carried through and returned from `getItem` and `serialize`.</p>
-    <p class="type-def"><code>type ToolbarItem = { id?: string | number; type?: string; value?: string; text?: string; html?: string; icon?: <a href="#type-ToolbarIcon">ToolbarIcon</a>; src?: string; tooltip?: string; css?: string; hidden?: boolean; disabled?: boolean; count?: number; countColor?: string; twoState?: boolean; active?: boolean; group?: string; items?: <a href="#type-ToolbarItem">ToolbarItem</a>[]; placeholder?: string; width?: number | string; overflow?: string; label?: string; parent?: string | number; [key: string]: unknown; }</code></p>
+    <p class="type-def"><code>type ToolbarItem = { id?: string | number; type?: string; value?: string; text?: string; html?: string; icon?: <a href="#type-ToolbarIcon">ToolbarIcon</a>; src?: string; tooltip?: string; css?: string; hidden?: boolean; disabled?: boolean; count?: number; countColor?: string; twoState?: boolean; active?: boolean; group?: string; items?: <a href="#type-ToolbarItem">ToolbarItem</a>[]; placeholder?: string; width?: number | string; overflow?: string; label?: string; parent?: string | number; action?: <a href="#type-ToolbarAction">ToolbarAction</a>; [key: string]: unknown; }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/toolbar</code>.</small></p>
     <h4 id="type-ToolPanelName">ToolPanelName</h4>
     <p class="section-note">The built-in tool panels, addressable by name from configuration.</p>
@@ -42117,7 +42383,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.107.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.108.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>
