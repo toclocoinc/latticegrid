@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Data router API Reference — Lattice Grid 1.108.0</title>
+<title>Data router API Reference — Lattice Grid 1.108.1</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -1062,7 +1062,7 @@ orders.load([
 g.destroy(); router.destroy();
 <span class="kw">return</span> [amount, typed, active, bigger].join(' | ');</code></pre>
 
-    <p><strong>Spread onto the parent (v16, BACKLOG-0001611).</strong> An EAV / custom-field source's rows each become their OWN field on the parent: give the join a <code>spread</code> spec instead of <code>as</code>/<code>aggregate</code>, and every matching child row writes <code>prefix + name(row)</code> &rarr; <code>value(row)</code> onto the parent. <code>name</code> and <code>value</code> are field names or <code>fn(row)</code>s; <code>prefix</code> (e.g. <code>'cf_'</code>) namespaces them; <code>include</code> narrows which attributes spread (an array, or a <code>fn(name, row)</code>); and <code>type</code> coerces per-name values (<code>number</code>/<code>date</code>/<code>boolean</code>/<code>text</code>, a bad parse keeping the raw value rather than a silent <code>NaN</code>/<code>Invalid Date</code>). The attribute source's own joins apply first (multi-level), an attribute add/change/delete re-emits its parent live, and a deleted attribute leaves the field <em>cleared</em> rather than stale. Two attributes landing on one name are last-writer-wins and warned once (<code>router:spread-duplicate</code>); a spread field never overwrites a base parent field and warns once (<code>router:spread-collision</code>). The router reports the field names per route through <code>fieldsOf(ref)</code> and the <code>fields:changed</code> event (<code>{ route, added, removed }</code>), so a host can add or drop grid columns as custom attributes appear and disappear.</p>
+    <p><strong>Spread onto the parent (v16, BACKLOG-0001611).</strong> An EAV / custom-field source's rows each become their OWN field on the parent: give the join a <code>spread</code> spec instead of <code>as</code>/<code>aggregate</code>, and every matching child row writes <code>prefix + name(row)</code> &rarr; <code>value(row)</code> onto the parent. <code>name</code> and <code>value</code> are field names or <code>fn(row)</code>s; <code>prefix</code> (e.g. <code>'cf_'</code>) namespaces them; <code>include</code> narrows which attributes spread (an array, or a <code>fn(name, row)</code>); and <code>type</code> coerces per-name values &mdash; a type name (<code>'number'</code>/<code>'date'</code>/<code>'boolean'</code>/<code>'text'</code>) or an options object, reusing the exact coercion a source's <code>fields</code> of the same type uses (BACKLOG-0004696): <code>{ type: 'boolean', true: ['Y'], false: ['N'] }</code> names its own marker sets (with no marker set, the same default tri-state markers <code>fields</code> reads &mdash; a value neither recognises is null, warned once, never a guessed <code>true</code>); <code>{ type: 'date', format: 'dd/MM/yyyy' }</code> chooses the input format and produces the same <code>YYYY-MM-DD</code> date-only value <code>fields</code> coercion does. <code>number</code>/<code>text</code> keep the original spread behaviour: a bad parse keeps the raw value rather than a silent <code>NaN</code>. The attribute source's own joins apply first (multi-level), an attribute add/change/delete re-emits its parent live, and a deleted attribute leaves the field <em>cleared</em> rather than stale. Two attributes landing on one name are last-writer-wins and warned once (<code>router:spread-duplicate</code>); a spread field never overwrites a base parent field and warns once (<code>router:spread-collision</code>). The router reports the field names per route through <code>fieldsOf(ref)</code> and the <code>fields:changed</code> event (<code>{ route, added, removed }</code>), so a host can add or drop grid columns as custom attributes appear and disappear.</p>
     <h3 id="datarouter-spread-example">A SPREAD join of EAV attributes onto a parent, executed</h3>
     <p class="section-note">Each <code>companyAttr</code> row becomes one <code>cf_</code>-prefixed field on its company; <code>fieldsOf</code>
     reports the names a host turns into grid columns. Run headless on every build.</p>
@@ -1577,7 +1577,7 @@ companyGrid.destroy(); addressGrid.destroy(); router.destroy();
       </table>
     </div>
     <h4 id="type-RouterJoinAggregate">RouterJoinAggregate</h4>
-    <p class="section-note">One named reducer of a ROLLUP-ONTO-PARENT join's `aggregate` map (v15, BACKLOG-0001609). `fn` reuses the v3 rollup vocabulary — `count`, `sum`, `avg`, `min`, `max` — and adds `distinctCount`, `first` and `last`. `field` is the child field reduced over (required for every `fn` except `count`); `first`/`last` order the children by `orderBy` (defaulting to `field`) and return the `field` value of the first/last child. An empty child set yields `count` 0, `sum` 0 and the rest null.</p>
+    <p class="section-note">One named reducer of a ROLLUP-ONTO-PARENT join's `aggregate` map (v15, BACKLOG-0001609). `fn` reuses the v3 rollup vocabulary — `count`, `sum`, `avg`, `min`, `max` — and adds `distinctCount`, `first` and `last`. `field` is the child field reduced over (required for every `fn` except `count`); `first`/`last` order the children by `orderBy` (defaulting to `field`) and return the `field` value of the first/last child. An empty child set yields `count` 0, `sum` 0 and the rest null. `min`/`max` compare every non-null child value — a number numerically, a `Date` by its instant, and anything else (including a coerced date's `YYYY-MM-DD` string) by its text form (BACKLOG-0004696), so they work over dates, numbers and strings alike; `sum`/`avg` stay numbers-only, skipping a non-finite value.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
@@ -1619,6 +1619,20 @@ companyGrid.destroy(); addressGrid.destroy(); router.destroy();
         </tbody>
       </table>
     </div>
+    <h4 id="type-RouterSpreadFieldSpec">RouterSpreadFieldSpec</h4>
+    <p class="section-note">One spread `type` entry's options-object form (BACKLOG-0004696): narrows a `date`'s input `format` or gives a `boolean` its own `true`/`false` marker sets — the same options a source's `fields` of the same type reads (see `RouterFieldSpec`), so a spread's `date`/`boolean` coerces identically to a `fields` column of that type. `type` here is restricted to `RouterSpreadType`: a spread does not read `integer` or `json`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type"><a href="types.html#type-RouterSpreadType">RouterSpreadType</a> <small class="literals">'number' | 'date' | 'boolean' | 'text'</small></td><td class="desc">The attribute's type: number | date | boolean | text.</td></tr>
+          <tr><td class="name">format</td><td class="type"><a href="types.html#type-RouterDateFieldFormat">RouterDateFieldFormat</a> <small class="literals">'iso' | 'epoch-s' | 'epoch-ms' | string</small></td><td class="desc">A `date`'s input format: `'iso'` (default), `'epoch-s'`, `'epoch-ms'`, or a pattern. <small>(optional)</small></td></tr>
+          <tr><td class="name">decimal</td><td class="type">',' | '.'</td><td class="desc">A `number`'s decimal separator: `','` (e.g. `1.234,56`) or `'.'` (default). <small>(optional)</small></td></tr>
+          <tr><td class="name">true</td><td class="type">string[]</td><td class="desc">The strings a `boolean` attribute reads as true. <small>(optional)</small></td></tr>
+          <tr><td class="name">false</td><td class="type">string[]</td><td class="desc">The strings a `boolean` attribute reads as false. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-RouterSpread">RouterSpread</h4>
     <p class="section-note">A SPREAD join's shape (v16, BACKLOG-0001611): turn an EAV / custom-field source's rows into one field per attribute on the parent row.</p>
     <div class="table-wrap">
@@ -1629,7 +1643,7 @@ companyGrid.destroy(); addressGrid.destroy(); router.destroy();
           <tr><td class="name">value</td><td class="type">string | ((row: <a href="types.html#type-RouterRecord">RouterRecord</a>) =&gt; unknown)</td><td class="desc">Reads the attribute value off the child row — a field name or a `fn(row)`. Required.</td></tr>
           <tr><td class="name">prefix</td><td class="type">string</td><td class="desc">Prepended to every attribute name on the parent (e.g. `'cf_'`). Defaults to `''`. <small>(optional)</small></td></tr>
           <tr><td class="name">include</td><td class="type">string[] | ((name: string, row: <a href="types.html#type-RouterRecord">RouterRecord</a>) =&gt; boolean)</td><td class="desc">Narrows which attribute names spread: an array of names, or a `fn(name, row)` returning true to keep. Omitted, every attribute spreads. <small>(optional)</small></td></tr>
-          <tr><td class="name">type</td><td class="type">Record&lt;string, <a href="types.html#type-RouterSpreadType">RouterSpreadType</a>&gt;</td><td class="desc">Coerces each attribute's value by name: `number`, `date`, `boolean` or `text`. A value that fails to parse keeps its raw value rather than becoming `NaN`/`Invalid Date`; `null`/`undefined` pass through untouched. <small>(optional)</small></td></tr>
+          <tr><td class="name">type</td><td class="type">Record&lt;string, <a href="types.html#type-RouterSpreadType">RouterSpreadType</a> | <a href="#type-RouterSpreadFieldSpec">RouterSpreadFieldSpec</a>&gt;</td><td class="desc">Coerces each attribute's value by name: a type name (`number`, `date`, `boolean` or `text`), or an options object (`RouterSpreadFieldSpec`) narrowing it the same way a source's `fields` narrows a field of that type — a `date`'s input `format`, or a `boolean`'s own `true`/`false` marker sets (BACKLOG-0004696). `boolean`/`date` read the exact coercion `fields` uses: the same default tri-state markers, the same date formats and the same date-only value; a value neither a custom marker set nor (with no marker set) the default markers recognise is null, warned once, never a guessed `true`. `number`/`text` keep the original spread behaviour: a bad parse keeps its raw value rather than becoming `NaN`. `null`/`undefined` pass through untouched for every type. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>

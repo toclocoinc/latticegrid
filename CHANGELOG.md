@@ -9,6 +9,28 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.108.1] - 2026-10-20
+
+### Added
+
+- Kanban cards: the `labels` and `badges` mappings take a `tone` (a map from value to `accent`, `info`, `success`, `warning`, `danger` or `neutral`, or a function of the row) drawn from the theme's variant roles in light, dark and the presets, and the `due` mapping takes a `format` (a date pattern or a formatter function) for the chip text. The due-soon/overdue state and its accessible text are unchanged, and unmapped values keep the neutral tone and raw text.
+
+### Fixed
+
+- A toolbar bound to a grid, tree, list view or form subscribes only to events that view raises, so a bind logs no "subscribes to an event the grid never raises" warnings; its dropdown and overflow menus carry the toolbar's token scope and theme and load the menu stylesheet, so they paint the theme surface on a page with no `.lattice` ancestor; and an item's icon name renders as the registered icon in the menus instead of raw text (BACKLOG-0003466).
+
+- **A join's spread `boolean` type turned `'N'` into `true`** (BACKLOG-0004696): the spread's local boolean parse recognised `'yes'`/`'no'`/`'true'`/`'false'`/`'1'`/`'0'` but not the single-letter `'y'`/`'n'` forms, so an unrecognised string fell through to `Boolean(value)` — truthy for any non-empty string, including `'N'`. A spread's `boolean` type reads the exact coercion a source's `fields` of the same type uses: the same default tri-state markers, plus a configurable marker set (`type: { active: { type: 'boolean', true: ['Y'], false: ['N'] } }`); a marker neither set recognises is null, warned once through the same catalogued `router:coerce-failed` key `fields` coercion uses, never a guessed `true`.
+
+- **A spread's `date` type ignored its `format` and returned a `Date` rather than the grid's date-only value** (BACKLOG-0004696): a `dd/MM/yyyy` (or any other `fields` date format) parsed the same as a bare `new Date(value)`, and a valid ISO string came back as a `Date` instance that prints a `T00:00:00.000Z` time component rather than the `YYYY-MM-DD` string `fields` coercion stores. A spread's `date` type reads the same input formats and produces the same date-only value `fields` coercion does.
+
+- **A join `aggregate` of `min`/`max` over a coerced date column always returned `null`** (BACKLOG-0004696): the reducer read every child value through `Number(value)`, which is `NaN` for a date string, so every row was filtered out before the comparison ran. `min`/`max` compare the children's own values directly — a number numerically, a `Date` by its instant, anything else (including the router's `YYYY-MM-DD` date-only string) by its text form — so they work over dates, numbers and strings, and follow an upsert that moves the extreme.
+
+- Sankey node labels are legible: first-column labels sit outside their nodes on the left and last-column labels outside on the right, with the plot shrinking to make room, so none is drawn over a flow or clipped; middle-column labels carry a surface-colour halo.
+
+- **Header histograms were unreadable under a narrow filter and on skewed columns, and the filter icon hid a narrow column's title** (BACKLOG-0004711). *Recognise your own case: a 12.6M-row table filtered to 1.7% showed every numeric header strip as a pale spike a few pixels high at the low end.* The in-view bars now scale to the tallest in-view bar, with the whole column as a faint backdrop at its own scale; a continuous column's buckets cover its 1st to 99th percentile with an underflow and overflow bucket, so a 1% long tail cannot flatten the rest; the bar colours meet 3:1 contrast against the header in every theme; and the title keeps at least 3.5em, ellipsised, beside the filter icon down to the minimum column width.
+
+- **The grouped-by column's configured width, minimum and maximum were ignored by the group column that shows it** (BACKLOG-0004759): grouping by a column set to `layout.width: 90` rendered the generated group column 240px wide, squeezing the columns beside it. The group column now takes the width, minimum and maximum the grouped column was given (`autoGroupColumnWidth` still wins for width, and a grid with no configured width keeps the 240px default), and resizing it honours the maximum. A group row whose column is counted through `groupTotal` is also formatted as a count rather than in the column's own number format.
+
 ## [1.108.0] - 2026-10-19
 
 ### Added

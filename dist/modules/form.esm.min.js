@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.108.0, form module
+ * Lattice Grid 1.108.1, form module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.108.0, data-router module type declarations
+ * Lattice Grid 1.108.1, data-router module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -242,7 +242,10 @@ export type RouterParentDelete = 'cascade' | 'orphan' | 'keep';
  * is the child field reduced over (required for every `fn` except `count`);
  * `first`/`last` order the children by `orderBy` (defaulting to `field`) and
  * return the `field` value of the first/last child. An empty child set yields
- * `count` 0, `sum` 0 and the rest null.
+ * `count` 0, `sum` 0 and the rest null. `min`/`max` compare every non-null
+ * child value — a number numerically, a `Date` by its instant, and anything
+ * else (including a coerced date's `YYYY-MM-DD` string) by its text form, so they work over dates, numbers and strings alike;
+ * `sum`/`avg` stay numbers-only, skipping a non-finite value.
  */
 export interface RouterJoinAggregate {
   /** The reducer: count | sum | avg | min | max | distinctCount | first | last. */
@@ -350,6 +353,27 @@ export interface RouterJoin {
 export type RouterSpreadType = 'number' | 'date' | 'boolean' | 'text';
 
 /**
+ * One spread `type` entry's options-object form: narrows
+ * a `date`'s input `format` or gives a `boolean` its own `true`/`false`
+ * marker sets — the same options a source's `fields` of the same type
+ * reads (see `RouterFieldSpec`), so a spread's `date`/`boolean` coerces
+ * identically to a `fields` column of that type. `type` here is restricted
+ * to `RouterSpreadType`: a spread does not read `integer` or `json`.
+ */
+export interface RouterSpreadFieldSpec {
+  /** The attribute's type: number | date | boolean | text. */
+  type: RouterSpreadType;
+  /** A `date`'s input format: `'iso'` (default), `'epoch-s'`, `'epoch-ms'`, or a pattern. */
+  format?: RouterDateFieldFormat;
+  /** A `number`'s decimal separator: `','` (e.g. `1.234,56`) or `'.'` (default). */
+  decimal?: ',' | '.';
+  /** The strings a `boolean` attribute reads as true. */
+  true?: string[];
+  /** The strings a `boolean` attribute reads as false. */
+  false?: string[];
+}
+
+/**
  * A SPREAD join's shape (v16): turn an EAV / custom-field
  * source's rows into one field per attribute on the parent row.
  */
@@ -366,11 +390,20 @@ export interface RouterSpread {
    */
   include?: string[] | ((name: string, row: RouterRecord) => boolean);
   /**
-   * Coerces each attribute's value by name: `number`, `date`, `boolean` or
-   * `text`. A value that fails to parse keeps its raw value rather than
-   * becoming `NaN`/`Invalid Date`; `null`/`undefined` pass through untouched.
+   * Coerces each attribute's value by name: a type name (`number`, `date`,
+   * `boolean` or `text`), or an options object (`RouterSpreadFieldSpec`)
+   * narrowing it the same way a source's `fields` narrows a field of that
+   * type — a `date`'s input `format`, or a `boolean`'s own `true`/`false`
+   * marker sets. `boolean`/`date` read the exact
+   * coercion `fields` uses: the same default tri-state markers, the same
+   * date formats and the same date-only value; a value neither a custom
+   * marker set nor (with no marker set) the default markers recognise is
+   * null, warned once, never a guessed `true`. `number`/`text` keep the
+   * original spread behaviour: a bad parse keeps its raw value rather than
+   * becoming `NaN`. `null`/`undefined` pass through untouched for every
+   * type.
    */
-  type?: Record<string, RouterSpreadType>;
+  type?: Record<string, RouterSpreadType | RouterSpreadFieldSpec>;
 }
 
 /**

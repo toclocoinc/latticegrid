@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Kanban API Reference — Lattice Grid 1.108.0</title>
+<title>Kanban API Reference — Lattice Grid 1.108.1</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -394,6 +394,7 @@
         <a class="rail__sub-link" href="#kanban-workflow-example">Workflow rules, executed</a>
         <a class="rail__sub-link" href="#kanban-swimlane-example">Swimlanes, collapse and search, executed</a>
         <a class="rail__sub-link" href="#kanban-card-parts-example">Richer card parts, executed</a>
+        <a class="rail__sub-link" href="#kanban-tone-example">Label and badge tones, and a due format, executed</a>
         <a class="rail__sub-link" href="#kanban-column-width-example">Column width, executed</a>
         <a class="rail__sub-link" href="#kanban-sprint-example">Sprint, backlog and epic rollup, executed</a>
         <a class="rail__sub-link" href="#kanban-live-example">Live, driven by a Data Router, executed</a>
@@ -733,6 +734,40 @@ board.setQuickFilter('Ann');                                    <span class="cmt
 board.destroy();
 <span class="kw">return</span> [card.assignees.length, card.progressPct, card.checklist.done + '/' + card.checklist.total, overdue, shown].join(' | ');</code></pre>
 
+    <h3 id="kanban-tone-example">Label and badge tones, and a due format, executed</h3>
+    <p class="section-note">A label or badge <code>tone</code> (a map from value to <code>accent</code>, <code>info</code>,
+    <code>success</code>, <code>warning</code>, <code>danger</code> or <code>neutral</code>, or a function of the row) draws the chip
+    in the theme's variant roles; a due <code>format</code> (a date pattern or a function) sets the chip text. Unmapped values stay
+    neutral and raw — resolved headless, run on every build.</p>
+    <pre data-run="js" data-expect="danger | success | none | Mar 5 | due 2026" data-covers="export:createKanban"><code><span class="kw">const</span> { createKanban } = <span class="kw">await</span> import('../packages/modules/kanban/index.js');
+
+<span class="kw">const</span> board = createKanban(null, {
+  rows: [
+    { id: 1, status: 'todo', title: 'Ship', tags: 'bug, ok, misc', due: '2026-03-05T12:00:00' },
+    { id: 2, status: 'todo', title: 'Fix', tags: 'bug', due: '2026-03-05T12:00:00' },
+  ],
+  rowKey: 'id',
+  columnProperty: 'status',
+  columns: [{ id: 'todo' }],
+  card: {
+    title: 'title',
+    labels: { field: 'tags', tone: { bug: 'danger', ok: 'success' } },
+    due: { field: 'due', format: 'MMM d', locale: 'en-US' },
+  },
+});
+<span class="kw">const</span> tones = board.card(1).labelTones;
+<span class="kw">const</span> text = board.card(1).due.text;
+
+board.destroy();
+<span class="kw">const</span> plain = createKanban(null, {
+  rows: [{ id: 1, status: 'todo', due: '2026-03-05T12:00:00' }],
+  rowKey: 'id', columnProperty: 'status', columns: [{ id: 'todo' }],
+  card: { due: { field: 'due', format: (d) => 'due ' + d.getFullYear() } },
+});
+<span class="kw">const</span> fn = plain.card(1).due.text;
+plain.destroy();
+<span class="kw">return</span> [tones.bug, tones.ok, tones.misc || 'none', text, fn].join(' | ');</code></pre>
+
     <h3 id="kanban-column-width-example">Column width, executed</h3>
     <p class="section-note">The <code>columnWidth</code> and <code>minColumnWidth</code> options resolve to fill (default),
     a fixed pixel width, auto, and a raised minimum — headless, run on every build.</p>
@@ -1045,13 +1080,13 @@ board.destroy();
         <tbody>
           <tr><td class="name">title</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">The card's headline text. <small>(optional)</small></td></tr>
           <tr><td class="name">subtitle</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">A second line under the title. <small>(optional)</small></td></tr>
-          <tr><td class="name">labels</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">A comma-separated string rendered as one chip per label; blanks are skipped. <small>(optional)</small></td></tr>
+          <tr><td class="name">labels</td><td class="type"><a href="types.html#type-KanbanToneFieldMap">KanbanToneFieldMap</a></td><td class="desc">A comma-separated string rendered as one chip per label; blanks are skipped. <small>(optional)</small></td></tr>
           <tr><td class="name">assignee</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a> | { field: string; max?: number }</td><td class="desc">One or several people, drawn as avatars (BACKLOG-0002107): the row property holds a single {@link KanbanAssignee}, an array of them, or a comma-separated string of names. Up to `max` (default 2) are drawn, the rest as a `+N` overflow. <small>(optional)</small></td></tr>
           <tr><td class="name">due</td><td class="type"><a href="types.html#type-KanbanDueMap">KanbanDueMap</a></td><td class="desc">The due date (BACKLOG-0002107), with a due-soon/overdue state and icon. <small>(optional)</small></td></tr>
           <tr><td class="name">cover</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">An image URL drawn as a cover band across the top of the card. <small>(optional)</small></td></tr>
           <tr><td class="name">progress</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">A progress bar over the card (BACKLOG-0002107). The value is a 0..1 fraction or a 0..100 percent (a trailing `%` is tolerated); a value that is not a number draws no bar. <small>(optional)</small></td></tr>
           <tr><td class="name">checklist</td><td class="type"><a href="types.html#type-KanbanChecklistMap">KanbanChecklistMap</a></td><td class="desc">A checklist count on the card (BACKLOG-0002107), rendered as `3/5`. See {@link KanbanChecklistMap}. <small>(optional)</small></td></tr>
-          <tr><td class="name">badges</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">A single badge chip at the end of the meta row. <small>(optional)</small></td></tr>
+          <tr><td class="name">badges</td><td class="type"><a href="types.html#type-KanbanToneFieldMap">KanbanToneFieldMap</a></td><td class="desc">A single badge chip at the end of the meta row. <small>(optional)</small></td></tr>
           <tr><td class="name">accent</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">A colour for the card's left border. Any CSS colour; an empty value leaves the border plain. <small>(optional)</small></td></tr>
           <tr><td class="name">[field: string]</td><td class="type"><a href="types.html#type-KanbanFieldMap">KanbanFieldMap</a> | undefined</td><td class="desc">Any other card slot the board's theme declares, mapped the same way as the named ones above. `undefined` is the honest value for a slot that is left unmapped.</td></tr>
         </tbody>

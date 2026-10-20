@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.108.0, kanban module type declarations
+ * Lattice Grid 1.108.1, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -245,7 +245,32 @@ export type KanbanAssignee = string | { name?: string; label?: string; id?: stri
  * "due soon". The date is drawn in the grid's date format when bound to a date column,
  * and coloured with an icon when overdue or due soon.
  */
-export type KanbanDueMap = KanbanFieldMap | { field: string; dueSoon?: number };
+export type KanbanDueMap = KanbanFieldMap | {
+  field: string;
+  dueSoon?: number;
+  /**
+   * The chip text: a date pattern (`yyyy`, `yy`, `MMMM`, `MMM`, `MM`, `M`,
+   * `dd`, `d`, `EEEE`, `EEE`; `'quoted'` text is literal) or a function of the date and the
+   * row. The due-soon/overdue state and its accessible text are unchanged. A value that is
+   * not a date keeps its raw text, and so does an unset `format`.
+   */
+  format?: string | ((date: Date, row: KanbanRow) => string);
+  /** The locale for month and weekday names in a pattern `format` (the runtime default when omitted). */
+  locale?: string;
+};
+
+/** A theme tone for a label or badge chip, drawn from the theme's variant roles. */
+export type KanbanTone = 'accent' | 'info' | 'success' | 'warning' | 'danger' | 'neutral';
+
+/**
+ * The tone of a label or badge: a map from the chip's text to a
+ * {@link KanbanTone}, or a function of the row (and the chip's text) returning one. An
+ * unmapped value, or a function returning anything else, keeps the neutral chip.
+ */
+export type KanbanToneMap = Record<string, KanbanTone> | ((row: KanbanRow, value: string) => KanbanTone | null | undefined);
+
+/** A label or badge mapping that carries a {@link KanbanToneMap}. */
+export type KanbanToneFieldMap = KanbanFieldMap | { field: string; tone?: KanbanToneMap };
 
 /**
  * The checklist mapping: a property path/fn whose value is a
@@ -261,7 +286,7 @@ export interface KanbanCardMap {
   /** A second line under the title. */
   subtitle?: KanbanFieldMap;
   /** A comma-separated string rendered as one chip per label; blanks are skipped. */
-  labels?: KanbanFieldMap;
+  labels?: KanbanToneFieldMap;
   /**
    * One or several people, drawn as avatars: the row property holds a
    * single {@link KanbanAssignee}, an array of them, or a comma-separated string of names.
@@ -284,7 +309,7 @@ export interface KanbanCardMap {
    */
   checklist?: KanbanChecklistMap;
   /** A single badge chip at the end of the meta row. */
-  badges?: KanbanFieldMap;
+  badges?: KanbanToneFieldMap;
   /**
    * A colour for the card's left border. Any CSS colour; an empty value leaves the border
    * plain.

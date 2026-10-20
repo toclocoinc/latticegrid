@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.108.0</p>
+    <p class="rail__sub">API reference · v1.108.1</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -592,7 +592,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.108.0</span>
+      <span class="chip">Version 1.108.1</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3515,7 +3515,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.108.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.108.1'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -4297,6 +4297,8 @@ createDevtools({ grid });          <span class="cmt">// Ctrl+Shift+D collapses i
         </tbody>
       </table>
     </div>
+    <p id="facets-readability"><strong>Binning and readability (BACKLOG-0004711).</strong> A continuous numeric column with the default <code>equal</code> strategy cuts <code>buckets</code> equal-width bars across its <em>robust range</em>, the 1st to 99th percentile of an evenly-spaced sorted sample of 10,000 values (<code>lo = sample[floor(0.01 n)]</code>, <code>hi = sample[ceil(0.99 n) &minus; 1]</code>), and adds an underflow bucket <code>[min, lo)</code> and an overflow bucket <code>[hi, max]</code> (each flagged <code>overflow: 'low'</code> or <code>'high'</code>) when the column reaches past them. The robust range applies only when the full range is more than twice as wide as <code>hi &minus; lo</code>; a uniform or mildly skewed column keeps plain full-range buckets, and so do the <code>quantile</code> and <code>log</code> strategies, date columns and categorical columns. The edges are still fixed once from the unfiltered column, so bars do not move as filters change, and the counts still sum to the row count. The request and response shapes are unchanged: a bucket is <code>{ from, to }</code>, with the optional <code>overflow</code> flag.</p>
+    <p><strong>The in-view bars are always readable.</strong> The filled bars are the rows in view, scaled so the tallest in-view bucket reaches the top of the strip whatever share of the column the filters keep (a filter keeping 2% of the rows still draws a full-height peak). Behind them a faint backdrop shows the whole column at its own scale. Bar colours come from the theme roles <code>--lattice-facet-bar</code>, <code>--lattice-facet-bar-null</code> and the backdrop role <code>--lattice-facet-bar-excluded</code>; the bar roles hold at least 3:1 contrast against the header surface in light, dark, high-contrast and terminal themes. At a narrow column the heading keeps at least 3.5em of title, ellipsised, beside the filter icon.</p>
     <p><strong>A column is never counted against its own filter.</strong> Every other active filter applies; that column's own conditions are pruned out. Without this, clicking a bucket would collapse the chart to that single bar, leaving no way to see what was excluded or to widen the selection.</p>
     <p><strong>The filters are ordinary filters.</strong> They go through <code>filters.set</code>, so they undo, ride in saved views, and appear in whatever filter UI you already have. A drag emits a <code>between</code> range rather than a set of bucket indices, so it still means something after the data is replaced and the edges move.</p>
     <div class="table-wrap">
@@ -11841,7 +11843,7 @@ orders.load([
 g.destroy(); router.destroy();
 <span class="kw">return</span> [amount, typed, active, bigger].join(' | ');</code></pre>
 
-    <p><strong>Spread onto the parent (v16, BACKLOG-0001611).</strong> An EAV / custom-field source's rows each become their OWN field on the parent: give the join a <code>spread</code> spec instead of <code>as</code>/<code>aggregate</code>, and every matching child row writes <code>prefix + name(row)</code> &rarr; <code>value(row)</code> onto the parent. <code>name</code> and <code>value</code> are field names or <code>fn(row)</code>s; <code>prefix</code> (e.g. <code>'cf_'</code>) namespaces them; <code>include</code> narrows which attributes spread (an array, or a <code>fn(name, row)</code>); and <code>type</code> coerces per-name values (<code>number</code>/<code>date</code>/<code>boolean</code>/<code>text</code>, a bad parse keeping the raw value rather than a silent <code>NaN</code>/<code>Invalid Date</code>). The attribute source's own joins apply first (multi-level), an attribute add/change/delete re-emits its parent live, and a deleted attribute leaves the field <em>cleared</em> rather than stale. Two attributes landing on one name are last-writer-wins and warned once (<code>router:spread-duplicate</code>); a spread field never overwrites a base parent field and warns once (<code>router:spread-collision</code>). The router reports the field names per route through <code>fieldsOf(ref)</code> and the <code>fields:changed</code> event (<code>{ route, added, removed }</code>), so a host can add or drop grid columns as custom attributes appear and disappear.</p>
+    <p><strong>Spread onto the parent (v16, BACKLOG-0001611).</strong> An EAV / custom-field source's rows each become their OWN field on the parent: give the join a <code>spread</code> spec instead of <code>as</code>/<code>aggregate</code>, and every matching child row writes <code>prefix + name(row)</code> &rarr; <code>value(row)</code> onto the parent. <code>name</code> and <code>value</code> are field names or <code>fn(row)</code>s; <code>prefix</code> (e.g. <code>'cf_'</code>) namespaces them; <code>include</code> narrows which attributes spread (an array, or a <code>fn(name, row)</code>); and <code>type</code> coerces per-name values &mdash; a type name (<code>'number'</code>/<code>'date'</code>/<code>'boolean'</code>/<code>'text'</code>) or an options object, reusing the exact coercion a source's <code>fields</code> of the same type uses (BACKLOG-0004696): <code>{ type: 'boolean', true: ['Y'], false: ['N'] }</code> names its own marker sets (with no marker set, the same default tri-state markers <code>fields</code> reads &mdash; a value neither recognises is null, warned once, never a guessed <code>true</code>); <code>{ type: 'date', format: 'dd/MM/yyyy' }</code> chooses the input format and produces the same <code>YYYY-MM-DD</code> date-only value <code>fields</code> coercion does. <code>number</code>/<code>text</code> keep the original spread behaviour: a bad parse keeps the raw value rather than a silent <code>NaN</code>. The attribute source's own joins apply first (multi-level), an attribute add/change/delete re-emits its parent live, and a deleted attribute leaves the field <em>cleared</em> rather than stale. Two attributes landing on one name are last-writer-wins and warned once (<code>router:spread-duplicate</code>); a spread field never overwrites a base parent field and warns once (<code>router:spread-collision</code>). The router reports the field names per route through <code>fieldsOf(ref)</code> and the <code>fields:changed</code> event (<code>{ route, added, removed }</code>), so a host can add or drop grid columns as custom attributes appear and disappear.</p>
     <h3 id="datarouter-spread-example">A SPREAD join of EAV attributes onto a parent, executed</h3>
     <p class="section-note">Each <code>companyAttr</code> row becomes one <code>cf_</code>-prefixed field on its company; <code>fieldsOf</code>
     reports the names a host turns into grid columns. Run headless on every build.</p>
@@ -14278,6 +14280,40 @@ board.setQuickFilter('Ann');                                    <span class="cmt
 
 board.destroy();
 <span class="kw">return</span> [card.assignees.length, card.progressPct, card.checklist.done + '/' + card.checklist.total, overdue, shown].join(' | ');</code></pre>
+
+    <h3 id="kanban-tone-example">Label and badge tones, and a due format, executed</h3>
+    <p class="section-note">A label or badge <code>tone</code> (a map from value to <code>accent</code>, <code>info</code>,
+    <code>success</code>, <code>warning</code>, <code>danger</code> or <code>neutral</code>, or a function of the row) draws the chip
+    in the theme's variant roles; a due <code>format</code> (a date pattern or a function) sets the chip text. Unmapped values stay
+    neutral and raw — resolved headless, run on every build.</p>
+    <pre data-run="js" data-expect="danger | success | none | Mar 5 | due 2026" data-covers="export:createKanban"><code><span class="kw">const</span> { createKanban } = <span class="kw">await</span> import('../packages/modules/kanban/index.js');
+
+<span class="kw">const</span> board = createKanban(null, {
+  rows: [
+    { id: 1, status: 'todo', title: 'Ship', tags: 'bug, ok, misc', due: '2026-03-05T12:00:00' },
+    { id: 2, status: 'todo', title: 'Fix', tags: 'bug', due: '2026-03-05T12:00:00' },
+  ],
+  rowKey: 'id',
+  columnProperty: 'status',
+  columns: [{ id: 'todo' }],
+  card: {
+    title: 'title',
+    labels: { field: 'tags', tone: { bug: 'danger', ok: 'success' } },
+    due: { field: 'due', format: 'MMM d', locale: 'en-US' },
+  },
+});
+<span class="kw">const</span> tones = board.card(1).labelTones;
+<span class="kw">const</span> text = board.card(1).due.text;
+
+board.destroy();
+<span class="kw">const</span> plain = createKanban(null, {
+  rows: [{ id: 1, status: 'todo', due: '2026-03-05T12:00:00' }],
+  rowKey: 'id', columnProperty: 'status', columns: [{ id: 'todo' }],
+  card: { due: { field: 'due', format: (d) => 'due ' + d.getFullYear() } },
+});
+<span class="kw">const</span> fn = plain.card(1).due.text;
+plain.destroy();
+<span class="kw">return</span> [tones.bug, tones.ok, tones.misc || 'none', text, fn].join(' | ');</code></pre>
 
     <h3 id="kanban-column-width-example">Column width, executed</h3>
     <p class="section-note">The <code>columnWidth</code> and <code>minColumnWidth</code> options resolve to fill (default),
@@ -28483,7 +28519,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       </table>
     </div>
     <h4 id="type-RouterJoinAggregate">RouterJoinAggregate</h4>
-    <p class="section-note">One named reducer of a ROLLUP-ONTO-PARENT join's `aggregate` map (v15, BACKLOG-0001609). `fn` reuses the v3 rollup vocabulary — `count`, `sum`, `avg`, `min`, `max` — and adds `distinctCount`, `first` and `last`. `field` is the child field reduced over (required for every `fn` except `count`); `first`/`last` order the children by `orderBy` (defaulting to `field`) and return the `field` value of the first/last child. An empty child set yields `count` 0, `sum` 0 and the rest null.</p>
+    <p class="section-note">One named reducer of a ROLLUP-ONTO-PARENT join's `aggregate` map (v15, BACKLOG-0001609). `fn` reuses the v3 rollup vocabulary — `count`, `sum`, `avg`, `min`, `max` — and adds `distinctCount`, `first` and `last`. `field` is the child field reduced over (required for every `fn` except `count`); `first`/`last` order the children by `orderBy` (defaulting to `field`) and return the `field` value of the first/last child. An empty child set yields `count` 0, `sum` 0 and the rest null. `min`/`max` compare every non-null child value — a number numerically, a `Date` by its instant, and anything else (including a coerced date's `YYYY-MM-DD` string) by its text form (BACKLOG-0004696), so they work over dates, numbers and strings alike; `sum`/`avg` stay numbers-only, skipping a non-finite value.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
@@ -28525,6 +28561,20 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-RouterSpreadFieldSpec">RouterSpreadFieldSpec</h4>
+    <p class="section-note">One spread `type` entry's options-object form (BACKLOG-0004696): narrows a `date`'s input `format` or gives a `boolean` its own `true`/`false` marker sets — the same options a source's `fields` of the same type reads (see `RouterFieldSpec`), so a spread's `date`/`boolean` coerces identically to a `fields` column of that type. `type` here is restricted to `RouterSpreadType`: a spread does not read `integer` or `json`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type"><a href="#type-RouterSpreadType">RouterSpreadType</a> <small class="literals">'number' | 'date' | 'boolean' | 'text'</small></td><td class="desc">The attribute's type: number | date | boolean | text.</td></tr>
+          <tr><td class="name">format</td><td class="type"><a href="#type-RouterDateFieldFormat">RouterDateFieldFormat</a> <small class="literals">'iso' | 'epoch-s' | 'epoch-ms' | string</small></td><td class="desc">A `date`'s input format: `'iso'` (default), `'epoch-s'`, `'epoch-ms'`, or a pattern. <small>(optional)</small></td></tr>
+          <tr><td class="name">decimal</td><td class="type">',' | '.'</td><td class="desc">A `number`'s decimal separator: `','` (e.g. `1.234,56`) or `'.'` (default). <small>(optional)</small></td></tr>
+          <tr><td class="name">true</td><td class="type">string[]</td><td class="desc">The strings a `boolean` attribute reads as true. <small>(optional)</small></td></tr>
+          <tr><td class="name">false</td><td class="type">string[]</td><td class="desc">The strings a `boolean` attribute reads as false. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-RouterSpread">RouterSpread</h4>
     <p class="section-note">A SPREAD join's shape (v16, BACKLOG-0001611): turn an EAV / custom-field source's rows into one field per attribute on the parent row.</p>
     <div class="table-wrap">
@@ -28535,7 +28585,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">value</td><td class="type">string | ((row: <a href="#type-RouterRecord">RouterRecord</a>) =&gt; unknown)</td><td class="desc">Reads the attribute value off the child row — a field name or a `fn(row)`. Required.</td></tr>
           <tr><td class="name">prefix</td><td class="type">string</td><td class="desc">Prepended to every attribute name on the parent (e.g. `'cf_'`). Defaults to `''`. <small>(optional)</small></td></tr>
           <tr><td class="name">include</td><td class="type">string[] | ((name: string, row: <a href="#type-RouterRecord">RouterRecord</a>) =&gt; boolean)</td><td class="desc">Narrows which attribute names spread: an array of names, or a `fn(name, row)` returning true to keep. Omitted, every attribute spreads. <small>(optional)</small></td></tr>
-          <tr><td class="name">type</td><td class="type">Record&lt;string, <a href="#type-RouterSpreadType">RouterSpreadType</a>&gt;</td><td class="desc">Coerces each attribute's value by name: `number`, `date`, `boolean` or `text`. A value that fails to parse keeps its raw value rather than becoming `NaN`/`Invalid Date`; `null`/`undefined` pass through untouched. <small>(optional)</small></td></tr>
+          <tr><td class="name">type</td><td class="type">Record&lt;string, <a href="#type-RouterSpreadType">RouterSpreadType</a> | <a href="#type-RouterSpreadFieldSpec">RouterSpreadFieldSpec</a>&gt;</td><td class="desc">Coerces each attribute's value by name: a type name (`number`, `date`, `boolean` or `text`), or an options object (`RouterSpreadFieldSpec`) narrowing it the same way a source's `fields` narrows a field of that type — a `date`'s input `format`, or a `boolean`'s own `true`/`false` marker sets (BACKLOG-0004696). `boolean`/`date` read the exact coercion `fields` uses: the same default tri-state markers, the same date formats and the same date-only value; a value neither a custom marker set nor (with no marker set) the default markers recognise is null, warned once, never a guessed `true`. `number`/`text` keep the original spread behaviour: a bad parse keeps its raw value rather than becoming `NaN`. `null`/`undefined` pass through untouched for every type. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -30285,13 +30335,13 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">title</td><td class="type"><a href="#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">The card's headline text. <small>(optional)</small></td></tr>
           <tr><td class="name">subtitle</td><td class="type"><a href="#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">A second line under the title. <small>(optional)</small></td></tr>
-          <tr><td class="name">labels</td><td class="type"><a href="#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">A comma-separated string rendered as one chip per label; blanks are skipped. <small>(optional)</small></td></tr>
+          <tr><td class="name">labels</td><td class="type"><a href="#type-KanbanToneFieldMap">KanbanToneFieldMap</a></td><td class="desc">A comma-separated string rendered as one chip per label; blanks are skipped. <small>(optional)</small></td></tr>
           <tr><td class="name">assignee</td><td class="type"><a href="#type-KanbanFieldMap">KanbanFieldMap</a> | { field: string; max?: number }</td><td class="desc">One or several people, drawn as avatars (BACKLOG-0002107): the row property holds a single {@link KanbanAssignee}, an array of them, or a comma-separated string of names. Up to `max` (default 2) are drawn, the rest as a `+N` overflow. <small>(optional)</small></td></tr>
           <tr><td class="name">due</td><td class="type"><a href="#type-KanbanDueMap">KanbanDueMap</a></td><td class="desc">The due date (BACKLOG-0002107), with a due-soon/overdue state and icon. <small>(optional)</small></td></tr>
           <tr><td class="name">cover</td><td class="type"><a href="#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">An image URL drawn as a cover band across the top of the card. <small>(optional)</small></td></tr>
           <tr><td class="name">progress</td><td class="type"><a href="#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">A progress bar over the card (BACKLOG-0002107). The value is a 0..1 fraction or a 0..100 percent (a trailing `%` is tolerated); a value that is not a number draws no bar. <small>(optional)</small></td></tr>
           <tr><td class="name">checklist</td><td class="type"><a href="#type-KanbanChecklistMap">KanbanChecklistMap</a></td><td class="desc">A checklist count on the card (BACKLOG-0002107), rendered as `3/5`. See {@link KanbanChecklistMap}. <small>(optional)</small></td></tr>
-          <tr><td class="name">badges</td><td class="type"><a href="#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">A single badge chip at the end of the meta row. <small>(optional)</small></td></tr>
+          <tr><td class="name">badges</td><td class="type"><a href="#type-KanbanToneFieldMap">KanbanToneFieldMap</a></td><td class="desc">A single badge chip at the end of the meta row. <small>(optional)</small></td></tr>
           <tr><td class="name">accent</td><td class="type"><a href="#type-KanbanFieldMap">KanbanFieldMap</a></td><td class="desc">A colour for the card's left border. Any CSS colour; an empty value leaves the border plain. <small>(optional)</small></td></tr>
           <tr><td class="name">[field: string]</td><td class="type"><a href="#type-KanbanFieldMap">KanbanFieldMap</a> | undefined</td><td class="desc">Any other card slot the board's theme declares, mapped the same way as the named ones above. `undefined` is the honest value for a slot that is left unmapped.</td></tr>
         </tbody>
@@ -41714,7 +41764,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
     <h4 id="type-KanbanDueMap">KanbanDueMap</h4>
     <p class="section-note">The due-date mapping (BACKLOG-0002107): a property path/fn (as any other field), or an object `{ field, dueSoon }` where `dueSoon` is the number of days that counts as "due soon". The date is drawn in the grid's date format when bound to a date column, and coloured with an icon when overdue or due soon.</p>
-    <p class="type-def"><code>type KanbanDueMap = <a href="#type-KanbanFieldMap">KanbanFieldMap</a> | { field: string; dueSoon?: number }</code></p>
+    <p class="type-def"><code>type KanbanDueMap = <a href="#type-KanbanFieldMap">KanbanFieldMap</a> | { field: string; dueSoon?: number; format?: string | ((date: Date, row: <a href="#type-KanbanRow">KanbanRow</a>) =&gt; string); locale?: string; }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
     <h4 id="type-KanbanEventName">KanbanEventName</h4>
     <p class="section-note">The events a board raises. The board's own, not the grid's: `grid.on` takes {@link EventName} and knows nothing about these, and a grid-bound board follows the grid's events itself rather than re-publishing them. `on()` warns once on any other name, because a binding to an event that can never fire is a silent no-op. The `before…` six are cancellable on the same contract the grid core uses (BACKLOG-0000946): call `preventDefault(reason?)` on the payload, or return a Promise to hold the action until it settles; a veto fires the matching `&lt;action&gt;:cancelled` carrying the reason.</p>
@@ -41739,6 +41789,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h4 id="type-KanbanSlaThreshold">KanbanSlaThreshold</h4>
     <p class="section-note">A card-aging / SLA threshold (BACKLOG-0000960): a raw millisecond count, or a `{ weeks, days, hours, minutes, seconds, ms }` spec whose fields are summed (`{ days: 3, hours: 12 }` → 3.5 days). A negative or non-finite value means "no threshold at this level".</p>
     <p class="type-def"><code>type KanbanSlaThreshold = number | { weeks?: number; week?: number; w?: number; days?: number; day?: number; d?: number; hours?: number; hour?: number; h?: number; minutes?: number; minute?: number; m?: number; min?: number; seconds?: number; second?: number; s?: number; sec?: number; ms?: number; milliseconds?: number; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
+    <h4 id="type-KanbanTone">KanbanTone</h4>
+    <p class="section-note">A theme tone for a label or badge chip (BACKLOG-0003467), drawn from the theme's variant roles.</p>
+    <p class="type-def"><code>type KanbanTone = 'accent' | 'info' | 'success' | 'warning' | 'danger' | 'neutral'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
+    <h4 id="type-KanbanToneFieldMap">KanbanToneFieldMap</h4>
+    <p class="section-note">A label or badge mapping that carries a {@link KanbanToneMap}.</p>
+    <p class="type-def"><code>type KanbanToneFieldMap = <a href="#type-KanbanFieldMap">KanbanFieldMap</a> | { field: string; tone?: <a href="#type-KanbanToneMap">KanbanToneMap</a> }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
+    <h4 id="type-KanbanToneMap">KanbanToneMap</h4>
+    <p class="section-note">The tone of a label or badge (BACKLOG-0003467): a map from the chip's text to a {@link KanbanTone}, or a function of the row (and the chip's text) returning one. An unmapped value, or a function returning anything else, keeps the neutral chip.</p>
+    <p class="type-def"><code>type KanbanToneMap = Record&lt;string, <a href="#type-KanbanTone">KanbanTone</a>&gt; | ((row: <a href="#type-KanbanRow">KanbanRow</a>, value: string) =&gt; <a href="#type-KanbanTone">KanbanTone</a> | null | undefined)</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
     <h4 id="type-KPIAggregation">KPIAggregation</h4>
     <p class="section-note">The aggregation kinds a tile can compute. `custom` is a host reducer over the rows.</p>
@@ -42383,7 +42445,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.108.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.108.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

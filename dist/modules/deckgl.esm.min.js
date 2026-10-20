@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.108.0, deckgl module
+ * Lattice Grid 1.108.1, deckgl module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -237,6 +237,9 @@ ${ee}{
   stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .${e}__node-icon[data-dim]{opacity:0.18}
 .${e}__flow-label{fill:var(--lattice-chart-label-fg);pointer-events:none}
+/* A middle Sankey column's label has flows on both sides: a halo in the surface
+   colour keeps it legible over them, in light and dark (BACKLOG-0004698). */
+.${e}__flow-label--halo{paint-order:stroke;stroke:var(--lattice-chart-surface);stroke-width:3px;stroke-linejoin:round}
 /* The hierarchy chart types (BACKLOG-0001652): a link between a parent and a
    child, a node, and a circle that holds other circles (a packed branch). A
    collapsed node is ringed in the text colour so a closed branch reads as one

@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.108.0</title>
+<title>Grid API Reference — Lattice Grid 1.108.1</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -1925,7 +1925,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.108.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.108.1'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -2689,6 +2689,8 @@ createDevtools({ grid });          <span class="cmt">// Ctrl+Shift+D collapses i
         </tbody>
       </table>
     </div>
+    <p id="facets-readability"><strong>Binning and readability (BACKLOG-0004711).</strong> A continuous numeric column with the default <code>equal</code> strategy cuts <code>buckets</code> equal-width bars across its <em>robust range</em>, the 1st to 99th percentile of an evenly-spaced sorted sample of 10,000 values (<code>lo = sample[floor(0.01 n)]</code>, <code>hi = sample[ceil(0.99 n) &minus; 1]</code>), and adds an underflow bucket <code>[min, lo)</code> and an overflow bucket <code>[hi, max]</code> (each flagged <code>overflow: 'low'</code> or <code>'high'</code>) when the column reaches past them. The robust range applies only when the full range is more than twice as wide as <code>hi &minus; lo</code>; a uniform or mildly skewed column keeps plain full-range buckets, and so do the <code>quantile</code> and <code>log</code> strategies, date columns and categorical columns. The edges are still fixed once from the unfiltered column, so bars do not move as filters change, and the counts still sum to the row count. The request and response shapes are unchanged: a bucket is <code>{ from, to }</code>, with the optional <code>overflow</code> flag.</p>
+    <p><strong>The in-view bars are always readable.</strong> The filled bars are the rows in view, scaled so the tallest in-view bucket reaches the top of the strip whatever share of the column the filters keep (a filter keeping 2% of the rows still draws a full-height peak). Behind them a faint backdrop shows the whole column at its own scale. Bar colours come from the theme roles <code>--lattice-facet-bar</code>, <code>--lattice-facet-bar-null</code> and the backdrop role <code>--lattice-facet-bar-excluded</code>; the bar roles hold at least 3:1 contrast against the header surface in light, dark, high-contrast and terminal themes. At a narrow column the heading keeps at least 3.5em of title, ellipsised, beside the filter icon.</p>
     <p><strong>A column is never counted against its own filter.</strong> Every other active filter applies; that column's own conditions are pruned out. Without this, clicking a bucket would collapse the chart to that single bar, leaving no way to see what was excluded or to widen the selection.</p>
     <p><strong>The filters are ordinary filters.</strong> They go through <code>filters.set</code>, so they undo, ride in saved views, and appear in whatever filter UI you already have. A drag emits a <code>between</code> range rather than a set of bucket indices, so it still means something after the data is replaced and the edges move.</p>
     <div class="table-wrap">

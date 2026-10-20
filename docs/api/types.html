@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.108.0</title>
+<title>Types API Reference — Lattice Grid 1.108.1</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -3805,7 +3805,7 @@
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
     <h4 id="type-KanbanDueMap">KanbanDueMap</h4>
     <p class="section-note">The due-date mapping (BACKLOG-0002107): a property path/fn (as any other field), or an object `{ field, dueSoon }` where `dueSoon` is the number of days that counts as "due soon". The date is drawn in the grid's date format when bound to a date column, and coloured with an icon when overdue or due soon.</p>
-    <p class="type-def"><code>type KanbanDueMap = <a href="#type-KanbanFieldMap">KanbanFieldMap</a> | { field: string; dueSoon?: number }</code></p>
+    <p class="type-def"><code>type KanbanDueMap = <a href="#type-KanbanFieldMap">KanbanFieldMap</a> | { field: string; dueSoon?: number; format?: string | ((date: Date, row: <a href="#type-KanbanRow">KanbanRow</a>) =&gt; string); locale?: string; }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
     <h4 id="type-KanbanEventName">KanbanEventName</h4>
     <p class="section-note">The events a board raises. The board's own, not the grid's: `grid.on` takes {@link EventName} and knows nothing about these, and a grid-bound board follows the grid's events itself rather than re-publishing them. `on()` warns once on any other name, because a binding to an event that can never fire is a silent no-op. The `before…` six are cancellable on the same contract the grid core uses (BACKLOG-0000946): call `preventDefault(reason?)` on the payload, or return a Promise to hold the action until it settles; a veto fires the matching `&lt;action&gt;:cancelled` carrying the reason.</p>
@@ -3830,6 +3830,18 @@
     <h4 id="type-KanbanSlaThreshold">KanbanSlaThreshold</h4>
     <p class="section-note">A card-aging / SLA threshold (BACKLOG-0000960): a raw millisecond count, or a `{ weeks, days, hours, minutes, seconds, ms }` spec whose fields are summed (`{ days: 3, hours: 12 }` → 3.5 days). A negative or non-finite value means "no threshold at this level".</p>
     <p class="type-def"><code>type KanbanSlaThreshold = number | { weeks?: number; week?: number; w?: number; days?: number; day?: number; d?: number; hours?: number; hour?: number; h?: number; minutes?: number; minute?: number; m?: number; min?: number; seconds?: number; second?: number; s?: number; sec?: number; ms?: number; milliseconds?: number; }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
+    <h4 id="type-KanbanTone">KanbanTone</h4>
+    <p class="section-note">A theme tone for a label or badge chip (BACKLOG-0003467), drawn from the theme's variant roles.</p>
+    <p class="type-def"><code>type KanbanTone = 'accent' | 'info' | 'success' | 'warning' | 'danger' | 'neutral'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
+    <h4 id="type-KanbanToneFieldMap">KanbanToneFieldMap</h4>
+    <p class="section-note">A label or badge mapping that carries a {@link KanbanToneMap}.</p>
+    <p class="type-def"><code>type KanbanToneFieldMap = <a href="#type-KanbanFieldMap">KanbanFieldMap</a> | { field: string; tone?: <a href="#type-KanbanToneMap">KanbanToneMap</a> }</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
+    <h4 id="type-KanbanToneMap">KanbanToneMap</h4>
+    <p class="section-note">The tone of a label or badge (BACKLOG-0003467): a map from the chip's text to a {@link KanbanTone}, or a function of the row (and the chip's text) returning one. An unmapped value, or a function returning anything else, keeps the neutral chip.</p>
+    <p class="type-def"><code>type KanbanToneMap = Record&lt;string, <a href="#type-KanbanTone">KanbanTone</a>&gt; | ((row: <a href="#type-KanbanRow">KanbanRow</a>, value: string) =&gt; <a href="#type-KanbanTone">KanbanTone</a> | null | undefined)</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
     <h4 id="type-KPIAggregation">KPIAggregation</h4>
     <p class="section-note">The aggregation kinds a tile can compute. `custom` is a host reducer over the rows.</p>
