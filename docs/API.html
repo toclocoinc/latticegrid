@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.109.0</p>
+    <p class="rail__sub">API reference · v1.110.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -592,7 +592,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.109.0</span>
+      <span class="chip">Version 1.110.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3515,7 +3515,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.109.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.110.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -6426,9 +6426,61 @@ createGrid(host, { source, columns: [...] });</code></pre>
           <tr><td class="name">keyField</td><td class="type">string</td><td class="type"><code>id</code></td><td class="desc">The key column an update and a delete target in their <code>WHERE</code>, and that an add-row is rekeyed by. Write-back is refused unless this names a real column, because an <code>UPDATE</code>/<code>DELETE</code> without a unique key could touch more than one row.</td></tr>
           <tr><td class="name">returning</td><td class="type">'row' | 'none'</td><td class="type"><code>row</code></td><td class="desc">The reconcile contract for a successful write. <code>row</code> appends <code>RETURNING *</code> and reconciles server truth (computed columns, triggers); <code>none</code> keeps the optimistic value. An add-row always <code>RETURNING</code>s at least the key column regardless, since it needs that key to rekey the temp row.</td></tr>
           <tr><td class="name">spatial</td><td class="type">boolean | <a href="#type-DuckDbSpatialOptions">DuckDbSpatialOptions</a></td><td class="type">false</td><td class="desc">Push the <code>geometry</code> column's work into DuckDB's spatial extension: the four spatial filters, sorting by location, and grid buckets in <code>source.aggregate()</code>, with geometry projected as GeoJSON. <code>{ column }</code> names a WKB <code>BLOB</code> or <code>GEOMETRY</code> column the schema and the file do not; <code>{ crs }</code> (<code>'EPSG:27700'</code> or <code>27700</code>) is the system stored coordinates are in when it is not longitude/latitude. See <a href="#duckdb-spatial">spatial pushdown</a>.</td></tr>
+          <tr><td class="name">quickColumns</td><td class="type">string[]</td><td class="type">everything <code>fields</code> selects, else every described column</td><td class="desc">Restrict which columns the pushed quick filter searches. See <a href="#duckdb-quick">quick-filter pushdown</a>.</td></tr>
         </tbody>
       </table>
     </div>
+
+    <p class="section-note" id="duckdb-quick">
+      <strong>The quick filter is pushed.</strong> <code>capabilities.quick</code> is now <code>true</code>:
+      the grid's single free-text search box becomes an OR of <code>ILIKE</code> across the searchable
+      columns, bound and never interpolated — <code>CAST(col AS VARCHAR)</code> first for a column the
+      schema does not type as text. <code>RemoteRequest.quick</code> carries the text alone, with no match
+      mode, so this is the grid's default <code>contains</code> semantics: a case-insensitive substring,
+      matched in any searchable column — the one mode the wire protocol has ever carried. A geometry or
+      <code>LIST</code> column is never searched. The predicate ANDs onto the page, count, grouped,
+      pivoted and engine-aggregate statements alike, exactly where a structured filter does.
+    </p>
+    <p class="section-note" id="duckdb-columns">
+      <strong><code>adapter.columns()</code></strong> reads the same cached <code>DESCRIBE</code> that
+      <code>adapter.describe()</code> already pays for, as <code>{ name, type, nullable }[]</code> in the
+      engine's own order — a host-readable shape, where <code>describe()</code> stays the internal
+      column-name-to-type <code>Map</code> the binding path uses. <code>nullable</code> comes from
+      <code>DESCRIBE</code>'s own <code>null</code> column (<code>'YES'</code>/<code>'NO'</code>).
+    </p>
+    <p class="section-note" id="duckdb-notblank-trim">
+      <strong><code>notBlank</code>/<code>blank</code> with <code>trim: true</code></strong> treats a
+      whitespace-only text value as blank too: <code>trim(col) &lt;&gt; ''</code> /
+      <code>trim(col) = ''</code> rather than the untrimmed <code>&lt;&gt; ''</code>/<code>= ''</code>
+      comparison a bare <code>'   '</code> passes. Named on the condition the way <code>caseSensitive</code>
+      already is; ignored against a column confirmed non-text, where <code>blank</code>/<code>notBlank</code>
+      is a presence test alone.
+    </p>
+
+    <p class="section-note" id="duckdb-matches">
+      <strong><code>matches</code></strong> (a regular expression) is pushed as
+      <code>regexp_matches(col, ?)</code>, the pattern bound — never interpolated — with DuckDB's own
+      <code>'i'</code> option standing in for the kernel's case-insensitive-by-default fold;
+      <code>caseSensitive: true</code> drops it. A <code>RegExp</code> operand binds its
+      <code>.source</code>, since no driver binds the object itself.
+    </p>
+    <p class="section-note" id="duckdb-epoch-ms">
+      <strong>An epoch-milliseconds number against a <code>DATE</code>/<code>TIMESTAMP</code>
+      column.</strong> DuckDB has no cast from a number to either type, so binding one directly is an
+      engine error. The typed placeholder this adapter already writes for a <code>Date</code> operand
+      (<code>CAST(? AS DATE)</code>/<code>CAST(? AS TIMESTAMP)</code>) converts an epoch-milliseconds
+      number to its ISO-8601 instant first, for every comparison a <code>DATE</code>/<code>TIMESTAMP</code>
+      column takes: <code>eq</code>/<code>ne</code>/<code>lt</code>/<code>lte</code>/<code>gt</code>/
+      <code>gte</code>/<code>between</code>/<code>in</code>.
+    </p>
+    <p class="section-note" id="duckdb-stream-range">
+      <strong><code>streamMatching(request, opts)</code> honours <code>request.range</code>.</strong>
+      A half-open <code>{ start, end }</code> over the matching set narrows the streamed pages to that
+      slice, in the query's own order, by starting the pushed query's <code>LIMIT</code>/<code>OFFSET</code>
+      paging at <code>range.start</code> rather than always from the first row; absent, it streams every
+      matching row as before. <code>countMatching(request)</code> still counts the whole matching set
+      regardless of <code>range</code>.
+    </p>
 
     <p class="section-note" id="duckdb-spatial">
       <strong>Spatial pushdown (<code>spatial</code>).</strong> On first use the adapter runs
@@ -6474,13 +6526,15 @@ createGrid(host, { source, columns: [...] });</code></pre>
       <code>len(col) = 0 OR col IS NULL</code>; <code>eq</code> → <code>list_contains(col, ?)</code>
       (over <code>list_transform(col, x -&gt; lower(x))</code> for case-insensitive text), and any
       other item operator → <code>len(list_filter(col, x -&gt; x &lt;op&gt; ?)) &gt; 0</code>, text
-      matching through <code>ILIKE</code>. A negation is written <code>NOT COALESCE(…, false)</code>
+      matching through <code>ILIKE</code>, and <code>matches</code> (BACKLOG-0005002) through
+      <code>regexp_matches</code>, its pattern bound exactly rather than through the item's own cast.
+      A negation is written <code>NOT COALESCE(…, false)</code>
       so an absent list is kept, as it is in memory. Every item is bound, typed by the list's item type
       (<code>CAST(? AS DATE)</code> for a <code>DATE[]</code>), never interpolated. The list operators
       are declared in <code>capabilities.operators</code> only while the <code>modules/list</code>
       module is loaded; one reaching a column the engine does not describe as a <code>LIST</code>
       compiles to <code>FALSE</code> and <code>source.duckdb.list.column.&lt;col&gt;</code> says so.
-      <code>notContains</code>, <code>notIn</code> and <code>matches</code> are left to the grid, which
+      <code>notContains</code> and <code>notIn</code> are left to the grid, which
       asks them item by item over the returned rows; <code>lastPlan()</code> shows which conditions
       went to the engine. A <code>LIST</code> value arrives in the grid as an array.
     </p>
@@ -25669,6 +25723,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The operand: a single value, a pair for `between`, or a list for `in`. Left out by the operators that need none. A spatial operator takes a {@link SpatialBbox}, a geometry (GeoJSON, WKT or WKB) or a {@link SpatialDistance}. <small>(optional)</small></td></tr>
           <tr><td class="name">bounds</td><td class="type"><a href="#type-IntervalBounds">IntervalBounds</a> <small class="literals">'[]' | '[)' | '(]' | '()'</small></td><td class="desc">Which ends of a `between` range are inclusive, written in interval notation. `'[]'` — both ends — by default; `'[)'` is the half-open form a date range usually wants. <small>(optional)</small></td></tr>
           <tr><td class="name">caseSensitive</td><td class="type">boolean</td><td class="desc">Compare text exactly as written. Off by default, so text matching, set membership and regular expressions all ignore case. <small>(optional)</small></td></tr>
+          <tr><td class="name">trim</td><td class="type">boolean</td><td class="desc">`blank`/`notBlank` only: treat a whitespace-only text value as blank too. Off by default, so `' '` counts as present, the same as a bare `''` check; `trim: true` compiles to `trim(col) = ''`/`trim(col) &lt;&gt; ''` rather than the untrimmed comparison. Ignored against a column confirmed non-text, where `blank`/`notBlank` is a presence test alone. <small>(optional)</small></td></tr>
           <tr><td class="name">meta</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Extra information carried alongside the condition for whoever executes it — the relative date token a range was built from, so a saved `last 7 days` filter is re-derived rather than frozen to the day it was written. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -40783,7 +40838,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">filter</td><td class="type">false | 'term' | 'flat' | 'tree'</td><td class="desc">`false`, a single field and term, a flat conjunction, or a full tree. <small>(optional)</small></td></tr>
           <tr><td class="name">operators</td><td class="type">string[]</td><td class="desc">Which comparison operators the engine understands. <small>(optional)</small></td></tr>
           <tr><td class="name">sort</td><td class="type">false | 'single' | 'multi'</td><td class="desc">`false`, one column only, or many. <small>(optional)</small></td></tr>
-          <tr><td class="name">quick</td><td class="type">boolean</td><td class="desc">Whether a free-text search across columns can be pushed. <small>(optional)</small></td></tr>
+          <tr><td class="name">quick</td><td class="type">boolean</td><td class="desc">Whether a free-text search across columns can be pushed. `RemoteRequest` carries the quick-filter text alone, with no match mode, so an adapter that opts in pushes the grid's default `contains` semantics — a case-insensitive substring match, ORed across columns. <small>(optional)</small></td></tr>
           <tr><td class="name">range</td><td class="type">boolean</td><td class="desc">Whether the engine can return a window rather than the whole result. <small>(optional)</small></td></tr>
           <tr><td class="name">total</td><td class="type">boolean</td><td class="desc">Whether it can report the count of matching rows. <small>(optional)</small></td></tr>
           <tr><td class="name">group</td><td class="type">boolean</td><td class="desc">Whether it can answer the grid's grouped view — group rows, their counts, their subtotals and their order — one level at a time, instead of returning the leaves for the grid to group in the browser (BACKLOG-0001325). All or nothing, unlike `filter`. A filter splits because the engine narrowing a superset and the grid narrowing what is left reach the same set; a grouping cannot, because group rows counted over the wrong set are wrong rows, not slow ones. So the push router refuses the whole grouped level — and says why in `PushdownPlan.groupReason` — whenever anything else in the query failed to push. An adapter declaring this must implement `executeGroupLevel`; one that declares it without the method is re-planned without grouping and warned about, rather than half-pushed. <small>(optional)</small></td></tr>
@@ -42893,7 +42948,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.109.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.110.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

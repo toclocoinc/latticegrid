@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.109.0</p>
+    <p class="rail__sub">Developer guide · v1.110.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.109.0</span>
+        <span class="chip">Version 1.110.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1896,7 +1896,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.109.0'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.110.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -4919,6 +4919,14 @@ plan.full;        <span class="cmt">// true when fullDataset forced it, not just
       <code>total</code> larger than the rows it returned while residual work is outstanding: that
       combination silently produces wrong answers, and it is worth knowing about.
     </p>
+    <p>
+      <code>source.streamMatching(request, opts)</code> reads a captured query straight from the
+      adapter, page by page — what <code>grid.selection.stream()</code> uses under a predicate
+      selection. A <code>range</code> on the request narrows it to that half-open slice of the matching
+      set, in the query's order, rather than streaming everything from the start; absent, it streams
+      every matching row as before. <code>source.countMatching(request)</code> always counts the
+      <em>whole</em> matching set and ignores any <code>range</code>.
+    </p>
 
     <h3>A full analytical engine, without carrying one</h3>
     <p class="lead-in">
@@ -4960,6 +4968,25 @@ createGrid(el, {
       <code>TIMESTAMPTZ</code> and naive-string cases).</p>
       <p><code>demo/duckdb.html</code> runs this against a Parquet file of several million readings
       with no server involved, including a time-window filter on its <code>TIMESTAMP</code> column.</p>
+      <p>The same typed placeholder is what lets a <code>Date</code> or an epoch-milliseconds number —
+      the grid's own convention for a stored instant — filter a <code>DATE</code> or <code>TIMESTAMP</code>
+      column at all: it is converted to its ISO-8601 instant before binding, because DuckDB has no cast
+      from a number to a timestamp, for every comparison (<code>eq</code>/<code>ne</code>/<code>lt</code>/
+      <code>lte</code>/<code>gt</code>/<code>gte</code>/<code>between</code>/<code>in</code>).</p>
+      <p>A <code>matches</code> condition is pushed as <code>regexp_matches(col, ?)</code>, the pattern
+      bound — never interpolated — with DuckDB's own <code>'i'</code> option standing in for the default
+      case-insensitive fold; <code>caseSensitive: true</code> drops it.</p>
+      <p>The grid's quick filter is pushed too, as an OR of <code>ILIKE</code> across the columns the
+      engine described (<code>CAST(... AS VARCHAR)</code> first for anything not already text), the same
+      case-insensitive substring match the grid's own default quick filter makes; <code>quickColumns</code>
+      narrows which columns it searches.</p>
+      <p><code>adapter.columns()</code> reads the same cached <code>DESCRIBE</code> as
+      <code>describe()</code>, as <code>{ name, type, nullable }[]</code> rather than the internal
+      binding <code>Map</code> — the shape a host wants when it is reading the schema itself rather than
+      filtering against it.</p>
+      <p>A <code>notBlank</code>/<code>blank</code> condition with <code>trim: true</code> treats a
+      whitespace-only value as blank too — <code>trim(col) &lt;&gt; ''</code> rather than the bare
+      <code>&lt;&gt; ''</code> a value of <code>'   '</code> passes.</p>
     </div>
 
     <h3 id="duckdb-range-reads-guide">Whether a Parquet file streams or downloads whole</h3>
@@ -14002,7 +14029,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.109.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.110.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

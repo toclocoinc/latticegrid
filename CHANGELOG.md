@@ -9,6 +9,26 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.110.0] - 2026-10-21
+
+### Added
+
+- `duckdbAdapter` pushes a `matches` filter condition as `regexp_matches(col, ?)`, the pattern bound and never interpolated, honouring `caseSensitive` through DuckDB's own `'i'` option; over a `LIST` column it is pushed the same "any item matches" way every other item operator already is (BACKLOG-0001507). (BACKLOG-0005002)
+
+- `duckdbAdapter` pushes the grid's quick filter down as an OR of `ILIKE` across the searchable columns (`CAST(... AS VARCHAR)` first for a column the schema does not type as text), bound and never interpolated — the grid's default case-insensitive substring match, the one mode `RemoteRequest.quick` ever carries. New `quickColumns` option restricts which columns it searches. (BACKLOG-0005004)
+
+- New `duckdbAdapter` method `columns()` returns `{ name, type, nullable }[]` for the source's columns, from the same cached `DESCRIBE` `describe()` already pays for, in the engine's own order. (BACKLOG-0005005)
+
+- `duckdbAdapter` pushes `notBlank`/`blank` with a new `trim: true` condition option as `trim(col) <> ''`/`trim(col) = ''`, and the in-memory filter kernel agrees: a whitespace-only value counts as blank too. Without it the current (untrimmed) behaviour is unchanged. (BACKLOG-0005007)
+
+### Fixed
+
+- A pushdown source's `streamMatching(request)` ignored `request.range` and always streamed the whole matching set from its first row; it now applies the requested half-open range to the pushed query's own paging (or slices the residual-finished rows when the whole result had to be fetched), so a caller asking for a slice of the matching set gets exactly that slice, in the query's order. `countMatching` is unchanged: it still counts the whole matching set regardless of `range`. (BACKLOG-0005006)
+
+### Internal
+
+- Added regression coverage proving an epoch-millisecond filter value against a DuckDB `DATE`/`TIMESTAMP` column already converts to the column's own type before binding, across `eq`/`ne`/`lt`/`lte`/`gt`/`gte`/`between`/`in` — `duckdbAdapter`'s existing typed-placeholder path (BACKLOG-0001022) already covers it, so no adapter change was needed. (BACKLOG-0005003)
+
 ## [1.109.0] - 2026-10-21
 
 ### Added

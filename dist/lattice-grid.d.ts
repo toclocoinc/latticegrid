@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.109.0, type declarations
+ * Lattice Grid 1.110.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -2886,6 +2886,14 @@ export interface Condition {
    * membership and regular expressions all ignore case.
    */
   caseSensitive?: boolean;
+  /**
+   * `blank`/`notBlank` only: treat a whitespace-only text value as blank too.
+   * Off by default, so `'   '` counts as present, the same as a bare `''`
+   * check; `trim: true` compiles to `trim(col) = ''`/`trim(col) <> ''` rather
+   * than the untrimmed comparison. Ignored against a column confirmed
+   * non-text, where `blank`/`notBlank` is a presence test alone.
+   */
+  trim?: boolean;
   /**
    * Extra information carried alongside the condition for whoever executes it
    * — the relative date token a range was built from, so a saved `last 7 days`
@@ -6076,7 +6084,12 @@ export interface PushdownCapabilities {
   operators?: string[];
   /** `false`, one column only, or many. */
   sort?: false | 'single' | 'multi';
-  /** Whether a free-text search across columns can be pushed. */
+  /**
+   * Whether a free-text search across columns can be pushed. `RemoteRequest`
+   * carries the quick-filter text alone, with no match mode, so an adapter
+   * that opts in pushes the grid's default `contains` semantics — a
+   * case-insensitive substring match, ORed across columns.
+   */
   quick?: boolean;
   /** Whether the engine can return a window rather than the whole result. */
   range?: boolean;
@@ -12808,13 +12821,19 @@ export function createPushdownSource(
    * How many rows a captured query matches, asked of the adapter — a zero-row
    * window's total, or the streamed rows when residual work or an uncounting
    * adapter makes the engine's figure wrong. `range`,
-   * grouping and pivoting on the request are ignored.
+   * grouping and pivoting on the request are ignored — this always counts the
+   * whole matching set.
    */
   countMatching(request: Partial<RemoteRequest>): Promise<number>;
   /**
    * Every row a captured query matches, page by page, through the adapter's
    * export mode (`execute(query, { stream: true })`). Moves
    * nothing the source reports — `lastPlan()` and `counts()` are unchanged.
+   * Grouping and pivoting on the request are ignored — a selection is a set of
+   * leaf rows whatever the grid is showing them as — but `range` narrows the
+   * stream to that half-open slice of the matching set, in the query's order,
+   * rather than streaming everything; absent, it streams
+   * every matching row as before.
    */
   streamMatching(request: Partial<RemoteRequest>, opts?: { pageSize?: number }): AsyncIterable<unknown[]>;
   /**
@@ -13170,6 +13189,13 @@ export function duckdbAdapter(options: {
    * stored WKB.
    */
   spatial?: boolean | DuckDbSpatialOptions;
+  /**
+   * Restrict which columns the pushed quick filter searches.
+   * Absent, it searches `fields` when given, else every column the engine's
+   * `DESCRIBE` names. A geometry or `LIST` column is never searched, named or
+   * not.
+   */
+  quickColumns?: string[];
 }): PushdownAdapter & {
   sqlFor(query: RemoteRequest): { sql: string; params: unknown[] };
   /**
@@ -13229,6 +13255,13 @@ export function duckdbAdapter(options: {
     query: RemoteRequest,
     aggregates: Array<{ id: string; col: string; fn: string; weight?: string }>,
   ): { sql: string; params: unknown[] };
+  /**
+   * The source's columns — name, DuckDB type and nullability, from
+   * `DESCRIBE` — in the engine's own order. Built from the
+   * same cached `DESCRIBE` statement `describe()` already pays for, so
+   * reading this costs no extra round trip.
+   */
+  columns(): Promise<Array<{ name: string; type: string; nullable: boolean }>>;
 };
 
 /**
