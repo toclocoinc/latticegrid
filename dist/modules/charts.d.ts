@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.108.1, charts module type declarations
+ * Lattice Grid 1.109.0, charts module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -267,4 +267,12 @@ export interface ChartEditorModel {
  * registered type has a non-empty editor.
  */
 export function chartEditorModel(type: string): ChartEditorModel;
+/**
+ * How a chart type follows the grid's selection when its `selection` option is
+ * on, declared for every type so none follows it silently:
+ * `'rows'` draws or re-scales over the selected rows alone (fan and
+ * decomposition), `'zoom'` turns a globe to them, `'emphasis'` draws every row
+ * and dims the marks the selection leaves out.
+ */
+export function chartSelectionSupport(type: string): 'rows' | 'zoom' | 'emphasis';
 export { Chart };

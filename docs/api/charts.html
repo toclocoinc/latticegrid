@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Charts API Reference — Lattice Grid 1.108.1</title>
+<title>Charts API Reference — Lattice Grid 1.109.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -608,6 +608,14 @@ return chart.data().series[0].points.map((p) => p.y).join(',');</code></pre>
           <tr><td class="name">spec / baseline / rules / confidence</td><td class="type">object / number / string / number</td><td class="desc">Control and capability charts: a tolerance overriding the column's own <code>spec</code>, how many leading readings fix the control limits, which rule set judges the violations (<code>westernElectric</code> or <code>nelson</code>), and the level for the capability interval.</td></tr>
         </tbody>
       </table>
+    </div>
+    <p><strong>How each chart type follows the selection.</strong> <code>chartSelectionSupport(type)</code> says what <code>selection: true</code> does for a type, so none follows it silently: <code>'rows'</code> redraws over the selected rows alone (a fan chart and a decomposition re-scale to them), <code>'zoom'</code> turns a globe to them, and <code>'emphasis'</code> draws every row and dims the rest.</p>
+    <div class="example">
+      <p class="example__label">Which chart types redraw over the selection and which emphasise it</p>
+      <pre data-run="js" data-expect="fan rows | decomposition rows | geomap zoom | line emphasis | bar emphasis" data-covers="export:chartSelectionSupport"><code>const { chartSelectionSupport } = await import('../packages/modules/charts/index.js');
+return ['fan', 'decomposition', 'geomap', 'line', 'bar']
+  .map((type) =&gt; `${type} ${chartSelectionSupport(type)}`)
+  .join(' | ');</code></pre>
     </div>
     <p><strong>The ramp's scale.</strong> Every ramp-coloured type places a value along its ramp by <code>ramp.scale</code> (BACKLOG-0001516): a map whose densest cell holds forty thousand places and whose quietest holds forty is coloured on a log scale unless you ask otherwise, so the forty-place cells are not all the palest shade. The legend labels the scale it drew.</p>
     <pre data-run="js" data-expect="log | 100 1,000 10,000" data-covers="export:createChart config:ChartRampOptions.colours config:ChartRampOptions.scale"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');

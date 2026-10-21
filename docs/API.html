@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.108.1</p>
+    <p class="rail__sub">API reference · v1.109.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -592,7 +592,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.108.1</span>
+      <span class="chip">Version 1.109.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3515,7 +3515,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.108.1'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.109.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -8479,6 +8479,14 @@ return chart.data().series[0].points.map((p) => p.y).join(',');</code></pre>
           <tr><td class="name">spec / baseline / rules / confidence</td><td class="type">object / number / string / number</td><td class="desc">Control and capability charts: a tolerance overriding the column's own <code>spec</code>, how many leading readings fix the control limits, which rule set judges the violations (<code>westernElectric</code> or <code>nelson</code>), and the level for the capability interval.</td></tr>
         </tbody>
       </table>
+    </div>
+    <p><strong>How each chart type follows the selection.</strong> <code>chartSelectionSupport(type)</code> says what <code>selection: true</code> does for a type, so none follows it silently: <code>'rows'</code> redraws over the selected rows alone (a fan chart and a decomposition re-scale to them), <code>'zoom'</code> turns a globe to them, and <code>'emphasis'</code> draws every row and dims the rest.</p>
+    <div class="example">
+      <p class="example__label">Which chart types redraw over the selection and which emphasise it</p>
+      <pre data-run="js" data-expect="fan rows | decomposition rows | geomap zoom | line emphasis | bar emphasis" data-covers="export:chartSelectionSupport"><code>const { chartSelectionSupport } = await import('../packages/modules/charts/index.js');
+return ['fan', 'decomposition', 'geomap', 'line', 'bar']
+  .map((type) =&gt; `${type} ${chartSelectionSupport(type)}`)
+  .join(' | ');</code></pre>
     </div>
     <p><strong>The ramp's scale.</strong> Every ramp-coloured type places a value along its ramp by <code>ramp.scale</code> (BACKLOG-0001516): a map whose densest cell holds forty thousand places and whose quietest holds forty is coloured on a log scale unless you ask otherwise, so the forty-place cells are not all the palest shade. The legend labels the scale it drew.</p>
     <pre data-run="js" data-expect="log | 100 1,000 10,000" data-covers="export:createChart config:ChartRampOptions.colours config:ChartRampOptions.scale"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
@@ -15407,7 +15415,7 @@ const map = createMapView(grid, {
 });</code></pre>
     <p><strong>deck.gl and MapLibre stay yours.</strong> The module imports neither and ships no dependency. Load MapLibre GL and deck.gl on the page (their UMD builds set the globals <code>maplibregl</code> and <code>deck</code>), or pass them as <code>libs: { deck, maplibregl }</code>. The map is a MapLibre map, and the rows are deck.gl layers on it through deck's <code>MapboxOverlay</code> in interleaved mode, so deck's routes, areas, columns and points and MapLibre's 3D buildings share one depth buffer: a building in front of a route hides it at pitch 45 to 60. (deck.gl 9.1 reads the camera's depth planes under the names Mapbox GL uses, <code>transform._nearZ</code> and <code>_farZ</code>, and MapLibre GL 4.x names them <code>nearZ</code> and <code>farZ</code>; the module aliases them so the two agree. Looking straight down, at pitch 0, a roof is nearer the camera than anything under it, so a route under a building's footprint is hidden by its roof there too.) If either library is missing, <code>mapview:libs</code> warns, naming which one, and the map's box is left empty.</p>
     <p><strong>Where the rows are.</strong> <code>geometry</code> is <code>{ lat, lng }</code> (or <code>lon</code>), <code>{ geojson }</code> &mdash; a GeoJSON <code>Geometry</code> or <code>Feature</code>, as an object or its JSON text, or WKT or WKB &mdash; or <code>{ path }</code>, an array of <code>[lng, lat]</code> pairs or its JSON text &mdash; or, for a network, <code>{ lat, lng, route: { by, order } }</code> or <code>{ from: { lat, lng }, to: { lat, lng } }</code> (see <a href="#mapview-network">The network map</a>). A row whose place is blank or cannot be read is skipped and counted: <code>provenance()</code> returns <code>{ drawn, skipped, matched, layers }</code>, the rows drawn, the rows with no usable place, the rows the grid matched, and the count drawn by each layer kind.</p>
-    <p><strong>How they look.</strong> A row is drawn by the layer for its geometry: a point is a marker (deck's <code>ScatterplotLayer</code>), or an extruded column (<code>ColumnLayer</code>) when an <code>elevation</code> is given; a polygon is an area (<code>GeoJsonLayer</code>), extruded when an <code>elevation</code> is given; a line is a route (<code>PathLayer</code>). <code>layer</code> picks the kind for the rows of its geometry, and <code>setLayer()</code> switches it live. <code>elevation</code> is a numeric column or one number, in metres, multiplied by <code>elevationScale</code>. <code>color</code> is one colour; <code>{ field, map }</code>, a colour per value (any value not in <code>map</code> takes the next colour of the charts palette); or <code>{ field, scale: 'ramp', domain, colours, rampScale }</code>, a number placed along a ramp by the charts module's own scale code, exactly as a heat map places it. Unset, rows take the grid theme's accent, and selected rows its focus colour. <code>radius</code> (a marker's, in metres) and <code>width</code> (a route's, in pixels) are a column or a number; a <code>column</code> layer draws every column at one radius, so only a number applies to it. <code>flow: true</code> (or <code>{ speed, trail }</code>) animates a flow along the routes; it stops while the page is hidden and is drawn still for a reader who prefers reduced motion.</p>
+    <p><strong>How they look.</strong> A row is drawn by the layer for its geometry: a point is a marker (deck's <code>ScatterplotLayer</code>), or an extruded column (<code>ColumnLayer</code>) when an <code>elevation</code> is given; a polygon is an area (<code>GeoJsonLayer</code>), extruded when an <code>elevation</code> is given; a line is a route (<code>PathLayer</code>). <code>layer</code> picks the kind for the rows of its geometry, and <code>setLayer()</code> switches it live. <code>elevation</code> is a numeric column or one number, in metres, multiplied by <code>elevationScale</code>. <code>color</code> is one colour; <code>{ field, map }</code>, a colour per value (any value not in <code>map</code> takes the next colour of the charts palette); or <code>{ field, scale: 'ramp', domain, colours, rampScale }</code>, a number placed along a ramp by the charts module's own scale code, exactly as a heat map places it. Unset, rows take the grid theme's accent, and selected rows its focus colour. <code>radius</code> (a marker's, in metres) and <code>width</code> (a route's, in pixels) are a column or a number; a <code>column</code> layer draws every column at one radius, so only a number applies to it. A marker never draws larger than <code>radiusMaxPixels</code> (default 24 pixels) however far you zoom in, so a 30 m marker no longer covers a building; zoomed out it keeps its metres size, never under 3 pixels. Set <code>radiusUnits: 'pixels'</code> (default <code>'meters'</code>) to make <code>radius</code> a size on screen, the same at every zoom (for example <code>radius: 8</code> draws a 16 pixel disc); picking, selection and <code>moveRows</code> work at that size. Example: <code>createMapView(grid, { geometry: { lat: 'lat', lng: 'lng' }, radius: 8, radiusUnits: 'pixels' })</code>. <code>flow: true</code> (or <code>{ speed, trail }</code>) animates a flow along the routes; it stops while the page is hidden and is drawn still for a reader who prefers reduced motion.</p>
     <p><strong>Which rows: the grid's.</strong> The map draws the rows the grid shows after its filters and quick search &mdash; and, when it is grouped, every leaf row of the grouped result, whether or not its group is collapsed, because collapsing a group hides its rows from the table, not from the data. It is the same row path as <a href="#deckgl">the deck.gl adapter</a>: a paged pushdown grid's map draws the rows inside the map's view, asked of the engine, up to <code>viewportCap</code>. A burst of grid changes costs one redraw, on the next animation frame.</p>
     <p><strong>Selection, both ways.</strong> A grid selection draws the selected rows in the highlight colour and flies the map to them: to the row, or to the box of several. <code>flyTo(key)</code> or <code>flyTo([keys])</code> does the same from code. A click on a feature selects its row in the grid (<code>selection: 'single'</code> or <code>'multiple'</code>; a grid that cannot take it warns <code>mapview:selection</code>), opens any collapsed group the row sits in, and scrolls it into view. Hovering a feature shows the <code>tooltip</code> columns (default the first three visible columns that do not hold the place; <code>false</code> for none), each as the grid's own display text for that cell, so a formatted value reads identically on the map and in the grid.</p>
     <p><strong>The basemap and buildings.</strong> <code>basemap</code> is a MapLibre style URL or style object; the default is OpenFreeMap's keyless positron, or its dark style for a dark theme. <code>buildings: true</code> adds 3D buildings from the style's OpenMapTiles <code>building</code> layer (<code>render_height</code>, <code>render_min_height</code>), coloured for the light or dark theme; a style with no vector source warns <code>mapview:buildings</code>. The first view fits the drawn rows; <code>view: { center, zoom, pitch, bearing }</code> sets it instead. <code>theme</code> is <code>light</code> or <code>dark</code>, by default the grid's own.</p>
@@ -15605,6 +15613,336 @@ seen.push(`${camera.at(-1)} ${draws.join()}`);
 
 map.destroy();
 seen.push(el.children.length);
+return seen.join(' | ');</code></pre>
+    </div>
+
+    <h3 id="mapview-draw">Map view: drawing and editing</h3>
+    <p>
+      <code>mapView.draw</code> draws and edits shapes on the map itself &mdash; points, lines, polygons, circles and
+      rectangles &mdash; in a layer above the data layers, styled from the map view's own theme roles. All three parts of
+      BACKLOG-0004658 are here: creating shapes, selecting, editing, moving, deleting and undoing them, and the precision
+      work &mdash; snapping, constraints, a measurement readout and touch.
+    </p>
+    <pre><code>map.draw.setMode('polygon');                           <span class="cmt">// 'point' | 'line' | 'polygon' | 'circle' | 'rectangle' | null</span>
+map.on('draw:finish', (e) =&gt; console.log(e.feature));  <span class="cmt">// a GeoJSON Feature, with a generated id</span></code></pre>
+    <p><strong>Switching modes.</strong> <code>setMode(mode, options)</code> switches what a click or a drag draws, at runtime; <code>null</code> turns drawing off. <code>options.properties</code> is merged onto every feature the mode finishes, until the mode changes again. Escape cancels the shape in progress without drawing it; so does calling <code>setMode</code> again.</p>
+    <p><strong>Building a shape.</strong> A click places a point, or adds a vertex to the line or polygon in progress; a double-click, or a click back on the first vertex, finishes it &mdash; a polygon's ring is always closed, and the double-clicked point is the last vertex (clicking a point and then double-clicking the same spot adds it once), and a double-click on a point a constraint refuses rejects it and leaves the shape open. A circle is dragged from its centre: its feature carries <code>properties.center</code> and <code>properties.radius</code> (in metres) alongside the polygon that approximates it. A rectangle is dragged corner to corner. None of this changes the grid's rows.</p>
+    <p><strong>Events.</strong> <code>draw:start</code> fires when a shape begins (a point's own click, a line or polygon's first vertex, or a circle or rectangle's drag starting); <code>draw:change</code> as it grows (a vertex added, or the drag moving); <code>draw:finish</code> once, with the finished <code>Feature</code>. <code>map:click</code> fires on every click on the map, drawing or not: <code>{ lng, lat, features }</code>, the data rows under the cursor.</p>
+    <p><strong>Reading and replacing shapes.</strong> <code>getFeatures()</code> returns every finished shape as a GeoJSON <code>FeatureCollection</code>; <code>setFeatures(geojson)</code> replaces them (a <code>FeatureCollection</code> or a bare array of <code>Feature</code>s), giving any feature with no <code>id</code> one; <code>clear()</code> removes them all. Each feature's <code>properties.readonly</code> (false for a shape the reader drew) is respected by edit mode: a readonly shape shows no handles and is never moved or deleted. <code>mapView.getMap()</code> is the MapLibre map itself &mdash; the escape hatch for anything this module does not wrap.</p>
+    <p><strong>Editing.</strong> <code>setMode('edit')</code> selects and edits the drawn shapes. A click selects a shape, Shift-click adds (or removes) one, a click on empty map or Escape clears the selection, and Delete or Backspace deletes the selected shapes. A selected line or polygon shows a handle on each vertex and a smaller one on each segment's midpoint: drag a vertex handle to move it, drag a midpoint to insert a vertex there, Alt-click (Option on macOS) a vertex &mdash; or click it and press Delete &mdash; to remove it, never below 2 vertices for a line or 3 for a polygon. Dragging a shape's body moves every selected shape. A circle has no vertex handles (its body still moves, and its <code>properties.center</code> with it), and a shape with <code>properties.readonly</code> can be selected but shows no handles and is never moved or deleted. Selected shapes and handles are painted from the map view's theme roles, so they follow light and dark.</p>
+    <p><strong>Undo and redo.</strong> Every create, edit, move and delete is one step: Ctrl/Cmd-Z undoes it, Ctrl/Cmd-Shift-Z (or Ctrl-Y) redoes it, and <code>draw.undo()</code> / <code>draw.redo()</code> do the same from code, for up to 100 steps. <code>setFeatures()</code> and <code>clear()</code> start a new history. Undo and redo fire no event of their own; read <code>getFeatures()</code>.</p>
+    <p><strong>Edit events.</strong> <code>edit:change</code> fires on release with <code>{ id, geometry, feature }</code> &mdash; once per vertex drag, midpoint insert, vertex removal, or (for a move of several shapes) per shape moved. <code>feature:select</code> fires with <code>{ ids }</code> whenever the selection changes; <code>feature:delete</code> fires once with <code>{ ids }</code> for the shapes a Delete removed.</p>
+    <p><strong>Snapping.</strong> <code>setMode(mode, { snap: { layers: ['chambers'], tolerance: 10 } })</code> snaps a new or moved vertex to the vertices, then the segments, of the features on those layers within <code>tolerance</code> pixels (default 10). A layer id names one of the page's own MapLibre layers &mdash; added with <code>mapView.getMap()</code>; a GeoJSON source given as an object snaps to its exact coordinates &mdash; or the drawn features whose <code>properties.layer</code> is that id (set it with <code>setMode</code>'s <code>properties</code> option). A vertex that snaps to a vertex takes that vertex's coordinates exactly, so a route can end on a chamber point and a cable can follow a route; a ring marks the target while the pointer is near it. Snapping works in <code>'edit'</code> mode too, for a dragged vertex.</p>
+    <p><strong>Constraints.</strong> <code>setMode(mode, { constraints })</code> keeps a shape within rules: <code>geometryTypes</code> (<code>'Point'</code>, <code>'LineString'</code>, <code>'Polygon'</code>: the types the mode may draw), <code>maxVertices</code>, <code>minSegmentLength</code> (metres between neighbouring vertices) and <code>noSelfIntersection</code> (a polygon may not cross itself). A vertex that would break one is refused: it is not added or moved, a ring marks the spot, the readout says why for a moment, and <code>draw:refused</code> fires with <code>{ mode, rule, position }</code>, where <code>rule</code> is <code>'geometry-type'</code>, <code>'max-vertices'</code>, <code>'min-segment-length'</code> or <code>'self-intersection'</code>.</p>
+    <p><strong>Measurement.</strong> While a shape is drawn or edited, a readout beside the cursor gives a line's length and its active segment (m below 1 km, then km) or a polygon's or circle's area and perimeter (m&sup2; below 1 ha, then ha), in the grid's locale number format (so <code>1.00 km</code> in <code>en-GB</code>, <code>1,00 km</code> in <code>de-DE</code>). It stays inside the map, follows the light or dark theme, and lingers on a finished shape until the pointer moves.</p>
+    <p><strong>Touch.</strong> Drawing and editing work on a tablet: tap to add a vertex, long-press to finish a line or polygon, drag a vertex or midpoint handle with one finger (handles are at least 24px touch targets, larger once a finger has touched the map), and long-press a vertex handle to remove it. Two fingers always pan and zoom the map, and never add a vertex.</p>
+    <div class="example">
+      <p class="example__label">Drawing a point, a line closed by clicking its first vertex, a polygon finished by a double-click, and a circle dragged from its centre; a setFeatures/getFeatures round trip; getMap()</p>
+      <pre data-run="js" data-expect="point:reader 0.9,51.88 | line 0.9,51.88,0.91,51.88,0.92,51.88 | polygon 0.9,51.88,0.91,51.88,0.91,51.89,0.9,51.88 | circle r=68.6m verts=65 | 4 shapes | point,line,polygon,circle | 1 after setFeatures, readonly=true | 0 after clear | true" data-covers="export:createMapView config:MapViewOptions.geometry config:MapViewDrawOptions.properties method:mapview.getMap"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createMapView } = await import('../packages/modules/mapview/index.js');
+
+const dom = createTestDom();
+const el = dom.document.createElement('div');
+dom.root.appendChild(el);
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'lat', type: 'number' }, { field: 'lng', type: 'number' }],
+  rows: [{ id: 'p1', lat: 51.88, lng: 0.9 }],
+});
+
+// Stand-ins for the page's deck.gl and MapLibre: real enough to drive the draw
+// layer's own event handlers directly, the way a reader's mouse would.
+const layer = (kind) =&gt; class { constructor(props) { this.props = props; this.kind = kind; } };
+const deck = {
+  ScatterplotLayer: layer('point'), ColumnLayer: layer('column'), GeoJsonLayer: layer('polygon'),
+  PathLayer: layer('path'), TripsLayer: layer('flow'),
+  MapboxOverlay: class { constructor(p) { this.props = p; } setProps(p) { Object.assign(this.props, p); } },
+};
+const toggle = { enable() {}, disable() {} };
+const maplibregl = {
+  Map: class {
+    constructor() { this.handlers = {}; this.doubleClickZoom = toggle; this.dragPan = toggle; this.dragRotate = toggle; this.boxZoom = toggle; }
+    on(type, fn) { this.handlers[type] = fn; } off() {} addControl() {} removeControl() {} remove() {} resize() {} setStyle() {}
+    getZoom() { return 12; } getBounds() { return null; } getStyle() { return { sources: {} }; } getPitch() { return 0; }
+    getLayer() {} addLayer() {} jumpTo() {} fitBounds() {} flyTo() {}
+    // A flat, invertible fake projection: good enough for the draw layer's own "near the first vertex" check.
+    project([lng, lat]) { return { x: lng * 1000, y: lat * 1000 }; }
+  },
+};
+
+const map = createMapView(grid, { container: el, libs: { deck, maplibregl }, geometry: { lat: 'lat', lng: 'lng' } });
+const m = map.map;
+const click = (lng, lat, detail = 1) =&gt; m.handlers.click({ lngLat: { lng, lat }, point: { x: lng * 1000, y: lat * 1000 }, originalEvent: { detail } });
+const seen = [];
+
+map.draw.setMode('point', { properties: { source: 'reader' } });
+map.on('draw:finish', (e) =&gt; {
+  const f = e.feature;
+  seen.push(f.properties.shape === 'circle'
+    ? `${f.properties.shape} r=${f.properties.radius.toFixed(1)}m verts=${f.geometry.coordinates[0].length}`
+    : `${f.properties.shape}${f.properties.source ? ':' + f.properties.source : ''} ${f.geometry.coordinates.flat().join(',')}`);
+});
+click(0.90, 51.88);                                 // a point finishes on its own click; its properties carry setMode's options
+
+map.draw.setMode('line');
+click(0.90, 51.88); click(0.91, 51.88); click(0.92, 51.88);
+click(0.90, 51.88);                                 // clicking back on the first vertex finishes the line
+
+map.draw.setMode('polygon');
+click(0.90, 51.88); click(0.91, 51.88); click(0.91, 51.89); click(0.90, 51.89);
+click(1.0, 52.0, 1); m.handlers.dblclick({ lngLat: { lng: 1.0, lat: 52.0 }, point: { x: 1000, y: 52000 } }); // a double-click finishes it, adding no vertex of its own
+
+map.draw.setMode('circle');
+m.handlers.mousedown({ lngLat: { lng: 0.9, lat: 51.88 } });
+m.handlers.mousemove({ lngLat: { lng: 0.901, lat: 51.88 } });
+m.handlers.mouseup({});
+
+seen.push(`${map.draw.getFeatures().features.length} shapes`);
+seen.push(map.draw.getFeatures().features.map((f) =&gt; f.properties.shape).join(','));
+
+map.draw.setFeatures({ type: 'FeatureCollection', features: [
+  { type: 'Feature', id: 'a', geometry: { type: 'Point', coordinates: [1, 2] }, properties: { shape: 'point', readonly: true } },
+] });
+seen.push(`${map.draw.getFeatures().features.length} after setFeatures, readonly=${map.draw.getFeatures().features[0].properties.readonly}`);
+
+map.draw.clear();
+seen.push(`${map.draw.getFeatures().features.length} after clear`);
+seen.push(map.getMap() === map.map);
+
+map.destroy();
+return seen.join(' | ');</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Editing: select two shapes, delete them with the Delete key, undo and redo, and a readonly shape that ignores Delete</p>
+      <pre data-run="js" data-covers="export:createMapView config:MapViewOptions.geometry" data-expect="selected a,b | deleted a,b | 1 left | undo 3 | redo 1 | readonly kept"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createMapView } = await import('../packages/modules/mapview/index.js');
+
+const dom = createTestDom();
+const el = dom.document.createElement('div');
+dom.root.appendChild(el);
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'lat', type: 'number' }, { field: 'lng', type: 'number' }],
+  rows: [{ id: 'p1', lat: 51.88, lng: 0.9 }],
+});
+
+// Stand-ins for the page's deck.gl and MapLibre, as in the drawing example above.
+const layer = (kind) =&gt; class { constructor(props) { this.props = props; this.kind = kind; } };
+const deck = {
+  ScatterplotLayer: layer('point'), ColumnLayer: layer('column'), GeoJsonLayer: layer('polygon'),
+  PathLayer: layer('path'), TripsLayer: layer('flow'),
+  MapboxOverlay: class { constructor(p) { this.props = p; } setProps(p) { Object.assign(this.props, p); } },
+};
+const toggle = { enable() {}, disable() {} };
+const maplibregl = {
+  Map: class {
+    constructor() { this.handlers = {}; this.doubleClickZoom = toggle; this.dragPan = toggle; this.dragRotate = toggle; this.boxZoom = toggle; }
+    on(type, fn) { this.handlers[type] = fn; } off() {} addControl() {} removeControl() {} remove() {} resize() {} setStyle() {}
+    getZoom() { return 12; } getBounds() { return null; } getStyle() { return { sources: {} }; } getPitch() { return 0; }
+    getLayer() {} addLayer() {} jumpTo() {} fitBounds() {} flyTo() {}
+    project([lng, lat]) { return { x: lng * 1000, y: lat * 1000 }; }
+  },
+};
+
+const map = createMapView(grid, { container: el, libs: { deck, maplibregl }, geometry: { lat: 'lat', lng: 'lng' } });
+const m = map.map;
+const click = (lng, lat, shiftKey = false) =&gt; m.handlers.click({ lngLat: { lng, lat }, point: { x: lng * 1000, y: lat * 1000 }, originalEvent: { detail: 1, shiftKey } });
+const key = (k, extra = {}) =&gt; dom.document.dispatchEvent({ type: 'keydown', key: k, bubbles: true, target: null, preventDefault() {}, stopPropagation() {}, ...extra });
+const point = (id, lng, readonly) =&gt; ({ type: 'Feature', id, geometry: { type: 'Point', coordinates: [lng, 51.88] }, properties: { shape: 'point', readonly } });
+const seen = [];
+
+map.on('feature:select', (e) =&gt; { if (e.ids.length &gt; 1) seen.push(`selected ${e.ids.join(',')}`); });
+map.on('feature:delete', (e) =&gt; seen.push(`deleted ${e.ids.join(',')}`));
+map.draw.setFeatures([point('a', 0.90, false), point('b', 0.91, false), point('c', 0.92, true)]);
+map.draw.setMode('edit');
+
+click(0.90, 51.88);                                 // a click selects a shape
+click(0.91, 51.88, true);                           // Shift-click adds one: feature:select now reports both
+key('Delete');                                      // Delete removes the selected shapes: one feature:delete with both ids
+seen.push(`${map.draw.getFeatures().features.length} left`);
+
+map.draw.undo();                                    // the same as Ctrl/Cmd-Z
+seen.push(`undo ${map.draw.getFeatures().features.length}`);
+map.draw.redo();
+seen.push(`redo ${map.draw.getFeatures().features.length}`);
+
+click(0.92, 51.88); key('Delete');                  // a readonly shape can be selected but is never deleted
+seen.push(map.draw.getFeatures().features.some((f) =&gt; f.id === 'c') ? 'readonly kept' : 'readonly lost');
+
+map.destroy();
+return seen.join(' | ');</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Precision: a line vertex snapped to a chamber layer, one dropped too far away left alone, and a polygon vertex refused for crossing the polygon</p>
+      <pre data-run="js" data-covers="export:createMapView config:MapViewDrawOptions.snap config:MapViewDrawOptions.constraints" data-expect="snapped 0.9,51.88 | unsnapped 0.92,51.88 | refused self-intersection | triangle 4 positions"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createMapView } = await import('../packages/modules/mapview/index.js');
+
+const dom = createTestDom();
+const el = dom.document.createElement('div');
+dom.root.appendChild(el);
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'lat', type: 'number' }, { field: 'lng', type: 'number' }],
+  rows: [{ id: 'p1', lat: 51.88, lng: 0.9 }],
+});
+
+// Stand-ins for the page's deck.gl and MapLibre, as in the drawing example above.
+const layer = (kind) =&gt; class { constructor(props) { this.props = props; this.kind = kind; } };
+const deck = {
+  ScatterplotLayer: layer('point'), ColumnLayer: layer('column'), GeoJsonLayer: layer('polygon'),
+  PathLayer: layer('path'), TripsLayer: layer('flow'),
+  MapboxOverlay: class { constructor(p) { this.props = p; } setProps(p) { Object.assign(this.props, p); } },
+};
+const toggle = { enable() {}, disable() {} };
+const maplibregl = {
+  Map: class {
+    constructor() { this.handlers = {}; this.doubleClickZoom = toggle; this.dragPan = toggle; this.dragRotate = toggle; this.boxZoom = toggle; }
+    on(type, fn) { this.handlers[type] = fn; } off() {} addControl() {} removeControl() {} remove() {} resize() {} setStyle() {}
+    getZoom() { return 12; } getBounds() { return null; } getStyle() { return { sources: {} }; } getPitch() { return 0; }
+    getLayer() {} addLayer() {} jumpTo() {} fitBounds() {} flyTo() {}
+    project([lng, lat]) { return { x: lng * 1000, y: lat * 1000 }; }
+  },
+};
+
+const map = createMapView(grid, { container: el, libs: { deck, maplibregl }, geometry: { lat: 'lat', lng: 'lng' } });
+const m = map.map;
+const click = (lng, lat) =&gt; m.handlers.click({ lngLat: { lng, lat }, point: { x: lng * 1000, y: lat * 1000 }, originalEvent: { detail: 1 } });
+const seen = [];
+const snap = { layers: ['chambers'], tolerance: 10 };
+
+// A chamber on the 'chambers' snap layer: a drawn point whose properties.layer names it.
+map.draw.setFeatures([{ type: 'Feature', id: 'ch', geometry: { type: 'Point', coordinates: [0.9, 51.88] }, properties: { shape: 'point', readonly: true, layer: 'chambers' } }]);
+
+map.draw.setMode('line', { snap });
+click(0.80, 51.80); click(0.906, 51.88);            // 6px from the chamber: it takes the chamber's coordinates exactly
+click(0.95, 51.90); click(0.80, 51.80);             // back on the first vertex: finish
+seen.push(`snapped ${map.draw.getFeatures().features.find((f) =&gt; f.properties.shape === 'line').geometry.coordinates[1].join(',')}`);
+
+map.draw.setMode('line', { snap });
+click(0.50, 51.50); click(0.92, 51.88);             // 20px away: too far to snap
+click(0.95, 51.90); click(0.50, 51.50);
+seen.push(`unsnapped ${map.draw.getFeatures().features.filter((f) =&gt; f.properties.shape === 'line')[1].geometry.coordinates[1].join(',')}`);
+
+map.on('draw:refused', (e) =&gt; seen.push(`refused ${e.rule}`));
+map.draw.setMode('polygon', { constraints: { noSelfIntersection: true } });
+click(0.80, 51.80); click(0.90, 51.90); click(0.90, 51.80);
+click(0.80, 51.90);                                 // this vertex would make the polygon cross itself: refused
+click(0.80, 51.80);                                 // the first vertex closes the triangle
+seen.push(`triangle ${map.draw.getFeatures().features.find((f) =&gt; f.properties.shape === 'polygon').geometry.coordinates[0].length} positions`);
+
+map.destroy();
+return seen.join(' | ');</code></pre>
+    </div>
+
+    <p><strong>Moving a grid row.</strong> The drawn shapes are the map view's own, but the grid's rows can be moved too. Set <code>moveRows: true</code> (off by default) and, in edit mode, a row placed by <code>geometry: { lat, lng }</code> shows the move cursor when the pointer is over its point; drag it and the point follows, and on release the new latitude and longitude are written through the grid's own editing path (<code>grid.edit.setCells</code>, origin <code>'user'</code>), exactly as if they had been typed into the two cells. The column's validation, <code>beforeEdit</code>, the grid's undo, its change events and a server write-back all apply, and the two cells are one edit and one undo step. An edit the grid refuses puts the point back where it was. A row whose latitude or longitude cell cannot be edited (a read-only column, row or grid) shows no move cursor and cannot be dragged. With <code>moveRows</code> off a drag on a row pans the map as before, and the drawn shapes behave the same either way. Only rows placed by latitude and longitude move; rows placed by a <code>geojson</code> or <code>path</code> column do not.</p>
+    <div class="example">
+      <p class="example__label">Moving a row: with moveRows on, dragging its point writes both cells as one edit, and one grid undo puts them back</p>
+      <pre data-run="js" data-covers="export:createMapView config:MapViewOptions.geometry config:MapViewOptions.moveRows" data-expect="moved 51.89,0.905 | one edit | undone 51.88,0.9"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createMapView } = await import('../packages/modules/mapview/index.js');
+
+const dom = createTestDom();
+const el = dom.document.createElement('div');
+dom.root.appendChild(el);
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'lat', type: 'number', edit: true }, { field: 'lng', type: 'number', edit: true }],
+  rows: [{ id: 'cabinet-7', lat: 51.88, lng: 0.9 }],
+});
+
+// Stand-ins for the page's deck.gl and MapLibre, as in the drawing example above, with a canvas to press on.
+const layer = (kind) =&gt; class { constructor(props) { this.props = props; this.kind = kind; } };
+const deck = {
+  ScatterplotLayer: layer('point'), ColumnLayer: layer('column'), GeoJsonLayer: layer('polygon'),
+  PathLayer: layer('path'), TripsLayer: layer('flow'),
+  MapboxOverlay: class { constructor(p) { this.props = p; } setProps(p) { Object.assign(this.props, p); } },
+};
+const toggle = { enable() {}, disable() {} };
+const canvas = { listeners: {}, addEventListener(type, fn) { (this.listeners[type] = this.listeners[type] || []).push(fn); }, removeEventListener() {} };
+const maplibregl = {
+  Map: class {
+    constructor() { this.handlers = {}; this.doubleClickZoom = toggle; this.dragPan = toggle; this.dragRotate = toggle; this.boxZoom = toggle; }
+    on(type, fn) { this.handlers[type] = fn; } off() {} addControl() {} removeControl() {} remove() {} resize() {} setStyle() {}
+    getZoom() { return 12; } getBounds() { return null; } getStyle() { return { sources: {} }; } getPitch() { return 0; }
+    getLayer() {} addLayer() {} jumpTo() {} fitBounds() {} flyTo() {}
+    getCanvasContainer() { return canvas; } getCanvas() { return { getBoundingClientRect: () =&gt; ({ left: 0, top: 0 }) }; }
+    project([lng, lat]) { return { x: lng * 1000, y: lat * 1000 }; }
+    unproject([x, y]) { return { lng: x / 1000, lat: y / 1000 }; }
+  },
+};
+
+const map = createMapView(grid, { container: el, libs: { deck, maplibregl }, geometry: { lat: 'lat', lng: 'lng' }, moveRows: true });
+const seen = [];
+let edits = 0;
+grid.on('rows:changed', () =&gt; { edits += 1; });
+
+map.draw.setMode('edit');
+const mouse = (type, x, y) =&gt; dom.document.dispatchEvent({ type, clientX: x, clientY: y, button: 0, bubbles: true, target: null });
+const press = (x, y) =&gt; { for (const fn of canvas.listeners.mousedown) fn({ button: 0, clientX: x, clientY: y, stopPropagation() {} }); };
+
+press(900, 51880);                                  // on cabinet-7's point: it is taken, not the map
+mouse('mousemove', 902, 51885);
+mouse('mousemove', 905, 51890);                     // the point follows the pointer
+mouse('mouseup', 905, 51890);                       // released: lat and lng are written together
+const row = () =&gt; grid.rows.byKey('cabinet-7').data;
+seen.push(`moved ${row().lat},${row().lng}`);
+seen.push(edits === 1 ? 'one edit' : `${edits} edits`);
+
+grid.edit.undo();                                   // one undo puts both cells back
+seen.push(`undone ${row().lat},${row().lng}`);
+
+map.destroy();
+return seen.join(' | ');</code></pre>
+    </div>
+
+    <div class="example">
+      <p class="example__label">Point size: a marker is held to a pixel cap when zoomed in, or set in pixels with radiusUnits</p>
+      <pre data-run="js" data-covers="export:createMapView config:MapViewOptions.geometry config:MapViewOptions.radius config:MapViewOptions.radiusMaxPixels config:MapViewOptions.radiusUnits" data-expect="meters cap 24 min 3 | meters cap 10 | pixels 8"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const { createMapView } = await import('../packages/modules/mapview/index.js');
+
+const dom = createTestDom();
+const el = dom.document.createElement('div');
+dom.root.appendChild(el);
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'lat', type: 'number' }, { field: 'lng', type: 'number' }],
+  rows: [{ id: 'cabinet-7', lat: 51.88, lng: 0.9 }],
+});
+
+// Stand-ins for the page's deck.gl and MapLibre, as in the drawing example above.
+const layer = (kind) =&gt; class { constructor(props) { this.props = props; this.kind = kind; } };
+const deck = {
+  ScatterplotLayer: layer('point'), ColumnLayer: layer('column'), GeoJsonLayer: layer('polygon'),
+  PathLayer: layer('path'), TripsLayer: layer('flow'),
+  MapboxOverlay: class { constructor(p) { this.props = p; } setProps(p) { Object.assign(this.props, p); } },
+};
+const maplibregl = {
+  Map: class {
+    on() {} off() {} addControl() {} removeControl() {} remove() {} resize() {} setStyle() {}
+    getZoom() { return 12; } getBounds() { return null; } getStyle() { return { sources: {} }; }
+    getLayer() {} addLayer() {} jumpTo() {} fitBounds() {} flyTo() {}
+  },
+};
+
+const map = createMapView(grid, { container: el, libs: { deck, maplibregl }, geometry: { lat: 'lat', lng: 'lng' } });
+const point = () =&gt; map.overlay.props.layers.find((l) =&gt; l.kind === 'point').props;
+const seen = [];
+let p = point();
+seen.push(`${p.radiusUnits} cap ${p.radiusMaxPixels} min ${p.radiusMinPixels}`);   // 30 m, never past 24 px
+map.update({ radiusMaxPixels: 10 });
+p = point();
+seen.push(`${p.radiusUnits} cap ${p.radiusMaxPixels}`);
+map.update({ radiusMaxPixels: undefined, radiusUnits: 'pixels', radius: 8 });      // the same 8 px at every zoom
+p = point();
+seen.push(`${p.radiusUnits} ${p.getRadius(p.data[0])}`);
+
+map.destroy();
 return seen.join(' | ');</code></pre>
     </div>
 
@@ -29536,6 +29874,81 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-MapViewDrawOptions">MapViewDrawOptions</h4>
+    <p class="section-note">What {@link MapViewDraw.setMode} takes besides the mode itself.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">properties</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Properties merged onto every feature this mode finishes, until the mode changes again. Set `layer` to put the drawn shapes on a snap layer of their own (see `snap`). <small>(optional)</small></td></tr>
+          <tr><td class="name">snap</td><td class="type"><a href="#type-MapViewDrawSnap">MapViewDrawSnap</a></td><td class="desc">Snap a new or moved vertex (BACKLOG-0004658 part 3) to the vertices, then the segments, of the features on `layers`, within `tolerance` pixels. A vertex snapped to a vertex takes that vertex's coordinates exactly. A layer id names a MapLibre layer of the page's own (a GeoJSON source given as an object snaps to its exact coordinates) or the drawn features whose `properties.layer` is that id. <small>(optional)</small></td></tr>
+          <tr><td class="name">constraints</td><td class="type"><a href="#type-MapViewDrawConstraints">MapViewDrawConstraints</a></td><td class="desc">Rules a vertex must keep. A vertex that would break one is refused: it is not added or moved, a cue shows in the readout and `draw:refused` names the rule. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-MapViewDrawSnap">MapViewDrawSnap</h4>
+    <p class="section-note">Where a vertex snaps to: see {@link MapViewDrawOptions.snap}.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">layers</td><td class="type">string[]</td><td class="desc">The layer ids to snap to.</td></tr>
+          <tr><td class="name">tolerance</td><td class="type">number</td><td class="desc">How close, in pixels, a vertex must be to a target to snap to it. Default 10, at most 100. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-MapViewDrawConstraints">MapViewDrawConstraints</h4>
+    <p class="section-note">The rules {@link MapViewDrawOptions.constraints} sets, each optional.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">geometryTypes</td><td class="type">Array&lt;'Point' | 'LineString' | 'Polygon'&gt;</td><td class="desc">The geometry types the mode may draw. A mode that would draw another is refused at its first vertex (`geometry-type`). `point` draws a `Point`, `line` a `LineString`, the rest a `Polygon`. <small>(optional)</small></td></tr>
+          <tr><td class="name">maxVertices</td><td class="type">number</td><td class="desc">The most vertices a line or polygon may have (`max-vertices`). <small>(optional)</small></td></tr>
+          <tr><td class="name">minSegmentLength</td><td class="type">number</td><td class="desc">The shortest segment, in metres, between neighbouring vertices (`min-segment-length`). <small>(optional)</small></td></tr>
+          <tr><td class="name">noSelfIntersection</td><td class="type">boolean</td><td class="desc">Refuse a polygon vertex that would make the polygon cross itself (`self-intersection`). <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-MapViewDrawFeature">MapViewDrawFeature</h4>
+    <p class="section-note">One shape the draw layer holds: a GeoJSON `Feature` with a generated `id`. `properties.shape` names the mode that drew it; `properties.readonly` (false for a shape the reader drew) is respected by part 2's selection and deletion. A circle's `properties` also carry `center` (`[lng, lat]`) and `radius` (metres); its `geometry` is the polygon that approximates it.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">'Feature'</td><td class="desc">Always `'Feature'`, as GeoJSON requires. <small>(read-only)</small></td></tr>
+          <tr><td class="name">id</td><td class="type">string</td><td class="desc">A generated id, unique within this map view's draw layer. <small>(read-only)</small></td></tr>
+          <tr><td class="name">geometry</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">The GeoJSON geometry: a `Point`, `LineString` or `Polygon` (a circle and a rectangle are both a `Polygon`).</td></tr>
+          <tr><td class="name">properties</td><td class="type">Record&lt;string, unknown&gt; &amp; { shape: <a href="#type-MapViewDrawMode">MapViewDrawMode</a>; readonly: boolean }</td><td class="desc">`shape` names the drawing mode; `readonly` is respected by part 2's selection and deletion; a circle also carries `center` and `radius`.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-MapViewDrawFeatureCollection">MapViewDrawFeatureCollection</h4>
+    <p class="section-note">A `FeatureCollection` of {@link MapViewDrawFeature}.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">type</td><td class="type">'FeatureCollection'</td><td class="desc">Always `'FeatureCollection'`, as GeoJSON requires. <small>(read-only)</small></td></tr>
+          <tr><td class="name">features</td><td class="type"><a href="#type-MapViewDrawFeature">MapViewDrawFeature</a>[]</td><td class="desc">The shapes.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-MapViewDraw">MapViewDraw</h4>
+    <p class="section-note">Draw and edit shapes on the map view (BACKLOG-0004658 parts 1 and 2 of 3: create, then select and edit), in a layer above the data layers, styled from the map view's own theme roles. A click places a point, or adds a vertex to the line or polygon in progress; a double-click, or a click back on the first vertex, finishes it (a polygon's ring is always closed). A circle is dragged from its centre; a rectangle from corner to corner. Escape discards the shape in progress; so does switching `setMode` to a different mode. None of this changes the grid's rows. `setMode('edit')` selects and edits: a click selects a shape, Shift-click adds (or removes) one, a click on empty map or Escape clears, and Delete/Backspace deletes the selected shapes. A selected line or polygon shows a handle on each vertex and a smaller one on each segment's midpoint: drag a vertex to move it, drag a midpoint to insert a vertex, Alt-click (Option on macOS) a vertex, or click it and press Delete, to remove it (never below 2 vertices for a line or 3 for a polygon). Dragging a shape's body moves every selected shape. A circle has no vertex handles but its body moves. A shape with `properties.readonly` can be selected but shows no handles and is never moved or deleted. Ctrl/Cmd-Z and Ctrl/Cmd-Shift-Z undo and redo every create, edit, move and delete. Part 3 adds precision. `setMode`'s `snap` and `constraints` options snap a vertex to other features and refuse one that breaks a rule. While a shape is drawn or edited a readout beside the cursor gives its length and active segment (m / km), or its area and perimeter (m² / ha), in the grid's locale, kept inside the map. Touch works: tap to add a vertex, long-press to finish, drag a handle (a touch target of at least 24px); two fingers pan and zoom the map and never add a vertex.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">setMode</td><td class="type">(mode: <a href="#type-MapViewDrawControlMode">MapViewDrawControlMode</a> | null, options?: <a href="#type-MapViewDrawOptions">MapViewDrawOptions</a>): void</td><td class="desc"><code>mode: <a href="#type-MapViewDrawControlMode">MapViewDrawControlMode</a> | null</code><br><code>options?: <a href="#type-MapViewDrawOptions">MapViewDrawOptions</a></code></td><td class="type"><code>void</code></td><td class="desc">Switch what a click or a drag draws, at runtime; `null` turns drawing off. A shape already in progress under the old mode is discarded. A mode that is none of these leaves the mode unchanged.</td></tr>
+          <tr><td class="name">getFeatures</td><td class="type">(): <a href="#type-MapViewDrawFeatureCollection">MapViewDrawFeatureCollection</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-MapViewDrawFeatureCollection">MapViewDrawFeatureCollection</a></code></td><td class="desc">Every finished shape, as a `FeatureCollection`.</td></tr>
+          <tr><td class="name">setFeatures</td><td class="type">(geojson: <a href="#type-MapViewDrawFeatureCollection">MapViewDrawFeatureCollection</a> | <a href="#type-MapViewDrawFeature">MapViewDrawFeature</a>[]): void</td><td class="desc"><code>geojson: <a href="#type-MapViewDrawFeatureCollection">MapViewDrawFeatureCollection</a> | <a href="#type-MapViewDrawFeature">MapViewDrawFeature</a>[]</code></td><td class="type"><code>void</code></td><td class="desc">Replace every finished shape with the features of a `FeatureCollection` (or a bare array of `Feature`s). A shape in progress is discarded. A feature with no `id` is given one; `properties.readonly` defaults to false.</td></tr>
+          <tr><td class="name">clear</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Remove every finished shape. A shape in progress is discarded too. Starts a new undo history.</td></tr>
+          <tr><td class="name">undo</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Undo the last create, edit, move or delete in this session (up to 100 steps). Fires no event of its own; read `getFeatures()`. `setFeatures` and `clear` start a new history.</td></tr>
+          <tr><td class="name">redo</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Redo the change last undone, until a new change is made.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-MapViewOptions">MapViewOptions</h4>
     <p class="section-note">What {@link createMapView} takes.</p>
     <div class="table-wrap">
@@ -29550,12 +29963,15 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">elevationScale</td><td class="type">number</td><td class="desc">A multiplier on `elevation`. Default 1. <small>(optional)</small></td></tr>
           <tr><td class="name">color</td><td class="type"><a href="#type-MapViewColour">MapViewColour</a></td><td class="desc">How rows are coloured. Default the grid theme's accent. <small>(optional)</small></td></tr>
           <tr><td class="name">radius</td><td class="type">string | number</td><td class="desc">A marker's radius in metres: a numeric column or one number (default 30). A `column` layer draws every column at one radius, so only a number applies to it. <small>(optional)</small></td></tr>
+          <tr><td class="name">radiusMaxPixels</td><td class="type">number</td><td class="desc">The largest a marker is drawn, in pixels, when `radiusUnits` is `'meters'` (the default 24): zoomed in, a marker stops growing at this size instead of covering buildings. Zoomed out it keeps its metres size, never under 3 pixels. Columns and areas are unaffected. <small>(optional)</small></td></tr>
+          <tr><td class="name">radiusUnits</td><td class="type">'meters' | 'pixels'</td><td class="desc">What `radius` means for markers: `'meters'` (default, a size on the ground) or `'pixels'` (the same size on screen at every zoom; hit-testing, selection and `moveRows` work at that size, and an unset radius is 6 pixels). Columns always use metres. <small>(optional)</small></td></tr>
           <tr><td class="name">width</td><td class="type">string | number</td><td class="desc">A route's width in pixels: a numeric column or one number. Default 3. A route is always drawn between 2 and 30 pixels wide whatever its width, wide enough to read at street level among extruded buildings, and drawn 2 m above the ground (4 m for points when routes are in view) so it does not z-fight the basemap at pitch. <small>(optional)</small></td></tr>
           <tr><td class="name">dash</td><td class="type"><a href="#type-MapViewDash">MapViewDash</a></td><td class="desc">Dash lines by value or all alike; see {@link MapViewDash}. The legend shows each pattern the map names. <small>(optional)</small></td></tr>
           <tr><td class="name">icon</td><td class="type"><a href="#type-MapViewIcon">MapViewIcon</a></td><td class="desc">Icon markers for point rows; see {@link MapViewIcon}. <small>(optional)</small></td></tr>
           <tr><td class="name">legend</td><td class="type">boolean</td><td class="desc">Show a legend in the map's box: a swatch for each colour the `color` rule maps and a sample line for each pattern `dash` names. Default off; `legend()` returns the same entries as data. <small>(optional)</small></td></tr>
           <tr><td class="name">flow</td><td class="type"><a href="#type-MapViewFlow">MapViewFlow</a></td><td class="desc">Animate a flow along the routes. Stops while the page is hidden, and is drawn still when the reader prefers reduced motion. <small>(optional)</small></td></tr>
           <tr><td class="name">buildings</td><td class="type">boolean</td><td class="desc">Add 3D buildings from the basemap's OpenMapTiles `building` layer (`render_height`, `render_min_height`), coloured for the light or dark theme. Off by default. A style with no vector source warns `mapview:buildings`. <small>(optional)</small></td></tr>
+          <tr><td class="name">moveRows</td><td class="type">boolean</td><td class="desc">Let rows placed by `geometry: { lat, lng }` be moved by dragging their point on the map in edit mode (`draw.setMode('edit')`). On release the new latitude and longitude are written through the grid's own editing path (`grid.edit.setCells`, origin `'user'`), so validation, `beforeEdit`, the grid's undo, its change events and a server write-back behave as for a typed cell edit; the two cells are one edit and one undo step. A refused edit puts the point back. A row whose latitude or longitude cell cannot be edited (read-only column, row or grid) shows no move cursor and cannot be dragged. Rows placed by a `geojson` or `path` column are not movable. Off by default: with it off a drag on a row pans the map. <small>(optional)</small></td></tr>
           <tr><td class="name">basemap</td><td class="type">string | Record&lt;string, unknown&gt;</td><td class="desc">A MapLibre style URL or style object. Default OpenFreeMap's keyless positron, or its dark style for a dark theme. <small>(optional)</small></td></tr>
           <tr><td class="name">view</td><td class="type"><a href="#type-MapViewCamera">MapViewCamera</a></td><td class="desc">The initial camera. Default: fitted to the drawn rows. <small>(optional)</small></td></tr>
           <tr><td class="name">theme</td><td class="type">'light' | 'dark' | 'auto'</td><td class="desc">`light` or `dark`; default the grid's own (`data-theme` above it, `auto` read from the reader's colour-scheme preference). <small>(optional)</small></td></tr>
@@ -29593,6 +30009,14 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">draw</td><td class="type">{ provenance: <a href="#type-MapViewProvenance">MapViewProvenance</a> }</td><td class="desc">The layers were redrawn.</td></tr>
           <tr><td class="name">load</td><td class="type">{ map: unknown }</td><td class="desc">The basemap style loaded (at first, and after a basemap or theme change).</td></tr>
           <tr><td class="name">close</td><td class="type">Record&lt;string, never&gt;</td><td class="desc">The reader closed a popped-out map.</td></tr>
+          <tr><td class="name">map:click</td><td class="type">{ lng: number; lat: number; features: unknown[] }</td><td class="desc">A click anywhere on the map (BACKLOG-0004658): where, and the data rows' features under the cursor, whether or not a draw mode is active.</td></tr>
+          <tr><td class="name">draw:start</td><td class="type">{ mode: <a href="#type-MapViewDrawMode">MapViewDrawMode</a>; feature: <a href="#type-MapViewDrawFeature">MapViewDrawFeature</a> }</td><td class="desc">A shape started (BACKLOG-0004658): a point's own click, the first vertex of a line or polygon, or a circle or rectangle's drag beginning.</td></tr>
+          <tr><td class="name">draw:change</td><td class="type">{ mode: <a href="#type-MapViewDrawMode">MapViewDrawMode</a>; feature: <a href="#type-MapViewDrawFeature">MapViewDrawFeature</a> }</td><td class="desc">The shape in progress changed (BACKLOG-0004658): a vertex added, or the drag moved.</td></tr>
+          <tr><td class="name">draw:finish</td><td class="type">{ feature: <a href="#type-MapViewDrawFeature">MapViewDrawFeature</a> }</td><td class="desc">A shape finished (BACKLOG-0004658): the feature now held by `draw.getFeatures()`.</td></tr>
+          <tr><td class="name">draw:refused</td><td class="type">{ mode: <a href="#type-MapViewDrawControlMode">MapViewDrawControlMode</a>; rule: <a href="#type-MapViewDrawRule">MapViewDrawRule</a>; position: [number, number] }</td><td class="desc">A vertex was refused (BACKLOG-0004658 part 3) for breaking a rule of `setMode`'s `constraints`: the mode, the rule, and where the vertex would have gone.</td></tr>
+          <tr><td class="name">edit:change</td><td class="type">{ id: string | number; geometry: Record&lt;string, unknown&gt;; feature: <a href="#type-MapViewDrawFeature">MapViewDrawFeature</a> }</td><td class="desc">A shape was reshaped or moved in edit mode (BACKLOG-0004658), fired on release: its id and its new geometry. A move of several selected shapes fires one per shape; a vertex removed fires one too.</td></tr>
+          <tr><td class="name">feature:select</td><td class="type">{ ids: Array&lt;string | number&gt; }</td><td class="desc">The selection changed in edit mode (BACKLOG-0004658): the ids now selected.</td></tr>
+          <tr><td class="name">feature:delete</td><td class="type">{ ids: Array&lt;string | number&gt; }</td><td class="desc">Shapes were deleted in edit mode (BACKLOG-0004658): their ids. Undo restores them silently.</td></tr>
         </tbody>
       </table>
     </div>
@@ -29606,6 +30030,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">element</td><td class="type">HTMLElement | null</td><td class="desc">The map view's own element. <small>(read-only)</small></td></tr>
           <tr><td class="name">map</td><td class="type">unknown</td><td class="desc">The MapLibre map; null when the map could not be built. <small>(read-only)</small></td></tr>
           <tr><td class="name">overlay</td><td class="type">unknown</td><td class="desc">deck.gl's `MapboxOverlay` on it; null when the map could not be built. <small>(read-only)</small></td></tr>
+          <tr><td class="name">draw</td><td class="type"><a href="#type-MapViewDraw">MapViewDraw</a></td><td class="desc">Draw and edit the map view's own shapes (BACKLOG-0004658); see {@link MapViewDraw}. <small>(read-only)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -29614,6 +30039,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
+          <tr><td class="name">getMap</td><td class="type">(): unknown</td><td class="desc">&mdash;</td><td class="type"><code>unknown</code></td><td class="desc">The MapLibre map: the escape hatch for anything this module does not wrap. Same object as `.map`.</td></tr>
           <tr><td class="name">update</td><td class="type">(options?: Partial&lt;<a href="#type-MapViewOptions">MapViewOptions</a>&gt;): void</td><td class="desc"><code>options?: Partial&lt;<a href="#type-MapViewOptions">MapViewOptions</a>&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Change options and redraw now: `basemap` and `theme` restyle the map, `buildings` adds or removes them, `view` moves the camera, and `geometry` re-reads every row's place.</td></tr>
           <tr><td class="name">flyTo</td><td class="type">(keys: string | number | Array&lt;string | number&gt;): void</td><td class="desc"><code>keys: string | number | Array&lt;string | number&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Fly to one row, or fit the map to several.</td></tr>
           <tr><td class="name">setLayer</td><td class="type">(layer: <a href="#type-MapViewLayer">MapViewLayer</a>): void</td><td class="desc"><code>layer: <a href="#type-MapViewLayer">MapViewLayer</a></code></td><td class="type"><code>void</code></td><td class="desc">Draw the rows of one geometry with this layer kind.</td></tr>
@@ -29636,6 +30062,14 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">draw</td><td class="desc"></td><td class="type">{ provenance: <a href="#type-MapViewProvenance">MapViewProvenance</a> }</td><td class="desc">no</td></tr>
           <tr><td class="name">load</td><td class="desc"></td><td class="type">{ map: unknown }</td><td class="desc">&mdash;</td></tr>
           <tr><td class="name">close</td><td class="desc"></td><td class="type">Record&lt;string, never&gt;</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">map:click</td><td class="desc"></td><td class="type">{ lng: number; lat: number; features: unknown[] }</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">draw:start</td><td class="desc"></td><td class="type">{ mode: <a href="#type-MapViewDrawMode">MapViewDrawMode</a>; feature: <a href="#type-MapViewDrawFeature">MapViewDrawFeature</a> }</td><td class="desc">no</td></tr>
+          <tr><td class="name">draw:change</td><td class="desc"></td><td class="type">{ mode: <a href="#type-MapViewDrawMode">MapViewDrawMode</a>; feature: <a href="#type-MapViewDrawFeature">MapViewDrawFeature</a> }</td><td class="desc">no</td></tr>
+          <tr><td class="name">draw:finish</td><td class="desc"></td><td class="type">{ feature: <a href="#type-MapViewDrawFeature">MapViewDrawFeature</a> }</td><td class="desc">no</td></tr>
+          <tr><td class="name">edit:change</td><td class="desc"></td><td class="type">{ id: string | number; geometry: Record&lt;string, unknown&gt;; feature: <a href="#type-MapViewDrawFeature">MapViewDrawFeature</a> }</td><td class="desc">no</td></tr>
+          <tr><td class="name">feature:select</td><td class="desc"></td><td class="type">{ ids: Array&lt;string | number&gt; }</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">feature:delete</td><td class="desc"></td><td class="type">{ ids: Array&lt;string | number&gt; }</td><td class="desc">&mdash;</td></tr>
+          <tr><td class="name">draw:refused</td><td class="desc"></td><td class="type">{ mode: <a href="#type-MapViewDrawControlMode">MapViewDrawControlMode</a>; rule: <a href="#type-MapViewDrawRule">MapViewDrawRule</a>; position: [number, number] }</td><td class="desc">&mdash;</td></tr>
         </tbody>
       </table>
     </div>
@@ -34338,6 +34772,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">columnWidth</td><td class="type">number | string</td><td class="desc">Fixed column track size, used only when `overflowX` is `'scroll'` (default `'240px'`). <small>(optional)</small></td></tr>
           <tr><td class="name">rowHeight</td><td class="type">number | string</td><td class="desc">Fixed row track size, used only when `overflowY` is `'scroll'` (default `'160px'`). <small>(optional)</small></td></tr>
           <tr><td class="name">gap</td><td class="type">number | string</td><td class="desc">The gap between cells (default `'8px'`). <small>(optional)</small></td></tr>
+          <tr><td class="name">stackBelow</td><td class="type">number</td><td class="desc">Host width in px below which the windows stack one per row, full width and in reading order, each keeping its own height (default `0`: never). Above it the configured arrangement returns; `getLayout()` always reports the configured placements. <small>(optional)</small></td></tr>
           <tr><td class="name">padding</td><td class="type">number | string</td><td class="desc">The default padding inside a window (default `'5px'`). <small>(optional)</small></td></tr>
           <tr><td class="name">compact</td><td class="type"><a href="#type-LayoutCompaction">LayoutCompaction</a> <small class="literals">'vertical' | 'horizontal' | 'none'</small></td><td class="desc">Rearrangement (default `'vertical'`). One gravity direction, never two: `'vertical'` pushes displaced windows down and then floats everything up, `'horizontal'` pushes them right and then floats everything left — so dragging a window out of a row closes the hole sideways — and `'none'` leaves every placement exactly where it was put: a resize stops at the nearest neighbour's edge and a move snaps back instead of overlapping, and overlapping placements given to `config.windows` or `setLayout()` are repaired to the next free cells with a warning (BACKLOG-0002098). An unrecognised value warns once, naming what it got, and falls back to `'vertical'`. <small>(optional)</small></td></tr>
           <tr><td class="name">corners</td><td class="type"><a href="#type-LayoutCorners">LayoutCorners</a> <small class="literals">'rounded' | 'square'</small></td><td class="desc">The default corner style for every window that does not declare its own (default `'rounded'`, today's look). `'square'` zeroes the radius on the window, its title bar, the minimised strip and the maximised frame. The rounded radius itself is themed via `--lattice-layout-radius`, separately from the shared `--lattice-radius` every other module reads. A window's own `corners` overrides this. An unrecognised value warns once and falls back to `'rounded'`. <small>(optional)</small></td></tr>
@@ -36171,6 +36606,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">columns</td><td class="type">number</td><td class="desc">Cell columns across the dashboard (the layout's default otherwise). <small>(optional)</small></td></tr>
           <tr><td class="name">rows</td><td class="type">number</td><td class="desc">Cell rows down the dashboard (the layout's default otherwise). <small>(optional)</small></td></tr>
           <tr><td class="name">gap</td><td class="type">number | string</td><td class="desc">The gap between cells. <small>(optional)</small></td></tr>
+          <tr><td class="name">stackBelow</td><td class="type">number</td><td class="desc">Host width in px below which the panels stack one per row, each full width with its own height, in layout order (default 600; `0` never stacks). Above it the configured layout returns, live on resize; `spec()` and saved views always report the configured placements. <small>(optional)</small></td></tr>
           <tr><td class="name">windows</td><td class="type">Array&lt;{ id: string; xPos?: number; yPos?: number; xSize?: number; ySize?: number; [option: string]: unknown }&gt;</td><td class="desc">Each panel's window, by panel id: its placement and any window option (title, chrome, movable, …). <small>(optional)</small></td></tr>
           <tr><td class="name">[option: string]</td><td class="type">unknown</td><td class="desc">Every other key is handed to `createLayout` unchanged.</td></tr>
         </tbody>
@@ -42004,13 +42440,25 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">A line pattern as `[dash, gap]` in pixels, or a name: `solid`, `dashed` (10 px dash, 6 px gap) or `dotted` (2 px dash, 5 px gap).</p>
     <p class="type-def"><code>type MapViewDashPattern = 'solid' | 'dashed' | 'dotted' | [number, number]</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewDrawControlMode">MapViewDrawControlMode</h4>
+    <p class="section-note">What {@link MapViewDraw.setMode} accepts: a shape to draw, or `'edit'` to select and edit the drawn shapes (BACKLOG-0004658 part 2).</p>
+    <p class="type-def"><code>type MapViewDrawControlMode = <a href="#type-MapViewDrawMode">MapViewDrawMode</a> | 'edit'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewDrawMode">MapViewDrawMode</h4>
+    <p class="section-note">The shapes {@link MapViewDraw.setMode} can draw (BACKLOG-0004658). `null` turns drawing off.</p>
+    <p class="type-def"><code>type MapViewDrawMode = 'point' | 'line' | 'polygon' | 'circle' | 'rectangle'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MapViewDrawRule">MapViewDrawRule</h4>
+    <p class="section-note">The rules a vertex can be refused for; the `rule` of `draw:refused`.</p>
+    <p class="type-def"><code>type MapViewDrawRule = 'geometry-type' | 'max-vertices' | 'min-segment-length' | 'self-intersection'</code></p>
+    <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
     <h4 id="type-MapViewEnd">MapViewEnd</h4>
     <p class="section-note">One end of a segment row: the columns holding its latitude and longitude (`lng`, or `lon`).</p>
     <p class="type-def"><code>type MapViewEnd = { lat: string; lng: string } | { lat: string; lon: string }</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
     <h4 id="type-MapViewEventName">MapViewEventName</h4>
     <p class="section-note">The events a map view emits.</p>
-    <p class="type-def"><code>type MapViewEventName = 'feature:click' | 'feature:hover' | 'draw' | 'load' | 'close'</code></p>
+    <p class="type-def"><code>type MapViewEventName = 'feature:click' | 'feature:hover' | 'draw' | 'load' | 'close' | 'map:click' | 'draw:start' | 'draw:change' | 'draw:finish' | 'edit:change' | 'feature:select' | 'feature:delete' | 'draw:refused'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
     <h4 id="type-MapViewFlow">MapViewFlow</h4>
     <p class="section-note">An animated flow along routes: `speed` is traversals of a route per second (default 0.25), `trail` the share of a route the moving trail lights (default 0.3).</p>
@@ -42445,7 +42893,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.108.1 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.109.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

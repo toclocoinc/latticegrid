@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.108.1, dashboard module type declarations
+ * Lattice Grid 1.109.0, dashboard module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -40,6 +40,13 @@ export interface DashboardLayoutSpec {
   rows?: number;
   /** The gap between cells. */
   gap?: number | string;
+  /**
+   * Host width in px below which the panels stack one per row, each full
+   * width with its own height, in layout order (default 600; `0` never
+   * stacks). Above it the configured layout returns, live on resize; `spec()`
+   * and saved views always report the configured placements.
+   */
+  stackBelow?: number;
   /** Each panel's window, by panel id: its placement and any window option (title, chrome, movable, …). */
   windows?: Array<{ id: string; xPos?: number; yPos?: number; xSize?: number; ySize?: number; [option: string]: unknown }>;
   /** Every other key is handed to `createLayout` unchanged. */

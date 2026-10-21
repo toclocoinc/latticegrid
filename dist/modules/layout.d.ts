@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.108.1, layout module type declarations
+ * Lattice Grid 1.109.0, layout module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -376,6 +376,13 @@ export interface LayoutConfig {
   rowHeight?: number | string;
   /** The gap between cells (default `'8px'`). */
   gap?: number | string;
+  /**
+   * Host width in px below which the windows stack one per row, full width
+   * and in reading order, each keeping its own height (default `0`: never).
+   * Above it the configured arrangement returns; `getLayout()` always reports
+   * the configured placements.
+   */
+  stackBelow?: number;
   /** The default padding inside a window (default `'5px'`). */
   padding?: number | string;
   /**
