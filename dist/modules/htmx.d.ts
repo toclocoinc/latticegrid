@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.110.3, htmx module type declarations
+ * Lattice Grid 1.111.0, htmx module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -27,6 +27,7 @@ import type {
   createCurrencyType,
   createHeadlessGrid,
   createMessages,
+  createMeter,
   createPushdownSource,
   createRadixType,
   createStat,
@@ -424,7 +425,7 @@ export {
   evaluateFormula, referencesOf, looksLikeFormula, compileRules, ingest, ingestSync,
   createPushdownSource, planQuery, splitFilters, applyResidual, capabilitiesOf, resolveMutate, NO_CAPABILITIES,
   odataAdapter, restAdapter, dfqlAdapter, duckdbAdapter,
-  createStat, deltaOf, toneOf,
+  createStat, createMeter, deltaOf, toneOf,
 } from '../lattice-grid.js';
 // American licence aliases mirror the base package (dom/index.js).
 export { setLicence as setLicense, licenceInfo as licenseInfo, licenceState as licenseState } from '../lattice-grid.js';

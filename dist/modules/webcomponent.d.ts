@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.110.3, webcomponent module type declarations
+ * Lattice Grid 1.111.0, webcomponent module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -10,6 +10,7 @@ import type {
   Row,
   createCurrencyType,
   createGrid,
+  createMeter,
   createStat,
   createUnitType,
   registerUnitSystem,
@@ -53,7 +54,7 @@ export class GridElementController {}
 // the element already carries: a type built with these here shares the
 // element's registry rather than a second copy's. Typed by
 // reference to the base package.
-export { createCurrencyType, createUnitType, registerUnitSystem, createStat } from '../lattice-grid.js';
+export { createCurrencyType, createUnitType, registerUnitSystem, createStat, createMeter } from '../lattice-grid.js';
 
 /* ---------------------------------------------------------------- */
 /* v2: one element per viewer                      */

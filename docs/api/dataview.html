@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Data view API Reference — Lattice Grid 1.110.3</title>
+<title>Data view API Reference — Lattice Grid 1.111.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -635,6 +635,12 @@ view.destroy();
           <tr><td class="name">dragMode</td><td class="type">false | 'source' | 'target' | 'both'</td><td class="desc">This view's role in a drag: `'source'` and `'both'` reorder within the view and send to another; `'target'` and `'both'` receive. Default `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">dragCopy</td><td class="type">boolean</td><td class="desc">`true` leaves the source card in place on a drop between views (copy, not move): the dropped copy gets a fresh identity, so copying the same card twice lands two items, not one overwriting the other. Default `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">emptyText</td><td class="type">string | HTMLElement</td><td class="desc">The empty-state message or element; an empty string shows nothing at all. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupBy</td><td class="type">string | ((item: <a href="types.html#type-DataViewItem">DataViewItem</a>) =&gt; unknown)</td><td class="desc">Group the items under headings (BACKLOG-0005068): a field name (a dotted path is fine) or a function returning an item's group. Each group gets a heading with its label and its count, the groups follow the view's sort, filter and search (a group with no item left has no heading), and `view.groups` folds them. A blank group value is headed with a dash. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupOrder</td><td class="type">'asc' | 'desc' | unknown[]</td><td class="desc">The order of the groups. `'asc'` (the default) and `'desc'` order them by group value; an array lists group values to put first, in that order, the rest following in ascending order. <small>(optional)</small></td></tr>
+          <tr><td class="name">stickyGroupHeadings</td><td class="type">boolean</td><td class="desc">Keep the heading of the group being scrolled through at the top of the view until the next group's heading pushes it out. Default `true` when `groupBy` is set. <small>(optional)</small></td></tr>
+          <tr><td class="name">collapsibleGroups</td><td class="type">boolean</td><td class="desc">A click, or Enter or Space on a focused heading, folds its group down to the heading; arrow keys then stop on headings too. Default `false`. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupsCollapsed</td><td class="type">boolean</td><td class="desc">Start with every group folded (with `collapsibleGroups`). Default `false`. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupHeadingHeight</td><td class="type">number</td><td class="desc">Height of a group heading in pixels. Default 32. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -644,6 +650,38 @@ view.destroy();
         <tbody>
           <tr><td class="name">template</td><td class="type">(item: <a href="types.html#type-DataViewItem">DataViewItem</a>) =&gt; string | HTMLElement</td><td class="desc"><code>item: <a href="types.html#type-DataViewItem">DataViewItem</a></code></td><td class="type"><code>=&gt; string | HTMLElement</code></td><td class="desc">Called per item to draw its card; a returned string goes through the grid's template sanitiser, an element is used as is.</td></tr>
           <tr><td class="name">copyId</td><td class="type">(item: <a href="types.html#type-DataViewItem">DataViewItem</a>) =&gt; unknown</td><td class="desc"><code>item: <a href="types.html#type-DataViewItem">DataViewItem</a></code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">Called with the source item on a `dragCopy` drop to name the copy's identity. Without it the source id is given a `-copy`/`-copy2`/... suffix, counted up until it is not already used in the target. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupHeading</td><td class="type">(group: <a href="#type-DataViewGroupHeading">DataViewGroupHeading</a>) =&gt; string | Node | void</td><td class="desc"><code>group: <a href="#type-DataViewGroupHeading">DataViewGroupHeading</a></code></td><td class="type"><code>=&gt; string | Node | void</code></td><td class="desc">Draw a heading yourself. Return markup (sanitised), an element, or write into `group.element` and return nothing. The default heading is the group's label and its count. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DataViewGroupHeading">DataViewGroupHeading</h4>
+    <p class="section-note">What a group heading stands for; {@link DataViewConfig.groupHeading} is handed one.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The group's value.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The text the default heading shows for it.</td></tr>
+          <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many items are in the group, after any filter.</td></tr>
+          <tr><td class="name">collapsed</td><td class="type">boolean</td><td class="desc">Whether the group is folded.</td></tr>
+          <tr><td class="name">collapsible</td><td class="type">boolean</td><td class="desc">Whether the group can be folded.</td></tr>
+          <tr><td class="name">element</td><td class="type">HTMLElement</td><td class="desc">The element being filled, for a renderer that writes into it.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DataViewGroupsApi">DataViewGroupsApi</h4>
+    <p class="section-note">`view.groups`: fold and unfold groups. A no-op on a view with no `groupBy`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">collapse</td><td class="type">(value: unknown): void</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>void</code></td><td class="desc">Fold a group down to its heading.</td></tr>
+          <tr><td class="name">expand</td><td class="type">(value: unknown): void</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>void</code></td><td class="desc">Open a folded group.</td></tr>
+          <tr><td class="name">toggle</td><td class="type">(value: unknown): void</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>void</code></td><td class="desc">Fold an open group, open a folded one.</td></tr>
+          <tr><td class="name">collapseAll</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Fold every group.</td></tr>
+          <tr><td class="name">expandAll</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Open every group.</td></tr>
+          <tr><td class="name">isCollapsed</td><td class="type">(value: unknown): boolean</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>boolean</code></td><td class="desc">Whether a group is folded; `false` for a group that is not there.</td></tr>
+          <tr><td class="name">values</td><td class="type">(): unknown[]</td><td class="desc">&mdash;</td><td class="type"><code>unknown[]</code></td><td class="desc">The values of the groups, in order.</td></tr>
         </tbody>
       </table>
     </div>
@@ -828,6 +866,7 @@ view.destroy();
         <tbody>
           <tr><td class="name">data</td><td class="type"><a href="#type-DataViewDataApi">DataViewDataApi</a></td><td class="desc">The Data API.</td></tr>
           <tr><td class="name">selection</td><td class="type"><a href="#type-DataViewSelectionApi">DataViewSelectionApi</a></td><td class="desc">The selection API.</td></tr>
+          <tr><td class="name">groups</td><td class="type"><a href="#type-DataViewGroupsApi">DataViewGroupsApi</a></td><td class="desc">Folding the groups of a view built with `groupBy`.</td></tr>
         </tbody>
       </table>
     </div>

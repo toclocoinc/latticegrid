@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.110.3</title>
+<title>Types API Reference — Lattice Grid 1.111.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -2212,6 +2212,67 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-Meter">Meter</h4>
+    <p class="section-note">The handle `createMeter` returns.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">element</td><td class="type">(): HTMLElement | null</td><td class="desc">&mdash;</td><td class="type"><code>HTMLElement | null</code></td><td class="desc">The meter's root element; null when it was misconfigured.</td></tr>
+          <tr><td class="name">value</td><td class="type">(): number | null</td><td class="desc">&mdash;</td><td class="type"><code>number | null</code></td><td class="desc">The value currently shown, as computed.</td></tr>
+          <tr><td class="name">refresh</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Recompute and repaint now.</td></tr>
+          <tr><td class="name">update</td><td class="type">(options: Partial&lt;Omit&lt;<a href="#type-MeterConfig">MeterConfig</a>, 'container' | 'grid'&gt;&gt;): void</td><td class="desc"><code>options: Partial&lt;Omit&lt;<a href="#type-MeterConfig">MeterConfig</a>, 'container' | 'grid'&gt;&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Change some options and repaint, keeping the rest.</td></tr>
+          <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Stop following the grid and remove the meter.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-MeterConfig">MeterConfig</h4>
+    <p class="section-note">A meter: one horizontal bar of a value in a range, with an optional target mark, threshold bands, status segments, a caption and an indeterminate state.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">container</td><td class="type">HTMLElement | string</td><td class="desc">An element, or a CSS selector resolved against the grid's document.</td></tr>
+          <tr><td class="name">grid</td><td class="type"><a href="grid.html#type-Grid">Grid</a></td><td class="desc">The grid to read and follow, as for {@link createStat}. <small>(optional)</small></td></tr>
+          <tr><td class="name">value</td><td class="type">number | <a href="grid.html#type-StatValueSpec">StatValueSpec</a> | ((grid: <a href="grid.html#type-Grid">Grid</a>) =&gt; number)</td><td class="desc">A literal number, a spec to reduce, or a function of the grid. <small>(optional)</small></td></tr>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc">The value at an empty bar. 0 by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">max</td><td class="type">number</td><td class="desc">The value at a full bar. 100 by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">target</td><td class="type">number | ((grid: <a href="grid.html#type-Grid">Grid</a>) =&gt; number)</td><td class="desc">Draw a mark at this value, or a function of the grid. <small>(optional)</small></td></tr>
+          <tr><td class="name">bands</td><td class="type"><a href="grid.html#type-MeterBand">MeterBand</a>[]</td><td class="desc">Thresholds that recolour the fill. <small>(optional)</small></td></tr>
+          <tr><td class="name">tone</td><td class="type"><a href="#type-MeterTone">MeterTone</a> <small class="literals">'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent'</small></td><td class="desc">The fill's colour below every band. `info` by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">segments</td><td class="type"><a href="#type-MeterSegment">MeterSegment</a>[] | ((grid: <a href="grid.html#type-Grid">Grid</a>) =&gt; <a href="#type-MeterSegment">MeterSegment</a>[])</td><td class="desc">Status slices drawn in order, instead of a single fill. The value is their sum. <small>(optional)</small></td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The text above the bar, and its accessible name. <small>(optional)</small></td></tr>
+          <tr><td class="name">ariaLabel</td><td class="type">string</td><td class="desc">The accessible name, when it should differ from `label`. <small>(optional)</small></td></tr>
+          <tr><td class="name">caption</td><td class="type">string | ((value: number | null, grid: <a href="grid.html#type-Grid">Grid</a> | null) =&gt; string)</td><td class="desc">Text under the bar, such as `3 of 8`, or a function of the value. <small>(optional)</small></td></tr>
+          <tr><td class="name">showValue</td><td class="type">boolean</td><td class="desc">Show the value text beside the label. `true` by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">indeterminate</td><td class="type">boolean</td><td class="desc">Draw an unknown amount of progress; the meter becomes a `progressbar`. <small>(optional)</small></td></tr>
+          <tr><td class="name">live</td><td class="type">boolean</td><td class="desc">`false` stops the meter following the grid; `refresh()` still works. <small>(optional)</small></td></tr>
+          <tr><td class="name">empty</td><td class="type">string</td><td class="desc">Shown when there is no value. `—` by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">decimals</td><td class="type">number</td><td class="desc">Fraction digits of the default value text. 1 by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">class</td><td class="type">string</td><td class="desc">Extra class names for the meter's root. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">format</td><td class="type">(value: number | null, grid: <a href="grid.html#type-Grid">Grid</a> | null) =&gt; string</td><td class="desc"><code>value: number | null</code><br><code>grid: <a href="grid.html#type-Grid">Grid</a> | null</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">Format the value text. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-MeterSegment">MeterSegment</h4>
+    <p class="section-note">One slice of a segmented meter.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">value</td><td class="type">number</td><td class="desc">The size of the slice, in the meter's units.</td></tr>
+          <tr><td class="name">tone</td><td class="type"><a href="#type-MeterTone">MeterTone</a> <small class="literals">'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent'</small></td><td class="desc">The slice's tone. `neutral` by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">What the slice is, for its tooltip and the accessible value text. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ModuleContext">ModuleContext</h4>
     <div class="table-wrap">
       <table>
@@ -3231,6 +3292,9 @@
     <h4 id="type-ChartAxisSide">ChartAxisSide</h4>
     <p class="section-note">Which measure axis a chart annotation reads: left, right, or the secondary y2.</p>
     <p class="type-def"><code>type ChartAxisSide = 'left' | 'right' | 'y2'</code></p>
+    <h4 id="type-ChartCategoryOrder">ChartCategoryOrder</h4>
+    <p class="section-note">How a chart orders the categories of a categorical x axis (BACKLOG-0005166). - `{ by: 'value', dir? }` orders by the plotted measure (for stacked bars or several series, by the total across them); `dir` is `'asc'` (default) or `'desc'`. - `{ by: 'label', dir? }` orders by the category's text, naturally: "2" before "10". - An array of category labels draws them in that order; categories not in it follow in label order.</p>
+    <p class="type-def"><code>type ChartCategoryOrder = { by: 'value' | 'label'; dir?: 'asc' | 'desc' } | string[]</code></p>
     <h4 id="type-ChartCurve">ChartCurve</h4>
     <p class="section-note">How a line or area series connects its readings (BACKLOG-0001645). `'linear'` (the default) draws straight segments, `'monotone'` a cubic that never overshoots the data, `'catmullRom'` a spline with a `tension`, and `'step'` a level that holds a value until the next reading.</p>
     <p class="type-def"><code>type ChartCurve = 'linear' | 'monotone' | 'catmullRom' | 'step'</code></p>
@@ -3415,6 +3479,9 @@
     <p class="section-note">What a movement line prints: the difference alone, the percentage alone, or both.</p>
     <p class="type-def"><code>type DeltaMode = 'absolute' | 'relative' | 'both'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kpi</code>.</small></p>
+    <h4 id="type-DeltaWording">DeltaWording</h4>
+    <p class="section-note">A function of the change, or a template per direction.</p>
+    <p class="type-def"><code>type DeltaWording = ((info: <a href="grid.html#type-DeltaWordingInfo">DeltaWordingInfo</a>) =&gt; string) | { up?: string; down?: string; flat?: string }</code></p>
     <h4 id="type-Density">Density</h4>
     <p class="section-note">A named preset, or a raw scale where 1 is `standard`. Row heights are 23.8 / 28 / 42 / 56px for the four presets; a number scales 28px.</p>
     <p class="type-def"><code>type Density = 'compact' | 'standard' | 'comfortable' | 'spacious' | number</code></p>
@@ -4085,6 +4152,9 @@
     <p class="section-note">The layer kinds a map view draws a row with.</p>
     <p class="type-def"><code>type MapViewLayer = 'point' | 'column' | 'polygon' | 'path'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MeterTone">MeterTone</h4>
+    <p class="section-note">A theme colour a meter fill, band or segment may take.</p>
+    <p class="type-def"><code>type MeterTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent'</code></p>
     <h4 id="type-NumberFormatNegative">NumberFormatNegative</h4>
     <p class="section-note">How a negative number is marked: a leading minus, parentheses, or a trailing suffix.</p>
     <p class="type-def"><code>type NumberFormatNegative = 'minus' | 'parentheses' | 'suffix'</code></p>

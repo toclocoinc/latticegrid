@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Grid API Reference — Lattice Grid 1.110.3</title>
+<title>Grid API Reference — Lattice Grid 1.111.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -1925,7 +1925,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.110.3'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.111.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -9993,6 +9993,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">A caption for the grid, drawn above the column headings. Inside the grid rather than an element the host places above it: a title outside does not scroll with the grid, is not in the region a screen reader announces, and is left behind by image capture and print. <small>(optional)</small></td></tr>
           <tr><td class="name">showHeader</td><td class="type">boolean</td><td class="desc">Draw the column headings at all. `true` by default. `false` removes the row, and removes it from the accessibility tree rather than only from view, a heading a screen reader still announces is invisible, not hidden. What a small dashboard tile wants when its `title` already says what the panel is. Distinct from `showColumnFunctions`, which keeps the headings and drops only the sort, filter and menu controls inside them. <small>(optional)</small></td></tr>
           <tr><td class="name">headerHeight</td><td class="type">number</td><td class="desc">Header height in pixels. Omitted, the header takes its height from the density-scaled `--lattice-header-height` token, so `density` sizes the header as it sizes the rows. A number names one explicitly and outranks the token. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowCap</td><td class="type">number | <a href="#type-RowCapConfig">RowCapConfig</a></td><td class="desc">Show only the first rows, after sort and filter, with a "+ n more" footer. A number is the row count; an object adds `onMore`. The footer's count follows the data (`rowCap.more` in the message catalogue), hides when nothing is cut, and when activated (click, or Enter on the focused button) calls `onMore` and then shows every row. `autoHeight` sizes to the rows shown. Writing `rowCap` again with `grid.set` re-applies the cap. <small>(optional)</small></td></tr>
           <tr><td class="name">overscan</td><td class="type">number</td><td class="desc">How many rows to render beyond the viewport. More costs memory and smooths fast scrolling; fewer is lighter and can show a gap. <small>(optional)</small></td></tr>
           <tr><td class="name">autoHeight</td><td class="type">boolean | 'visible'</td><td class="desc">Size rows to their content rather than to the density token. Only rows that are actually rendered are ever measured, in both settings: the grid does not lay out rows you cannot see. The difference is what happens on a large grid: `true` gives up above ten thousand rows and falls back to fixed heights, because a cumulative offset array being patched as you scroll a million rows is not worth the result. `'visible'` keeps measuring at any size, accepting that the scrollbar shifts as rows are measured on the way past. The name is historical and reads as though it were about which rows are measured; it is about whether the ceiling applies. <small>(optional)</small></td></tr>
           <tr><td class="name">state</td><td class="type"><a href="#type-GridState">GridState</a></td><td class="desc">Sort, filters, grouping, widths and the rest, restored at construction. Takes precedence over a saved view flagged `isDefault`: when both are present, this wins outright and the default view is never applied — the active view id stays `null`. <small>(optional)</small></td></tr>
@@ -10046,7 +10047,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">toolPanel</td><td class="type">boolean | { /** * Which panels to offer, each given one of three ways: a built-in name * (`columns`, `filters`, `views`, `quick`, `formatting`, `statistics`, * `regression`, `compare`, `insights`); an object naming a built-in and * giving it props, a title or an icon of its own (`{ name: 'regression', * props: { predictors: ['x1', 'x2'], response: 'y' } }`); or a panel * constructor of your own (§18.5: `init`, `element`, optional `refresh` * and `destroy`) — bare, or as an object's `name` to give it props too. * Entry props win over any config-derived props (`views`, `insights`, * `regression`) for the same panel. An unrecognised name warns once and * is dropped rather than rendering an empty tab. */ panels?: (ToolPanelName | Function | { name: ToolPanelName | Function; props?: object; title?: string; icon?: string })[]; openPanel?: string; /** Which edge to dock against. `left` is the icon rail; default `right`. */ side?: ToolPanelSide; /** Icon-only tabs. Defaults to true for `side: 'left'`, false otherwise. */ icons?: boolean; /** * Rail action buttons: `undo`, `redo`, `export`, `restore`. Defaults to all * four on the left rail and none on the right; `false` drops them. */ /** * Which action buttons the rail offers, in order. `false` drops them. * * The built-in names are `undo`, `redo`, `pause`, `restore`, `maximise`, * `export`, `excel`, `clipboard` and `print`, plus `'-'` for a divider. * A {@link RailAction} object places one of your own among them. */ actions?: false | (RailActionName | '-' | <a href="#type-RailAction">RailAction</a>)[]; /** File name for the export action, without the extension. */ exportName?: string; /** * Put the native annotation tools — pen, arrow, rectangle, highlighter — on * the rail. Each is a real toggle button that shows pressed while it is the * tool in use and turns off when pressed again. Three states, not two: * `true` opts in and keeps the tools on the rail always, presentation or * not; `false` opts OUT and the tools are never added, not even for a * presentation; omitted keeps the default, where the tools are off until a * presentation starts, appear for its duration, and leave when it ends. */ annotate?: boolean; }</td><td class="desc">Dock the side panels against the grid: columns, filters, views, quick search and formatting. The columns panel is where row grouping, values and pivot are assembled by drag, which is why it carries three drop zones as well as the visibility list — a column opts out of each with `allowGroup`, `allowPivot` and `allowTotal`. <small>(optional)</small></td></tr>
           <tr><td class="name">regression</td><td class="type"><a href="#type-RegressionSpec">RegressionSpec</a></td><td class="desc">The model the `regression` tool panel fits when no `props` were given on its own `toolPanel.panels` entry (BACKLOG-0000812) — `grid.set('regression', spec)` repaints an open panel with the new model. Panel-entry props still win when both are given. <small>(optional)</small></td></tr>
           <tr><td class="name">groupPanel</td><td class="type">boolean | { /** Placeholder shown while nothing is grouped. */ hint?: string; }</td><td class="desc">A drag-and-drop group-by strip above the column header — the pattern a row-group panel. Drag a column heading into it to group by that column; the active groups show as removable, reorderable chips, and reordering the chips changes the nesting order. It is keyboard-operable (arrows navigate, Shift+arrow reorders, Delete ungroups, and an add control groups any column), and every change is announced through the live region, which is why it also addresses the drag-only complaint (BACKLOG-0000429). Off by default and non-breaking, matching `toolPanel`. It drives the same grouping model as `grid.columns.group()`; it reimplements nothing. <small>(optional)</small></td></tr>
-          <tr><td class="name">kpis</td><td class="type">Array&lt;Omit&lt;<a href="#type-StatConfig">StatConfig</a>, 'grid' | 'container'&gt;&gt;</td><td class="desc">A built-in KPI/stat strip: a labelled band of {@link createStat} tiles the grid places for you, above the column header. Each entry is a stat spec — the same fields {@link StatConfig} takes, minus `grid` and `container`, which the grid supplies — so a strip tile and a hand-placed one are the same object. The tiles follow the grid's filters, recomputing on every change exactly as a stand-alone stat does. Off by default and non-breaking, matching `groupPanel`: no `kpis` means no band and no cost. It reuses `createStat` and reimplements no compute. <small>(optional)</small></td></tr>
+          <tr><td class="name">kpis</td><td class="type">Array&lt;Omit&lt;<a href="#type-StatConfig">StatConfig</a>, 'grid' | 'container'&gt; &amp; <a href="#type-KpiTileAction">KpiTileAction</a>&gt;</td><td class="desc">A built-in KPI/stat strip: a labelled band of {@link createStat} tiles the grid places for you, above the column header. Each entry is a stat spec — the same fields {@link StatConfig} takes, minus `grid` and `container`, which the grid supplies — so a strip tile and a hand-placed one are the same object. The tiles follow the grid's filters, recomputing on every change exactly as a stand-alone stat does. Off by default and non-breaking, matching `groupPanel`: no `kpis` means no band and no cost. It reuses `createStat` and reimplements no compute. <small>(optional)</small></td></tr>
+          <tr><td class="name">kpiSelection</td><td class="type">'single' | 'multiple'</td><td class="desc">How selectable `kpis` tiles combine: `'single'` (default) releases the other tiles' filters when one is selected; `'multiple'` lets several be on at once, ANDed like any other named filters. <small>(optional)</small></td></tr>
           <tr><td class="name">quickFilterText</td><td class="type">string</td><td class="desc">The quick filter's initial text. <small>(optional)</small></td></tr>
           <tr><td class="name">permissions</td><td class="type"><a href="types.html#type-PermissionPolicy">PermissionPolicy</a></td><td class="desc">Per-column read/write/hidden policy. A usability control, not a security boundary: hidden data is still resident in the store. Enforce the same policy server-side with `permittedColumns` / `permittedExport`. <small>(optional)</small></td></tr>
           <tr><td class="name">diff</td><td class="type">{ snapshot?: unknown[] | Map&lt;string, unknown&gt;; strictNull?: boolean; addedColumns?: <a href="types.html#type-DiffAddedColumns">DiffAddedColumns</a>; /** * Whether a row present in the snapshot but gone from the data is shown, * and whether it counts as data when it is. * * `false` (the default) leaves it out entirely. `'pinned'` shows it * beneath the rows, struck through: visible history that is not part of the * row set, so it is excluded from `rows.count()`, from exports and from * selection. `'data'` appends it to the row set instead, so it *is* * counted and exported. * * Neither is sorted or filtered among the live rows: a removed row's values * are the snapshot's, and ordering yesterday's numbers among today's would * present two data sets as one. Neither can be edited: there is nothing * left to write to. */ removedRows?: false | 'pinned' | 'data'; }</td><td class="desc">Prior state for diff and audit mode. <small>(optional)</small></td></tr>
@@ -10576,6 +10578,24 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-RowCapConfig">RowCapConfig</h4>
+    <p class="section-note">The object form of `GridConfig.rowCap`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">rows</td><td class="type">number</td><td class="desc">How many rows to show. Zero or less means no cap.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">onMore</td><td class="type">(info: { shown: number; hidden: number; total: number }) =&gt; boolean | void</td><td class="desc"><code>info: { shown: number; hidden: number; total: number }</code></td><td class="type"><code>=&gt; boolean | void</code></td><td class="desc">Called when the "+ n more" footer is activated, before the cap lifts. Return `false` to keep the cap, for a host that opens its own view of the rest. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-GridState">GridState</h4>
     <div class="table-wrap">
       <table>
@@ -10688,7 +10708,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">provider</td><td class="type">(request: { colId: string; column: unknown; filters: unknown; quick: string; bounds: <a href="#type-FacetBounds">FacetBounds</a> | null; buckets: number; strategy: string; granularity?: string; }) =&gt; Promise&lt;{ bounds?: <a href="#type-FacetBounds">FacetBounds</a>; buckets?: <a href="#type-FacetBucket">FacetBucket</a>[]; counts: ArrayLike&lt;number&gt;; unfiltered?: ArrayLike&lt;number&gt;; kind?: string }&gt;</td><td class="desc"><code>request: { colId: string; column: unknown; filters: unknown; quick: string; bounds: <a href="#type-FacetBounds">FacetBounds</a> | null; buckets: number; strategy: string; granularity?: string; }</code></td><td class="type"><code>=&gt; Promise&lt;{ bounds?: <a href="#type-FacetBounds">FacetBounds</a>; buckets?: <a href="#type-FacetBucket">FacetBucket</a>[]; counts: ArrayLike&lt;number&gt;; unfiltered?: ArrayLike&lt;number&gt;; kind?: string }&gt;</code></td><td class="desc">Bucket counts for a source the client cannot compute over. <small>(optional)</small></td></tr>
+          <tr><td class="name">provider</td><td class="type">(request: { colId: string; column: unknown; filters: unknown; quick: string; bounds: <a href="#type-FacetBounds">FacetBounds</a> | null; buckets: number; strategy: string; granularity?: string; cardinalityLimit?: number; aboveLimit?: string; order?: string; }) =&gt; Promise&lt;{ bounds?: <a href="#type-FacetBounds">FacetBounds</a>; buckets?: <a href="#type-FacetBucket">FacetBucket</a>[]; counts: ArrayLike&lt;number&gt;; unfiltered?: ArrayLike&lt;number&gt;; kind?: string }&gt;</td><td class="desc"><code>request: { colId: string; column: unknown; filters: unknown; quick: string; bounds: <a href="#type-FacetBounds">FacetBounds</a> | null; buckets: number; strategy: string; granularity?: string; cardinalityLimit?: number; aboveLimit?: string; order?: string; }</code></td><td class="type"><code>=&gt; Promise&lt;{ bounds?: <a href="#type-FacetBounds">FacetBounds</a>; buckets?: <a href="#type-FacetBucket">FacetBucket</a>[]; counts: ArrayLike&lt;number&gt;; unfiltered?: ArrayLike&lt;number&gt;; kind?: string }&gt;</code></td><td class="desc">Bucket counts for a source the client cannot compute over. A grid over `duckdbAdapter` needs none: the adapter answers this request itself as bound SQL, and a provider given here replaces that answer (BACKLOG-0005171). The request also carries the column's `cardinalityLimit`, `aboveLimit` and `order`. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -10925,7 +10945,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">icon</td><td class="type">string</td><td class="desc">An optional leading icon beside the title and value, using the same value contract as a menu item: a registered sprite name, a single character or emoji, or author-trusted element markup (`'&lt;i class="fa-light fa-bolt"&gt; &lt;/i&gt;'`, an `&lt;img&gt;`). It lays out to the side without disturbing the change indicator, threshold bands or confidence interval; omit it for the plain tile layout. <small>(optional)</small></td></tr>
           <tr><td class="name">value</td><td class="type">unknown | <a href="#type-StatValueSpec">StatValueSpec</a> | ((grid: <a href="#type-Grid">Grid</a>) =&gt; unknown)</td><td class="desc">A literal value, a spec to reduce, or a function of the grid. <small>(optional)</small></td></tr>
           <tr><td class="name">footer</td><td class="type">string | ((value: unknown, grid: <a href="#type-Grid">Grid</a>) =&gt; string)</td><td class="desc">Text under the value, or a function of it. <small>(optional)</small></td></tr>
+          <tr><td class="name">tooltip</td><td class="type">string | ((value: unknown, grid: <a href="#type-Grid">Grid</a>) =&gt; string)</td><td class="desc">A description of the tile, for a hover title and, as `aria-description`, for assistive technology. A string, or a function of the value and the grid. <small>(optional)</small></td></tr>
           <tr><td class="name">baseline</td><td class="type">number | ((grid: <a href="#type-Grid">Grid</a>) =&gt; number)</td><td class="desc">What the value is compared against, for the change indicator. <small>(optional)</small></td></tr>
+          <tr><td class="name">deltaWording</td><td class="type"><a href="types.html#type-DeltaWording">DeltaWording</a></td><td class="desc">How the change against `baseline` is worded, in place of an arrow and a percentage: a function of the change, or a template per direction using `{change}`, `{percent}` (signed), `{value}` and `{baseline}`. For example `{ up: 'Up {change} on the previous period ({percent})' }`. A direction with no template, or a function returning nothing, keeps the arrow reading. <small>(optional)</small></td></tr>
           <tr><td class="name">goodWhen</td><td class="type"><a href="types.html#type-StatGoodDirection">StatGoodDirection</a> <small class="literals">'up' | 'down' | 'neither'</small></td><td class="desc">Whether a rise is good news. `up` by default. <small>(optional)</small></td></tr>
           <tr><td class="name">bands</td><td class="type">{ good?: number; warn?: number; direction?: 'up' | 'down' } | ((value: unknown, grid: <a href="#type-Grid">Grid</a>) =&gt; 'good' | 'warn' | 'bad' | null)</td><td class="desc">Thresholds the value itself is judged against, setting `data-tone` on the tile. Separate from `goodWhen`, which judges the *change*: a Cpk of 0.9 is bad news whether it rose or fell to get there. <small>(optional)</small></td></tr>
           <tr><td class="name">scope</td><td class="type"><a href="types.html#type-StatFollowScope">StatFollowScope</a> <small class="literals">'filtered' | 'all' | 'selected'</small></td><td class="desc">Which rows feed the value. `filtered` by default. <small>(optional)</small></td></tr>
@@ -10933,6 +10955,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">empty</td><td class="type">string</td><td class="desc">Shown when there is no value. `, ` by default. <small>(optional)</small></td></tr>
           <tr><td class="name">decimals</td><td class="type">number</td><td class="desc">Fraction digits for a value whose reduction changed the unit. 2 by default. <small>(optional)</small></td></tr>
           <tr><td class="name">class</td><td class="type">string</td><td class="desc">Extra class names for the tile's root. <small>(optional)</small></td></tr>
+          <tr><td class="name">visual</td><td class="type">'ring' | 'gauge'</td><td class="desc">Show the value as a drawing as well as a number. `'ring'` is a donut arc of value over `target` (or over `max`, else 100) with the number in the centre; `'gauge'` is a semicircle from `min` to `max` with the `bands` thresholds as coloured segments and a needle at the value. Vector, so crisp at any pixel ratio; coloured from theme tokens, so light and dark follow the theme; it sweeps to a new value when a grid filter changes it. Omit for the plain number. <small>(optional)</small></td></tr>
+          <tr><td class="name">target</td><td class="type">number | ((grid: <a href="#type-Grid">Grid</a>) =&gt; number)</td><td class="desc">What the value is measured against: a number, or a function of the grid. A ring fills to `value / target`; a gauge with a `max` draws a tick at it. It is also said in the tile's accessible name ("target 80%"). <small>(optional)</small></td></tr>
+          <tr><td class="name">max</td><td class="type">number</td><td class="desc">The top of the scale a ring or gauge is drawn on. Defaults to `target`, else 100. <small>(optional)</small></td></tr>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc">The bottom of a gauge's scale. 0 by default; a ring always starts at 0. <small>(optional)</small></td></tr>
+          <tr><td class="name">bar</td><td class="type">boolean | 'under' | 'instead' | <a href="#type-StatBarOptions">StatBarOptions</a></td><td class="desc">Show the value against its target as a {@link createMeter} bar. `true` or `'under'` draws it beneath the number, `'instead'` in the number's place, and an object sets the bar's own options. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -10942,6 +10969,24 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">interval</td><td class="type">(value: unknown, grid: <a href="#type-Grid">Grid</a>) =&gt; { lower: number; upper: number; confidence?: number } | null</td><td class="desc"><code>value: unknown</code><br><code>grid: <a href="#type-Grid">Grid</a></code></td><td class="type"><code>=&gt; { lower: number; upper: number; confidence?: number } | null</code></td><td class="desc">An interval to show under the value: how much to trust it. Return whichever of the grid's intervals belongs to this tile. <small>(optional)</small></td></tr>
           <tr><td class="name">format</td><td class="type">(value: unknown, grid: <a href="#type-Grid">Grid</a>) =&gt; string</td><td class="desc"><code>value: unknown</code><br><code>grid: <a href="#type-Grid">Grid</a></code></td><td class="type"><code>=&gt; string</code></td><td class="desc">Override the formatting the column's type would apply. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KpiTileAction">KpiTileAction</h4>
+    <p class="section-note">The interactive half of a `kpis` tile. With a `filter`, a click (or Enter or Space) toggles that named filter, one undo step, and the tile shows `aria-pressed` and a selected style while it is on. The selected state follows the grid, so clearing the filter by API, another control or undo deselects it.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">filter</td><td class="type"><a href="#type-KpiTileFilter">KpiTileFilter</a></td><td class="desc">A named filter the tile toggles. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">onClick</td><td class="type">(tile: <a href="#type-KpiTileClick">KpiTileClick</a>, event: Event) =&gt; boolean | void</td><td class="desc"><code>tile: <a href="#type-KpiTileClick">KpiTileClick</a></code><br><code>event: Event</code></td><td class="type"><code>=&gt; boolean | void</code></td><td class="desc">Fires on click, Enter and Space, with or without a filter; return `false` to skip the toggle. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -11808,6 +11853,79 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">compute</td><td class="type">(rows: unknown[]) =&gt; unknown</td><td class="desc"><code>rows: unknown[]</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">Compute the value yourself from the rows in scope. With no `fn` (or `fn: 'custom'`) it is used as is, so `compute: (rows) =&gt; 42` shows 42. With a named `fn` as well, the `fn` wins and a warning names the tile once. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DeltaWordingInfo">DeltaWordingInfo</h4>
+    <p class="section-note">What a tile's change is described with: see `StatConfig.deltaWording`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">direction</td><td class="type">'up' | 'down' | 'flat'</td><td class="desc">Which way the value moved.</td></tr>
+          <tr><td class="name">change</td><td class="type">number</td><td class="desc">The size of the move, unsigned, as a number.</td></tr>
+          <tr><td class="name">percent</td><td class="type">number | null</td><td class="desc">The move as percent points of the baseline, signed; null when the baseline is zero.</td></tr>
+          <tr><td class="name">value</td><td class="type">string</td><td class="desc">The value, formatted as the tile shows it.</td></tr>
+          <tr><td class="name">baseline</td><td class="type">string</td><td class="desc">The baseline, formatted as the tile shows its value.</td></tr>
+          <tr><td class="name">formatted</td><td class="type">string</td><td class="desc">The size of the move, formatted as the tile shows its value.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-StatBarOptions">StatBarOptions</h4>
+    <p class="section-note">The options of a tile's bar mode.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">position</td><td class="type">'under' | 'instead'</td><td class="desc">`under` the number (default) or `instead` of it. <small>(optional)</small></td></tr>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc">The low end of the bar. 0 by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">max</td><td class="type">number</td><td class="desc">The high end of the bar. The target when there is one, else 100. <small>(optional)</small></td></tr>
+          <tr><td class="name">target</td><td class="type">number | ((grid: <a href="#type-Grid">Grid</a>) =&gt; number)</td><td class="desc">The target; overrides the tile's `target`. <small>(optional)</small></td></tr>
+          <tr><td class="name">bands</td><td class="type"><a href="#type-MeterBand">MeterBand</a>[]</td><td class="desc">Thresholds that recolour the bar, as for {@link MeterConfig.bands}. <small>(optional)</small></td></tr>
+          <tr><td class="name">tone</td><td class="type"><a href="types.html#type-MeterTone">MeterTone</a> <small class="literals">'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent'</small></td><td class="desc">The bar's colour below every band. `info` by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">caption</td><td class="type">string | ((value: unknown, grid: <a href="#type-Grid">Grid</a> | null) =&gt; string)</td><td class="desc">Text under the bar, such as `3 of 8`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KpiTileFilter">KpiTileFilter</h4>
+    <p class="section-note">The named filter a `kpis` tile toggles (BACKLOG-0005064).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The name the predicate is registered under with `grid.filters.where`.</td></tr>
+          <tr><td class="name">deps</td><td class="type">string[]</td><td class="desc">The columns the predicate reads, as `WhereOptions.deps`. <small>(optional)</small></td></tr>
+          <tr><td class="name">condition</td><td class="type"><a href="types.html#type-FilterSet">FilterSet</a></td><td class="desc">A declarative twin of the predicate, as `WhereOptions.condition`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">where</td><td class="type">(row: any) =&gt; boolean</td><td class="desc"><code>row: any</code></td><td class="type"><code>=&gt; boolean</code></td><td class="desc">Keeps the rows the tile stands for.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KpiTileClick">KpiTileClick</h4>
+    <p class="section-note">What `kpis[].onClick` is handed.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The tile's position in `kpis`.</td></tr>
+          <tr><td class="name">title</td><td class="type">unknown</td><td class="desc">The tile's title.</td></tr>
+          <tr><td class="name">filter</td><td class="type">string | null</td><td class="desc">The tile's filter name, or null when it has no filter.</td></tr>
+          <tr><td class="name">selected</td><td class="type">boolean</td><td class="desc">Whether the tile's filter was on before this click.</td></tr>
+          <tr><td class="name">element</td><td class="type">HTMLElement</td><td class="desc">The tile's element.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-Option">Option</h4>
     <div class="table-wrap">
       <table>
@@ -11972,6 +12090,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">idle</td><td class="type">boolean</td><td class="desc">Whether nothing has been heard from this peer for the idle window (30 seconds by default). Derived when the peers are read, so a peer goes idle without any timer having to fire. <small>(optional)</small></td></tr>
           <tr><td class="name">silentMs</td><td class="type">number</td><td class="desc">How long it has been, in milliseconds, since anything was heard from this peer. <small>(optional)</small></td></tr>
           <tr><td class="name">hidden</td><td class="type">boolean</td><td class="desc">True when the peer's cursor is on a row this view is not showing. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-MeterBand">MeterBand</h4>
+    <p class="section-note">A threshold on a meter: from this value up, the fill takes this tone.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">from</td><td class="type">number</td><td class="desc">The value at which the band starts.</td></tr>
+          <tr><td class="name">tone</td><td class="type"><a href="types.html#type-MeterTone">MeterTone</a> <small class="literals">'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent'</small></td><td class="desc">The tone the fill takes from there.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">Words for the band, added to the meter's accessible value text. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>

@@ -1,9 +1,10 @@
 /*!
- * Lattice Grid 1.110.3, kpi module type declarations
+ * Lattice Grid 1.111.0, kpi module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
 import type {
+  DeltaWording,
   Grid,
 } from '../lattice-grid.js';
 
@@ -105,7 +106,11 @@ export interface KPIStatTile {
    * `refresh()` after the first page settles.
    */
   aggregation?: KPIAggregation | ((rows: KPIRow[], tile: object) => unknown);
-  /** The reducer for a `custom` aggregation, when `aggregation` is the string `'custom'`. */
+  /**
+   * The reducer for a `custom` aggregation. A tile with `compute` and no
+   * `aggregation` is custom. With a non-custom `aggregation` as well, the
+   * aggregation wins and one warning names the tile and the conflict.
+   */
   compute?: (rows: KPIRow[], tile: object) => unknown;
   /** The field the aggregation reads (a path or accessor). Ignored by `count`. */
   field?: string | ((row: KPIRow) => unknown);
@@ -115,6 +120,30 @@ export interface KPIStatTile {
   format?: KPIFormat;
   /** A comparison target rendered alongside the value. */
   target?: number;
+  /**
+   * A literal value the tile shows as it stands, instead of reducing rows. A
+   * number is formatted with `format`; a string is shown as written. It is the
+   * host's own figure, so an empty or silent panel does not blank it, and
+   * `baseline`, `thresholds` and `bands` still apply to a number.
+   */
+  value?: number | string;
+  /**
+   * A line under the label: a string, or a function of the value and the
+   * tile's `{ id, label, formatted }`. It is part of the tile's accessible name.
+   */
+  caption?: string | ((value: unknown, tile: { id: string; label: string; formatted: string }) => string);
+  /**
+   * A description of the tile: a hover title and `aria-description`. A string,
+   * or a function as for `caption`.
+   */
+  tooltip?: string | ((value: unknown, tile: { id: string; label: string; formatted: string }) => string);
+  /**
+   * How the movement line is worded, in place of an arrow and figures:
+   * a function of the change or `{ up, down, flat }` templates using
+   * `{change}`, `{percent}` (signed), `{value}` and `{baseline}`, e.g.
+   * `{ up: 'Up {change} on the previous period ({percent})' }`.
+   */
+  deltaWording?: DeltaWording;
   /** A baseline the tile's delta is measured against. */
   baseline?: number;
   /**
@@ -341,6 +370,12 @@ export interface KPITileModel {
   deltaFormatted?: string;
   /** What the movement line prints; see `KPIStatTile.delta`. Always present once `baseline` is. */
   deltaMode?: DeltaMode;
+  /** The tile's caption, resolved; see `KPIStatTile.caption`. */
+  caption?: string;
+  /** The tile's description, resolved; see `KPIStatTile.tooltip`. */
+  tooltip?: string;
+  /** The movement line's custom wording, resolved; see `KPIStatTile.deltaWording`. */
+  deltaText?: string;
   /**
    * How many of the panel's rows this tile's filter admitted — its own membership, which
    * may be 0 while the panel holds rows. Always 0 on a clock tile.

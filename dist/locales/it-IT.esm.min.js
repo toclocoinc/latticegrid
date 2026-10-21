@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.110.3, it-IT locale
+ * Lattice Grid 1.111.0, it-IT locale
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

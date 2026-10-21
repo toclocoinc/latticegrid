@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.110.3, listview module type declarations
+ * Lattice Grid 1.111.0, listview module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -75,6 +75,73 @@ export interface ListViewConfig {
    * borderless.
    */
   bordered?: boolean;
+  /**
+   * Group the items under headings: a field name (a dotted
+   * path is fine) or a function returning an item's group. Each group gets a
+   * heading with its label and its count, the groups follow the view's sort,
+   * filter and search (a group with no item left has no heading), and
+   * `list.groups` folds them. A blank group value is headed with a dash.
+   */
+  groupBy?: string | ((item: ListViewItem) => unknown);
+  /**
+   * The order of the groups. `'asc'` (the default) and `'desc'` order them by
+   * group value; an array lists group values to put first, in that order, the
+   * rest following in ascending order.
+   */
+  groupOrder?: 'asc' | 'desc' | unknown[];
+  /**
+   * Draw a heading yourself. Return markup (sanitised), an element, or write
+   * into `group.element` and return nothing. The default heading is the
+   * group's label and its count.
+   */
+  groupHeading?: (group: ListViewGroupHeading) => string | Node | void;
+  /**
+   * Keep the heading of the group being scrolled through at the top of the
+   * view until the next group's heading pushes it out. Default `true` when
+   * `groupBy` is set.
+   */
+  stickyGroupHeadings?: boolean;
+  /**
+   * A click, or Enter or Space on a focused heading, folds its group down to
+   * the heading; arrow keys then stop on headings too. Default `false`.
+   */
+  collapsibleGroups?: boolean;
+  /** Start with every group folded (with `collapsibleGroups`). Default `false`. */
+  groupsCollapsed?: boolean;
+}
+
+/** What a group heading stands for; {@link ListViewConfig.groupHeading} is handed one. */
+export interface ListViewGroupHeading {
+  /** The group's value. */
+  value: unknown;
+  /** The text the default heading shows for it. */
+  label: string;
+  /** How many items are in the group, after any filter. */
+  count: number;
+  /** Whether the group is folded. */
+  collapsed: boolean;
+  /** Whether the group can be folded. */
+  collapsible: boolean;
+  /** The element being filled, for a renderer that writes into it. */
+  element: HTMLElement;
+}
+
+/** `list.groups`: fold and unfold groups. A no-op on a list with no `groupBy`. */
+export interface ListViewGroupsApi {
+  /** Fold a group down to its heading. */
+  collapse(value: unknown): void;
+  /** Open a folded group. */
+  expand(value: unknown): void;
+  /** Fold an open group, open a folded one. */
+  toggle(value: unknown): void;
+  /** Fold every group. */
+  collapseAll(): void;
+  /** Open every group. */
+  expandAll(): void;
+  /** Whether a group is folded; `false` for a group that is not there. */
+  isCollapsed(value: unknown): boolean;
+  /** The values of the groups on screen, in order. */
+  values(): unknown[];
 }
 
 /**
@@ -238,6 +305,8 @@ export interface ListView {
   data: ListViewDataApi;
   /** The selection API. */
   selection: ListViewSelectionApi;
+  /** Folding the groups of a list built with `groupBy`. */
+  groups: ListViewGroupsApi;
   /** Subscribe to a list event; returns an unsubscribe function. */
   on<K extends ListViewEventName>(name: K, fn: (payload: ListViewEventPayloads[K]) => void): () => void;
   /** Remove an event handler registered with `on`. */

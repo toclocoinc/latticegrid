@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.110.3, layout module type declarations
+ * Lattice Grid 1.111.0, layout module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -25,8 +25,19 @@ export interface LayoutWindow {
   yPos?: number;
   /** How many columns it spans (default 1). */
   xSize?: number;
-  /** How many rows it spans (default 1). */
+  /** How many rows it spans (default 1). Ignored when `height` is `'content'`. */
   ySize?: number;
+  /**
+   * `'content'` sizes the window's row to what the window holds: the row is as tall as the
+   * tallest content-sized window in it (a KPI strip, a form, a grid with `autoHeight`, plain
+   * HTML), re-flows when that content changes size, and the rows of fill windows share the
+   * remainder. The window spans one row; `ySize` is ignored. Leave it out for a fixed `ySize`.
+   */
+  height?: 'content';
+  /** With `height: 'content'`: the shortest the window may be (px number or CSS length). */
+  minHeight?: number | string;
+  /** With `height: 'content'`: the tallest the window may be (px number or CSS length); the body scrolls past it. */
+  maxHeight?: number | string;
   /** The title shown in the chrome bar, and the name every control takes. */
   title?: string;
   /** Whether to draw the title bar (default `true`). */
@@ -106,7 +117,7 @@ export interface LayoutSnapshot {
    * Each window's id and its cell placement. Position and size only: titles, content and
    * capabilities stay with the configuration.
    */
-  windows: { id: string; xPos: number; yPos: number; xSize: number; ySize: number }[];
+  windows: { id: string; xPos: number; yPos: number; xSize: number; ySize: number; height?: 'content'; minHeight?: number | string; maxHeight?: number | string }[];
 }
 
 /** A cell placement, as carried on the move and resize events. */

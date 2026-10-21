@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.110.3, leaflet module type declarations
+ * Lattice Grid 1.111.0, leaflet module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

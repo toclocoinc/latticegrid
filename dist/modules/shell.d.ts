@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.110.3, shell module type declarations
+ * Lattice Grid 1.111.0, shell module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -62,16 +62,18 @@ export interface ShellTab {
   onHidden?(content: ShellContent): void;
   /** Called when this tab's content becomes visible on a switch to it. */
   onVisible?(content: ShellContent): void;
+  /** Make this tab active on first render, instead of the first tab. When more than one tab in the array is `selected: true`, the last one wins and a warning is logged once. Switching tabs after mount is still `getTab(id).activate()`. */
+  selected?: boolean;
 }
 
 /** One cell of a shell. A cell either mounts content or nests `rows`/`cols`. */
 export interface ShellCell {
   /** The cell's identity for `getCell(id)`. Auto-generated when omitted. */
   id?: string;
-  /** The cell's width: the main-axis size among `cols` (px or %), or the cross-axis size among `rows`. */
-  width?: ShellSize;
-  /** The cell's height: the main-axis size among `rows` (px or %), or the cross-axis size among `cols`. */
-  height?: ShellSize;
+  /** The cell's width: the main-axis size among `cols` (px or %), or the cross-axis size among `rows`. `'content'` takes the natural width of what the cell holds and re-flows when it changes; sibling gravity cells share the remainder. */
+  width?: ShellSize | 'content';
+  /** The cell's height: the main-axis size among `rows` (px or %), or the cross-axis size among `cols`. `'content'` takes the natural height of what the cell holds (a KPI strip, a form, a grid with `autoHeight`) and re-flows when it changes; sibling gravity cells share the remainder. `minHeight`/`maxHeight` bound it. */
+  height?: ShellSize | 'content';
   /** Share of the spare space when the cell has no fixed size. Default 1. */
   gravity?: number;
   /** Start a gravity cell at its content's size and grow into the spare space from there, instead of the default zero basis. */

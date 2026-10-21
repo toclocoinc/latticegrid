@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.110.3, dataview module type declarations
+ * Lattice Grid 1.111.0, dataview module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -54,6 +54,75 @@ export interface DataViewConfig {
   copyId?: (item: DataViewItem) => unknown;
   /** The empty-state message or element; an empty string shows nothing at all. */
   emptyText?: string | HTMLElement;
+  /**
+   * Group the items under headings: a field name (a dotted
+   * path is fine) or a function returning an item's group. Each group gets a
+   * heading with its label and its count, the groups follow the view's sort,
+   * filter and search (a group with no item left has no heading), and
+   * `view.groups` folds them. A blank group value is headed with a dash.
+   */
+  groupBy?: string | ((item: DataViewItem) => unknown);
+  /**
+   * The order of the groups. `'asc'` (the default) and `'desc'` order them by
+   * group value; an array lists group values to put first, in that order, the
+   * rest following in ascending order.
+   */
+  groupOrder?: 'asc' | 'desc' | unknown[];
+  /**
+   * Draw a heading yourself. Return markup (sanitised), an element, or write
+   * into `group.element` and return nothing. The default heading is the
+   * group's label and its count.
+   */
+  groupHeading?: (group: DataViewGroupHeading) => string | Node | void;
+  /**
+   * Keep the heading of the group being scrolled through at the top of the
+   * view until the next group's heading pushes it out. Default `true` when
+   * `groupBy` is set.
+   */
+  stickyGroupHeadings?: boolean;
+  /**
+   * A click, or Enter or Space on a focused heading, folds its group down to
+   * the heading; arrow keys then stop on headings too. Default `false`.
+   */
+  collapsibleGroups?: boolean;
+  /** Start with every group folded (with `collapsibleGroups`). Default `false`. */
+  groupsCollapsed?: boolean;
+  /** Height of a group heading in pixels. Default 32. */
+  groupHeadingHeight?: number;
+}
+
+/** What a group heading stands for; {@link DataViewConfig.groupHeading} is handed one. */
+export interface DataViewGroupHeading {
+  /** The group's value. */
+  value: unknown;
+  /** The text the default heading shows for it. */
+  label: string;
+  /** How many items are in the group, after any filter. */
+  count: number;
+  /** Whether the group is folded. */
+  collapsed: boolean;
+  /** Whether the group can be folded. */
+  collapsible: boolean;
+  /** The element being filled, for a renderer that writes into it. */
+  element: HTMLElement;
+}
+
+/** `view.groups`: fold and unfold groups. A no-op on a view with no `groupBy`. */
+export interface DataViewGroupsApi {
+  /** Fold a group down to its heading. */
+  collapse(value: unknown): void;
+  /** Open a folded group. */
+  expand(value: unknown): void;
+  /** Fold an open group, open a folded one. */
+  toggle(value: unknown): void;
+  /** Fold every group. */
+  collapseAll(): void;
+  /** Open every group. */
+  expandAll(): void;
+  /** Whether a group is folded; `false` for a group that is not there. */
+  isCollapsed(value: unknown): boolean;
+  /** The values of the groups, in order. */
+  values(): unknown[];
 }
 
 /** `view.data`: the list view's Data API, over the view's own items. `serialize()` is always the order on screen. */
@@ -246,6 +315,8 @@ export interface DataView {
   data: DataViewDataApi;
   /** The selection API. */
   selection: DataViewSelectionApi;
+  /** Folding the groups of a view built with `groupBy`. */
+  groups: DataViewGroupsApi;
   /** Subscribe to a data view event; returns an unsubscribe function. */
   on<K extends DataViewEventName>(name: K, fn: (payload: DataViewEventPayloads[K]) => void): () => void;
   /** Remove an event handler registered with `on`. */

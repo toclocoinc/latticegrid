@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.110.3</p>
+    <p class="rail__sub">Developer guide · v1.111.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.110.3</span>
+        <span class="chip">Version 1.111.0</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1896,7 +1896,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.110.3'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.111.0'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -3308,6 +3308,16 @@ grid.filters.reapply('rateKnown');       <span class="cmt">// the rate table arr
       the source while the function stays as the residual, so a pushdown engine narrows the fetch
       instead of your code filtering a page.
     </p>
+    <div class="example">
+      <p class="example__label">A tenant scope that stays pushed when the grid groups or pivots</p>
+      <pre><code>grid.filters.where('tenant', row =&gt; row.tenant_id === 7, {
+  pinned: true,
+  condition: { col: 'tenant_id', op: 'eq', value: 7 },
+});
+<span class="cmt">// over duckdbAdapter: grouping and pivot run in the engine as
+// ... WHERE "tenant_id" = ? GROUP BY ..., value bound; a where with no condition
+// still groups in the browser, and lastPlan().groupReason says why</span></code></pre>
+    </div>
 
     <div class="why">
       <p><strong>Migrating from an external-filter API:</strong> its three pieces become two.
@@ -3442,6 +3452,86 @@ grid.destroy();
 <span class="kw">const</span> revenue = grid.statistics.reduce('mrr', 'sum');
 grid.destroy();
 <span class="kw">return</span> `revenue ${revenue}`;</code></pre>
+    </div>
+
+    <p class="lead-in">
+      A tile can be a filter. Give it <code>filter: { name, where }</code> and a click — or
+      Enter or Space on the focused tile — registers that predicate on the grid under
+      <code>name</code> with <code>filters.where</code>; clicking again removes it. The tile
+      is a button: it carries <code>aria-pressed</code> and a selected style drawn from the
+      theme tokens, so it reads in light and dark. The selected state is read from the grid, so
+      clearing the filter by API, from another control or by undo deselects the tile. Each click
+      is one undo step. <code>kpiSelection</code> chooses how tiles combine:
+      <code>'single'</code> (the default) releases the other tiles' filters when one is
+      selected, <code>'multiple'</code> lets several be on at once, ANDed. <code>filter</code>
+      also takes <code>deps</code> and <code>condition</code>, as <code>filters.where</code>
+      does. <code>onClick(tile, event)</code> fires on click, Enter and Space, with or without a
+      <code>filter</code>; <code>tile</code> is <code>{ index, title, filter, selected, element }</code>
+      with <code>selected</code> the state before the click, and returning <code>false</code>
+      skips the toggle.
+    </p>
+    <div class="example">
+      <p class="example__label">Clickable KPI tiles that toggle a named filter</p>
+      <pre data-run="js" data-expect="all 3, overdue 2, all 3" data-covers="config:kpiSelection"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> overdue = { name: 'overdue', where: (row) =&gt; row.status === 'overdue' };
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'status' }],
+  rows: [
+    { id: 1, status: 'overdue' },
+    { id: 2, status: 'overdue' },
+    { id: 3, status: 'open' },
+  ],
+  <span class="cmt">// With createGrid each tile below is a button; this headless grid has no DOM,</span>
+  <span class="cmt">// so the click is shown as the call it makes.</span>
+  kpiSelection: 'single',
+  kpis: [
+    { title: 'All', fn: 'count' },
+    { title: 'Overdue', fn: 'count', filter: overdue,
+      onClick: (tile, event) =&gt; tile.selected },
+  ],
+});
+
+<span class="kw">const</span> all = grid.rows.count();
+grid.filters.where(overdue.name, overdue.where);      <span class="cmt">// the tile's click</span>
+<span class="kw">const</span> filtered = grid.rows.count();
+grid.filters.where(overdue.name, null);               <span class="cmt">// the second click</span>
+<span class="kw">const</span> again = grid.rows.count();
+grid.destroy();
+<span class="kw">return</span> `all ${all}, overdue ${filtered}, all ${again}`;</code></pre>
+    </div>
+
+    <p class="lead-in">
+      <code>rowCap</code> is for the compact panel that shows a list's first few rows and says how
+      many it is not showing. Set it to a number, or to <code>{ rows, onMore }</code>: the grid
+      paints only the first <code>rows</code> rows <em>after</em> sort and filter, and draws a
+      "+ n more" footer under them. The count follows the data &mdash; filter 40 rows to 12 under a
+      cap of 5 and it reads "+ 7 more", filter to 4 and the footer goes away &mdash; and the text is the
+      <code>rowCap.more</code> entry in the message catalogue, so it translates. Activating the footer
+      (a click, or Enter on it) calls <code>onMore({ shown, hidden, total })</code> and then shows every
+      row; return <code>false</code> from <code>onMore</code> to keep the cap, for a host that opens
+      its own view of the rest. <code>autoHeight</code> sizes to the rows shown, and writing
+      <code>rowCap</code> again with <code>grid.set</code> re-applies the cap. Only what is drawn is
+      cut: <code>grid.rows</code>, statistics, <code>kpis</code> and exports still see every row.
+    </p>
+    <div class="example">
+      <p class="example__label">A top-5 list with a "+ n more" footer</p>
+      <pre data-run="js" data-expect="cut 35 of 40" data-covers="config:rowCap config:RowCapConfig.onMore config:RowCapConfig.rows"><code><span class="kw">const</span> { createHeadlessGrid } = <span class="kw">await</span> import('../packages/core/src/index.js');
+
+<span class="kw">const</span> grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'id' }, { field: 'risk' }],
+  rows: Array.from({ length: 40 }, (_, i) =&gt; ({ id: i, risk: i })),
+  <span class="cmt">// With createGrid this paints 5 rows and a "+ 35 more" button under them.</span>
+  rowCap: { rows: 5, onMore: ({ hidden }) =&gt; console.log(hidden + ' more') },
+});
+
+<span class="cmt">// What the renderer is told: how many rows the cap is cutting.</span>
+<span class="kw">const</span> { hidden } = grid.rendererHost().rowCap.state();
+<span class="kw">const</span> total = grid.rows.count();
+grid.destroy();
+<span class="kw">return</span> `cut ${hidden} of ${total}`;</code></pre>
     </div>
 
     <div class="example">
@@ -7755,6 +7845,33 @@ chart.provenance().animation;   <span class="cmt">// { animated, reason, marks, 
       the unanimated chart draws. The reference's charts section has the details.</p>
     </div>
 
+    <h3 id="chart-category-order-guide">Putting a chart's categories in order</h3>
+    <p class="lead-in">
+      A bar, column, line or area chart whose x is categories draws them in the order the rows
+      arrive. <code>categoryOrder</code> says otherwise: by the plotted value, by the label, or in
+      a list you give. It holds when the grid is filtered or its data changes.
+    </p>
+    <div class="example">
+      <p class="example__label">Products per Nutri-Score grade, whatever order they arrive in</p>
+      <pre><code>createChart({ grid, container, type: 'bar', x: 'grade', y: 'products',
+  categoryOrder: { by: 'label' } });                  <span class="cmt">// A B C D E</span>
+
+createChart({ grid, container, type: 'bar', x: 'grade', y: 'products',
+  categoryOrder: { by: 'value', dir: 'desc' } });     <span class="cmt">// tallest first</span>
+
+createChart({ grid, container, type: 'bar', x: 'grade', y: 'products',
+  categoryOrder: ['E', 'A'] });                        <span class="cmt">// E, A, then the rest by label</span></code></pre>
+    </div>
+    <div class="why">
+      <p><strong>Value order reads the total.</strong> <code>{ by: 'value' }</code> sorts by the
+      plotted measure; for stacked bars or several series, by the sum across them, so a stack's
+      position is the height it is drawn at. <code>dir</code> is <code>'asc'</code> (the default)
+      or <code>'desc'</code>. <code>{ by: 'label' }</code> compares naturally, so "2" comes before
+      "10". With <code>limit</code>, the order is applied first, so a value order keeps the
+      largest categories. On a <code>combo</code> built from <code>measures</code>, the first
+      measure sets a value order.</p>
+    </div>
+
     <h2 id="router-websocket-guide">Data Router: a live WebSocket feed</h2>
     <p class="lead-in">
       <code>createDataRouter</code> is built for a continuous live feed &mdash; ordering,
@@ -8290,7 +8407,43 @@ const providerFor = (id) =&gt; ({
       <p><code>grid.diagnostics.renders().worker</code> reports what the Worker host is actually
       doing: whether one was spawned, how many calls ran locally versus remotely, and the
       threshold, <code>sharedMemory</code> and <code>workerUrl</code> it was built with.</p>
-      <p><strong>Server-side sources need a <code>provider</code>, and its absence is silent.</strong>
+      <p><strong>A DuckDB source needs no <code>provider</code>.</strong> <code>duckdbAdapter</code>
+      answers the grid's histogram requests itself, as bound SQL over the whole table or file:
+      equal-width bins for a numeric column (the same edges the in-memory grid places, including
+      the trimmed range and overflow bins for a long tail, and <code>strategy: 'quantile'</code>
+      or <code>'log'</code>), the <code>cardinalityLimit</code> commonest values for a text column
+      (with an <em>Other</em> remainder under <code>aboveLimit: 'topN'</code>), false and true
+      for a boolean, and a last <em>Empty</em> bar for blanks. Every other column's filter and the
+      quick search apply; the column's own filter is left out, and the bars follow a filter
+      change. Date columns draw no histogram over a DuckDB source yet. A
+      <code>facets.provider</code> you give the grid still wins, and a source whose adapter
+      answers nothing is unchanged.</p>
+      <div class="example">
+        <p class="example__label">Histograms over a Parquet file, no provider</p>
+        <pre><code>const grid = createGrid(el, {
+  rowKey: 'id',
+  columns: [{ field: 'id', type: 'number' }, { field: 'amount', type: 'number' }, { field: 'city' }],
+  facets: { enabled: true, buckets: 12, cardinalityLimit: 20, aboveLimit: 'topN' },
+  source: createPushdownSource({
+    adapter: duckdbAdapter({ connection, from: "read_parquet('sales.parquet')" }),
+    pageSize: 100,
+  }),
+});</code></pre>
+      </div>
+      <div class="example">
+        <p class="example__label">An adapter that answers facet requests, executed</p>
+        <pre data-run="js" data-expect="function | 3:2,5:1" data-covers="export:createPushdownSource config:facets"><code>const { createPushdownSource } = await import('../packages/core/src/source/pushdown.js');
+const adapter = {
+  name: 'demo',
+  capabilities: { filter: 'tree', operators: ['equals'], range: true, total: true },
+  async execute() { return { rows: [], total: 0 }; },
+  async facets(request) { return { bounds: { kind: 'category', buckets: [{ value: 3 }, { value: 5 }] }, counts: [2, 1] }; },
+};
+const source = createPushdownSource({ adapter, pageSize: 10 });
+const answer = await source.facetProvider({ colId: 'size', filters: null });
+return (`${typeof source.facetProvider} | ${answer.bounds.buckets.map((b, i) =&gt; `${b.value}:${answer.counts[i]}`).join(',')}`);</code></pre>
+      </div>
+      <p><strong>Other server-side sources need a <code>provider</code>, and its absence is silent.</strong>
       A grid holding one page of data cannot compute a distribution over the whole set. Supply a
       function and it receives the column, the pruned filter state and the bucketing settings, and
       returns counts. Without one the charts are simply absent, no error, because most
@@ -9402,6 +9555,88 @@ createStat({
       emoji, or author-supplied markup such as a Font Awesome glyph or an
       <code>&lt;img&gt;</code>.
     </p>
+    <p class="lead-in">
+      A tile can say more than a number. <code>footer</code> (a string, or a function of the value)
+      is the caption under it. <code>tooltip</code> (a string, or a function of the value and the
+      grid) describes the tile: it is the hover title and the tile's <code>aria-description</code>, so
+      assistive technology hears it too. <code>deltaWording</code> replaces the arrow and percentage
+      with a sentence &mdash; a function of the change, or a template per direction using
+      <code>{change}</code>, <code>{percent}</code> (signed), <code>{value}</code> and
+      <code>{baseline}</code>:
+      <code>{ up: 'Up {change} on the previous period ({percent})' }</code> reads "Up 12 on the
+      previous period (+8%)". The same <code>tooltip</code> and <code>deltaWording</code> (plus a
+      literal <code>value</code> and a <code>caption</code>) are fields of a KPI panel's stat tile,
+      so a literal figure no longer needs <code>compute: () =&gt; value</code>.
+    </p>
+    <p class="lead-in">
+      <code>visual</code> draws the value as well as printing it, so a screen stops hand-building an
+      SVG gauge inside a stat tile. <code>'ring'</code> is a donut arc of the value over its target
+      with the number in the centre; <code>'gauge'</code> is a semicircle with the
+      <code>bands</code> thresholds as coloured segments and a needle at the value. It works on a
+      <code>createStat</code> tile and on every entry of the grid's <code>kpis</code> strip. It is
+      vector, so crisp at any device-pixel ratio; it is coloured from theme tokens, so light and
+      dark follow the theme; it sweeps to the new value when a grid filter changes it; and the
+      tile's accessible name gives the value and the target.
+    </p>
+    <table>
+      <thead><tr><th>Option</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>visual</code></td><td><code>'ring'</code> or <code>'gauge'</code>. Omit it for the plain number.</td></tr>
+        <tr><td><code>target</code></td><td>What the value is measured against: a number, or a function of the grid. A ring fills to value / target; it is also said in the accessible name.</td></tr>
+        <tr><td><code>max</code></td><td>The top of the scale. Defaults to <code>target</code>, else 100. A gauge with a <code>max</code> also ticks the <code>target</code>.</td></tr>
+        <tr><td><code>min</code></td><td>The bottom of a gauge's scale. 0 by default; a ring always starts at 0.</td></tr>
+        <tr><td><code>bands</code></td><td>The gauge's coloured segments, from the same <code>{ good, warn, direction }</code> that tones the tile. A ring takes its colour from the band the value is in.</td></tr>
+      </tbody>
+    </table>
+    <div class="example">
+      <p class="example__label">A ring and a gauge on a stat tile</p>
+      <pre data-run="js" data-expect="ring 0.7200 | gauge warn | name Fill, 72, target 100" data-covers="config:StatConfig.visual config:StatConfig.target config:StatConfig.max config:StatConfig.min"><code><span class="kw">const</span> { createTestDom, resetTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createStat } = <span class="kw">await</span> import('../packages/dom/src/stat.js');
+
+resetTestDom();
+<span class="kw">const</span> dom = createTestDom({ width: 400, height: 200 });
+<span class="kw">const</span> box = () =&gt; { <span class="kw">const</span> el = dom.document.createElement('div'); dom.root.appendChild(el); <span class="kw">return</span> el; };
+
+<span class="cmt">// 72 against a target of 100: a ring with the number in its centre.</span>
+<span class="kw">const</span> ring = createStat({ container: box(), title: 'Fill', value: 72, target: 100, visual: 'ring' });
+
+<span class="cmt">// The same reading as a gauge on a 0-100 scale, banded: below 50 bad, 50-80 warn, 80+ good.</span>
+<span class="kw">const</span> gauge = createStat({
+  container: box(), title: 'Health', value: 72, visual: 'gauge', min: 0, max: 100, target: 90,
+  bands: { good: 80, warn: 50 },
+});
+
+<span class="kw">const</span> r = ring.element().querySelector('.lat-stat__visual').getAttribute('data-fraction');
+<span class="kw">const</span> g = gauge.element().querySelector('.lat-stat__visual').getAttribute('data-band');
+<span class="kw">return</span> `ring ${r} | gauge ${g} | name ${ring.element().getAttribute('aria-label')}`;</code></pre>
+    </div>
+    <h4>A tile that computes its own value</h4>
+    <p class="lead-in">
+      Give a tile <code>compute</code> and no aggregation and it uses <code>compute</code>:
+      <code>createKPI</code> tiles take <code>compute: (rows, tile) =&gt; value</code>, and
+      <code>createStat</code> and the grid's <code>kpis</code> strip take
+      <code>compute: (rows) =&gt; value</code> over the rows in scope. Name a built-in
+      aggregation (<code>aggregation: 'sum'</code>, or <code>fn: 'sum'</code> on a stat) as well and
+      the <strong>aggregation wins</strong>: <code>compute</code> never runs and one warning names the
+      tile and the conflict. <code>aggregation: 'custom'</code> (or <code>fn: 'custom'</code>) with
+      <code>compute</code> is the same as naming neither.
+    </p>
+    <div class="example">
+      <p class="example__label">compute with no aggregation</p>
+      <pre data-run="js" data-expect="kpi 42 | stat 42" data-covers="config:StatValueSpec.compute config:KPIStatTile.compute"><code><span class="kw">const</span> { createTestDom, resetTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createStat } = <span class="kw">await</span> import('../packages/dom/src/stat.js');
+<span class="kw">const</span> { createKPI } = <span class="kw">await</span> import('../packages/modules/kpi/index.js');
+
+<span class="cmt">// No aggregation: compute is the tile's value, not a row count.</span>
+<span class="kw">const</span> kpi = createKPI(null, { rows: [{ id: 1 }, { id: 2 }], rowKey: 'id', tiles: [{ id: 'answer', label: 'Answer', compute: () =&gt; 42 }] });
+
+resetTestDom();
+<span class="kw">const</span> dom = createTestDom({ width: 400, height: 200 });
+<span class="kw">const</span> el = dom.document.createElement('div');
+dom.root.appendChild(el);
+<span class="kw">const</span> stat = createStat({ container: el, title: 'Answer', compute: () =&gt; 42 });
+<span class="kw">return</span> `kpi ${kpi.value('answer')} | stat ${stat.value()}`;</code></pre>
+    </div>
     <div class="why">
       <p><strong><code>bands</code> and <code>goodWhen</code> judge different things.</strong>
       <code>goodWhen</code> says whether a rise is good news, and colours the change indicator.
@@ -9414,6 +9649,90 @@ createStat({
       an extreme rather than the extreme itself: <code>{ of: 'sales', fn: 'max', show: 'rep' }</code>
       is the <em>name</em> of the best rep. It needs <code>min</code> or <code>max</code>, because no
       single row holds an average.</p>
+    </div>
+
+    <h2 id="meter">Meters and tile bars</h2>
+    <p class="lead-in">
+      <code>createMeter(el, config)</code> draws one horizontal bar: a value in a range, an optional
+      target mark, colour bands, status segments, a caption such as <code>3 of 8</code> and an
+      indeterminate state. It is the bar a dashboard otherwise builds by hand. Pass
+      <code>container</code> in the config; give it a <code>grid</code> and the value comes from an
+      aggregate over the rows the grid shows, so the bar follows the grid's filters like a
+      <code>createStat</code> tile. Colours are theme tokens, so the bar follows light and dark.
+      The element is <code>role="meter"</code> with <code>aria-valuenow</code>,
+      <code>aria-valuemin</code>, <code>aria-valuemax</code> and an <code>aria-valuetext</code>
+      carrying the caption, the target and any band or segment label; an indeterminate meter is a
+      <code>progressbar</code> with no value. Give it a <code>label</code> or an
+      <code>ariaLabel</code>, which is its accessible name.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Option</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">container</td><td class="type">Element | string</td><td class="desc">Required. Where the meter is drawn.</td></tr>
+          <tr><td class="name">grid</td><td class="type">Grid</td><td class="desc">Read the value from this grid and follow its filters.</td></tr>
+          <tr><td class="name">value</td><td class="type">number | spec | fn</td><td class="desc">A literal, a <code>{ of, fn }</code> reduction, or a function of the grid. <code>of</code> and <code>fn</code> may also sit on the config.</td></tr>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc">The value at an empty bar. 0 by default.</td></tr>
+          <tr><td class="name">max</td><td class="type">number</td><td class="desc">The value at a full bar. 100 by default.</td></tr>
+          <tr><td class="name">target</td><td class="type">number | fn</td><td class="desc">Draws a mark at this value.</td></tr>
+          <tr><td class="name">tone</td><td class="type">MeterTone</td><td class="desc">The fill's colour below every band: <code>neutral</code>, <code>info</code> (default), <code>success</code>, <code>warning</code>, <code>danger</code> or <code>accent</code>.</td></tr>
+          <tr><td class="name">bands</td><td class="type">MeterBand[]</td><td class="desc"><code>[{ from, tone, label }]</code>: from <code>from</code> up the fill takes <code>tone</code>; the highest band reached wins.</td></tr>
+          <tr><td class="name">segments</td><td class="type">MeterSegment[] | fn</td><td class="desc"><code>[{ value, tone, label }]</code> drawn in order instead of one fill; the value is their sum.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">Text above the bar and its accessible name.</td></tr>
+          <tr><td class="name">ariaLabel</td><td class="type">string</td><td class="desc">An accessible name that differs from <code>label</code>.</td></tr>
+          <tr><td class="name">caption</td><td class="type">string | fn</td><td class="desc">Text under the bar, such as <code>3 of 8</code>.</td></tr>
+          <tr><td class="name">format</td><td class="type">fn</td><td class="desc">Formats the value text.</td></tr>
+          <tr><td class="name">showValue</td><td class="type">boolean</td><td class="desc">Show the value text beside the label. <code>true</code> by default.</td></tr>
+          <tr><td class="name">indeterminate</td><td class="type">boolean</td><td class="desc">An unknown amount of progress.</td></tr>
+          <tr><td class="name">live</td><td class="type">boolean</td><td class="desc"><code>false</code> stops it following the grid; <code>refresh()</code> still works.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="lead-in">
+      The handle has <code>element()</code>, <code>value()</code>, <code>refresh()</code>,
+      <code>update(options)</code> and <code>destroy()</code>. A KPI tile gains the same bar:
+      <code>createStat</code> and the grid's <code>kpis</code> strip take <code>target</code> and
+      <code>bar</code>. <code>bar: true</code> (or <code>'under'</code>) draws the value against the
+      target beneath the number; <code>'instead'</code> draws it in the number's place; an object
+      sets <code>position</code>, <code>min</code>, <code>max</code>, <code>bands</code>,
+      <code>tone</code> and <code>caption</code>. With no <code>max</code> the bar spans 0 to the
+      target, so a full bar is a met target.
+    </p>
+    <div class="example">
+      <p class="example__label">A target bar, a status-segmented bar and a tile bar</p>
+      <pre data-run="js" data-expect="bar 30% | mark 80% | role meter | segments 7 | tile 75%" data-covers="export:createMeter export:createStat config:MeterConfig.container config:MeterConfig.value config:MeterConfig.min config:MeterConfig.max config:MeterConfig.target config:MeterConfig.tone config:MeterConfig.bands config:MeterConfig.segments config:MeterConfig.label config:MeterConfig.ariaLabel config:MeterConfig.caption config:MeterConfig.format config:MeterConfig.showValue config:MeterConfig.indeterminate config:MeterConfig.live config:MeterConfig.empty config:MeterConfig.class config:StatConfig.bar config:StatConfig.target config:StatBarOptions.position config:StatBarOptions.min config:StatBarOptions.max config:StatBarOptions.tone config:StatBarOptions.caption"><code><span class="kw">const</span> { createTestDom } = <span class="kw">await</span> import('../packages/dom/src/renderer/testdom.js');
+<span class="kw">const</span> { createMeter, createStat } = <span class="kw">await</span> import('../packages/dom/src/index.js');
+
+<span class="kw">const</span> dom = createTestDom({ width: 400, height: 200 });
+<span class="cmt">// 30 of 100, with a mark at the 80 target.</span>
+<span class="kw">const</span> meter = createMeter({
+  container: dom.root, label: 'Capacity', value: 30, min: 0, max: 100, target: 80, caption: '3 of 8',
+  tone: 'info', bands: [{ from: 90, tone: 'danger' }], showValue: <span class="kw">true</span>, live: <span class="kw">false</span>,
+  empty: '—', class: 'capacity', format: (v) =&gt; String(v), ariaLabel: 'Capacity used',
+});
+<span class="kw">const</span> root = meter.element();
+<span class="kw">const</span> bar = root.querySelector('.lat-meter__fill').style.width;
+<span class="kw">const</span> mark = root.querySelector('.lat-meter__target').style.insetInlineStart;
+
+<span class="cmt">// A done / in progress / blocked bar: the value is the segments' sum.</span>
+<span class="kw">const</span> sprint = createMeter({
+  container: dom.root, label: 'Sprint', max: 10,
+  segments: [{ value: 4, tone: 'success', label: 'Done' }, { value: 2, tone: 'info', label: 'In progress' }, { value: 1, tone: 'danger', label: 'Blocked' }],
+});
+
+<span class="cmt">// An indeterminate meter is a progressbar with no value.</span>
+<span class="kw">const</span> busy = createMeter({ container: dom.root, label: 'Loading', indeterminate: <span class="kw">true</span> });
+
+<span class="cmt">// A KPI tile showing 60 against a target of 80.</span>
+<span class="kw">const</span> tile = createStat({
+  container: dom.root, title: 'Revenue', value: 60, target: 80,
+  bar: { position: 'under', min: 0, max: 80, tone: 'success', caption: 'of 80' },
+});
+<span class="kw">const</span> tileBar = tile.element().querySelector('.lat-meter__fill').style.width;
+
+<span class="kw">const</span> out = `bar ${bar} | mark ${mark} | role ${root.getAttribute('role')} | segments ${sprint.value()} | tile ${tileBar}`;
+meter.destroy(); sprint.destroy(); busy.destroy(); tile.destroy();
+<span class="kw">return</span> out;</code></pre>
     </div>
 
     <h2 id="formulas-guide">Formulas</h2>
@@ -10667,6 +10986,7 @@ grid.import.apply(preview);</code></pre>
         <thead><tr><th>Name</th><th>What it does</th></tr></thead>
         <tbody>
           <tr><td class="name">autoHeight</td><td class="desc">autoHeight.</td></tr>
+          <tr><td class="name">rowCap</td><td class="desc">Show only the first <code>rows</code> rows after sort and filter, with a "+ n more" footer whose count follows the data; activating it fires <code>onMore</code> and lifts the cap. A number, or <code>{ rows, onMore }</code>.</td></tr>
           <tr><td class="name">bom</td><td class="desc">Write the UTF-8 byte-order mark at the head of a CSV export, so Excel detects the encoding instead of guessing at it. Off by default. (optional)</td></tr>
           <tr><td class="name">bucketFn</td><td class="desc">Replace the built-in bucketing entirely. (optional)</td></tr>
           <tr><td class="name">coalesceMs</td><td class="desc">(optional)</td></tr>
@@ -10713,7 +11033,7 @@ grid.import.apply(preview);</code></pre>
       <table>
         <thead><tr><th>Name</th><th>What it does</th></tr></thead>
         <tbody>
-          <tr><td class="name">createChart</td><td class="desc">Draw one of the thirty-seven chart types from a grid’s own data. It follows the grid’s filters, and a mark can filter the grid back.</td></tr>
+          <tr><td class="name">createChart</td><td class="desc">Draw one of the thirty-seven chart types from a grid’s own data. It follows the grid’s filters, and a mark can filter the grid back. A categorical x axis takes a <code>categoryOrder</code> (<code>{ by: 'value' | 'label', dir }</code>, or a list of labels).</td></tr>
           <tr><td class="name">chartRange</td><td class="desc">Chart a selected cell range — the spreadsheet gesture. Derives the chart from the range’s shape (a leading text column is the categories, the numeric columns the measures), respects hidden and unreadable columns, and returns the live chart or null when there is nothing to measure.</td></tr>
           <tr><td class="name">canChartRange</td><td class="desc">Whether <code>chartRange</code> would draw something for the grid’s current selection — the question a menu asks before offering the item.</td></tr>
           <tr><td class="name">deriveRangeSpec</td><td class="desc">Decide what a chart of a range should be without drawing it: the type, the category column, the measures, and a spec ready for <code>createChart</code>.</td></tr>
@@ -10728,7 +11048,7 @@ grid.import.apply(preview);</code></pre>
           <tr><td class="name">createKPI</td><td class="desc">A KPI / stat-tile view (module <code>kpi</code>) of a dataset as a panel of aggregate tiles — each tile a <code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>count</code>, <code>countDistinct</code> or a <code>custom</code> reducer over the routed rows, with an optional <code>filter</code> predicate, number <code>format</code> (<code>number</code>/<code>currency</code>/<code>percent</code>/<code>compact</code>), a <code>baseline</code> for a delta, semantic threshold bands (<code>thresholds</code> with two cut points and a direction, or an explicit <code>bands</code> list, giving a <code>good</code>/<code>warn</code>/<code>critical</code> status kept separate from any accent), and an optional <code>sparkline</code> series. It is a dataset viewer like any other: it consumes data through the same keyed-diff <code>rows.apply({ add, update, remove })</code> contract a grid exposes, so a Data Router can <code>attach(value, kpi)</code> and drive a KPI panel beside a grid, a kanban and a chart off one feed. Updates are incremental — a delta adjusts each tile's running accumulator by only the rows it carries (an add contributes, a remove reverses, an update reverses-then-contributes), the two bounded exceptions being a <code>min</code>/<code>max</code> whose current extreme is removed (a rescan of that tile's own value multiset) and a <code>custom</code> reducer (recomputed over the filtered store, an arbitrary function having no inverse). Each tile is a labelled <code>&lt;figure&gt;</code>, focusable and keyboard-activatable, its value announced, the sparkline respecting <code>prefers-reduced-motion</code>; a <code>tile:click</code> event (also from the keyboard) lets a host drill down or filter a routed grid. Pass <code>null</code> as the element for a headless panel that computes the same tile model without a DOM. Not a dashboard layout engine (that is the parked dashboard generator) and no charting beyond the minimal sparkline (that is the charts module).</td></tr>
           <tr><td class="name">createAI</td><td class="desc">Create an AI narrative / insights controller (module <code>ai</code>) over a live grid. It produces a short, plain-language narrative of the grid's <em>computed</em> figures — a per-KPI / per-chart / per-column <code>explain</code>, or an <code>insights</code> panel over the current filtered view. The grid makes no AI call of its own: <code>createAI</code> imports no provider SDK, holds no key, and makes no network request; it calls one host callback, <code>ask({ system, messages, prompt, tools?, schema?, signal })</code> — your model, your key, your privacy decision — the same philosophy as the data adapters. Two grounding paths feed one guard: where the provider offers tool-use the model is given a curated read-only tool set (<code>getSchema</code>, <code>getProfile</code>, <code>getStatistics</code>, <code>getForecast</code>, <code>runQuery</code>) and the grid's own engine computes what it asks for; otherwise the module builds a facts packet from <code>grid.statistics</code>/the profile/forecasts/view counts and passes it in the prompt. Every figure in the narrative is reconciled against the values the engine produced this render — an ungrounded number is stripped before display (the number-reconciliation guard), so a hallucinated figure never reaches the user. The prompt is constrained to narrate-only; the layer is read-only and never mutates data. <code>redact</code> (a column id, a list, or a predicate) and <code>maxRows</code> bound what the module hands <code>ask()</code>, and the module sends nothing itself; an <code>ask()</code> error surfaces a friendly message and the grid stays fully usable, AI being additive rather than load-bearing. Complementary to <code>grid.ai</code> (the intent/plan skill layer): pass no <code>ask</code> and it adopts the grid's configured <code>ai.ask</code>, running the facts-packet path over it. Pass a headless grid for a DOM-free narrative; <code>facts(target)</code> returns the exact grounded packet without calling <code>ask()</code>. UMD global <code>LatticeGridAI</code>.</td></tr>
                     <tr><td class="name">createTabs</td><td class="desc">Create a tabbed grid (module <code>tabs</code>): a <code>role="tablist"</code> strip above a stack of <code>role="tabpanel"</code> regions, each hosting its own, independently-configured <code>createGrid</code> instance — "configure each tab as per a normal grid" rather than one grid whose state is swapped (<code>ColumnModel#applyState</code> only repositions/hides/resizes existing columns by id; it carries no field, type or row data, so a state-swap only works when every tab shares one schema). <code>createGrid</code> is injected (<code>createTabs(el, { createGrid, tabs })</code>), the same pattern the React/Vue/Svelte adapters use, so the module imports no engine code and adds nothing to a page that does not load it. A tab that names <code>from: '&lt;tabId&gt;'</code> gets a <code>source: { mode: 'derived', from: &lt;the parent tab’s live grid&gt;, where, group, join, … }</code> wired for it automatically — reusing the shipped derived-source mechanism rather than a new config-inheritance one — and activating a derived tab materialises its whole ancestor chain first; a cyclic <code>from</code> graph is refused (naming the exact cycle) when <code>createTabs</code> is called, not at first click. A tab’s grid mounts on first activation and then stays alive, hidden, so its scroll/selection/filters/sort/grouping/expansion — and an open cell/row editor, left exactly as it was, uncommitted and undiscarded — survive a switch natively; <code>destroy()</code> tears every mounted tab down. The strip is a real tablist with <code>aria-selected</code>, a roving <code>tabindex</code>, and manual-activation keyboard handling (arrows/Home/End move focus, Enter/Space or a click activates). Events: <code>tab:changed</code>, a cancellable <code>beforeTabChange</code> paired with <code>tabChange:cancelled</code>. UMD global <code>LatticeGridTabs</code>.</td></tr>
-          <tr><td class="name">createLayout</td><td class="desc">Create a reconfigurable dashboard layout (module <code>layout</code>): a cell grid inside an element, and a set of windows on it that a user can move, resize and close by drag <em>or</em> by keyboard &mdash; the surface a customer would otherwise reach for GridStack to get. It is <strong>payload-agnostic</strong>: a window body is a <code>div</code> with an <code>id</code> that the module creates, sizes and never reads, so it imports no engine code at all (not even <code>createGrid</code>) and the whole module is about 17,500 bytes gzipped on the built bundle, of which roughly 2KB is the shared module runtime. <code>columns</code>/<code>rows</code> divide the element; <code>overflowX</code> and <code>overflowY</code> are <em>independent</em> axes, each <code>'static'</code> (tracks divide the container with <code>minmax(0, 1fr)</code>) or <code>'scroll'</code> (tracks take a fixed <code>columnWidth</code>/<code>rowHeight</code> and the canvas extends past the viewport, so a column keeps the size it asked for &mdash; measured: shrinking a 600px host to 300px leaves a 200px column at 200px). Spacing takes a real CSS length: a number of pixels, or <code>'200px'</code>, <code>'25%'</code>, <code>'1fr'</code>, <code>'2rem'</code>; anything else is refused by name and replaced by the default, because the value reaches an inline style. Windows are placed by 1-based <code>xPos</code>/<code>yPos</code>/<code>xSize</code>/<code>ySize</code>, or auto-placed in the first free cell; <code>chrome</code> defaults on, and <code>closable</code>/<code>movable</code>/<code>resizable</code> all default <em>off</em>, so a fixed dashboard is fixed without opting out. <code>stackBelow</code> (a host width in pixels; default <code>0</code>, never) stacks the windows one per row, full width, in reading order of the arrangement and each at its own height once the host is narrower than that, and puts the configured arrangement back above it &mdash; live, with no event and no change to what <code>getLayout()</code> reports; a window cannot be dragged while stacked. <code>corners: 'rounded'</code> (the default, today's look) is themed via <code>--lattice-layout-radius</code>, a token scoped to this module rather than the shared <code>--lattice-radius</code> every other module reads; <code>corners: 'square'</code> zeroes the radius on the window, its title bar, the minimised strip and the maximised frame &mdash; all the same frame element in a different state, so one rule reaches every one of them &mdash; with no other visual change, and a window's own <code>corners</code> overrides the layout's. <code>compact: 'vertical'</code> pushes displaced windows down then pulls them up (<code>window:moved</code> carries both <code>to</code> and <code>landed</code>); <code>'none'</code> keeps every window where it is put. <code>closable</code>/<code>movable</code>/<code>resizable</code> each also take a <em>layout-level</em> default of the same name, which a window's own boolean overrides, and <code>setInteractive(true|false|{movable, resizable, closable})</code> changes that default at runtime &mdash; the &ldquo;Edit layout&rdquo; button &mdash; without destroying the layout or any payload in it, with <code>getInteractive()</code> reading it back. Locking always wins and unlocking never overrides an opt-out: <code>setInteractive(false)</code> pins a window that declared <code>movable: true</code>, while <code>setInteractive(true)</code> leaves a window that declared <code>movable: false</code> pinned. The config key and the method are deliberately different: <code>movable: false</code> in the config states the <em>default</em> for windows that declare nothing and takes nothing away from one that opted in, whereas <code>setInteractive(false)</code> is an <em>active lock</em>. <code>getInteractive()</code> is three-valued &mdash; <code>undefined</code> for unset, <code>true</code>, or <code>false</code> for a lock &mdash; and a key carrying <code>undefined</code> is treated as absent, so <code>setInteractive(getInteractive())</code> is a no-op in every state. It moves both halves of the enforcement, the rendered handles <em>and</em> the pointer and keyboard gesture checks, and fires no event because a mode is not an arrangement &mdash; <code>getLayout()</code> neither carries it nor restores it. A locked layout is not a read-only dashboard: what is inside a window is configured with that payload's own settings. <code>maximise(id)</code>, <code>minimise(id)</code> and <code>restore(id)</code> are the display modes, with <code>maximised()</code> and <code>minimised()</code> reading them back: maximise fills the <em>layout host</em> rather than the browser window (no <code>position: fixed</code>, whose containing block is the nearest ancestor with a <code>transform</code> or a <code>contain</code>; no reparenting; nothing that can disturb the page around the dashboard), hides the other windows, runs <strong>no compaction at all</strong> and keeps the payload container as the very same DOM node &mdash; and <kbd>Escape</kbd> restores it from anywhere inside the layout. <code>minimise</code> draws a window as a single row and hides its payload while its chrome stays to carry the way back, so the windows below pull up on screen; in the arrangement nothing moves at all, because the collapse is a projection of the dashboard rather than a change to it, so restoring gives back exactly the arrangement that was there in <em>any</em> order and with any number of other windows still collapsed. A <code>chrome: false</code> window is refused by name. Both controls are opt-in per window (<code>maximisable</code>, <code>minimisable</code>) with a layout-level default of the same name, and <code>setInteractive()</code> deliberately does not touch either: a mode is not an arrangement, so neither appears in <code>getLayout()</code>, which reports the underlying placement in both states. Keyboard parity with the drag: a focusable handle per window running the kanban board's grab/move/drop/cancel model, with a polite live region announcing grabbed, every tentative position, dropped, cancelled and reverted. It owns exactly <strong>one</strong> <code>ResizeObserver</code> for the whole layout, over two targets, and tells payloads their new content box through <code>window:resized</code> &mdash; it never calls into a payload, because it cannot know what one is. Events: <code>window:moved</code>, <code>window:resized</code>, <code>window:closed</code>, <code>layout:changed</code>, the cancellable <code>beforeWindowMove</code>/<code>beforeWindowResize</code>/<code>beforeWindowClose</code> and their <code>*:cancelled</code> pairs; drag progress is not emitted per frame. <code>getLayout()</code>/<code>setLayout()</code> round-trip the arrangement as plain JSON, and <code>getState()</code>/<code>setState()</code> are the versioned pair. Closing a window does <strong>not</strong> destroy its payload &mdash; the container is handed back on <code>window:closed</code> and the host owns that lifecycle. UMD global <code>LatticeGridLayout</code>.</td></tr>
+          <tr><td class="name">createLayout</td><td class="desc">Create a reconfigurable dashboard layout (module <code>layout</code>): a cell grid inside an element, and a set of windows on it that a user can move, resize and close by drag <em>or</em> by keyboard &mdash; the surface a customer would otherwise reach for GridStack to get. It is <strong>payload-agnostic</strong>: a window body is a <code>div</code> with an <code>id</code> that the module creates, sizes and never reads, so it imports no engine code at all (not even <code>createGrid</code>) and the whole module is about 17,500 bytes gzipped on the built bundle, of which roughly 2KB is the shared module runtime. <code>columns</code>/<code>rows</code> divide the element; <code>overflowX</code> and <code>overflowY</code> are <em>independent</em> axes, each <code>'static'</code> (tracks divide the container with <code>minmax(0, 1fr)</code>) or <code>'scroll'</code> (tracks take a fixed <code>columnWidth</code>/<code>rowHeight</code> and the canvas extends past the viewport, so a column keeps the size it asked for &mdash; measured: shrinking a 600px host to 300px leaves a 200px column at 200px). Spacing takes a real CSS length: a number of pixels, or <code>'200px'</code>, <code>'25%'</code>, <code>'1fr'</code>, <code>'2rem'</code>; anything else is refused by name and replaced by the default, because the value reaches an inline style. Windows are placed by 1-based <code>xPos</code>/<code>yPos</code>/<code>xSize</code>/<code>ySize</code>, or auto-placed in the first free cell; a window can instead be <em>content-sized</em> with <code>height: 'content'</code> (plus optional <code>minHeight</code>/<code>maxHeight</code>): it spans one row that takes the natural height of what the window holds, re-flows when that changes and leaves the rest to fill windows; <code>chrome</code> defaults on, and <code>closable</code>/<code>movable</code>/<code>resizable</code> all default <em>off</em>, so a fixed dashboard is fixed without opting out. <code>stackBelow</code> (a host width in pixels; default <code>0</code>, never) stacks the windows one per row, full width, in reading order of the arrangement and each at its own height once the host is narrower than that, and puts the configured arrangement back above it &mdash; live, with no event and no change to what <code>getLayout()</code> reports; a window cannot be dragged while stacked. <code>corners: 'rounded'</code> (the default, today's look) is themed via <code>--lattice-layout-radius</code>, a token scoped to this module rather than the shared <code>--lattice-radius</code> every other module reads; <code>corners: 'square'</code> zeroes the radius on the window, its title bar, the minimised strip and the maximised frame &mdash; all the same frame element in a different state, so one rule reaches every one of them &mdash; with no other visual change, and a window's own <code>corners</code> overrides the layout's. <code>compact: 'vertical'</code> pushes displaced windows down then pulls them up (<code>window:moved</code> carries both <code>to</code> and <code>landed</code>); <code>'none'</code> keeps every window where it is put. <code>closable</code>/<code>movable</code>/<code>resizable</code> each also take a <em>layout-level</em> default of the same name, which a window's own boolean overrides, and <code>setInteractive(true|false|{movable, resizable, closable})</code> changes that default at runtime &mdash; the &ldquo;Edit layout&rdquo; button &mdash; without destroying the layout or any payload in it, with <code>getInteractive()</code> reading it back. Locking always wins and unlocking never overrides an opt-out: <code>setInteractive(false)</code> pins a window that declared <code>movable: true</code>, while <code>setInteractive(true)</code> leaves a window that declared <code>movable: false</code> pinned. The config key and the method are deliberately different: <code>movable: false</code> in the config states the <em>default</em> for windows that declare nothing and takes nothing away from one that opted in, whereas <code>setInteractive(false)</code> is an <em>active lock</em>. <code>getInteractive()</code> is three-valued &mdash; <code>undefined</code> for unset, <code>true</code>, or <code>false</code> for a lock &mdash; and a key carrying <code>undefined</code> is treated as absent, so <code>setInteractive(getInteractive())</code> is a no-op in every state. It moves both halves of the enforcement, the rendered handles <em>and</em> the pointer and keyboard gesture checks, and fires no event because a mode is not an arrangement &mdash; <code>getLayout()</code> neither carries it nor restores it. A locked layout is not a read-only dashboard: what is inside a window is configured with that payload's own settings. <code>maximise(id)</code>, <code>minimise(id)</code> and <code>restore(id)</code> are the display modes, with <code>maximised()</code> and <code>minimised()</code> reading them back: maximise fills the <em>layout host</em> rather than the browser window (no <code>position: fixed</code>, whose containing block is the nearest ancestor with a <code>transform</code> or a <code>contain</code>; no reparenting; nothing that can disturb the page around the dashboard), hides the other windows, runs <strong>no compaction at all</strong> and keeps the payload container as the very same DOM node &mdash; and <kbd>Escape</kbd> restores it from anywhere inside the layout. <code>minimise</code> draws a window as a single row and hides its payload while its chrome stays to carry the way back, so the windows below pull up on screen; in the arrangement nothing moves at all, because the collapse is a projection of the dashboard rather than a change to it, so restoring gives back exactly the arrangement that was there in <em>any</em> order and with any number of other windows still collapsed. A <code>chrome: false</code> window is refused by name. Both controls are opt-in per window (<code>maximisable</code>, <code>minimisable</code>) with a layout-level default of the same name, and <code>setInteractive()</code> deliberately does not touch either: a mode is not an arrangement, so neither appears in <code>getLayout()</code>, which reports the underlying placement in both states. Keyboard parity with the drag: a focusable handle per window running the kanban board's grab/move/drop/cancel model, with a polite live region announcing grabbed, every tentative position, dropped, cancelled and reverted. It owns exactly <strong>one</strong> <code>ResizeObserver</code> for the whole layout, over two targets, and tells payloads their new content box through <code>window:resized</code> &mdash; it never calls into a payload, because it cannot know what one is. Events: <code>window:moved</code>, <code>window:resized</code>, <code>window:closed</code>, <code>layout:changed</code>, the cancellable <code>beforeWindowMove</code>/<code>beforeWindowResize</code>/<code>beforeWindowClose</code> and their <code>*:cancelled</code> pairs; drag progress is not emitted per frame. <code>getLayout()</code>/<code>setLayout()</code> round-trip the arrangement as plain JSON, and <code>getState()</code>/<code>setState()</code> are the versioned pair. Closing a window does <strong>not</strong> destroy its payload &mdash; the container is handed back on <code>window:closed</code> and the host owns that lifecycle. UMD global <code>LatticeGridLayout</code>.</td></tr>
           <tr><td class="name">createDevtools</td><td class="desc">Mount the devtools panel against a grid, including its accessibility checks.</td></tr>
           <tr><td class="name">createGantt</td><td class="desc">Create a project-planning Gantt controller (module <code>gantt</code>) over a task list and a dependency list. A CPM engine (<code>computeSchedule</code>) computes each task's early/late start and finish, its slack and the zero-float critical path, honouring the four link types (<code>LINK_TYPES</code>: FS/SS/FF/SF) with lag, and recomputes on every edit — emitting <code>schedule</code> or, on a dependency cycle or bad input, <code>error</code> (a code from <code>SCHEDULE_ERROR</code>). Milestones are zero-duration points; summary (WBS) tasks are derived from their children (earliest start, latest finish, weighted progress) rather than scheduled; <code>findViolations</code> flags a task placed earlier than its predecessors allow, and <code>toISODate</code> maps an engine day-number back to a calendar date.</td></tr>
           <tr><td class="name">createResourceView</td><td class="desc">Create a standalone resource-load band (module <code>gantt</code>, BACKLOG-0001949): the workload band on its own, with <code>resources</code> and <code>bookings</code> and no task Gantt, no plan and no CPM — a resource-availability view by department, portfolio or scenario. It reuses the split view's workload band rather than forking it (<code>createGantt</code> with no tasks, then <code>mountSplit</code> in a resource-only mode that hides the task table and the timeline bars and fills the view with the band), so day/week/month/quarter buckets with the scale header and zoom, hours/percent/cost units with utilisation thresholds, expand-to-bookings, the <code>workload:click</code> bucket event, its own grid-backed column definitions and width round-trip, and SVG export all come across unchanged. Bookings are <code>{ resource, start, end, units | hours, label, group }</code> (the <code>workload.external</code> shape); <code>setBookings</code> applies a changed set live, and the time-bucket columns never carry a grid control. UMD global via the <code>gantt</code> module.</td></tr>
@@ -11214,11 +11534,68 @@ return boundCount + '|' + routed;</code></pre>
       own rows, so <code>serialize()</code> always matches what is painted, and
       <code>filter(fn)</code> hides items without dropping them from the store (call with no
       arguments to clear it).</p>
+      <p><strong>Group the items under headings</strong> with <code>groupBy</code> &mdash; a field name
+      (a dotted path works) or a function returning an item's group. Each group gets a heading with its
+      label and its count; the items inside a group stay in the list's own sort order, and a
+      <code>filter</code> (or any search you wire to it) updates the counts and drops a group that has
+      nothing left, heading and all. It is the grid's own row grouping underneath, so virtual scrolling
+      and keyboard navigation are unchanged. <code>groupOrder</code> is <code>'asc'</code> (the default)
+      or <code>'desc'</code> by group value, or an array of group values to put first, in that order.
+      <code>groupHeading(group)</code> draws a heading yourself and is handed <code>{ value, label, count,
+      collapsed, collapsible, element }</code>: return markup (sanitised) or an element, or write into
+      <code>element</code>. <code>stickyGroupHeadings</code> keeps the current group's heading at the top
+      while its group scrolls, and is on by default. <code>collapsibleGroups: true</code> lets a click, or
+      Enter or Space on a focused heading, fold a group down to its heading; the arrow keys then stop on
+      headings as well as items, and Left and Right close and open the group. Without it the arrow keys
+      step over headings from one group's last item to the next group's first.
+      <code>groupsCollapsed: true</code> starts every group folded, and <code>list.groups</code>
+      (<code>collapse</code>, <code>expand</code>, <code>toggle</code>, <code>collapseAll</code>,
+      <code>expandAll</code>, <code>isCollapsed</code>, <code>values</code>) folds them from code. A list
+      with <code>groupBy</code> has no drag-to-reorder within itself, since a group decides where an item
+      sits; <code>data.add</code> ignores the index for the same reason.</p>
       <p><strong>Events bubble from your own template too.</strong> An <code>input</code> or
       <code>change</code> fired by a control inside a row's template is caught and re-emitted
       carrying that row's item id, so a host never has to walk the DOM itself to know which item a
       field inside the list belongs to.</p>
     </div>
+
+    <h3 id="listview-groups-example">A grouped list</h3>
+    <p class="section-note">Six items grouped by status under headings that show a label and a count: the groups in the order you name, a filter that empties one group and removes its heading, and a fold that hides a group's items but keeps its heading. Run headless, the groups are read from <code>list.groups.values()</code> and the items from <code>list.data</code>.</p>
+    <pre data-run="js" data-expect="Open,Done,Blocked || 6 || Open,Done || true || 6 || false" data-covers="config:ListViewConfig.groupBy config:ListViewConfig.groupOrder config:ListViewConfig.groupHeading config:ListViewConfig.stickyGroupHeadings config:ListViewConfig.collapsibleGroups config:ListViewConfig.groupsCollapsed"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createGrid } = await import('../packages/dom/src/index.js');
+const { createList } = await import('../packages/modules/listview/index.js');
+
+const list = createList(createTestDom().root, {
+  createGrid,
+  data: [
+    { id: 1, title: 'Pour the base', status: 'Done' },
+    { id: 2, title: 'Frame the walls', status: 'Open' },
+    { id: 3, title: 'Order glass', status: 'Blocked' },
+    { id: 4, title: 'Fit the doors', status: 'Open' },
+    { id: 5, title: 'Paint', status: 'Done' },
+    { id: 6, title: 'Final inspection', status: 'Open' },
+  ],
+  template: (item) =&gt; `&lt;div&gt;${item.title}&lt;/div&gt;`,
+  groupBy: 'status',                                    // a field name, or (item) =&gt; group
+  groupOrder: ['Open', 'Done'],                         // these first, the rest ascending
+  groupHeading: (group) =&gt; `${group.label} (${group.count})`,
+  stickyGroupHeadings: true,
+  collapsibleGroups: true,
+  groupsCollapsed: false,
+});
+
+const groups = list.groups.values().join(',');                    // Open,Done,Blocked
+const items = list.data.serialize().length;
+list.data.filter((item) =&gt; item.status !== 'Blocked');           // a group with nothing left has no heading
+const afterFilter = list.groups.values().join(',');
+list.data.filter();
+list.groups.collapse('Open');
+const folded = list.groups.isCollapsed('Open');
+const stillThere = list.data.serialize().length;                  // folded items stay in the data
+list.groups.expandAll();
+const reopened = list.groups.isCollapsed('Open');
+list.destroy();
+return [groups, items, afterFilter, folded, stillThere, reopened].join(' || ');</code></pre>
 
     <h3 id="dataview-live">The data view module</h3>
     <p class="section-note">The opt-in data view: items laid out as template-drawn cards that wrap into rows, with selection, two-dimensional keyboard navigation and drag to reorder.</p>
@@ -11243,6 +11620,17 @@ return boundCount + '|' + routed;</code></pre>
       <p><strong>Keyboard.</strong> One card is in the tab order and the arrow keys move between cards
       across rows and columns; Shift extends a multi selection, Space toggles, and Enter activates.
       The view is an ARIA grid of rows and cells.</p>
+      <p><strong>Group the cards under headings</strong> with the same <code>groupBy</code> a list takes
+      &mdash; a field name or a function. Each group is a full-width heading (its label and count) followed by
+      its own cards wrapped into rows, so a short last row never shares a line with the next group. The
+      cards inside a group keep the view's sort order, <code>data.filter</code> updates the counts and drops
+      an emptied group, and <code>groupOrder</code>, <code>groupHeading(group)</code>,
+      <code>stickyGroupHeadings</code>, <code>collapsibleGroups</code> and <code>groupsCollapsed</code> mean
+      what they do on a list, with <code>view.groups</code> folding from code.
+      <code>groupHeadingHeight</code> sets the height of a heading row in pixels (default 32). The arrow keys
+      move across groups &mdash; down from the last row of a group lands on the next group's first row, or on
+      its heading when <code>collapsibleGroups</code> makes headings focusable &mdash; and a grouped view takes
+      a drop from another view at the end, since the group decides where a card sits.</p>
       <p><strong>A drag copy's identity.</strong> A <code>dragCopy</code> drop no longer keeps the source
       card's id: the copy gets a fresh one, so dropping the same card twice lands two cards. Set
       <code>copyId(item)</code> to name it yourself; without it the source id is given a
@@ -11251,6 +11639,42 @@ return boundCount + '|' + routed;</code></pre>
       card is armed as a drag, and a press that starts on a natively draggable element inside a card (an
       <code>&lt;img&gt;</code>, say) moves the item rather than the browser's own image drag.</p>
     </div>
+
+    <h3 id="dataview-groups-example">A grouped card view</h3>
+    <p class="section-note">The same six items as cards, two to a row: each group is a full-width heading followed by its own cards, and the heading rows and card rows together are what <code>aria-rowcount</code> counts (three headings and four rows of cards, then three headings and two rows once <code>Open</code> is folded).</p>
+    <pre data-run="js" data-expect="Open,Done,Blocked || 7 || 6 || Open,Done || 5" data-covers="config:DataViewConfig.groupBy config:DataViewConfig.groupOrder config:DataViewConfig.groupHeading config:DataViewConfig.groupHeadingHeight config:DataViewConfig.stickyGroupHeadings config:DataViewConfig.collapsibleGroups config:DataViewConfig.groupsCollapsed"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createDataView } = await import('../packages/modules/dataview/index.js');
+
+const host = createTestDom().root;
+const view = createDataView(host, {
+  data: [
+    { id: 1, title: 'Pour the base', status: 'Done' },
+    { id: 2, title: 'Frame the walls', status: 'Open' },
+    { id: 3, title: 'Order glass', status: 'Blocked' },
+    { id: 4, title: 'Fit the doors', status: 'Open' },
+    { id: 5, title: 'Paint', status: 'Done' },
+    { id: 6, title: 'Final inspection', status: 'Open' },
+  ],
+  template: (item) =&gt; `&lt;h4&gt;${item.title}&lt;/h4&gt;`,
+  columns: 2,
+  groupBy: 'status',
+  groupOrder: ['Open', 'Done'],
+  groupHeading: (group) =&gt; `${group.label} (${group.count})`,
+  groupHeadingHeight: 28,
+  stickyGroupHeadings: true,
+  collapsibleGroups: true,
+  groupsCollapsed: false,
+});
+
+const groups = view.groups.values().join(',');                    // Open,Done,Blocked
+const rows = host.querySelector('[role="grid"]').getAttribute('aria-rowcount');
+view.data.filter((item) =&gt; item.status !== 'Blocked');
+const afterFilter = view.groups.values().join(',');
+view.data.filter();
+view.groups.collapse('Open');
+const foldedRows = host.querySelector('[role="grid"]').getAttribute('aria-rowcount');
+view.destroy();
+return [groups, rows, view.data.getLength(), afterFilter, foldedRows].join(' || ');</code></pre>
 
     <h3 id="sidebar-live">The sidebar module</h3>
     <p class="section-note">The opt-in navigation rail: a tree of collapsible groups, nested items and badges with an active item, a filter box and an icons-only rail, for an application's main menu.</p>
@@ -11377,6 +11801,32 @@ return boundCount + '|' + routed;</code></pre>
       <code>closeOnBackdrop</code> opt in to those closers, and <code>closed</code> resolves with the value passed to
       <code>close</code> &mdash; or, on a dialog, with the <code>value</code> of the clicked <code>actions</code>
       button. The shell is destroyed on close or with the page, never the content.</p>
+      <p><strong>Tabbed cells.</strong> A leaf cell's <code>tabs: [{ id, label?, content?, selected? }]</code>
+      (BACKLOG-0002139) turns it into a <code>role="tablist"</code> strip over a stack of
+      <code>role="tabpanel"</code> regions, one per tab; every tab's <code>content</code> stays mounted and merely
+      hidden on a switch away, so its scroll, form state and listeners survive. The arrow keys, Home and End move
+      and activate the next/previous/first/last tab, and <code>cell.getTab(id)</code> returns that one tab's own
+      handle: <code>active()</code>, <code>activate()</code>, and the same <code>attach</code>/<code>detach</code>/
+      <code>getWidget</code> surface a plain cell has, scoped to that tab. A tab's own <code>selected: true</code>
+      (BACKLOG-0005173) is what makes it the one active on first render &mdash; the config-time equivalent of
+      calling <code>getTab(id).activate()</code> the instant the shell is built, without a screen having to do that
+      itself. With no tab marked <code>selected</code>, the first tab is active, exactly as before this option
+      existed. Marking more than one tab <code>selected: true</code> is resolved rather than refused &mdash; the
+      last one in the array wins, and one console warning (catalogued) names every tab that was marked so the
+      ambiguity is visible. First render is not a switch: it fires neither the tab's <code>onVisible</code>/
+      <code>onHidden</code> hooks nor the cell's <code>tabChange</code> event, whichever tab ends up active; a host
+      that needs to know which one started active reads <code>cell.getTab(id).active()</code>, or the id passed to
+      a later <code>activate()</code> call. Switching tabs after mount &mdash; by click, by keyboard, or by calling
+      <code>activate()</code> &mdash; is unaffected by <code>selected</code> and always fires both.</p>
+      <pre><code><span class="kw">const</span> shell = createShell(el, {
+  rows: [{ id: <span class="str">'main'</span>, tabs: [
+    { id: <span class="str">'overview'</span>, label: <span class="str">'Overview'</span> },
+    { id: <span class="str">'breached'</span>, label: <span class="str">'Breached SLA'</span>, selected: <span class="kw">true</span> },
+  ] }],
+});
+<span class="cmt">// "breached" is already the active tab — no activate() call needed.</span>
+shell.getCell(<span class="str">'main'</span>).getTab(<span class="str">'breached'</span>).active();   <span class="cmt">// true</span>
+shell.getCell(<span class="str">'main'</span>).getTab(<span class="str">'overview'</span>).activate(); <span class="cmt">// switches later, firing tabChange</span></code></pre>
     </div>
 
     <h3 id="form-live">The form module</h3>
@@ -12738,6 +13188,40 @@ return (`${viewport.style.overflowX} ${viewport.style.overflowY} | ${canvas.styl
     </div>
 
     <div class="example">
+      <p class="example__label">Content-sized windows: <code>height: 'content'</code> with <code>minHeight</code>/<code>maxHeight</code>, executed</p>
+      <pre data-run="js" data-expect="rows max-content minmax(0, 1fr) minmax(0, 1fr) | min 40px max 200px | saved content 40px 200px | fixed has none" data-covers="config:height config:minHeight config:maxHeight method:layout.getLayout"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createLayout } = await import('../packages/modules/layout/index.js');
+const { document, root } = createTestDom({ width: 600, height: 400 });
+const host = document.createElement('div');
+root.appendChild(host);
+const layout = createLayout(host, {
+  columns: 2, rows: 3,
+  windows: [
+    // Row 1 is as tall as the content of this window (a KPI strip, a form,
+    // a grid with autoHeight, plain HTML) and follows it as it changes.
+    { id: 'strip', xPos: 1, yPos: 1, xSize: 2, height: 'content', minHeight: 40, maxHeight: 200 },
+    // Fill windows keep a row span and share what is left.
+    { id: 'grid', xPos: 1, yPos: 2, xSize: 2, ySize: 2 },
+  ],
+});
+const canvas = host.querySelector('.lat-layout__canvas');
+const frame = layout.payload('strip').parentNode;
+const saved = layout.getLayout().windows;
+return (`rows ${canvas.style.gridTemplateRows} | min ${frame.style.minHeight} max ${frame.style.maxHeight} | saved ${saved[0].height} ${saved[0].minHeight} ${saved[0].maxHeight} | fixed ${saved[1].height === undefined ? 'has none' : 'has one'}`);
+</code></pre>
+      <p>
+        A window with <code>height: 'content'</code> spans one row whose track is <code>max-content</code>,
+        so the browser sizes it to what the window holds and re-flows it when that changes; there is no
+        measuring loop to write or to settle. <code>minHeight</code> and <code>maxHeight</code> (a number of
+        pixels or a CSS length) bound it, and a taller body scrolls inside the cap. Fill windows keep their
+        <code>ySize</code> and share the remaining rows. In a shell, the same idea is
+        <code>{ id: 'strip', height: 'content' }</code> on a row (<code>width: 'content'</code> on a column),
+        with sibling gravity cells taking the remainder. A dashboard passes the same keys through
+        <code>layout.windows</code> and keeps them in <code>spec()</code> and saved views.
+      </p>
+    </div>
+
+    <div class="example">
       <p class="example__label">Layout-level interactivity defaults, executed</p>
       <pre data-run="js" data-expect="close true | grip true | opted-out-grip false | maximise true | minimise true" data-covers="config:closable config:movable config:resizable config:maximisable config:minimisable"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
 const { createLayout } = await import('../packages/modules/layout/index.js');
@@ -13119,6 +13603,45 @@ return (`p1-jobs ${kpi.value('p1')} | click ${clicks.join(',')} | dbl ${dbl.join
         <code>priority</code> at all on a grid-bound panel — a field a tile does not itself declare is
         otherwise not projected; the three pointer events each route to their matching config
         callback, and <code>onChange</code> fires once, at construction.
+      </p>
+    </div>
+
+    <div class="example">
+      <p class="example__label">A literal value, a caption, a tooltip and custom delta wording</p>
+      <pre data-run="js" data-expect="112 | as of this morning | Up 12 on the previous period (+12%) | Vacancies with no hire agreed | tile Down 20 (-20%) | Closed: 80" data-covers="config:KPIStatTile.value config:KPIStatTile.caption config:KPIStatTile.tooltip config:KPIStatTile.deltaWording config:StatConfig.deltaWording config:StatConfig.tooltip"><code>const { createTestDom } = await import('../packages/dom/src/renderer/testdom.js');
+const { createKPI } = await import('../packages/modules/kpi/index.js');
+const { createStat } = await import('../packages/dom/src/stat.js');
+
+const dom = createTestDom({});
+const el = dom.document.createElement('div');
+const kpi = createKPI(el, {
+  rows: [], rowKey: 'id',
+  tiles: [{
+    id: 'open',
+    label: 'Open vacancies',
+    value: 112,                          <span class="cmt">// a literal; no compute: () =&gt; 112</span>
+    caption: 'as of this morning',       <span class="cmt">// a string, or (value, tile) =&gt; string</span>
+    tooltip: 'Vacancies with no hire agreed',  <span class="cmt">// hover title + aria-description</span>
+    baseline: 100,
+    deltaWording: { up: 'Up {change} on the previous period ({percent})' },
+  }],
+});
+const open = kpi.tile('open');
+
+<span class="cmt">// createStat takes the same tooltip and deltaWording; here a function words the move.</span>
+const box = dom.document.createElement('div');
+const stat = createStat({
+  container: box, title: 'Closed', value: 80, baseline: 100,
+  tooltip: (value) =&gt; `Closed: ${value}`,
+  deltaWording: ({ formatted, percent }) =&gt; `Down ${formatted} (${percent}%)`,
+});
+const root = stat.element();
+return `${open.formatted} | ${open.caption} | ${open.deltaText} | ${open.tooltip} | tile ${root.querySelector('.lat-stat__delta').textContent} | ${root.getAttribute('aria-description')}`;</code></pre>
+      <p>
+        The tile reads "112", with the caption beneath the label and "Up 12 on the previous period
+        (+12%)" as its movement line; the caption and the wording are part of the tile's accessible
+        name and the tooltip is its <code>aria-description</code>. A literal <code>value</code> is the
+        host's own figure, so an empty or silent panel does not blank it.
       </p>
     </div>
 
@@ -14034,7 +14557,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.110.3 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.111.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

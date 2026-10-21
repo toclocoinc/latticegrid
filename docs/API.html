@@ -382,7 +382,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">API reference · v1.110.3</p>
+    <p class="rail__sub">API reference · v1.111.0</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start</span>
@@ -592,7 +592,7 @@
     </header>
 
     <p class="chips">
-      <span class="chip">Version 1.110.3</span>
+      <span class="chip">Version 1.111.0</span>
       <span class="chip">Zero dependencies</span>
       <span class="chip"><a href="api-detail.html">Developer guide &rarr;</a></span>
     </p>
@@ -3515,7 +3515,7 @@ grid.destroy();
       <table>
         <thead><tr><th>Member</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.110.3'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
+          <tr><td class="sig">getVersion()</td><td class="type">string</td><td class="desc">The version this grid came from, e.g. <code>'1.111.0'</code>. Also on the module as <code>getVersion()</code>, for when you have no grid to hand.</td></tr>
           <tr><td class="sig">get(key)</td><td class="type">unknown</td><td class="desc">Read any configuration key.</td></tr>
           <tr><td class="sig">set(key, value)</td><td class="type">void</td><td class="desc">Write one key. Every key is live; nothing needs a rebuild.</td></tr>
           <tr><td class="sig">setAll(values)</td><td class="type">void</td><td class="desc">Write several in one pass. Emits one <code>config:changed</code> for the batch, not one per key.</td></tr>
@@ -24315,6 +24315,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">A caption for the grid, drawn above the column headings. Inside the grid rather than an element the host places above it: a title outside does not scroll with the grid, is not in the region a screen reader announces, and is left behind by image capture and print. <small>(optional)</small></td></tr>
           <tr><td class="name">showHeader</td><td class="type">boolean</td><td class="desc">Draw the column headings at all. `true` by default. `false` removes the row, and removes it from the accessibility tree rather than only from view, a heading a screen reader still announces is invisible, not hidden. What a small dashboard tile wants when its `title` already says what the panel is. Distinct from `showColumnFunctions`, which keeps the headings and drops only the sort, filter and menu controls inside them. <small>(optional)</small></td></tr>
           <tr><td class="name">headerHeight</td><td class="type">number</td><td class="desc">Header height in pixels. Omitted, the header takes its height from the density-scaled `--lattice-header-height` token, so `density` sizes the header as it sizes the rows. A number names one explicitly and outranks the token. <small>(optional)</small></td></tr>
+          <tr><td class="name">rowCap</td><td class="type">number | <a href="#type-RowCapConfig">RowCapConfig</a></td><td class="desc">Show only the first rows, after sort and filter, with a "+ n more" footer. A number is the row count; an object adds `onMore`. The footer's count follows the data (`rowCap.more` in the message catalogue), hides when nothing is cut, and when activated (click, or Enter on the focused button) calls `onMore` and then shows every row. `autoHeight` sizes to the rows shown. Writing `rowCap` again with `grid.set` re-applies the cap. <small>(optional)</small></td></tr>
           <tr><td class="name">overscan</td><td class="type">number</td><td class="desc">How many rows to render beyond the viewport. More costs memory and smooths fast scrolling; fewer is lighter and can show a gap. <small>(optional)</small></td></tr>
           <tr><td class="name">autoHeight</td><td class="type">boolean | 'visible'</td><td class="desc">Size rows to their content rather than to the density token. Only rows that are actually rendered are ever measured, in both settings: the grid does not lay out rows you cannot see. The difference is what happens on a large grid: `true` gives up above ten thousand rows and falls back to fixed heights, because a cumulative offset array being patched as you scroll a million rows is not worth the result. `'visible'` keeps measuring at any size, accepting that the scrollbar shifts as rows are measured on the way past. The name is historical and reads as though it were about which rows are measured; it is about whether the ceiling applies. <small>(optional)</small></td></tr>
           <tr><td class="name">state</td><td class="type"><a href="#type-GridState">GridState</a></td><td class="desc">Sort, filters, grouping, widths and the rest, restored at construction. Takes precedence over a saved view flagged `isDefault`: when both are present, this wins outright and the default view is never applied — the active view id stays `null`. <small>(optional)</small></td></tr>
@@ -24368,7 +24369,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">toolPanel</td><td class="type">boolean | { /** * Which panels to offer, each given one of three ways: a built-in name * (`columns`, `filters`, `views`, `quick`, `formatting`, `statistics`, * `regression`, `compare`, `insights`); an object naming a built-in and * giving it props, a title or an icon of its own (`{ name: 'regression', * props: { predictors: ['x1', 'x2'], response: 'y' } }`); or a panel * constructor of your own (§18.5: `init`, `element`, optional `refresh` * and `destroy`) — bare, or as an object's `name` to give it props too. * Entry props win over any config-derived props (`views`, `insights`, * `regression`) for the same panel. An unrecognised name warns once and * is dropped rather than rendering an empty tab. */ panels?: (ToolPanelName | Function | { name: ToolPanelName | Function; props?: object; title?: string; icon?: string })[]; openPanel?: string; /** Which edge to dock against. `left` is the icon rail; default `right`. */ side?: ToolPanelSide; /** Icon-only tabs. Defaults to true for `side: 'left'`, false otherwise. */ icons?: boolean; /** * Rail action buttons: `undo`, `redo`, `export`, `restore`. Defaults to all * four on the left rail and none on the right; `false` drops them. */ /** * Which action buttons the rail offers, in order. `false` drops them. * * The built-in names are `undo`, `redo`, `pause`, `restore`, `maximise`, * `export`, `excel`, `clipboard` and `print`, plus `'-'` for a divider. * A {@link RailAction} object places one of your own among them. */ actions?: false | (RailActionName | '-' | <a href="#type-RailAction">RailAction</a>)[]; /** File name for the export action, without the extension. */ exportName?: string; /** * Put the native annotation tools — pen, arrow, rectangle, highlighter — on * the rail. Each is a real toggle button that shows pressed while it is the * tool in use and turns off when pressed again. Three states, not two: * `true` opts in and keeps the tools on the rail always, presentation or * not; `false` opts OUT and the tools are never added, not even for a * presentation; omitted keeps the default, where the tools are off until a * presentation starts, appear for its duration, and leave when it ends. */ annotate?: boolean; }</td><td class="desc">Dock the side panels against the grid: columns, filters, views, quick search and formatting. The columns panel is where row grouping, values and pivot are assembled by drag, which is why it carries three drop zones as well as the visibility list — a column opts out of each with `allowGroup`, `allowPivot` and `allowTotal`. <small>(optional)</small></td></tr>
           <tr><td class="name">regression</td><td class="type"><a href="#type-RegressionSpec">RegressionSpec</a></td><td class="desc">The model the `regression` tool panel fits when no `props` were given on its own `toolPanel.panels` entry (BACKLOG-0000812) — `grid.set('regression', spec)` repaints an open panel with the new model. Panel-entry props still win when both are given. <small>(optional)</small></td></tr>
           <tr><td class="name">groupPanel</td><td class="type">boolean | { /** Placeholder shown while nothing is grouped. */ hint?: string; }</td><td class="desc">A drag-and-drop group-by strip above the column header — the pattern a row-group panel. Drag a column heading into it to group by that column; the active groups show as removable, reorderable chips, and reordering the chips changes the nesting order. It is keyboard-operable (arrows navigate, Shift+arrow reorders, Delete ungroups, and an add control groups any column), and every change is announced through the live region, which is why it also addresses the drag-only complaint (BACKLOG-0000429). Off by default and non-breaking, matching `toolPanel`. It drives the same grouping model as `grid.columns.group()`; it reimplements nothing. <small>(optional)</small></td></tr>
-          <tr><td class="name">kpis</td><td class="type">Array&lt;Omit&lt;<a href="#type-StatConfig">StatConfig</a>, 'grid' | 'container'&gt;&gt;</td><td class="desc">A built-in KPI/stat strip: a labelled band of {@link createStat} tiles the grid places for you, above the column header. Each entry is a stat spec — the same fields {@link StatConfig} takes, minus `grid` and `container`, which the grid supplies — so a strip tile and a hand-placed one are the same object. The tiles follow the grid's filters, recomputing on every change exactly as a stand-alone stat does. Off by default and non-breaking, matching `groupPanel`: no `kpis` means no band and no cost. It reuses `createStat` and reimplements no compute. <small>(optional)</small></td></tr>
+          <tr><td class="name">kpis</td><td class="type">Array&lt;Omit&lt;<a href="#type-StatConfig">StatConfig</a>, 'grid' | 'container'&gt; &amp; <a href="#type-KpiTileAction">KpiTileAction</a>&gt;</td><td class="desc">A built-in KPI/stat strip: a labelled band of {@link createStat} tiles the grid places for you, above the column header. Each entry is a stat spec — the same fields {@link StatConfig} takes, minus `grid` and `container`, which the grid supplies — so a strip tile and a hand-placed one are the same object. The tiles follow the grid's filters, recomputing on every change exactly as a stand-alone stat does. Off by default and non-breaking, matching `groupPanel`: no `kpis` means no band and no cost. It reuses `createStat` and reimplements no compute. <small>(optional)</small></td></tr>
+          <tr><td class="name">kpiSelection</td><td class="type">'single' | 'multiple'</td><td class="desc">How selectable `kpis` tiles combine: `'single'` (default) releases the other tiles' filters when one is selected; `'multiple'` lets several be on at once, ANDed like any other named filters. <small>(optional)</small></td></tr>
           <tr><td class="name">quickFilterText</td><td class="type">string</td><td class="desc">The quick filter's initial text. <small>(optional)</small></td></tr>
           <tr><td class="name">permissions</td><td class="type"><a href="#type-PermissionPolicy">PermissionPolicy</a></td><td class="desc">Per-column read/write/hidden policy. A usability control, not a security boundary: hidden data is still resident in the store. Enforce the same policy server-side with `permittedColumns` / `permittedExport`. <small>(optional)</small></td></tr>
           <tr><td class="name">diff</td><td class="type">{ snapshot?: unknown[] | Map&lt;string, unknown&gt;; strictNull?: boolean; addedColumns?: <a href="#type-DiffAddedColumns">DiffAddedColumns</a>; /** * Whether a row present in the snapshot but gone from the data is shown, * and whether it counts as data when it is. * * `false` (the default) leaves it out entirely. `'pinned'` shows it * beneath the rows, struck through: visible history that is not part of the * row set, so it is excluded from `rows.count()`, from exports and from * selection. `'data'` appends it to the row set instead, so it *is* * counted and exported. * * Neither is sorted or filtered among the live rows: a removed row's values * are the snapshot's, and ordering yesterday's numbers among today's would * present two data sets as one. Neither can be edited: there is nothing * left to write to. */ removedRows?: false | 'pinned' | 'data'; }</td><td class="desc">Prior state for diff and audit mode. <small>(optional)</small></td></tr>
@@ -24898,6 +24900,24 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-RowCapConfig">RowCapConfig</h4>
+    <p class="section-note">The object form of `GridConfig.rowCap`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">rows</td><td class="type">number</td><td class="desc">How many rows to show. Zero or less means no cap.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">onMore</td><td class="type">(info: { shown: number; hidden: number; total: number }) =&gt; boolean | void</td><td class="desc"><code>info: { shown: number; hidden: number; total: number }</code></td><td class="type"><code>=&gt; boolean | void</code></td><td class="desc">Called when the "+ n more" footer is activated, before the cap lifts. Return `false` to keep the cap, for a host that opens its own view of the rest. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-GridState">GridState</h4>
     <div class="table-wrap">
       <table>
@@ -25010,7 +25030,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">provider</td><td class="type">(request: { colId: string; column: unknown; filters: unknown; quick: string; bounds: <a href="#type-FacetBounds">FacetBounds</a> | null; buckets: number; strategy: string; granularity?: string; }) =&gt; Promise&lt;{ bounds?: <a href="#type-FacetBounds">FacetBounds</a>; buckets?: <a href="#type-FacetBucket">FacetBucket</a>[]; counts: ArrayLike&lt;number&gt;; unfiltered?: ArrayLike&lt;number&gt;; kind?: string }&gt;</td><td class="desc"><code>request: { colId: string; column: unknown; filters: unknown; quick: string; bounds: <a href="#type-FacetBounds">FacetBounds</a> | null; buckets: number; strategy: string; granularity?: string; }</code></td><td class="type"><code>=&gt; Promise&lt;{ bounds?: <a href="#type-FacetBounds">FacetBounds</a>; buckets?: <a href="#type-FacetBucket">FacetBucket</a>[]; counts: ArrayLike&lt;number&gt;; unfiltered?: ArrayLike&lt;number&gt;; kind?: string }&gt;</code></td><td class="desc">Bucket counts for a source the client cannot compute over. <small>(optional)</small></td></tr>
+          <tr><td class="name">provider</td><td class="type">(request: { colId: string; column: unknown; filters: unknown; quick: string; bounds: <a href="#type-FacetBounds">FacetBounds</a> | null; buckets: number; strategy: string; granularity?: string; cardinalityLimit?: number; aboveLimit?: string; order?: string; }) =&gt; Promise&lt;{ bounds?: <a href="#type-FacetBounds">FacetBounds</a>; buckets?: <a href="#type-FacetBucket">FacetBucket</a>[]; counts: ArrayLike&lt;number&gt;; unfiltered?: ArrayLike&lt;number&gt;; kind?: string }&gt;</td><td class="desc"><code>request: { colId: string; column: unknown; filters: unknown; quick: string; bounds: <a href="#type-FacetBounds">FacetBounds</a> | null; buckets: number; strategy: string; granularity?: string; cardinalityLimit?: number; aboveLimit?: string; order?: string; }</code></td><td class="type"><code>=&gt; Promise&lt;{ bounds?: <a href="#type-FacetBounds">FacetBounds</a>; buckets?: <a href="#type-FacetBucket">FacetBucket</a>[]; counts: ArrayLike&lt;number&gt;; unfiltered?: ArrayLike&lt;number&gt;; kind?: string }&gt;</code></td><td class="desc">Bucket counts for a source the client cannot compute over. A grid over `duckdbAdapter` needs none: the adapter answers this request itself as bound SQL, and a provider given here replaces that answer (BACKLOG-0005171). The request also carries the column's `cardinalityLimit`, `aboveLimit` and `order`. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -25247,7 +25267,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">icon</td><td class="type">string</td><td class="desc">An optional leading icon beside the title and value, using the same value contract as a menu item: a registered sprite name, a single character or emoji, or author-trusted element markup (`'&lt;i class="fa-light fa-bolt"&gt; &lt;/i&gt;'`, an `&lt;img&gt;`). It lays out to the side without disturbing the change indicator, threshold bands or confidence interval; omit it for the plain tile layout. <small>(optional)</small></td></tr>
           <tr><td class="name">value</td><td class="type">unknown | <a href="#type-StatValueSpec">StatValueSpec</a> | ((grid: <a href="#type-Grid">Grid</a>) =&gt; unknown)</td><td class="desc">A literal value, a spec to reduce, or a function of the grid. <small>(optional)</small></td></tr>
           <tr><td class="name">footer</td><td class="type">string | ((value: unknown, grid: <a href="#type-Grid">Grid</a>) =&gt; string)</td><td class="desc">Text under the value, or a function of it. <small>(optional)</small></td></tr>
+          <tr><td class="name">tooltip</td><td class="type">string | ((value: unknown, grid: <a href="#type-Grid">Grid</a>) =&gt; string)</td><td class="desc">A description of the tile, for a hover title and, as `aria-description`, for assistive technology. A string, or a function of the value and the grid. <small>(optional)</small></td></tr>
           <tr><td class="name">baseline</td><td class="type">number | ((grid: <a href="#type-Grid">Grid</a>) =&gt; number)</td><td class="desc">What the value is compared against, for the change indicator. <small>(optional)</small></td></tr>
+          <tr><td class="name">deltaWording</td><td class="type"><a href="#type-DeltaWording">DeltaWording</a></td><td class="desc">How the change against `baseline` is worded, in place of an arrow and a percentage: a function of the change, or a template per direction using `{change}`, `{percent}` (signed), `{value}` and `{baseline}`. For example `{ up: 'Up {change} on the previous period ({percent})' }`. A direction with no template, or a function returning nothing, keeps the arrow reading. <small>(optional)</small></td></tr>
           <tr><td class="name">goodWhen</td><td class="type"><a href="#type-StatGoodDirection">StatGoodDirection</a> <small class="literals">'up' | 'down' | 'neither'</small></td><td class="desc">Whether a rise is good news. `up` by default. <small>(optional)</small></td></tr>
           <tr><td class="name">bands</td><td class="type">{ good?: number; warn?: number; direction?: 'up' | 'down' } | ((value: unknown, grid: <a href="#type-Grid">Grid</a>) =&gt; 'good' | 'warn' | 'bad' | null)</td><td class="desc">Thresholds the value itself is judged against, setting `data-tone` on the tile. Separate from `goodWhen`, which judges the *change*: a Cpk of 0.9 is bad news whether it rose or fell to get there. <small>(optional)</small></td></tr>
           <tr><td class="name">scope</td><td class="type"><a href="#type-StatFollowScope">StatFollowScope</a> <small class="literals">'filtered' | 'all' | 'selected'</small></td><td class="desc">Which rows feed the value. `filtered` by default. <small>(optional)</small></td></tr>
@@ -25255,6 +25277,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">empty</td><td class="type">string</td><td class="desc">Shown when there is no value. `, ` by default. <small>(optional)</small></td></tr>
           <tr><td class="name">decimals</td><td class="type">number</td><td class="desc">Fraction digits for a value whose reduction changed the unit. 2 by default. <small>(optional)</small></td></tr>
           <tr><td class="name">class</td><td class="type">string</td><td class="desc">Extra class names for the tile's root. <small>(optional)</small></td></tr>
+          <tr><td class="name">visual</td><td class="type">'ring' | 'gauge'</td><td class="desc">Show the value as a drawing as well as a number. `'ring'` is a donut arc of value over `target` (or over `max`, else 100) with the number in the centre; `'gauge'` is a semicircle from `min` to `max` with the `bands` thresholds as coloured segments and a needle at the value. Vector, so crisp at any pixel ratio; coloured from theme tokens, so light and dark follow the theme; it sweeps to a new value when a grid filter changes it. Omit for the plain number. <small>(optional)</small></td></tr>
+          <tr><td class="name">target</td><td class="type">number | ((grid: <a href="#type-Grid">Grid</a>) =&gt; number)</td><td class="desc">What the value is measured against: a number, or a function of the grid. A ring fills to `value / target`; a gauge with a `max` draws a tick at it. It is also said in the tile's accessible name ("target 80%"). <small>(optional)</small></td></tr>
+          <tr><td class="name">max</td><td class="type">number</td><td class="desc">The top of the scale a ring or gauge is drawn on. Defaults to `target`, else 100. <small>(optional)</small></td></tr>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc">The bottom of a gauge's scale. 0 by default; a ring always starts at 0. <small>(optional)</small></td></tr>
+          <tr><td class="name">bar</td><td class="type">boolean | 'under' | 'instead' | <a href="#type-StatBarOptions">StatBarOptions</a></td><td class="desc">Show the value against its target as a {@link createMeter} bar. `true` or `'under'` draws it beneath the number, `'instead'` in the number's place, and an object sets the bar's own options. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -25264,6 +25291,24 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">interval</td><td class="type">(value: unknown, grid: <a href="#type-Grid">Grid</a>) =&gt; { lower: number; upper: number; confidence?: number } | null</td><td class="desc"><code>value: unknown</code><br><code>grid: <a href="#type-Grid">Grid</a></code></td><td class="type"><code>=&gt; { lower: number; upper: number; confidence?: number } | null</code></td><td class="desc">An interval to show under the value: how much to trust it. Return whichever of the grid's intervals belongs to this tile. <small>(optional)</small></td></tr>
           <tr><td class="name">format</td><td class="type">(value: unknown, grid: <a href="#type-Grid">Grid</a>) =&gt; string</td><td class="desc"><code>value: unknown</code><br><code>grid: <a href="#type-Grid">Grid</a></code></td><td class="type"><code>=&gt; string</code></td><td class="desc">Override the formatting the column's type would apply. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KpiTileAction">KpiTileAction</h4>
+    <p class="section-note">The interactive half of a `kpis` tile. With a `filter`, a click (or Enter or Space) toggles that named filter, one undo step, and the tile shows `aria-pressed` and a selected style while it is on. The selected state follows the grid, so clearing the filter by API, another control or undo deselects it.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">filter</td><td class="type"><a href="#type-KpiTileFilter">KpiTileFilter</a></td><td class="desc">A named filter the tile toggles. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">onClick</td><td class="type">(tile: <a href="#type-KpiTileClick">KpiTileClick</a>, event: Event) =&gt; boolean | void</td><td class="desc"><code>tile: <a href="#type-KpiTileClick">KpiTileClick</a></code><br><code>event: Event</code></td><td class="type"><code>=&gt; boolean | void</code></td><td class="desc">Fires on click, Enter and Space, with or without a filter; return `false` to skip the toggle. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -26130,6 +26175,79 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">compute</td><td class="type">(rows: unknown[]) =&gt; unknown</td><td class="desc"><code>rows: unknown[]</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">Compute the value yourself from the rows in scope. With no `fn` (or `fn: 'custom'`) it is used as is, so `compute: (rows) =&gt; 42` shows 42. With a named `fn` as well, the `fn` wins and a warning names the tile once. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DeltaWordingInfo">DeltaWordingInfo</h4>
+    <p class="section-note">What a tile's change is described with: see `StatConfig.deltaWording`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">direction</td><td class="type">'up' | 'down' | 'flat'</td><td class="desc">Which way the value moved.</td></tr>
+          <tr><td class="name">change</td><td class="type">number</td><td class="desc">The size of the move, unsigned, as a number.</td></tr>
+          <tr><td class="name">percent</td><td class="type">number | null</td><td class="desc">The move as percent points of the baseline, signed; null when the baseline is zero.</td></tr>
+          <tr><td class="name">value</td><td class="type">string</td><td class="desc">The value, formatted as the tile shows it.</td></tr>
+          <tr><td class="name">baseline</td><td class="type">string</td><td class="desc">The baseline, formatted as the tile shows its value.</td></tr>
+          <tr><td class="name">formatted</td><td class="type">string</td><td class="desc">The size of the move, formatted as the tile shows its value.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-StatBarOptions">StatBarOptions</h4>
+    <p class="section-note">The options of a tile's bar mode.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">position</td><td class="type">'under' | 'instead'</td><td class="desc">`under` the number (default) or `instead` of it. <small>(optional)</small></td></tr>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc">The low end of the bar. 0 by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">max</td><td class="type">number</td><td class="desc">The high end of the bar. The target when there is one, else 100. <small>(optional)</small></td></tr>
+          <tr><td class="name">target</td><td class="type">number | ((grid: <a href="#type-Grid">Grid</a>) =&gt; number)</td><td class="desc">The target; overrides the tile's `target`. <small>(optional)</small></td></tr>
+          <tr><td class="name">bands</td><td class="type"><a href="#type-MeterBand">MeterBand</a>[]</td><td class="desc">Thresholds that recolour the bar, as for {@link MeterConfig.bands}. <small>(optional)</small></td></tr>
+          <tr><td class="name">tone</td><td class="type"><a href="#type-MeterTone">MeterTone</a> <small class="literals">'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent'</small></td><td class="desc">The bar's colour below every band. `info` by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">caption</td><td class="type">string | ((value: unknown, grid: <a href="#type-Grid">Grid</a> | null) =&gt; string)</td><td class="desc">Text under the bar, such as `3 of 8`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KpiTileFilter">KpiTileFilter</h4>
+    <p class="section-note">The named filter a `kpis` tile toggles (BACKLOG-0005064).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">name</td><td class="type">string</td><td class="desc">The name the predicate is registered under with `grid.filters.where`.</td></tr>
+          <tr><td class="name">deps</td><td class="type">string[]</td><td class="desc">The columns the predicate reads, as `WhereOptions.deps`. <small>(optional)</small></td></tr>
+          <tr><td class="name">condition</td><td class="type"><a href="#type-FilterSet">FilterSet</a></td><td class="desc">A declarative twin of the predicate, as `WhereOptions.condition`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">where</td><td class="type">(row: any) =&gt; boolean</td><td class="desc"><code>row: any</code></td><td class="type"><code>=&gt; boolean</code></td><td class="desc">Keeps the rows the tile stands for.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-KpiTileClick">KpiTileClick</h4>
+    <p class="section-note">What `kpis[].onClick` is handed.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">index</td><td class="type">number</td><td class="desc">The tile's position in `kpis`.</td></tr>
+          <tr><td class="name">title</td><td class="type">unknown</td><td class="desc">The tile's title.</td></tr>
+          <tr><td class="name">filter</td><td class="type">string | null</td><td class="desc">The tile's filter name, or null when it has no filter.</td></tr>
+          <tr><td class="name">selected</td><td class="type">boolean</td><td class="desc">Whether the tile's filter was on before this click.</td></tr>
+          <tr><td class="name">element</td><td class="type">HTMLElement</td><td class="desc">The tile's element.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-Option">Option</h4>
     <div class="table-wrap">
       <table>
@@ -26294,6 +26412,18 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">idle</td><td class="type">boolean</td><td class="desc">Whether nothing has been heard from this peer for the idle window (30 seconds by default). Derived when the peers are read, so a peer goes idle without any timer having to fire. <small>(optional)</small></td></tr>
           <tr><td class="name">silentMs</td><td class="type">number</td><td class="desc">How long it has been, in milliseconds, since anything was heard from this peer. <small>(optional)</small></td></tr>
           <tr><td class="name">hidden</td><td class="type">boolean</td><td class="desc">True when the peer's cursor is on a row this view is not showing. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-MeterBand">MeterBand</h4>
+    <p class="section-note">A threshold on a meter: from this value up, the fill takes this tone.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">from</td><td class="type">number</td><td class="desc">The value at which the band starts.</td></tr>
+          <tr><td class="name">tone</td><td class="type"><a href="#type-MeterTone">MeterTone</a> <small class="literals">'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent'</small></td><td class="desc">The tone the fill takes from there.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">Words for the band, added to the meter's accessible value text. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -28691,6 +28821,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">editable</td><td class="type">boolean | <a href="#type-ChartEditable">ChartEditable</a></td><td class="desc">Drag a mark to edit the row behind it (BACKLOG-0001670). `true` drags along the value axis; an object says which axis, the step, the limits and what to do with a mark that is several rows (see {@link ChartEditable}). Works on a line, step or area point, a bar or horizontal bar's end, both ends of a floating bar, a scatter or bubble point and a pie or donut slice's edge. Dragging shows the live value, formatted by the measure's column; releasing writes it with `grid.edit.setCells` and the gated `'user'` origin, so the column's validation, a `beforeEdit` veto, `edit.enabled` and read-only columns and rows, the undo stack, change tracking and router write-back apply exactly as they do to a cell edit. A refused edit puts the mark back and shows the grid's own message under the plot; the chart redraws from the grid's `cell:changed`, never from the dragged number. Marks are focusable sliders for the keyboard (arrows by `step`, Enter commits, Escape cancels). A mark that stands for several rows is not draggable unless {@link ChartEditable.distribute} is set. &lt;small&gt;(optional)&lt;/small&gt; <small>(optional)</small></td></tr>
           <tr><td class="name">animation</td><td class="type">boolean | <a href="#type-ChartAnimationOptions">ChartAnimationOptions</a></td><td class="desc">How the chart plays its marks in and between draws (BACKLOG-0001666). `true` (the default) plays an entry on the first drawing — bars grow from the baseline, lines draw left to right, slices sweep, points scale in — and plays every change in the grid from the old drawing to the new, keyed by series and category so a bar that stays moves rather than being redrawn. `false` draws the final state at once. The object form ({@link ChartAnimationOptions}) sets the duration, the easing, entry and update apart, and the mark budget. Reduced motion, an automated browser (`navigator.webdriver`), a jsdom or happy-dom test DOM, a headless render and an export always get the final state at once, and the end state is identical to the unanimated drawing, attribute for attribute. A draw that lands mid-play retargets from where the marks are; nothing queues. A resize or a zoom draws at once. &lt;small&gt;(optional)&lt;/small&gt; <small>(optional)</small></td></tr>
           <tr><td class="name">stack</td><td class="type">boolean | 'percent'</td><td class="desc">Stack the series rather than drawing them side by side. On a `combo` it stacks the bar measures (BACKLOG-0001636); line and area measures stay outside the stack on the same scale and are drawn after the columns. `'percent'` stacks to 100% (BACKLOG-0001644): a `bar`, `horizontalBar`, `area` or `combo` with two or more series draws each column as the whole plot height, split into each series' share of the column, and the measure axis runs 0 to 100 rather than 0 to the tallest total. A column that mixes signs has no meaningful "share of the whole", so shares are taken against the sum of the parts' absolute values; the tooltip still reads the real value, with its share beside it. <small>(optional)</small></td></tr>
+          <tr><td class="name">categoryOrder</td><td class="type"><a href="#type-ChartCategoryOrder">ChartCategoryOrder</a></td><td class="desc">The order a categorical x axis draws its categories in (BACKLOG-0005166), for a `bar`, `column`, `horizontalBar`, `line`, `area` or `combo` whose x is categories. Default: the order the rows arrive in. The order holds when the bound grid's filter or data changes. See {@link ChartCategoryOrder}. &lt;small&gt;(optional)&lt;/small&gt; <small>(optional)</small></td></tr>
           <tr><td class="name">curve</td><td class="type">boolean | <a href="#type-ChartCurve">ChartCurve</a> | <a href="#type-ChartCurveOptions">ChartCurveOptions</a> | Record&lt;string, <a href="#type-ChartCurve">ChartCurve</a> | <a href="#type-ChartCurveOptions">ChartCurveOptions</a>&gt;</td><td class="desc">On a histogram, `true` overlays a kernel density curve. On a `line`, an `area` (and the line half of a `combo`/`pareto`), it names how the series connects its readings (BACKLOG-0001645): a {@link ChartCurve} name (`'linear'`, `'monotone'`, `'catmullRom'`, `'step'`), a {@link ChartCurveOptions} object (`{ type, tension, mode }`), or a map keyed by series label — the same name {@link ChartSpec.emphasis} keys on — giving each series its own curve. Markers, tooltips and hit-testing stay on the real readings whatever the curve. <small>(optional)</small></td></tr>
           <tr><td class="name">startAngle</td><td class="type">number</td><td class="desc">A pie or donut's first slice, in degrees clockwise from twelve o'clock, 0 being the top (BACKLOG-0001646). Default 0; a partial circle uses the container's height rather than half of it. A `polarArea`, `radialBar` or `polarScatter` reads it as where its angular range starts. <small>(optional)</small></td></tr>
           <tr><td class="name">endAngle</td><td class="type">number</td><td class="desc">A pie or donut's last slice, in degrees clockwise from twelve o'clock (BACKLOG-0001646). Default 360. A `polarArea` reads it the same way; a `radialBar` reads it as the end of its full track, 270 degrees from the start by default. <small>(optional)</small></td></tr>
@@ -29381,6 +29512,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">field</td><td class="type">string | ((row: <a href="#type-KPIRow">KPIRow</a>) =&gt; unknown)</td><td class="desc">The field the aggregation reads (a path or accessor). Ignored by `count`. <small>(optional)</small></td></tr>
           <tr><td class="name">format</td><td class="type"><a href="#type-KPIFormat">KPIFormat</a></td><td class="desc">Value formatting. <small>(optional)</small></td></tr>
           <tr><td class="name">target</td><td class="type">number</td><td class="desc">A comparison target rendered alongside the value. <small>(optional)</small></td></tr>
+          <tr><td class="name">value</td><td class="type">number | string</td><td class="desc">A literal value the tile shows as it stands, instead of reducing rows. A number is formatted with `format`; a string is shown as written. It is the host's own figure, so an empty or silent panel does not blank it, and `baseline`, `thresholds` and `bands` still apply to a number. <small>(optional)</small></td></tr>
+          <tr><td class="name">caption</td><td class="type">string | ((value: unknown, tile: { id: string; label: string; formatted: string }) =&gt; string)</td><td class="desc">A line under the label: a string, or a function of the value and the tile's `{ id, label, formatted }`. It is part of the tile's accessible name. <small>(optional)</small></td></tr>
+          <tr><td class="name">tooltip</td><td class="type">string | ((value: unknown, tile: { id: string; label: string; formatted: string }) =&gt; string)</td><td class="desc">A description of the tile: a hover title and `aria-description`. A string, or a function as for `caption`. <small>(optional)</small></td></tr>
+          <tr><td class="name">deltaWording</td><td class="type"><a href="#type-DeltaWording">DeltaWording</a></td><td class="desc">How the movement line is worded, in place of an arrow and figures: a function of the change or `{ up, down, flat }` templates using `{change}`, `{percent}` (signed), `{value}` and `{baseline}`, e.g. `{ up: 'Up {change} on the previous period ({percent})' }`. <small>(optional)</small></td></tr>
           <tr><td class="name">baseline</td><td class="type">number</td><td class="desc">A baseline the tile's delta is measured against. <small>(optional)</small></td></tr>
           <tr><td class="name">delta</td><td class="type"><a href="#type-DeltaMode">DeltaMode</a> <small class="literals">'absolute' | 'relative' | 'both'</small></td><td class="desc">What the movement line prints against `baseline` (BACKLOG-0001673, F-FRED-G): `'absolute'` the difference alone, `'relative'` the percentage alone, `'both'` (the default, unchanged) both together. A rate series (4.10 vs 4.30) makes the percentage a percent-of-a-percent and meaningless, so `'absolute'` is how a host keeps the line without it. The arrow and its colour follow the sign of the difference either way. <small>(optional)</small></td></tr>
           <tr><td class="name">thresholds</td><td class="type"><a href="#type-KPIThresholds">KPIThresholds</a></td><td class="desc">Threshold bands, either two cut points or an explicit band list. <small>(optional)</small></td></tr>
@@ -29393,7 +29528,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
       <table>
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">compute</td><td class="type">(rows: <a href="#type-KPIRow">KPIRow</a>[], tile: object) =&gt; unknown</td><td class="desc"><code>rows: <a href="#type-KPIRow">KPIRow</a>[]</code><br><code>tile: object</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The reducer for a `custom` aggregation, when `aggregation` is the string `'custom'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">compute</td><td class="type">(rows: <a href="#type-KPIRow">KPIRow</a>[], tile: object) =&gt; unknown</td><td class="desc"><code>rows: <a href="#type-KPIRow">KPIRow</a>[]</code><br><code>tile: object</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The reducer for a `custom` aggregation. A tile with `compute` and no `aggregation` is custom. With a non-custom `aggregation` as well, the aggregation wins and one warning names the tile and the conflict. <small>(optional)</small></td></tr>
           <tr><td class="name">filter</td><td class="type">(row: <a href="#type-KPIRow">KPIRow</a>) =&gt; boolean</td><td class="desc"><code>row: <a href="#type-KPIRow">KPIRow</a></code></td><td class="type"><code>=&gt; boolean</code></td><td class="desc">A predicate limiting the rows this tile aggregates. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -29481,6 +29616,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">deltaPercent</td><td class="type">number | null</td><td class="desc">The delta as a fraction of the baseline. Null when there is no delta, and when the baseline is zero — a percentage of nothing is not reported as infinity.</td></tr>
           <tr><td class="name">deltaFormatted</td><td class="type">string</td><td class="desc">The delta rendered with the tile's own number format. Undefined when there is no delta. <small>(optional)</small></td></tr>
           <tr><td class="name">deltaMode</td><td class="type"><a href="#type-DeltaMode">DeltaMode</a> <small class="literals">'absolute' | 'relative' | 'both'</small></td><td class="desc">What the movement line prints; see `KPIStatTile.delta`. Always present once `baseline` is. <small>(optional)</small></td></tr>
+          <tr><td class="name">caption</td><td class="type">string</td><td class="desc">The tile's caption, resolved; see `KPIStatTile.caption`. <small>(optional)</small></td></tr>
+          <tr><td class="name">tooltip</td><td class="type">string</td><td class="desc">The tile's description, resolved; see `KPIStatTile.tooltip`. <small>(optional)</small></td></tr>
+          <tr><td class="name">deltaText</td><td class="type">string</td><td class="desc">The movement line's custom wording, resolved; see `KPIStatTile.deltaWording`. <small>(optional)</small></td></tr>
           <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many of the panel's rows this tile's filter admitted — its own membership, which may be 0 while the panel holds rows. Always 0 on a clock tile.</td></tr>
           <tr><td class="name">computed</td><td class="type">'engine' | 'client'</td><td class="desc">Where a stat tile's value was reduced (GEO-6): `'engine'` by a paged pushdown source's engine over every matching row (see `KPIStatTile.aggregation`), `'client'` from the rows the panel holds. Absent on a clock tile. <small>(optional)</small></td></tr>
           <tr><td class="name">sparkline</td><td class="type">number[] | null</td><td class="desc">The tile's trend series, as the finite numbers it plots, in `x` order. Null when the tile declares no sparkline and when no row yielded a finite value.</td></tr>
@@ -30147,6 +30285,11 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">emptyText</td><td class="type">string | HTMLElement</td><td class="desc">The empty-state message or element; an empty string shows nothing at all. <small>(optional)</small></td></tr>
           <tr><td class="name">contextMenu</td><td class="type">boolean</td><td class="desc">The grid's own cell right-click menu (Paste, Clear, Fill down). Default `false` — a right-click on a row is `itemContextMenu`, not a menu meant for spreadsheet cells. <small>(optional)</small></td></tr>
           <tr><td class="name">bordered</td><td class="type">boolean</td><td class="desc">`true` draws the grid's own 1px frame round the list. Default `false`: borderless. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupBy</td><td class="type">string | ((item: <a href="#type-ListViewItem">ListViewItem</a>) =&gt; unknown)</td><td class="desc">Group the items under headings (BACKLOG-0005068): a field name (a dotted path is fine) or a function returning an item's group. Each group gets a heading with its label and its count, the groups follow the view's sort, filter and search (a group with no item left has no heading), and `list.groups` folds them. A blank group value is headed with a dash. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupOrder</td><td class="type">'asc' | 'desc' | unknown[]</td><td class="desc">The order of the groups. `'asc'` (the default) and `'desc'` order them by group value; an array lists group values to put first, in that order, the rest following in ascending order. <small>(optional)</small></td></tr>
+          <tr><td class="name">stickyGroupHeadings</td><td class="type">boolean</td><td class="desc">Keep the heading of the group being scrolled through at the top of the view until the next group's heading pushes it out. Default `true` when `groupBy` is set. <small>(optional)</small></td></tr>
+          <tr><td class="name">collapsibleGroups</td><td class="type">boolean</td><td class="desc">A click, or Enter or Space on a focused heading, folds its group down to the heading; arrow keys then stop on headings too. Default `false`. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupsCollapsed</td><td class="type">boolean</td><td class="desc">Start with every group folded (with `collapsibleGroups`). Default `false`. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -30156,6 +30299,38 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">createGrid</td><td class="type">(el: HTMLElement, config: unknown) =&gt; unknown</td><td class="desc"><code>el: HTMLElement</code><br><code>config: unknown</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The grid factory the list mounts through (required).</td></tr>
           <tr><td class="name">template</td><td class="type">(item: <a href="#type-ListViewItem">ListViewItem</a>) =&gt; string | HTMLElement</td><td class="desc"><code>item: <a href="#type-ListViewItem">ListViewItem</a></code></td><td class="type"><code>=&gt; string | HTMLElement</code></td><td class="desc">Called per item to draw its row; a returned string goes through the grid's own sanitiser (see `allowUnsafeTemplates`).</td></tr>
+          <tr><td class="name">groupHeading</td><td class="type">(group: <a href="#type-ListViewGroupHeading">ListViewGroupHeading</a>) =&gt; string | Node | void</td><td class="desc"><code>group: <a href="#type-ListViewGroupHeading">ListViewGroupHeading</a></code></td><td class="type"><code>=&gt; string | Node | void</code></td><td class="desc">Draw a heading yourself. Return markup (sanitised), an element, or write into `group.element` and return nothing. The default heading is the group's label and its count. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ListViewGroupHeading">ListViewGroupHeading</h4>
+    <p class="section-note">What a group heading stands for; {@link ListViewConfig.groupHeading} is handed one.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The group's value.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The text the default heading shows for it.</td></tr>
+          <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many items are in the group, after any filter.</td></tr>
+          <tr><td class="name">collapsed</td><td class="type">boolean</td><td class="desc">Whether the group is folded.</td></tr>
+          <tr><td class="name">collapsible</td><td class="type">boolean</td><td class="desc">Whether the group can be folded.</td></tr>
+          <tr><td class="name">element</td><td class="type">HTMLElement</td><td class="desc">The element being filled, for a renderer that writes into it.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ListViewGroupsApi">ListViewGroupsApi</h4>
+    <p class="section-note">`list.groups`: fold and unfold groups. A no-op on a list with no `groupBy`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">collapse</td><td class="type">(value: unknown): void</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>void</code></td><td class="desc">Fold a group down to its heading.</td></tr>
+          <tr><td class="name">expand</td><td class="type">(value: unknown): void</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>void</code></td><td class="desc">Open a folded group.</td></tr>
+          <tr><td class="name">toggle</td><td class="type">(value: unknown): void</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>void</code></td><td class="desc">Fold an open group, open a folded one.</td></tr>
+          <tr><td class="name">collapseAll</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Fold every group.</td></tr>
+          <tr><td class="name">expandAll</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Open every group.</td></tr>
+          <tr><td class="name">isCollapsed</td><td class="type">(value: unknown): boolean</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>boolean</code></td><td class="desc">Whether a group is folded; `false` for a group that is not there.</td></tr>
+          <tr><td class="name">values</td><td class="type">(): unknown[]</td><td class="desc">&mdash;</td><td class="type"><code>unknown[]</code></td><td class="desc">The values of the groups on screen, in order.</td></tr>
         </tbody>
       </table>
     </div>
@@ -30304,6 +30479,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">data</td><td class="type"><a href="#type-ListViewDataApi">ListViewDataApi</a></td><td class="desc">The Data API.</td></tr>
           <tr><td class="name">selection</td><td class="type"><a href="#type-ListViewSelectionApi">ListViewSelectionApi</a></td><td class="desc">The selection API.</td></tr>
+          <tr><td class="name">groups</td><td class="type"><a href="#type-ListViewGroupsApi">ListViewGroupsApi</a></td><td class="desc">Folding the groups of a list built with `groupBy`.</td></tr>
         </tbody>
       </table>
     </div>
@@ -30338,6 +30514,12 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">dragMode</td><td class="type">false | 'source' | 'target' | 'both'</td><td class="desc">This view's role in a drag: `'source'` and `'both'` reorder within the view and send to another; `'target'` and `'both'` receive. Default `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">dragCopy</td><td class="type">boolean</td><td class="desc">`true` leaves the source card in place on a drop between views (copy, not move): the dropped copy gets a fresh identity, so copying the same card twice lands two items, not one overwriting the other. Default `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">emptyText</td><td class="type">string | HTMLElement</td><td class="desc">The empty-state message or element; an empty string shows nothing at all. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupBy</td><td class="type">string | ((item: <a href="#type-DataViewItem">DataViewItem</a>) =&gt; unknown)</td><td class="desc">Group the items under headings (BACKLOG-0005068): a field name (a dotted path is fine) or a function returning an item's group. Each group gets a heading with its label and its count, the groups follow the view's sort, filter and search (a group with no item left has no heading), and `view.groups` folds them. A blank group value is headed with a dash. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupOrder</td><td class="type">'asc' | 'desc' | unknown[]</td><td class="desc">The order of the groups. `'asc'` (the default) and `'desc'` order them by group value; an array lists group values to put first, in that order, the rest following in ascending order. <small>(optional)</small></td></tr>
+          <tr><td class="name">stickyGroupHeadings</td><td class="type">boolean</td><td class="desc">Keep the heading of the group being scrolled through at the top of the view until the next group's heading pushes it out. Default `true` when `groupBy` is set. <small>(optional)</small></td></tr>
+          <tr><td class="name">collapsibleGroups</td><td class="type">boolean</td><td class="desc">A click, or Enter or Space on a focused heading, folds its group down to the heading; arrow keys then stop on headings too. Default `false`. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupsCollapsed</td><td class="type">boolean</td><td class="desc">Start with every group folded (with `collapsibleGroups`). Default `false`. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupHeadingHeight</td><td class="type">number</td><td class="desc">Height of a group heading in pixels. Default 32. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -30347,6 +30529,38 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">template</td><td class="type">(item: <a href="#type-DataViewItem">DataViewItem</a>) =&gt; string | HTMLElement</td><td class="desc"><code>item: <a href="#type-DataViewItem">DataViewItem</a></code></td><td class="type"><code>=&gt; string | HTMLElement</code></td><td class="desc">Called per item to draw its card; a returned string goes through the grid's template sanitiser, an element is used as is.</td></tr>
           <tr><td class="name">copyId</td><td class="type">(item: <a href="#type-DataViewItem">DataViewItem</a>) =&gt; unknown</td><td class="desc"><code>item: <a href="#type-DataViewItem">DataViewItem</a></code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">Called with the source item on a `dragCopy` drop to name the copy's identity. Without it the source id is given a `-copy`/`-copy2`/... suffix, counted up until it is not already used in the target. <small>(optional)</small></td></tr>
+          <tr><td class="name">groupHeading</td><td class="type">(group: <a href="#type-DataViewGroupHeading">DataViewGroupHeading</a>) =&gt; string | Node | void</td><td class="desc"><code>group: <a href="#type-DataViewGroupHeading">DataViewGroupHeading</a></code></td><td class="type"><code>=&gt; string | Node | void</code></td><td class="desc">Draw a heading yourself. Return markup (sanitised), an element, or write into `group.element` and return nothing. The default heading is the group's label and its count. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DataViewGroupHeading">DataViewGroupHeading</h4>
+    <p class="section-note">What a group heading stands for; {@link DataViewConfig.groupHeading} is handed one.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">value</td><td class="type">unknown</td><td class="desc">The group's value.</td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The text the default heading shows for it.</td></tr>
+          <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many items are in the group, after any filter.</td></tr>
+          <tr><td class="name">collapsed</td><td class="type">boolean</td><td class="desc">Whether the group is folded.</td></tr>
+          <tr><td class="name">collapsible</td><td class="type">boolean</td><td class="desc">Whether the group can be folded.</td></tr>
+          <tr><td class="name">element</td><td class="type">HTMLElement</td><td class="desc">The element being filled, for a renderer that writes into it.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-DataViewGroupsApi">DataViewGroupsApi</h4>
+    <p class="section-note">`view.groups`: fold and unfold groups. A no-op on a view with no `groupBy`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">collapse</td><td class="type">(value: unknown): void</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>void</code></td><td class="desc">Fold a group down to its heading.</td></tr>
+          <tr><td class="name">expand</td><td class="type">(value: unknown): void</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>void</code></td><td class="desc">Open a folded group.</td></tr>
+          <tr><td class="name">toggle</td><td class="type">(value: unknown): void</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>void</code></td><td class="desc">Fold an open group, open a folded one.</td></tr>
+          <tr><td class="name">collapseAll</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Fold every group.</td></tr>
+          <tr><td class="name">expandAll</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Open every group.</td></tr>
+          <tr><td class="name">isCollapsed</td><td class="type">(value: unknown): boolean</td><td class="desc"><code>value: unknown</code></td><td class="type"><code>boolean</code></td><td class="desc">Whether a group is folded; `false` for a group that is not there.</td></tr>
+          <tr><td class="name">values</td><td class="type">(): unknown[]</td><td class="desc">&mdash;</td><td class="type"><code>unknown[]</code></td><td class="desc">The values of the groups, in order.</td></tr>
         </tbody>
       </table>
     </div>
@@ -30531,6 +30745,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">data</td><td class="type"><a href="#type-DataViewDataApi">DataViewDataApi</a></td><td class="desc">The Data API.</td></tr>
           <tr><td class="name">selection</td><td class="type"><a href="#type-DataViewSelectionApi">DataViewSelectionApi</a></td><td class="desc">The selection API.</td></tr>
+          <tr><td class="name">groups</td><td class="type"><a href="#type-DataViewGroupsApi">DataViewGroupsApi</a></td><td class="desc">Folding the groups of a view built with `groupBy`.</td></tr>
         </tbody>
       </table>
     </div>
@@ -34614,7 +34829,10 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">xPos</td><td class="type">number</td><td class="desc">The 1-based column the window starts in. Auto-placed when omitted. <small>(optional)</small></td></tr>
           <tr><td class="name">yPos</td><td class="type">number</td><td class="desc">The 1-based row the window starts in. Auto-placed when omitted. <small>(optional)</small></td></tr>
           <tr><td class="name">xSize</td><td class="type">number</td><td class="desc">How many columns it spans (default 1). <small>(optional)</small></td></tr>
-          <tr><td class="name">ySize</td><td class="type">number</td><td class="desc">How many rows it spans (default 1). <small>(optional)</small></td></tr>
+          <tr><td class="name">ySize</td><td class="type">number</td><td class="desc">How many rows it spans (default 1). Ignored when `height` is `'content'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">height</td><td class="type">'content'</td><td class="desc">`'content'` sizes the window's row to what the window holds: the row is as tall as the tallest content-sized window in it (a KPI strip, a form, a grid with `autoHeight`, plain HTML), re-flows when that content changes size, and the rows of fill windows share the remainder. The window spans one row; `ySize` is ignored. Leave it out for a fixed `ySize`. <small>(optional)</small></td></tr>
+          <tr><td class="name">minHeight</td><td class="type">number | string</td><td class="desc">With `height: 'content'`: the shortest the window may be (px number or CSS length). <small>(optional)</small></td></tr>
+          <tr><td class="name">maxHeight</td><td class="type">number | string</td><td class="desc">With `height: 'content'`: the tallest the window may be (px number or CSS length); the body scrolls past it. <small>(optional)</small></td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">The title shown in the chrome bar, and the name every control takes. <small>(optional)</small></td></tr>
           <tr><td class="name">chrome</td><td class="type">boolean</td><td class="desc">Whether to draw the title bar (default `true`). <small>(optional)</small></td></tr>
           <tr><td class="name">closable</td><td class="type">boolean</td><td class="desc">Whether to offer a close button (default `false`). <small>(optional)</small></td></tr>
@@ -34649,7 +34867,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <tbody>
           <tr><td class="name">columns</td><td class="type">number</td><td class="desc">How many cell columns the layout had when the snapshot was taken. Informational on the way back in: `setLayout` reads only `windows`, and clamps each placement to the layout it is restored into.</td></tr>
           <tr><td class="name">rows</td><td class="type">number</td><td class="desc">How many cell rows the layout had when the snapshot was taken; informational too.</td></tr>
-          <tr><td class="name">windows</td><td class="type">{ id: string; xPos: number; yPos: number; xSize: number; ySize: number }[]</td><td class="desc">Each window's id and its cell placement. Position and size only: titles, content and capabilities stay with the configuration.</td></tr>
+          <tr><td class="name">windows</td><td class="type">{ id: string; xPos: number; yPos: number; xSize: number; ySize: number; height?: 'content'; minHeight?: number | string; maxHeight?: number | string }[]</td><td class="desc">Each window's id and its cell placement. Position and size only: titles, content and capabilities stay with the configuration.</td></tr>
         </tbody>
       </table>
     </div>
@@ -34983,6 +35201,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">The tab's identity for `getTab(id)`.</td></tr>
           <tr><td class="name">label</td><td class="type">string</td><td class="desc">The text on the tab. Defaults to `id`. <small>(optional)</small></td></tr>
           <tr><td class="name">content</td><td class="type"><a href="#type-ShellContent">ShellContent</a></td><td class="desc">The content the tab holds, attached the same way `attach()` attaches it. <small>(optional)</small></td></tr>
+          <tr><td class="name">selected</td><td class="type">boolean</td><td class="desc">Make this tab active on first render, instead of the first tab (BACKLOG-0005173). When more than one tab in the array is `selected: true`, the last one wins and a warning is logged once. Switching tabs after mount is still `getTab(id).activate()`. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -35002,8 +35221,8 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">The cell's identity for `getCell(id)`. Auto-generated when omitted. <small>(optional)</small></td></tr>
-          <tr><td class="name">width</td><td class="type"><a href="#type-ShellSize">ShellSize</a> <small class="literals">number | string</small></td><td class="desc">The cell's width: the main-axis size among `cols` (px or %), or the cross-axis size among `rows`. <small>(optional)</small></td></tr>
-          <tr><td class="name">height</td><td class="type"><a href="#type-ShellSize">ShellSize</a> <small class="literals">number | string</small></td><td class="desc">The cell's height: the main-axis size among `rows` (px or %), or the cross-axis size among `cols`. <small>(optional)</small></td></tr>
+          <tr><td class="name">width</td><td class="type"><a href="#type-ShellSize">ShellSize</a> | 'content'</td><td class="desc">The cell's width: the main-axis size among `cols` (px or %), or the cross-axis size among `rows`. `'content'` takes the natural width of what the cell holds and re-flows when it changes; sibling gravity cells share the remainder. <small>(optional)</small></td></tr>
+          <tr><td class="name">height</td><td class="type"><a href="#type-ShellSize">ShellSize</a> | 'content'</td><td class="desc">The cell's height: the main-axis size among `rows` (px or %), or the cross-axis size among `cols`. `'content'` takes the natural height of what the cell holds (a KPI strip, a form, a grid with `autoHeight`) and re-flows when it changes; sibling gravity cells share the remainder. `minHeight`/`maxHeight` bound it. <small>(optional)</small></td></tr>
           <tr><td class="name">gravity</td><td class="type">number</td><td class="desc">Share of the spare space when the cell has no fixed size. Default 1. <small>(optional)</small></td></tr>
           <tr><td class="name">basis</td><td class="type">'content'</td><td class="desc">Start a gravity cell at its content's size and grow into the spare space from there, instead of the default zero basis (BACKLOG-0002589). <small>(optional)</small></td></tr>
           <tr><td class="name">minWidth</td><td class="type"><a href="#type-ShellSize">ShellSize</a> <small class="literals">number | string</small></td><td class="desc">The cell's minimum width, on either axis. <small>(optional)</small></td></tr>
@@ -36662,7 +36881,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
           <tr><td class="name">rows</td><td class="type">number</td><td class="desc">Cell rows down the dashboard (the layout's default otherwise). <small>(optional)</small></td></tr>
           <tr><td class="name">gap</td><td class="type">number | string</td><td class="desc">The gap between cells. <small>(optional)</small></td></tr>
           <tr><td class="name">stackBelow</td><td class="type">number</td><td class="desc">Host width in px below which the panels stack one per row, each full width with its own height, in layout order (default 600; `0` never stacks). Above it the configured layout returns, live on resize; `spec()` and saved views always report the configured placements. <small>(optional)</small></td></tr>
-          <tr><td class="name">windows</td><td class="type">Array&lt;{ id: string; xPos?: number; yPos?: number; xSize?: number; ySize?: number; [option: string]: unknown }&gt;</td><td class="desc">Each panel's window, by panel id: its placement and any window option (title, chrome, movable, …). <small>(optional)</small></td></tr>
+          <tr><td class="name">windows</td><td class="type">Array&lt;{ id: string; xPos?: number; yPos?: number; xSize?: number; ySize?: number; height?: 'content'; minHeight?: number | string; maxHeight?: number | string; [option: string]: unknown }&gt;</td><td class="desc">Each panel's window, by panel id: its placement and any window option (title, chrome, movable, …). <small>(optional)</small></td></tr>
           <tr><td class="name">[option: string]</td><td class="type">unknown</td><td class="desc">Every other key is handed to `createLayout` unchanged.</td></tr>
         </tbody>
       </table>
@@ -40662,6 +40881,67 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
         </tbody>
       </table>
     </div>
+    <h4 id="type-Meter">Meter</h4>
+    <p class="section-note">The handle `createMeter` returns.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">element</td><td class="type">(): HTMLElement | null</td><td class="desc">&mdash;</td><td class="type"><code>HTMLElement | null</code></td><td class="desc">The meter's root element; null when it was misconfigured.</td></tr>
+          <tr><td class="name">value</td><td class="type">(): number | null</td><td class="desc">&mdash;</td><td class="type"><code>number | null</code></td><td class="desc">The value currently shown, as computed.</td></tr>
+          <tr><td class="name">refresh</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Recompute and repaint now.</td></tr>
+          <tr><td class="name">update</td><td class="type">(options: Partial&lt;Omit&lt;<a href="#type-MeterConfig">MeterConfig</a>, 'container' | 'grid'&gt;&gt;): void</td><td class="desc"><code>options: Partial&lt;Omit&lt;<a href="#type-MeterConfig">MeterConfig</a>, 'container' | 'grid'&gt;&gt;</code></td><td class="type"><code>void</code></td><td class="desc">Change some options and repaint, keeping the rest.</td></tr>
+          <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Stop following the grid and remove the meter.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-MeterConfig">MeterConfig</h4>
+    <p class="section-note">A meter: one horizontal bar of a value in a range, with an optional target mark, threshold bands, status segments, a caption and an indeterminate state.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">container</td><td class="type">HTMLElement | string</td><td class="desc">An element, or a CSS selector resolved against the grid's document.</td></tr>
+          <tr><td class="name">grid</td><td class="type"><a href="#type-Grid">Grid</a></td><td class="desc">The grid to read and follow, as for {@link createStat}. <small>(optional)</small></td></tr>
+          <tr><td class="name">value</td><td class="type">number | <a href="#type-StatValueSpec">StatValueSpec</a> | ((grid: <a href="#type-Grid">Grid</a>) =&gt; number)</td><td class="desc">A literal number, a spec to reduce, or a function of the grid. <small>(optional)</small></td></tr>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc">The value at an empty bar. 0 by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">max</td><td class="type">number</td><td class="desc">The value at a full bar. 100 by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">target</td><td class="type">number | ((grid: <a href="#type-Grid">Grid</a>) =&gt; number)</td><td class="desc">Draw a mark at this value, or a function of the grid. <small>(optional)</small></td></tr>
+          <tr><td class="name">bands</td><td class="type"><a href="#type-MeterBand">MeterBand</a>[]</td><td class="desc">Thresholds that recolour the fill. <small>(optional)</small></td></tr>
+          <tr><td class="name">tone</td><td class="type"><a href="#type-MeterTone">MeterTone</a> <small class="literals">'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent'</small></td><td class="desc">The fill's colour below every band. `info` by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">segments</td><td class="type"><a href="#type-MeterSegment">MeterSegment</a>[] | ((grid: <a href="#type-Grid">Grid</a>) =&gt; <a href="#type-MeterSegment">MeterSegment</a>[])</td><td class="desc">Status slices drawn in order, instead of a single fill. The value is their sum. <small>(optional)</small></td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">The text above the bar, and its accessible name. <small>(optional)</small></td></tr>
+          <tr><td class="name">ariaLabel</td><td class="type">string</td><td class="desc">The accessible name, when it should differ from `label`. <small>(optional)</small></td></tr>
+          <tr><td class="name">caption</td><td class="type">string | ((value: number | null, grid: <a href="#type-Grid">Grid</a> | null) =&gt; string)</td><td class="desc">Text under the bar, such as `3 of 8`, or a function of the value. <small>(optional)</small></td></tr>
+          <tr><td class="name">showValue</td><td class="type">boolean</td><td class="desc">Show the value text beside the label. `true` by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">indeterminate</td><td class="type">boolean</td><td class="desc">Draw an unknown amount of progress; the meter becomes a `progressbar`. <small>(optional)</small></td></tr>
+          <tr><td class="name">live</td><td class="type">boolean</td><td class="desc">`false` stops the meter following the grid; `refresh()` still works. <small>(optional)</small></td></tr>
+          <tr><td class="name">empty</td><td class="type">string</td><td class="desc">Shown when there is no value. `—` by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">decimals</td><td class="type">number</td><td class="desc">Fraction digits of the default value text. 1 by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">class</td><td class="type">string</td><td class="desc">Extra class names for the meter's root. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">format</td><td class="type">(value: number | null, grid: <a href="#type-Grid">Grid</a> | null) =&gt; string</td><td class="desc"><code>value: number | null</code><br><code>grid: <a href="#type-Grid">Grid</a> | null</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">Format the value text. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-MeterSegment">MeterSegment</h4>
+    <p class="section-note">One slice of a segmented meter.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">value</td><td class="type">number</td><td class="desc">The size of the slice, in the meter's units.</td></tr>
+          <tr><td class="name">tone</td><td class="type"><a href="#type-MeterTone">MeterTone</a> <small class="literals">'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent'</small></td><td class="desc">The slice's tone. `neutral` by default. <small>(optional)</small></td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">What the slice is, for its tooltip and the accessible value text. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ModuleContext">ModuleContext</h4>
     <div class="table-wrap">
       <table>
@@ -41681,6 +41961,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <h4 id="type-ChartAxisSide">ChartAxisSide</h4>
     <p class="section-note">Which measure axis a chart annotation reads: left, right, or the secondary y2.</p>
     <p class="type-def"><code>type ChartAxisSide = 'left' | 'right' | 'y2'</code></p>
+    <h4 id="type-ChartCategoryOrder">ChartCategoryOrder</h4>
+    <p class="section-note">How a chart orders the categories of a categorical x axis (BACKLOG-0005166). - `{ by: 'value', dir? }` orders by the plotted measure (for stacked bars or several series, by the total across them); `dir` is `'asc'` (default) or `'desc'`. - `{ by: 'label', dir? }` orders by the category's text, naturally: "2" before "10". - An array of category labels draws them in that order; categories not in it follow in label order.</p>
+    <p class="type-def"><code>type ChartCategoryOrder = { by: 'value' | 'label'; dir?: 'asc' | 'desc' } | string[]</code></p>
     <h4 id="type-ChartCurve">ChartCurve</h4>
     <p class="section-note">How a line or area series connects its readings (BACKLOG-0001645). `'linear'` (the default) draws straight segments, `'monotone'` a cubic that never overshoots the data, `'catmullRom'` a spline with a `tension`, and `'step'` a level that holds a value until the next reading.</p>
     <p class="type-def"><code>type ChartCurve = 'linear' | 'monotone' | 'catmullRom' | 'step'</code></p>
@@ -41865,6 +42148,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">What a movement line prints: the difference alone, the percentage alone, or both.</p>
     <p class="type-def"><code>type DeltaMode = 'absolute' | 'relative' | 'both'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kpi</code>.</small></p>
+    <h4 id="type-DeltaWording">DeltaWording</h4>
+    <p class="section-note">A function of the change, or a template per direction.</p>
+    <p class="type-def"><code>type DeltaWording = ((info: <a href="#type-DeltaWordingInfo">DeltaWordingInfo</a>) =&gt; string) | { up?: string; down?: string; flat?: string }</code></p>
     <h4 id="type-Density">Density</h4>
     <p class="section-note">A named preset, or a raw scale where 1 is `standard`. Row heights are 23.8 / 28 / 42 / 56px for the four presets; a number scales 28px.</p>
     <p class="type-def"><code>type Density = 'compact' | 'standard' | 'comfortable' | 'spacious' | number</code></p>
@@ -42535,6 +42821,9 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
     <p class="section-note">The layer kinds a map view draws a row with.</p>
     <p class="type-def"><code>type MapViewLayer = 'point' | 'column' | 'polygon' | 'path'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/mapview</code>.</small></p>
+    <h4 id="type-MeterTone">MeterTone</h4>
+    <p class="section-note">A theme colour a meter fill, band or segment may take.</p>
+    <p class="type-def"><code>type MeterTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent'</code></p>
     <h4 id="type-NumberFormatNegative">NumberFormatNegative</h4>
     <p class="section-note">How a negative number is marked: a leading minus, parentheses, or a trailing suffix.</p>
     <p class="type-def"><code>type NumberFormatNegative = 'minus' | 'parentheses' | 'suffix'</code></p>
@@ -42948,7 +43237,7 @@ return `next ${p.mean.toFixed(1)}; r2 ${f.r2.toFixed(1)}; band ${p.upper - p.low
 <!-- END GENERATED TYPE REFERENCE -->
 
     <footer>
-      Lattice Grid 1.110.3 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+      Lattice Grid 1.111.0 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
       This document describes the behaviour of the shipped library. Where this guide and the code
       disagree, the code wins: please <a href="https://www.latticegrid.dev">tell us</a>.
     </footer>

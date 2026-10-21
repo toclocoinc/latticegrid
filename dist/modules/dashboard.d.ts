@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.110.3, dashboard module type declarations
+ * Lattice Grid 1.111.0, dashboard module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -48,7 +48,7 @@ export interface DashboardLayoutSpec {
    */
   stackBelow?: number;
   /** Each panel's window, by panel id: its placement and any window option (title, chrome, movable, …). */
-  windows?: Array<{ id: string; xPos?: number; yPos?: number; xSize?: number; ySize?: number; [option: string]: unknown }>;
+  windows?: Array<{ id: string; xPos?: number; yPos?: number; xSize?: number; ySize?: number; height?: 'content'; minHeight?: number | string; maxHeight?: number | string; [option: string]: unknown }>;
   /** Every other key is handed to `createLayout` unchanged. */
   [option: string]: unknown;
 }

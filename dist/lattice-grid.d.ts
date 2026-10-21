@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.110.3, type declarations
+ * Lattice Grid 1.111.0, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -4840,6 +4840,15 @@ export interface GridConfig {
    * token.
    */
   headerHeight?: number;
+  /**
+   * Show only the first rows, after sort and filter, with a "+ n more" footer.
+   * A number is the row count; an object adds `onMore`. The footer's count
+   * follows the data (`rowCap.more` in the message catalogue), hides when
+   * nothing is cut, and when activated (click, or Enter on the focused button)
+   * calls `onMore` and then shows every row. `autoHeight` sizes to the rows
+   * shown. Writing `rowCap` again with `grid.set` re-applies the cap.
+   */
+  rowCap?: number | RowCapConfig;
   /** How many rows to render beyond the viewport. More costs memory and
    * smooths fast scrolling; fewer is lighter and can show a gap. */
   overscan?: number;
@@ -5370,7 +5379,13 @@ export interface GridConfig {
    * Off by default and non-breaking, matching `groupPanel`: no `kpis` means no
    * band and no cost. It reuses `createStat` and reimplements no compute.
    */
-  kpis?: Array<Omit<StatConfig, 'grid' | 'container'>>;
+  kpis?: Array<Omit<StatConfig, 'grid' | 'container'> & KpiTileAction>;
+  /**
+   * How selectable `kpis` tiles combine: `'single'` (default) releases the other
+   * tiles' filters when one is selected; `'multiple'` lets several be on at once,
+   * ANDed like any other named filters.
+   */
+  kpiSelection?: 'single' | 'multiple';
   /** The quick filter's initial text. */
   quickFilterText?: string;
   /**
@@ -9723,6 +9738,45 @@ export interface CellRange {
   columns: string[];
 }
 
+/** The named filter a `kpis` tile toggles. */
+export interface KpiTileFilter {
+  /** The name the predicate is registered under with `grid.filters.where`. */
+  name: string;
+  /** Keeps the rows the tile stands for. */
+  where: (row: any) => boolean;
+  /** The columns the predicate reads, as `WhereOptions.deps`. */
+  deps?: string[];
+  /** A declarative twin of the predicate, as `WhereOptions.condition`. */
+  condition?: FilterSet;
+}
+
+/** What `kpis[].onClick` is handed. */
+export interface KpiTileClick {
+  /** The tile's position in `kpis`. */
+  index: number;
+  /** The tile's title. */
+  title: unknown;
+  /** The tile's filter name, or null when it has no filter. */
+  filter: string | null;
+  /** Whether the tile's filter was on before this click. */
+  selected: boolean;
+  /** The tile's element. */
+  element: HTMLElement;
+}
+
+/**
+ * The interactive half of a `kpis` tile. With a `filter`, a click (or Enter or
+ * Space) toggles that named filter, one undo step, and the tile shows
+ * `aria-pressed` and a selected style while it is on. The selected state follows
+ * the grid, so clearing the filter by API, another control or undo deselects it.
+ */
+export interface KpiTileAction {
+  /** A named filter the tile toggles. */
+  filter?: KpiTileFilter;
+  /** Fires on click, Enter and Space, with or without a filter; return `false` to skip the toggle. */
+  onClick?: (tile: KpiTileClick, event: Event) => boolean | void;
+}
+
 /**
  * How a `where` predicate is re-evaluated, whether `filters.clear()` may remove
  * it, and what the source may be told about it.
@@ -11214,7 +11268,13 @@ export interface FacetConfig extends ColumnFacetConfig {
   debounce?: number;
   /** Whether a paused stream re-enables histograms. Defaults to true. */
   whilePaused?: boolean;
-  /** Bucket counts for a source the client cannot compute over. */
+  /**
+   * Bucket counts for a source the client cannot compute over. A grid over
+   * `duckdbAdapter` needs none: the adapter answers this request itself as bound
+   * SQL, and a provider given here replaces that answer. The
+   * request also carries the column's `cardinalityLimit`, `aboveLimit` and
+   * `order`.
+   */
   provider?: (request: {
     colId: string;
     column: unknown;
@@ -11224,6 +11284,9 @@ export interface FacetConfig extends ColumnFacetConfig {
     buckets: number;
     strategy: string;
     granularity?: string;
+    cardinalityLimit?: number;
+    aboveLimit?: string;
+    order?: string;
   }) => Promise<{ bounds?: FacetBounds; buckets?: FacetBucket[]; counts: ArrayLike<number>;
                   unfiltered?: ArrayLike<number>; kind?: string }>;
 }
@@ -12720,6 +12783,12 @@ export interface StatValueSpec {
    * the best rep. Needs `min` or `max`, no single row holds an average.
    */
   show?: string;
+  /**
+   * Compute the value yourself from the rows in scope. With no `fn` (or
+   * `fn: 'custom'`) it is used as is, so `compute: (rows) => 42` shows 42. With
+   * a named `fn` as well, the `fn` wins and a warning names the tile once.
+   */
+  compute?: (rows: unknown[]) => unknown;
 }
 
 /**
@@ -12728,6 +12797,34 @@ export interface StatValueSpec {
  * Reads the grid, so it cannot disagree with the table beneath it, and formats
  * through the column's own type, so the tile and the table cannot drift.
  */
+/** The object form of `GridConfig.rowCap`. */
+export interface RowCapConfig {
+  /** How many rows to show. Zero or less means no cap. */
+  rows: number;
+  /**
+   * Called when the "+ n more" footer is activated, before the cap lifts.
+   * Return `false` to keep the cap, for a host that opens its own view of the rest.
+   */
+  onMore?: (info: { shown: number; hidden: number; total: number }) => boolean | void;
+}
+/** What a tile's change is described with: see `StatConfig.deltaWording`. */
+export interface DeltaWordingInfo {
+  /** Which way the value moved. */
+  direction: 'up' | 'down' | 'flat';
+  /** The size of the move, unsigned, as a number. */
+  change: number;
+  /** The move as percent points of the baseline, signed; null when the baseline is zero. */
+  percent: number | null;
+  /** The value, formatted as the tile shows it. */
+  value: string;
+  /** The baseline, formatted as the tile shows its value. */
+  baseline: string;
+  /** The size of the move, formatted as the tile shows its value. */
+  formatted: string;
+}
+/** A function of the change, or a template per direction. */
+export type DeltaWording = ((info: DeltaWordingInfo) => string)
+  | { up?: string; down?: string; flat?: string };
 /** Whether a rise in a KPI stat's value counts as good news. */
 export type StatGoodDirection = 'up' | 'down' | 'neither';
 /** Which of a grid's rows feed a KPI stat's value. */
@@ -12755,8 +12852,21 @@ export interface StatConfig extends StatValueSpec {
   value?: unknown | StatValueSpec | ((grid: Grid) => unknown);
   /** Text under the value, or a function of it. */
   footer?: string | ((value: unknown, grid: Grid) => string);
+  /**
+   * A description of the tile, for a hover title and, as `aria-description`,
+   * for assistive technology. A string, or a function of the value and the grid.
+   */
+  tooltip?: string | ((value: unknown, grid: Grid) => string);
   /** What the value is compared against, for the change indicator. */
   baseline?: number | ((grid: Grid) => number);
+  /**
+   * How the change against `baseline` is worded, in place of an arrow and a
+   * percentage: a function of the change, or a template per direction using
+   * `{change}`, `{percent}` (signed), `{value}` and `{baseline}`. For example
+   * `{ up: 'Up {change} on the previous period ({percent})' }`. A direction with
+   * no template, or a function returning nothing, keeps the arrow reading.
+   */
+  deltaWording?: DeltaWording;
   /** Whether a rise is good news. `up` by default. */
   goodWhen?: StatGoodDirection;
   /**
@@ -12784,6 +12894,131 @@ export interface StatConfig extends StatValueSpec {
   decimals?: number;
   /** Extra class names for the tile's root. */
   class?: string;
+  /**
+   * Show the value as a drawing as well as a number. `'ring'` is a donut arc of
+   * value over `target` (or over `max`, else 100) with the number in the centre;
+   * `'gauge'` is a semicircle from `min` to `max` with the `bands` thresholds as
+   * coloured segments and a needle at the value. Vector, so crisp at any pixel
+   * ratio; coloured from theme tokens, so light and dark follow the theme; it
+   * sweeps to a new value when a grid filter changes it. Omit for the plain number.
+   */
+  visual?: 'ring' | 'gauge';
+  /**
+   * What the value is measured against: a number, or a function of the grid.
+   * A ring fills to `value / target`; a gauge with a `max` draws a tick at it.
+   * It is also said in the tile's accessible name ("target 80%").
+   */
+  target?: number | ((grid: Grid) => number);
+  /** The top of the scale a ring or gauge is drawn on. Defaults to `target`, else 100. */
+  max?: number;
+  /** The bottom of a gauge's scale. 0 by default; a ring always starts at 0. */
+  min?: number;
+  /**
+   * Show the value against its target as a {@link createMeter} bar. `true` or
+   * `'under'` draws it beneath the number, `'instead'` in the number's place,
+   * and an object sets the bar's own options.
+   */
+  bar?: boolean | 'under' | 'instead' | StatBarOptions;
+}
+
+/** The options of a tile's bar mode. */
+export interface StatBarOptions {
+  /** `under` the number (default) or `instead` of it. */
+  position?: 'under' | 'instead';
+  /** The low end of the bar. 0 by default. */
+  min?: number;
+  /** The high end of the bar. The target when there is one, else 100. */
+  max?: number;
+  /** The target; overrides the tile's `target`. */
+  target?: number | ((grid: Grid) => number);
+  /** Thresholds that recolour the bar, as for {@link MeterConfig.bands}. */
+  bands?: MeterBand[];
+  /** The bar's colour below every band. `info` by default. */
+  tone?: MeterTone;
+  /** Text under the bar, such as `3 of 8`. */
+  caption?: string | ((value: unknown, grid: Grid | null) => string);
+}
+
+/** A theme colour a meter fill, band or segment may take. */
+export type MeterTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger' | 'accent';
+
+/** A threshold on a meter: from this value up, the fill takes this tone. */
+export interface MeterBand {
+  /** The value at which the band starts. */
+  from: number;
+  /** The tone the fill takes from there. */
+  tone: MeterTone;
+  /** Words for the band, added to the meter's accessible value text. */
+  label?: string;
+}
+
+/** One slice of a segmented meter. */
+export interface MeterSegment {
+  /** The size of the slice, in the meter's units. */
+  value: number;
+  /** The slice's tone. `neutral` by default. */
+  tone?: MeterTone;
+  /** What the slice is, for its tooltip and the accessible value text. */
+  label?: string;
+}
+
+/**
+ * A meter: one horizontal bar of a value in a range, with an optional target
+ * mark, threshold bands, status segments, a caption and an indeterminate state.
+ */
+export interface MeterConfig extends StatValueSpec {
+  /** An element, or a CSS selector resolved against the grid's document. */
+  container: HTMLElement | string;
+  /** The grid to read and follow, as for {@link createStat}. */
+  grid?: Grid;
+  /** A literal number, a spec to reduce, or a function of the grid. */
+  value?: number | StatValueSpec | ((grid: Grid) => number);
+  /** The value at an empty bar. 0 by default. */
+  min?: number;
+  /** The value at a full bar. 100 by default. */
+  max?: number;
+  /** Draw a mark at this value, or a function of the grid. */
+  target?: number | ((grid: Grid) => number);
+  /** Thresholds that recolour the fill. */
+  bands?: MeterBand[];
+  /** The fill's colour below every band. `info` by default. */
+  tone?: MeterTone;
+  /** Status slices drawn in order, instead of a single fill. The value is their sum. */
+  segments?: MeterSegment[] | ((grid: Grid) => MeterSegment[]);
+  /** The text above the bar, and its accessible name. */
+  label?: string;
+  /** The accessible name, when it should differ from `label`. */
+  ariaLabel?: string;
+  /** Text under the bar, such as `3 of 8`, or a function of the value. */
+  caption?: string | ((value: number | null, grid: Grid | null) => string);
+  /** Format the value text. */
+  format?: (value: number | null, grid: Grid | null) => string;
+  /** Show the value text beside the label. `true` by default. */
+  showValue?: boolean;
+  /** Draw an unknown amount of progress; the meter becomes a `progressbar`. */
+  indeterminate?: boolean;
+  /** `false` stops the meter following the grid; `refresh()` still works. */
+  live?: boolean;
+  /** Shown when there is no value. `—` by default. */
+  empty?: string;
+  /** Fraction digits of the default value text. 1 by default. */
+  decimals?: number;
+  /** Extra class names for the meter's root. */
+  class?: string;
+}
+
+/** The handle `createMeter` returns. */
+export interface Meter {
+  /** The meter's root element; null when it was misconfigured. */
+  element(): HTMLElement | null;
+  /** The value currently shown, as computed. */
+  value(): number | null;
+  /** Recompute and repaint now. */
+  refresh(): void;
+  /** Change some options and repaint, keeping the rest. */
+  update(options: Partial<Omit<MeterConfig, 'container' | 'grid'>>): void;
+  /** Stop following the grid and remove the meter. */
+  destroy(): void;
 }
 
 /** The handle `createStat` returns. */
@@ -12809,6 +13044,8 @@ export interface Stat {
 }
 
 export function createStat(config: StatConfig): Stat;
+/** Draw a horizontal meter of a value in a range, optionally bound to a grid. */
+export function createMeter(config: MeterConfig): Meter;
 export function deltaOf(value: number | null, baseline: number | null):
   { direction: 'up' | 'down' | 'flat'; change: number | null; percent: number | null };
 export function toneOf(direction: string, goodWhen: string): 'good' | 'bad' | 'flat';
@@ -13129,6 +13366,12 @@ export interface SpatialBucket {
  * Values are bound through prepared statements. A connection without `prepare`
  * is used only for unfiltered queries, because interpolating a user's filter
  * into SQL is the one thing worse than not filtering.
+ *
+ * The adapter also answers the grid's header-histogram requests itself
+ * (`facets: true`): equal-width bins for a numeric column, the
+ * commonest values with an `Other` remainder for a text one, false/true for a
+ * boolean, each over the rows the other columns' filters leave. A
+ * `facets.provider` given to the grid replaces that answer.
  */
 export function duckdbAdapter(options: {
   /** A live connection exposing `query`, and ideally `prepare`. */
@@ -15080,6 +15323,19 @@ export interface GeoPack {
  */
 /** Which correlation a correlogram computes. */
 export type CorrelationMethod = 'pearson' | 'spearman' | 'kendall';
+/**
+ * How a chart orders the categories of a categorical x axis.
+ *
+ * - `{ by: 'value', dir? }` orders by the plotted measure (for stacked bars or several
+ *   series, by the total across them); `dir` is `'asc'` (default) or `'desc'`.
+ * - `{ by: 'label', dir? }` orders by the category's text, naturally: "2" before "10".
+ * - An array of category labels draws them in that order; categories not in it follow
+ *   in label order.
+ */
+export type ChartCategoryOrder =
+  | { by: 'value' | 'label'; dir?: 'asc' | 'desc' }
+  | string[];
+
 /** A geomap's named projection; a caller may also supply a projection function directly. */
 export type MapProjection =
   'equalEarth' | 'robinson' | 'mercator' | 'equirectangular' | 'albers'
@@ -15862,6 +16118,13 @@ export interface ChartSpec {
    * value, with its share beside it.
    */
   stack?: boolean | 'percent';
+  /**
+   * The order a categorical x axis draws its categories in, for a
+   * `bar`, `column`, `horizontalBar`, `line`, `area` or `combo` whose x is categories.
+   * Default: the order the rows arrive in. The order holds when the bound grid's
+   * filter or data changes. See {@link ChartCategoryOrder}. <small>(optional)</small>
+   */
+  categoryOrder?: ChartCategoryOrder;
   /**
    * On a histogram, `true` overlays a kernel density curve. On a `line`, an
    * `area` (and the line half of a `combo`/`pareto`), it names how the series

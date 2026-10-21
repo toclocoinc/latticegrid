@@ -1,5 +1,5 @@
 {
-  "version": "1.110.3",
+  "version": "1.111.0",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 768,
+  "count": 779,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -2964,6 +2964,16 @@
       "docs": "api/grid.html#pushdown-aggregates"
     },
     {
+      "id": "source.duckdb.unprepared.facets",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.111.0",
+      "message": "this DuckDB connection has no prepare(), so filter values cannot be bound. Header histograms are not drawn rather than interpolating values into SQL.",
+      "meaning": "The same refusal for the adapter's built-in header histograms: none are drawn over this source until the connection can bind values.",
+      "fix": "Use a connection that implements `prepare()`, or give the grid a `facets.provider`.",
+      "docs": "api-detail.html#facets-guide"
+    },
+    {
       "id": "source.duckdb.unprepared.group",
       "module": "core",
       "severity": "warn",
@@ -3489,6 +3499,27 @@
       "fix": "Register the predicate with a `{ condition }` twin: the grid pushes the condition to the source so the narrowing happens where the whole set is, and runs your function locally as the authority.",
       "snippet": "grid.filters.where('mine', fn, { condition: { colId: 'owner', op: 'eq', value: me } });",
       "docs": "api/grid.html#where-predicates"
+    },
+    {
+      "id": "kpis.filter:*",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.111.0",
+      "message": "kpis[].filter needs `{ name: string, where: (row) => boolean }`; the tile at index {n} will not filter.",
+      "meaning": "A `kpis` tile carried a `filter` that is not an object with a non-empty string `name` and a `where` function, so the tile has nothing to register on a click. The tile still renders and still fires its `onClick`; it just does not toggle a filter.",
+      "fix": "Give the tile `filter: { name: 'overdue', where: (row) => row.status === 'overdue' }`.",
+      "snippet": "kpis: [{ title: 'Overdue', fn: 'count', filter: { name: 'overdue', where: (row) => row.status === 'overdue' } }]",
+      "docs": "api-detail.html"
+    },
+    {
+      "id": "kpis.onClick:*",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.111.0",
+      "message": "kpis[{n}].onClick threw: {error}",
+      "meaning": "A `kpis` tile's `onClick` handler threw. The error is reported once per tile and the click carries on: the tile's named filter, if it has one, still toggles.",
+      "fix": "Fix the handler, or catch the error inside it.",
+      "docs": "api-detail.html"
     },
     {
       "id": "stat.windowed:*:*",
@@ -4964,6 +4995,50 @@
       "docs": "api/grid.html#statistics"
     },
     {
+      "id": "meter.container",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.111.0",
+      "message": "createMeter needs a `container`: an element or a selector.",
+      "meaning": "`createMeter()` had no element to draw into. It returns an inert handle — `refresh()`, `update()`, `value()` and `destroy()` all work and do nothing — so calling code is safe and nothing appears on screen.",
+      "fix": "Pass `container` as an element or a selector that resolves to one.",
+      "snippet": "createMeter({ container: '#capacity', label: 'Capacity', value: 30 });",
+      "docs": "api-detail.html#meter"
+    },
+    {
+      "id": "meter.document",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.111.0",
+      "message": "createMeter needs a document; it draws DOM.",
+      "meaning": "`createMeter()` found no document to build its elements in. It returns an inert handle and draws nothing.",
+      "fix": "Call it in a browser, or pass a `container` element that belongs to a document.",
+      "snippet": "createMeter({ container: el, label: 'Capacity', value: 30 });",
+      "docs": "api-detail.html#meter"
+    },
+    {
+      "id": "meter.range",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.111.0",
+      "message": "createMeter needs `max` greater than `min`; the bar is drawn empty.",
+      "meaning": "The meter's range is empty or reversed, so no value can be placed in it. The bar is drawn at 0%.",
+      "fix": "Give `max` a value greater than `min`.",
+      "snippet": "createMeter({ container: el, label: 'Capacity', min: 0, max: 100, value: 30 });",
+      "docs": "api-detail.html#meter"
+    },
+    {
+      "id": "meter.label",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.111.0",
+      "message": "createMeter needs a `label` or an `ariaLabel`: a meter with no name is announced as a bare number.",
+      "meaning": "The meter has no accessible name, so a screen reader announces its value with nothing to say what is being measured.",
+      "fix": "Pass `label` (shown above the bar) or `ariaLabel` (announced only).",
+      "snippet": "createMeter({ container: el, ariaLabel: 'Capacity', value: 30 });",
+      "docs": "api-detail.html#meter"
+    },
+    {
       "id": "stat.show.*",
       "module": "dom",
       "severity": "warn",
@@ -4972,6 +5047,17 @@
       "meaning": "`show` reports another column's value from the row that produced the extreme, which only means something for `min` and `max`. A sum or an average is not held by any one row, so there is no row to read `show` from and the stat answers `null`.",
       "fix": "Use `fn: 'min'` or `fn: 'max'` with `show`, or drop `show` and report the aggregate itself.",
       "snippet": "createStat({ grid, container, col: 'amount', fn: 'max', show: 'customer' });",
+      "docs": "api/grid.html#stat"
+    },
+    {
+      "id": "stat.visual.*",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.111.0",
+      "message": "createStat: `visual` is \"{visual}\"; use 'ring' or 'gauge' (or omit it for the plain number).",
+      "meaning": "`visual` names how a KPI tile draws its value, and only `'ring'` and `'gauge'` exist. The tile is built as the plain number instead, so nothing is lost but the drawing.",
+      "fix": "Set `visual` to `'ring'` or `'gauge'`, or remove it.",
+      "snippet": "createStat({ grid, container, of: 'score', fn: 'avg', target: 100, visual: 'ring' });",
       "docs": "api/grid.html#stat"
     },
     {
@@ -5769,6 +5855,28 @@
       "fix": "Add `maxAge` in milliseconds alongside `ageBy`.",
       "snippet": "createKPI(el, { rows, tiles, ageBy: 'updatedAt', maxAge: 60000 });",
       "docs": "api/kpi.html#kpi-live-example"
+    },
+    {
+      "id": "kpi:compute-conflict:*",
+      "module": "kpi",
+      "severity": "warn",
+      "since": "1.111.0",
+      "message": "the \"{label}\" tile sets both `compute` and aggregation \"{aggregation}\"; the aggregation wins and `compute` is ignored. Use `aggregation: 'custom'` (or omit aggregation) to use `compute`.",
+      "meaning": "A tile named a built-in aggregation and a `compute` function. Only one can produce the value: the named aggregation does, so `compute` never runs. A tile with `compute` and no aggregation is custom and uses it.",
+      "fix": "Remove `aggregation` (or set it to `'custom'`) to use `compute`, or remove `compute` to keep the aggregation.",
+      "snippet": "tiles: [{ id: 'open', label: 'Open', compute: (rows) => rows.filter((r) => r.open).length }]",
+      "docs": "api/kpi.html#kpi"
+    },
+    {
+      "id": "stat.compute-conflict.*",
+      "module": "dom",
+      "severity": "warn",
+      "since": "1.111.0",
+      "message": "createStat: the \"{title}\" tile sets both `compute` and fn \"{fn}\"; `fn` wins and `compute` is ignored. Omit `fn` (or use 'custom') to use `compute`.",
+      "meaning": "A stat tile named a built-in `fn` and a `compute` function. The `fn` produces the value and `compute` never runs. A tile with `compute` and no `fn` uses it.",
+      "fix": "Omit `fn` (or set `'custom'`) to use `compute`, or remove `compute` to keep the `fn`.",
+      "snippet": "createStat({ grid, container, title: 'Open', compute: (rows) => rows.filter((r) => r.open).length });",
+      "docs": "api/grid.html#stat"
     },
     {
       "id": "kpi:agg:*",
@@ -8136,6 +8244,17 @@
       "fix": "Check the prop name against the props `set()` on this item documents as live.",
       "snippet": "form.getItem('city').get('placeholder');",
       "docs": "api/form.html#form-item-set-example"
+    },
+    {
+      "id": "shell.tabs.selected.multiple:*",
+      "module": "shell",
+      "severity": "warn",
+      "since": "1.111.0",
+      "message": "lattice-shell: cell \"{cellId}\" has more than one tab with selected: true ({ids}); the last one, \"{activeId}\", is activated.",
+      "meaning": "A tabbed cell's `tabs` array (BACKLOG-0005173) had more than one tab declaring `selected: true`. Only one tab can be active on first render, so the module resolves the ambiguity itself — the last tab in the array that declared it — rather than refusing to mount.",
+      "fix": "Mark exactly one tab `selected: true`, or mark none to fall back to the first tab.",
+      "snippet": "{ id: 'main', tabs: [{ id: 'a' }, { id: 'b', selected: true }] }  // b is active on first render",
+      "docs": "api-detail.html#shell-live"
     }
   ]
 }

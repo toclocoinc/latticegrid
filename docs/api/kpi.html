@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>KPI API Reference — Lattice Grid 1.110.3</title>
+<title>KPI API Reference — Lattice Grid 1.111.0</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -726,6 +726,10 @@ kpi.rows.apply({ add: [{ id: 'e1', severity: 3 }, { id: 'e2', severity: 2 }] });
           <tr><td class="name">field</td><td class="type">string | ((row: <a href="types.html#type-KPIRow">KPIRow</a>) =&gt; unknown)</td><td class="desc">The field the aggregation reads (a path or accessor). Ignored by `count`. <small>(optional)</small></td></tr>
           <tr><td class="name">format</td><td class="type"><a href="types.html#type-KPIFormat">KPIFormat</a></td><td class="desc">Value formatting. <small>(optional)</small></td></tr>
           <tr><td class="name">target</td><td class="type">number</td><td class="desc">A comparison target rendered alongside the value. <small>(optional)</small></td></tr>
+          <tr><td class="name">value</td><td class="type">number | string</td><td class="desc">A literal value the tile shows as it stands, instead of reducing rows. A number is formatted with `format`; a string is shown as written. It is the host's own figure, so an empty or silent panel does not blank it, and `baseline`, `thresholds` and `bands` still apply to a number. <small>(optional)</small></td></tr>
+          <tr><td class="name">caption</td><td class="type">string | ((value: unknown, tile: { id: string; label: string; formatted: string }) =&gt; string)</td><td class="desc">A line under the label: a string, or a function of the value and the tile's `{ id, label, formatted }`. It is part of the tile's accessible name. <small>(optional)</small></td></tr>
+          <tr><td class="name">tooltip</td><td class="type">string | ((value: unknown, tile: { id: string; label: string; formatted: string }) =&gt; string)</td><td class="desc">A description of the tile: a hover title and `aria-description`. A string, or a function as for `caption`. <small>(optional)</small></td></tr>
+          <tr><td class="name">deltaWording</td><td class="type"><a href="types.html#type-DeltaWording">DeltaWording</a></td><td class="desc">How the movement line is worded, in place of an arrow and figures: a function of the change or `{ up, down, flat }` templates using `{change}`, `{percent}` (signed), `{value}` and `{baseline}`, e.g. `{ up: 'Up {change} on the previous period ({percent})' }`. <small>(optional)</small></td></tr>
           <tr><td class="name">baseline</td><td class="type">number</td><td class="desc">A baseline the tile's delta is measured against. <small>(optional)</small></td></tr>
           <tr><td class="name">delta</td><td class="type"><a href="types.html#type-DeltaMode">DeltaMode</a> <small class="literals">'absolute' | 'relative' | 'both'</small></td><td class="desc">What the movement line prints against `baseline` (BACKLOG-0001673, F-FRED-G): `'absolute'` the difference alone, `'relative'` the percentage alone, `'both'` (the default, unchanged) both together. A rate series (4.10 vs 4.30) makes the percentage a percent-of-a-percent and meaningless, so `'absolute'` is how a host keeps the line without it. The arrow and its colour follow the sign of the difference either way. <small>(optional)</small></td></tr>
           <tr><td class="name">thresholds</td><td class="type"><a href="#type-KPIThresholds">KPIThresholds</a></td><td class="desc">Threshold bands, either two cut points or an explicit band list. <small>(optional)</small></td></tr>
@@ -738,7 +742,7 @@ kpi.rows.apply({ add: [{ id: 'e1', severity: 3 }, { id: 'e2', severity: 2 }] });
       <table>
         <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td class="name">compute</td><td class="type">(rows: <a href="types.html#type-KPIRow">KPIRow</a>[], tile: object) =&gt; unknown</td><td class="desc"><code>rows: <a href="types.html#type-KPIRow">KPIRow</a>[]</code><br><code>tile: object</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The reducer for a `custom` aggregation, when `aggregation` is the string `'custom'`. <small>(optional)</small></td></tr>
+          <tr><td class="name">compute</td><td class="type">(rows: <a href="types.html#type-KPIRow">KPIRow</a>[], tile: object) =&gt; unknown</td><td class="desc"><code>rows: <a href="types.html#type-KPIRow">KPIRow</a>[]</code><br><code>tile: object</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The reducer for a `custom` aggregation. A tile with `compute` and no `aggregation` is custom. With a non-custom `aggregation` as well, the aggregation wins and one warning names the tile and the conflict. <small>(optional)</small></td></tr>
           <tr><td class="name">filter</td><td class="type">(row: <a href="types.html#type-KPIRow">KPIRow</a>) =&gt; boolean</td><td class="desc"><code>row: <a href="types.html#type-KPIRow">KPIRow</a></code></td><td class="type"><code>=&gt; boolean</code></td><td class="desc">A predicate limiting the rows this tile aggregates. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -826,6 +830,9 @@ kpi.rows.apply({ add: [{ id: 'e1', severity: 3 }, { id: 'e2', severity: 2 }] });
           <tr><td class="name">deltaPercent</td><td class="type">number | null</td><td class="desc">The delta as a fraction of the baseline. Null when there is no delta, and when the baseline is zero — a percentage of nothing is not reported as infinity.</td></tr>
           <tr><td class="name">deltaFormatted</td><td class="type">string</td><td class="desc">The delta rendered with the tile's own number format. Undefined when there is no delta. <small>(optional)</small></td></tr>
           <tr><td class="name">deltaMode</td><td class="type"><a href="types.html#type-DeltaMode">DeltaMode</a> <small class="literals">'absolute' | 'relative' | 'both'</small></td><td class="desc">What the movement line prints; see `KPIStatTile.delta`. Always present once `baseline` is. <small>(optional)</small></td></tr>
+          <tr><td class="name">caption</td><td class="type">string</td><td class="desc">The tile's caption, resolved; see `KPIStatTile.caption`. <small>(optional)</small></td></tr>
+          <tr><td class="name">tooltip</td><td class="type">string</td><td class="desc">The tile's description, resolved; see `KPIStatTile.tooltip`. <small>(optional)</small></td></tr>
+          <tr><td class="name">deltaText</td><td class="type">string</td><td class="desc">The movement line's custom wording, resolved; see `KPIStatTile.deltaWording`. <small>(optional)</small></td></tr>
           <tr><td class="name">count</td><td class="type">number</td><td class="desc">How many of the panel's rows this tile's filter admitted — its own membership, which may be 0 while the panel holds rows. Always 0 on a clock tile.</td></tr>
           <tr><td class="name">computed</td><td class="type">'engine' | 'client'</td><td class="desc">Where a stat tile's value was reduced (GEO-6): `'engine'` by a paged pushdown source's engine over every matching row (see `KPIStatTile.aggregation`), `'client'` from the rows the panel holds. Absent on a clock tile. <small>(optional)</small></td></tr>
           <tr><td class="name">sparkline</td><td class="type">number[] | null</td><td class="desc">The tile's trend series, as the finite numbers it plots, in `x` order. Null when the tile declares no sparkline and when no row yielded a finite value.</td></tr>
