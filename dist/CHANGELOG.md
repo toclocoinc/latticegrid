@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.110.3] - 2026-10-21
+
+### Fixed
+
+- **A map view with no `theme` option followed the OS colour scheme instead of the bound grid's theme** (BACKLOG-0005054). On a dark desktop the map went dark while the grid beside it stayed light. The map view reads the bound grid's resolved theme — `data-theme` above the grid, `auto` against `prefers-color-scheme`, and light when nothing sets one — and follows the grid's theme when it changes at runtime, so the default basemap and the layer colours agree with the grid; an explicit `theme` option still wins.
+
 ## [1.110.2] - 2026-10-21
 
 ### Fixed

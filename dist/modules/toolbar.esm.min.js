@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.110.2, toolbar module
+ * Lattice Grid 1.110.3, toolbar module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
