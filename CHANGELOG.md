@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.110.2] - 2026-10-21
+
+### Fixed
+
+- Turning header histograms on left the strips about 10px tall and unreadable at the default header height, so notebooks set `headerHeight: 90` as a stopgap. The header now reserves a strip of at least 28px (collapsed or expanded) plus the title row by default; an explicit `headerHeight` is the whole leaf row and the strip uses what the title row leaves; a grid without histograms is unchanged (BACKLOG-0005033)
+
 ## [1.110.1] - 2026-10-21
 
 ### Fixed

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.110.1, chart-forcetree module
+ * Lattice Grid 1.110.2, chart-forcetree module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.110.1, type declarations
+ * Lattice Grid 1.110.2, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -11201,7 +11201,12 @@ export interface FacetConfig extends ColumnFacetConfig {
   enabled?: boolean;
   /** Start as a one-line density strip that opens on hover or click. */
   collapsed?: boolean;
-  /** Band height in pixels. */
+  /**
+   * Band height in pixels. The strip is never shorter than 28px (collapsed or
+   * expanded), so turning histograms on leaves the header room for a readable
+   * chart plus the title row. An explicit `headerHeight` is the whole leaf
+   * row: the strip takes what the title row leaves.
+   */
   height?: number;
   /** Rows above which histograms are suppressed. */
   rowCeiling?: number;
