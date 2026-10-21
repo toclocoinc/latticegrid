@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.110.1] - 2026-10-21
+
+### Fixed
+
+- **A group row painted only its count — "(5421)" — with no label (BACKLOG-0005031).** The count is a fixed-width item in the group cell and the label was allowed to shrink to zero width, which it did once the group column took the grouped column's narrower configured width (1.109, BACKLOG-0004759). The label now keeps room for a letter and an ellipsis and truncates with an ellipsis before the count is ever crowded out; a group row is never blank.
+
 ## [1.110.0] - 2026-10-21
 
 ### Added
