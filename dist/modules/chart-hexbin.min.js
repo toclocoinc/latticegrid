@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.2, chart-hexbin module
+ * Lattice Grid 1.111.3, chart-hexbin module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

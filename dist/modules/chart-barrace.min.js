@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.2, chart-barrace module
+ * Lattice Grid 1.111.3, chart-barrace module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

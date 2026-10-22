@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.111.3] - 2026-10-22
+
+### Fixed
+
+- `createList` and `createDataView` with `groupBy` and sticky group headings on (the default) drew a blank band, about a heading tall, above the first group heading. The pinned heading now starts at the top of the list body, at rest and while scrolling; `stickyGroupHeadings: false` and ungrouped lists are unchanged (BACKLOG-0005210).
+
 ## [1.111.2] - 2026-10-22
 
 ### Added
