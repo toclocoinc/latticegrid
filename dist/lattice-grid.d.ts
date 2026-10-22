@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.3, type declarations
+ * Lattice Grid 1.111.4, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -2204,6 +2204,19 @@ export interface ColumnTypeOptions {
    * by default. Typed and pasted text is split on it and on commas.
    */
   joiner?: string;
+  /**
+   * Fixed fraction digits for a plain `number` column that declares no
+   * `format` of its own — the minimum and the maximum both set to this
+   * figure, exactly as `format: { decimals }` would (§8.5). Honoured only
+   * when the column's data type has no self-formatting `format` function of
+   * its own (a `unit`, `currency` or other custom numeric type keeps its own
+   * precision setting instead). A group row's or group footer's aggregate
+   * cell — `avg`, `sum`, `median`, a `percentile` — reads through the same
+   * formatter as the column's own cells, so it rounds to this many places
+   * too; a `count`/`countValues` total is never affected,
+   * since it always displays as a whole number.
+   */
+  decimals?: number;
   /**
    * Any other option a data type reads from its column: a weighted average's
    * `weight` column, a unit's `significantFigures`.

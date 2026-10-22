@@ -437,7 +437,7 @@
 <div class="shell">
   <aside class="rail">
     <p class="rail__brand">Lattice Grid</p>
-    <p class="rail__sub">Developer guide · v1.111.3</p>
+    <p class="rail__sub">Developer guide · v1.111.4</p>
     <nav>
       <div class="rail__group">
         <span class="rail__label">Start here</span>
@@ -554,7 +554,7 @@
         <a href="API.html">reference tables</a> are the shorter version for when you already know.
       </p>
       <p class="chips">
-        <span class="chip">Version 1.111.3</span>
+        <span class="chip">Version 1.111.4</span>
           <span class="chip">Zero dependencies</span>
         <span class="chip">No build step</span>
       </p>
@@ -1896,7 +1896,7 @@ off();                                       <span class="cmt">// every subscrip
     </p>
     <div class="example">
       <p class="example__label">Which version am I running?</p>
-      <pre><code>grid.getVersion();          <span class="cmt">// '1.111.3'</span>
+      <pre><code>grid.getVersion();          <span class="cmt">// '1.111.4'</span>
 LatticeGrid.getVersion();   <span class="cmt">// the same, when you have no grid to hand</span></code></pre>
     </div>
     <p class="lead-in">
@@ -3909,6 +3909,44 @@ return (`a ${medians.a} b ${medians.b} | p90 a ${p90.a} b ${p90.b} | tile ${kpi.
         pushdown grid asks the engine and, when the engine cannot answer, shows no number rather
         than the loaded page's figure (the same rule as <code>countDistinct</code>).
       </p>
+    </div>
+
+    <h3 id="aggregate-decimals">A group aggregate keeps the column's own decimals</h3>
+    <p class="lead-in">
+      A group row's and group footer's aggregate cell — <code>sum</code>, <code>avg</code>,
+      <code>median</code>, a <code>percentile</code> — renders through the very same formatter as
+      the column's own cells (§8.4.1), so however a numeric column declares its precision, the
+      aggregate rounds to it too: a declarative <code>format: { decimals: 3 }</code>, a
+      <code>value.format</code> function, or <code>typeOptions.decimals</code> on a plain
+      <code>number</code> column that declares no <code>format</code> of its own. Without one of
+      those the average of <code>0.09</code> and <code>0.1094</code> is whatever floating point
+      makes it, <code>0.09970000000000001</code>; declaring either way of rounding makes the
+      group row read exactly as a cell of that column would (BACKLOG-0005305). A
+      <code>count</code>/<code>countValues</code> total is unaffected either way — it always
+      displays as a whole number, since it measures the rows, not the column.
+    </p>
+    <div class="example">
+      <p class="example__label">Grouped average, rounded the same way a cell would be</p>
+      <pre data-run="js" data-expect="a 0.100 b 0.200" data-covers="config:ColumnTypeOptions.decimals"><code>const { createHeadlessGrid } = await import('../packages/core/src/index.js');
+const rows = [
+  { id: 1, cat: 'a', v: 0.09 }, { id: 2, cat: 'a', v: 0.1094 },
+  { id: 3, cat: 'b', v: 0.2 },
+];
+const grid = createHeadlessGrid({
+  rowKey: 'id',
+  columns: [{ field: 'cat' }, { field: 'v', type: 'number', total: 'avg', typeOptions: { decimals: 3 } }],
+  rows,
+});
+grid.columns.group(['cat']);
+const col = grid.columns.get('v');
+const host = grid.rendererHost();
+let out = '';
+for (let i = 0; i &lt; grid.rows.count(); i++) {
+  const row = grid.rows.get(i);
+  if (row &amp;&amp; row.group) out += `${row.groupValue} ${host.cellText(row, col)} `;
+}
+return out.trim();
+</code></pre>
     </div>
 
     <h3 id="total-only-changed">totalOnlyChangedColumns</h3>
@@ -14867,7 +14905,7 @@ grid.licence.state();   <span class="cmt">// 'licensed' | 'localhost' | 'trial'<
 
     <footer>
       <p>
-        Lattice Grid 1.111.3 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
+        Lattice Grid 1.111.4 · Copyright © 2026 TOCLOCO Inc. All rights reserved.
         Written against the shipped source. Where this guide and the code disagree, the code wins,
         please <a href="https://www.latticegrid.dev">tell us</a>.
       </p>

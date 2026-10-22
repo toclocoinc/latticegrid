@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.3, geo-us-states module
+ * Lattice Grid 1.111.4, geo-us-states module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

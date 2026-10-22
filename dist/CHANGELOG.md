@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.111.4] - 2026-10-22
+
+### Fixed
+
+- A group row's or group footer's aggregate cell (`sum`, `avg`, `median`, a `percentile`) now rounds to the same decimals as the column's own cells, however the column declares them: `format: { decimals }`, a `value.format` function, or the new `typeOptions.decimals` on a plain `number` column that declares no `format` of its own. Previously, declaring precision through `typeOptions.decimals` left the group aggregate at full floating-point precision (`0.0985080243497...`) while `format.decimals` already rounded it correctly; both now agree. `count` and `countValues` totals are unaffected and always display as whole numbers (BACKLOG-0005305).
+
 ## [1.111.3] - 2026-10-22
 
 ### Fixed

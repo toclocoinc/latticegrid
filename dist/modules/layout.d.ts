@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.3, layout module type declarations
+ * Lattice Grid 1.111.4, layout module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
