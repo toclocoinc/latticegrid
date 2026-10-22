@@ -9,6 +9,12 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.111.6] - 2026-10-22
+
+### Fixed
+
+- FORM: an item's addon button is now centred on the control row itself — the input, combo or select field box — instead of the item's whole control cell, so help text, a validation message or an error line below the control leaves the addon level with the field it belongs to (BACKLOG-0005382).
+
 ## [1.111.5] - 2026-10-22
 
 ### Added

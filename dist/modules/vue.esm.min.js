@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.5, vue module
+ * Lattice Grid 1.111.6, vue module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

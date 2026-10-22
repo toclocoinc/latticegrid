@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.5, form module
+ * Lattice Grid 1.111.6, form module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1727,8 +1727,15 @@ ${I}[readonly]{
 .${H}__control--lock .lat-combo__control{
   padding-right:calc(var(--lattice-space) * 1.5 + (var(--lattice-control-size) * var(--lattice-scale)) + calc(var(--lattice-space) / 2));
 }
+/* The field row centres its addons on the control's own box, not on the
+   whole cell (BACKLOG-0005382): the cell also holds the help/validation
+   lines below the control, and a child with align-items:center would shift
+   with them. The control's field box is always row-height tall and sits at
+   the cell's top edge (the same invariant the lock anchors to above), and an
+   addon is row-height tall too, so align-items:flex-start lines their boxes
+   up exactly whether or not help/error text follows. */
 .${H}__field{
-  display:flex; align-items:center; gap:calc(var(--lattice-space) / 2);
+  display:flex; align-items:flex-start; gap:calc(var(--lattice-space) / 2);
   min-width:0; flex:1 1 auto;
 }
 .${H}__addons{ display:inline-flex; align-items:center; gap:calc(var(--lattice-space) / 2); flex:0 0 auto; }
