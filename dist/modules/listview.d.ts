@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.0, listview module type declarations
+ * Lattice Grid 1.111.1, listview module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -108,6 +108,25 @@ export interface ListViewConfig {
   collapsibleGroups?: boolean;
   /** Start with every group folded (with `collapsibleGroups`). Default `false`. */
   groupsCollapsed?: boolean;
+  /**
+   * Touch pull-to-refresh: pull the list down while it is
+   * scrolled to the top and release past `threshold` to call `onRefresh`
+   * once. Mouse and pen pointers are ignored. Off unless `enabled` is `true`;
+   * change it later with `list.setPullToRefresh`.
+   */
+  pullToRefresh?: ListViewPullToRefresh;
+}
+
+/** The options of {@link ListViewConfig.pullToRefresh} and `list.setPullToRefresh`. */
+export interface ListViewPullToRefresh {
+  /** Whether the gesture is on. Default `false` in the config; an object passed to `list.setPullToRefresh` is on unless it says `false`. */
+  enabled?: boolean;
+  /** Called once per pull past the threshold; the indicator clears when the returned promise settles (resolved or rejected). */
+  onRefresh: () => Promise<void> | void;
+  /** Pull distance in pixels that counts as a refresh. Default `56`. */
+  threshold?: number;
+  /** Text shown in place of the catalogue's "Pull to refresh" / "Refreshing…". */
+  label?: string;
 }
 
 /** What a group heading stands for; {@link ListViewConfig.groupHeading} is handed one. */
@@ -311,6 +330,8 @@ export interface ListView {
   on<K extends ListViewEventName>(name: K, fn: (payload: ListViewEventPayloads[K]) => void): () => void;
   /** Remove an event handler registered with `on`. */
   off<K extends ListViewEventName>(name: K, fn: (payload: ListViewEventPayloads[K]) => void): void;
+  /** Turn touch pull-to-refresh off (`false`), on with the options already given (`true`), or on with new options, without recreating the list. */
+  setPullToRefresh(value: boolean | ListViewPullToRefresh): void;
   /** Tear the list down: destroy the inner grid, remove listeners, drop handlers. The host still owns the element. */
   destroy(): void;
 }

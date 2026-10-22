@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Types API Reference — Lattice Grid 1.111.0</title>
+<title>Types API Reference — Lattice Grid 1.111.1</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -491,6 +491,8 @@
           <tr><td class="name">reason</td><td class="type">string</td><td class="desc">Why it is client-side, when it is (config, fallback, or the guard). <small>(optional)</small></td></tr>
           <tr><td class="name">weight</td><td class="type">string</td><td class="desc">The column supplying the weights, for a weighted reduction. <small>(optional)</small></td></tr>
           <tr><td class="name">params</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Parameters the statistic takes, carried through so an adapter emits the matching SQL (e.g. a trim share). <small>(optional)</small></td></tr>
+          <tr><td class="name">p</td><td class="type">number</td><td class="desc">The quantile, 0 to 1, of a `percentile`. <small>(optional)</small></td></tr>
+          <tr><td class="name">sql</td><td class="type">string</td><td class="desc">For an engine-computed statistic, the aggregate expression it runs as, such as `median("sugar")` or `quantile_cont("sugar", ?)` (`p` is bound). <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -503,6 +505,7 @@
           <tr><td class="name">id</td><td class="type">string</td><td class="desc">Keys the result back to the request.</td></tr>
           <tr><td class="name">col</td><td class="type">string</td><td class="desc">The column to reduce.</td></tr>
           <tr><td class="name">fn</td><td class="type">string</td><td class="desc">The statistic name, as used in `total: '&lt;name&gt;'`.</td></tr>
+          <tr><td class="name">p</td><td class="type">number</td><td class="desc">The quantile, 0 to 1, for `fn: 'percentile'` (`params.p` is read too). <small>(optional)</small></td></tr>
           <tr><td class="name">weight</td><td class="type">string</td><td class="desc">The second column, for a two-column statistic. <small>(optional)</small></td></tr>
           <tr><td class="name">params</td><td class="type">Record&lt;string, unknown&gt;</td><td class="desc">Parameters the statistic takes, e.g. a trim share. <small>(optional)</small></td></tr>
         </tbody>
@@ -620,6 +623,19 @@
           <tr><td class="name">align</td><td class="type">'left' | 'center' | 'right'</td><td class="desc">Horizontal alignment within the symbol's width. Default `'center'`. <small>(optional)</small></td></tr>
           <tr><td class="name">margin</td><td class="type">number</td><td class="desc">The gap in SVG user units between the text baseline and the symbol's edge. Default `2`. <small>(optional)</small></td></tr>
           <tr><td class="name">font</td><td class="type">string</td><td class="desc">A CSS `font` shorthand for the text line. Default `'10px sans-serif'`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-BulletCellProps">BulletCellProps</h4>
+    <p class="section-note">The `props` of the `bullet` cell renderer (BACKLOG-0005208). `target`, `bands`, `min` and `max` are each resolved per cell: the literal, the name of a row field, or a function of the cell params. A target that is missing or not a number draws no marker; the value is re-resolved when the row changes.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">target</td><td class="type">number | string | ((params: <a href="grid.html#type-CellParams">CellParams</a>) =&gt; number | null | undefined)</td><td class="desc">The target marker: a number, a row field name, or `(params) =&gt; number`. <small>(optional)</small></td></tr>
+          <tr><td class="name">bands</td><td class="type">number[] | string | ((params: <a href="grid.html#type-CellParams">CellParams</a>) =&gt; number[] | null | undefined)</td><td class="desc">The band upper edges: an array, a row field holding one, or `(params) =&gt; number[]`. <small>(optional)</small></td></tr>
+          <tr><td class="name">min</td><td class="type">number | string | ((params: <a href="grid.html#type-CellParams">CellParams</a>) =&gt; number | null | undefined)</td><td class="desc">The scale's start (default 0): a number, a row field name, or a function. <small>(optional)</small></td></tr>
+          <tr><td class="name">max</td><td class="type">number | string | ((params: <a href="grid.html#type-CellParams">CellParams</a>) =&gt; number | null | undefined)</td><td class="desc">The scale's end (default 100): a number, a row field name, or a function. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -830,8 +846,17 @@
           <tr><td class="name">barWidth</td><td class="type">number</td><td class="desc">How wide one `bar` or `candlestick` is drawn on a **continuous** x axis, in the axis's own units — milliseconds on a time axis (BACKLOG-0001481). Given in x units rather than pixels because a width in pixels would cover a different span of time every time the domain moved. The default is the median gap between consecutive x values, less the type's usual padding, so the marks sit at the sampling interval; the median rather than the mean so an overnight or weekend hole does not widen every mark. An explicit width is taken exactly as given. Ignored on a banded axis, where the band decides. <small>(optional)</small></td></tr>
           <tr><td class="name">every</td><td class="type">number</td><td class="desc">Show every nth category label, on a crowded category axis. <small>(optional)</small></td></tr>
           <tr><td class="name">rotate</td><td class="type">boolean | 'auto'</td><td class="desc">Force the category labels' rotation rather than deciding it. <small>(optional)</small></td></tr>
+          <tr><td class="name">fit</td><td class="type">'auto' | 'none'</td><td class="desc">How a categorical x axis keeps its labels legible when they do not fit their bands (BACKLOG-0005183). `'auto'`, the default, tries in order: level, then level on every nth band (never more than every third, the first and last always kept), then turned 45°, then each label abbreviated (see {@link ChartAxis.abbreviate}), and at last the shortest spelling thinned as far as it takes, so no two label boxes touch and none is cut. `'none'` leaves the axis to {@link ChartAxis.rotate} and {@link ChartAxis.every} alone. A full name an axis shortened stays in the label's `aria-label`. Only the x axis of a column-shaped cartesian chart reads it. <small>(optional)</small></td></tr>
           <tr><td class="name">position</td><td class="type"><a href="#type-Side">Side</a> <small class="literals">'left' | 'right'</small></td><td class="desc">Which edge the measure axis draws on (BACKLOG-0001477). Only `axis.y` and `axis.y2` read it, and only on a non-horizontal cartesian type or a `candlestick` — an AG-style price pane puts its scale on the right. The default is `'left'`. On a dual-axis chart, setting it on `y` swaps `y2` to the opposite edge, since the two can never share one side. <small>(optional)</small></td></tr>
           <tr><td class="name">window</td><td class="type">Pick&lt;<a href="#type-WindowSpec">WindowSpec</a>, 'kind' | 'span'&gt; &amp; { /** * The clock the window ends at, in epoch milliseconds; `Date.now` by * default (BACKLOG-0001483). The same `now` the `Window` class has taken * since its first release (BACKLOG-0000654). * * For a live feed the default is right. For a **replay** — a recorded * session, an incident being stepped through, a scrubber over yesterday's * telemetry — the wall clock is wrong by however long ago the recording was * made, so every reading is older than the window and the chart correctly * draws nothing. Name the pane's own clock here and the window rolls * against it instead, including the "the newest value is N s old" check. * Read on every draw, so a replay that advances its clock and calls * `chart.update({ axis })` scrolls. */ now?: () =&gt; number; }</td><td class="desc">A rolling window for the axis domain (BACKLOG-0001036), in the shipped `WindowSpec` vocabulary that rolling statistics already use. Only `{ kind: 'time', span }` applies to an axis: the domain becomes the last `span` milliseconds ending **now**, so the chart keeps scrolling left while the feed is silent — the thing a count window cannot do, because with no rows arriving nothing changes. Advanced on a low-frequency clock (a quarter of the window, between 50 ms and 1 s), never per frame, and stopped when the chart is destroyed or its document is hidden. Needs a continuous x axis carrying wall-clock times; `{ kind: 'count' }` is the source's `maxRows` and is refused here rather than given a second meaning. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">abbreviate</td><td class="type">(label: string, index: number) =&gt; string</td><td class="desc"><code>label: string</code><br><code>index: number</code></td><td class="type"><code>=&gt; string</code></td><td class="desc">The short spelling of a category label, used by `fit: 'auto'` when the full labels fit neither level, thinned nor turned. Called once per category with its label and index; the default keeps the first word, then its first three letters ("January 2025" becomes "Jan"). <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -1143,7 +1168,7 @@
         <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td class="name">col</td><td class="type">string</td><td class="desc">The column reduced for this measure.</td></tr>
-          <tr><td class="name">fn</td><td class="type"><a href="#type-TotalName">TotalName</a> <small class="literals">'sum' | 'min' | 'max' | 'avg' | 'count' | 'first' | 'last' | 'countValues' | (string &amp; {})</small></td><td class="desc">A reduction name, as the totals row uses. <small>(optional)</small></td></tr>
+          <tr><td class="name">fn</td><td class="type"><a href="#type-TotalName">TotalName</a> <small class="literals">'sum' | 'min' | 'max' | 'avg' | 'count' | 'first' | 'last' | 'countValues' | 'median' | (string &amp; {})</small></td><td class="desc">A reduction name, as the totals row uses. <small>(optional)</small></td></tr>
           <tr><td class="name">type</td><td class="type"><a href="#type-ChartMeasureType">ChartMeasureType</a> <small class="literals">'bar' | 'line' | 'area'</small></td><td class="desc">The mark this measure draws with, on a combo chart. <small>(optional)</small></td></tr>
           <tr><td class="name">axis</td><td class="type"><a href="#type-Side">Side</a> <small class="literals">'left' | 'right'</small></td><td class="desc">Which axis it belongs to, on a combo chart. <small>(optional)</small></td></tr>
           <tr><td class="name">title</td><td class="type">string</td><td class="desc">The series label a combo's legend and axis titles use (BACKLOG-0001672). `label` is read too, as an undeclared alias, for a caller already using it; `title` wins when both are given. Falls back to the measure column's own `title`, then to `col`, when neither is set. <small>(optional)</small></td></tr>
@@ -2391,6 +2416,30 @@
         </tbody>
       </table>
     </div>
+    <h4 id="type-ProgressCellOptions">ProgressCellOptions</h4>
+    <p class="section-note">The `cell.props` the `progress` renderer reads, for `cell: { render: 'progress', props }` (BACKLOG-0005189).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">variant</td><td class="type">string | <a href="#type-ProgressVariantFn">ProgressVariantFn</a> | <a href="#type-ProgressVariantBand">ProgressVariantBand</a>[]</td><td class="desc">The bar's colour: a token string for the whole column, a function of the value and the row, or bands. Always a theme token, never a colour, so it follows light and dark. <small>(optional)</small></td></tr>
+          <tr><td class="name">min</td><td class="type">number</td><td class="desc">The value at an empty bar. Default `0`. <small>(optional)</small></td></tr>
+          <tr><td class="name">max</td><td class="type">number</td><td class="desc">The value at a full bar. Default `100`. <small>(optional)</small></td></tr>
+          <tr><td class="name">showValue</td><td class="type">boolean</td><td class="desc">Draw the formatted value beside the bar. Default `true`. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ProgressVariantBand">ProgressVariantBand</h4>
+    <p class="section-note">One band of a progress cell's `variant`: the first band whose `max` is at or above the value supplies the colour. A band without a `max` reaches up without limit, so it closes the list (BACKLOG-0005189).</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">max</td><td class="type">number</td><td class="desc">The highest value this band covers, inclusive. Omit it on the last band. <small>(optional)</small></td></tr>
+          <tr><td class="name">variant</td><td class="type">'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'accent'</td><td class="desc">The token the bar takes: `success`, `warning`, `danger`, `info`, `neutral` or `accent`.</td></tr>
+        </tbody>
+      </table>
+    </div>
     <h4 id="type-ProportionInterval">ProportionInterval</h4>
     <p class="section-note">A Wilson score interval for a rate. Stays inside 0 to 1 at the extremes.</p>
     <div class="table-wrap">
@@ -2424,7 +2473,7 @@
           <tr><td class="name">execute</td><td class="type">(query: <a href="grid.html#type-RemoteRequest">RemoteRequest</a>, request?: Partial&lt;<a href="grid.html#type-RemoteRequest">RemoteRequest</a>&gt; &amp; { stream?: boolean }): Promise&lt;{ rows: unknown[]; total?: number; pendingTotal?: Promise&lt;number | null&gt; }&gt;</td><td class="desc"><code>query: <a href="grid.html#type-RemoteRequest">RemoteRequest</a></code><br><code>request?: Partial&lt;<a href="grid.html#type-RemoteRequest">RemoteRequest</a>&gt; &amp; { stream?: boolean }</code></td><td class="type"><code>Promise&lt;{ rows: unknown[]; total?: number; pendingTotal?: Promise&lt;number | null&gt; }&gt;</code></td><td class="desc">Run the part of the query the adapter declared it could handle. An adapter whose count is expensive may answer with `pendingTotal` instead of `total` (BACKLOG-0001078): the rows are delivered now and the promise resolves with the same exact number when the count finishes. The source publishes it then and fires `source:total`; until it does the grid reports no total and `grid.rows.totalPending()` is `true`. It is opt-in per adapter — one that returns `total` behaves exactly as it always has — and `pendingTotal` is ignored when `total` is present, because a total that is already here has nothing to wait for. The promise must resolve with the exact count or `null`; it must never resolve with an estimate. `request.stream: true` is export mode (BACKLOG-0001546): the call is one page of a predicate selection being read out whole, and the rows are all that is wanted. An adapter may skip its count for it; the source ignores any total it returns.</td></tr>
           <tr><td class="name">executeGroupLevel</td><td class="type">( query: <a href="grid.html#type-RemoteRequest">RemoteRequest</a>, aggregates: Array&lt;{ id: string; col: string; fn: string; weight?: string }&gt;, request?: <a href="grid.html#type-RemoteRequest">RemoteRequest</a>, ): Promise&lt;{ rows: unknown[]; total?: number; leaves?: boolean; matchCount?: number; grand?: Record&lt;string, unknown&gt;; }&gt;</td><td class="desc"><code>query: <a href="grid.html#type-RemoteRequest">RemoteRequest</a></code><br><code>aggregates: Array&lt;{ id: string; col: string; fn: string; weight?: string }&gt;</code><br><code>request?: <a href="grid.html#type-RemoteRequest">RemoteRequest</a></code></td><td class="type"><code>Promise&lt;{ rows: unknown[]; total?: number; leaves?: boolean; matchCount?: number; grand?: Record&lt;string, unknown&gt;; }&gt;</code></td><td class="desc">Answer one level of a grouped grid (BACKLOG-0001325). Present only when `capabilities.group` opts in. The level is `query.groupValues.length`: the root asks for the outermost grouping column's distinct values, expanding a group asks for the next column's values within it, and past the last grouping column the children are the leaves (`leaves: true`). A group row comes back in the shape the remote source already reads from a grouping server: the grouping column's own id carries the key, `leafCount` the group's row count, `totals` the subtotals keyed by column id. `total` is how many group rows the level holds. At the root, `matchCount` and `grand` carry the whole-set figures a grouped window cannot derive — the rows the filter matched, and the grand total over them. `aggregates` is the subtotal list the source routed to the engine; anything it could not route is named in `PushdownPlan.aggregates.client` and left absent from the group row rather than computed over the wrong set. <small>(optional)</small></td></tr>
           <tr><td class="name">executePivotLevel</td><td class="type">( query: <a href="grid.html#type-RemoteRequest">RemoteRequest</a>, aggregates: Array&lt;{ id: string; col: string; fn: string; weight?: string }&gt;, request?: <a href="grid.html#type-RemoteRequest">RemoteRequest</a>, ): Promise&lt;{ rows: unknown[]; total?: number; leaves?: boolean; matchCount?: number; grand?: Record&lt;string, unknown&gt;; pivot: <a href="grid.html#type-RemotePivotAnswer">RemotePivotAnswer</a>; }&gt;</td><td class="desc"><code>query: <a href="grid.html#type-RemoteRequest">RemoteRequest</a></code><br><code>aggregates: Array&lt;{ id: string; col: string; fn: string; weight?: string }&gt;</code><br><code>request?: <a href="grid.html#type-RemoteRequest">RemoteRequest</a></code></td><td class="type"><code>Promise&lt;{ rows: unknown[]; total?: number; leaves?: boolean; matchCount?: number; grand?: Record&lt;string, unknown&gt;; pivot: <a href="grid.html#type-RemotePivotAnswer">RemotePivotAnswer</a>; }&gt;</code></td><td class="desc">Answer one level of a pivoted grid (BACKLOG-0001545). Present only when `capabilities.pivot` opts in. The rows are the level's group rows in the shape `executeGroupLevel` returns — or, when the grid has no row grouping, a window of leaf rows (`leaves: true`), which is what a pivot without row groups shows. Beside them, `pivot.cells` carries the *aggregated* rows the pivot columns are drawn from: one per occupied group and pivot key, with the typed group path (`[]` for the grand-total row). At the root, `pivot.axis` is every pivot key over the whole matching set — the pivot's column set, discovered from the answer — and `matchCount`/`grand` are the whole-set figures, as for a grouped level. A level of a group below the root carries only the cells of the groups in its window, so expanding a group fetches its children then. <small>(optional)</small></td></tr>
-          <tr><td class="name">unfilteredCount</td><td class="type">(): Promise&lt;number | null&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Promise&lt;number | null&gt;</code></td><td class="desc">The row count before any filter (BACKLOG-0001325) — the denominator of "1,204 of 100,000" under grouping, where the display count is group headers rather than rows. Optional; a source falls back to the display count. <small>(optional)</small></td></tr>
+          <tr><td class="name">unfilteredCount</td><td class="type">(): Promise&lt;number | null&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Promise&lt;number | null&gt;</code></td><td class="desc">The row count before any filter (BACKLOG-0001325). Optional, and no longer read by `createPushdownSource` itself — a grouped grid's `rows.totalCount()` is the engine's filtered leaf count, not this figure (BACKLOG-0005182), so this is left for an adapter or a host that wants the unfiltered denominator for its own display. <small>(optional)</small></td></tr>
           <tr><td class="name">mutate</td><td class="type">(op: <a href="#type-MutationOp">MutationOp</a>, request?: <a href="grid.html#type-RemoteRequest">RemoteRequest</a>): Promise&lt;<a href="#type-MutationResult">MutationResult</a>&gt;</td><td class="desc"><code>op: <a href="#type-MutationOp">MutationOp</a></code><br><code>request?: <a href="grid.html#type-RemoteRequest">RemoteRequest</a></code></td><td class="type"><code>Promise&lt;<a href="#type-MutationResult">MutationResult</a>&gt;</code></td><td class="desc">Persist one mutation (§4.2). Present only when `capabilities.mutate` opts in. `createPushdownSource` synthesises an `edit.commit` that calls this for cell updates (§4.3 Option A); `request` threads the abort signal through the way `execute` receives it, and auth already lives on the adapter. <small>(optional)</small></td></tr>
         </tbody>
       </table>
@@ -3597,7 +3646,7 @@
     <p class="type-def"><code>type FacetOverflowMode = 'suppress' | 'topN'</code></p>
     <h4 id="type-FacetSuppressedReason">FacetSuppressedReason</h4>
     <p class="section-note">Why a facet histogram was not drawn.</p>
-    <p class="type-def"><code>type FacetSuppressedReason = 'type' | 'cardinality' | 'rows' | 'streaming' | 'no-provider' | 'disabled'</code></p>
+    <p class="type-def"><code>type FacetSuppressedReason = 'type' | 'cardinality' | 'rows' | 'streaming' | 'no-provider' | 'disabled' | 'unavailable'</code></p>
     <h4 id="type-Feed">Feed</h4>
     <p class="section-note">A feed: any iterator that yields a snapshot first, then deltas forever.</p>
     <p class="type-def"><code>type Feed = Iterator&lt;<a href="mock-socket.html#type-FeedMessage">FeedMessage</a>&gt;</code></p>
@@ -3912,7 +3961,7 @@
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
     <h4 id="type-KPIAggregation">KPIAggregation</h4>
     <p class="section-note">The aggregation kinds a tile can compute. `custom` is a host reducer over the rows.</p>
-    <p class="type-def"><code>type KPIAggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'countDistinct' | 'custom'</code></p>
+    <p class="type-def"><code>type KPIAggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'countDistinct' | 'median' | 'percentile' | 'custom'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kpi</code>.</small></p>
     <h4 id="type-KPIEventName">KPIEventName</h4>
     <p class="section-note">The events a KPI panel raises. The panel's own, not the grid's: `grid.on` takes {@link EventName} and knows nothing about these, and a grid-bound panel follows the grid's events itself rather than re-publishing them. `on()` warns once on any other name, because a binding to an event that can never fire is a silent no-op.</p>
@@ -4193,6 +4242,9 @@
     <p class="section-note">Where a card's pop-out child view appears.</p>
     <p class="type-def"><code>type Presentation = 'drawer' | 'modal' | 'inline'</code></p>
     <p class="section-note"><small>Declared in <code>lattice-grid/modules/kanban</code>.</small></p>
+    <h4 id="type-ProgressVariantFn">ProgressVariantFn</h4>
+    <p class="section-note">A progress cell's per-cell colour: `(value, row) =&gt; token | undefined`. It is called for every cell and again when the row's data changes; `undefined` keeps the default accent (BACKLOG-0005189).</p>
+    <p class="type-def"><code>type ProgressVariantFn = (value: unknown, row: unknown) =&gt; string | undefined</code></p>
     <h4 id="type-PushdownClass">PushdownClass</h4>
     <p class="section-note">How a pushed-down aggregate's engine result relates to the grid's own kernel.</p>
     <p class="type-def"><code>type PushdownClass = 'identical' | 'may-differ' | 'fallback'</code></p>
@@ -4497,7 +4549,10 @@
     <p class="type-def"><code>type TotalFn = (values: unknown[], ctx: { row: <a href="grid.html#type-Row">Row</a>; column: <a href="grid.html#type-Column">Column</a>; grid: <a href="grid.html#type-Grid">Grid</a>; context: unknown }) =&gt; unknown</code></p>
     <h4 id="type-TotalName">TotalName</h4>
     <p class="section-note">The built-in aggregations, used for group totals, the footer row and pivot values. `countValues` counts the non-blank ones; `first` and `last` take the value at the ends of the group in its current order. Anything registered as a custom total is also valid here.</p>
-    <p class="type-def"><code>type TotalName = 'sum' | 'min' | 'max' | 'avg' | 'count' | 'first' | 'last' | 'countValues' | (string &amp; {})</code></p>
+    <p class="type-def"><code>type TotalName = 'sum' | 'min' | 'max' | 'avg' | 'count' | 'first' | 'last' | 'countValues' | 'median' | (string &amp; {})</code></p>
+    <h4 id="type-TotalSpec">TotalSpec</h4>
+    <p class="section-note">A parameterised aggregation: `{ fn: 'percentile', p: 0.9 }` is the 90th percentile, `p` running from 0 to 1 and interpolated linearly between neighbours (what DuckDB's `quantile_cont` returns). Accepted wherever a `TotalName` is: `total`, `groupTotal`, `grandTotal` and pivot values. Nulls are ignored. Over the DuckDB adapter it is pushed as `quantile_cont(col, ?)` with `p` bound; `median` is pushed as `median(col)`.</p>
+    <p class="type-def"><code>type TotalSpec = { fn: <a href="#type-TotalName">TotalName</a>; p?: number; }</code></p>
     <h4 id="type-TraceMissingReason">TraceMissingReason</h4>
     <p class="section-note">The named reasons `trace.missing()` can report a row dropped for (v19, BACKLOG-0001838).</p>
     <p class="type-def"><code>type TraceMissingReason = 'predicate-false' | 'filter-rejected' | 'join-no-partner' | 'deduped-stale-seq' | 'removed-by-cascade' | 'coerced-invalid-key' | 'not-yet-flushed' | 'unrouted'</code></p>

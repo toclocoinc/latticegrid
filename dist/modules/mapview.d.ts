@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.0, mapview module type declarations
+ * Lattice Grid 1.111.1, mapview module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -408,8 +408,33 @@ export interface MapViewOptions {
    */
   libs?: { deck?: unknown; maplibregl?: unknown };
   /**
-   * On a paged pushdown grid, the most rows fetched for the map's view;
-   * as {@link ChartSpec.viewportCap}, default 20,000.
+   * On a paged pushdown grid that holds only a window of its matching rows,
+   * the most rows the map fetches for its own current view,
+   * instead of drawing the grid's page: the grid's filters and quick search,
+   * plus a `withinBbox` on a `geometry` column or a `between` pair on
+   * `lon`/`lng` for the box once the reader has panned or zoomed, through the
+   * adapter's `execute`. A pan or zoom asks again (debounced, aborting the
+   * request it supersedes); the last drawing stays up until the answer lands.
+   * More rows than the cap fall inside the view: none are drawn, `mapview:over`
+   * warns naming the count and the cap, and `provenance().over` carries the
+   * same reason for a host that wants to show "N of M" itself. Default 20,000;
+   * as {@link ChartSpec.viewportCap}.
+   *
+   * Needs the pushdown source's own count to run in the engine: pass
+   * `aggregates: { default: 'engine' }` to `createPushdownSource` (DuckDB,
+   * ClickHouse, Elasticsearch and Splunk all support it). Left at the
+   * client-side default, the view's row count is worked out in the browser
+   * instead, so the map falls back to drawing the grid's own page —
+   * `provenance().computed` reads `'client'`, not `'engine'`, with no warning,
+   * because that is also what a grid holding every matching row looks like.
+   * `provenance().computed` is the one place to check which happened.
+   *
+   *     const source = createPushdownSource({ adapter, aggregates: { default: 'engine' } });
+   *     const grid = createGrid(el, { rowKey: 'id', source, columns });
+   *     const map = createMapView(grid, {
+   *       container: '#map', geometry: { lat: 'lat', lng: 'lng' }, viewportCap: 5000,
+   *     });
+   *     map.provenance().computed; // 'engine' once the view has answered
    */
   viewportCap?: number;
 }

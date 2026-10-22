@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>List view API Reference — Lattice Grid 1.111.0</title>
+<title>List view API Reference — Lattice Grid 1.111.1</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -603,6 +603,7 @@ list.destroy();
           <tr><td class="name">stickyGroupHeadings</td><td class="type">boolean</td><td class="desc">Keep the heading of the group being scrolled through at the top of the view until the next group's heading pushes it out. Default `true` when `groupBy` is set. <small>(optional)</small></td></tr>
           <tr><td class="name">collapsibleGroups</td><td class="type">boolean</td><td class="desc">A click, or Enter or Space on a focused heading, folds its group down to the heading; arrow keys then stop on headings too. Default `false`. <small>(optional)</small></td></tr>
           <tr><td class="name">groupsCollapsed</td><td class="type">boolean</td><td class="desc">Start with every group folded (with `collapsibleGroups`). Default `false`. <small>(optional)</small></td></tr>
+          <tr><td class="name">pullToRefresh</td><td class="type"><a href="#type-ListViewPullToRefresh">ListViewPullToRefresh</a></td><td class="desc">Touch pull-to-refresh (BACKLOG-0005188): pull the list down while it is scrolled to the top and release past `threshold` to call `onRefresh` once. Mouse and pen pointers are ignored. Off unless `enabled` is `true`; change it later with `list.setPullToRefresh`. <small>(optional)</small></td></tr>
         </tbody>
       </table>
     </div>
@@ -613,6 +614,26 @@ list.destroy();
           <tr><td class="name">createGrid</td><td class="type">(el: HTMLElement, config: unknown) =&gt; unknown</td><td class="desc"><code>el: HTMLElement</code><br><code>config: unknown</code></td><td class="type"><code>=&gt; unknown</code></td><td class="desc">The grid factory the list mounts through (required).</td></tr>
           <tr><td class="name">template</td><td class="type">(item: <a href="types.html#type-ListViewItem">ListViewItem</a>) =&gt; string | HTMLElement</td><td class="desc"><code>item: <a href="types.html#type-ListViewItem">ListViewItem</a></code></td><td class="type"><code>=&gt; string | HTMLElement</code></td><td class="desc">Called per item to draw its row; a returned string goes through the grid's own sanitiser (see `allowUnsafeTemplates`).</td></tr>
           <tr><td class="name">groupHeading</td><td class="type">(group: <a href="#type-ListViewGroupHeading">ListViewGroupHeading</a>) =&gt; string | Node | void</td><td class="desc"><code>group: <a href="#type-ListViewGroupHeading">ListViewGroupHeading</a></code></td><td class="type"><code>=&gt; string | Node | void</code></td><td class="desc">Draw a heading yourself. Return markup (sanitised), an element, or write into `group.element` and return nothing. The default heading is the group's label and its count. <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 id="type-ListViewPullToRefresh">ListViewPullToRefresh</h4>
+    <p class="section-note">The options of {@link ListViewConfig.pullToRefresh} and `list.setPullToRefresh`.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Property</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">enabled</td><td class="type">boolean</td><td class="desc">Whether the gesture is on. Default `false` in the config; an object passed to `list.setPullToRefresh` is on unless it says `false`. <small>(optional)</small></td></tr>
+          <tr><td class="name">threshold</td><td class="type">number</td><td class="desc">Pull distance in pixels that counts as a refresh. Default `56`. <small>(optional)</small></td></tr>
+          <tr><td class="name">label</td><td class="type">string</td><td class="desc">Text shown in place of the catalogue's "Pull to refresh" / "Refreshing…". <small>(optional)</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Method</th><th>Signature</th><th>Parameters</th><th>Returns</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="name">onRefresh</td><td class="type">() =&gt; Promise&lt;void&gt; | void</td><td class="desc">&mdash;</td><td class="type"><code>=&gt; Promise&lt;void&gt; | void</code></td><td class="desc">Called once per pull past the threshold; the indicator clears when the returned promise settles (resolved or rejected).</td></tr>
         </tbody>
       </table>
     </div>
@@ -803,6 +824,7 @@ list.destroy();
         <tbody>
           <tr><td class="name">on</td><td class="type">&lt;K extends <a href="types.html#type-ListViewEventName">ListViewEventName</a>&gt;(name: K, fn: (payload: <a href="#type-ListViewEventPayloads">ListViewEventPayloads</a>[K]) =&gt; void): () =&gt; void</td><td class="desc"><code>name: K</code><br><code>fn: (payload: <a href="#type-ListViewEventPayloads">ListViewEventPayloads</a>[K]) =&gt; void</code></td><td class="type"><code>() =&gt; void</code></td><td class="desc">Subscribe to a list event; returns an unsubscribe function.</td></tr>
           <tr><td class="name">off</td><td class="type">&lt;K extends <a href="types.html#type-ListViewEventName">ListViewEventName</a>&gt;(name: K, fn: (payload: <a href="#type-ListViewEventPayloads">ListViewEventPayloads</a>[K]) =&gt; void): void</td><td class="desc"><code>name: K</code><br><code>fn: (payload: <a href="#type-ListViewEventPayloads">ListViewEventPayloads</a>[K]) =&gt; void</code></td><td class="type"><code>void</code></td><td class="desc">Remove an event handler registered with `on`.</td></tr>
+          <tr><td class="name">setPullToRefresh</td><td class="type">(value: boolean | <a href="#type-ListViewPullToRefresh">ListViewPullToRefresh</a>): void</td><td class="desc"><code>value: boolean | <a href="#type-ListViewPullToRefresh">ListViewPullToRefresh</a></code></td><td class="type"><code>void</code></td><td class="desc">Turn touch pull-to-refresh off (`false`), on with the options already given (`true`), or on with new options, without recreating the list.</td></tr>
           <tr><td class="name">destroy</td><td class="type">(): void</td><td class="desc">&mdash;</td><td class="type"><code>void</code></td><td class="desc">Tear the list down: destroy the inner grid, remove listeners, drop handlers. The host still owns the element.</td></tr>
         </tbody>
       </table>

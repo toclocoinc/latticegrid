@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.0, chart-venn module
+ * Lattice Grid 1.111.1, chart-venn module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

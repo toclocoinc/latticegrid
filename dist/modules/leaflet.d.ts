@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.0, leaflet module type declarations
+ * Lattice Grid 1.111.1, leaflet module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -63,7 +63,10 @@ export interface LeafletBindingOptions {
   /**
    * The most rows fetched for one view of a paged pushdown grid before the
    * engine's density cells are handed over instead; as
-   * {@link ChartSpec.viewportCap}, default 20,000.
+   * {@link ChartSpec.viewportCap}, default 20,000. Needs the pushdown
+   * source's own count to run in the engine — pass `aggregates: { default:
+   * 'engine' }` to `createPushdownSource` — or the view falls back to the
+   * grid's own page with `ctx.provenance.computed` reading `'client'`.
    */
   viewportCap?: number;
 }

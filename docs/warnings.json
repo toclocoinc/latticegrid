@@ -1,5 +1,5 @@
 {
-  "version": "1.111.0",
+  "version": "1.111.1",
   "generated": "tools/build.js from docs/warnings/catalogue.json",
   "about": "Every developer-facing diagnostic Lattice Grid prints to the console, by the key it de-duplicates on. The key is the stable identifier: it is the `id` of every reported entry `grid.diagnostics.warnings()` hands back, what the devtools panel lists, and what to quote in a support conversation. A `*` in an id stands for a value filled in at runtime (a column id, a chart id, an event name), so `icon:*` is one entry covering every column the icon renderer refuses.",
   "fields": {
@@ -14,7 +14,7 @@
     "snippet": "the smallest configuration that fixes it, where configuration is the answer",
     "docs": "the section of the API reference that covers the feature"
   },
-  "count": 779,
+  "count": 780,
   "warnings": [
     {
       "id": "ai:actorbar:no-el",
@@ -2964,6 +2964,16 @@
       "docs": "api/grid.html#pushdown-aggregates"
     },
     {
+      "id": "facets.unavailable",
+      "module": "core",
+      "severity": "warn",
+      "since": "1.112.0",
+      "message": "a header histogram could not be computed: column \"{column}\" ({error}); its band shows an unavailable state.",
+      "meaning": "The query or computation behind a column's header histogram failed. The band says the histogram is unavailable instead of staying empty, and `facet:failed` fires. It is logged once per page, not once per column.",
+      "fix": "Read the error in the message: a DuckDB connection that was closed or a provider that threw. A filter change retries the count.",
+      "docs": "api-detail.html#facets-guide"
+    },
+    {
       "id": "source.duckdb.unprepared.facets",
       "module": "core",
       "severity": "warn",
@@ -3240,16 +3250,6 @@
       "meaning": "A pivot cell has to be reduced over the cell's own rows, which only the engine holds under a pushed pivot. A column whose reduction the engine cannot express — a host function, a statistic outside the pushdown map, a two-column statistic — is left empty in every cell rather than filled with a figure computed over something else. The message names each column and why.",
       "fix": "Use a reduction the adapter supports for the pivoted column. `lastPlan().aggregates.client` lists them programmatically.",
       "docs": "api/grid.html#pushdown-pivot"
-    },
-    {
-      "id": "source.pushdown.group.unfiltered.*",
-      "module": "core",
-      "severity": "warn",
-      "since": "1.63.0",
-      "message": "the {adapter} adapter could not count the unfiltered set ({error}), so \"N of M\" falls back to the display count for its denominator.",
-      "meaning": "The unfiltered count is the denominator in \"N of M rows\". The adapter's count failed, so the denominator falls back to the displayed count — which makes \"N of M\" read as though nothing were filtered out.",
-      "fix": "The error's message is quoted in the line. Implement `unfilteredCount()` on the adapter, or fix whatever made it fail.",
-      "docs": "api/grid.html#pushdown"
     },
     {
       "id": "source.pushdown.partial.*",
@@ -5890,12 +5890,23 @@
       "docs": "api/kpi.html#kpi"
     },
     {
+      "id": "kpi:percentile-p:*",
+      "module": "kpi",
+      "severity": "warn",
+      "since": "1.112.0",
+      "message": "the \"{label}\" tile's percentile needs `p`, a number from 0 to 1 (0.9 for the 90th percentile); it shows no value until it has one.",
+      "meaning": "A KPI tile with `aggregation: 'percentile'` has no `p`, or a `p` that is not a number from 0 to 1, so there is no quantile to read. The tile shows no value rather than guessing one (BACKLOG-0005186).",
+      "fix": "Give the tile a `p` between 0 and 1: 0.5 is the median, 0.9 the 90th percentile.",
+      "snippet": "tiles: [{ id: 'p90', label: 'P90 sugar', aggregation: 'percentile', p: 0.9, field: 'sugar' }]",
+      "docs": "api-detail.html#median-percentile"
+    },
+    {
       "id": "kpi:aggregate-unpushable:*",
       "module": "kpi",
       "severity": "warn",
       "since": "1.79.0",
-      "message": "the \"{label}\" tile's {aggregation} cannot be answered from the rows the bound grid has loaded, because {reason}. Unlike a sum or an average, a page's distinct count is not a partial reading of the relation's, so the tile shows no number rather than one that looks real and is not.",
-      "meaning": "A `countDistinct` tile is bound to a grid on a paged pushdown source that holds fewer rows than match, and the engine could not be asked for it — a `filter` function, a field that is not a plain column, a source whose `aggregates` config keeps the statistic in the browser, a filter the engine cannot apply, or a failed request. Unlike `sum`/`avg`/`min`/`max`, a page's distinct count is not a lower bound or a useful partial reading — the same values can recur on pages that have not loaded, so a bigger page does not converge toward the relation's true count. The tile shows no number and reports the `unknown` status instead of a figure that looks real and is not (BACKLOG-0001553, a demo reported 103 destinations for a relation of 354).",
+      "message": "the \"{label}\" tile's {aggregation} cannot be answered from the rows the bound grid has loaded, because {reason}. Unlike a sum or an average, a page's {aggregation} is not a partial reading of the relation's, so the tile shows no number rather than one that looks real and is not.",
+      "meaning": "A `countDistinct`, `median` or `percentile` tile is bound to a grid on a paged pushdown source that holds fewer rows than match, and the engine could not be asked for it — a `filter` function, a field that is not a plain column, a source whose `aggregates` config keeps the statistic in the browser, a filter the engine cannot apply, or a failed request. Unlike `sum`/`avg`/`min`/`max`, a page's distinct count, median or percentile is not a lower bound or a useful partial reading — the same values can recur on pages that have not loaded, so a bigger page does not converge toward the relation's true figure. The tile shows no number and reports the `unknown` status instead of a figure that looks real and is not (BACKLOG-0001553, a demo reported 103 destinations for a relation of 354).",
       "fix": "The reason names what stopped the push: route the statistic to the engine (`aggregates: { default: 'engine' }` on the pushdown source), bind the tile to a plain column, or express the tile's `filter` as a grid filter the engine can apply.",
       "snippet": "tiles: [{ id: 'destinations', label: 'Destinations', aggregation: 'countDistinct', field: 'dest_name' }]",
       "docs": "API.html#kpi-engine"

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.0, type declarations
+ * Lattice Grid 1.111.1, type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -1439,7 +1439,21 @@ export interface FilterParams {
  * value at the ends of the group in its current order. Anything registered as
  * a custom total is also valid here.
  */
-export type TotalName = 'sum' | 'min' | 'max' | 'avg' | 'count' | 'first' | 'last' | 'countValues' | (string & {});
+export type TotalName = 'sum' | 'min' | 'max' | 'avg' | 'count' | 'first' | 'last' | 'countValues' | 'median' | (string & {});
+/**
+ * A parameterised aggregation: `{ fn: 'percentile', p: 0.9 }` is the 90th
+ * percentile, `p` running from 0 to 1 and interpolated linearly between
+ * neighbours (what DuckDB's `quantile_cont` returns). Accepted wherever a
+ * `TotalName` is: `total`, `groupTotal`, `grandTotal` and pivot values. Nulls
+ * are ignored. Over the DuckDB adapter it is pushed as `quantile_cont(col, ?)`
+ * with `p` bound; `median` is pushed as `median(col)`.
+ */
+export type TotalSpec = {
+  /** The aggregation name. `percentile` requires `p`. */
+  fn: TotalName;
+  /** The quantile, 0 to 1 (0.9 is the 90th percentile). Required by `percentile`. */
+  p?: number;
+};
 /**
  * Your own aggregation: handed every value in the group, plus the row the
  * total is being computed for and the grid it belongs to, and returning the
@@ -1608,6 +1622,23 @@ export interface ColumnTooltipSpec {
 }
 
 /**
+ * The `props` of the `bullet` cell renderer. `target`, `bands`,
+ * `min` and `max` are each resolved per cell: the literal, the name of a row
+ * field, or a function of the cell params. A target that is missing or not a
+ * number draws no marker; the value is re-resolved when the row changes.
+ */
+export interface BulletCellProps {
+  /** The target marker: a number, a row field name, or `(params) => number`. */
+  target?: number | string | ((params: CellParams) => number | null | undefined);
+  /** The band upper edges: an array, a row field holding one, or `(params) => number[]`. */
+  bands?: number[] | string | ((params: CellParams) => number[] | null | undefined);
+  /** The scale's start (default 0): a number, a row field name, or a function. */
+  min?: number | string | ((params: CellParams) => number | null | undefined);
+  /** The scale's end (default 100): a number, a row field name, or a function. */
+  max?: number | string | ((params: CellParams) => number | null | undefined);
+}
+
+/**
  * Grid-level defaults for the rich cell tooltip, set once for
  * every column rather than repeated on each.
  *
@@ -1627,6 +1658,44 @@ export interface TooltipConfig {
   delay?: number;
   /** How wide the tooltip may grow. A number is pixels; a string is used as written. */
   maxWidth?: number | string;
+}
+
+/**
+ * One band of a progress cell's `variant`: the first band whose `max` is at or
+ * above the value supplies the colour. A band without a `max` reaches up
+ * without limit, so it closes the list.
+ */
+export interface ProgressVariantBand {
+  /** The highest value this band covers, inclusive. Omit it on the last band. */
+  max?: number;
+  /** The token the bar takes: `success`, `warning`, `danger`, `info`, `neutral` or `accent`. */
+  variant: 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'accent';
+}
+
+/**
+ * A progress cell's per-cell colour: `(value, row) => token | undefined`. It is
+ * called for every cell and again when the row's data changes; `undefined`
+ * keeps the default accent.
+ */
+export type ProgressVariantFn = (value: unknown, row: unknown) => string | undefined;
+
+/**
+ * The `cell.props` the `progress` renderer reads, for `cell: { render:
+ * 'progress', props }`.
+ */
+export interface ProgressCellOptions {
+  /**
+   * The bar's colour: a token string for the whole column, a function of the
+   * value and the row, or bands. Always a theme token, never a colour, so it
+   * follows light and dark.
+   */
+  variant?: string | ProgressVariantFn | ProgressVariantBand[];
+  /** The value at an empty bar. Default `0`. */
+  min?: number;
+  /** The value at a full bar. Default `100`. */
+  max?: number;
+  /** Draw the formatted value beside the bar. Default `true`. */
+  showValue?: boolean;
 }
 
 export interface ColumnCellSpec {
@@ -2224,7 +2293,7 @@ export interface Column {
   /** Use this column as a pivot dimension, and where it sits among several. */
   pivot?: { enabled?: boolean; index?: number } | boolean;
   /** The reduction shown in the totals row and in group footers. */
-  total?: TotalName | TotalFn;
+  total?: TotalName | TotalSpec | TotalFn;
   /**
    * The reduction for group subtotals — group footers, tree-node rollups and
    * pivot cells — where it should differ from the grand total. Overrides
@@ -2232,13 +2301,13 @@ export interface Column {
    * both. Lets a column average within each group while the grand total sums,
    * for example.
    */
-  groupTotal?: TotalName | TotalFn;
+  groupTotal?: TotalName | TotalSpec | TotalFn;
   /**
    * The reduction for the pinned grand-total row, where it should differ from
    * the group subtotals. Overrides `total` for the grand total only; when
    * omitted the column's `total` applies.
    */
-  grandTotal?: TotalName | TotalFn;
+  grandTotal?: TotalName | TotalSpec | TotalFn;
   /**
    * A value the grid maintains about this column's own history, rather than a
    * field in the data. `{of: 'price', kind: 'delta'}`, or the bare kind to
@@ -2696,15 +2765,15 @@ export interface ResolvedColumn {
    * decibels) is refused at configuration time rather than shown as a wrong
    * number.
    */
-  total: TotalName | TotalFn | null;
+  total: TotalName | TotalSpec | TotalFn | null;
   /**
    * The group-subtotal override, or null when group subtotals follow `total`.
    */
-  groupTotal: TotalName | TotalFn | null;
+  groupTotal: TotalName | TotalSpec | TotalFn | null;
   /**
    * The grand-total override, or null when the grand total follows `total`.
    */
-  grandTotal: TotalName | TotalFn | null;
+  grandTotal: TotalName | TotalSpec | TotalFn | null;
   /**
    * The resolved layout: width, min and max, flex, pin, hidden, and the
    * resize, move and lock flags. Width defaults to 150 px and min to 40 px;
@@ -6260,9 +6329,10 @@ export interface PushdownAdapter {
     pivot: RemotePivotAnswer;
   }>;
   /**
-   * The row count before any filter — the denominator of
-   * "1,204 of 100,000" under grouping, where the display count is group headers
-   * rather than rows. Optional; a source falls back to the display count.
+   * The row count before any filter. Optional, and no longer
+   * read by `createPushdownSource` itself — a grouped grid's
+   * `rows.totalCount()` is the engine's filtered leaf count, not this figure, so this is left for an adapter or a host that wants the
+   * unfiltered denominator for its own display.
    */
   unfilteredCount?(): Promise<number | null>;
   /**
@@ -6415,6 +6485,8 @@ export interface AggregateRequest {
   col: string;
   /** The statistic name, as used in `total: '<name>'`. */
   fn: string;
+  /** The quantile, 0 to 1, for `fn: 'percentile'` (`params.p` is read too). */
+  p?: number;
   /** The second column, for a two-column statistic. */
   weight?: string;
   /** Parameters the statistic takes, e.g. a trim share. */
@@ -6440,6 +6512,11 @@ export interface AggregateProvenance {
   /** Parameters the statistic takes, carried through so an adapter emits the
    *  matching SQL (e.g. a trim share). */
   params?: Record<string, unknown>;
+  /** The quantile, 0 to 1, of a `percentile`. */
+  p?: number;
+  /** For an engine-computed statistic, the aggregate expression it runs as,
+   *  such as `median("sugar")` or `quantile_cont("sugar", ?)` (`p` is bound). */
+  sql?: string;
 }
 
 export interface PushdownSourceConfig {
@@ -9286,7 +9363,7 @@ export interface ColumnsApi {
    */
   setTotal(
     id: string,
-    fn: TotalName | TotalFn | null,
+    fn: TotalName | TotalSpec | TotalFn | null,
     opts?: { scope?: 'group' | 'grand' },
   ): void;
   /**
@@ -11138,7 +11215,7 @@ export interface FacetBucket {
 /** Which family of buckets a column's facet histogram draws, or `none` for no histogram. */
 export type FacetBoundsKind = 'numeric' | 'date' | 'category' | 'boolean' | 'none';
 /** Why a facet histogram was not drawn. */
-export type FacetSuppressedReason = 'type' | 'cardinality' | 'rows' | 'streaming' | 'no-provider' | 'disabled';
+export type FacetSuppressedReason = 'type' | 'cardinality' | 'rows' | 'streaming' | 'no-provider' | 'disabled' | 'unavailable';
 export interface FacetBounds {
   /**
    * Which family of buckets these are: `'numeric'`, `'date'`, `'category'`,
@@ -11243,6 +11320,13 @@ export interface ColumnFacetConfig {
    * values and gathers the rest into one `Other` bar.
    */
   aboveLimit?: FacetOverflowMode;
+  /**
+   * Whether the histogram draws an `Empty` bar for rows with no value. True by
+   * default; `blanks: false` leaves the bar out, in memory and over a pushdown
+   * source, so a column that is mostly empty still shows its distribution. Set on the grid's `facets` for every column, or on a
+   * column's `facet` for that column.
+   */
+  blanks?: boolean;
   /** Replace the built-in bucketing entirely. */
   bucketFn?: (handle: unknown, indices: Uint32Array | null, count: number) => FacetBounds;
   /** Label a bucket for its tooltip and accessible name. */
@@ -11287,6 +11371,7 @@ export interface FacetConfig extends ColumnFacetConfig {
     cardinalityLimit?: number;
     aboveLimit?: string;
     order?: string;
+    blanks?: boolean;
   }) => Promise<{ bounds?: FacetBounds; buckets?: FacetBucket[]; counts: ArrayLike<number>;
                   unfiltered?: ArrayLike<number>; kind?: string }>;
 }
@@ -14595,6 +14680,26 @@ export interface ChartAxis {
   /** Force the category labels' rotation rather than deciding it. */
   rotate?: boolean | 'auto';
   /**
+   * How a categorical x axis keeps its labels legible when they do not fit
+   * their bands. `'auto'`, the default, tries in order:
+   * level, then level on every nth band (never more than every third, the
+   * first and last always kept), then turned 45°, then each label abbreviated
+   * (see {@link ChartAxis.abbreviate}), and at last the shortest spelling
+   * thinned as far as it takes, so no two label boxes touch and none is cut.
+   * `'none'` leaves the axis to {@link ChartAxis.rotate} and
+   * {@link ChartAxis.every} alone. A full name an axis shortened stays in the
+   * label's `aria-label`. Only the x axis of a column-shaped cartesian chart
+   * reads it.
+   */
+  fit?: 'auto' | 'none';
+  /**
+   * The short spelling of a category label, used by `fit: 'auto'` when the full
+   * labels fit neither level, thinned nor turned. Called once per category with
+   * its label and index; the default keeps the first word, then its first three
+   * letters ("January 2025" becomes "Jan").
+   */
+  abbreviate?: (label: string, index: number) => string;
+  /**
    * Which edge the measure axis draws on. Only `axis.y` and
    * `axis.y2` read it, and only on a non-horizontal cartesian type or a
    * `candlestick` — an AG-style price pane puts its scale on the right. The
@@ -15872,7 +15977,11 @@ export interface ChartSpec {
    * the grid keeps its page and the map its own set, a pan or zoom asks again
    * (aborting the request it supersedes), and the last drawing stays up until
    * the answer lands. {@link ChartSpec.aggregate} governs this as it governs a
-   * grouped chart. When more rows than the cap fall inside the view — from the
+   * grouped chart, and asking the engine for the view's row count needs the
+   * pushdown source itself configured to count there too — `aggregates: {
+   * default: 'engine' }` on `createPushdownSource` — or the count runs
+   * client-side and the map falls back to the grid's page with
+   * `Chart.provenance().viewport.computed` reading `'client'`, not `'engine'`. When more rows than the cap fall inside the view — from the
    * engine, or from rows the browser holds — a marker or bubble map draws
    * square density cells instead, counted by the engine (GEO-2's spatial
    * `buckets`, `geometry` columns only) or in the browser, at a size derived

@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.0, kpi module type declarations
+ * Lattice Grid 1.111.1, kpi module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -12,7 +12,7 @@ import type {
 type KPIRow = Record<string, unknown>;
 
 /** The aggregation kinds a tile can compute. `custom` is a host reducer over the rows. */
-export type KPIAggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'countDistinct' | 'custom';
+export type KPIAggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'countDistinct' | 'median' | 'percentile' | 'custom';
 
 /** Number formatting for a tile value. `percent` treats the value as a ratio (0.42 → 42%). */
 export type KPIFormat =
@@ -106,6 +106,14 @@ export interface KPIStatTile {
    * `refresh()` after the first page settles.
    */
   aggregation?: KPIAggregation | ((rows: KPIRow[], tile: object) => unknown);
+  /**
+   * The quantile for `aggregation: 'percentile'`, 0 to 1 (0.9 is the 90th
+   * percentile). Required by it; without a valid `p` the tile shows no value.
+   * Over a paged pushdown grid `median` and `percentile` are reduced by the
+   * engine, and when it cannot the tile shows no number rather than a page's
+   * figure, as `countDistinct` does.
+   */
+  p?: number;
   /**
    * The reducer for a `custom` aggregation. A tile with `compute` and no
    * `aggregation` is custom. With a non-custom `aggregation` as well, the

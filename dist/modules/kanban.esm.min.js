@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.0, kanban module
+ * Lattice Grid 1.111.1, kanban module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
