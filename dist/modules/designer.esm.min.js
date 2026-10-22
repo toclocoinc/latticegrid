@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.4, designer module
+ * Lattice Grid 1.111.5, designer module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

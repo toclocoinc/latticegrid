@@ -9,6 +9,14 @@ and what it means for a grid already in production.
 
 ## [Unreleased]
 
+## [1.111.5] - 2026-10-22
+
+### Added
+
+- Kanban: `maxColumnWidth` caps a column's width in `columnWidth: 'fill'` mode. Expanded columns share the width equally, never below `minColumnWidth` and never above `maxColumnWidth`; when the capped columns do not fill the host the board keeps its natural width, left aligned, and when they do not fit it scrolls as before. Collapsed columns stay narrow strips and take no share. Default: no cap, so existing boards are unchanged.
+
+- Kanban: `board.setColumnWidth({ columnWidth, minColumnWidth, maxColumnWidth })` changes the fill-mode column-width range at runtime, re-flowing without a remount. A `minColumnWidth` above `maxColumnWidth` (at construction or at runtime) resolves to the minimum for both, with one warning (`kanban:min-max-column-width`).
+
 ## [1.111.4] - 2026-10-22
 
 ### Fixed

@@ -13,7 +13,7 @@
   Self-contained: no stylesheet, script or font is fetched, so this opens from disk, from
   a file share or from behind a firewall with nothing else present.
 -->
-<title>Kanban API Reference — Lattice Grid 1.111.4</title>
+<title>Kanban API Reference — Lattice Grid 1.111.5</title>
 <style>
   /* ---------------------------------------------------------------
      Palette lifted from the grid's own theme, so the reference reads as an
@@ -396,6 +396,7 @@
         <a class="rail__sub-link" href="#kanban-card-parts-example">Richer card parts, executed</a>
         <a class="rail__sub-link" href="#kanban-tone-example">Label and badge tones, and a due format, executed</a>
         <a class="rail__sub-link" href="#kanban-column-width-example">Column width, executed</a>
+        <a class="rail__sub-link" href="#kanban-max-column-width-example">Capping fill columns with maxColumnWidth, executed</a>
         <a class="rail__sub-link" href="#kanban-sprint-example">Sprint, backlog and epic rollup, executed</a>
         <a class="rail__sub-link" href="#kanban-live-example">Live, driven by a Data Router, executed</a>
         <a class="rail__sub-link" href="#kanban-rebind-example">Re-bound to a replacement grid, executed</a>
@@ -794,6 +795,25 @@ plain.destroy();
 });
 
 <span class="kw">return</span> [base.columnWidth, base.minColumnWidth, fixed.columnWidth, auto.columnWidth, wide.minColumnWidth].join(' | ');</code></pre>
+
+    <h3 id="kanban-max-column-width-example">Capping fill columns with maxColumnWidth, executed</h3>
+    <p class="section-note">With <code>columnWidth: 'fill'</code>, <code>maxColumnWidth</code> stops a few columns from
+    stretching across a wide host: each expanded column takes an equal share, never below <code>minColumnWidth</code>
+    and never above <code>maxColumnWidth</code>; a board that does not fill its host stays left aligned. Headless, run on every build.</p>
+    <pre data-run="js" data-expect="360 | 0" data-covers="export:createKanban config:KanbanConfig.maxColumnWidth"><code><span class="kw">const</span> { createKanban } = <span class="kw">await</span> import('../packages/modules/kanban/index.js');
+
+<span class="kw">const</span> capped = createKanban(null, {
+  rows: [], rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }, { id: 'doing' }, { id: 'done' }],
+  columnWidth: 'fill', minColumnWidth: 260, maxColumnWidth: 360,
+});
+
+<span class="kw">const</span> plain = createKanban(null, {
+  rows: [], rowKey: 'id', columnProperty: 'status',
+  columns: [{ id: 'todo' }],
+});
+
+<span class="kw">return</span> [capped.maxColumnWidth, plain.maxColumnWidth].join(' | ');</code></pre>
 
     <h3 id="kanban-sprint-example">Sprint, backlog and epic rollup, executed</h3>
     <p class="section-note">A sprint view, the backlog, and an epic rollup with progress toward the done column —
@@ -1273,7 +1293,8 @@ board.destroy();
           <tr><td class="name">selectable</td><td class="type">boolean</td><td class="desc">Whether card selection is enabled (default true). <small>(optional)</small></td></tr>
           <tr><td class="name">density</td><td class="type"><a href="types.html#type-KanbanDensity">KanbanDensity</a> <small class="literals">'compact' | 'comfortable'</small></td><td class="desc">The card density (BACKLOG-0002107): `'compact'` tightens each card's padding and drops the subtitle; `'comfortable'` (the default) keeps the roomier card. <small>(optional)</small></td></tr>
           <tr><td class="name">columnWidth</td><td class="type"><a href="types.html#type-KanbanColumnWidth">KanbanColumnWidth</a> <small class="literals">number | 'fill' | 'auto'</small></td><td class="desc">How wide each column is (BACKLOG-0002153). A number fixes the width in pixels; `'fill'` (the default) shares the board width equally between the columns, never below `minColumnWidth` — so a board whose columns fit fills its host, and one whose columns do not fit keeps them at the minimum and scrolls; `'auto'` keeps the natural fixed width from the `--lattice-board-column-width` token (default 280px). The CSS token, when set, still overrides the option. Collapsed columns stay narrow strips and the rest take the space; the fill follows host resizes. <small>(optional)</small></td></tr>
-          <tr><td class="name">minColumnWidth</td><td class="type">number</td><td class="desc">The pixel floor `'fill'` never drops a column below (default 240). <small>(optional)</small></td></tr>
+          <tr><td class="name">minColumnWidth</td><td class="type">number</td><td class="desc">The pixel floor `'fill'` never drops a column below (default 240), paired with `maxColumnWidth` as the range `'fill'` honours. Both are also changeable at runtime through `Kanban#setColumnWidth`. A `minColumnWidth` above `maxColumnWidth` resolves to the minimum for both (one warning). <small>(optional)</small></td></tr>
+          <tr><td class="name">maxColumnWidth</td><td class="type">number</td><td class="desc">The pixel ceiling for `'fill'` (BACKLOG-0005252; default none). Each expanded column takes an equal share of the width, never below `minColumnWidth` and never above `maxColumnWidth`. When the capped columns do not fill the host the board keeps its natural width, left aligned; when they do not fit it scrolls. Collapsed columns are excluded from the share. <small>(optional)</small></td></tr>
           <tr><td class="name">labels</td><td class="type">Record&lt;string, string&gt;</td><td class="desc">Host-localised words for the move announcements (grabbed/moved/dropped/reverted/cancelled). <small>(optional)</small></td></tr>
           <tr><td class="name">contextMenu</td><td class="type"><a href="#type-KanbanMenuItem">KanbanMenuItem</a>[] | ((card: <a href="#type-KanbanCard">KanbanCard</a>, selected: <a href="#type-KanbanCard">KanbanCard</a>[]) =&gt; <a href="#type-KanbanMenuItem">KanbanMenuItem</a>[])</td><td class="desc">A per-card context menu: items, or `fn(card, selectedCards)` returning items. Suppresses `card:contextmenu`. <small>(optional)</small></td></tr>
         </tbody>
@@ -1831,6 +1852,7 @@ board.destroy();
           <tr><td class="name">sourceBound</td><td class="type">boolean</td><td class="desc">Whether the board is bound to a pushdown source and owns its own paged data path (BACKLOG-0002104): counts/sums from an engine GROUP BY, cards fetched per column page, moves written through the source. <small>(read-only)</small></td></tr>
           <tr><td class="name">columnWidth</td><td class="type"><a href="types.html#type-KanbanColumnWidth">KanbanColumnWidth</a> <small class="literals">number | 'fill' | 'auto'</small></td><td class="desc">The resolved column-width mode (BACKLOG-0002153); see {@link KanbanConfig.columnWidth}. <small>(read-only)</small></td></tr>
           <tr><td class="name">minColumnWidth</td><td class="type">number</td><td class="desc">The resolved minimum column width in px (BACKLOG-0002153); see {@link KanbanConfig.minColumnWidth}. <small>(read-only)</small></td></tr>
+          <tr><td class="name">maxColumnWidth</td><td class="type">number</td><td class="desc">The resolved maximum column width in px, `0` for none (BACKLOG-0005252); see {@link KanbanConfig.maxColumnWidth}. <small>(read-only)</small></td></tr>
           <tr><td class="name">filters</td><td class="type"><a href="#type-KanbanFilters">KanbanFilters</a></td><td class="desc">Named card predicates, composed with AND (BACKLOG-0001229). See {@link KanbanFilters}.</td></tr>
           <tr><td class="name">BACKLOG</td><td class="type">unknown</td><td class="desc">The sentinel `setSprint` value that selects the backlog (cards with no sprint). <small>(read-only)</small></td></tr>
         </tbody>
@@ -1892,6 +1914,7 @@ board.destroy();
           <tr><td class="name">setError</td><td class="type">(message: string | null): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>message: string | null</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Set (or clear with null) an error state, rendered as a host-supplied message.</td></tr>
           <tr><td class="name">setRows</td><td class="type">(rows: <a href="types.html#type-KanbanRow">KanbanRow</a>[]): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>rows: <a href="types.html#type-KanbanRow">KanbanRow</a>[]</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Replace the source rows and re-render, and make that array the board's source again so a later `refresh()` re-reads it. Ignored with a warning on a grid-bound board.</td></tr>
           <tr><td class="name">setColumns</td><td class="type">(defs: <a href="types.html#type-KanbanColumnDef">KanbanColumnDef</a>[]): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>defs: <a href="types.html#type-KanbanColumnDef">KanbanColumnDef</a>[]</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Replace the board's configured column set (BACKLOG-0001228). Keeps card placement and interaction state (collapsed columns, column order, quick filter, selection) for every column id that survives; a dropped id is not specially handled — a card whose value has nowhere configured to go re-derives an ad hoc column rather than becoming `unplaced` (the same "never silently drop a card" rule an unconfigured value already gets).</td></tr>
+          <tr><td class="name">setColumnWidth</td><td class="type">(opts?: { columnWidth?: <a href="types.html#type-KanbanColumnWidth">KanbanColumnWidth</a>; minColumnWidth?: number; maxColumnWidth?: number; }): <a href="#type-Kanban">Kanban</a></td><td class="desc"><code>opts?: { columnWidth?: <a href="types.html#type-KanbanColumnWidth">KanbanColumnWidth</a>; minColumnWidth?: number; maxColumnWidth?: number; }</code></td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Change `columnWidth`/`minColumnWidth`/`maxColumnWidth` at runtime (BACKLOG-0005252): a partial options object, each key left at its current value when omitted. Re-flows the fill-mode CSS variables in place — no remount, so scroll, focus, selection and an open pop-out survive. A `minColumnWidth` above `maxColumnWidth` resolves to the minimum for both, with one warning.</td></tr>
           <tr><td class="name">refresh</td><td class="type">(): <a href="#type-Kanban">Kanban</a></td><td class="desc">&mdash;</td><td class="type"><code><a href="#type-Kanban">Kanban</a></code></td><td class="desc">Re-read the source and re-render: a bound grid's rows, or the configured array. Once rows have arrived through `rows.apply` nothing is re-read — the board regroups what it holds, so a routed feed is never thrown away.</td></tr>
           <tr><td class="name">reload</td><td class="type">(): Promise&lt;<a href="#type-Kanban">Kanban</a>&gt;</td><td class="desc">&mdash;</td><td class="type"><code>Promise&lt;<a href="#type-Kanban">Kanban</a>&gt;</code></td><td class="desc">Reload a source-bound board from its pushdown source (BACKLOG-0002104): drop the loaded pages and re-query the engine's column counts/sums, then fetch the first page of every column. On a client-side board this is `refresh()`. Called automatically at construction and after a search or filter change.</td></tr>
           <tr><td class="name">loadMore</td><td class="type">(columnId: string, laneId?: string): Promise&lt;boolean&gt;</td><td class="desc"><code>columnId: string</code><br><code>laneId?: string</code></td><td class="type"><code>Promise&lt;boolean&gt;</code></td><td class="desc">Fetch the next page of cards for a column (and, in swimlane mode, a lane) on a source-bound board (BACKLOG-0002104). The column scroll hook calls this as the user nears the bottom; a no-op resolving `false` when the board is not source-bound, the column is exhausted, or a page is in flight.</td></tr>

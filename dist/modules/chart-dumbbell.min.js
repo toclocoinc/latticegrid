@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.4, chart-dumbbell module
+ * Lattice Grid 1.111.5, chart-dumbbell module
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */

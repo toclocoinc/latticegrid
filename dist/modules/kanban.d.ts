@@ -1,5 +1,5 @@
 /*!
- * Lattice Grid 1.111.4, kanban module type declarations
+ * Lattice Grid 1.111.5, kanban module type declarations
  * Copyright (c) 2026 TOCLOCO Inc. All rights reserved.
  * https://latticegrid.dev
  */
@@ -792,8 +792,21 @@ export interface KanbanConfig {
    * the rest take the space; the fill follows host resizes.
    */
   columnWidth?: KanbanColumnWidth;
-  /** The pixel floor `'fill'` never drops a column below (default 240). */
+  /**
+   * The pixel floor `'fill'` never drops a column below (default 240), paired
+   * with `maxColumnWidth` as the range `'fill'` honours. Both are also
+   * changeable at runtime through `Kanban#setColumnWidth`. A `minColumnWidth`
+   * above `maxColumnWidth` resolves to the minimum for both (one warning).
+   */
   minColumnWidth?: number;
+  /**
+   * The pixel ceiling for `'fill'`. Each
+   * expanded column takes an equal share of the width, never below
+   * `minColumnWidth` and never above `maxColumnWidth`. When the capped columns
+   * do not fill the host the board keeps its natural width, left aligned; when
+   * they do not fit it scrolls. Collapsed columns are excluded from the share.
+   */
+  maxColumnWidth?: number;
   /** Host-localised words for the move announcements (grabbed/moved/dropped/reverted/cancelled). */
   labels?: Record<string, string>;
   /**
@@ -1455,6 +1468,8 @@ export interface Kanban {
   readonly columnWidth: KanbanColumnWidth;
   /** The resolved minimum column width in px; see {@link KanbanConfig.minColumnWidth}. */
   readonly minColumnWidth: number;
+  /** The resolved maximum column width in px, `0` for none; see {@link KanbanConfig.maxColumnWidth}. */
+  readonly maxColumnWidth: number;
   /** The current columns in display order, each with its cards and aggregates. */
   columns(): KanbanColumn[];
   /** One column by id, or undefined when the board has no such column. */
@@ -1606,6 +1621,18 @@ export interface Kanban {
    * "never silently drop a card" rule an unconfigured value already gets).
    */
   setColumns(defs: KanbanColumnDef[]): Kanban;
+  /**
+   * Change `columnWidth`/`minColumnWidth`/`maxColumnWidth` at runtime: a partial options object, each key left at its
+   * current value when omitted. Re-flows the fill-mode CSS variables in
+   * place — no remount, so scroll, focus, selection and an open pop-out
+   * survive. A `minColumnWidth` above `maxColumnWidth` resolves to the
+   * minimum for both, with one warning.
+   */
+  setColumnWidth(opts?: {
+    columnWidth?: KanbanColumnWidth;
+    minColumnWidth?: number;
+    maxColumnWidth?: number;
+  }): Kanban;
   /**
    * Re-read the source and re-render: a bound grid's rows, or the configured array. Once
    * rows have arrived through `rows.apply` nothing is re-read — the board regroups what
